@@ -50,9 +50,22 @@ describe("toolCallFingerprint", () => {
 
   it("sorts top-level keys without changing the arguments", () => {
     const args = { z: "last", a: 0, m: false };
-    expect(toolCallFingerprint("tool", args)).toBe("tool(a=0,m=false,z=last)");
+    expect(toolCallFingerprint("tool", args)).toBe('tool(a=0,m=false,z="last")');
     expect(toolCallFingerprint("tool", args)).toBe(toolCallFingerprint("tool", { m: false, a: 0, z: "last" }));
     expect(Object.keys(args)).toEqual(["z", "a", "m"]);
     expect(toolCallFingerprint("tool", { a: "changed" })).not.toBe(toolCallFingerprint("tool", { a: "original" }));
+  });
+
+  it("keeps nested objects and arrays apart instead of collapsing them to the same text", () => {
+    const fingerprints = [
+      { q: { path: "a.ts" } }, { q: { path: "b.ts" } }, { q: "[object Object]" },
+      { q: ["a", "b"] }, { q: "a,b" }, { q: [["a"], "b"] }, { q: '{"path":"a.ts"}' }, { q: 1 }, { q: "1" }, { q: null }, { q: "null" },
+    ].map((args) => toolCallFingerprint("tool", args));
+    expect(new Set(fingerprints).size).toBe(fingerprints.length);
+  });
+
+  it("does not depend on nested key order", () => {
+    expect(toolCallFingerprint("tool", { q: { b: 1, a: { d: 2, c: 3 } } }))
+      .toBe(toolCallFingerprint("tool", { q: { a: { c: 3, d: 2 }, b: 1 } }));
   });
 });

@@ -140,7 +140,19 @@ export function tryParseToolCallArgs(call: ToolCall): Record<string, unknown> | 
     return undefined;
   }
 }
+/** 规范化 JSON：对象键递归排序，嵌套对象和数组保留完整结构，不同参数不会落到同一个字符串。 */
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value !== null && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const keys = Object.keys(record).filter((key) => record[key] !== undefined).sort();
+    return `{${keys.map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
+
+/** 工具调用的身份：工具名加上按键排序、每个值都规范化编码的参数。 */
 export function toolCallFingerprint(toolName: string, args: Record<string, unknown>): string {
-  const fields = Object.keys(args).sort().map((name) => `${name}=${String(args[name])}`);
+  const fields = Object.keys(args).sort().map((name) => `${name}=${canonicalJson(args[name])}`);
   return `${toolName}(${fields.join(",")})`;
 }

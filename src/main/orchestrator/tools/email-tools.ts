@@ -5,6 +5,8 @@ import { toolRegistry } from "./registry/tool-registry";
 import type { ToolContext } from "./registry/tool-context";
 import { createAbortError } from "../../abort-utils";
 import { requestUserChoice, type ChoiceOption } from "../../user-choice";
+import { assertWorkspacePathFallback } from "./workspace-boundary";
+import { readWorkspaceFile } from "./workspace-handle";
 import { logger, LogTag } from "../../logger";
 
 type EmailConfiguration = {
@@ -30,6 +32,48 @@ export function setEmailConfig(
 function addressList(value: unknown): string[] {
   return (value as unknown[] ?? []).map(String).map(item => item.trim()).filter(Boolean);
 }
+/** 单个附件和全部附件的大小上限（SMTP 服务通常不收超过 25 MB 的邮件）。 */
+const ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024;
+const ATTACHMENTS_TOTAL_MAX_BYTES = 25 * 1024 * 1024;
+
+type LoadedAttachment = { location: string; filename: string; content: Buffer };
+
+/**
+ * 按当前权限等级读取附件：受限等级经工作区边界读取，读出的字节直接交给邮件，发送时不再按路径重读。
+ * 返回错误文本或读好的附件。
+ */
+async function loadAttachments(files: string[], ctx?: ToolContext): Promise<string | LoadedAttachment[]> {
+  const loaded: LoadedAttachment[] = [];
+  let total = 0;
+  for (const supplied of files) {
+    if (!path.isAbsolute(supplied)) return `[错误] 附件必须是绝对路径：${supplied}`;
+    const location = path.resolve(supplied);
+    const observed = await readWorkspaceFile(location, ctx, ATTACHMENT_MAX_BYTES);
+    let content: Buffer;
+    if (observed) {
+      if (!observed.exists) return `[错误] 附件不存在：${location}`;
+      if (observed.kind !== "file") return `[错误] 附件不是文件：${location}`;
+      if (!observed.bytes) return `[错误] 附件超过 ${ATTACHMENT_MAX_BYTES / 1024 / 1024} MB：${location}`;
+      content = observed.bytes;
+    } else {
+      assertWorkspacePathFallback(location, "read", ctx);
+      let entry: fs.Stats;
+      try { entry = fs.statSync(location); } catch { return `[错误] 附件不存在：${location}`; }
+      if (!entry.isFile()) return `[错误] 附件不是文件：${location}`;
+      if (entry.size > ATTACHMENT_MAX_BYTES) return `[错误] 附件超过 ${ATTACHMENT_MAX_BYTES / 1024 / 1024} MB：${location}`;
+      content = fs.readFileSync(location);
+    }
+    total += content.length;
+    if (total > ATTACHMENTS_TOTAL_MAX_BYTES) return `[错误] 附件合计超过 ${ATTACHMENTS_TOTAL_MAX_BYTES / 1024 / 1024} MB`;
+    loaded.push({ location, filename: path.basename(location), content });
+  }
+  return loaded;
+}
+
+function formatSize(bytes: number): string {
+  return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
 function badAddress(addresses: string[]): string | undefined {
   return addresses.find(item => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item));
 }
@@ -54,12 +98,14 @@ async function executeSendEmail(args: Record<string, unknown>, ctx?: ToolContext
   const markup = args.html ? String(args.html) : undefined;
   if (!headline) return "[错误] 邮件主题不能为空";
   if (!plain && !markup) return "[错误] 邮件正文不能为空";
-  const files = addressList(args.attachments);
-  for (const filename of files) {
-    if (!fs.existsSync(filename)) return `[错误] 附件不存在：${filename}`;
-  }
+  const attachments = await loadAttachments(addressList(args.attachments), ctx);
+  if (typeof attachments === "string") return attachments;
   const preview = plain.length > 100 ? plain.slice(0, 100) + "…" : plain;
-  const names = files.length > 0 ? files.map(filename => path.basename(filename)).join(", ") : "（无）";
+  // 确认卡列出完整路径和大小，用户能看清到底发出去的是哪个文件。
+  const names = attachments.length > 0
+    ? attachments.map(item => `
+  - ${item.location}（${formatSize(item.content.length)}）`).join("")
+    : "（无）";
   const confirmation = ["确认发送邮件？", `收件人：${recipients.join(", ")}`,
     copies.length > 0 ? `抄送：${copies.join(", ")}` : null,
     `主题：${headline}`, `正文摘要：${preview}`, `附件：${names}`].filter(Boolean).join("\n");
@@ -74,7 +120,7 @@ async function executeSendEmail(args: Record<string, unknown>, ctx?: ToolContext
     const copyHeader = copies.length > 0 ? copies.join(", ") : undefined;
     const receipt = await connection.sendMail({
       from: sender, to: recipients.join(", "), cc: copyHeader, subject: headline, text: plain, html: markup,
-      attachments: files.map(filename => ({ filename: path.basename(filename), path: filename })),
+      attachments: attachments.map(item => ({ filename: item.filename, content: item.content })),
     });
     console.log("[EmailTools]", "已发送：", receipt.messageId);
     return `[send_email] 已发送：${recipients.join(", ")} 主题：${headline}`;

@@ -362,7 +362,7 @@ describe("MCP uncertain effects", () => {
     expect(first).toMatchObject({ outcome: "unknown", toolSideEffect: "non_idempotent_side_effect", retryDecision: "no_retry" });
     expect(first.rawResult).toMatchObject({ status: "failed", errorCode: "E_MCP_TOOL_FAILED", effectState: "unknown" });
     expect(context.state.uncertainEffects).toEqual([expect.objectContaining({
-      id: "run-1:call-old", toolCallId: "call-old", fingerprint: "test-error-explode(value=x)", toolName: "test-error-explode",
+      id: "run-1:call-old", toolCallId: "call-old", fingerprint: 'test-error-explode(value="x")', toolName: "test-error-explode",
     })]);
     expect(await dispatchToolCall(call("call-new"), context)).toMatchObject({ outcome: "not_executed", category: "runtime_safety" });
     expect(callTool).toHaveBeenCalledTimes(1);

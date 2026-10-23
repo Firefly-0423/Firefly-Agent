@@ -1,15 +1,27 @@
 import { expect, it, vi, beforeEach, describe } from "vitest";
 const mail = vi.hoisted(() => {
   const send = vi.fn();
-  return { send, transport: vi.fn(() => ({ sendMail: send })), choose: vi.fn(), exists: vi.fn() };
+  return { send, transport: vi.fn(() => ({ sendMail: send })), choose: vi.fn() };
 });
 vi.mock("nodemailer", () => ({ default: { createTransport: mail.transport } }));
 vi.mock("../../user-choice", () => ({ requestUserChoice: mail.choose }));
-vi.mock("fs", async original => ({ ...await original<typeof import("fs")>(), existsSync: mail.exists }));
+// 真实的工作区句柄 helper 按开发构建的位置查找；实时权限档位固定为 full，只看本次运行的快照档位。
+vi.mock("electron", () => ({ app: { getPath: () => process.cwd(), isPackaged: false, getAppPath: () => process.cwd() } }));
+vi.mock("../../permission", async (importOriginal) => ({ ...await importOriginal<typeof import("../../permission")>(), getCurrentLevel: () => "full" }));
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 import { setEmailConfig, registerEmailTools } from "./email-tools";
 import { toolRegistry } from "./registry/tool-registry";
 
 const message = { to: ["observer@example.org"], subject: "Observation report", body: "The night was clear." };
+const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), "email-tools-"));
+const workspace = path.join(sandbox, "workspace");
+const report = path.join(workspace, "observations.docx");
+const outside = path.join(sandbox, "private.txt");
+fs.mkdirSync(workspace, { recursive: true });
+fs.writeFileSync(report, "report bytes");
+fs.writeFileSync(outside, "private bytes");
 function configure(overrides: Partial<{ enabled: boolean; host: string; from: string }> = {}) {
   const settings = { enabled: true, host: "smtp.fixture.example", from: "Observatory", ...overrides };
   setEmailConfig(() => settings.enabled, () => settings.host, () => 587, () => false,
@@ -22,7 +34,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   mail.choose.mockReset().mockResolvedValue("send");
   mail.send.mockReset().mockResolvedValue({ messageId: "<fixture-73@example.org>" });
-  mail.exists.mockReturnValue(true);
   configure();
 });
 
@@ -37,10 +48,29 @@ describe("email validation and confirmation gates", () => {
     expect(mail.send).not.toHaveBeenCalled();
   });
   it("checks attachment existence before displaying a confirmation card", async () => {
-    mail.exists.mockReturnValue(false);
-    expect(await send({ ...message, attachments: ["E:/missing/observations.txt"] })).toBe("[错误] 附件不存在：E:/missing/observations.txt");
+    const missing = path.join(workspace, "missing.txt");
+    expect(await send({ ...message, attachments: [missing] })).toBe(`[错误] 附件不存在：${missing}`);
     expect(mail.choose).not.toHaveBeenCalled();
     expect(mail.send).not.toHaveBeenCalled();
+  });
+  it("refuses a relative attachment path", async () => {
+    expect(await send({ ...message, attachments: ["observations.docx"] })).toBe("[错误] 附件必须是绝对路径：observations.docx");
+    expect(mail.send).not.toHaveBeenCalled();
+  });
+  it("keeps a project-read-only run from attaching a file outside the workspace", async () => {
+    const context = { userQuery: "", runId: "mail-run-73", fileAccessLevel: "project-read-only" as const, resolvedWorkspaceRoot: workspace };
+    await expect(send({ ...message, attachments: [outside] }, context)).rejects.toMatchObject({ code: "E_WORKSPACE_BOUNDARY", reason: "outside-root" });
+    expect(mail.choose).not.toHaveBeenCalled();
+    expect(mail.send).not.toHaveBeenCalled();
+  });
+  it("lets a restricted run attach a file inside the workspace and sends the bytes it read", async () => {
+    const context = { userQuery: "", runId: "mail-run-73", fileAccessLevel: "project-read-only" as const, resolvedWorkspaceRoot: workspace };
+    expect(await send({ ...message, attachments: [report] }, context)).toMatch(/^\[send_email\] 已发送/);
+    expect(mail.send.mock.calls[0][0].attachments).toEqual([{ filename: "observations.docx", content: Buffer.from("report bytes") }]);
+  });
+  it("shows the full attachment path and size on the confirmation card", async () => {
+    await send({ ...message, attachments: [report] });
+    expect(mail.choose.mock.calls[0][0]).toContain(`  - ${report}（1 KB）`);
   });
   it("does not send when the user cancels", async () => {
     mail.choose.mockResolvedValue("cancel");
@@ -63,14 +93,14 @@ describe("email validation and confirmation gates", () => {
 
 describe("confirmed SMTP messages", () => {
   it("maps transport settings, recipients and attachments without adding an empty CC", async () => {
-    expect(await send({ ...message, to: ["observer@example.org", "reviewer@example.org"], attachments: ["E:/reports/observations.docx"] }))
+    expect(await send({ ...message, to: ["observer@example.org", "reviewer@example.org"], attachments: [report] }))
       .toEqual("[send_email] 已发送：observer@example.org, reviewer@example.org 主题：Observation report");
     expect(mail.transport).toHaveBeenCalledWith({ host: "smtp.fixture.example", port: 587, secure: false, auth: { user: "sender@example.org", pass: "fixture-password-73" } });
     expect(mail.send).toHaveBeenCalledTimes(1);
     expect(mail.send.mock.calls[0][0]).toEqual({
       from: '"Observatory" <sender@example.org>', to: "observer@example.org, reviewer@example.org", cc: undefined,
       subject: "Observation report", text: "The night was clear.", html: undefined,
-      attachments: [{ filename: "observations.docx", path: "E:/reports/observations.docx" }],
+      attachments: [{ filename: "observations.docx", content: Buffer.from("report bytes") }],
     });
   });
   it("escapes quoted sender display names", async () => {
