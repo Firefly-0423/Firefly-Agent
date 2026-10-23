@@ -1,0 +1,1343 @@
+.ff-message-list {
+  /* All run content shares the centered, bounded reading column below. */
+  --ff-message-reading-width: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 28px;
+}
+
+.ff-message-list .ant-bubble-list {
+  min-height: 100%;
+  max-width: var(--ff-reading-width);
+  margin-inline: auto;
+}
+
+.ff-message-list__channel-context {
+  backdrop-filter: blur(12px);
+  line-height: 1.4;
+  font-size: 12px;
+  color: var(--ff-text-secondary);
+  box-shadow: 0 4px 16px rgb(43 33 54 / 8%);
+  background: color-mix(in srgb, var(--ff-bg-workspace) 88%, transparent);
+  border-radius: 12px;
+  border: 1px solid var(--ff-border);
+  padding: 6px 12px;
+  margin: 0 auto 16px;
+  gap: 8px;
+  align-items: center;
+  max-width: min(100%, 360px);
+  width: max-content;
+  display: flex;
+  top: 8px;
+  z-index: 2;
+  position: sticky;
+}
+
+.ff-message-list__channel-context > span:last-child {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.ff-message-list__channel-dot {
+  background: var(--ff-accent);
+  border-radius: 50%;
+  flex: 0 0 6px;
+  height: 6px;
+  width: 6px;
+}
+
+.ff-message {
+  /* Space between an avatar and its message; the body width below is derived from it so run cards stay aligned. */
+  --ff-avatar-gap: 20px;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+
+.ff-message.ant-bubble {
+  column-gap: var(--ff-avatar-gap);
+}
+
+.ff-message .ant-bubble-avatar {
+  flex: 0 0 38px;
+  height: 38px;
+  width: 38px;
+}
+
+.ff-message-avatar__image,
+.ff-message-avatar__user {
+  border-radius: 50%;
+  justify-content: center;
+  align-items: center;
+  box-sizing: border-box;
+  height: 38px;
+  width: 38px;
+  display: flex;
+}
+
+.ff-message-avatar__image {
+  animation: firefly-avatar-float 3s ease-in-out infinite;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.16));
+  border: 1px solid var(--ff-border);
+  object-fit: cover;
+}
+
+@keyframes firefly-avatar-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+/* Signed-out placeholder: same letter-in-a-circle as the sidebar user row. */
+.ff-message-avatar__user {
+  user-select: none;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ff-text-secondary);
+  border: 1px solid var(--ff-border);
+  background: var(--ff-surface);
+}
+
+.ff-message--user .ant-bubble-content {
+  box-shadow: none;
+  color: var(--ff-text);
+  background: var(--ff-bg-active);
+  border-radius: 12px;
+}
+
+.ff-message--user:has(.ff-message__sticker:only-child) .ant-bubble-content {
+  background: transparent;
+  padding: 0;
+}
+
+.ff-message__user-body {
+  gap: 10px;
+  align-items: flex-end;
+  flex-direction: column;
+  min-width: 0;
+  display: flex;
+}
+
+.ff-message__channel-source {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 0.68;
+  line-height: 1.3;
+  font-weight: 500;
+  font-size: 11px;
+  color: currentColor;
+  overflow: hidden;
+  max-width: 100%;
+  display: block;
+}
+
+.ff-message--assistant .ff-message__channel-source {
+  color: var(--ff-text-secondary);
+}
+
+.ff-message__attachments {
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  max-width: min(360px, 55vw);
+  display: flex;
+}
+
+.ff-message__image-attachment {
+  background: var(--ff-bg-hover);
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 0;
+  width: min(260px, 48vw);
+  position: relative;
+}
+
+.ff-message__image-attachment img {
+  object-fit: contain;
+  max-height: 260px;
+  width: 100%;
+  display: block;
+}
+
+.ff-message__image-attachment figcaption {
+  font: 500 10px/1.2 var(--rb-font-sans, sans-serif);
+  color: #fff;
+  background: rgb(0 0 0 / 58%);
+  border-radius: 12px;
+  padding: 4px 7px;
+  bottom: 7px;
+  right: 7px;
+  position: absolute;
+}
+
+.ff-message__image-attachment figcaption.is-error {
+  background: color-mix(in srgb, var(--ff-danger) 85%, transparent);
+}
+
+.ff-message__file-attachment {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  background: rgb(255 255 255 / 18%);
+  border-radius: 12px;
+  padding: 7px 10px;
+  overflow: hidden;
+  max-width: 240px;
+}
+
+.ff-message--user .ff-message-markdown a {
+  text-decoration: underline;
+  color: inherit;
+}
+
+/* 流萤正式回答固定为无边框文本（气泡开关已删除）；用户消息气泡始终保留 */
+.ff-message--assistant .ant-bubble-content {
+  box-shadow: none;
+  color: var(--ff-text);
+  background: transparent;
+  border-radius: 0;
+  border: 0;
+  padding: 0;
+  max-width: 100%;
+}
+
+.ff-message--assistant .ant-bubble-body {
+  max-width: calc(100% - 38px - var(--ff-avatar-gap));
+  width: calc(100% - 38px - var(--ff-avatar-gap));
+  min-width: 0;
+}
+
+/* 运行块内的正文：头像已钉在活动卡头部，这里视觉隐藏但保留占位，
+   保证正文左边缘与活动卡时间线内容精确对齐、且流式过程中头像不反复出现 */
+.ff-message--assistant-run .ant-bubble-avatar {
+  visibility: hidden;
+}
+
+.ff-message--reasoning {
+  max-width: var(--ff-message-reading-width);
+  width: var(--ff-message-reading-width);
+}
+
+.ff-message--reasoning .ant-bubble-content {
+  background: transparent;
+  padding: 0;
+  width: 100%;
+}
+
+.ff-message--tool,
+.ff-message--review {
+  max-width: var(--ff-message-reading-width);
+  width: var(--ff-message-reading-width);
+}
+
+.ff-message--tool .ant-bubble-avatar,
+.ff-message--review .ant-bubble-avatar {
+  display: none;
+}
+
+.ff-message--tool .ant-bubble-body,
+.ff-message--review .ant-bubble-body,
+.ff-message--review .ant-bubble-content {
+  max-width: none;
+  width: 100%;
+}
+
+.ff-message--tool .ant-bubble-content,
+.ff-message--review .ant-bubble-content {
+  box-shadow: none;
+  border: 0;
+  background: transparent;
+  min-height: 0;
+  padding: 0;
+}
+
+/* 运行块内的 Review 面板：头像占位隐藏（头像钉在活动卡头部），面板与正文/时间线内容左对齐 */
+.ff-message--review-run .ant-bubble-avatar {
+  display: block;
+  visibility: hidden;
+}
+
+.ff-message--review-run .ant-bubble-body {
+  max-width: calc(100% - 38px - var(--ff-avatar-gap));
+  width: calc(100% - 38px - var(--ff-avatar-gap));
+}
+
+.ff-message--waiting {
+  max-width: var(--ff-message-reading-width);
+  width: var(--ff-message-reading-width);
+}
+
+.ff-message--waiting .ant-bubble-avatar {
+  display: none;
+}
+
+.ff-message--waiting .ant-bubble-body {
+  max-width: none;
+  width: 100%;
+}
+
+.ff-message--waiting .ant-bubble-content {
+  box-shadow: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.ff-message--activity {
+  width: var(--ff-message-reading-width);
+  max-width: var(--ff-message-reading-width);
+}
+
+/* 头像钉在活动卡头部（状态行左侧）：一次运行只出现一次，时间线内容缩进到头像右侧 */
+.ff-message--activity .ant-bubble-body {
+  width: calc(100% - 38px - var(--ff-avatar-gap));
+  max-width: calc(100% - 38px - var(--ff-avatar-gap));
+}
+
+.ff-message--activity .ant-bubble-content {
+  width: 100%;
+  max-width: none;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.ff-run-activity {
+  width: 100%;
+}
+
+.ff-run-activity__header {
+  cursor: pointer;
+  text-align: start;
+  font: 600 13px/1.4 var(--rb-font-sans, sans-serif);
+  color: var(--ff-text);
+  background: transparent;
+  border: 0;
+  padding: 3px 2px;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 36px;
+  width: 100%;
+  display: flex;
+}
+
+.ff-run-activity__header:hover {
+  color: var(--ff-accent, var(--ff-accent));
+}
+
+.ff-run-activity__header:focus-visible {
+  outline: 2px solid rgb(45 122 95 / 55%);
+  outline-offset: 3px;
+  border-radius: 12px;
+}
+
+.ff-run-activity__title {
+  gap: 9px;
+  align-items: center;
+  min-width: 0;
+  display: flex;
+}
+
+.ff-run-activity__art {
+  justify-content: center;
+  align-items: center;
+  flex: 0 0 24px;
+  height: 24px;
+  width: 24px;
+  display: flex;
+  position: relative;
+}
+
+.ff-run-activity__chevron {
+  transition: transform 180ms ease;
+  color: var(--ff-accent);
+  flex: 0 0 18px;
+  height: 18px;
+  width: 18px;
+}
+
+.ff-run-activity__chevron.is-expanded {
+  transform: rotate(180deg);
+}
+
+.ff-run-activity__detail {
+  padding: 8px 0;
+  gap: 4px;
+  display: grid;
+}
+
+.ff-message--git-review {
+  justify-content: center;
+  display: flex;
+}
+
+.ff-message--git-review .ant-bubble-body,
+.ff-message--git-review .ant-bubble-content {
+  max-width: none;
+  width: 100%;
+}
+
+.ff-message--git-review .ant-bubble-content {
+  box-shadow: none;
+  border: 0;
+  background: transparent;
+  padding: 8px 0;
+  justify-content: center;
+  display: flex;
+}
+
+.ff-agent-round {
+  min-width: 0;
+}
+
+.ff-agent-round__header {
+  cursor: pointer;
+  text-align: left;
+  font: 600 12px/1.4 var(--rb-font-sans, sans-serif);
+  color: var(--ff-text);
+  background: transparent;
+  border: 0;
+  padding: 5px 2px;
+  gap: 8px;
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) 16px;
+  width: 100%;
+  display: grid;
+}
+
+.ff-agent-round__header:hover {
+  color: var(--ff-accent, var(--ff-accent));
+}
+
+.ff-agent-round__header:focus-visible {
+  outline: 2px solid rgb(45 122 95 / 42%);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+
+.ff-agent-round__title {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+/* 完成态标题后的文件改动提示：项目主粉高亮 */
+.ff-agent-round__files {
+  font-weight: 600;
+  color: var(--ff-accent, var(--ff-accent));
+}
+
+.ff-agent-round__chevron {
+  transition: transform 180ms ease;
+  color: var(--ff-accent);
+  height: 16px;
+  width: 16px;
+}
+
+.ff-agent-round__chevron.is-expanded {
+  transform: rotate(180deg);
+}
+
+.ff-agent-round__body {
+  padding: 1px 2px 9px 42px;
+  gap: 6px;
+  display: grid;
+}
+
+.ff-run-activity__process {
+  font-size: 12px;
+  color: var(--ff-text-secondary);
+  border-left: 2px solid var(--ff-border);
+  padding: 7px 9px;
+}
+
+.ff-run-activity__process-label {
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--ff-text-muted);
+  margin-bottom: 4px;
+}
+
+.ff-run-activity__divider {
+  background: linear-gradient(90deg, transparent, var(--ff-border), transparent);
+  height: 1px;
+}
+
+.ff-run-activity__empty {
+  font: 500 12px/1.45 var(--rb-font-sans, sans-serif);
+  color: var(--ff-text-muted);
+  padding: 6px 2px;
+}
+
+.ff-model-wait {
+  font: 500 13px/1.4 var(--rb-font-sans, sans-serif);
+  color: var(--ff-text-muted);
+  min-height: 52px;
+  gap: 8px;
+  align-items: center;
+  display: inline-flex;
+}
+
+.ff-model-wait__art,
+.ff-reasoning-status-art {
+  position: relative;
+}
+
+.ff-model-wait__art {
+  height: 52px;
+  width: 58px;
+  display: block;
+}
+
+.ff-model-wait__art img {
+  object-fit: contain;
+  height: 100%;
+  width: 100%;
+  display: block;
+}
+
+.ff-dot-spinner {
+  height: var(--uib-size);
+  width: var(--uib-size);
+  display: block;
+  left: -2px;
+  top: -1px;
+  position: absolute;
+  --uib-color: var(--ff-accent);
+  --uib-speed: 0.9s;
+  --uib-size: 18px;
+}
+
+.ff-dot-spinner__dot {
+  inset: 0;
+  position: absolute;
+}
+
+.ff-dot-spinner__dot::before {
+  animation: ff-dot-spinner-pulse calc(var(--uib-speed) * 1.111) ease-in-out infinite;
+  transform: scale(0);
+  opacity: 0.5;
+  box-shadow: 0 0 8px rgba(var(--ff-accent-rgb), 0.28);
+  background: var(--uib-color);
+  border-radius: 50%;
+  content: "";
+  height: 20%;
+  width: 20%;
+  left: 0;
+  top: 0;
+  position: absolute;
+}
+
+.ff-dot-spinner__dot:nth-child(2) { transform: rotate(45deg); }
+.ff-dot-spinner__dot:nth-child(3) { transform: rotate(90deg); }
+.ff-dot-spinner__dot:nth-child(4) { transform: rotate(135deg); }
+.ff-dot-spinner__dot:nth-child(5) { transform: rotate(180deg); }
+.ff-dot-spinner__dot:nth-child(6) { transform: rotate(225deg); }
+.ff-dot-spinner__dot:nth-child(7) { transform: rotate(270deg); }
+.ff-dot-spinner__dot:nth-child(8) { transform: rotate(315deg); }
+.ff-dot-spinner__dot:nth-child(2)::before { animation-delay: calc(var(--uib-speed) * -0.875); }
+.ff-dot-spinner__dot:nth-child(3)::before { animation-delay: calc(var(--uib-speed) * -0.75); }
+.ff-dot-spinner__dot:nth-child(4)::before { animation-delay: calc(var(--uib-speed) * -0.625); }
+.ff-dot-spinner__dot:nth-child(5)::before { animation-delay: calc(var(--uib-speed) * -0.5); }
+.ff-dot-spinner__dot:nth-child(6)::before { animation-delay: calc(var(--uib-speed) * -0.375); }
+.ff-dot-spinner__dot:nth-child(7)::before { animation-delay: calc(var(--uib-speed) * -0.25); }
+.ff-dot-spinner__dot:nth-child(8)::before { animation-delay: calc(var(--uib-speed) * -0.125); }
+
+@keyframes ff-dot-spinner-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(0); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+.ff-tool-executions {
+  padding: 3px 2px 4px;
+}
+
+.ff-tool-executions__chain .ant-thought-chain-item {
+  padding-block: 4px;
+}
+
+.ff-tool-executions__description {
+  gap: 7px;
+  align-items: center;
+  min-width: 0;
+  display: flex;
+}
+
+.ff-tool-executions__status {
+  flex: 0 0 auto;
+}
+
+.ff-tool-executions__detail {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font: 12px/1.4 var(--rb-font-mono, monospace);
+  color: var(--ff-accent);
+  background: var(--ff-bg-subtle);
+  border-radius: 12px;
+  border: 1px solid var(--ff-border);
+  padding: 2px 6px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.ff-tool-executions__result {
+  white-space: pre-wrap;
+  font: 12px/1.55 var(--rb-font-mono, monospace);
+  color: var(--ff-text-muted);
+  background: var(--ff-bg-subtle);
+  border-radius: 12px;
+  padding: 8px;
+  overflow: auto;
+  margin: 7px 0 2px;
+  max-height: 180px;
+}
+
+/* ask_user 工具卡展开后的问答配对：问题弱化、回答强调 */
+.ff-ask-user-qa {
+  list-style: none;
+  padding: 0;
+  margin: 7px 0 2px;
+  gap: 6px;
+  flex-direction: column;
+  display: flex;
+}
+
+.ff-ask-user-qa__row {
+  background: var(--ff-bg-subtle);
+  border-radius: 12px;
+  padding: 7px 9px;
+  gap: 2px;
+  flex-direction: column;
+  display: flex;
+}
+
+.ff-ask-user-qa__question {
+  line-height: 1.5;
+  font-size: 12px;
+  color: var(--ff-text-muted);
+}
+
+.ff-ask-user-qa__answer {
+  font-weight: 500;
+  line-height: 1.5;
+  font-size: 12.5px;
+  color: var(--ff-text);
+}
+
+.ff-message-reasoning {
+  color: var(--ff-text-muted);
+}
+
+.ff-message-reasoning .ant-think-status-icon {
+  overflow: visible;
+  height: 38px;
+  width: 38px;
+}
+
+.ff-reasoning-status-art {
+  color: var(--ff-accent);
+  height: 38px;
+  width: 38px;
+  display: block;
+}
+
+.ff-reasoning-status-art img {
+  object-fit: contain;
+  height: 100%;
+  width: 100%;
+  display: block;
+}
+
+.ff-reasoning-status-art.is-thinking img {
+  transform: translateY(1px);
+}
+
+.ff-reasoning-status-art.is-complete {
+  animation: ff-reasoning-complete-pop 360ms cubic-bezier(0.22, 0.8, 0.32, 1) both;
+}
+
+@keyframes ff-reasoning-complete-pop {
+  0% { transform: scale(0.84) rotate(-4deg); opacity: 0.35; }
+  70% { transform: scale(1.08) rotate(2deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+
+/* While reasoning streams it is locked open: no chevron, no toggle cursor. */
+.ff-message-reasoning.is-live .ant-think-status-wrapper { cursor: default; }
+.ff-message-reasoning.is-live .ant-think-status-down-icon { display: none; }
+
+.ff-message-reasoning__title { display: inline-flex; align-items: center; gap: 8px; }
+.ff-message-reasoning__quote {
+  transition: opacity 120ms ease, background-color 120ms ease, color 120ms ease;
+  opacity: 0;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--ff-text-muted);
+  background: transparent;
+  border-radius: 6px;
+  border: 0;
+  padding: 0 6px;
+  height: 22px;
+}
+.ff-message-reasoning:hover .ff-message-reasoning__quote,
+.ff-message-reasoning__quote:focus-visible { opacity: 1; }
+.ff-message-reasoning__quote:hover { background: var(--ff-bg-hover); color: var(--ff-text); }
+.ff-message-reasoning__quote:focus-visible { outline: var(--ff-focus-ring, 2px solid var(--ff-accent)); outline-offset: 1px; }
+
+.ff-message-reasoning .ant-think-content {
+  padding-inline-start: 46px;
+  padding-block-start: 8px;
+}
+
+.ff-message-reasoning .ff-message-markdown {
+  font-size: 13px;
+  color: var(--ff-text-muted);
+}
+
+.ff-message--assistant:has(.ff-message__sticker:only-child) .ant-bubble-content {
+  background: transparent;
+  padding: 0;
+}
+
+.ff-message__assistant-body {
+  gap: 10px;
+  flex-direction: column;
+  min-width: 0;
+  display: flex;
+}
+
+.ff-message__sticker {
+  -webkit-user-drag: none;
+  border-radius: 12px;
+  object-fit: contain;
+  max-height: var(--ff-sticker-height, 176px);
+  width: min(var(--ff-sticker-width, 160px), 32vw);
+  display: block;
+}
+
+.ff-message-list--stickers-small {
+  --ff-sticker-height: 124px;
+  --ff-sticker-width: 112px;
+}
+
+.ff-message-list--stickers-standard {
+  --ff-sticker-height: 176px;
+  --ff-sticker-width: 160px;
+}
+
+.ff-message-list--stickers-large {
+  --ff-sticker-height: 232px;
+  --ff-sticker-width: 212px;
+}
+
+.ff-message--assistant:has(pre, .katex-display, table) {
+  width: 100%;
+}
+
+.ff-message--assistant:has(pre, .katex-display, table) .ant-bubble-content {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.ff-message--system {
+  color: var(--ff-text-muted);
+}
+
+.ff-message-markdown {
+  user-select: text;
+  font-family: var(--rb-font-sans, sans-serif);
+  line-height: var(--ff-chat-line-height, 1.75);
+  font-size: var(--ff-chat-font-size, 14px);
+  font-weight: 400;
+  color: inherit;
+  min-width: 0;
+}
+
+/* 正式回答采用较紧凑的阅读节奏，避免 Markdown 默认标题压过正文。 */
+.ff-message--assistant .ff-message-markdown {
+  line-height: 1.68;
+}
+
+.ff-message--assistant .ff-message-markdown h1 {
+  margin: 26px 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+  font-size: 26px;
+  font-weight: 650;
+  line-height: 1.28;
+}
+
+.ff-message--assistant .ff-message-markdown h2 {
+  line-height: 1.35;
+  font-weight: 650;
+  font-size: 20px;
+  margin: 24px 0 10px;
+}
+
+.ff-message--assistant .ff-message-markdown h3 {
+  line-height: 1.4;
+  font-weight: 600;
+  font-size: 17px;
+  margin: 20px 0 8px;
+}
+
+.ff-message--assistant .ff-message-markdown > :is(h1, h2, h3):first-child {
+  margin-top: 0;
+}
+
+.ff-message-markdown pre {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* 代码块字号来自外观设置；highlighter 会给 pre/code 写行内 font-size，所以这里需要 !important 才能覆盖。 */
+.ff-message-markdown pre,
+.ff-message-markdown pre code {
+  font-size: var(--ff-code-font-size, 13px) !important;
+}
+
+/* 段间距来自外观设置（默认 0.5em）。 */
+.ff-message-markdown p + p {
+  margin-top: var(--ff-chat-para-spacing, 0.5em);
+}
+
+/* 工作区文件引用保持为轻量行内链接：用品牌粉强调，不用 chip 底色打断正文。 */
+.ff-file-link {
+  transition: color 0.15s ease;
+  text-underline-offset: 2px;
+  text-decoration: none;
+  vertical-align: baseline;
+  cursor: pointer;
+  line-height: 1.45;
+  font-weight: 600;
+  font-size: 0.96em;
+  font-family: inherit;
+  color: var(--ff-accent);
+  background: transparent;
+  border-radius: 0;
+  border: 0;
+  padding: 0;
+  margin: 0 1px;
+  gap: 3px;
+  align-items: center;
+  display: inline-flex;
+}
+
+.ff-file-link:hover {
+  text-decoration: underline;
+  color: color-mix(in srgb, var(--ff-accent) 82%, #5c5f77);
+}
+
+.ff-file-link__icon {
+  opacity: 0.65;
+  flex-shrink: 0;
+}
+
+.ff-file-link__text {
+  max-width: 260px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.ff-file-link.is-plain {
+  text-decoration: none;
+  cursor: auto;
+  font-weight: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  display: inline;
+}
+
+/* Mermaid 图卡片：与表格同一张卡（边框、圆角、底色），图本身透明，颜色取 --ff-diagram-* 跟随主题 */
+.ff-mermaid {
+  text-align: center;
+  overflow-x: auto;
+  background: var(--ff-surface);
+  border-radius: 12px;
+  border: 1px solid var(--ff-border);
+  padding: 14px 12px;
+  margin: 16px 0;
+  max-width: 100%;
+}
+
+.ff-mermaid svg {
+  height: auto;
+  max-width: 100%;
+}
+
+/* 可放大的图卡片：hover 高亮提示 */
+.ff-mermaid--zoomable,
+.ff-svg-card--zoomable {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  cursor: zoom-in;
+}
+
+.ff-mermaid--zoomable:hover,
+.ff-svg-card--zoomable:hover {
+  box-shadow: 0 2px 10px rgba(var(--ff-glow-rgb, 59, 154, 118), 0.12);
+  border-color: rgba(var(--ff-glow-rgb, 59, 154, 118), 0.45);
+}
+
+/* 放大预览：解除气泡内 max-width 压缩，按 SVG 原始尺寸展示，容器滚动 */
+.ff-svg-preview-modal .ff-svg-preview {
+  padding: 8px;
+  border-radius: 12px;
+  background: var(--ff-surface);
+  text-align: center;
+  overflow: auto;
+  max-height: 74vh;
+}
+
+.ff-svg-preview-modal .ff-svg-preview svg {
+  height: auto;
+  max-width: none;
+}
+
+.ff-mermaid--pending {
+  font-size: 13px;
+  color: var(--ff-text-muted);
+  padding: 18px 12px;
+}
+
+.ff-mermaid--fallback .ff-mermaid__hint {
+  text-align: left;
+  font-size: 12px;
+  color: var(--ff-text-muted);
+  margin-bottom: 8px;
+}
+
+.ff-mermaid--fallback .ff-mermaid__source {
+  text-align: left;
+  word-break: break-word;
+  white-space: pre-wrap;
+  font: 12px/1.6 Consolas, "Cascadia Code", monospace;
+  color: var(--ff-text);
+  background: var(--ff-bg-page);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin: 0;
+}
+
+/* SVG 学习卡片：模型手写完整 SVG（自带粉白主题背景），容器只负责限宽居中 */
+.ff-svg-card {
+  text-align: center;
+  margin: 10px 0;
+  max-width: 100%;
+}
+
+.ff-svg-card svg {
+  border-radius: 12px;
+  height: auto;
+  max-width: 100%;
+}
+
+.ff-svg-card--pending {
+  font-size: 13px;
+  color: var(--ff-text-muted);
+  border-radius: 12px;
+  border: 1px solid var(--ff-border);
+  padding: 18px 12px;
+}
+
+.ff-svg-card--fallback .ff-svg-card__hint {
+  text-align: left;
+  font-size: 12px;
+  color: var(--ff-text-muted);
+  margin-bottom: 8px;
+}
+
+.ff-svg-card--fallback .ff-svg-card__source {
+  text-align: left;
+  word-break: break-word;
+  white-space: pre-wrap;
+  font: 12px/1.6 Consolas, "Cascadia Code", monospace;
+  color: var(--ff-text);
+  background: var(--ff-bg-page);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin: 0;
+}
+
+.ff-message-markdown-fallback {
+  word-break: break-word;
+  white-space: pre-wrap;
+  font: 12px/1.6 Consolas, "Cascadia Code", monospace;
+  color: var(--ff-text);
+  background: var(--ff-bg-subtle);
+  border-radius: 12px;
+  border: 1px solid var(--ff-border);
+  padding: 10px 12px;
+  overflow: auto;
+  margin: 0;
+  max-width: min(var(--ff-reading-width), 100%);
+}
+
+/* 独占一行的公式建立清晰的阅读层级；行内公式仍跟随正文尺寸。 */
+.ff-message-markdown .katex-display,
+.ff-message-markdown p:has(> .katex:only-child) {
+  line-height: 1.6;
+  font-size: 1.16em;
+  color: var(--ff-text);
+  overflow-y: hidden;
+  overflow-x: auto;
+  padding: 3px 0 5px;
+  margin: 12px 0 18px;
+  max-width: 100%;
+  display: block;
+}
+
+/* Streamdown 默认把列表标记放在内容内部，中文正文会显得挤；改为常规外置缩进。 */
+.ff-message-markdown :is(
+  ul[data-streamdown="unordered-list"],
+  ol[data-streamdown="ordered-list"]
+) {
+  list-style-position: outside;
+  padding-inline-start: 22px;
+  margin: 8px 0 12px;
+}
+
+.ff-message-markdown li[data-streamdown="list-item"] {
+  padding-block: 0;
+  margin: 4px 0;
+}
+
+.ff-message-markdown li[data-streamdown="list-item"]::marker {
+  color: var(--ff-accent);
+}
+
+/* GFM 任务列表使用产品色复选框，禁用态也保持清晰，不再回落成系统灰。 */
+.ff-message-markdown li[data-streamdown="list-item"]:has(input[type="checkbox"]) {
+  list-style-type: none;
+}
+
+.ff-message-markdown input[type="checkbox"] {
+  vertical-align: -2px;
+  opacity: 1;
+  background: var(--ff-surface);
+  border-radius: 3px;
+  border: 1px solid var(--ff-text-muted);
+  margin: 0 7px 0 0;
+  height: 14px;
+  width: 14px;
+  position: relative;
+  appearance: none;
+}
+
+.ff-message-markdown input[type="checkbox"]:checked {
+  background: var(--ff-accent);
+  border-color: var(--ff-accent);
+}
+
+.ff-message-markdown input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 4px;
+  width: 4px;
+  height: 7px;
+  border: solid var(--ff-on-accent);
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+.ff-message-markdown > :first-child {
+  margin-top: 0;
+}
+
+.ff-message-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.ff-message-markdown a {
+  color: var(--ff-accent);
+}
+
+.ff-message-markdown blockquote {
+  color: var(--ff-text-secondary);
+  border-left: 3px solid var(--ff-accent);
+  padding-left: 12px;
+  margin: 10px 0;
+}
+
+.ff-message-markdown :not(pre) > code {
+  font-family: Consolas, "Cascadia Code", monospace;
+  color: var(--ff-text);
+  background: var(--ff-bg-hover);
+  border-radius: 12px;
+  padding: 2px 5px;
+}
+
+.ff-message-markdown table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.ff-message-markdown th,
+.ff-message-markdown td {
+  border: 1px solid var(--ff-border);
+  padding: 7px 10px;
+}
+
+/* 聊天表格只保留内容本身：无复制、下载、全屏工具栏，也不制造额外一行空白。 */
+.ff-message-markdown [data-streamdown="table-wrapper"] {
+  overflow: hidden;
+  background: var(--ff-surface);
+  border-radius: 12px;
+  border: 1px solid var(--ff-border);
+  padding: 0;
+  gap: 0;
+  margin: 16px 0;
+  max-width: 100%;
+}
+
+.ff-message-markdown [data-streamdown="table-wrapper"] > div:last-child {
+  overflow-y: hidden;
+  overflow-x: auto;
+  background: transparent;
+  border-radius: 0;
+  border: 0;
+}
+
+.ff-message-markdown [data-streamdown="table"] {
+  line-height: 1.55;
+  font-size: 13px;
+  border: 0;
+  min-width: 100%;
+}
+
+.ff-message-markdown [data-streamdown="table"] th,
+.ff-message-markdown [data-streamdown="table"] td {
+  vertical-align: top;
+  font-size: 13px;
+  color: var(--ff-text);
+  border: 0;
+  padding: 8px 12px;
+}
+
+/* Header: a faint tint of the card itself (not the page colour, which reads near-black in the dark theme). */
+.ff-message-markdown [data-streamdown="table"] th {
+  text-align: left;
+  line-height: 1.45;
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--ff-text-secondary, var(--ff-text));
+  background: color-mix(in srgb, var(--ff-text) 4.5%, var(--ff-surface));
+}
+.ff-message-markdown [data-streamdown="table"] thead tr > th { border-bottom: 1px solid var(--ff-border); }
+.ff-message-markdown [data-streamdown="table"] tbody tr { transition: background-color 120ms ease; }
+.ff-message-markdown [data-streamdown="table"] tbody tr:hover { background: color-mix(in srgb, var(--ff-text) 2.5%, var(--ff-surface)); }
+
+.ff-message-markdown [data-streamdown="table"] :is(th, td):not(:last-child) {
+  border-right: 1px solid var(--ff-border);
+}
+
+.ff-message-markdown [data-streamdown="table"] tbody tr + tr > td {
+  border-top: 1px solid var(--ff-border);
+}
+
+.ff-message-markdown hr[data-streamdown="horizontal-rule"] {
+  height: 1px;
+  margin: 20px 0;
+  border: 0;
+  border-top: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(45 122 95 / 22%) 16%,
+    rgb(45 122 95 / 44%) 50%,
+    rgb(45 122 95 / 22%) 84%,
+    transparent 100%
+  );
+}
+
+.ff-copy-button {
+  transition: opacity 0.2s ease;
+  opacity: 0;
+  margin-top: 6px;
+}
+
+.ff-message-actions {
+  gap: 8px;
+  align-items: center;
+  display: flex;
+}
+
+.ff-last-turn-action {
+  transition: color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+  opacity: 0;
+  cursor: pointer;
+  color: var(--ff-text-muted);
+  background: transparent;
+  border: 0;
+  padding: 0;
+  justify-content: center;
+  align-items: center;
+  margin-top: 6px;
+  height: 16px;
+  width: 16px;
+  display: inline-flex;
+}
+
+.ff-last-turn-action:hover {
+  background: var(--ff-bg-hover);
+  color: var(--ff-text);
+}
+
+.ff-last-turn-action:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.ff-last-turn-action__regenerate-icon {
+  transition: transform 0.45s cubic-bezier(0.2, 0.75, 0.25, 1);
+  transform-origin: center;
+}
+
+.ff-last-turn-action--regenerate:hover .ff-last-turn-action__regenerate-icon {
+  transform: rotate(-135deg);
+}
+
+.ff-last-message-editor {
+  gap: 10px;
+  min-width: 260px;
+  width: min(420px, 52vw);
+  display: grid;
+}
+
+.ff-last-message-editor textarea {
+  box-sizing: border-box;
+  line-height: 1.55;
+  font: inherit;
+  color: #282828;
+  background: rgb(255 255 255 / 92%);
+  outline: none;
+  border-radius: 12px;
+  border: 1px solid rgb(255 255 255 / 65%);
+  padding: 10px 12px;
+  resize: vertical;
+  min-height: 82px;
+  width: 100%;
+}
+
+.ff-last-message-editor textarea:focus {
+  box-shadow: 0 0 0 2px rgb(255 255 255 / 28%);
+  border-color: #fff;
+}
+
+.ff-last-message-editor__actions {
+  gap: 8px;
+  justify-content: flex-end;
+  display: flex;
+}
+
+.ff-last-message-editor__actions button {
+  padding: 5px 11px;
+  border: 1px solid rgb(255 255 255 / 68%);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 82%);
+  color: var(--ff-text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+
+.ff-last-message-editor__actions button.is-primary {
+  font-weight: 600;
+  color: var(--ff-accent);
+  background: var(--ff-surface);
+  border-color: #fff;
+}
+
+.ff-last-message-editor__actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@keyframes ff-tts-wave {
+  0%, 100% { transform: scaleX(0.68); opacity: 0.45; }
+  50% { transform: scaleX(1); opacity: 1; }
+}
+
+@keyframes ff-tts-loading {
+  from { opacity: 0.42; }
+  to { opacity: 1; }
+}
+
+.ff-message--user .ant-bubble-footer {
+  justify-content: flex-end;
+  display: flex;
+}
+
+.ff-message--assistant .ant-bubble-footer {
+  justify-content: flex-start;
+  display: flex;
+}
+
+.ff-message:hover .ff-copy-button,
+.ff-message:hover .ff-last-turn-action,
+.ff-message:focus-within .ff-copy-button,
+.ff-message:focus-within .ff-last-turn-action {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  
+  .ff-last-turn-action,
+  .ff-last-turn-action__regenerate-icon {
+    transition: none;
+    animation: none !important;
+  }
+
+  .ff-reasoning-status-art.is-complete {
+    animation: none;
+  }
+
+}
+
+/* Custom palettes must keep text paired with the surface it is drawn on. */
+:root[data-ui-colors] .ff-message--user .ant-bubble-content {
+  background: var(--ff-accent);
+}
+:root[data-ui-colors] .ff-message--user:has(.ff-message__sticker:only-child) .ant-bubble-content {
+  background: transparent;
+}
+:root[data-ui-colors] .ff-message--user .ant-bubble-content,
+:root[data-ui-colors] .ff-message--user .ff-message-markdown a {
+  color: var(--rb-text-on-pink);
+}
+:root[data-ui-colors] .ff-message-markdown [data-streamdown="table-wrapper"] {
+  border-color: var(--ff-border);
+  background: var(--ff-bg-workspace);
+}
+:root[data-ui-colors] .ff-message-markdown [data-streamdown="table"] th,
+:root[data-ui-colors] .ff-mermaid--fallback .ff-mermaid__source,
+:root[data-ui-colors] .ff-svg-card--fallback .ff-svg-card__source,
+:root[data-ui-colors] .ff-message-markdown-fallback,
+:root[data-ui-colors] .ff-tool-executions__result,
+:root[data-ui-colors] .ff-ask-user-qa__row {
+  border-color: var(--ff-border);
+  background: var(--ff-bg-page);
+}
+:root[data-ui-colors] .ff-message-markdown [data-streamdown="table"] th {
+  color: var(--ff-text);
+}
+:root[data-ui-colors] .ff-message-markdown input[type="checkbox"]:checked::after {
+  border-color: var(--rb-text-on-pink);
+}
+
+/* The conversation's scrollbar sits right beside the overview cards, where an always-on thumb reads as a divider between
+   the two. Like the session list, it only shows while the pointer is over the conversation. */
+.ff-message-list::-webkit-scrollbar-thumb { background-color: transparent; }
+.ff-message-list:hover::-webkit-scrollbar-thumb { background-color: var(--ff-scroll-thumb); }
+.ff-message-list:hover::-webkit-scrollbar-thumb:hover { background-color: var(--ff-scroll-thumb-hover); }
+.ff-message-list:hover::-webkit-scrollbar-thumb:active { background-color: var(--ff-accent); }
+
+/* The changed-files summary closes the reply it belongs to: a little air after the text, then the copy / regenerate row. */
+.ff-message--assistant .ff-review-panel { margin: 14px 0 0; }

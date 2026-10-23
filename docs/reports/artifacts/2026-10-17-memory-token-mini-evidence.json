@@ -1,0 +1,1034 @@
+{
+  "schemaVersion": 1,
+  "target": {
+    "repository": "Serendipity-wu02/Firefly-Agent",
+    "baseBranch": "firefly-mini-v1.1.x",
+    "base": "7cecb37528a336f6d1df574e4d6fc5e64ebf8ed0",
+    "branch": "codex/memory-token-mini-20261017",
+    "testedSourceHead": "3ab888fdfcd37775d5c17defe7490185f39b3856"
+  },
+  "runs": [
+    {
+      "label": "mini-final-build",
+      "command": [
+        "node",
+        "E:/Node.js/node_modules/npm/bin/npm-cli.js",
+        "run",
+        "build"
+      ],
+      "head": "3ab888fdfcd37775d5c17defe7490185f39b3856",
+      "startedAt": "2026-10-17T12:49:48.086Z",
+      "finishedAt": "2026-10-17T12:50:24.750Z",
+      "exitCode": 0,
+      "run": ".verification/runs/mini-final-build-1792241388084-c9529c46",
+      "metadataSha256": "78a0ee2b6b9fc096df93078cb8a05415ef2b16a5017f7b08b246f5aa36c877ca",
+      "outputSha256": "d98d1d8b4e320ceb06be2e39e87488965951bde6f3339caaf65f5fcd117c1bbd"
+    },
+    {
+      "label": "mini-final-renderer-types",
+      "command": [
+        "node",
+        "node_modules/typescript/bin/tsc",
+        "-p",
+        "tsconfig.renderer.json",
+        "--noEmit"
+      ],
+      "head": "3ab888fdfcd37775d5c17defe7490185f39b3856",
+      "startedAt": "2026-10-17T12:49:56.371Z",
+      "finishedAt": "2026-10-17T12:50:02.386Z",
+      "exitCode": 0,
+      "run": ".verification/runs/mini-final-renderer-types-1792241396368-ee496fc4",
+      "metadataSha256": "ae39061a5da4122e5023207dc59c972b3cc57cf3aca7f341d6b06c3df1f295e5",
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "mini-final-schema",
+      "command": [
+        "node",
+        "scripts/plugin-sdk/generate-schema.mjs",
+        "--check"
+      ],
+      "head": "3ab888fdfcd37775d5c17defe7490185f39b3856",
+      "startedAt": "2026-10-17T12:49:55.951Z",
+      "finishedAt": "2026-10-17T12:49:57.425Z",
+      "exitCode": 0,
+      "run": ".verification/runs/mini-final-schema-1792241395947-367f52f2",
+      "metadataSha256": "14093a0437b0c53f9adbeecb916081f9edb5a26fde439ca8d8568c209c5df966",
+      "outputSha256": "92cb48754f6852f2405a7dad4bf2fbb75bc56a1214d2e457600e6d3b1fc2e91a"
+    },
+    {
+      "label": "mini-final-eval",
+      "command": [
+        "node",
+        "E:/Node.js/node_modules/npm/bin/npm-cli.js",
+        "run",
+        "test:eval"
+      ],
+      "head": "3ab888fdfcd37775d5c17defe7490185f39b3856",
+      "startedAt": "2026-10-17T12:49:56.154Z",
+      "finishedAt": "2026-10-17T12:49:56.907Z",
+      "exitCode": 0,
+      "run": ".verification/runs/mini-final-eval-1792241396151-587f8c81",
+      "metadataSha256": "3cca8a5565bfd9f379a50dcf2ec34efc0e7659b17828426e7b58f9192a9d3866",
+      "outputSha256": "fc6b62657f1a598536018585a49aa0a20be53308e5c9ca99c072854928f8520f"
+    },
+    {
+      "label": "native-zero-write",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "scripts/testing/vitest.memory-history-zero-write.config.ts",
+        "--reporter=dot"
+      ],
+      "head": "3ab888fdfcd37775d5c17defe7490185f39b3856",
+      "startedAt": "2026-10-17T12:49:54.908Z",
+      "finishedAt": "2026-10-17T12:49:58.184Z",
+      "exitCode": 0,
+      "run": ".verification/runs/native-zero-write-1792241394905-27127848",
+      "metadataSha256": "9f706a301f937cf60cd159ff8a40ca81e44b30ef4672062207dcfe764545e326",
+      "outputSha256": "54b9ef8a180203db2f178bca2f7b681100c55e5c9663f7719283a2142eda7aab"
+    },
+    {
+      "label": "mini-final-electron",
+      "command": [
+        "node",
+        "scripts/verify/natural-memory-electron-ui.cjs",
+        "--masked-tool-history"
+      ],
+      "head": "3ab888fdfcd37775d5c17defe7490185f39b3856",
+      "startedAt": "2026-10-17T12:52:56.590Z",
+      "finishedAt": "2026-10-17T12:53:21.247Z",
+      "exitCode": 0,
+      "run": ".verification/runs/mini-final-electron-1792241576587-c2606755",
+      "metadataSha256": "f9a882b7a846d99ace3e0d772e2f4232fec11d153d8322ffd2761e68bb0ed825",
+      "outputSha256": "9194edc0506d4e92555232ab9226047a8cd7959ee32cfc21bd26fe361b192530"
+    },
+    {
+      "label": "mini-full",
+      "command": [
+        "node",
+        "scripts/testing/run-tests.mjs",
+        "--reporter=dot"
+      ],
+      "head": "3ab888fdfcd37775d5c17defe7490185f39b3856",
+      "startedAt": "2026-10-17T12:52:56.117Z",
+      "finishedAt": "2026-10-17T13:06:44.648Z",
+      "exitCode": 0,
+      "run": ".verification/runs/mini-full-1792241576113-12af9bac",
+      "metadataSha256": "4e79ba09c9dffd0f5f4d4828ab9758b1fdfb9cfe8a67f2ec3aea3e3e66b20215",
+      "outputSha256": "5c4b67afd5d6e2b99fa8f010a24e6a83410bd999abd5fd4501622ad14ab322d7",
+      "archive": {
+        "path": ".verification/runs/mini-full-1792241576113-12af9bac/reports/2026-10-17T12-52-57-256Z-2d24cc1d-d82f-4c9b-b674-b9203e1d32fa/report.json",
+        "sha256": "e8dc6d38c01919a13f97613f8f72a64cb5cf16bffb951fb1c5d5a73dd845974f",
+        "counts": {
+          "passed": 10512,
+          "skipped": 11
+        },
+        "unhandledErrors": 0,
+        "revision": {
+          "head": "3ab888fdfcd37775d5c17defe7490185f39b3856",
+          "branch": "codex/memory-token-mini-20261017",
+          "dirty": [],
+          "diffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "untracked": []
+        },
+        "endRevision": {
+          "head": "3ab888fdfcd37775d5c17defe7490185f39b3856",
+          "branch": "codex/memory-token-mini-20261017",
+          "dirty": [],
+          "diffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "untracked": []
+        },
+        "skipped": [
+          {
+            "file": "<worktree>/src/main/plugin-marketplace-hardening.test.ts",
+            "name": "marketplace trusted bundled catalog > rejects a bundled ZIP symlink outside the trusted directory",
+            "state": "skipped",
+            "reason": "Windows file symlink unavailable: ERROR_PRIVILEGE_NOT_HELD (1314)",
+            "reasonProvided": true
+          },
+          {
+            "file": "<worktree>/src/main/plugin-panel-protocol.test.ts",
+            "name": "resolvePluginPanelRequest：静态资源路由 > 符号链接逃逸被 realpath 拦截",
+            "state": "skipped",
+            "reason": "Windows file symlink unavailable: ERROR_PRIVILEGE_NOT_HELD (1314)",
+            "reasonProvided": true
+          },
+          {
+            "file": "<worktree>/src/main/chats/workspace-file-editor.test.ts",
+            "name": "workspace text save > rejects symlink leaves when file symlinks are available",
+            "state": "skipped",
+            "reason": "Windows file symlink creation requires a privilege unavailable to this test process (EPERM)",
+            "reasonProvided": true
+          },
+          {
+            "file": "<worktree>/src/main/memory-core/repository.test.ts",
+            "name": "rejects backup publication on non-Windows without creating files or changing live storage",
+            "state": "skipped",
+            "reason": "no explicit reason supplied (mode=skip)",
+            "reasonProvided": false
+          },
+          {
+            "file": "<worktree>/src/main/memory-core/windows-platform-gates.test.ts",
+            "name": "non-Windows native memory denial > rejects trusted helper configuration and DPAPI before creating temp directories",
+            "state": "skipped",
+            "reason": "no explicit reason supplied (mode=skip)",
+            "reasonProvided": false
+          },
+          {
+            "file": "<worktree>/src/main/memory-core/windows-platform-gates.test.ts",
+            "name": "non-Windows native memory denial > rejects publication and writer leases before spawning or creating a kernel endpoint",
+            "state": "skipped",
+            "reason": "no explicit reason supplied (mode=skip)",
+            "reasonProvided": false
+          },
+          {
+            "file": "<worktree>/src/main/memory-core/windows-platform-gates.test.ts",
+            "name": "non-Windows native memory denial > rejects key publication before protecting plaintext or writing a key record",
+            "state": "skipped",
+            "reason": "no explicit reason supplied (mode=skip)",
+            "reasonProvided": false
+          },
+          {
+            "file": "<worktree>/src/main/memory-core/windows-platform-gates.test.ts",
+            "name": "non-Windows native memory denial > rejects a real MemoryClient before key protection or Worker construction",
+            "state": "skipped",
+            "reason": "no explicit reason supplied (mode=skip)",
+            "reasonProvided": false
+          },
+          {
+            "file": "<worktree>/src/main/skills/external-state.test.ts",
+            "name": "stale_lock_fail_closed preserves linked lock and all remaining bytes",
+            "state": "skipped",
+            "reason": "Windows file symlink unavailable: ERROR_PRIVILEGE_NOT_HELD (1314)",
+            "reasonProvided": true
+          },
+          {
+            "file": "<worktree>/src/main/orchestrator/tools/apply-patch-tools.test.ts",
+            "name": "patch ownership and actual partial write facts > deleting a symlink then updating its target preserves both actual operation paths",
+            "state": "skipped",
+            "reason": "no explicit reason supplied (mode=skip)",
+            "reasonProvided": false
+          },
+          {
+            "file": "<worktree>/src/main/orchestrator/tools/registry/file-write-evidence.test.ts",
+            "name": "file write evidence > symlink aliases share ownership but retain distinct actual operation path records",
+            "state": "skipped",
+            "reason": "no explicit reason supplied (mode=skip)",
+            "reasonProvided": false
+          }
+        ]
+      },
+      "sourceBefore": {
+        "files": 2827,
+        "sha256": "d962ae4a3fd76ce29c5633ec5eda1eb819f90c1b287b126c5289c9ff6964143a"
+      },
+      "sourceAfter": {
+        "files": 2827,
+        "sha256": "d962ae4a3fd76ce29c5633ec5eda1eb819f90c1b287b126c5289c9ff6964143a"
+      },
+      "sourceUnchanged": true
+    }
+  ],
+  "closedLoop": {
+    "resultSha256": "92d0a4e0901b36cd854b918249f5311fc91f935f421159018b147badd8f68f8f",
+    "checks": [
+      {
+        "name": "real-electron-synthetic-isolation",
+        "appPath": "<worktree>",
+        "userData": "<worktree>\\.verification\\electron-memory-ui-1792241576948\\isolated\\profile\\Firefly-test",
+        "sessionData": "<worktree>\\.verification\\electron-memory-ui-1792241576948\\isolated\\profile\\Firefly-test\\session",
+        "logs": "<worktree>\\.verification\\electron-memory-ui-1792241576948\\isolated\\profile\\Firefly-test\\logs",
+        "home": "<worktree>\\.verification\\electron-memory-ui-1792241576948\\isolated\\synthetic-user",
+        "appData": "<worktree>\\.verification\\electron-memory-ui-1792241576948\\isolated\\profile",
+        "version": "43.7.0",
+        "pid": 28180
+      },
+      {
+        "name": "new-chat-ui",
+        "title": "Synthetic natural-memory origin",
+        "url": "file:///<worktree>/dist/renderer/react/index.html"
+      },
+      {
+        "name": "natural-utterance-sent-without-preexisting-memory"
+      },
+      {
+        "name": "natural-proposal-pending-only",
+        "state": {
+          "facts": [],
+          "candidates": [
+            {
+              "candidateId": "7d32b3f4-4086-464e-b42e-e07a06597627",
+              "revision": 1,
+              "attribute": "address",
+              "value": "小雀",
+              "assertion": "用户称呼：小雀",
+              "reason": "model-needs-confirmation",
+              "sourceRef": {
+                "sourceId": "a4e18f13-6648-40a3-a872-226b074d7628",
+                "revision": 1,
+                "binding": {
+                  "providerId": "desktop-chat-user-v1",
+                  "sessionId": "7e5283da-1ba4-4891-b797-8fa5ca4110dd",
+                  "messageId": "e34d5bf5-cc3b-4d37-b7d9-4fccc5c5fefe",
+                  "contentRevision": 1,
+                  "generation": "2b319956-5d93-442b-bad7-d37ddeee8743"
+                }
+              },
+              "contentHash": "3034e1804421299db309c74406af19710e45ac70b2ea212e027cb9c5ab02ced2",
+              "scope": "global"
+            }
+          ],
+          "backendStatus": {
+            "available": true
+          },
+          "coverage": {
+            "status": "not-measured",
+            "reason": "MEMORY_HISTORY_COVERAGE_NOT_MEASURED",
+            "population": null,
+            "present": null,
+            "missing": null,
+            "unknownDenied": null,
+            "exactRatio": null,
+            "lowerRatio": null,
+            "upperRatio": null,
+            "reasons": {},
+            "evidence": {
+              "status": "not-evaluated",
+              "eligible": null,
+              "ineligible": null,
+              "unknown": null,
+              "ratio": null
+            }
+          }
+        }
+      },
+      {
+        "name": "ui-confirmed-real-sqlite-fact",
+        "state": {
+          "facts": [
+            {
+              "factId": "c6e893e6-14ca-402f-94b7-608fdfff0364",
+              "revision": 1,
+              "subjectKey": "actor-attribute-889279aca589c1b56faa47cc4218566edc82c6c6f506109239eec632ac9af6e2",
+              "assertion": "用户称呼：小雀",
+              "assertionKind": "user-statement",
+              "time": {
+                "validFrom": null,
+                "validTo": null,
+                "referenceTime": 1792241584439
+              },
+              "sourceRef": {
+                "sourceId": "a4e18f13-6648-40a3-a872-226b074d7628",
+                "revision": 1,
+                "binding": {
+                  "providerId": "desktop-chat-user-v1",
+                  "sessionId": "7e5283da-1ba4-4891-b797-8fa5ca4110dd",
+                  "messageId": "e34d5bf5-cc3b-4d37-b7d9-4fccc5c5fefe",
+                  "contentRevision": 1,
+                  "generation": "2b319956-5d93-442b-bad7-d37ddeee8743"
+                }
+              },
+              "recordedAt": 1792241585756,
+              "acceptedAt": 1792241585756,
+              "supersededAt": null,
+              "activationReason": "explicitUserConfirmed",
+              "policyVersion": null,
+              "provenance": {
+                "candidateId": "7d32b3f4-4086-464e-b42e-e07a06597627",
+                "evidenceId": "335308d4-7c09-4a69-a08f-42b8c0e2160f",
+                "activationSourceRef": {
+                  "sourceId": "policy-event-7a2bea98d27fb130063e8a636b85c40ffdc2b01fc7ed98cc375b26aebb396b96",
+                  "revision": 1
+                }
+              },
+              "scope": "global"
+            }
+          ],
+          "candidates": [],
+          "backendStatus": {
+            "available": true
+          },
+          "coverage": {
+            "status": "not-measured",
+            "reason": "MEMORY_HISTORY_COVERAGE_NOT_MEASURED",
+            "population": null,
+            "present": null,
+            "missing": null,
+            "unknownDenied": null,
+            "exactRatio": null,
+            "lowerRatio": null,
+            "upperRatio": null,
+            "reasons": {},
+            "evidence": {
+              "status": "not-evaluated",
+              "eligible": null,
+              "ineligible": null,
+              "unknown": null,
+              "ratio": null
+            }
+          }
+        }
+      },
+      {
+        "name": "own-electron-closed",
+        "pid": 22400,
+        "forcedAfterTimeout": false
+      },
+      {
+        "name": "real-electron-synthetic-isolation",
+        "appPath": "<worktree>",
+        "userData": "<worktree>\\.verification\\electron-memory-ui-1792241576948\\isolated\\profile\\Firefly-test",
+        "sessionData": "<worktree>\\.verification\\electron-memory-ui-1792241576948\\isolated\\profile\\Firefly-test\\session",
+        "logs": "<worktree>\\.verification\\electron-memory-ui-1792241576948\\isolated\\profile\\Firefly-test\\logs",
+        "home": "<worktree>\\.verification\\electron-memory-ui-1792241576948\\isolated\\synthetic-user",
+        "appData": "<worktree>\\.verification\\electron-memory-ui-1792241576948\\isolated\\profile",
+        "version": "43.7.0",
+        "pid": 4112
+      },
+      {
+        "name": "new-chat-ui",
+        "title": "Synthetic recall after restart",
+        "url": "file:///<worktree>/dist/renderer/react/index.html"
+      },
+      {
+        "name": "reopened-new-session-actual-request-recall",
+        "memory": [
+          {
+            "role": "user",
+            "content": "User-stated memory with source and time metadata:\n[{\"factId\":\"c6e893e6-14ca-402f-94b7-608fdfff0364\",\"revision\":1,\"assertion\":\"用户称呼：小雀\",\"assertionKind\":\"user-statement\",\"time\":{\"referenceTime\":1792241584439,\"validFrom\":null,\"validTo\":null},\"recordedAt\":1792241585756,\"acceptedAt\":1792241585756,\"supportSourceRefs\":[{\"binding\":{\"contentRevision\":1,\"generation\":\"c2477890-cda8-45ab-a71c-87abf84002be\",\"messageId\":\"settings-41531bb2-d278-4a4b-9cb9-d746fc6ee88f\",\"providerId\":\"desktop-chat-user-v1\",\"sessionId\":\"memory-settings-user-events-v1\"},\"revision\":1,\"sourceId\":\"967cf916-a823-48eb-91b6-ba4c7aaff5bf\"}]}]"
+          }
+        ]
+      },
+      {
+        "name": "ui-correction-synchronous",
+        "state": {
+          "facts": [
+            {
+              "factId": "c6e893e6-14ca-402f-94b7-608fdfff0364",
+              "revision": 2,
+              "subjectKey": "actor-attribute-889279aca589c1b56faa47cc4218566edc82c6c6f506109239eec632ac9af6e2",
+              "assertion": "用户称呼：小禾",
+              "assertionKind": "user-statement",
+              "time": {
+                "validFrom": null,
+                "validTo": null,
+                "referenceTime": 1792241592854
+              },
+              "sourceRef": {
+                "sourceId": "a23edbe8-42cb-47c0-ac24-d3d60c9f7844",
+                "revision": 1,
+                "binding": {
+                  "providerId": "desktop-chat-user-v1",
+                  "sessionId": "memory-settings-user-events-v1",
+                  "messageId": "settings-294def65-1fa8-4ce1-a8e3-a08daaef9bd8",
+                  "contentRevision": 1,
+                  "generation": "5a13ab89-3549-4dff-8322-9d3f8bc20042"
+                }
+              },
+              "recordedAt": 1792241592865,
+              "acceptedAt": 1792241592865,
+              "supersededAt": null,
+              "activationReason": "explicitUserConfirmed",
+              "policyVersion": null,
+              "provenance": {
+                "candidateId": null,
+                "evidenceId": null,
+                "activationSourceRef": {
+                  "sourceId": "a23edbe8-42cb-47c0-ac24-d3d60c9f7844",
+                  "revision": 1,
+                  "binding": {
+                    "providerId": "desktop-chat-user-v1",
+                    "sessionId": "memory-settings-user-events-v1",
+                    "messageId": "settings-294def65-1fa8-4ce1-a8e3-a08daaef9bd8",
+                    "contentRevision": 1,
+                    "generation": "5a13ab89-3549-4dff-8322-9d3f8bc20042"
+                  }
+                }
+              },
+              "scope": "global"
+            }
+          ],
+          "candidates": [
+            {
+              "candidateId": "7c502fcb-4d2b-4f12-94ef-65198cdd3bf0",
+              "revision": 1,
+              "attribute": "unclassified",
+              "value": null,
+              "assertion": "",
+              "reason": "unknown",
+              "sourceRef": {
+                "sourceId": "39d47501-6053-4b94-a640-e9ca8d054147",
+                "revision": 1,
+                "binding": {
+                  "providerId": "desktop-chat-user-v1",
+                  "sessionId": "ff56fc4b-5339-4d2c-bcce-281ca83f3aac",
+                  "messageId": "77fbf5c1-e6ec-4872-ab67-760fd94e003d",
+                  "contentRevision": 1,
+                  "generation": "bc70c97d-614f-4da0-9bdd-aadbfc4f6190"
+                }
+              },
+              "contentHash": "267a60af43f8feb4dd5109b0751ed40811e6c85bcd49b52722700a75028e8a15",
+              "scope": "global"
+            }
+          ],
+          "backendStatus": {
+            "available": true
+          },
+          "coverage": {
+            "status": "not-measured",
+            "reason": "MEMORY_HISTORY_COVERAGE_NOT_MEASURED",
+            "population": null,
+            "present": null,
+            "missing": null,
+            "unknownDenied": null,
+            "exactRatio": null,
+            "lowerRatio": null,
+            "upperRatio": null,
+            "reasons": {},
+            "evidence": {
+              "status": "not-evaluated",
+              "eligible": null,
+              "ineligible": null,
+              "unknown": null,
+              "ratio": null
+            }
+          }
+        }
+      },
+      {
+        "name": "new-chat-ui",
+        "title": "Synthetic corrected recall",
+        "url": "file:///<worktree>/dist/renderer/react/index.html"
+      },
+      {
+        "name": "corrected-value-selected-in-new-session",
+        "memory": [
+          {
+            "role": "user",
+            "content": "User-stated memory with source and time metadata:\n[{\"factId\":\"c6e893e6-14ca-402f-94b7-608fdfff0364\",\"revision\":2,\"assertion\":\"用户称呼：小禾\",\"assertionKind\":\"user-statement\",\"time\":{\"referenceTime\":1792241592854,\"validFrom\":null,\"validTo\":null},\"recordedAt\":1792241592865,\"acceptedAt\":1792241592865,\"supportSourceRefs\":[{\"binding\":{\"contentRevision\":1,\"generation\":\"5a13ab89-3549-4dff-8322-9d3f8bc20042\",\"messageId\":\"settings-294def65-1fa8-4ce1-a8e3-a08daaef9bd8\",\"providerId\":\"desktop-chat-user-v1\",\"sessionId\":\"memory-settings-user-events-v1\"},\"revision\":1,\"sourceId\":\"a23edbe8-42cb-47c0-ac24-d3d60c9f7844\"}]}]"
+          }
+        ]
+      },
+      {
+        "name": "ui-forget-synchronous",
+        "state": {
+          "facts": [],
+          "candidates": [],
+          "backendStatus": {
+            "available": true
+          },
+          "coverage": {
+            "status": "not-measured",
+            "reason": "MEMORY_HISTORY_COVERAGE_NOT_MEASURED",
+            "population": null,
+            "present": null,
+            "missing": null,
+            "unknownDenied": null,
+            "exactRatio": null,
+            "lowerRatio": null,
+            "upperRatio": null,
+            "reasons": {},
+            "evidence": {
+              "status": "not-evaluated",
+              "eligible": null,
+              "ineligible": null,
+              "unknown": null,
+              "ratio": null
+            }
+          }
+        }
+      },
+      {
+        "name": "new-chat-ui",
+        "title": "Synthetic forgotten recall",
+        "url": "file:///<worktree>/dist/renderer/react/index.html"
+      },
+      {
+        "name": "forgotten-value-absent-from-all-request-roles"
+      },
+      {
+        "name": "masked-tool-history-survives-actual-next-turn-without-memory-resurrection",
+        "sessionId": "d2f1cd19-3dcf-43af-a575-1a038455ef8c",
+        "toolRoles": 1
+      },
+      {
+        "name": "own-electron-closed",
+        "pid": 26056,
+        "forcedAfterTimeout": false
+      },
+      {
+        "name": "real-electron-synthetic-isolation",
+        "appPath": "<worktree>",
+        "userData": "<worktree>\\.verification\\electron-memory-ui-1792241576948\\isolated\\profile\\Firefly-test",
+        "sessionData": "<worktree>\\.verification\\electron-memory-ui-1792241576948\\isolated\\profile\\Firefly-test\\session",
+        "logs": "<worktree>\\.verification\\electron-memory-ui-1792241576948\\isolated\\profile\\Firefly-test\\logs",
+        "home": "<worktree>\\.verification\\electron-memory-ui-1792241576948\\isolated\\synthetic-user",
+        "appData": "<worktree>\\.verification\\electron-memory-ui-1792241576948\\isolated\\profile",
+        "version": "43.7.0",
+        "pid": 3208
+      },
+      {
+        "name": "forget-survives-second-restart"
+      },
+      {
+        "name": "own-electron-closed",
+        "pid": 26152,
+        "forcedAfterTimeout": false
+      },
+      {
+        "name": "offline-full-closure-complete"
+      }
+    ],
+    "sessions": [
+      {
+        "id": "7e5283da-1ba4-4891-b797-8fa5ca4110dd",
+        "text": "小雀是我习惯用的称呼，以后这样叫我",
+        "webContentsId": 2,
+        "userMessageId": "e34d5bf5-cc3b-4d37-b7d9-4fccc5c5fefe",
+        "assistantMessageId": "9d7ed261-fe7c-4f46-82b0-951ffc183e0b",
+        "runId": "run-1792241584489-pnqvmn",
+        "terminalStatus": "success",
+        "settlement": "not-exposed"
+      },
+      {
+        "id": "ff56fc4b-5339-4d2c-bcce-281ca83f3aac",
+        "text": "按习惯称呼我，给一句学习建议",
+        "webContentsId": 2,
+        "userMessageId": "77fbf5c1-e6ec-4872-ab67-760fd94e003d",
+        "assistantMessageId": "0b3e49b6-0e47-4485-972f-20e2ee761df1",
+        "runId": "run-1792241591641-cjyasm",
+        "terminalStatus": "success",
+        "settlement": "not-exposed"
+      },
+      {
+        "id": "16a005ce-0d6e-4fb8-a6bc-71b965eb0661",
+        "text": "按习惯称呼我，给一句阅读建议",
+        "webContentsId": 2,
+        "userMessageId": "f6cee169-b360-4a5f-960f-d6e1e3439a77",
+        "assistantMessageId": "57a47338-425d-42d0-8f49-fc1e27962734",
+        "runId": "run-1792241593426-xven8v",
+        "terminalStatus": "success",
+        "settlement": "not-exposed"
+      },
+      {
+        "id": "d2f1cd19-3dcf-43af-a575-1a038455ef8c",
+        "text": "按习惯称呼我，给一句休息建议",
+        "webContentsId": 2,
+        "userMessageId": "2b777d23-50af-4a33-9e2e-ee8d7ebfe525",
+        "assistantMessageId": "1cf18d9b-3122-4428-8db6-2763dc44e10d",
+        "runId": "run-1792241594629-5l4w9s",
+        "terminalStatus": "success",
+        "settlement": "not-exposed"
+      },
+      {
+        "id": "d2f1cd19-3dcf-43af-a575-1a038455ef8c",
+        "text": "继续分析这份合成工具结果",
+        "webContentsId": 2,
+        "userMessageId": "d13e0b52-fa8e-42b4-b2bb-d9488dd93dd9",
+        "assistantMessageId": "33d5e0f6-9c91-4fb8-a47d-64bb49c3dd74",
+        "runId": "run-1792241595095-vltjin",
+        "terminalStatus": "success",
+        "settlement": "not-exposed"
+      }
+    ],
+    "launches": [
+      {
+        "pid": 28180,
+        "blocked": [
+          {
+            "layer": "chromium",
+            "origin": "https://fonts.googleapis.com"
+          },
+          {
+            "layer": "chromium",
+            "origin": "https://fonts.googleapis.com"
+          },
+          {
+            "layer": "chromium",
+            "origin": "https://fonts.googleapis.com"
+          },
+          {
+            "layer": "chromium",
+            "origin": "https://fonts.googleapis.com"
+          },
+          {
+            "layer": "chromium",
+            "origin": "https://fonts.googleapis.com"
+          }
+        ],
+        "backgroundSuppressed": [
+          "pruneRemovedMcp",
+          "prewarmScreenshot",
+          "scheduleUpdateCheck",
+          "syncBuiltInMcp",
+          "scheduleEmbeddingRefresh",
+          "restoreMcp",
+          "initializeReranker",
+          "startProactiveTrigger"
+        ],
+        "dialogs": [],
+        "requestKinds": [
+          "chat",
+          "natural"
+        ]
+      },
+      {
+        "pid": 4112,
+        "blocked": [
+          {
+            "layer": "chromium",
+            "origin": "https://fonts.googleapis.com"
+          },
+          {
+            "layer": "chromium",
+            "origin": "https://fonts.googleapis.com"
+          },
+          {
+            "layer": "chromium",
+            "origin": "https://fonts.googleapis.com"
+          },
+          {
+            "layer": "chromium",
+            "origin": "https://fonts.googleapis.com"
+          }
+        ],
+        "backgroundSuppressed": [
+          "pruneRemovedMcp",
+          "prewarmScreenshot",
+          "scheduleUpdateCheck",
+          "syncBuiltInMcp",
+          "scheduleEmbeddingRefresh",
+          "restoreMcp",
+          "initializeReranker",
+          "startProactiveTrigger"
+        ],
+        "dialogs": [],
+        "requestKinds": [
+          "chat",
+          "natural",
+          "chat",
+          "natural",
+          "chat",
+          "natural",
+          "chat",
+          "natural"
+        ]
+      },
+      {
+        "pid": 3208,
+        "blocked": [
+          {
+            "layer": "chromium",
+            "origin": "https://fonts.googleapis.com"
+          },
+          {
+            "layer": "chromium",
+            "origin": "https://fonts.googleapis.com"
+          },
+          {
+            "layer": "chromium",
+            "origin": "https://fonts.googleapis.com"
+          },
+          {
+            "layer": "chromium",
+            "origin": "https://fonts.googleapis.com"
+          }
+        ],
+        "backgroundSuppressed": [
+          "pruneRemovedMcp",
+          "prewarmScreenshot",
+          "scheduleUpdateCheck",
+          "syncBuiltInMcp",
+          "scheduleEmbeddingRefresh",
+          "restoreMcp",
+          "initializeReranker",
+          "startProactiveTrigger"
+        ],
+        "dialogs": [],
+        "requestKinds": []
+      }
+    ],
+    "factId": "c6e893e6-14ca-402f-94b7-608fdfff0364",
+    "failures": [],
+    "screenshotHashes": [
+      {
+        "file": "01-pending-candidate.png",
+        "sha256": "f4b193dea88f7550074218873b325d64553ba2a05219cdae73529a54f4fa6f30"
+      },
+      {
+        "file": "02-confirmed.png",
+        "sha256": "bac38ce798aa0ea7907d2ec57a891847bfb66ae1ee6b1cebbee497374be3ea3f"
+      },
+      {
+        "file": "03-new-session-recall.png",
+        "sha256": "9548b42a9274607b22a047a5ee2b56b1cf97cdfaafeaf8bd3401481009e02bbc"
+      },
+      {
+        "file": "04-corrected.png",
+        "sha256": "992ff963938b08f58c6f93647af837e7ea7ef23b047f01b762185d4cadb72f53"
+      },
+      {
+        "file": "05-forgotten.png",
+        "sha256": "a348ec1a0e770654d96ad2c24be272000617ee707bc26e8431a17a203a5a2315"
+      },
+      {
+        "file": "06-masked-tool-next-turn.png",
+        "sha256": "840c2d6c2bb18d51d71a790022b92e89eaea9f5bafef5aaa3a01efab9c2c349c"
+      }
+    ]
+  },
+  "privateLayout": {
+    "checkedAt": "2026-10-17T12:22:28.220Z",
+    "moduleRoot": {
+      "path": "node_modules",
+      "realpath": "<worktree>\\node_modules",
+      "symlink": false,
+      "nlink": 1
+    },
+    "files": 74805,
+    "bytes": 1395516161,
+    "links": [],
+    "samples": [
+      {
+        "path": "package.json",
+        "realpath": "<worktree>\\package.json",
+        "symlink": false,
+        "nlink": 1,
+        "bytes": 8454,
+        "sha256": "746b7f0e08e63f54dc8bef7e395be39462cfacf965758b8664694179840635b5"
+      },
+      {
+        "path": "package-lock.json",
+        "realpath": "<worktree>\\package-lock.json",
+        "symlink": false,
+        "nlink": 1,
+        "bytes": 588707,
+        "sha256": "813132dfcc24b49df17ae4dee77638226f52f5b0fd13515c979d8962afb85d4e"
+      },
+      {
+        "path": "node_modules/electron/package.json",
+        "realpath": "<worktree>\\node_modules\\electron\\package.json",
+        "symlink": false,
+        "nlink": 1,
+        "bytes": 744,
+        "sha256": "cd41cda57c9adbecd477a5f869eaea96e23de2248a65e01b9343e6c9a4e35ea7"
+      },
+      {
+        "path": "node_modules/electron/dist/electron.exe",
+        "realpath": "<worktree>\\node_modules\\electron\\dist\\electron.exe",
+        "symlink": false,
+        "nlink": 1,
+        "bytes": 239301120,
+        "sha256": "c0556461baace0a49bcab3aadb0c2965a8d49ca5e680e953a5cc623599928fd7"
+      },
+      {
+        "path": "node_modules/vitest/package.json",
+        "realpath": "<worktree>\\node_modules\\vitest\\package.json",
+        "symlink": false,
+        "nlink": 1,
+        "bytes": 5932,
+        "sha256": "a28126d97bcaf567da5bed69443b7f3bcd9a7a8c38c8b66e554686b6bb2c10e0"
+      },
+      {
+        "path": "node_modules/playwright/package.json",
+        "realpath": "<worktree>\\node_modules\\playwright\\package.json",
+        "symlink": false,
+        "nlink": 1,
+        "bytes": 1359,
+        "sha256": "8bc2ddebe8d9b051b9ecb87d62c6c63877e59d08617f32c3215681ca8bb70998"
+      },
+      {
+        "path": "node_modules/typescript/package.json",
+        "realpath": "<worktree>\\node_modules\\typescript\\package.json",
+        "symlink": false,
+        "nlink": 1,
+        "bytes": 3620,
+        "sha256": "822ef7ca6452205657b6288b066481ecf508bfbf43455d715cf7d3ec457561e6"
+      },
+      {
+        "path": "native/target/debug/firefly-history-read.exe",
+        "realpath": "<worktree>\\native\\target\\debug\\firefly-history-read.exe",
+        "symlink": false,
+        "nlink": 1,
+        "bytes": 797184,
+        "sha256": "52eb063b0686b390d03050bd9597b2b2ef49b23d6edfe0acea94deea970492cf"
+      },
+      {
+        "path": "native/target/debug/firefly-history-presence.exe",
+        "realpath": "<worktree>\\native\\target\\debug\\firefly-history-presence.exe",
+        "symlink": false,
+        "nlink": 1,
+        "bytes": 755712,
+        "sha256": "c361ad522968d87049c9ec8b28b6241ece7d056f3650575992ddaa99c061a5cd"
+      },
+      {
+        "path": "native/target/release/firefly-history-read.exe",
+        "realpath": "<worktree>\\native\\target\\release\\firefly-history-read.exe",
+        "symlink": false,
+        "nlink": 1,
+        "bytes": 384512,
+        "sha256": "f6a3058247e99dcca06f6a6d9805268f5c0076b6b4287676484bebff26466205"
+      },
+      {
+        "path": "native/target/release/firefly-history-presence.exe",
+        "realpath": "<worktree>\\native\\target\\release\\firefly-history-presence.exe",
+        "symlink": false,
+        "nlink": 1,
+        "bytes": 367616,
+        "sha256": "9a58c058357d28c6d2b3b1831abdf8a6fc5ffad6676987e98f491b076b014256"
+      }
+    ]
+  },
+  "outgoingAudit": {
+    "sourceFiles": [
+      "docs/plans/2026-10-17-memory-token-mini-publication.md",
+      "docs/plans/2026-10-17-natural-memory-phase1.md",
+      "docs/reports/2026-10-17-natural-memory-electron-ui-validation.md",
+      "docs/reports/2026-10-17-natural-memory-independent-review.md",
+      "docs/reports/2026-10-17-natural-memory-phase1-validation.md",
+      "docs/reports/artifacts/2026-10-17-memory-mutation-check.cjs",
+      "docs/reports/artifacts/2026-10-17-natural-memory-electron-ui-evidence.json",
+      "scripts/verify/natural-memory-electron-ui.cjs",
+      "src/main/agui-bridge.test.ts",
+      "src/main/agui-bridge.ts",
+      "src/main/memory-context/default-model-loop.test.ts",
+      "src/main/memory-context/fact-context-messages.ts",
+      "src/main/memory-context/main-default-memory.test.ts",
+      "src/main/memory-context/main-default-memory.ts",
+      "src/main/memory-context/main-memory-runtime.test.ts",
+      "src/main/memory-context/main-memory-runtime.ts",
+      "src/main/memory-context/main-s-current-turn.test.ts",
+      "src/main/memory-context/main-s-runtime-port.ts",
+      "src/main/memory-context/masked-tool-transcript.test.ts",
+      "src/main/memory-context/smh-fixture.test-support.ts",
+      "src/main/memory-context/smh-integration.test.ts",
+      "src/main/memory-context/source-secret-screen.test.ts",
+      "src/main/memory-context/source-secret-screen.ts",
+      "src/main/memory-core/fact-repository.ts",
+      "src/main/memory-policy/extractor.ts",
+      "src/main/memory-policy/fact-identity.ts",
+      "src/main/memory-policy/fact-supports.ts",
+      "src/main/memory-policy/main-policy.ts",
+      "src/main/memory-policy/memory-settings-ipc.test.ts",
+      "src/main/memory-policy/memory-settings-ipc.ts",
+      "src/main/memory-policy/natural-memory.test.ts",
+      "src/main/memory-policy/natural-protocol.ts",
+      "src/main/memory-policy/policy-contracts.ts",
+      "src/main/memory-policy/policy-repository.ts",
+      "src/main/memory-recall/main-fact-selector.ts",
+      "src/main/memory-shadow/shadow-validate.ts",
+      "src/main/orchestrator/child-session-runtime.test.ts",
+      "src/main/orchestrator/harness-adapter.ts",
+      "src/main/orchestrator/harness/adapter/terminal-mapper.test.ts",
+      "src/main/orchestrator/harness/adapter/terminal-mapper.ts",
+      "src/main/orchestrator/harness/firefly-harness-scheduler-failure.test.ts",
+      "src/main/orchestrator/harness/firefly-harness.test.ts",
+      "src/main/orchestrator/harness/firefly-harness.ts",
+      "src/main/orchestrator/harness/types.ts",
+      "src/main/plugin-agent.ts",
+      "src/renderer/react/features/chat/pages/chat-page-bridge.ts",
+      "src/renderer/react/features/chat/pages/run/AgentRunController.test.ts",
+      "src/renderer/react/features/chat/pages/run/AgentRunController.ts",
+      "src/renderer/react/i18n/en.json",
+      "src/renderer/react/i18n/zh-CN.json",
+      "src/shared/memory-contracts.ts",
+      "src/shared/memory-panel-contracts.ts",
+      "src/shared/run-failure.test.ts",
+      "src/shared/run-failure.ts",
+      "src/shared/run-terminal.ts"
+    ],
+    "forbidden": [],
+    "protectedTouched": []
+  },
+  "review": {
+    "reviewedHead": "fdce10837af7ccc09b706717d9ae62888d9bf3b0",
+    "model": "gpt-6.1-sol",
+    "reasoningEffort": "max",
+    "critical": 0,
+    "important": 3,
+    "minor": 0,
+    "reportSha256": "f8b30246d885a0a6de24d19890a0bae09cfa2b8b8967c9ee17822bc36330d72d",
+    "resolution": "Executor reproduced and repaired R1-R3; final acceptance binds the new source head. This is not a second independent approval."
+  },
+  "limitations": [
+    "Mock transport only; no real-provider quality, latency or billing verification.",
+    "Same-user synthetic Windows process isolation, not an OS security sandbox.",
+    "Heuristic language/sensitivity screening is conservative and not exhaustive NLP or DLP.",
+    "Existing aggregate mini usage only; per-feature attribution deferred by explicit user choice.",
+    "No phase2 automatic ADD or durable jobs."
+  ],
+  "publicationCompatibility": {
+    "checkedAt": "2026-10-17T13:11:16.111Z",
+    "originalBase": "7cecb37528a336f6d1df574e4d6fc5e64ebf8ed0",
+    "currentTarget": "931997e14f6d1d596e80f703b5d5de14363aba7e",
+    "testedSource": "3ab888fdfcd37775d5c17defe7490185f39b3856",
+    "aheadBy": 4,
+    "files": [
+      {
+        "filename": "src/renderer/react/features/chat/components/ChatMessageList.css",
+        "additions": 7,
+        "deletions": 0
+      },
+      {
+        "filename": "src/renderer/react/features/chat/components/ChatMessageList.layout.test.ts",
+        "additions": 10,
+        "deletions": 2
+      },
+      {
+        "filename": "src/renderer/react/features/chat/components/SessionOverviewPanel.css",
+        "additions": 5,
+        "deletions": 0
+      },
+      {
+        "filename": "src/renderer/react/features/chat/workspace/WorkspaceRunResults.css",
+        "additions": 23,
+        "deletions": 0
+      },
+      {
+        "filename": "src/renderer/react/features/chat/workspace/WorkspaceRunResults.test.ts",
+        "additions": 67,
+        "deletions": 1
+      },
+      {
+        "filename": "src/renderer/react/features/chat/workspace/WorkspaceRunResults.tsx",
+        "additions": 57,
+        "deletions": 1
+      },
+      {
+        "filename": "src/renderer/react/i18n/en.json",
+        "additions": 4,
+        "deletions": 0
+      },
+      {
+        "filename": "src/renderer/react/i18n/zh-CN.json",
+        "additions": 4,
+        "deletions": 0
+      },
+      {
+        "filename": "src/renderer/react/styles/react-root.css",
+        "additions": 3,
+        "deletions": 3
+      }
+    ],
+    "sharedFiles": [
+      "src/renderer/react/i18n/en.json",
+      "src/renderer/react/i18n/zh-CN.json"
+    ],
+    "applyCheck": "passed; --check only, nothing applied",
+    "patchSha256": "55d909670e23269e0c8a7f571312388a36326a65a6a287740891bb1a2c9ec2ab",
+    "mainMemorySharedContractsDependenciesNativeCIChanged": false,
+    "localAcceptanceScope": "3ab over7ce only; PR CI must test the latest target merge view. No target UI imported, branch rebased or user checkout modified."
+  },
+  "deliveryAudit": {
+    "checkedAt": "2026-10-17T13:13:33.950Z",
+    "exportedFiles": 58,
+    "forbidden": [],
+    "protectedTouched": [],
+    "newQualitySuppressions": [],
+    "whitespace": "passed",
+    "dataScope": "Only task source/tests/docs and synthetic QA evidence; no real profile, database, key/config, screenshots, logs, dependencies or build outputs staged."
+  }
+}

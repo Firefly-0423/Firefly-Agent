@@ -1,0 +1,686 @@
+.ff-composer-stack {
+  display: flex;
+  width: min(100%, var(--ff-reading-width));
+  flex-direction: column;
+  /* Only the vertical slide between the welcome and docked states animates. The width follows its container directly: a width
+     transition made the composer lag behind and glide while the sidebar or window edge was being dragged. */
+  transition: transform 240ms ease;
+}
+
+.ff-composer-stack.is-centered {
+  transform: translateY(45px);
+}
+
+.ff-composer-stack.is-docked {
+  width: min(100%, var(--ff-reading-width));
+}
+
+.ff-composer-shell {
+  box-shadow: var(--ff-shadow-bubble-neutral);
+  background: var(--ff-bg-subtle);
+  border-radius: 12px;
+  overflow: hidden;
+  flex-direction: column;
+  width: 100%;
+  display: flex;
+  position: relative;
+}
+
+.ff-composer-stack.is-centered .ff-composer-shell {
+  transform: translateY(-15px);
+}
+
+.ff-composer.ant-sender {
+  position: relative;
+  z-index: 1;
+  border: 1px solid var(--ff-border);
+  border-radius: 12px;
+  background: var(--ff-surface);
+  box-shadow: var(--ff-shadow-bubble-neutral);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.ff-composer.ant-sender:hover {
+  box-shadow: var(--ff-shadow-control-hover);
+  border-color: var(--ff-border);
+}
+
+.ff-composer.ant-sender:focus-within {
+  box-shadow: var(--ff-shadow-control-focus);
+  border-color: rgba(var(--ff-accent-rgb), 0.32);
+}
+
+.ff-composer .ant-sender-content {
+  align-items: flex-end;
+  padding: 16px 16px 9px;
+  min-height: 100px;
+}
+
+.ff-composer .ant-sender-input {
+  resize: none;
+  font: 400 15px/1.6 var(--rb-font-sans, sans-serif);
+  color: var(--ff-text);
+  min-height: 70px;
+}
+
+.ff-composer .ant-sender-input::placeholder {
+  color: var(--ff-text-muted);
+}
+
+.ff-composer .ant-sender-actions-list {
+  align-self: flex-end;
+}
+
+.ff-composer .ant-sender-actions-btn {
+  background: var(--ff-accent);
+  color: #fff;
+  border-radius: 50%;
+  height: 38px;
+  width: 38px;
+}
+
+.ff-composer .ant-sender-actions-btn:disabled {
+  background: var(--ff-bg-active);
+  color: var(--ff-text-muted);
+}
+
+.ff-queue-dock {
+  position: relative;
+  z-index: 0;
+  box-sizing: border-box;
+  width: calc(100% - 28px);
+  margin: 0 auto -5px;
+  padding: 3px 6px 8px;
+  overflow: hidden;
+  border: 1px solid var(--ff-border);
+  border-bottom: 0;
+  border-radius: 12px;
+  background: var(--ff-bg-hover);
+  color: var(--ff-text);
+}
+
+.ff-queue-dock__header,
+.ff-queue-dock__row {
+  min-height: 34px;
+  width: 100%;
+  align-items: center;
+  display: flex;
+}
+
+.ff-queue-dock__header {
+  cursor: pointer;
+  text-align: left;
+  font: 500 13px/1.4 var(--rb-font-sans, sans-serif);
+  color: inherit;
+  background: transparent;
+  border-radius: 12px;
+  border: 0;
+  appearance: none;
+  padding: 4px 7px;
+  gap: 9px;
+}
+
+.ff-queue-dock__header span:nth-child(2) {
+  flex: 1;
+}
+
+.ff-composer__read-requirement {
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 12px;
+  gap: 5px;
+  align-items: center;
+  display: inline-flex;
+}
+
+.ff-queue-dock__header:hover {
+  color: var(--ff-accent);
+  background: var(--ff-bg-active);
+}
+
+.ff-queue-dock__list {
+  overflow-y: auto;
+  max-height: 154px;
+}
+
+.ff-queue-dock__row {
+  border-radius: 12px;
+  padding: 3px 4px 3px 7px;
+  gap: 7px;
+}
+
+.ff-queue-dock__row + .ff-queue-dock__row {
+  border-top: 1px solid var(--ff-border);
+}
+
+.ff-queue-dock__lead {
+  color: var(--ff-text-muted);
+  flex: none;
+}
+
+.ff-queue-dock__content {
+  cursor: text;
+  text-align: left;
+  font: 500 13px/1.45 var(--rb-font-sans, sans-serif);
+  color: inherit;
+  background: transparent;
+  border: 0;
+  appearance: none;
+  padding: 4px 2px;
+  min-width: 0;
+  gap: 8px;
+  align-items: center;
+  flex: 1;
+  display: flex;
+}
+
+.ff-queue-dock__content > span {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.ff-queue-dock__content small {
+  font-size: 11px;
+  color: var(--ff-text-muted);
+  gap: 3px;
+  align-items: center;
+  flex: none;
+  display: inline-flex;
+}
+
+.ff-queue-dock__editor {
+  box-shadow: 0 0 0 2px rgba(var(--ff-accent-rgb), 0.08);
+  font: 400 13px/1.4 var(--rb-font-sans, sans-serif);
+  color: var(--ff-text);
+  background: var(--ff-surface);
+  outline: none;
+  border-radius: 12px;
+  border: 1px solid rgba(var(--ff-accent-rgb), 0.38);
+  padding: 3px 8px;
+  height: 28px;
+  min-width: 0;
+  flex: 1;
+}
+
+.ff-queue-dock__actions {
+  gap: 2px;
+  align-items: center;
+  flex: none;
+  display: flex;
+}
+
+.ff-queue-dock__actions button {
+  cursor: pointer;
+  color: var(--ff-text-muted);
+  background: transparent;
+  padding: 0;
+  border-radius: 12px;
+  border: 0;
+  appearance: none;
+  place-items: center;
+  display: grid;
+  height: 27px;
+  width: 27px;
+  flex: none;
+}
+
+.ff-queue-dock__actions button:hover:not(:disabled) {
+  color: var(--ff-accent);
+  background: var(--ff-bg-active);
+}
+
+.ff-queue-dock__actions button:disabled,
+.ff-queue-dock__content:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.ff-composer__icon-button,
+.ff-composer__footer-button,
+.ff-composer__agent-button {
+  cursor: pointer;
+  font: 500 13px/1 var(--rb-font-sans, sans-serif);
+  color: var(--ff-text);
+  background: transparent;
+  border: 0;
+  appearance: none;
+}
+
+.ff-composer__icon-button {
+  padding: 0;
+  place-items: center;
+  height: 38px;
+  width: 28px;
+  display: grid;
+}
+
+.ff-composer__file-input {
+  display: none;
+}
+
+.ff-composer__prefix-actions {
+  gap: 3px;
+  align-items: center;
+  display: flex;
+}
+
+.ff-composer__icon-button:disabled {
+  cursor: wait;
+  color: var(--ff-text-muted);
+}
+
+.ff-composer__icon-button svg {
+  width: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.ff-composer__attachments {
+  padding: 10px 12px 0;
+  gap: 8px;
+  flex-wrap: wrap;
+  display: flex;
+}
+
+.ff-composer__attachment {
+  font: 500 12px/1.2 var(--rb-font-sans, sans-serif);
+  color: var(--ff-text);
+  background: var(--ff-bg-subtle);
+  border-radius: 12px;
+  border: 1px solid var(--ff-border);
+  padding: 5px 8px;
+  gap: 7px;
+  align-items: center;
+  max-width: 240px;
+  min-width: 0;
+  display: inline-flex;
+}
+
+.ff-composer__attachment img {
+  object-fit: cover;
+  border-radius: 12px;
+  flex: none;
+  height: 30px;
+  width: 36px;
+}
+
+.ff-composer__attachment.is-image {
+  background: var(--ff-bg-hover);
+  overflow: hidden;
+  padding: 0;
+  height: 58px;
+  width: 76px;
+  display: block;
+  position: relative;
+}
+
+.ff-composer__attachment--sticker {
+  background: var(--ff-bg-page);
+  overflow: hidden;
+  padding: 0;
+  height: 58px;
+  width: 62px;
+  display: block;
+  position: relative;
+}
+
+.ff-composer__attachment--sticker img {
+  object-fit: contain;
+  border-radius: 12px;
+  height: 100%;
+  width: 100%;
+}
+
+.ff-composer__attachment--sticker button {
+  color: #fff;
+  background: rgb(0 0 0 / 52%);
+  border-radius: 50%;
+  right: 3px;
+  top: 3px;
+  position: absolute;
+}
+
+.ff-composer__attachment.is-image img {
+  border-radius: 12px;
+  height: 100%;
+  width: 100%;
+}
+
+.ff-composer__attachment.is-image button {
+  color: #fff;
+  background: rgb(0 0 0 / 52%);
+  border-radius: 50%;
+  right: 3px;
+  top: 3px;
+  position: absolute;
+}
+
+.ff-composer__attachment span {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.ff-composer__attachment button {
+  cursor: pointer;
+  font: 500 16px/18px sans-serif;
+  color: var(--ff-text-muted);
+  background: transparent;
+  border: 0;
+  padding: 0;
+  flex: none;
+  height: 18px;
+  width: 18px;
+}
+
+.ff-composer__attachment button:hover {
+  color: var(--ff-accent);
+}
+
+.ff-sticker-picker {
+  overflow-y: auto;
+  gap: 7px;
+  grid-template-columns: repeat(4, minmax(64px, 1fr));
+  max-height: 270px;
+  width: min(360px, 70vw);
+  display: grid;
+}
+
+.ff-sticker-picker button {
+  cursor: pointer;
+  background: var(--ff-bg-subtle);
+  border-radius: 12px;
+  border: 1px solid transparent;
+  padding: 5px;
+  place-items: center;
+  aspect-ratio: 1;
+  display: grid;
+}
+
+.ff-sticker-picker button:hover {
+  background: var(--ff-bg-hover);
+  border-color: rgba(var(--ff-accent-rgb), 0.45);
+}
+
+.ff-sticker-picker img {
+  -webkit-user-drag: none;
+  object-fit: contain;
+  max-height: 100%;
+  max-width: 100%;
+}
+
+.ff-sticker-picker__empty {
+  text-align: center;
+  color: var(--ff-text-muted);
+  padding: 24px;
+  grid-column: 1 / -1;
+}
+
+.ff-composer__footer {
+  padding: 14px 15px 6px;
+  margin-top: -14px;
+  gap: 8px;
+  align-items: center;
+  min-height: 55px;
+  z-index: 0;
+  position: relative;
+  flex-wrap: wrap;
+  display: flex;
+}
+
+.ff-composer__footer-button,
+.ff-composer__agent-button {
+  padding: 0 4px;
+  min-height: 32px;
+  gap: 6px;
+  align-items: center;
+  display: inline-flex;
+}
+
+.ff-composer__footer-button:hover,
+.ff-composer__agent-button:hover,
+.ff-composer__icon-button:hover {
+  color: var(--ff-accent);
+}
+
+.ff-composer__footer-button:disabled {
+  cursor: default;
+  color: var(--ff-text-muted);
+}
+
+.ff-composer__footer svg,
+.ff-composer__agent-button svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ff-composer__footer .ff-composer__code-folder-icon,
+.ff-composer__footer .ff-composer__terminal-folder-icon {
+  fill: none;
+  stroke: var(--ff-text);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ff-composer__footer .ff-composer__footer-button svg:last-child,
+.ff-composer__agent-button svg {
+  height: 13px;
+  width: 13px;
+}
+
+/* Pair custom foregrounds with custom surfaces; keep the default theme unchanged. */
+:root[data-ui-colors] .ff-composer-shell { background: var(--ff-bg-page); }
+:root[data-ui-colors] .ff-composer.ant-sender,
+:root[data-ui-colors] .ff-queue-dock__editor {
+  color: var(--ff-text);
+  border-color: var(--ff-border);
+  background: var(--ff-surface);
+}
+:root[data-ui-colors] .ff-composer .ant-sender-input::placeholder { color: var(--ff-text-muted); }
+:root[data-ui-colors] .ff-composer .ant-sender-actions-btn { color: var(--rb-text-on-pink); }
+:root[data-ui-colors] .ff-composer .ant-sender-actions-btn:disabled {
+  background: var(--ff-bg-hover);
+  color: var(--ff-text-muted);
+}
+:root[data-ui-colors] .ff-queue-dock { background: var(--ff-bg-page); color: var(--ff-text); border-color: var(--ff-border); }
+:root[data-ui-colors] .ff-composer__attachment { background: var(--ff-bg-page); }
+
+/* One rounded card, like the ChatGPT and Codex desktop composers: the controls sit inside it, not on a grey strip below. */
+.ff-composer-stack.is-centered,
+.ff-composer-stack.is-centered .ff-composer-shell { transform: none; }
+.ff-composer-shell {
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+  box-shadow: 0 2px 16px rgba(31, 35, 48, 0.06);
+  background: var(--ff-surface, var(--ff-surface));
+  border-radius: 22px;
+  border: 1px solid var(--ff-border, rgba(31, 35, 48, 0.09));
+}
+.ff-composer-shell:hover { border-color: var(--ff-text-muted); }
+.ff-composer-shell:focus-within { border-color: var(--ff-text-secondary); box-shadow: 0 6px 26px rgba(31, 35, 48, 0.1); }
+.ff-composer.ant-sender,
+.ff-composer.ant-sender:hover,
+.ff-composer.ant-sender:focus-within { border: 0; border-radius: 22px 22px 0 0; background: transparent; box-shadow: none; }
+/* Text first, full width; attach/screenshot/sticker and send share the row beneath it. */
+.ff-composer .ant-sender-content { flex-wrap: wrap; align-items: center; min-height: 84px; padding: 16px 18px 4px; row-gap: 2px; }
+.ff-composer .ant-sender-input { order: 0; flex: 1 0 100%; width: 100%; min-height: 56px; padding-inline: 0; font-size: 15px; }
+.ff-composer .ant-sender-prefix { order: 1; margin-right: auto; }
+.ff-composer .ant-sender-actions-list { order: 2; align-self: center; }
+.ff-composer__footer { min-height: 0; margin-top: 0; padding: 2px 14px 10px; gap: 4px 6px; }
+.ff-composer__footer-button,
+.ff-composer__agent-button { padding: 0 8px; border-radius: 8px; color: var(--ff-text-secondary, var(--ff-text-secondary)); font-weight: 500; }
+.ff-composer__footer-button:hover:not(:disabled),
+.ff-composer__agent-button:hover { background: var(--ff-bg-hover, rgba(0, 0, 0, 0.05)); }
+.ff-composer__icon-button { border-radius: 8px; }
+.ff-composer .ant-sender-actions-btn { width: 34px; height: 34px; }
+:root[data-ui-colors] .ff-composer-shell { background: var(--ff-surface); border-color: var(--ff-border); }
+:root[data-ui-colors] .ff-composer.ant-sender { background: transparent; border-color: transparent; }
+
+/* Dictation is explicit and writes only to the draft. */
+.ff-composer__dictation { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.ff-composer__dictation-error { color: var(--color-danger, #bf3d3d); font-size: 12px; max-width: 260px; overflow-wrap: anywhere; }
+.ff-composer__dictation [aria-pressed="true"] { color: var(--color-danger, #bf3d3d); }
+
+/* ===== One-row composer: [+] [permission] .... [context] [model · effort] [mic] [send] ===== */
+.ff-composer__prefix-actions { flex-wrap: nowrap; gap: 2px; min-width: 0; }
+.ff-composer__prefix-actions .ff-composer__footer-button,
+.ff-composer__prefix-actions .ff-composer__agent-button { min-height: 30px; padding: 0 8px; }
+.ff-composer__suffix { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.ff-composer__add-button { width: 32px; height: 32px; border-radius: 8px; color: var(--ff-text-secondary); }
+.ff-composer__add-button:hover:not(:disabled) { background: var(--ff-bg-hover); color: var(--ff-text); }
+.ff-composer__add-button svg { width: 18px; stroke-width: 2; }
+.ff-composer .ant-sender-content { min-height: 96px; padding-bottom: 8px; }
+
+.ff-composer__mic {
+  display: grid; width: 32px; height: 32px; place-items: center; padding: 0; border: 0; border-radius: 50%;
+  background: transparent; color: var(--ff-text-secondary); cursor: pointer;
+}
+.ff-composer__mic:hover:not(:disabled) { background: var(--ff-bg-hover); color: var(--ff-text); }
+.ff-composer__mic:disabled { color: var(--ff-text-muted); cursor: default; }
+.ff-composer__mic[aria-pressed="true"] { background: rgba(var(--ff-accent-rgb), 0.16); color: var(--ff-accent); animation: ff-mic-pulse 1.4s ease-in-out infinite; }
+.ff-composer__mic-cancel { height: 28px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: var(--ff-text-muted); font: 500 12px/1 var(--rb-font-sans, sans-serif); cursor: pointer; }
+.ff-composer__mic-cancel:hover { background: var(--ff-bg-hover); color: var(--ff-text); }
+@keyframes ff-mic-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(var(--ff-accent-rgb), 0.35); } 50% { box-shadow: 0 0 0 5px rgba(var(--ff-accent-rgb), 0); } }
+.ff-composer__dictation { flex-wrap: nowrap; }
+.ff-composer__dictation-error { position: absolute; right: 18px; bottom: calc(100% + 6px); max-width: 260px; padding: 4px 8px; border-radius: 8px; background: var(--ff-surface); box-shadow: var(--ff-shadow-popover); }
+.ff-composer__dictation { position: static; }
+.ff-sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Project strip: tucked behind the top edge of the card, like the Codex desktop composer. */
+.ff-composer__project-strip {
+  position: relative; z-index: 0; display: flex; align-items: center; margin: 0 16px -12px; padding: 5px 8px 16px;
+  border: 1px solid var(--ff-border); border-bottom: 0; border-radius: 14px 14px 0 0; background: var(--ff-bg-hover);
+}
+.ff-composer__project-strip .ff-composer__footer-button { min-height: 28px; padding: 0 8px; color: var(--ff-text-secondary); font-size: 12.5px; }
+.ff-composer-shell { position: relative; z-index: 1; }
+.ff-composer__footer { padding: 0 16px 10px; min-height: 0; margin: 0; }
+
+/* "+" menu */
+.ff-add-popover .ant-popover-inner { padding: 6px; border: 1px solid var(--ff-border); border-radius: 14px; background: var(--ff-popover); box-shadow: var(--ff-shadow-popover); }
+.ff-add-menu { display: grid; width: 260px; gap: 1px; }
+.ff-add-menu__title { padding: 6px 10px 4px; color: var(--ff-text-muted); font: 500 12px/1.3 var(--rb-font-sans, sans-serif); }
+.ff-add-menu__item, .ff-add-menu__back {
+  display: flex; width: 100%; align-items: center; gap: 10px; padding: 8px 10px; border: 0; border-radius: 10px;
+  background: transparent; color: var(--ff-text); font: 500 13px/1.3 var(--rb-font-sans, sans-serif); text-align: left; cursor: pointer;
+}
+.ff-add-menu__item:hover:not(:disabled), .ff-add-menu__back:hover { background: var(--ff-bg-hover); }
+.ff-add-menu__item:disabled { color: var(--ff-text-muted); cursor: default; }
+.ff-add-menu__item svg { width: 17px; height: 17px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--ff-text-secondary); }
+.ff-add-menu__item small { margin-left: auto; color: var(--ff-text-muted); font-weight: 400; font-size: 11.5px; }
+.ff-add-menu__back { color: var(--ff-text-muted); font-size: 12px; }
+.ff-add-menu .ff-sticker-picker { width: 100%; padding: 4px; }
+
+/* Permission chip: neutral by default, warm when the agent has full access. */
+.ff-permission-control { border-radius: 8px; }
+.ff-permission-control.is-full { background: rgba(217, 101, 43, 0.1); }
+.ff-permission-control.is-full:hover:not(:disabled) { background: rgba(217, 101, 43, 0.16); color: #d9652b; }
+.ff-composer__project-strip svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.ff-composer__project-strip .ff-composer__code-folder-icon,
+.ff-composer__project-strip .ff-composer__terminal-folder-icon { stroke-width: 3.4; }
+.ff-composer__project-strip .ff-composer__footer-button > svg:last-child { width: 12px; height: 12px; }
+
+/* 输入框上下留白收紧：空输入框不再占一大块高度，多行时仍随内容增高 */
+.ff-composer .ant-sender-content { min-height: 76px; padding: 12px 16px 6px; row-gap: 0; }
+.ff-composer .ant-sender-input { min-height: 40px; }
+.ff-composer__footer { padding: 0 12px 8px; }
+
+/* ===== Composer, after the Codex window: every control in the row is plain text with an icon, no fills and no outlines;
+   they only gain a soft hover. One height (30px), one radius (8px), one gap. ===== */
+.ff-composer-shell { border-radius: 20px; }
+.ff-composer .ant-sender-content { min-height: 76px; padding: 14px 16px 4px; }
+.ff-composer .ant-sender-input { font-size: 14.5px; line-height: 1.55; }
+.ff-composer__footer { padding: 0 12px 10px; }
+.ff-composer__prefix-actions,
+.ff-composer__suffix { gap: 4px; }
+
+.ff-composer__add-button,
+.ff-composer__mic { width: 30px; height: 30px; border-radius: 8px; }
+.ff-composer__prefix-actions .ff-composer__footer-button,
+.ff-composer__prefix-actions .ff-composer__agent-button,
+.ff-composer__suffix .ff-composer__agent-button {
+  transition: background-color 120ms ease, color 120ms ease;
+  font: 500 13px/1 var(--rb-font-sans, sans-serif);
+  color: var(--ff-text-secondary);
+  background: transparent;
+  border-radius: 8px;
+  border: 0;
+  padding: 0 8px;
+  height: 30px;
+  min-height: 30px;
+}
+.ff-composer__prefix-actions .ff-composer__footer-button:hover:not(:disabled),
+.ff-composer__prefix-actions .ff-composer__agent-button:hover,
+.ff-composer__suffix .ff-composer__agent-button:hover { background: var(--ff-bg-hover); color: var(--ff-text); }
+/* Full access: no warm block or ring, just the label; the shield icon alone keeps the warm hint. */
+.ff-composer .ff-permission-control.is-full { background: transparent; color: var(--ff-text-secondary); box-shadow: none; }
+.ff-composer .ff-permission-control.is-full:hover:not(:disabled) { background: var(--ff-bg-hover); color: var(--ff-text); }
+.ff-composer .ff-permission-control.is-full > svg:first-child { color: #d9652b; }
+/* The model button: plain text like the rest, the effort a shade lighter. */
+.ff-composer__suffix .ff-model-effort { border: 0; background: transparent; }
+.ff-composer .ant-sender-actions-btn { width: 32px; height: 32px; border-radius: 50%; }
+
+/* The project tab: same inset as the card's corner radius, a lighter grey, and a hairline that matches the card. */
+.ff-composer__project-strip {
+  background: color-mix(in srgb, var(--ff-bg-hover) 70%, var(--ff-surface));
+  border-radius: 14px 14px 0 0;
+  border-color: var(--ff-border);
+  padding: 4px 8px 18px;
+  margin: 0 20px -14px;
+}
+.ff-composer__project-strip .ff-composer__footer-button { min-height: 26px; border-radius: 8px; font-size: 12.5px; }
+/* The permission chip's dropdown arrow: small and muted like the model button's, not a bold dark caret. */
+.ff-composer .ff-permission-control > svg:last-child:not(:first-child) { width: 12px; height: 12px; color: var(--ff-text-muted); stroke-width: 2; }
+
+/* ===== Capsule: once a conversation is running the composer is one row, [+] [text] [model] [mic] [send], with
+   fully rounded ends. It opens back into the card (see ChatComposer) when the text wraps or something is attached. */
+.ff-composer-shell { transition: border-color 160ms ease, box-shadow 160ms ease, border-radius 200ms cubic-bezier(0.19, 1, 0.22, 1); }
+.ff-composer-shell.is-capsule { border-radius: 27px; }
+.ff-composer-shell.is-capsule .ff-composer.ant-sender { border-radius: 27px; }
+.ff-composer-shell.is-capsule .ff-composer .ant-sender-content { flex-wrap: nowrap; min-height: 52px; padding: 8px 10px 8px 10px; column-gap: 6px; }
+.ff-composer-shell.is-capsule .ff-composer .ant-sender-prefix { order: 0; margin-right: 0; }
+.ff-composer-shell.is-capsule .ff-composer .ant-sender-input { order: 1; flex: 1 1 auto; width: auto; min-width: 0; min-height: 0; padding-block: 4px; }
+.ff-composer-shell.is-capsule .ff-composer .ant-sender-actions-list { order: 2; }
+.ff-composer-shell.is-capsule .ff-composer__add-button { border-radius: 50%; }
+@media (prefers-reduced-motion: reduce) { .ff-composer-shell { transition: none; } }
+
+/* Sticker picker inside the "+" menu: four even columns that fit the menu, scrolling down only. */
+.ff-add-menu--stickers { width: 300px; }
+.ff-add-menu .ff-sticker-picker {
+  box-sizing: border-box;
+  overflow-y: auto;
+  overflow-x: hidden;
+  gap: 6px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: 4px 2px 4px 4px;
+  max-height: 300px;
+  width: 100%;
+}
+.ff-add-menu .ff-sticker-picker button { padding: 4px; border-radius: 10px; background: var(--ff-bg-hover); transition: border-color 120ms ease, background-color 120ms ease, transform 120ms ease; }
+.ff-add-menu .ff-sticker-picker button:hover { border-color: rgba(var(--ff-glow-rgb, var(--ff-accent-rgb)), 0.5); background: var(--ff-bg-active); transform: translateY(-1px); }
+.ff-add-menu .ff-sticker-picker::-webkit-scrollbar { width: 6px; }
+.ff-add-menu .ff-sticker-picker::-webkit-scrollbar-thumb { border-radius: 3px; background: var(--ff-border); }
+
+:root[data-ui-theme="firefly-dark"] .ff-effort-bar { background: #111312; box-shadow: inset 0 0 0 1px #3b4240; }
+/* Send in dark: a soft translucent mint with a mint arrow instead of a bright solid disc. */
+:root[data-ui-theme="firefly-dark"] .ff-composer .ant-sender-actions-btn:not(:disabled) {
+  box-shadow: inset 0 0 0 1px rgba(123, 216, 174, 0.28);
+  color: #8fe0bc;
+  background: rgba(123, 216, 174, 0.16);
+}
+:root[data-ui-theme="firefly-dark"] .ff-composer .ant-sender-actions-btn:not(:disabled):hover { background: rgba(123, 216, 174, 0.26); color: #a9ead0; }
+
+/* Dark: the effort fill matches the send button — the same soft translucent mint with a mint edge. */
+:root[data-ui-theme="firefly-dark"] .ff-effort-bar__fill { background: rgba(123, 216, 174, 0.22); box-shadow: inset 0 0 0 1px rgba(123, 216, 174, 0.32); }
+:root[data-ui-theme="firefly-dark"] .ff-effort-bar__knob::after { background: #8fe0bc; }

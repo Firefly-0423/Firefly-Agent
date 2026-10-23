@@ -1,0 +1,111 @@
+name: Test
+
+on:
+  push:
+    branches: [main, firefly-mini-v1.1.x]
+  pull_request:
+    branches: [main, chore/project-structure-finalize, firefly-mini-v1.1.x]
+
+permissions:
+  contents: read
+
+# 同一分支上新提交到达后，旧提交还没跑完的运行没有意义，取消它们，释放运行器、减少偶发停顿的暴露面。
+# push 与 pull_request 分开计组：二者各自保留，PR 上的必需检查不会被另一类事件的运行取消；main 上的每次推送都完整跑完。
+concurrency:
+  group: test-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  test:
+    runs-on: windows-latest
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Node.js 24 LTS
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Install dependencies
+        run: npm ci --foreground-scripts
+
+      - name: Verify Electron installation
+        run: npx electron --version
+
+      # 生产依赖审计保留原有非阻断策略；调整门禁需单独确认。
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --json > npm-audit-prod.json
+        continue-on-error: true
+
+      - name: Upload production dependency audit report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: npm-audit-prod
+          path: npm-audit-prod.json
+
+      - name: Build
+        run: npm run build
+
+      - name: Build and select native history helpers
+        shell: pwsh
+        run: |
+          npm run build:history-helpers
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $helper = (Resolve-Path -LiteralPath 'native/target/release/firefly-history-presence.exe').Path
+          "FIREFLY_HISTORY_PRESENCE_TEST_HELPER=$helper" >> $env:GITHUB_ENV
+
+      # 工作区句柄 helper：TS 集成测试需要 firefly-workspace.exe；Rust 竞态与契约测试放在 workspace-handle 特性后，
+      # 测试根放在 RUNNER_TEMP（本地 NTFS），不需要 E: 盘；历史 helper 的旧单元测试仍只在本机运行。
+      - name: Build workspace helper and run its native tests
+        shell: pwsh
+        run: |
+          npm run build:workspace-helper
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "FIREFLY_REQUIRE_WORKSPACE_HELPER=1" >> $env:GITHUB_ENV
+          $root = Join-Path $env:RUNNER_TEMP 'firefly-workspace-native-tests'
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          $env:FF_WORKSPACE_TEST_ROOT = $root
+          cargo test --locked --manifest-path native/Cargo.toml --features workspace-handle --test workspace_handle_contract -- --test-threads=1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked --manifest-path native/Cargo.toml --features workspace-handle --lib workspace_access -- --test-threads=1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # 插件清单契约检查：源码类型与 manifest.schema.json 保持一致
+      - name: Check plugin schema contract
+        run: npm run check:plugin-schema
+
+      # 全量测试：vitest.config.ts 的 include 即权威测试集，新增测试自动纳入门禁
+      - name: Select Bash integration test fixture
+        shell: bash
+        run: |
+          bash_path="$(cygpath -w "$BASH")"
+          printf 'FIREFLY_TEST_BASH=%s\n' "$bash_path" >> "$GITHUB_ENV"
+          printf 'Bash integration executable: %s\n' "$bash_path"
+
+      # 只读诊断：测量运行器上的磁盘 fsync、重命名、SQLite 提交速度（TEMP 与 RUNNER_TEMP/工作区各一份），
+      # 用来判断集成测试在 CI 上变慢是否来自磁盘；不改变任何测试结果，失败也不阻断。
+      - name: Probe runner disk and SQLite speed
+        shell: pwsh
+        continue-on-error: true
+        env:
+          FIREFLY_VITEST_DIAGNOSTICS: ${{ runner.temp }}/firefly-vitest-diagnostics
+        run: node scripts/ci/probe-runner-io.mjs
+
+      # 测试的临时目录放到 RUNNER_TEMP（D 盘）：探测显示运行器默认 TEMP（C 盘）的 fsync/SQLite 提交慢约 9 倍，
+      # 真实 SQLite 集成测试因此反复超时。这只改变临时文件所在磁盘，不放宽任何断言或门禁。
+      - name: Run full test suite
+        env:
+          TEMP: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
+        run: ./scripts/ci/run-vitest.ps1
+
+      - name: Upload Vitest worker evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: vitest-worker-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/firefly-vitest-diagnostics/
+          retention-days: 7

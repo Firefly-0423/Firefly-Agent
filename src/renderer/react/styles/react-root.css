@@ -1,0 +1,740 @@
+/* ===== 设计变量 ===== */
+:root {
+  /* 对话区阅读宽度：窗口窄时占满，宽时占九成，封顶 1080px；最大化时两侧留白不再大得离谱。消息列表、输入框、交互面板共用 */
+  --ff-reading-width: clamp(560px, 90%, 1080px);
+  --ff-app-titlebar-height: 50px;
+  --ff-workspace-header-height: 48px;
+  --ff-workspace-gutter: 8px;
+  /* 背景 */
+  /* Cool blue-grey ground with lighter cards, as in the ChatGPT/Codex desktop app. */
+  --ff-bg-page: #eff1f5;
+  --ff-bg-workspace: #f5f6f9;
+  --ff-bg-hover: #e6e8ee;
+  --ff-bg-active: #dcdfe7;
+  --ff-surface: #fafbfc;
+  --ff-popover: #f1f2f6;
+
+  /* 边框 */
+  --ff-border: #dfe1e8;
+
+  /* 文字 */
+  --ff-text: #3d3e55;
+  --ff-text-secondary: #5b5c75;
+  --ff-text-muted: #828396;
+  --ff-danger: #c0392b;
+  --ff-success: #3f8f5e;
+
+  /* 强调色 */
+  --ff-accent: #4d4e69;
+  /* Docking guide while a right-side panel is dragged: a light, clear blue on the pale ground, with a soft halo. */
+  --ff-drop-guide: #4688f5;
+  --ff-drop-guide-glow: rgba(70, 136, 245, 0.30);
+  --ff-git-branch: #8b5cf6;
+
+  /* Diagrams (Mermaid): ink text on a soft teal node tint, teal arrows, on the same card surface as tables. */
+  --ff-diagram-bg: var(--ff-surface);
+  --ff-diagram-fg: var(--ff-text);
+  --ff-diagram-muted: var(--ff-text-muted);
+  --ff-diagram-line: color-mix(in srgb, var(--ff-text) 45%, var(--ff-surface));
+  --ff-diagram-accent: var(--ff-glow, #3b9a76);
+  --ff-diagram-node: color-mix(in srgb, var(--ff-glow, #3b9a76) 10%, var(--ff-surface));
+  --ff-diagram-node-border: color-mix(in srgb, var(--ff-glow, #3b9a76) 34%, var(--ff-surface));
+
+  /* 胶囊组件 */
+  --ff-pill-bg: #e6e8ee;
+  --ff-pill-border: #4d4e69;
+  --ff-pill-status: #3d3e55;
+
+  /* 投影 */
+  --ff-shadow-workspace: inset 0 2px 8px rgba(31, 35, 48, 0.04), inset 0 0 2px rgba(31, 35, 48, 0.03);
+  --ff-shadow-bubble-neutral: 2px 2px 3px rgba(31, 35, 48, 0.06), 3px 5px 16px rgba(31, 35, 48, 0.055);
+  --ff-shadow-bubble-accent: 2px 2px 4px rgba(68, 70, 79, 0.12), 3px 7px 16px rgba(68, 70, 79, 0.16);
+  --ff-shadow-control-hover: 2px 2px 5px rgba(31, 35, 48, 0.075), 3px 8px 18px rgba(31, 35, 48, 0.065);
+  --ff-shadow-control-focus: 0 0 0 3px rgba(68, 70, 79, 0.16), 2px 6px 16px rgba(31, 35, 48, 0.08);
+  /* Semantic neutrals and statuses (the dark theme re-declares every one of these). */
+  --ff-bg-subtle: #f0f2f6;
+  --ff-rail: #f3f3f5;
+  --ff-shadow-popover: 0 8px 24px rgb(31 35 48 / 10%);
+  --ff-accent-solid: #4d4e69;
+  --ff-accent-rgb: 77, 78, 105;
+  --ff-on-accent: #ffffff;
+  /* Interaction states, shared by Button and the baseline focus ring. The focus ring is the solid accent (at least 3:1 against every
+     surface in both themes); a translucent accent fell to about 2:1 in the light theme. Primary buttons get their own background so the
+     white label keeps 4.5:1 in the dark theme, where --ff-accent-solid is too light for text. */
+  --ff-focus-ring-color: var(--ff-accent);
+  --ff-focus-ring: 2px solid var(--ff-focus-ring-color);
+  --ff-primary-bg: var(--ff-accent-solid);
+  --ff-primary-bg-hover: color-mix(in srgb, var(--ff-primary-bg) 88%, black);
+  --ff-primary-bg-active: color-mix(in srgb, var(--ff-primary-bg) 78%, black);
+  --ff-disabled-opacity: 0.5;
+  --ff-state-duration: 120ms;
+  --ff-success: #3f8f5e;
+  --ff-warning: #9a6a12;
+  --ff-add-bg: #e6ffec;
+  --ff-add-fg: #116329;
+  --ff-del-bg: #ffebe9;
+  --ff-del-fg: #cf222e;
+  --ff-info-bg: #ddf4ff;
+  --ff-info-fg: #0550ae;
+  --ff-scrim: rgba(31, 35, 48, 0.32);
+  /* 滚动条滑块：随主题的次要文字色取淡色，悬停加深，拖动时用强调色。 */
+  --ff-scroll-thumb: color-mix(in srgb, var(--ff-text-muted) 34%, transparent);
+  --ff-scroll-thumb-hover: color-mix(in srgb, var(--ff-text-muted) 64%, transparent);
+  color-scheme: light;
+}
+
+/* ===== Firefly dark: ink-green ground, firefly-glow mint accent ===== */
+:root[data-ui-theme="firefly-dark"] {
+  color-scheme: dark;
+  --ff-bg-page: #152420;
+  --ff-bg-workspace: #192a24;
+  --ff-bg-subtle: #213530;
+  --ff-rail: #12201b;
+  --ff-shadow-popover: 0 14px 36px rgba(0, 0, 0, 0.55);
+  --ff-bg-hover: #243a32;
+  --ff-bg-active: #2c463c;
+  --ff-surface: #1d302a;
+  --ff-popover: #20342d;
+  --ff-border: #2f4840;
+  /* Text a step below white: bright mint-white on near-black read heavy and glared. */
+  --ff-text: #d5e0db;
+  --ff-text-secondary: #a9bbb2;
+  --ff-text-muted: #7f938a;
+  --ff-accent: #7bd8ae;
+  /* Firefly gold: the warm complement of the ink-green ground, like a glowing firefly against the night, and it keeps mint for the accent. */
+  --ff-drop-guide: #f3c969;
+  --ff-drop-guide-glow: rgba(243, 201, 105, 0.34);
+  --ff-git-branch: #b9a4ff;
+  --ff-accent-solid: #3b9a76;
+  --ff-primary-bg: #318364;
+  --ff-accent-rgb: 123, 216, 174;
+  --ff-on-accent: #ffffff;
+  --ff-danger: #f28b82;
+  --ff-success: #6fd6a4;
+  --ff-warning: #e8c36a;
+  --ff-add-bg: rgba(63, 185, 120, 0.16);
+  --ff-add-fg: #7ee2a8;
+  --ff-del-bg: rgba(240, 110, 110, 0.16);
+  --ff-del-fg: #f4a3a3;
+  --ff-info-bg: rgba(90, 170, 230, 0.16);
+  --ff-info-fg: #9bcdf2;
+  --ff-scrim: rgba(0, 0, 0, 0.55);
+  --ff-pill-bg: #243a32;
+  --ff-pill-border: #7bd8ae;
+  --ff-pill-status: #e4eee9;
+  --ff-shadow-workspace: inset 0 2px 8px rgba(0, 0, 0, 0.25), inset 0 0 2px rgba(0, 0, 0, 0.2);
+  --ff-shadow-bubble-neutral: 0 1px 2px rgba(0, 0, 0, 0.35), 0 6px 20px rgba(0, 0, 0, 0.28);
+  --ff-shadow-bubble-accent: 0 1px 2px rgba(0, 0, 0, 0.35), 0 6px 20px rgba(0, 0, 0, 0.3);
+  --ff-shadow-control-hover: 0 2px 6px rgba(0, 0, 0, 0.35), 0 8px 22px rgba(0, 0, 0, 0.3);
+  --ff-shadow-control-focus: 0 0 0 3px rgba(123, 216, 174, 0.22), 0 6px 18px rgba(0, 0, 0, 0.3);
+}
+
+/* ===== 滚动条：10px 透明轨道里一根 6px 的圆角细滑块，不占视觉位置 ===== */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  min-width: 36px;
+  min-height: 36px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-color: var(--ff-scroll-thumb);
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--ff-scroll-thumb-hover);
+}
+*::-webkit-scrollbar-thumb:active {
+  background-color: var(--ff-accent);
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* 界面基础字号来自外观设置（默认 16px，与原 body 字号一致）。 */
+body {
+  font-size: var(--ff-ui-font-size, 16px);
+}
+
+#firefly-react-root {
+  width: 100%;
+  height: 100%;
+}
+
+.ff-page {
+  height: 100vh;
+  width: 100vw;
+  background: var(--ff-bg-page);
+  box-sizing: border-box;
+  padding: var(--ff-app-titlebar-height) var(--ff-workspace-gutter) var(--ff-workspace-gutter) var(--ff-workspace-gutter);
+  position: relative;
+  display: flex;
+  gap: 0;
+  transition: padding 0.25s ease;
+  border: 1px solid var(--ff-border);
+  border-radius: 12px;
+  overflow: hidden;
+  user-select: none;
+  app-region: drag;
+  animation: ff-page-in 260ms ease both;
+}
+
+/* 只淡入、不位移：工作区里的原生浏览器视图按页面元素的实际矩形定位。 */
+@keyframes ff-page-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ff-page { animation: none; }
+}
+
+/* 最大化：贴满工作区，去掉圆角和描边。原生拖动区在此状态下拖不动还原，
+   所以关掉它，由 useMaximizedWindowDrag 接管拖动与双击还原。 */
+:root[data-window-maximized="true"] .ff-page {
+  border-radius: 0;
+  border-color: transparent;
+  app-region: no-drag;
+}
+:root[data-window-maximized="true"] .ff-workspace-header {
+  app-region: no-drag;
+}
+
+.ff-page button,
+.ff-page a,
+.ff-page input,
+.ff-page select,
+.ff-page textarea,
+.ff-workspace {
+  app-region: no-drag;
+}
+
+.ff-file-drop-overlay {
+  position: absolute;
+  z-index: 20;
+  inset: 10px;
+  display: grid;
+  place-items: center;
+  border: 2px dashed var(--ff-accent);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 88%);
+  color: var(--ff-accent);
+  font: 600 15px/1.4 var(--rb-font-sans, sans-serif);
+  pointer-events: none;
+  backdrop-filter: blur(3px);
+}
+
+.ff-file-drop-overlay span {
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: var(--ff-surface);
+  box-shadow: 0 8px 24px rgb(136 57 239 / 16%);
+}
+
+.ff-page.is-collapsed {
+  padding-left: var(--ff-workspace-gutter);
+}
+
+.ff-page-titlebar {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 50;
+  height: var(--ff-app-titlebar-height);
+  pointer-events: none;
+}
+.ff-page-titlebar > * { pointer-events: auto; }
+
+.ff-page-toggle {
+  position: absolute;
+  top: 9px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Caption buttons sit flush in the window's top-right corner, as on a native Windows title bar. */
+.ff-page-windows {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+/* 用户头像与设置按钮已移入 .ff-page-sidebar-bottom */
+
+/* 侧边栏父容器：宽度固定、内部纵向 flex，主区占剩余空间，随窗口缩放 */
+.ff-page-sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 240px;
+  flex-shrink: 0;
+  min-height: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* The list reads as its own panel: a hairline on its left edge, curving at both ends, separates it from the activity rail
+   (and the workspace card's own edge closes it on the right) so the rail, the list and the conversation are three layers. */
+.ff-page-sidebar:not(.is-floating) {
+  box-sizing: border-box;
+  border-left: 1px solid var(--ff-border);
+  border-radius: 12px 0 0 12px;
+  padding-left: 8px;
+}
+
+.ff-page-sidebar.is-floating {
+  position: absolute;
+  top: var(--ff-app-titlebar-height);
+  bottom: 8px;
+  left: calc(var(--ff-workspace-gutter) + 48px);
+  z-index: 40;
+  padding: 8px;
+  box-sizing: border-box;
+  border: 1px solid var(--ff-border);
+  border-radius: 12px;
+  background: var(--ff-bg-page);
+  box-shadow: var(--ff-shadow-popover);
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity 0.18s ease, visibility 0s linear 0.18s;
+}
+.ff-sidebar-hover-corridor {
+  position: absolute;
+  left: -10px;
+  width: 10px;
+  top: 0;
+  bottom: 0;
+  app-region: no-drag;
+}
+.ff-page-sidebar.is-floating.is-peeking {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.ff-page-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  /* 右上角的右侧面板开关以此定位锚点 */
+  position: relative;
+}
+
+/* 聊天标题行与右工作区标签行共用高度，内容各自滚动。 */
+.ff-workspace-header {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex: 0 0 var(--ff-workspace-header-height);
+  app-region: drag;
+  align-items: center;
+  gap: 12px;
+  height: var(--ff-workspace-header-height);
+  min-width: 0;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--ff-border);
+  background: var(--ff-bg-workspace);
+}
+.ff-workspace-header__title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ff-text);
+  font: 500 13px/1.3 var(--rb-font-sans, sans-serif);
+}
+.ff-workspace-header__actions {
+  display: flex;
+  app-region: no-drag;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+/* "打开"按钮与面板开关之间的竖分割线 */
+.ff-inspector-toggle-divider {
+  width: 1px;
+  height: 16px;
+  flex-shrink: 0;
+  background: var(--ff-border, #eceef3);
+}
+
+/* 全局文字选中：用应用粉色强调色替代浏览器默认蓝 */
+::selection {
+  background: rgba(var(--ff-accent-rgb), 0.24);
+  color: inherit;
+}
+
+/* ── 右栏可拖宽布局（react-resizable-panels）── */
+
+/* Group 容器：替代 .ff-page-main 成为 .ff-page 的弹性子项 */
+.ff-page-dock {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* 右侧面板打开时，对话栏（消息列表、输入框）用固定宽度并居中：拖动分隔条只改变两侧留白，
+   对话栏本身不随之伸缩（和 Codex 一致）；面板收起时仍按上面的响应式阅读宽度。 */
+.ff-page-dock.has-inspector {
+  --ff-reading-width: clamp(480px, 100%, 880px);
+}
+
+/* Panel 内层容器：撑满面板，承载工作区 / 右侧面板 */
+.ff-dock-body {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* 细分隔线；拖拽命中区由 Panel Group 单独提供，不占用粗色带。 */
+.ff-dock-separator {
+  position: relative;
+  width: 4px;
+  background: transparent;
+}
+
+.ff-dock-separator::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  border-radius: 1px;
+  background: var(--ff-border);
+  transition: background 0.12s ease;
+}
+
+.ff-dock-separator:hover::after,
+.ff-dock-separator:active::after {
+  background: var(--ff-accent);
+}
+
+/* "新对话" is a plain row like Codex's "新聊天": no fill until hovered, its icon and text lined up with the conversations. */
+.ff-page-newtask {
+  display: flex;
+  align-items: center;
+  margin-top: 2px;
+  padding: 0 2px;
+  flex-shrink: 0;
+}
+.ff-page-newtask > .ff-side-action {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 32px;
+  gap: 8px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ff-text);
+  transition: background-color 150ms ease;
+}
+.ff-page-newtask > .ff-side-action:hover { background: var(--ff-bg-hover); }
+.ff-page-newtask .ff-side-action-icon { width: 16px; height: 16px; }
+.ff-page-newtask .ff-side-action-label { font: 400 13.5px/1 var(--rb-font-sans, sans-serif); }
+/* Temporary chat: a quiet icon button at the right end of the "新对话" row. */
+.ff-page-newtask__temporary {
+  display: grid; flex: none; width: 28px; height: 28px; margin-left: 2px; place-items: center; padding: 0;
+  border: 0; border-radius: 8px; background: transparent; color: var(--ff-text-muted); cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.ff-page-newtask__temporary:hover { background: var(--ff-bg-hover); color: var(--ff-text); }
+.ff-page-newtask__temporary:focus-visible { outline: 2px solid var(--ff-accent); outline-offset: 1px; }
+
+.ff-page-conversations {
+  flex: 1;
+  min-height: 0;
+  margin-top: 8px;
+  overflow: hidden;
+  app-region: no-drag;
+}
+
+.ff-workspace {
+  width: 100%;
+  height: 100%;
+  background: var(--ff-bg-workspace);
+  border-radius: 12px;
+  border: 0;
+  box-shadow: none;
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ff-workspace-composer {
+  position: relative;
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  justify-content: center;
+  padding: 22px 28px;
+  flex-shrink: 0;
+  transition: padding 240ms ease;
+}
+
+.ff-workspace-composer__scroll-to-bottom {
+  position: absolute;
+  top: -50px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--ff-surface, rgba(255, 255, 255, 0.92));
+  color: var(--ff-text-primary, #4c3762);
+  box-shadow: 0 4px 14px rgba(76, 55, 98, 0.18);
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  backdrop-filter: blur(6px);
+}
+
+.ff-workspace-composer__scroll-to-bottom:hover {
+  background: var(--ff-bg-hover);
+  opacity: 1;
+}
+
+.ff-workspace-composer__scroll-to-bottom:active {
+  transform: translate(-50%, 0);
+}
+
+.ff-workspace-composer__scroll-to-bottom .anticon {
+  font-size: 16px;
+}
+
+.ff-workspace.is-empty .ff-workspace-composer {
+  flex: 0 0 auto;
+  margin-top: auto;
+  align-items: flex-end;
+}
+
+.ff-workspace.has-messages .ff-workspace-composer {
+  padding: 22px 24px;
+}
+
+/* Empty conversation: the greeting is centred in the free space above the docked composer. */
+.ff-workspace-greeting { display: none; }
+/* The code rain paints behind the new-session page; the greeting and composer stay above it. */
+.ff-workspace.is-empty .ff-workspace-greeting { position: relative; z-index: 1; }
+.ff-workspace.is-empty .ff-workspace-composer { z-index: 1; }
+.ff-workspace.is-empty .ff-workspace-greeting {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+  margin: 0;
+  padding: 0 28px;
+  text-align: center;
+}
+.ff-workspace-greeting__title {
+  margin: 0;
+  color: var(--ff-text);
+  font: 600 26px/1.35 var(--rb-font-sans, sans-serif);
+  letter-spacing: -0.01em;
+}
+.ff-temporary-chat-banner {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  margin: 0 auto 8px; padding: 4px 12px; width: fit-content; max-width: calc(100% - 32px);
+  border-radius: 999px; background: var(--ff-surface-muted, rgba(127, 127, 127, 0.12));
+  color: var(--ff-text-muted); font: 400 12px/1.5 var(--rb-font-sans, inherit);
+}
+.ff-workspace-greeting__hint { margin: 6px 0 0; color: var(--ff-text-muted); font: 400 13px/1.5 var(--rb-font-sans, sans-serif); }
+/* Like the Codex window: the greeting takes the free space and the composer stays docked at the bottom,
+   so sending the first message does not move it. */
+.ff-workspace.is-empty .ff-workspace-composer {
+  margin: 0;
+  padding: 22px 24px;
+  align-items: flex-end;
+}
+
+.ff-compressing-context {
+  position: absolute;
+  right: 24px;
+  bottom: 120px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  color: var(--ff-text);
+  font-size: 13px;
+  pointer-events: none;
+  animation: ff-compressing-fade-in 0.25s ease;
+  z-index: 10;
+}
+
+@keyframes ff-compressing-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ff-compressing-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+/* Portrait next to the sidebar toggle, with the model connection dot. */
+.ff-page-role { position: relative; width: 30px; height: 30px; }
+.ff-page-role-avatar { display: block; width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
+.ff-model-connection {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+.ff-model-connection__dot {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--ff-bg-page);
+  border-radius: 50%;
+  background: #8a8f98;
+}
+.ff-model-connection[data-state="connected"] .ff-model-connection__dot,
+.ff-model-connection[data-state="configured"] .ff-model-connection__dot { background: #238636; }
+.ff-model-connection[data-state="failed"] .ff-model-connection__dot { background: var(--ff-danger); }
+/* The 24px hit area is almost empty: the visible part is the 14px status dot on the portrait's corner. Drawing the ring on the whole button
+   put a large circle off-centre over the portrait, so the ring goes on the dot instead. */
+.ff-page-role .ff-model-connection:focus-visible { outline: none; }
+.ff-page-role .ff-model-connection:focus-visible .ff-model-connection__dot { outline: var(--ff-focus-ring); outline-offset: 1px; }
+.ff-model-connection__text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+/* Hover strip that unfolds the hidden sidebar. */
+/* The activity rail stays put, so the strip that unfolds the hidden sidebar runs along the rail's right edge. */
+.ff-page-edge { position: absolute; top: var(--ff-app-titlebar-height); bottom: 0; left: calc(var(--ff-workspace-gutter) + 48px); z-index: 39; width: 10px; app-region: no-drag; }
+.ff-page button:focus-visible {
+  outline: 2px solid var(--ff-accent);
+  outline-offset: 2px;
+}
+.ff-page-dock.is-compact .ff-dock-separator { height: 4px; width: 100%; }
+.ff-page-dock.is-compact .ff-dock-separator::after {
+  inset: 50% 0 auto;
+  width: 100%;
+  height: 1px;
+  transform: translateY(-50%);
+}
+.ff-dock-separator:focus-visible::after { background: var(--ff-accent); }
+
+@media (max-width: 900px) {
+  /* The narrow overlay opens right of the activity rail, never over it: the rail holds the only panel entries. */
+  .ff-page-sidebar {
+    position: absolute;
+    top: var(--ff-app-titlebar-height);
+    bottom: 8px;
+    left: calc(var(--ff-workspace-gutter) + 48px);
+    z-index: 40;
+    box-sizing: border-box;
+    padding: 8px;
+    border: 1px solid var(--ff-border);
+    border-radius: 12px;
+    background: var(--ff-bg-page);
+    box-shadow: var(--ff-shadow-control-hover);
+    app-region: no-drag;
+  }
+  .ff-workspace-composer,
+  .ff-workspace.has-messages .ff-workspace-composer { padding: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ff-page, .ff-page-sidebar { transition: none; }
+}
+
+.ff-page-dock.is-compact .ff-workspace-composer { padding: 12px; }
+.ff-page-dock.is-compact textarea.ant-sender-input { max-height: min(120px, 12vh) !important; overflow-y: auto !important; }
+.ff-page-dock.is-compact .ff-message-list { padding: 12px; }
+
+.ff-workspace, .ff-right-inspector { box-sizing: border-box; }
+
+.ff-sidebar-resizer { position: relative; width: 4px; flex: 0 0 4px; cursor: col-resize; touch-action: none; app-region: no-drag; border-radius: 12px; }
+.ff-sidebar-resizer::after { content: ""; position: absolute; inset: 0 auto 0 50%; width: 1px; background: var(--ff-border); }
+.ff-sidebar-resizer:hover::after, .ff-sidebar-resizer.is-resizing::after { background: var(--ff-text-muted); }
+.ff-sidebar-resizer:focus-visible { outline: 2px solid var(--ff-accent); outline-offset: 2px; }
+/* Same scale as the run results below it: 13px text, a compact button, and the panel's 16px side padding. */
+.ff-workspace-empty { padding: 12px 16px 4px; color: var(--ff-text-muted); font: 400 13px/1.6 var(--rb-font-sans, sans-serif); }
+.ff-workspace-empty p { margin: 0 0 8px; }
+.ff-workspace-empty button { padding: 5px 10px; border: 1px solid var(--ff-border); border-radius: 8px; background: var(--ff-surface); color: var(--ff-text); cursor: pointer; font: 500 12.5px/1.4 var(--rb-font-sans, sans-serif); }
+:root[data-ui-colors] .ff-compressing-context,
+:root[data-ui-colors] .ff-workspace-empty button {
+  background: var(--ff-bg-workspace);
+}
+.ant-popover-inner, .ant-dropdown-menu, .ant-modal-content, .ant-sender, .ant-input, .ant-input-affix-wrapper, .ant-select-selector, .ant-tooltip-inner { border-radius: 12px !important; }
+@media (max-width: 900px) { .ff-sidebar-resizer { display: none; } }
+
+.ff-right-inspector .ff-code-git--docked:not(.ff-code-git--collapsed) .ff-code-git__body { max-height: none; }
+
+ .ff-right-inspector .ff-code-git.ff-code-git--docked { height: 100%; }
+
+.ff-page-sidebar > .ff-sidebar-resizer { position: absolute; top: 8px; bottom: 8px; right: -3px; width: 6px; display: block; }
+
+/* ===== Popover and menu language (user menu, "more" menu, mode picker, dropdowns) =====
+   One rounded, softly shadowed surface with quiet rows, shared by hand-built and antd menus. */
+.ant-popover .ant-popover-inner,
+.ant-dropdown .ant-dropdown-menu,
+.ant-select-dropdown {
+  padding: 6px;
+  border: 1px solid rgba(var(--ff-accent-rgb), 0.08);
+  border-radius: 16px;
+  background: var(--ff-popover, #f1f2f6);
+  box-shadow: 0 10px 34px rgba(61, 62, 85, 0.14), 0 1px 3px rgba(61, 62, 85, 0.06);
+}
+.ant-dropdown .ant-dropdown-menu-item,
+.ant-select-dropdown .ant-select-item {
+  min-height: 34px;
+  border-radius: 10px;
+  color: var(--ff-text-secondary, var(--ff-text));
+  font: 500 13px/1.4 var(--rb-font-sans, sans-serif);
+}
+.ant-dropdown .ant-dropdown-menu-item:hover,
+.ant-select-dropdown .ant-select-item-option-active:not(.ant-select-item-option-disabled) { background: var(--ff-bg-hover); color: var(--ff-text); }
+.ant-select-dropdown .ant-select-item-option-selected:not(.ant-select-item-option-disabled) { background: var(--ff-bg-active); color: var(--ff-text); font-weight: 600; }
+
+.ff-page button:focus-visible { outline: var(--ff-focus-ring); outline-offset: 1px; }
+
+/* Baseline keyboard focus ring for every interactive element that has no ring of its own. :where() keeps the specificity at zero, so any
+   component rule (including ones that deliberately draw their own ring) still wins. Text inputs keep their existing :focus styling. */
+:where(button, a[href], summary, select, [role="button"], [role="tab"], [role="menuitem"], [role="menuitemradio"], [role="option"], [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: var(--ff-focus-ring);
+  outline-offset: 2px;
+}
+
+/* The slate custom-endpoint icon turns Firefly green in the dark theme. */
+:root[data-ui-theme="firefly-dark"] img[src$="custom-endpoint.svg"] { filter: hue-rotate(-85deg) saturate(3) brightness(1.9); }

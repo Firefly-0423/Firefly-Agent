@@ -1,0 +1,32 @@
+/* Wrapper that gives the pill a positioned box the same size as the scrolling conversation. */
+.ff-message-scroll {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.ff-scroll-pill {
+  position: fixed;
+  z-index: 30;
+  width: 4px;
+  border-radius: 999px;
+  background: var(--ff-scroll-thumb);
+  opacity: 0;
+  cursor: default;
+  touch-action: none;
+  transition: opacity 180ms ease, width 120ms ease, background-color 120ms ease;
+}
+
+.ff-scroll-pill.is-active { opacity: 1; }
+.ff-scroll-pill:hover { width: 6px; background: var(--ff-scroll-thumb-hover); }
+.ff-scroll-pill:active { background: var(--ff-accent); }
+
+/* The pill replaces the native bar, whose thumb grew with the content and sat against the overview cards. */
+.ff-message-scroll > .ff-message-list { scrollbar-width: none; }
+.ff-message-scroll > .ff-message-list::-webkit-scrollbar { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ff-scroll-pill { transition: none; }
+}

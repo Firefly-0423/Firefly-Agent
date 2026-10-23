@@ -1,0 +1,40 @@
+name: plugin-sdk
+
+on:
+  push:
+    branches: [main, firefly-mini-v1.1.x]
+  pull_request:
+    branches: [main, chore/project-structure-finalize, firefly-mini-v1.1.x]
+
+permissions:
+  contents: read
+
+# 同一分支上新提交到达后，旧提交还没跑完的运行没有意义，取消它们，释放运行器、减少偶发停顿的暴露面。
+# push 与 pull_request 分开计组：二者各自保留，PR 上的必需检查不会被另一类事件的运行取消；main 上的每次推送都完整跑完。
+concurrency:
+  group: plugin-sdk-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Install dependencies
+        run: npm ci --foreground-scripts
+
+      # 打包质量校验：Schema 无漂移、vendored 契约无漂移、包内容与内部路径检查、双入口加载
+      - name: Build and verify SDK package
+        run: npm run check:plugin-sdk
+
+      # 端到端：从打包产物（而非源码）编译四个示例插件并冒烟测试
+      - name: Compile and smoke-test plugin examples
+        run: npm run test:plugin-examples

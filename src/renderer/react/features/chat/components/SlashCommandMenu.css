@@ -1,0 +1,34 @@
+/* Zero-height anchor right above the composer card; the menu opens upward from it. */
+.ff-slash-anchor { position: relative; z-index: 20; height: 0; }
+
+.ff-slash-menu {
+  position: absolute;
+  bottom: 6px;
+  left: 0;
+  right: 0;
+  max-height: 300px;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  border: 1px solid var(--ff-border);
+  border-radius: 12px;
+  background: var(--ff-popover, var(--ff-surface));
+  box-shadow: var(--ff-shadow-popover);
+  list-style: none;
+}
+
+.ff-slash-menu__item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  padding: 7px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font: 400 13px/1.4 var(--rb-font-sans, sans-serif);
+}
+
+.ff-slash-menu__item.is-active { background: var(--ff-bg-hover); }
+.ff-slash-menu__name { flex: none; color: var(--ff-text); font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; }
+.ff-slash-menu__desc { min-width: 0; flex: 1; overflow: hidden; color: var(--ff-text-muted); text-overflow: ellipsis; white-space: nowrap; }
+.ff-slash-menu__kind { flex: none; color: var(--ff-text-muted); font-size: 11px; }

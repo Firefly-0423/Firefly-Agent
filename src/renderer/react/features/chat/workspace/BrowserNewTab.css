@@ -1,0 +1,81 @@
+/* New-tab page: the browser's light surface, two headed groups of round-cornered tiles that wrap. */
+.ff-browser-newtab {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 20px 16px 16px;
+  overflow-y: auto;
+  background: var(--ff-bg-workspace, var(--ff-surface));
+  color: var(--ff-text);
+}
+.ff-browser-newtab[data-disabled] { opacity: .55; pointer-events: none; }
+.ff-browser-newtab section + section { margin-top: 22px; }
+.ff-browser-newtab h3 {
+  margin: 0 0 8px;
+  padding: 0 4px;
+  color: var(--ff-text-muted);
+  font: 600 12px/1.3 var(--rb-font-sans, sans-serif);
+}
+/* Tools: full-width rows, one per workspace entry point. */
+.ff-browser-newtab__tools { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.ff-browser-newtab__tool {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 1px solid var(--ff-border);
+  border-radius: 12px;
+  background: var(--ff-bg-page, var(--ff-surface));
+  color: inherit;
+  font: 500 13px/1.3 var(--rb-font-sans, sans-serif);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+.ff-browser-newtab__tool:hover { background: var(--ff-bg-hover); }
+.ff-browser-newtab__tool:active { background: var(--ff-bg-active); }
+.ff-browser-newtab__tool:focus-visible { outline: 2px solid var(--ff-accent); outline-offset: 2px; }
+.ff-browser-newtab__tool-icon { display: inline-flex; flex: 0 0 auto; color: var(--ff-text-muted); }
+.ff-browser-newtab__tool-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ff-browser-newtab__row { display: flex; flex-wrap: wrap; gap: 4px; }
+.ff-browser-newtab__tile {
+  display: flex;
+  flex: 0 0 84px;
+  width: 84px;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 4px 8px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: inherit;
+  font: 500 12px/1.3 var(--rb-font-sans, sans-serif);
+  cursor: pointer;
+  transition: background-color 150ms ease, transform 150ms ease;
+}
+.ff-browser-newtab__tile:hover { background: var(--ff-bg-hover); }
+.ff-browser-newtab__tile:active { background: var(--ff-bg-active); transform: scale(0.97); }
+.ff-browser-newtab__tile:focus-visible { outline: 2px solid var(--ff-accent); outline-offset: 2px; }
+.ff-browser-newtab__icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid var(--ff-border);
+  border-radius: 14px;
+  background: var(--ff-bg-page, var(--ff-surface));
+  color: var(--ff-text);
+  font: 650 17px/1 var(--rb-font-sans, sans-serif);
+}
+.ff-browser-newtab__name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ff-browser-newtab__icon[data-favicon] { background: white; }
+.ff-browser-newtab__icon img { width: 26px; height: 26px; object-fit: contain; }
+@media (prefers-reduced-motion: reduce) {
+  .ff-browser-newtab__tile { transition: none; }
+  .ff-browser-newtab__tool { transition: none; }
+  .ff-browser-newtab__tile:active { transform: none; }
+}

@@ -1,0 +1,26 @@
+const fs = require("node:fs");
+const path = require("node:path");
+const { createHash } = require("node:crypto");
+const { execFileSync } = require("node:child_process");
+
+function workspace(planFile) {
+  const plan = fs.realpathSync(planFile);
+  if (!fs.statSync(plan).isFile()) throw new Error("PLAN_NOT_FILE");
+  const root = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8", windowsHide: true }).trim();
+  const directory = path.join(root, ".firefly", "sdd", createHash("sha256").update(plan).digest("hex").slice(0, 24));
+  const chain = [path.join(root, ".firefly"), path.join(root, ".firefly", "sdd"), directory];
+  for (const part of chain) {
+    if (fs.existsSync(part) && fs.lstatSync(part).isSymbolicLink()) throw new Error("WORKSPACE_LINK");
+    fs.mkdirSync(part, { recursive: true });
+  }
+  const ignore = path.join(root, ".firefly", "sdd", ".gitignore");
+  if (!fs.existsSync(ignore)) fs.writeFileSync(ignore, "*\n", { flag: "wx" });
+  return directory;
+}
+module.exports = workspace;
+if (require.main === module) {
+  try {
+    if (process.argv.length !== 3) throw new Error("USAGE: node sdd-workspace PLAN_FILE");
+    console.log(workspace(process.argv[2]));
+  } catch (error) { console.error(error.message); process.exitCode = 1; }
+}

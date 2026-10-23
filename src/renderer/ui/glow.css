@@ -1,0 +1,160 @@
+/* Firefly glow: the light theme stays ink-grey, with the dark theme's firefly teal as a small accent on what shows
+   state or feedback (sliders, switches, checks, the selected option or page, focus rings, running dots, the code
+   rain's ripple). Buttons, text and links keep the ink accent. Under the dark theme the glow is simply the accent,
+   so nothing there changes; custom colours override --ff-glow along with the accent. */
+:root {
+  --ff-glow: #3b9a76;
+  --ff-glow-soft: #5cc49b;
+  --ff-glow-rgb: 59, 154, 118;
+}
+:root[data-ui-theme="firefly-dark"] {
+  --ff-glow: var(--ff-accent, #7bd8ae);
+  --ff-glow-soft: var(--ff-accent, #7bd8ae);
+  --ff-glow-rgb: var(--ff-accent-rgb, 123, 216, 174);
+}
+
+:root[data-ui-theme="pearl-white"] {
+  --rb-slider-fill: var(--ff-glow);
+  --rb-toggle-on: var(--ff-glow);
+  --ff-shadow-control-focus: 0 0 0 3px rgba(var(--ff-glow-rgb), 0.2), 2px 6px 16px rgba(31, 35, 48, 0.08);
+}
+
+/* Sliders: the travelled part of the track and the thumb's ring. Settings sliders get --ff-range-fill from
+   settings/shared/range-fill.ts as they move. */
+:root[data-ui-theme="pearl-white"] input[type="range"] { accent-color: var(--ff-glow); }
+:root[data-ui-theme="pearl-white"] :is(.range-row, .setting-row, .tts-field) input[type="range"] {
+  background: linear-gradient(90deg, var(--ff-glow-soft) var(--ff-range-fill, 0%), #e6e8ee var(--ff-range-fill, 0%));
+  border-color: #c9ccd6;
+}
+:root[data-ui-theme="pearl-white"] :is(.range-row, .setting-row, .tts-field) input[type="range"]::-webkit-slider-thumb {
+  border: 2px solid var(--ff-glow);
+  box-shadow: 0 2px 7px rgba(var(--ff-glow-rgb), 0.22);
+}
+:root[data-ui-theme="pearl-white"] .ff-effort-bar__fill { background: var(--ff-glow); }
+:root[data-ui-theme="pearl-white"] .ff-effort-bar:focus-visible { box-shadow: 0 0 0 3px rgba(var(--ff-glow-rgb), 0.3); }
+
+/* Switches, checkboxes, radios and progress. */
+:root[data-ui-theme="pearl-white"] :is(.switch input:checked + .switch__track, .plugin-switch input:checked + span) { background: var(--ff-glow); }
+:root[data-ui-theme="pearl-white"] :is(input[type="checkbox"], input[type="radio"], progress) { accent-color: var(--ff-glow); }
+
+/* The selected option or page: a teal edge or ring instead of a solid ink block. */
+:root[data-ui-theme="pearl-white"] :is(.option-block, .language-option).is-active,
+:root[data-ui-theme="pearl-white"] :is(.option-block, .language-option).is-active:not(:disabled):hover {
+  color: #2c7a5d;
+  background: #ffffff;
+  border-color: #9fdcc2;
+  box-shadow: inset 0 0 0 1px #9fdcc2;
+}
+:root[data-ui-theme="pearl-white"] .nav-item.is-active { color: var(--rb-pink-700); box-shadow: inset 2px 0 var(--ff-glow); }
+:root[data-ui-theme="pearl-white"] .ff-permission-panel__option.is-active { border-color: rgba(var(--ff-glow-rgb), 0.4); background: rgba(var(--ff-glow-rgb), 0.07); }
+:root[data-ui-theme="pearl-white"] .ff-interaction-panel__options button.is-selected { border-color: rgba(var(--ff-glow-rgb), 0.5); }
+:root[data-ui-theme="pearl-white"] :is(.ff-model-list__item > svg, .ff-effort__value) { color: var(--ff-glow); }
+
+/* The send button: the one place a button takes the glow, since sending is what lights Firefly up. */
+:root[data-ui-theme="pearl-white"] .ff-composer .ant-sender-actions-btn:not(:disabled) { background: var(--ff-glow); color: #ffffff; }
+:root[data-ui-theme="pearl-white"] .ff-composer .ant-sender-actions-btn:not(:disabled):hover { background: color-mix(in srgb, var(--ff-glow) 88%, #000000); }
+
+/* Focus rings and things that are running or listening. */
+:root[data-ui-theme="pearl-white"] :focus-visible { outline-color: var(--ff-glow); }
+:root[data-ui-theme="pearl-white"] .settings-shell :is(button, input, select, textarea, a):focus-visible { outline-color: var(--ff-glow); }
+:root[data-ui-theme="pearl-white"] :is(.ff-overview-list__pulse, .ff-panel-sidebar__dot.is-on) { background: var(--ff-glow); }
+:root[data-ui-theme="pearl-white"] .ff-composer__mic[aria-pressed="true"] { background: rgba(var(--ff-glow-rgb), 0.14); color: var(--ff-glow); }
+
+/* The code rain reads this for the glyphs a ripple lights up. */
+.ff-code-rain { --ff-code-rain-glow: var(--ff-glow-soft); }
+
+/* ===== Theme switch: the window cross-fades between the two palettes (ui/theme.ts starts the view transition). */
+::view-transition-old(root),
+::view-transition-new(root) { animation-duration: 280ms; animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+
+/* ===== Dark theme, quieter =====
+   Cards rest on a slightly lifted surface instead of outlined boxes, disclosure chevrons are muted rather than
+   mint, and the composer and cards only show a border on hover or focus. */
+:root[data-ui-theme="firefly-dark"] .ff-overview-card { border-color: transparent; background: #1f332c; }
+:root[data-ui-theme="firefly-dark"] .ff-overview-card:hover { border-color: #2f4840; }
+:root[data-ui-theme="firefly-dark"] .ff-run-activity__chevron { color: var(--ff-text-muted); }
+:root[data-ui-theme="firefly-dark"] .ff-composer-shell { border-color: #2a4038; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28); }
+:root[data-ui-theme="firefly-dark"] .ff-composer-shell:hover { border-color: #36524a; }
+:root[data-ui-theme="firefly-dark"] .ff-composer-shell:focus-within { border-color: rgba(var(--ff-glow-rgb), 0.45); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.32), 0 0 0 3px rgba(var(--ff-glow-rgb), 0.08); }
+:root[data-ui-theme="firefly-dark"] .ff-message--user .ant-bubble-content { background: #284239; color: var(--ff-text); }
+/* Light text on a dark ground looks bolder than the same weight in the light theme; reading text sits a touch finer. */
+:root[data-ui-theme="firefly-dark"] .ff-message-markdown,
+:root[data-ui-theme="firefly-dark"] .ff-message-markdown :is(p, li, td, blockquote) { font-weight: 360; }
+
+/* Dark theme: the ink green frames the window (sidebar, rail, right panel); the conversation in the middle sits on a
+   neutral deep grey with a faint green cast, so the text area reads calm and the two sides carry the colour. */
+:root[data-ui-theme="firefly-dark"] .ff-page-main {
+  --ff-bg-workspace: #1b1e1d;
+  --ff-surface: #222625;
+  --ff-bg-subtle: #262a29;
+  --ff-bg-hover: #2a2f2d;
+  --ff-bg-active: #323836;
+  --ff-popover: #262a29;
+  --ff-border: #333937;
+  background: var(--ff-bg-workspace);
+}
+:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-overview-card { background: #232726; }
+:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-overview-card:hover { border-color: #363c3a; }
+:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-composer-shell { border-color: #313735; }
+:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-message--user .ant-bubble-content { background: #2b3532; }
+/* The overview cards column is the right-hand side when the panel is closed: it keeps the ink green. */
+:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-chat-cards {
+  --ff-bg-workspace: #192a24;
+  --ff-surface: #1d302a;
+  --ff-bg-hover: #243a32;
+  --ff-bg-active: #2c463c;
+  --ff-border: #2f4840;
+  align-self: stretch;
+  background: #152420;
+}
+:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-chat-cards .ff-overview-card { background: #1f332c; }
+:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-chat-cards .ff-overview-card:hover { border-color: #2f4840; }
+
+/* "流萤已处理 N 秒": a hairline under the run header separates the run from the reply below it, in both themes. */
+.ff-run-activity__header { position: relative; }
+.ff-run-activity__header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -6px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--ff-border), color-mix(in srgb, var(--ff-border) 40%, transparent));
+  pointer-events: none;
+}
+
+/* Run header: the row is plain; the chevron is the toggle. Dark gets a stronger hairline. */
+.ff-run-activity__header { cursor: default; }
+.ff-run-activity__header:hover { color: var(--ff-text); }
+.ff-run-activity__toggle {
+  display: grid; flex: none; width: 28px; height: 28px; place-items: center; padding: 0; border: 0; border-radius: 8px;
+  background: transparent; color: var(--ff-text-muted); cursor: pointer; transition: background-color 150ms ease, color 150ms ease;
+}
+.ff-run-activity__toggle:hover { background: var(--ff-bg-hover); color: var(--ff-text); }
+.ff-run-activity__toggle:focus-visible { outline: 2px solid var(--ff-glow, var(--ff-accent)); outline-offset: 1px; }
+.ff-run-activity__toggle .ff-run-activity__chevron { color: inherit; }
+:root[data-ui-theme="firefly-dark"] .ff-run-activity__header::after {
+  background: linear-gradient(90deg, rgba(var(--ff-glow-rgb), 0.28), rgba(var(--ff-glow-rgb), 0.05));
+}
+
+/* Dark pop-ups and composer, after Codex: the same near-black as the conversation, set apart by a clear hairline
+   rather than a lighter fill or a green frame. */
+:root[data-ui-theme="firefly-dark"] { --ff-popover: #1b1e1d; }
+:root[data-ui-theme="firefly-dark"] :is(.ant-popover .ant-popover-inner, .ant-dropdown .ant-dropdown-menu, .ant-select-dropdown) {
+  background: #1b1e1d;
+  border: 1px solid #3b4240;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+:root[data-ui-theme="firefly-dark"] .ant-popover .ant-popover-arrow::before { background: #1b1e1d; }
+:root[data-ui-theme="firefly-dark"] .ant-popover { --ff-bg-hover: #2a2f2d; --ff-bg-active: #323836; --ff-border: #3b4240; }
+:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-composer-shell { background: #1b1e1d; border-color: #3b4240; }
+:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-composer-shell:hover { border-color: #4a524f; }
+:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-composer__project-strip { background: #1b1e1d; border-color: #3b4240; }
+/* This antd version paints the popover on .ant-popover-container (not -inner): give it the same near-black and hairline. */
+:root[data-ui-theme="firefly-dark"] .ant-popover .ant-popover-container {
+  background: #1b1e1d;
+  border: 1px solid #3b4240;
+  border-radius: 16px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+:root[data-ui-theme="firefly-dark"] .ant-popover .ant-popover-container .ant-popover-inner { border: 0; box-shadow: none; background: transparent; }

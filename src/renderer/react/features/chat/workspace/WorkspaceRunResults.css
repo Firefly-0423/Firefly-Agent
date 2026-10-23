@@ -1,0 +1,112 @@
+.ff-workspace-task-panel { height: 100%; overflow: auto; }
+.ff-workspace-task-panel > .ff-code-git.ff-code-git--docked { height: auto; }
+.ff-workspace-results-index { padding: 12px 16px 16px; color: var(--ff-text); }
+.ff-workspace-run-results, .ff-workspace-change-diff { padding: 12px; color: var(--ff-text); overflow: auto; overflow-wrap: anywhere; }
+.ff-workspace-run-results, .ff-workspace-change-diff { height: 100%; box-sizing: border-box; }
+.ff-workspace-results-index h3, .ff-workspace-run-results h3 { margin: 0 0 8px; font: 600 13px/1.2 var(--rb-font-sans, sans-serif); }
+.ff-workspace-results-index p { margin: 0; color: var(--ff-text-muted); font-size: 13px; line-height: 1.5; }
+.ff-workspace-results-index button, .ff-workspace-run-results button { border: 1px solid var(--ff-border); border-radius: 12px; background: var(--ff-bg-page, var(--ff-surface)); color: inherit; cursor: pointer; padding: 6px 10px; }
+.ff-workspace-results-index > button { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; margin: 0 -8px; width: calc(100% + 16px); padding: 7px 8px; border: 0; border-radius: 8px; background: transparent; font-size: 13px; text-align: left; }
+.ff-workspace-results-index > button:hover { background: var(--ff-bg-hover); }
+.ff-workspace-results-index small, .ff-workspace-run-results small { color: var(--ff-text-muted); }
+.ff-workspace-run-results__file { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 8px 0; border-bottom: 1px solid var(--ff-border); }
+.ff-workspace-run-results__file > span { flex: 1 1 100%; }
+.ff-workspace-run-results__avatar { width: 28px; height: 28px; flex: none; border-radius: 50%; object-fit: cover; }
+.ff-workspace-run-results__task { margin: 6px 0 0; }
+.ff-workspace-run-results__text { margin-top: 8px; font-size: 13px; line-height: 1.6; user-select: text; }
+.ff-workspace-run-results__tool p { font-size: 12px; color: var(--ff-text-muted); }
+.ff-workspace-run-results pre { font-size: 12px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ff-workspace-change-diff header { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--ff-border); }
+.ff-workspace-change-diff > p { margin: 8px 0 0; color: var(--ff-text-muted); font-size: 12px; line-height: 1.5; }
+.ff-workspace-run-results__text :is(h1, h2, h3, h4) { margin: 10px 0 6px; font-size: 14px; line-height: 1.4; }
+.ff-workspace-run-results__text :is(p, ul, ol) { margin: 6px 0; }
+
+/* Run steps as a list, like a file list: each tool call, group of calls or delegated task is one bar with a chevron,
+   its label and status; the details open under the bar. The opening animates as in open-claude-ui's thinking block:
+   the body's grid row grows from 0fr to 1fr (200 ms, ease-out-expo) while the chevron turns a quarter. */
+/* No frame and no dividers, like a diff's file list: rows sit on the panel and only light up on hover. */
+
+.ff-run-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; margin: 8px -4px 0; }
+/* A long preview must shrink with an ellipsis, never widen the row past the panel and push the status out of view. */
+.ff-run-row { min-width: 0; }
+
+.ff-workspace-run-results .ff-run-row__head {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; min-height: 32px; padding: 4px 8px;
+  border: 0; border-radius: 8px; background: transparent; color: var(--ff-text); font-size: 13px; text-align: left;
+  transition: background-color 120ms ease;
+}
+.ff-workspace-run-results .ff-run-row__head:hover { background: var(--ff-bg-hover); }
+.ff-workspace-run-results .ff-run-row__head:focus-visible { outline: 2px solid var(--ff-accent, #7c6cf2); outline-offset: -2px; }
+.ff-run-row__chevron { flex: none; color: var(--ff-text-muted); transition: transform 200ms cubic-bezier(0.19, 1, 0.22, 1); }
+.ff-run-row[data-open] > .ff-run-row__head > .ff-run-row__chevron { transform: rotate(90deg); }
+.ff-run-row__head > strong { flex: none; max-width: 45%; overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.ff-run-row__preview { flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--ff-text-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.ff-run-row__count, .ff-run-row__failed { flex: none; color: var(--ff-text-muted); font-size: 12px; }
+.ff-run-row--group .ff-run-row__count { margin-right: auto; }
+.ff-run-row__failed, .ff-run-row__status[data-tool-status="error"] { color: var(--ff-del-fg, #cf222e); }
+.ff-run-row__status { flex: none; margin-left: auto; color: var(--ff-text-muted); font-size: 12px; }
+.ff-run-row__head > .ff-workspace-run-results__avatar { width: 20px; height: 20px; }
+.ff-run-row__body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 200ms cubic-bezier(0.19, 1, 0.22, 1); }
+.ff-run-row[data-open] > .ff-run-row__body { grid-template-rows: 1fr; }
+.ff-run-row__inner { min-height: 0; overflow: hidden; opacity: 0; transition: opacity 160ms ease; }
+.ff-run-row[data-open] > .ff-run-row__body > .ff-run-row__inner { opacity: 1; }
+.ff-run-row__inner > pre { max-height: 320px; margin: 4px 8px 8px 30px; padding: 8px 10px; overflow: auto; border-radius: 8px; background: var(--ff-bg-hover); }
+/* A group's calls sit indented under its bar, as plain lines without a frame of their own. */
+.ff-run-list--nested { margin: 2px 0 4px 22px; }
+
+.ff-workspace-run-results .ff-run-list--nested .ff-run-row__head { min-height: 28px; }
+.ff-run-list--nested .ff-run-row__inner > pre { margin-left: 30px; }
+/* A delegated task opens onto its own result, write evidence and execution trace. */
+.ff-run-row--task > .ff-run-row__body > .ff-run-row__inner { padding: 0 8px 0 30px; }
+.ff-run-row--task[data-open] > .ff-run-row__body > .ff-run-row__inner { padding-bottom: 12px; }
+@media (prefers-reduced-motion: reduce) {
+  .ff-run-row__chevron, .ff-run-row__body, .ff-run-row__inner { transition: none; }
+}
+/* Changed files, like a diff's file list: kind icon, bold file name, its folder dimmed, +added in green and −removed in
+   red; the row opens the diff in place, and the open-file / diff-tab buttons appear at the right end on hover. */
+.ff-run-files { margin-top: 4px; }
+.ff-run-files__title { display: flex; align-items: baseline; gap: 6px; }
+.ff-run-files__title > span { color: var(--ff-text-muted); font-weight: 400; font-size: 12px; }
+.ff-run-row__bar { display: flex; align-items: center; min-width: 0; border-radius: 8px; transition: background-color 120ms ease; }
+.ff-run-row__bar:hover { background: var(--ff-bg-hover); }
+.ff-workspace-run-results .ff-run-row__bar > .ff-run-row__head { flex: 1; min-width: 0; }
+.ff-workspace-run-results .ff-run-row__bar > .ff-run-row__head:hover { background: transparent; }
+.ff-run-row__actions { display: flex; flex: none; gap: 2px; padding-right: 6px; opacity: 0; transition: opacity 120ms ease; }
+.ff-run-row__bar:hover .ff-run-row__actions,
+.ff-run-row__actions:focus-within { opacity: 1; }
+.ff-workspace-run-results .ff-run-row__action {
+  display: grid; width: 24px; height: 24px; place-items: center; padding: 0;
+  border: 0; border-radius: 6px; background: transparent; color: var(--ff-text-muted);
+}
+.ff-workspace-run-results .ff-run-row__action:hover { background: var(--ff-bg-active, var(--ff-bg-hover)); color: var(--ff-text); }
+.ff-run-file__icon { flex: none; color: var(--ff-text-muted); }
+.ff-run-row--file[data-change-kind="added"] .ff-run-file__icon { color: var(--ff-add-fg, #1a7f37); }
+.ff-run-row--file[data-change-kind="deleted"] .ff-run-file__icon { color: var(--ff-del-fg, #cf222e); }
+/* In the outputs panel the icon tells the sort of file, tinted like an editor's file list. */
+.ff-run-row--file[data-file-type="code"] .ff-run-file__icon { color: #3b82c4; }
+.ff-run-row--file[data-file-type="text"] .ff-run-file__icon { color: #2f9e6a; }
+.ff-run-row--file[data-file-type="image"] .ff-run-file__icon { color: #d4537e; }
+.ff-run-row--file[data-file-type="data"] .ff-run-file__icon { color: #d98a2b; }
+.ff-run-row--file[data-file-type="other"] .ff-run-file__icon { color: var(--ff-text-muted); }
+.ff-run-row--file .ff-run-row__head > strong { max-width: 55%; font-weight: 500; }
+.ff-run-file__stats { display: flex; flex: none; gap: 4px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.ff-run-file__stats .is-add { color: var(--ff-add-fg, #1a7f37); }
+.ff-run-file__stats .is-remove { color: var(--ff-del-fg, #cf222e); }
+.ff-run-row--file > .ff-run-row__body > .ff-run-row__inner { padding: 2px 0 8px; }
+/* Inside a file row the diff runs its full length; the panel scrolls, not a box inside it. */
+.ff-workspace-change-diff--bare { height: auto; padding: 2px 0 6px; overflow: visible; }
+@media (prefers-reduced-motion: reduce) { .ff-run-row__bar, .ff-run-row__actions { transition: none; } }
+
+/* The run's entry to its changed files: one bar that opens them in their own panel. */
+.ff-workspace-run-results .ff-run-files-entry {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; margin-top: 6px; padding: 6px 10px;
+  border: 1px solid var(--ff-border); border-radius: 10px; background: transparent; color: var(--ff-text); font-size: 13px; text-align: left;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.ff-workspace-run-results .ff-run-files-entry:hover { background: var(--ff-bg-hover); }
+.ff-run-files-entry > svg:first-child { flex: none; color: var(--ff-text-muted); }
+.ff-run-files-entry > strong { font-weight: 500; }
+.ff-run-files-entry__count { color: var(--ff-text-muted); font-size: 12px; }
+.ff-run-files-entry > .ff-run-file__stats { margin-left: auto; }
+.ff-run-files-entry__chevron { flex: none; color: var(--ff-text-muted); }
+.ff-run-files__empty { margin: 0; color: var(--ff-text-muted); font-size: 13px; }

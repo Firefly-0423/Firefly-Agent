@@ -1,0 +1,44 @@
+.ff-nav-arrows {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ff-nav-arrows__button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--ff-text-secondary);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.ff-nav-arrows__button:hover:not(:disabled) {
+  background: var(--ff-bg-hover);
+  color: var(--ff-text);
+}
+
+.ff-nav-arrows__button:active:not(:disabled) {
+  background: var(--ff-bg-active);
+}
+
+/* Nothing to go back or forward to: dimmed and inert, like the greyed arrows in the reference. */
+.ff-nav-arrows__button:disabled {
+  color: var(--ff-text-muted);
+  cursor: default;
+  opacity: 0.45;
+}
+
+.ff-nav-arrows__button:focus-visible {
+  outline: 2px solid var(--ff-accent);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ff-nav-arrows__button { transition: none; }
+}

@@ -1,0 +1,59 @@
+/* 白色工作区右上角的右侧面板开关（浮动定位由使用方容器决定） */
+.ff-inspector-toggle {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 12px;
+  color: var(--ff-text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ff-inspector-toggle:hover {
+  background: var(--ff-bg-hover);
+  color: var(--ff-text);
+}
+
+.ff-inspector-toggle:active {
+  background: var(--ff-bg-active);
+}
+
+/* A panel switch whose panel is open stays pressed. */
+.ff-inspector-toggle[aria-pressed="true"] {
+  background: var(--ff-bg-active);
+  color: var(--ff-text);
+}
+
+.ff-inspector-toggle > svg {
+  transform: scaleY(0.88);
+}
+
+/* 竖线 */
+.ff-inspector-line {
+  transition: d 0.25s ease;
+}
+
+/* 悬停时竖线朝右边缘滑动并缩短（镜像左栏版：左栏版是朝左滑），预演面板向右收起 */
+.ff-inspector-toggle.is-hovered .ff-inspector-line {
+  d: path("M31.2 14V34");
+}
+
+/* Chevron */
+.ff-inspector-chevron {
+  opacity: 0;
+  transform-origin: 18px 24px;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.ff-inspector-toggle.is-hovered .ff-inspector-chevron {
+  opacity: 1;
+}
+
+/* 面板收起时箭头翻转：朝左，表示点击把面板拉回来 */
+.ff-inspector-toggle:not(.is-open).is-hovered .ff-inspector-chevron {
+  transform: scaleX(-1);
+}

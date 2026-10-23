@@ -1,0 +1,559 @@
+{
+  "repairs": [
+    {
+      "path": "pptx-generator/SKILL.md",
+      "sourceSha256": "a0d9d1b839e84492f33d28bfcc1d0526bcc9aefab4e7e53c05ff092f401982d7",
+      "resultSha256": "2eb6a4d3fccb07033a7c7446affca663975625e89c15d493c27fb40826d6142d",
+      "newline": "LF",
+      "replacements": [
+        ["#从零创建工作流", "#从零创建--工作流"],
+        ["references/design-system.md#调色板参考", "references/design-system.md#color-palette-reference"],
+        ["references/design-system.md#字体参考", "references/design-system.md#font-reference"],
+        ["references/design-system.md#风格配方", "references/design-system.md#style-recipes"],
+        ["#theme-对象契约", "#theme-对象契约强制执行"],
+        ["references/pitfalls.md#qa-流程", "references/pitfalls.md#qa-process"]
+      ]
+    },
+    {
+      "path": "sp-using-superpowers/NOTICE.md",
+      "sourceSha256": "15b4fef55149f06896edbfd6dd8e8aeee3f4ab15e1179e073bf46653e3622eb3",
+      "resultSha256": "1e306e9eee7c6cf2d833f9278932d3897ef0cef907b369cf3a927673166bee73",
+      "newline": "LF",
+      "replacements": [["The Skill body matches Jesse Vincent's Superpowers commit", "The pre-adaptation Skill body matches Jesse Vincent's Superpowers commit"], ["after removal of YAML frontmatter and surrounding whitespace only.", "after removal of YAML frontmatter and surrounding whitespace only. Firefly subsequently adapted the distributed body for its registered IDs, tool contracts and authorization boundaries; the current body is not byte-identical to that upstream version."]]
+    },
+    {
+      "path": "sp-systematic-debugging/NOTICE.md",
+      "sourceSha256": "15b4fef55149f06896edbfd6dd8e8aeee3f4ab15e1179e073bf46653e3622eb3",
+      "resultSha256": "1e306e9eee7c6cf2d833f9278932d3897ef0cef907b369cf3a927673166bee73",
+      "newline": "LF",
+      "replacements": [["The Skill body matches Jesse Vincent's Superpowers commit", "The pre-adaptation Skill body matches Jesse Vincent's Superpowers commit"], ["after removal of YAML frontmatter and surrounding whitespace only.", "after removal of YAML frontmatter and surrounding whitespace only. Firefly subsequently adapted the distributed body for its registered IDs, tool contracts and authorization boundaries; the current body is not byte-identical to that upstream version."]]
+    },
+    {
+      "path": "sp-writing-plans/NOTICE.md",
+      "sourceSha256": "15b4fef55149f06896edbfd6dd8e8aeee3f4ab15e1179e073bf46653e3622eb3",
+      "resultSha256": "1e306e9eee7c6cf2d833f9278932d3897ef0cef907b369cf3a927673166bee73",
+      "newline": "LF",
+      "replacements": [["The Skill body matches Jesse Vincent's Superpowers commit", "The pre-adaptation Skill body matches Jesse Vincent's Superpowers commit"], ["after removal of YAML frontmatter and surrounding whitespace only.", "after removal of YAML frontmatter and surrounding whitespace only. Firefly subsequently adapted the distributed body for its registered IDs, tool contracts and authorization boundaries; the current body is not byte-identical to that upstream version."]]
+    },
+    {
+      "path": "sp-brainstorming/NOTICE.md",
+      "sourceSha256": "15b4fef55149f06896edbfd6dd8e8aeee3f4ab15e1179e073bf46653e3622eb3",
+      "resultSha256": "1e306e9eee7c6cf2d833f9278932d3897ef0cef907b369cf3a927673166bee73",
+      "newline": "LF",
+      "replacements": [["The Skill body matches Jesse Vincent's Superpowers commit", "The pre-adaptation Skill body matches Jesse Vincent's Superpowers commit"], ["after removal of YAML frontmatter and surrounding whitespace only.", "after removal of YAML frontmatter and surrounding whitespace only. Firefly subsequently adapted the distributed body for its registered IDs, tool contracts and authorization boundaries; the current body is not byte-identical to that upstream version."]]
+    },
+    {
+      "path": "sp-dispatching-parallel-agents/NOTICE.md",
+      "sourceSha256": "15b4fef55149f06896edbfd6dd8e8aeee3f4ab15e1179e073bf46653e3622eb3",
+      "resultSha256": "1e306e9eee7c6cf2d833f9278932d3897ef0cef907b369cf3a927673166bee73",
+      "newline": "LF",
+      "replacements": [["The Skill body matches Jesse Vincent's Superpowers commit", "The pre-adaptation Skill body matches Jesse Vincent's Superpowers commit"], ["after removal of YAML frontmatter and surrounding whitespace only.", "after removal of YAML frontmatter and surrounding whitespace only. Firefly subsequently adapted the distributed body for its registered IDs, tool contracts and authorization boundaries; the current body is not byte-identical to that upstream version."]]
+    },
+    {
+      "path": "sp-using-git-worktrees/NOTICE.md",
+      "sourceSha256": "15b4fef55149f06896edbfd6dd8e8aeee3f4ab15e1179e073bf46653e3622eb3",
+      "resultSha256": "1e306e9eee7c6cf2d833f9278932d3897ef0cef907b369cf3a927673166bee73",
+      "newline": "LF",
+      "replacements": [["The Skill body matches Jesse Vincent's Superpowers commit", "The pre-adaptation Skill body matches Jesse Vincent's Superpowers commit"], ["after removal of YAML frontmatter and surrounding whitespace only.", "after removal of YAML frontmatter and surrounding whitespace only. Firefly subsequently adapted the distributed body for its registered IDs, tool contracts and authorization boundaries; the current body is not byte-identical to that upstream version."]]
+    },
+    {
+      "path": "sp-using-superpowers/SKILL.md",
+      "sourceSha256": "d42105760d85e0391d9fae5cee6463166a4f378575053dbd3483df794a314225",
+      "resultSha256": "0f75e405ceeac3a4fd75dc736cb60efdf7752cb43bb50942a0b9b1f9decfd4a8",
+      "newline": "LF",
+      "replacements": [
+        ["superpowers:brainstorming", "sp-brainstorming"],
+        ["superpowers:systematic-debugging", "sp-systematic-debugging"],
+        ["## Platform Adaptation\n", "## Platform Adaptation\n\nFirefly: read `references/firefly-tools.md` with `read_skill_reference({skill_id: \"sp-using-superpowers\", ref: \"firefly-tools.md\"})` before following host-specific examples. The other platform references below are for those external hosts only; do not apply their tool names or permissions inside Firefly.\n"]
+      ]
+    },
+    {
+      "path": "sp-systematic-debugging/SKILL.md",
+      "sourceSha256": "4853333b393b3a8d9404178ca58a0e8c1ad998a485233aac0dbfb2ef9ac94ef9",
+      "resultSha256": "266f3086a6341cdae45da109d5398d5d445af24b9e2cb711bdd907aaa498616a",
+      "newline": "LF",
+      "replacements": [
+        ["superpowers:test-driven-development", "ecc-tdd-workflow"],
+        ["superpowers:verification-before-completion", "sp-verification-before-completion"]
+      ]
+    },
+    {
+      "path": "sp-writing-plans/SKILL.md",
+      "sourceSha256": "1a19a48cd7128565266a9a0b80f1568a26e3b7280d3138beb4763113b7c6f58d",
+      "resultSha256": "c59148339721eac99d10a465f333dd79ff18d58ccd9b592f4146e8c0f276140d",
+      "newline": "LF",
+      "replacements": [
+        ["# Writing Plans\n", "# Writing Plans\n\nFirefly execution uses the registered `sp-subagent-driven-development` Skill when delegation is authorized, or inline execution of an approved plan when it is not. There is no executing-plans Skill. The `ecc-tdd-workflow` Skill supplies TDD guidance. Saving a plan does not authorize a commit, branch, worktree or model selection; user instructions and existing tool approval take precedence over examples below.\n"],
+        ["superpowers:using-git-worktrees", "sp-using-git-worktrees"],
+        ["superpowers:subagent-driven-development", "sp-subagent-driven-development"],
+        ["superpowers:executing-plans", "authorized inline execution (not a Skill)"]
+      ]
+    },
+    {
+      "path": "sp-brainstorming/SKILL.md",
+      "sourceSha256": "db2bb75deb783905af28d61e7387be800a82a2c4c9900ad92af43d67eb77c418",
+      "resultSha256": "2060da1697c99c538650b064c146ffd272ef434a114386185fcc217dafc3825e",
+      "newline": "LF",
+      "replacements": [
+        ["# Brainstorming Ideas Into Designs\n", "# Brainstorming Ideas Into Designs\n\nIn Firefly, invoke the registered `sp-writing-plans` Skill for an approved design. Any browser visual companion is optional and not bundled. Saving a design never authorizes a Git commit; request separate authorization and preserve existing user changes.\n"],
+        ["`skills/brainstorming/visual-companion.md`", "an external optional visual companion (not distributed in Firefly)"]
+      ]
+    },
+    {
+      "path": "sp-dispatching-parallel-agents/SKILL.md",
+      "sourceSha256": "077bc5897cb508852aace4975d90dd084764d7c733750045650bd12d8b0b779e",
+      "resultSha256": "272e72e3066bd9934bdce894731b46c8df19240379eee8e937f2b6b3e0a8d493",
+      "newline": "LF",
+      "replacements": [
+        ["# Dispatching Parallel Agents\n", "# Dispatching Parallel Agents\n\nFirefly uses the existing `task` tool with `description`, `prompt`, and `subagent_type: \"general\"; `task_id` only resumes an existing child. The examples below describe independent work, not an available `Subagent` API. Dispatch only when the run allows that tool and the tasks are actually independent. Children cannot delegate further or change approval, cancellation, model selection or task ownership.\n"]
+      ]
+    },
+    {
+      "path": "as-spec-driven-development/SKILL.md",
+      "sourceSha256": "d68571f75119e011cbfa7087dafda0743aef13f4efbfc98bd6f08732878dd8bb",
+      "resultSha256": "ee67891236351f7f833515732ec0cf7664f24ac0639c7ea1498652f45fb0422c",
+      "newline": "LF",
+      "replacements": [
+        ["# Spec-Driven Development\n", "# Spec-Driven Development\n\nFirefly direct-call bindings: `as-planning-and-task-breakdown` for planning, `as-incremental-implementation` for execution, `ecc-tdd-workflow` for behavior changes, and `as-context-engineering` for context. Invoke only IDs enabled in the active Code run. `/plan` and `/build` below are upstream conventions, not Firefly commands; use the existing task and approval flow. Check actual project scripts before copying example commands.\n"],
+        ["skills/incremental-implementation/SKILL.md", "as-incremental-implementation"],
+        ["skills/test-driven-development/SKILL.md", "ecc-tdd-workflow"],
+        ["skills/context-engineering/SKILL.md", "as-context-engineering"]
+      ]
+    },
+    {
+      "path": "as-code-review-and-quality/SKILL.md",
+      "sourceSha256": "831528a372488919bd233da2ed9c65f318ba2174ea251497242fb5c4f392e1a5",
+      "resultSha256": "c3355ced51cadc1dc529a7675afa0d7b1eab45c0ba20409973d7c31c52f43f2c",
+      "newline": "LF",
+      "replacements": [
+        ["`../../references/security-checklist.md`", "the registered `as-security-and-hardening` Skill (when enabled in this Code run)"],
+        ["`../../references/performance-checklist.md`", "the performance checks in this Skill and the repository's actual performance tests"]
+      ]
+    },
+    {
+      "path": "as-security-and-hardening/SKILL.md",
+      "sourceSha256": "dd198e6e26b33384c7737a5c26158bfad137ca3cf090114dec6cd78786c1b2fe",
+      "resultSha256": "6c842bdefbcd69ccf060dce92b46c7aa1f8abecdb4781110a261d5e385c1e5b6",
+      "newline": "LF",
+      "replacements": [
+        ["`../../references/security-checklist.md`", "the in-body checklist below and the repository's actual package-manager, lockfile and CI configuration"]
+      ]
+    },
+    {
+      "path": "as-frontend-ui-engineering/SKILL.md",
+      "sourceSha256": "51c9a8efd4f7016de08773a3393cdc6ead1eec7a06863de8ca039ccb78a09a4d",
+      "resultSha256": "32d8c8df5be335a8a0571afe75398378c1a6c88122d7fafab7b6c9fc8f6f46c9",
+      "newline": "LF",
+      "replacements": [
+        ["`../../references/accessibility-checklist.md`", "the accessibility checks in this Skill and the project's existing accessibility tests"]
+      ]
+    },
+    {
+      "path": "as-incremental-implementation/SKILL.md",
+      "sourceSha256": "e36b8449378b93063d1fb487e9f2c58efc6c9d7dd2f34ced3b359676085f5c6e",
+      "resultSha256": "b4cb17963efa893493b8eda204303fc15080a5ca163164e4530e9d3a8abf9a27",
+      "newline": "LF",
+      "replacements": [
+        ["the test-driven-development skill's Discover the Stack First section", "the registered `ecc-tdd-workflow` Skill and the repository's actual test scripts"],
+        ["`../../references/definition-of-done.md`", "the registered `sp-verification-before-completion` Skill and the project's current quality checks"]
+      ]
+    },
+    {
+      "path": "as-planning-and-task-breakdown/SKILL.md",
+      "sourceSha256": "2c1b385f31456dcccdf81332ec00903ced047f9cfa8332aeaaaba6cb919f549d",
+      "resultSha256": "d0b6b9922ea8cf8804898d8ae19ebfb7a2f0ccc9daedfb44437fc060d1b9ac10",
+      "newline": "LF",
+      "replacements": [
+        ["`../../references/definition-of-done.md`", "the registered `sp-verification-before-completion` Skill and the project's current quality checks"]
+      ]
+    },
+    {
+      "path": "as-debugging-and-error-recovery/SKILL.md",
+      "sourceSha256": "a22de82f81e0e1c5e62e29b7623a5cf05ba9c2161a85b690cacf604156ddee7a",
+      "resultSha256": "41f757c5d2cf1bba1f0c8dd48d27b4553bfb3a10c03c939ea7828ea8cf0195c6",
+      "newline": "LF",
+      "replacements": [
+        ["the test-driven-development skill's Discover the Stack First section", "the registered `ecc-tdd-workflow` Skill and the repository's actual test scripts"]
+      ]
+    },
+    {
+      "path": "as-git-workflow-and-versioning/SKILL.md",
+      "sourceSha256": "c1fa44f39680fc8e35779023040a6e31e4b915722dcf8294e63356fc68dfb78b",
+      "resultSha256": "6a13995a85b0b04ed68e88ac2178bc6e963309cb39312392f8a9eea70029cf4d",
+      "newline": "LF",
+      "replacements": [
+        ["the `api-and-interface-design` skill", "the registered `as-api-and-interface-design` Skill"],
+        ["(follow the `deprecation-and-migration` skill); shipping the actual release is the `shipping-and-launch` skill's job", "(document the compatibility window and migration in the current project); actual release remains a separately authorized project operation"]
+      ]
+    },
+    {
+      "path": "as-doubt-driven-development/SKILL.md",
+      "sourceSha256": "b9ff3cb8680cd91aefffadbd7fe4f9c9ec3f1d8cb6a1e778a15f5989530a0b49",
+      "resultSha256": "56fd0751145d82e52d8bc1c18293d524807e0e80a9c9b640b0b215fe135280f7",
+      "newline": "LF",
+      "replacements": [
+        ["# Doubt-Driven Development\n", "# Doubt-Driven Development\n\nFirefly's existing `task` tool uses `description`, `prompt`, and `subagent_type: \"general\" when the run permits delegation. A child cannot delegate again; the parent performs review if delegation is unavailable. No external model or CLI is selected automatically.\n"],
+        ["`../../references/orchestration-patterns.md`", "the Firefly parent-only delegation rule described in this Skill"],
+        ["In Claude Code, the role-based reviewers in `agents/` start with isolated context by design and are usable here — see `agents/` for the roster and per-domain match.", "In Firefly, use a permitted `task` with `subagent_type: \"general\" and the complete review brief; there is no bundled `agents/` roster."],
+        ["`code-review-and-quality` / `/review`", "`as-code-review-and-quality`"],
+        ["`debugging-and-error-recovery`", "`as-debugging-and-error-recovery`"]
+      ]
+    },
+    {
+      "path": "ecc-code-tour/SKILL.md",
+      "sourceSha256": "bf5d2c2bec39f6b451c1f7a03c32390a93050a1bafd21baba8b0368fd4cd98c8",
+      "resultSha256": "1f0dba90b9b14ef4df354eae36c0851bbe651a6578e6e2a252126210802320a0",
+      "newline": "LF",
+      "replacements": [
+        ["`codebase-onboarding`", "`ecc-codebase-onboarding`"],
+        ["`council`", "user review of the stated decision (no bundled council Skill)"]
+      ]
+    },
+    {
+      "path": "ecc-agent-introspection-debugging/SKILL.md",
+      "sourceSha256": "5ae2ac774811919c9ed09394e6e5d953c14a34dc60b2ef5722e40c89c96e3711",
+      "resultSha256": "8a248ae16a08300730ecef23ec86caba85c6b8bd9d236cbec3896978cf3bb3ce",
+      "newline": "LF",
+      "replacements": [
+        ["`verification-loop`", "`sp-verification-before-completion`"],
+        ["`continuous-learning-v2`", "the enabled `self-improving-agent` Skill only if its scope fits and the user permits persistent changes"],
+        ["`council`", "user review of the stated decision (no bundled council Skill)"]
+      ]
+    },
+    {
+      "path": "ecc-coding-standards/SKILL.md",
+      "sourceSha256": "0d2c67550a07a8fa9945f5804325f52d89d55ddc4481633cfdda44825edcd347",
+      "resultSha256": "bc13a965e524e2f8888b8fbc305c3c196c708fe8851b9f4d948092a1d17e74d9",
+      "newline": "LF",
+      "replacements": [
+        ["`frontend-patterns`", "`as-frontend-ui-engineering`"],
+        ["`backend-patterns` or `api-design`", "`as-api-and-interface-design` for interface boundaries and the project's actual backend conventions"],
+        ["`rules/common/coding-style.md`", "the current project's AGENTS.md and checked-in style rules"]
+      ]
+    },
+    {
+      "path": "ecc-plan-canvas/SKILL.md",
+      "sourceSha256": "d8314738efdae8b1f8b304f819cfd0cb999c69ad0decf4ea3d9805c84567815d",
+      "resultSha256": "b2ee13b7c994e05514da31933c46b12c8dfad9b3e2205e5e07ac1d666ea5ac92",
+      "newline": "LF",
+      "replacements": [
+        ["# Plan Canvas\n", "# Plan Canvas\n\nFirefly does not bundle the `ecc-plan-canvas` executable, Claude hooks, or a background canvas service. The CLI workflow below is an optional external integration only when the executable is installed and the user authorizes starting it. Otherwise present the existing plan through Firefly's authorized file/output tools and collect approval through the current conversation; do not claim that a canvas was opened or that a hook blocked completion.\n"]
+      ]
+    },
+    {
+      "path": "ecc-tdd-workflow/SKILL.md",
+      "sourceSha256": "22d64df7fed2c0c7e4725b859b11d8a77f62823222c8d8839b929dd830cdaac4",
+      "resultSha256": "2bde8d8a82f58c1f7631db2fdd9635fe1b9f853fe1dedd9a6b575a06282dde7a",
+      "newline": "LF",
+      "replacements": [
+        ["# Test-Driven Development Workflow\n", "# Test-Driven Development Workflow\n\nFirefly host boundary: inspect this project's actual `package.json`, lockfile and available test scripts before selecting commands. `scripts/setup-package-manager.js` is not shipped with this Skill or the Firefly project, so the upstream setup command below is not executable here. RED/GREEN evidence is required for changed behavior, but checkpoint commits, branches and hooks below are examples only and require separate user authorization. Use the existing task and approval chain; do not change modes or permission gates.\n"]
+      ]
+    },
+    {
+      "path": "skill-creator/SKILL.md",
+      "sourceSha256": "8a420fe93c5a89f6b1929f778c931f0524b11bc071ee8d17971bb1623e534774",
+      "resultSha256": "5b740547dd593025cdee25e385f07dcd44e2be7d01dceefd33f4f73fbdcad394",
+      "newline": "LF",
+      "replacements": [
+        ["# Skill Creator\n", "# Skill Creator\n\nFirefly host adaptation: create or edit a `SKILL.md` in an authorized Skill directory, validate its `name` and `description` with Firefly's existing scanner, and refresh through the existing Skill panel or `SKILL_RESCAN` only when the user authorizes installation. This Skill's Claude/Cowork evaluation, hosted reviewer, `claude` CLI, background server and model-selection instructions describe optional external environments, not Firefly tools or mandatory steps. Do not invoke missing tools, access real user Skills, or run external scripts without checking their actual source and permission. Firefly's task tool accepts only `description`, `prompt`, `subagent_type`, and optional resume `task_id`; a child cannot delegate further.\n"]
+      ]
+    },
+    {
+      "path": "docx/SKILL.md",
+      "sourceSha256": "e6470c392870b2d7c34881abc2d60538b0ddafd088dcb85b79f28a5171337d18",
+      "resultSha256": "d60bc1331e547844f37d5f2005a11e7f213d00bbdb461c969a24b3e2cf6cdd0e",
+      "newline": "LF",
+      "replacements": [
+        ["# minimax-docx\n", "# minimax-docx\n\nFirefly host: `write_word` is registered in Work mode for simple new documents. Other modes must use only their currently allowed tools; do not claim that `write_word` is available there. `invoke_skill` supplies this Skill's actual local directory for resolving scripts and assets. The PowerShell/.NET setup and preview commands below depend on external programs; inspect their source and request authorization before any install or execution. Keep original files intact and verify the output.\n"],
+        ["用 `ask_user_choice` 弹卡片让用户选", "在当前对话中请用户明确选择；不要调用未注册的选项卡工具"]
+      ]
+    },
+    {
+      "path": "pdf/SKILL.md",
+      "sourceSha256": "f3afddf970f1c977ffe175fcae6b401794339a3876fd8e0b6a45a6c30e34aad4",
+      "resultSha256": "56db16757fcae78be59f295db83c1aedce46a1fd0d3c17f7963ff8b77e62c29e",
+      "newline": "LF",
+      "replacements": [
+        ["# Windows-native PDF workflow\n", "# Windows-native PDF workflow\n\nFirefly host: `write_pdf` is registered for simple output in Work mode only. Resolve `scripts/` and `design/` beneath the actual Skill local directory returned by `invoke_skill`; do not assume the project root or current directory is this Skill. Run Python helpers only through currently authorized tools, and keep input and output in a separate approved workspace. Installing Python packages or launching LibreOffice/GUI requires separate authorization. A successful text result is not a visual preview receipt.\n"]
+      ]
+    },
+    {
+      "path": "pptx-generator/SKILL.md",
+      "sourceSha256": "2eb6a4d3fccb07033a7c7446affca663975625e89c15d493c27fb40826d6142d",
+      "resultSha256": "b8e7e5838aceb286330a7b95ec34d7d096ea8215722a401b3e7d00cf514bddef",
+      "newline": "LF",
+      "replacements": [
+        ["# PPTX 生成器与编辑器\n", "# PPTX 生成器与编辑器\n\nFirefly 没有注册 `write_pptx` 工具。本 Skill 的 PowerPoint 生成依赖外部 PptxGenJS/markitdown 或实际可用的本地文件工具；`invoke_skill` 返回的 Skill 本地目录是脚本和共享 Office 主题的定位依据。下方 PowerShell 命令只在当前模式允许执行、依赖已安装且用户授权时运行；编辑已有文件须保留原件并核验输出。\n"],
+        ["node -e \"const {loadTheme}=require('./skills/pptx-generator/scripts/theme-loader'); console.log(loadTheme('business'))\"", "$skillDir = '<invoke_skill 返回的实际 Skill 本地目录>'\n$themeLoader = Join-Path $skillDir 'scripts\\theme-loader.js'\nnode -e \"const {loadTheme}=require(process.argv[1]); console.log(loadTheme('business'))\" $themeLoader"],
+        ["const { loadTheme } = require('../skills/pptx-generator/scripts/theme-loader');", "const { loadTheme } = require(process.env.FIREFLY_PPTX_THEME_LOADER);"],
+        ["Set-Location .\\slides\nnode .\\compile.js", "$env:FIREFLY_PPTX_THEME_LOADER = $themeLoader\nSet-Location .\\slides\nnode .\\compile.js"]
+      ]
+    },
+    {
+      "path": "xlsx/SKILL.md",
+      "sourceSha256": "69fe57de5c506d8e7385777cca8cd14f72ba67429f5330fc0e29299b5291dc1a",
+      "resultSha256": "a45ec3485517a245681d717d8a11648c5f669c2211ff15997790ce594210b9b8",
+      "newline": "LF",
+      "replacements": [
+        ["# Windows-native XLSX workflow\n", "# Windows-native XLSX workflow\n\nFirefly host: `write_excel` is registered for simple new tables in Work mode only. For formula-preserving edits, resolve `scripts/`, `references/` and `templates/` beneath the actual Skill local directory returned by `invoke_skill`; run Python/LibreOffice only if the current mode and approval allow. The unpack helper deletes its target directory before extracting, so pass only a new dedicated workspace subdirectory and never the source workbook or a shared directory.\n"],
+        ["$work = Join-Path $env:TEMP 'firefly-xlsx-work'", "$workspaceInfo = python scripts/xlsx_workspace.py create --base-dir $env:TEMP | ConvertFrom-Json\nif ($workspaceInfo.status -ne 'ok') { throw $workspaceInfo.error }\n$work = Join-Path $workspaceInfo.workspace 'unpacked'"]
+      ]
+    },
+    {
+      "path": "as-source-driven-development/SKILL.md",
+      "sourceSha256": "9af3c84ecee8ccf9ea56acd67897ccdcd4ce0ed960cbedb053633bc15b3256c0",
+      "resultSha256": "844592fbbf646683b4f2ba2dff1aeb7e063b8cf1a2daec18c8d35a736c7a2e8f",
+      "newline": "LF",
+      "replacements": [["`security-and-hardening` skill", "registered `as-security-and-hardening` Skill"]]
+    },
+    {
+      "path": "as-git-workflow-and-versioning/SKILL.md",
+      "sourceSha256": "6a13995a85b0b04ed68e88ac2178bc6e963309cb39312392f8a9eea70029cf4d",
+      "resultSha256": "e7978afe08ef1714eefd20693e373d394d8cca07b102d1b11d5e8805f3d707c7",
+      "newline": "LF",
+      "replacements": [["# Git Workflow and Versioning\n", "# Git Workflow and Versioning\n\nFirefly direct-call bindings: use `as-code-review-and-quality` for review and `as-api-and-interface-design` for interface compatibility, only if enabled in this Code run. Commits, branches, tags, pushes and releases require separate authorization; the examples below do not grant it.\n"], ["`code-review-and-quality`", "`as-code-review-and-quality`"]]
+    },
+    {
+      "path": "as-incremental-implementation/SKILL.md",
+      "sourceSha256": "b4cb17963efa893493b8eda204303fc15080a5ca163164e4530e9d3a8abf9a27",
+      "resultSha256": "8b6fc4f6e98c03aac336ebe87645568f37dce7864eb1770499d46e18f5f2c461",
+      "newline": "LF",
+      "replacements": [
+        ["# Incremental Implementation\n", "# Incremental Implementation\n\nFirefly host: use the registered `as-git-workflow-and-versioning`, `ecc-tdd-workflow` and `sp-verification-before-completion` Skills only when enabled in this Code run. A Skill does not authorize commits; record progress without committing if the user has not approved Git changes. Run only the current project's actual tests and tools.\n"],
+        ["`git-workflow-and-versioning`", "`as-git-workflow-and-versioning`"]
+      ]
+    },
+    {
+      "path": "as-doubt-driven-development/SKILL.md",
+      "sourceSha256": "56fd0751145d82e52d8bc1c18293d524807e0e80a9c9b640b0b215fe135280f7",
+      "resultSha256": "0d991a583212bf0071a1edfd996258a49180a856d86b01efb55169a6edd5e9b5",
+      "newline": "LF",
+      "replacements": [["`source-driven-development`", "`as-source-driven-development`"], ["No external model or CLI is selected automatically.\n", "No external model or CLI is selected automatically. Use `as-source-driven-development` when checking framework facts.\n"], ["`subagent_type: \"general\" when", "`subagent_type: \"general\"` when"]]
+    },
+    {
+      "path": "ecc-code-tour/SKILL.md",
+      "sourceSha256": "1f0dba90b9b14ef4df354eae36c0851bbe651a6578e6e2a252126210802320a0",
+      "resultSha256": "3e29cd330bf61e3ecd61c913e95407834f2815098d73f6f56fbe947efed647bf",
+      "newline": "LF",
+      "replacements": [["`coding-standards`", "`ecc-coding-standards`"]]
+    },
+    {
+      "path": "sp-using-git-worktrees/SKILL.md",
+      "sourceSha256": "846b9d8966715ea5a4c373590dc0c0af28a129230f1498eab6771e877eb35406",
+      "resultSha256": "682b6a70c01d85592ca4dfe643a19fa5efd5e462221258572e84e601e0dbcd56",
+      "newline": "LF",
+      "replacements": [
+        ["# Using Git Worktrees\n", "# Using Git Worktrees\n\nFirefly does not create a worktree merely because this Skill was invoked. Check the current user's instructions first. When worktree creation is forbidden, work in the authorized checkout or report the isolation limitation. Do not change `.gitignore`, commit or switch branches without explicit authorization.\n"],
+        ["Add to .gitignore, commit the change, then proceed.", "Stop and obtain authorization before editing .gitignore or creating the worktree."],
+        ["Add to .gitignore + commit", "Obtain authorization before changing .gitignore"]
+      ]
+    },
+    {
+      "path": "as-doubt-driven-development/SKILL.md",
+      "sourceSha256": "0d991a583212bf0071a1edfd996258a49180a856d86b01efb55169a6edd5e9b5",
+      "resultSha256": "2153510f2f06d572e1ca08f15d7c922afcc8cfa3ef93f93b3e53f29ae418ebac",
+      "newline": "LF",
+      "replacements": [["`subagent_type: \"general\" and", "`subagent_type: \"general\"` and"]]
+    },
+    {
+      "path": "docx/styles/catalog.md",
+      "sourceSha256": "11fc942f4c35db5c911693b392073bd24e3558db04fc7d95751f309fa94414c1",
+      "resultSha256": "58f07187cb21907de25ee6a19b6fb59459e4aa00ae24679c799d543eb220920f",
+      "newline": "LF",
+      "replacements": [["模型弹卡片（ask_user_choice）前", "在当前对话中请用户选择前"]]
+    },
+    {
+      "path": "xlsx/styles/catalog.md",
+      "sourceSha256": "0d41e20276d00c81281bfb2473694f8109a6ebcc6256fe68c9072c79a2d15ac1",
+      "resultSha256": "cbf995ae0512f7abd7264b47546d98f64ae837a919f5193fa203fb9478065d69",
+      "newline": "LF",
+      "replacements": [["模型弹卡片（ask_user_choice）前", "在当前对话中请用户选择前"]]
+    },
+    {
+      "path": "sp-writing-plans/SKILL.md",
+      "sourceSha256": "c59148339721eac99d10a465f333dd79ff18d58ccd9b592f4146e8c0f276140d",
+      "resultSha256": "89fb1b6eccec626bf58c6715993a152cd4f7d45703c4e2b766c571862afa2cf7",
+      "newline": "LF",
+      "replacements": [["Execute tasks in this session using executing-plans, batch execution with checkpoints", "Execute tasks inline in this session with checkpoints and existing Firefly approval; there is no executing-plans Skill"]]
+    },
+    {
+      "path": "sp-using-superpowers/references/gemini-tools.md",
+      "sourceSha256": "62b9157bcb0ee3c6784e3d0da0798ddfa5872f9e0c34bea48f3079dabea71965",
+      "resultSha256": "a38247dfaa13252eb7b83d8b34aedb8319e8f4c5fece8abb338e85b35f6dbff2",
+      "newline": "LF",
+      "replacements": [["`superpowers:subagent-driven-development`", "`sp-subagent-driven-development`"], ["`superpowers:requesting-code-review`", "`sp-requesting-code-review`"]]
+    },
+    {
+      "path": "pdf/SKILL.md",
+      "sourceSha256": "56db16757fcae78be59f295db83c1aedce46a1fd0d3c17f7963ff8b77e62c29e",
+      "resultSha256": "e5be24b52474ada2cb59b6e403afdb21ff965feb506741a9bb8fddd471a718ca",
+      "newline": "LF",
+      "replacements": [["# Windows-native PDF workflow\n", "# Windows-native PDF workflow\n\nPowerShell resource resolution: set `$skillDir` to the exact directory returned by `invoke_skill`, then `$scriptRoot = Join-Path $skillDir 'scripts'`. The command examples below use the same shell session; reinitialize both variables in a new shell. Keep inputs and outputs in the authorized workspace, not the installed Skill directory.\n"], ["python scripts/make.py", "python (Join-Path $scriptRoot 'make.py')"]]
+    },
+    {
+      "path": "xlsx/SKILL.md",
+      "sourceSha256": "a45ec3485517a245681d717d8a11648c5f669c2211ff15997790ce594210b9b8",
+      "resultSha256": "d19fb39a4f4ee85230c1316b945e011cb2f4368c6f840eb0e5123cb34a8f4096",
+      "newline": "LF",
+      "replacements": [["# Windows-native XLSX workflow\n", "# Windows-native XLSX workflow\n\nPowerShell resource resolution: set `$skillDir` to the exact directory returned by `invoke_skill`, then `$scriptRoot = Join-Path $skillDir 'scripts'`. The command examples below use the same shell session; reinitialize both variables in a new shell. Keep inputs and outputs in the authorized workspace, not the installed Skill directory.\n"], ["python scripts/xlsx_workspace.py", "python (Join-Path $scriptRoot 'xlsx_workspace.py')"], ["python scripts/xlsx_reader.py", "python (Join-Path $scriptRoot 'xlsx_reader.py')"], ["python scripts/xlsx_unpack.py", "python (Join-Path $scriptRoot 'xlsx_unpack.py')"], ["python scripts/xlsx_add_column.py", "python (Join-Path $scriptRoot 'xlsx_add_column.py')"], ["python scripts/xlsx_pack.py", "python (Join-Path $scriptRoot 'xlsx_pack.py')"], ["python scripts/formula_check.py", "python (Join-Path $scriptRoot 'formula_check.py')"], ["python scripts/libreoffice_recalc.py", "python (Join-Path $scriptRoot 'libreoffice_recalc.py')"]]
+    },
+    {
+      "path": "docx/SKILL.md",
+      "sourceSha256": "d60bc1331e547844f37d5f2005a11e7f213d00bbdb461c969a24b3e2cf6cdd0e",
+      "resultSha256": "838ad7d14da25d097c1b196fa23486de6d4a881cd090a72bd127fb34d05dc1bf",
+      "newline": "LF",
+      "replacements": [["# minimax-docx\n", "# minimax-docx\n\nPowerShell resource resolution: set `$skillDir` to the directory returned by `invoke_skill` and `$scriptRoot = Join-Path $skillDir 'scripts'`. Keep document inputs/outputs in the authorized workspace, never in the installed Skill directory. The examples below require these variables in the same shell session.\n"], ["scripts/setup.ps1", "(Join-Path $scriptRoot 'setup.ps1')"], ["scripts/env_check.ps1", "(Join-Path $scriptRoot 'env_check.ps1')"], ["scripts/doc_to_docx.ps1", "(Join-Path $scriptRoot 'doc_to_docx.ps1')"], ["scripts/docx_preview.ps1", "(Join-Path $scriptRoot 'docx_preview.ps1')"], ["--project scripts/dotnet/MiniMaxAIDocx.Cli", "--project (Join-Path $scriptRoot 'dotnet/MiniMaxAIDocx.Cli')"]]
+    },
+    {
+      "path": "ecc-tdd-workflow/SKILL.md",
+      "sourceSha256": "2bde8d8a82f58c1f7631db2fdd9635fe1b9f853fe1dedd9a6b575a06282dde7a",
+      "resultSha256": "36d3d6400b665cb86075aed272cf6bb4c91eb1e2d2b8df13bf60ee95d3400923",
+      "newline": "LF",
+      "replacements": [["1. **Run the package-manager detector** (ships with ECC):\n\n   ```bash\n   node scripts/setup-package-manager.js --detect\n   ```\n\n   It resolves the package manager (npm / pnpm / yarn / bun) from, in order: `CLAUDE_PACKAGE_MANAGER`, `.claude/package-manager.json`, the `package.json` `packageManager` field, the lockfile, then global config.", "1. **Inspect this project directly:** read `package.json` `packageManager`, actual lockfile and `scripts.test`. Firefly does not ship `scripts/setup-package-manager.js`; do not run it or use Claude-only environment settings as a Firefly default."]]
+    },
+    {
+      "path": "sp-subagent-driven-development/SKILL.md",
+      "sourceSha256": "c390488ef1d241aad8be40ed92e2963e54568c6632f826f6f09f92bb1c9f560d",
+      "resultSha256": "ddd0156b7d23fd8d2d6ea65789a32c8e4238f87e9f088bc25170f427c46af149",
+      "newline": "LF",
+      "replacements": [["Optional local helpers retain their names but are new Node implementations maintained by Firefly:", "Optional local helpers retain their names but are new Node implementations maintained by Firefly. In PowerShell set `$skillDir` to the exact local directory returned by `invoke_skill` before running any helper; relative Markdown links below are for reading only:"], ["node scripts/sdd-workspace PLAN_FILE", "node (Join-Path $skillDir 'scripts/sdd-workspace') PLAN_FILE"], ["node scripts/task-brief PLAN_FILE TASK_NUMBER", "node (Join-Path $skillDir 'scripts/task-brief') PLAN_FILE TASK_NUMBER"], ["node scripts/review-package PLAN_FILE BASE_SHA HEAD_SHA", "node (Join-Path $skillDir 'scripts/review-package') PLAN_FILE BASE_SHA HEAD_SHA"]]
+    },
+    {
+      "path": "pdf/README.md",
+      "sourceSha256": "20e0270ee9eef991c351eabc3bdb5b767b63272618b42c6193297cf4fbecb0ed",
+      "resultSha256": "ae3dac70e6e921341bf3a8985867421c12ecfbe83174160f21630319a19b8f53",
+      "newline": "LF",
+      "replacements": [["## Quick start\n", "## Quick start\n\nIn PowerShell set `$skillDir` to the actual installed PDF Skill directory (`invoke_skill` returns it) and `$scriptRoot = Join-Path $skillDir 'scripts'`. Keep outputs in your authorized workspace.\n"], ["python scripts/make.py", "python (Join-Path $scriptRoot 'make.py')"]]
+    },
+    {
+      "path": "xlsx/references/create.md",
+      "sourceSha256": "269b0e68017fed026078a5cb9e33fd56d416748edfe48b07180e1e105bed97a2",
+      "resultSha256": "7d3d4f24f18a8dc302977d0016ca95110b4e3da4e037987f19d11c495611e98c",
+      "newline": "LF",
+      "replacements": [
+        [
+          "# 从零构建新 xlsx\n",
+          "# 从零构建新 xlsx\n\nFirefly Windows binding: the Bash, SKILL_DIR and /tmp command examples below are upstream reference syntax, not commands to run literally in Firefly. Resolve scripts from the local Skill directory returned by invoke_skill; follow SKILL.md PowerShell examples and create a unique isolated workspace using xlsx_workspace.py. Preserve the source workbook and request authorization before external Python/LibreOffice execution. Formula recalculation or visual verification requires an actual receipt.\n"
+        ]
+      ]
+    },
+    {
+      "path": "xlsx/references/edit.md",
+      "sourceSha256": "4bc236032dc7fe2bc6666338b0e89650a88f2afb61cbfd1ce16dcc1889652a81",
+      "resultSha256": "78910ee1efdeb036d74d1dc26d9a634fd9e24a05f7cdb95104f08f168affdbe2",
+      "newline": "LF",
+      "replacements": [
+        [
+          "# 已有 xlsx 的最小侵入式编辑\n",
+          "# 已有 xlsx 的最小侵入式编辑\n\nFirefly Windows binding: the Bash, SKILL_DIR and /tmp command examples below are upstream reference syntax, not commands to run literally in Firefly. Resolve scripts from the local Skill directory returned by invoke_skill; follow SKILL.md PowerShell examples and create a unique isolated workspace using xlsx_workspace.py. Preserve the source workbook and request authorization before external Python/LibreOffice execution. Formula recalculation or visual verification requires an actual receipt.\n"
+        ]
+      ]
+    },
+    {
+      "path": "xlsx/references/fix.md",
+      "sourceSha256": "04a1ee27df71f7e4f06d385504f28a9f2a61ea07b742a3f332617057d3c1e440",
+      "resultSha256": "292db041426d240af7e2378fafc2e1ded8b4dc8a128badd113972e5af44b6f7e",
+      "newline": "LF",
+      "replacements": [
+        [
+          "# FIX — 修复已有 xlsx 中的损坏公式\n",
+          "# FIX — 修复已有 xlsx 中的损坏公式\n\nFirefly Windows binding: the Bash, SKILL_DIR and /tmp command examples below are upstream reference syntax, not commands to run literally in Firefly. Resolve scripts from the local Skill directory returned by invoke_skill; follow SKILL.md PowerShell examples and create a unique isolated workspace using xlsx_workspace.py. Preserve the source workbook and request authorization before external Python/LibreOffice execution. Formula recalculation or visual verification requires an actual receipt.\n"
+        ]
+      ]
+    },
+    {
+      "path": "xlsx/references/format.md",
+      "sourceSha256": "b6acb06ed532a2098281392e9fa8a20141008af6a546d8253abe12b73fb0978e",
+      "resultSha256": "f12d10bbe9d82b1dc225a34eed0574c8cfd0ce435beb6f9965d08b8d58957535",
+      "newline": "LF",
+      "replacements": [
+        [
+          "# 财务格式化与输出标准 — 完整 Agent 指南\n",
+          "# 财务格式化与输出标准 — 完整 Agent 指南\n\nFirefly Windows binding: the Bash, SKILL_DIR and /tmp command examples below are upstream reference syntax, not commands to run literally in Firefly. Resolve scripts from the local Skill directory returned by invoke_skill; follow SKILL.md PowerShell examples and create a unique isolated workspace using xlsx_workspace.py. Preserve the source workbook and request authorization before external Python/LibreOffice execution. Formula recalculation or visual verification requires an actual receipt.\n"
+        ]
+      ]
+    },
+    {
+      "path": "xlsx/references/read-analyze.md",
+      "sourceSha256": "5ca01ee8cf337c4c343f087d7ba3985428b6d64a2e9d1d3139685b4273c02ca7",
+      "resultSha256": "cb5466caf4a671a826920d0f0365dcedec1dbe4358932f7bfcc9f27b5de819a8",
+      "newline": "LF",
+      "replacements": [
+        [
+          "# 数据读取与分析指南\n",
+          "# 数据读取与分析指南\n\nFirefly Windows binding: the Bash, SKILL_DIR and /tmp command examples below are upstream reference syntax, not commands to run literally in Firefly. Resolve scripts from the local Skill directory returned by invoke_skill; follow SKILL.md PowerShell examples and create a unique isolated workspace using xlsx_workspace.py. Preserve the source workbook and request authorization before external Python/LibreOffice execution. Formula recalculation or visual verification requires an actual receipt.\n"
+        ]
+      ]
+    },
+    {
+      "path": "xlsx/references/validate.md",
+      "sourceSha256": "6c2f08d06417da03017d25372a08be401b52ad3747b98b49b513c3ecfc5642be",
+      "resultSha256": "1cf8fd0edc465c05ae029a836bd1e0b4bc8ec07a9050d3df47389cd7acfedfa3",
+      "newline": "LF",
+      "replacements": [
+        [
+          "# 公式验证与重算指南\n",
+          "# 公式验证与重算指南\n\nFirefly Windows binding: the Bash, SKILL_DIR and /tmp command examples below are upstream reference syntax, not commands to run literally in Firefly. Resolve scripts from the local Skill directory returned by invoke_skill; follow SKILL.md PowerShell examples and create a unique isolated workspace using xlsx_workspace.py. Preserve the source workbook and request authorization before external Python/LibreOffice execution. Formula recalculation or visual verification requires an actual receipt.\n"
+        ]
+      ]
+    },
+    {
+      "path": "docx/references/scenario_c_apply_template.md",
+      "sourceSha256": "84828ed5e2105e8044251593ae6b84e7413f83841b5a3930bae0e7190bec6699",
+      "resultSha256": "aeb09170c02e39a0728cbf6d32b2ad9670bb03d92e474d9c8ec71786ec7ed02f",
+      "newline": "LF",
+      "replacements": [
+        [
+          "# 场景 C：应用格式化/模板\n",
+          "# 场景 C：应用格式化/模板\n\nFirefly Windows binding: resolve `$skillDir` from invoke_skill and set `$scriptRoot = Join-Path $skillDir 'scripts'` in the active PowerShell shell. The `$CLI` notation in this reference is a shorthand for the .NET project command in SKILL.md, not a Firefly tool. Only run external .NET, PowerShell or LibreOffice commands after checking availability and authorization; keep the original document.\n"
+        ],
+        [
+          "scripts/docx_preview.sh template.docx",
+          "powershell -ExecutionPolicy Bypass -File (Join-Path $scriptRoot 'docx_preview.ps1') -Input template.docx -OutDir .\\preview"
+        ]
+      ]
+    },
+    {
+      "path": "docx/references/troubleshooting.md",
+      "sourceSha256": "181192270af85f6a98a88f5e8ba3c60db512f05eef1a7ba65499c1afb012b81f",
+      "resultSha256": "48d9c66db7bce7e594725e005b9b25421390e2aa526b5e5c593895936ce336e2",
+      "newline": "LF",
+      "replacements": [
+        [
+          "# 故障排除指南 — 按症状驱动\n",
+          "# 故障排除指南 — 按症状驱动\n\nFirefly Windows binding: resolve `$skillDir` from invoke_skill and set `$scriptRoot = Join-Path $skillDir 'scripts'` in the active PowerShell shell. The `$CLI` notation in this reference is a shorthand for the .NET project command in SKILL.md, not a Firefly tool. Only run external .NET, PowerShell or LibreOffice commands after checking availability and authorization; keep the original document.\n"
+        ],
+        [
+          "scripts/docx_preview.sh broken.docx",
+          "powershell -ExecutionPolicy Bypass -File (Join-Path $scriptRoot 'docx_preview.ps1') -Input broken.docx -OutDir .\\preview"
+        ]
+      ]
+    },
+    {
+      "path": "pptx-generator/references/editing.md",
+      "sourceSha256": "894726b1f90af4b6d52415d9668e34ae049503fa81c06e7b787e7a748812998d",
+      "resultSha256": "d26ce340258d05e5df86d98fed353e947ffc26b9c16734ab2e52c1eb01825749",
+      "newline": "LF",
+      "replacements": [
+        [
+          "Always write to `/tmp/` first, then copy to the final path.",
+          "Always write to a fresh, isolated directory under the authorized Windows temporary workspace first, then copy to the final path."
+        ]
+      ]
+    },
+    {
+      "path": "docx/references/troubleshooting.md",
+      "sourceSha256": "48d9c66db7bce7e594725e005b9b25421390e2aa526b5e5c593895936ce336e2",
+      "resultSha256": "0b3bbf17325a0e5d95be2f12bf60f0f6fd2e8d0ab9a482245935156d650a39ae",
+      "newline": "LF",
+      "replacements": [["The `$CLI` notation in this reference is a shorthand for the .NET project command in SKILL.md, not a Firefly tool.", "The `$CLI` notation in this reference is a shorthand for the .NET project command in SKILL.md, not a Firefly tool. Resolve `assets/xsd/` under the installed Skill directory; Bash pipes and `grep` examples are not literal Windows commands and require equivalent approved PowerShell inspection."]]
+    },
+    {
+      "path": "pptx-generator/references/editing.md",
+      "sourceSha256": "d26ce340258d05e5df86d98fed353e947ffc26b9c16734ab2e52c1eb01825749",
+      "resultSha256": "1781307d17938bfc059a226c26554a9b8a0ae4d050bad0afc8c7359ba4c96eb8",
+      "newline": "LF",
+      "replacements": [["# Editing Existing Presentations\n", "# Editing Existing Presentations\n\nFirefly Windows binding: Bash and Unix path examples in this upstream reference are illustrative only. Use an isolated authorized Windows workspace, the actual installed Skill directory for its resources, and currently permitted file/Python tools. Do not run external Office/PptxGenJS programs or claim visual validation without a real receipt.\n"]]
+    }
+  ]
+}

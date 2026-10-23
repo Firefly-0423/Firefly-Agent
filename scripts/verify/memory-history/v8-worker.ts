@@ -1,0 +1,10 @@
+import {parentPort,workerData} from 'node:worker_threads';
+import path from 'node:path';
+if(!parentPort)throw new Error('MEMORY_WORKER_REQUIRED');
+const old=require(path.join(__dirname,'v8-writer.cjs')) as typeof import('../../../src/main/memory-core/repository');
+const repository=old.openMemoryRepository({databasePath:workerData.databasePath,key:workerData.key});workerData.key.fill(0);
+parentPort.on('message',(m:{id:number;type:string;body:any})=>{try{let result:unknown;
+ if(m.type==='batch')result=repository.writeBatch(m.body);else if(m.type==='rows')result=repository.readRows(m.body.table,m.body.scopeKey);else if(m.type==='close'){repository.close();result=null}else throw new Error('MEMORY_PROTOCOL_INVALID');
+ parentPort!.postMessage({id:m.id,ok:true,result});if(m.type==='close')parentPort!.close();
+}catch(e){parentPort!.postMessage({id:m.id,ok:false,error:e instanceof Error&&/^MEMORY_[A-Z_]+$/.test(e.message)?e.message:'MEMORY_TRANSACTION_FAILED'})}});
+parentPort.postMessage({type:'ready'});

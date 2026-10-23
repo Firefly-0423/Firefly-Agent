@@ -1,0 +1,360 @@
+<!doctype html><html lang="zh-CN"
+><head
+>
+  <meta charset="UTF-8"
+>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"
+>
+  <title
+>Firefly UI Tokens -- Preview</title>
+  <link rel="stylesheet" href="./tokens.css"
+>
+  <link rel="stylesheet" href="./fonts.css"
+>
+  <link rel="stylesheet" href="./base.css"
+>
+  <style
+>
+body {
+  padding: 48px 64px;
+  min-height: 100vh;
+  background: var(--rb-grad-bg);
+  background-attachment: fixed;
+}
+
+body.rb-grid::before {
+  z-index: 0;
+}
+
+.stack > * + * {
+  margin-top: 48px;
+}
+
+.row {
+  gap: 16px;
+  flex-wrap: wrap;
+  display: flex;
+  align-items: center;
+}
+
+.label {
+  text-transform: uppercase;
+  margin-bottom: 16px;
+  font: var(--rb-text-caption);
+  letter-spacing: 1.5px;
+  color: var(--rb-text-muted);
+}
+
+.heading {
+  font: var(--rb-text-display);
+  letter-spacing: -1.5px;
+  color: transparent;
+  background: var(--rb-grad-pink-hot);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.subhead {
+  font: var(--rb-text-h3);
+  color: var(--rb-text-default);
+}
+
+.mono {
+  font: var(--rb-text-mono);
+  color: var(--rb-text-muted);
+}
+
+.swatches {
+  grid-template-columns: repeat(8, 1fr);
+  gap: 8px;
+  display: grid;
+}
+
+.swatch {
+  position: relative;
+  overflow: hidden;
+  height: 64px;
+  border-radius: var(--rb-radius-md);
+  border: 1px solid var(--rb-border-soft);
+}
+
+.swatch span {
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  position: absolute;
+  bottom: 4px;
+  left: 6px;
+  font: var(--rb-text-micro);
+  color: var(--rb-text-default);
+}
+
+.radius-row {
+  gap: 16px;
+  flex-wrap: wrap;
+  display: flex;
+}
+
+.radius-tile {
+  width: 96px;
+  padding-bottom: 8px;
+  justify-content: center;
+  height: 96px;
+  font: var(--rb-text-mono);
+  display: flex;
+  color: var(--rb-text-muted);
+  border: 1px solid var(--rb-border-soft);
+  background: var(--rb-bg-elevated);
+  align-items: end;
+}
+
+.btn {
+  white-space: nowrap;
+  transition: transform 120ms ease, box-shadow 200ms ease, background 200ms ease;
+  padding: 11px 24px;
+  gap: 8px;
+  font: var(--rb-text-btn);
+  display: inline-flex;
+  border-radius: var(--rb-radius-full);
+  align-items: center;
+}
+
+.btn-pink {
+  color: var(--rb-text-on-pink);
+  box-shadow: var(--rb-glow-soft);
+  background: var(--rb-grad-pink);
+}
+
+.btn-pink:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--rb-glow-pink);
+}
+
+.btn-ghost {
+  color: var(--rb-text-default);
+  border: 1px solid var(--rb-border-strong);
+  background: transparent;
+}
+
+.btn-ghost:hover {
+  background: rgba(77, 78, 105, 0.08);
+}
+
+.btn-outline {
+  color: var(--rb-text-default);
+  border: 1px solid var(--rb-border-soft);
+  background: var(--rb-bg-elevated);
+}
+
+.card {
+  padding: 24px;
+  min-width: 280px;
+  box-shadow: var(--rb-shadow-card);
+  border: 1px solid var(--rb-border-soft);
+  border-radius: var(--rb-radius-xxl);
+  background: var(--rb-bg-2);
+}
+
+.card-glow {
+  position: relative;
+  padding: 24px;
+  min-width: 280px;
+  border-radius: var(--rb-radius-xxl);
+  background: var(--rb-bg-2);
+}
+
+.card-glow::before {
+  position: absolute;
+  pointer-events: none;
+  padding: 1px;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  inset: 0;
+  content: "";
+  border-radius: inherit;
+  background: var(--rb-grad-pink-hot);
+}
+
+.badge {
+  padding: 4px 10px;
+  font: var(--rb-text-mono-em);
+  display: inline-flex;
+  color: var(--rb-pink-300);
+  border: 1px solid var(--rb-border-soft);
+  border-radius: var(--rb-radius-full);
+  background: rgba(77, 78, 105, 0.10);
+}
+</style>
+</head>
+<body class="rb-grid"
+>
+  <main style="max-width: 1100px; margin: 0 auto; position: relative; z-index: 1;" class="stack"
+>
+
+    <header
+>
+      <span class="badge"
+>FIREFLY / UI v0.1</span>
+      <h1 style="margin-top: 16px;" class="heading"
+>Pink Tech Tokens</h1>
+      <p style="margin-top: 12px; max-width: 640px;" class="subhead"
+>
+        Sci-fi pink on deep purple-black. Rounded everywhere. Built from the MiniMax design language,
+        flipped to a dark canvas.
+      </p>
+    </header>
+
+    <section
+>
+      <div class="label"
+>01 -- Surfaces</div>
+      <div class="row"
+>
+        <div style="background: var(--rb-bg-0);" class="swatch"
+><span
+>bg-0</span></div>
+        <div style="background: var(--rb-bg-1);" class="swatch"
+><span
+>bg-1</span></div>
+        <div style="background: var(--rb-bg-2);" class="swatch"
+><span
+>bg-2</span></div>
+        <div style="background: var(--rb-bg-3);" class="swatch"
+><span
+>bg-3</span></div>
+        <div style="background: var(--rb-bg-elevated);" class="swatch"
+><span
+>elevated</span></div>
+      </div>
+    </section>
+
+    <section
+>
+      <div class="label"
+>02 -- Pink scale</div>
+      <div class="swatches"
+>
+        <div style="background: var(--rb-pink-50);" class="swatch"
+><span
+>50</span></div>
+        <div style="background: var(--rb-pink-100);" class="swatch"
+><span
+>100</span></div>
+        <div style="background: var(--rb-pink-200);" class="swatch"
+><span
+>200</span></div>
+        <div style="background: var(--rb-pink-300);" class="swatch"
+><span
+>300</span></div>
+        <div style="background: var(--rb-pink-400);" class="swatch"
+><span
+>400</span></div>
+        <div style="background: var(--rb-pink-500);" class="swatch"
+><span
+>500</span></div>
+        <div style="background: var(--rb-pink-600);" class="swatch"
+><span
+>600</span></div>
+        <div style="background: var(--rb-pink-700);" class="swatch"
+><span
+>700</span></div>
+      </div>
+    </section>
+
+    <section
+>
+      <div class="label"
+>03 -- Radii</div>
+      <div class="radius-row"
+>
+        <div style="border-radius: var(--rb-radius-xs);" class="radius-tile"
+>xs 4</div>
+        <div style="border-radius: var(--rb-radius-sm);" class="radius-tile"
+>sm 6</div>
+        <div style="border-radius: var(--rb-radius-md);" class="radius-tile"
+>md 8</div>
+        <div style="border-radius: var(--rb-radius-lg);" class="radius-tile"
+>lg 12</div>
+        <div style="border-radius: var(--rb-radius-xl);" class="radius-tile"
+>xl 16</div>
+        <div style="border-radius: var(--rb-radius-xxl);" class="radius-tile"
+>xxl 20</div>
+        <div style="border-radius: var(--rb-radius-xxxl);" class="radius-tile"
+>xxxl 24</div>
+        <div style="border-radius: var(--rb-radius-hero);" class="radius-tile"
+>hero 32</div>
+        <div style="border-radius: var(--rb-radius-full);" class="radius-tile"
+>full</div>
+      </div>
+    </section>
+
+    <section
+>
+      <div class="label"
+>04 -- Buttons (pill shape, per design ref)</div>
+      <div class="row"
+>
+        <button class="btn btn-pink"
+>Primary action</button>
+        <button class="btn btn-ghost"
+>Ghost</button>
+        <button class="btn btn-outline"
+>Tertiary</button>
+        <span class="mono"
+>--rb-radius-full</span>
+      </div>
+    </section>
+
+    <section
+>
+      <div class="label"
+>05 -- Cards</div>
+      <div style="align-items: stretch;" class="row"
+>
+        <div class="card"
+>
+          <div style="margin-bottom: 12px;" class="badge"
+>flat</div>
+          <h3 class="subhead"
+>Standard surface</h3>
+          <p style="margin-top: 8px;" class="mono"
+>bg-2 + hairline</p>
+        </div>
+        <div class="card-glow"
+>
+          <div style="margin-bottom: 12px;" class="badge"
+>glow</div>
+          <h3 class="subhead"
+>Gradient border</h3>
+          <p style="margin-top: 8px;" class="mono"
+>--rb-grad-pink-hot</p>
+        </div>
+      </div>
+    </section>
+
+    <section
+>
+      <div class="label"
+>06 -- Typography</div>
+      <div style="gap: 12px;" class="stack"
+>
+        <div style="font: var(--rb-text-display); letter-spacing: -1.5px; background: var(--rb-grad-pink-hot); -webkit-background-clip: text; background-clip: text; color: transparent;"
+>Display 56</div>
+        <h2 style="font: var(--rb-text-h1); margin: 0;"
+>Heading H1 40</h2>
+        <h3 style="font: var(--rb-text-h2); margin: 0;"
+>Heading H2 32</h3>
+        <h4 style="font: var(--rb-text-h3); margin: 0;"
+>Heading H3 24</h4>
+        <p style="font: var(--rb-text-body); margin: 0;"
+>Body 16px -- Noto Sans SC, regular weight.</p>
+        <p style="font: var(--rb-text-small); margin: 0; color: var(--rb-text-muted);"
+>Small 14px muted text.</p>
+        <p style="margin: 0;" class="mono"
+>// mono 13px -- JetBrains Mono / system mono</p>
+      </div>
+    </section>
+
+  </main>
+
+
+</body></html>

@@ -1,0 +1,4436 @@
+{
+ "meta": {
+  "label": "dev-units2-neartie-0.03",
+  "units": 2,
+  "args": {
+   "sizes": "250",
+   "granularity": "session",
+   "units": "2",
+   "split": "dev",
+   "modes": "lexical,lexical+neartie",
+   "neartie-delta": "0.03",
+   "label": "dev-units2-neartie-0.03",
+   "out": "scripts/eval/memory-history/results/2026-10-13-stage-a"
+  },
+  "git": {
+   "commit": "53da19bbb90c45af82e6ad6e779568650b81f981",
+   "dirty": true
+  },
+  "models": {
+   "embedding": "local-bge-m3",
+   "embeddingDims": 1024,
+   "embeddingIdentity": {
+    "provider": "local",
+    "model": "Xenova/bge-m3@4de13258303883538bd53b696b452bf8099f0858:cls-normalized-q8-v1",
+    "dimensions": 1024
+   },
+   "reranker": "bge-reranker-base@280bcc27a84e0b898c251e06fddb25171bd9b101:text-pair-sigmoid-q8-v1"
+  },
+  "modes": [
+   "lexical",
+   "lexical+neartie"
+  ],
+  "granularities": [
+   "session"
+  ],
+  "datasetDigest": "6117c1cfdca0ed59d6523a881fd63b3b79ba40cef4e2cfa37acbc04764e215f2",
+  "querySetDigests": {
+   "dev": "1ccfa9eadf14722467ca8356bfbbdc2d3cae171ba8db7a305ecb2cbb0dcc4a6b",
+   "holdout": "92b10874254f035e7802fde4e1c32f70eb74edb598782e9ebe58c187c4d6d700"
+  },
+  "recencyAlpha": 0.1,
+  "recencyHalfLifeDays": 30,
+  "split": "dev",
+  "sizes": [
+   250
+  ],
+  "seed": 20261013,
+  "queries": 78,
+  "node": "v24.19.0",
+  "platform": "win32",
+  "embedLoadMs": 1521,
+  "rerankLoadMs": 918,
+  "rssAfterLoadMb": 2170,
+  "rssPeakMb": 2423
+ },
+ "runs": [
+  {
+   "granularity": "session",
+   "size": 250,
+   "docs": 250,
+   "rows": [
+    {
+     "query": "q-coffee",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [],
+     "ms": 50.33629999999994,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-coffee",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [],
+     "ms": 50.42579999999998,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-sleep",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "s-sleep",
+      "g-c06-new",
+      "s-long-passport",
+      "g-p02",
+      "s-flight",
+      "g-n03",
+      "s-long-client",
+      "g-p04"
+     ],
+     "ms": 51.57770000000028,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-sleep",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "s-sleep",
+      "g-c06-new",
+      "s-long-passport",
+      "g-p02",
+      "s-flight",
+      "g-n03",
+      "s-long-client",
+      "g-p04"
+     ],
+     "ms": 53.11750000000029,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-cilantro",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-n02",
+      "g-n04",
+      "g-n07",
+      "s-long-gift",
+      "n-alarm",
+      "g-n01",
+      "g-n09",
+      "g-n11"
+     ],
+     "ms": 49.033100000000104,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-cilantro",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "s-long-gift",
+      "g-n02",
+      "g-n04",
+      "g-n07",
+      "n-alarm",
+      "d-0061",
+      "g-n01",
+      "g-n09"
+     ],
+     "ms": 51.43089999999984,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-pet",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "s-theme-old",
+      "g-n01",
+      "g-n02",
+      "g-n04",
+      "g-n07",
+      "g-n05",
+      "g-n06",
+      "g-n11"
+     ],
+     "ms": 49.97260000000006,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-pet",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-n01",
+      "g-n02",
+      "g-n04",
+      "s-theme-old",
+      "g-n11",
+      "g-n05",
+      "g-n07",
+      "g-n06"
+     ],
+     "ms": 50.24260000000004,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-japanese",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "s-japanese",
+      "g-n00",
+      "g-n07",
+      "g-n01",
+      "g-n03",
+      "g-n04",
+      "g-n09",
+      "g-n10"
+     ],
+     "ms": 50.87980000000016,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-japanese",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "s-japanese",
+      "g-n00",
+      "g-n01",
+      "g-n09",
+      "s-long-backup",
+      "g-n03",
+      "g-n10",
+      "s-long-passport"
+     ],
+     "ms": 49.93179999999984,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-aurora",
+     "category": "keyword",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "n-aurora6",
+      "s-aurora-budget",
+      "n-aurora-release",
+      "gn-k00",
+      "d-0006",
+      "d-0019",
+      "d-0023",
+      "d-0041"
+     ],
+     "ms": 50.6869999999999,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 0.5,
+     "ndcg8": 0.6309297535714575
+    },
+    {
+     "query": "q-aurora",
+     "category": "keyword",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "n-aurora6",
+      "s-aurora-budget",
+      "n-aurora-release",
+      "gn-k00",
+      "d-0056",
+      "d-0046",
+      "d-0074",
+      "d-0082"
+     ],
+     "ms": 51.82920000000013,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 0.5,
+     "ndcg8": 0.6309297535714575
+    },
+    {
+     "query": "q-linzhou",
+     "category": "keyword",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "s-linzhou",
+      "g-c01-old",
+      "g-k00",
+      "n-linzhou-leave",
+      "s-cloud-old",
+      "g-c01-new",
+      "gn-k00",
+      "s-cloud-new"
+     ],
+     "ms": 48.79509999999982,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-linzhou",
+     "category": "keyword",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "s-linzhou",
+      "g-c01-old",
+      "g-k00",
+      "n-linzhou-leave",
+      "g-c01-new",
+      "s-cloud-old",
+      "gn-k00",
+      "s-cloud-new"
+     ],
+     "ms": 50.610699999999724,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-flight",
+     "category": "keyword",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "s-flight",
+      "n-flight-other",
+      "s-long-backup",
+      "g-k10",
+      "g-c05-old",
+      "gn-k07",
+      "g-n07",
+      "g-n11"
+     ],
+     "ms": 53.57479999999987,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-flight",
+     "category": "keyword",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "s-flight",
+      "n-flight-other",
+      "s-long-backup",
+      "g-k10",
+      "gn-k07",
+      "g-n11",
+      "g-c05-old",
+      "g-n00"
+     ],
+     "ms": 50.83039999999983,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-qinghe",
+     "category": "correction",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "s-qinghe-new",
+      "n-qinghe-cover",
+      "n-qinghe-price",
+      "s-qinghe-old",
+      "d-0018",
+      "d-0032",
+      "d-0037",
+      "d-0038"
+     ],
+     "ms": 50.332600000000184,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1,
+     "order": 1
+    },
+    {
+     "query": "q-qinghe",
+     "category": "correction",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "s-qinghe-new",
+      "n-qinghe-cover",
+      "n-qinghe-price",
+      "s-qinghe-old",
+      "d-0069",
+      "d-0051",
+      "d-0087",
+      "d-0018"
+     ],
+     "ms": 50.035799999999654,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1,
+     "order": 1
+    },
+    {
+     "query": "q-theme",
+     "category": "correction",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "s-theme-old",
+      "d-0051",
+      "d-0087",
+      "g-c05-old",
+      "g-n03",
+      "d-0037",
+      "g-p17",
+      "d-0018"
+     ],
+     "ms": 50.34450000000015,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0,
+     "order": 0
+    },
+    {
+     "query": "q-theme",
+     "category": "correction",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "s-theme-old",
+      "d-0051",
+      "d-0087",
+      "g-n03",
+      "g-c05-old",
+      "g-p17",
+      "d-0037",
+      "d-0069"
+     ],
+     "ms": 49.86880000000019,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0,
+     "order": 0
+    },
+    {
+     "query": "q-cloud",
+     "category": "correction",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "s-cloud-new",
+      "d-0007",
+      "s-cloud-old",
+      "gn-k10",
+      "g-k00",
+      "s-aurora-budget",
+      "g-k02",
+      "gn-k00"
+     ],
+     "ms": 51.24629999999979,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1,
+     "order": 1
+    },
+    {
+     "query": "q-cloud",
+     "category": "correction",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "s-cloud-new",
+      "d-0007",
+      "s-cloud-old",
+      "gn-k10",
+      "g-k00",
+      "gn-k00",
+      "s-aurora-budget",
+      "g-k02"
+     ],
+     "ms": 50.32409999999982,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1,
+     "order": 1
+    },
+    {
+     "query": "q-lang-client",
+     "category": "context",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "s-lang-ctx",
+      "s-pnpm",
+      "n-qinghe-cover",
+      "d-0038",
+      "d-0100",
+      "g-n06",
+      "s-long-client",
+      "s-schedule"
+     ],
+     "ms": 49.2521999999999,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-lang-client",
+     "category": "context",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "s-lang-ctx",
+      "s-pnpm",
+      "n-qinghe-cover",
+      "d-0038",
+      "d-0100",
+      "s-long-client",
+      "g-n06",
+      "s-schedule"
+     ],
+     "ms": 50.13259999999991,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-lang-notes",
+     "category": "context",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "s-lang-ctx",
+      "g-n07",
+      "g-n02",
+      "g-n04",
+      "s-long-gift",
+      "g-n05",
+      "g-n06",
+      "g-n09"
+     ],
+     "ms": 49.29019999999991,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-lang-notes",
+     "category": "context",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "s-lang-ctx",
+      "g-n07",
+      "s-long-gift",
+      "g-n02",
+      "g-n04",
+      "g-n09",
+      "s-long-backup",
+      "g-n10"
+     ],
+     "ms": 48.835199999999986,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-long-passport",
+     "category": "needle",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-n08",
+      "d-0003",
+      "d-0011",
+      "d-0026",
+      "d-0050",
+      "d-0058",
+      "d-0067",
+      "s-trip-new"
+     ],
+     "ms": 47.92979999999989,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-long-passport",
+     "category": "needle",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-n08",
+      "s-trip-new",
+      "d-0003",
+      "d-0011",
+      "d-0050",
+      "g-k12",
+      "d-0026",
+      "d-0067"
+     ],
+     "ms": 49.301400000000285,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-long-backup",
+     "category": "needle",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "s-long-backup",
+      "s-trip-new"
+     ],
+     "ms": 49.726299999999355,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-long-backup",
+     "category": "needle",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "s-long-backup",
+      "s-trip-new"
+     ],
+     "ms": 49.3729000000003,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-long-client",
+     "category": "needle",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "s-schedule",
+      "s-pnpm",
+      "g-n06",
+      "s-long-client",
+      "s-trip-new",
+      "s-lang-ctx",
+      "g-n03",
+      "g-n07"
+     ],
+     "ms": 48.669700000000375,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 0.25,
+     "ndcg8": 0.43067655807339306
+    },
+    {
+     "query": "q-long-client",
+     "category": "needle",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "s-schedule",
+      "s-pnpm",
+      "s-long-client",
+      "g-n06",
+      "s-trip-new",
+      "s-lang-ctx",
+      "g-n09",
+      "g-n08"
+     ],
+     "ms": 50.19630000000052,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 0.3333333333333333,
+     "ndcg8": 0.5
+    },
+    {
+     "query": "q-date-range",
+     "category": "temporal",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "s-date-w1a",
+      "s-date-w1b",
+      "g-n00",
+      "s-trip-new",
+      "gn-k00",
+      "s-city-new",
+      "d-0061",
+      "d-0056"
+     ],
+     "ms": 4.154599999999846,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1,
+     "leak3": 0
+    },
+    {
+     "query": "q-date-range",
+     "category": "temporal",
+     "mode": "lexical+neartie",
+     "status": "n/a",
+     "ranked": [],
+     "ms": 0.03600000000005821,
+     "topScore": null
+    },
+    {
+     "query": "q-trip-latest",
+     "category": "temporal",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "s-trip-new",
+      "gn-p09",
+      "s-trip-mid",
+      "s-trip-old",
+      "d-0012",
+      "d-0030",
+      "d-0083",
+      "d-0042"
+     ],
+     "ms": 50.26860000000033,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-trip-latest",
+     "category": "temporal",
+     "mode": "lexical+neartie",
+     "status": "n/a",
+     "ranked": [],
+     "ms": 0.04330000000027212,
+     "topScore": null
+    },
+    {
+     "query": "q-none-seat",
+     "category": "no-answer",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-n03",
+      "g-c05-old",
+      "g-p16",
+      "s-long-backup",
+      "g-n02",
+      "d-0037",
+      "s-read-a",
+      "g-p01"
+     ],
+     "ms": 48.71610000000055,
+     "topScore": null
+    },
+    {
+     "query": "q-none-seat",
+     "category": "no-answer",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-n03",
+      "g-c05-old",
+      "g-p16",
+      "s-long-backup",
+      "g-n02",
+      "s-read-a",
+      "d-0037",
+      "g-p01"
+     ],
+     "ms": 49.45629999999983,
+     "topScore": null
+    },
+    {
+     "query": "q-none-team",
+     "category": "no-answer",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "d-0069",
+      "d-0009",
+      "g-n06",
+      "g-n03",
+      "g-c05-old",
+      "g-p04",
+      "g-p16",
+      "s-long-backup"
+     ],
+     "ms": 49.07310000000052,
+     "topScore": null
+    },
+    {
+     "query": "q-none-team",
+     "category": "no-answer",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "d-0069",
+      "d-0009",
+      "g-n06",
+      "g-n03",
+      "g-p04",
+      "g-c05-old",
+      "g-p16",
+      "s-long-backup"
+     ],
+     "ms": 50.32249999999931,
+     "topScore": null
+    },
+    {
+     "query": "q-none-trip",
+     "category": "no-answer",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "s-trip-mid",
+      "s-trip-old",
+      "s-trip-new",
+      "s-long-passport",
+      "gn-p01",
+      "s-city-old",
+      "s-long-client",
+      "g-n00"
+     ],
+     "ms": 47.85230000000047,
+     "topScore": null
+    },
+    {
+     "query": "q-none-trip",
+     "category": "no-answer",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "s-trip-mid",
+      "s-trip-old",
+      "s-trip-new",
+      "s-long-passport",
+      "gn-p01",
+      "s-city-old",
+      "s-long-client",
+      "g-n00"
+     ],
+     "ms": 49.29320000000007,
+     "topScore": null
+    },
+    {
+     "query": "q-none-blood",
+     "category": "no-answer",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "d-0037",
+      "d-0018",
+      "d-0032",
+      "d-0038",
+      "d-0049",
+      "d-0051",
+      "d-0069",
+      "d-0084"
+     ],
+     "ms": 49.358000000000175,
+     "topScore": null
+    },
+    {
+     "query": "q-none-blood",
+     "category": "no-answer",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "d-0037",
+      "d-0069",
+      "d-0051",
+      "d-0087",
+      "d-0018",
+      "d-0038",
+      "d-0100",
+      "d-0049"
+     ],
+     "ms": 49.44260000000031,
+     "topScore": null
+    },
+    {
+     "query": "q-g-p00",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-p11",
+      "s-qinghe-old",
+      "g-n02",
+      "g-n05",
+      "g-n10",
+      "s-long-backup",
+      "s-long-client",
+      "g-n03"
+     ],
+     "ms": 48.13509999999951,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p00",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-p11",
+      "s-qinghe-old",
+      "g-n02",
+      "s-long-backup",
+      "g-n10",
+      "s-long-client",
+      "g-n05",
+      "g-n03"
+     ],
+     "ms": 48.99130000000059,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p01",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-p05",
+      "g-p19",
+      "g-p24",
+      "g-p11",
+      "g-p21",
+      "g-p00",
+      "g-p03",
+      "d-0039"
+     ],
+     "ms": 48.434299999999894,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p01",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-p05",
+      "g-p19",
+      "g-p24",
+      "g-p00",
+      "g-p11",
+      "g-p21",
+      "d-0039",
+      "g-p03"
+     ],
+     "ms": 48.152500000000146,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p02",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-c06-new",
+      "g-n01",
+      "g-n09",
+      "g-n10",
+      "s-long-backup",
+      "g-n03",
+      "g-n05",
+      "g-n06"
+     ],
+     "ms": 48.97609999999986,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p02",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-c06-new",
+      "g-n01",
+      "g-n09",
+      "s-long-backup",
+      "g-n10",
+      "g-n08",
+      "s-long-gift",
+      "g-n03"
+     ],
+     "ms": 48.993899999999485,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p04",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-k04",
+      "n-linzhou-leave",
+      "g-n04",
+      "g-n07",
+      "g-n10",
+      "s-long-backup",
+      "s-long-client",
+      "g-n01"
+     ],
+     "ms": 49.11580000000049,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p04",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-k04",
+      "n-linzhou-leave",
+      "s-long-backup",
+      "g-n10",
+      "g-n04",
+      "s-long-client",
+      "g-n07",
+      "g-n01"
+     ],
+     "ms": 49.010299999999916,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p05",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-n08",
+      "g-n00",
+      "s-city-old",
+      "s-long-passport",
+      "g-p05",
+      "s-date-w2",
+      "g-p23",
+      "s-read-b"
+     ],
+     "ms": 48.91560000000027,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 0.2,
+     "ndcg8": 0.38685280723454163
+    },
+    {
+     "query": "q-g-p05",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-n08",
+      "g-n00",
+      "s-long-passport",
+      "s-city-old",
+      "g-p05",
+      "s-date-w2",
+      "g-p23",
+      "s-read-b"
+     ],
+     "ms": 49.04140000000007,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 0.2,
+     "ndcg8": 0.38685280723454163
+    },
+    {
+     "query": "q-g-p06",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "s-commute",
+      "d-0015",
+      "d-0034",
+      "d-0048",
+      "d-0094",
+      "g-p15",
+      "g-p25",
+      "g-p16"
+     ],
+     "ms": 48.92360000000008,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p06",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "s-commute",
+      "d-0094",
+      "g-p15",
+      "d-0015",
+      "d-0048",
+      "d-0034",
+      "g-p25",
+      "g-p16"
+     ],
+     "ms": 50.427999999999884,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p08",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-k15",
+      "s-trip-mid",
+      "s-city-old",
+      "gn-p08",
+      "g-n02",
+      "g-n08",
+      "s-long-backup",
+      "s-long-passport"
+     ],
+     "ms": 50.188099999999395,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p08",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-k15",
+      "s-trip-mid",
+      "s-city-old",
+      "gn-p08",
+      "g-n08",
+      "g-n02",
+      "s-long-backup",
+      "s-long-passport"
+     ],
+     "ms": 48.703199999999924,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p09",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "s-lang-ctx",
+      "g-n03",
+      "g-n05",
+      "g-n06",
+      "g-n08",
+      "g-n09",
+      "s-long-gift",
+      "s-long-passport"
+     ],
+     "ms": 49.61539999999968,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p09",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "s-lang-ctx",
+      "g-n08",
+      "g-n09",
+      "s-long-gift",
+      "g-n00",
+      "g-n03",
+      "s-long-passport",
+      "g-n02"
+     ],
+     "ms": 48.04829999999947,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p10",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "d-0003",
+      "d-0011",
+      "d-0026",
+      "d-0050",
+      "d-0058",
+      "d-0067",
+      "gn-p09",
+      "n-tire"
+     ],
+     "ms": 48.56930000000011,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p10",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "d-0003",
+      "d-0011",
+      "d-0050",
+      "d-0026",
+      "d-0067",
+      "d-0058",
+      "gn-p09",
+      "n-tire"
+     ],
+     "ms": 48.71600000000035,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p12",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-n08",
+      "s-date-w2",
+      "s-read-b",
+      "g-p12",
+      "g-p24",
+      "s-commute",
+      "s-qinghe-old",
+      "g-k12"
+     ],
+     "ms": 48.39850000000024,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 0.25,
+     "ndcg8": 0.43067655807339306
+    },
+    {
+     "query": "q-g-p12",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-n08",
+      "s-date-w2",
+      "s-read-b",
+      "s-qinghe-old",
+      "g-p24",
+      "s-commute",
+      "g-k12",
+      "g-p12"
+     ],
+     "ms": 49.59780000000046,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 1,
+     "rr": 0.125,
+     "ndcg8": 0.31546487678572877
+    },
+    {
+     "query": "q-g-p13",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-p13",
+      "g-n00",
+      "g-p03",
+      "g-n03",
+      "g-n06",
+      "g-n07",
+      "g-n09",
+      "g-n10"
+     ],
+     "ms": 48.446500000000015,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-p13",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-p13",
+      "g-n00",
+      "g-p03",
+      "g-n09",
+      "g-n01",
+      "g-n08",
+      "s-long-gift",
+      "g-n03"
+     ],
+     "ms": 48.93830000000071,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-p14",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-p04",
+      "gn-p08",
+      "g-n05",
+      "g-n06",
+      "g-n11",
+      "n-linzhou-leave",
+      "s-trip-mid",
+      "g-n02"
+     ],
+     "ms": 49.332900000000336,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p14",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-p04",
+      "gn-p08",
+      "n-linzhou-leave",
+      "s-trip-mid",
+      "g-n02",
+      "s-long-backup",
+      "g-n11",
+      "g-n10"
+     ],
+     "ms": 49.334899999999834,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p16",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-p16",
+      "d-0009",
+      "d-0043",
+      "d-0071",
+      "d-0091",
+      "d-0097",
+      "d-0028",
+      "d-0036"
+     ],
+     "ms": 48.14419999999973,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-p16",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-p16",
+      "d-0043",
+      "d-0071",
+      "d-0091",
+      "d-0097",
+      "d-0009",
+      "d-0028",
+      "d-0095"
+     ],
+     "ms": 49.2496000000001,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-p17",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-p27",
+      "n-japan-trip",
+      "d-0003",
+      "d-0011",
+      "d-0026",
+      "d-0050",
+      "d-0058",
+      "d-0067"
+     ],
+     "ms": 49.00460000000021,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p17",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "n-japan-trip",
+      "g-p27",
+      "d-0003",
+      "d-0011",
+      "d-0050",
+      "d-0026",
+      "d-0067",
+      "d-0058"
+     ],
+     "ms": 48.654999999999745,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p18",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-n01",
+      "g-n03",
+      "g-n06",
+      "s-long-gift",
+      "s-read-a",
+      "g-n02",
+      "g-n07",
+      "g-n08"
+     ],
+     "ms": 49.551800000000185,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p18",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-n01",
+      "s-long-gift",
+      "g-n03",
+      "g-n06",
+      "g-n08",
+      "g-n02",
+      "s-long-backup",
+      "s-read-a"
+     ],
+     "ms": 49.154600000000755,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p20",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-p20",
+      "s-pnpm",
+      "g-k07",
+      "g-n02",
+      "g-n09",
+      "g-n11",
+      "s-long-gift",
+      "d-0062"
+     ],
+     "ms": 48.5608000000002,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-p20",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-p20",
+      "s-pnpm",
+      "g-k07",
+      "d-0086",
+      "g-n02",
+      "g-n09",
+      "s-long-gift",
+      "g-n11"
+     ],
+     "ms": 48.87850000000071,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-p21",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "s-pnpm",
+      "g-k12",
+      "d-0003",
+      "d-0085",
+      "s-date-w1a",
+      "gn-p08",
+      "s-japanese",
+      "g-n10"
+     ],
+     "ms": 48.93010000000049,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p21",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "s-pnpm",
+      "g-k12",
+      "d-0003",
+      "d-0085",
+      "s-date-w1a",
+      "g-n10",
+      "gn-p08",
+      "s-japanese"
+     ],
+     "ms": 49.71320000000014,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p22",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "d-0024",
+      "d-0080",
+      "g-k15",
+      "g-p22",
+      "g-n08",
+      "g-k12",
+      "d-0009",
+      "d-0013"
+     ],
+     "ms": 49.407499999999345,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 0.25,
+     "ndcg8": 0.43067655807339306
+    },
+    {
+     "query": "q-g-p22",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "d-0024",
+      "d-0080",
+      "g-k15",
+      "g-p22",
+      "g-n08",
+      "d-0043",
+      "d-0088",
+      "d-0091"
+     ],
+     "ms": 49.19629999999961,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 0.25,
+     "ndcg8": 0.43067655807339306
+    },
+    {
+     "query": "q-g-p24",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "n-qinghe-cover",
+      "d-0038",
+      "s-pnpm",
+      "d-0100",
+      "s-flight",
+      "d-0022",
+      "g-p04",
+      "gn-p01"
+     ],
+     "ms": 49.15639999999985,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p24",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "n-qinghe-cover",
+      "d-0038",
+      "s-pnpm",
+      "d-0100",
+      "s-flight",
+      "d-0022",
+      "gn-p01",
+      "g-p04"
+     ],
+     "ms": 48.41640000000007,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p25",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-n05",
+      "g-n08",
+      "g-n02",
+      "g-n06",
+      "g-n07",
+      "g-n09",
+      "g-n11",
+      "g-p25"
+     ],
+     "ms": 49.121399999999994,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 1,
+     "rr": 0.125,
+     "ndcg8": 0.31546487678572877
+    },
+    {
+     "query": "q-g-p25",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-n08",
+      "g-n02",
+      "g-n09",
+      "g-n11",
+      "g-n05",
+      "g-p25",
+      "g-n06",
+      "g-n07"
+     ],
+     "ms": 49.19639999999981,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 1,
+     "rr": 0.16666666666666666,
+     "ndcg8": 0.3562071871080222
+    },
+    {
+     "query": "q-g-p26",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "gn-p03",
+      "g-p26",
+      "n-alarm",
+      "g-p11",
+      "n-coffee-machine",
+      "s-sleep",
+      "gn-p08",
+      "d-0002"
+     ],
+     "ms": 48.52720000000045,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 0.5,
+     "ndcg8": 0.6309297535714575
+    },
+    {
+     "query": "q-g-p26",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "gn-p03",
+      "g-p26",
+      "n-alarm",
+      "g-p11",
+      "n-coffee-machine",
+      "s-sleep",
+      "gn-p08",
+      "d-0061"
+     ],
+     "ms": 48.21799999999985,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 0.5,
+     "ndcg8": 0.6309297535714575
+    },
+    {
+     "query": "q-g-p28",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-k09",
+      "g-n06",
+      "s-pnpm",
+      "g-k07",
+      "d-0062",
+      "d-0086",
+      "d-0109",
+      "s-coffee"
+     ],
+     "ms": 49.39509999999973,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p28",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-k09",
+      "g-n06",
+      "s-pnpm",
+      "g-k07",
+      "d-0086",
+      "d-0109",
+      "d-0062",
+      "s-lang-ctx"
+     ],
+     "ms": 49.078599999999824,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p29",
+     "category": "paraphrase",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "d-0015",
+      "d-0034",
+      "d-0048",
+      "d-0055",
+      "d-0094",
+      "d-0010",
+      "d-0030",
+      "d-0031"
+     ],
+     "ms": 49.34320000000025,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-p29",
+     "category": "paraphrase",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "d-0094",
+      "d-0055",
+      "d-0030",
+      "d-0015",
+      "d-0010",
+      "d-0031",
+      "d-0042",
+      "d-0048"
+     ],
+     "ms": 48.00410000000011,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-k00",
+     "category": "keyword",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-k00",
+      "s-linzhou",
+      "gn-k00",
+      "g-c01-old",
+      "g-c01-new",
+      "s-cloud-old",
+      "s-cloud-new"
+     ],
+     "ms": 48.77890000000025,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-k00",
+     "category": "keyword",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-k00",
+      "s-linzhou",
+      "gn-k00",
+      "g-c01-old",
+      "g-c01-new",
+      "s-cloud-old",
+      "s-cloud-new"
+     ],
+     "ms": 48.85660000000007,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-k01",
+     "category": "keyword",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-k01",
+      "g-k09",
+      "g-k14",
+      "g-k10",
+      "g-k15",
+      "d-0007",
+      "gn-k01",
+      "g-k03"
+     ],
+     "ms": 48.739300000000185,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-k01",
+     "category": "keyword",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-k01",
+      "g-k09",
+      "g-k14",
+      "g-k10",
+      "g-k15",
+      "gn-k01",
+      "d-0007",
+      "g-k03"
+     ],
+     "ms": 49.52820000000065,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-k02",
+     "category": "keyword",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-k02",
+      "d-0018",
+      "gn-p01",
+      "d-0036",
+      "d-0057",
+      "d-0037",
+      "g-k10",
+      "d-0032"
+     ],
+     "ms": 48.69170000000031,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-k02",
+     "category": "keyword",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-k02",
+      "d-0018",
+      "gn-p01",
+      "d-0057",
+      "d-0036",
+      "d-0037",
+      "d-0069",
+      "g-k10"
+     ],
+     "ms": 49.205700000000434,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-k04",
+     "category": "keyword",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-k04",
+      "gn-p01",
+      "d-0008",
+      "d-0012",
+      "d-0020",
+      "d-0021",
+      "d-0059",
+      "d-0072"
+     ],
+     "ms": 50.40809999999965,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-k04",
+     "category": "keyword",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-k04",
+      "gn-p01",
+      "d-0012",
+      "d-0083",
+      "d-0008",
+      "d-0021",
+      "d-0020",
+      "d-0059"
+     ],
+     "ms": 49.110099999999875,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-k05",
+     "category": "keyword",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-k05",
+      "d-0037",
+      "g-n07",
+      "d-0018",
+      "d-0032",
+      "d-0038",
+      "d-0049",
+      "d-0051"
+     ],
+     "ms": 48.55479999999989,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-k05",
+     "category": "keyword",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-k05",
+      "d-0037",
+      "d-0069",
+      "d-0051",
+      "d-0087",
+      "d-0018",
+      "d-0038",
+      "d-0100"
+     ],
+     "ms": 49.70939999999973,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-k06",
+     "category": "keyword",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-k06",
+      "d-0010",
+      "d-0014",
+      "d-0030",
+      "d-0031",
+      "d-0042",
+      "d-0110",
+      "n-npm-error"
+     ],
+     "ms": 48.24549999999999,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-k06",
+     "category": "keyword",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-k06",
+      "d-0030",
+      "d-0010",
+      "d-0031",
+      "d-0042",
+      "d-0014",
+      "d-0110",
+      "n-npm-error"
+     ],
+     "ms": 48.85710000000017,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-k08",
+     "category": "keyword",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-k08",
+      "gn-k08",
+      "s-trip-new",
+      "g-n01",
+      "g-n02",
+      "g-n04",
+      "g-n07",
+      "s-long-gift"
+     ],
+     "ms": 48.93119999999999,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-k08",
+     "category": "keyword",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-k08",
+      "gn-k08",
+      "s-trip-new",
+      "g-n01",
+      "s-long-gift",
+      "g-n02",
+      "g-n04",
+      "g-n07"
+     ],
+     "ms": 48.72810000000027,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-k09",
+     "category": "keyword",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-k09",
+      "g-k01",
+      "g-k10",
+      "g-k15",
+      "d-0007",
+      "g-k03",
+      "g-n06",
+      "d-0022"
+     ],
+     "ms": 49.47569999999996,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-k09",
+     "category": "keyword",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-k09",
+      "g-k01",
+      "g-k10",
+      "g-k15",
+      "d-0007",
+      "g-k03",
+      "g-n06",
+      "d-0022"
+     ],
+     "ms": 49.14059999999972,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-k10",
+     "category": "keyword",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-k10",
+      "gn-k10",
+      "g-n03",
+      "g-c05-old",
+      "g-p16",
+      "s-long-backup",
+      "g-n02",
+      "d-0037"
+     ],
+     "ms": 48.22109999999975,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-k10",
+     "category": "keyword",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-k10",
+      "gn-k10",
+      "g-n03",
+      "g-c05-old",
+      "g-p16",
+      "s-long-backup",
+      "g-n02",
+      "s-read-a"
+     ],
+     "ms": 48.08880000000045,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-k12",
+     "category": "keyword",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-k12",
+      "d-0010",
+      "d-0030",
+      "d-0031",
+      "d-0042",
+      "d-0098",
+      "d-0110",
+      "g-n00"
+     ],
+     "ms": 50.35139999999956,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-k12",
+     "category": "keyword",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-k12",
+      "d-0030",
+      "d-0010",
+      "d-0031",
+      "d-0042",
+      "d-0098",
+      "d-0110",
+      "g-n00"
+     ],
+     "ms": 49.74120000000039,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-k13",
+     "category": "keyword",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-k13",
+      "g-n10",
+      "s-trip-new",
+      "d-0015",
+      "d-0034",
+      "g-p20",
+      "g-n09",
+      "g-n11"
+     ],
+     "ms": 49.02100000000064,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-k13",
+     "category": "keyword",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-k13",
+      "g-n10",
+      "s-trip-new",
+      "d-0015",
+      "d-0034",
+      "g-p20",
+      "g-n09",
+      "g-n11"
+     ],
+     "ms": 48.19920000000002,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-k14",
+     "category": "keyword",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-k14",
+      "d-0014",
+      "d-0069",
+      "d-0100",
+      "d-0007",
+      "d-0022",
+      "d-0018",
+      "d-0032"
+     ],
+     "ms": 49.406699999999546,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-k14",
+     "category": "keyword",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-k14",
+      "d-0069",
+      "d-0100",
+      "d-0014",
+      "d-0007",
+      "d-0022",
+      "d-0051",
+      "d-0087"
+     ],
+     "ms": 49.16699999999946,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-c00",
+     "category": "correction",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-c00-new",
+      "g-c00-old",
+      "s-trip-new",
+      "g-n01",
+      "g-n02",
+      "g-n04",
+      "g-n07",
+      "s-long-gift"
+     ],
+     "ms": 48.60599999999977,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1,
+     "order": 1
+    },
+    {
+     "query": "q-g-c00",
+     "category": "correction",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-c00-new",
+      "g-c00-old",
+      "s-trip-new",
+      "g-n01",
+      "s-long-gift",
+      "g-n02",
+      "g-n04",
+      "g-n07"
+     ],
+     "ms": 48.30239999999867,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1,
+     "order": 1
+    },
+    {
+     "query": "q-g-c01",
+     "category": "correction",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-c01-new",
+      "g-c01-old",
+      "d-0010",
+      "d-0014",
+      "d-0030",
+      "d-0031",
+      "d-0042",
+      "d-0110"
+     ],
+     "ms": 49.55110000000059,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1,
+     "order": 1
+    },
+    {
+     "query": "q-g-c01",
+     "category": "correction",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-c01-new",
+      "g-c01-old",
+      "d-0030",
+      "d-0010",
+      "d-0031",
+      "d-0042",
+      "d-0014",
+      "d-0110"
+     ],
+     "ms": 48.61529999999948,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1,
+     "order": 1
+    },
+    {
+     "query": "q-g-c02",
+     "category": "correction",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "d-0022",
+      "g-c02-old",
+      "d-0007",
+      "n-japan-trip",
+      "gn-k10",
+      "g-k11",
+      "gn-k01",
+      "g-k00"
+     ],
+     "ms": 50.15730000000076,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0,
+     "order": 0
+    },
+    {
+     "query": "q-g-c02",
+     "category": "correction",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "d-0022",
+      "g-c02-old",
+      "d-0007",
+      "n-japan-trip",
+      "gn-k01",
+      "gn-k10",
+      "g-k00",
+      "g-k11"
+     ],
+     "ms": 48.29060000000027,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0,
+     "order": 0
+    },
+    {
+     "query": "q-g-c04",
+     "category": "correction",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-c04-old",
+      "g-n10",
+      "g-k10",
+      "g-c04-new",
+      "d-0003",
+      "d-0011",
+      "d-0026",
+      "d-0050"
+     ],
+     "ms": 48.84759999999915,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 0.25,
+     "ndcg8": 0.43067655807339306,
+     "order": 0
+    },
+    {
+     "query": "q-g-c04",
+     "category": "correction",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-c04-old",
+      "g-n10",
+      "g-k10",
+      "g-c04-new",
+      "d-0003",
+      "d-0011",
+      "d-0050",
+      "d-0026"
+     ],
+     "ms": 49.30190000000039,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 0.25,
+     "ndcg8": 0.43067655807339306,
+     "order": 0
+    },
+    {
+     "query": "q-g-c05",
+     "category": "correction",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-c05-old",
+      "g-p18",
+      "g-c05-new",
+      "d-0037",
+      "d-0018",
+      "d-0032",
+      "d-0038",
+      "d-0049"
+     ],
+     "ms": 48.14859999999862,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 0.3333333333333333,
+     "ndcg8": 0.5,
+     "order": 0
+    },
+    {
+     "query": "q-g-c05",
+     "category": "correction",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-c05-old",
+      "g-c05-new",
+      "g-p18",
+      "d-0037",
+      "d-0069",
+      "d-0051",
+      "d-0087",
+      "d-0018"
+     ],
+     "ms": 49.15989999999874,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 0.5,
+     "ndcg8": 0.6309297535714575,
+     "order": 0
+    },
+    {
+     "query": "q-g-c06",
+     "category": "correction",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-c06-old",
+      "g-c06-new",
+      "g-n01",
+      "g-n02",
+      "g-n05",
+      "g-n07",
+      "g-n08",
+      "g-n11"
+     ],
+     "ms": 48.906699999999546,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 0.5,
+     "ndcg8": 0.6309297535714575,
+     "order": 0
+    },
+    {
+     "query": "q-g-c06",
+     "category": "correction",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-c06-old",
+      "g-c06-new",
+      "g-n01",
+      "g-n08",
+      "g-n02",
+      "g-n11",
+      "s-long-client",
+      "s-long-passport"
+     ],
+     "ms": 48.757299999999304,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 0.5,
+     "ndcg8": 0.6309297535714575,
+     "order": 0
+    },
+    {
+     "query": "q-g-c08",
+     "category": "correction",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-c08-old",
+      "g-c08-new",
+      "d-0007",
+      "d-0022",
+      "d-0018",
+      "d-0032",
+      "d-0037",
+      "d-0038"
+     ],
+     "ms": 47.64860000000044,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 0.5,
+     "ndcg8": 0.6309297535714575,
+     "order": 0
+    },
+    {
+     "query": "q-g-c08",
+     "category": "correction",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-c08-old",
+      "g-c08-new",
+      "d-0007",
+      "d-0022",
+      "d-0069",
+      "d-0051",
+      "d-0087",
+      "d-0018"
+     ],
+     "ms": 48.81999999999971,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 0.5,
+     "ndcg8": 0.6309297535714575,
+     "order": 0
+    },
+    {
+     "query": "q-g-n00",
+     "category": "needle",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-n00",
+      "s-trip-new",
+      "g-n01",
+      "g-n02",
+      "g-n04",
+      "g-n07",
+      "s-long-gift",
+      "s-long-passport"
+     ],
+     "ms": 48.34859999999935,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-n00",
+     "category": "needle",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-n00",
+      "s-trip-new",
+      "g-n01",
+      "s-long-gift",
+      "g-n02",
+      "g-n04",
+      "g-n07",
+      "s-long-passport"
+     ],
+     "ms": 48.79280000000108,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-n01",
+     "category": "needle",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-n01"
+     ],
+     "ms": 47.84599999999955,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-n01",
+     "category": "needle",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-n01"
+     ],
+     "ms": 48.616400000000795,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-n02",
+     "category": "needle",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-n02",
+      "d-0006"
+     ],
+     "ms": 48.59180000000015,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-n02",
+     "category": "needle",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-n02",
+      "d-0006"
+     ],
+     "ms": 49.097099999999045,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-n04",
+     "category": "needle",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-n04",
+      "g-n01",
+      "g-n11",
+      "g-k06",
+      "g-n02",
+      "g-n06",
+      "g-n09",
+      "g-n10"
+     ],
+     "ms": 49.22899999999936,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-n04",
+     "category": "needle",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-n04",
+      "g-n01",
+      "g-n11",
+      "g-n02",
+      "g-n09",
+      "s-long-backup",
+      "s-long-gift",
+      "g-n00"
+     ],
+     "ms": 48.618900000001304,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-n05",
+     "category": "needle",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-p21",
+      "s-trip-new",
+      "g-n05",
+      "g-p00",
+      "gn-p01",
+      "s-cloud-new",
+      "d-0017",
+      "d-0024"
+     ],
+     "ms": 49.957000000000335,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 0.3333333333333333,
+     "ndcg8": 0.5
+    },
+    {
+     "query": "q-g-n05",
+     "category": "needle",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-p21",
+      "s-trip-new",
+      "g-n05",
+      "g-p00",
+      "s-cloud-new",
+      "d-0024",
+      "g-n00",
+      "gn-p01"
+     ],
+     "ms": 48.45390000000043,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 0.3333333333333333,
+     "ndcg8": 0.5
+    },
+    {
+     "query": "q-g-n06",
+     "category": "needle",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-n06",
+      "s-lang-ctx",
+      "g-n00",
+      "g-n05",
+      "g-n08",
+      "gn-p00",
+      "gn-p04",
+      "gn-p13"
+     ],
+     "ms": 48.8812999999991,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-n06",
+     "category": "needle",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-n06",
+      "s-lang-ctx",
+      "g-n00",
+      "g-n08",
+      "g-n05",
+      "gn-p00",
+      "gn-p13",
+      "gn-p04"
+     ],
+     "ms": 48.85940000000119,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-n08",
+     "category": "needle",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-n08",
+      "s-trip-new",
+      "g-n00",
+      "g-n02",
+      "g-n06",
+      "g-n01",
+      "g-n11",
+      "s-long-passport"
+     ],
+     "ms": 49.33009999999922,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-n08",
+     "category": "needle",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-n08",
+      "s-trip-new",
+      "g-n00",
+      "g-n02",
+      "g-n01",
+      "s-long-passport",
+      "g-n11",
+      "g-n06"
+     ],
+     "ms": 48.01020000000062,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-n09",
+     "category": "needle",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "s-trip-new",
+      "d-0018",
+      "d-0032",
+      "d-0037",
+      "d-0038",
+      "d-0049",
+      "d-0051",
+      "d-0069"
+     ],
+     "ms": 49.00009999999929,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-n09",
+     "category": "needle",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "s-trip-new",
+      "d-0069",
+      "d-0051",
+      "d-0087",
+      "d-0018",
+      "d-0038",
+      "d-0100",
+      "d-0049"
+     ],
+     "ms": 49.59619999999995,
+     "topScore": null,
+     "hit1": 0,
+     "hit3": 0,
+     "hit5": 0,
+     "recall8": 0,
+     "rr": 0,
+     "ndcg8": 0
+    },
+    {
+     "query": "q-g-n10",
+     "category": "needle",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-n10",
+      "g-k10",
+      "g-c04-new",
+      "g-c04-old",
+      "d-0003",
+      "d-0011",
+      "d-0026",
+      "d-0050"
+     ],
+     "ms": 49.776600000001054,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-g-n10",
+     "category": "needle",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-n10",
+      "g-k10",
+      "g-c04-new",
+      "g-c04-old",
+      "d-0003",
+      "d-0011",
+      "d-0050",
+      "d-0026"
+     ],
+     "ms": 48.77459999999883,
+     "topScore": null,
+     "hit1": 1,
+     "hit3": 1,
+     "hit5": 1,
+     "recall8": 1,
+     "rr": 1,
+     "ndcg8": 1
+    },
+    {
+     "query": "q-none-g0",
+     "category": "no-answer",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "d-0006",
+      "d-0052",
+      "d-0074",
+      "d-0079",
+      "g-n01",
+      "g-n02",
+      "g-n04",
+      "g-n07"
+     ],
+     "ms": 48.86110000000008,
+     "topScore": null
+    },
+    {
+     "query": "q-none-g0",
+     "category": "no-answer",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "d-0052",
+      "d-0074",
+      "d-0006",
+      "d-0079",
+      "g-n01",
+      "s-long-gift",
+      "g-n02",
+      "g-n04"
+     ],
+     "ms": 48.58039999999892,
+     "topScore": null
+    },
+    {
+     "query": "q-none-g1",
+     "category": "no-answer",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-n03",
+      "g-c05-old",
+      "g-p16",
+      "s-long-backup",
+      "g-n02",
+      "d-0037",
+      "s-read-a",
+      "g-p01"
+     ],
+     "ms": 47.983799999999974,
+     "topScore": null
+    },
+    {
+     "query": "q-none-g1",
+     "category": "no-answer",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-n03",
+      "g-c05-old",
+      "g-p16",
+      "s-long-backup",
+      "g-n02",
+      "s-read-a",
+      "d-0037",
+      "g-p01"
+     ],
+     "ms": 49.32220000000052,
+     "topScore": null
+    },
+    {
+     "query": "q-none-g2",
+     "category": "no-answer",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "d-0037",
+      "d-0018",
+      "d-0032",
+      "d-0038",
+      "d-0049",
+      "d-0051",
+      "d-0069",
+      "d-0084"
+     ],
+     "ms": 48.86819999999898,
+     "topScore": null
+    },
+    {
+     "query": "q-none-g2",
+     "category": "no-answer",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "d-0037",
+      "d-0069",
+      "d-0051",
+      "d-0087",
+      "d-0018",
+      "d-0038",
+      "d-0100",
+      "d-0049"
+     ],
+     "ms": 49.25250000000051,
+     "topScore": null
+    },
+    {
+     "query": "q-none-g4",
+     "category": "no-answer",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-n01",
+      "g-n02",
+      "g-n05",
+      "g-n07",
+      "g-n08",
+      "g-n11",
+      "s-long-client",
+      "s-long-passport"
+     ],
+     "ms": 49.23710000000028,
+     "topScore": null
+    },
+    {
+     "query": "q-none-g4",
+     "category": "no-answer",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-n01",
+      "g-n08",
+      "g-n02",
+      "g-n11",
+      "s-long-client",
+      "s-long-passport",
+      "g-n03",
+      "g-n05"
+     ],
+     "ms": 50.2450000000008,
+     "topScore": null
+    },
+    {
+     "query": "q-none-g5",
+     "category": "no-answer",
+     "mode": "lexical",
+     "status": "ok",
+     "ranked": [
+      "g-k08",
+      "g-p03",
+      "s-pet",
+      "g-n01",
+      "g-n02",
+      "g-n04",
+      "g-n07",
+      "s-long-gift"
+     ],
+     "ms": 49.13370000000032,
+     "topScore": null
+    },
+    {
+     "query": "q-none-g5",
+     "category": "no-answer",
+     "mode": "lexical+neartie",
+     "status": "ok",
+     "ranked": [
+      "g-k08",
+      "g-p03",
+      "s-pet",
+      "g-n01",
+      "s-long-gift",
+      "g-n02",
+      "g-n04",
+      "g-n07"
+     ],
+     "ms": 48.6166000000012,
+     "topScore": null
+    }
+   ]
+  }
+ ],
+ "index": [
+  {
+   "granularity": "session",
+   "docs": 250,
+   "embedded": 0,
+   "ms": 1,
+   "msPerDoc": 0
+  }
+ ],
+ "queries": [
+  {
+   "id": "q-coffee",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "来杯热拿铁怎么样？",
+   "gold": [
+    "s-coffee"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-sleep",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "晚上十点提醒我休息，会不会太早了？",
+   "gold": [
+    "s-sleep"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-cilantro",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "帮我点一碗牛肉面，配菜有什么推荐？",
+   "gold": [
+    "s-cilantro"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-pet",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "宠物梳毛用什么刷子好？",
+   "gold": [
+    "s-pet"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-japanese",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "有什么适合备考的背单词方法？",
+   "gold": [
+    "s-japanese"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-aurora",
+   "category": "keyword",
+   "split": "dev",
+   "text": "Aurora-7 的预算上限是多少？",
+   "gold": [
+    "s-aurora-budget"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-linzhou",
+   "category": "keyword",
+   "split": "dev",
+   "text": "项目乙的林舟负责什么？",
+   "gold": [
+    "s-linzhou"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-flight",
+   "category": "keyword",
+   "split": "dev",
+   "text": "周五的航班几点起飞？",
+   "gold": [
+    "s-flight"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-qinghe",
+   "category": "correction",
+   "split": "dev",
+   "text": "青禾演示是几号？",
+   "gold": [
+    "s-qinghe-new"
+   ],
+   "answerable": true,
+   "newer": "s-qinghe-new",
+   "older": "s-qinghe-old"
+  },
+  {
+   "id": "q-theme",
+   "category": "correction",
+   "split": "dev",
+   "text": "我的界面主题偏好是什么颜色？",
+   "gold": [
+    "s-theme-new"
+   ],
+   "answerable": true,
+   "newer": "s-theme-new",
+   "older": "s-theme-old"
+  },
+  {
+   "id": "q-cloud",
+   "category": "correction",
+   "split": "dev",
+   "text": "云迁移项目现在的预算是多少？",
+   "gold": [
+    "s-cloud-new"
+   ],
+   "answerable": true,
+   "newer": "s-cloud-new",
+   "older": "s-cloud-old"
+  },
+  {
+   "id": "q-lang-client",
+   "category": "context",
+   "split": "dev",
+   "text": "给客户发邮件应该用什么语言？",
+   "gold": [
+    "s-lang-ctx"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-lang-notes",
+   "category": "context",
+   "split": "dev",
+   "text": "我的笔记用什么语言写？",
+   "gold": [
+    "s-lang-ctx"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-long-passport",
+   "category": "needle",
+   "split": "dev",
+   "text": "什么时候要换护照？",
+   "gold": [
+    "s-long-passport"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-long-backup",
+   "category": "needle",
+   "split": "dev",
+   "text": "备份任务什么时候执行？",
+   "gold": [
+    "s-long-backup"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-long-client",
+   "category": "needle",
+   "split": "dev",
+   "text": "什么时候不能约客户开会？",
+   "gold": [
+    "s-long-client"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-date-range",
+   "category": "temporal",
+   "split": "dev",
+   "text": "上周改日期的事",
+   "gold": [
+    "s-date-w1a",
+    "s-date-w1b"
+   ],
+   "answerable": true,
+   "temporal": {
+    "kind": "range",
+    "from": 1791129600000,
+    "to": 1791734340000
+   }
+  },
+  {
+   "id": "q-trip-latest",
+   "category": "temporal",
+   "split": "dev",
+   "text": "最近一次聊到旅行",
+   "gold": [
+    "s-trip-new"
+   ],
+   "answerable": true,
+   "temporal": {
+    "kind": "latest"
+   }
+  },
+  {
+   "id": "q-none-seat",
+   "category": "no-answer",
+   "split": "dev",
+   "text": "我上次坐的是第几排？",
+   "gold": [],
+   "answerable": false
+  },
+  {
+   "id": "q-none-team",
+   "category": "no-answer",
+   "split": "dev",
+   "text": "我最喜欢的足球队是哪支？",
+   "gold": [],
+   "answerable": false
+  },
+  {
+   "id": "q-none-trip",
+   "category": "no-answer",
+   "split": "dev",
+   "text": "我去年夏天去哪里旅行了？",
+   "gold": [],
+   "answerable": false
+  },
+  {
+   "id": "q-none-blood",
+   "category": "no-answer",
+   "split": "dev",
+   "text": "我的血型是什么？",
+   "gold": [],
+   "answerable": false
+  },
+  {
+   "id": "q-g-p00",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "帮我挑个下午茶的点心吧。",
+   "gold": [
+    "g-p00"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-p01",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "推荐一款适合我的办公鼠标。",
+   "gold": [
+    "g-p01"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-p02",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "晚上十点开视频会议可以吗？",
+   "gold": [
+    "g-p02"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-p04",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "给我的文档换个看着舒服点的显示效果。",
+   "gold": [
+    "g-p04"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-p05",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "下个月出差订哪类住宿合适？",
+   "gold": [
+    "g-p05"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-p06",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "去郊外玩选什么交通方式好？",
+   "gold": [
+    "g-p06"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-p08",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "下周自驾去外地需要注意什么？",
+   "gold": [
+    "g-p08"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-p09",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "晚上适合做点什么提升自己？",
+   "gold": [
+    "g-p09"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-p10",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "最近训练量怎么安排比较合理？",
+   "gold": [
+    "g-p10"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-p12",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "要不要办一张通勤月卡？",
+   "gold": [
+    "g-p12"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-p13",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "晚饭点个川菜外卖，选什么菜好？",
+   "gold": [
+    "g-p13"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-p14",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "打羽毛球时需要注意眼睛方面什么？",
+   "gold": [
+    "g-p14"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-p16",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "怎么提高外语听力？",
+   "gold": [
+    "g-p16"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-p17",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "客厅想添点装饰，有什么建议？",
+   "gold": [
+    "g-p17"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-p18",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "想看长篇小说，用什么设备好？",
+   "gold": [
+    "g-p18"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-p20",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "周三晚上约个会议行吗？",
+   "gold": [
+    "g-p20"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-p21",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "要不要同时开很多浏览器标签和虚拟机？",
+   "gold": [
+    "g-p21"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-p22",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "下周天气预报有雨，要不要调整安排？",
+   "gold": [
+    "g-p22"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-p24",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "地铁上用什么打发时间？",
+   "gold": [
+    "g-p24"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-p25",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "帮我整理一下学习资料的保存方式。",
+   "gold": [
+    "g-p25"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-p26",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "早上出门前需要做哪些家务？",
+   "gold": [
+    "g-p26"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-p28",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "周六下午能约个电话吗？",
+   "gold": [
+    "g-p28"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-p29",
+   "category": "paraphrase",
+   "split": "dev",
+   "text": "傍晚六点安排个线上分享可以吗？",
+   "gold": [
+    "g-p29"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-k00",
+   "category": "keyword",
+   "split": "dev",
+   "text": "Hyperion 项目谁负责？",
+   "gold": [
+    "g-k00"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-k01",
+   "category": "keyword",
+   "split": "dev",
+   "text": "订单 ORD-20931 的快递单号尾号是多少？",
+   "gold": [
+    "g-k01"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-k02",
+   "category": "keyword",
+   "split": "dev",
+   "text": "Lumen-5G 是哪里的网络？",
+   "gold": [
+    "g-k02"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-k04",
+   "category": "keyword",
+   "split": "dev",
+   "text": "接口文档放在哪里？",
+   "gold": [
+    "g-k04"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-k05",
+   "category": "keyword",
+   "split": "dev",
+   "text": "测试环境的域名是什么？",
+   "gold": [
+    "g-k05"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-k06",
+   "category": "keyword",
+   "split": "dev",
+   "text": "TCK-5521 是什么问题？",
+   "gold": [
+    "g-k06"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-k08",
+   "category": "keyword",
+   "split": "dev",
+   "text": "release/2.8 什么时候冻结？",
+   "gold": [
+    "g-k08"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-k09",
+   "category": "keyword",
+   "split": "dev",
+   "text": "房东的电话尾号是多少？",
+   "gold": [
+    "g-k09"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-k10",
+   "category": "keyword",
+   "split": "dev",
+   "text": "我的储物柜是几号？",
+   "gold": [
+    "g-k10"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-k12",
+   "category": "keyword",
+   "split": "dev",
+   "text": "发票抬头怎么写？",
+   "gold": [
+    "g-k12"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-k13",
+   "category": "keyword",
+   "split": "dev",
+   "text": "概率论入门什么时候上课？",
+   "gold": [
+    "g-k13"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-k14",
+   "category": "keyword",
+   "split": "dev",
+   "text": "取件码是多少？",
+   "gold": [
+    "g-k14"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-c00",
+   "category": "correction",
+   "split": "dev",
+   "text": "报告什么时候交？",
+   "gold": [
+    "g-c00-new"
+   ],
+   "newer": "g-c00-new",
+   "older": "g-c00-old",
+   "answerable": true
+  },
+  {
+   "id": "q-g-c01",
+   "category": "correction",
+   "split": "dev",
+   "text": "海报谁来做？",
+   "gold": [
+    "g-c01-new"
+   ],
+   "newer": "g-c01-new",
+   "older": "g-c01-old",
+   "answerable": true
+  },
+  {
+   "id": "q-g-c02",
+   "category": "correction",
+   "split": "dev",
+   "text": "会员套餐现在多少钱？",
+   "gold": [
+    "g-c02-new"
+   ],
+   "newer": "g-c02-new",
+   "older": "g-c02-old",
+   "answerable": true
+  },
+  {
+   "id": "q-g-c04",
+   "category": "correction",
+   "split": "dev",
+   "text": "我周几去健身？",
+   "gold": [
+    "g-c04-new"
+   ],
+   "newer": "g-c04-new",
+   "older": "g-c04-old",
+   "answerable": true
+  },
+  {
+   "id": "q-g-c05",
+   "category": "correction",
+   "split": "dev",
+   "text": "我的手机是什么颜色？",
+   "gold": [
+    "g-c05-new"
+   ],
+   "newer": "g-c05-new",
+   "older": "g-c05-old",
+   "answerable": true
+  },
+  {
+   "id": "q-g-c06",
+   "category": "correction",
+   "split": "dev",
+   "text": "我几点上班？",
+   "gold": [
+    "g-c06-new"
+   ],
+   "newer": "g-c06-new",
+   "older": "g-c06-old",
+   "answerable": true
+  },
+  {
+   "id": "q-g-c08",
+   "category": "correction",
+   "split": "dev",
+   "text": "接口限流是多少？",
+   "gold": [
+    "g-c08-new"
+   ],
+   "newer": "g-c08-new",
+   "older": "g-c08-old",
+   "answerable": true
+  },
+  {
+   "id": "q-g-n00",
+   "category": "needle",
+   "split": "dev",
+   "text": "会员卡什么时候到期？",
+   "gold": [
+    "g-n00"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-n01",
+   "category": "needle",
+   "split": "dev",
+   "text": "水电费哪天扣款？",
+   "gold": [
+    "g-n01"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-n02",
+   "category": "needle",
+   "split": "dev",
+   "text": "车险什么时候续保？",
+   "gold": [
+    "g-n02"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-n04",
+   "category": "needle",
+   "split": "dev",
+   "text": "报销单交给谁？",
+   "gold": [
+    "g-n04"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-n05",
+   "category": "needle",
+   "split": "dev",
+   "text": "电脑保修到什么时候？",
+   "gold": [
+    "g-n05"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-n06",
+   "category": "needle",
+   "split": "dev",
+   "text": "跟老周怎么沟通？",
+   "gold": [
+    "g-n06"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-n08",
+   "category": "needle",
+   "split": "dev",
+   "text": "什么时候去复诊？",
+   "gold": [
+    "g-n08"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-n09",
+   "category": "needle",
+   "split": "dev",
+   "text": "家长会是什么时候？",
+   "gold": [
+    "g-n09"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-g-n10",
+   "category": "needle",
+   "split": "dev",
+   "text": "健身教练是谁？",
+   "gold": [
+    "g-n10"
+   ],
+   "answerable": true
+  },
+  {
+   "id": "q-none-g0",
+   "category": "no-answer",
+   "split": "dev",
+   "text": "我平时用什么牌子的手表？",
+   "gold": [],
+   "answerable": false
+  },
+  {
+   "id": "q-none-g1",
+   "category": "no-answer",
+   "split": "dev",
+   "text": "我的毕业院校是哪所？",
+   "gold": [],
+   "answerable": false
+  },
+  {
+   "id": "q-none-g2",
+   "category": "no-answer",
+   "split": "dev",
+   "text": "我的邮箱地址是什么？",
+   "gold": [],
+   "answerable": false
+  },
+  {
+   "id": "q-none-g4",
+   "category": "no-answer",
+   "split": "dev",
+   "text": "我上次体检结果怎么样？",
+   "gold": [],
+   "answerable": false
+  },
+  {
+   "id": "q-none-g5",
+   "category": "no-answer",
+   "split": "dev",
+   "text": "我常去的那家餐厅叫什么？",
+   "gold": [],
+   "answerable": false
+  }
+ ]
+}

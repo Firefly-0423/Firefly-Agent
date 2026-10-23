@@ -1,0 +1,44 @@
+.mcp-management {
+  margin: 0 0 20px;
+}
+.mcp-management__toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+.mcp-server-card h3 {
+  margin: 0;
+  color: var(--rb-text-strong);
+  font: var(--rb-text-base);
+  font-weight: 600;
+}
+.mcp-management .panel-hint,
+.mcp-management .mcp-server-status {
+  color: var(--rb-text-muted);
+  overflow-wrap: anywhere;
+}
+.mcp-management #mcp-server-feedback {
+  margin: 8px 0;
+  color: var(--rb-text-muted);
+}
+.mcp-management #mcp-server-feedback:empty {
+  display: none;
+}
+.mcp-management .mcp-server-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.mcp-server-card h3 {
+  overflow-wrap: anywhere;
+}
+.mcp-server-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.mcp-management button {
+  flex-shrink: 0;
+}
+.mcp-management button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

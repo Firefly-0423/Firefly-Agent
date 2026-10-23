@@ -1,0 +1,321 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-10-18T06:35:54.827Z",
+  "testedCode": "3adfbe9c19869a82c06d2f693cd09ae574668c76",
+  "base": "271f1dd5baf4a24939fdfe9c2c5d91d718cade11",
+  "integration": {
+    "at": "2026-10-18T06:33:02.979Z",
+    "repo": "C:/Users/w1558/AppData/Local/Temp/firefly-external-pr-20261018",
+    "head": "3adfbe9c19869a82c06d2f693cd09ae574668c76",
+    "base": "271f1dd5baf4a24939fdfe9c2c5d91d718cade11",
+    "oldHead": "eac3e67c1d7d1f2b7a842a31c4f3d3420ef79f77",
+    "oldBase": "770633107d908aacfb5b05063b3df196715a467b",
+    "changedFiles": [
+      "THIRD_PARTY_SKILL_REVIEWS.md",
+      "docs/external-skills-compatibility.md",
+      "docs/qa/2026-10-18-external-skills-batch1-independent-review.md",
+      "docs/qa/2026-10-18-external-skills-batch1-verification.json",
+      "docs/qa/2026-10-18-external-skills-batch1.md",
+      "docs/qa/2026-10-18-external-skills-followup-verification.json",
+      "docs/qa/2026-10-18-external-skills-followup.md",
+      "docs/superpowers/plans/2026-10-18-external-skills-batch1.md",
+      "docs/superpowers/plans/2026-10-18-external-skills-followup.md",
+      "docs/superpowers/specs/2026-10-18-external-skills-batch1.md",
+      "src/main/application/external-skills-wiring.test.ts",
+      "src/main/skills/external-bridge.test.ts",
+      "src/main/skills/external-contract.test.ts",
+      "src/main/skills/external-ipc.test.ts",
+      "src/main/skills/external-ipc.ts",
+      "src/main/skills/external-manifests.test.ts",
+      "src/main/skills/external-manifests.ts",
+      "src/main/skills/external-policy.ts",
+      "src/main/skills/external-review.test.ts",
+      "src/main/skills/external-review.ts",
+      "src/main/skills/external-reviews.ts",
+      "src/main/skills/external-revisions-selection.test.ts",
+      "src/main/skills/external-revisions.test.ts",
+      "src/main/skills/external-revisions.ts",
+      "src/main/skills/external-service.test.ts",
+      "src/main/skills/external-service.ts",
+      "src/main/skills/external-sources.test.ts",
+      "src/main/skills/external-sources.ts",
+      "src/main/skills/external-state.ts",
+      "src/main/skills/external-types.ts",
+      "src/main/skills/testing/external-fixtures.ts",
+      "src/preload/index.ts",
+      "src/renderer/react/features/chat/components/ExternalSkillsPanel.test.ts",
+      "src/renderer/react/features/chat/components/ExternalSkillsPanel.tsx",
+      "src/renderer/react/features/chat/components/SkillModePanel.tsx",
+      "src/renderer/react/i18n/en.json",
+      "src/renderer/react/i18n/zh-CN.json",
+      "src/shared/external-skills.ts"
+    ],
+    "upstreamChangedCount": 55,
+    "overlap": [
+      "src/renderer/react/i18n/en.json",
+      "src/renderer/react/i18n/zh-CN.json"
+    ],
+    "jsonProof": [
+      {
+        "file": "src/renderer/react/i18n/en.json",
+        "checkedLeaves": 1252,
+        "batchChanges": 22,
+        "targetChanges": 3,
+        "preservesBoth": true
+      },
+      {
+        "file": "src/renderer/react/i18n/zh-CN.json",
+        "checkedLeaves": 1252,
+        "batchChanges": 22,
+        "targetChanges": 3,
+        "preservesBoth": true
+      }
+    ],
+    "unchangedBlobs": [
+      {
+        "file": "THIRD_PARTY_SKILL_REVIEWS.md",
+        "blob": "ee36d2486ffe6c9ae2dc7f40a98a8aa9f1015cc7"
+      },
+      {
+        "file": "docs/external-skills-compatibility.md",
+        "blob": "4c98287742ca29a2fda3beb3b5479d659037247b"
+      },
+      {
+        "file": "docs/qa/2026-10-18-external-skills-batch1-independent-review.md",
+        "blob": "8a8549b5d3ff145f787e8ff98c1e4eb7a4d6e41e"
+      },
+      {
+        "file": "docs/qa/2026-10-18-external-skills-batch1-verification.json",
+        "blob": "151b6bae77652c1ca5f5698b9545bd723f429601"
+      },
+      {
+        "file": "docs/qa/2026-10-18-external-skills-batch1.md",
+        "blob": "71b6824cbbf219bc4b740126bc927dda852600e4"
+      },
+      {
+        "file": "docs/qa/2026-10-18-external-skills-followup-verification.json",
+        "blob": "e275a77f06740aa40643d8d3207594da230fadd3"
+      },
+      {
+        "file": "docs/qa/2026-10-18-external-skills-followup.md",
+        "blob": "677f6f5e7e62ad1b5d99af6683db8d4501c7d576"
+      },
+      {
+        "file": "docs/superpowers/plans/2026-10-18-external-skills-batch1.md",
+        "blob": "651ed7f301a54e1620fd8de6bbd317171b4febf1"
+      },
+      {
+        "file": "docs/superpowers/plans/2026-10-18-external-skills-followup.md",
+        "blob": "fb395c8e6b44bd3082a05d43c84b0d0d1247015f"
+      },
+      {
+        "file": "docs/superpowers/specs/2026-10-18-external-skills-batch1.md",
+        "blob": "978670f0a59b39734978b4e72da4e9e85a7c49a5"
+      },
+      {
+        "file": "src/main/application/external-skills-wiring.test.ts",
+        "blob": "8188a7b9a6955e7ccd96ce51fe4f7955a2d4e199"
+      },
+      {
+        "file": "src/main/skills/external-bridge.test.ts",
+        "blob": "7f9ae42f752396fb5d3a6e7c1360c062940ab1a6"
+      },
+      {
+        "file": "src/main/skills/external-contract.test.ts",
+        "blob": "79a253775beef486d0ea0332bc572d59de9a7bb4"
+      },
+      {
+        "file": "src/main/skills/external-ipc.test.ts",
+        "blob": "893e132b682308bcf816d98750bf1fb628fe330c"
+      },
+      {
+        "file": "src/main/skills/external-ipc.ts",
+        "blob": "0d0091152a7b02b8e9f542254ea332dada072a49"
+      },
+      {
+        "file": "src/main/skills/external-manifests.test.ts",
+        "blob": "6c95f4f1569aeae33552ef16083ba5275dfb9d0b"
+      },
+      {
+        "file": "src/main/skills/external-manifests.ts",
+        "blob": "8cf55d36ebd93735796d6a56f8256bd9da7e6ca5"
+      },
+      {
+        "file": "src/main/skills/external-policy.ts",
+        "blob": "01cbb2940831237422522c1f765ff896ac7474c9"
+      },
+      {
+        "file": "src/main/skills/external-review.test.ts",
+        "blob": "983218805bfeeafa445ded66d7edda1cf3d0f594"
+      },
+      {
+        "file": "src/main/skills/external-review.ts",
+        "blob": "ec9aa62c7ec2e96a19e44b89ccb5319af8d94fd5"
+      },
+      {
+        "file": "src/main/skills/external-reviews.ts",
+        "blob": "f8dbcbf01048dc2d6c6061a887e5e29df27bcb64"
+      },
+      {
+        "file": "src/main/skills/external-revisions-selection.test.ts",
+        "blob": "316b249d03b483334443a0d515c20553e419b0b9"
+      },
+      {
+        "file": "src/main/skills/external-revisions.test.ts",
+        "blob": "d26e8f38878d14c63b35abbfe6965aa8ea41062a"
+      },
+      {
+        "file": "src/main/skills/external-revisions.ts",
+        "blob": "c5754c0e59b09db8880a32ccc0d47bdc5cd65642"
+      },
+      {
+        "file": "src/main/skills/external-service.test.ts",
+        "blob": "e1865818214f6267c35cf376d1dd851227272546"
+      },
+      {
+        "file": "src/main/skills/external-service.ts",
+        "blob": "f211f0fdad235b87e960f61d64eea8dc8e3e0104"
+      },
+      {
+        "file": "src/main/skills/external-sources.test.ts",
+        "blob": "76769c2edf0e05abd41ff4d50f1d369717bfdbc8"
+      },
+      {
+        "file": "src/main/skills/external-sources.ts",
+        "blob": "3872fbb70212648f17af4f08aa95c43673ad5022"
+      },
+      {
+        "file": "src/main/skills/external-state.ts",
+        "blob": "76cb4a454dcd15516a8bf35ef62742d02d1132d0"
+      },
+      {
+        "file": "src/main/skills/external-types.ts",
+        "blob": "7d442a1f34c1e9ba527d3fa88c9d66d8117c561c"
+      },
+      {
+        "file": "src/main/skills/testing/external-fixtures.ts",
+        "blob": "db33b940fcaa8875f84ac5a8a247db068f8d9745"
+      },
+      {
+        "file": "src/preload/index.ts",
+        "blob": "117a1d4fdab327fc0bb5f003964e3108ef4ed6af"
+      },
+      {
+        "file": "src/renderer/react/features/chat/components/ExternalSkillsPanel.test.ts",
+        "blob": "0d47e5efc336766a60a64c20bb638edc09cb4b1a"
+      },
+      {
+        "file": "src/renderer/react/features/chat/components/ExternalSkillsPanel.tsx",
+        "blob": "d3ef1e1d9cad604516f92ca52f024cdbb2337959"
+      },
+      {
+        "file": "src/renderer/react/features/chat/components/SkillModePanel.tsx",
+        "blob": "abec2e36ee70554b0b90e5b81f679a3b25b652e3"
+      },
+      {
+        "file": "src/shared/external-skills.ts",
+        "blob": "7d4d31867f3e570fbe22d3c70c80be2e80ce938d"
+      }
+    ],
+    "noDeviceFiles": true,
+    "independentCopiedDependencies": true,
+    "noInstall": true,
+    "workingTreeClean": true
+  },
+  "related": {
+    "archive": "E:\\Codex\\2026-10-18\\task-2\\audit\\external-pr\\test-reports\\2026-10-18T06-33-27-189Z-30edfc65-6eec-4e12-b567-43d6f2da0130\\report.json",
+    "sha256": "70d1c3e79f85c45424d5317b3809b4430e2397ea5501363213e02f9e1fbb4257",
+    "counts": {
+      "passed": 1001,
+      "skipped": 2
+    },
+    "files": 33,
+    "startedAt": "2026-10-18T06:33:27.191Z",
+    "finishedAt": "2026-10-18T06:35:23.946Z",
+    "revision": {
+      "head": "3adfbe9c19869a82c06d2f693cd09ae574668c76",
+      "branch": "codex/external-skills-submit-20261018",
+      "dirty": [],
+      "diffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": []
+    },
+    "endRevision": {
+      "head": "3adfbe9c19869a82c06d2f693cd09ae574668c76",
+      "branch": "codex/external-skills-submit-20261018",
+      "dirty": [],
+      "diffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": []
+    },
+    "unhandledErrors": 0,
+    "skipped": [
+      {
+        "file": "C:/Users/w1558/AppData/Local/Temp/firefly-external-pr-20261018/src/main/plugin-marketplace-hardening.test.ts",
+        "name": "marketplace trusted bundled catalog > rejects a bundled ZIP symlink outside the trusted directory",
+        "state": "skipped",
+        "reason": "Windows file symlink unavailable: ERROR_PRIVILEGE_NOT_HELD (1314)",
+        "reasonProvided": true
+      },
+      {
+        "file": "C:/Users/w1558/AppData/Local/Temp/firefly-external-pr-20261018/src/main/skills/external-state.test.ts",
+        "name": "stale_lock_fail_closed preserves linked lock and all remaining bytes",
+        "state": "skipped",
+        "reason": "Windows file symlink unavailable: ERROR_PRIVILEGE_NOT_HELD (1314)",
+        "reasonProvided": true
+      }
+    ],
+    "runnerExitCode": 0
+  },
+  "checks": [
+    {
+      "name": "main-types",
+      "exitCode": 0,
+      "log": "E:\\Codex\\2026-10-18\\task-2\\audit\\external-pr\\main-types.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "preload",
+      "exitCode": 0,
+      "log": "E:\\Codex\\2026-10-18\\task-2\\audit\\external-pr\\preload.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "renderer-types",
+      "exitCode": 0,
+      "log": "E:\\Codex\\2026-10-18\\task-2\\audit\\external-pr\\renderer-types.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "renderer-build",
+      "exitCode": 0,
+      "log": "E:\\Codex\\2026-10-18\\task-2\\audit\\external-pr\\renderer-build.log",
+      "sha256": "d82f9cfc7691634ecf85c667aa46859ea34dee62434f262546aaa34fe5da038c"
+    },
+    {
+      "name": "storage-boundary",
+      "exitCode": 0,
+      "log": "E:\\Codex\\2026-10-18\\task-2\\audit\\external-pr\\storage-boundary.log",
+      "sha256": "c1bcf0ca11fdfccc6daea28155bbbbf5c30b0ecaa23e90db01fb1c024e317c06"
+    }
+  ],
+  "historicalFull": {
+    "testedCode": "2d2d35b9c44ced39fbfee02fbc86aceaa3138e9c",
+    "archive": "E:/Codex/2026-10-18/task-2/audit/followup/test-reports/2026-10-18T04-40-54-768Z-9b730340-ebf6-46fa-805d-c0f95253fc2b/report.json",
+    "sha256": "360f4e22a337b7a745f2d5070594feaf77010f0b6fd18c599ea951202fbf16b0",
+    "counts": {
+      "passed": 10755,
+      "skipped": 11
+    },
+    "startedAt": "2026-10-18T04:40:54.769Z",
+    "finishedAt": "2026-10-18T04:56:19.000Z",
+    "unhandledErrors": 0,
+    "note": "Historical full run on the previous integration base; not a new full run of 271f1dd integration."
+  },
+  "limitations": [
+    "GUI and real import/enable not exercised",
+    "No live upstream fetch in this validation; pinned Remotion bytes previously verified read-only",
+    "Only passive pure-text formats; incompatible dependencies remain blocked",
+    "No overwrite/upgrade/rollback or offline catalog cache",
+    "No external candidate execution, credentials, devices, local SDK or EXE packaging"
+  ],
+  "remoteCi": "Existing Test and plugin-sdk PR workflows expected; not run or claimed by this local record."
+}

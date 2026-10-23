@@ -1,0 +1,246 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-10-18T05:52:18.211Z",
+  "branch": "codex/device-connector-simulation-20261018",
+  "base": "eac3e67c1d7d1f2b7a842a31c4f3d3420ef79f77",
+  "testedCode": "0a5fe23e14657be12cac02ee818472c3194e69ac",
+  "fullSuite": {
+    "status": "completed",
+    "reason": "passed",
+    "counts": {
+      "passed": 10838,
+      "skipped": 11
+    },
+    "unhandledErrors": 0,
+    "startedAt": "2026-10-18T05:38:34.634Z",
+    "finishedAt": "2026-10-18T05:52:11.228Z",
+    "revision": {
+      "head": "0a5fe23e14657be12cac02ee818472c3194e69ac",
+      "branch": "codex/device-connector-simulation-20261018",
+      "dirty": [],
+      "diffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": []
+    },
+    "endRevision": {
+      "head": "0a5fe23e14657be12cac02ee818472c3194e69ac",
+      "branch": "codex/device-connector-simulation-20261018",
+      "dirty": [],
+      "diffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": []
+    },
+    "files": 878,
+    "skipped": [
+      {
+        "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/plugin-marketplace-hardening.test.ts",
+        "name": "marketplace trusted bundled catalog > rejects a bundled ZIP symlink outside the trusted directory",
+        "state": "skipped",
+        "reason": "Windows file symlink unavailable: ERROR_PRIVILEGE_NOT_HELD (1314)",
+        "reasonProvided": true
+      },
+      {
+        "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/plugin-panel-protocol.test.ts",
+        "name": "resolvePluginPanelRequest：静态资源路由 > 符号链接逃逸被 realpath 拦截",
+        "state": "skipped",
+        "reason": "Windows file symlink unavailable: ERROR_PRIVILEGE_NOT_HELD (1314)",
+        "reasonProvided": true
+      },
+      {
+        "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/chats/workspace-file-editor.test.ts",
+        "name": "workspace text save > rejects symlink leaves when file symlinks are available",
+        "state": "skipped",
+        "reason": "Windows file symlink creation requires a privilege unavailable to this test process (EPERM)",
+        "reasonProvided": true
+      },
+      {
+        "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/memory-core/repository.test.ts",
+        "name": "rejects backup publication on non-Windows without creating files or changing live storage",
+        "state": "skipped",
+        "reason": "no explicit reason supplied (mode=skip)",
+        "reasonProvided": false
+      },
+      {
+        "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/memory-core/windows-platform-gates.test.ts",
+        "name": "non-Windows native memory denial > rejects trusted helper configuration and DPAPI before creating temp directories",
+        "state": "skipped",
+        "reason": "no explicit reason supplied (mode=skip)",
+        "reasonProvided": false
+      },
+      {
+        "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/memory-core/windows-platform-gates.test.ts",
+        "name": "non-Windows native memory denial > rejects publication and writer leases before spawning or creating a kernel endpoint",
+        "state": "skipped",
+        "reason": "no explicit reason supplied (mode=skip)",
+        "reasonProvided": false
+      },
+      {
+        "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/memory-core/windows-platform-gates.test.ts",
+        "name": "non-Windows native memory denial > rejects key publication before protecting plaintext or writing a key record",
+        "state": "skipped",
+        "reason": "no explicit reason supplied (mode=skip)",
+        "reasonProvided": false
+      },
+      {
+        "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/memory-core/windows-platform-gates.test.ts",
+        "name": "non-Windows native memory denial > rejects a real MemoryClient before key protection or Worker construction",
+        "state": "skipped",
+        "reason": "no explicit reason supplied (mode=skip)",
+        "reasonProvided": false
+      },
+      {
+        "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/skills/external-state.test.ts",
+        "name": "stale_lock_fail_closed preserves linked lock and all remaining bytes",
+        "state": "skipped",
+        "reason": "Windows file symlink unavailable: ERROR_PRIVILEGE_NOT_HELD (1314)",
+        "reasonProvided": true
+      },
+      {
+        "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/orchestrator/tools/apply-patch-tools.test.ts",
+        "name": "patch ownership and actual partial write facts > deleting a symlink then updating its target preserves both actual operation paths",
+        "state": "skipped",
+        "reason": "no explicit reason supplied (mode=skip)",
+        "reasonProvided": false
+      },
+      {
+        "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/orchestrator/tools/registry/file-write-evidence.test.ts",
+        "name": "file write evidence > symlink aliases share ownership but retain distinct actual operation path records",
+        "state": "skipped",
+        "reason": "no explicit reason supplied (mode=skip)",
+        "reasonProvided": false
+      }
+    ],
+    "runnerExitCode": 0,
+    "archive": "E:\\Codex\\2026-10-18\\task-2\\audit\\device-simulation\\test-reports\\2026-10-18T05-38-34-633Z-c259ec29-1838-4494-aa2a-4cee8c2cb290\\report.json",
+    "sha256": "bed609d25b2b707319ad7e2c5e1c14a46ffbf39adf4f4105d95664fa055ad2ac",
+    "logSha256": "cc3dd0d4e120cfd790646b185720b4163628d820687591ed6c680e1994cd3e5b"
+  },
+  "relatedRegression": {
+    "status": "completed",
+    "reason": "passed",
+    "counts": {
+      "passed": 404
+    },
+    "unhandledErrors": 0,
+    "startedAt": "2026-10-18T05:35:38.346Z",
+    "finishedAt": "2026-10-18T05:35:53.009Z",
+    "revision": {
+      "head": "1317bf37e64e5a7184ec42bfce20ced3fe4763ad",
+      "branch": "codex/device-connector-simulation-20261018",
+      "dirty": [
+        " M docs/device-connector-simulation.md",
+        " M docs/superpowers/plans/2026-10-18-device-connector-simulation.md",
+        " M docs/superpowers/specs/2026-10-18-device-connector-simulation-design.md",
+        " M src/main/device-simulation/controller.test.ts",
+        " M src/main/device-simulation/controller.ts",
+        " M src/main/device-simulation/mcp-fixture.integration.test.ts",
+        " M src/main/device-simulation/mcp-fixture.ts"
+      ],
+      "diffSha256": "85f4fb6a2331a6df025277f307fab1e7bf254b7ae5124429657e441ca89e6438",
+      "untracked": []
+    },
+    "endRevision": {
+      "head": "1317bf37e64e5a7184ec42bfce20ced3fe4763ad",
+      "branch": "codex/device-connector-simulation-20261018",
+      "dirty": [
+        " M docs/device-connector-simulation.md",
+        " M docs/superpowers/plans/2026-10-18-device-connector-simulation.md",
+        " M docs/superpowers/specs/2026-10-18-device-connector-simulation-design.md",
+        " M src/main/device-simulation/controller.test.ts",
+        " M src/main/device-simulation/controller.ts",
+        " M src/main/device-simulation/mcp-fixture.integration.test.ts",
+        " M src/main/device-simulation/mcp-fixture.ts"
+      ],
+      "diffSha256": "85f4fb6a2331a6df025277f307fab1e7bf254b7ae5124429657e441ca89e6438",
+      "untracked": []
+    },
+    "files": 27,
+    "skipped": [],
+    "archive": "E:\\Codex\\2026-10-18\\task-2\\audit\\device-simulation\\test-reports\\2026-10-18T05-35-38-345Z-650c4d9d-2064-45d9-b2a9-4e34c3aab74d\\report.json",
+    "sha256": "546429a11d31f11091f40ef4d6251dda2e7deb06862f51bb1a923263c7927b20",
+    "note": "Recorded before commit; frozen diff is committed at testedCode. Final clean full independently covers current code."
+  },
+  "deviceTests": {
+    "passed": 83,
+    "failed": 0,
+    "skipped": 0
+  },
+  "priorIntegratedFull": {
+    "archive": "E:\\Codex\\2026-10-18\\task-2\\audit\\followup\\test-reports\\2026-10-18T04-40-54-768Z-9b730340-ebf6-46fa-805d-c0f95253fc2b\\report.json",
+    "sha256": "360f4e22a337b7a745f2d5070594feaf77010f0b6fd18c599ea951202fbf16b0",
+    "passed": 10755,
+    "skipped": 11,
+    "sameSkippedCases": true
+  },
+  "review": {
+    "reviewedHead": "1317bf37e64e5a7184ec42bfce20ced3fe4763ad",
+    "critical": 0,
+    "important": 2,
+    "fixedImportant": 2,
+    "deferredMinor": 1,
+    "rereview": false,
+    "rawReportSha256": "58750abf1a4fb1b174f51fa5e112c005395675f4a5c5f22a639a5131dcebdeaa"
+  },
+  "checks": {
+    "mainTypes": {
+      "exitCode": 0,
+      "log": "review-fixes-main-types.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "storageBoundary": {
+      "exitCode": 0,
+      "accesses": 88,
+      "files": 46,
+      "log": "task3-storage-boundary.log",
+      "sha256": "c1bcf0ca11fdfccc6daea28155bbbbf5c30b0ecaa23e90db01fb1c024e317c06"
+    }
+  },
+  "sourceHashes": {
+    "contracts.test.ts": "1df99ac9cd5edd20e68dac7696fd14d3e1ede8c3957991a7e03145f3ffdc1726",
+    "contracts.ts": "912bdb6d618284475754286faadd87b186b5b4de1d2f0f30ed56f45ff950b810",
+    "controller.test.ts": "e16ac000654963a44793dc11a9fbf4bcb14fa6bfaac84b3751d0dfed9e7fd4c3",
+    "controller.ts": "44a13fb65c757c50cc1ad59bf7428e9f1e5af3180779c2253729714e79c62817",
+    "journal.test.ts": "4eb3cc7d2a64a37230c7af1fe2f184467bbf523d2d1c45bfb93fb9d096644e37",
+    "journal.ts": "33d5613847144c1073be099894868c9c3d0389725a799bfd43e25421fbb908f8",
+    "mcp-fixture.integration.test.ts": "c2de2572ae30a40ab3a3197db0b5128fba09df87149decd51016c80963299361",
+    "mcp-fixture.ts": "fb24a9ba4e9bf45baa8a47db8ecaa9043ed1293535e6982b44e65151367df02c"
+  },
+  "environment": {
+    "node": "v24.19.0",
+    "vitest": "4.1.11",
+    "platform": "win32",
+    "arch": "x64",
+    "osRelease": "10.0.26300",
+    "cwd": "E:\\Codex\\2026-10-18\\task-2\\firefly-external-batch1",
+    "temp": "E:\\Codex\\2026-10-18\\task-2\\audit\\batch1\\tmp",
+    "tmp": "E:\\Codex\\2026-10-18\\task-2\\audit\\batch1\\tmp",
+    "bash": "E:\\Git\\bin\\bash.exe"
+  },
+  "preflight": {
+    "at": "2026-10-18T05:38:33.456Z",
+    "head": "0a5fe23e14657be12cac02ee818472c3194e69ac",
+    "branch": "codex/device-connector-simulation-20261018",
+    "dirty": "",
+    "readmeBlob": "630f10de83d645cd7cbca71c6df3a6761e813f68",
+    "electronPathAbsent": true,
+    "overrideEmpty": true,
+    "helperExists": true,
+    "bashExists": true,
+    "lockUnchanged": true
+  },
+  "limitations": [
+    "No real accounts/devices/credentials/GUI",
+    "No abrupt OS crash recovery or cross-process exactly-once",
+    "No journal cryptographic attestation or adversarial same-process isolation",
+    "M1 partial trusted-host namespace replacement cleanup deferred",
+    "No second independent review; fixes verified by RED-GREEN and final full suite"
+  ],
+  "scope": "Owned test/smoke fixtures, real installed SDK/HTTP/adapter/registry. No downloads/installs, dependencies changed, paid model calls, candidate execution, push/PR/merge.",
+  "reviewFixRed": {
+    "archive": "E:/Codex/2026-10-18/task-2/audit/device-simulation/test-reports/2026-10-18T05-34-26-303Z-2567686d-71f9-4a36-b4ad-d9a9b2c5ad43/report.json",
+    "sha256": "29942900534164c832d2b1de0e1ff177df422909ac2c986a822a7c6b645117ea",
+    "counts": {
+      "passed": 37,
+      "failed": 6
+    },
+    "unhandledErrors": 0
+  }
+}

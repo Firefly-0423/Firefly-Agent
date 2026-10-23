@@ -1,0 +1,64 @@
+// 元素在模块加载时绑定，空值约定由各面板决定。
+function control<T extends HTMLElement | null>(id: string): T {
+  return document.getElementById(id) as T;
+}
+
+export const channelsWechatEnabledEl: HTMLInputElement | null =
+  document.getElementById("channels-wechat-enabled") as HTMLInputElement | null;
+export const channelsFeishuEnabledEl = control<HTMLInputElement | null>("channels-feishu-enabled");
+export const channelsQqEnabledEl = control<HTMLInputElement | null>("channels-qq-enabled");
+export const channelsWechatStatusEl = control<HTMLElement | null>("channels-wechat-status");
+export const channelsFeishuStatusEl = control<HTMLElement | null>("channels-feishu-status");
+export const channelsQqStatusEl = control<HTMLElement | null>("channels-qq-status");
+export const channelsRateUserEl = control<HTMLInputElement | null>("channels-rate-user");
+export const channelsRateChannelEl = control<HTMLInputElement | null>("channels-rate-channel");
+export const channelsStickerEl = control<HTMLInputElement | null>("channels-sticker-enabled");
+export const channelsMirrorEl = control<HTMLInputElement | null>("channels-mirror-desktop");
+export const channelsToolSandboxOffEl = control<HTMLInputElement | null>("channels-tool-sandbox-off");
+export const channelsToolSandboxAllEl = control<HTMLInputElement | null>("channels-tool-sandbox-all");
+export const channelsFeishuAppIdEl = control<HTMLInputElement | null>("channels-feishu-app-id");
+export const channelsFeishuAppSecretEl = control<HTMLInputElement | null>("channels-feishu-app-secret");
+export const channelsFeishuAppSecretRevealBtn = control<HTMLElement | null>("channels-feishu-app-secret-reveal");
+export const channelsFeishuSaveBtn = control<HTMLElement | null>("channels-feishu-save");
+export const channelsWechatLoginBtn = control<HTMLElement | null>("channels-wechat-login");
+export const channelsWechatRestartBtn = control<HTMLElement | null>("channels-wechat-restart");
+export const channelsWechatFeedbackEl = control<HTMLElement | null>("channels-wechat-feedback");
+export const channelsFeishuFeedbackEl = control<HTMLElement | null>("channels-feishu-feedback");
+export const channelsQqListenModeEl = control<HTMLSelectElement | null>("channels-qq-listen-mode");
+export const channelsQqCustomHostEl = control<HTMLInputElement | null>("channels-qq-custom-host");
+export const channelsQqPortEl = control<HTMLInputElement | null>("channels-qq-port");
+export const channelsQqUrlEl = control<HTMLInputElement | null>("channels-qq-url");
+export const channelsQqUrlCopyBtn = control<HTMLElement | null>("channels-qq-url-copy");
+export const channelsQqTokenEl = control<HTMLInputElement | null>("channels-qq-token");
+export const channelsQqTokenGenerateBtn = control<HTMLElement | null>("channels-qq-token-generate");
+export const channelsQqTokenCopyBtn = control<HTMLElement | null>("channels-qq-token-copy");
+export const channelsQqPrivateAllowlistEl = control<HTMLTextAreaElement | null>("channels-qq-private-allowlist");
+export const channelsQqGroupAllowlistEl = control<HTMLTextAreaElement | null>("channels-qq-group-allowlist");
+export const channelsQqSaveBtn = control<HTMLElement | null>("channels-qq-save");
+export const channelsQqTestBtn = control<HTMLElement | null>("channels-qq-test");
+export const channelsQqFeedbackEl = control<HTMLElement | null>("channels-qq-feedback");
+export const channelsQqBotEnabledEl = control<HTMLInputElement | null>("channels-qqbot-enabled");
+export const channelsQqBotStatusEl = control<HTMLElement | null>("channels-qqbot-status");
+export const channelsQqBotAppIdEl = control<HTMLInputElement | null>("channels-qqbot-app-id");
+export const channelsQqBotAppSecretEl = control<HTMLInputElement | null>("channels-qqbot-app-secret");
+export const channelsQqBotAllowAnyPrivateEl = control<HTMLInputElement | null>("channels-qqbot-allow-any-private");
+export const channelsQqBotUserAllowlistEl = control<HTMLTextAreaElement | null>("channels-qqbot-user-allowlist");
+export const channelsQqBotGroupAllowlistEl = control<HTMLTextAreaElement | null>("channels-qqbot-group-allowlist");
+export const channelsQqBotSaveBtn = control<HTMLElement | null>("channels-qqbot-save");
+export const channelsQqBotTestBtn = control<HTMLElement | null>("channels-qqbot-test");
+export const channelsQqBotFeedbackEl = control<HTMLElement | null>("channels-qqbot-feedback");
+export const channelsLogListEl = control<HTMLElement | null>("channels-log-list");
+export const channelsLogRefreshBtn = control<HTMLElement | null>("channels-log-refresh");
+export const channelsLogClearBtn = control<HTMLElement | null>("channels-log-clear");
+export const channelsContextSourceEl = control<HTMLSelectElement | null>("channels-context-source");
+export const channelsContextTargetEl = control<HTMLSelectElement | null>("channels-context-target");
+export const channelsContextBindBtn = control<HTMLElement | null>("channels-context-bind");
+export const channelsContextBindingsListEl = control<HTMLElement | null>("channels-context-bindings-list");
+export const channelsContextFeedbackEl = control<HTMLElement | null>("channels-context-feedback");
+export const channelsOverviewSummaryEl = control<HTMLElement | null>("channels-overview-summary");
+export const channelsAppStatusEl = control<HTMLElement | null>("channels-app-status");
+export const channelsAppPairBtn = control<HTMLButtonElement | null>("channels-app-pair");
+export const channelsWechatCardEl = control<HTMLElement | null>("channels-wechat-card");
+export const channelsFeishuCardEl = control<HTMLElement | null>("channels-feishu-card");
+export const channelsQqCardEl = control<HTMLElement | null>("channels-qq-card");
+export const channelsQqBotCardEl = control<HTMLElement | null>("channels-qqbot-card");

@@ -1,0 +1,154 @@
+{
+  "testedHead": "6f237ec268dd57590ff1f9ce246bc917112f689c",
+  "base": "88443aa28a184ea3f7cec17b698fce1a2ca8b547",
+  "startedAt": "2026-10-18T04:02:15.184Z",
+  "finishedAt": "2026-10-18T04:16:38.056Z",
+  "counts": {
+    "passed": 10702,
+    "skipped": 11
+  },
+  "testFiles": 873,
+  "unhandledErrors": 0,
+  "startRevision": {
+    "head": "6f237ec268dd57590ff1f9ce246bc917112f689c",
+    "branch": "codex/external-skills-batch1-20261018",
+    "dirty": [],
+    "diffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untracked": []
+  },
+  "endRevision": {
+    "head": "6f237ec268dd57590ff1f9ce246bc917112f689c",
+    "branch": "codex/external-skills-batch1-20261018",
+    "dirty": [],
+    "diffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untracked": []
+  },
+  "environment": {
+    "node": "v24.19.0",
+    "vitest": "4.1.11",
+    "platform": "win32",
+    "arch": "x64",
+    "osRelease": "10.0.26300",
+    "cwd": "E:\\Codex\\2026-10-18\\task-2\\firefly-external-batch1",
+    "temp": "E:\\Codex\\2026-10-18\\task-2\\audit\\batch1\\tmp",
+    "tmp": "E:\\Codex\\2026-10-18\\task-2\\audit\\batch1\\tmp",
+    "bash": "E:\\Git\\bin\\bash.exe"
+  },
+  "archive": "E:/Codex/2026-10-18/task-2/audit/batch1/tmp/firefly-test-reports/2026-10-18T04-02-15-184Z-3c0d6281-4004-4d31-94f1-e5b7505522a6/report.json",
+  "archiveSha256": "78455d95a4a4b9d0dbd4cdfd9d52627f35f810cb63d7e91e39117e27ebeebc53",
+  "skipped": [
+    {
+      "file": "src/main/plugin-marketplace-hardening.test.ts",
+      "name": "marketplace trusted bundled catalog > rejects a bundled ZIP symlink outside the trusted directory",
+      "state": "skipped",
+      "reason": "Windows file symlink unavailable: ERROR_PRIVILEGE_NOT_HELD (1314)",
+      "reasonProvided": true
+    },
+    {
+      "file": "src/main/plugin-panel-protocol.test.ts",
+      "name": "resolvePluginPanelRequest：静态资源路由 > 符号链接逃逸被 realpath 拦截",
+      "state": "skipped",
+      "reason": "Windows file symlink unavailable: ERROR_PRIVILEGE_NOT_HELD (1314)",
+      "reasonProvided": true
+    },
+    {
+      "file": "src/main/chats/workspace-file-editor.test.ts",
+      "name": "workspace text save > rejects symlink leaves when file symlinks are available",
+      "state": "skipped",
+      "reason": "Windows file symlink creation requires a privilege unavailable to this test process (EPERM)",
+      "reasonProvided": true
+    },
+    {
+      "file": "src/main/memory-core/repository.test.ts",
+      "name": "rejects backup publication on non-Windows without creating files or changing live storage",
+      "state": "skipped",
+      "reason": "no explicit reason supplied (mode=skip)",
+      "reasonProvided": false,
+      "sourceGuard": {
+        "file": "src/main/memory-core/repository.test.ts",
+        "line": 111,
+        "condition": "process.platform !== \"win32\""
+      }
+    },
+    {
+      "file": "src/main/memory-core/windows-platform-gates.test.ts",
+      "name": "non-Windows native memory denial > rejects trusted helper configuration and DPAPI before creating temp directories",
+      "state": "skipped",
+      "reason": "no explicit reason supplied (mode=skip)",
+      "reasonProvided": false,
+      "sourceGuard": {
+        "file": "src/main/memory-core/windows-platform-gates.test.ts",
+        "line": 18,
+        "condition": "process.platform !== \"win32\""
+      }
+    },
+    {
+      "file": "src/main/memory-core/windows-platform-gates.test.ts",
+      "name": "non-Windows native memory denial > rejects publication and writer leases before spawning or creating a kernel endpoint",
+      "state": "skipped",
+      "reason": "no explicit reason supplied (mode=skip)",
+      "reasonProvided": false,
+      "sourceGuard": {
+        "file": "src/main/memory-core/windows-platform-gates.test.ts",
+        "line": 18,
+        "condition": "process.platform !== \"win32\""
+      }
+    },
+    {
+      "file": "src/main/memory-core/windows-platform-gates.test.ts",
+      "name": "non-Windows native memory denial > rejects key publication before protecting plaintext or writing a key record",
+      "state": "skipped",
+      "reason": "no explicit reason supplied (mode=skip)",
+      "reasonProvided": false,
+      "sourceGuard": {
+        "file": "src/main/memory-core/windows-platform-gates.test.ts",
+        "line": 18,
+        "condition": "process.platform !== \"win32\""
+      }
+    },
+    {
+      "file": "src/main/memory-core/windows-platform-gates.test.ts",
+      "name": "non-Windows native memory denial > rejects a real MemoryClient before key protection or Worker construction",
+      "state": "skipped",
+      "reason": "no explicit reason supplied (mode=skip)",
+      "reasonProvided": false,
+      "sourceGuard": {
+        "file": "src/main/memory-core/windows-platform-gates.test.ts",
+        "line": 18,
+        "condition": "process.platform !== \"win32\""
+      }
+    },
+    {
+      "file": "src/main/skills/external-state.test.ts",
+      "name": "stale_lock_fail_closed preserves linked lock and all remaining bytes",
+      "state": "skipped",
+      "reason": "Windows file symlink unavailable: ERROR_PRIVILEGE_NOT_HELD (1314)",
+      "reasonProvided": true
+    },
+    {
+      "file": "src/main/orchestrator/tools/apply-patch-tools.test.ts",
+      "name": "patch ownership and actual partial write facts > deleting a symlink then updating its target preserves both actual operation paths",
+      "state": "skipped",
+      "reason": "no explicit reason supplied (mode=skip)",
+      "reasonProvided": false,
+      "sourceGuard": {
+        "file": "src/main/orchestrator/tools/apply-patch-tools.test.ts",
+        "line": 360,
+        "condition": "process.platform !== \"win32\""
+      }
+    },
+    {
+      "file": "src/main/orchestrator/tools/registry/file-write-evidence.test.ts",
+      "name": "file write evidence > symlink aliases share ownership but retain distinct actual operation path records",
+      "state": "skipped",
+      "reason": "no explicit reason supplied (mode=skip)",
+      "reasonProvided": false,
+      "sourceGuard": {
+        "file": "src/main/orchestrator/tools/registry/file-write-evidence.test.ts",
+        "line": 67,
+        "condition": "process.platform !== \"win32\""
+      }
+    }
+  ],
+  "note": "Raw reporter reasons are preserved; independently read source conditions are separate evidence. No skip condition was changed."
+}

@@ -1,0 +1,200 @@
+/* The conversation panel: the dialog on the left, the overview cards on its outer side. */
+.ff-workspace-body { display: flex; min-width: 0; min-height: 0; flex: 1 1 auto; }
+.ff-workspace-content { position: relative; display: flex; min-width: 0; min-height: 0; flex: 1 1 0; flex-direction: column; }
+.ff-chat-cards { display: flex; min-height: 0; flex: 0 0 272px; flex-direction: column; box-sizing: border-box; padding: 8px 8px 8px 0; }
+@media (max-width: 900px) { .ff-chat-cards { flex-basis: 224px; } }
+
+/* Session overview: a stack of quiet, collapsible cards beside the conversation. */
+.ff-session-overview {
+  --fade-top: 0px;
+  --fade-bottom: 0px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 0 2px 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  color: var(--ff-text, #403840);
+  /* Scroll fade: a 28px feathered edge, only where cards are hidden past it. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-top), #000 calc(100% - var(--fade-bottom)), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-top), #000 calc(100% - var(--fade-bottom)), transparent 100%);
+}
+.ff-session-overview[data-fade-top] { --fade-top: 28px; }
+.ff-session-overview[data-fade-bottom] { --fade-bottom: 28px; }
+.ff-session-overview[data-dragging] { cursor: grabbing; user-select: none; }
+
+/* Each card stands on its own: a hairline ring that lifts a little on hover. */
+.ff-overview-card {
+  position: relative;
+  flex: 0 0 auto;
+  min-width: 0;
+  border: 1px solid var(--ff-border, #dfe1e8);
+  border-radius: 12px;
+  background: var(--ff-bg-workspace, var(--ff-surface));
+  transition: box-shadow 200ms cubic-bezier(.165, .84, .44, 1), border-color 200ms cubic-bezier(.165, .84, .44, 1), transform 200ms cubic-bezier(.32, .72, 0, 1), opacity 120ms ease;
+}
+.ff-overview-card:hover { border-color: color-mix(in srgb, var(--ff-text-muted) 40%, var(--ff-border)); box-shadow: 0 4px 16px -2px rgb(0 0 0 / 7%); }
+/* Resting cards slide aside to make room; the dragged card follows the pointer, tilts slightly and floats above them. */
+.ff-overview-card { transform: translateY(var(--ff-shift-y, 0px)); }
+.ff-overview-card[data-dragging] { z-index: 2; opacity: 0.96; transform: translateY(var(--ff-drag-y, 0px)) rotate(-1.5deg) scale(1.01); box-shadow: 0 12px 32px rgb(0 0 0 / 14%); transition: box-shadow 200ms ease; will-change: transform; }
+.ff-session-overview[data-dragging] .ff-overview-card { will-change: transform; }
+.ff-session-overview[data-settling] .ff-overview-card { transition: none; }
+
+.ff-overview-card__bar { display: flex; min-width: 0; align-items: center; }
+.ff-overview-card__head {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+/* No box around the header on hover or focus: the card's own ring answers instead. */
+.ff-overview-card__head:focus-visible { outline: none; }
+.ff-overview-card:has(.ff-overview-card__head:focus-visible, .ff-overview-card__grip:focus-visible) { border-color: var(--ff-accent, #6b9982); }
+.ff-session-overview[data-dragging] .ff-overview-card__head { cursor: grabbing; }
+.ff-overview-card__chevron { flex: 0 0 auto; color: var(--ff-text-muted, #828396); transition: transform 150ms ease; }
+.ff-overview-card__head[aria-expanded="true"] .ff-overview-card__chevron { transform: rotate(90deg); }
+/* Entry cards (environment, connectors): one row that opens something; the chevron follows the title, as in Claude desktop. */
+.ff-overview-card[data-entry] .ff-overview-card__title { order: 1; }
+.ff-overview-card[data-entry] .ff-overview-card__chevron { order: 2; }
+.ff-overview-card[data-entry] .ff-overview-card__summary { order: 3; }
+.ff-overview-card[data-entry] .ff-overview-card__head:hover .ff-overview-card__chevron { transform: translateX(2px); }
+.ff-overview-card__head:disabled { cursor: default; }
+
+/* The six-dot grip: quiet until the card is hovered or the grip focused. */
+.ff-overview-card__grip {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  place-items: center;
+  margin-right: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ff-text-muted, #828396);
+  cursor: grab;
+  opacity: 0;
+  touch-action: none;
+  transition: opacity 120ms ease, background-color 120ms ease, color 120ms ease;
+}
+.ff-overview-card:hover .ff-overview-card__grip,
+.ff-overview-card__grip:focus-visible,
+.ff-overview-card[data-dragging] .ff-overview-card__grip { opacity: 1; }
+.ff-overview-card__grip:hover { background: var(--ff-bg-hover); color: var(--ff-text); }
+.ff-overview-card__grip:active { cursor: grabbing; }
+.ff-overview-card__grip:focus-visible { outline: none; }
+
+/* Grid 0fr -> 1fr: the body opens and closes without measuring its height. */
+.ff-overview-card__fold {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 220ms cubic-bezier(.19, 1, .22, 1);
+}
+.ff-overview-card[data-open="true"] .ff-overview-card__fold { grid-template-rows: 1fr; }
+.ff-overview-card__fold > .ff-overview-card__body { min-height: 0; overflow: hidden; }
+.ff-overview-card__title { flex: 0 0 auto; font-weight: 600; }
+.ff-overview-card__summary {
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--ff-text-muted, #828396);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ff-overview-card__body { padding: 0 12px; font-size: 12px; }
+.ff-overview-card__body > :last-child { margin-bottom: 12px; }
+.ff-overview-card__empty,
+.ff-overview-card__line,
+.ff-overview-card__note { margin: 0; color: var(--ff-text-muted, #828396); line-height: 1.6; }
+.ff-overview-card__line { margin-top: 6px; }
+.ff-overview-card__note { margin-top: 10px; font-size: 11px; }
+.ff-overview-card__warn { color: var(--ff-del-fg, #cf222e); }
+
+/* Context: usage line, segmented bar, then one row per category. */
+.ff-overview-context__totals { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.ff-overview-context__totals strong { font-size: 13px; font-weight: 600; }
+.ff-overview-context__totals span { color: var(--ff-text-muted, #828396); font-variant-numeric: tabular-nums; }
+.ff-overview-context__bar {
+  display: flex;
+  height: 6px;
+  margin: 8px 0 10px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--ff-bg-active, rgba(0, 0, 0, 0.08));
+}
+.ff-overview-context__bar > span { display: block; height: 100%; min-width: 2px; }
+.ff-overview-context__bar.is-warm { box-shadow: 0 0 0 1px color-mix(in srgb, #d98a1c 55%, transparent); }
+.ff-overview-context__bar.is-alert { box-shadow: 0 0 0 1px color-mix(in srgb, var(--ff-del-fg, #cf222e) 65%, transparent); }
+.ff-overview-context__rows { display: flex; flex-direction: column; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.ff-overview-context__rows li { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto 38px; align-items: center; gap: 8px; }
+.ff-overview-context__dot { width: 8px; height: 8px; border-radius: 2px; }
+.ff-overview-context__rows li.is-free .ff-overview-context__dot { background: var(--ff-bg-active, rgba(0, 0, 0, 0.12)); }
+.ff-overview-context__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ff-overview-context__tokens,
+.ff-overview-context__share { color: var(--ff-text-muted, #828396); font-variant-numeric: tabular-nums; text-align: right; }
+
+/* Tasks and changes share one compact row list. */
+.ff-overview-list { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.ff-overview-list__row {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ff-overview-list__row:hover:enabled { background: var(--ff-bg-hover); }
+.ff-overview-list__row:disabled { cursor: default; }
+.ff-overview-list__row:focus-visible { outline: 2px solid var(--ff-accent, #6b9982); outline-offset: -2px; }
+.ff-overview-list__name { min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ff-overview-outputs__icon { flex: none; color: var(--ff-text-muted, #828396); }
+.ff-overview-list__meta { flex: 0 0 auto; color: var(--ff-text-muted, #828396); font-variant-numeric: tabular-nums; }
+.ff-overview-list__pulse { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: var(--ff-accent, #6b9982); animation: ff-overview-pulse 1.6s ease-in-out infinite; }
+.ff-overview-diffstat.is-add { color: var(--ff-add-fg, #116329); }
+.ff-overview-diffstat.is-del { color: var(--ff-del-fg, #cf222e); }
+@keyframes ff-overview-pulse { 50% { opacity: 0.4; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ff-overview-card, .ff-overview-card__fold, .ff-overview-card__grip { transition: none; }
+  .ff-overview-card[data-dragging] { transform: translateY(var(--ff-drag-y, 0px)); }
+  .ff-overview-card__chevron { transition: none; }
+  .ff-overview-list__pulse { animation: none; }
+}
+
+/* Same for the cards' own scrollbar: hidden until the pointer is over them. */
+.ff-session-overview::-webkit-scrollbar-thumb { background-color: transparent; }
+.ff-session-overview:hover::-webkit-scrollbar-thumb { background-color: var(--ff-scroll-thumb); }
+.ff-session-overview:hover::-webkit-scrollbar-thumb:hover { background-color: var(--ff-scroll-thumb-hover); }
+
+/* Usage card: this conversation's run stats, then the 90-day token breakdown; same type scale as the context card. */
+.ff-overview-usage { display: grid; gap: 12px; font-variant-numeric: tabular-nums; }
+.ff-overview-usage__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.ff-overview-usage__head strong { font-size: 12px; font-weight: 600; }
+.ff-overview-usage__head span { color: var(--ff-text-muted, #828396); }
+.ff-overview-usage__rows { display: grid; gap: 4px; margin: 0; }
+.ff-overview-usage__rows > div { display: flex; justify-content: space-between; gap: 12px; }
+.ff-overview-usage__rows dt { color: var(--ff-text-secondary); }
+.ff-overview-usage__rows dd { margin: 0; text-align: right; }

@@ -1,0 +1,167 @@
+/* Browser pane chrome: a 48px tab strip that lines up with the chat header, then the page toolbar. */
+.ff-browser-window {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  background: var(--ff-bg-workspace, var(--ff-surface));
+}
+
+.ff-browser-window__strip {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  box-sizing: border-box;
+  height: var(--ff-workspace-header-height, 48px);
+  min-height: var(--ff-workspace-header-height, 48px);
+  padding: 0 8px 0 6px;
+  border-bottom: 1px solid var(--ff-border);
+  background: var(--ff-bg-page, var(--ff-surface));
+  app-region: no-drag;
+}
+.ff-browser-window__strip-spacer { flex: 1 1 auto; }
+
+/* Tabs scroll sideways inside their own row; the + and the pane close never scroll away. */
+.ff-browser-window__tabs {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.ff-browser-window__tabs::-webkit-scrollbar { display: none; }
+
+/* A tab opens by widening into the strip and closes by collapsing out of it (150ms). */
+.ff-browser-window__tab {
+  position: relative;
+  display: inline-flex;
+  flex: 0 1 180px;
+  align-items: center;
+  min-width: 0;
+  max-width: 180px;
+  height: 32px;
+  animation: ff-browser-tab-in 150ms ease-out backwards;
+  transition: flex-basis 150ms ease-out, max-width 150ms ease-out, opacity 150ms ease-out;
+}
+.ff-browser-window__tab.is-closing { flex-basis: 0; max-width: 0; opacity: 0; overflow: hidden; }
+@keyframes ff-browser-tab-in {
+  from { flex-basis: 0; max-width: 0; opacity: 0; }
+}
+
+/* The pill: a rounded chip with a globe, a title and a hidden-until-needed close. */
+.ff-browser-window__tab > button[role="tab"] {
+  display: inline-flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 32px;
+  padding: 0 28px 0 10px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: var(--ff-text-muted, inherit);
+  font: 500 12.5px/1 var(--rb-font-sans, sans-serif);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+.ff-browser-window__tab > button[role="tab"] > svg { flex: none; }
+.ff-browser-window__tab-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ff-browser-window__tab > button[role="tab"]:hover:enabled { background: var(--ff-bg-hover); color: var(--ff-text); }
+.ff-browser-window__tab > button[role="tab"][aria-selected="true"] {
+  border: 1px solid var(--ff-border);
+  background: var(--ff-bg-workspace, var(--ff-surface));
+  color: var(--ff-text);
+  box-shadow: 0 1px 2px rgb(31 35 48 / 8%);
+}
+.ff-browser-window__tab > button[role="tab"]:disabled { opacity: .5; cursor: default; }
+.ff-browser-window__tab > button[role="tab"]:focus-visible { outline: 2px solid var(--ff-accent); outline-offset: 1px; }
+
+/* Close sits inside the pill; it shows on hover, keyboard focus, and the selected tab. */
+.ff-browser-window__tab > button[data-browser-close-tab] {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ff-text-muted, inherit);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity 150ms ease, background-color 150ms ease;
+}
+.ff-browser-window__tab:hover > button[data-browser-close-tab],
+.ff-browser-window__tab:focus-within > button[data-browser-close-tab],
+.ff-browser-window__tab:has(> button[aria-selected="true"]) > button[data-browser-close-tab] { opacity: 1; }
+.ff-browser-window__tab > button[data-browser-close-tab]:hover:enabled { background: var(--ff-bg-active); color: var(--ff-text); }
+.ff-browser-window__tab > button[data-browser-close-tab]:focus-visible { outline: 2px solid var(--ff-accent); outline-offset: 1px; }
+.ff-browser-window__tab > button[data-browser-close-tab]:disabled { cursor: default; }
+
+/* The Agent page is a conversation-owned tab. It sits at the far end of the tab row and is marked by a dot. */
+.ff-browser-window__agent {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  margin-left: auto;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--ff-text-muted, inherit);
+  font: 500 12px/1 var(--rb-font-sans, sans-serif);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.ff-browser-window__agent::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ff-accent); }
+.ff-browser-window__agent:hover:enabled { background: var(--ff-bg-hover); color: var(--ff-text); }
+.ff-browser-window__agent[aria-selected="true"] { background: var(--ff-bg-workspace, var(--ff-surface)); color: var(--ff-text); box-shadow: 0 1px 2px rgb(31 35 48 / 8%); }
+.ff-browser-window__agent:disabled { opacity: .5; cursor: default; }
+.ff-browser-window__agent:focus-visible { outline: 2px solid var(--ff-accent); outline-offset: 1px; }
+
+/* New tab and pane close: round, quiet controls that follow the tab row. */
+.ff-browser-window__strip > button {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ff-text-muted, inherit);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.ff-browser-window__strip > button:hover:enabled { background: var(--ff-bg-hover); color: var(--ff-text); }
+.ff-browser-window__strip > button:active:enabled { background: var(--ff-bg-active); }
+.ff-browser-window__strip > button:disabled { opacity: .5; cursor: default; }
+.ff-browser-window__strip > button:focus-visible { outline: 2px solid var(--ff-accent); outline-offset: 2px; }
+
+.ff-browser-window__alert { margin: 0; padding: 6px 12px; background: var(--ff-bg-hover); color: var(--ff-text); font-size: 12px; }
+.ff-browser-window__page { min-height: 0; flex: 1; }
+.ff-browser-window__page[hidden] { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ff-browser-window__tab,
+  .ff-browser-window__tab > button,
+  .ff-browser-window__strip > button,
+  .ff-browser-window__agent { animation: none; transition: none; }
+}

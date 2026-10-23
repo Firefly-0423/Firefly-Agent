@@ -1,0 +1,258 @@
+/* FileTreePanel — 工作区文件树 + 文件预览（右侧面板标签内容） */
+
+.ff-file-tree,
+.ff-file-preview {
+  flex-direction: column;
+  display: flex;
+  min-height: 0;
+  height: 100%;
+}
+
+/* 状态占位（加载中 / 错误 / 空目录） */
+.ff-file-tree.is-state,
+.ff-file-preview.is-state,
+.ff-file-tree__state,
+.ff-file-preview__state {
+  text-align: center;
+  font: 500 12px/1.6 var(--rb-font-sans, sans-serif);
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  padding: 24px;
+  justify-content: center;
+  align-items: center;
+  display: flex;
+  flex: 1;
+}
+
+/* ── 文件树 ── */
+
+.ff-file-tree .ant-tree {
+  color: var(--ff-text, var(--ff-text));
+  background: transparent;
+  font: 500 12px/1.6 var(--rb-font-sans, sans-serif);
+  padding: 8px 6px;
+  overflow: auto;
+  min-height: 0;
+  flex: 1;
+}
+
+.ff-file-tree .ant-tree .ant-tree-node-content-wrapper {
+  transition: background 0.12s;
+  border-radius: 12px;
+}
+
+.ff-file-tree .ant-tree .ant-tree-node-selected,
+.ff-file-tree .ant-tree .ant-tree-node-content-wrapper:hover {
+  background: rgb(45 122 95 / 8%);
+}
+
+.ff-file-tree .ant-tree .ant-tree-node-selected {
+  color: var(--ff-text, var(--ff-text));
+}
+
+.ff-file-tree .ant-tree .ant-tree-iconEle {
+  align-items: center;
+  display: inline-flex;
+  color: var(--ff-text-muted, #a99fa5);
+}
+
+/* VS Code 官方文件类型图标（vscode-icons 集） */
+.ff-file-tree__type-icon {
+  -webkit-user-drag: none;
+  user-select: none;
+  height: 14px;
+  width: 14px;
+  display: block;
+}
+
+/* 目录 emoji 图标：📂 收起 / 📁 展开 */
+.ff-file-tree__folder-icon {
+  user-select: none;
+  line-height: 1;
+  font-size: 14px;
+}
+
+.ff-file-tree__truncated {
+  font: 500 11px/1.4 var(--rb-font-sans, sans-serif);
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  border-top: 1px solid var(--ff-border, var(--ff-border));
+  padding: 6px 12px;
+  flex-shrink: 0;
+}
+
+/* ── 文件预览 ── */
+
+.ff-file-preview__header {
+  background: var(--ff-popover);
+  border-bottom: 1px solid var(--ff-border, var(--ff-border));
+  padding: 8px 14px;
+  gap: 8px;
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+}
+
+.ff-file-preview__path {
+  font-family: var(--rb-font-sans, sans-serif);
+  line-height: 1.3;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--ff-text, var(--ff-text));
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  min-width: 0;
+  flex: 1;
+}
+
+.ff-file-preview__size {
+  font: 500 11px/1.3 var(--rb-font-sans, sans-serif);
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  flex-shrink: 0;
+}
+
+.ff-file-preview__code {
+  font: 400 12px/1.65 var(--rb-font-mono, ui-monospace, "Cascadia Mono", Consolas, monospace);
+  background: transparent;
+  overflow: auto;
+  padding: 8px 0;
+  margin: 0;
+  min-height: 0;
+  flex: 1;
+}
+
+.ff-file-preview__line {
+  padding-right: 12px;
+  min-height: 20px;
+  align-items: flex-start;
+  display: flex;
+}
+
+.ff-file-preview__line:hover {
+  background: var(--ff-bg-hover);
+}
+
+.ff-file-preview__lineno {
+  user-select: none;
+  color: var(--ff-text-muted, #b9b0b6);
+  text-align: right;
+  padding-right: 10px;
+  width: 44px;
+  flex-shrink: 0;
+}
+
+.ff-file-preview__text {
+  color: var(--ff-text, #3d393f);
+  white-space: pre;
+  min-width: 0;
+  flex: 1;
+}
+
+.ff-file-preview__truncated {
+  font: 500 11px/1.4 var(--rb-font-sans, sans-serif);
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  border-top: 1px solid var(--ff-border, var(--ff-border));
+  padding: 6px 12px;
+  flex-shrink: 0;
+}
+
+/* Markdown 文件的预览/源码切换（头部右侧，图标按钮组） */
+.ff-file-preview__md-toggle {
+  flex-shrink: 0;
+  gap: 2px;
+  display: inline-flex;
+  margin-left: auto;
+}
+
+.ff-file-preview__md-btn {
+  transition: background 0.15s, color 0.15s;
+  cursor: pointer;
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  background: transparent;
+  border-radius: 12px;
+  border: 0;
+  justify-content: center;
+  align-items: center;
+  display: flex;
+  height: 26px;
+  width: 26px;
+}
+
+.ff-file-preview__md-btn:hover {
+  color: var(--ff-text, #3d393f);
+  background: var(--ff-bg-hover, #eceef3);
+}
+
+.ff-file-preview__md-btn.is-active {
+  color: var(--ff-accent, var(--ff-accent));
+  background: rgba(var(--ff-accent-rgb), 0.1);
+}
+
+/* Markdown 渲染预览区：滚动 + 内边距，样式复用聊天的 markdown 体系 */
+.ff-file-preview__markdown {
+  padding: 10px 16px 24px;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+}
+
+/* 刷新入口常驻，空目录与读取失败时仍可重试。 */
+.ff-file-tree__header {
+  font: 500 12px/1.4 var(--rb-font-sans, sans-serif);
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  border-bottom: 1px solid var(--ff-border, var(--ff-border));
+  padding: 8px 12px;
+  flex-shrink: 0;
+  gap: 8px;
+  justify-content: space-between;
+  align-items: center;
+  display: flex;
+}
+
+.ff-file-refresh {
+  cursor: pointer;
+  font: inherit;
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  background: transparent;
+  padding: 4px 6px;
+  border-radius: 8px;
+  border: 0;
+  min-height: 26px;
+  min-width: 26px;
+  flex-shrink: 0;
+  gap: 5px;
+  justify-content: center;
+  align-items: center;
+  display: inline-flex;
+}
+
+.ff-file-refresh:hover:not(:disabled) {
+  color: var(--ff-text, #3d393f);
+  background: var(--ff-bg-hover, #eceef3);
+}
+
+.ff-file-refresh:focus-visible {
+  outline: 2px solid var(--ff-accent, var(--ff-accent));
+  outline-offset: 2px;
+}
+
+.ff-file-refresh:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* Keep custom foreground text paired with the selected workspace surface. */
+:root[data-ui-colors] .ff-file-preview__header {
+  background: var(--ff-bg-page);
+}
+
+/* Minimal text editor: use the same workspace colors and scrolling contract. */
+.ff-file-editor { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.ff-file-editor__toolbar,
+.ff-file-editor__decision { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 6px 12px; color: var(--ff-text-muted); font: 500 12px/1.5 var(--rb-font-sans, sans-serif); }
+.ff-file-editor__dirty { color: var(--ff-accent); }
+.ff-file-editor__hint,
+.ff-file-editor__error { margin: 0; padding: 4px 12px 8px; color: var(--ff-text-muted); font: 400 12px/1.5 var(--rb-font-sans, sans-serif); }
+.ff-file-editor__error { color: var(--ff-text); }
+.ff-file-editor__decision { border-block: 1px solid var(--ff-border); background: var(--ff-bg-hover); }
+.ff-file-editor__input { flex: 1; min-height: 100px; width: 100%; resize: none; box-sizing: border-box; border: 0; padding: 12px; background: var(--ff-bg-page); color: var(--ff-text); tab-size: 2; white-space: pre; overflow: auto; font: 400 12px/1.65 var(--rb-font-mono, ui-monospace, monospace); }
+.ff-file-editor__input:focus-visible { outline: 2px solid var(--ff-accent); outline-offset: -2px; }

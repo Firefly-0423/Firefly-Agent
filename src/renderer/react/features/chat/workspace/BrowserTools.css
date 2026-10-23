@@ -1,0 +1,149 @@
+/* Browser tools: the toolbar buttons, find bar, more menu, downloads and history popovers, and the settings page.
+   Surfaces are drawn over the page area; while one is open the native page is detached and a still picture stands in. */
+
+.ff-browser-tools { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 2px; }
+.ff-browser-tools button { position: relative; }
+.ff-browser-tools button[aria-expanded="true"] { background: var(--ff-bg-active); color: var(--ff-text); }
+.ff-browser-tools__dot {
+  position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--ff-accent, #6b9982); box-shadow: 0 0 0 2px var(--ff-bg-workspace, var(--ff-surface));
+}
+
+/* Find bar: one quiet row under the toolbar. */
+.ff-browser-find {
+  display: flex; flex: 0 0 auto; align-items: center; gap: 2px; padding: 0 8px 6px; background: var(--ff-bg-workspace, var(--ff-surface));
+}
+.ff-browser-find input {
+  flex: 1 1 auto; min-width: 0; height: 30px; box-sizing: border-box; padding: 0 12px; border: 1px solid var(--ff-border); border-radius: 15px;
+  background: var(--ff-bg-page, var(--ff-bg-subtle)); color: var(--ff-text); font: inherit; font-size: 12.5px; outline: none;
+}
+.ff-browser-find input:focus { background: var(--ff-bg-workspace, var(--ff-surface)); border-color: var(--ff-accent, #6b9982); }
+.ff-browser-find__count { flex: 0 0 auto; min-width: 44px; padding: 0 6px; color: var(--ff-text-muted); font-size: 12px; text-align: center; white-space: nowrap; }
+.ff-browser-find button {
+  display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 8px;
+  background: transparent; color: var(--ff-text-muted); cursor: pointer;
+}
+.ff-browser-find button:hover:enabled { background: var(--ff-bg-hover); color: var(--ff-text); }
+.ff-browser-find button:disabled { opacity: .35; cursor: default; }
+
+/* Layer over the page area: a transparent backdrop that closes on outside click, and the surface itself. */
+.ff-browser-layer { position: absolute; inset: 0; z-index: 5; }
+.ff-browser-layer__backdrop { position: absolute; inset: 0; background: transparent; }
+
+.ff-browser-menu,
+.ff-browser-popover {
+  position: absolute; top: 4px; right: 8px; box-sizing: border-box; max-height: calc(100% - 12px); overflow-y: auto; overscroll-behavior: contain;
+  border: 1px solid var(--ff-border); border-radius: 14px; background: var(--ff-bg-workspace, var(--ff-surface)); color: var(--ff-text);
+  box-shadow: 0 12px 32px rgba(20, 24, 40, .18), 0 2px 8px rgba(20, 24, 40, .08);
+  animation: ff-browser-surface-in 120ms ease-out;
+}
+.ff-browser-menu { width: min(272px, calc(100% - 16px)); padding: 6px; }
+.ff-browser-popover { width: min(360px, calc(100% - 16px)); padding: 6px 6px 8px; }
+@keyframes ff-browser-surface-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+.ff-browser-menu__item {
+  display: flex; align-items: center; gap: 10px; width: 100%; height: 36px; box-sizing: border-box; padding: 0 10px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--ff-text); font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+}
+.ff-browser-menu__item:hover:enabled,
+.ff-browser-menu__item:focus-visible { background: var(--ff-bg-hover); outline: none; }
+.ff-browser-menu__item:disabled { color: var(--ff-text-muted); opacity: .55; cursor: default; }
+.ff-browser-menu__icon { display: inline-flex; flex: 0 0 18px; align-items: center; justify-content: center; color: var(--ff-text-muted); }
+.ff-browser-menu__label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ff-browser-menu__separator { height: 1px; margin: 6px 4px; background: var(--ff-border); }
+.ff-browser-menu__chevron { flex: 0 0 auto; color: var(--ff-text-muted); transition: transform 150ms ease; }
+.ff-browser-menu__chevron.is-open { transform: rotate(180deg); }
+.ff-browser-menu__sub { padding-left: 14px; }
+.ff-browser-menu__zoom { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 38px; padding: 0 4px 0 10px; font-size: 13px; }
+.ff-browser-menu__zoom-controls { display: inline-flex; align-items: center; gap: 2px; }
+.ff-browser-menu__zoom-controls button {
+  display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 7px;
+  background: transparent; color: var(--ff-text-muted); cursor: pointer;
+}
+.ff-browser-menu__zoom-controls button:hover:enabled,
+.ff-browser-menu__zoom-controls button:focus-visible { background: var(--ff-bg-hover); color: var(--ff-text); outline: none; }
+.ff-browser-menu__zoom-controls button:disabled { opacity: .35; cursor: default; }
+.ff-browser-menu__zoom-value { min-width: 44px; text-align: center; font-variant-numeric: tabular-nums; color: var(--ff-text); }
+
+.ff-browser-popover__head { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px 6px 10px; }
+.ff-browser-popover__head h2 { margin: 0; font-size: 13px; font-weight: 600; }
+.ff-browser-popover__head button,
+.ff-browser-download__actions button {
+  display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 7px;
+  background: transparent; color: var(--ff-text-muted); cursor: pointer;
+}
+.ff-browser-popover__head button:hover:enabled,
+.ff-browser-download__actions button:hover:enabled { background: var(--ff-bg-hover); color: var(--ff-text); }
+.ff-browser-download__actions button:disabled { opacity: .35; cursor: default; }
+.ff-browser-popover__empty { margin: 0; padding: 14px 10px 10px; color: var(--ff-text-muted); font-size: 12.5px; }
+.ff-browser-popover__foot { padding: 6px 6px 0; border-top: 1px solid var(--ff-border); margin-top: 4px; }
+.ff-browser-popover__foot button {
+  padding: 5px 10px; border: 1px solid var(--ff-border); border-radius: 8px; background: transparent; color: var(--ff-text); font: inherit; font-size: 12px; cursor: pointer;
+}
+.ff-browser-popover__foot button:hover { background: var(--ff-bg-hover); }
+
+.ff-browser-downloads, .ff-browser-history { margin: 0; padding: 0; list-style: none; }
+.ff-browser-download { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 10px; border-radius: 8px; }
+.ff-browser-download:hover { background: var(--ff-bg-hover); }
+.ff-browser-download__text { display: flex; flex: 1 1 auto; min-width: 0; flex-direction: column; gap: 2px; }
+.ff-browser-download__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.ff-browser-download__meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ff-text-muted); font-size: 11.5px; }
+.ff-browser-download[data-download-state="failed"] .ff-browser-download__meta { color: var(--ff-danger, #9e3838); }
+.ff-browser-download progress { width: 100%; height: 4px; margin-top: 2px; accent-color: var(--ff-accent, #6b9982); }
+.ff-browser-download__actions { display: inline-flex; flex: 0 0 auto; gap: 2px; }
+
+.ff-browser-history button {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px; width: 100%; box-sizing: border-box; padding: 7px 10px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--ff-text); font: inherit; text-align: left; cursor: pointer;
+}
+.ff-browser-history button:hover,
+.ff-browser-history button:focus-visible { background: var(--ff-bg-hover); outline: none; }
+.ff-browser-history button[aria-current] .ff-browser-history__title { font-weight: 600; }
+.ff-browser-history__title, .ff-browser-history__url { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ff-browser-history__title { font-size: 13px; }
+.ff-browser-history__url { color: var(--ff-text-muted); font-size: 11.5px; }
+
+/* Settings page: covers the page area completely. */
+.ff-browser-settings { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--ff-bg-workspace, var(--ff-surface)); color: var(--ff-text); }
+.ff-browser-settings__head { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; height: 44px; box-sizing: border-box; padding: 0 10px 0 16px; border-bottom: 1px solid var(--ff-border); }
+.ff-browser-settings__head h2 { margin: 0; font-size: 14px; font-weight: 600; }
+.ff-browser-settings__head button {
+  display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--ff-text-muted); cursor: pointer;
+}
+.ff-browser-settings__head button:hover { background: var(--ff-bg-hover); color: var(--ff-text); }
+.ff-browser-settings__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 6px 16px 24px; }
+.ff-browser-settings section { padding: 14px 0 6px; border-bottom: 1px solid var(--ff-border); }
+.ff-browser-settings section:last-of-type { border-bottom: 0; }
+.ff-browser-settings h3 { margin: 0 0 8px; font-size: 13px; font-weight: 600; }
+.ff-browser-settings__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 36px; font-size: 13px; }
+.ff-browser-settings__label { display: block; color: var(--ff-text-muted); font-size: 11.5px; }
+.ff-browser-settings__value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ff-browser-settings__check { cursor: pointer; }
+.ff-browser-settings__check input { flex: 0 0 auto; width: 16px; height: 16px; accent-color: var(--ff-accent, #6b9982); }
+.ff-browser-settings__hint { margin: 6px 0 4px; color: var(--ff-text-muted); font-size: 12px; line-height: 1.55; }
+.ff-browser-settings__empty, .ff-browser-settings__summary { margin: 4px 0 8px; color: var(--ff-text-muted); font-size: 12.5px; }
+.ff-browser-settings__buttons { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.ff-browser-settings__buttons button, .ff-browser-cookies button {
+  padding: 5px 12px; border: 1px solid var(--ff-border); border-radius: 8px; background: transparent; color: var(--ff-text); font: inherit; font-size: 12.5px; cursor: pointer;
+}
+.ff-browser-settings__buttons button:hover:enabled, .ff-browser-cookies button:hover:enabled { background: var(--ff-bg-hover); }
+.ff-browser-settings__buttons button:disabled, .ff-browser-cookies button:disabled { opacity: .45; cursor: default; }
+.ff-browser-settings__buttons button.is-primary { border-color: transparent; background: var(--ff-accent, #6b9982); color: #fff; }
+.ff-browser-settings__buttons button.is-primary:hover:enabled { filter: brightness(.95); background: var(--ff-accent, #6b9982); }
+.ff-browser-cookies { margin: 4px 0 6px; padding: 0; list-style: none; max-height: 220px; overflow-y: auto; border: 1px solid var(--ff-border); border-radius: 10px; }
+.ff-browser-cookies li { display: flex; align-items: center; gap: 10px; padding: 5px 8px 5px 12px; border-bottom: 1px solid var(--ff-border); font-size: 12.5px; }
+.ff-browser-cookies li:last-child { border-bottom: 0; }
+.ff-browser-cookies__domain { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ff-browser-cookies__count { flex: 0 0 auto; color: var(--ff-text-muted); font-variant-numeric: tabular-nums; }
+.ff-browser-settings__status { margin: 10px 0 0; padding: 8px 10px; border-radius: 8px; background: var(--ff-bg-hover); color: var(--ff-text); font-size: 12.5px; }
+
+.ff-browser-menu__item:focus-visible,
+.ff-browser-find button:focus-visible,
+.ff-browser-popover button:focus-visible,
+.ff-browser-settings button:focus-visible,
+.ff-browser-settings input:focus-visible { outline: 2px solid var(--ff-accent, #6b9982); outline-offset: -2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ff-browser-menu, .ff-browser-popover { animation: none; }
+  .ff-browser-menu__chevron { transition: none; }
+}

@@ -1,0 +1,51 @@
+/* 布局与外观按属性族组织，族内保留覆盖顺序。 */
+*::after,
+*::before,
+* {
+  box-sizing: border-box;
+}
+
+body,
+html {
+  padding: 0;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font: var(--rb-text-body);
+  letter-spacing: var(--rb-letter-spacing);
+  color: var(--rb-text-default);
+}
+
+button {
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  color: inherit;
+  border: none;
+  background: none;
+}
+
+select,
+textarea,
+input {
+  outline: none;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  border: none;
+  background: none;
+}
+
+a {
+  transition: color 120ms ease;
+  text-decoration: none;
+  color: var(--rb-pink-400);
+}
+
+a:hover {
+  color: var(--rb-pink-500);
+}

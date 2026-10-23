@@ -1,0 +1,916 @@
+/* 设置面板统一设计层（最后加载）。
+ *
+ * 配色与聊天面板一致：窗口 = 聊天的页面底，卡片 = 聊天的面板色，选中项 = 聊天侧栏的选中灰，
+ * 描边与文字也沿用同一套 --rb-*（浅色 pearl-white / 深色 firefly-dark / 自定义配色都从这里派生）。
+ * 窗口与卡片带一点透明度（窗口本身是透明窗口），数值集中在下面的 --st-win-alpha / --st-card-alpha。
+ *
+ * 结构：窗口 = 大圆角（24）；页面 = 标题 + 说明 + 一串卡片，卡片间距固定；
+ *       卡片 = 圆角 16、1px 描边，内部行用发丝线分隔；控件在各页长得一样。
+ *
+ * 组件只读 --st-*，--st-* 由 --rb-* 用 color-mix() 派生，所以深色 / 自定义配色也会跟着走。
+ * 页面标记、ID 和类名一律不动，这里只写样式。
+ */
+
+/* ── 令牌：通用派生（深色 / 自定义配色走这一套） ───────────── */
+.settings-shell,
+.ff-modal-overlay {
+  --sys-radius: var(--st-radius-card);
+  --sys-pad-x: 20px;
+  --sys-row-pad: 16px;
+  --sys-gap: 16px;
+
+  /* 窗口圆角固定为 24px（已不再由外观设置调整） */
+  --st-radius-win: 24px;
+  --st-radius-card: 16px;
+  --st-radius-inner: 12px;
+  --st-radius-ctl: 12px;
+  --st-ctl-h: 38px;
+
+  /* 底色不透明度。普通模式整窗实底；玻璃模式（Windows 11 系统亚克力，见下方 [data-glass]）才让窗口底色变薄。 */
+  --st-win-alpha: 100%;
+  --st-main-alpha: 100%;
+  --st-card-alpha: 100%;
+
+  --st-win-bg: color-mix(in srgb, var(--rb-bg-1) var(--st-win-alpha), transparent);
+  --st-card-fill: color-mix(in srgb, var(--rb-card-bg) var(--st-card-alpha), transparent);
+  --st-card-stroke: var(--rb-border-soft);
+  --st-divider: color-mix(in srgb, var(--rb-border-soft) 70%, transparent);
+  --st-inset-fill: color-mix(in srgb, var(--rb-bg-0) 90%, transparent);
+  --st-track: var(--rb-bg-2);
+  --st-nav-hover: var(--rb-bg-2);
+  /* 选中项 = 聊天侧栏的选中灰：文字色叠 11%，浅色 ≈ #dcdfe7，深色 ≈ #293b34 */
+  --st-selected-fill: color-mix(in srgb, var(--rb-text-default) 11%, transparent);
+  --st-selected-stroke: transparent;
+  --st-selected-text: var(--rb-text-strong);
+  --st-nav-active-stroke: transparent;
+  --st-ghost-stroke: var(--rb-border-strong);
+  --st-ghost-fill: color-mix(in srgb, var(--rb-card-bg) 80%, transparent);
+  --st-ghost-hover: var(--rb-bg-2);
+  --st-primary: var(--rb-pink-500);
+  --st-primary-hover: var(--rb-accent-hover, var(--rb-pink-600));
+  --st-on-primary: var(--rb-text-on-pink);
+  --st-danger: var(--rb-danger, #b42338);
+  --st-dot-ok: #22c55e;
+  --st-dot-warn: #f5b301;
+  --st-dot-bad: #ef4444;
+  --st-dot-idle: color-mix(in srgb, var(--rb-text-muted) 55%, transparent);
+  --st-focus-ring: 0 0 0 3px color-mix(in srgb, var(--st-primary) 20%, transparent);
+}
+
+/* ── 窗口外壳 ─────────────────────────────────────────── */
+:root .settings-shell {
+  border-radius: var(--st-radius-win);
+  border: 1px solid var(--st-card-stroke);
+  background: var(--st-win-bg);
+}
+/* 左侧导航不再另起底色，窗口渐变直接透出来 */
+.settings-shell .settings-nav {
+  padding: 22px 12px 14px;
+  background: transparent;
+  border-right: 0;
+}
+.settings-shell .settings-nav__header { padding: 0 12px 18px; }
+.settings-shell .settings-nav__brand { gap: 8px; font: 500 16px/24px var(--rb-font-sans); color: var(--rb-text-strong); text-shadow: none; }
+.settings-shell .settings-nav__list { gap: 4px; }
+.settings-shell .settings-nav__group { padding: 16px 12px 6px; font-size: 11px; font-weight: 500; letter-spacing: .04em; color: var(--rb-text-faint); }
+.settings-shell .settings-nav__group:first-child { padding-top: 0; }
+.settings-shell .settings-nav__footer { border-top-color: var(--st-divider); color: var(--rb-text-faint); }
+
+.settings-shell .nav-item {
+  min-height: 40px;
+  padding: 8px 12px;
+  gap: 10px;
+  border: 1px solid transparent;
+  border-radius: var(--st-radius-inner);
+  background: transparent;
+  color: var(--rb-text-default);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 22px;
+}
+.settings-shell .nav-item > span:first-child { color: var(--rb-text-muted); }
+.settings-shell .nav-item:hover { background: var(--st-nav-hover); border-color: transparent; color: var(--rb-text-strong); transform: none; }
+.settings-shell .nav-item:active { background: var(--rb-active-light); }
+.settings-shell .nav-item.is-active {
+  background: var(--st-selected-fill);
+  border-color: var(--st-nav-active-stroke);
+  color: var(--st-selected-text);
+  font-weight: 500;
+}
+.settings-shell .nav-item.is-active > span:first-child { color: var(--st-selected-text); }
+
+/* 标题栏只剩拖动区和窗口按钮，不画分割线；-webkit-app-region 沿用 settings.css 里的 drag / no-drag */
+.settings-shell .settings-titlebar {
+  min-height: 48px;
+  padding: 0 14px 0 28px;
+  background: transparent;
+  border-bottom: 0;
+}
+
+/* 标题栏已经占了 48px，正文顶部只补一点空隙 */
+.settings-shell .settings-content { padding: 4px 32px 40px; }
+.settings-shell .settings-content::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--rb-pink-500) 28%, transparent); }
+.settings-shell .settings-content::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--rb-pink-500) 46%, transparent); }
+
+.settings-shell :is(button, input, select, textarea, a):focus-visible { outline: 2px solid color-mix(in srgb, var(--st-primary) 55%, transparent); outline-offset: 2px; }
+.settings-shell .nav-item:focus-visible { outline-offset: -2px; }
+
+/* ── 页面标题 ─────────────────────────────────────────── */
+.panel-heading { margin-bottom: 22px; }
+.settings-shell .panel-heading h1,
+.settings-shell .plugin-panel-heading h1,
+.settings-shell .plugin-panel-heading__title,
+.settings-shell #channels-panel > h1 {
+  margin: 0;
+  color: var(--rb-text-strong);
+  font: 600 20px/28px var(--rb-font-sans);
+  letter-spacing: -.01em;
+}
+.settings-shell .panel-heading p,
+.settings-shell .plugin-panel-heading p,
+.settings-shell #channels-panel > .panel-hint {
+  margin: 6px 0 0;
+  color: var(--rb-text-muted);
+  font-size: 14px;
+  line-height: 22px;
+}
+.form-actions { margin-top: var(--sys-gap); }
+
+/* ── 卡片：设置列表 ───────────────────────────────────── */
+.settings-shell .settings-list {
+  display: block;
+  margin: 0 0 var(--sys-gap);
+  padding: 0 var(--sys-pad-x);
+  border: 1px solid var(--st-card-stroke);
+  border-radius: var(--st-radius-card);
+  background: var(--st-card-fill);
+  box-shadow: none;
+}
+.settings-list > :is(.setting-row, .field) { border-top: 1px solid var(--st-divider); }
+.settings-list > :is(.setting-row, .field):first-child { border-top: 0; }
+.settings-list > .setting-row { border-bottom: 0; padding: var(--sys-row-pad) 0; min-height: 64px; }
+.settings-list .setting-row:last-child { border-bottom: 0; }
+
+/* 通用页：分组标题放在卡片外面，卡片之间留出呼吸 */
+.settings-shell .settings-group-title {
+  margin: 28px 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  color: var(--rb-text-muted);
+}
+.settings-shell .settings-group-title:first-child { margin-top: 0; }
+
+/* 卡片里直接放字段（运行设置）：标题、输入、说明各自成段，段间不再粘在一起 */
+.settings-list > .field { padding: 18px 0; gap: 8px; }
+.settings-list > .field > span:first-child { color: var(--rb-text-strong); font-size: 14px; font-weight: 500; }
+.settings-list > .field .field-hint,
+.settings-list > .field .form-hint { margin: 0; color: var(--rb-text-muted); font-size: 12.5px; line-height: 1.6; }
+
+/* ── 行里的说明文字 ───────────────────────────────────── */
+.setting-row strong { margin-bottom: 2px; color: var(--rb-text-strong); }
+.setting-row > div > span { color: var(--rb-text-muted); }
+.settings-shell .plugin-card--sub,
+.settings-shell .memory-record { background: var(--st-inset-fill); border-color: var(--st-divider); border-radius: var(--st-radius-inner); }
+.settings-shell .appearance-section { margin-bottom: var(--sys-gap); }
+.settings-shell .appearance-section__heading h2, .settings-shell .appearance-section > h2 { font-size: 15px; font-weight: 600; }
+
+.agent-setting-card h2, .channels-card__header h2, .plugin-panel-card__header h2 { color: var(--rb-text-strong); }
+.settings-shell .agent-setting-card p { color: var(--rb-text-muted); }
+.settings-shell .agent-form-actions { border-top-color: var(--st-divider); }
+.settings-shell .plugin-config { border-top: 1px dashed var(--st-divider); }
+
+/* ── 手机页 / 工具页里写死的白字：浅色主题下读不出来，统一改读令牌 ── */
+.settings-shell .channels-card__hint,
+.settings-shell .channels-card__body .form-hint,
+.settings-shell .channels-feedback,
+.settings-shell .channels-log__meta,
+.settings-shell .plugin-panel-card__version,
+.settings-shell .scheduler-tool-hint,
+.settings-shell .btn-reveal { color: var(--rb-text-muted); }
+.settings-shell .channels-status,
+.settings-shell .channels-card__body .form-label,
+.settings-shell .channels-context-binding,
+.settings-shell .channels-log > summary,
+.settings-shell .channels-log__text { color: var(--rb-text-default); }
+.settings-shell .channels-card__body .form-input,
+.settings-shell .plugin-config .tts-field input,
+.settings-shell .plugin-config .tts-field select {
+  border: 1px solid var(--rb-input-border);
+  border-radius: var(--st-radius-ctl);
+  background: var(--rb-input-bg);
+  color: var(--rb-input-text);
+}
+.settings-shell .channels-log__entry { border-bottom-color: var(--st-divider); }
+
+/* ── 分段选择：偏好 / 通用语言 / 表情包 / 记忆筛选 / 本地文件权限共用这一套定义 ──────────
+ * 按内容宽度，行内控件靠右；整条与输入框同高（38px），段与段等高，没有空列；窄窗口折到标题下面、靠左。 */
+.settings-shell :is(.option-blocks, .language-options, .plugin-perm-capsule) {
+  display: inline-flex;
+  flex: none;
+  align-items: stretch;
+  box-sizing: border-box;
+  gap: 2px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 3px;
+  border: 0;
+  border-radius: var(--st-radius-inner);
+  background: var(--st-track);
+}
+.settings-shell .setting-row > :is(.option-blocks, .language-options, .plugin-perm-capsule) { margin-left: auto; }
+.settings-shell :is(.option-block, .language-option, .perm-seg) {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  min-height: 32px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--rb-text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  box-shadow: none;
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+}
+/* 同一组里的段等宽：本地文件权限四段、中英文两段各自取最宽的标签作为最小宽度 */
+.settings-shell .perm-seg { min-width: 68px; }
+.settings-shell .language-option { min-width: 80px; }
+.settings-shell :is(.option-block, .language-option, .perm-seg):not(:disabled):not(.is-active):hover { background: var(--st-nav-hover); border-color: transparent; color: var(--rb-text-strong); }
+.settings-shell :is(.option-block, .language-option, .perm-seg):not(:disabled):not(.is-active):active { background: var(--rb-active-light); }
+.settings-shell :is(.option-block, .language-option, .perm-seg).is-active,
+.settings-shell :is(.option-block, .language-option, .perm-seg).is-active:not(:disabled):hover {
+  background: var(--st-selected-fill);
+  border-color: var(--st-selected-stroke);
+  color: var(--st-selected-text);
+  box-shadow: none;
+}
+/* 禁用（如尚未开放的选项）：文字保持清楚、不随悬停变化，也不整体变淡；当前值仍用选中底色标出。 */
+.settings-shell :is(.option-block, .language-option, .perm-seg):disabled,
+.settings-shell :is(.option-block, .language-option, .perm-seg):disabled:not(.is-active):hover {
+  background: transparent;
+  border-color: transparent;
+  color: var(--rb-text-muted);
+  cursor: not-allowed;
+}
+.settings-shell :is(.option-block, .language-option, .perm-seg).is-active:disabled { background: var(--st-selected-fill); color: var(--st-selected-text); }
+@media (max-width: 780px) {
+  .settings-shell .setting-row > :is(.option-blocks, .language-options, .plugin-perm-capsule) { margin-left: 0; }
+}
+
+.settings-shell .gender-select__btn.is-active { background: var(--st-selected-fill); border-color: var(--st-selected-stroke); color: var(--st-selected-text); }
+
+/* ── 按钮 ────────────────────────────────────────────────
+ * 描边按钮（编辑 / 取消 / 打开配置文件）：一圈暖金细线；主按钮：实心灰蓝；危险：红字。 */
+.settings-shell :is(.ghost-btn, .save-btn--ghost, .btn-secondary, #ui-colors-reset, .sticker-file-btn, .custom-endpoint-guide-btn) {
+  box-sizing: border-box;
+  min-height: 32px;
+  padding: 5px 14px;
+  border: 1px solid var(--st-ghost-stroke);
+  border-radius: var(--st-radius-ctl);
+  background: var(--st-ghost-fill);
+  color: var(--rb-text-strong);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  box-shadow: none;
+}
+.settings-shell :is(.ghost-btn, .save-btn--ghost, .btn-secondary, #ui-colors-reset, .sticker-file-btn, .custom-endpoint-guide-btn):hover:not(:disabled) {
+  background: var(--st-ghost-hover);
+  border-color: var(--st-ghost-stroke);
+  box-shadow: none;
+  transform: none;
+}
+.settings-shell :is(.ghost-btn, .save-btn--ghost, .btn-secondary, #ui-colors-reset):active:not(:disabled) { background: var(--rb-active-light); }
+.settings-shell .ghost-btn > span, .settings-shell .save-btn--ghost > span { color: inherit; }
+
+.settings-shell :is(.save-btn:not(.save-btn--ghost):not(.save-btn--danger), .btn-primary, .primary-button) {
+  box-sizing: border-box;
+  min-height: 34px;
+  padding: 6px 18px;
+  border: 1px solid transparent;
+  border-radius: var(--st-radius-ctl);
+  background: var(--st-primary);
+  color: var(--st-on-primary);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  box-shadow: none;
+}
+.settings-shell :is(.save-btn:not(.save-btn--ghost):not(.save-btn--danger), .btn-primary, .primary-button):hover:not(:disabled) {
+  background: var(--st-primary-hover);
+  border-color: transparent;
+  box-shadow: none;
+  transform: none;
+}
+.settings-shell :is(.save-btn:not(.save-btn--ghost):not(.save-btn--danger), .btn-primary, .primary-button):active:not(:disabled) { background: var(--rb-accent-deep, var(--st-primary)); }
+.settings-shell .save-btn > span { color: inherit; }
+
+.settings-shell .save-btn--danger,
+.settings-shell .save-btn--danger > span {
+  color: var(--st-danger);
+}
+.settings-shell .save-btn--danger {
+  min-height: 32px;
+  padding: 5px 14px;
+  border: 1px solid color-mix(in srgb, var(--st-danger) 38%, transparent);
+  border-radius: var(--st-radius-ctl);
+  background: transparent;
+  font-size: 13px;
+}
+.settings-shell .save-btn--danger:hover:not(:disabled) { background: color-mix(in srgb, var(--st-danger) 8%, transparent); border-color: color-mix(in srgb, var(--st-danger) 60%, transparent); color: var(--st-danger); }
+.settings-shell .save-btn:disabled, .settings-shell .ghost-btn:disabled, .settings-shell .btn-secondary:disabled { opacity: .45; }
+
+/* 虚线“添加”按钮 */
+.settings-shell .plugin-add-btn {
+  width: 34px;
+  height: 34px;
+  border: 1px dashed var(--rb-border-strong);
+  border-radius: var(--st-radius-ctl);
+  background: transparent;
+  color: var(--rb-text-default);
+  font-size: 20px;
+  box-shadow: none;
+}
+.settings-shell .plugin-add-btn:hover:not(:disabled) { background: var(--st-nav-hover); border-color: var(--st-primary); color: var(--st-primary); transform: none; box-shadow: none; }
+
+/* ── 输入控件在设置页里统一高度和边框 ────────────────────── */
+.settings-shell :is(.field, .settings-list, .panel-body, .channels-card, .plugin-card, .agent-setting-card, .scheduler-card, .ui-color-controls) :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), select, textarea) {
+  box-sizing: border-box;
+  border: 1px solid var(--rb-input-border);
+  border-radius: var(--st-radius-ctl);
+  background: var(--rb-input-bg);
+  color: var(--rb-input-text, var(--rb-text-strong));
+  box-shadow: none;
+  font: inherit;
+  font-size: 14px;
+}
+.settings-shell :is(.field, .settings-list, .panel-body, .channels-card, .plugin-card, .agent-setting-card, .scheduler-card) :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), select):not(textarea) { min-height: var(--st-ctl-h); padding: 6px 12px; }
+.settings-shell :is(.field, .settings-list, .panel-body, .channels-card, .plugin-card, .agent-setting-card, .scheduler-card, .ui-color-controls) :is(input, select, textarea)::placeholder { color: var(--rb-input-placeholder); }
+.settings-shell :is(.field, .settings-list, .panel-body, .channels-card, .plugin-card, .agent-setting-card, .scheduler-card, .ui-color-controls) :is(input, select, textarea):focus {
+  outline: none;
+  border-color: var(--st-primary);
+  background: var(--rb-input-bg);
+  box-shadow: var(--st-focus-ring);
+}
+/* 禁用的文本框 / 下拉变淡；复选框与开关由各自组件定义，这里不把隐藏的复选框重新显示出来 */
+.settings-shell :is(.field, .panel-body) :is(input:not([type=checkbox]):not([type=radio]), select, textarea):disabled { opacity: .6; cursor: not-allowed; }
+
+/* 超时 / Base URL 这类“输入框 + 重置图标”一行：图标按钮与输入框同高、同圆角，悬停只换底色（不旋转） */
+.timeout-row { display: flex; align-items: center; gap: 8px; }
+.timeout-row > input { flex: 1 1 auto; min-width: 0; }
+.settings-shell :is(.timeout-reset, .base-url-reset) {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--st-ctl-h);
+  height: var(--st-ctl-h);
+  padding: 0;
+  border: 1px solid var(--st-ghost-stroke);
+  border-radius: var(--st-radius-ctl);
+  background: var(--st-ghost-fill);
+  color: var(--rb-text-muted);
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease;
+}
+.settings-shell :is(.timeout-reset, .base-url-reset) svg { display: block; flex: none; }
+.settings-shell :is(.timeout-reset, .base-url-reset):hover:not(:disabled) { background: var(--st-ghost-hover); color: var(--rb-text-strong); }
+.settings-shell :is(.timeout-reset, .base-url-reset):disabled { opacity: .45; cursor: not-allowed; }
+
+/* ── 开关：小一号的药丸，开启后是实心灰蓝 ──────────────────── */
+.settings-shell .switch { width: 44px; height: 24px; }
+.settings-shell .switch__track { border: 0; border-radius: 999px; background: var(--rb-toggle-off); box-shadow: none; }
+.settings-shell .switch__thumb { top: 3px; left: 3px; width: 18px; height: 18px; background: #ffffff; box-shadow: 0 1px 3px rgba(0, 0, 0, .24); }
+.settings-shell .switch input:checked + .switch__track { background: var(--st-primary); border-color: transparent; box-shadow: none; }
+.settings-shell .switch input:checked + .switch__track .switch__thumb { transform: translateX(20px); background: #ffffff; box-shadow: 0 1px 3px rgba(0, 0, 0, .24); }
+.settings-shell .switch:hover .switch__track { border-color: transparent; filter: brightness(.97); }
+.settings-shell .plugin-switch { width: 44px; height: 24px; margin-top: 2px; }
+.settings-shell .plugin-switch span { border: 0; border-radius: 999px; background: var(--rb-toggle-off); box-shadow: none; }
+.settings-shell .plugin-switch span::after { top: 3px; left: 3px; width: 18px; height: 18px; background: #ffffff; box-shadow: 0 1px 3px rgba(0, 0, 0, .24); }
+.settings-shell .plugin-switch input:checked + span { background: var(--st-primary); border-color: transparent; box-shadow: none; }
+.settings-shell .plugin-switch input:checked + span::after { transform: translateX(20px); background: #ffffff; }
+.settings-shell .setting-row__tag { margin-left: 8px; font-weight: 500; vertical-align: 1px; }
+.settings-shell .channels-status__dot { width: 8px; height: 8px; border-radius: 50%; box-shadow: none; }
+.settings-shell .channels-status__dot { background: var(--st-dot-idle); }
+.settings-shell .channels-status__dot--running { background: var(--st-dot-ok); }
+.settings-shell .channels-status__dot--starting { background: var(--st-dot-warn); }
+.settings-shell .channels-status__dot--offline,
+.settings-shell .channels-status__dot--error { background: var(--st-dot-bad); }
+.settings-shell .channels-status__dot--config_missing { background: var(--st-dot-idle); }
+
+/* ── 工具配置：两列卡片网格（参考 DSH 的内置插件页） ──────────
+ * 带展开配置区的卡片、文件权限卡、音乐手风琴占满一行，避免表单被挤窄。 */
+.settings-shell .plugin-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-items: stretch; /* 同一行的卡片等高，避免参差 */
+}
+.settings-shell .plugin-list > .plugin-card {
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 12px 14px;
+}
+.settings-shell .plugin-list > .mcp-server-card { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.settings-shell .plugin-list > .plugin-card--accordion { display: block; }
+.settings-shell .plugin-list > :is(.plugin-card--accordion, .plugin-card:has(.plugin-config[style*="block"])) { grid-column: 1 / -1; }
+.settings-shell .plugin-card__icon { width: 36px; height: 36px; border-radius: var(--st-radius-inner); border: 1px solid var(--st-divider); background: var(--st-inset-fill); font-size: 18px; }
+.settings-shell .plugin-card__icon svg { width: 20px; height: 20px; }
+.settings-shell .plugin-card--sub { grid-template-columns: 30px minmax(0, 1fr) auto; padding: 10px 12px; }
+.settings-shell .plugin-card--sub .plugin-card__icon { width: 30px; height: 30px; }
+.settings-shell .plugin-card__body h2 { font-size: 14px; font-weight: 500; line-height: 20px; color: var(--rb-text-strong); }
+.settings-shell .plugin-card__body p { margin-top: 2px; font-size: 12px; line-height: 18px; color: var(--rb-text-muted); }
+.settings-shell .plugin-card--sub .plugin-card__body p { font-size: 12px; }
+.settings-shell .plugin-card.is-muted { opacity: .6; }
+/* 卡片内的次级文字按钮（音乐工具的"状态与控制"） */
+.settings-shell .plugin-card__link {
+  margin-top: 6px; padding: 0; border: 0; background: transparent; cursor: pointer;
+  font: inherit; font-size: 12px; line-height: 18px; color: rgb(var(--rb-accent-rgb));
+  text-decoration: underline; text-decoration-color: rgba(var(--rb-accent-rgb), .35); text-underline-offset: 3px;
+  transition: text-decoration-color .15s ease, color .15s ease;
+}
+.settings-shell .plugin-card__link::after { content: " ›"; }
+.settings-shell .plugin-card__link:hover { text-decoration-color: currentColor; }
+.settings-shell .plugin-card__link:focus-visible { outline: 2px solid var(--st-selected-stroke); outline-offset: 2px; border-radius: 4px; }
+/* 通用页里的"左说明 + 右控件"行：控件不被说明文字挤压，窄屏折到下一行 */
+.settings-shell .setting-row--control { gap: 16px; align-items: center; }
+.settings-shell .setting-row--control > div:first-child { min-width: 0; flex: 1 1 220px; }
+.settings-shell .setting-row--control > .plugin-perm-capsule { flex: 0 0 auto; }
+@media (max-width: 780px) {
+  .settings-shell .setting-row--control { flex-wrap: wrap; }
+  .settings-shell .setting-row--control > .plugin-perm-capsule { margin-left: auto; }
+}
+
+/* ── ASR 页：原来没有任何样式 ────────────────────────────── */
+#desktop-asr-form .panel-body {
+  display: grid;
+  gap: 8px;
+  padding: 20px var(--sys-pad-x);
+  border: 1px solid var(--st-card-stroke);
+  border-radius: var(--st-radius-card);
+  background: var(--st-card-fill);
+}
+#desktop-asr-form .field-label { margin-top: 10px; color: var(--rb-text-strong); font-size: 14px; font-weight: 500; }
+#desktop-asr-form .field-label:first-child { margin-top: 0; }
+#desktop-asr-form fieldset { display: grid; gap: 8px; margin: 8px 0 0; padding: 14px 16px 16px; border: 1px solid var(--st-divider); border-radius: var(--st-radius-inner); background: var(--st-inset-fill); }
+#desktop-asr-form fieldset[hidden] { display: none; }
+#desktop-asr-form legend { padding: 0 6px; color: var(--rb-text-strong); font-size: 13px; font-weight: 600; }
+#desktop-asr-form .field-hint { margin: 0; color: var(--rb-text-muted); font-size: 12.5px; line-height: 1.6; }
+#desktop-asr-form input,
+#desktop-asr-form select {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--st-ctl-h);
+  padding: 6px 12px;
+  border: 1px solid var(--rb-input-border);
+  border-radius: var(--st-radius-ctl);
+  background: var(--rb-input-bg);
+  color: var(--rb-input-text, var(--rb-text-strong));
+  font: inherit;
+  font-size: 14px;
+}
+#desktop-asr-form :is(input, select):focus { outline: none; border-color: var(--st-primary); box-shadow: var(--st-focus-ring); }
+#desktop-asr-form .primary-button { justify-self: end; margin-top: 12px; cursor: pointer; }
+#desktop-asr-form .primary-button:disabled { opacity: .5; cursor: not-allowed; }
+#desktop-asr-form [role="status"] { margin: 0; min-height: 0; color: var(--rb-text-muted); font-size: 13px; }
+#desktop-asr-form [role="status"]:empty { display: none; }
+
+/* ── 外观页：卡片设计语言（模式 / 自定义 / 字体 / 高级 / 桌宠） ──────────
+ * 结构沿用 .settings-list + .setting-row；这里只补：缩略图、色点 pill、字号输入、折叠区。 */
+
+/* 界面基础字号：设置窗口本身也跟随外观设置的界面字号 */
+body { font-size: var(--ff-ui-font-size, 16px); }
+
+.appearance-visually-hidden {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+#appearance-form .appearance-card { margin-bottom: 0; }
+#appearance-form .appearance-section__heading { margin-bottom: 10px; }
+
+/* 模式：标签在左，两个小缩略图在右，选中态用强调色描边 */
+#appearance-form .appearance-mode-row { align-items: center; }
+#appearance-form .appearance-theme-options { display: flex; flex: none; gap: 12px; }
+#appearance-form .appearance-theme-option {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; padding: 6px;
+  border: 1px solid transparent; border-radius: var(--st-radius-inner); background: transparent; box-shadow: none; cursor: pointer;
+}
+#appearance-form .appearance-theme-option:hover:not(:disabled) { background: var(--st-nav-hover); border-color: transparent; }
+#appearance-form .appearance-theme-option.is-active { border-color: var(--st-primary); background: var(--st-selected-fill); }
+#appearance-form .appearance-theme-option:focus-visible { outline: 2px solid color-mix(in srgb, var(--st-primary) 55%, transparent); outline-offset: 2px; }
+#appearance-form .appearance-theme-option__label { color: var(--rb-text-strong); font-size: 13px; font-weight: 500; white-space: nowrap; }
+#appearance-form .appearance-theme-swatch {
+  width: 96px; height: 60px; padding: 5px; gap: 4px; border-radius: 10px; border: 1px solid var(--st-card-stroke);
+}
+#appearance-form .appearance-theme-swatch i { border-radius: 4px; }
+
+/* 自定义：启用开关行 + 每个颜色一行，右侧是圆角 pill（色点 + hex） */
+#appearance-form .ui-color-controls { min-width: 0; margin: 0; padding: 0 var(--sys-pad-x); }
+#appearance-form .ui-color-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+#appearance-form .ui-color-pill {
+  display: inline-flex; align-items: center; gap: 8px; flex: none; height: 34px; padding: 0 12px 0 6px;
+  border: 1px solid var(--rb-input-border); border-radius: 999px; background: var(--rb-input-bg);
+}
+#appearance-form .ui-color-pill:focus-within { border-color: var(--st-primary); box-shadow: var(--st-focus-ring); }
+#appearance-form .ui-color-dot {
+  flex: none; width: 22px; height: 22px; padding: 0; border: 1px solid var(--rb-border-strong); border-radius: 50%;
+  background: none; cursor: pointer; overflow: hidden; -webkit-appearance: none; appearance: none;
+}
+#appearance-form .ui-color-dot::-webkit-color-swatch-wrapper { padding: 0; }
+#appearance-form .ui-color-dot::-webkit-color-swatch { border: 0; border-radius: 50%; }
+#appearance-form .ui-color-dot:disabled { cursor: not-allowed; opacity: .5; }
+#appearance-form .ui-color-hex {
+  width: 84px; height: 24px; min-height: 0; padding: 0; border: 0; border-radius: 0; background: transparent;
+  box-shadow: none; color: var(--rb-text-strong); font: 500 13px/1 var(--rb-font-mono, monospace);
+}
+#appearance-form .ui-color-hex:focus { border: 0; box-shadow: none; outline: none; }
+#appearance-form .ui-color-hex[aria-invalid="true"] { color: var(--st-danger); }
+#appearance-form .ui-color-hex:disabled { opacity: .5; }
+#appearance-form .ui-color-reset-row { justify-content: flex-end; }
+#appearance-form .ui-colors-status { margin: 0; padding: 0 0 14px; min-height: 0; color: var(--rb-text-muted); font-size: 13px; }
+#appearance-form .ui-colors-status:empty { display: none; }
+
+/* 字体：下拉 + 导入 / 恢复按钮 */
+#appearance-form .appearance-font-row { align-items: center; }
+#appearance-form .appearance-font-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+#appearance-form #ui-font-select { min-height: 32px; height: 32px; min-width: 132px; padding: 0 10px; border-radius: var(--st-radius-ctl); }
+
+/* 高级：折叠区，里面是字号输入和行 / 段间距滑块 */
+#appearance-form .appearance-advanced { margin-top: var(--sys-gap); }
+#appearance-form .appearance-advanced__summary {
+  display: inline-flex; align-items: center; gap: 8px; padding: 4px 2px 10px; color: var(--rb-text-muted);
+  font-size: 14px; font-weight: 500; list-style: none; cursor: pointer; user-select: none;
+}
+#appearance-form .appearance-advanced__summary::-webkit-details-marker { display: none; }
+#appearance-form .appearance-advanced__summary::after {
+  content: ""; width: 7px; height: 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg); transition: transform .15s ease;
+}
+#appearance-form .appearance-advanced[open] > .appearance-advanced__summary::after { transform: rotate(225deg); }
+#appearance-form .appearance-advanced > .appearance-card { margin-top: 0; }
+#appearance-form .appearance-size-input { display: inline-flex; align-items: center; gap: 6px; color: var(--rb-text-muted); font-size: 13px; }
+#appearance-form .appearance-size-input input {
+  width: 68px; min-height: 32px; height: 32px; padding: 0 8px; border-radius: var(--st-radius-ctl); text-align: center;
+  font-size: 13px; font-variant-numeric: tabular-nums;
+}
+
+/* ── 手机页：标题放回第一位，消息日志是次要入口 ──────────────── */
+#channels-panel:not(.is-hidden) { display: flex; flex-direction: column; }
+#channels-panel > h1 { order: -3; }
+#channels-panel > h1 svg { display: none; }
+#channels-panel > .panel-hint { order: -2; margin-bottom: 20px; }
+#channels-panel > .channels-log { order: 99; margin-top: var(--sys-gap); }
+
+/* 手机页：它自己有 form-row / form-input，这里只对齐尺寸、边框和间距 */
+.channels-card__body .form-row { margin-top: 14px; }
+.channels-card__body .form-input { min-height: var(--st-ctl-h); padding: 6px 12px; font-size: 14px; }
+.channels-card__body .form-input--wide { width: 100%; max-width: none; }
+.settings-shell .channels-card__body .form-input-with-action .btn-reveal { width: var(--st-ctl-h); height: var(--st-ctl-h); border-radius: var(--st-radius-ctl); }
+.channels-card__actions { margin-top: 16px; gap: 8px; }
+
+/* 连接手机：渠道卡片是折叠卡（<details>）。标题行 = 图标 + 名称 + 状态 + 开关 + 箭头，
+ * 展开后才显示凭据、配对与高级项。开关的 input 覆盖整个开关，点开关不会触发折叠。 */
+#channels-panel .channels-card--fold { padding: 0; }
+#channels-panel .channels-card--fold > summary.channels-card__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0;
+  padding: 14px 18px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+#channels-panel .channels-card--fold > summary::-webkit-details-marker { display: none; }
+#channels-panel .channels-card--fold > summary:focus-visible { outline: 2px solid color-mix(in srgb, var(--st-primary) 55%, transparent); outline-offset: -2px; border-radius: var(--st-radius-card); }
+#channels-panel .channels-card--fold > summary h2 { flex: 1 1 auto; min-width: 0; }
+#channels-panel .channels-card--fold > summary .channels-status,
+#channels-panel .channels-card--fold > summary .switch { flex: none; }
+#channels-panel .channels-card--fold > summary::after {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin: 0 4px 0 2px;
+  border-right: 1.5px solid var(--rb-text-muted);
+  border-bottom: 1.5px solid var(--rb-text-muted);
+  transform: rotate(45deg);
+  transition: transform .15s ease;
+}
+#channels-panel .channels-card--fold[open] > summary::after { transform: rotate(-135deg); }
+#channels-panel .channels-card--fold > .channels-card__body { padding: 16px 18px; border-top: 1px solid var(--st-divider); }
+
+/* 连接概览 / Firefly 手机 App 接入位 */
+#channels-panel .channels-overview > .channels-card__header,
+#channels-panel .channels-app-card > .channels-card__header { flex-wrap: wrap; gap: 6px 12px; }
+#channels-panel .channels-overview__summary { color: var(--rb-text-muted); font-size: 13px; white-space: nowrap; }
+#channels-panel .channels-overview__sub { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: var(--rb-text-strong); }
+#channels-panel .channels-badge {
+  padding: 2px 8px;
+  border: 1px solid var(--st-card-stroke);
+  border-radius: 6px;
+  color: var(--rb-text-muted);
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+#channels-panel #channels-app-pair:disabled { opacity: .55; cursor: not-allowed; }
+
+/* ── 窄窗口 ───────────────────────────────────────────── */
+@media (max-width: 780px) {
+  .settings-shell .settings-content { padding: 4px 24px 32px; }
+  .settings-shell .settings-titlebar { padding-left: 24px; }
+}
+@media (max-width: 720px) {
+  .settings-shell .plugin-list { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  :root .settings-shell { border-radius: min(var(--st-radius-win), 18px); }
+  .settings-shell .settings-nav { padding: 18px 8px 12px; }
+  .settings-shell .settings-nav__header { padding-inline: 6px; }
+  .settings-shell .nav-item { gap: 6px; padding-inline: 6px; font-size: 12px; }
+  .settings-shell .settings-nav__group { padding-inline: 6px; }
+  .settings-shell .settings-content { padding: 4px 14px 28px; }
+  .settings-shell .settings-titlebar { padding-left: 16px; }
+  .settings-shell .panel-heading h1,
+  .settings-shell .plugin-panel-heading h1,
+  .settings-shell #channels-panel > h1 { font-size: 18px; }
+  .settings-shell .plugin-list > .plugin-card { grid-template-columns: 32px minmax(0, 1fr) auto; padding: 10px 12px; }
+}
+
+/* Token 页的正文原来单独限宽 720，和其他页对不齐 */
+
+/* 记忆页：几张卡片之间原来没有间距 */
+#memory-panel > .panel-body { display: grid; gap: var(--sys-gap); }
+
+/* 记忆页四张卡片：统一用 .settings-list 表面；卡内只补标题、工具栏、条目动作与 Obsidian 状态行 */
+#memory-panel .memory-section { margin: 0; padding-block: 16px; }
+#memory-panel .memory-section__head h2 { margin: 0; color: var(--rb-text-strong); font: var(--rb-text-body-em); font-size: 16px; line-height: 1.4; font-weight: 600; }
+#memory-panel .memory-section__head p { margin: 4px 0 0; color: var(--rb-text-muted); font: var(--rb-text-small); }
+#memory-panel .memory-section__hint { margin: 12px 0 0; color: var(--rb-text-muted); font: var(--rb-text-small); }
+#memory-panel .memory-section__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+#memory-panel .memory-entries { display: grid; gap: 10px; }
+#memory-panel .memory-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding-top: 4px; }
+#memory-panel .memory-toolbar input[type="search"] { flex: 1 1 220px; min-width: 0; }
+#memory-panel .memory-record__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+#memory-panel .memory-record__actions .save-btn { min-height: 30px; padding: 4px 12px; font-size: 12.5px; }
+#memory-panel .memory-section .setting-row { padding: 14px 0; }
+
+/* ── 用户信息页：账号卡片 + 个人资料 / 位置与时间卡片 ───────
+ * 每个字段都是一行 .setting-row（左：标题 + 说明，右：控件）。控件统一占 240px，窄屏时折到整行。 */
+#user-panel [hidden] { display: none !important; }
+#user-panel .setting-row > :is(input, select, .gender-select) {
+  flex: 0 0 240px;
+  width: 240px;
+  max-width: 58%;
+  box-sizing: border-box;
+}
+#user-panel .user-avatar-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+#user-panel .user-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 1px solid var(--st-card-stroke);
+  background: var(--st-inset-fill);
+  color: var(--rb-text-muted);
+}
+#user-panel .user-avatar > span { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+#user-panel .user-avatar > span > svg { display: block; flex: none; width: 22px; height: 22px; }
+#user-panel .user-panel-hint { margin: 12px 0 0; padding: 0 4px; font-size: 12px; }
+/* 时区下拉：边框、圆角、高度与其他输入一致；原生箭头换成同色的细箭头，聚焦环沿用输入框的规则 */
+#user-panel select#user-timezone {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 34px;
+  cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, var(--rb-text-muted) 50%), linear-gradient(135deg, var(--rb-text-muted) 50%, transparent 50%);
+  background-position: calc(100% - 17px) center, calc(100% - 12px) center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+/* 账号卡片：未登录 / 已登录两行只显示一行 */
+.account-card__identity { display: flex; align-items: center; gap: 14px; flex: 1 1 auto; min-width: 0; }
+.account-card__identity > div { display: grid; gap: 2px; min-width: 0; }
+.account-card__identity > div > span { color: var(--rb-text-muted); font-size: 13px; line-height: 1.65; overflow-wrap: anywhere; }
+/* 选择器带上 identity 父级：否则 settings.css 里 `.setting-row > div > span { display: block }` 优先级更高，
+   会把圆圈压成块级，占位图标贴到上沿。 */
+.account-card__identity > .account-card__avatar {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  border: 1px solid var(--st-card-stroke);
+  background: var(--st-inset-fill);
+  color: var(--rb-text-muted);
+}
+.account-card__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.account-card__avatar > span { display: grid; place-items: center; }
+.account-card__actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.account-card__soon { color: var(--rb-text-muted); font-size: 12px; }
+
+@media (max-width: 560px) {
+  #user-panel .setting-row { flex-wrap: wrap; }
+  #user-panel .setting-row > div:first-child,
+  .account-card__identity { flex-basis: 100%; }
+  #user-panel .setting-row > :is(input, select, .gender-select) { flex: 1 1 100%; width: 100%; max-width: none; }
+  .account-card__actions { margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+}
+
+/* ── 记忆页卡片头：标题与说明之下一条分隔线；第一行内容不再重复画线（原先上边线贴着标题压住文字） ── */
+#memory-panel .memory-section__head { padding-bottom: 12px; margin-bottom: 4px; border-bottom: 1px solid var(--st-divider); }
+#memory-panel .memory-section__head + .setting-row { border-top: 0; }
+
+/* ── 连接手机 · 连接概览 · 公共设置（紧凑布局） ── */
+/* 两个限速输入并排，各自带标签；窄窗口回退单列 */
+#channels-panel .channels-rate-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; margin-top: 14px; }
+#channels-panel .channels-rate-pair > .form-row { margin-top: 0; }
+/* 两个开关做成 .setting-row 风格的行：左标题、右开关 */
+#channels-panel .channels-overview .channels-setting-row { min-height: 0; margin-top: 0; padding: 10px 0; border-top: 1px solid var(--st-divider); border-bottom: 0; cursor: pointer; }
+#channels-panel .channels-overview .channels-setting-row strong { margin: 0; font-size: 13.5px; font-weight: 500; }
+/* 工具权限：两列选项卡；说明字号和间距收紧 */
+#channels-panel .channels-overview .tool-permission-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+#channels-panel .channels-overview .tool-permission-option { gap: 8px; padding: 8px 10px; background: var(--st-inset-fill); border-color: var(--st-card-stroke); }
+#channels-panel .channels-overview .tool-permission-option:hover { background: var(--st-inset-fill); border-color: color-mix(in srgb, var(--st-primary) 45%, transparent); }
+#channels-panel .channels-overview .tool-permission-option:has(input:checked) { border-color: var(--st-primary); }
+#channels-panel .channels-overview .tool-permission-option__title { font-size: 13px; }
+#channels-panel .channels-overview .tool-permission-option__desc { font-size: 12px; line-height: 1.45; }
+@media (max-width: 560px) {
+  #channels-panel .channels-rate-pair,
+  #channels-panel .channels-overview .tool-permission-group { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* 概览：五项做成紧凑的“小标签 + 大号值”格子，宽窗口 3 列、窄窗口 2 列；格子之间不再有横线 */
+#memory-panel #memory-overview { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+#memory-panel #memory-overview > .memory-section__head { grid-column: 1 / -1; }
+#memory-panel #memory-overview > .setting-row {
+  display: grid;
+  align-content: start;
+  min-height: 0;
+  margin: 0;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: var(--st-radius-inner);
+  background: var(--st-inset-fill);
+}
+#memory-panel .setting-row.is-hidden,
+#memory-panel #memory-overview > .setting-row.is-hidden { display: none; }
+#memory-panel #memory-overview > .setting-row > div { display: grid; gap: 6px; min-width: 0; }
+#memory-panel #memory-overview > .setting-row strong { margin: 0; color: var(--rb-text-muted); font-size: 12.5px; font-weight: 500; line-height: 1.4; }
+#memory-panel #memory-overview > .setting-row > div > span { color: var(--rb-text-strong); font-size: 18px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+@media (max-width: 900px) {
+  #memory-panel #memory-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* 账号卡默认头像：占位图标直接放在 44px 圆里，居中并固定 22px，避免贴左上 */
+.account-card__avatar > svg { display: block; flex: none; width: 22px; height: 22px; }
+
+/* ── 毛玻璃：Windows 11 系统亚克力（主进程确认支持后给 <html> 标 data-glass） ──────────
+ * 窗口外框和左侧导航是玻璃：底色只压一层薄薄的聊天页面色，身后桌面被系统模糊后透出来；
+ * 右侧内容区仍是接近实底的面板，文字和卡片不受背景影响。
+ * 玻璃模式用系统画的 8px 窗口圆角（亚克力铺满整个窗口矩形，CSS 圆角再大会在四角露出灰块）。 */
+:root[data-glass="true"] .settings-shell,
+:root[data-glass="true"] .ff-modal-overlay {
+  --st-radius-win: 8px;
+  --st-win-alpha: 52%;
+  --st-main-alpha: 92%;
+  --st-card-alpha: 90%;
+}
+:root[data-glass="true"] .settings-shell { border-color: color-mix(in srgb, var(--rb-border-soft) 60%, transparent); }
+:root[data-glass="true"] .settings-shell .settings-main {
+  background: color-mix(in srgb, var(--rb-bg-1) var(--st-main-alpha), transparent);
+  border-left: 1px solid color-mix(in srgb, var(--rb-border-soft) 70%, transparent);
+}
+:root[data-glass="true"] .settings-shell .settings-titlebar { background: transparent; }
+
+/* ── 深色：流萤墨绿 + 玻璃质感 ─────────────────────────────
+ * 选中项、描边、卡片的微光都用流萤的青绿（--rb-pink-400 在深色主题里是 #7bd8ae），不是中性灰。
+ * 玻璃模式下：窗口底是一层墨绿渐变（亚克力按系统的浅色着色，所以底色要压得更实，侧栏才不发灰），
+ * 顶边一条细高光，内容面板右上角一抹淡绿光，卡片带一层几乎看不见的绿色渐变和顶边高光。 */
+:root[data-ui-theme="firefly-dark"] .settings-shell,
+:root[data-ui-theme="firefly-dark"] .ff-modal-overlay {
+  --st-card-stroke: color-mix(in srgb, var(--rb-pink-400) 18%, var(--rb-border-soft));
+  --st-divider: color-mix(in srgb, var(--rb-pink-400) 11%, var(--rb-border-soft));
+  --st-selected-fill: color-mix(in srgb, var(--rb-pink-400) 16%, transparent);
+  --st-selected-stroke: color-mix(in srgb, var(--rb-pink-400) 32%, transparent);
+  --st-selected-text: var(--rb-pink-700);
+  --st-nav-hover: color-mix(in srgb, var(--rb-pink-400) 9%, transparent);
+}
+:root[data-glass="true"][data-ui-theme="firefly-dark"] .settings-shell,
+:root[data-glass="true"][data-ui-theme="firefly-dark"] .ff-modal-overlay {
+  --st-main-alpha: 90%;
+  --st-card-alpha: 78%;
+  --st-card-fill:
+    linear-gradient(180deg, color-mix(in srgb, var(--rb-pink-400) 8%, transparent) 0%, color-mix(in srgb, var(--rb-pink-400) 2%, transparent) 100%),
+    color-mix(in srgb, var(--rb-card-bg) var(--st-card-alpha), transparent);
+}
+:root[data-glass="true"][data-ui-theme="firefly-dark"] .settings-shell {
+  --st-win-bg: linear-gradient(165deg, rgba(27, 58, 45, .78) 0%, rgba(13, 22, 18, .88) 55%, rgba(10, 16, 14, .92) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07);
+}
+:root[data-glass="true"][data-ui-theme="firefly-dark"] .settings-shell .settings-main {
+  background:
+    radial-gradient(900px 420px at 100% 0%, color-mix(in srgb, var(--rb-pink-400) 8%, transparent), transparent 62%),
+    color-mix(in srgb, var(--rb-bg-1) var(--st-main-alpha), transparent);
+  border-left-color: color-mix(in srgb, var(--rb-pink-400) 14%, transparent);
+}
+:root[data-glass="true"][data-ui-theme="firefly-dark"] .settings-shell :is(
+  .plugin-card, .agent-setting-card, .scheduler-card, .channels-card, .channels-log,
+  .disclaimer-section, .panel-card, .plugin-panel-card, .ui-color-controls, .settings-list
+) {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05), 0 6px 22px rgba(0, 0, 0, .16);
+}
+
+/* ── 过渡动画 ───────────────────────────────────────────
+ * 窗口打开时整体淡入并轻微上浮；切换设置分区时新分区淡入上浮；导航项的悬停 / 选中渐变。
+ * 分区靠 .is-hidden 切换显示，display 从 none 变回来时动画会重新播放。 */
+@keyframes st-shell-in {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes st-panel-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.settings-shell { animation: st-shell-in 260ms cubic-bezier(.2, .8, .2, 1) both; }
+.settings-shell .settings-panel:not(.is-hidden),
+.settings-shell #disclaimer-panel:not(.is-hidden) { animation: st-panel-in 240ms cubic-bezier(.2, .8, .2, 1) both; }
+.settings-shell .nav-item { transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease; }
+@media (prefers-reduced-motion: reduce) {
+  .settings-shell,
+  .settings-shell .settings-panel:not(.is-hidden),
+  .settings-shell #disclaimer-panel:not(.is-hidden) { animation: none; }
+  .settings-shell .nav-item { transition: none; }
+}
+
+/* ── 导航搜索 ─────────────────────────────────────────── */
+.settings-shell .settings-nav__search { position: relative; flex-shrink: 0; margin: 0 4px 14px; }
+.settings-shell .settings-nav__search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--rb-text-faint); pointer-events: none; }
+.settings-shell .settings-nav__search-input {
+  box-sizing: border-box; width: 100%; height: 36px; padding: 0 12px 0 34px;
+  border: 1px solid transparent; border-radius: 10px;
+  background: var(--st-inset-fill); color: var(--rb-text-strong);
+  font: 400 14px/20px var(--rb-font-sans);
+}
+.settings-shell .settings-nav__search-input::placeholder { color: var(--rb-text-faint); }
+.settings-shell .settings-nav__search-input:focus { border-color: color-mix(in srgb, var(--st-primary) 40%, transparent); background: var(--st-card-fill); }
+.settings-shell .settings-nav.is-searching .settings-nav__list { display: none; }
+.settings-shell .settings-search-results { display: flex; flex: 1 1 auto; flex-direction: column; gap: 2px; min-height: 0; padding: 0 2px; overflow-y: auto; scrollbar-width: thin; }
+.settings-shell .settings-search-results[hidden] { display: none; }
+.settings-shell .settings-search-result { display: grid; gap: 2px; padding: 8px 10px; border: 0; border-radius: 10px; background: transparent; color: var(--rb-text-strong); text-align: left; cursor: pointer; }
+.settings-shell .settings-search-result:hover,
+.settings-shell .settings-search-result:focus-visible { background: var(--st-nav-hover); }
+.settings-shell .settings-search-result__title { font-size: 13.5px; font-weight: 500; overflow-wrap: anywhere; }
+.settings-shell .settings-search-result__meta { color: var(--rb-text-faint); font-size: 11.5px; }
+.settings-shell .settings-search-result__desc { display: -webkit-box; overflow: hidden; color: var(--rb-text-muted); font-size: 12px; line-height: 1.5; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.settings-shell .settings-search-empty { margin: 12px 10px; color: var(--rb-text-muted); font-size: 13px; }
+.settings-shell .settings-nav__sr { position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.settings-shell .is-search-hit { border-radius: 10px; animation: st-search-hit 2s ease-out; }
+@keyframes st-search-hit {
+  0%, 55% { background: color-mix(in srgb, var(--st-primary) 14%, transparent); }
+  100% { background: transparent; }
+}
+@media (prefers-reduced-motion: reduce) { .settings-shell .is-search-hit { animation: none; background: color-mix(in srgb, var(--st-primary) 14%, transparent); } }
+
+/* ── 内容页统一排版：大标题、清晰的分节标题、更松的行距 ────────── */
+.settings-shell .settings-content { padding: 12px 40px 48px; }
+.settings-shell .panel-heading { margin-bottom: 28px; }
+.settings-shell .panel-heading h1,
+.settings-shell .plugin-panel-heading h1,
+.settings-shell .plugin-panel-heading__title,
+.settings-shell #channels-panel > h1 { font: 650 26px/34px var(--rb-font-sans); letter-spacing: -.015em; }
+.settings-shell .panel-heading p,
+.settings-shell .plugin-panel-heading p,
+.settings-shell #channels-panel > .panel-hint { margin-top: 4px; font-size: 13.5px; line-height: 21px; }
+.settings-shell .settings-group-title { margin: 34px 0 12px; color: var(--rb-text-strong); font-size: 16px; font-weight: 650; letter-spacing: 0; }
+.settings-shell .settings-group-title:first-child { margin-top: 0; }
+.settings-shell { --sys-row-pad: 18px; }
+.settings-shell .setting-row strong { font-size: 14.5px; font-weight: 550; line-height: 22px; }
+.settings-shell .setting-row > div > span { font-size: 13px; line-height: 20px; }
+@media (max-width: 560px) {
+  .settings-shell .settings-content { padding: 8px 14px 28px; }
+  .settings-shell .panel-heading h1,
+  .settings-shell .plugin-panel-heading h1,
+  .settings-shell #channels-panel > h1 { font-size: 21px; line-height: 28px; }
+}
+.settings-shell .settings-nav__list { gap: 2px; }
+.settings-shell .settings-nav__group { padding: 14px 12px 4px; }
+.settings-shell .nav-item { min-height: 36px; padding-block: 6px; }

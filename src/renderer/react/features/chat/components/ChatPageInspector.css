@@ -1,0 +1,57 @@
+/* ChatPageInspector: the docked pane's wrapper, its open/close motion and the browser-only chrome.
+   react-resizable-panels already writes each panel's flex (the width split) and persists it; these
+   rules only animate that split and drop the panel chrome when the browser is the only panel. */
+
+.ff-chat-inspector {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.ff-chat-inspector > .ff-right-inspector {
+  flex: 1 1 auto;
+  min-height: 0;
+  /* Closing keeps the pane rendered until the 220ms width motion ends (display changes at the end),
+     so its content fades out with the panel. Opening shows it at once. */
+  transition: display 220ms allow-discrete;
+}
+
+/* A closed pane fades out with the width motion. Its transition exists only here, so a collapsed
+   pane is not re-faded in the background when it is opened again. */
+.ff-chat-inspector.is-closed {
+  opacity: 0;
+  transition: opacity 160ms ease-out;
+}
+
+/* Browser-only pane: the browser's own tab strip is the top row (the same 48px as the chat header),
+   so the lone panel drops its header and frame. The panel stays mounted, so the browser is not re-created. */
+.ff-chat-inspector.is-browser-only .ff-right-inspector { padding: 0; }
+.ff-chat-inspector.is-browser-only .ff-inspector-pane { border: 0; border-radius: 0; }
+.ff-chat-inspector.is-browser-only .ff-inspector-pane__head { display: none; }
+
+/* Width motion for the chat / pane split: 220ms ease-out (ChatPageInspector keeps the matching timing).
+   Only while the pane is opening or closing, because data-dock-motion is present only then. Dragging,
+   keyboard resizing and window resizing therefore stay immediate and follow the pointer. */
+.ff-page-dock:has(.ff-chat-inspector[data-dock-motion]) > [data-panel] {
+  transition: flex-grow 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* First mount: start from a closed pane so the entrance animates as well as the close. */
+@starting-style {
+  .ff-page-dock > [data-panel]:has(.ff-chat-inspector) {
+    flex-grow: 0 !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ff-page-dock > [data-panel],
+  .ff-chat-inspector,
+  .ff-chat-inspector > .ff-right-inspector {
+    transition: none !important;
+  }
+}

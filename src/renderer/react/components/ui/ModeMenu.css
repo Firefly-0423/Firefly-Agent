@@ -1,0 +1,105 @@
+/* 模式下拉：触发器在侧栏顶部（折叠时缩小放在标题栏头像旁），弹层沿用 PermissionControl 的弹窗语言。颜色只用 --ff-* token。 */
+.ff-mode-menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ff-text);
+  cursor: pointer;
+  font: 600 15px/1 var(--rb-font-sans, sans-serif);
+  app-region: no-drag;
+  transition: background-color 120ms ease;
+}
+.ff-mode-menu__trigger:hover,
+.ff-mode-menu__trigger.is-open { background: var(--ff-bg-hover); }
+.ff-mode-menu__trigger:focus-visible { outline: 2px solid rgba(var(--ff-accent-rgb), 0.45); outline-offset: 1px; }
+.ff-mode-menu__trigger.is-compact { height: 30px; padding: 0 8px; font-size: 14px; }
+
+.ff-mode-menu__chevron {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: var(--ff-text-muted);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 120ms ease;
+}
+.ff-mode-menu__trigger.is-open .ff-mode-menu__chevron { transform: rotate(180deg); }
+
+.ff-mode-popover .ant-popover-inner {
+  padding: 6px;
+  border: 1px solid var(--ff-border);
+  border-radius: 14px !important;
+  background: var(--ff-popover);
+  box-shadow: var(--ff-shadow-popover);
+}
+
+.ff-mode-menu__list { display: flex; flex-direction: column; gap: 2px; width: 280px; }
+
+.ff-mode-menu__item {
+  display: flex;
+  width: 100%;
+  height: 52px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 120ms ease;
+}
+.ff-mode-menu__item:hover { background: var(--ff-bg-subtle); }
+.ff-mode-menu__item:focus-visible { outline: 2px solid rgba(var(--ff-accent-rgb), 0.4); outline-offset: -2px; }
+
+.ff-mode-menu__text { display: grid; min-width: 0; flex: 1; gap: 3px; }
+.ff-mode-menu__label { color: var(--ff-text); font: 600 14px/1.2 var(--rb-font-sans, sans-serif); }
+.ff-mode-menu__text small {
+  overflow: hidden;
+  color: var(--ff-text-muted);
+  font: 400 12.5px/1.3 var(--rb-font-sans, sans-serif);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ff-mode-menu__check {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: none;
+  stroke: var(--ff-text);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+}
+.ff-mode-menu__item.is-active .ff-mode-menu__check { opacity: 1; }
+
+/* 侧栏顶部一行：左边是模式切换（对应 Codex 的工作区切换），右边是搜索。左缘与下面的行对齐。 */
+.ff-page-mode { display: flex; flex-shrink: 0; align-items: center; gap: 4px; padding: 0 2px 4px; }
+.ff-page-mode > :first-child:not(.ff-page-mode__search) { min-width: 0; margin-right: auto; }
+.ff-page-mode__search {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  place-items: center;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ff-text-muted);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.ff-page-mode__search:hover { background: var(--ff-bg-hover); color: var(--ff-text); }
+/* Several header icons sit together at the right end, as Codex's bell and search do. */
+.ff-page-mode__search + .ff-page-mode__search { margin-left: 0; }

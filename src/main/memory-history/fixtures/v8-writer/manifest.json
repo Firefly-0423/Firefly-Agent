@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 8,
+  "base": "3c13c2da264280cfa44b00906c414e42323d2f5f",
+  "hashes": {
+    "v8-writer.cjs": "b4fd397142a832bca10ecb004aff88694ee8d80cdf76a80ddcd32a1ddab40c77",
+    "memory.sqlite": "8d6bea985d70b190b143086bd75bdad54a3dc8fcc5e8974029919d129867f52c",
+    "memory.sqlite.auth": "8f7be4c2124e8e56a383163e6d0a96b3becbe5979a573f0ddf8541693eca194d"
+  }
+}

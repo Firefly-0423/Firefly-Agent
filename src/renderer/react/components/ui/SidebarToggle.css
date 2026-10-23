@@ -1,0 +1,50 @@
+.ff-sidebar-toggle {
+  transition: background 0.15s, color 0.15s;
+  cursor: pointer;
+  color: var(--ff-text-muted);
+  border-radius: 12px;
+  background: transparent;
+  border: none;
+  justify-content: center;
+  align-items: center;
+  display: flex;
+  height: 32px;
+  width: 32px;
+}
+
+.ff-sidebar-toggle:hover {
+  color: var(--ff-text);
+  background: var(--ff-bg-hover);
+}
+
+.ff-sidebar-toggle:active {
+  background: var(--ff-bg-active);
+}
+
+.ff-sidebar-toggle > svg {
+  transform: scaleY(0.88);
+}
+
+/* 竖线 */
+.ff-sidebar-line {
+  transition: d 0.25s ease;
+}
+
+.ff-sidebar-toggle.is-hovered .ff-sidebar-line {
+  d: path("M16.8 14V34");
+}
+
+/* Chevron */
+.ff-sidebar-chevron {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  transform-origin: 30px 24px;
+  opacity: 0;
+}
+
+.ff-sidebar-toggle.is-hovered .ff-sidebar-chevron {
+  opacity: 1;
+}
+
+.ff-sidebar-toggle.is-collapsed.is-hovered .ff-sidebar-chevron {
+  transform: scaleX(-1);
+}

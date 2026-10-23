@@ -1,0 +1,313 @@
+/* StepProgressPill：输入框上方的工作步骤胶囊与弹层。
+ * - 外层 grid 行高 0fr <-> 1fr 承担收拢 / 展开，消息列表只随之平滑变化；
+ * - 胶囊淡入并上移 6px，退场反向；弹层从底部中心淡入缩放（约 180ms ease-out）；
+ * - 步骤图标交叉淡入，状态变化时文字颜色过渡约 200ms；列表项按 20ms 错峰进入；
+ * - 颜色全部取主题变量，浅色与 firefly-dark 自动切换；
+ * - prefers-reduced-motion 下去掉位移、缩放与旋转，仅保留透明度变化。 */
+
+.ff-step-pill-host {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  align-self: center;
+  width: fit-content;
+  max-width: 100%;
+  grid-template-rows: 1fr;
+  animation: ff-step-host-in 200ms ease-out both;
+}
+
+.ff-step-pill-host.is-leaving {
+  animation-name: ff-step-host-out;
+  animation-duration: 180ms;
+  animation-timing-function: ease-in;
+}
+
+/* 水平 padding 为胶囊的焦点环留出空间；overflow 只用于收拢高度时裁切内容。 */
+.ff-step-pill-row {
+  min-height: 0;
+  padding: 0 4px;
+  overflow: hidden;
+}
+
+.ff-step-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  width: fit-content;
+  max-width: 560px;
+  min-height: 28px;
+  margin: 8px auto 10px;
+  padding: 4px 12px 4px 10px;
+  border: 1px solid var(--ff-border);
+  border-radius: 999px;
+  background: var(--ff-popover);
+  color: var(--ff-text-secondary);
+  box-shadow: var(--ff-shadow-bubble-neutral);
+  font: 500 12.5px/1.4 var(--rb-font-sans, sans-serif);
+  white-space: nowrap;
+  cursor: pointer;
+  animation: ff-step-pill-in 200ms ease-out both;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.ff-step-pill:hover {
+  background: var(--ff-bg-hover);
+}
+
+.ff-step-pill[aria-expanded="true"] {
+  border-color: rgba(var(--ff-accent-rgb), 0.4);
+}
+
+.ff-step-pill:focus-visible {
+  outline: 2px solid var(--ff-accent);
+  outline-offset: 2px;
+}
+
+.ff-step-pill-host.is-leaving .ff-step-pill {
+  animation-name: ff-step-pill-out;
+  animation-duration: 180ms;
+  animation-timing-function: ease-in;
+}
+
+.ff-step-pill__spinner,
+.ff-step-spinner__track,
+.ff-step-item__spinner {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+}
+
+.ff-step-pill__spinner {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  color: var(--ff-accent);
+  stroke-width: 2.4;
+  animation: ff-step-spin 900ms linear infinite;
+}
+
+.ff-step-spinner__track {
+  opacity: 0.25;
+  stroke-width: 2.4;
+}
+
+/* 文本保持普通行内流：分隔符与 "+403" 前的空格必须保留，不能放进 flex 子项。 */
+.ff-step-pill__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ff-step-pill__progress {
+  display: inline-block;
+  color: var(--ff-text);
+  animation: ff-step-label-in 200ms ease-out both;
+}
+
+.ff-step-pill__sep {
+  color: var(--ff-text-muted);
+}
+
+.ff-step-pill__add {
+  color: var(--ff-add-fg);
+}
+
+.ff-step-pill__del {
+  color: var(--ff-del-fg);
+}
+
+/* 弹层：从底部中心展开。锚点定位在胶囊上方约 8px 处（host 顶部之上 2px，加上胶囊 margin-top）。 */
+.ff-step-popover-anchor {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 2px);
+  z-index: 4;
+  width: max-content;
+  transform: translateX(-50%);
+}
+
+.ff-step-popover {
+  box-sizing: border-box;
+  width: min(360px, calc(100vw - 32px));
+  max-height: min(320px, 50vh);
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid var(--ff-border);
+  border-radius: 14px;
+  background: var(--ff-popover);
+  box-shadow: var(--ff-shadow-popover);
+  color: var(--ff-text);
+  transform-origin: 50% 100%;
+  animation: ff-step-popover-in 180ms ease-out both;
+  outline: none;
+}
+
+.ff-step-popover-anchor.is-leaving .ff-step-popover {
+  animation-name: ff-step-popover-out;
+  animation-timing-function: ease-in;
+}
+
+.ff-step-popover ol {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ff-step-item {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font: 400 13px/1.45 var(--rb-font-sans, sans-serif);
+  animation: ff-step-item-in 180ms ease-out both;
+  animation-delay: calc(var(--ff-step-index, 0) * 20ms);
+  transition: color 200ms ease;
+}
+
+.ff-step-item.is-done {
+  color: var(--ff-text-muted);
+}
+
+.ff-step-item.is-running {
+  color: var(--ff-text);
+}
+
+.ff-step-item.is-pending {
+  color: var(--ff-text-secondary);
+}
+
+/* 三种图标叠放，状态切换时透明度交叉过渡。 */
+.ff-step-item__icon {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  color: var(--ff-text-muted);
+  transition: color 200ms ease;
+}
+
+.ff-step-item.is-running .ff-step-item__icon {
+  color: var(--ff-accent);
+}
+
+.ff-step-item__icon > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.ff-step-item.is-done .ff-step-item__check,
+.ff-step-item.is-pending .ff-step-item__circle,
+.ff-step-item.is-running .ff-step-item__spinner {
+  opacity: 1;
+  transform: none;
+}
+
+.ff-step-item.is-running .ff-step-item__spinner {
+  animation: ff-step-spin 900ms linear infinite;
+}
+
+/* 无障碍用的状态词：视觉隐藏，供读屏读出“完成 / 进行中 / 待办”。 */
+.ff-step-item__status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ff-step-item__title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@keyframes ff-step-host-in {
+  from { grid-template-rows: 0fr; }
+  to { grid-template-rows: 1fr; }
+}
+
+@keyframes ff-step-host-out {
+  from { grid-template-rows: 1fr; }
+  to { grid-template-rows: 0fr; }
+}
+
+@keyframes ff-step-pill-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes ff-step-pill-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(6px); }
+}
+
+@keyframes ff-step-popover-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes ff-step-popover-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(6px) scale(0.97); }
+}
+
+@keyframes ff-step-item-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes ff-step-label-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes ff-step-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ff-step-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+@keyframes ff-step-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ff-step-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ff-step-pill-host,
+  .ff-step-pill-host.is-leaving { animation: none; }
+  .ff-step-pill { animation-name: ff-step-fade-in; }
+  .ff-step-pill-host.is-leaving .ff-step-pill { animation-name: ff-step-fade-out; }
+  .ff-step-pill__progress { animation-name: ff-step-fade-in; }
+  .ff-step-popover { animation-name: ff-step-fade-in; }
+  .ff-step-popover-anchor.is-leaving .ff-step-popover { animation-name: ff-step-fade-out; }
+  .ff-step-item { animation-name: ff-step-fade-in; animation-delay: 0ms; }
+  .ff-step-item__icon > svg { transform: none; }
+  .ff-step-pill__spinner,
+  .ff-step-item.is-running .ff-step-item__spinner { animation: ff-step-pulse 1600ms ease-in-out infinite; }
+}

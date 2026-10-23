@@ -1,0 +1,558 @@
+{
+  "settings": {
+    "dropdown": {
+      "filter": "Search"
+    },
+    "datePicker": {
+      "prevMonth": "Previous month",
+      "nextMonth": "Next month",
+      "year": "Year",
+      "month": "Month",
+      "clear": "Clear",
+      "placeholder": "Pick a date"
+    },
+    "mcpUi": {
+      "title": "MCP servers",
+      "hint": "Manage saved servers and current connection status. Adding a server runs a local command. Only connect services you trust.",
+      "add": "Add MCP server",
+      "refresh": "Refresh status",
+      "loading": "Loading…",
+      "readFailed": "Could not read MCP servers. The list may be out of date. Retry or check your local MCP configuration.",
+      "connected": "Connected · {{count}} tools",
+      "disconnected": "Disconnected · {{count}} tools",
+      "builtin": "Built-in service. Manage it with the Browser automation (Playwright) toggle on the Tools page.",
+      "openTools": "Open Tools",
+      "remove": "Delete",
+      "removeNamed": "Delete {{name}}",
+      "empty": "No MCP servers added. Use the ＋ button above to add one.",
+      "commandPrompt": "Enter a startup command, e.g. node path/to/server.js. Shell pipes and redirection are not supported.",
+      "invalidCommand": "Enter a valid startup command.",
+      "nameTitle": "MCP server name",
+      "namePrompt": "Give this MCP server a display name.",
+      "namePlaceholder": "For example: Weather tools",
+      "unnamed": "Unnamed MCP",
+      "runTitle": "Confirm running MCP service",
+      "runMessage": "This local command will run. The service may access local files and the network. Verify that you trust its source. A successful connection is saved and reconnects when the app starts.\n\n{{command}}",
+      "run": "Run and add",
+      "cancel": "Cancel",
+      "added": "“{{name}}” connected with {{count}} tools",
+      "addFailed": "Could not add server",
+      "addFailedMessage": "Connection or saving failed. Check the command, MCP service and local configuration, then retry. Error details are hidden because they may contain credentials.",
+      "removeTitle": "Delete MCP server",
+      "removeMessage": "Deleting “{{name}}” disconnects it, removes its tools and deletes its saved configuration. You will need to add it again to use it. Continue?",
+      "removed": "Deleted “{{name}}”",
+      "removeFailed": "Could not delete server",
+      "removeFailedMessage": "Disconnection or saving failed. Refresh the status and retry. The saved configuration may remain even if the connection has closed.",
+      "disabled": "Disabled",
+      "disconnectedReason": "Disconnected · {{reason}}",
+      "disable": "Disable",
+      "disableNamed": "Disable {{name}}",
+      "enable": "Enable",
+      "enableNamed": "Enable {{name}}",
+      "reconnect": "Reconnect",
+      "reconnectNamed": "Reconnect {{name}}",
+      "enabledNotice": "“{{name}}” enabled with {{count}} tools",
+      "reconnectedNotice": "“{{name}}” reconnected with {{count}} tools",
+      "disabledNotice": "“{{name}}” disabled and its tools removed",
+      "enableFailed": "Could not enable",
+      "enableFailedMessage": "Connection or saving did not finish; the server is unchanged.",
+      "enableFailedWhy": "Could not enable: {{reason}}. The server is unchanged.",
+      "disableFailed": "Could not disable",
+      "disableFailedMessage": "Disconnection or saving did not finish. Refresh the status and retry.",
+      "addFailedWhy": "Could not add the server: {{reason}}. Check the command and local configuration, then retry. Error details are hidden because they may contain credentials.",
+      "failure": {
+        "command-not-found": "The start command was not found. Make sure the program is installed and on PATH",
+        "permission-denied": "No permission to start the program",
+        "timeout": "The connection timed out",
+        "exited": "The program exited right after starting",
+        "unreachable": "Could not reach the service address",
+        "failed": "Connection failed for an unknown reason"
+      }
+    },
+    "desktopAsr": {
+      "projectLanguage": "Recognition language follows your Aliyun project configuration.",
+      "title": "ASR settings",
+      "hint": "The microphone starts only when you click Dictate. Audio goes to your selected provider; transcription only fills the draft and is never sent automatically. Each recording lasts up to about 110 seconds.",
+      "provider": "ASR provider",
+      "off": "Off",
+      "aliyun": "Aliyun",
+      "localUnavailable": "Local recognition is not implemented. Choose another provider.",
+      "mosslandHint": "Audio is uploaded after stopping, then returned as complete text. Cancelling before Stop does not upload it.",
+      "aliyunHint": "Audio streams to Aliyun during recording. Cancellation stops sending but cannot retract audio already sent.",
+      "language": "Recognition language",
+      "zh": "Chinese",
+      "en": "English",
+      "auto": "Auto",
+      "shared": "Enabled channels also use this configuration for audio transcription. Turning it off preserves saved credentials.",
+      "save": "Save ASR settings",
+      "saving": "Saving…",
+      "saved": "ASR settings saved",
+      "saveFailed": "Saving failed. Please retry.",
+      "loadFailed": "Loading failed. Reopen settings and retry."
+    },
+    "layout": {
+      "basic": "Basics",
+      "agent": "Agent capabilities",
+      "model": "Models",
+      "connect": "Connections & voice",
+      "about": "Data & notices"
+    },
+    "usage": {
+      "title": "Usage",
+      "hint": "See where tokens go by model and feature, which conversations cost the most, and how often messages, skills and plugins are used. Data stays on this device.",
+      "rangeLabel": "Time range",
+      "days7": "7 days",
+      "days30": "30 days",
+      "dimensionLabel": "Group by",
+      "byModel": "By model",
+      "byFeature": "By feature",
+      "tokenTitle": "Token usage",
+      "totals": "{{tokens}} total · {{requests}} requests",
+      "chartLabel": "Daily usage chart",
+      "empty": "No usage recorded in this period.",
+      "featureNote": "Usage by feature is recorded from this version on; earlier usage is shown as “Before tracking”.",
+      "other": "Other",
+      "earlier": "Before tracking",
+      "rankTitle": "Conversation usage ranking",
+      "rankEmpty": "No per-conversation usage yet.",
+      "sessionGone": "Deleted or temporary conversation",
+      "messages": "Messages",
+      "skills": "Skill uses",
+      "plugins": "Plugin calls",
+      "clear": "Clear records",
+      "clearTitle": "Clear usage records",
+      "clearMessage": "All usage records on this device will be deleted. This cannot be undone.",
+      "cancel": "Cancel",
+      "unavailable": "Usage data is not available in this window.",
+      "loadFailed": "Could not read usage. Please try again.",
+      "feature": {
+        "chat": "Chat",
+        "work": "Work",
+        "code": "Code",
+        "subagent": "Sub-agents",
+        "plugin": "Plugins",
+        "memory": "Memory",
+        "proactive": "Proactive chat",
+        "other": "Other"
+      }
+    },
+    "subagents": {
+      "title": "Sub-agents",
+      "hint": "All 12 specialist sub-agents, side by side. Each one can inherit the main model or use its own model profile."
+    },
+    "search": {
+      "placeholder": "Search settings",
+      "label": "Search settings",
+      "results": "Search results",
+      "empty": "No matching settings",
+      "page": "Page",
+      "count": "{{count}} found"
+    },
+    "agentRouting": {
+      "loading": "Loading role configuration…",
+      "notice": "Every role follows the default model; pick another model in a role's list when that role should use something else. Changing the bound profile ID does not migrate existing Agent sessions; editing a profile affects sessions using it.",
+      "saved": "Role configuration saved",
+      "saving": "Saving…",
+      "independent": "Own model",
+      "inherited": "Follows the default model",
+      "inheritedModel": "Follows the default model · {{model}}",
+      "route": "Follows the role route",
+      "routeModel": "Follows the role route · {{model}}",
+      "independentModel": "Own model · {{model}}",
+      "roleDefault": "Follow the default model",
+      "missingProfile": "Missing profile: {{id}}",
+      "source": "Configuration source",
+      "sourceDescription": "Default route: {{route}}; Role selection: {{selected}}; Effective profile: {{effective}}",
+      "unconfigured": "Unconfigured",
+      "unconfiguredRefused": "No default model yet · execution will be refused",
+      "saveUnavailable": "Role configuration save interface unavailable",
+      "loadUnavailable": "Role configuration read interface unavailable",
+      "saveFailed": "Saving failed: {{error}}",
+      "loadFailed": "Loading role configuration failed: {{error}}"
+    },
+    "providerUi": {
+      "draftState": {
+        "saved": "Saved profile",
+        "dirty": "Unsaved changes",
+        "new": "New draft · Not saved",
+        "saving": "Saving…"
+      },
+      "savedWithChanges": "Submitted version saved. Newer changes are still unsaved.",
+      "emptyTitle": "Select or add a model configuration",
+      "emptyHint": "Choose a saved configuration from the list, or add a model provider to get started.",
+      "discardTitle": "Discard unsaved changes?",
+      "discardMessage": "Switching will discard unsaved changes to this model profile.",
+      "discardConfirm": "Discard changes",
+      "discardCancel": "Keep editing",
+      "listTitle": "Configured model providers",
+      "listSubtitle": "Each configuration uses one model. Status describes saved configuration only.",
+      "addTitle": "Add model provider",
+      "presetTab": "Third-party providers",
+      "customTab": "Custom model API",
+      "providerLabel": "Provider",
+      "providerPlaceholder": "Choose a provider",
+      "presetHint": "Pick DeepSeek, Kimi, Claude or another built-in provider and enter its API key to use it.",
+      "close": "Collapse",
+      "advanced": "Advanced settings",
+      "routingTitle": "Role model overrides",
+      "edit": "Edit",
+      "delete": "Delete",
+      "incomplete": "Incomplete configuration",
+      "missingKey": "Missing API Key",
+      "configured": "Configured · Connection not tested",
+      "sectionConnection": "Connection",
+      "sectionModel": "Model",
+      "connectionMore": "Custom settings",
+      "cancel": "Cancel",
+      "tagCustom": "Custom",
+      "inputModalities": {
+        "label": "Input types",
+        "group": "Input types",
+        "auto": "Auto",
+        "image": "Image",
+        "text": "Text only",
+        "hint": "Auto follows the input types the vendor's model list reports, then the built-in catalog; with neither, the model is treated as text only. Choose Image or Text only to override.",
+        "stateImage": "Accepts images",
+        "stateText": "Text only",
+        "sourceVendor": "from the vendor's model list",
+        "sourceCatalog": "from the built-in catalog",
+        "sourceUser": "set manually",
+        "sourceUnknown": "not recognized (set Image manually if it accepts images)"
+      }
+    },
+    "profile": {
+      "badge": {
+        "default": "Default"
+      },
+      "editorTitle": {
+        "edit": "Edit model configuration",
+        "new": "Add model configuration"
+      },
+      "empty": "No saved model configurations",
+      "loading": "Loading model configurations…",
+      "readFailed": "Could not load model configurations",
+      "count": "{{count}} saved"
+    },
+    "panel": {
+      "channels": {
+        "overviewTitle": "Connection overview",
+        "overviewNone": "No channel connected",
+        "overviewCount": "{{running}} of {{total}} channels connected",
+        "publicTitle": "Shared settings",
+        "publicHint": "These settings apply to every channel.",
+        "appTitle": "Firefly mobile app",
+        "appStatusComingSoon": "Coming soon",
+        "appDesc": "After pairing, chat with Firefly and get reminders on your phone.",
+        "appPairButton": "Start pairing",
+        "thirdPartyTitle": "Other channels"
+      },
+      "memory": {
+        "heading": "Firefly Memory",
+        "subheading": "Long-term details Firefly remembers from your chats. You can review, edit, forget them, or confirm pending items.",
+        "loading": "Loading memories…",
+        "overview": {
+          "title": "Memory overview",
+          "desc": "Items Firefly has drafted are only remembered after you confirm them.",
+          "service": "Memory service",
+          "serviceOk": "Normal",
+          "serviceDown": "Unavailable",
+          "serviceUnknown": "Failed to load, please retry",
+          "count": "Remembered",
+          "pending": "Pending confirmation",
+          "updated": "Last updated",
+          "never": "None yet",
+          "coverage": "Source coverage",
+          "coverageValue": "{{present}} of {{population}} present, {{missing}} missing, {{unknownDenied}} unknown or denied"
+        },
+        "entries": {
+          "title": "My memories",
+          "desc": "Review what Firefly remembers. You can edit, forget, or confirm pending items.",
+          "searchLabel": "Search memories",
+          "searchPlaceholder": "Search memories",
+          "filterLabel": "Filter by type",
+          "filterAll": "All",
+          "filterFacts": "Remembered",
+          "filterPending": "Pending",
+          "kindUser": "You said",
+          "kindInference": "Inferred by Firefly",
+          "activationConfirmed": "You confirmed",
+          "activationAuto": "Remembered automatically",
+          "scopeGlobal": "All sessions",
+          "scopeProject": "One project only",
+          "scopeProjectNamed": "Project “{{name}}” only",
+          "effectiveFrom": "Effective from {{time}}",
+          "effectiveUntil": "Until {{time}}",
+          "pendingTag": "Pending",
+          "pendingNeedsConfirm": "Remembered only after you confirm",
+          "pendingUntitled": "Untitled pending item",
+          "referenceTitle": "No confirmable content extracted",
+          "referenceTag": "Not remembered",
+          "referenceNeedsRestatement": "Please restate the preference you want remembered in chat, or reject this record.",
+          "recordedAt": "Recorded {{time}}",
+          "edit": "Edit",
+          "forget": "Forget",
+          "source": {
+            "loading": "Loading source…",
+            "failed": "Failed to load the source. Please retry.",
+            "none": "No source details to show.",
+            "statusEligible": "Supported",
+            "statusPendingReview": "Awaiting review",
+            "statusForgotten": "Forgotten",
+            "kindAutomatic": "Recorded automatically",
+            "kindConfirmed": "You confirmed",
+            "kindReview": "Review record",
+            "unknownTime": "Unknown time"
+          },
+          "confirm": "Confirm",
+          "reject": "Reject",
+          "editLabel": "Write the correct version",
+          "saveEdit": "Save changes",
+          "cancel": "Cancel",
+          "emptyAll": "Nothing has been remembered yet. Firefly picks out long-term details from your chats.",
+          "emptyFacts": "Nothing remembered yet.",
+          "emptyPending": "No pending items.",
+          "emptySearch": "No memories match your search.",
+          "backendDown": "The memory service is unavailable, so memories cannot be shown.",
+          "loadFailed": "Failed to read memories. Please retry.",
+          "apiMissing": "The memory interface is unavailable.",
+          "busy": "Working…",
+          "emptyCorrection": "Enter the correct version.",
+          "saved": {
+            "confirm": "Confirmed. Firefly will remember this.",
+            "reject": "Rejected this pending item.",
+            "correct": "Changes saved.",
+            "forget": "Forgotten."
+          },
+          "reason": {
+            "revision": "This item was just updated. The list has been refreshed, please try again.",
+            "notFound": "This item no longer exists. The list has been refreshed.",
+            "secret": "This text contains sensitive information and cannot be saved.",
+            "unresolved": "Could not work out the corrected text. Try phrasing it differently.",
+            "backend": "The memory service is unavailable.",
+            "failed": "The action did not complete. Please try again later."
+          }
+        },
+        "shadow": {
+          "title": "Shadow extraction (experimental)",
+          "desc": "A model picks out preferences from your chats that may be worth remembering and keeps them in a separate local record, only to measure accuracy. They never enter your memory and are never used in answers.",
+          "privacySaved": "Health, finance, ID, address, contact details and facts about other people are not saved.",
+          "privacySent": "However, the full text of each of your messages (and the reply right before it) is sent once more to your current model provider, which may cost extra. Only obvious keys and passwords are not sent.",
+          "enable": "Turn on shadow extraction",
+          "enableHint": "Off by default. When on, each successful chat reply triggers one extra request to the model used in that chat.",
+          "confirmTitle": "Turn it on?",
+          "confirmBody": "Your chat messages will be sent an extra time to your current model provider, which may cost extra. You can turn it off any time.",
+          "confirm": "Turn on",
+          "cancel": "Cancel",
+          "cap": "Daily call limit",
+          "capHint": "The most extra requests per day (1 to 1000). No more requests that day once it is reached; it also stops for the day if your quota runs out or you are rate limited.",
+          "capSave": "Save limit",
+          "capInvalid": "Enter a whole number from 1 to 1000.",
+          "status": "Status",
+          "statusOff": "Off",
+          "statusOn": "On",
+          "statusCap": "Daily limit reached; resumes tomorrow",
+          "statusQuota": "Stopped for today: quota exhausted; resumes tomorrow",
+          "statusRate": "Stopped for today: rate limited; resumes tomorrow",
+          "usage": "Calls today",
+          "usageValue": "{{used}} / {{cap}}",
+          "records": "Valid records",
+          "recordsValue": "{{n}}",
+          "detail": "Counts for today",
+          "detailValue": "{{skipped}} not sent · {{errors}} failed · {{cancelled}} cancelled · {{dropped}} dropped by checks",
+          "export": "Export JSON",
+          "exportDone": "Exported {{n}} records.",
+          "exportCanceled": "Export canceled.",
+          "clear": "Clear shadow records",
+          "clearConfirmTitle": "Clear everything?",
+          "clearBody": "All shadow records are deleted permanently right away. The call count for today is not reset.",
+          "clearOk": "Clear",
+          "clearDone": "Cleared.",
+          "saved": "Saved.",
+          "enabledDone": "Turned on.",
+          "disabledDone": "Turned off; requests in progress were canceled.",
+          "unavailable": "The memory service in this version does not support shadow extraction.",
+          "loadFailed": "Could not load. Please try again.",
+          "error": {
+            "SHADOW_UNAVAILABLE": "The memory service in this version does not support shadow extraction.",
+            "SHADOW_FORBIDDEN": "You are not allowed to do this.",
+            "SHADOW_INPUT_INVALID": "Invalid input. Please check and try again.",
+            "SHADOW_REVISION_CONFLICT": "The setting just changed and was refreshed. Please try again.",
+            "SHADOW_FAILED": "The action did not finish. Please try again later."
+          }
+        },
+        "imported": {
+          "title": "Imported knowledge",
+          "desc": "Documents uploaded in the chat window are indexed, and Firefly refers to them when answering.",
+          "empty": "No imported documents",
+          "emptyHint": "Upload a file in the chat window and it is indexed automatically",
+          "unavailable": "The imported knowledge interface is unavailable",
+          "loadFailed": "Failed to read imported knowledge. Please retry",
+          "indexed": "{{n}} segments indexed",
+          "importedAt": "Last imported: {{time}}",
+          "deleteTitle": "Delete this document",
+          "deleteAria": "Delete {{name}}"
+        },
+        "automation": {
+          "title": "Save preferences automatically",
+          "desc": "Off by default. Only explicit, lasting preferences for Chinese or English and concise or detailed replies can be remembered automatically. Conflicts and other candidates still need your confirmation. Temporary chats are excluded. Turning this off keeps existing memories; forget them below.",
+          "language": "Remember reply language (Chinese or English)",
+          "responseStyle": "Remember reply style (concise or detailed)",
+          "saving": "Saving…",
+          "saved": "Saved",
+          "stale": "Settings changed and were refreshed. Please select again.",
+          "failed": "Could not save. Settings were refreshed.",
+          "unavailable": "Automatic memory saving is unavailable.",
+          "budget": "Preference extraction requests today: {{used}} / 20. With automatic saving off, new candidates still need confirmation; extraction remains limited per day.",
+          "unknown": "Some requests have no known result and will not be retried automatically."
+        }
+      },
+      "appearance": {
+        "custom": {
+          "title": "Custom",
+          "enabled": {
+            "title": "Enable custom colors",
+            "desc": "Set the accent, background and foreground colors. Changes save automatically and apply to all windows."
+          },
+          "accent": "Accent",
+          "background": "Background",
+          "foreground": "Foreground",
+          "reset": "Reset default colors"
+        },
+        "font": {
+          "title": "Font",
+          "family": "Interface font",
+          "option": {
+            "default": "System default",
+            "custom": "Imported font"
+          }
+        },
+        "code": {
+          "title": "Code appearance",
+          "light": "Light code theme",
+          "dark": "Dark code theme"
+        },
+        "advanced": {
+          "title": "Advanced",
+          "uiFontSize": {
+            "title": "Interface size",
+            "desc": "Base font size for the interface (12 to 20 px)."
+          },
+          "chatFontSize": {
+            "title": "Message font size",
+            "desc": "Font size of message text (12 to 22 px)."
+          },
+          "codeFontSize": {
+            "title": "Code font size",
+            "desc": "Font size of code blocks in chat and diff views (11 to 20 px)."
+          },
+          "reset": "Reset to defaults",
+          "reduceMotion": {
+            "title": "Reduce motion",
+            "desc": "Cut animations, or follow the system setting",
+            "system": "System",
+            "on": "On",
+            "off": "Off"
+          },
+          "codeFont": {
+            "title": "Code font",
+            "desc": "Font for code in chat, file previews and diffs",
+            "system": "System monospace"
+          },
+          "smartPunctuation": {
+            "title": "Smart punctuation",
+            "desc": "Format quotes, dashes, ellipses and arrows as you type"
+          },
+          "fullWidthChat": {
+            "title": "Full-width chat",
+            "desc": "Let the conversation fill the chat area instead of a centred column"
+          },
+          "diffMarkers": {
+            "title": "Diff markers",
+            "desc": "Show changes with colour or with +/− signs",
+            "color": "Colour",
+            "signs": "+/−"
+          },
+          "pointerCursor": {
+            "title": "Pointer cursor",
+            "desc": "Show a hand over interactive elements"
+          }
+        }
+      },
+      "general": {
+        "heading": "General",
+        "subheading": "Choose Firefly's interface language. Changes are saved immediately.",
+        "language": {
+          "title": "Language",
+          "desc": "Display language for Firefly. The chat interface applies it after Firefly restarts."
+        },
+        "groups": {
+          "desktop": "Desktop & system"
+        },
+        "toastSound": {
+          "title": "Reminder sound",
+          "desc": "Plays the sound for the bottom-right popup when Firefly needs your confirmation or a task finishes."
+        },
+        "launchAtLogin": {
+          "title": "Launch at login",
+          "desc": "Automatically open Firefly when the system starts."
+        },
+        "desktopSaveFailed": "Saving failed. Please retry."
+      },
+      "firefly": {
+        "sticker": {
+          "sendEnabled": "Send status: stickers allowed",
+          "sendDisabled": "Send status: stickers not sent"
+        }
+      },
+      "user": {
+        "heading": "My Info",
+        "subheading": "Your profile and cloud account",
+        "accountTitle": "Account",
+        "profileTitle": "Profile",
+        "locationTitle": "Location & time",
+        "account": {
+          "signedOutTitle": "Signed out",
+          "signedOutDesc": "Sign in to sync your profile and settings across devices (coming soon).",
+          "loginButton": "Sign in / Sign up",
+          "comingSoon": "Coming soon",
+          "logoutButton": "Sign out",
+          "unnamed": "Unnamed account"
+        },
+        "avatarTitle": "Avatar",
+        "uploadAvatarButton": "Upload avatar",
+        "avatarHint": "JPG or PNG, 1:1 ratio recommended",
+        "nicknameLabel": "Nickname",
+        "nicknameDesc": "If the call preference is empty, Firefly calls you by your nickname.",
+        "nicknamePlaceholder": "What should Firefly call you?",
+        "genderLabel": "Gender",
+        "genderDesc": "Optional. If you choose Prefer not to say, Firefly does not record this.",
+        "genderSecret": "Prefer not to say",
+        "genderMale": "Male",
+        "genderFemale": "Female",
+        "callPrefLabel": "Call preference",
+        "callPrefDesc": "Firefly uses this name first when addressing you.",
+        "callPrefPlaceholder": "e.g. Pioneer",
+        "birthdayLabel": "Birthday",
+        "birthdayDesc": "Optional. Firefly keeps it in your personal info.",
+        "cityLabel": "Default city",
+        "cityDesc": "Used by location-based tools such as weather when no city is given.",
+        "cityPlaceholder": "e.g. Shanghai",
+        "timezoneLabel": "Time zone",
+        "timezoneDesc": "Only used for time calculations; it does not indicate your city.",
+        "fieldHint": "The call preference takes priority over the nickname; if both are empty, Firefly calls you Pioneer. The default city is used by location-based tools such as weather; the time zone is only used for time calculations and does not indicate your city."
+      }
+    },
+    "nav": {
+      "usage": "Usage",
+      "subagents": "Sub-agents",
+      "apiAdvanced": "Runtime",
+      "api": "Models",
+      "appearance": "Appearance",
+      "general": "General",
+      "generalHint": "Choose Firefly's interface language. Changes are saved immediately."
+    },
+    "modal": {
+      "cancel": "Cancel"
+    }
+  }
+}
