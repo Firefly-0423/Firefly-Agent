@@ -88,7 +88,7 @@ describe("persisted configuration", () => {
   it.each([
     ["empty id", [{ id: "", name: "n", transport: "stdio" }]],
     ["empty name", [{ id: "a", name: "", transport: "stdio" }]],
-    ["unknown transport", [{ id: "a", name: "n", transport: "http" }]],
+    ["unknown transport", [{ id: "a", name: "n", transport: "websocket" }]],
     ["duplicate ids", [{ id: "a", name: "n", transport: "stdio" }, { id: "a", name: "m", transport: "stdio" }]],
     ["non-string command", [{ id: "a", name: "n", transport: "stdio", command: 3 }]],
     ["non-string args", [{ id: "a", name: "n", transport: "stdio", args: ["ok", 3] }]],

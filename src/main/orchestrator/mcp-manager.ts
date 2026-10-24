@@ -25,7 +25,7 @@ function validConfigs(value: unknown): boolean {
   if (!Array.isArray(value)) return false;
   const ids = new Set<string>();
   return value.every((item: unknown) => {
-    if (!record(item) || typeof item.id !== "string" || !item.id || typeof item.name !== "string" || !item.name || (item.transport !== "stdio" && item.transport !== "sse")) return false;
+    if (!record(item) || typeof item.id !== "string" || !item.id || typeof item.name !== "string" || !item.name || (item.transport !== "stdio" && item.transport !== "sse" && item.transport !== "http")) return false;
     if (ids.has(item.id)) return false;
     ids.add(item.id);
     if (["command", "cwd", "url"].some((key) => item[key] !== undefined && typeof item[key] !== "string")) return false;

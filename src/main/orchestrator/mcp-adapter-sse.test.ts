@@ -4,8 +4,10 @@ vi.mock("electron", () => ({ app: { getPath: () => process.cwd() } }));
 vi.mock("@modelcontextprotocol/sdk/client/index.js", () => ({ Client: vi.fn(function () { return remote; }) }));
 vi.mock("@modelcontextprotocol/sdk/client/sse.js", () => ({ SSEClientTransport: vi.fn(function () { return { close: vi.fn(), onerror: null }; }) }));
 vi.mock("@modelcontextprotocol/sdk/client/stdio.js", () => ({ StdioClientTransport: vi.fn(function () { return { close: vi.fn(), onerror: null }; }) }));
+vi.mock("@modelcontextprotocol/sdk/client/streamableHttp.js", () => ({ StreamableHTTPClientTransport: vi.fn(function () { return { close: vi.fn(), onerror: null }; }) }));
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { connectMcpServer, disconnectMcpServer } from "./mcp-adapter";
 import { toolRegistry } from "./tools/registry/tool-registry";
 
@@ -17,7 +19,7 @@ beforeEach(() => {
   toolRegistry.getAllTools().forEach(({ id }) => toolRegistry.unregister(id));
 });
 afterEach(async () => {
-  for (const id of ["agenda-stdio", "agenda-sse", "agenda-error"]) await disconnectMcpServer(id);
+  for (const id of ["agenda-stdio", "agenda-sse", "agenda-http", "agenda-error"]) await disconnectMcpServer(id);
 });
 
 describe("MCP transport configuration and remote failures", () => {
@@ -31,6 +33,17 @@ describe("MCP transport configuration and remote failures", () => {
     await connectMcpServer({ id: "agenda-stdio", name: "Calendar process", transport: "stdio", command: "node", args: ["agenda-server.mjs"] });
     expect(StdioClientTransport).toHaveBeenCalledWith({ command: "node", args: ["agenda-server.mjs"], env: undefined, cwd: undefined });
     expect(SSEClientTransport).not.toHaveBeenCalled();
+  });
+
+  it("constructs only the Streamable HTTP transport for an http connection", async () => {
+    await connectMcpServer({ id: "agenda-http", name: "Calendar over HTTP", transport: "http", url: "https://calendar.invalid/mcp" });
+    expect(StreamableHTTPClientTransport).toHaveBeenCalledWith(new URL("https://calendar.invalid/mcp"));
+    expect(SSEClientTransport).not.toHaveBeenCalled();
+    expect(StdioClientTransport).not.toHaveBeenCalled();
+  });
+
+  it("rejects http configuration without a URL", async () => {
+    await expect(connectMcpServer({ id: "agenda-invalid", name: "Missing endpoint", transport: "http" })).rejects.toThrow(/http transport requires url/);
   });
 
   it("rejects SSE configuration without a URL", async () => {

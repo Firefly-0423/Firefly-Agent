@@ -117,7 +117,7 @@ npm run dev
 - **浏览器工作区**：手动浏览与 Agent 操作严格分离；Agent 只能在当前批准的域名与动作范围内使用。
 - **Skills**：内置并校验 50 项第三方及适配 Skills 与 4 项项目 Skills，可按模式启用。
 - **插件**：本地插件宿主、隔离面板、插件 SDK 与示例；在线目录来自 [firefly-plugins](https://github.com/Firefly-0423/firefly-plugins)，安装时核对 SHA-256，装好后默认停用。
-- **MCP**：可配置外部 MCP 服务（stdio、SSE、HTTP）。
+- **MCP**：可添加本机命令启动的服务（stdio），或填写远程地址（Streamable HTTP；以 `/sse` 结尾的地址走旧式 SSE）。
 - **渠道**：QQ、QQ Bot、微信、飞书适配，需自行配置凭据。
 - **音乐**：可读取 Windows 上 QQ Music 的播放会话。
 

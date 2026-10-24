@@ -117,7 +117,7 @@ Scripts are described in [scripts/README.md](./scripts/README.md).
 - **Browser workspace**: manual browsing and agent actions are kept apart; the agent works only within the domains and actions currently approved.
 - **Skills**: 50 third-party and adapted Skills plus 4 project Skills, validated and enabled per mode.
 - **Plugins**: a local plugin host, isolated panels, the plugin SDK and examples; the online catalog comes from [firefly-plugins](https://github.com/Firefly-0423/firefly-plugins), packages are checked against their SHA-256 on install and start disabled.
-- **MCP**: external MCP servers over stdio, SSE or HTTP.
+- **MCP**: add a server by its local command (stdio) or its remote address (Streamable HTTP; an address ending in `/sse` uses legacy SSE).
 - **Channels**: QQ, QQ Bot, WeChat and Feishu adapters, with your own credentials.
 - **Music**: reads the QQ Music playback session on Windows.
 

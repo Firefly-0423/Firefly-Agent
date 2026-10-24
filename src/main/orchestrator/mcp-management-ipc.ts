@@ -20,7 +20,7 @@ function text(value: unknown, limit: number, blank = false): value is string {
 }
 function parseConfig(input: unknown): McpServerConfig | undefined {
   if (!record(input) || Object.keys(input).some(key => !keys.has(key)) || !text(input.id, 128) || !text(input.name, 256)) return;
-  if (input.transport !== "stdio" && input.transport !== "sse") return;
+  if (input.transport !== "stdio" && input.transport !== "sse" && input.transport !== "http") return;
   const config: McpServerConfig = { id: input.id, name: input.name, transport: input.transport };
   if (input.transport === "stdio") {
     if (!text(input.command, 8192) || input.url !== undefined) return;
