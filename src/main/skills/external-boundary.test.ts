@@ -31,7 +31,7 @@ const unchangedBoundaries = {
   // outcomes only. Exact catalog and repository rename prefixes are independently asserted below.
   // Reviewed marketplace move: the catalog and Release prefix now point only at Firefly-0423/firefly-plugins; size, timeout,
   // redirect, SHA-256 and disabled-install rules are unchanged.
-  "src/main/plugin-host/plugin-marketplace.ts": "f3cf2cacf204483837088163821c8cb6e8d9dd231a9836d2a59e0e5f7be26fe6",
+  "src/main/plugin-host/plugin-marketplace.ts": "6f7600e703094d009a13c042dc4c97f9b6be235bbaf2bbee163a7672ad803c8c",
   "src/main/browser/browser-request-policy.ts": "9ce32fdba4722e49b7c96d27ad7a2058fae3d62a4186d44aac98e49d7e62bdf1",
   // Reviewed window-browser tools change: browser-startup-config only forwards the optional acceptDownload callback, and
   // electron-browser-guest only attaches the per-page tools object. No navigation, network or sandbox setting changed here;

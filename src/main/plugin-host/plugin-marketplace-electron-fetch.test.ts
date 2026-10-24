@@ -13,7 +13,7 @@ const createRequest = ((options: Record<string, unknown>) => {
 
 
 function incoming(statusCode: number, headers: Record<string, string | string[]>) {
-  return Object.assign(new EventEmitter(), { statusCode, headers });
+  return Object.assign(new EventEmitter(), { statusCode, headers, pause: vi.fn(), resume: vi.fn() });
 }
 
 describe("electronMarketFetch", () => {
@@ -45,6 +45,21 @@ describe("electronMarketFetch", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("application/zip");
     expect(new TextDecoder().decode(await response.arrayBuffer())).toBe("PKzip");
+  });
+
+  it("pauses the download once a megabyte waits unread, and resumes it as the reader catches up", async () => {
+    const pending = electronMarketFetch("https://release-assets.githubusercontent.com/big", undefined, createRequest);
+    const message = incoming(200, { "content-type": "application/zip" });
+    requests[0].emit("response", message);
+    const reader = (await pending).body!.getReader();
+    const chunk = Buffer.alloc(256 * 1024);
+    for (let index = 0; index < 3; index += 1) message.emit("data", chunk);
+    expect(message.pause).not.toHaveBeenCalled();
+    message.emit("data", chunk);
+    expect(message.pause).toHaveBeenCalledTimes(1);
+    // A storage-bound consumer reads; the stream asks for more and the response resumes.
+    for (let index = 0; index < 4; index += 1) expect((await reader.read()).value?.byteLength).toBe(256 * 1024);
+    expect(message.resume).toHaveBeenCalled();
   });
 
   it("rejects on a network error and when the caller aborts", async () => {

@@ -168,6 +168,8 @@ function deadline(ms: number, message: string) {
  * handing back the 3xx, which made every GitHub release download fail. net.request reports each redirect as an event,
  * so it is turned into a bodiless 3xx Response here and the policy loop in fetchChecked still decides every hop.
  */
+/** How much of a download may wait in memory, unread, before the response is paused. */
+const MARKET_STREAM_BUFFER_BYTES = 1024 * 1024;
 type MarketRequestFactory = (options: Electron.ClientRequestConstructorOptions) => Electron.ClientRequest;
 // Delay Electron import so service tests exercise the real I/O pipeline without an app process.
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -189,14 +191,22 @@ export function electronMarketFetch(input: string, init?: { signal?: AbortSignal
       const headers = new Headers();
       for (const [name, value] of Object.entries(response.headers)) for (const item of ([] as string[]).concat(value)) headers.append(name, item);
       const empty = [204, 205, 304].includes(response.statusCode);
+      // Bounded buffering: once MARKET_STREAM_BUFFER_BYTES are queued and not yet read, the response is paused until the
+      // reader catches up, so a fast download onto slow storage cannot pile up in main-process memory.
+      // Electron types IncomingMessage as a plain emitter; at runtime it implements Node's Readable, pause and resume included.
+      const flow = response as unknown as Pick<NodeJS.ReadableStream, "pause" | "resume">;
       const body = empty ? null : new ReadableStream<Uint8Array>({
         start(controller) {
-          response.on("data", (chunk: Buffer) => controller.enqueue(new Uint8Array(chunk)));
+          response.on("data", (chunk: Buffer) => {
+            controller.enqueue(new Uint8Array(chunk));
+            if ((controller.desiredSize ?? 1) <= 0) flow.pause();
+          });
           response.on("end", () => controller.close());
           response.on("error", (error: Error) => controller.error(error));
         },
+        pull() { flow.resume(); },
         cancel() { request.abort(); },
-      });
+      }, new ByteLengthQueuingStrategy({ highWaterMark: MARKET_STREAM_BUFFER_BYTES }));
       settle(() => resolve(new Response(body, { status: response.statusCode, headers })));
     });
     request.on("error", (error) => settle(() => reject(error)));
