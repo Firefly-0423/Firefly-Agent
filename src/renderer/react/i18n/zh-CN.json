@@ -990,7 +990,7 @@
     "renameProject": "编辑",
     "renameProjectTitle": "重命名项目",
     "newProjectChat": "在此项目中新建对话",
-    "emptySectionProjects": "还没有项目。在项目的「⋯」菜单里选「分区」放进来。",
+    "emptyTier": "暂无内容",
     "showProject": "显示项目",
     "projectVisibility": "项目显示",
     "organizeSidebar": "整理侧边栏",

@@ -61,7 +61,7 @@ it("keeps an empty section as a tier with a hint instead of dropping it", async 
   state().sections = [{ id: "s1", name: "Research" }];
   await render();
   expect(headTitles()).toEqual(["sidebar.projectsTitle", "Research"]);
-  expect(host.textContent).toContain("sidebar.emptySectionProjects");
+  expect(host.textContent).toContain("sidebar.emptyTier");
 });
 it("folds a tier's folders away with its heading and remembers it on this device", async () => {
   await render();

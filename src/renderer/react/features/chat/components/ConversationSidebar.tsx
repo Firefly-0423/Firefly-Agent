@@ -3,7 +3,7 @@ import { chatStore } from "../pages/chat-page-bridge";
 import { useSidebarLayout } from "../pages/use-sidebar-layout";
 import { projectSidebar } from "../pages/sidebar-projection";
 import { useClosedTiers } from "../pages/sidebar-tier";
-import { projectTiers, type SidebarTier } from "../pages/sidebar-tiers";
+import { chatTiers, projectTiers, type SidebarTier } from "../pages/sidebar-tiers";
 import { sidebarGroupId } from "../../../../../shared/sidebar-layout";
 import { STATUS_ORDER, groupByStatus, statusGroupId, useStatusView, type SessionStatus } from "../pages/sidebar-status";
 import { SidebarLayoutControls } from "./SidebarLayoutControls";
@@ -140,9 +140,11 @@ export const ConversationSidebar = memo(function ConversationSidebar({
   const layout = useSidebarLayout(typeof window === "undefined" ? undefined : chatStore()?.sidebarLayout, sessions);
   const projection = useMemo(() => layout.snapshot ? projectSidebar(sessions, layout.snapshot, mode) : null, [sessions, layout.snapshot, mode]);
   const groupBySession = useMemo(() => new Map(projection?.groups.flatMap(group => group.sessionIds.map(id => [id, group.groupId] as const)) ?? []), [projection]);
-  // Work and code grouped by project read as tiers: 置顶, 项目, one per section, 最近.
-  const tiers = useMemo(() => layout.snapshot && supportsProjects && layout.snapshot.layout.modes[mode].viewMode === "project"
-    ? projectTiers(sessions, layout.snapshot, mode) : null, [sessions, layout.snapshot, mode, supportsProjects]);
+  // Work and code grouped by project read as tiers: 置顶, 项目, one per section, 最近. Chat reads the same way without projects:
+  // one tier per section, then 最近.
+  const tiers = useMemo(() => !layout.snapshot ? null
+    : supportsProjects ? (layout.snapshot.layout.modes[mode].viewMode === "project" ? projectTiers(sessions, layout.snapshot, mode) : null)
+      : chatTiers(sessions, layout.snapshot, mode), [sessions, layout.snapshot, mode, supportsProjects]);
   const tierGroupBySession = useMemo(() => new Map(tiers?.flatMap(tier => [
     ...tier.folders.flatMap(folder => folder.sessionIds.map(id => [id, folder.groupId] as const)),
     ...tier.flatSessionIds.map(id => [id, tier.flatGroupId!] as const),
@@ -477,7 +479,7 @@ export const ConversationSidebar = memo(function ConversationSidebar({
           </button>
           <span className="ff-tier__actions">
             {index === 0 && layoutControls}
-            {(tier.kind === "projects" || (index === 0 && !tiers!.some(other => other.kind === "projects"))) && onNewProjectTask && (
+            {supportsProjects && (tier.kind === "projects" || (index === 0 && !tiers!.some(other => other.kind === "projects"))) && onNewProjectTask && (
               <button type="button" className="ff-tier__add" aria-label={t("sidebar.addProject")} title={t("sidebar.addProject")} onClick={addProjectFolder}>
                 <Plus size={14} strokeWidth={1.8} aria-hidden="true" />
               </button>
@@ -490,7 +492,7 @@ export const ConversationSidebar = memo(function ConversationSidebar({
             <Conversations rootClassName="ff-conversation-list ff-conversation-list--flat" items={rowsOf([tier.flatGroupId])} activeKey={activeSessionId}
               onActiveChange={(key) => { onSelect(String(key)); }} groupable={{ collapsible: false, label: () => null }} />
           )}
-          {tier.kind === "section" && tier.folders.length === 0 && <p className="ff-tier__empty">{t("sidebar.emptySectionProjects")}</p>}
+          {tier.kind === "section" && tier.folders.length === 0 && tier.flatSessionIds.length === 0 && <p className="ff-tier__empty">{t("sidebar.emptyTier")}</p>}
         </div>}
       </section>
     );

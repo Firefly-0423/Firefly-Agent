@@ -990,7 +990,7 @@
     "renameProject": "Edit",
     "renameProjectTitle": "Rename project",
     "newProjectChat": "New conversation in this project",
-    "emptySectionProjects": "No projects yet. Use “Section” in a project's ⋯ menu to file one here.",
+    "emptyTier": "Nothing here yet",
     "showProject": "Show project",
     "projectVisibility": "Project visibility",
     "organizeSidebar": "Organize sidebar",
