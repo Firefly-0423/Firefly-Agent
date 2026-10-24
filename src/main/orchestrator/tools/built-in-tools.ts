@@ -3,7 +3,7 @@ export { setWeatherConfig, type WeatherCardData } from "./builtin-tools/weather-
 export { setSearchConfig } from "./builtin-tools/web-search-tool";
 
 import { toolRegistry } from "./registry/tool-registry";
-import { logger, LogTag } from "../../logger";
+import { logger, LogTag } from "../../logging/logger";
 import { weatherTool } from "./builtin-tools/weather-tool";
 import { webSearchTool } from "./builtin-tools/web-search-tool";
 import { fetchUrlTool } from "./builtin-tools/fetch-url-tool";

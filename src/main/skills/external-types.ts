@@ -1,5 +1,5 @@
 import type { ExternalSkill, ExternalSkillSourceId, LicenseEvidence } from "../../shared/external-skills";
-import type { StorageContext } from "../storage-context";
+import type { StorageContext } from "../storage/storage-context";
 
 /** Construct only from the real trusted IPC event; never accept from Renderer. */
 export interface ExternalOwner {

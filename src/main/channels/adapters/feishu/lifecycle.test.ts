@@ -6,7 +6,7 @@ const sdk = vi.hoisted(() => ({ createChannel: vi.fn() }));
 vi.mock("@larksuiteoapi/node-sdk", () => ({ createLarkChannel: sdk.createChannel, Domain: { Feishu: "feishu" }, LoggerLevel: { warn: 1 } }));
 vi.mock("../../settings-store", () => ({ loadChannelsSettings: () => ({ feishu: { enabled: true, appId: "synthetic", appSecret: "synthetic" } }) }));
 vi.mock("electron", () => ({ app: { getPath: () => "/synthetic/firefly-feishu-lifecycle" } }));
-vi.mock("../../../logger", () => ({ logger: { info() {}, warn() {}, error() {} }, LogTag: {} }));
+vi.mock("../../../logging/logger", () => ({ logger: { info() {}, warn() {}, error() {} }, LogTag: {} }));
 
 function deferred() {
   let resolve!: () => void;

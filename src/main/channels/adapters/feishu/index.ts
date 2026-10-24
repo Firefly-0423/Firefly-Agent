@@ -7,7 +7,7 @@ import type { ChannelCapability, ChannelStatus, IncomingMessage, MessageHandler,
 import { loadChannelsSettings } from "../../settings-store";
 import { admitSender } from "../../sender-gate";
 import { getAudioDurationMs } from "./audio-duration";
-import { logger, LogTag } from "../../../logger";
+import { logger, LogTag } from "../../../logging/logger";
 
 export { transcodeAudioFileToFeishuOpus } from "./audio-transcode";
 const LOG = "[FeishuAdapter]";

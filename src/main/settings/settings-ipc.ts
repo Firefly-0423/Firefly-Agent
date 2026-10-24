@@ -3,7 +3,7 @@ import { pathToFileURL } from "node:url";
 import { randomUUID } from "crypto";
 import * as fs from "fs";
 import * as path from "path";
-import { isDev } from "../env";
+import { isDev } from "../startup/env";
 import { getModelConnectionSnapshot, onModelConnectionChanged, testModelConnection } from "./model-settings";
 import { IPC } from "../../shared/ipc-channels";
 import { createIpcScope, type IpcScope } from "../application/ipc-scope";
@@ -33,9 +33,9 @@ import { normalizeDeclaredInputModalities } from "../../shared/input-modalities"
 import { assertGeneralSettingsReadable } from "./settings-facade";
 import { maskCredentials, MODEL_CREDENTIAL_FIELDS, GENERAL_CREDENTIAL_FIELDS } from "./credential-storage";
 import { isFromHostDocument } from "../plugin-host/plugin-management-ipc-guard";
-import { getTimeoutSettings, saveTimeoutSettings } from "../timeout-manager";
+import { getTimeoutSettings, saveTimeoutSettings } from "./timeout-manager";
 import type { syncVolcanoSearchMcp } from "./general-settings-lifecycle";
-import type { syncPlaywrightMcp } from "../sync-mcp-builtin";
+import type { syncPlaywrightMcp } from "../orchestrator/sync-mcp-builtin";
 
 export interface SettingsIpcDependencies {
   /** 每次经由 getter 实时读取，注册时可能尚为 null。 */

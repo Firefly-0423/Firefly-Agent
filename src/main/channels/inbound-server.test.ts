@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 vi.mock("./settings-store", () => ({ loadChannelsSettings: () => ({ sharedSecret: "public-test-secret", inboundPort: 0 }), saveChannelsSettings: vi.fn() }));
 vi.mock("./manager", () => ({ channelManager: { listChannels: () => [] } }));
-vi.mock("../logger", () => ({ logger: { info: vi.fn(), warn: vi.fn() }, LogTag: {} }));
+vi.mock("../logging/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn() }, LogTag: {} }));
 import { startInboundServer, stopInboundServer } from "./inbound-server";
 afterEach(stopInboundServer);
 it("accepts only the Firefly secret header without weakening secret checks", async () => {

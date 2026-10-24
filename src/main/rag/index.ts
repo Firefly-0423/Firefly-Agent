@@ -14,13 +14,13 @@ import { JsonVectorStore } from "./vectorstore";
 import type { MemoryEntry } from "./vectorstore";
 import { HybridRetriever } from "./retriever";
 import { WorldbookManager } from "./worldbook";
-import { logger, LogTag } from "../logger";
+import { logger, LogTag } from "../logging/logger";
 export { INJECTION_HEADER, INJECTION_PREAMBLE } from "./worldbook-constants";
 import { chunkText } from "./chunk";
 import { feedEntityNamesToJieba } from "../memory/entity-graph";
 import { isL2LocallyRecallable } from "../memory/memory-types";
 import type { DocumentImportControl } from "./file-ingest";
-import { findPromptPath } from "../external-content-paths";
+import { findPromptPath } from "../storage/external-content-paths";
 
 // ───────────── 模块级单例 ─────────────
 

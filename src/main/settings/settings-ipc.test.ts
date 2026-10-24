@@ -12,7 +12,7 @@ const fixture = vi.hoisted(() => ({
   assertModel: vi.fn(), assertGeneral: vi.fn(), saveProfile: vi.fn(), setDefault: vi.fn(), timeoutGet: vi.fn(), timeoutSave: vi.fn(),
 }));
 vi.mock("electron", () => ({ app: { getPath: () => fixture.dir, getAppPath: () => process.cwd() }, dialog: { showOpenDialog: fixture.open } }));
-vi.mock("../env", () => ({ isDev: true }));
+vi.mock("../startup/env", () => ({ isDev: true }));
 vi.mock("./model-settings", () => ({
   getPublicModelConfig: fixture.publicConfig,
   listSavedModelProfiles: (settings: { modelProfiles?: unknown[] }) => settings.modelProfiles ?? [],
@@ -27,7 +27,7 @@ vi.mock("../rag", () => ({ switchEmbeddingModel: fixture.switchModel }));
 vi.mock("../rag/reranker", () => ({ initReranker: fixture.initReranker, getRerankerInstallStatus: fixture.rerankerStatus }));
 vi.mock("../orchestrator/vendors/test-connection", () => ({ testVendorConnection: vi.fn() }));
 vi.mock("./fetch-vendor-models", () => ({ fetchVendorModels: fixture.fetchModels }));
-vi.mock("../timeout-manager", () => ({ getTimeoutSettings: fixture.timeoutGet, saveTimeoutSettings: fixture.timeoutSave }));
+vi.mock("./timeout-manager", () => ({ getTimeoutSettings: fixture.timeoutGet, saveTimeoutSettings: fixture.timeoutSave }));
 import { registerSettingsIpc } from "./settings-ipc";
 import * as windows from "../windows/window-state";
 import { DEFAULT_UI_FONT } from "../../shared/ui-font";

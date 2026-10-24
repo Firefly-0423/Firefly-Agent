@@ -1,7 +1,7 @@
 import type { IpcMainInvokeEvent, WebContents } from "electron";
 import type { IpcScope } from "../application/ipc-scope";
 import { IPC } from "../../shared/ipc-channels";
-import type { createPluginMarketplaceService } from "../plugin-marketplace";
+import type { createPluginMarketplaceService } from "./plugin-marketplace";
 import { isFromHostDocument } from "./plugin-management-ipc-guard";
 
 export function registerPluginMarketplaceIpc(deps: {

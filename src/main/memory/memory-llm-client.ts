@@ -12,7 +12,7 @@ import { runStructuredOutput } from "../orchestrator/structured-output/runner";
 import type { StructuredRepairContext, BusinessValidationResult } from "../orchestrator/structured-output/runner";
 import { resolveMaxOutputTokens, resolveTimeoutPolicy } from "../runtime-policy";
 import type { RuntimeStage } from "../runtime-policy";
-import { recordRequest, recordUsage } from "../token-usage-store";
+import { recordRequest, recordUsage } from "../storage/token-usage-store";
 import { getAdapterForConfig } from "../orchestrator/vendors";
 import type { ChatRequest, ChatMessage, VendorConfig } from "../orchestrator/vendors";
 import type { StructuredOutputProfile, StructuredOutputStage } from "../orchestrator/structured-output/types";

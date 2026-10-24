@@ -1,10 +1,10 @@
 import * as fs from "fs";
-import { fireflyExportManifest } from "../firefly-data-paths";
+import { fireflyExportManifest } from "../storage/firefly-data-paths";
 import * as path from "path";
 import { memoryStore } from "./memory-store";
 import { entityGraph } from "./entity-graph";
 import type { L0Profile, L1Profile, L2Memory, ReflectionLog, ConflictLog } from "./memory-types";
-import { logger, LogTag } from "../logger";
+import { logger, LogTag } from "../logging/logger";
 import { loadObsidianVaultConfig, saveObsidianVaultConfig, isVaultBound } from "./obsidian-vault-config";
 import { isImportingMemory } from "./obsidian-sync-flag";
 

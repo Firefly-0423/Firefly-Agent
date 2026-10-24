@@ -26,8 +26,8 @@ async function fixture(configs: unknown[] = []) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "firefly-mcp-manager-"));
   roots.push(root);
   fs.mkdirSync(path.join(root, "test"));
-  const { resolveRuntimeProfile } = await import("../runtime-profile");
-  const { initializeStorageContext } = await import("../storage-context");
+  const { resolveRuntimeProfile } = await import("../startup/runtime-profile");
+  const { initializeStorageContext } = await import("../storage/storage-context");
   const storage = initializeStorageContext(resolveRuntimeProfile({
     isPackaged: true,
     env: {},

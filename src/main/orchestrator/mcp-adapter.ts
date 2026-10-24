@@ -5,10 +5,10 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { ToolDefinition, toolRegistry, type ToolEffectKind } from "./tools/registry/tool-registry";
-import type { ToolRiskLevel } from "../permission-policy";
+import type { ToolRiskLevel } from "../permission/permission-policy";
 import { ToolExecutionError } from "./tools/registry/tool-execution-error";
 import type { ToolContext } from "./tools/registry/tool-context";
-import { createAbortError, isCancellationError, raceWithSignal } from "../abort-utils";
+import { createAbortError, isCancellationError, raceWithSignal } from "../utils/abort-utils";
 import { createMcpSchemaValidator, discoverMcpToolCatalog } from "./mcp-tool-catalog";
 import { classifyMcpFailure, isMcpAuthFailure } from "./mcp-failure";
 

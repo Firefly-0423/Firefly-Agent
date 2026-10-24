@@ -50,7 +50,7 @@ vi.mock("./tool-dispatcher", () => ({
   persistToolDispatchResult: vi.fn(async (_call: unknown, result: unknown) => result),
 }));
 
-vi.mock("../../token-usage-store", () => ({ recordModelCall: () => undefined, recordToolCall: () => undefined, recordUsage, recordRequest }));
+vi.mock("../../storage/token-usage-store", () => ({ recordModelCall: () => undefined, recordToolCall: () => undefined, recordUsage, recordRequest }));
 
 import { runFireflyHarness } from "./firefly-harness";
 import { dispatchToolCall } from "./tool-dispatcher";

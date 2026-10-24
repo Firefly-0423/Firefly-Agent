@@ -15,15 +15,15 @@ import { ExecutionLedger } from "../execution-ledger";
 import { executeToolDefinition } from "../tools/registry/tool-executor";
 import type { ToolOutputStore } from "./tool-output/tool-output-store";
 import { ToolOutputPersistenceError } from "./tool-output/file-tool-output-store";
-import { getCurrentLevel } from "../../permission";
+import { getCurrentLevel } from "../../permission/permission";
 import { isPlanReadOnly } from "../plan-mode";
 import { classifyToolExecutionMode } from "./tool-call-scheduler";
 import { isShellJobControlAuthorized } from "../tools/builtin-tools/shell-job-manager";
 import { shellJobTool } from "../tools/builtin-tools/shell-job-tool";
 import type { DelegationScope } from "../child-session-types";
-import { isAbortError, raceWithSignal } from "../../abort-utils";
+import { isAbortError, raceWithSignal } from "../../utils/abort-utils";
 import type { LeafPermit } from "./execution-coordinator";
-import { policyFor } from "../../permission-policy";
+import { policyFor } from "../../permission/permission-policy";
 import { createToolInvocationContext } from "../tools/registry/tool-context";
 
 export type TruncationConfig = { tailChars: number; headChars: number; thresholdChars: number };

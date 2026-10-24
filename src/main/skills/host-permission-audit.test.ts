@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { policyFor } from "../permission-policy";
+import { policyFor } from "../permission/permission-policy";
 import { dispatchToolCall } from "../orchestrator/harness/tool-dispatcher";
 import { createSpecialistProfiles } from "../orchestrator/specialist-profiles";
 import { resolveAgentCapabilities } from "../orchestrator/agent-capabilities";

@@ -1,7 +1,7 @@
 import path from "node:path";
 import { getCachedSessionIdsForCoverage } from "../chats/chats-store";
-import { getStorageContext, type StorageContext } from "../storage-context";
-import { fireflyDataDirectory } from "../firefly-data-paths";
+import { getStorageContext, type StorageContext } from "../storage/storage-context";
+import { fireflyDataDirectory } from "../storage/firefly-data-paths";
 
 const MAX_SESSIONS = 10_000;
 const BATCH_SIZE = 32;

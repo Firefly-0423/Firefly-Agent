@@ -40,7 +40,7 @@ vi.mock("fs", async importOriginal => {
 beforeAll(() => { vi.stubEnv("FIREFLY_PROMPT_DUMP", "1"); });
 afterAll(() => { vi.unstubAllEnvs(); fs.rmSync(diagnosticIO.home, { recursive: true, force: true }); });
 
-vi.mock("../token-usage-store", () => ({ recordModelCall: () => undefined, recordToolCall: () => undefined, recordUsage: vi.fn(), recordRequest: vi.fn() }));
+vi.mock("../storage/token-usage-store", () => ({ recordModelCall: () => undefined, recordToolCall: () => undefined, recordUsage: vi.fn(), recordRequest: vi.fn() }));
 vi.mock("electron", () => ({ app: { getPath: () => { throw Error("PRODUCT_DATA_READ_FORBIDDEN"); } } }));
 const cleanup: Array<() => Promise<void> | void> = [];
 afterEach(async () => { await Promise.all(diagnosticIO.pending.splice(0)); for (const close of cleanup.splice(0).reverse()) await close(); vi.unstubAllGlobals(); vi.restoreAllMocks(); setVendorRuntimeSettingsGetter(() => ({})); });

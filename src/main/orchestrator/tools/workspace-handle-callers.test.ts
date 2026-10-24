@@ -23,7 +23,7 @@ vi.mock("fs", async original => {
   }
   return wrapped;
 });
-vi.mock("../../permission", () => ({ getCurrentLevel: () => state.liveLevel }));
+vi.mock("../../permission/permission", () => ({ getCurrentLevel: () => state.liveLevel }));
 vi.mock("electron", () => ({ app: { isPackaged: false, getAppPath: () => state.userData, getPath: () => state.userData } }));
 vi.mock("./registry/tool-registry", () => ({ toolRegistry: { register: (t: ToolDefinition) => registry.set(t.id, t) } }));
 vi.mock("./built-in-tools", () => ({ currentUserTimezone: () => "UTC" }));

@@ -14,7 +14,7 @@ vi.mock("../../rag", () => ({
 }));
 vi.mock("./registry/tool-registry", () => ({ toolRegistry: { register: mocks.register } }));
 vi.mock("./built-in-tools", () => ({ currentUserTimezone: () => "UTC" }));
-vi.mock("../../locale-context", () => ({ getDateLocale: () => "zh-CN" }));
+vi.mock("../../startup/locale-context", () => ({ getDateLocale: () => "zh-CN" }));
 
 import { indexConversationTurn, registerRecallHistoryTool } from "./history-tools";
 

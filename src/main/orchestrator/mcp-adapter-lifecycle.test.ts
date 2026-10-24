@@ -44,9 +44,9 @@ vi.mock("@modelcontextprotocol/sdk/client/sse.js", () => ({
   },
 }));
 vi.mock("../rag/index", () => ({ searchMemory: vi.fn() }));
-vi.mock("../logger", () => ({ logger: { info: vi.fn(), warn: vi.fn() }, LogTag: { MCP: "mcp" } }));
-vi.mock("../storage-context", () => ({ getStorageContext: () => ({ files: { mcp: "synthetic" } }) }));
-vi.mock("../atomic-json-store", () => ({
+vi.mock("../logging/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn() }, LogTag: { MCP: "mcp" } }));
+vi.mock("../storage/storage-context", () => ({ getStorageContext: () => ({ files: { mcp: "synthetic" } }) }));
+vi.mock("../storage/atomic-json-store", () => ({
   AtomicJsonStore: class {
     read() { return structuredClone(fixture.configs); }
     write(configs: McpServerConfig[]) {
@@ -58,7 +58,7 @@ vi.mock("../atomic-json-store", () => ({
 
 import { connectMcpServer, disconnectMcpServer, getMcpServerStates } from "./mcp-adapter";
 import { initMcpManager, addMcpServer } from "./mcp-manager";
-import { buildPlaywrightMcpConfig, syncPlaywrightMcp } from "../sync-mcp-builtin";
+import { buildPlaywrightMcpConfig, syncPlaywrightMcp } from "./sync-mcp-builtin";
 import { toolRegistry } from "./tools/registry/tool-registry";
 
 const config: McpServerConfig = { id: "fixture", name: "Fixture", transport: "stdio", command: "synthetic-node" };

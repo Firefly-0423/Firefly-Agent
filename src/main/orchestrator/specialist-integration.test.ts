@@ -14,7 +14,7 @@ vi.mock("./vendors", () => ({
     return { text: "Public fixture completed", toolCalls: [], finishReason: "stop", raw: {} };
   },
 }));
-vi.mock("../token-usage-store", () => ({ recordModelCall: () => undefined, recordToolCall: () => undefined, recordUsage: vi.fn(), recordRequest: vi.fn() }));
+vi.mock("../storage/token-usage-store", () => ({ recordModelCall: () => undefined, recordToolCall: () => undefined, recordUsage: vi.fn(), recordRequest: vi.fn() }));
 
 import { prepareToolRuntime } from "./harness/adapter/tool-runtime";
 import { saveModelSettings } from "../settings/model-settings";

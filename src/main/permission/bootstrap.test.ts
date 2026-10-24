@@ -1,16 +1,16 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
 const calls = vi.hoisted(() => [] as unknown[][]);
-vi.mock("../logger", () => ({
+vi.mock("../logging/logger", () => ({
   logger: { info: (...args: unknown[]) => { calls.push(["log", ...args]); } },
   LogTag: { Firefly: "firefly" },
 }));
-vi.mock("../permission", () => ({
+vi.mock("./permission", () => ({
   initPermissionFromDisk: () => { calls.push(["init"]); },
   registerPermissionIpc: (scope: unknown) => { calls.push(["permission-ipc", scope]); },
   getCurrentLevel: () => "scoped",
 }));
-vi.mock("../user-choice", () => ({
+vi.mock("../chat/user-choice", () => ({
   registerChoiceIpc: (scope: unknown) => { calls.push(["choice-ipc", scope]); },
 }));
 

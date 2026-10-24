@@ -4,7 +4,7 @@ import type { FireflyRunTerminalResult } from "../../../shared/run-terminal";
 import type { ApprovalOrigin } from "../../../shared/permission-approval";
 import type { TodoItem } from "../../../shared/task-session";
 import type { ToolErrorCategory } from "../tools/registry/tool-execution-error";
-import type { ToolRiskLevel } from "../../permission-policy";
+import type { ToolRiskLevel } from "../../permission/permission-policy";
 import type { ToolTaskResult, ToolFileChange } from "../../../shared/chat-types";
 import type { ContextUsageSnapshot } from "../../../shared/context-usage";
 import type { ToolOutputStore, ToolOutputRef } from "./tool-output/tool-output-store";

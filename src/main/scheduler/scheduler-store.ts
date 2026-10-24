@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import { app } from "electron";
 import type { PluginPromptMode } from "../../plugins/api";
-import { AtomicJsonStore } from "../atomic-json-store";
+import { AtomicJsonStore } from "../storage/atomic-json-store";
 import { computeInitialNextFireAt, normalizeOverdueNextFireAt } from "./schedule-calculator";
 import type { NewScheduledTaskInput, ScheduledTask, ScheduledTaskHistoryEntry, ScheduledTaskPatch, ScheduleConfig, SchedulerToolMode, } from "./types";
 interface StoreDeps {

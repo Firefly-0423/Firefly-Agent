@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const deps = vi.hoisted(() => ({ stream: vi.fn(), build: vi.fn(), parse: vi.fn(), hints: vi.fn(), transport: vi.fn(), recordUsage: vi.fn(), recordRequest: vi.fn(), recordModelCall: vi.fn() }));
 vi.mock("../vendors", () => ({ getAdapterForConfig: () => ({ buildRequest: deps.build, parseResponse: deps.parse, applyCacheHints: deps.hints }), resolveTransport: deps.transport, streamChatWithSdk: deps.stream }));
-vi.mock("../../token-usage-store", () => deps);
+vi.mock("../../storage/token-usage-store", () => deps);
 import { callLLM, summarizeHistory } from "./harness-llm";
 const vendor = { provider: "test", baseUrl: "https://example.test", model: "m", apiKey: "test" }, config = { modelRequestTimeoutMs: 0 } as never;
 const layers = { stablePrefix: "system" }, response = { text: "answer", assistantMessage: { role: "assistant", content: "answer" } };

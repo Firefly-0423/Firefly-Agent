@@ -1,6 +1,6 @@
 [
   {
-    "file": "src/main/agui-bridge.ts",
+    "file": "src/main/chat/agui-bridge.ts",
     "method": "getPath",
     "root": "userData",
     "count": 5,
@@ -14,7 +14,7 @@
     ]
   },
   {
-    "file": "src/main/app-identity.ts",
+    "file": "src/main/startup/app-identity.ts",
     "method": "getPath",
     "root": "appData",
     "count": 4,
@@ -27,7 +27,7 @@
     ]
   },
   {
-    "file": "src/main/app-identity.ts",
+    "file": "src/main/startup/app-identity.ts",
     "method": "getPath",
     "root": "sessionData",
     "count": 1,
@@ -37,7 +37,7 @@
     ]
   },
   {
-    "file": "src/main/app-identity.ts",
+    "file": "src/main/startup/app-identity.ts",
     "method": "getPath",
     "root": "userData",
     "count": 1,
@@ -47,7 +47,7 @@
     ]
   },
   {
-    "file": "src/main/app-identity.ts",
+    "file": "src/main/startup/app-identity.ts",
     "method": "setPath",
     "root": "appData",
     "count": 1,
@@ -57,7 +57,7 @@
     ]
   },
   {
-    "file": "src/main/app-identity.ts",
+    "file": "src/main/startup/app-identity.ts",
     "method": "setPath",
     "root": "sessionData",
     "count": 1,
@@ -67,7 +67,7 @@
     ]
   },
   {
-    "file": "src/main/app-identity.ts",
+    "file": "src/main/startup/app-identity.ts",
     "method": "setPath",
     "root": "userData",
     "count": 1,
@@ -218,7 +218,7 @@
     ]
   },
   {
-    "file": "src/main/external-content-paths.ts",
+    "file": "src/main/storage/external-content-paths.ts",
     "method": "getPath",
     "root": "userData",
     "count": 1,
@@ -228,7 +228,7 @@
     ]
   },
   {
-    "file": "src/main/identity-preflight.ts",
+    "file": "src/main/startup/identity-preflight.ts",
     "method": "getPath",
     "root": "appData",
     "count": 1,
@@ -381,7 +381,7 @@
     ]
   },
   {
-    "file": "src/main/permission.ts",
+    "file": "src/main/permission/permission.ts",
     "method": "getPath",
     "root": "userData",
     "count": 1,
@@ -456,7 +456,7 @@
     ]
   },
   {
-    "file": "src/main/runtime-profile.ts",
+    "file": "src/main/startup/runtime-profile.ts",
     "method": "getPath",
     "root": "DYNAMIC",
     "count": 1,
@@ -466,7 +466,7 @@
     ]
   },
   {
-    "file": "src/main/runtime-profile.ts",
+    "file": "src/main/startup/runtime-profile.ts",
     "method": "setAppLogsPath",
     "root": "logs",
     "count": 1,
@@ -476,7 +476,7 @@
     ]
   },
   {
-    "file": "src/main/runtime-profile.ts",
+    "file": "src/main/startup/runtime-profile.ts",
     "method": "setPath",
     "root": "appData",
     "count": 1,
@@ -486,7 +486,7 @@
     ]
   },
   {
-    "file": "src/main/runtime-profile.ts",
+    "file": "src/main/startup/runtime-profile.ts",
     "method": "setPath",
     "root": "sessionData",
     "count": 1,
@@ -496,7 +496,7 @@
     ]
   },
   {
-    "file": "src/main/runtime-profile.ts",
+    "file": "src/main/startup/runtime-profile.ts",
     "method": "setPath",
     "root": "userData",
     "count": 1,
@@ -537,7 +537,7 @@
     ]
   },
   {
-    "file": "src/main/settings-store.ts",
+    "file": "src/main/storage/settings-store.ts",
     "method": "getPath",
     "root": "userData",
     "count": 6,
@@ -593,7 +593,7 @@
     ]
   },
   {
-    "file": "src/main/timeout-manager.ts",
+    "file": "src/main/settings/timeout-manager.ts",
     "method": "getPath",
     "root": "userData",
     "count": 1,

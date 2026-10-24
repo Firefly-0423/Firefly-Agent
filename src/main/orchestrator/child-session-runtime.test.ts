@@ -15,7 +15,7 @@ import type { ChatMessage, ChatResponse, ToolCall } from "./vendors/types";
 import type { HarnessInput } from "./harness/index";
 
 // Usage storage belongs to the installed desktop profile; this fixture owns only temporary stores.
-vi.mock("../token-usage-store", () => ({ recordModelCall: () => undefined, recordToolCall: () => undefined, recordUsage: () => undefined, recordRequest: () => undefined }));
+vi.mock("../storage/token-usage-store", () => ({ recordModelCall: () => undefined, recordToolCall: () => undefined, recordUsage: () => undefined, recordRequest: () => undefined }));
 
 const roots: string[] = [];
 const plannedWriteFailure = "synthetic planned snapshot failure PRIVATE_BODY_CANARY";

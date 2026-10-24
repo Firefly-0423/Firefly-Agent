@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { firstValueFrom } from "rxjs";
-import type { UsageAttribution } from "../usage-attribution";
+import type { UsageAttribution } from "../storage/usage-attribution";
 
 // recordMessage keeps what it saw: the conversation stats only count a round when the run's attribution is already active.
 const seen = vi.hoisted(() => ({ message: [] as Array<UsageAttribution | undefined>, plugin: [] as string[] }));
-vi.mock("../token-usage-store", async () => {
-  const { currentUsageAttribution } = await import("../usage-attribution");
+vi.mock("../storage/token-usage-store", async () => {
+  const { currentUsageAttribution } = await import("../storage/usage-attribution");
   return {
     recordMessage: () => { seen.message.push(currentUsageAttribution()); },
     recordPluginCall: (id: string) => { seen.plugin.push(id); },

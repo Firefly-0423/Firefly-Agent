@@ -4,7 +4,7 @@ import { createChannelMemoryAccountIdentity, type ChannelAdapter } from "../chan
 import type { IncomingMessage } from "../channels/types";
 import * as ingressApi from "./channel-memory-ingress";
 
-vi.mock("../logger", () => ({ logger: { info: vi.fn() }, LogTag: { Channels: "channels" } }));
+vi.mock("../logging/logger", () => ({ logger: { info: vi.fn() }, LogTag: { Channels: "channels" } }));
 
 const incoming = (patch: Partial<IncomingMessage> = {}): IncomingMessage => ({ channel: "qq", senderId: "sender-1", chatId: "chat-1", text: "I prefer bash", at: new Date(1700000000000), ...patch });
 async function fixture(accountKey = "qq:account-a") {

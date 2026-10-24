@@ -1,6 +1,6 @@
 import { IPC } from "../../shared/ipc-channels";
 import { createIpcScope, type IpcScope } from "../application/ipc-scope";
-import { clearUsage, getSessionStats, getUsageHistory, getUsageReport } from "../token-usage-store";
+import { clearUsage, getSessionStats, getUsageHistory, getUsageReport } from "../storage/token-usage-store";
 import { listSessions } from "../chats/chats-store";
 import { sidebarWindow, settingsWindow } from "./window-state";
 import type { WindowManager } from "./window-manager";

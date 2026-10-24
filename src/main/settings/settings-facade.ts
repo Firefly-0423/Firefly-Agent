@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { DEFAULT_UI_COLORS, normalizeUiColors } from "../../shared/ui-colors";
-import { logger, LogTag } from "../logger";
+import { logger, LogTag } from "../logging/logger";
 import { DEFAULT_UI_FONT, normalizeUiFont } from "../../shared/ui-font";
 import { normalizeUiTheme } from "../../shared/ui-theme";
 import { normalizeUiIcon } from "../../shared/ui-icon";
@@ -13,7 +13,7 @@ import {
   normalizeSegmentedOutputMode,
 } from "../../shared/preferences";
 import { normalizeWindowVisibilitySettings } from "../windows/window-visibility-settings";
-import { getGeneralSettingsPath } from "../settings-store";
+import { getGeneralSettingsPath } from "../storage/settings-store";
 import type { GeneralSettings } from "./general-settings";
 import { DEFAULT_MAX_TOOL_ROUNDS, DEFAULT_RUN_TIMEOUT_MS } from "../orchestrator/harness/types";
 import { decodeCredentials, migrateCredentials, writeCredentials, GENERAL_CREDENTIAL_FIELDS } from "./credential-storage";

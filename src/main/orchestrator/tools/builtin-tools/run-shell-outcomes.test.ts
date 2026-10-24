@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AgentFileAccessLevel } from "../../../permission-policy";
+import type { AgentFileAccessLevel } from "../../../permission/permission-policy";
 import type { ToolContext } from "../registry/tool-context";
 import type { HarnessRun } from "../../harness/firefly-harness";
 import { DEFAULT_HARNESS_CONFIG, INITIAL_HARNESS_CACHE_STATE, type HarnessEvent, type HarnessToolFinishedEvent } from "../../harness/types";
@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   level: "full" as AgentFileAccessLevel,
   spawn: vi.fn(), wrap: vi.fn(), resolve: vi.fn(), invocation: vi.fn(), background: vi.fn(), kill: vi.fn(),
 }));
-vi.mock("../../../permission", () => ({ getCurrentLevel: () => mocks.level }));
+vi.mock("../../../permission/permission", () => ({ getCurrentLevel: () => mocks.level }));
 vi.mock("child_process", () => ({ spawn: (...args: unknown[]) => mocks.spawn(...args) }));
 vi.mock("../../sandbox/sandbox-exec", () => ({ wrapWithSandbox: (...args: unknown[]) => mocks.wrap(...args) }));
 vi.mock("../../shell-runtime", () => ({
@@ -20,7 +20,7 @@ vi.mock("./shell-job-manager", () => ({
   killTree: (...args: unknown[]) => mocks.kill(...args),
   startShellJob: (...args: unknown[]) => mocks.background(...args),
 }));
-vi.mock("../../../logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() }, LogTag: { BuiltinTools: "test" } }));
+vi.mock("../../../logging/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() }, LogTag: { BuiltinTools: "test" } }));
 
 import { runShellTool } from "./run-shell-tool";
 import { executeToolDefinition } from "../registry/tool-executor";

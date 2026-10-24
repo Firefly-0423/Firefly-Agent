@@ -1,5 +1,5 @@
 import * as fs from "fs";
-import { getRagStorePath } from "../settings-store";
+import { getRagStorePath } from "../storage/settings-store";
 import { memoryStore } from "./memory-store";
 import type { L0Profile, L1Profile, ReflectionLog } from "./memory-types";
 

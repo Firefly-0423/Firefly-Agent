@@ -3,7 +3,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { IPC } from "../../shared/ipc-channels";
 import type { IpcScope } from "../application/ipc-scope";
-import { isDev } from "../env";
+import { isDev } from "../startup/env";
 import type { McpServerConfig } from "./mcp-adapter";
 import type { McpFailureReason } from "./mcp-failure";
 import { addMcpServer, listMcpServerConfigs, listMcpServers, removeMcpServer, setMcpServerEnabled } from "./mcp-manager";

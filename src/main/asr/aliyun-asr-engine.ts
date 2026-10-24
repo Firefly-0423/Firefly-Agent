@@ -7,7 +7,7 @@
 import { WebSocket } from "ws";
 import { createHmac } from "node:crypto";
 import { randomUUID } from "node:crypto";
-import { createAbortError, raceWithSignal } from "../abort-utils";
+import { createAbortError, raceWithSignal } from "../utils/abort-utils";
 
 const LOG_PREFIX = "[AliyunASR]";
 const NLS_GATEWAY = "wss://nls-gateway.cn-shanghai.aliyuncs.com/ws/v1";

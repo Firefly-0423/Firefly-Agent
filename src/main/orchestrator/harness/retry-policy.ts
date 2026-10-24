@@ -1,5 +1,5 @@
 import type { SideEffectKind, RetryDecision, ToolErrorCategory } from "./types";
-import { createAbortError } from "../../abort-utils";
+import { createAbortError } from "../../utils/abort-utils";
 
 export type RetryParams = { backoffMs: number[]; maxRetries: number };
 export function decideRetry(category: ToolErrorCategory, sideEffect: SideEffectKind): RetryDecision {

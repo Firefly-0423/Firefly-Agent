@@ -5,7 +5,7 @@
 
 import { toolRegistry, type ToolEffectKind } from "../orchestrator/tools/registry/tool-registry";
 import { skillRegistry } from "./skill-registry";
-import { logger, LogTag } from "../logger";
+import { logger, LogTag } from "../logging/logger";
 import { getToolRunScope, type ToolContext } from "../orchestrator/tools/registry/tool-context";
 
 const TAG = "[SkillTools]";

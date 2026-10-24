@@ -1,13 +1,13 @@
 import * as fs from "fs";
-import { fireflyDataDirectory } from "../../firefly-data-paths";
+import { fireflyDataDirectory } from "../../storage/firefly-data-paths";
 import * as path from "path";
 import { createHash } from "node:crypto";
-import { logger, LogTag } from "../../logger";
+import { logger, LogTag } from "../../logging/logger";
 import { structuredPatch } from "diff";
 import type { WorkspaceSnapshot } from "../tools/workspace-handle";
 import type { WorkspaceIdentity } from "../tools/workspace-handle";
 import type { ToolContext } from "../tools/registry/tool-context";
-import { getCurrentLevel } from "../../permission";
+import { getCurrentLevel } from "../../permission/permission";
 import { readWorkspaceReviewSource, reviewIdentityKey } from "./workspace-review-source";
 import type {
   ReviewSnapshot,

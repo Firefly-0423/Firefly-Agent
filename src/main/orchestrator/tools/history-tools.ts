@@ -1,7 +1,7 @@
 import { addMemory, isUserMemoryVectorStoreReady, searchHistoryEntries } from "../../rag";
 import { toolRegistry } from "./registry/tool-registry";
 import { currentUserTimezone } from "./built-in-tools";
-import { getDateLocale } from "../../locale-context";
+import { getDateLocale } from "../../startup/locale-context";
 
 const historyLog = "[History]";
 export async function indexConversationTurn(

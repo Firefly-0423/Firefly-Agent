@@ -1,7 +1,7 @@
 import type { PluginLlmGenerateOptions, PluginLlmMessage } from "../../plugins/api";
 import type { LlmClient } from "../services/llm/llm-client";
 import type { ModelSettings } from "../settings/model-settings";
-import { runWithUsageAttribution } from "../usage-attribution";
+import { runWithUsageAttribution } from "../storage/usage-attribution";
 
 export type EnqueuePluginLlmTask = <T>(label: string, task: () => Promise<T>,
   options?: { log?: boolean; retryRateLimit?: boolean }) => Promise<T>;

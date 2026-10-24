@@ -1,5 +1,5 @@
 import { searchMemory } from "../../../rag/index";
-import type { ToolRiskLevel } from "../../../permission";
+import type { ToolRiskLevel } from "../../../permission/permission";
 import type { ToolContext } from "./tool-context";
 import type { ConversationMode } from "../../../../shared/chat-types";
 

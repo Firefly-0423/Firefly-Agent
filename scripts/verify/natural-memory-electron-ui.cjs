@@ -47,7 +47,7 @@ app.on('session-created',blockSession);app.whenReady().then(()=>blockSession(ses
 const net=require('electron').net;
 for(const method of ['request','fetch'])net[method]=()=>{qa.blocked.push({layer:'electron-net',method});throw Error('QA_ELECTRON_NET_BLOCKED')};
 // Preserve the application's required identity preflight before loading any storage consumer.
-require(${JSON.stringify(path.join(repo,'dist/main/main/identity-preflight.js'))});
+require(${JSON.stringify(path.join(repo,'dist/main/main/startup/identity-preflight.js'))});
 const bg=require(${JSON.stringify(path.join(repo,'dist/main/main/application/background.js'))});
 const realStart=bg.startBackground;
 bg.startBackground=deps=>{

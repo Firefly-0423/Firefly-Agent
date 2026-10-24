@@ -1,5 +1,5 @@
 import { resolveTimeoutPolicy } from "../runtime-policy";
-import { raceWithSignal, createAbortError } from "../abort-utils";
+import { raceWithSignal, createAbortError } from "../utils/abort-utils";
 import { mosslandFetch, MOSSLAND_BASE_URL, buildMosslandError } from "../mossland/api-client";
 
 /** Build the RIFF fields in protocol order for 16 kHz, 16-bit, single-channel PCM. */

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { ephemeralConversations } from "../../../ephemeral-conversations";
+import { ephemeralConversations } from "../../../chats/ephemeral-conversations";
 import { FileToolOutputStore } from "./file-tool-output-store";
 
 const roots: string[] = [], marked: string[] = [];

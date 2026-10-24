@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { afterEach, expect, it, vi } from "vitest";
-import { createStorageContext } from "../storage-context";
+import { createStorageContext } from "../storage/storage-context";
 import { ExternalSkillStateStore } from "./external-state";
 import { externalSkillId } from "./external-policy";
 import { digestExternalFiles } from "./external-review";
@@ -16,7 +16,7 @@ import { registerSkillTools } from "./skill-tools";
 
 const ports = vi.hoisted(() => ({ root: "" }));
 vi.mock("electron", () => ({ app: { isPackaged: false, getAppPath: () => "/unused", getPath: () => ports.root } }));
-vi.mock("../external-content-paths", () => ({ getExternalContentPaths: () => ({ installRoot: "/unused", builtinSkillDirectory: "/unused", userSkillDirectories: [path.join(ports.root, "skills")] }), resolvePackagedSkillDirectory: () => null,
+vi.mock("../storage/external-content-paths", () => ({ getExternalContentPaths: () => ({ installRoot: "/unused", builtinSkillDirectory: "/unused", userSkillDirectories: [path.join(ports.root, "skills")] }), resolvePackagedSkillDirectory: () => null,
   resolveSkillScanSources: (paths: { userSkillDirectories: string[] }) => paths.userSkillDirectories.map(directory => ({ directory, source: "user" })) }));
 import { initSkills, rescanSkills, setSkillEnabled, skillRegistry, listSkillsForUi, buildSkillCatalog, buildAutoInjectedSkillContext, buildAutoInjectedSoulContext } from "./index";
 import { resolveSlashActivation } from "./slash-activation";

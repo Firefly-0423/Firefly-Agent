@@ -3,9 +3,9 @@ import type { GeneralSettings } from "./general-settings";
 import { syncVolcanoSearchMcp } from "./general-settings-lifecycle";
 import { addMcpServer, listMcpServers, removeMcpServer } from "../orchestrator/mcp-manager";
 
-vi.mock("../storage-context", () => ({ getStorageContext: () => ({ profile: { kind: "production" } }) }));
+vi.mock("../storage/storage-context", () => ({ getStorageContext: () => ({ profile: { kind: "production" } }) }));
 vi.mock("electron", () => ({ nativeImage: {}, app: { setLoginItemSettings: vi.fn() } }));
-vi.mock("../locale-context", () => ({ updateLocaleContext: vi.fn() }));
+vi.mock("../startup/locale-context", () => ({ updateLocaleContext: vi.fn() }));
 vi.mock("../windows/window-state", () => ({ setGetCurrentAppIconPath: vi.fn() }));
 vi.mock("../windows/broadcast", () => ({ broadcastToAllWindows: vi.fn() }));
 vi.mock("../windows/app-icon", () => ({ getAppIconPath: vi.fn() }));

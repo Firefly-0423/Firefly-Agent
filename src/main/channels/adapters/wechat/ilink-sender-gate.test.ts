@@ -15,7 +15,7 @@ vi.mock("../../settings-store", async (importOriginal) => ({
   },
 }));
 vi.mock("electron", () => ({ app: { getPath: () => "/synthetic/wechat-gate" } }));
-vi.mock("../../../logger", () => ({ logger: { info() {}, warn() {}, error() {} }, LogTag: {} }));
+vi.mock("../../../logging/logger", () => ({ logger: { info() {}, warn() {}, error() {} }, LogTag: {} }));
 
 function inbound(overrides: Partial<WeixinMessage> = {}): WeixinMessage {
   return { msgId: "m-1", fromUserId: "stranger@im.wechat", toUserId: "bot", msgType: 1, content: "hi", items: [], contextToken: "ctx", raw: {}, ...overrides };

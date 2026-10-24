@@ -10,8 +10,8 @@ import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import { afterAll, afterEach, expect, it, vi } from "vitest";
 // Real SQLite / filesystem integration cases: the 5 s default is too tight on CI runners, so this file allows 30 s. Other files keep the default.
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
-import { initializeStorageContext, getStorageContext } from "../storage-context";
-import { resolveRuntimeProfile } from "../runtime-profile";
+import { initializeStorageContext, getStorageContext } from "../storage/storage-context";
+import { resolveRuntimeProfile } from "../startup/runtime-profile";
 import { createSmhFixture } from "../memory-context/smh-fixture.test-support";
 import { createMainDefaultMemory } from "../memory-context/main-default-memory";
 import { createActiveChatTargetRegistry } from "../plugin-host/active-chat-target";
@@ -28,8 +28,8 @@ import type { AgentProfile } from "../../shared/agent-profile";
 import type { ModelSettings } from "../settings/model-settings";
 
 vi.mock("electron", () => ({ app: { getPath: () => getStorageContext().dataRoot } }));
-vi.mock("../token-usage-store", () => ({ recordModelCall: () => undefined, recordToolCall: () => undefined, recordRequest: vi.fn(), recordUsage: vi.fn() }));
-vi.mock("../timeout-manager", () => ({ getTimeoutSettings: () => ({ chatRequestTimeout: 5000 }) }));
+vi.mock("../storage/token-usage-store", () => ({ recordModelCall: () => undefined, recordToolCall: () => undefined, recordRequest: vi.fn(), recordUsage: vi.fn() }));
+vi.mock("../settings/timeout-manager", () => ({ getTimeoutSettings: () => ({ chatRequestTimeout: 5000 }) }));
 const isolation = fs.mkdtempSync(path.join(os.tmpdir(), "firefly-synthetic-main-storage-"));
 initializeStorageContext(resolveRuntimeProfile({ argv: ["--firefly-profile=test", "--firefly-isolation-root=" + isolation], env: {}, isPackaged: false, productionAppData: path.join(os.tmpdir(), "synthetic-production-unopened") }));
 afterAll(() => fs.rmSync(isolation, { recursive: true, force: true }));

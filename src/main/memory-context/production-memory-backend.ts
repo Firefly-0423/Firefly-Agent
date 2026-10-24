@@ -3,7 +3,7 @@ import path from "node:path";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { MemoryClient } from "../memory-core/worker-client";
 import type { KeyProtection } from "../memory-core/key-provider";
-import { getStorageContext, type StorageContext } from "../storage-context";
+import { getStorageContext, type StorageContext } from "../storage/storage-context";
 import type { createMainHistory } from "../memory-history/main-history";
 import {
   createNativeHistoryEndpointFactory,

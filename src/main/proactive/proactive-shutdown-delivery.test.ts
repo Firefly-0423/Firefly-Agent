@@ -12,7 +12,7 @@ vi.mock("../orchestrator", () => ({ buildAlwaysOnContext: async () => "", buildM
 vi.mock("../rag", () => ({ searchMemory: async () => [] }));
 vi.mock("../prompts/prompt-loader", () => ({ loadPromptFile: () => "persona" }));
 vi.mock("../settings/model-settings", () => ({ loadModelSettings: () => ({ provider: "fixture", apiKey: "synthetic" }), getDefaultModelProfile: () => ({ id: "fixture" }), resolveModelSettingsProfile: (settings: unknown) => settings }));
-vi.mock("../settings-store", () => ({ loadUserProfile: () => ({ timezone: "UTC" }) }));
+vi.mock("../storage/settings-store", () => ({ loadUserProfile: () => ({ timezone: "UTC" }) }));
 vi.mock("./proactive-state-store", () => ({ loadProactiveState: () => mocks.state, saveProactiveState: vi.fn() }));
 vi.mock("./proactive-model", () => ({ runProactiveModel: async () => ({ kind: "send", text: "第一句。第二句。" }) }));
 import { createProactiveLifecycle } from "./proactive-lifecycle";

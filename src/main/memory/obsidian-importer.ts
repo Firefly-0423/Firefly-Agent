@@ -12,7 +12,7 @@ import * as path from "path";
 import { memoryStore } from "./memory-store";
 import { setImportingMemory } from "./obsidian-sync-flag";
 import { addL2MemoryVector, deleteUserMemoryVectors } from "../rag/index";
-import { logger, LogTag } from "../logger";
+import { logger, LogTag } from "../logging/logger";
 import type { L2Memory } from "./memory-types";
 
 const L2_DIR = "记忆";

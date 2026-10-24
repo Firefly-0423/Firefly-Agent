@@ -2,7 +2,7 @@
 import { existsSync, readdirSync, readFileSync } from "fs";
 import { join } from "path";
 import { WORLDBOOK_CONSTANTS } from "./worldbook-constants";
-import { logger, LogTag } from "../logger";
+import { logger, LogTag } from "../logging/logger";
 
 // ───────────── 条目定义 ─────────────
 

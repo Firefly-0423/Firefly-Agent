@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ app: new (class { listeners = new Map<string, Function>(); on(name: string, callback: Function) { this.listeners.set(name, callback); } })(), open: vi.fn() }));
 vi.mock("electron", () => ({ app: mocks.app, shell: { openExternal: mocks.open } }));
-vi.mock("../env", () => ({ isDev: false }));
+vi.mock("../startup/env", () => ({ isDev: false }));
 import { installGlobalNavigationGuard } from "./external-link";
 import { registerBrowserGuestRouting } from "../browser/browser-guest-routing";
 describe("global navigation with exact native browser guest", () => {

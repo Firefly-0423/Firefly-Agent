@@ -82,7 +82,7 @@ async function executeVerification(input: Record<string, unknown>): Promise<stri
       packageRoot: directory || process.cwd(), cwd: directory || process.cwd(),
       configPath: selected.configPath, trust: selected.trust, executable: selected.cmd,
       args: selected.args, source: selected.source,
-    }, { permissionLevel: (await import("../../../permission")).getCurrentLevel(), signal: undefined });
+    }, { permissionLevel: (await import("../../../permission/permission")).getCurrentLevel(), signal: undefined });
     const elapsed = Date.now() - started;
     const passed = outcome.passed;
     console.log(LOG_PREFIX, "run_verification 完成:", kind, "exitCode=" + outcome.exitCode, "passed=" + passed,

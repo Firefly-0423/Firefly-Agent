@@ -2,14 +2,14 @@ import { beforeEach, afterEach, describe, it, expect, vi } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import type { AgentFileAccessLevel } from "../../permission-policy";
+import type { AgentFileAccessLevel } from "../../permission/permission-policy";
 
 const host = vi.hoisted(() => ({
   level: "read-only" as AgentFileAccessLevel, executable: "",
   locate: vi.fn(), status: vi.fn(), install: vi.fn(), initialize: vi.fn(), reset: vi.fn(), wrap: vi.fn(),
 }));
-vi.mock("../../logger", () => ({ logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() }, LogTag: { Runtime: "runtime" } }));
-vi.mock("../../permission", () => ({ getCurrentLevel: () => host.level }));
+vi.mock("../../logging/logger", () => ({ logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() }, LogTag: { Runtime: "runtime" } }));
+vi.mock("../../permission/permission", () => ({ getCurrentLevel: () => host.level }));
 vi.mock("@anthropic-ai/sandbox-runtime", () => ({
   get VENDORED_SRT_WIN_EXE() { return host.executable; },
   resolveSrtWin: host.locate, checkWindowsSandboxStatusAsync: host.status, installWindowsSandboxAsync: host.install,

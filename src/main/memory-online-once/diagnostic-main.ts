@@ -2,9 +2,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { app, dialog, Menu, Tray } from "electron";
-import { applyElectronPaths, canonicalPath, resolveRuntimeProfile, within } from "../runtime-profile";
-import { getFireflyApplicationDataPath } from "../app-identity";
-import { initializeStorageContext } from "../storage-context";
+import { applyElectronPaths, canonicalPath, resolveRuntimeProfile, within } from "../startup/runtime-profile";
+import { getFireflyApplicationDataPath } from "../startup/app-identity";
+import { initializeStorageContext } from "../storage/storage-context";
 import { loadTrayIcon } from "../windows/tray-icon";
 import { getCachedSavedModelProfile, listCachedSavedModelProfileIds, loadModelSettings, prepareReadOnlyDiagnosticModelCache } from "../settings/model-settings";
 import { resolveVendorRuntimeSettings, setVendorRuntimeSettingsGetter } from "../orchestrator/vendors/runtime-settings";

@@ -1,5 +1,5 @@
 import { getAdapterForConfig, streamChatWithSdk, resolveTransport } from "../vendors";
-import { recordUsage, recordRequest, recordModelCall } from "../../token-usage-store";
+import { recordUsage, recordRequest, recordModelCall } from "../../storage/token-usage-store";
 import type { VendorConfig, ToolSpec, ChatResponse, ChatRequest, ChatMessage } from "../vendors/types";
 import type { HarnessConfig } from "./types";
 import type { MainMemoryRun } from "../../memory-context/main-memory-runtime";

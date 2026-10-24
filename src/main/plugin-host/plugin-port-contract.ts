@@ -1,7 +1,7 @@
 // The host and plugin vocabularies are checked in the direction they cross the boundary.
 import type { PluginChannelCapability, PluginIncomingMessage, PluginTool, PluginToolContext } from "../../plugins/types";
 import type { ChannelCapability, IncomingMessage } from "../channels/types";
-import type { ToolRiskLevel } from "../permission-policy";
+import type { ToolRiskLevel } from "../permission/permission-policy";
 import type { ToolContext } from "../orchestrator/tools/registry/tool-context";
 import type { ToolDefinition, ToolEffectKind, VerificationPolicy } from "../orchestrator/tools/registry/tool-registry";
 import type { ConversationMode } from "../../shared/chat-types";

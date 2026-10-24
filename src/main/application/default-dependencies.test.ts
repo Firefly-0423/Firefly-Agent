@@ -99,7 +99,7 @@ vi.mock("electron", () => ({
 vi.mock("electron-updater", () => ({ autoUpdater: m.autoUpdater }));
 
 // --- storage / memory ---
-vi.mock("../storage-context", () => ({ getStorageContext: () => m.storage }));
+vi.mock("../storage/storage-context", () => ({ getStorageContext: () => m.storage }));
 vi.mock("../memory-context/main-default-memory", () => ({
   createMainDefaultMemory: vi.fn((options: unknown) => {
     m.defaultMemoryOptions = options;
@@ -148,8 +148,8 @@ vi.mock("../windows/window-state", () => ({
   }),
 }));
 vi.mock("../windows/app-icon", () => ({ getAppIconPath: vi.fn(() => "app-icon") }));
-vi.mock("../env", () => ({ isDev: false }));
-vi.mock("../logger", () => ({
+vi.mock("../startup/env", () => ({ isDev: false }));
+vi.mock("../logging/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
   LogTag: { Runtime: "runtime", RAG: "rag", Skills: "skills", Reranker: "reranker" },
 }));
@@ -183,9 +183,9 @@ vi.mock("../settings/general-settings-lifecycle", () => ({
   handleGeneralSettingsChanged: vi.fn(),
   syncVolcanoSearchMcp: vi.fn(),
 }));
-vi.mock("../settings-store", () => ({ loadUserProfile: vi.fn(() => ({})) }));
-vi.mock("../locale-context", () => ({ updateLocaleContext: vi.fn() }));
-vi.mock("../single-instance", () => ({ installSingleInstanceGuard: vi.fn(() => m.lockResult) }));
+vi.mock("../storage/settings-store", () => ({ loadUserProfile: vi.fn(() => ({})) }));
+vi.mock("../startup/locale-context", () => ({ updateLocaleContext: vi.fn() }));
+vi.mock("../startup/single-instance", () => ({ installSingleInstanceGuard: vi.fn(() => m.lockResult) }));
 vi.mock("../windows/tray", () => ({ createTray: vi.fn(() => m.tray) }));
 vi.mock("../windows/window-manager", () => ({ createWindowManager: vi.fn(() => m.windowManager) }));
 vi.mock("../windows/window-system-ipc", () => ({ registerWindowSystemIpc: vi.fn() }));
@@ -311,17 +311,17 @@ vi.mock("../orchestrator/mcp-manager", () => ({
   initMcpManager: vi.fn(async () => {}),
   pruneMcpServersByIds: vi.fn(async () => ["removed-a"]),
 }));
-vi.mock("../sync-mcp-builtin", () => ({ syncPlaywrightMcp: vi.fn(async () => {}), REMOVED_BUILTIN_MCP_IDS: ["removed-a"] }));
-vi.mock("../llm-queue", () => ({ enqueueLLMTask: vi.fn() }));
+vi.mock("../orchestrator/sync-mcp-builtin", () => ({ syncPlaywrightMcp: vi.fn(async () => {}), REMOVED_BUILTIN_MCP_IDS: ["removed-a"] }));
+vi.mock("../services/llm/llm-queue", () => ({ enqueueLLMTask: vi.fn() }));
 vi.mock("../orchestrator/pop-quiz", () => ({ registerPopQuizIpc: vi.fn(), registerPopQuizTool: vi.fn() }));
 vi.mock("../permission/bootstrap", () => ({ bootstrapPermission: vi.fn() }));
 
 // --- I/O services / updates / protocols ---
-vi.mock("../gpu-sandbox-acl", () => ({ ensureGpuSandboxAcl: vi.fn() }));
-vi.mock("../external-content-paths", () => ({
+vi.mock("../startup/gpu-sandbox-acl", () => ({ ensureGpuSandboxAcl: vi.fn() }));
+vi.mock("../storage/external-content-paths", () => ({
   getExternalContentPaths: () => ({ installRoot: "", builtinSkillDirectory: "", userSkillDirectories: [], promptDirectories: [] }),
 }));
-vi.mock("../external-content-migration", () => ({ migrateStagedExternalContent: vi.fn() }));
+vi.mock("../storage/external-content-migration", () => ({ migrateStagedExternalContent: vi.fn() }));
 vi.mock("../updater/app-update-ipc", () => ({ registerAppUpdateIpc: vi.fn() }));
 vi.mock("../updater/github-app-updater", () => ({
   createGitHubAppUpdateService: vi.fn(() => m.update),
@@ -363,7 +363,7 @@ vi.mock("../browser/browser-service-ipc", () => ({
   installBrowserServiceLifecycle: vi.fn(() => vi.fn()),
 }));
 vi.mock("../asr/desktop-asr-ipc", () => ({ registerDesktopAsrIpc: vi.fn(() => m.desktopAsr) }));
-vi.mock("../agui-bridge", () => ({
+vi.mock("../chat/agui-bridge", () => ({
   hasActiveConversationRun: vi.fn(() => false),
   isActiveConversationRun: vi.fn(() => false),
   registerAgUiIpc: vi.fn(),
@@ -480,7 +480,7 @@ describe("composition root", () => {
   });
 
   it("logs fatal startup failures through both console and the logger", async () => {
-    const { logger } = await import("../logger");
+    const { logger } = await import("../logging/logger");
     const error = new Error("fatal");
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     createDeps().logFatal(error);
@@ -496,7 +496,7 @@ describe("prepare phase", () => {
     const { configureDocumentIndexQueue } = await import("../rag/document-index-queue");
     const { runDocumentIndexJob } = await import("../rag/document-index-worker");
     const { registerPrivilegedSchemes } = await import("../protocols/bootstrap");
-    const { ensureGpuSandboxAcl } = await import("../gpu-sandbox-acl");
+    const { ensureGpuSandboxAcl } = await import("../startup/gpu-sandbox-acl");
     m.prepareDeps.configureDocumentIndex();
     expect(configureDocumentIndexQueue).toHaveBeenCalledWith(runDocumentIndexJob);
     expect(m.prepareDeps.registerPrivilegedSchemes).toBe(registerPrivilegedSchemes);
@@ -510,7 +510,7 @@ describe("prepare phase", () => {
   });
 
   it("installs the single-instance guard and exposes its acquisition result", async () => {
-    const { installSingleInstanceGuard } = await import("../single-instance");
+    const { installSingleInstanceGuard } = await import("../startup/single-instance");
     const deps = createDeps();
     await deps.prepare();
     const callback = vi.fn();
@@ -533,7 +533,7 @@ describe("shell phase", () => {
   });
 
   it("writes the banner and start log without ANSI decoration", async () => {
-    const { logger } = await import("../logger");
+    const { logger } = await import("../logging/logger");
     const write = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     const deps = createDeps();
     await deps.startShell();
@@ -609,7 +609,7 @@ describe("core phase", () => {
     expect(services.lsp).toBeDefined();
     expect(services.screenshot).toBe(m.screenshot);
     const { bootstrapConfigGetters } = await import("../startup/bootstrap-config");
-    const { updateLocaleContext } = await import("../locale-context");
+    const { updateLocaleContext } = await import("../startup/locale-context");
     const { setLive2dWorkSignalSender } = await import("../orchestrator/live2d-work-signal");
     expect(bootstrapConfigGetters).toHaveBeenCalled();
     expect(updateLocaleContext).toHaveBeenCalledWith({ uiLocale: "zh-CN", dateLocale: "zh-CN", asrLanguage: "zh-CN" });
@@ -661,7 +661,7 @@ describe("background phase", () => {
   });
 
   it("syncs and restores MCP configuration", async () => {
-    const { syncPlaywrightMcp } = await import("../sync-mcp-builtin");
+    const { syncPlaywrightMcp } = await import("../orchestrator/sync-mcp-builtin");
     const { initMcpManager } = await import("../orchestrator/mcp-manager");
     const deps = createDeps();
     await deps.startShell();

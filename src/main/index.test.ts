@@ -2,7 +2,7 @@ import { beforeEach, describe, it, expect, vi } from "vitest";
 const servers = vi.hoisted(() => ({ add: vi.fn(), remove: vi.fn(), list: vi.fn() }));
 vi.mock("electron", () => ({ app: { getPath: vi.fn() }, ipcMain: { handle: vi.fn() } }));
 vi.mock("./orchestrator/mcp-manager", () => ({ addMcpServer: servers.add, removeMcpServer: servers.remove, listMcpServerConfigs: servers.list }));
-import { syncPlaywrightMcp, buildPlaywrightMcpConfig, PLAYWRIGHT_MCP_ID } from "./sync-mcp-builtin";
+import { syncPlaywrightMcp, buildPlaywrightMcpConfig, PLAYWRIGHT_MCP_ID } from "./orchestrator/sync-mcp-builtin";
 beforeEach(() => { vi.clearAllMocks(); servers.add.mockResolvedValue({ ok: true, toolIds: [] }); servers.remove.mockResolvedValue({ ok: true }); servers.list.mockReturnValue([]); });
 describe("builtin browser server reconciliation", () => {
     it.each([false, true])("reconciles disabled mode with stored=%s", stored => {

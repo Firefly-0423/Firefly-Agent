@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { IPC } from "../../shared/ipc-channels";
 import { checkPluginManagementCaller, guardPluginIpcHandler, pluginManagementForbidden, PLUGIN_MANAGEMENT_FORBIDDEN } from "./plugin-management-ipc-guard";
 
-vi.mock("../env", () => ({ isDev: true }));
+vi.mock("../startup/env", () => ({ isDev: true }));
 vi.mock("electron", () => ({ app: { getAppPath: () => process.cwd() } }));
 
 function host(page = "react") {

@@ -1,6 +1,6 @@
 # 插件在线目录的发布方式
 
-插件市场是独立仓库 [Firefly-0423/firefly-plugins](https://github.com/Firefly-0423/firefly-plugins)：插件源码、目录文件和发布流程都在那里。应用只认下面两个地址，写在 `src/main/plugin-marketplace.ts`，改动它们属于安全边界变更，需要同时更新 `src/main/skills/external-boundary.test.ts` 里的固定哈希。
+插件市场是独立仓库 [Firefly-0423/firefly-plugins](https://github.com/Firefly-0423/firefly-plugins)：插件源码、目录文件和发布流程都在那里。应用只认下面两个地址，写在 `src/main/plugin-host/plugin-marketplace.ts`，改动它们属于安全边界变更，需要同时更新 `src/main/skills/external-boundary.test.ts` 里的固定哈希。
 
 | 内容 | 位置 |
 |---|---|

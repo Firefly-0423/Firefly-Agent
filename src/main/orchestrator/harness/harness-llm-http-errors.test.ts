@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const vendors = vi.hoisted(() => ({ streamChatWithSdk: vi.fn() }));
-vi.mock("../../token-usage-store", () => ({ recordUsage: vi.fn(), recordRequest: vi.fn(), recordModelCall: vi.fn() }));
+vi.mock("../../storage/token-usage-store", () => ({ recordUsage: vi.fn(), recordRequest: vi.fn(), recordModelCall: vi.fn() }));
 vi.mock("../vendors", () => ({
   ...vendors,
   resolveTransport: () => "openai",

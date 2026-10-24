@@ -1,5 +1,5 @@
 import { toolRegistry } from "./registry/tool-registry";
-import { logger, LogTag } from "../../logger";
+import { logger, LogTag } from "../../logging/logger";
 
 const tripConfiguration: { key: (() => string) | null; enabled: (() => boolean) | null } = { key: null, enabled: null };
 function readSetting<T>(reader: (() => T) | null): T | undefined { return reader?.(); }

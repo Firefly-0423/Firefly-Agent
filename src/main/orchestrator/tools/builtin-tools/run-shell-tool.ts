@@ -3,12 +3,12 @@ import { resolveContainedPath } from "../path-containment";
 import type { ToolDefinition } from "../registry/tool-registry";
 import type { ToolContext } from "../registry/tool-context";
 import { wrapWithSandbox, type SandboxWrapOutcome } from "../../sandbox/sandbox-exec";
-import { getCurrentLevel } from "../../../permission";
-import { policyFor, type AgentFileAccessLevel } from "../../../permission-policy";
+import { getCurrentLevel } from "../../../permission/permission";
+import { policyFor, type AgentFileAccessLevel } from "../../../permission/permission-policy";
 import { isPlanReadOnly } from "../../plan-mode";
 import { ToolExecutionError, type ToolErrorCategory, type ToolEffectState } from "../registry/tool-execution-error";
 import { classifyShellEffect, isCatastrophicCommand, type ShellEffect } from "../../shell-execution-policy";
-import { logger, LogTag } from "../../../logger";
+import { logger, LogTag } from "../../../logging/logger";
 import { buildDirectShellInvocation, resolveShellExecutable, type ResolvedShellExecutable, type ShellKind } from "../../shell-runtime";
 import { killTree, startShellJob, type ShellSpawnSpec } from "./shell-job-manager";
 

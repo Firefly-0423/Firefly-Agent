@@ -2,8 +2,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createStorageContext, type StorageContext } from "../storage-context";
-import { resolveRuntimeProfile, within } from "../runtime-profile";
+import { createStorageContext, type StorageContext } from "../storage/storage-context";
+import { resolveRuntimeProfile, within } from "../startup/runtime-profile";
 import { DeviceSimulation, type McpDevicePort, type SimulationSession } from "./controller";
 import type { DeviceId, Receipt, SessionGrant } from "./contracts";
 

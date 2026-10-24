@@ -12,7 +12,7 @@ import {createMainPolicy} from "../memory-policy/main-policy";
 import {createMainRecall} from "../memory-recall/main-recall";
 import {createMainHistory} from "../memory-history/main-history";
 import {createHistoryBudgetStatsRecorder} from "../memory-history/history-budget-stats";
-import {getStorageContext} from "../storage-context";
+import {getStorageContext} from "../storage/storage-context";
 import {createMainUserFactCoordinator} from "../memory-policy/main-user-fact-coordinator";
 import {createMainFactSelector} from "../memory-recall/main-fact-selector";
 import {createConversationTranscriptAdapter} from "./conversation-transcript-adapter";

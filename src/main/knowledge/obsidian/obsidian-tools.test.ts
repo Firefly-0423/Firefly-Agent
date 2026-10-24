@@ -8,7 +8,7 @@ vi.mock("electron", () => ({ app: { getPath: () => "" }, shell: { openExternal: 
 
 import { toolRegistry } from "../../orchestrator/tools/registry/tool-registry";
 import { registerObsidianTools, unregisterObsidianTools } from "./obsidian-tools";
-import { policyFor } from "../../permission-policy";
+import { policyFor } from "../../permission/permission-policy";
 
 const roots: string[] = [];
 it("keeps knowledge mutations behind the existing approval policy", () => {

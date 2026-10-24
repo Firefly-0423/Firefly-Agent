@@ -12,9 +12,9 @@ vi.mock("../orchestrator", () => ({ buildAlwaysOnContext: mocks.legacy, buildMem
 vi.mock("../rag", () => ({ searchMemory: mocks.searchMemory }));
 vi.mock("../prompts/prompt-loader", () => ({ loadPromptFile: () => "persona" }));
 vi.mock("../settings/model-settings", () => ({ loadModelSettings: () => ({ ...mocks.profile, modelProfiles: [mocks.profile], defaultModelProfileId: mocks.profile.id }), getDefaultModelProfile: () => mocks.profile, resolveModelSettingsProfile: () => mocks.profile }));
-vi.mock("../settings-store", () => ({ loadUserProfile: () => ({ timezone: "UTC" }) }));
+vi.mock("../storage/settings-store", () => ({ loadUserProfile: () => ({ timezone: "UTC" }) }));
 vi.mock("./proactive-state-store", () => ({ loadProactiveState: () => mocks.state, saveProactiveState: vi.fn() }));
-vi.mock("../token-usage-store", () => ({ recordUsage: vi.fn(), recordRequest: vi.fn() }));
+vi.mock("../storage/token-usage-store", () => ({ recordUsage: vi.fn(), recordRequest: vi.fn() }));
 vi.mock("../orchestrator/vendors", () => ({ getAdapterForConfig: () => ({}) }));
 import { createProactiveLifecycle } from "./proactive-lifecycle";
 beforeEach(() => { vi.clearAllMocks(); mocks.state = createDefaultProactiveState(); mocks.profile.provider = "fixture"; mocks.profile.apiKey = "synthetic"; });

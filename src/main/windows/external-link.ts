@@ -1,5 +1,5 @@
 import { app, shell } from "electron";
-import { isDev } from "../env";
+import { isDev } from "../startup/env";
 import { routeBrowserGuestNavigation } from "../browser/browser-guest-routing";
 
 const WEB_SCHEMES = ["http://", "https://"];

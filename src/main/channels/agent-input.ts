@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { AguiRunInput } from "../agui-bridge";
+import type { AguiRunInput } from "../chat/agui-bridge";
 import type { IncomingMessage } from "./types";
 
 type AttachmentInputs = Pick<AguiRunInput, "attachments" | "imageAttachments">;

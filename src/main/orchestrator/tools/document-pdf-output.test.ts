@@ -20,7 +20,7 @@ vi.mock("fs", async importOriginal => {
 });
 vi.mock("electron", () => ({ app: { getPath: () => root } }));
 vi.mock("./registry/tool-registry", () => ({ toolRegistry: { register: (tool: any) => tools.set(tool.id, tool) } }));
-vi.mock("../../external-content-paths", () => ({ findSkillPath: () => null }));
+vi.mock("../../storage/external-content-paths", () => ({ findSkillPath: () => null }));
 import { createHash } from "node:crypto";
 import { getWorkspaceExecutionCoordinator } from "../harness/execution-coordinator";
 import type { ToolContext } from "./registry/tool-context";

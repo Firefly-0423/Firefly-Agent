@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getStorageContext } from "../storage-context";
+import { getStorageContext } from "../storage/storage-context";
 import {
   consumeInstallerLaunchAtLoginSelection as consumeChoice,
   applyInstallerLaunchAtLoginSelection as mergeChoice,
   syncLaunchAtLogin as synchronize,
 } from "./launch-at-login";
 
-vi.mock("../storage-context", () => ({ getStorageContext: vi.fn() }));
+vi.mock("../storage/storage-context", () => ({ getStorageContext: vi.fn() }));
 
 beforeEach(() => {
   vi.mocked(getStorageContext).mockReset();

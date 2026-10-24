@@ -2,9 +2,9 @@ import * as path from "path";
 import * as fs from "fs";
 import { randomUUID } from "crypto";
 import { app, shell } from "electron";
-import { LogTag, logger } from "../logger";
-import { ephemeralConversations } from "../ephemeral-conversations";
-import { fireflyDataDirectory } from "../firefly-data-paths";
+import { LogTag, logger } from "../logging/logger";
+import { ephemeralConversations } from "./ephemeral-conversations";
+import { fireflyDataDirectory } from "../storage/firefly-data-paths";
 import {
   CHAT_SCHEMA_VERSION, type ChatSession, type ChatSessionMeta, type ChatSessionPurpose,
   type ChatMessage, type ConversationMode, type ConversationWorkspaceBinding,

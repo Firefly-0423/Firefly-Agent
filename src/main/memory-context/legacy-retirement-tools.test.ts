@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ searchMemory: vi.fn(), ready: vi.fn(), searchHistory: vi.fn(), addMemory: vi.fn() }));
 vi.mock("../rag", () => ({ searchMemory: mocks.searchMemory, isUserMemoryVectorStoreReady: mocks.ready, searchHistoryEntries: mocks.searchHistory, addMemory: mocks.addMemory }));
 vi.mock("../orchestrator/tools/built-in-tools", () => ({ currentUserTimezone: () => "UTC" }));
-vi.mock("../locale-context", () => ({ getDateLocale: () => "en-US" }));
+vi.mock("../startup/locale-context", () => ({ getDateLocale: () => "en-US" }));
 import { ToolRegistry, toolRegistry } from "../orchestrator/tools/registry/tool-registry";
 import { indexConversationTurn, registerRecallHistoryTool } from "../orchestrator/tools/history-tools";
 

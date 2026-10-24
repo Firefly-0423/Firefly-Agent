@@ -83,8 +83,8 @@ vi.mock("node:fs", async importOriginal => {
     },
   };
 });
-vi.mock("../runtime-profile", async importOriginal => {
-  const actual = await importOriginal<typeof import("../runtime-profile")>();
+vi.mock("../startup/runtime-profile", async importOriginal => {
+  const actual = await importOriginal<typeof import("../startup/runtime-profile")>();
   return {
     ...actual,
     canonicalPath: (value: string) => value,
@@ -92,8 +92,8 @@ vi.mock("../runtime-profile", async importOriginal => {
     applyElectronPaths: (...args: unknown[]) => m.applyElectronPaths(...args),
   };
 });
-vi.mock("../app-identity", () => ({ getFireflyApplicationDataPath: () => m.getFireflyApplicationDataPath() }));
-vi.mock("../storage-context", () => ({ initializeStorageContext: (...args: unknown[]) => m.initializeStorageContext(...args) }));
+vi.mock("../startup/app-identity", () => ({ getFireflyApplicationDataPath: () => m.getFireflyApplicationDataPath() }));
+vi.mock("../storage/storage-context", () => ({ initializeStorageContext: (...args: unknown[]) => m.initializeStorageContext(...args) }));
 vi.mock("../windows/tray-icon", () => ({ loadTrayIcon: () => m.loadTrayIcon() }));
 vi.mock("./controller", () => ({ createController: (...args: unknown[]) => m.createController(...args) }));
 vi.mock("./configuration-window", () => ({ createConfigurationWindow: () => m.createConfigurationWindow() }));

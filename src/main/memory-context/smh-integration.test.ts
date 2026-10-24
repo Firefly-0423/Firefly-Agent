@@ -21,7 +21,7 @@ import {parseFireflyHistoryBytes} from "../memory-history/firefly-history-reader
 vi.mock('../rag/index',()=>({searchHistoryEntries:vi.fn(()=>{throw Error('LEGACY_FALLBACK_FORBIDDEN')}),addMemory:vi.fn(()=>{throw Error('LEGACY_FALLBACK_FORBIDDEN')}),isUserMemoryVectorStoreReady:()=>true}));
 vi.mock('../orchestrator/tools/registry/tool-registry',()=>({toolRegistry:{register:vi.fn()}}));
 vi.mock('../orchestrator/tools/built-in-tools',()=>({currentUserTimezone:()=> 'Etc/UTC'}));
-vi.mock('../locale-context',()=>({getDateLocale:()=> 'en'}));
+vi.mock('../startup/locale-context',()=>({getDateLocale:()=> 'en'}));
 vi.mock("electron",()=>({app:{getPath:()=>{throw Error("PRODUCT_DATA_FORBIDDEN")}}}));
 const roots:string[]=[],fixtures:ReturnType<typeof createSmhFixture>[]=[];
 let preparedFixture:{root:string;fixture:ReturnType<typeof createSmhFixture>;clock:{now:number}};
@@ -180,7 +180,7 @@ it("supplied-byte S pending text remains diagnostic and never enters H evidence 
 });
 
 it("native H joins S and M through one observer and coverage never invokes legacy RAG",async()=>{
- const {initializeStorageContext}=await import('../storage-context'),{resolveRuntimeProfile}=await import('../runtime-profile'),{createNativeHistoryProvider}=await import('../memory-sources/native-history-provider');
+ const {initializeStorageContext}=await import('../storage/storage-context'),{resolveRuntimeProfile}=await import('../startup/runtime-profile'),{createNativeHistoryProvider}=await import('../memory-sources/native-history-provider');
  const isolation=fs.mkdtempSync(path.join(os.tmpdir(),'smh-native-joint-'));roots.push(isolation);
  const storage=initializeStorageContext(resolveRuntimeProfile({argv:['--firefly-profile=test','--firefly-isolation-root='+isolation],env:{},isPackaged:false,productionAppData:path.join(os.tmpdir(),'synthetic-production-never-used')}));
  const f=createSmhFixture(path.join(isolation,'index'));fixtures.push(f);const store=new ConversationTranscriptStore(storage.dataRoot);

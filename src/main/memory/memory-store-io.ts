@@ -2,7 +2,7 @@ import * as fs from "fs"
 import * as path from "path"
 import { app } from "electron"
 import { MemoryStore } from "./memory-types"
-import { AtomicJsonStore } from "../atomic-json-store"
+import { AtomicJsonStore } from "../storage/atomic-json-store"
 import { isCurrentMemoryStore } from "./memory-store-defaults"
 
 const MEMORY_FILE_NAME = "memory.json"

@@ -1,5 +1,5 @@
 import path from "node:path";
-import { recordPluginCall } from "../token-usage-store";
+import { recordPluginCall } from "../storage/token-usage-store";
 import type { PluginLlmService } from "../../plugins/api";
 import type { PluginHostServiceFactory } from "../../plugins/context";
 import {

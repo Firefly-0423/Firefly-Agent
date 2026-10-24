@@ -2,7 +2,7 @@ import type { IpcMainInvokeEvent, WebContents } from "electron";
 import { app } from "electron";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { isDev } from "../env";
+import { isDev } from "../startup/env";
 import { IPC } from "../../shared/ipc-channels";
 
 /** 只读：React 聊天窗口的插件页和设置窗口（插件面板、定时任务页）都会读取列表。 */

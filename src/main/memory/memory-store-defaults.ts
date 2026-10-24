@@ -1,5 +1,5 @@
 import { L0Profile, L1Profile, MemoryStore } from "./memory-types"
-import { getMemoryLanguage } from "../locale-context"
+import { getMemoryLanguage } from "../startup/locale-context"
 
 export const CURRENT_MEMORY_SCHEMA_VERSION = 2
 

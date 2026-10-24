@@ -1,6 +1,6 @@
 // 历史检索的预算丢弃计数：只记数字，不记正文、标识、会话或查询内容。
 // 用来回答"单份文档超过 maxExcerptChars 在真实使用中有多常见"，再决定是否值得做摘录（PR B）。
-import {AtomicJsonStore} from '../atomic-json-store';
+import {AtomicJsonStore} from '../storage/atomic-json-store';
 import {selectExcerpt} from './history-excerpts';
 import {HISTORY_BUDGET_SIZE_BUCKETS,type HistoryBudgetSizeBucket,type HistoryBudgetStats} from './history-contracts';
 

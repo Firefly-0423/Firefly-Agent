@@ -9,7 +9,7 @@ vi.mock("electron", () => ({ app: {
   on: () => undefined,
 } }));
 vi.mock("./harness/harness-llm", () => ({ callLLM: fakeLLM, summarizeHistory: vi.fn() }));
-vi.mock("../permission", () => ({ getCurrentLevel: () => "full", checkPermission: vi.fn(async () => ({ allowed: true })) }));
+vi.mock("../permission/permission", () => ({ getCurrentLevel: () => "full", checkPermission: vi.fn(async () => ({ allowed: true })) }));
 
 import { runHarnessWithAdapter } from "./harness-adapter";
 import { toolRegistry, type ToolDefinition } from "./tools/registry/tool-registry";

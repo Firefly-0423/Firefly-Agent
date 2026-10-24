@@ -8,7 +8,7 @@ vi.mock("../../settings-store", async (importOriginal) => ({
   loadChannelsSettings: () => ({ wechat: { enabled: true, allowAnyPrivate: true, allowedSenderIds: [] } }),
 }));
 vi.mock("electron", () => ({ app: { getPath: () => "/synthetic/firefly-wechat-lifecycle" } }));
-vi.mock("../../../logger", () => ({ logger: { info() {}, warn() {}, error() {} }, LogTag: {} }));
+vi.mock("../../../logging/logger", () => ({ logger: { info() {}, warn() {}, error() {} }, LogTag: {} }));
 
 function deferred<T>() {
   let resolve!: (value: T) => void;

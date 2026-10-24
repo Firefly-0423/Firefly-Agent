@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { ephemeralConversations } from "../ephemeral-conversations";
+import { ephemeralConversations } from "../chats/ephemeral-conversations";
 import { ConversationTranscriptStore } from "./conversation-transcript-store";
 import type { TranscriptAppendInput } from "./conversation-transcript-types";
 

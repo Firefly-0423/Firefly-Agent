@@ -3,7 +3,7 @@ import Ajv from "ajv";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { AjvJsonSchemaValidator } from "@modelcontextprotocol/sdk/validation/ajv-provider.js";
 import type { JsonSchemaType, JsonSchemaValidator, jsonSchemaValidator } from "@modelcontextprotocol/sdk/validation/types.js";
-import { raceWithSignal } from "../abort-utils";
+import { raceWithSignal } from "../utils/abort-utils";
 
 type McpTool = Awaited<ReturnType<Client["listTools"]>>["tools"][number];
 type OutputValidator = ReturnType<AjvJsonSchemaValidator["getValidator"]>;

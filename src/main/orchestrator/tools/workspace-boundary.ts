@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
-import { getCurrentLevel } from "../../permission";
-import type { AgentFileAccessLevel } from "../../permission-policy";
+import { getCurrentLevel } from "../../permission/permission";
+import type { AgentFileAccessLevel } from "../../permission/permission-policy";
 import type { ToolContext } from "./registry/tool-context";
 import { ToolExecutionError, type ToolEffectState } from "./registry/tool-execution-error";
 

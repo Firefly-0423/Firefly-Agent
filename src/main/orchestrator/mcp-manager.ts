@@ -1,8 +1,8 @@
 // MCP lifecycle and persistent configuration; paths belong to StorageContext.
-import { AtomicJsonStore } from "../atomic-json-store";
-import { getStorageContext } from "../storage-context";
+import { AtomicJsonStore } from "../storage/atomic-json-store";
+import { getStorageContext } from "../storage/storage-context";
 import { connectMcpServer, disconnectMcpServer, getMcpServerStates, McpServerConfig } from "./mcp-adapter";
-import { logger, LogTag } from "../logger";
+import { logger, LogTag } from "../logging/logger";
 import { classifyMcpFailure, type McpFailureReason } from "./mcp-failure";
 
 const LOG_PREFIX = "[MCP Manager]";

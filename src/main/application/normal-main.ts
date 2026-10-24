@@ -11,9 +11,9 @@ import "../identity-preflight";
 import { app } from "electron";
 import { createApplication } from "./application";
 import { createDefaultApplicationDependencies } from "./default-dependencies";
-import { registerPluginPanelScheme } from "../plugin-panel-protocol";
+import { registerPluginPanelScheme } from "../plugin-panel/plugin-panel-protocol";
 import { installGlobalNavigationGuard } from "../windows/external-link";
-import { initializeMainFileLogging, logger, LogTag } from "../logger";
+import { initializeMainFileLogging, logger, LogTag } from "../logging/logger";
 
 // 打包版双击启动时 stdout/stderr 管道可能不存在或中途关闭，
 // 此时任何 console.log 写入都会抛异步 EPIPE 并升级成 uncaughtException 弹错误框

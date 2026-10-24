@@ -8,7 +8,7 @@ import { TranscriptWriteError } from "../transcript-sink";
 
 vi.mock("../../rag/index", () => ({ searchMemory: vi.fn() }));
 vi.mock("electron", () => ({ app: { getPath: () => { throw new Error("no user data in unit test"); }, on: vi.fn() } }));
-vi.mock("../../logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() }, LogTag: {} }));
+vi.mock("../../logging/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() }, LogTag: {} }));
 vi.mock("./retry-policy", async original => ({ ...await original<typeof import("./retry-policy")>(), sleepWithJitter: vi.fn(async () => {}) }));
 vi.mock("./tool-dispatcher", async original => {
   const actual = await original<typeof import("./tool-dispatcher")>();

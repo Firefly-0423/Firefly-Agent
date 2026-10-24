@@ -5,11 +5,11 @@ import { scanSkills, isExternalSkillId, externalSkillPlaceholder } from "./skill
 import { skillRegistry } from "./skill-registry";
 import { registerSkillTools } from "./skill-tools";
 import type { SkillEntry } from "./types";
-import { logger, LogTag } from "../logger";
-import { getExternalContentPaths, resolveSkillScanSources, resolvePackagedSkillDirectory } from "../external-content-paths";
+import { logger, LogTag } from "../logging/logger";
+import { getExternalContentPaths, resolveSkillScanSources, resolvePackagedSkillDirectory } from "../storage/external-content-paths";
 import { synchronizeManagedSkillDirectories, validateManagedSourceDirectory } from "./directory-install";
-import { getStorageContext, type StorageContext } from "../storage-context";
-import { AtomicJsonStore } from "../atomic-json-store";
+import { getStorageContext, type StorageContext } from "../storage/storage-context";
+import { AtomicJsonStore } from "../storage/atomic-json-store";
 import { ExternalSkillStateStore, assertExternalIdentity, verifyExternalInstallation } from "./external-state";
 import { scanExternalSkills } from "./external-scan";
 import type { ExternalHostSession, ExternalSkillRecord } from "./external-types";

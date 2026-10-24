@@ -86,7 +86,7 @@ vi.mock("./adapters/qqbot/qqbot-adapter", () => ({
   },
 }));
 vi.mock("./message-log", () => ({ getRecentLog: mocks.getRecentLog, clearLog: mocks.clearLog, reloadLogFromDisk: mocks.reloadLog }));
-vi.mock("../logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() }, LogTag: { Channels: "channels", InboundServer: "inbound" } }));
+vi.mock("../logging/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() }, LogTag: { Channels: "channels", InboundServer: "inbound" } }));
 vi.mock("./sender-gate", () => ({ pendingSenders: mocks.pendingSenders }));
 vi.mock("./sender-approval", () => ({
   resolvePendingSender: mocks.resolvePendingSender,

@@ -3,8 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { afterEach, expect, it, vi } from "vitest";
-import { createStorageContext } from "../storage-context";
-import { AtomicJsonStore } from "../atomic-json-store";
+import { createStorageContext } from "../storage/storage-context";
+import { AtomicJsonStore } from "../storage/atomic-json-store";
 import { ExternalSkillStateStore } from "./external-state";
 import { externalSkillId } from "./external-policy";
 import { digestExternalFiles } from "./external-review";
@@ -15,11 +15,11 @@ import type { EmbeddingIndexService } from "../services/embedding/embedding-inde
 import { IPC } from "../../shared/ipc-channels";
 const ports = vi.hoisted(() => ({ root: "", chat: null as null | { isDestroyed: () => boolean; webContents: { isDestroyed: () => boolean; mainFrame: { processId: number; routingId: number; detached: boolean } } } }));
 vi.mock("electron", () => ({ dialog: {}, app: { isPackaged: false, getAppPath: () => "/unused", getPath: () => ports.root } }));
-vi.mock("../external-content-paths", () => ({ getExternalContentPaths: () => ({ installRoot: "/unused", builtinSkillDirectory: "/unused", userSkillDirectories: [path.join(ports.root, "skills")] }), resolvePackagedSkillDirectory: () => null,
+vi.mock("../storage/external-content-paths", () => ({ getExternalContentPaths: () => ({ installRoot: "/unused", builtinSkillDirectory: "/unused", userSkillDirectories: [path.join(ports.root, "skills")] }), resolvePackagedSkillDirectory: () => null,
   resolveSkillScanSources: (paths: { userSkillDirectories: string[] }) => paths.userSkillDirectories.map(directory => ({ directory, source: "user" })) }));
 vi.mock("../memory/memory-store", () => ({ memoryStore: {} }));
 vi.mock("../memory/panel", () => ({ loadImportedDocumentPanelData: vi.fn(), loadMemoryPanelData: vi.fn() }));
-vi.mock("../settings-store", () => ({ loadUserProfile: vi.fn(), saveUserProfile: vi.fn(), getAvatarPath: vi.fn() }));
+vi.mock("../storage/settings-store", () => ({ loadUserProfile: vi.fn(), saveUserProfile: vi.fn(), getAvatarPath: vi.fn() }));
 vi.mock("../orchestrator/sticker-settings", () => ({ getStickerManagerConfig: vi.fn(), setStickerEnabled: vi.fn() }));
 vi.mock("../stickers/sticker-storage", () => ({ addUserSticker: vi.fn(), deleteUserSticker: vi.fn() }));
 vi.mock("../rag", () => ({ deleteImportedDoc: vi.fn() }));

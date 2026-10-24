@@ -1,4 +1,4 @@
-import { getStorageContext } from "../storage-context";
+import { getStorageContext } from "../storage/storage-context";
 import { createHash, randomUUID } from "node:crypto";
 import { createBackgroundMemoryIngressIssuer, type BackgroundMemoryPreparedRun } from "../memory-context/background-memory-ingress";
 import type { MainMemoryRun } from "../memory-context/main-memory-runtime";
@@ -19,7 +19,7 @@ import { createTaskTraceBuffer } from "./task-trace-buffer";
 import { settleChildExecution } from "./child-run-lifecycle";
 import type { TaskWriteEvidence, ModelExecutionEvent } from "../../shared/agent-execution-evidence";
 import type { PromptLayers } from "./prompt-layers";
-import { runAsSubagent } from "../usage-attribution";
+import { runAsSubagent } from "../storage/usage-attribution";
 
 export function buildChildPromptLayers(parent: ChildSessionParent, profilePrompt: string): PromptLayers {
   const workspace = parent.resolvedWorkspaceRoot

@@ -21,8 +21,8 @@ beforeEach(async () => {
     const isolated = join(boundary.base, "isolated"), production = join(boundary.base, "production-fixture");
     fs.mkdirSync(isolated);
     fs.mkdirSync(production);
-    const { resolveRuntimeProfile } = await import("../runtime-profile");
-    const { initializeStorageContext } = await import("../storage-context");
+    const { resolveRuntimeProfile } = await import("../startup/runtime-profile");
+    const { initializeStorageContext } = await import("../storage/storage-context");
     boundary.root = initializeStorageContext(resolveRuntimeProfile({ argv: ["--firefly-profile=test", "--firefly-isolation-root=" + isolated], env: {}, isPackaged: false, productionAppData: production })).dataRoot;
 });
 afterEach(() => fs.rmSync(boundary.base, { recursive: true, force: true }));

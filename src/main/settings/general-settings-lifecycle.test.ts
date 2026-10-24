@@ -6,9 +6,9 @@ import type { WindowManager } from "../windows/window-manager";
 import { applyGeneralSettings, handleGeneralSettingsChanged } from "./general-settings-lifecycle";
 
 const environment = vi.hoisted(() => ({ profile: "production" }));
-vi.mock("../storage-context", () => ({ getStorageContext: () => ({ profile: { kind: environment.profile } }) }));
+vi.mock("../storage/storage-context", () => ({ getStorageContext: () => ({ profile: { kind: environment.profile } }) }));
 vi.mock("electron", () => ({ nativeImage: {}, app: { setLoginItemSettings: vi.fn() } }));
-vi.mock("../locale-context", () => ({ updateLocaleContext: vi.fn() }));
+vi.mock("../startup/locale-context", () => ({ updateLocaleContext: vi.fn() }));
 vi.mock("../windows/window-state", () => ({ setGetCurrentAppIconPath: vi.fn() }));
 vi.mock("../windows/broadcast", () => ({ broadcastToAllWindows: vi.fn() }));
 vi.mock("../windows/app-icon", () => ({ getAppIconPath: vi.fn() }));

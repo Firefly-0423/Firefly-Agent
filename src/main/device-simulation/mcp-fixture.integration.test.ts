@@ -10,8 +10,8 @@ import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 vi.mock("electron", () => ({ app: { getPath: () => os.tmpdir() } }));
 vi.mock("../rag/index", () => ({ searchMemory: vi.fn() }));
 
-import { createStorageContext } from "../storage-context";
-import { resolveRuntimeProfile, within } from "../runtime-profile";
+import { createStorageContext } from "../storage/storage-context";
+import { resolveRuntimeProfile, within } from "../startup/runtime-profile";
 import { disconnectMcpServer, getMcpServerStates } from "../orchestrator/mcp-adapter";
 import { toolRegistry, type ToolDefinition } from "../orchestrator/tools/registry/tool-registry";
 import { DeviceSimulation, type Preview, type SimulationSession } from "./controller";

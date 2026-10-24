@@ -16,11 +16,11 @@ vi.mock("../../orchestrator/vendors", () => ({
     for (const event of mocks.events) yield event;
   }),
 }));
-vi.mock("../../token-usage-store", () => ({ recordRequest: vi.fn(), recordUsage: vi.fn() }));
+vi.mock("../../storage/token-usage-store", () => ({ recordRequest: vi.fn(), recordUsage: vi.fn() }));
 vi.mock("../../chat/chat-api-utils", () => ({ appendApiLog: vi.fn() }));
 
 import { createLlmClient } from "./llm-client";
-import { recordRequest, recordUsage } from "../../token-usage-store";
+import { recordRequest, recordUsage } from "../../storage/token-usage-store";
 import { appendApiLog } from "../../chat/chat-api-utils";
 import type { ModelSettings } from "../../settings/model-settings";
 

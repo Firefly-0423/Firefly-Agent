@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks=vi.hoisted(()=>({read:vi.fn(),stat:vi.fn(),exists:vi.fn(),write:vi.fn(),dir:vi.fn()}));
 vi.mock("node:fs",()=>({default:{readFileSync:mocks.read,statSync:mocks.stat,existsSync:mocks.exists,writeFileSync:mocks.write,mkdirSync:mocks.dir}}));
-vi.mock("../settings-store",()=>({getSettingsPath:()=>"E:/synthetic/cache-models.json"}));
-vi.mock("../logger",()=>({logger:{info:vi.fn(),warn:vi.fn()},LogTag:{Runtime:"runtime"}}));
+vi.mock("../storage/settings-store",()=>({getSettingsPath:()=>"E:/synthetic/cache-models.json"}));
+vi.mock("../logging/logger",()=>({logger:{info:vi.fn(),warn:vi.fn()},LogTag:{Runtime:"runtime"}}));
 beforeEach(()=>{vi.resetModules();vi.clearAllMocks();});
 describe("Main cache-only saved-profile lookup",()=>{
  it("does not cold-read settings, stat the file, or fall back to a default profile",async()=>{

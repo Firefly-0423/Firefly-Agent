@@ -88,7 +88,7 @@ vi.mock("./host-services", () => ({
     return m.hostServices;
   }),
 }));
-vi.mock("../plugin-panel-protocol", () => ({
+vi.mock("../plugin-panel/plugin-panel-protocol", () => ({
   installPluginPanelProtocol: vi.fn((resolve: unknown) => {
     m.panelProtocol = resolve;
   }),
@@ -97,7 +97,7 @@ vi.mock("../../plugins/ipc-router", () => ({ createPluginIpcRouter: () => m.rout
 vi.mock("../../plugins/manager", () => ({ PluginManager: m.PluginManager }));
 vi.mock("../../plugins/version-store", () => ({ PluginVersionStore: m.PluginVersionStore }));
 vi.mock("../../plugins/prompts", () => ({ pluginPromptRegistry: { build: vi.fn() } }));
-vi.mock("../plugin-marketplace", () => ({
+vi.mock("./plugin-marketplace", () => ({
   MARKET_REGISTRY_URLS: ["https://registry.example/index.json"],
   MARKET_ZIP_URL_PREFIXES: ["https://cdn.example/"],
   createPluginMarketplaceService: vi.fn((config: unknown) => {
@@ -120,7 +120,7 @@ vi.mock("./plugin-management-ipc-guard", () => ({
     return (_event: unknown, ...args: unknown[]) => invoke(args);
   }),
 }));
-vi.mock("../llm-queue", () => ({ enqueueLLMTask: m.enqueue }));
+vi.mock("../services/llm/llm-queue", () => ({ enqueueLLMTask: m.enqueue }));
 
 import { startPluginRuntime } from "./plugin-runtime";
 

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { afterEach, expect, it } from "vitest";
-import { within } from "../runtime-profile";
+import { within } from "../startup/runtime-profile";
 
 const modules = import.meta.glob<typeof import("./testing/external-fixtures")>("./testing/external-fixtures.ts");
 const cleanup: (() => void)[] = [];

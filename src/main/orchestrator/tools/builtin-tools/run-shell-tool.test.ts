@@ -5,11 +5,11 @@ import type { ToolContext } from "../registry/tool-context";
 const mocks = vi.hoisted(() => ({ spawn: vi.fn(), wrap: vi.fn(), level: vi.fn(), readOnly: vi.fn(), resolve: vi.fn(), direct: vi.fn(), kill: vi.fn(), background: vi.fn() }));
 vi.mock("child_process", () => ({ spawn: mocks.spawn }));
 vi.mock("../../sandbox/sandbox-exec", () => ({ wrapWithSandbox: mocks.wrap }));
-vi.mock("../../../permission", () => ({ getCurrentLevel: mocks.level }));
+vi.mock("../../../permission/permission", () => ({ getCurrentLevel: mocks.level }));
 vi.mock("../../plan-mode", () => ({ isPlanReadOnly: mocks.readOnly }));
 vi.mock("../../shell-runtime", () => ({ resolveShellExecutable: mocks.resolve, buildDirectShellInvocation: mocks.direct }));
 vi.mock("./shell-job-manager", () => ({ killTree: mocks.kill, startShellJob: mocks.background }));
-vi.mock("../../../logger", () => ({ logger: { info: vi.fn(), warn: vi.fn() }, LogTag: { BuiltinTools: "tools" } }));
+vi.mock("../../../logging/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn() }, LogTag: { BuiltinTools: "tools" } }));
 
 import { resolveTimeoutPolicy, runShellTool } from "./run-shell-tool";
 

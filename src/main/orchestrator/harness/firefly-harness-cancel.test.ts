@@ -9,7 +9,7 @@ vi.mock("../vendors", () => ({
   getAdapterForConfig: () => ({ id: "cancellation-fixture", buildRequest: (request: unknown) => ({ url: "https://cancel.invalid/model", headers: {}, body: JSON.stringify(request) }), parseResponse: (value: unknown) => value }),
   streamChatWithSdk: network.stream, resolveTransport: () => "openai",
 }));
-vi.mock("../../token-usage-store", () => ({ recordUsage: network.usage, recordRequest: network.requests, recordModelCall: vi.fn(), recordToolCall: vi.fn() }));
+vi.mock("../../storage/token-usage-store", () => ({ recordUsage: network.usage, recordRequest: network.requests, recordModelCall: vi.fn(), recordToolCall: vi.fn() }));
 vi.mock("./tool-dispatcher", () => ({ dispatchToolCall: vi.fn(), persistToolDispatchResult: async (_call: unknown, result: unknown) => result }));
 import { runFireflyHarness } from "./firefly-harness";
 import { dispatchToolCall } from "./tool-dispatcher";

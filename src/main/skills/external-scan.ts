@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { StorageContext } from "../storage-context";
+import type { StorageContext } from "../storage/storage-context";
 import type { SkillEntry } from "./types";
 import { externalSkillPlaceholder, isExternalSkillId } from "./skill-scanner";
 import { assertExternalIdentity, snapshotExternalPath, verifyExternalInstallation, type ExternalSkillStateStore } from "./external-state";

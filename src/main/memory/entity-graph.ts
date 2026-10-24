@@ -8,7 +8,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { app } from "electron";
 import { registerJiebaCustomWord, registerJiebaCustomWords } from "../rag/retriever";
-import { logger, LogTag } from "../logger";
+import { logger, LogTag } from "../logging/logger";
 
 export type EntityNode = {
   lastMentionedAt: number;

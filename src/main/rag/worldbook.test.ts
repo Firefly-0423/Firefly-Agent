@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-vi.mock("../logger", () => ({ logger: { info: vi.fn() }, LogTag: { Worldbook: "worldbook" } }));
+vi.mock("../logging/logger", () => ({ logger: { info: vi.fn() }, LogTag: { Worldbook: "worldbook" } }));
 import { DEFAULT_DMAE_PARAMS, DefaultRewardStrategy, deriveState, DmaeManager, QuadraticResistanceDecay, WorldbookManager, type WorldbookEntry } from "./worldbook";
 
 const entry = (id: string, overrides: Partial<WorldbookEntry> = {}): WorldbookEntry => ({ id, keywords: [id], content: id, priority: 5, permanent: false, enabled: true, intrinsicValue: 60, linkTriggers: [], ...overrides });

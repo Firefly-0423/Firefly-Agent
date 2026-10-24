@@ -3,7 +3,7 @@
 import { app } from "electron";
 import * as fs from "fs";
 import * as path from "path";
-import { logger, LogTag } from "../logger";
+import { logger, LogTag } from "../logging/logger";
 
 export type ObsidianVaultConfig = {
   /** 最近一次同步的毫秒时间戳，仅供界面展示 */

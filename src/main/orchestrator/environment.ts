@@ -1,9 +1,9 @@
 import { app } from "electron";
 import * as os from "os";
 import { listMcpServers } from "./mcp-manager";
-import { ACCESS_LEVEL_LABEL, getCurrentLevel } from "../permission";
+import { ACCESS_LEVEL_LABEL, getCurrentLevel } from "../permission/permission";
 import { resolveChatContextTimezone } from "../chat/chat-time-context";
-import { getDateLocale } from "../locale-context";
+import { getDateLocale } from "../startup/locale-context";
 import { resolveUserAddress } from "../../shared/user-address";
 
 export interface ModelInfo { multimodal?: boolean; model: string; provider: string }

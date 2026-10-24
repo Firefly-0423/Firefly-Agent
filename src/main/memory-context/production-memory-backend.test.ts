@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 import { MemoryClient } from "../memory-core/worker-client";
 import type { KeyProtection } from "../memory-core/key-provider";
-import * as storageContext from "../storage-context";
+import * as storageContext from "../storage/storage-context";
 import { createMainHistory } from "../memory-history/main-history";
 import { recallFixture } from "../../../scripts/verify/memory-recall/recall-fixture";
 import { openProductionMemoryBackend, type ProductionMemoryBackend, type ProductionMemoryBackendOptions } from "./production-memory-backend";

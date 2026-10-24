@@ -8,7 +8,7 @@ import { IPC } from "../../shared/ipc-channels";
 // 用真实临时目录（与 settings-read-ipc.test.ts 同一做法），不 mock 存储层。
 const state = vi.hoisted(() => ({ directory: "" }));
 vi.mock("electron", () => ({ app: { getPath: () => state.directory }, BrowserWindow: {}, dialog: {}, shell: {} }));
-vi.mock("../env", () => ({ isDev: true }));
+vi.mock("../startup/env", () => ({ isDev: true }));
 
 beforeEach(() => {
   vi.resetModules();

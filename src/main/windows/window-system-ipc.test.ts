@@ -14,7 +14,7 @@ const windowsMock = vi.hoisted(() => ({
   settings: null as any,
 }));
 
-vi.mock("../token-usage-store", () => tokenMock);
+vi.mock("../storage/token-usage-store", () => tokenMock);
 vi.mock("../chats/chats-store", () => chatsMock);
 vi.mock("./window-state", () => ({
   get sidebarWindow() {

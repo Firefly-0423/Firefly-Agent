@@ -8,8 +8,8 @@ import type { HarnessEvent } from "../orchestrator/harness/types";
 import { ExecutionLedgerStore } from "../orchestrator/execution-ledger";
 import { buildToolSystemPrompt } from "../orchestrator/system-prompt-builder";
 import type { ToolDefinition } from "../orchestrator/tools/registry/tool-registry";
-import { recordPluginCall } from "../token-usage-store";
-import { runWithUsageAttribution } from "../usage-attribution";
+import { recordPluginCall } from "../storage/token-usage-store";
+import { runWithUsageAttribution } from "../storage/usage-attribution";
 
 const goalLedgers = new ExecutionLedgerStore();
 export interface PluginAgentRunnerDeps {

@@ -6,7 +6,7 @@ import * as path from "path";
 import { isPidExecuting } from "../../../../../scripts/testing/process-liveness.mjs";
 
 vi.mock("electron", () => ({ app: { on: vi.fn(), getPath: () => { throw new Error("test"); } } }));
-vi.mock("../../../logger", () => ({ logger: { info: vi.fn(), warn: vi.fn() }, LogTag: { BuiltinTools: "test" } }));
+vi.mock("../../../logging/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn() }, LogTag: { BuiltinTools: "test" } }));
 
 import { disposeAllShellJobs, startShellJob, waitForShellJob, type ShellSpawnSpec } from "./shell-job-manager";
 import { spawnWindowsShellJob } from "./windows-shell-job";

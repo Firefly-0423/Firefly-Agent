@@ -13,7 +13,7 @@ const provider = vi.hoisted(() => {
 });
 vi.mock("../vendors", () => ({ getAdapterForConfig: provider.select, streamChatWithSdk: provider.stream, resolveTransport: () => "openai" }));
 vi.mock("./tool-dispatcher", () => ({ dispatchToolCall: vi.fn(), persistToolDispatchResult: async (_call: unknown, result: unknown) => result }));
-vi.mock("../../token-usage-store", () => ({ recordModelCall: vi.fn(), recordToolCall: vi.fn(), recordUsage: provider.usage, recordRequest: provider.requests }));
+vi.mock("../../storage/token-usage-store", () => ({ recordModelCall: vi.fn(), recordToolCall: vi.fn(), recordUsage: provider.usage, recordRequest: provider.requests }));
 import { runFireflyHarness } from "./firefly-harness";
 import { dispatchToolCall } from "./tool-dispatcher";
 import { DEFAULT_HARNESS_CONFIG } from "./types";

@@ -98,8 +98,8 @@ describe("native metadata process endpoint", () => {
     }
   });
   it.runIf(process.platform === "win32")("connects actual Main cache selection through the real helper with zero source I/O [requires Windows native helper]", async () => {
-    const { resolveRuntimeProfile } = await import("../runtime-profile");
-    const { initializeStorageContext } = await import("../storage-context");
+    const { resolveRuntimeProfile } = await import("../startup/runtime-profile");
+    const { initializeStorageContext } = await import("../storage/storage-context");
     // A production-shaped profile rooted entirely in the synthetic fixture; no live app.
     const context = initializeStorageContext(resolveRuntimeProfile({ argv: ["--firefly-profile=production"], env: {}, isPackaged: true, productionAppData: root }));
     electron.userData = context.dataRoot;

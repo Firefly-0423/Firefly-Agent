@@ -4,7 +4,7 @@ import path from "node:path";
 import os from "node:os";
 
 const harnessModel = vi.hoisted(() => vi.fn());
-vi.mock("../token-usage-store", () => ({ recordModelCall: vi.fn(), recordToolCall: vi.fn(), recordUsage: vi.fn(), recordRequest: vi.fn() }));
+vi.mock("../storage/token-usage-store", () => ({ recordModelCall: vi.fn(), recordToolCall: vi.fn(), recordUsage: vi.fn(), recordRequest: vi.fn() }));
 vi.mock("./vendors", async (original) => ({ ...await original<typeof import("./vendors")>(), streamChatWithSdk: harnessModel }));
 import { runChatLoop, type ChatLoopOptions } from "./chat-loop";
 import { createSseReader } from "./vendors";

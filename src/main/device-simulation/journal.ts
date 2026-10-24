@@ -1,9 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import type { StorageContext } from "../storage-context";
-import { AtomicJsonStore } from "../atomic-json-store";
-import { assertRuntimePathsOwned, canonicalPath, within } from "../runtime-profile";
+import type { StorageContext } from "../storage/storage-context";
+import { AtomicJsonStore } from "../storage/atomic-json-store";
+import { assertRuntimePathsOwned, canonicalPath, within } from "../startup/runtime-profile";
 import { SIMULATION_LIMITS, validJournal, type JournalState } from "./contracts";
 
 export class SimulationJournal {

@@ -29,7 +29,7 @@ vi.mock("electron", () => ({
   app: { getAppPath: () => m.appPath },
   dialog: { showMessageBox: m.showMessageBox },
 }));
-vi.mock("../env", () => ({
+vi.mock("../startup/env", () => ({
   get isDev() {
     return m.isDev;
   },

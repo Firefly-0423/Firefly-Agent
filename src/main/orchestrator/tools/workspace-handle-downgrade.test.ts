@@ -15,7 +15,7 @@ vi.mock("fs", async original => {
   };
   return wrapped;
 });
-vi.mock("../../permission", () => ({ getCurrentLevel: () => state.level }));
+vi.mock("../../permission/permission", () => ({ getCurrentLevel: () => state.level }));
 vi.mock("electron", () => ({ app: { getPath: () => state.data, isPackaged: false, getAppPath: () => process.cwd() } }));
 vi.mock("./registry/tool-registry", () => ({ toolRegistry: { register: (t: ToolDefinition) => registry.set(t.id, t) } }));
 // This test isolates permission callbacks on plain fixture paths. Native name/ID

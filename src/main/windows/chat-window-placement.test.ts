@@ -17,7 +17,7 @@ vi.mock("electron", () => ({
 }));
 
 const storage = vi.hoisted(() => ({ file: "" as string | undefined }));
-vi.mock("../storage-context", () => ({
+vi.mock("../storage/storage-context", () => ({
   getStorageContext: () => {
     if (storage.file === undefined) throw new Error("FIREFLY_STORAGE_NOT_INITIALIZED");
     return { files: { chatWindowState: storage.file } };

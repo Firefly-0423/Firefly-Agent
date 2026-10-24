@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   measure: vi.fn(async () => ({ status: "measured", population: 0, present: 0, missing: 0, unknownDenied: 0, evidence: { status: "not-evaluated" } })),
   log: vi.fn(), beforeQuit: undefined as (() => void) | undefined,
 }));
-vi.mock("../identity-preflight", () => ({}));
+vi.mock("../startup/identity-preflight", () => ({}));
 vi.mock("electron", () => ({ app: {
   whenReady: () => mocks.ready(), once: (_event: string, listener: () => void) => { mocks.beforeQuit = listener; },
   removeListener: () => { mocks.beforeQuit = undefined; },
@@ -16,9 +16,9 @@ vi.mock("./application", () => ({ createApplication: () => ({
   start: () => mocks.start(), handleFatalStartup: (error: unknown) => mocks.fatal(error),
 }) }));
 vi.mock("./default-dependencies", () => ({ createDefaultApplicationDependencies: () => ({}) }));
-vi.mock("../plugin-panel-protocol", () => ({ registerPluginPanelScheme() {} }));
+vi.mock("../plugin-panel/plugin-panel-protocol", () => ({ registerPluginPanelScheme() {} }));
 vi.mock("../windows/external-link", () => ({ installGlobalNavigationGuard() {} }));
-vi.mock("../logger", () => ({ initializeMainFileLogging() {}, logger: { warn: (...args: unknown[]) => mocks.log(...args) }, LogTag: { Runtime: "Runtime" } }));
+vi.mock("../logging/logger", () => ({ initializeMainFileLogging() {}, logger: { warn: (...args: unknown[]) => mocks.log(...args) }, LogTag: { Runtime: "Runtime" } }));
 vi.mock("../memory-sources/native-history-coverage", () => ({ selectCachedHistoryCoverage: () => mocks.select(), measureHistoryPresence: (...args: unknown[]) => mocks.measure(...args as []) }));
 vi.mock("../memory-sources/native-history-presence-process", () => ({ createNativeHistoryPresenceEndpoint: (...args: unknown[]) => mocks.endpoint(...args as []) }));
 let stdoutListeners: Function[], stderrListeners: Function[];

@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
 const roots = new Set(["appData", "userData", "sessionData", "logs"]);
-const bootstrap = new Set(["src/main/app-identity.ts", "src/main/runtime-profile.ts", "src/main/identity-preflight.ts"]);
+const bootstrap = new Set(["src/main/startup/app-identity.ts", "src/main/startup/runtime-profile.ts", "src/main/startup/identity-preflight.ts"]);
 function typedNonStorageArgument(node, arg) {
   if (!arg || !ts.isIdentifier(arg)) return false;
   for (let owner = node.parent; owner; owner = owner.parent) {

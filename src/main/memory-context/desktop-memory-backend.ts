@@ -1,12 +1,12 @@
 import {createOpenRouterExpense,OPENROUTER_BASE,OPENROUTER_MODEL} from "./openrouter-bounded";
-import type {RuntimeProfile,RuntimeProfileKind} from "../runtime-profile";
+import type {RuntimeProfile,RuntimeProfileKind} from "../startup/runtime-profile";
 import OpenAI from "openai";
 import path from "node:path";
 import fs from "node:fs";
 import {spawn} from "node:child_process";
 import {createHash,randomBytes} from "node:crypto";
 import {MemoryClient} from "../memory-core/worker-client";
-import {getStorageContext,type StorageContext} from "../storage-context";
+import {getStorageContext,type StorageContext} from "../storage/storage-context";
 import type {KeyProtection} from "../memory-core/key-provider";
 import {loadModelSettings,resolveModelSettingsProfile,type ModelSettings} from "../settings/model-settings";
 import {createLocalEmbeddingProvider} from "../rag/embedding";

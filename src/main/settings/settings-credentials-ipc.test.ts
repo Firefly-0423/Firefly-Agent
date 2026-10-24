@@ -7,7 +7,7 @@ import { IPC } from "../../shared/ipc-channels";
 
 const state = vi.hoisted(() => ({ directory: "", isDev: true }));
 vi.mock("electron", () => ({ app: { getPath: () => state.directory, getAppPath: () => state.directory }, BrowserWindow: {}, dialog: {}, shell: {} }));
-vi.mock("../env", () => ({ get isDev() { return state.isDev; } }));
+vi.mock("../startup/env", () => ({ get isDev() { return state.isDev; } }));
 beforeEach(() => {
   vi.resetModules();
   state.isDev = true;

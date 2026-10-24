@@ -17,7 +17,7 @@ import { createExternalSkillService } from "./external-service";
 import { isolatedStorageContext } from "./testing/external-fixtures";
 import { EXTERNAL_LIMITS, EXTERNAL_SOURCES } from "./external-policy";
 import { EXTERNAL_SKILL_REVIEWS } from "./external-reviews";
-import { MARKET_REGISTRY_URLS, MARKET_ZIP_URL_PREFIXES } from "../plugin-marketplace";
+import { MARKET_REGISTRY_URLS, MARKET_ZIP_URL_PREFIXES } from "../plugin-host/plugin-marketplace";
 const cleanup: Array<() => void | Promise<void>> = [];
 afterEach(async () => { for (const run of cleanup.splice(0).reverse()) await run(); vi.restoreAllMocks(); });
 const sourceRoot = path.resolve(import.meta.dirname, "../../..");
@@ -31,7 +31,7 @@ const unchangedBoundaries = {
   // outcomes only. Exact catalog and repository rename prefixes are independently asserted below.
   // Reviewed marketplace move: the catalog and Release prefix now point only at Firefly-0423/firefly-plugins; size, timeout,
   // redirect, SHA-256 and disabled-install rules are unchanged.
-  "src/main/plugin-marketplace.ts": "0344854153cd8c3e23f824da41f1b1eb9343d40522bae20e2061178a8e8a1379",
+  "src/main/plugin-host/plugin-marketplace.ts": "f81c32d238b0f812b1c10b86e3a68aa72acdba5366f20df1c882749345186074",
   "src/main/browser/browser-request-policy.ts": "9ce32fdba4722e49b7c96d27ad7a2058fae3d62a4186d44aac98e49d7e62bdf1",
   // Reviewed window-browser tools change: browser-startup-config only forwards the optional acceptDownload callback, and
   // electron-browser-guest only attaches the per-page tools object. No navigation, network or sandbox setting changed here;
@@ -41,12 +41,12 @@ const unchangedBoundaries = {
   // certificate denial and fixed isolated-world scripts retain their boundaries.
   // See docs/browser-reference-audit-2026-10-15.md (boundary preimage review).
   "src/main/browser/electron-browser-guest.ts": "a71fade70a93bb0c1ab40e7cbee856c2b423e87092bbaf4f3174a3d896de8d21",
-  "src/main/permission-policy.ts": "c7f8daff3610086fe0222ba0336037bbe00b31d2b88e6b7eec2aa1f1cbe805f0",
+  "src/main/permission/permission-policy.ts": "f686d292755780fca07366b96fe432b69e5bff7d8602006e0172a436108b5f40",
   // Reimplemented from observable behavior with identical allow/ask/deny decisions; verified by the policyFor decision-table
   // test (permission-policy.matrix.test.ts) and the approval contract tests (permission.contract.test.ts, permission.test.ts).
   // The only difference is stricter: an unrecognised session level now denies instead of yielding no decision.
-  "src/main/permission.ts": "87d44ab43150c835a6aaec96302d6009c428e23a68dba080c2856113d25e9f72",
-  "src/main/permission/bootstrap.ts": "b99c9fe6ba886351d2ec4e185b46feedb57150eb19d3917abf25e903f4d759c3",
+  "src/main/permission/permission.ts": "5984d04a0a6c0682d1112364198d178b1eec446de08620660b098d729d212d89",
+  "src/main/permission/bootstrap.ts": "e2c6f41a87e947a0838f16fd920f5c31c7a35549ea4e60627f4257059a6aec71",
 } as const;
 it.each(Object.entries(unchangedBoundaries))("no_execution_or_permission_expansion: %s exactly matches approved boundary preimage", (file, expected) => { expect(hash(file)).toBe(expected); });
 it("no_execution_or_permission_expansion native executable marketplace uses exactly the approved catalog and repository rename release prefixes, and fixed source data does not broaden it", () => {

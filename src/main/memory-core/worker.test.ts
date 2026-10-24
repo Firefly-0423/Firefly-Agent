@@ -9,8 +9,8 @@ import {build} from "esbuild";
 import {afterEach,beforeAll,describe,it,expect,vi} from "vitest";
 // Real SQLite / filesystem integration cases: the 5 s default is too tight on CI runners, so this file allows 30 s. Other files keep the default.
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
-import {resolveRuntimeProfile} from "../runtime-profile";
-import {createStorageContext} from "../storage-context";
+import {resolveRuntimeProfile} from "../startup/runtime-profile";
+import {createStorageContext} from "../storage/storage-context";
 import {sealPayload,openPayload} from "./payload-codec";
 import {MemoryClient} from "./worker-client";
 // Both real and fake Workers acquire the real Windows protected-key publication lease.

@@ -10,7 +10,7 @@ const { getById, checkPermission, getCurrentLevel, createAgentExecutor, taskStor
 }));
 
 vi.mock("../../tools/registry/tool-registry", () => ({ toolRegistry: { getById } }));
-vi.mock("../../../permission", () => ({ checkPermission, getCurrentLevel }));
+vi.mock("../../../permission/permission", () => ({ checkPermission, getCurrentLevel }));
 vi.mock("../../persistent-agent-runtime", () => ({ createAgentExecutor }));
 vi.mock("../../../settings/model-settings", () => ({ loadModelSettings: () => ({ modelProfiles: [], agentModelProfiles: {} }) }));
 vi.mock("../../../tasks/task-session-store", () => ({ getTaskSessionStore: taskStore }));

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const usage = vi.hoisted(() => ({ recordPluginCall: vi.fn() }));
-vi.mock("../token-usage-store", () => usage);
+vi.mock("../storage/token-usage-store", () => usage);
 
 import { createHostServiceFactory } from "./host-services";
 

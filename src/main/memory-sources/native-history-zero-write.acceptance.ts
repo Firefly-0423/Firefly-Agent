@@ -7,8 +7,8 @@ import {afterEach,afterAll,it,expect,vi} from 'vitest';
 import {recallFixture} from '../../../scripts/verify/memory-recall/recall-fixture';
 import {createMainHistory} from '../memory-history/main-history';
 import {ConversationTranscriptStore} from '../orchestrator/conversation-transcript-store';
-import {initializeStorageContext} from '../storage-context';
-import {resolveRuntimeProfile} from '../runtime-profile';
+import {initializeStorageContext} from '../storage/storage-context';
+import {resolveRuntimeProfile} from '../startup/runtime-profile';
 import {createNativeHistoryProvider} from './native-history-provider';
 import {createNativeHistoryEndpointFactory} from './native-history-transport';
 // E: is the local acceptance workspace, not a universal drive-letter requirement.

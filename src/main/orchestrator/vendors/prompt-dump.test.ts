@@ -4,13 +4,13 @@ import * as path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const marked: string[] = [];
-let ephemeralConversations: typeof import("../../ephemeral-conversations").ephemeralConversations;
+let ephemeralConversations: typeof import("../../chats/ephemeral-conversations").ephemeralConversations;
 let home: string;
 
 async function loadDump() {
   vi.resetModules();
   // The dump module and the test must share one registry instance.
-  ({ ephemeralConversations } = await import("../../ephemeral-conversations"));
+  ({ ephemeralConversations } = await import("../../chats/ephemeral-conversations"));
   return import("./prompt-dump");
 }
 const dumped = () => {

@@ -3,7 +3,7 @@ const windows = vi.hoisted(() => ({ register: vi.fn(), broadcast: vi.fn() }));
 vi.mock("electron", () => ({ ipcMain: { handle: windows.register }, BrowserWindow: { getAllWindows: () => [{ webContents: { send: windows.broadcast } }] } }));
 import { parseQuizInput, buildPopQuizPublication, gradeQuizSubmission, requestPopQuiz, registerPopQuizIpc, cancelPendingQuizzesForRun, takeQuizEvidenceForRun } from "./pop-quiz";
 import { IPC } from "../../shared/ipc-channels";
-import { isAbortError } from "../abort-utils";
+import { isAbortError } from "../utils/abort-utils";
 import type { QuizQuestionInput, PopQuizCard } from "../../shared/pop-quiz";
 
 const choice = () => ({ type: "choice" as const, question: "How many days are in a week?", options: ["7", "8", "6"], correctIndex: 0, learningObjective: "Calendar week length", explanation: "A calendar week contains seven days." });

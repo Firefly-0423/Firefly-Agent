@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 const store = vi.hoisted(() => ({ recordSkillUse: vi.fn(), recordToolCall: vi.fn() }));
-vi.mock("../../../token-usage-store", () => store);
+vi.mock("../../../storage/token-usage-store", () => store);
 
 import { executeToolDefinition } from "./tool-executor";
 import type { ToolDefinition } from "./tool-registry";
@@ -35,7 +35,7 @@ describe("tool timing", () => {
   });
 
   it("counts the step but not the time of a tool that ran a sub-agent, whose time is in the agent's own requests", async () => {
-    const { runWithUsageAttribution, runAsSubagent } = await import("../../../usage-attribution");
+    const { runWithUsageAttribution, runAsSubagent } = await import("../../../storage/usage-attribution");
     store.recordToolCall.mockClear();
     const delegating: ToolDefinition = { ...tool("delegate"), execute: async () => { await new Promise(resolve => setTimeout(resolve, 20)); await runAsSubagent(async () => "done"); return "ok"; } };
     await runWithUsageAttribution({ feature: "work", sessionId: "session-a" }, () => executeToolDefinition(delegating, {}));
@@ -43,7 +43,7 @@ describe("tool timing", () => {
   });
 
   it("does not mistake another parallel tool's sub-agent for its own: only the delegating invocation records zero time", async () => {
-    const { runWithUsageAttribution, runAsSubagent } = await import("../../../usage-attribution");
+    const { runWithUsageAttribution, runAsSubagent } = await import("../../../storage/usage-attribution");
     store.recordToolCall.mockClear();
     const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
     const reader: ToolDefinition = { ...tool("read_file"), execute: async () => { await pause(60); return "ok"; } };

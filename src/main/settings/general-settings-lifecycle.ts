@@ -4,7 +4,7 @@ import { broadcastToAllWindows } from "../windows/broadcast";
 import type { WindowManager } from "../windows/window-manager";
 import { setGetCurrentAppIconPath } from "../windows/window-state";
 import { normalizeChatAppearance } from "../../shared/chat-appearance";
-import { updateLocaleContext } from "../locale-context";
+import { updateLocaleContext } from "../startup/locale-context";
 import { validateSearchApiKey } from "../orchestrator/search-backend-filter";
 import { addMcpServer, listMcpServers, removeMcpServer } from "../orchestrator/mcp-manager";
 import { getAppIconPath } from "../windows/app-icon";

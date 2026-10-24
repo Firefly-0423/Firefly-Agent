@@ -4,10 +4,10 @@ const mail = vi.hoisted(() => {
   return { send, transport: vi.fn(() => ({ sendMail: send })), choose: vi.fn() };
 });
 vi.mock("nodemailer", () => ({ default: { createTransport: mail.transport } }));
-vi.mock("../../user-choice", () => ({ requestUserChoice: mail.choose }));
+vi.mock("../../chat/user-choice", () => ({ requestUserChoice: mail.choose }));
 // 真实的工作区句柄 helper 按开发构建的位置查找；实时权限档位固定为 full，只看本次运行的快照档位。
 vi.mock("electron", () => ({ app: { getPath: () => process.cwd(), isPackaged: false, getAppPath: () => process.cwd() } }));
-vi.mock("../../permission", async (importOriginal) => ({ ...await importOriginal<typeof import("../../permission")>(), getCurrentLevel: () => "full" }));
+vi.mock("../../permission/permission", async (importOriginal) => ({ ...await importOriginal<typeof import("../../permission/permission")>(), getCurrentLevel: () => "full" }));
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";

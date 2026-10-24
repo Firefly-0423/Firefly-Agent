@@ -1,5 +1,5 @@
 import path from "node:path";
-import { canonicalPath } from "../../runtime-profile";
+import { canonicalPath } from "../../startup/runtime-profile";
 import { ToolExecutionError } from "../tools/registry/tool-execution-error";
 import type { ExecutionScope, LeafExecutionMode, LeafPermit } from "./execution-coordinator";
 

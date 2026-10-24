@@ -11,7 +11,7 @@ import { createMainUserFactCoordinator } from "../memory-policy/main-user-fact-c
 import { createChannelSourceProvider } from "./channel-source-provider";
 
 vi.mock("electron", () => ({ app: { getPath: () => "/tmp" }, safeStorage: { isEncryptionAvailable: () => false } }));
-vi.mock("../logger", () => ({ logger: { info: vi.fn() }, LogTag: { Channels: "channels" } }));
+vi.mock("../logging/logger", () => ({ logger: { info: vi.fn() }, LogTag: { Channels: "channels" } }));
 
 async function account(accountKey = "qq:account-a") {
   const identity = createChannelMemoryAccountIdentity(); identity.authenticate(accountKey);
