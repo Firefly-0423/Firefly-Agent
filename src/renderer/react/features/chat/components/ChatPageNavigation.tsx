@@ -14,6 +14,7 @@ import { SidebarSearchDialog } from "./SidebarSearchDialog";
 import { ActivityRail } from "./ActivityRail";
 import { ModelConnectionIndicator } from "./ModelConnectionIndicator";
 import { useSidebarWidth } from "../pages/useSidebarWidth";
+import { useSidebarFold } from "./use-sidebar-fold";
 import { reportChatPerfRender } from "./chat-perf-probe";
 
 export type ChatPagePanel = "tool" | "skill" | "model" | "plugin" | "scheduled";
@@ -90,6 +91,10 @@ export const ChatPageNavigation = React.memo(function ChatPageNavigation({
   // 性能探针：perf harness 注册后统计导航子树执行次数（阶段 1A 验收：流式期间应为 0）
   reportChatPerfRender("navigationRenders");
   const sidebar = useSidebarWidth(collapsed);
+  // Docked until it has slid out of the row; see useSidebarFold.
+  const fold = useSidebarFold(collapsed);
+  const floating = fold === "floating";
+  const folding = fold === "closing" || fold === "opening";
   const { t } = useTranslation();
   // The thin strip along the left window edge is what brings the folded sidebar back on hover.
   const edgeRef = useRef<HTMLElement>(null);
@@ -180,7 +185,7 @@ export const ChatPageNavigation = React.memo(function ChatPageNavigation({
       {/* Codex-style activity rail: always visible, even when the conversation sidebar is folded away. */}
       <ActivityRail activePanel={activePanel} onTogglePanel={onTogglePanel} onOpenSettings={onOpenSettings} />
       {collapsed && <nav ref={edgeRef} onPointerEnter={enter} onPointerLeave={leave} className="ff-page-edge" aria-label={t("ui.navigation")} />}
-      <aside ref={contextRef} onPointerEnter={enter} onPointerLeave={leave} id="firefly-context-sidebar" className={`ff-page-sidebar ${collapsed ? "is-floating" : ""} ${peeking ? "is-peeking" : ""}`} style={{ width: sidebar.width }} inert={hidden} aria-hidden={hidden} aria-label={t("ui.contextSidebar")}>
+      <aside ref={contextRef} onPointerEnter={enter} onPointerLeave={leave} id="firefly-context-sidebar" className={`ff-page-sidebar ${floating ? "is-floating" : ""} ${folding ? "is-folding" : ""} ${peeking ? "is-peeking" : ""}`} style={{ width: sidebar.width, ...(folding ? { marginRight: -sidebar.width } : null) }} inert={hidden} aria-hidden={hidden} aria-label={t("ui.contextSidebar")}>
         {collapsed && <span className="ff-sidebar-hover-corridor" aria-hidden="true" />}
         {/* A feature page owns the sidebar while it is open; the conversations stay mounted underneath so coming back is instant. */}
         <div className="ff-page-panelnav" ref={onPanelSlot} hidden={!activePanel} />

@@ -37,7 +37,8 @@
 /* Width motion for the chat / pane split: 220ms ease-out (ChatPageInspector keeps the matching timing).
    Only while the pane is opening or closing, because data-dock-motion is present only then. Dragging,
    keyboard resizing and window resizing therefore stay immediate and follow the pointer. */
-.ff-page-dock:has(.ff-chat-inspector[data-dock-motion]) > [data-panel] {
+.ff-page-dock:has(.ff-chat-inspector[data-dock-motion]) > [data-panel],
+.ff-page-dock[data-dock-motion] > [data-panel] {
   transition: flex-grow 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 

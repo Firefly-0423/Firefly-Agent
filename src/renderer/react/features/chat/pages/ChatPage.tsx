@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "../../../i18n";
 import { MessageSquareDashed } from "lucide-react";
 import { DownOutlined, GlobalOutlined, FolderOpenOutlined, ProfileOutlined, UnorderedListOutlined } from "@ant-design/icons";
@@ -11,6 +11,7 @@ import { useBrowserWorkspaceActivation } from "../workspace/useBrowserWorkspaceA
 import { ChatComposer, parseComposerMessage } from "../components/ChatComposer";
 import { ComposerSlot } from "../components/ComposerSlot";
 import { FloatingComposer } from "../components/FloatingComposer";
+import { usePresence } from "../components/use-presence";
 import { buildStepProgressSummary } from "../components/step-progress";
 import { CodeGitPanel } from "../components/CodeGitPanel";
 import type { PlanReviewPhase } from "../components/PlanReviewPanel";
@@ -165,6 +166,12 @@ interface NavActions {
 
 /** Whether the overview card column is open, kept on this computer. */
 const OVERVIEW_OPEN_KEY = "ff.chat.overviewOpen";
+/** How long the right dock stays mounted while it collapses after its last tab closes; covers the 220ms width motion. */
+const DOCK_EXIT_MS = 240;
+/** How long the overview cards take to slide out; matches ff-chat-cards-out. */
+const CARDS_EXIT_MS = 200;
+/** How long the dock takes to widen for a newly opened panel; matches the pane width transition. */
+const DOCK_WIDEN_MS = 240;
 /** The narrowest the conversation (messages + composer) may get from dragging the dock separator, in px. */
 const CHAT_MIN_WIDTH = 480;
 /** The overview card column inside the conversation panel, with its inset. */
@@ -1485,12 +1492,29 @@ export function ChatPage() {
     }
   };
 
-  const inspectorVisible = !activePanel && !inspectorHidden;
+  // Closing the last tab keeps the dock mounted while it collapses like a hidden pane, instead of vanishing in one frame.
+  const dockPresence = usePresence(inspectorTabIds.length > 0, DOCK_EXIT_MS);
+  const inspectorVisible = !activePanel && !inspectorHidden && !dockPresence.leaving;
   const { panelRef: inspectorPanelRef, onLayoutChange: onInspectorLayoutChange } = useInspectorPanelVisibility(inspectorVisible, dockGroupRef, `${inspectorTabIds.length}:${compactDock}`);
+  // Whatever opens or closes the pane (its toggle, the last tab closing, a feature page taking over), the dock carries the
+  // motion flag for the width transition. The pane body has its own flag, but it renders nothing once no tab is left.
+  // Set in a layout effect so it is in place before the collapse/expand effect runs.
+  const lastInspectorVisible = useRef(inspectorVisible);
+  useLayoutEffect(() => {
+    if (lastInspectorVisible.current === inspectorVisible) return;
+    lastInspectorVisible.current = inspectorVisible;
+    const dock = dockRef.current;
+    if (!dock || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    dock.setAttribute("data-dock-motion", "");
+    const settle = setTimeout(() => dock.removeAttribute("data-dock-motion"), DOCK_EXIT_MS);
+    return () => clearTimeout(settle);
+  }, [inspectorVisible]);
 
   // The conversation keeps a readable width: the dock separator cannot squeeze it below this, and it grows by the
   // overview card column (272px + its 8px inset) while that column is shown.
   const chatCardsShown = overviewTabOpen && !activePanel;
+  // The overview cards slide in and out instead of popping; they stay mounted while they slide out.
+  const cardsPresence = usePresence(overviewTabOpen, CARDS_EXIT_MS);
   // On a narrow page the right panel keeps its own 280px minimum, so the conversation yields first.
   const chatMinWidth = Math.min(CHAT_MIN_WIDTH + (chatCardsShown ? CHAT_CARDS_WIDTH : 0),
     dockWidth > 0 ? Math.max(300, dockWidth - INSPECTOR_MIN_WIDTH - 12) : Number.POSITIVE_INFINITY);
@@ -1506,9 +1530,16 @@ export function ChatPage() {
       // A panel the user collapsed with the separator stays collapsed.
       if (!panel || dockWidth === 0 || panel.isCollapsed()) return;
       const wanted = Math.min(inspectorPanelCount * 360, dockWidth * 0.7, dockWidth - chatMinWidth - 12);
-      if (panel.getSize().inPixels < wanted - 1) panel.resize(Math.round(wanted));
+      if (panel.getSize().inPixels >= wanted - 1) return;
+      // Widen with the same 220ms width motion as opening and closing the pane, instead of jumping in one frame.
+      const dock = dockRef.current;
+      dock?.setAttribute("data-dock-motion", "");
+      panel.resize(Math.round(wanted));
+      settle = setTimeout(() => { settle = undefined; dock?.removeAttribute("data-dock-motion"); }, DOCK_WIDEN_MS);
     });
-    return () => cancelAnimationFrame(frame);
+    let settle: ReturnType<typeof setTimeout> | undefined;
+    // Only take the flag down if this widening put it up; an open or close in the same commit has set its own.
+    return () => { cancelAnimationFrame(frame); if (settle) { clearTimeout(settle); dockRef.current?.removeAttribute("data-dock-motion"); } };
   }, [inspectorPanelCount, inspectorVisible, compactDock, inspectorPanelRef, chatMinWidth]);
 
   // Sessions with a run in flight, for the sidebar spinner. The registry is a ref: a run starting flips the busy state,
@@ -1895,8 +1926,8 @@ export function ChatPage() {
         </div>
         </div>
         {/* The overview cards live in the conversation panel, on the outer side of the dialog. */}
-        {overviewTabOpen && (
-          <aside className="ff-chat-cards" aria-label={t("sessionOverview.title")}>
+        {cardsPresence.mounted && (
+          <aside className={`ff-chat-cards${cardsPresence.leaving ? " is-leaving" : ""}`} aria-label={t("sessionOverview.title")} inert={cardsPresence.leaving || undefined}>
             <SessionOverviewPanel usage={latestContextUsage} outputs={workspaceOutputs} onOpenChange={openResultDiff} onOpenTask={openTaskInRun}
               environment={{ mode, workspaceName: activeSession?.workspaceBinding?.displayName, temporary: activeSession?.temporary }}
               onOpenEnvironment={activeSession?.workspaceBinding ? openFilesTab : mode !== "chat" ? () => void chooseWorkspace() : undefined}
@@ -1910,7 +1941,7 @@ export function ChatPage() {
       </main>
         </Panel>
         {/* 右侧面板打开时才挂载 Panel + 拖动条；默认 40% 宽，最小 280px，最大 70% */}
-        {inspectorTabIds.length > 0 && (
+        {dockPresence.mounted && (
           <>
             {inspectorVisible && <Separator className="ff-dock-separator" onKeyDown={event => {
               if (compactDock || !event.defaultPrevented

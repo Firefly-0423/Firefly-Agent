@@ -5,8 +5,9 @@ const css = readFileSync(new URL("./ChatPageInspector.css", import.meta.url), "u
 const source = readFileSync(new URL("./ChatPageInspector.tsx", import.meta.url), "utf8");
 
 describe("docked pane motion", () => {
-  it("animates the group's panel widths only while the pane is opening or closing", () => {
-    expect(css).toMatch(/\.ff-page-dock:has\(\.ff-chat-inspector\[data-dock-motion\]\) > \[data-panel\] \{\s*transition: flex-grow 220ms cubic-bezier\(0\.22, 1, 0\.36, 1\);\s*\}/);
+  it("animates the group's panel widths only while the pane is opening, closing or widening for a new panel", () => {
+    // The pane flags its own opening and closing; ChatPage flags the dock itself while it widens for a newly opened panel.
+    expect(css).toMatch(/\.ff-page-dock:has\(\.ff-chat-inspector\[data-dock-motion\]\) > \[data-panel\],\s*\.ff-page-dock\[data-dock-motion\] > \[data-panel\] \{\s*transition: flex-grow 220ms cubic-bezier\(0\.22, 1, 0\.36, 1\);\s*\}/);
     // Drag, keyboard and window resizing are not inside that gate, so they stay immediate.
     expect(css).not.toMatch(/\.ff-page-dock > \[data-panel\] \{[^}]*transition:\s*flex-grow/);
   });
