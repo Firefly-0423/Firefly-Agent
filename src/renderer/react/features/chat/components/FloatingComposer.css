@@ -1,4 +1,4 @@
-/* 输入框保持原来的外观：收起和拖动只在鼠标移上去或键盘聚焦时出现在右上角。颜色只用 --ff-* token。 */
+/* 输入框保持原来的外观：收起和拖动只在鼠标移上去、或用 Tab 移到它们身上时出现在右上角；在输入框里打字时不出现。颜色只用 --ff-* token。 */
 .ff-floating-composer {
   position: relative;
   display: flex;
@@ -31,7 +31,7 @@
   transition: opacity 140ms ease;
 }
 .ff-floating-composer:hover .ff-floating-composer__controls,
-.ff-floating-composer:focus-within .ff-floating-composer__controls,
+.ff-floating-composer__controls:focus-within,
 .ff-floating-composer.is-dragging .ff-floating-composer__controls { opacity: 1; pointer-events: auto; }
 
 .ff-floating-composer__control {
