@@ -1,0 +1,81 @@
+/* 输入框保持原来的外观：收起和拖动只在鼠标移上去或键盘聚焦时出现在右上角。颜色只用 --ff-* token。 */
+.ff-floating-composer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(100%, var(--ff-reading-width));
+}
+.ff-floating-composer__body { width: 100%; }
+.ff-floating-composer__body[hidden] { display: none; }
+.ff-floating-composer__body > .ff-composer-slot,
+.ff-floating-composer__body .ff-composer-stack { width: 100%; }
+.ff-floating-composer.is-floating { z-index: 20; }
+.ff-floating-composer.is-dragging { user-select: none; }
+.ff-floating-composer.is-dragging .ff-composer-shell { box-shadow: 0 16px 40px rgba(31, 35, 48, 0.18); }
+
+.ff-floating-composer__controls {
+  position: absolute;
+  top: -14px;
+  right: 18px;
+  z-index: 30;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--ff-border);
+  border-radius: 999px;
+  background: var(--ff-popover, var(--ff-surface));
+  box-shadow: var(--ff-shadow-popover);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+}
+.ff-floating-composer:hover .ff-floating-composer__controls,
+.ff-floating-composer:focus-within .ff-floating-composer__controls,
+.ff-floating-composer.is-dragging .ff-floating-composer__controls { opacity: 1; pointer-events: auto; }
+
+.ff-floating-composer__control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ff-text-muted);
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.ff-floating-composer__control:hover { background: var(--ff-bg-hover); color: var(--ff-text); }
+.ff-floating-composer__control:focus-visible,
+.ff-floating-composer__restore:focus-visible { outline: 2px solid rgba(var(--ff-accent-rgb), 0.45); outline-offset: 1px; }
+.ff-floating-composer__control svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.ff-floating-composer__control.is-handle { cursor: grab; touch-action: none; }
+.ff-floating-composer__control.is-handle svg { fill: currentColor; stroke: none; }
+.ff-floating-composer.is-dragging .ff-floating-composer__control.is-handle { cursor: grabbing; }
+
+/* 收起后：原位置右侧留一个圆按钮，点一下恢复输入框。 */
+.ff-floating-composer.is-collapsed { align-items: flex-end; }
+.ff-floating-composer__restore {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 1px solid var(--ff-border);
+  border-radius: 50%;
+  background: var(--ff-bg-subtle);
+  color: var(--ff-text-secondary, var(--ff-text));
+  box-shadow: var(--ff-shadow-bubble-neutral);
+  cursor: pointer;
+  transition: transform 140ms ease, color 120ms ease;
+}
+.ff-floating-composer__restore:hover { color: var(--ff-text); transform: translateY(-1px); }
+.ff-floating-composer__restore svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ff-floating-composer__controls, .ff-floating-composer__restore { transition: none; }
+}

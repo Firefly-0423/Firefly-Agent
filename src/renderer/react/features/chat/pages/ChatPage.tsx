@@ -10,6 +10,7 @@ import { WorkspaceResultsIndex } from "../workspace/WorkspaceRunResults";
 import { useBrowserWorkspaceActivation } from "../workspace/useBrowserWorkspaceActivation";
 import { ChatComposer, parseComposerMessage } from "../components/ChatComposer";
 import { ComposerSlot } from "../components/ComposerSlot";
+import { FloatingComposer } from "../components/FloatingComposer";
 import { buildStepProgressSummary } from "../components/step-progress";
 import { CodeGitPanel } from "../components/CodeGitPanel";
 import type { PlanReviewPhase } from "../components/PlanReviewPanel";
@@ -1775,6 +1776,7 @@ export function ChatPage() {
               <DownOutlined />
             </button>
           )}
+          <FloatingComposer floating={hasMessages} attention={Boolean(composerInteraction)}>
           <ComposerSlot
             composer={<ChatComposer
             value={draft}
@@ -1888,6 +1890,7 @@ export function ChatPage() {
               return settings.skipPopQuiz(quizId);
             }}
           />
+          </FloatingComposer>
         </div>
         </div>
         {/* The overview cards live in the conversation panel, on the outer side of the dialog. */}
