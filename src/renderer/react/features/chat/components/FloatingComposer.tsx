@@ -93,7 +93,8 @@ export function FloatingComposer({ floating, attention = false, children }: Floa
     };
   };
 
-  // 工作区尺寸变化（窗口缩放、侧栏开合、刚加载完消息）时，按用户选的位置重新放进工作区；只调整显示，不改保存的位置。
+  // 工作区或输入框自身尺寸变化（窗口缩放、侧栏开合、刚加载完消息、输入框随文字长高）时，按用户选的位置重新放进工作区；
+  // 只调整显示，不改保存的位置。
   useEffect(() => {
     if (!floating) return;
     const settle = () => setState((current) => {
@@ -103,11 +104,12 @@ export function FloatingComposer({ floating, attention = false, children }: Floa
       return next.x === current.x && next.y === current.y ? current : { ...current, ...next };
     });
     settle();
-    const area = rootRef.current?.closest(".ff-workspace");
+    const root = rootRef.current;
+    const area = root?.closest(".ff-workspace");
     const observer = typeof ResizeObserver === "function" && area ? new ResizeObserver(settle) : null;
     if (observer && area) observer.observe(area);
+    if (observer && root) observer.observe(root);
     // 打开会话时输入框有一段下滑动画，动画中途量到的位置不准，结束后再放一次。
-    const root = rootRef.current;
     root?.addEventListener("transitionend", settle);
     window.addEventListener("resize", settle);
     return () => { observer?.disconnect(); root?.removeEventListener("transitionend", settle); window.removeEventListener("resize", settle); };
