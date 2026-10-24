@@ -1,0 +1,5 @@
+src/main/skills/fixtures/upstream-pre-upgrade/*.md text eol=lf
+scripts/packaging/skill-adaptations/** text eol=lf
+vendor/firefly-skills/skills/** -text
+# Preserve the retained writer fixture bytes checked by its manifest.
+src/main/memory-history/fixtures/v8-writer/v8-writer.cjs text eol=lf

@@ -1,0 +1,231 @@
+/* ReviewPanel — 气泡内的 Review 卡片（折叠头部 + 可展开文件列表） */
+
+.ff-review-panel {
+  app-region: no-drag;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgb(31 35 48 / 5%);
+  background: var(--ff-surface);
+  border-radius: 12px;
+  border: 1px solid var(--ff-border, var(--ff-border));
+  margin: 8px 0 4px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* 折叠头部（整行可点击） */
+.ff-review-panel__header {
+  transition: background 0.12s;
+  text-align: left;
+  cursor: pointer;
+  font: 600 14px/1.3 var(--rb-font-sans, sans-serif);
+  color: var(--ff-text, var(--ff-text));
+  background: transparent;
+  border: 0;
+  padding: 14px 16px;
+  width: 100%;
+  gap: 12px;
+  align-items: center;
+  display: flex;
+}
+.ff-review-panel__header:hover {
+  background: var(--ff-bg-hover);
+}
+.ff-review-panel.is-expanded .ff-review-panel__header {
+  background: var(--ff-bg-page);
+  border-bottom: 1px solid var(--ff-border, var(--ff-border));
+}
+
+/* 左侧提醒图标（透明底 mascot PNG） */
+.ff-review-panel__icon {
+  pointer-events: none;
+  user-select: none;
+  object-fit: contain;
+  height: 34px;
+  width: 34px;
+  flex-shrink: 0;
+}
+
+.ff-review-panel__title {
+  color: var(--ff-text, var(--ff-text));
+  font: 600 14px/1.3 var(--rb-font-sans, sans-serif);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  min-width: 0;
+  flex: 1;
+}
+
+.ff-review-panel__stats {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  padding-right: 10px;
+  border-right: 1px solid var(--ff-border, var(--ff-border));
+  font: 600 12px/1.2 var(--rb-font-mono, monospace);
+  font-variant-numeric: tabular-nums;
+}
+.ff-review-panel__stats .is-add { color: var(--ff-add-fg); }
+.ff-review-panel__stats .is-remove { color: var(--ff-del-fg); }
+
+/* 展开/收起 chevron */
+.ff-review-panel__chevron {
+  transition: transform 0.15s ease;
+  color: var(--ff-text-muted, #b5adb2);
+  flex-shrink: 0;
+  height: 14px;
+  width: 14px;
+}
+.ff-review-panel.is-expanded .ff-review-panel__chevron {
+  transform: rotate(180deg);
+}
+
+/* 文件列表 */
+.ff-review-panel__list {
+  padding: 4px 0;
+  overflow-y: auto;
+  max-height: 300px;
+}
+
+/* 文件项 */
+.ff-review-panel__file-item {
+  transition: background 0.1s;
+  text-align: left;
+  cursor: pointer;
+  font: 12.5px/1.35 var(--rb-font-sans, sans-serif);
+  color: var(--ff-text, var(--ff-text));
+  background: transparent;
+  border: 0;
+  padding: 7px 14px;
+  width: 100%;
+  gap: 10px;
+  align-items: center;
+  display: flex;
+}
+.ff-review-panel__file-item:hover {
+  background: var(--ff-bg-hover);
+}
+
+/* kind 徽标 */
+.ff-review-panel__kind {
+  line-height: 1.5;
+  font-weight: 600;
+  font-size: 10.5px;
+  border-radius: 12px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+.ff-review-panel__kind.is-modified { background: var(--ff-info-bg); color: var(--ff-info-fg); }
+.ff-review-panel__kind.is-created  { background: var(--ff-add-bg); color: var(--ff-add-fg); }
+.ff-review-panel__kind.is-deleted  { background: var(--ff-del-bg); color: var(--ff-del-fg); }
+.ff-review-panel__kind.is-renamed  { background: var(--ff-info-bg); color: var(--ff-info-fg); }
+.ff-review-panel__kind.is-binary   { background: var(--ff-bg-hover); color: var(--ff-text-muted); }
+.ff-review-panel__kind.is-large    { background: var(--ff-bg-hover); color: var(--ff-text-muted); }
+
+/* 文件路径 */
+.ff-review-panel__file-path {
+  text-align: left;
+  direction: rtl;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  flex: 1;
+}
+.ff-review-panel__dir {
+  color: var(--ff-text-muted, var(--ff-text-muted));
+}
+.ff-review-panel__base {
+  font-weight: 600;
+  color: var(--ff-text, var(--ff-text));
+}
+
+/* 文件增删统计 */
+.ff-review-panel__file-stats {
+  flex-shrink: 0;
+  display: flex;
+  gap: 6px;
+  font: 600 11px/1.2 var(--rb-font-mono, monospace);
+  font-variant-numeric: tabular-nums;
+}
+.ff-review-panel__file-stats .is-add { color: var(--ff-add-fg); }
+.ff-review-panel__file-stats .is-remove { color: var(--ff-del-fg); }
+
+/* 右箭头（提示点击会打开侧栏） */
+.ff-review-panel__arrow {
+  color: var(--ff-text-muted, #b5adb2);
+  flex-shrink: 0;
+  height: 13px;
+  width: 13px;
+}
+
+/* 恢复入口（展开态列表底部） */
+.ff-review-panel__restore {
+  border-top: 1px solid var(--ff-border, var(--ff-border));
+  padding: 8px 14px 10px;
+}
+
+.ff-review-panel__restore-btn {
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  cursor: pointer;
+  font: 12px/1.4 var(--rb-font-sans, sans-serif);
+  color: var(--ff-text, var(--ff-text));
+  background: var(--ff-surface);
+  border-radius: 12px;
+  border: 1px solid var(--ff-border, #d9d2d6);
+  padding: 5px 12px;
+}
+.ff-review-panel__restore-btn:hover {
+  background: var(--ff-bg-hover);
+}
+/* 第二次点击前的确认态：警示色，提示这是破坏性操作 */
+.ff-review-panel__restore-btn.is-confirming {
+  font-weight: 600;
+  color: var(--ff-del-fg);
+  border-color: var(--ff-danger);
+}
+.ff-review-panel__restore-btn.is-confirming:hover {
+  background: var(--ff-del-bg);
+}
+
+:root[data-ui-colors] .ff-review-panel__restore-btn {
+  background: var(--ff-bg-workspace);
+}
+:root[data-ui-colors] .ff-review-panel__restore-btn:hover {
+  background: var(--ff-bg-hover);
+}
+.ff-review-panel__restore-btn:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.ff-review-panel__restore-summary {
+  color: var(--ff-add-fg);
+  font: 12px/1.5 var(--rb-font-sans, sans-serif);
+}
+.ff-review-panel__restore-summary.is-error {
+  color: var(--ff-del-fg);
+}
+
+/* ===== Attached to the reply =====
+   The changed-files summary reads as the reply's footer rather than a card of its own: no shadow, a quieter frame,
+   a 13px header with a file icon, the counts in green / red, and a chevron that turns as the list slides open.
+   File rows match the run-result list: bold name, folder dimmed, counts at the end. */
+.ff-review-panel { margin: 0 0 4px; border-color: color-mix(in srgb, var(--ff-border) 80%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--ff-surface) 60%, transparent); box-shadow: none; }
+.ff-review-panel__header { gap: 8px; padding: 8px 12px; font: 500 13px/1.3 var(--rb-font-sans, sans-serif); }
+.ff-review-panel.is-expanded .ff-review-panel__header { border-bottom: 0; background: transparent; }
+.ff-review-panel__lead { flex: none; color: var(--ff-text-muted); }
+.ff-review-panel__title { font: 500 13px/1.3 var(--rb-font-sans, sans-serif); }
+.ff-review-panel__stats { gap: 6px; padding-right: 0; border-right: 0; font: 500 12px/1.2 var(--rb-font-sans, sans-serif); }
+.ff-review-panel__chevron { transition: transform 200ms cubic-bezier(0.19, 1, 0.22, 1); }
+.ff-review-panel.is-expanded .ff-review-panel__chevron { transform: rotate(90deg); }
+.ff-review-panel__body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 200ms cubic-bezier(0.19, 1, 0.22, 1); }
+.ff-review-panel.is-expanded .ff-review-panel__body { grid-template-rows: 1fr; }
+.ff-review-panel__body > .ff-review-panel__list { min-height: 0; overflow: hidden auto; padding: 0 4px; opacity: 0; transition: opacity 160ms ease; }
+.ff-review-panel.is-expanded .ff-review-panel__body > .ff-review-panel__list { padding-bottom: 4px; opacity: 1; }
+.ff-review-panel__file-item { gap: 8px; padding: 6px 8px; border-radius: 8px; font-size: 12.5px; }
+.ff-review-panel__base { flex: none; max-width: 55%; overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.ff-review-panel__dir { flex: 1; min-width: 0; overflow: hidden; color: var(--ff-text-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.ff-review-panel__file-stats { font: 500 12px/1.2 var(--rb-font-sans, sans-serif); }
+.ff-review-panel__restore { margin: 2px 4px 0; padding: 8px 8px 6px; }
+@media (prefers-reduced-motion: reduce) {
+  .ff-review-panel__chevron, .ff-review-panel__body, .ff-review-panel__body > .ff-review-panel__list { transition: none; }
+}

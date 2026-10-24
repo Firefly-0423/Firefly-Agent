@@ -1,0 +1,199 @@
+.model-panel, .model-panel__grid, .model-card {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.model-panel, .model-panel__grid {
+  min-height: 0;
+}
+
+.model-panel {
+  background: var(--ff-bg-workspace, var(--ff-surface));
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  user-select: none;
+  width: 100%;
+}
+
+.model-panel__grid {
+  align-content: start;
+  display: grid;
+  flex: 1;
+  gap: 8px 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 14px 0 24px;
+}
+
+.model-card, .model-card__icon, .model-card__name, .model-card__meta, .model-card__actions {
+  display: flex;
+}
+
+.model-card {
+  align-items: flex-start;
+  border-radius: 12px;
+  gap: 12px;
+  padding: 12px 14px;
+  transition: background 0.15s ease;
+}
+
+.model-card__icon, .model-card__name, .model-card__meta {
+  align-items: center;
+}
+
+.model-card__icon {
+  background: var(--ff-bg-page, var(--ff-bg-subtle));
+  border-radius: 12px;
+  height: 38px;
+  justify-content: center;
+  overflow: hidden;
+  width: 38px;
+}
+
+.model-card__icon, .model-card__badge, .model-card__actions {
+  flex-shrink: 0;
+}
+
+.model-card__icon img {
+  height: 24px;
+  object-fit: contain;
+  width: 24px;
+}
+
+.model-card__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.model-card__name {
+  gap: 6px;
+}
+
+.model-card__meta {
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.model-card__actions {
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.model-panel__heading-icon {
+  grid-row: span 2;
+  height: 38px;
+  object-fit: contain;
+  width: 38px;
+}
+
+.model-panel__title {
+  color: var(--ff-text, var(--ff-text));
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.model-panel__subtitle {
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  font-size: 12px;
+  margin: 6px 0 0;
+}
+
+.model-panel__loading, .model-panel__empty {
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  font-size: 12px;
+  grid-column: 1 / -1;
+  padding: 40px 12px;
+  text-align: center;
+}
+
+.model-card__name, .model-card__desc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-card__name {
+  color: var(--ff-text, var(--ff-text));
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.model-card__provider {
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  font-size: 11px;
+}
+
+.model-card__desc {
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  font-size: 11.5px;
+  line-height: 1.45;
+  margin-top: 2px;
+}
+
+.model-card__badge {
+  background: var(--ff-bg-active, var(--ff-bg-hover));
+  border-radius: 12px;
+  color: var(--ff-accent, var(--ff-accent));
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 6px;
+}
+
+.model-card__pill {
+  background: var(--ff-bg-page, var(--ff-bg-subtle));
+  border: 1px solid var(--ff-border, var(--ff-border));
+  border-radius: 12px;
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 5px 10px;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.model-card__delete {
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  cursor: pointer;
+  font-size: 11px;
+  padding: 4px 8px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.model-card:hover {
+  background: var(--ff-bg-page, var(--ff-bg-subtle));
+}
+
+.model-card.is-default .model-card__name {
+  color: var(--ff-accent, var(--ff-accent));
+}
+
+.model-card__pill:hover:not(:disabled) {
+  background: var(--ff-bg-active, var(--ff-bg-hover));
+  border-color: var(--ff-bg-active, var(--ff-border));
+  color: var(--ff-accent, var(--ff-accent));
+}
+
+.model-card__pill.is-on {
+  background: var(--ff-accent, var(--ff-accent-solid));
+  border-color: var(--ff-accent, var(--ff-accent));
+  color: #fff;
+  cursor: default;
+}
+
+.model-card__delete:hover {
+  background: rgba(255, 69, 58, 0.08);
+  color: #ff453a;
+}
+
+@media (max-width: 760px) {
+  .model-panel__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

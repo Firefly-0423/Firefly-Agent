@@ -1,0 +1,11 @@
+{
+  "apiVersion": 1,
+  "id": "timezone-tools",
+  "name": "时区工具",
+  "version": "1.0.0",
+  "description": "离线校验 IANA 时区名，并在时区之间换算时间（处理夏令时空档与重复时刻）。不联网、不读写文件。",
+  "author": "Firefly-0423（改编自 deepseek-harness，MIT）",
+  "entry": "index.cjs",
+  "defaultEnabled": false,
+  "deps": []
+}

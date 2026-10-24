@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Firefly · 系统状态面板</title>
+  <style>
+    /* 宿主经 init/theme-changed 下发的 CSS 变量（--ff-* 等前缀）写在 :root 上 */
+    :root { font-family: "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif; }
+    body {
+      margin: 0;
+      padding: 4px 0 8px;
+      color: #493942;
+      background: transparent;
+      font-size: 13px;
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 6px 0;
+    }
+    .row + .row { border-top: 1px solid rgba(243, 220, 230, 0.55); }
+    .row-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: #9a8991;
+    }
+    .row-label::before {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #ef78a9;
+      box-shadow: 0 0 0 3px rgba(239, 120, 169, 0.16);
+      content: "";
+    }
+    .row-value {
+      color: #493942;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .hint {
+      margin: 8px 0 0;
+      color: #b29fa8;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <div class="row"><span class="row-label">CPU 占用</span><span class="row-value" id="cpu">—</span></div>
+  <div class="row"><span class="row-label">内存占用</span><span class="row-value" id="memory">—</span></div>
+  <div class="row"><span class="row-label">开机时长</span><span class="row-value" id="uptime">—</span></div>
+  <div class="row"><span class="row-label">电池</span><span class="row-value" id="battery">—</span></div>
+  <p class="hint">快照来自插件 IPC 通道 snapshot，每 5 秒刷新一次。</p>
+
+  <!-- 宿主官方桥：invoke / onTheme / 高度自动上报 -->
+  <script src="/.firefly/panel-bridge.js"></script>
+  <script>
+    function setText(id, value) {
+      document.getElementById(id).textContent = value == null || value === "" ? "—" : String(value);
+    }
+
+    function render(snapshot) {
+      setText("cpu", snapshot.cpuPercent == null ? null : snapshot.cpuPercent + "%");
+      setText("memory", snapshot.memoryPercent == null ? null : snapshot.memoryPercent + "%");
+      setText("uptime", snapshot.uptime);
+      setText(
+        "battery",
+        snapshot.batteryPercent == null ? snapshot.batteryLabel : snapshot.batteryPercent + "%（" + snapshot.batteryLabel + "）",
+      );
+    }
+
+    async function poll() {
+      try {
+        render(await FireflyPanel.invoke("snapshot"));
+      } catch (e) {
+        /* 单次失败忽略，下一轮重试 */
+      }
+    }
+
+    poll();
+    setInterval(poll, 5000);
+  </script>
+</body>
+</html>

@@ -1,0 +1,149 @@
+/* 布局与外观按属性族组织，族内保留覆盖顺序。 */
+body,
+html {
+  overflow: hidden;
+  height: 100%;
+  background: transparent;
+}
+
+body {
+  justify-content: flex-end;
+  display: flex;
+  align-items: flex-end;
+}
+
+.toast-stack {
+  width: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rb-scroll-thumb) transparent;
+  padding: 14px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: 100%;
+  gap: 12px;
+  flex-direction: column;
+  display: flex;
+}
+
+.toast-card {
+  user-select: none;
+  transition: box-shadow 140ms ease, transform 140ms ease;
+  position: relative;
+  padding: 14px 32px 14px 16px;
+  gap: 12px;
+  flex-shrink: 0;
+  display: flex;
+  cursor: pointer;
+  box-shadow: var(--rb-shadow-elevated);
+  border-radius: var(--rb-radius-lg);
+  border: 1px solid var(--rb-border-soft);
+  background: var(--rb-card-bg);
+  animation: toast-enter 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  align-items: flex-start;
+}
+
+.toast-card:hover {
+  box-shadow: var(--rb-shadow-pink), var(--rb-shadow-card);
+}
+
+.toast-card:active {
+  transform: scale(0.985);
+}
+
+.toast-card--leaving {
+  transition: height 200ms ease, margin 200ms ease,
+    opacity 180ms ease, transform 180ms ease;
+  transform: translateX(24px);
+  pointer-events: none;
+  overflow: hidden;
+  opacity: 0;
+}
+
+@keyframes toast-enter {
+  from {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.toast-card__icon {
+  width: 34px;
+  overflow: hidden;
+  margin-top: 1px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: var(--rb-radius-full);
+}
+
+.toast-card__icon img {
+  width: 100%;
+  object-fit: cover;
+  height: 100%;
+  display: block;
+}
+
+.toast-card__body {
+  min-width: 0;
+  gap: 4px;
+  flex: 1;
+  flex-direction: column;
+  display: flex;
+}
+
+.toast-card__title {
+  font: var(--rb-text-small-em);
+  letter-spacing: var(--rb-letter-spacing);
+  line-height: 1.4;
+  color: var(--rb-text-strong);
+}
+
+.toast-card__summary {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  font: var(--rb-text-micro);
+  letter-spacing: var(--rb-letter-spacing);
+  color: var(--rb-text-muted);
+}
+
+.toast-card__close {
+  width: 18px;
+  transition: opacity 120ms ease, background 120ms ease, color 120ms ease;
+  position: absolute;
+  opacity: 0;
+  justify-content: center;
+  top: 8px;
+  right: 8px;
+  height: 18px;
+  display: flex;
+  color: var(--rb-text-faint);
+  border-radius: var(--rb-radius-sm);
+  align-items: center;
+}
+
+.toast-card:hover .toast-card__close {
+  opacity: 1;
+}
+
+.toast-card__close:hover {
+  background: var(--rb-active-light);
+  color: var(--rb-text-default);
+}
+
+.toast-stack::-webkit-scrollbar {
+  width: 6px;
+}
+
+.toast-stack::-webkit-scrollbar-thumb {
+  border-radius: var(--rb-radius-full);
+  background: var(--rb-scroll-thumb);
+}
+
+.toast-stack::-webkit-scrollbar-thumb:hover {
+  background: var(--rb-scroll-thumb-hover);
+}

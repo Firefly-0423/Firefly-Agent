@@ -1,0 +1,541 @@
+{
+  "schema_version": 1,
+  "catalog_date": "2026-09-26",
+  "expected_count": 37,
+  "target_repository": "Firefly-0423/Firefly-Agent",
+  "baseline_manifest_path": "vendor/firefly-skills/skills-manifest.json",
+  "sources": {
+    "agent-skills": {
+      "repo": "addyosmani/agent-skills",
+      "commit": "2686b620fc1fed2e8f60c704839c766b8594c6b6",
+      "scope": "",
+      "license": "MIT",
+      "license_path": "LICENSE",
+      "license_blob_sha": "d67778ada6b9cda6227e9130da182c13e73c8b2e"
+    },
+    "ecc": {
+      "repo": "affaan-m/ECC",
+      "commit": "e482e579415fde18357cafce70f177ae19fd7f03",
+      "scope": "",
+      "license": "MIT",
+      "license_path": "LICENSE",
+      "license_blob_sha": "b832b6f642312312367c07688dc7426db40a82ed"
+    },
+    "superpowers": {
+      "repo": "obra/superpowers",
+      "commit": "8ca22dba9a94f28898bbce59f2537ff4d87c747d",
+      "scope": "",
+      "license": "MIT",
+      "license_path": "LICENSE",
+      "license_blob_sha": "abf0390320aa14406af7a520b9b0739fdda9bf08"
+    },
+    "minimax": {
+      "repo": "MiniMax-AI/skills",
+      "commit": "60aaae52bb2af8162732751a4332f62a5fef518b",
+      "scope": "",
+      "license": "MIT",
+      "license_path": "LICENSE",
+      "license_blob_sha": "132dd20ee3294d09a1c613a6bd4c8094c496fbf9",
+      "reviewed_license_blobs": {
+        "skills/minimax-docx/LICENSE": "53218a2ed6d176e4c189e0c2925aeea64996e348"
+      }
+    },
+    "skill-creator": {
+      "repo": "anthropics/skills",
+      "commit": "33375500bcea98d610eb30ce10ac4e59b89c390d",
+      "scope": "skills/skill-creator",
+      "license": "Apache-2.0",
+      "license_path": "skills/skill-creator/LICENSE.txt",
+      "license_blob_sha": "4f881c52d1f72f4cfb720e339e2d35c3058d01a9"
+    },
+    "self-improvement": {
+      "repo": "pskoett/pskoett-ai-skills",
+      "commit": "8a71d7098d7c39494dcaa46254885225ddb5d259",
+      "scope": "plugin",
+      "license": "MIT",
+      "license_path": "plugin/LICENSE",
+      "license_blob_sha": "8298e90caf0a7e77e905cf87a88e1871dbacd560"
+    }
+  },
+  "skills": [
+    {
+      "id": "as-api-and-interface-design",
+      "source": "agent-skills",
+      "path": "skills/api-and-interface-design",
+      "upstream_name": "api-and-interface-design",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "as-code-review-and-quality",
+      "source": "agent-skills",
+      "path": "skills/code-review-and-quality",
+      "upstream_name": "code-review-and-quality",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "as-code-simplification",
+      "source": "agent-skills",
+      "path": "skills/code-simplification",
+      "upstream_name": "code-simplification",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "as-context-engineering",
+      "source": "agent-skills",
+      "path": "skills/context-engineering",
+      "upstream_name": "context-engineering",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "as-debugging-and-error-recovery",
+      "source": "agent-skills",
+      "path": "skills/debugging-and-error-recovery",
+      "upstream_name": "debugging-and-error-recovery",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "as-doubt-driven-development",
+      "source": "agent-skills",
+      "path": "skills/doubt-driven-development",
+      "upstream_name": "doubt-driven-development",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "as-frontend-ui-engineering",
+      "source": "agent-skills",
+      "path": "skills/frontend-ui-engineering",
+      "upstream_name": "frontend-ui-engineering",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "as-git-workflow-and-versioning",
+      "source": "agent-skills",
+      "path": "skills/git-workflow-and-versioning",
+      "upstream_name": "git-workflow-and-versioning",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "as-incremental-implementation",
+      "source": "agent-skills",
+      "path": "skills/incremental-implementation",
+      "upstream_name": "incremental-implementation",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "as-planning-and-task-breakdown",
+      "source": "agent-skills",
+      "path": "skills/planning-and-task-breakdown",
+      "upstream_name": "planning-and-task-breakdown",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "as-security-and-hardening",
+      "source": "agent-skills",
+      "path": "skills/security-and-hardening",
+      "upstream_name": "security-and-hardening",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "as-source-driven-development",
+      "source": "agent-skills",
+      "path": "skills/source-driven-development",
+      "upstream_name": "source-driven-development",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "as-spec-driven-development",
+      "source": "agent-skills",
+      "path": "skills/spec-driven-development",
+      "upstream_name": "spec-driven-development",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "as-using-agent-skills",
+      "source": "agent-skills",
+      "path": "skills/using-agent-skills",
+      "upstream_name": "using-agent-skills",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "docx",
+      "source": "minimax",
+      "path": "skills/minimax-docx",
+      "upstream_name": "minimax-docx",
+      "status": "ready",
+      "relation": "upstream-refresh-local-adaptations-not-preserved",
+      "suggested_modes_for_review": [
+        "work",
+        "code",
+        "learn"
+      ],
+      "note": "MiniMax DOCX material is MIT-licensed; existing Firefly write_word routing is a local adaptation. Do not replace that routing automatically."
+    },
+    {
+      "id": "ecc-agent-introspection-debugging",
+      "source": "ecc",
+      "path": "skills/agent-introspection-debugging",
+      "upstream_name": "agent-introspection-debugging",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "ecc-ai-regression-testing",
+      "source": "ecc",
+      "path": "skills/ai-regression-testing",
+      "upstream_name": "ai-regression-testing",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "ecc-code-tour",
+      "source": "ecc",
+      "path": "skills/code-tour",
+      "upstream_name": "code-tour",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "ecc-codebase-onboarding",
+      "source": "ecc",
+      "path": "skills/codebase-onboarding",
+      "upstream_name": "codebase-onboarding",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "ecc-coding-standards",
+      "source": "ecc",
+      "path": "skills/coding-standards",
+      "upstream_name": "coding-standards",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "ecc-plan-canvas",
+      "source": "ecc",
+      "path": "skills/plan-canvas",
+      "upstream_name": "plan-canvas",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "ecc-security-review",
+      "source": "ecc",
+      "path": "skills/security-review",
+      "upstream_name": "security-review",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "ecc-tdd-workflow",
+      "source": "ecc",
+      "path": "skills/tdd-workflow",
+      "upstream_name": "tdd-workflow",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "pdf",
+      "source": "minimax",
+      "path": "skills/minimax-pdf",
+      "upstream_name": "minimax-pdf",
+      "status": "candidate",
+      "relation": "candidate-replacement-not-proven-identical-origin",
+      "suggested_modes_for_review": [
+        "work",
+        "code",
+        "learn"
+      ],
+      "reason": "Historical pdf is a Windows-native local workflow. MiniMax is an independently available candidate, not proof of identical provenance or behaviour. Explicit --include-office-candidates stages it without activation."
+    },
+    {
+      "id": "pptx-generator",
+      "source": "minimax",
+      "path": "skills/pptx-generator",
+      "upstream_name": "pptx-generator",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "work",
+        "code",
+        "learn"
+      ]
+    },
+    {
+      "id": "self-improving-agent",
+      "source": "self-improvement",
+      "path": "plugin/skills/self-improvement",
+      "upstream_name": "self-improvement",
+      "status": "ready",
+      "relation": "same-author-multi-agent-variant",
+      "suggested_modes_for_review": [
+        "work",
+        "code",
+        "learn"
+      ],
+      "note": "Author points non-OpenClaw agents to the multi-agent repository. Select its MIT-licensed plugin subtree. Source hooks are retained as data, never installed or executed."
+    },
+    {
+      "id": "skill-creator",
+      "source": "skill-creator",
+      "path": "skills/skill-creator",
+      "upstream_name": "skill-creator",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "work",
+        "code",
+        "learn"
+      ]
+    },
+    {
+      "id": "sp-brainstorming",
+      "source": "superpowers",
+      "path": "skills/brainstorming",
+      "upstream_name": "brainstorming",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "sp-dispatching-parallel-agents",
+      "source": "superpowers",
+      "path": "skills/dispatching-parallel-agents",
+      "upstream_name": "dispatching-parallel-agents",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "sp-requesting-code-review",
+      "source": "superpowers",
+      "path": "skills/requesting-code-review",
+      "upstream_name": "requesting-code-review",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "sp-subagent-driven-development",
+      "source": "superpowers",
+      "path": "skills/subagent-driven-development",
+      "upstream_name": "subagent-driven-development",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "sp-systematic-debugging",
+      "source": "superpowers",
+      "path": "skills/systematic-debugging",
+      "upstream_name": "systematic-debugging",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "sp-using-git-worktrees",
+      "source": "superpowers",
+      "path": "skills/using-git-worktrees",
+      "upstream_name": "using-git-worktrees",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "sp-using-superpowers",
+      "source": "superpowers",
+      "path": "skills/using-superpowers",
+      "upstream_name": "using-superpowers",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "sp-verification-before-completion",
+      "source": "superpowers",
+      "path": "skills/verification-before-completion",
+      "upstream_name": "verification-before-completion",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "sp-writing-plans",
+      "source": "superpowers",
+      "path": "skills/writing-plans",
+      "upstream_name": "writing-plans",
+      "status": "ready",
+      "relation": "upstream-refresh-not-byte-identical",
+      "suggested_modes_for_review": [
+        "code"
+      ]
+    },
+    {
+      "id": "xlsx",
+      "source": "minimax",
+      "path": "skills/minimax-xlsx",
+      "upstream_name": "minimax-xlsx",
+      "status": "candidate",
+      "relation": "candidate-replacement-not-proven-identical-origin",
+      "suggested_modes_for_review": [
+        "work",
+        "code",
+        "learn"
+      ],
+      "reason": "Historical xlsx is a Windows-native local workflow. MiniMax is an independently available candidate, not proof of identical provenance or behaviour. Explicit --include-office-candidates stages it without activation."
+    }
+  ],
+  "current_distribution": {
+    "canonical_source": "vendor/firefly-skills/skills",
+    "builtin_ids": [
+      "diagram",
+      "document-reader-validation",
+      "knowledge-workspace",
+      "plugin-development"
+    ],
+    "distribution_modes": [
+      "work",
+      "code"
+    ],
+    "historical_mode_scope": "Per-source suggested modes are historical review input, not active vNext declarations. Current SKILL.md frontmatter is authoritative.",
+    "current_file_hashes": "vendor/firefly-skills/license-provenance.json.currentDistribution.changedFiles",
+    "pinned_sources_scope": "Fixed upstream acquisition inputs; each current Firefly body and adaptation decision is recorded separately in license-provenance.json and the distribution governance record.",
+    "retained_windows_workflows": [
+      "pdf",
+      "xlsx"
+    ],
+    "approved_additions": [
+      {
+        "id": "tob-property-based-testing",
+        "repository": "trailofbits/skills",
+        "commit": "82fe8226252622fa807643bdca1710901198553a",
+        "path": "plugins/property-based-testing/skills/property-based-testing/SKILL.md",
+        "bodySha256": "9448cacb65c6237a7c22dc59602667177ecae405524079ae9ff92240590b995a",
+        "licensePath": "LICENSE",
+        "references": {
+          "generating.md": "c0e72dfc89babe3c32de718b81b94044362c85e776d7475e950dfeaab78bb58e",
+          "interpreting-failures.md": "dbae7db8773712ba03268a3d56ea5aa6720af0650a5189580bfd88aa2edc3f9a",
+          "libraries.md": "f7218acf8e668130ef3048983472579d04e12030c5401926f666363e5f69c686",
+          "refactoring.md": "6eb5c206f575704791f089608bb06e41d6eed91b9d3c7fb27912f969aed07a18",
+          "reviewing.md": "110b08118a1e7b1a2566def6e9d2a0bf43fc2deefce857d2ce3b4382b07bc774"
+        },
+        "license": "CC-BY-SA-4.0"
+      },
+      {
+        "id": "ecc-production-audit",
+        "repository": "affaan-m/ECC",
+        "commit": "ef648e01899ba3e8dc6371642deaaf64b4477775",
+        "path": "skills/production-audit/SKILL.md",
+        "bodySha256": "3ab3dd8a364ee17566e9361f0ebed2aec3b3146ede44e1db0a72c5ceae1ca0a4",
+        "licensePath": "LICENSE",
+        "license": "MIT"
+      }
+    ],
+    "vendor_count": 50,
+    "total_count": 54
+  },
+  "execution_status": {
+    "github_write": "403 Resource not accessible by integration",
+    "bulk_download_into_sandbox": "unavailable",
+    "upstream_payload_in_this_kit": false,
+    "runtime_installed": false,
+    "live_fetch_tested": false
+  }
+}

@@ -1,0 +1,122 @@
+{
+  "at": "2026-10-18T06:25:46.117Z",
+  "base": "271f1dd5baf4a24939fdfe9c2c5d91d718cade11",
+  "reviewed": "e0ed0fac57dd0bdeee2a272e99637e221d453e9f",
+  "head": "54bee93793efab7be72acdc8c568fd496b741643",
+  "sourceCanonicalBlobsIdentical": true,
+  "comparisons": [
+    {
+      "file": "src/main/device-simulation/contracts.test.ts",
+      "reviewedBlob": "dfd0d47d1b640d14dd3ccd713be5f121b8197154",
+      "integrationBlob": "dfd0d47d1b640d14dd3ccd713be5f121b8197154"
+    },
+    {
+      "file": "src/main/device-simulation/contracts.ts",
+      "reviewedBlob": "39734925457a2239c28ec4f79cf7eb20fff7c721",
+      "integrationBlob": "39734925457a2239c28ec4f79cf7eb20fff7c721"
+    },
+    {
+      "file": "src/main/device-simulation/controller.test.ts",
+      "reviewedBlob": "d5eb95a1a199144825af0f23b6b82bbe61f00cfd",
+      "integrationBlob": "d5eb95a1a199144825af0f23b6b82bbe61f00cfd"
+    },
+    {
+      "file": "src/main/device-simulation/controller.ts",
+      "reviewedBlob": "4151a66040b1f41d85932bd4175dce9086526303",
+      "integrationBlob": "4151a66040b1f41d85932bd4175dce9086526303"
+    },
+    {
+      "file": "src/main/device-simulation/journal.test.ts",
+      "reviewedBlob": "d379b7342a5c26d8915200f6af89b3f6628b4ad7",
+      "integrationBlob": "d379b7342a5c26d8915200f6af89b3f6628b4ad7"
+    },
+    {
+      "file": "src/main/device-simulation/journal.ts",
+      "reviewedBlob": "1e99683922512a7f5408802e596303e3dfbaf701",
+      "integrationBlob": "1e99683922512a7f5408802e596303e3dfbaf701"
+    },
+    {
+      "file": "src/main/device-simulation/mcp-fixture.integration.test.ts",
+      "reviewedBlob": "83a90fa81fc417dbc8545ac0e5b2b665dafb1177",
+      "integrationBlob": "83a90fa81fc417dbc8545ac0e5b2b665dafb1177"
+    },
+    {
+      "file": "src/main/device-simulation/mcp-fixture.ts",
+      "reviewedBlob": "f29e64b8cfb248fa69f2c38c5b17d28d02e8e0f7",
+      "integrationBlob": "f29e64b8cfb248fa69f2c38c5b17d28d02e8e0f7"
+    },
+    {
+      "file": "src/main/orchestrator/mcp-adapter.ts",
+      "reviewedBlob": "8c1d4b4c60dfa879d0e61afe6642b2f5ff9b7cf0",
+      "integrationBlob": "8c1d4b4c60dfa879d0e61afe6642b2f5ff9b7cf0"
+    },
+    {
+      "file": "src/main/orchestrator/mcp-adapter-lifecycle.test.ts",
+      "reviewedBlob": "54c0f258f2df746a98b19e04ae13546402f1761f",
+      "integrationBlob": "54c0f258f2df746a98b19e04ae13546402f1761f"
+    }
+  ],
+  "hostDependenciesIdentical": true,
+  "dependencies": [
+    {
+      "file": "src/main/atomic-json-store.ts",
+      "reviewedBlob": "8e461be82a64c2fec7aed1150351c82c46b6c8b5",
+      "integrationBlob": "8e461be82a64c2fec7aed1150351c82c46b6c8b5"
+    },
+    {
+      "file": "src/main/runtime-profile.ts",
+      "reviewedBlob": "9da73bf370a47618654f562f6d4a4931e726873f",
+      "integrationBlob": "9da73bf370a47618654f562f6d4a4931e726873f"
+    },
+    {
+      "file": "src/main/storage-context.ts",
+      "reviewedBlob": "3607e3df7e12639c68a1f0e89e2b4210e2789a94",
+      "integrationBlob": "3607e3df7e12639c68a1f0e89e2b4210e2789a94"
+    },
+    {
+      "file": "src/main/orchestrator/tools/registry/tool-registry.ts",
+      "reviewedBlob": "f6a01353d0f92d22c5b98deb9b8ab3107038cc93",
+      "integrationBlob": "f6a01353d0f92d22c5b98deb9b8ab3107038cc93"
+    },
+    {
+      "file": "src/main/permission-policy.ts",
+      "reviewedBlob": "bf640f2e622097a9ef9a38a748ea0f121a613340",
+      "integrationBlob": "bf640f2e622097a9ef9a38a748ea0f121a613340"
+    },
+    {
+      "file": "src/main/abort-utils.ts",
+      "reviewedBlob": "0d5f804be85c10a46f6d1953818ee2c05facf72f",
+      "integrationBlob": "0d5f804be85c10a46f6d1953818ee2c05facf72f"
+    },
+    {
+      "file": "package.json",
+      "reviewedBlob": "10a820fca858b3bf8db8e989a5125f77e1557046",
+      "integrationBlob": "10a820fca858b3bf8db8e989a5125f77e1557046"
+    },
+    {
+      "file": "package-lock.json",
+      "reviewedBlob": "25b47a18afd6bb1688721c7ed838d6297dd217d0",
+      "integrationBlob": "25b47a18afd6bb1688721c7ed838d6297dd217d0"
+    }
+  ],
+  "changedFiles": [
+    "docs/device-connector-simulation.md",
+    "docs/qa/2026-10-18-device-connector-simulation-independent-review.md",
+    "docs/qa/2026-10-18-device-connector-simulation-verification.json",
+    "docs/qa/2026-10-18-device-connector-simulation.md",
+    "docs/superpowers/plans/2026-10-18-device-connector-simulation.md",
+    "docs/superpowers/specs/2026-10-18-device-connector-simulation-design.md",
+    "src/main/device-simulation/contracts.test.ts",
+    "src/main/device-simulation/contracts.ts",
+    "src/main/device-simulation/controller.test.ts",
+    "src/main/device-simulation/controller.ts",
+    "src/main/device-simulation/journal.test.ts",
+    "src/main/device-simulation/journal.ts",
+    "src/main/device-simulation/mcp-fixture.integration.test.ts",
+    "src/main/device-simulation/mcp-fixture.ts",
+    "src/main/orchestrator/mcp-adapter-lifecycle.test.ts",
+    "src/main/orchestrator/mcp-adapter.ts"
+  ],
+  "externalBatchExcluded": true,
+  "workingBytesNote": "Git checkout may normalize line endings; canonical blob identity proves exact reviewed repository content. Freeze hashes now cover integration working bytes."
+}

@@ -1,0 +1,75 @@
+/* Model + thinking-effort control: one trigger, one panel (slider over the supported levels, model list one step away). */
+.ff-model-effort { margin-left: auto; gap: 6px; max-width: 260px; }
+.ff-model-effort__model { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ff-model-effort__effort { color: var(--ff-text-muted); font-weight: 400; white-space: nowrap; }
+
+.ff-model-popover .ant-popover-inner {
+  padding: 8px;
+  border: 1px solid var(--ff-border);
+  border-radius: 14px;
+  background: var(--ff-popover);
+  box-shadow: var(--ff-shadow-popover);
+}
+
+.ff-model-panel { width: 260px; }
+
+/* Effort panel, after Codex: an icon on the left, reset on the right, the level (accent) and model in the middle,
+   then a thick rounded bar filled up to the chosen level with a white knob and a dot at every stop. */
+.ff-effort { display: grid; gap: 14px; padding: 8px 10px 10px; }
+.ff-effort__head { position: relative; display: grid; justify-items: center; gap: 2px; min-height: 40px; }
+.ff-effort__reset { position: absolute; top: 2px; display: grid; width: 26px; height: 26px; place-items: center; color: var(--ff-text-muted); }
+.ff-effort__reset { right: 0; padding: 0; border: 0; border-radius: 8px; background: transparent; cursor: pointer; }
+.ff-effort__reset:hover { background: var(--ff-bg-hover); color: var(--ff-text); }
+.ff-effort__value { color: var(--ff-accent); font: 600 15px/1.3 var(--rb-font-sans, sans-serif); }
+.ff-effort__model {
+  display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--ff-text-muted); font: 500 12px/1.4 var(--rb-font-sans, sans-serif); cursor: pointer;
+}
+.ff-effort__model:hover { background: var(--ff-bg-hover); color: var(--ff-text); }
+.ff-effort__model svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ff-effort__note { margin: 0; color: var(--ff-text-muted); font: 400 12px/1.5 var(--rb-font-sans, sans-serif); text-align: center; }
+
+/* Model list. */
+.ff-model-list { display: grid; gap: 2px; max-height: 320px; overflow-y: auto; }
+.ff-model-list__back, .ff-model-list__item {
+  display: flex; width: 100%; align-items: center; gap: 8px; padding: 8px 10px; border: 0; border-radius: 10px;
+  background: transparent; color: var(--ff-text); font: 500 13px/1.3 var(--rb-font-sans, sans-serif); text-align: left; cursor: pointer;
+}
+.ff-model-list__back { color: var(--ff-text-muted); font-size: 12px; }
+.ff-model-list__back:hover, .ff-model-list__item:hover { background: var(--ff-bg-hover); color: var(--ff-text); }
+.ff-model-list__item.is-active { background: var(--ff-bg-active); }
+.ff-model-list__back svg, .ff-model-list__item svg { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ff-model-list__item > svg { margin-left: auto; color: var(--ff-accent); }
+.ff-model-list__name { display: grid; min-width: 0; gap: 1px; }
+.ff-model-list__name strong { overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.ff-model-list__name small { overflow: hidden; color: var(--ff-text-muted); font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
+.ff-model-list__note { padding: 10px; color: var(--ff-text-muted); font-size: 12.5px; }
+
+/* Motion, after open-claude-ui's model switcher: the panel fades and scales up from the trigger (150 ms), moving
+   between the effort and model panels slides sideways, the chevron turns while open, and a newly chosen model name fades in. */
+.ff-model-popover .ant-popover-inner { transform-origin: bottom right; animation: ff-model-pop-in 150ms cubic-bezier(.2, .8, .2, 1); }
+@keyframes ff-model-pop-in { from { opacity: 0; transform: scale(.95) translateY(4px); } to { opacity: 1; transform: none; } }
+.ff-model-panel--forward { animation: ff-model-panel-forward 180ms cubic-bezier(.2, .8, .2, 1); }
+.ff-model-panel--back { animation: ff-model-panel-back 180ms cubic-bezier(.2, .8, .2, 1); }
+@keyframes ff-model-panel-forward { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+@keyframes ff-model-panel-back { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: none; } }
+.ff-model-effort > svg:last-child { transition: transform 200ms ease; }
+.ff-model-effort.is-open > svg:last-child { transform: rotate(180deg); }
+.ff-model-effort__model { animation: ff-model-name-in 220ms ease; }
+@keyframes ff-model-name-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+.ff-model-list__item { transition: background-color 120ms ease; }
+@media (prefers-reduced-motion: reduce) {
+  .ff-model-popover .ant-popover-inner, .ff-model-panel--forward, .ff-model-panel--back, .ff-model-effort__model { animation: none; }
+  .ff-model-effort > svg:last-child { transition: none; }
+}
+
+/* The effort panel, tidied: a narrower panel, the level and the model link centred as one block, reset aligned with
+   the level, the model link plain (no grey chip when the panel opens with focus on it) . */
+.ff-model-popover .ant-popover-inner { padding: 6px; border-radius: 16px; }
+.ff-model-panel.ff-effort { width: 240px; gap: 12px; padding: 10px 12px 12px; }
+.ff-effort__head { min-height: 0; gap: 0; }
+.ff-effort__value { font: 600 14px/1.4 var(--rb-font-sans, sans-serif); }
+.ff-effort__model { padding: 1px 6px; font-size: 12px; }
+.ff-effort__model:focus:not(:focus-visible) { background: transparent; }
+.ff-effort__model:hover { background: transparent; color: var(--ff-text); text-decoration: underline; text-underline-offset: 3px; }
+.ff-effort__reset { top: -2px; right: -4px; width: 24px; height: 24px; }

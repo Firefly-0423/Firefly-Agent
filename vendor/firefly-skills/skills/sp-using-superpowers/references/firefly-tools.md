@@ -1,0 +1,7 @@
+# Firefly Skill host
+
+The active Skill listing is authoritative. Invoke an exact registered ID with `invoke_skill({skill_id})`; to continue a long body, use `read_skill_reference({skill_id, source: "body", ref: "SKILL.md", offset})` with the offset returned by the tool. Read a listed attachment with `read_skill_reference({skill_id, ref})`. A name in this document does not grant permission or enable a Skill in another mode.
+
+For planning and debugging, `sp-brainstorming`, `sp-writing-plans`, `sp-systematic-debugging`, `ecc-tdd-workflow` and `sp-verification-before-completion` are registered Code-mode IDs. The upstream executing-plans and test-driven-development flows are not registered Firefly Skills; use an approved plan inline and `ecc-tdd-workflow` respectively. If an ID is unavailable in the active run, report it instead of invoking an unregistered name.
+
+Firefly Main uses `delegate_agent({agent_id, prompt})` with the exact mode-filtered runtime directory. Use `strategy-planning` for plans, `implementation` for code, `review` for reviews, `research` for research, `documents-data` for Work documents and `tooling-skills` for tools/Skills. Runtime alone selects the persistent session and saved model route. Specialists cannot delegate, ask users or approve parent effects; return missing information to Main. Do not use foreign-host `spawn_agent`, `invoke_agent`, `agent_type`, model-selection or background-server instructions. Worktrees, commits, external programs, network calls and permission changes require their own authorization.

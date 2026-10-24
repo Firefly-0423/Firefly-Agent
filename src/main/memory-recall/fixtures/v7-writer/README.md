@@ -1,0 +1,3 @@
+This synthetic fixture was produced before the v8 implementation by the actual v7 Firefly repository writer unchanged from 3639ec7a7863f64f08a1fdc8a908e19fbff57d16. No tables were dropped and no version was reset to fake a prior schema. Test-only key: Buffer.alloc(32,7). It contains one encrypted synthetic source, not user data.
+
+SQLite SHA256 abe66d5aabccf0dcba143f8184b5ae41a029de9dbcabea889bfd3d17ff818434. Auth SHA256 63686e3c91e4c691fb1bfed95fab69577cc0269e808aebec9cb52f1f627f7eb8. Generator/bundled old writer/provenance were retained under E:/Codex/2026-10-01/task/memory-m-recall-evidence. Tests copy both files to owned temporary E: roots before opening SQLite; never open this checked-in original with SQLite.

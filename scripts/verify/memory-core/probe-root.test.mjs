@@ -1,0 +1,21 @@
+import {test,after} from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import {createRequire} from "node:module";
+import {buildSync} from "esbuild";
+const cwd="E:\\Codex\\Firefly_Agent-skills-layout\\output\\task-b-memory-core";
+assert.equal(process.cwd(),cwd);
+const fixture=fs.mkdtempSync(path.join(cwd,"output","probe-root-tests-"));
+const link=path.join(os.tmpdir(),"probe-junction-"+path.basename(fixture));
+const bundle=path.join(fixture,"root.cjs");
+buildSync({entryPoints:["scripts/verify/memory-core/probe-root.ts"],outfile:bundle,bundle:true,platform:"node",format:"cjs"});
+const {assertProbeRoot}=createRequire(import.meta.url)(bundle);
+after(()=>{if(fs.existsSync(link))fs.unlinkSync(link);fs.rmSync(fixture,{recursive:true,force:true})});
+test("rejects a different Windows drive before any key operation",()=>assert.throws(()=>assertProbeRoot(cwd,"F:\\not-authorized\\probe")));
+test("rejects a different E drive working directory",()=>assert.throws(()=>assertProbeRoot("E:\\not-authorized","E:\\not-authorized\\output\\memory-core\\probe")));
+test("rejects an external junction even when its lexical path is inside the probe root",()=>{
+ fs.symlinkSync(fixture,link,"junction");assert.throws(()=>assertProbeRoot(cwd,link));
+});
+test("accepts a canonical child of the approved probe directory",()=>assert.doesNotThrow(()=>assertProbeRoot(cwd,path.join(os.tmpdir(),"new-probe"))));

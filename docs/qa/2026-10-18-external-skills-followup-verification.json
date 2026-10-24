@@ -1,0 +1,139 @@
+{
+  "testedHead": "2d2d35b9c44ced39fbfee02fbc86aceaa3138e9c",
+  "base": "770633107d908aacfb5b05063b3df196715a467b",
+  "startedAt": "2026-10-18T04:40:54.769Z",
+  "finishedAt": "2026-10-18T04:56:19.000Z",
+  "counts": {
+    "passed": 10755,
+    "skipped": 11
+  },
+  "testFiles": 874,
+  "unhandledErrors": 0,
+  "startRevision": {
+    "head": "2d2d35b9c44ced39fbfee02fbc86aceaa3138e9c",
+    "branch": "codex/external-skills-integrated-20261018",
+    "dirty": [],
+    "diffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untracked": []
+  },
+  "endRevision": {
+    "head": "2d2d35b9c44ced39fbfee02fbc86aceaa3138e9c",
+    "branch": "codex/external-skills-integrated-20261018",
+    "dirty": [],
+    "diffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untracked": []
+  },
+  "archive": "E:/Codex/2026-10-18/task-2/audit/followup/test-reports/2026-10-18T04-40-54-768Z-9b730340-ebf6-46fa-805d-c0f95253fc2b/report.json",
+  "archiveSha256": "360f4e22a337b7a745f2d5070594feaf77010f0b6fd18c599ea951202fbf16b0",
+  "skipped": [
+    {
+      "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/plugin-marketplace-hardening.test.ts",
+      "name": "marketplace trusted bundled catalog > rejects a bundled ZIP symlink outside the trusted directory",
+      "state": "skipped",
+      "reason": "Windows file symlink unavailable: ERROR_PRIVILEGE_NOT_HELD (1314)",
+      "reasonProvided": true
+    },
+    {
+      "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/plugin-panel-protocol.test.ts",
+      "name": "resolvePluginPanelRequest：静态资源路由 > 符号链接逃逸被 realpath 拦截",
+      "state": "skipped",
+      "reason": "Windows file symlink unavailable: ERROR_PRIVILEGE_NOT_HELD (1314)",
+      "reasonProvided": true
+    },
+    {
+      "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/chats/workspace-file-editor.test.ts",
+      "name": "workspace text save > rejects symlink leaves when file symlinks are available",
+      "state": "skipped",
+      "reason": "Windows file symlink creation requires a privilege unavailable to this test process (EPERM)",
+      "reasonProvided": true
+    },
+    {
+      "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/memory-core/repository.test.ts",
+      "name": "rejects backup publication on non-Windows without creating files or changing live storage",
+      "state": "skipped",
+      "reason": "no explicit reason supplied (mode=skip)",
+      "reasonProvided": false
+    },
+    {
+      "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/memory-core/windows-platform-gates.test.ts",
+      "name": "non-Windows native memory denial > rejects trusted helper configuration and DPAPI before creating temp directories",
+      "state": "skipped",
+      "reason": "no explicit reason supplied (mode=skip)",
+      "reasonProvided": false
+    },
+    {
+      "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/memory-core/windows-platform-gates.test.ts",
+      "name": "non-Windows native memory denial > rejects publication and writer leases before spawning or creating a kernel endpoint",
+      "state": "skipped",
+      "reason": "no explicit reason supplied (mode=skip)",
+      "reasonProvided": false
+    },
+    {
+      "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/memory-core/windows-platform-gates.test.ts",
+      "name": "non-Windows native memory denial > rejects key publication before protecting plaintext or writing a key record",
+      "state": "skipped",
+      "reason": "no explicit reason supplied (mode=skip)",
+      "reasonProvided": false
+    },
+    {
+      "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/memory-core/windows-platform-gates.test.ts",
+      "name": "non-Windows native memory denial > rejects a real MemoryClient before key protection or Worker construction",
+      "state": "skipped",
+      "reason": "no explicit reason supplied (mode=skip)",
+      "reasonProvided": false
+    },
+    {
+      "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/skills/external-state.test.ts",
+      "name": "stale_lock_fail_closed preserves linked lock and all remaining bytes",
+      "state": "skipped",
+      "reason": "Windows file symlink unavailable: ERROR_PRIVILEGE_NOT_HELD (1314)",
+      "reasonProvided": true
+    },
+    {
+      "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/orchestrator/tools/apply-patch-tools.test.ts",
+      "name": "patch ownership and actual partial write facts > deleting a symlink then updating its target preserves both actual operation paths",
+      "state": "skipped",
+      "reason": "no explicit reason supplied (mode=skip)",
+      "reasonProvided": false
+    },
+    {
+      "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/orchestrator/tools/registry/file-write-evidence.test.ts",
+      "name": "file write evidence > symlink aliases share ownership but retain distinct actual operation path records",
+      "state": "skipped",
+      "reason": "no explicit reason supplied (mode=skip)",
+      "reasonProvided": false
+    }
+  ],
+  "commitMapping": {
+    "base": "770633107d908aacfb5b05063b3df196715a467b",
+    "originalBatch": "ad392a5420966a1dd4233f4f51a6233162513fbd",
+    "originalTail": "2b4a6f9461a5dd5e2a56fffa3f9f5a16f1544846",
+    "integratedHead": "2d2d35b9c44ced39fbfee02fbc86aceaa3138e9c",
+    "mapping": [
+      {
+        "original": "7f77b87396b8cf1d9b1c2e9d2ca2e27d81f00f82",
+        "integrated": "7e49e77406438698415be8d3045f7e99bfa4252a"
+      },
+      {
+        "original": "734643bf01c63c9f84d8e5adbcc76978303a0f29",
+        "integrated": "8971d1b3714691e65567259963bed4a0b54ab3ec"
+      },
+      {
+        "original": "b131aaa9ef87bea9866cc8f94dd3431a10cd18af",
+        "integrated": "0b5084e6e38e733cde5627a0ea651c57c904df18"
+      },
+      {
+        "original": "6f237ec268dd57590ff1f9ce246bc917112f689c",
+        "integrated": "9fa115bd14745b00778d8769959395511ca7d72f"
+      },
+      {
+        "original": "ad392a5420966a1dd4233f4f51a6233162513fbd",
+        "integrated": "df6e1c46c393e7e7827e94cf082143ca8b9fc770"
+      },
+      {
+        "original": "2b4a6f9461a5dd5e2a56fffa3f9f5a16f1544846",
+        "integrated": "2d2d35b9c44ced39fbfee02fbc86aceaa3138e9c"
+      }
+    ]
+  }
+}

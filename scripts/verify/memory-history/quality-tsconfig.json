@@ -1,0 +1,6 @@
+{
+  "extends": "../../../tsconfig.main.json",
+  "compilerOptions": { "rootDir": "../../..", "noEmit": true },
+  "include": ["quality-*.ts", "../../../src/main/memory-core/node-sqlite.d.ts"],
+  "exclude": []
+}

@@ -1,0 +1,577 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-10-18T06:44:06.069Z",
+  "branch": "codex/device-simulation-pr-20261018",
+  "testedCode": "54bee93793efab7be72acdc8c568fd496b741643",
+  "base": "271f1dd5baf4a24939fdfe9c2c5d91d718cade11",
+  "historicalClosureBase": "1e587d1bad10f98a90a2bf2b8bfb619bf5f5acdd",
+  "full": {
+    "archive": "E:\\Codex\\2026-10-18\\task-2\\audit\\device-simulation-closure\\test-reports\\2026-10-18T06-28-57-317Z-cf6942c3-1990-4f0e-8b5e-fd19502e0839\\report.json",
+    "sha256": "95379f438e5d3f8a564307a3d0c333f5fc301042671a023aabdc23b39b7df601",
+    "counts": {
+      "passed": 10779,
+      "skipped": 11
+    },
+    "unhandledErrors": 0,
+    "files": 877,
+    "startedAt": "2026-10-18T06:28:57.317Z",
+    "finishedAt": "2026-10-18T06:43:58.009Z",
+    "revision": {
+      "head": "54bee93793efab7be72acdc8c568fd496b741643",
+      "branch": "codex/device-simulation-pr-20261018",
+      "dirty": [],
+      "diffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": []
+    },
+    "endRevision": {
+      "head": "54bee93793efab7be72acdc8c568fd496b741643",
+      "branch": "codex/device-simulation-pr-20261018",
+      "dirty": [],
+      "diffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": []
+    },
+    "skipped": [
+      {
+        "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/plugin-marketplace-hardening.test.ts",
+        "name": "marketplace trusted bundled catalog > rejects a bundled ZIP symlink outside the trusted directory",
+        "state": "skipped",
+        "reason": "Windows file symlink unavailable: ERROR_PRIVILEGE_NOT_HELD (1314)",
+        "reasonProvided": true
+      },
+      {
+        "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/plugin-panel-protocol.test.ts",
+        "name": "resolvePluginPanelRequest：静态资源路由 > 符号链接逃逸被 realpath 拦截",
+        "state": "skipped",
+        "reason": "Windows file symlink unavailable: ERROR_PRIVILEGE_NOT_HELD (1314)",
+        "reasonProvided": true
+      },
+      {
+        "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/chats/workspace-file-editor.test.ts",
+        "name": "workspace text save > rejects symlink leaves when file symlinks are available",
+        "state": "skipped",
+        "reason": "Windows file symlink creation requires a privilege unavailable to this test process (EPERM)",
+        "reasonProvided": true
+      },
+      {
+        "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/memory-core/repository.test.ts",
+        "name": "rejects backup publication on non-Windows without creating files or changing live storage",
+        "state": "skipped",
+        "reason": "no explicit reason supplied (mode=skip)",
+        "reasonProvided": false
+      },
+      {
+        "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/memory-core/windows-platform-gates.test.ts",
+        "name": "non-Windows native memory denial > rejects trusted helper configuration and DPAPI before creating temp directories",
+        "state": "skipped",
+        "reason": "no explicit reason supplied (mode=skip)",
+        "reasonProvided": false
+      },
+      {
+        "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/memory-core/windows-platform-gates.test.ts",
+        "name": "non-Windows native memory denial > rejects publication and writer leases before spawning or creating a kernel endpoint",
+        "state": "skipped",
+        "reason": "no explicit reason supplied (mode=skip)",
+        "reasonProvided": false
+      },
+      {
+        "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/memory-core/windows-platform-gates.test.ts",
+        "name": "non-Windows native memory denial > rejects key publication before protecting plaintext or writing a key record",
+        "state": "skipped",
+        "reason": "no explicit reason supplied (mode=skip)",
+        "reasonProvided": false
+      },
+      {
+        "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/memory-core/windows-platform-gates.test.ts",
+        "name": "non-Windows native memory denial > rejects a real MemoryClient before key protection or Worker construction",
+        "state": "skipped",
+        "reason": "no explicit reason supplied (mode=skip)",
+        "reasonProvided": false
+      },
+      {
+        "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/skills/external-state.test.ts",
+        "name": "stale_lock_fail_closed preserves linked lock and all remaining bytes",
+        "state": "skipped",
+        "reason": "Windows file symlink unavailable: ERROR_PRIVILEGE_NOT_HELD (1314)",
+        "reasonProvided": true
+      },
+      {
+        "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/orchestrator/tools/apply-patch-tools.test.ts",
+        "name": "patch ownership and actual partial write facts > deleting a symlink then updating its target preserves both actual operation paths",
+        "state": "skipped",
+        "reason": "no explicit reason supplied (mode=skip)",
+        "reasonProvided": false
+      },
+      {
+        "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/orchestrator/tools/registry/file-write-evidence.test.ts",
+        "name": "file write evidence > symlink aliases share ownership but retain distinct actual operation path records",
+        "state": "skipped",
+        "reason": "no explicit reason supplied (mode=skip)",
+        "reasonProvided": false
+      }
+    ],
+    "runnerExitCode": 0,
+    "logSha256": "0dd3d26dc85c43d5775b9e93e25ad684fbccc657a2bd7ab898a803ed566d024f"
+  },
+  "m1StageRelated": [
+    {
+      "archive": "E:\\Codex\\2026-10-18\\task-2\\audit\\device-simulation-closure\\test-reports\\2026-10-18T06-03-31-362Z-ea781138-d4b4-41ff-adc3-29e7575e5d34\\report.json",
+      "sha256": "9f9ba835aafdac3911eb37c36d91e4c3e642f77e7ca7c037a24098c38320205d",
+      "counts": {
+        "passed": 248
+      },
+      "unhandledErrors": 0,
+      "files": 16,
+      "startedAt": "2026-10-18T06:03:31.363Z",
+      "finishedAt": "2026-10-18T06:03:39.954Z",
+      "revision": {
+        "head": "1e587d1bad10f98a90a2bf2b8bfb619bf5f5acdd",
+        "branch": "codex/device-connector-cleanup-20261018",
+        "dirty": [
+          " M src/main/device-simulation/mcp-fixture.integration.test.ts",
+          " M src/main/device-simulation/mcp-fixture.ts",
+          " M src/main/orchestrator/mcp-adapter-lifecycle.test.ts",
+          " M src/main/orchestrator/mcp-adapter.ts"
+        ],
+        "diffSha256": "2749c90a10ca2dc54d46cac513fbfe47a4bb0a70d7fbadfb87cb95f463d374a0",
+        "untracked": []
+      },
+      "endRevision": {
+        "head": "1e587d1bad10f98a90a2bf2b8bfb619bf5f5acdd",
+        "branch": "codex/device-connector-cleanup-20261018",
+        "dirty": [
+          " M src/main/device-simulation/mcp-fixture.integration.test.ts",
+          " M src/main/device-simulation/mcp-fixture.ts",
+          " M src/main/orchestrator/mcp-adapter-lifecycle.test.ts",
+          " M src/main/orchestrator/mcp-adapter.ts"
+        ],
+        "diffSha256": "2749c90a10ca2dc54d46cac513fbfe47a4bb0a70d7fbadfb87cb95f463d374a0",
+        "untracked": []
+      },
+      "skipped": []
+    },
+    {
+      "archive": "E:\\Codex\\2026-10-18\\task-2\\audit\\device-simulation-closure\\test-reports\\2026-10-18T06-06-47-278Z-9cfd6256-e05d-45ac-9c8e-f3e6c765d79c\\report.json",
+      "sha256": "a7569193474c3f110089fbd2d8c2f9569f563dd732bb258d98b57e493b99efbe",
+      "counts": {
+        "passed": 168
+      },
+      "unhandledErrors": 0,
+      "files": 12,
+      "startedAt": "2026-10-18T06:06:47.278Z",
+      "finishedAt": "2026-10-18T06:06:53.767Z",
+      "revision": {
+        "head": "09a065127d80c1b7d1fe0c52cb036f8f473c7721",
+        "branch": "codex/device-connector-cleanup-20261018",
+        "dirty": [],
+        "diffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": []
+      },
+      "endRevision": {
+        "head": "09a065127d80c1b7d1fe0c52cb036f8f473c7721",
+        "branch": "codex/device-connector-cleanup-20261018",
+        "dirty": [],
+        "diffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": []
+      },
+      "skipped": []
+    }
+  ],
+  "m1StageRelatedPassed": 416,
+  "m1StageRelatedFiles": 28,
+  "m1StageRelatedGroupsDisjoint": true,
+  "finalRelated": {
+    "archive": "E:\\Codex\\2026-10-18\\task-2\\audit\\device-simulation-closure\\test-reports\\2026-10-18T06-15-26-595Z-8ca194c6-389b-439b-a569-6e68c39024c1\\report.json",
+    "sha256": "37d043711db91aa67ba74bdc25fb952b139e0414d5a5d509c0c843707061a71c",
+    "counts": {
+      "passed": 158
+    },
+    "unhandledErrors": 0,
+    "files": 8,
+    "startedAt": "2026-10-18T06:15:26.596Z",
+    "finishedAt": "2026-10-18T06:15:32.500Z",
+    "revision": {
+      "head": "09a065127d80c1b7d1fe0c52cb036f8f473c7721",
+      "branch": "codex/device-connector-cleanup-20261018",
+      "dirty": [
+        " M docs/device-connector-simulation.md",
+        " M src/main/device-simulation/controller.test.ts",
+        " M src/main/device-simulation/journal.test.ts",
+        " M src/main/device-simulation/journal.ts",
+        " M src/main/device-simulation/mcp-fixture.integration.test.ts",
+        " M src/main/device-simulation/mcp-fixture.ts"
+      ],
+      "diffSha256": "dc6216f3bb420ee81cd6143e699984353ea7feb4c08ce1784dc1f7611df6efcf",
+      "untracked": []
+    },
+    "endRevision": {
+      "head": "09a065127d80c1b7d1fe0c52cb036f8f473c7721",
+      "branch": "codex/device-connector-cleanup-20261018",
+      "dirty": [
+        " M docs/device-connector-simulation.md",
+        " M src/main/device-simulation/controller.test.ts",
+        " M src/main/device-simulation/journal.test.ts",
+        " M src/main/device-simulation/journal.ts",
+        " M src/main/device-simulation/mcp-fixture.integration.test.ts",
+        " M src/main/device-simulation/mcp-fixture.ts"
+      ],
+      "diffSha256": "dc6216f3bb420ee81cd6143e699984353ea7feb4c08ce1784dc1f7611df6efcf",
+      "untracked": []
+    },
+    "skipped": []
+  },
+  "deviceCases": 90,
+  "newRegressions": [
+    {
+      "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/device-simulation/mcp-fixture.integration.test.ts",
+      "name": "owned fixture over existing real MCP host > releases the original client and tools without deleting a same-namespace replacement"
+    },
+    {
+      "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/orchestrator/mcp-adapter-lifecycle.test.ts",
+      "name": "MCP connection ownership > preserves a later registry definition during disconnect"
+    },
+    {
+      "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/orchestrator/mcp-adapter-lifecycle.test.ts",
+      "name": "MCP connection ownership > preserves a later registry definition during remote close"
+    },
+    {
+      "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/orchestrator/mcp-adapter-lifecycle.test.ts",
+      "name": "MCP connection ownership > does not let a stale connection owner close a later client with the same server ID"
+    },
+    {
+      "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/orchestrator/mcp-adapter-lifecycle.test.ts",
+      "name": "MCP connection ownership > refuses to coalesce an owned connection into another caller's inflight ownership"
+    },
+    {
+      "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/device-simulation/controller.test.ts",
+      "name": "simulated exact device authority > does not query or recreate a durable journal removed after acceptance"
+    },
+    {
+      "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/device-simulation/journal.test.ts",
+      "name": "simulation journal ownership > refuses read after a materialized journal disappears without recreating it"
+    },
+    {
+      "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/device-simulation/journal.test.ts",
+      "name": "simulation journal ownership > refuses write after a materialized journal disappears without recreating it"
+    },
+    {
+      "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/device-simulation/journal.test.ts",
+      "name": "simulation journal ownership > refuses a missing primary with a remaining backup after reopening"
+    },
+    {
+      "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/device-simulation/mcp-fixture.integration.test.ts",
+      "name": "owned fixture over existing real MCP host > retries only its owned cleanup after transient client and transport close failures"
+    },
+    {
+      "file": "E:/Codex/2026-10-18/task-2/firefly-external-batch1/src/main/device-simulation/mcp-fixture.integration.test.ts",
+      "name": "owned fixture over existing real MCP host > refuses a missing durable journal before creating a listener or registry entries"
+    }
+  ],
+  "red": {
+    "archive": "E:\\Codex\\2026-10-18\\task-2\\audit\\device-simulation-closure\\test-reports\\2026-10-18T06-02-12-143Z-224aa86a-6f9b-4478-b45a-c579e11cad64\\report.json",
+    "sha256": "3a4c061511df2e409f7a19d772e76fd74b8c36387f60c2297f712d0ab1f68dc6",
+    "counts": {
+      "passed": 35,
+      "failed": 5
+    },
+    "unhandledErrors": 0,
+    "files": 2,
+    "startedAt": "2026-10-18T06:02:12.144Z",
+    "finishedAt": "2026-10-18T06:02:14.539Z",
+    "revision": {
+      "head": "1e587d1bad10f98a90a2bf2b8bfb619bf5f5acdd",
+      "branch": "codex/device-connector-cleanup-20261018",
+      "dirty": [
+        " M src/main/device-simulation/mcp-fixture.integration.test.ts",
+        " M src/main/orchestrator/mcp-adapter-lifecycle.test.ts"
+      ],
+      "diffSha256": "d10f668e7b29981532d35a2fd8be35a012e191d279ad935940301ed6def759dc",
+      "untracked": []
+    },
+    "endRevision": {
+      "head": "1e587d1bad10f98a90a2bf2b8bfb619bf5f5acdd",
+      "branch": "codex/device-connector-cleanup-20261018",
+      "dirty": [
+        " M src/main/device-simulation/mcp-fixture.integration.test.ts",
+        " M src/main/orchestrator/mcp-adapter-lifecycle.test.ts"
+      ],
+      "diffSha256": "d10f668e7b29981532d35a2fd8be35a012e191d279ad935940301ed6def759dc",
+      "untracked": []
+    },
+    "skipped": []
+  },
+  "finalReviewFixRed": {
+    "archive": "E:\\Codex\\2026-10-18\\task-2\\audit\\device-simulation-closure\\test-reports\\2026-10-18T06-14-24-620Z-38d80e0c-a3ab-4dfb-91fc-ed453b6e47b7\\report.json",
+    "sha256": "04406ced45b03106dc9a8174997d0a7125254058325dfda06b403a2c821a86ac",
+    "counts": {
+      "passed": 53,
+      "failed": 6
+    },
+    "unhandledErrors": 0,
+    "files": 3,
+    "startedAt": "2026-10-18T06:14:24.620Z",
+    "finishedAt": "2026-10-18T06:14:29.174Z",
+    "revision": {
+      "head": "09a065127d80c1b7d1fe0c52cb036f8f473c7721",
+      "branch": "codex/device-connector-cleanup-20261018",
+      "dirty": [
+        " M src/main/device-simulation/controller.test.ts",
+        " M src/main/device-simulation/journal.test.ts",
+        " M src/main/device-simulation/journal.ts",
+        " M src/main/device-simulation/mcp-fixture.integration.test.ts"
+      ],
+      "diffSha256": "ee2f3e7f5a4444afc17880fd32e648285e7382dcce12690370d18f4792e7dd28",
+      "untracked": []
+    },
+    "endRevision": {
+      "head": "09a065127d80c1b7d1fe0c52cb036f8f473c7721",
+      "branch": "codex/device-connector-cleanup-20261018",
+      "dirty": [
+        " M src/main/device-simulation/controller.test.ts",
+        " M src/main/device-simulation/journal.test.ts",
+        " M src/main/device-simulation/journal.ts",
+        " M src/main/device-simulation/mcp-fixture.integration.test.ts"
+      ],
+      "diffSha256": "ee2f3e7f5a4444afc17880fd32e648285e7382dcce12690370d18f4792e7dd28",
+      "untracked": []
+    },
+    "skipped": []
+  },
+  "correctedTestAttempt": {
+    "archive": "E:\\Codex\\2026-10-18\\task-2\\audit\\device-simulation-closure\\test-reports\\2026-10-18T06-12-49-695Z-a581bd2d-3806-4a7f-ba69-90327b576471\\report.json",
+    "sha256": "9afd8f47f0a4b3dc52bb99903c31664806e12a73fdb0e4504a8f1d999b6c9164",
+    "counts": {
+      "passed": 127,
+      "failed": 1
+    },
+    "unhandledErrors": 0,
+    "files": 7,
+    "startedAt": "2026-10-18T06:12:49.696Z",
+    "finishedAt": "2026-10-18T06:12:54.984Z",
+    "revision": {
+      "head": "09a065127d80c1b7d1fe0c52cb036f8f473c7721",
+      "branch": "codex/device-connector-cleanup-20261018",
+      "dirty": [
+        " M src/main/device-simulation/controller.test.ts",
+        " M src/main/device-simulation/journal.test.ts",
+        " M src/main/device-simulation/journal.ts",
+        " M src/main/device-simulation/mcp-fixture.integration.test.ts"
+      ],
+      "diffSha256": "4500fcfe6736b848120f52e46228e0b0dd791d8db92e78e6164b1c7f1b6cc488",
+      "untracked": []
+    },
+    "endRevision": {
+      "head": "09a065127d80c1b7d1fe0c52cb036f8f473c7721",
+      "branch": "codex/device-connector-cleanup-20261018",
+      "dirty": [
+        " M src/main/device-simulation/controller.test.ts",
+        " M src/main/device-simulation/journal.test.ts",
+        " M src/main/device-simulation/journal.ts",
+        " M src/main/device-simulation/mcp-fixture.integration.test.ts"
+      ],
+      "diffSha256": "4500fcfe6736b848120f52e46228e0b0dd791d8db92e78e6164b1c7f1b6cc488",
+      "untracked": []
+    },
+    "skipped": [],
+    "note": "1 failure was a new test incorrectly assuming accepted on health failure; existing controller returns transient unknown and preserves cached accepted. Corrected and strengthened assertion, restored only owned journal to09a, then all six intended failures reobserved before final GREEN."
+  },
+  "review": {
+    "head": "e0ed0fac57dd0bdeee2a272e99637e221d453e9f",
+    "integrationHead": "54bee93793efab7be72acdc8c568fd496b741643",
+    "canonicalSourceAndDependenciesIdentical": true,
+    "critical": 0,
+    "important": 0,
+    "minor": 0,
+    "i1": "closed",
+    "i2": "closed",
+    "m1": "closed",
+    "m2": "closed",
+    "report": "independent-review.md",
+    "integrationReport": "independent-review-integration.md",
+    "integrationReportSha256": "4baf383d10eedc0b75744c3f2a19373e288ae3eae54bffb047185ff79a0ee81e",
+    "rawReportSha256": "4f7b111a6ba95bc04533af7966d021eda3deec59e44271119a9d5546e5138113",
+    "initialReportSha256": "dae45fc4fd3b17e217d51ced73a1ed695d1c852ee0dec28cbe70e33b4417b7e3"
+  },
+  "sourceHashes": {
+    "src/main/device-simulation/contracts.test.ts": "fb32e409f71a5884130f07ed088f2195fe73fe5074017dd5e81aaee0ba4bf3ca",
+    "src/main/device-simulation/contracts.ts": "0c640e733c2ef6c05451b876fd31426e626345510b0fe9da23fe7b7a5b5a8c25",
+    "src/main/device-simulation/controller.test.ts": "d7208a807c2fc4ffc335c32c80102779fabcf0de1661605f8fae11aa005180ca",
+    "src/main/device-simulation/controller.ts": "725dcad163685ff6204a2e4b9b013009b00846d6a53fb06175b3d15aa3de6082",
+    "src/main/device-simulation/journal.test.ts": "66516a154da4082ec6e060ecb59c55c05fbbe86a644e27674372fe33402cee57",
+    "src/main/device-simulation/journal.ts": "761d525f054d10aa9e01629435cdc230a903d038857a545ac60abf8b984bccee",
+    "src/main/device-simulation/mcp-fixture.integration.test.ts": "e67d4739c996f7976543a2c8f8df65a6217339b1788bdedc66a5987ab1ad7c0d",
+    "src/main/device-simulation/mcp-fixture.ts": "030cd7532dbc683cee10f3f504f0f22b988e89e56e95209fadcc5df17202ecae",
+    "src/main/orchestrator/mcp-adapter.ts": "4b8dd5b85a6cd0937b44fb5bcccbda0a5f2fe76a5a0c35b580b0100eb3bfd743",
+    "src/main/orchestrator/mcp-adapter-lifecycle.test.ts": "c9d7b5f232867650cc6b3f00e98938206f73ed42b07fbe25ab2c04d1c1f4c13d"
+  },
+  "preflight": {
+    "at": "2026-10-18T06:28:36.442Z",
+    "head": "54bee93793efab7be72acdc8c568fd496b741643",
+    "branch": "codex/device-simulation-pr-20261018",
+    "base": "271f1dd5baf4a24939fdfe9c2c5d91d718cade11",
+    "dirty": "",
+    "readmeBlob": "630f10de83d645cd7cbca71c6df3a6761e813f68",
+    "electronPathAbsent": true,
+    "overrideEmpty": true,
+    "helperExists": true,
+    "temp": "C:/Users/w1558/AppData/Local/Temp/firefly-device-final-20261018/tmp",
+    "fakeUser": "C:/Users/w1558/AppData/Local/Temp/firefly-device-final-20261018/test-user",
+    "originalRefs": {
+      "device": "1e587d1bad10f98a90a2bf2b8bfb619bf5f5acdd",
+      "cleanup": "e0ed0fac57dd0bdeee2a272e99637e221d453e9f",
+      "external": "eac3e67c1d7d1f2b7a842a31c4f3d3420ef79f77"
+    }
+  },
+  "skipsUnchangedFrom": {
+    "archive": "E:\\Codex\\2026-10-18\\task-2\\audit\\device-simulation\\test-reports\\2026-10-18T05-38-34-633Z-c259ec29-1838-4494-aa2a-4cee8c2cb290\\report.json",
+    "sha256": "bed609d25b2b707319ad7e2c5e1c14a46ffbf39adf4f4105d95664fa055ad2ac",
+    "count": 11
+  },
+  "checks": {
+    "integrationMainTypes": {
+      "exitCode": 0,
+      "log": "integration-main-types.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "mainTypes": {
+      "exitCode": 0,
+      "log": "final-main-types.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "storageBoundary": {
+      "exitCode": 0,
+      "accesses": 88,
+      "files": 46,
+      "log": "storage-boundary.log",
+      "sha256": "c1bcf0ca11fdfccc6daea28155bbbbf5c30b0ecaa23e90db01fb1c024e317c06"
+    }
+  },
+  "scope": "Bounded M1 cleanup and independent I1/I2/M1/M2 closure only; no live devices/accounts/credentials, downloads/installs, local packaging or next phase. Separate PR delivery was authorized after these local checks.",
+  "unverified": [
+    "OS crash recovery and cross-process exactly-once",
+    "Cryptographic journal attestation and adversarial same-process manipulation",
+    "Real devices/GUI/vendor protocols/credentials/telemetry"
+  ],
+  "integrationEvidence": {
+    "at": "2026-10-18T06:25:46.117Z",
+    "base": "271f1dd5baf4a24939fdfe9c2c5d91d718cade11",
+    "reviewed": "e0ed0fac57dd0bdeee2a272e99637e221d453e9f",
+    "head": "54bee93793efab7be72acdc8c568fd496b741643",
+    "sourceCanonicalBlobsIdentical": true,
+    "comparisons": [
+      {
+        "file": "src/main/device-simulation/contracts.test.ts",
+        "reviewedBlob": "dfd0d47d1b640d14dd3ccd713be5f121b8197154",
+        "integrationBlob": "dfd0d47d1b640d14dd3ccd713be5f121b8197154"
+      },
+      {
+        "file": "src/main/device-simulation/contracts.ts",
+        "reviewedBlob": "39734925457a2239c28ec4f79cf7eb20fff7c721",
+        "integrationBlob": "39734925457a2239c28ec4f79cf7eb20fff7c721"
+      },
+      {
+        "file": "src/main/device-simulation/controller.test.ts",
+        "reviewedBlob": "d5eb95a1a199144825af0f23b6b82bbe61f00cfd",
+        "integrationBlob": "d5eb95a1a199144825af0f23b6b82bbe61f00cfd"
+      },
+      {
+        "file": "src/main/device-simulation/controller.ts",
+        "reviewedBlob": "4151a66040b1f41d85932bd4175dce9086526303",
+        "integrationBlob": "4151a66040b1f41d85932bd4175dce9086526303"
+      },
+      {
+        "file": "src/main/device-simulation/journal.test.ts",
+        "reviewedBlob": "d379b7342a5c26d8915200f6af89b3f6628b4ad7",
+        "integrationBlob": "d379b7342a5c26d8915200f6af89b3f6628b4ad7"
+      },
+      {
+        "file": "src/main/device-simulation/journal.ts",
+        "reviewedBlob": "1e99683922512a7f5408802e596303e3dfbaf701",
+        "integrationBlob": "1e99683922512a7f5408802e596303e3dfbaf701"
+      },
+      {
+        "file": "src/main/device-simulation/mcp-fixture.integration.test.ts",
+        "reviewedBlob": "83a90fa81fc417dbc8545ac0e5b2b665dafb1177",
+        "integrationBlob": "83a90fa81fc417dbc8545ac0e5b2b665dafb1177"
+      },
+      {
+        "file": "src/main/device-simulation/mcp-fixture.ts",
+        "reviewedBlob": "f29e64b8cfb248fa69f2c38c5b17d28d02e8e0f7",
+        "integrationBlob": "f29e64b8cfb248fa69f2c38c5b17d28d02e8e0f7"
+      },
+      {
+        "file": "src/main/orchestrator/mcp-adapter.ts",
+        "reviewedBlob": "8c1d4b4c60dfa879d0e61afe6642b2f5ff9b7cf0",
+        "integrationBlob": "8c1d4b4c60dfa879d0e61afe6642b2f5ff9b7cf0"
+      },
+      {
+        "file": "src/main/orchestrator/mcp-adapter-lifecycle.test.ts",
+        "reviewedBlob": "54c0f258f2df746a98b19e04ae13546402f1761f",
+        "integrationBlob": "54c0f258f2df746a98b19e04ae13546402f1761f"
+      }
+    ],
+    "hostDependenciesIdentical": true,
+    "dependencies": [
+      {
+        "file": "src/main/atomic-json-store.ts",
+        "reviewedBlob": "8e461be82a64c2fec7aed1150351c82c46b6c8b5",
+        "integrationBlob": "8e461be82a64c2fec7aed1150351c82c46b6c8b5"
+      },
+      {
+        "file": "src/main/runtime-profile.ts",
+        "reviewedBlob": "9da73bf370a47618654f562f6d4a4931e726873f",
+        "integrationBlob": "9da73bf370a47618654f562f6d4a4931e726873f"
+      },
+      {
+        "file": "src/main/storage-context.ts",
+        "reviewedBlob": "3607e3df7e12639c68a1f0e89e2b4210e2789a94",
+        "integrationBlob": "3607e3df7e12639c68a1f0e89e2b4210e2789a94"
+      },
+      {
+        "file": "src/main/orchestrator/tools/registry/tool-registry.ts",
+        "reviewedBlob": "f6a01353d0f92d22c5b98deb9b8ab3107038cc93",
+        "integrationBlob": "f6a01353d0f92d22c5b98deb9b8ab3107038cc93"
+      },
+      {
+        "file": "src/main/permission-policy.ts",
+        "reviewedBlob": "bf640f2e622097a9ef9a38a748ea0f121a613340",
+        "integrationBlob": "bf640f2e622097a9ef9a38a748ea0f121a613340"
+      },
+      {
+        "file": "src/main/abort-utils.ts",
+        "reviewedBlob": "0d5f804be85c10a46f6d1953818ee2c05facf72f",
+        "integrationBlob": "0d5f804be85c10a46f6d1953818ee2c05facf72f"
+      },
+      {
+        "file": "package.json",
+        "reviewedBlob": "10a820fca858b3bf8db8e989a5125f77e1557046",
+        "integrationBlob": "10a820fca858b3bf8db8e989a5125f77e1557046"
+      },
+      {
+        "file": "package-lock.json",
+        "reviewedBlob": "25b47a18afd6bb1688721c7ed838d6297dd217d0",
+        "integrationBlob": "25b47a18afd6bb1688721c7ed838d6297dd217d0"
+      }
+    ],
+    "changedFiles": [
+      "docs/device-connector-simulation.md",
+      "docs/qa/2026-10-18-device-connector-simulation-independent-review.md",
+      "docs/qa/2026-10-18-device-connector-simulation-verification.json",
+      "docs/qa/2026-10-18-device-connector-simulation.md",
+      "docs/superpowers/plans/2026-10-18-device-connector-simulation.md",
+      "docs/superpowers/specs/2026-10-18-device-connector-simulation-design.md",
+      "src/main/device-simulation/contracts.test.ts",
+      "src/main/device-simulation/contracts.ts",
+      "src/main/device-simulation/controller.test.ts",
+      "src/main/device-simulation/controller.ts",
+      "src/main/device-simulation/journal.test.ts",
+      "src/main/device-simulation/journal.ts",
+      "src/main/device-simulation/mcp-fixture.integration.test.ts",
+      "src/main/device-simulation/mcp-fixture.ts",
+      "src/main/orchestrator/mcp-adapter-lifecycle.test.ts",
+      "src/main/orchestrator/mcp-adapter.ts"
+    ],
+    "externalBatchExcluded": true,
+    "workingBytesNote": "Git checkout may normalize line endings; canonical blob identity proves exact reviewed repository content. Freeze hashes now cover integration working bytes.",
+    "sha256": "738615127afd0e1b334701894cc01a649f858a55762f4478e37a0c0957e27434"
+  }
+}

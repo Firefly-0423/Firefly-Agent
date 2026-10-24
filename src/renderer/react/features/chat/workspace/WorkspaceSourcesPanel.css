@@ -1,0 +1,13 @@
+.ff-workspace-sources { padding: 12px; overflow: auto; height: 100%; color: var(--ff-text, #403840); }
+.ff-workspace-sources__pending { margin-top: 0; font-size: 12px; color: var(--ff-text-muted, var(--ff-text-muted)); }
+.ff-workspace-sources__rows { margin: 0; padding: 0; list-style: none; }
+.ff-workspace-sources__row { padding: 10px 0; border-bottom: 1px solid var(--ff-border, var(--ff-border)); }
+.ff-workspace-sources__heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; }
+.ff-workspace-sources__outcome { font-size: 12px; }
+.ff-workspace-sources__outcome.is-success { color: #43775b; }
+.ff-workspace-sources__outcome.is-failure { color: #9e3838; }
+.ff-workspace-sources__outcome.is-unknown { color: #8b640a; }
+.ff-workspace-sources__outcome.is-not_executed { color: var(--ff-text-muted, var(--ff-text-muted)); }
+.ff-workspace-sources__refs { margin: 8px 0 0; padding: 0; list-style: none; }
+.ff-workspace-sources__refs li { display: flex; flex-direction: column; gap: 3px; margin-bottom: 7px; font-size: 12px; }
+.ff-workspace-sources__refs code { white-space: pre-wrap; overflow-wrap: anywhere; }

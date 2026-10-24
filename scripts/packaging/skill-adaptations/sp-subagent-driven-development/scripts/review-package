@@ -1,0 +1,18 @@
+const fs = require("node:fs");
+const path = require("node:path");
+const { execFileSync } = require("node:child_process");
+const workspace = require("./sdd-workspace");
+
+try {
+  if (process.argv.length !== 5) throw new Error("USAGE: node review-package PLAN_FILE BASE_SHA HEAD_SHA");
+  const git = args => execFileSync("git", args, { encoding: "utf8", windowsHide: true, maxBuffer: 16 * 1024 * 1024 });
+  const base = git(["rev-parse", "--verify", "--end-of-options", process.argv[3] + "^{commit}"]).trim();
+  const head = git(["rev-parse", "--verify", "--end-of-options", process.argv[4] + "^{commit}"]).trim();
+  git(["merge-base", "--is-ancestor", base, head]);
+  const range = base + ".." + head;
+  const content = "# Review package\n\n## Commits\n" + git(["log", "--oneline", range, "--"]) + "\n## Changed files\n" + git(["diff", "--stat", range, "--"]) + "\n## Diff\n" + git(["diff", "-U10", range, "--"]);
+  const output = path.join(workspace(process.argv[2]), "review.md");
+  if (fs.existsSync(output) && fs.lstatSync(output).isSymbolicLink()) throw new Error("OUTPUT_LINK");
+  fs.writeFileSync(output, content);
+  console.log(output);
+} catch (error) { console.error(error.message); process.exitCode = 1; }

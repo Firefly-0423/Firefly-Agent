@@ -1,0 +1,28 @@
+/* A diff as a code review shows it: a line-number gutter, the +/− sign, then the code in the mono font.
+   Added and removed lines are tinted across the full width with a darker 2px edge; untouched stretches between
+   changes collapse into one muted "N unmodified lines" bar. */
+.ff-code-diff {
+  --ff-code-diff-gutter: 44px;
+  overflow: hidden;
+  border: 1px solid var(--ff-border);
+  border-radius: 8px;
+  background: var(--ff-bg-workspace, var(--ff-surface));
+  font: 12px/20px var(--rb-font-mono, ui-monospace, "Cascadia Mono", Consolas, monospace);
+}
+.ff-code-diff--plain { --ff-code-diff-gutter: 0px; }
+.ff-code-diff__line { display: grid; grid-template-columns: var(--ff-code-diff-gutter) 18px minmax(0, 1fr); align-items: start; box-shadow: inset 2px 0 transparent; }
+.ff-code-diff--plain .ff-code-diff__line { grid-template-columns: 22px minmax(0, 1fr); }
+.ff-code-diff__line.is-add { background: var(--ff-add-bg); box-shadow: inset 2px 0 var(--ff-add-fg); }
+.ff-code-diff__line.is-remove { background: var(--ff-del-bg); box-shadow: inset 2px 0 var(--ff-del-fg); }
+.ff-code-diff__number { padding-right: 8px; color: var(--ff-text-muted); text-align: right; font-variant-numeric: tabular-nums; user-select: none; }
+.ff-code-diff__sign { text-align: center; user-select: none; }
+.ff-code-diff__line.is-add .ff-code-diff__sign { color: var(--ff-add-fg); }
+.ff-code-diff__line.is-remove .ff-code-diff__sign { color: var(--ff-del-fg); }
+.ff-code-diff__text { padding-right: 10px; color: var(--ff-text); white-space: pre-wrap; overflow-wrap: anywhere; }
+.ff-code-diff__gap {
+  display: flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 10px;
+  border-block: 1px solid var(--ff-border); background: var(--ff-bg-hover); color: var(--ff-text-muted);
+  font: 12px/1.3 var(--rb-font-sans, sans-serif);
+}
+.ff-code-diff__gap:first-child { border-top: 0; }
+.ff-code-diff__gap:last-child { border-bottom: 0; }

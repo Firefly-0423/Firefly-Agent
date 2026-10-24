@@ -1,0 +1,619 @@
+[
+  {
+    "file": "src/main/agui-bridge.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 5,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      384,
+      512,
+      584,
+      607,
+      962
+    ]
+  },
+  {
+    "file": "src/main/app-identity.ts",
+    "method": "getPath",
+    "root": "appData",
+    "count": 4,
+    "category": "BOOTSTRAP_ALLOWED",
+    "lines": [
+      28,
+      38,
+      40,
+      47
+    ]
+  },
+  {
+    "file": "src/main/app-identity.ts",
+    "method": "getPath",
+    "root": "sessionData",
+    "count": 1,
+    "category": "BOOTSTRAP_ALLOWED",
+    "lines": [
+      49
+    ]
+  },
+  {
+    "file": "src/main/app-identity.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "BOOTSTRAP_ALLOWED",
+    "lines": [
+      48
+    ]
+  },
+  {
+    "file": "src/main/app-identity.ts",
+    "method": "setPath",
+    "root": "appData",
+    "count": 1,
+    "category": "BOOTSTRAP_ALLOWED",
+    "lines": [
+      37
+    ]
+  },
+  {
+    "file": "src/main/app-identity.ts",
+    "method": "setPath",
+    "root": "sessionData",
+    "count": 1,
+    "category": "BOOTSTRAP_ALLOWED",
+    "lines": [
+      45
+    ]
+  },
+  {
+    "file": "src/main/app-identity.ts",
+    "method": "setPath",
+    "root": "userData",
+    "count": 1,
+    "category": "BOOTSTRAP_ALLOWED",
+    "lines": [
+      43
+    ]
+  },
+  {
+    "file": "src/main/application/default-dependencies.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 3,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      159,
+      219,
+      380
+    ]
+  },
+  {
+    "file": "src/main/channels/adapters/feishu/index.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      84
+    ]
+  },
+  {
+    "file": "src/main/channels/adapters/qq/onebot-media.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      67
+    ]
+  },
+  {
+    "file": "src/main/channels/adapters/qqbot/qqbot-adapter.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      353
+    ]
+  },
+  {
+    "file": "src/main/channels/adapters/wechat/ilink-bot-adapter.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 4,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      564,
+      714,
+      742,
+      753
+    ]
+  },
+  {
+    "file": "src/main/channels/conversation-binding-store.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      208
+    ]
+  },
+  {
+    "file": "src/main/channels/history-log.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      33
+    ]
+  },
+  {
+    "file": "src/main/channels/message-log.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      37
+    ]
+  },
+  {
+    "file": "src/main/channels/outgoing-composer.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      203
+    ]
+  },
+  {
+    "file": "src/main/channels/settings-store.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 2,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      51,
+      242
+    ]
+  },
+  {
+    "file": "src/main/chat/chat-api-utils.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      21
+    ]
+  },
+  {
+    "file": "src/main/chats/chats-ipc.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 6,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      330,
+      336,
+      341,
+      638,
+      643,
+      656
+    ]
+  },
+  {
+    "file": "src/main/chats/chats-store.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      186
+    ]
+  },
+  {
+    "file": "src/main/external-content-paths.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      60
+    ]
+  },
+  {
+    "file": "src/main/identity-preflight.ts",
+    "method": "getPath",
+    "root": "appData",
+    "count": 1,
+    "category": "BOOTSTRAP_ALLOWED",
+    "lines": [
+      10
+    ]
+  },
+  {
+    "file": "src/main/memory/entity-graph.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      55
+    ]
+  },
+  {
+    "file": "src/main/memory/memory-store-io.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      9
+    ]
+  },
+  {
+    "file": "src/main/memory/memory-trace.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      19
+    ]
+  },
+  {
+    "file": "src/main/memory/obsidian-vault-config.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      27
+    ]
+  },
+  {
+    "file": "src/main/orchestrator/agent-runtime.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 2,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      253,
+      256
+    ]
+  },
+  {
+    "file": "src/main/orchestrator/harness-adapter.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      169
+    ]
+  },
+  {
+    "file": "src/main/orchestrator/harness/adapter/run-preparation.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      110
+    ]
+  },
+  {
+    "file": "src/main/orchestrator/harness/adapter/tool-runtime.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 2,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      82,
+      105
+    ]
+  },
+  {
+    "file": "src/main/orchestrator/tools/apply-patch-tools.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      444
+    ]
+  },
+  {
+    "file": "src/main/orchestrator/tools/ast-grep-tools.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      464
+    ]
+  },
+  {
+    "file": "src/main/orchestrator/tools/builtin-tools/shell-job-manager.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      115
+    ]
+  },
+  {
+    "file": "src/main/orchestrator/tools/document-tools.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      52
+    ]
+  },
+  {
+    "file": "src/main/orchestrator/review/review-tracker-access.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      6
+    ]
+  },
+  {
+    "file": "src/main/orchestrator/tools/life-tools.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 2,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      50,
+      412
+    ]
+  },
+  {
+    "file": "src/main/permission.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      55
+    ]
+  },
+  {
+    "file": "src/main/plugin-host/plugin-runtime.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 4,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      54,
+      55,
+      114,
+      155
+    ]
+  },
+  {
+    "file": "src/main/proactive/proactive-state-store.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      22
+    ]
+  },
+  {
+    "file": "src/main/protocols/bootstrap.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      25
+    ]
+  },
+  {
+    "file": "src/main/rag/document-cache.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      64
+    ]
+  },
+  {
+    "file": "src/main/rag/index.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 3,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      27,
+      46,
+      47
+    ]
+  },
+  {
+    "file": "src/main/relationship/relationship-log.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      46
+    ]
+  },
+  {
+    "file": "src/main/runtime-profile.ts",
+    "method": "getPath",
+    "root": "DYNAMIC",
+    "count": 1,
+    "category": "BOOTSTRAP_ALLOWED",
+    "lines": [
+      98
+    ]
+  },
+  {
+    "file": "src/main/runtime-profile.ts",
+    "method": "setAppLogsPath",
+    "root": "logs",
+    "count": 1,
+    "category": "BOOTSTRAP_ALLOWED",
+    "lines": [
+      96
+    ]
+  },
+  {
+    "file": "src/main/runtime-profile.ts",
+    "method": "setPath",
+    "root": "appData",
+    "count": 1,
+    "category": "BOOTSTRAP_ALLOWED",
+    "lines": [
+      93
+    ]
+  },
+  {
+    "file": "src/main/runtime-profile.ts",
+    "method": "setPath",
+    "root": "sessionData",
+    "count": 1,
+    "category": "BOOTSTRAP_ALLOWED",
+    "lines": [
+      95
+    ]
+  },
+  {
+    "file": "src/main/runtime-profile.ts",
+    "method": "setPath",
+    "root": "userData",
+    "count": 1,
+    "category": "BOOTSTRAP_ALLOWED",
+    "lines": [
+      94
+    ]
+  },
+  {
+    "file": "src/main/scheduler/scheduler-store.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 2,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      24,
+      25
+    ]
+  },
+  {
+    "file": "src/main/screenshot/screenshot-lifecycle.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      30
+    ]
+  },
+  {
+    "file": "src/main/services/social-context/social-context-service.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      34
+    ]
+  },
+  {
+    "file": "src/main/settings-store.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 6,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      28,
+      32,
+      36,
+      40,
+      44,
+      48
+    ]
+  },
+  {
+    "file": "src/main/settings/settings-ipc.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      50
+    ]
+  },
+  {
+    "file": "src/main/skills/index.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      19
+    ]
+  },
+  {
+    "file": "src/main/stickers/sticker-embedding-cache.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      22
+    ]
+  },
+  {
+    "file": "src/main/stickers/sticker-storage.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 2,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      18,
+      22
+    ]
+  },
+  {
+    "file": "src/main/timeout-manager.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 1,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      10
+    ]
+  },
+  {
+    "file": "src/main/tts/tts-cache.ts",
+    "method": "getPath",
+    "root": "userData",
+    "count": 5,
+    "category": "MIGRATE_LATER",
+    "lines": [
+      10,
+      21,
+      32,
+      43,
+      53
+    ]
+  }
+]

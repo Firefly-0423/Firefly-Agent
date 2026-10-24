@@ -1,0 +1,57 @@
+{
+  "model_files_changed": false,
+  "source_files": [
+    {
+      "file": "src/renderer/public/live2dcubismcore.min.js",
+      "sha256": "913e10e881aa7abec8e65bbb8c2540db3fe9acf987c7537befa521f8a7f51009"
+    },
+    {
+      "file": "src/renderer/public/models/firefly/Expressions/Expressions_0_File_0.json",
+      "sha256": "18a71c55012ec597f66163dc51f91e354709dac51070370d23f8932ae6e7adb1"
+    },
+    {
+      "file": "src/renderer/public/models/firefly/Expressions/Expressions_1_File_0.json",
+      "sha256": "11873393bdc2dde98d267fed070287254ce8511d145c1b0dea0226fcc30c5f10"
+    },
+    {
+      "file": "src/renderer/public/models/firefly/Expressions/Expressions_2_File_0.json",
+      "sha256": "43d6f6017752fb01451afad46d27c0395b24999c018ef5adcc1542910afd2c52"
+    },
+    {
+      "file": "src/renderer/public/models/firefly/Expressions/Expressions_6_File_0.json",
+      "sha256": "b4c5cc4a7d420ce845a8138e0a319ac61af1c5d97bfbbc655df1e52ce904ea8a"
+    },
+    {
+      "file": "src/renderer/public/models/firefly/Expressions/Expressions_7_File_0.json",
+      "sha256": "985eb5777128b832ec9b43f2e84e53de3ba849005fc83e25096b13c275f83fba"
+    },
+    {
+      "file": "src/renderer/public/models/firefly/Firefly.model3.json",
+      "sha256": "c090c72c0f1b9718692a5dea059e341db31a7d7f556e2ecfbc18a8a47e9c61b5"
+    },
+    {
+      "file": "src/renderer/public/models/firefly/Moc_0.moc3",
+      "sha256": "11c8a95dc0898fba175afe16d38981b8dbbc1862b4f0023ed01c696b666af9e1"
+    },
+    {
+      "file": "src/renderer/public/models/firefly/Motions/Motions_Tick2_0_File_0.json",
+      "sha256": "5e2990f314798425dd9a0af2790bf79e1b2bdb419a00e0be5ec69185a3a94edb"
+    },
+    {
+      "file": "src/renderer/public/models/firefly/Motions/Motions_Tick2_1_File_0.json",
+      "sha256": "f601ac0b5de39f928087ecd3652322c046d25337735ae3881621258dd32b539c"
+    },
+    {
+      "file": "src/renderer/public/models/firefly/Motions/Motions_Tick2_2_File_0.json",
+      "sha256": "301acd4a2a17be1400a8eebe7d632506c031cf81b34e6b05318d70e729633924"
+    },
+    {
+      "file": "src/renderer/public/models/firefly/Physics_0.json",
+      "sha256": "caa2120c7e98410c030072fca3d86308ab14d3d50794de776c4fc3591c973fee"
+    },
+    {
+      "file": "src/renderer/public/models/firefly/Textures_0_0.png",
+      "sha256": "84243b5da52636d8a7adfcc4c1f531d69cfdc3b61909ebf0f08d0c05a2526ffa"
+    }
+  ]
+}

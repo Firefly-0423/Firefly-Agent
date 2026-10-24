@@ -1,0 +1,16 @@
+/* Decoration only: fills its positioned parent, stays behind everything and never takes the pointer.
+   The glyph colour is the theme's muted text; the canvas sets each glyph's own opacity (faint at rest, brighter on a ripple). */
+.ff-code-rain {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  color: var(--ff-text-muted);
+  opacity: 0.55;
+  pointer-events: none;
+  /* Soften the top and bottom so the rain fades in and out instead of being cut by the header and composer. */
+  mask-image: linear-gradient(to bottom, transparent 0, #000 14%, #000 78%, transparent 100%);
+}
+
+:root[data-ui-theme="firefly-dark"] .ff-code-rain { opacity: 0.45; }

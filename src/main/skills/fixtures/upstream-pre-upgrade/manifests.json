@@ -1,0 +1,348 @@
+{
+  "as-api-and-interface-design": {
+    "name": "as-api-and-interface-design",
+    "description": "Guides stable API and interface design. Use when designing APIs, module boundaries, or any public interface. Use when creating REST or GraphQL endpoints, defining type contracts between modules, or establishing boundaries between frontend and backend.",
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "as-code-review-and-quality": {
+    "name": "as-code-review-and-quality",
+    "description": "Conducts multi-axis code review. Use before merging any change. Use when reviewing code written by yourself, another agent, or a human. Use when you need to assess code quality across multiple dimensions before it enters the main branch.",
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "as-code-simplification": {
+    "name": "as-code-simplification",
+    "description": "Simplifies code for clarity. Use when refactoring code for clarity without changing behavior. Use when code works but is harder to read, maintain, or extend than it should be. Use when reviewing code that has accumulated unnecessary complexity.",
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "as-context-engineering": {
+    "name": "as-context-engineering",
+    "description": "Optimizes agent context setup. Use when starting a new session, when agent output quality degrades, when switching between tasks, or when you need to configure rules files and context for a project.",
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "as-debugging-and-error-recovery": {
+    "name": "as-debugging-and-error-recovery",
+    "description": "Guides systematic root-cause debugging. Use when tests fail, builds break, behavior doesn't match expectations, or you encounter any unexpected error. Use when you need a systematic approach to finding and fixing the root cause rather than guessing.",
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "as-doubt-driven-development": {
+    "name": "as-doubt-driven-development",
+    "description": "Subjects every non-trivial decision to a fresh-context adversarial review before it stands. Use when correctness matters more than speed, when working in unfamiliar code, when stakes are high (production, security-sensitive logic, irreversible operations), or any time a confident output would be cheaper to verify now than to debug later.",
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "as-frontend-ui-engineering": {
+    "name": "as-frontend-ui-engineering",
+    "description": "Builds production-quality, accessible, responsive user-facing UIs. Use when building or modifying interfaces and pages, creating components, implementing layouts, meeting WCAG accessibility requirements, managing state, or when the output needs to look and feel production-quality rather than AI-generated.",
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "as-git-workflow-and-versioning": {
+    "name": "as-git-workflow-and-versioning",
+    "description": "Structures git workflow practices. Use when making any code change. Use when committing, branching, resolving conflicts, or when you need to organize work across multiple parallel streams. Use when cutting a release, choosing a semantic version bump, tagging, or writing a changelog.",
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "as-incremental-implementation": {
+    "name": "as-incremental-implementation",
+    "description": "Delivers changes incrementally. Use when implementing any feature or change that touches more than one file. Use when you're about to write a large amount of code at once, or when a task feels too big to land in one step.",
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "as-planning-and-task-breakdown": {
+    "name": "as-planning-and-task-breakdown",
+    "description": "Breaks work into ordered tasks. Use when you have a spec or clear requirements and need to break work into implementable tasks. Use when a task feels too large to start, when you need to estimate scope, or when parallel work is possible.",
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "as-security-and-hardening": {
+    "name": "as-security-and-hardening",
+    "description": "Hardens code against vulnerabilities. Use when handling user input, authentication, data storage, or external integrations. Use when building any feature that accepts untrusted data, manages user sessions, or interacts with third-party services.",
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "as-source-driven-development": {
+    "name": "as-source-driven-development",
+    "description": "Grounds every implementation decision in official documentation. Use when you want authoritative, source-cited code free from outdated patterns. Use when building with any framework or library where correctness matters.",
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "as-spec-driven-development": {
+    "name": "as-spec-driven-development",
+    "description": "Creates specs before coding. Use when starting a new project, feature, or significant change and no specification exists yet. Use when requirements are unclear, ambiguous, or only exist as a vague idea.",
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "as-using-agent-skills": {
+    "name": "as-using-agent-skills",
+    "description": "Discovers and invokes agent skills. Use when starting a session or when you need to discover which skill applies to the current task. This is the meta-skill that governs how all other skills are discovered and invoked.",
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "docx": {
+    "name": "docx",
+    "license": "MIT",
+    "metadata": {
+      "version": "1.0.0",
+      "category": "document-processing",
+      "author": "Minimax",
+      "sources": [
+        "ECMA-376 Office Open XML File Formats",
+        "GB/T 9704-2012 公文版面布局标准",
+        "IEEE / ACM / APA / MLA / Chicago / Turabian 风格指南",
+        "Springer LNCS / Nature / HBR 文档模板"
+      ]
+    },
+    "description": "使用 OpenXML SDK (.NET) 进行专业的 DOCX 文档创建、编辑和格式化。 三种管道：(A) 从零创建新文档，(B) 在已有文档中填充/编辑内容， (C) 应用模板格式化并通过 XSD 验证门控检查。 当用户需要生成、修改或格式化 Word 文档时，必须使用此 skill—— 包括他们说\"写一份报告\"、\"起草建议书\"、\"制作合同\"、 \"填写此表单\"、\"按此模板重新排版\"，或任何最终输出为 .docx 文件的任务。 即使用户未明确提及 \"docx\"，如果任务暗示生成可打印/正式文档，也应使用此 skill。\n",
+    "hiddenFromUi": false
+  },
+  "ecc-agent-introspection-debugging": {
+    "name": "ecc-agent-introspection-debugging",
+    "description": "Structured self-debugging workflow for AI agent failures using capture, diagnosis, contained recovery, and introspection reports.",
+    "metadata": {
+      "origin": "ECC"
+    },
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "ecc-ai-regression-testing": {
+    "name": "ecc-ai-regression-testing",
+    "description": "Regression testing strategies for AI-assisted development. Sandbox-mode API testing without database dependencies, automated bug-check workflows, and patterns to catch AI blind spots where the same model writes and reviews code.",
+    "metadata": {
+      "origin": "ECC"
+    },
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "ecc-code-tour": {
+    "name": "ecc-code-tour",
+    "description": "Create CodeTour `.tour` files — persona-targeted, step-by-step walkthroughs with real file and line anchors. Use for onboarding tours, architecture walkthroughs, PR tours, RCA tours, and structured \"explain how this works\" requests.",
+    "metadata": {
+      "origin": "ECC"
+    },
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "ecc-codebase-onboarding": {
+    "name": "ecc-codebase-onboarding",
+    "description": "Analyze an unfamiliar codebase and generate a structured onboarding guide with architecture map, key entry points, conventions, and a starter CLAUDE.md. Use when joining a new project or setting up Claude Code for the first time in a repo.",
+    "metadata": {
+      "origin": "ECC"
+    },
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "ecc-coding-standards": {
+    "name": "ecc-coding-standards",
+    "description": "Baseline cross-project coding conventions for naming, readability, immutability, and code-quality review. Use detailed frontend or backend skills for framework-specific patterns.",
+    "metadata": {
+      "origin": "ECC"
+    },
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "ecc-plan-canvas": {
+    "name": "ecc-plan-canvas",
+    "description": "Open plans and HTML artifacts in a local browser canvas where the human annotates elements, chats, and approves or requests changes without leaving the page. Use when presenting a plan for review, or when feedback like \"move this, change that\" is easier pointed at than typed.",
+    "metadata": {
+      "origin": "ECC"
+    },
+    "version": "1.0.0",
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "ecc-security-review": {
+    "name": "ecc-security-review",
+    "description": "Use this skill when adding authentication, handling user input, working with secrets, creating API endpoints, or implementing payment/sensitive features. Provides comprehensive security checklist and patterns.",
+    "metadata": {
+      "origin": "ECC"
+    },
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "ecc-tdd-workflow": {
+    "name": "ecc-tdd-workflow",
+    "description": "Use this skill when writing new features, fixing bugs, or refactoring code. Enforces test-driven development with 80%+ coverage including unit, integration, and E2E tests.",
+    "argument-hint": "<path/to/*.plan.md>",
+    "metadata": {
+      "origin": "ECC"
+    },
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "pdf": {
+    "name": "pdf",
+    "description": "Create, inspect, fill, reformat, and visually verify PDFs on Windows with local Python rendering. Use whenever a PDF must preserve deliberate layout, including Chinese text, tables, charts, covers, or form fields.",
+    "license": "MIT",
+    "metadata": {
+      "version": "2.0",
+      "category": "document-generation"
+    },
+    "hiddenFromUi": false
+  },
+  "pptx-generator": {
+    "name": "pptx-generator",
+    "description": "生成、编辑和读取 PowerPoint 演示文稿。使用 PptxGenJS 从零创建（封面、目录、内容、章节分隔、总结幻灯片），通过 XML 工作流编辑已有 PPTX，或使用 markitdown 提取文本。触发词：PPT、PPTX、PowerPoint、演示文稿、幻灯片、slide、deck、slides。",
+    "license": "MIT",
+    "metadata": {
+      "version": "1.0",
+      "category": "productivity",
+      "sources": [
+        "https://gitbrent.github.io/PptxGenJS/",
+        "https://github.com/microsoft/markitdown"
+      ]
+    },
+    "hiddenFromUi": false
+  },
+  "self-improving-agent": {
+    "name": "self-improving-agent",
+    "description": "Record corrections, errors, knowledge gaps, feature requests and verified reusable improvements without changing permissions.",
+    "metadata": null,
+    "modes": [
+      "work",
+      "code",
+      "learn"
+    ],
+    "hiddenFromUi": false
+  },
+  "skill-creator": {
+    "name": "skill-creator",
+    "description": "Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, edit, or optimize an existing skill, run evals to test a skill, benchmark skill performance with variance analysis, or optimize a skill's description for better triggering accuracy.",
+    "modes": [
+      "work",
+      "code",
+      "learn"
+    ],
+    "hiddenFromUi": false
+  },
+  "sp-brainstorming": {
+    "name": "sp-brainstorming",
+    "description": "You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation.",
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "sp-dispatching-parallel-agents": {
+    "name": "sp-dispatching-parallel-agents",
+    "description": "Use when facing 2+ independent tasks that can be worked on without shared state or sequential dependencies",
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "sp-requesting-code-review": {
+    "name": "sp-requesting-code-review",
+    "description": "Use when completing tasks, implementing major features, or before merging to verify work meets requirements",
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "sp-subagent-driven-development": {
+    "name": "sp-subagent-driven-development",
+    "description": "Use when executing implementation plans with independent tasks in the current session",
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "sp-systematic-debugging": {
+    "name": "sp-systematic-debugging",
+    "description": "Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes",
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "sp-using-git-worktrees": {
+    "name": "sp-using-git-worktrees",
+    "description": "Use when starting feature work that needs isolation from current workspace or before executing implementation plans - ensures an isolated workspace exists via native tools or git worktree fallback",
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "sp-using-superpowers": {
+    "name": "sp-using-superpowers",
+    "description": "Use when starting any conversation - establishes how to find and use skills, requiring skill invocation before ANY response including clarifying questions",
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "sp-verification-before-completion": {
+    "name": "sp-verification-before-completion",
+    "description": "Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires running verification commands and confirming output before making any success claims; evidence before assertions always",
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "sp-writing-plans": {
+    "name": "sp-writing-plans",
+    "description": "Use when you have a spec or requirements for a multi-step task, before touching code",
+    "modes": [
+      "code"
+    ],
+    "hiddenFromUi": false
+  },
+  "xlsx": {
+    "name": "xlsx",
+    "description": "Create, read, edit, recalculate, and verify Excel workbooks on Windows while preserving formulas and existing workbook structure.",
+    "license": "MIT",
+    "metadata": {
+      "version": "2.0",
+      "category": "productivity"
+    },
+    "hiddenFromUi": false
+  }
+}

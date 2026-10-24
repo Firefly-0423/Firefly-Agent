@@ -1,0 +1,40 @@
+{
+  "name": "@firefly/plugin-sdk",
+  "version": "0.2.0",
+  "description": "Firefly 插件开发工具包：公开契约类型、Manifest 校验与插件测试工具",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Firefly-0423/Firefly-Agent.git",
+    "directory": "packages/plugin-sdk"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "import": "./dist/esm/index.mjs"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "require": "./dist/testing/index.js",
+      "import": "./dist/esm/testing/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "ajv": "^8.17.1"
+  },
+  "keywords": [
+    "firefly",
+    "plugin",
+    "sdk"
+  ]
+}

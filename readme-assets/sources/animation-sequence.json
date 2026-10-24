@@ -1,0 +1,39 @@
+{
+  "frames": 155,
+  "frame_duration_ms": 80,
+  "display_duration_ms": 12400,
+  "native_motion": "Idle/0",
+  "events": [
+    {
+      "frame": 28,
+      "expression": "expression2",
+      "meaning": "cat ears (Param40)"
+    },
+    {
+      "frame": 60,
+      "expression": "expression1",
+      "meaning": "pixel sunglasses"
+    },
+    {
+      "frame": 90,
+      "expression": "expression00",
+      "meaning": "restore idle"
+    },
+    {
+      "frame": 104,
+      "expression": "expression6",
+      "meaning": "question mark"
+    },
+    {
+      "frame": 120,
+      "expression": "expression7",
+      "meaning": "closed-eye expression"
+    },
+    {
+      "frame": 138,
+      "expression": "expression00",
+      "meaning": "restore idle before the loop boundary"
+    }
+  ],
+  "notes": "Preserve the existing expression order and 12.4-second display duration. Extend visible cat-ear time modestly. Expression fades run through the native Cubism expression manager; no persistent expression parameter override."
+}

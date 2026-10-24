@@ -1,0 +1,291 @@
+{
+  "schemaVersion": 1,
+  "testedProductHead": "7d454a795c52e1aef11b328c28c17bbaa6bba4d8",
+  "command": "node scripts/verify/natural-memory-electron-ui.cjs",
+  "exitCode": 0,
+  "electronVersion": "43.7.0",
+  "productSourceChangesThisQa": [],
+  "checks": [
+    "real-electron-synthetic-isolation",
+    "new-chat-ui",
+    "natural-utterance-sent-without-preexisting-memory",
+    "natural-proposal-pending-only",
+    "ui-confirmed-real-sqlite-fact",
+    "own-electron-closed",
+    "real-electron-synthetic-isolation",
+    "new-chat-ui",
+    "reopened-new-session-actual-request-recall",
+    "ui-correction-synchronous",
+    "new-chat-ui",
+    "corrected-value-selected-in-new-session",
+    "ui-forget-synchronous",
+    "new-chat-ui",
+    "forgotten-value-absent-from-all-request-roles",
+    "own-electron-closed",
+    "real-electron-synthetic-isolation",
+    "forget-survives-second-restart",
+    "own-electron-closed",
+    "offline-full-closure-complete"
+  ],
+  "failures": [],
+  "syntheticFactId": "8be7554c-c871-439d-bf5c-70d396605391",
+  "sessions": [
+    {
+      "id": "8e7bf16d-6cca-4467-9464-44d538d5cd37",
+      "text": "小雀是我习惯用的称呼，以后这样叫我",
+      "webContentsId": 2,
+      "userMessageId": "e78df6ce-3dc8-423d-a800-9324fc59156d",
+      "assistantMessageId": "a1beef3d-a6ae-4a43-b732-31728e7c6120",
+      "runId": "run-1792230314657-zrrms1",
+      "terminalStatus": "success",
+      "settlement": "not-exposed"
+    },
+    {
+      "id": "9e09a99c-956e-44e6-b675-12afae186c4b",
+      "text": "按习惯称呼我，给一句学习建议",
+      "webContentsId": 2,
+      "userMessageId": "608371cf-7535-4e82-b5c0-ec087e0d5155",
+      "assistantMessageId": "d5d17c43-c6d4-4c98-bcc6-0cf1ea94744d",
+      "runId": "run-1792230321782-99hqdm",
+      "terminalStatus": "success",
+      "settlement": "not-exposed"
+    },
+    {
+      "id": "6cac75f3-036d-4c3e-b6b9-1188e4dac980",
+      "text": "按习惯称呼我，给一句阅读建议",
+      "webContentsId": 2,
+      "userMessageId": "6577bf18-6833-4554-8bec-1e5efee69827",
+      "assistantMessageId": "cca9e505-db96-49bd-a767-b9bfc148ce20",
+      "runId": "run-1792230323598-q4frnj",
+      "terminalStatus": "success",
+      "settlement": "not-exposed"
+    },
+    {
+      "id": "c5bf3585-8651-4fa9-beba-14288d170bcd",
+      "text": "按习惯称呼我，给一句休息建议",
+      "webContentsId": 2,
+      "userMessageId": "5eb7e5e7-f185-4bf3-b26f-f4339816ad2c",
+      "assistantMessageId": "0fce3275-fba3-42ea-aca0-fcc670c22d36",
+      "runId": "run-1792230325052-zs1fnq",
+      "terminalStatus": "success",
+      "settlement": "not-exposed"
+    }
+  ],
+  "launches": [
+    {
+      "pid": 2204,
+      "blocked": [
+        {
+          "layer": "chromium",
+          "origin": "https://fonts.googleapis.com"
+        },
+        {
+          "layer": "chromium",
+          "origin": "https://fonts.googleapis.com"
+        },
+        {
+          "layer": "chromium",
+          "origin": "https://fonts.googleapis.com"
+        },
+        {
+          "layer": "chromium",
+          "origin": "https://fonts.googleapis.com"
+        },
+        {
+          "layer": "chromium",
+          "origin": "https://fonts.googleapis.com"
+        }
+      ],
+      "backgroundSuppressed": [
+        "pruneRemovedMcp",
+        "prewarmScreenshot",
+        "scheduleUpdateCheck",
+        "syncBuiltInMcp",
+        "scheduleEmbeddingRefresh",
+        "restoreMcp",
+        "initializeReranker",
+        "startProactiveTrigger"
+      ],
+      "dialogs": [],
+      "requestKinds": [
+        "chat",
+        "natural"
+      ]
+    },
+    {
+      "pid": 36904,
+      "blocked": [
+        {
+          "layer": "chromium",
+          "origin": "https://fonts.googleapis.com"
+        },
+        {
+          "layer": "chromium",
+          "origin": "https://fonts.googleapis.com"
+        },
+        {
+          "layer": "chromium",
+          "origin": "https://fonts.googleapis.com"
+        },
+        {
+          "layer": "chromium",
+          "origin": "https://fonts.googleapis.com"
+        }
+      ],
+      "backgroundSuppressed": [
+        "pruneRemovedMcp",
+        "prewarmScreenshot",
+        "scheduleUpdateCheck",
+        "syncBuiltInMcp",
+        "scheduleEmbeddingRefresh",
+        "restoreMcp",
+        "initializeReranker",
+        "startProactiveTrigger"
+      ],
+      "dialogs": [],
+      "requestKinds": [
+        "chat",
+        "natural",
+        "chat",
+        "natural",
+        "chat",
+        "natural"
+      ]
+    },
+    {
+      "pid": 31908,
+      "blocked": [
+        {
+          "layer": "chromium",
+          "origin": "https://fonts.googleapis.com"
+        },
+        {
+          "layer": "chromium",
+          "origin": "https://fonts.googleapis.com"
+        },
+        {
+          "layer": "chromium",
+          "origin": "https://fonts.googleapis.com"
+        },
+        {
+          "layer": "chromium",
+          "origin": "https://fonts.googleapis.com"
+        }
+      ],
+      "backgroundSuppressed": [
+        "pruneRemovedMcp",
+        "prewarmScreenshot",
+        "scheduleUpdateCheck",
+        "syncBuiltInMcp",
+        "scheduleEmbeddingRefresh",
+        "restoreMcp",
+        "initializeReranker",
+        "startProactiveTrigger"
+      ],
+      "dialogs": [],
+      "requestKinds": []
+    }
+  ],
+  "gracefulShutdown": [
+    {
+      "name": "own-electron-closed",
+      "pid": 28236,
+      "forcedAfterTimeout": false
+    },
+    {
+      "name": "own-electron-closed",
+      "pid": 28724,
+      "forcedAfterTimeout": false
+    },
+    {
+      "name": "own-electron-closed",
+      "pid": 20280,
+      "forcedAfterTimeout": false
+    }
+  ],
+  "memoryRequestEvidence": [
+    {
+      "sessionId": "8e7bf16d-6cca-4467-9464-44d538d5cd37",
+      "roleNames": [
+        "system",
+        "user",
+        "user"
+      ],
+      "memoryMessages": [],
+      "containsOriginalName": true,
+      "containsCorrectedName": false,
+      "nameInElevatedRole": false
+    },
+    {
+      "sessionId": "9e09a99c-956e-44e6-b675-12afae186c4b",
+      "roleNames": [
+        "system",
+        "system",
+        "system",
+        "user",
+        "user",
+        "user"
+      ],
+      "memoryMessages": [
+        {
+          "role": "user",
+          "content": "User-stated memory with source and time metadata:\n[{\"factId\":\"8be7554c-c871-439d-bf5c-70d396605391\",\"revision\":1,\"assertion\":\"用户称呼：小雀\",\"assertionKind\":\"user-statement\",\"time\":{\"referenceTime\":1792230314609,\"validFrom\":null,\"validTo\":null},\"recordedAt\":1792230315894,\"acceptedAt\":1792230315894,\"supportSourceRefs\":[{\"binding\":{\"contentRevision\":1,\"generation\":\"da17ea72-b1d5-4f50-8653-9bcec7d35f41\",\"messageId\":\"settings-cf9cf006-01d2-4eaa-9327-316296fcd052\",\"providerId\":\"desktop-chat-user-v1\",\"sessionId\":\"memory-settings-user-events-v1\"},\"revision\":1,\"sourceId\":\"eeb35bc3-3eb6-48bb-9ec0-038bbaa4b2cc\"}]}]"
+        }
+      ],
+      "containsOriginalName": true,
+      "containsCorrectedName": false,
+      "nameInElevatedRole": false
+    },
+    {
+      "sessionId": "6cac75f3-036d-4c3e-b6b9-1188e4dac980",
+      "roleNames": [
+        "system",
+        "system",
+        "system",
+        "user",
+        "user",
+        "user"
+      ],
+      "memoryMessages": [
+        {
+          "role": "user",
+          "content": "User-stated memory with source and time metadata:\n[{\"factId\":\"8be7554c-c871-439d-bf5c-70d396605391\",\"revision\":2,\"assertion\":\"用户称呼：小禾\",\"assertionKind\":\"user-statement\",\"time\":{\"referenceTime\":1792230322993,\"validFrom\":null,\"validTo\":null},\"recordedAt\":1792230323005,\"acceptedAt\":1792230323005,\"supportSourceRefs\":[{\"binding\":{\"contentRevision\":1,\"generation\":\"43eb3bac-5919-44f5-91d3-2509c7db2f6f\",\"messageId\":\"settings-455e58dc-12e4-45fc-a7fc-dae4f71710b5\",\"providerId\":\"desktop-chat-user-v1\",\"sessionId\":\"memory-settings-user-events-v1\"},\"revision\":1,\"sourceId\":\"24bc5d4b-ddc1-4493-9e8b-7aa54da83c93\"}]}]"
+        }
+      ],
+      "containsOriginalName": false,
+      "containsCorrectedName": true,
+      "nameInElevatedRole": false
+    },
+    {
+      "sessionId": "c5bf3585-8651-4fa9-beba-14288d170bcd",
+      "roleNames": [
+        "system",
+        "system",
+        "user",
+        "user"
+      ],
+      "memoryMessages": [],
+      "containsOriginalName": false,
+      "containsCorrectedName": false,
+      "nameInElevatedRole": false
+    }
+  ],
+  "localArtifacts": {
+    "root": ".verification/electron-memory-ui-1792230308149",
+    "resultSha256": "fda28456d11b76bd411465c8b33cfcb48295737766b8a07ccd846a6afb774585",
+    "requestsSha256": "d88b8a9c9c7a24529cd83c9351f408c91f8233312fc16d94384a62c776515520",
+    "screenshots": [
+      "01-pending-candidate.png",
+      "02-confirmed.png",
+      "03-new-session-recall.png",
+      "04-corrected.png",
+      "05-forgotten.png"
+    ]
+  },
+  "limitations": [
+    "Offline fake model responses; no real provider acceptance",
+    "Current OS account; synthetic app profile and conversation data",
+    "Only candidate UI on tested product head; compatibility checks do not execute current preview or usage-history changes",
+    "Optional sSettlement field not exposed in these Chat DTOs; successful terminal runSnapshot, corresponding persisted assistant response and renderer text were asserted"
+  ]
+}

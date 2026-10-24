@@ -1,0 +1,83 @@
+appId: com.serendipitywu02.firefly
+productName: Firefly_Agent
+publish: []
+directories:
+  output: release
+asar: true
+asarUnpack:
+  - "**/vendor/srt-win/**"
+  - "**/node_modules/@ast-grep/**"
+  # Playwright MCP 以 ELECTRON_RUN_AS_NODE 模式运行，读不了 asar 虚拟路径，
+  # 需真实磁盘文件（cli.js + 其依赖的 playwright / playwright-core）
+  - "**/node_modules/@playwright/**"
+  - "**/node_modules/playwright/**"
+  - "**/node_modules/playwright-core/**"
+electronDist: node_modules/electron/dist
+files:
+  - dist/**/*
+  - "!dist/components/**/*"
+  - "!dist/main/main/sim/**/*"
+  - "!dist/sim/**/*"
+  - package.json
+  - assets/**/*
+  - vendor/**/*
+  - "!vendor/firefly-skills/**/*"
+  - "!models/**/*"
+  # prompts / skills 作为安装目录根下的独立文件夹，方便用户修改
+extraFiles:
+  - from: LICENSE
+    to: LICENSE
+  - from: MODEL_LICENSE.md
+    to: MODEL_LICENSE.md
+  - from: THIRD_PARTY_NOTICES.md
+    to: THIRD_PARTY_NOTICES.md
+  - from: node_modules/katex/LICENSE
+    to: licenses/KaTeX-LICENSE
+  - from: prompts
+    to: prompts
+  - from: skills
+    to: skills
+extraResources:
+  - from: native/target/release/firefly-history-read.exe
+    to: bin/firefly-history-read.exe
+  - from: native/target/release/firefly-history-presence.exe
+    to: bin/firefly-history-presence.exe
+  - from: native/target/release/firefly-workspace.exe
+    to: bin/firefly-workspace.exe
+  - from: models
+    to: models
+    filter:
+      - "Xenova/bge-m3/**/*"
+      - "bge-reranker-base/**/*"
+      - "provenance/**/*"
+  - from: resources/bin/firefly-screenshot.exe
+    to: bin/firefly-screenshot.exe
+  - from: src/main/music/scripts/qqmusic_gsmtc.ps1
+    to: music/qqmusic_gsmtc.ps1
+  - from: resources/mingit
+    to: mingit
+  # 仅分发 canonical Skills、ID manifest 与必要来源/许可材料。
+  - from: vendor/firefly-skills/skills
+    to: firefly-skills/skills
+  - from: vendor/firefly-skills/skills-manifest.json
+    to: firefly-skills/skills-manifest.json
+  - from: vendor/firefly-skills/LICENSE-NOTICES.md
+    to: firefly-skills/LICENSE-NOTICES.md
+  - from: vendor/firefly-skills/license-provenance.json
+    to: firefly-skills/license-provenance.json
+  - from: vendor/firefly-skills/licenses
+    to: firefly-skills/licenses
+win:
+  icon: assets/icon-presets/firefly.png
+  target:
+    - nsis
+nsis:
+  artifactName: Firefly_Agent-Setup-${version}.${ext}
+  oneClick: false
+  differentialPackage: false
+  allowToChangeInstallationDirectory: true
+  # Shortcut creation is controlled by the assisted install page below.
+  createDesktopShortcut: false
+  createStartMenuShortcut: true
+  menuCategory: Firefly_Agent
+  include: build/installer.nsh

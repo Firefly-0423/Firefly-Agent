@@ -1,0 +1,60 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 24 24"
+  fill="none">
+  <title>自定义端点</title>
+  <defs>
+    <linearGradient
+      y2="21"
+      y1="3"
+      x2="21"
+      x1="3"
+      id="customEndpointGradient"
+      gradientUnits="userSpaceOnUse">
+      <stop
+        stop-color="#a9aabc" />
+      <stop
+        stop-color="#4d4e69"
+        offset="1" />
+    </linearGradient>
+  </defs>
+  <path
+    stroke-width="1.8"
+    stroke-linecap="round"
+    stroke="url(#customEndpointGradient)"
+    d="M8 3.75H5.75a2 2 0 0 0-2 2V8" />
+  <path
+    stroke-width="1.8"
+    stroke-linecap="round"
+    stroke="url(#customEndpointGradient)"
+    d="M16 3.75h2.25a2 2 0 0 1 2 2V8" />
+  <path
+    stroke-width="1.8"
+    stroke-linecap="round"
+    stroke="url(#customEndpointGradient)"
+    d="M8 20.25H5.75a2 2 0 0 1-2-2V16" />
+  <path
+    stroke-width="1.8"
+    stroke-linecap="round"
+    stroke="url(#customEndpointGradient)"
+    d="M16 20.25h2.25a2 2 0 0 0 2-2V16" />
+  <rect
+    y="7.25"
+    x="7.25"
+    width="9.5"
+    stroke-width="1.8"
+    stroke="url(#customEndpointGradient)"
+    rx="2.25"
+    height="9.5" />
+  <path
+    stroke-width="1.6"
+    stroke-linejoin="round"
+    stroke-linecap="round"
+    stroke="url(#customEndpointGradient)"
+    d="M10 10.25 8.75 12 10 13.75M14 10.25 15.25 12 14 13.75" />
+  <circle
+    r="1"
+    fill="#6a6b86"
+    cy="12"
+    cx="12" />
+</svg>

@@ -1,0 +1,478 @@
+/* ===== 定时任务面板：列表 + 内联编辑器（与模型面板同一套 --ff-* 令牌） ===== */
+.scheduled-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+  background: var(--ff-bg-workspace, var(--ff-surface));
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.scheduled-panel__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ff-text, var(--ff-text));
+}
+
+.scheduled-panel__subtitle {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  overflow-wrap: anywhere;
+}
+
+.scheduled-panel__hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.scheduled-state {
+  padding: 40px 16px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  overflow-wrap: anywhere;
+}
+
+.scheduled-state.is-error {
+  color: var(--ff-danger, #e5484d);
+  padding: 12px 0;
+  text-align: left;
+}
+
+.scheduled-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px 0 24px;
+}
+
+/* ===== 按钮 ===== */
+.scheduled-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 5px 10px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  background: var(--ff-bg-page, var(--ff-bg-subtle));
+  border: 1px solid var(--ff-border, var(--ff-border));
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.scheduled-btn:hover:not(:disabled) {
+  color: var(--ff-accent, var(--ff-accent));
+  background: var(--ff-bg-active, var(--ff-bg-hover));
+  border-color: var(--ff-bg-active, var(--ff-border));
+}
+
+.scheduled-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.scheduled-btn.is-primary {
+  color: #fff;
+  background: var(--ff-accent, var(--ff-accent-solid));
+  border-color: var(--ff-accent, var(--ff-accent));
+}
+
+.scheduled-btn.is-primary:hover:not(:disabled) {
+  color: #fff;
+  background: var(--ff-accent-hover, var(--ff-accent-solid));
+}
+
+.scheduled-btn.is-danger:hover:not(:disabled) {
+  color: var(--ff-danger, #e5484d);
+  border-color: var(--ff-danger, #e5484d);
+  background: rgba(229, 72, 77, 0.08);
+}
+
+.scheduled-btn:focus-visible,
+.scheduled-icon-btn:focus-visible {
+  outline: 2px solid var(--ff-accent, var(--ff-accent-solid));
+  outline-offset: 2px;
+}
+
+.scheduled-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.scheduled-icon-btn:hover {
+  color: var(--ff-text, var(--ff-text));
+  background: var(--ff-bg-page, var(--ff-bg-subtle));
+}
+
+/* ===== 任务卡片 ===== */
+.scheduled-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  background: var(--ff-bg-page, var(--ff-bg-subtle));
+  border: 1px solid var(--ff-border, var(--ff-border));
+  border-radius: 12px;
+}
+
+.scheduled-card.is-disabled .scheduled-card__name {
+  color: var(--ff-text-muted, var(--ff-text-muted));
+}
+
+.scheduled-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  min-width: 0;
+}
+
+.scheduled-card__name {
+  flex: 1 1 120px;
+  min-width: 0;
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ff-text, var(--ff-text));
+  overflow-wrap: anywhere;
+}
+
+.scheduled-card__badge {
+  flex-shrink: 0;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  background: var(--ff-bg-workspace, var(--ff-surface));
+  border: 1px solid var(--ff-border, var(--ff-border));
+  border-radius: 12px;
+}
+
+.scheduled-card__badge.is-on {
+  color: var(--ff-accent, var(--ff-accent));
+  background: var(--ff-bg-active, var(--ff-bg-hover));
+  border-color: transparent;
+}
+
+.scheduled-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  min-width: 0;
+}
+
+.scheduled-card__meta li {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.scheduled-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.scheduled-card__history {
+  margin: 0;
+  padding: 8px 10px;
+  list-style: none;
+  font-size: 11.5px;
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  background: var(--ff-bg-workspace, var(--ff-surface));
+  border-radius: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.scheduled-card__history.is-error {
+  color: var(--ff-danger, #e5484d);
+}
+
+.scheduled-card__history-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  padding: 3px 0;
+  min-width: 0;
+}
+
+.scheduled-card__history-status.is-failed {
+  color: var(--ff-danger, #e5484d);
+}
+
+.scheduled-card__history-status.is-success {
+  color: var(--ff-accent, var(--ff-accent));
+}
+
+.scheduled-card__history-detail {
+  flex: 1 1 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ===== 编辑器 ===== */
+.scheduled-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 14px 0 24px;
+}
+
+.scheduled-editor__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.scheduled-editor__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ff-text, var(--ff-text));
+  overflow-wrap: anywhere;
+}
+
+.scheduled-editor__form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.scheduled-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.scheduled-field__label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  padding: 0;
+}
+
+.scheduled-field input,
+.scheduled-field select,
+.scheduled-field textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--ff-text, var(--ff-text));
+  background: var(--ff-bg-page, var(--ff-bg-subtle));
+  border: 1px solid var(--ff-border, var(--ff-border));
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.scheduled-field textarea {
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.scheduled-field input:focus,
+.scheduled-field select:focus,
+.scheduled-field textarea:focus {
+  border-color: var(--ff-pill-border, var(--ff-success));
+  box-shadow: 0 0 0 3px rgba(var(--ff-accent-rgb), 0.1);
+}
+
+.scheduled-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.scheduled-switch-row__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--ff-text, var(--ff-text));
+}
+
+.scheduled-switch-row__copy span {
+  font-size: 11.5px;
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  overflow-wrap: anywhere;
+}
+
+/* 频率：原生单选组，后续可整体替换为滑动胶囊分段控件 */
+.scheduled-kind {
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.scheduled-kind legend {
+  padding: 0;
+  margin-bottom: 6px;
+}
+
+.scheduled-kind__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.scheduled-kind__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  background: var(--ff-bg-page, var(--ff-bg-subtle));
+  border: 1px solid var(--ff-border, var(--ff-border));
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.scheduled-kind__option input {
+  margin: 0;
+  accent-color: var(--ff-accent, var(--ff-accent-solid));
+}
+
+.scheduled-kind__option.is-selected {
+  color: var(--ff-accent, var(--ff-accent));
+  border-color: var(--ff-accent, var(--ff-accent));
+  background: var(--ff-bg-active, var(--ff-bg-hover));
+}
+
+.scheduled-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+.scheduled-form-grid:empty {
+  display: none;
+}
+
+/* 工具选择 */
+.scheduled-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 12px;
+  background: var(--ff-bg-page, var(--ff-bg-subtle));
+  border: 1px solid var(--ff-border, var(--ff-border));
+  border-radius: 10px;
+}
+
+.scheduled-tool {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 4px 8px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--ff-text, var(--ff-text));
+  cursor: pointer;
+}
+
+.scheduled-tool input {
+  margin-top: 2px;
+  accent-color: var(--ff-accent, var(--ff-accent-solid));
+}
+
+.scheduled-tool__text {
+  flex: 1 1 160px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.scheduled-tool__tag {
+  flex-shrink: 0;
+  padding: 0 6px;
+  font-size: 10.5px;
+  color: var(--ff-danger, #e5484d);
+  border: 1px solid currentColor;
+  border-radius: 8px;
+}
+
+.scheduled-hint {
+  font-size: 11.5px;
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  overflow-wrap: anywhere;
+}
+
+.scheduled-editor__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.scheduled-status {
+  flex: 1 1 160px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  overflow-wrap: anywhere;
+}
+
+.scheduled-status.is-error {
+  color: var(--ff-danger, #e5484d);
+}
+
+/* 窄宽度（320-480px 侧栏展开或窗口收窄）：收紧留白，避免横向溢出 */
+@media (max-width: 480px) {
+  .scheduled-panel__header,
+  .scheduled-panel__toolbar,
+  .scheduled-list,
+  .scheduled-editor {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}

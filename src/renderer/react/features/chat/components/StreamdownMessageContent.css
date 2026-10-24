@@ -1,0 +1,25 @@
+@import 'tailwindcss/theme.css' layer(firefly-streamdown-theme);
+@import 'tailwindcss/utilities.css' layer(firefly-streamdown-utilities) source(none);
+@import 'streamdown/styles.css';
+@import 'katex/dist/katex.min.css';
+
+@source "../../../../../../node_modules/streamdown/dist/*.js";
+
+@theme inline {
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-background: var(--background);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-foreground: var(--foreground);
+}
+
+.ff-streamdown-message {
+  font: inherit;
+  --border: var(--rb-border-soft, #e5e5e5);
+  --muted: var(--rb-surface-soft, #f5f5f5);
+  --foreground: var(--rb-text-default, #1f1f1f);
+  --color-muted-foreground: var(--muted-foreground);
+  --background: var(--rb-surface, #fff);
+  color: inherit;
+  --muted-foreground: var(--ff-text-muted, #7a7a7a);
+}

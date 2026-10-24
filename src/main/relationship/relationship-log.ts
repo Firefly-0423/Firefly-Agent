@@ -1,0 +1,214 @@
+import * as fs from "fs";
+import * as path from "path";
+import { app } from "electron";
+import type { ChannelId } from "../channels/types";
+
+export type RelationshipChannel = "desktop" | ChannelId;
+
+export interface RelationshipTurnInput {
+  userText: string;
+  assistantText: string;
+  fireflyFeeling?: string;
+  channel: RelationshipChannel;
+}
+
+export interface RelationshipLogEntry extends RelationshipTurnInput {
+  id: string;
+  date: string;
+  createdAt: number;
+  userMood: string;
+  relationshipSignal: string;
+  importantMoment?: string;
+  nextCareCue: string;
+}
+
+export interface RelationshipDailySummary {
+  date: string;
+  updatedAt: number;
+  summary: string;
+  nextCareCue: string;
+}
+
+interface RelationshipLogData {
+  entries: RelationshipLogEntry[];
+  dailySummaries: RelationshipDailySummary[];
+}
+
+const MAX_ENTRIES = 500;
+const MAX_DAILY_SUMMARIES = 90;
+
+function defaultFilePath(): string {
+  return path.join(app.getPath("userData"), "relationship-log.json");
+}
+
+function localDate(ts: number): string {
+  const d = new Date(ts);
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${month}-${day}`;
+}
+
+/** 折叠空白并按长度截断，超出时补 "..."。 */
+function compact(text: string, max = 120): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  return flat.length > max ? flat.slice(0, max) + "..." : flat;
+}
+
+/** 按顺序匹配，先命中的情绪优先。 */
+const MOOD_RULES: ReadonlyArray<readonly [RegExp, string]> = [
+  [/累|疲惫|困|没精神|撑不住|倦/, "疲惫"],
+  // 只匹配明确指向交互方式的边界表达，避免「别/不想/先不」这类常用词误伤
+  // （例如「我今天不想xx」「想吃点别的」不该触发低打扰偏好）
+  [/影响观感|太影响|不要.{0,4}(确认|弹|问|卡片)|别.{0,4}(问|弹|确认|卡片)|少问|别问了/, "明确边界"],
+  [/焦虑|压力|烦|崩|紧张|担心|慌/, "焦虑"],
+  [/难过|伤心|委屈|失落|想哭/, "低落"],
+  [/开心|高兴|舒服|喜欢|好耶|太好了/, "开心"],
+];
+
+function detectUserMood(text: string): string {
+  const rule = MOOD_RULES.find(([pattern]) => pattern.test(text));
+  return rule ? rule[1] : "未知";
+}
+
+interface MoodSignal {
+  relationshipSignal: string;
+  importantMoment?: string;
+  nextCareCue: string;
+}
+
+const MOOD_SIGNALS: Record<string, MoodSignal> = {
+  "明确边界": {
+    relationshipSignal: "用户表达了低打扰偏好或体验边界，需要优先尊重，不要把关心做成打断。",
+    importantMoment: "用户明确表示不喜欢影响观感的确认卡片或过度询问。",
+    nextCareCue: "不要弹确认或反复追问；先按用户偏好安静执行，必要时用一句话确认。",
+  },
+  "疲惫": {
+    relationshipSignal: "用户显露疲惫状态，更需要低压力陪伴和短回应。",
+    nextCareCue: "下次回应提示：少安排、少追问，语气放慢，先接住状态。",
+  },
+  "焦虑": {
+    relationshipSignal: "用户可能处在压力或焦虑里，需要稳定感和清晰的小步建议。",
+    nextCareCue: "下次回应提示：先安抚，再给一两个可执行小步，不要铺太大。",
+  },
+  "低落": {
+    relationshipSignal: "用户情绪偏低，需要被理解和陪着，而不是立刻被纠正。",
+    nextCareCue: "下次回应提示：先承认感受，再轻轻陪伴，不要急着总结道理。",
+  },
+  "开心": {
+    relationshipSignal: "用户反馈偏积极，可以保持轻快互动并记住触发愉快的点。",
+    nextCareCue: "下次回应提示：可以更轻松一点，延续用户的好状态。",
+  },
+};
+
+function deriveSignal(userText: string, userMood: string): MoodSignal {
+  const known = Object.prototype.hasOwnProperty.call(MOOD_SIGNALS, userMood) ? MOOD_SIGNALS[userMood] : undefined;
+  if (known) return { ...known };
+  return {
+    relationshipSignal: "本轮互动没有明显情绪峰值，保持自然陪伴即可。",
+    nextCareCue: `下次回应提示：延续最近话题「${compact(userText, 40)}」，不要过度解读。`,
+  };
+}
+
+function readData(filePath: string): RelationshipLogData {
+  try {
+    if (!fs.existsSync(filePath)) return { entries: [], dailySummaries: [] };
+    const raw = JSON.parse(fs.readFileSync(filePath, "utf8")) as Partial<RelationshipLogData>;
+    if (!Array.isArray(raw.entries) || !Array.isArray(raw.dailySummaries)) {
+      throw new Error("Invalid relationship data");
+    }
+    return { entries: raw.entries, dailySummaries: raw.dailySummaries };
+  } catch {
+    throw new Error("RELATIONSHIP_READ_FAILED: 原文件已保留，停止写入");
+  }
+}
+
+function writeData(filePath: string, data: RelationshipLogData): void {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
+}
+
+function summarizeDate(date: string, entries: RelationshipLogEntry[]): RelationshipDailySummary {
+  const knownMoods = entries.map((e) => e.userMood).filter((m) => m !== "未知");
+  const mood = knownMoods.at(-1) ?? "平稳";
+  const latest = entries.at(-1);
+  const important = [...entries].reverse().find((e) => e.importantMoment)?.importantMoment;
+  const cue = latest?.nextCareCue ?? "保持自然陪伴。";
+  const signal = latest?.relationshipSignal ?? "今天互动平稳。";
+
+  const summary = [
+    `${date}：用户最近状态偏「${mood}」。`,
+    important ? `重要偏好：${important}` : signal,
+    cue,
+  ].join(" ");
+  return { date, updatedAt: Date.now(), summary, nextCareCue: cue };
+}
+
+export class RelationshipLogStore {
+  constructor(private readonly filePath = defaultFilePath()) {}
+
+  async recordTurn(input: RelationshipTurnInput): Promise<RelationshipLogEntry | null> {
+    const userText = input.userText.trim();
+    const assistantText = input.assistantText.trim();
+    if (!userText && !assistantText) return null;
+
+    const now = Date.now();
+    const userMood = detectUserMood(userText);
+    const derived = deriveSignal(userText, userMood);
+    const entry: RelationshipLogEntry = {
+      ...input,
+      userText: compact(userText, 500),
+      assistantText: compact(assistantText, 500),
+      id: `rel-${now}-${Math.random().toString(36).slice(2, 8)}`,
+      date: localDate(now),
+      createdAt: now,
+      userMood,
+      relationshipSignal: derived.relationshipSignal,
+      importantMoment: derived.importantMoment,
+      nextCareCue: derived.nextCareCue,
+    };
+
+    const data = readData(this.filePath);
+    data.entries.push(entry);
+    data.entries = data.entries.slice(-MAX_ENTRIES);
+
+    const sameDay = data.entries.filter((item) => item.date === entry.date);
+    const others = data.dailySummaries.filter((item) => item.date !== entry.date);
+    data.dailySummaries = [...others, summarizeDate(entry.date, sameDay)].slice(-MAX_DAILY_SUMMARIES);
+
+    writeData(this.filePath, data);
+    return entry;
+  }
+
+  async buildContext(): Promise<string> {
+    const data = readData(this.filePath);
+    const recent = data.entries.slice(-8);
+    if (recent.length === 0) return "";
+
+    const newestFirst = [...recent].reverse();
+    const lastMood = newestFirst.find((e) => e.userMood !== "未知")?.userMood ?? "平稳";
+    const latestSummary = data.dailySummaries.at(-1)?.summary;
+    const preference = newestFirst.find((e) => e.importantMoment)?.importantMoment;
+    const cues = [...new Set(recent.map((e) => e.nextCareCue).filter(Boolean))].slice(-3);
+
+    const lines = ["【近期关系线索】", `- 用户最近状态：${lastMood}`];
+    if (latestSummary) lines.push(`- 最近日记摘要：${latestSummary}`);
+    if (preference) lines.push(`- 重要互动偏好：${preference}`);
+    if (cues.length > 0) lines.push(`- 下次回应提示：${cues.join("；")}`);
+    return lines.join("\n");
+  }
+}
+
+let sharedStore: RelationshipLogStore | null = null;
+
+function getDefaultStore(): RelationshipLogStore {
+  sharedStore ??= new RelationshipLogStore();
+  return sharedStore;
+}
+
+export function recordRelationshipTurn(input: RelationshipTurnInput): Promise<RelationshipLogEntry | null> {
+  return getDefaultStore().recordTurn(input);
+}
+
+export function buildRelationshipContext(): Promise<string> {
+  return getDefaultStore().buildContext();
+}

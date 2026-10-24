@@ -1,0 +1,83 @@
+.ff-effort-bar {
+  position: relative;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--ff-bg-active);
+  cursor: pointer;
+  touch-action: none;
+  outline: none;
+  user-select: none;
+}
+.ff-effort-bar:focus-visible { box-shadow: 0 0 0 3px rgba(var(--ff-accent-rgb), 0.3); }
+
+/* Fill and knob glide between stops; while dragging they follow the pointer without lag. */
+.ff-effort-bar__fill {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  border-radius: 999px;
+  background: var(--ff-accent);
+  transition: width 220ms cubic-bezier(.2, .8, .2, 1);
+}
+.ff-effort-bar__knob {
+  position: absolute;
+  top: 1px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 22%);
+  transition: left 220ms cubic-bezier(.2, .8, .2, 1), transform 120ms ease;
+}
+.ff-effort-bar:hover .ff-effort-bar__knob { transform: scale(1.04); }
+.ff-effort-bar.is-dragging .ff-effort-bar__fill,
+.ff-effort-bar.is-dragging .ff-effort-bar__knob { transition-duration: 90ms; }
+.ff-effort-bar.is-dragging .ff-effort-bar__knob { transform: scale(1.08); }
+
+.ff-effort-bar__dot {
+  position: absolute;
+  top: 12px;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: var(--ff-text-muted);
+  opacity: .45;
+  pointer-events: none;
+  transition: background-color 220ms ease, opacity 220ms ease;
+}
+.ff-effort-bar__dot.is-filled { background: var(--ff-on-accent); opacity: .8; }
+.ff-effort-bar__dot.is-disabled { opacity: .2; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ff-effort-bar__fill, .ff-effort-bar__knob, .ff-effort-bar__dot { transition: none; }
+}
+
+/* ===== Motion and legibility =====
+   The knob settles with a slight spring and grows with a soft glow while dragged; the stop under it shows as a teal
+   dot in its centre (it used to vanish under the knob); filled dots are clearer and pop as the fill reaches them;
+   the level name above crossfades when it changes. */
+.ff-effort-bar__fill { transition: width 320ms cubic-bezier(.34, 1.36, .64, 1), background-color 200ms ease; }
+.ff-effort-bar__knob { transition: left 320ms cubic-bezier(.34, 1.36, .64, 1), transform 160ms ease, box-shadow 160ms ease; }
+.ff-effort-bar__knob::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ff-glow, var(--ff-accent));
+  opacity: .9;
+}
+.ff-effort-bar.is-dragging .ff-effort-bar__knob { transform: scale(1.12); box-shadow: 0 2px 10px rgb(0 0 0 / 22%), 0 0 0 5px rgba(var(--ff-glow-rgb, var(--ff-accent-rgb)), .18); }
+.ff-effort-bar:active:not(.is-dragging) .ff-effort-bar__knob { transform: scale(.96); }
+.ff-effort-bar__dot { width: 5px; height: 5px; margin-left: -2.5px; top: 11.5px; transition: background-color 220ms ease, opacity 220ms ease, transform 220ms ease; }
+/* Stops the fill has passed melt into it: only the green bar remains behind the knob; stops ahead keep their dots. */
+.ff-effort-bar__dot.is-filled { opacity: 0; transform: scale(.4); }
+.ff-effort__value { display: inline-block; animation: ff-effort-label-in 220ms cubic-bezier(.2, .8, .2, 1); }
+@keyframes ff-effort-label-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .ff-effort-bar__fill, .ff-effort-bar__knob, .ff-effort-bar__dot { transition: none; }
+  .ff-effort__value { animation: none; }
+}

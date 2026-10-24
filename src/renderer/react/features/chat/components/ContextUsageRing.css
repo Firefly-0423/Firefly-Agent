@@ -1,0 +1,228 @@
+/* 上下文容量观看器：composer footer 圆环 + Popover 占比菜单。 */
+
+.ff-context-usage-ring {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  width: 26px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--ff-text-muted);
+}
+
+.ff-context-usage-ring:hover {
+  color: var(--ff-accent);
+}
+
+.ff-context-usage-ring svg {
+  display: block;
+}
+
+.ff-context-usage-ring__track {
+  /* 底环必须与 composer 背景 (#f4f4f4) 拉开对比，否则整环隐形。
+     取 --ff-text-muted (#8e8e93) 的 35% 透明度 ≈ #d0d0d2。 */
+  stroke: rgba(142, 142, 147, 0.35);
+  transition: stroke 120ms ease;
+}
+
+.ff-context-usage-ring:hover .ff-context-usage-ring__track {
+  stroke: rgba(142, 142, 147, 0.55);
+}
+
+.ff-context-usage-ring.is-normal .ff-context-usage-ring__progress {
+  stroke: var(--ff-accent);
+}
+
+.ff-context-usage-ring.is-warm .ff-context-usage-ring__progress {
+  stroke: #f59e0b;
+}
+
+.ff-context-usage-ring.is-alert .ff-context-usage-ring__progress {
+  stroke: #ef4444;
+}
+
+/* ── 占比菜单 ── */
+
+/* Popover 外壳：16px 圆角 + 边框 + 收紧内边距。 */
+.ff-context-usage-popover .ant-popover-inner {
+  padding: 14px 14px 12px;
+  border: 1px solid var(--ff-border);
+  border-radius: 16px;
+}
+
+/* 固定宽度，避免内容变化时弹层宽度跳动；各行不换行、只在行内截断。 */
+.ff-context-usage-menu {
+  display: grid;
+  gap: 12px;
+  width: 288px;
+  min-width: 0;
+}
+
+.ff-context-usage-menu__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ff-context-usage-menu__header strong {
+  font: 600 13px/1.4 var(--rb-font-sans, sans-serif);
+  color: var(--ff-text);
+  white-space: nowrap;
+}
+
+.ff-context-usage-menu__header span {
+  font: 12px/1.4 var(--rb-font-sans, sans-serif);
+  color: var(--ff-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 总占比进度条：单色，随档位变色（呼应圆环）。 */
+.ff-context-usage-menu__progress {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--ff-border);
+}
+
+.ff-context-usage-menu__progress span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  transition: width 200ms ease;
+}
+
+.ff-context-usage-menu__progress.is-normal span {
+  background: var(--ff-accent);
+}
+
+.ff-context-usage-menu__progress.is-warm span {
+  background: #f59e0b;
+}
+
+.ff-context-usage-menu__progress.is-alert span {
+  background: #ef4444;
+}
+
+/* 压缩提示块：按钮独占一行（nowrap 药丸形），提示文字另起一行，互不挤压。 */
+.ff-context-usage-menu__mood {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--ff-bg-subtle);
+}
+
+.ff-context-usage-menu__mood-figure {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--ff-border);
+  border-radius: 999px;
+  background: var(--ff-surface);
+  color: var(--ff-text);
+  font: 500 12px/1 var(--rb-font-sans, sans-serif);
+  white-space: nowrap;
+}
+
+.ff-context-usage-menu__mood.can-compact .ff-context-usage-menu__mood-figure {
+  cursor: pointer;
+}
+
+.ff-context-usage-menu__mood.can-compact .ff-context-usage-menu__mood-figure:not(:disabled):hover {
+  border-color: var(--ff-accent);
+  color: var(--ff-accent);
+}
+
+.ff-context-usage-menu__mood-figure:disabled {
+  color: var(--ff-text-muted);
+  cursor: default;
+}
+
+.ff-context-usage-menu__mood.is-compacting .ff-context-usage-menu__mood-figure {
+  color: var(--ff-text-muted);
+}
+
+.ff-context-usage-menu__mood span {
+  justify-self: stretch;
+  min-width: 0;
+  font: 12px/1.5 var(--rb-font-sans, sans-serif);
+  color: var(--ff-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.ff-context-usage-menu__mood.is-warm span {
+  color: var(--ff-warning);
+}
+
+.ff-context-usage-menu__mood.is-alert span {
+  color: var(--ff-danger);
+}
+
+/* 明细：类别名 / token / 占比三列对齐。 */
+.ff-context-usage-menu__rows {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ff-context-usage-menu__rows li {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto 38px;
+  align-items: center;
+  column-gap: 10px;
+  padding: 5px 2px;
+  border-radius: 8px;
+  font: 12px/1.6 var(--rb-font-sans, sans-serif);
+  color: var(--ff-text);
+}
+
+.ff-context-usage-menu__rows li:hover {
+  background: var(--ff-bg-subtle);
+}
+
+.ff-context-usage-menu__dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--ff-accent);
+  /* 透明度由组件内联提供：按排序位次递减。 */
+}
+
+.ff-context-usage-menu__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ff-context-usage-menu__tokens {
+  min-width: 0;
+  text-align: right;
+  color: var(--ff-text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ff-context-usage-menu__share {
+  text-align: right;
+  color: var(--ff-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ff-context-usage-menu__footnote {
+  padding-top: 8px;
+  border-top: 1px solid var(--ff-border);
+  font: 11px/1.4 var(--rb-font-sans, sans-serif);
+  color: var(--ff-text-muted);
+}

@@ -1,0 +1,78 @@
+/* Shared button states. Colours come from the --ff-* tokens in react-root.css, so both themes are covered by the same rules. */
+.ff-btn {
+  --ff-btn-bg: var(--ff-surface);
+  --ff-btn-bg-hover: var(--ff-bg-hover);
+  --ff-btn-bg-active: var(--ff-bg-active);
+  --ff-btn-fg: var(--ff-text);
+  --ff-btn-border: var(--ff-border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-sizing: border-box;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--ff-btn-border);
+  border-radius: 12px;
+  background: var(--ff-btn-bg);
+  color: var(--ff-btn-fg);
+  font: 600 13px/1 var(--rb-font-sans, sans-serif);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color var(--ff-state-duration) ease, border-color var(--ff-state-duration) ease, color var(--ff-state-duration) ease;
+}
+
+.ff-btn--sm { min-height: 28px; padding: 0 10px; font-size: 12px; }
+.ff-btn--block { display: flex; width: 100%; }
+.ff-btn--icon { width: 34px; padding: 0; }
+.ff-btn--icon.ff-btn--sm { width: 28px; }
+
+.ff-btn--primary {
+  --ff-btn-bg: var(--ff-primary-bg);
+  --ff-btn-bg-hover: var(--ff-primary-bg-hover);
+  --ff-btn-bg-active: var(--ff-primary-bg-active);
+  --ff-btn-fg: var(--ff-on-accent);
+  --ff-btn-border: transparent;
+}
+.ff-btn--ghost {
+  --ff-btn-bg: transparent;
+  --ff-btn-fg: var(--ff-text-secondary);
+  --ff-btn-border: transparent;
+}
+.ff-btn--danger {
+  --ff-btn-bg: transparent;
+  --ff-btn-bg-hover: color-mix(in srgb, var(--ff-danger) 12%, transparent);
+  --ff-btn-bg-active: color-mix(in srgb, var(--ff-danger) 22%, transparent);
+  --ff-btn-fg: var(--ff-danger);
+  --ff-btn-border: transparent;
+}
+
+.ff-btn:hover:not(:disabled):not([aria-disabled="true"]) { background: var(--ff-btn-bg-hover); }
+.ff-btn:active:not(:disabled):not([aria-disabled="true"]) { background: var(--ff-btn-bg-active); }
+.ff-btn--ghost:hover:not(:disabled):not([aria-disabled="true"]),
+.ff-btn--ghost:active:not(:disabled):not([aria-disabled="true"]) { color: var(--ff-text); }
+
+/* Keyboard focus only; a mouse click does not draw the ring. */
+.ff-btn:focus-visible { outline: var(--ff-focus-ring); outline-offset: 2px; }
+
+.ff-btn:disabled { opacity: var(--ff-disabled-opacity); cursor: default; }
+.ff-btn[aria-disabled="true"] { cursor: progress; }
+
+.ff-btn__spinner {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ff-btn-spin 0.7s linear infinite;
+}
+@keyframes ff-btn-spin { to { transform: rotate(360deg); } }
+
+/* Reduced motion: no colour transitions, and a slower spinner (a frozen ring would look like a stuck state). */
+@media (prefers-reduced-motion: reduce) {
+  .ff-btn { transition: none; }
+  .ff-btn__spinner { animation-duration: 2.4s; }
+}

@@ -1,0 +1,51 @@
+{
+  "Version": 3,
+  "FileReferences": {
+    "Moc": "Moc_0.moc3",
+    "Textures": [
+      "Textures_0_0.png"
+    ],
+    "Physics": "Physics_0.json",
+    "Motions": {
+      "Idle": [
+        {
+          "File": "Motions/Motions_Tick2_0_File_0.json"
+        },
+        {
+          "File": "Motions/Motions_Tick2_1_File_0.json"
+        },
+        {
+          "File": "Motions/Motions_Tick2_2_File_0.json"
+        }
+      ],
+      "Tap": [
+        {
+          "File": "Motions/Motions_表情组_0_File_0.json"
+        },
+        {
+          "File": "Motions/Motions_表情组_1_File_0.json"
+        },
+        {
+          "File": "Motions/Motions_表情组_2_File_0.json"
+        }
+      ]
+    },
+    "Expressions": [
+      { "Name": "expression00", "File": "Expressions/Expressions_0_File_0.json" },
+      { "Name": "expression1", "File": "Expressions/Expressions_1_File_0.json" },
+      { "Name": "expression2", "File": "Expressions/Expressions_2_File_0.json" },
+      { "Name": "expression3", "File": "Expressions/Expressions_3_File_0.json" },
+      { "Name": "expression4", "File": "Expressions/Expressions_4_File_0.json" },
+      { "Name": "expression5", "File": "Expressions/Expressions_5_File_0.json" },
+      { "Name": "expression6", "File": "Expressions/Expressions_6_File_0.json" },
+      { "Name": "expression7", "File": "Expressions/Expressions_7_File_0.json" },
+      { "Name": "expression8", "File": "Expressions/Expressions_8_File_0.json" },
+      { "Name": "expression9", "File": "Expressions/Expressions_9_File_0.json" },
+      { "Name": "expression10", "File": "Expressions/Expressions_10_File_0.json" }
+    ]
+  },
+  "HitAreas": [
+    { "Name": "Body", "Id": "ArtMesh154" },
+    { "Name": "Head", "Id": "ArtMesh23" }
+  ]
+}

@@ -1,0 +1,46 @@
+.ff-user-avatar {
+  cursor: pointer;
+  gap: 6px;
+  align-items: center;
+  display: flex;
+}
+
+.ff-user-avatar:hover .ff-user-avatar-label {
+  color: var(--ff-text);
+}
+
+.ff-user-avatar-circle {
+  flex-shrink: 0;
+  justify-content: center;
+  align-items: center;
+  display: flex;
+  box-sizing: border-box;
+  border: 1px solid var(--ff-border);
+  background: var(--ff-bg-hover);
+  border-radius: 50%;
+  height: 32px;
+  width: 32px;
+  
+}
+
+.ff-user-avatar-circle span {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ff-text-secondary);
+}
+
+.ff-user-avatar-circle img {
+  pointer-events: none;
+  object-fit: cover;
+  border-radius: inherit;
+  height: 100%;
+  width: 100%;
+  display: block;
+}
+
+.ff-user-avatar-label {
+  transition: color 0.15s;
+  color: var(--ff-text-muted);
+  font-size: 13px;
+}
+

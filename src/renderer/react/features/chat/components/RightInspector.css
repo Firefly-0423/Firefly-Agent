@@ -1,0 +1,171 @@
+/* RightInspector — big panels side by side, resizable, and movable by their headers.
+   Width comes from the outer react-resizable-panels Panel; the inspector only fills it. */
+.ff-right-inspector {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  box-sizing: border-box;
+  gap: 8px;
+  padding: 8px;
+  overflow: hidden;
+  background: var(--ff-bg-page);
+  animation: ff-right-inspector-slide-in 0.28s ease both;
+  app-region: no-drag;
+}
+.ff-right-inspector[hidden] { display: none; }
+
+/* 只淡入、不位移：面板里有原生浏览器视图，它的位置按面板的实际矩形计算，进入动画期间不能移动面板。 */
+@keyframes ff-right-inspector-slide-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ── the panels: one grid; each panel is placed by inline grid-column / grid-row, so moving one never re-parents it ── */
+.ff-inspector-grid { display: grid; min-width: 0; min-height: 0; flex: 1 1 0; column-gap: 0; row-gap: 8px; }
+
+/* Separator between two columns: 8px of room with a short grip, like the one between stacked panels. */
+.ff-inspector-resizer { position: relative; z-index: 2; cursor: col-resize; outline: none; touch-action: none; }
+/* No full-height line: the short grip below is the only mark, so two panels never look cut apart by a long bar. */
+.ff-inspector-resizer::after { content: none; }
+.ff-right-inspector[data-shielded] .ff-inspector-resizer:active::before { background: var(--ff-accent); }
+
+/* Between two stacked panels: an 8px band in the row gap with a short rounded bar, like Claude desktop. Drag or ↑ ↓ to resize. */
+.ff-inspector-row-resizer {
+  position: relative;
+  z-index: 3;
+  align-self: start;
+  height: 8px;
+  margin-top: -8px;
+  cursor: row-resize;
+  outline: none;
+  touch-action: none;
+}
+.ff-inspector-row-resizer::after,
+.ff-inspector-resizer::before {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ff-text-muted) 55%, transparent);
+  transition: background-color 120ms ease, width 120ms ease, height 120ms ease, left 120ms ease, top 120ms ease;
+}
+.ff-inspector-row-resizer::after { top: 2px; left: calc(50% - 18px); width: 36px; height: 4px; }
+.ff-inspector-resizer::before { top: calc(50% - 18px); left: 2px; width: 4px; height: 36px; z-index: 1; }
+.ff-inspector-row-resizer:hover::after, .ff-inspector-row-resizer:focus-visible::after,
+.ff-inspector-resizer:hover::before, .ff-inspector-resizer:focus-visible::before { background: var(--ff-accent); }
+.ff-inspector-row-resizer:hover::after { left: calc(50% - 22px); width: 44px; }
+.ff-inspector-resizer:hover::before { top: calc(50% - 22px); height: 44px; }
+
+/* While a panel is lifted or a separator dragged, a loaded page's native view would swallow the pointer and stay behind:
+   fold only the page area (zero size hides the view). Tabs, address bar and the new-tab page stay, so the panel never goes blank. */
+.ff-right-inspector[data-shielded] .ff-inspector-pane[data-inspector-kind="browser"] .ff-browser-workspace__viewport:not(:has(.ff-browser-newtab, .ff-browser-workspace__empty)) { display: none; }
+.ff-right-inspector[data-moving], .ff-right-inspector[data-moving] .ff-inspector-pane__head { cursor: grabbing; user-select: none; }
+/* The lifted panel floats above the others while it follows the pointer. */
+.ff-inspector-pane[data-lifted] { z-index: 6; box-shadow: 0 16px 40px rgb(0 0 0 / 16%); transition: none; will-change: transform; }
+
+.ff-inspector-pane {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--ff-border);
+  border-radius: 12px;
+  background: var(--ff-bg-workspace);
+  /* Fade only: a native browser view is placed by this rectangle, so the panel must not move while entering. */
+  animation: ff-right-inspector-slide-in 0.3s cubic-bezier(.165, .84, .44, 1) both;
+  transition: border-color 120ms ease;
+}
+.ff-inspector-pane[hidden] { display: none; }
+.ff-inspector-pane[data-active] { border-color: color-mix(in srgb, var(--ff-text-muted) 45%, var(--ff-border)); }
+
+/* ── panel header: icon · name · status ··· enlarge · close ── */
+.ff-inspector-pane__head {
+  display: flex;
+  height: 38px;
+  cursor: grab;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px 0 12px;
+  border-bottom: 1px solid var(--ff-border);
+  color: var(--ff-text);
+  font: 600 12.5px/1 var(--rb-font-sans, sans-serif);
+  outline: none;
+}
+.ff-inspector-pane__head:focus-visible { box-shadow: inset 0 0 0 2px var(--ff-accent); border-radius: 12px 12px 0 0; }
+.ff-inspector-pane__icon { color: var(--ff-text-muted); }
+.ff-inspector-pane__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ff-inspector-pane__spacer { flex: 1; }
+.ff-inspector-pane__action {
+  display: inline-grid;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ff-text-muted);
+  cursor: pointer;
+  transition: background-color 0.12s, color 0.12s, opacity 0.12s;
+}
+.ff-inspector-pane__action:hover { background: var(--ff-bg-hover); color: var(--ff-text); }
+.ff-inspector-pane__action[aria-pressed="true"] { background: var(--ff-bg-active); color: var(--ff-text); }
+.ff-inspector-pane__action:focus-visible { outline: 2px solid var(--ff-accent); outline-offset: 1px; }
+
+/* ── panel body: the content scrolls itself ── */
+.ff-inspector-pane__body {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: auto;
+}
+.ff-inspector-pane__body > * { flex: 1 1 auto; min-height: 0; }
+
+/* 阶段色点 */
+.ff-right-inspector__dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 999px;
+  background: var(--ff-text-muted, #a99fa5);
+}
+.ff-right-inspector__dot.is-review { background: var(--ff-accent, var(--ff-accent-solid)); }
+.ff-right-inspector__dot.is-executing { background: #d98f2b; animation: ff-right-inspector-dot-pulse 1.4s ease-in-out infinite; }
+.ff-right-inspector__dot.is-completed { background: #3e9c63; }
+.ff-right-inspector__dot.is-failed { background: var(--ff-danger); }
+.ff-right-inspector__dot.is-cancelled { background: var(--ff-text-muted); }
+@keyframes ff-right-inspector-dot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.ff-right-inspector__dirty { flex: 0 0 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--ff-accent); }
+
+:root[data-ui-colors] .ff-right-inspector { background: var(--ff-bg-page); }
+:root[data-ui-colors] .ff-inspector-pane { background: var(--ff-bg-workspace); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ff-right-inspector, .ff-right-inspector__dot.is-executing { animation: none; }
+  .ff-inspector-pane, .ff-inspector-resizer::after, .ff-inspector-resizer::before, .ff-inspector-row-resizer::after { animation: none; transition: none; }
+  .ff-inspector-pane__action { transition: none; }
+}
+
+/* While a panel is lifted, a thin blue line runs along the outer side of the panel area it would dock to (only the four sides,
+   never the seams between panels); the colour follows the light / dark theme. */
+.ff-inspector-drop-guide {
+  position: absolute;
+  z-index: 7;
+  pointer-events: none;
+  border-radius: 2px;
+  background: var(--ff-drop-guide);
+  box-shadow: 0 0 0 1px var(--ff-drop-guide-glow), 0 0 14px 2px var(--ff-drop-guide-glow);
+  animation: ff-inspector-drop-guide-in 120ms ease-out;
+}
+.ff-inspector-drop-guide[hidden] { display: none; }
+@keyframes ff-inspector-drop-guide-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ff-inspector-drop-guide { animation: none; } }

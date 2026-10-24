@@ -1,0 +1,70 @@
+/* React 反馈适配层样式：作用域限定在 .ff-feedback-modal / .ff-feedback-notice，
+   复用与设置页一致的 --rb-feedback-* 设计 Token（轻盈品牌化视觉） */
+
+/* ── 轻提示 ── */
+.ff-feedback-notice {
+  box-shadow: var(--rb-feedback-shadow);
+  color: var(--rb-feedback-fg);
+  background: var(--rb-feedback-surface);
+  border-radius: 12px;
+}
+
+/* ── 模态框 ── */
+.ff-feedback-modal .ant-modal-content {
+  padding: 22px;
+  box-shadow: var(--rb-feedback-shadow);
+  border: 1px solid var(--rb-feedback-border);
+  background: var(--rb-feedback-surface);
+  border-radius: 12px;
+}
+
+.ff-feedback-modal .ant-modal-header {
+  background: transparent;
+}
+
+.ff-feedback-modal .ant-modal-title {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--rb-feedback-fg);
+}
+
+.ff-feedback-modal .ant-modal-body {
+  color: var(--rb-feedback-muted);
+}
+
+.ff-feedback-modal .ant-modal-footer {
+  margin-top: 18px;
+}
+
+.ff-feedback-modal .ant-modal-footer .ant-btn {
+  border-radius: 12px;
+}
+
+/* 错误信息弹窗的折叠详情 */
+.ff-feedback-alert__content p {
+  margin: 0;
+}
+
+.ff-feedback-alert__content details {
+  margin-top: 10px;
+}
+
+.ff-feedback-alert__content summary {
+  user-select: none;
+  color: var(--rb-feedback-muted);
+  cursor: pointer;
+}
+
+.ff-feedback-alert__content pre {
+  word-break: break-all;
+  white-space: pre-wrap;
+  line-height: 1.6;
+  font-size: 12px;
+  color: var(--rb-feedback-fg);
+  background: var(--rb-feedback-details-bg);
+  border-radius: 12px;
+  overflow: auto;
+  max-height: 220px;
+  padding: 10px 12px;
+  margin-top: 8px;
+}

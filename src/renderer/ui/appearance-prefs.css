@@ -1,0 +1,59 @@
+/* "高级" appearance preferences, set on the root by ui/appearance-prefs.ts. */
+
+/* 减少动态效果 → 开启: every transition and animation finishes at once, theme switches included. */
+:root[data-reduce-motion="on"] *,
+:root[data-reduce-motion="on"] *::before,
+:root[data-reduce-motion="on"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+:root[data-reduce-motion="on"]::view-transition-old(root),
+:root[data-reduce-motion="on"]::view-transition-new(root) { animation: none !important; }
+
+/* 页面全宽显示: the conversation and composer use the whole chat area instead of a centred reading column. */
+:root[data-full-width-chat],
+:root[data-full-width-chat] .ff-page-dock.has-inspector { --ff-reading-width: calc(100% - 48px); }
+
+/* 使用指针光标: a hand over anything clickable. */
+:root[data-pointer-cursor] :is(button, a[href], summary, select, label:has(> input), [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="switch"], .ant-conversations-item):not(:disabled, [aria-disabled="true"]) { cursor: pointer; }
+
+/* 差异标记: colour only (tinted lines, no +/−), or signs only (+/− in colour on a plain ground). */
+:root[data-diff-markers="color"] .ff-code-diff__sign { color: transparent !important; }
+:root[data-diff-markers="signs"] .ff-code-diff__line:is(.is-add, .is-remove) { background: transparent; box-shadow: none; }
+:root[data-diff-markers="signs"] .ff-code-diff__sign { font-weight: 600; }
+
+/* 代码外观: syntax colours for the light and dark theme, each from its own chosen code theme (fallbacks are Firefly's
+   own). Code blocks read the --ff-code-* names; a theme with its own background paints the block with it. */
+:root {
+  --ff-code-text: var(--ff-code-light-text, #383a42);
+  --ff-code-comment: var(--ff-code-light-comment, #a0a1a7);
+  --ff-code-keyword: var(--ff-code-light-keyword, #a626a4);
+  --ff-code-function: var(--ff-code-light-function, #4078f2);
+  --ff-code-string: var(--ff-code-light-string, #50a14f);
+  --ff-code-number: var(--ff-code-light-number, #986801);
+  --ff-code-type: var(--ff-code-light-type, #c18401);
+  --ff-code-tag: var(--ff-code-light-tag, #e45649);
+  --ff-code-property: var(--ff-code-light-property, #e45649);
+  --ff-code-punctuation: var(--ff-code-light-punctuation, #383a42);
+  /* Diff lines stay red and green whichever theme is chosen. */
+  --ff-code-deleted: #d1242f;
+  --ff-code-inserted: #1a7f37;
+}
+:root[data-ui-theme="firefly-dark"] {
+  --ff-code-text: var(--ff-code-dark-text, var(--ff-text, #dce8e2));
+  --ff-code-comment: var(--ff-code-dark-comment, #7f948a);
+  --ff-code-keyword: var(--ff-code-dark-keyword, #c3a6f0);
+  --ff-code-function: var(--ff-code-dark-function, #8ec7f0);
+  --ff-code-string: var(--ff-code-dark-string, #7bd8ae);
+  --ff-code-number: var(--ff-code-dark-number, #e8c36a);
+  --ff-code-type: var(--ff-code-dark-type, #e8c36a);
+  --ff-code-tag: var(--ff-code-dark-tag, #f2a07b);
+  --ff-code-property: var(--ff-code-dark-property, #8ec7f0);
+  --ff-code-punctuation: var(--ff-code-dark-punctuation, #a9bdb3);
+  --ff-code-deleted: #f2a07b;
+  --ff-code-inserted: #7bd8ae;
+}
+:root:not([data-ui-theme="firefly-dark"])[data-code-light-surface] .ant-codeHighlighter-code { background: var(--ff-code-light-background); }
+:root[data-ui-theme="firefly-dark"][data-code-dark-surface] .ant-codeHighlighter-code { background: var(--ff-code-dark-background); }

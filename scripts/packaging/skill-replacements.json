@@ -1,0 +1,76 @@
+{
+  "fileOverlays": [
+    {
+      "path": "xlsx/scripts/xlsx_workspace.py",
+      "sourceSha256": "676a2521264b2c87425233df12591f9fe5e0b207289806bad9d8ea828e680545",
+      "resultSha256": "7743ec3e6cb37a0d632b3133ca068b4ddff70288a5f493fbd8d35867dc413320"
+    }
+  ],
+  "bundles": [
+    {
+      "id": "self-improving-agent",
+      "source": "https://github.com/pskoett/pskoett-ai-skills",
+      "commit": "8a71d7098d7c39494dcaa46254885225ddb5d259",
+      "licensePath": "plugin/LICENSE",
+      "sourceFiles": {
+        "self-improving-agent/assets/ERRORS.md": "5fbeff84392739b394621635b0e0de053054696382456052e0439254da956148",
+        "self-improving-agent/assets/FEATURE_REQUESTS.md": "b54946a2657d390152a6d4169c9d6e96353c4938d47f8ce1948bd63190f40ae0",
+        "self-improving-agent/assets/LEARNINGS.md": "83b3adfa5099e2c9af5354425a365e654882953674f619d9ad49537ffa013e0b",
+        "self-improving-agent/assets/SKILL-TEMPLATE.md": "d42878e406aeb192cc72ab09a44464061fbf6fc5d74d43f279938d8a6bb8d88a",
+        "self-improving-agent/hooks/openclaw/handler.js": "325b7ec5fb2316a91140d206a9256dda7b375bd3bfa4a808de1fd4372cd20bfd",
+        "self-improving-agent/hooks/openclaw/handler.ts": "25896788e06aa6f31574c489e4c27056c312b1670c9952f8c1f19a32071ac402",
+        "self-improving-agent/hooks/openclaw/HOOK.md": "e590b47f57caaba8623cad4f7478d3707c7249916c43b031f8e22638facbd9c7",
+        "self-improving-agent/README.md": "356dd8b5ff2f6d61f48d290377c91cb1e4393aed6ba511bf05419462f5efb4b7",
+        "self-improving-agent/references/examples.md": "6903a6d63890bafd39fc1f34740ba49906f2137e64e1614bfefdea781d508aa3",
+        "self-improving-agent/references/hooks-setup.md": "ea5c7a5eec2ce65b23f7d61d2d529cfc8dc0a75b3067da6ebafd01870084d9eb",
+        "self-improving-agent/references/openclaw-integration.md": "d6ac0beabe487a230bccae03542e19b810f2dcc863bec69d3c15a98de31f940a",
+        "self-improving-agent/scripts/activator.sh": "62d57957f26541cefed9d6020c0069641b9b9517a3c6c734233cfa196eb7280e",
+        "self-improving-agent/scripts/error-detector.sh": "752de9b8dc1edf4b5a5a460d26427b14392f0421cb3654f5e201258503461d25",
+        "self-improving-agent/scripts/extract-skill.sh": "2904d2b3448321b949989d71f7f012b021f2958c68698c160e0505a22ba4322a",
+        "self-improving-agent/SKILL.md": "8477a270061ce850c3e580e613dd18f87ccfcdb556348687fce66b5ec77a9158"
+      },
+      "adaptation": "Firefly passive learning and manual extraction without foreign host hooks",
+      "priorAdaptedFiles": {
+        "self-improving-agent/firefly-templates/ERRORS.md": "1f71d62175f235a424beb10b65d0eebac959a58fbe8654f4993106c9168d94ca",
+        "self-improving-agent/firefly-templates/FEATURE_REQUESTS.md": "bad411d2a5608e2e59f1af8235026a03488d2b2cdc42f0ac4a2d9c32e7d4cdbb",
+        "self-improving-agent/firefly-templates/LEARNINGS.md": "8633dd91bb72649a6df98f601045c2c623bd1d6fd9fc0cc7c05a35209c1663fc",
+        "self-improving-agent/firefly-templates/SKILL-TEMPLATE.md": "3ee008f80d53e0e576f7e747ac4c4e040ff659f02d3f5689a95524a3696e4881",
+        "self-improving-agent/LICENSE": "26b5a4335e2447a3cb9e3003fc86ed7913835490741acd2223274a9b226176ce",
+        "self-improving-agent/NOTICE.md": "e98f072532a8b2cdef73068bfcefb5fd1e15ec104a0832ac373d3062145b7db6",
+        "self-improving-agent/references/firefly-examples.md": "c11e38794d78cfa1ba633d14232ec7e9808c14696e96a7bd9b8f4fe178f10451",
+        "self-improving-agent/scripts/upstream-extract-skill.sh": "a0ea0c897e081927305ad4993ef5ffcf37b4eb6d8afbbb08b3b7f7a1c873cd61",
+        "self-improving-agent/SKILL.md": "a561da7fa54b6d071bd6c9dc2bedcc23998193d0b4d85ad39fe56e279e7d05bb"
+      }
+    },
+    {
+      "id": "as-api-and-interface-design",
+      "source": "https://github.com/addyosmani/agent-skills",
+      "commit": "2686b620fc1fed2e8f60c704839c766b8594c6b6",
+      "licensePath": "LICENSE",
+      "sourceFiles": {
+        "as-api-and-interface-design/SKILL.md": "c92860e9b743d169cb5ed762a8ebd09082f24663ca7c6f626716fb534daf9f54"
+      },
+      "adaptation": "Preserve Firefly metadata and approval boundary while adopting reviewed upstream guidance"
+    },
+    {
+      "id": "as-context-engineering",
+      "source": "https://github.com/addyosmani/agent-skills",
+      "commit": "2686b620fc1fed2e8f60c704839c766b8594c6b6",
+      "licensePath": "LICENSE",
+      "sourceFiles": {
+        "as-context-engineering/SKILL.md": "e26b0ebe0a73a6b0f7cb104c694181d2937138d0fceba4f8773f12b744919246"
+      },
+      "adaptation": "Preserve Firefly metadata and approval boundary while adopting reviewed upstream guidance"
+    },
+    {
+      "id": "as-using-agent-skills",
+      "source": "https://github.com/addyosmani/agent-skills",
+      "commit": "2686b620fc1fed2e8f60c704839c766b8594c6b6",
+      "licensePath": "LICENSE",
+      "sourceFiles": {
+        "as-using-agent-skills/SKILL.md": "8251f28c4680ddfc96e38713f0816cc82938f6fa754b25458a5bd859798c94f4"
+      },
+      "adaptation": "Preserve Firefly metadata and approval boundary while adopting reviewed upstream guidance"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+/* Caption buttons the Windows 11 way: three flush 46×32 cells with no rounding or gaps, tucked into the window's top-right
+   corner; glyphs in the text colour, a soft fill on hover and a slightly stronger one while pressed; close turns the
+   system red with a white cross. The fades are quick (100 ms), like the native ones. */
+.ff-window-controls {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+
+.ff-winbtn {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ff-text);
+  cursor: default;
+  transition: background-color 100ms linear, color 100ms linear;
+}
+.ff-winbtn svg { display: block; shape-rendering: crispEdges; }
+.ff-winbtn--maximize[data-maximized] svg,
+.ff-winbtn--maximize svg rect { shape-rendering: geometricPrecision; }
+.ff-winbtn:hover { background: color-mix(in srgb, var(--ff-text) 7%, transparent); }
+.ff-winbtn:active { background: color-mix(in srgb, var(--ff-text) 11%, transparent); }
+
+/* The three buttons touch each other, so an outside ring would be drawn over its neighbour; keep the ring inside the button. */
+.ff-page .ff-winbtn:focus-visible { outline-offset: -3px; }
+
+/* Close: the standard window red, never the soft pink of the danger text colour. */
+.ff-winbtn--close:hover { background: #c42b1c; color: #fff; }
+.ff-winbtn--close:active { background: #c84031; color: rgba(255, 255, 255, 0.85); }
+
+@media (prefers-reduced-motion: reduce) { .ff-winbtn { transition: none; } }
