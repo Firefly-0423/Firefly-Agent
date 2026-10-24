@@ -78,7 +78,7 @@ async function installInitial() {
 describe("real marketplace / installer / manager loop", () => {
   it("installs disabled, enables the real tool, updates while retaining private data, then disables and removes", async () => {
     await installInitial();
-    expect(manager.list()).toEqual([expect.objectContaining({ id: "text-stats", version: "1.0.0", origin: "market", status: "disabled", enabled: false })]);
+    expect(manager.list()).toEqual([expect.objectContaining({ id: "text-stats", version: "1.0.1", origin: "market", status: "disabled", enabled: false })]);
     expect(tools.size).toBe(0);
     expect(await manager.setEnabled("text-stats", true)).toEqual({ ok: true });
     const tool = tools.get("text-stats_count")!;
@@ -107,7 +107,7 @@ describe("real marketplace / installer / manager loop", () => {
       : await zipWith(kind === "identity-mismatch" ? "9.0.0" : "1.1.0", kind === "api-mismatch" ? 2 : 1, kind === "traversal");
     const update = onlineMarket(bytes, "1.1.0"); await update.listMarket();
     expect(await update.installFromMarket("text-stats")).toMatchObject({ ok: false });
-    expect(manager.list()[0]).toMatchObject({ version: "1.0.0", status: "running" });
+    expect(manager.list()[0]).toMatchObject({ version: "1.0.1", status: "running" });
     expect(tools.has("text-stats_count")).toBe(true);
     expect(existsSync(path.join(root, "escaped.txt"))).toBe(false);
     expect(readdirSync(path.join(root, "cache"))).toEqual([]);
@@ -117,7 +117,7 @@ describe("real marketplace / installer / manager loop", () => {
     await installInitial(); await manager.setEnabled("text-stats", true); replaceAllowed = false;
     const update = onlineMarket(await zipWith("1.1.0"), "1.1.0"); await update.listMarket();
     expect(await update.installFromMarket("text-stats")).toMatchObject({ ok: false, error: expect.stringContaining("取消") });
-    expect(manager.list()[0]).toMatchObject({ version: "1.0.0", status: "running" });
+    expect(manager.list()[0]).toMatchObject({ version: "1.0.1", status: "running" });
     expect(readdirSync(path.join(root, "plugin-install-staging"))).toEqual([]);
   });
 });
@@ -142,7 +142,7 @@ describe("every bundled catalog plugin through the real marketplace / installer 
       expect(plugin).toMatchObject({ compatible: true, source: "bundled", pluginApiVersion: 1 });
       expect(plugin.capabilities?.length).toBeGreaterThan(0);
     }
-    for (const id of catalogIds) expect(await market.installFromMarket(id), id).toMatchObject({ ok: true, plugin: { id, version: "1.0.0" } });
+    for (const id of catalogIds) expect(await market.installFromMarket(id), id).toMatchObject({ ok: true, plugin: { id, version: "1.0.1" } });
     expect(manager.list().map((plugin) => plugin.id).sort()).toEqual([...catalogIds].sort());
     for (const plugin of manager.list()) expect(plugin).toMatchObject({ origin: "market", status: "disabled", enabled: false });
     expect(tools.size).toBe(0);
@@ -170,7 +170,7 @@ describe("every bundled catalog plugin through the real marketplace / installer 
   it("refuses a bundled package whose bytes no longer match the catalog hash and installs nothing", async () => {
     const market = localMarket();
     await market.listMarket();
-    const zipPath = path.join(bundledDir, "json-tools-1.0.0.zip");
+    const zipPath = path.join(bundledDir, "json-tools-1.0.1.zip");
     const original = readFileSync(zipPath);
     const tampered = Buffer.from(original);
     tampered[tampered.length - 1] ^= 0xff;

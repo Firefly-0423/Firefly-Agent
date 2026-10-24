@@ -18,7 +18,7 @@ for (const [id, toolIds] of Object.entries(ported)) {
     const manifest = readManifest(id);
     assert.deepEqual(manifestErrors(manifest), []);
     assert.equal(manifest.id, id);
-    assert.equal(manifest.version, "1.0.0");
+    assert.equal(manifest.version, "1.0.1");
     assert.equal(manifest.apiVersion, 1);
     assert.equal(manifest.entry, "index.cjs");
     assert.equal(manifest.defaultEnabled, false);

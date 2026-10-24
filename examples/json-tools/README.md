@@ -37,4 +37,4 @@ Firefly Plugin API v1 插件，版本 1.0.0。首次安装保持停用，需要�
 
 入口只做内存内计算，不联网、不读写文件、不启动命令、不使用计时器，不持久化或记录输入。停用时注销两个工具。Firefly 插件在主进程运行并拥有宿主权限；本插件的离线实现不代表宿主提供权限沙箱。
 
-构建：`node scripts/plugin-marketplace/build.mjs`。
+构建：在 [firefly-plugins](https://github.com/Firefly-0423/firefly-plugins) 仓库运行 `npm run build`，输出在 `dist/`。

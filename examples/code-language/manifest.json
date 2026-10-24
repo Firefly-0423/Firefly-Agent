@@ -2,7 +2,7 @@
   "apiVersion": 1,
   "id": "code-language",
   "name": "代码语言识别",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "离线按文件扩展名识别源码、配置、脚本和标记文件的语法高亮语言，只看文件名，不读取文件内容。",
   "author": "Firefly-0423（改编自 deepseek-harness，MIT）",
   "entry": "index.cjs",

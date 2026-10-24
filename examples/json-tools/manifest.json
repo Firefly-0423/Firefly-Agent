@@ -2,7 +2,7 @@
   "apiVersion": 1,
   "id": "json-tools",
   "name": "JSON 工具",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "离线校验 JSON 是否合法且无损，并按结构比较两段 JSON、报告第一处差异路径。不联网、不读写文件。",
   "author": "Firefly-0423（改编自 deepseek-harness，MIT）",
   "entry": "index.cjs",
