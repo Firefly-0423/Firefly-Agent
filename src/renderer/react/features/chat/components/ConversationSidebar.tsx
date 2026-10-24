@@ -50,6 +50,14 @@ function ProjectIcon({ mode, open = false }: { mode: ConversationMode; open?: bo
   return <Icon size={16} strokeWidth={1.6} aria-hidden="true" />;
 }
 
+/** Submenus (copy, open with, move to section) open in their own popup on document.body, outside the menu's wrapper. */
+const SESSION_SUBMENU_CLASS = "ff-session-context-submenu";
+
+/** A pointer-down here must not dismiss the conversation menu: the menu itself or one of its submenu popups. */
+export function isInsideSessionMenu(target: Element): boolean {
+  return Boolean(target.closest(`.ff-session-context-menu, .${SESSION_SUBMENU_CLASS}`));
+}
+
 /** "6 天" style age of a conversation: minutes, hours or days, whichever reads shortest. */
 function sessionAge(t: (key: string, params?: Record<string, unknown>) => string, updatedAt: number, now = Date.now()): string {
   const minutes = Math.max(1, Math.floor((now - updatedAt) / 60_000));
@@ -412,7 +420,7 @@ export const ConversationSidebar = memo(function ConversationSidebar({
     if (!contextMenu.open) return;
     function onPointerDown(event: MouseEvent) {
       const target = event.target as HTMLElement;
-      if (target.closest(".ff-session-context-menu")) return;
+      if (isInsideSessionMenu(target)) return;
       closeContextMenu();
     }
     function onKeyDown(event: KeyboardEvent) {
@@ -615,7 +623,7 @@ export const ConversationSidebar = memo(function ConversationSidebar({
             >
               <Menu
                 items={[
-                  ...(layout.snapshot && mode === "chat" ? [{ key: "placement", label: t("sidebar.moveToSection"), children: [
+                  ...(layout.snapshot && mode === "chat" ? [{ key: "placement", label: t("sidebar.moveToSection"), popupClassName: SESSION_SUBMENU_CLASS, children: [
                     { key: "move-section:", label: t("sidebar.defaultSection") },
                     ...layout.snapshot.layout.modes[mode].sections.map(section => ({ key: "move-section:" + section.id, label: section.name })),
                   ] }] : []),
@@ -629,11 +637,12 @@ export const ConversationSidebar = memo(function ConversationSidebar({
                     icon: contextMenu.pinned ? <PinOff size={14} strokeWidth={1.6} aria-hidden="true" /> : <Pin size={14} strokeWidth={1.6} aria-hidden="true" />,
                   },
                   { type: "divider" as const },
-                  { key: "copy", label: t("sidebar.copy"), icon: <Copy size={14} strokeWidth={1.6} aria-hidden="true" />, children: [
+                  { key: "copy", label: t("sidebar.copy"), icon: <Copy size={14} strokeWidth={1.6} aria-hidden="true" />, popupClassName: SESSION_SUBMENU_CLASS, children: [
                     { key: "copy-title", label: t("sidebar.copyTitle") },
                     ...(contextMenu.workspaceRoot ? [{ key: "copy-path", label: t("sidebar.copyProjectPath") }] : []),
                   ] },
                   ...(contextMenu.workspaceRoot ? [{ key: "open-with", label: t("sidebar.openWith"), icon: <AppWindow size={14} strokeWidth={1.6} aria-hidden="true" />,
+                    popupClassName: SESSION_SUBMENU_CLASS,
                     children: openApps === null ? [{ key: "open-with-loading", label: t("openWorkspace.detecting"), disabled: true }]
                       : (openApps.length ? openApps : [{ id: "explorer", name: t("openWorkspace.appExplorer") } as OpenInAppEntry]).map(app => ({
                         key: `open-in:${app.id}`, label: app.id === "explorer" ? t("openWorkspace.appExplorer") : app.name,
