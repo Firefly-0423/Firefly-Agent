@@ -1718,6 +1718,8 @@ export function ChatPage() {
           <PanelSidebarSlotContext.Provider value={panelSlot}><ChatPagePanelHost panel={activePanel} /></PanelSidebarSlotContext.Provider>
         ) : (
         <div className="ff-workspace-body">
+        {/* The rain spans the dialog and the overview cards, so it shows through the gaps around the floating cards. */}
+        {!hasMessages && <CodeRain />}
         <div className="ff-workspace-content">
         <RunRecoveryNotices
           interruptedRun={interruptedRun}
@@ -1753,7 +1755,6 @@ export function ChatPage() {
           </ChatInspectorActionsContext.Provider>
         )}
         <ContextCompressionNotice visible={isCompressingContext} />
-        {!hasMessages && <CodeRain />}
         {!hasMessages && <div className="ff-workspace-greeting">
           <h2 className="ff-workspace-greeting__title">{t(mode === "chat" ? "chatPage.emptyGreeting" : "chatPage.emptyGreetingTask")}</h2>
           <p className="ff-workspace-greeting__hint">{t(`chatPage.emptyHint.${mode}`)}</p>
