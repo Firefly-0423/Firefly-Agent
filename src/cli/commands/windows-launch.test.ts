@@ -22,7 +22,7 @@ describe.runIf(process.platform === "win32")("Windows development launcher", () 
     fs.copyFileSync(path.resolve("start.bat"), path.join(project, "start.bat"));
     fs.copyFileSync(path.resolve("setup.bat"), path.join(project, "setup.bat"));
     buildSync({ entryPoints: [path.resolve("src/cli/index.ts")], bundle: true, platform: "node", format: "cjs", outfile: path.join(project, "dist/cli/index.js") });
-    buildSync({ entryPoints: [path.resolve("src/main/runtime-profile.ts")], bundle: true, platform: "node", format: "cjs", outfile: path.join(project, "profile.cjs") });
+    buildSync({ entryPoints: [path.resolve("src/main/startup/runtime-profile.ts")], bundle: true, platform: "node", format: "cjs", outfile: path.join(project, "profile.cjs") });
     fs.writeFileSync(path.join(project, "electron.cjs"), `
       const { resolveRuntimeProfile } = require('./profile.cjs');
       try {

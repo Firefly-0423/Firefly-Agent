@@ -16,7 +16,7 @@ let f,adapter,nativeA,nativeB;
  const embedding=createLocalEmbeddingProvider('bgem3');assert.ok(embedding);
  // Exercise the two complete initializations concurrently under their shared global-env lock.
  const [_,reranker]=await Promise.all([embedding.embed('本地模型合成测试'),createStandardReranker()]);
- const {initializeStorageContext}=load('storage-context'),{resolveRuntimeProfile}=load('runtime-profile');
+ const {initializeStorageContext}=load('storage/storage-context'),{resolveRuntimeProfile}=load('startup/runtime-profile');
  const storage=initializeStorageContext(resolveRuntimeProfile({argv:['--firefly-profile=test','--firefly-isolation-root='+isolation],env:{},isPackaged:false,productionAppData:path.join(root,'smh-unopened-production')}));
  f=load('memory-context/smh-fixture.test-support').createSmhFixture(path.join(isolation,'fixture'),{clock:()=>1700000000010});
  const {ConversationTranscriptStore}=load('orchestrator/conversation-transcript-store'),{createTranscriptSink}=load('orchestrator/transcript-sink');

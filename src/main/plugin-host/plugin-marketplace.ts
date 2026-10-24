@@ -163,13 +163,49 @@ function deadline(ms: number, message: string) {
   };
 }
 
-export function createPluginMarketplaceService(deps: PluginMarketplaceDeps) {
-  const fetchImpl: MarketplaceFetch = deps.fetchImpl ?? ((input, init) => {
-    // Delay Electron import so service tests exercise the real I/O pipeline without an app process.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { net } = require("electron") as typeof import("electron");
-    return net.fetch(input, init);
+/**
+ * The default transport. Electron's net.fetch rejects redirect: "manual" with "Redirect was cancelled" instead of
+ * handing back the 3xx, which made every GitHub release download fail. net.request reports each redirect as an event,
+ * so it is turned into a bodiless 3xx Response here and the policy loop in fetchChecked still decides every hop.
+ */
+type MarketRequestFactory = (options: Electron.ClientRequestConstructorOptions) => Electron.ClientRequest;
+// Delay Electron import so service tests exercise the real I/O pipeline without an app process.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const electronRequest: MarketRequestFactory = (options) => (require("electron") as typeof import("electron")).net.request(options);
+
+export function electronMarketFetch(input: string, init?: { signal?: AbortSignal }, createRequest: MarketRequestFactory = electronRequest): Promise<Response> {
+  return new Promise<Response>((resolve, reject) => {
+    if (init?.signal?.aborted) { reject(new Error("插件市场请求已取消")); return; }
+    const request = createRequest({ url: input, method: "GET", redirect: "manual", credentials: "omit", useSessionCookies: false });
+    let settled = false;
+    const settle = (finish: () => void) => { if (!settled) { settled = true; init?.signal?.removeEventListener("abort", onAbort); finish(); } };
+    const onAbort = () => { request.abort(); settle(() => reject(new Error("插件市场请求已取消"))); };
+    init?.signal?.addEventListener("abort", onAbort, { once: true });
+    request.on("redirect", (statusCode, _method, redirectUrl) => {
+      request.abort();
+      settle(() => resolve(new Response(null, { status: statusCode, headers: { location: redirectUrl } })));
+    });
+    request.on("response", (response) => {
+      const headers = new Headers();
+      for (const [name, value] of Object.entries(response.headers)) for (const item of ([] as string[]).concat(value)) headers.append(name, item);
+      const empty = [204, 205, 304].includes(response.statusCode);
+      const body = empty ? null : new ReadableStream<Uint8Array>({
+        start(controller) {
+          response.on("data", (chunk: Buffer) => controller.enqueue(new Uint8Array(chunk)));
+          response.on("end", () => controller.close());
+          response.on("error", (error: Error) => controller.error(error));
+        },
+        cancel() { request.abort(); },
+      });
+      settle(() => resolve(new Response(body, { status: response.statusCode, headers })));
+    });
+    request.on("error", (error) => settle(() => reject(error)));
+    request.end();
   });
+}
+
+export function createPluginMarketplaceService(deps: PluginMarketplaceDeps) {
+  const fetchImpl: MarketplaceFetch = deps.fetchImpl ?? ((input, init) => electronMarketFetch(input, init));
   const registryTimeoutMs = deps.registryTimeoutMs ?? MARKET_REGISTRY_TIMEOUT_MS;
   const registryGraceMs = deps.registryGraceMs ?? MARKET_REGISTRY_GRACE_MS;
   const registryMaxBytes = deps.registryMaxBytes ?? MARKET_REGISTRY_MAX_BYTES;
