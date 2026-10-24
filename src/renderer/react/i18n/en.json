@@ -992,7 +992,26 @@
     "newProjectChat": "New conversation in this project",
     "emptySectionProjects": "No projects yet. Use “Section” in a project's ⋯ menu to file one here.",
     "showProject": "Show project",
-    "projectVisibility": "Project visibility"
+    "projectVisibility": "Project visibility",
+    "organizeSidebar": "Organize sidebar",
+    "sortChats": "Sort chats by",
+    "copy": "Copy",
+    "copyTitle": "Copy title",
+    "copyProjectPath": "Copy project path",
+    "copied": "Copied",
+    "copyFailed": "Could not copy",
+    "openWith": "Open with",
+    "createProject": {
+      "title": "Create project",
+      "nameLabel": "Project name",
+      "namePlaceholder": "Name your project",
+      "folderLabel": "Source folder",
+      "folderHint": "Choose a folder on this computer as the project directory",
+      "addFolder": "Add",
+      "changeFolder": "Change",
+      "tip": "A project keeps related chats and files together; project details mentioned inside it are remembered for that project only. Good for ongoing work, and it keeps the sidebar tidy.",
+      "submit": "Create project"
+    }
   },
   "workRead": {
     "complete": "Complete read verified",

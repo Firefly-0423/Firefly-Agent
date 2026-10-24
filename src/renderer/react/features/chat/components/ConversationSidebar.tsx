@@ -1,4 +1,4 @@
-import { ChevronRight, Download, Ellipsis, EyeOff, Folder, FolderCode, FolderOpen, GitBranch, LoaderCircle, Monitor, PencilLine, Pin, PinOff, Plus, SquarePen, Trash2, TriangleAlert } from "lucide-react";
+import { AppWindow, ChevronRight, Copy, Download, Ellipsis, EyeOff, Folder, FolderCode, FolderOpen, GitBranch, LoaderCircle, Monitor, PencilLine, Pin, PinOff, Plus, SquarePen, Trash2, TriangleAlert } from "lucide-react";
 import { chatStore } from "../pages/chat-page-bridge";
 import { useSidebarLayout } from "../pages/use-sidebar-layout";
 import { projectSidebar } from "../pages/sidebar-projection";
@@ -7,6 +7,8 @@ import { projectTiers, type SidebarTier } from "../pages/sidebar-tiers";
 import { sidebarGroupId } from "../../../../../shared/sidebar-layout";
 import { STATUS_ORDER, groupByStatus, statusGroupId, useStatusView, type SessionStatus } from "../pages/sidebar-status";
 import { SidebarLayoutControls } from "./SidebarLayoutControls";
+import { CreateProjectDialog } from "./CreateProjectDialog";
+import type { OpenInAppEntry } from "../../../../../shared/open-in-app-types";
 import { Conversations, type ConversationItemType } from "@ant-design/x";
 import { Dropdown, Input, Menu, Modal, Popover } from "antd";
 import type { InputRef } from "antd";
@@ -43,8 +45,8 @@ interface ProjectSummary {
   updatedAt: number;
 }
 
-function ProjectIcon({ mode }: { mode: ConversationMode }) {
-  const Icon = mode === "code" ? FolderCode : Folder;
+function ProjectIcon({ mode, open = false }: { mode: ConversationMode; open?: boolean }) {
+  const Icon = mode === "code" ? FolderCode : open ? FolderOpen : Folder;
   return <Icon size={16} strokeWidth={1.6} aria-hidden="true" />;
 }
 
@@ -183,7 +185,11 @@ export const ConversationSidebar = memo(function ConversationSidebar({
     sessionId: string;
     sessionTitle: string;
     pinned: boolean;
+    workspaceRoot?: string;
   }>({ open: false, x: 0, y: 0, sessionId: "", sessionTitle: "", pinned: false });
+  // 「打开方式」里列出的应用：菜单打开时按这个会话的项目文件夹探测一次。
+  const [openApps, setOpenApps] = useState<OpenInAppEntry[] | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const [editing, setEditing] = useState<{
     sessionId: string;
@@ -323,8 +329,20 @@ export const ConversationSidebar = memo(function ConversationSidebar({
       sessionId,
       sessionTitle: session.title || t("sidebar.defaultSessionTitle"),
       pinned: session.pinned ?? false,
+      workspaceRoot: session.workspaceRoot,
     });
+    setOpenApps(null);
+    if (session.workspaceRoot) {
+      void window.openInApp?.listApps(sessionId).then(reply => setOpenApps(reply.ok ? reply.apps : [])).catch(() => setOpenApps([]));
+    }
   }
+
+  const copyText = (text: string) => {
+    void navigator.clipboard.writeText(text).then(
+      () => feedback.notice({ tone: "success", message: t("sidebar.copied") }),
+      () => feedback.notice({ tone: "error", message: t("sidebar.copyFailed") }),
+    );
+  };
 
   function openContextMenu(event: React.MouseEvent, sessionId: string) {
     event.preventDefault();
@@ -364,6 +382,13 @@ export const ConversationSidebar = memo(function ConversationSidebar({
       const beforeSessionId = key === "move-up" ? group.sessionIds[index - 1] : group.sessionIds[index + 2];
       if ((key === "move-up" && index === 0) || (key === "move-down" && index === group.sessionIds.length - 1)) return;
       void layout.mutate({ mode, kind: "move-session", sessionId: contextMenu.sessionId, sectionId: group.sectionId ?? null, beforeSessionId });
+    } else if (key === "copy-title") {
+      copyText(contextMenu.sessionTitle);
+    } else if (key === "copy-path") {
+      if (contextMenu.workspaceRoot) copyText(contextMenu.workspaceRoot);
+    } else if (key.startsWith("open-in:")) {
+      const reply = await window.openInApp?.open(contextMenu.sessionId, key.slice("open-in:".length));
+      if (reply && !reply.ok) feedback.notice({ tone: "error", message: t("openWorkspace.openError") });
     } else if (key === "toggle-pin") {
       void onTogglePin(contextMenu.sessionId, !contextMenu.pinned);
     } else if (key === "export-markdown") {
@@ -440,12 +465,8 @@ export const ConversationSidebar = memo(function ConversationSidebar({
       statusView={statusView} onStatusViewChange={setStatusView}
       projectIds={sessions.map(session => layout.snapshot!.sessionProjectIds[session.id]).filter((id): id is string => !!id)} pending={layout.pending} mutate={layout.mutate} />
     : null;
-  /** "+" on the projects heading: choose a folder, then start a conversation inside it. */
-  const addProjectFolder = async () => {
-    const store = chatStore();
-    const picked = await store?.pickWorkspaceFolder?.();
-    if (picked?.ok && picked.path) onNewProjectTask?.(picked.path, picked.displayName);
-  };
+  /** "+" on the projects heading: name a project and choose its folder, then start a conversation inside it. */
+  const addProjectFolder = () => setCreateOpen(true);
   const renderTier = (tier: SidebarTier, index: number) => {
     const open = tierOpen(tier);
     return (
@@ -457,7 +478,7 @@ export const ConversationSidebar = memo(function ConversationSidebar({
           <span className="ff-tier__actions">
             {index === 0 && layoutControls}
             {(tier.kind === "projects" || (index === 0 && !tiers!.some(other => other.kind === "projects"))) && onNewProjectTask && (
-              <button type="button" className="ff-tier__add" aria-label={t("sidebar.addProject")} title={t("sidebar.addProject")} onClick={() => { void addProjectFolder(); }}>
+              <button type="button" className="ff-tier__add" aria-label={t("sidebar.addProject")} title={t("sidebar.addProject")} onClick={addProjectFolder}>
                 <Plus size={14} strokeWidth={1.8} aria-hidden="true" />
               </button>
             )}
@@ -518,11 +539,11 @@ export const ConversationSidebar = memo(function ConversationSidebar({
             const project = storedProject ? { name: storedProject.displayName, workspaceRoot: storedProject.workspaceRoot,
               conversationCount: members?.length ?? 0, updatedAt: Math.max(0, ...(members?.map(session => session.updatedAt) ?? [])) } : projects.get(group);
             if (!project) return null;
+            const expanded = (persistedExpanded ?? expandedKeys).includes(group);
             return (
               <span className="ff-conversation-project" title={project.workspaceRoot}>
-                <ProjectIcon mode={mode} />
+                <ProjectIcon mode={mode} open={expanded} />
                 <span className="ff-conversation-project__name">{project.name}</span>
-                <span className="ff-conversation-project__count">{project.conversationCount}</span>
                 <span className="ff-conversation-project__actions" onClick={(event) => event.stopPropagation()}>
                   <Dropdown trigger={["click"]} placement="bottomLeft" classNames={{ root: "ff-sidebar-menu" }} menu={projectMenu(project, projected?.projectId)}>
                     <button type="button" className="ff-conversation-project__more" aria-label={t("sidebar.projectActions", { name: project.name })}>
@@ -559,7 +580,7 @@ export const ConversationSidebar = memo(function ConversationSidebar({
               ? t("sidebar.listFailed")
               : supportsProjects ? t("sidebar.emptyProjects") : t("sidebar.emptyConversations")}
           {listStatus === "ready" && supportsProjects && onNewProjectTask && (
-            <button type="button" className="ff-conversation-sidebar__add" onClick={() => { void addProjectFolder(); }}>
+            <button type="button" className="ff-conversation-sidebar__add" onClick={addProjectFolder}>
               <Plus size={14} strokeWidth={1.8} aria-hidden="true" />{t("sidebar.addProject")}
             </button>
           )}
@@ -605,7 +626,19 @@ export const ConversationSidebar = memo(function ConversationSidebar({
                     label: contextMenu.pinned ? t("sidebar.unpin") : t("sidebar.pin"),
                     icon: contextMenu.pinned ? <PinOff size={14} strokeWidth={1.6} aria-hidden="true" /> : <Pin size={14} strokeWidth={1.6} aria-hidden="true" />,
                   },
+                  { type: "divider" as const },
+                  { key: "copy", label: t("sidebar.copy"), icon: <Copy size={14} strokeWidth={1.6} aria-hidden="true" />, children: [
+                    { key: "copy-title", label: t("sidebar.copyTitle") },
+                    ...(contextMenu.workspaceRoot ? [{ key: "copy-path", label: t("sidebar.copyProjectPath") }] : []),
+                  ] },
+                  ...(contextMenu.workspaceRoot ? [{ key: "open-with", label: t("sidebar.openWith"), icon: <AppWindow size={14} strokeWidth={1.6} aria-hidden="true" />,
+                    children: openApps === null ? [{ key: "open-with-loading", label: t("openWorkspace.detecting"), disabled: true }]
+                      : (openApps.length ? openApps : [{ id: "explorer", name: t("openWorkspace.appExplorer") } as OpenInAppEntry]).map(app => ({
+                        key: `open-in:${app.id}`, label: app.id === "explorer" ? t("openWorkspace.appExplorer") : app.name,
+                        icon: app.icon ? <img src={app.icon} width={14} height={14} alt="" aria-hidden="true" draggable={false} /> : undefined,
+                      })) }] : []),
                   ...(mode === "work" ? [{ key: "export-markdown", label: t("sidebar.exportMarkdown"), icon: <Download size={14} strokeWidth={1.6} aria-hidden="true" /> }] : []),
+                  { type: "divider" as const },
                   { key: "delete", label: t("sidebar.delete"), icon: <Trash2 size={14} strokeWidth={1.6} aria-hidden="true" />, danger: true },
                 ]}
                 onClick={({ key }) => handleMenuClick(key)}
@@ -614,6 +647,8 @@ export const ConversationSidebar = memo(function ConversationSidebar({
           )}
         </>
       )}
+      <CreateProjectDialog open={createOpen} onClose={() => setCreateOpen(false)}
+        onCreate={(path, displayName) => onNewProjectTask?.(path, displayName)} />
       <Modal open={!!renamingProject} title={t("sidebar.renameProjectTitle")} okText={t("common.confirm")} cancelText={t("common.cancel")}
         okButtonProps={{ disabled: !renamingProject?.value.trim() }} onCancel={() => setRenamingProject(null)}
         onOk={() => { if (renamingProject?.value.trim()) void layout.mutate({ mode, kind: "rename-project", projectId: renamingProject.projectId, name: renamingProject.value.trim() }); setRenamingProject(null); }}>

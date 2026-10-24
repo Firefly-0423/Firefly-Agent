@@ -992,7 +992,26 @@
     "newProjectChat": "在此项目中新建对话",
     "emptySectionProjects": "还没有项目。在项目的「⋯」菜单里选「分区」放进来。",
     "showProject": "显示项目",
-    "projectVisibility": "项目显示"
+    "projectVisibility": "项目显示",
+    "organizeSidebar": "整理侧边栏",
+    "sortChats": "聊天排序方式",
+    "copy": "复制",
+    "copyTitle": "复制标题",
+    "copyProjectPath": "复制项目路径",
+    "copied": "已复制",
+    "copyFailed": "复制失败",
+    "openWith": "打开方式",
+    "createProject": {
+      "title": "创建项目",
+      "nameLabel": "项目名称",
+      "namePlaceholder": "给项目起个名字",
+      "folderLabel": "源文件夹",
+      "folderHint": "在此电脑上选择一个文件夹作为项目目录",
+      "addFolder": "添加",
+      "changeFolder": "更换",
+      "tip": "项目会把相关的对话和文件集中在一起；在项目里提到的项目信息只在这个项目中记住。适合持续进行的工作，也能让侧栏保持整洁。",
+      "submit": "创建项目"
+    }
   },
   "workRead": {
     "complete": "完整读取已验证",

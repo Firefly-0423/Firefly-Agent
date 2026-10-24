@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Dropdown } from "antd";
 import type { MenuProps } from "antd";
-import { Check, Ellipsis, SlidersHorizontal } from "lucide-react";
+import { ArrowDownUp, Check, Ellipsis, PanelLeft, SlidersHorizontal } from "lucide-react";
 import { useTranslation } from "../../../i18n";
 import type { ConversationMode } from "../../../../../shared/chat-types";
 import type { SidebarPatch, SidebarSnapshot } from "../../../../../shared/sidebar-layout";
@@ -59,7 +59,8 @@ export function SidebarLayoutControls({ mode, snapshot, groups, projectIds, pend
     .filter(project => !groups.some(group => group.projectId === project.id))
     .map(project => ({ id: project.id, label: project.displayName, title: project.workspaceRoot, visible: !state.hiddenProjectIds.includes(project.id) }));
 
-  const items: MenuProps["items"] = [
+  // Two entries, each opening its own list: how the sidebar is arranged, and how chats inside it are ordered.
+  const organize: NonNullable<MenuProps["items"]> = [
     ...(mode === "chat" ? [] : [{
       key: "group-by", label: t("sidebar.groupBy"),
       extra: t(statusView ? "sidebar.viewStatusShort" : state.viewMode === "project" ? "sidebar.viewProjectsShort" : "sidebar.viewMergedShort"), disabled: pending,
@@ -78,14 +79,6 @@ export function SidebarLayoutControls({ mode, snapshot, groups, projectIds, pend
         }] : []),
       ],
     }]),
-    {
-      key: "sort-by", label: t("sidebar.sortBy"), extra: t(state.sortMode === "recent" ? "sidebar.recentSort" : "sidebar.manualSort"), disabled: pending,
-      children: (["recent", "manual"] as const).map(sort => ({
-        key: `sort:${sort}`, icon: checked(state.sortMode === sort), disabled: pending,
-        label: t(sort === "recent" ? "sidebar.recentSort" : "sidebar.manualSort"),
-        onClick: () => { if (state.sortMode !== sort) void mutate({ mode, kind: "set-sort", sortMode: sort }); },
-      })),
-    },
     ...(mode === "chat" ? [] : [{
       key: "show", label: t("sidebar.show"), disabled: pending || projects.length === 0,
       children: projects.map(project => {
@@ -96,12 +89,24 @@ export function SidebarLayoutControls({ mode, snapshot, groups, projectIds, pend
         };
       }),
     }]),
-    { type: "divider" as const },
+    ...(mode === "chat" ? [] : [{ type: "divider" as const }]),
     { key: "new-section", label: t("sidebar.newSection"), disabled: pending, onClick: () => setDialogOpen(true) },
     { key: "manage", label: t("sidebar.manageSections"), disabled: pending, onClick: () => setDialogOpen(true) },
     { type: "divider" as const },
     { key: "reset", label: t("sidebar.resetDefaults"), disabled: pending || atDefaults, onClick: () => { void resetDefaults(); } },
     ...(mode === "chat" ? [] : [{ key: "view-all", label: t("sidebar.viewAll"), disabled: pending || hiddenProjects.length === 0, onClick: () => { void applyInOrder(unhide); } }]),
+  ];
+  const items: MenuProps["items"] = [
+    { key: "organize", label: t("sidebar.organizeSidebar"), icon: <PanelLeft size={14} strokeWidth={1.6} aria-hidden="true" />, children: organize },
+    {
+      key: "sort-by", label: t("sidebar.sortChats"), icon: <ArrowDownUp size={14} strokeWidth={1.6} aria-hidden="true" />,
+      extra: t(state.sortMode === "recent" ? "sidebar.recentSort" : "sidebar.manualSort"), disabled: pending,
+      children: (["recent", "manual"] as const).map(sort => ({
+        key: `sort:${sort}`, icon: checked(state.sortMode === sort), disabled: pending,
+        label: t(sort === "recent" ? "sidebar.recentSort" : "sidebar.manualSort"),
+        onClick: () => { if (state.sortMode !== sort) void mutate({ mode, kind: "set-sort", sortMode: sort }); },
+      })),
+    },
   ];
 
   return <div className={compact ? "ff-sidebar-layout ff-sidebar-layout--compact" : "ff-sidebar-layout"}>
