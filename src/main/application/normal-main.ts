@@ -7,7 +7,7 @@
  * application/default-dependencies.ts；启动编排位于 application/application.ts。
  */
 
-import "../identity-preflight";
+import "../startup/identity-preflight";
 import { app } from "electron";
 import { createApplication } from "./application";
 import { createDefaultApplicationDependencies } from "./default-dependencies";
