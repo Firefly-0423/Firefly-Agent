@@ -38,7 +38,8 @@ const findItem = (text: string) => Array.from(document.querySelectorAll<HTMLElem
 async function clickMenu(text: string) {
   // Arrangement entries live one level down, under "organize sidebar"; open it first when the entry is not on screen.
   if (!findItem(text) && text !== "sidebar.organizeSidebar" && findItem("sidebar.organizeSidebar")) await clickMenu("sidebar.organizeSidebar");
-  await vi.waitFor(() => { if (!findItem(text)) throw new Error(`menu item not found: ${text}; have ${menuTitles().join(" | ")}`); });
+  // Submenus open in their own popup; under a loaded full run that can take longer than the default second.
+  await vi.waitFor(() => { if (!findItem(text)) throw new Error(`menu item not found: ${text}; have ${menuTitles().join(" | ")}`); }, { timeout: 3000 });
   await act(async () => findItem(text)!.click());
   await flush();
 }
