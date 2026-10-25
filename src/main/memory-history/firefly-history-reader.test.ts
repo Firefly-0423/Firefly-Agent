@@ -29,6 +29,16 @@ it('parses supplied native transcript bytes with colon IDs, original quotes, nul
  expect(a.documents[0].classification).toBe('raw-history');expect(a.documents[0].provenance[0]).toMatchObject({originalId:'backfill:v1:u:1',seq:1,turnId:'u:1',occurredAt:1001,timeZone:null,active:true,format:'transcript-v1'});
  expect(a.documents[0].document.messages[0].text).toBe('周末只喝咖啡');expect(b).toEqual(a);expect(digest(file)).toBe(before);
 });
+it('reads a reasoning-model answer as its visible text and leaves the reasoning out of history',async()=>{
+ const reasoning={...assistant(),payload:{role:'assistant',content:'咖啡回复',thinking:'先想想要不要推荐',rawAssistant:[{type:'reasoning',content:[{type:'reasoning_text',text:'先想想要不要推荐'}],encrypted_content:'opaque'},{type:'message',role:'assistant',content:[{type:'output_text',text:'咖啡回复'}]}]}};
+ const f=fixture();write(f.root,[user(),reasoning]);const r=await parseSyntheticFixture(f.scope);
+ expect(r.documents.flatMap(d=>d.document.messages.map(m=>m.text))).toEqual(['周末只喝咖啡','咖啡回复']);
+ expect(JSON.stringify(r.documents.map(d=>d.document.messages))).not.toContain('先想想');
+});
+it('still refuses internal assistant entries in history',async()=>{
+ const f=fixture();write(f.root,[user(),{...assistant(),payload:{role:'assistant',content:'内部',internal:true}}]);
+ await expect(parseSyntheticFixture(f.scope)).rejects.toThrow('MEMORY_HISTORY_FORMAT_UNSUPPORTED');
+});
 it('snapshot plus delta applies rewind but preserves inactive originals as diagnostic records',async()=>{
  const f=fixture(),{dir,file}=write(f.root,[user(),assistant(),{id:'edit:3',seq:3,at:1003,kind:'turn_rewind',turnId:'u:1',revision:2,payload:{anchorUserTurnId:'u:1',disposition:'replace_user',reason:'edit',replacementUser:{text:'现在喝茶'}}}]);
  fs.writeFileSync(path.join(dir,'snapshot.json'),JSON.stringify({schemaVersion:1,throughSeq:2,entries:[user(),assistant()],seenEntryIds:['backfill:v1:u:1','a:2'],seenUserRevisions:['u:1\u00001']}));
