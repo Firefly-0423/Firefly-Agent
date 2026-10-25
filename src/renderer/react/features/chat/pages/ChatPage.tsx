@@ -1127,6 +1127,9 @@ export function ChatPage() {
       const next = { ...current };
       if (!inheritedWorkspace) {
         delete next[targetMode];
+      } else if (workspace) {
+        // A project from the create dialog has no session yet; the composer unlocks on this name.
+        next[targetMode] = workspace.displayName ?? t("chatPage.defaultWorkspaceName");
       }
       return next;
     });
