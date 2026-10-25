@@ -23,7 +23,8 @@ vi.mock("antd", () => ({
   // The popover body is drawn inline, so the hover card can be inspected without a pointer.
   Popover: ({ children, content }: any) => createElement("div", null, children, createElement("aside", { className: "popover-body" }, content)),
   Dropdown: ({ children }: any) => createElement("div", null, children),
-  Modal: () => null,
+  // Open dialogs render inline, so the create-project form can be driven like the rest of the sidebar.
+  Modal: ({ open, className, children }: any) => open ? createElement("div", { className }, children) : null,
 }));
 
 let host: HTMLDivElement, root: ReturnType<typeof createRoot>, snapshot: SidebarSnapshot;
@@ -102,18 +103,37 @@ it("puts the project's ··· menu before its new-conversation button", async ()
   expect(buttons.map(button => button.getAttribute("aria-label"))).toEqual(["sidebar.projectActions", "sidebar.newProjectChat"]);
 });
 
-it("adds a project from the projects heading: choose a folder, then start a conversation in it", async () => {
+// The create-project dialog is portalled to document.body.
+const dialogButton = (selector: string) => document.querySelector<HTMLButtonElement>(`.ff-create-project ${selector}`);
+async function chooseFolderAndCreate(name?: string) {
+  await vi.waitFor(() => { if (!dialogButton(".ff-create-project__ghost")) throw new Error("create project dialog not open"); });
+  await act(async () => dialogButton(".ff-create-project__ghost")!.click());
+  if (name !== undefined) {
+    const input = document.querySelector<HTMLInputElement>("#ff-create-project-name")!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, name);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  }
+  await act(async () => dialogButton(".ff-create-project__submit")!.click());
+}
+
+it("adds a project from the projects heading: name it, choose a folder, then start a conversation in it", async () => {
   pickWorkspaceFolder.mockResolvedValue({ ok: true, path: "E:\\new\\folder", displayName: "folder" });
   await render();
   await act(async () => host.querySelector<HTMLButtonElement>(".ff-tier__add")!.click());
+  expect(pickWorkspaceFolder).not.toHaveBeenCalled();
+  await chooseFolderAndCreate("Trip plans");
   expect(pickWorkspaceFolder).toHaveBeenCalledTimes(1);
-  expect(onNewProjectTask).toHaveBeenCalledWith("E:\\new\\folder", "folder");
+  expect(onNewProjectTask).toHaveBeenCalledWith("E:\\new\\folder", "Trip plans");
 });
 
 it("does nothing when the folder chooser is cancelled", async () => {
   pickWorkspaceFolder.mockResolvedValue({ ok: false });
   await render();
   await act(async () => host.querySelector<HTMLButtonElement>(".ff-tier__add")!.click());
+  await chooseFolderAndCreate();
+  expect(dialogButton(".ff-create-project__submit")!.disabled).toBe(true);
   expect(onNewProjectTask).not.toHaveBeenCalled();
 });
 
@@ -132,5 +152,6 @@ it("keeps an add-project button in the empty state, so the first project can sti
   const add = host.querySelector<HTMLButtonElement>(".ff-conversation-sidebar__add")!;
   expect(add).not.toBeNull();
   await act(async () => add.click());
+  await chooseFolderAndCreate();
   expect(onNewProjectTask).toHaveBeenCalledWith("E:\first", "first");
 });

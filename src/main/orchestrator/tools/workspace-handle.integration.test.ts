@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-vi.mock("../../permission", () => ({ getCurrentLevel: () => "full" }));
+vi.mock("../../permission/permission", () => ({ getCurrentLevel: () => "full" }));
 vi.mock("electron", () => ({ app: { isPackaged: false, getAppPath: () => process.cwd() } }));
 import { createWorkspaceHandleBridge, workspaceHelperPath } from "./workspace-handle";
 import type { ToolContext } from "./registry/tool-context";

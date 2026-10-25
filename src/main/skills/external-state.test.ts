@@ -6,7 +6,7 @@ import { afterEach, expect, it, vi } from "vitest";
 // Real SQLite / filesystem integration cases: the 5 s default is too tight on CI runners, so this file allows 30 s. Other files keep the default.
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 import { probeFileSymlink, Win32SymlinkError } from "../../../scripts/verify/file-symlink-probe";
-import { createStorageContext } from "../storage-context";
+import { createStorageContext } from "../storage/storage-context";
 import { externalSkillId } from "./external-policy";
 import { digestExternalFiles } from "./external-review";
 import type { ExternalHostSession, ExternalSkillRecord } from "./external-types";

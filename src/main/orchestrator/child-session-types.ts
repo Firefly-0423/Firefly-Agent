@@ -40,7 +40,7 @@ export interface ChildSessionParent {
   checkPermission?: HarnessInput["checkPermission"];
   includeInteractiveTools?: boolean;
   permissionMode?: import("./firefly-agent").FireflyRunOptions["permissionMode"];
-  fileAccessLevel?: import("../permission-policy").AgentFileAccessLevel;
+  fileAccessLevel?: import("../permission/permission-policy").AgentFileAccessLevel;
   toolOutputStore?: ToolOutputStore;
   revalidateToolPermission?: import("./tools/registry/tool-context").ToolContext["revalidateToolPermission"];
   workReadScopes?: import("../../shared/chat-types").WorkReadScope[];

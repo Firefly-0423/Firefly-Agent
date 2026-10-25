@@ -1,4 +1,4 @@
-import { logger, LogTag } from "../../logger";
+import { logger, LogTag } from "../../logging/logger";
 import { getEmbeddingProvider } from "../../rag/embedding";
 import { AUTO_SEND_STICKER_DESCRIPTIONS } from "../../stickers/sticker-descriptions";
 import { buildCachedStickerEmbeddingIndex } from "../../stickers/sticker-embedding-cache";

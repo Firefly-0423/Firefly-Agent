@@ -289,6 +289,11 @@ body {
   padding-left: 8px;
 }
 
+/* Folding: the docked sidebar slides out of the row (a negative margin as wide as itself) and fades before it turns
+   into the floating overlay, and slides back the same way, so the conversation glides instead of jumping. */
+.ff-page-sidebar:not(.is-floating) { transition: margin-right 240ms cubic-bezier(0.165, 0.84, 0.44, 1), opacity 200ms ease; }
+.ff-page-sidebar.is-folding { opacity: 0; pointer-events: none; }
+
 .ff-page-sidebar.is-floating {
   position: absolute;
   top: var(--ff-app-titlebar-height);

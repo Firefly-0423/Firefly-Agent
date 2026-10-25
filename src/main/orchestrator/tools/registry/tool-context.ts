@@ -1,7 +1,7 @@
 import type { ChatMessage } from "../../vendors";
 import { ContextRefRegistry } from "../../context-ref-registry";
 import type { ConversationMode, WorkReadScope } from "../../../../shared/chat-types";
-import type { AgentFileAccessLevel } from "../../../permission-policy";
+import type { AgentFileAccessLevel } from "../../../permission/permission-policy";
 import type { ExecutionScope, LeafPermit, RunExecutionCoordinator } from "../../harness/execution-coordinator";
 
 export const contextRefRegistry = new ContextRefRegistry();

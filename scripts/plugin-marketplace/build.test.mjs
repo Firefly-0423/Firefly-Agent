@@ -13,9 +13,9 @@ import JSZip from "jszip";
 const builderUrl = new URL("./build.mjs", import.meta.url);
 const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
 const pluginIds = ["text-stats", "json-tools", "timezone-tools", "code-language", "text-trim"];
-const zipName = id => `${id}-1.0.0.zip`;
+const zipName = id => `${id}-1.0.1.zip`;
 // Pin the reviewed local package bytes; building does not publish a hosted release.
-const TEXT_STATS_SHA256 = "b0294a0535b0cd34ff4ba28735fdb0e762805ecdece23639133eec7a111eb84b";
+const TEXT_STATS_SHA256 = "7ecf64d2f6f2437c9bbac8ec69faf5b1f9ed7829360f25c38f1c6d851f0ceeab";
 
 async function builder() {
   assert.ok(existsSync(builderUrl), "marketplace artifact builder must exist");
@@ -81,7 +81,7 @@ test("bundled catalog lists every plugin with a checksummed disabled API v1 pack
   assert.equal(seenHashes.size, pluginIds.length, "every package must be distinct");
 });
 
-test("text-stats 1.0.0 stays byte-identical to the reviewed local package", async t => {
+test("text-stats 1.0.1 stays byte-identical to the reviewed local package", async t => {
   const build = await builder();
   const result = await build({ outDir: await fixture(t) });
   assert.equal(result.plugins.find(plugin => plugin.id === "text-stats").sha256, TEXT_STATS_SHA256);
@@ -113,7 +113,7 @@ test("public mode gives each plugin its own <id>-<version> release tag unless on
   assert.equal(result.registryPath, path.join(options.outDir, "marketplace/registry.json"));
   assert.equal(result.configPath, path.join(options.outDir, "marketplace-config.json"));
   assert.deepEqual(registry.plugins.map(entry => entry.zip), pluginIds.map(id =>
-    `https://github.com/example-owner/example-repo/releases/download/${id}-1.0.0/${zipName(id)}`));
+    `https://github.com/example-owner/example-repo/releases/download/${id}-1.0.1/${zipName(id)}`));
   assert.deepEqual(config, {
     registryUrls: ["https://raw.githubusercontent.com/example-owner/example-repo/catalog-v1/marketplace/registry.json"],
     zipUrlPrefixes: ["https://github.com/example-owner/example-repo/releases/download/"],
@@ -134,7 +134,7 @@ test("public text-stats URL formatting preserves the repository settings", async
   const result = await build({ outDir: await fixture(t), repository: "Firefly-0423/firefly-plugins", registryRef: "plugin-catalog" });
   const registry = await json(result.registryPath);
   const textStats = registry.plugins.find(entry => entry.id === "text-stats");
-  assert.equal(textStats.zip, "https://github.com/Firefly-0423/firefly-plugins/releases/download/text-stats-1.0.0/text-stats-1.0.0.zip");
+  assert.equal(textStats.zip, "https://github.com/Firefly-0423/firefly-plugins/releases/download/text-stats-1.0.1/text-stats-1.0.1.zip");
   assert.equal(textStats.sha256, TEXT_STATS_SHA256);
 });
 
@@ -238,7 +238,7 @@ test("bumping a source manifest to another valid SemVer determines the filename 
   const entry = catalog.plugins.find(item => item.id === "json-tools");
   assert.equal(entry.version, manifest.version);
   assert.equal(entry.zip, "bundled:json-tools-1.2.3-beta.1+Build.2.zip");
-  assert.equal(catalog.plugins.find(item => item.id === "text-stats").version, "1.0.0");
+  assert.equal(catalog.plugins.find(item => item.id === "text-stats").version, "1.0.1");
   for (const version of ["01.2.3", "1.2", "1.2.3 ", "../evil", "1.0.0-beta.01"]) {
     manifest.version = version;
     await writeFile(manifestPath, JSON.stringify(manifest));

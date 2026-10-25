@@ -3,3 +3,6 @@ scripts/packaging/skill-adaptations/** text eol=lf
 vendor/firefly-skills/skills/** -text
 # Preserve the retained writer fixture bytes checked by its manifest.
 src/main/memory-history/fixtures/v8-writer/v8-writer.cjs text eol=lf
+
+# Keep GitHub language statistics to our own code: vendored Skills bring their own Python and C#.
+vendor/** linguist-vendored

@@ -1,7 +1,7 @@
 import fs from "node:fs";
-import { fireflyDataDirectory } from "../../firefly-data-paths";
+import { fireflyDataDirectory } from "../../storage/firefly-data-paths";
 import path from "node:path";
-import { ephemeralConversations } from "../../ephemeral-conversations";
+import { ephemeralConversations } from "../../chats/ephemeral-conversations";
 import type { ChatMessage } from "../vendors/types";
 import { INITIAL_HARNESS_CACHE_STATE, type SideEffectKind, type HarnessCacheState, type AgentState } from "./types";
 import type { ToolOutputRef } from "./tool-output/tool-output-store";

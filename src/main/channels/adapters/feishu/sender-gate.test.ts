@@ -10,7 +10,7 @@ const fixture = vi.hoisted(() => ({
 vi.mock("@larksuiteoapi/node-sdk", () => ({ createLarkChannel: fixture.createChannel, Domain: { Feishu: "feishu" }, LoggerLevel: { warn: 1 } }));
 vi.mock("../../settings-store", () => ({ loadChannelsSettings: () => ({ feishu: fixture.settings }) }));
 vi.mock("electron", () => ({ app: { getPath: () => "/synthetic/feishu-gate" } }));
-vi.mock("../../../logger", () => ({ logger: { info() {}, warn() {}, error() {} }, LogTag: {} }));
+vi.mock("../../../logging/logger", () => ({ logger: { info() {}, warn() {}, error() {} }, LogTag: {} }));
 
 class Channel extends EventEmitter {
   async connect() {}

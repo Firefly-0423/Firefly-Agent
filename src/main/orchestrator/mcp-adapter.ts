@@ -3,12 +3,13 @@ import { isDeepStrictEqual } from "node:util";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { ToolDefinition, toolRegistry, type ToolEffectKind } from "./tools/registry/tool-registry";
-import type { ToolRiskLevel } from "../permission-policy";
+import type { ToolRiskLevel } from "../permission/permission-policy";
 import { ToolExecutionError } from "./tools/registry/tool-execution-error";
 import type { ToolContext } from "./tools/registry/tool-context";
-import { createAbortError, isCancellationError, raceWithSignal } from "../abort-utils";
+import { createAbortError, isCancellationError, raceWithSignal } from "../utils/abort-utils";
 import { createMcpSchemaValidator, discoverMcpToolCatalog } from "./mcp-tool-catalog";
 import { classifyMcpFailure, isMcpAuthFailure } from "./mcp-failure";
 
@@ -42,7 +43,8 @@ export type McpServerConfig = {
   env?: Record<string, string>;
   args?: string[]; // 启动参数，仅 stdio
   command?: string; // 仅 stdio
-  transport: "stdio" | "sse";
+  /** stdio runs a local command; http is the current Streamable HTTP transport; sse is the legacy HTTP+SSE one. */
+  transport: "stdio" | "sse" | "http";
   name: string; // 界面展示名
   id: string; // 全局唯一标识
 };
@@ -185,6 +187,10 @@ async function cleanupFailedMcpState(state: McpServerState): Promise<void> {
 
 /** 依据配置构造 transport；缺少必填项时直接抛错，不会尝试连接。 */
 function createTransport(config: McpServerConfig): Transport {
+  if (config.transport === "http") {
+    if (!config.url) throw new Error("http transport requires url");
+    return new StreamableHTTPClientTransport(new URL(config.url));
+  }
   if (config.transport === "sse") {
     if (!config.url) throw new Error("sse transport requires url");
     return new SSEClientTransport(new URL(config.url));

@@ -3,8 +3,8 @@
 // - 不改技能文件本身：外部技能有完整性校验，改动 SKILL.md 会让它们需要重新导入。
 // - 一次只翻还缺的那些，分批交给当前默认模型；同一时间只跑一轮，重复请求复用同一轮。
 import { createHash } from "node:crypto";
-import { AtomicJsonStore } from "../atomic-json-store";
-import { getStorageContext } from "../storage-context";
+import { AtomicJsonStore } from "../storage/atomic-json-store";
+import { getStorageContext } from "../storage/storage-context";
 
 export interface SkillText { id: string; description: string }
 export type Translator = (batch: readonly SkillText[]) => Promise<Record<string, string>>;

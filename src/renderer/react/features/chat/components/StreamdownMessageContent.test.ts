@@ -33,7 +33,9 @@ test("renders prose and tables with unprefixed utilities and no table toolbar", 
 test("supports inline and block math during streaming and after completion", () => {
   const live = display("Inline $x+1$ then display:\n\n$$y=2x$$", true);
   expect(live).toContain("katex");
+  // Replies with formulas skip the fade-in, so the inline formula sits directly in its paragraph.
   expect(live).toMatch(/<p><span class="katex">/);
+  expect(live).not.toContain("data-sd-animate");
   const settled = display("$x+1$\n\n[Guide][destination]\n\n[destination]: https://docs.invalid");
   expect(settled).toContain("katex");
   expect(settled).not.toContain('href="https://docs.invalid/"');

@@ -5,12 +5,12 @@ import { afterEach, expect, it, vi } from "vitest";
 
 const ports = vi.hoisted(() => ({ root: "", builtin: "", user: "" }));
 vi.mock("electron", () => ({ app: { getPath: () => ports.root } }));
-vi.mock("../external-content-paths", () => ({
+vi.mock("../storage/external-content-paths", () => ({
   getExternalContentPaths: () => ({ builtinSkillDirectory: ports.builtin, userSkillDirectories: [ports.user] }),
   resolvePackagedSkillDirectory: () => null,
   resolveSkillScanSources: () => [{ directory: ports.builtin, source: "builtin" }, { directory: ports.user, source: "user" }],
 }));
-import { createStorageContext } from "../storage-context";
+import { createStorageContext } from "../storage/storage-context";
 import { initSkills, rescanSkills, setSkillEnabled, skillRegistry } from "./index";
 
 afterEach(() => {

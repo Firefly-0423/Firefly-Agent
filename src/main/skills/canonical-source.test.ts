@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { createHash } from "node:crypto";
 import { afterEach, expect, it, vi } from "vitest";
 import { scanSkills } from "./skill-scanner";
-import { resolveExternalContentPaths, resolveSkillScanSources } from "../external-content-paths";
+import { resolveExternalContentPaths, resolveSkillScanSources } from "../storage/external-content-paths";
 
 vi.mock("electron", () => ({ app: {} }));
 

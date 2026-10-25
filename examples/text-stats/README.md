@@ -25,4 +25,4 @@ Firefly Plugin API v1 插件，版本 1.0.0。首次安装保持停用，需要�
 
 插件按 MIT 许可证提供，见随包的 LICENSE。Firefly 插件在主进程运行并拥有宿主权限；本插件的离线实现不代表宿主提供权限沙箱。
 
-仓库内构建：`node scripts/plugin-marketplace/build.mjs`。输出 ZIP 可从聊天窗口的插件面板导入；离线随附市场也使用同一个 ZIP。构建不会发布公共目录或上传文件。
+构建：在 [firefly-plugins](https://github.com/Firefly-0423/firefly-plugins) 仓库运行 `npm run build`，输出在 `dist/`。生成的 ZIP 也可以在 Firefly 的插件页手动导入。

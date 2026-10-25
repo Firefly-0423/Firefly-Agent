@@ -29,7 +29,7 @@ vi.mock("electron", () => ({
   app: { getAppPath: () => m.appPath },
   dialog: { showMessageBox: m.showMessageBox },
 }));
-vi.mock("../env", () => ({
+vi.mock("../startup/env", () => ({
   get isDev() {
     return m.isDev;
   },
@@ -215,10 +215,19 @@ describe("MCP_ADD_SERVER validation", () => {
     ["sse with args", { ...validSse(), args: [] }],
     ["sse with env", { ...validSse(), env: {} }],
     ["sse with cwd", { ...validSse(), cwd: "C:/work" }],
+    ["http with credentials", { ...validSse({ transport: "http" }), url: "https://user:pass@example.com/mcp" }],
+    ["http with a non-http protocol", { ...validSse({ transport: "http" }), url: "ws://example.com/mcp" }],
+    ["http with a command", { ...validSse({ transport: "http" }), command: "node" }],
+    ["an unknown transport", { ...validSse({ transport: "websocket" }) }],
   ])("rejects %s", (_label, input) => {
     expect(add(input)).toEqual({ ok: false, code: "MCP_INVALID_REQUEST", error: "MCP_INVALID_REQUEST" });
     expect(m.add).not.toHaveBeenCalled();
     expect(m.showMessageBox).not.toHaveBeenCalled();
+  });
+
+  it("passes a Streamable HTTP server to the manager with the same URL rules as SSE", async () => {
+    await add(validSse({ transport: "http", url: "https://example.com/mcp" }));
+    expect(m.add).toHaveBeenCalledWith(expect.objectContaining({ transport: "http", url: "https://example.com/mcp" }));
   });
 
   it("rejects an object with an accessor property", () => {

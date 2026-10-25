@@ -1,5 +1,5 @@
 import { resolveTimeoutPolicy } from "../runtime-policy";
-import { raceWithSignal, createAbortError } from "../abort-utils";
+import { raceWithSignal, createAbortError } from "../utils/abort-utils";
 
 export const MOSSLAND_BASE_URL = "https://api.mosi.cn";
 const ERROR_DESCRIPTIONS: Record<string, string> = {

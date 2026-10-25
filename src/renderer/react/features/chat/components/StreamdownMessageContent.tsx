@@ -116,10 +116,24 @@ function containsRenderedMath(content: string): boolean {
   return false;
 }
 
+/**
+ * While a reply streams, newly shown characters fade in from a slight blur, one after another (the paced reveal hands over a
+ * few at a time). Finished messages, replies with formulas and reduced motion render plainly.
+ */
+export const STREAMING_REVEAL = Object.freeze({ animation: "blurIn", sep: "char", duration: 260, stagger: 12, maxBacklogMs: 200, easing: "cubic-bezier(0.16, 1, 0.3, 1)" } as const);
+
+function prefersReducedMotion(): boolean {
+  return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 export function StreamdownMessageContent({ content, streaming }: StreamdownMessageContentProps) {
-  const blockMode = streaming || containsRenderedMath(content);
+  const math = containsRenderedMath(content);
+  const blockMode = streaming || math;
+  // Replies with formulas keep their KaTeX DOM from streaming to completion, so they skip the fade-in.
+  const reveal = streaming && !math && !prefersReducedMotion();
   return <Streamdown className="ff-message-markdown ff-streamdown-message" controls={chatControls}
     rehypePlugins={rehypePlugins} components={messageComponents} plugins={messagePlugins}
+    animated={reveal ? STREAMING_REVEAL : false} isAnimating={reveal}
     parseIncompleteMarkdown={streaming} mode={blockMode ? "streaming" : "static"}>
     {content}
   </Streamdown>;

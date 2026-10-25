@@ -22,7 +22,7 @@ vi.mock("../settings/model-settings", () => ({
   loadModelSettings: () => h.model,
 }));
 
-vi.mock("../settings-store", () => ({
+vi.mock("../storage/settings-store", () => ({
   loadUserProfile: () => h.profile,
 }));
 
@@ -69,7 +69,7 @@ vi.mock("../orchestrator/tools/email-tools", () => ({
   },
 }));
 
-vi.mock("../user-choice", () => ({
+vi.mock("../chat/user-choice", () => ({
   setChoiceCardSender: (sender: (card: unknown) => void) => {
     h.choiceCard = sender;
   },

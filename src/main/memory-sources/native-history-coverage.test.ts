@@ -10,7 +10,7 @@ const main = vi.hoisted(() => ({
   context: { dataRoot: "E:\\synthetic-profile" },
   cache: { state: "ready", rootDir: "E:\\synthetic-profile\\firefly-chats", ids: [] } as Record<string, unknown>,
 }));
-vi.mock("../storage-context", () => ({ getStorageContext: () => main.context }));
+vi.mock("../storage/storage-context", () => ({ getStorageContext: () => main.context }));
 vi.mock("../chats/chats-store", () => ({ getCachedSessionIdsForCoverage: () => main.cache }));
 
 function endpoint(statuses: unknown[] = []): PresenceEndpoint & { batches: string[][]; closed: number } {

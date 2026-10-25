@@ -13,7 +13,7 @@ import { NapCatAdapter } from "./adapters/qq/napcat-adapter";
 import { resolveQqListenAuthRequirement } from "./adapters/qq/onebot-reverse-ws";
 import { QqBotAdapter } from "./adapters/qqbot/qqbot-adapter";
 import { getRecentLog, clearLog, reloadLogFromDisk } from "./message-log";
-import { logger, LogTag } from "../logger";
+import { logger, LogTag } from "../logging/logger";
 import { pendingSenders } from "./sender-gate";
 import { resolvePendingSender, withPendingSenders } from "./sender-approval";
 

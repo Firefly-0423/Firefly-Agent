@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ userData: "", warn: vi.fn() }));
 vi.mock("electron", () => ({ app: { getPath: () => mocks.userData } }));
-vi.mock("../logger", () => ({ logger: { warn: mocks.warn }, LogTag: { Firefly: "Firefly" } }));
+vi.mock("../logging/logger", () => ({ logger: { warn: mocks.warn }, LogTag: { Firefly: "Firefly" } }));
 
 import {
   isVaultBound,

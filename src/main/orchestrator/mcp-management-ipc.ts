@@ -3,7 +3,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { IPC } from "../../shared/ipc-channels";
 import type { IpcScope } from "../application/ipc-scope";
-import { isDev } from "../env";
+import { isDev } from "../startup/env";
 import type { McpServerConfig } from "./mcp-adapter";
 import type { McpFailureReason } from "./mcp-failure";
 import { addMcpServer, listMcpServerConfigs, listMcpServers, removeMcpServer, setMcpServerEnabled } from "./mcp-manager";
@@ -20,7 +20,7 @@ function text(value: unknown, limit: number, blank = false): value is string {
 }
 function parseConfig(input: unknown): McpServerConfig | undefined {
   if (!record(input) || Object.keys(input).some(key => !keys.has(key)) || !text(input.id, 128) || !text(input.name, 256)) return;
-  if (input.transport !== "stdio" && input.transport !== "sse") return;
+  if (input.transport !== "stdio" && input.transport !== "sse" && input.transport !== "http") return;
   const config: McpServerConfig = { id: input.id, name: input.name, transport: input.transport };
   if (input.transport === "stdio") {
     if (!text(input.command, 8192) || input.url !== undefined) return;

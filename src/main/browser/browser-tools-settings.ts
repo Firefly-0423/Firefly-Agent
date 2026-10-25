@@ -1,5 +1,5 @@
 import path from "node:path";
-import { AtomicJsonStore } from "../atomic-json-store";
+import { AtomicJsonStore } from "../storage/atomic-json-store";
 import type { StoredBrowserToolSettings } from "./browser-tools-hub";
 
 const DEFAULTS: StoredBrowserToolSettings = Object.freeze({ askWhereToSave: false, folder: null });

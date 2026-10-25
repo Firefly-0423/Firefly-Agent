@@ -12,7 +12,7 @@ import {
 import type { ToolDefinition, ToolModeOverrides } from "./tools/registry/tool-registry";
 import type { SkillModeOverrides } from "../skills/types";
 import type { ChatMessage, OpenAIContentBlock } from "./vendors/types";
-import type { AguiRunInput } from "../agui-bridge";
+import type { AguiRunInput } from "../chat/agui-bridge";
 import type { RelationshipChannel, RelationshipTurnInput } from "../relationship/relationship-log";
 import type { ChannelId } from "../channels/types";
 import { validateCaptionImagePath } from "../chat/image-caption";
@@ -22,7 +22,7 @@ import {
   resolveChatContextTimezone,
   type ChatContextMessage,
 } from "../chat/chat-time-context";
-import { perf } from "../perf-trace";
+import { perf } from "../logging/perf-trace";
 import type {
   SocialAtom,
   SocialExtractionInput,
@@ -35,7 +35,7 @@ import { buildStickerEmbeddingQuery } from "../stickers/sticker-query";
 import { stickerMoodGuard } from "../stickers/sticker-mood";
 import type { StickerEmbeddingEntry } from "../stickers/sticker-embedder";
 import { isPlanReadOnly, getPlanState } from "./plan-mode";
-import { policyFor } from "../permission-policy";
+import { policyFor } from "../permission/permission-policy";
 import { resolveTranscriptRetainTokens, type MaterializedTranscript } from "./conversation-transcript-context";
 import { DEFAULT_CONTEXT_WINDOW_TOKENS } from "../../shared/context-window";
 import type { UncertainEffect } from "./harness/types";

@@ -3,8 +3,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { resolveRuntimeProfile } from "../../runtime-profile";
-import { createStorageContext, type StorageContext } from "../../storage-context";
+import { resolveRuntimeProfile } from "../../startup/runtime-profile";
+import { createStorageContext, type StorageContext } from "../../storage/storage-context";
 import type { ExternalSkillReview } from "../external-types";
 import { EXTERNAL_REVIEW_POLICY_VERSION } from "../external-policy";
 

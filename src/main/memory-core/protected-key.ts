@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import {randomBytes,timingSafeEqual} from "node:crypto";
-import type {StorageContext} from "../storage-context";
-import {canonicalPath,within} from "../runtime-profile";
+import type {StorageContext} from "../storage/storage-context";
+import {canonicalPath,within} from "../startup/runtime-profile";
 import {createMemoryKeyHandle,type KeyProtection,type MemoryKeyHandle} from "./key-provider";
 import {acquireMemoryOpenLease} from "./windows-open-lock";
 const MAGIC=Buffer.from("FMK1"),MAX=65536;

@@ -71,7 +71,7 @@ vi.mock("./panel", () => ({
   loadMemoryPanelData: mocks.loadMemoryPanelData,
 }));
 vi.mock("../rag", () => ({ deleteImportedDoc: mocks.deleteImportedDoc }));
-vi.mock("../settings-store", () => ({
+vi.mock("../storage/settings-store", () => ({
   loadUserProfile: mocks.loadUserProfile,
   saveUserProfile: mocks.saveUserProfile,
   getAvatarPath: mocks.getAvatarPath,

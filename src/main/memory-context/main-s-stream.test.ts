@@ -22,7 +22,7 @@ import {createMainRecall} from '../memory-recall/main-recall';
 import {historyOriginEvent} from '../memory-history/history-origins';
 
 vi.mock("electron",()=>({app:{getPath:()=>{throw Error("PRODUCT_DATA_FORBIDDEN")}}}));
-vi.mock("../timeout-manager",()=>({getTimeoutSettings:()=>({chatRequestTimeout:0})}));
+vi.mock("../settings/timeout-manager",()=>({getTimeoutSettings:()=>({chatRequestTimeout:0})}));
 vi.mock("../orchestrator/build-options",()=>({buildAgentRunOptions:vi.fn(async()=>({options:{settings:{provider:"ChatGPT（OpenAI）",baseUrl:"https://api.openai.com/v1",model:"fixture-model",apiKey:""},messages:[],conversationId:"session-a",executionMode:"chat",tools:[],timeoutMs:0,soulSystemBaseContent:"fixed",toolSystemContent:""},latestUserText:"synthetic user"})),onAgentRunFinished:vi.fn()}));
 vi.mock("../orchestrator/chat-loop",()=>({runChatLoop:()=>{throw Error("LEGACY_CHAT_FORBIDDEN")}}));
 vi.mock("../orchestrator/harness-adapter",()=>({runHarnessWithAdapter:()=>{throw Error("LEGACY_HARNESS_FORBIDDEN")}}));

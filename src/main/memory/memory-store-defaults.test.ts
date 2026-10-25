@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getMemoryLanguage } from "../locale-context";
+import { getMemoryLanguage } from "../startup/locale-context";
 import {
   CURRENT_MEMORY_SCHEMA_VERSION,
   DEFAULT_L1,

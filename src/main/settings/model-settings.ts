@@ -4,13 +4,13 @@ import type { ModelConnectionSnapshot } from "../../shared/model-connection-type
 import type { TestConnectionResult, VendorConfig } from "../orchestrator/vendors/types";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import type { RuntimeProfile } from "../runtime-profile";
+import type { RuntimeProfile } from "../startup/runtime-profile";
 import { DEFAULT_CONTEXT_WINDOW_TOKENS } from "../orchestrator/model-config";
 import { LEGACY_DEFAULT_CONTEXT_WINDOW_TOKENS, parseContextWindowTokens, resolveContextWindowTokens } from "../../shared/context-window";
 import { foldReasoning, normalizeReasoningLevels, normalizeReasoningPreference, type ReasoningLevelsConfig, type ReasoningPreference } from "../../shared/reasoning";
 import type { StickerSize } from "../../shared/sticker-types";
-import { getSettingsPath } from "../settings-store";
-import { logger, LogTag } from "../logger";
+import { getSettingsPath } from "../storage/settings-store";
+import { logger, LogTag } from "../logging/logger";
 import { getCapabilityOrOpenAI } from "../orchestrator/vendors/capabilities";
 import { resolveInputModalities } from "../orchestrator/vendors/multimodal";
 import { normalizeDeclaredInputModalities, type InputModality, type InputModalitySource } from "../../shared/input-modalities";

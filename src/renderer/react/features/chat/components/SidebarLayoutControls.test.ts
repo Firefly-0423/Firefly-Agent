@@ -36,7 +36,10 @@ async function openMenu() {
 const menuTitles = () => Array.from(document.querySelectorAll(".ff-sidebar-menu .ant-dropdown-menu-item, .ff-sidebar-menu .ant-dropdown-menu-submenu-title"), node => node.textContent ?? "");
 const findItem = (text: string) => Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]')).find(node => node.textContent?.includes(text));
 async function clickMenu(text: string) {
-  await vi.waitFor(() => { if (!findItem(text)) throw new Error(`menu item not found: ${text}; have ${menuTitles().join(" | ")}`); });
+  // Arrangement entries live one level down, under "organize sidebar"; open it first when the entry is not on screen.
+  if (!findItem(text) && text !== "sidebar.organizeSidebar" && findItem("sidebar.organizeSidebar")) await clickMenu("sidebar.organizeSidebar");
+  // Submenus open in their own popup; under a loaded full run that can take longer than the default second.
+  await vi.waitFor(() => { if (!findItem(text)) throw new Error(`menu item not found: ${text}; have ${menuTitles().join(" | ")}`); }, { timeout: 3000 });
   await act(async () => findItem(text)!.click());
   await flush();
 }
@@ -78,7 +81,10 @@ it("removes the inline management panel and keeps the heading to one toggle butt
   expect(host.querySelector("form")).toBeNull();
   await openMenu();
   expect(toggle.getAttribute("aria-expanded")).toBe("true");
-  expect(menuTitles().join("|")).toMatch(/sidebar\.groupBy.*sidebar\.sortBy.*sidebar\.show.*sidebar\.newSection.*sidebar\.manageSections.*sidebar\.resetDefaults/);
+  expect(menuTitles().join("|")).toMatch(/sidebar\.organizeSidebar.*sidebar\.sortChats/);
+  await clickMenu("sidebar.organizeSidebar");
+  // The submenu opens in its own popup, so read every menu entry on the page.
+  await vi.waitFor(() => expect(Array.from(document.querySelectorAll('[role="menuitem"]'), node => node.textContent ?? "").join("|")).toMatch(/sidebar\.groupBy.*sidebar\.show.*sidebar\.newSection.*sidebar\.manageSections.*sidebar\.resetDefaults/));
   expect(host.querySelector(".ff-conversation-sidebar__title")?.textContent).toBe("Section title");
 });
 it("opens the groups dialog from the menu, lists the groups in order, and closes it", async () => {
@@ -227,7 +233,7 @@ it("disables reorder, rename and delete controls while a write is pending", asyn
 it("sorts and groups through submenus, patching only what changed", async () => {
   await render();
   await openMenu();
-  await clickMenu("sidebar.sortBy");
+  await clickMenu("sidebar.sortChats");
   await clickMenu("sidebar.manualSort");
   expect(api.mutate).toHaveBeenCalledWith({ expectedRevision: 3, patch: { mode: "work", kind: "set-sort", sortMode: "manual" } });
   vi.mocked(api.mutate).mockClear();
@@ -244,6 +250,8 @@ it("greys out reset while everything is at its default", async () => {
   snapshot.layout.modes.work = { ...snapshot.layout.modes.work, viewMode: "project" };
   await render();
   await openMenu();
+  await clickMenu("sidebar.organizeSidebar");
+  await vi.waitFor(() => expect(findItem("sidebar.resetDefaults")).toBeDefined());
   expect(findItem("sidebar.resetDefaults")!.getAttribute("aria-disabled")).toBe("true");
   expect(findItem("sidebar.viewAll")!.getAttribute("aria-disabled")).toBe("true");
 });
@@ -252,6 +260,8 @@ it("resets a changed view and sort one patch at a time, stopping when one is rej
   vi.mocked(api.mutate).mockResolvedValue({ ok: false, code: "conflict" });
   await render();
   await openMenu();
+  await clickMenu("sidebar.organizeSidebar");
+  await vi.waitFor(() => expect(findItem("sidebar.resetDefaults")).toBeDefined());
   expect(findItem("sidebar.resetDefaults")!.getAttribute("aria-disabled")).not.toBe("true");
   await clickMenu("sidebar.resetDefaults");
   expect(api.mutate).toHaveBeenCalledTimes(1);
@@ -264,9 +274,11 @@ it("leaves out project-only entries in Chat mode", async () => {
   }
   await act(async () => root.render(createElement(ChatHarness)));
   await openMenu();
-  expect(menuTitles().join("|")).not.toContain("sidebar.groupBy");
-  expect(menuTitles().join("|")).not.toContain("sidebar.show");
-  expect(menuTitles().join("|")).toContain("sidebar.sortBy");
+  expect(menuTitles().join("|")).toContain("sidebar.sortChats");
+  await clickMenu("sidebar.organizeSidebar");
+  await vi.waitFor(() => expect(findItem("sidebar.newSection")).toBeDefined());
+  expect(findItem("sidebar.groupBy")).toBeUndefined();
+  expect(findItem("sidebar.show")).toBeUndefined();
 });
 
 it("keeps hidden groups in their slots when the visible groups are reordered", () => {

@@ -2,6 +2,7 @@ import type {} from "../../global";
 import type { SettingsApi } from "../shared/types";
 import { showAlert, showConfirm, showInputModal, showNotice } from "../shared/modal";
 import { parseCommandLine } from "../shared/parse";
+import { remoteServer } from "./remote-server";
 import { subscribeLocaleChanged, t } from "../i18n";
 
 type McpServer = Awaited<ReturnType<NonNullable<SettingsApi["listMcpServers"]>>>[number] & { enabled: boolean };
@@ -172,17 +173,24 @@ export function mountMcpManagement(addButton: HTMLButtonElement | null): { add: 
     if (!begin()) return;
     try {
       if (!window.settings?.addMcpServer) { await failure("add"); return; }
-      const command = await showInputModal({ title: label("add"), message: label("commandPrompt"), placeholder: "node path/to/server.js --flag" });
+      const command = await showInputModal({ title: label("add"), message: label("commandPrompt"), placeholder: "node path/to/server.js  /  https://example.com/mcp" });
       if (!alive() || !command?.trim()) return;
-      const parsed = parseCommandLine(command.trim());
-      if (!parsed.command) { showNotice({ tone: "warning", message: label("invalidCommand") }); return; }
+      // An http(s) address adds a remote server; anything else is a local command.
+      const remote = remoteServer(command);
+      const parsed = remote ? null : parseCommandLine(command.trim());
+      if (!remote && !parsed?.command) { showNotice({ tone: "warning", message: label("invalidCommand") }); return; }
       const nameInput = await showInputModal({ title: label("nameTitle"), message: label("namePrompt"), placeholder: label("namePlaceholder") });
       if (!alive() || nameInput === null) return;
       const name = nameInput.trim() || label("unnamed");
-      const approved = await showConfirm({ tone: "warning", dangerous: true, title: label("runTitle"), message: label("runMessage", { command: command.trim() }), confirmText: label("run"), cancelText: label("cancel") });
+      const approved = await showConfirm(remote
+        ? { tone: "warning", dangerous: true, title: label("connectTitle"), message: label("connectMessage", { url: remote.url }), confirmText: label("connect"), cancelText: label("cancel") }
+        : { tone: "warning", dangerous: true, title: label("runTitle"), message: label("runMessage", { command: command.trim() }), confirmText: label("run"), cancelText: label("cancel") });
       if (!alive() || !approved) return;
       invalidateRead();
-      const result = await window.settings.addMcpServer({ id: `mcp-${crypto.randomUUID()}`, name, transport: "stdio", command: parsed.command, args: parsed.args });
+      const id = `mcp-${crypto.randomUUID()}`;
+      const result = await window.settings.addMcpServer(remote
+        ? { id, name, transport: remote.transport, url: remote.url }
+        : { id, name, transport: "stdio", command: parsed!.command, args: parsed!.args });
       if (!alive()) return;
       await refresh();
       if (!alive()) return;

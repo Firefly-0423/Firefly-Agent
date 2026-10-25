@@ -26,8 +26,8 @@ async function fixture(configs: unknown[] = []) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "firefly-mcp-manager-"));
   roots.push(root);
   fs.mkdirSync(path.join(root, "test"));
-  const { resolveRuntimeProfile } = await import("../runtime-profile");
-  const { initializeStorageContext } = await import("../storage-context");
+  const { resolveRuntimeProfile } = await import("../startup/runtime-profile");
+  const { initializeStorageContext } = await import("../storage/storage-context");
   const storage = initializeStorageContext(resolveRuntimeProfile({
     isPackaged: true,
     env: {},
@@ -88,7 +88,7 @@ describe("persisted configuration", () => {
   it.each([
     ["empty id", [{ id: "", name: "n", transport: "stdio" }]],
     ["empty name", [{ id: "a", name: "", transport: "stdio" }]],
-    ["unknown transport", [{ id: "a", name: "n", transport: "http" }]],
+    ["unknown transport", [{ id: "a", name: "n", transport: "websocket" }]],
     ["duplicate ids", [{ id: "a", name: "n", transport: "stdio" }, { id: "a", name: "m", transport: "stdio" }]],
     ["non-string command", [{ id: "a", name: "n", transport: "stdio", command: 3 }]],
     ["non-string args", [{ id: "a", name: "n", transport: "stdio", args: ["ok", 3] }]],

@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const storage = vi.hoisted(() => ({ file: "" }));
-vi.mock("../storage-context", () => ({ getStorageContext: () => ({ files: { skillDescriptionsZh: storage.file } }) }));
+vi.mock("../storage/storage-context", () => ({ getStorageContext: () => ({ files: { skillDescriptionsZh: storage.file } }) }));
 
 import { cachedZh, cachedZhMap, isChinese, parseTranslation, translateMissing, translationMessages } from "./skill-description-zh";
 

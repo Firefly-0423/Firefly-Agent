@@ -2,7 +2,7 @@ import type { IpcMainInvokeEvent, WebContents } from "electron";
 import { describe, expect, it, vi } from "vitest";
 import { IPC } from "../../shared/ipc-channels";
 import { registerPluginMarketplaceIpc } from "./plugin-marketplace-ipc";
-vi.mock("../env", () => ({ isDev: true }));
+vi.mock("../startup/env", () => ({ isDev: true }));
 vi.mock("electron", () => ({ app: { getAppPath: () => process.cwd() } }));
 
 function fixture() {

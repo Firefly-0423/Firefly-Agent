@@ -6,7 +6,7 @@ import { toResponseInputItems } from "openai/lib/responses/ResponseInputItems";
 import { authHeaderFor } from "./auth";
 import { resolveReasoningCapability } from "../../../shared/reasoning";
 import { applyReasoningPreference } from "./reasoning";
-import { getTimeoutSettings } from "../../timeout-manager";
+import { getTimeoutSettings } from "../../settings/timeout-manager";
 import { resolveAutomaticToolChoicePolicy, resolveToolChoicePolicy } from "./tool-choice-policy";
 import { getVendorRuntimeSettings } from "./runtime-settings";
 import { resolveApiEndpoint } from "../../../shared/api-endpoint";

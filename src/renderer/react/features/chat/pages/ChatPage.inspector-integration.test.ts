@@ -255,6 +255,9 @@ it("keeps the overview cards when a right panel opens and keeps the conversation
   // The 1000px dock cannot hold the 480px dialog + 280px cards and the panel's own 280px, so the conversation keeps all but those.
   expect(size(chat, "width")).toBeGreaterThanOrEqual(1000 - 280 - 12 - 1);
   await click(button("打开会话概览"));
+  // The cards slide out first (inert while they do), then leave the DOM.
+  expect(host.querySelector(".ff-chat-cards.is-leaving")?.hasAttribute("inert")).toBe(true);
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
   expect(host.querySelector(".ff-chat-cards")).toBeNull();
   for (let step = 0; step < 40; step++) await act(async () => separator.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true })));
   expect(size(chat, "width")).toBeGreaterThanOrEqual(479);

@@ -7,7 +7,7 @@ const state = vi.hoisted(() => ({ directory: "", available: true, encrypt: vi.fn
 vi.mock("electron", () => ({ app: { getPath: () => state.directory }, safeStorage: {
   isEncryptionAvailable: () => state.available, encryptString: state.encrypt, decryptString: state.decrypt,
 } }));
-vi.mock("../logger", () => ({ logger: { warn: vi.fn() }, LogTag: { Runtime: "runtime" } }));
+vi.mock("../logging/logger", () => ({ logger: { warn: vi.fn() }, LogTag: { Runtime: "runtime" } }));
 beforeEach(() => {
   vi.resetModules();
   state.directory = fs.mkdtempSync(path.join(os.tmpdir(), "firefly-settings-credentials-"));

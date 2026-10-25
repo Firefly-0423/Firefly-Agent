@@ -8,7 +8,7 @@ import type { ToolContext } from "./registry/tool-context";
 import type { ToolFileChange } from "../../../shared/chat-types";
 import { buildFullFileDiff, buildReplacedDiff, countLines, finalizeFileChanges } from "./registry/tool-evidence";
 import { checkOverwriteDrop, overwriteDropMessage } from "./overwrite-guard";
-import { logger, LogTag } from "../../logger";
+import { logger, LogTag } from "../../logging/logger";
 import { ToolExecutionError } from "./registry/tool-execution-error";
 import { app } from "electron";
 import { reviewTrackerFor } from "../review/review-tracker-access";

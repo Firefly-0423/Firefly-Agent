@@ -1,6 +1,6 @@
 import { app, BrowserWindow, screen } from "electron";
 import * as path from "path";
-import { isDev } from "../env";
+import { isDev } from "../startup/env";
 import { setToastWindow, toastWindow } from "./window-state";
 import { TOAST_WINDOW_WIDTH } from "../toast/types";
 

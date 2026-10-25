@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
 // Real SQLite / filesystem integration cases: the 5 s default is too tight on CI runners, so this file allows 30 s. Other files keep the default.
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
-import { resolveSkillScanSources } from "../external-content-paths";
+import { resolveSkillScanSources } from "../storage/external-content-paths";
 import { synchronizeManagedSkillDirectories } from "./directory-install";
 import { scanSkills } from "./skill-scanner";
 

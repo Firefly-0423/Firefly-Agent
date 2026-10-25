@@ -120,7 +120,6 @@
 }
 .ff-conversation-project span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ff-conversation-project__name { min-width: 0; flex: 1; }
-.ff-conversation-project .ff-conversation-project__count { flex: none; color: var(--ff-text-muted); font: 400 12px/1 var(--rb-font-sans, sans-serif); }
 
 .ff-session-label { display: flex; min-width: 0; align-items: center; gap: 6px; }
 .ff-session-label__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -229,7 +228,7 @@
 
 /* ===== Codex-style tree =====
    Section groups ("置顶", "最近", user sections) get a small muted caption with the chevron right after it;
-   project groups are folder rows whose conversations are indented under a faint guide line. */
+   project groups are folder rows whose conversations are indented beneath the folder name. */
 .ff-conversation-list > li:not(:has(.ff-conversation-project)) > .ant-conversations-group-title {
   justify-content: flex-start;
   gap: 2px;
@@ -243,15 +242,6 @@
 .ff-conversation-list > li:not(:has(.ff-conversation-project)) .ant-conversations-group-collapsible-list .ant-conversations-item { padding-inline-start: 10px; }
 .ff-conversation-list > li:has(.ff-conversation-project) > .ant-conversations-group-title { height: 30px; padding-block: 0; border-radius: 8px; }
 .ff-conversation-list > li:has(.ff-conversation-project) .ant-conversations-group-collapsible-list { position: relative; }
-.ff-conversation-list > li:has(.ff-conversation-project) .ant-conversations-group-collapsible-list::before {
-  content: "";
-  position: absolute;
-  top: 2px;
-  bottom: 2px;
-  left: 17px;
-  width: 1px;
-  background: var(--ff-border);
-}
 .ff-conversation-list > li:has(.ff-conversation-project) .ant-conversations-group-collapsible-list .ant-conversations-item { padding-inline-start: 28px; }
 .ff-conversation-project svg { width: 16px; height: 16px; stroke-width: 1.6; }
 /* ===== Codex sections, refined =====
@@ -298,7 +288,7 @@
 .ff-tier__empty { margin: 2px 12px 6px; color: var(--ff-text-muted); font-size: 12px; line-height: 1.5; }
 @media (prefers-reduced-motion: reduce) { .ff-tier__toggle svg { transition: none; } }
 
-/* A project folder row: the conversation count gives way to "⋯" while the row is hovered or its menu is open. */
+/* A project folder row: "⋯" and "new chat" show while the row is hovered or its menu is open. */
 .ff-conversation-project__actions { display: none; flex: none; align-items: center; gap: 2px; }
 .ff-conversation-project__more {
   display: grid; width: 22px; height: 22px; place-items: center; padding: 0; border: 0; border-radius: 6px; background: transparent;
@@ -308,8 +298,6 @@
 .ff-conversation-project__more svg { width: 14px; height: 14px; }
 .ant-conversations-group-title:is(:hover, :focus-within) .ff-conversation-project__actions,
 .ff-conversation-project__actions:has(.ant-dropdown-open) { display: inline-flex; }
-.ant-conversations-group-title:is(:hover, :focus-within) .ff-conversation-project__count,
-.ff-conversation-project:has(.ant-dropdown-open) .ff-conversation-project__count { display: none; }
 /* The label box shrinks to its text by default; a project row spreads over the row so "⋯" sits at the right edge, and
    its chevron steps aside for it (clicking the row still opens and closes the folder). */
 .ff-conversation-list .ant-conversations-group-label:has(.ff-conversation-project) { flex: 1; min-width: 0; }

@@ -1,7 +1,7 @@
 import path from "node:path";
 import {Worker} from "node:worker_threads";
-import {createStorageContext,type StorageContext} from "../storage-context";
-import {canonicalPath,assertRuntimePathsOwned} from "../runtime-profile";
+import {createStorageContext,type StorageContext} from "../storage/storage-context";
+import {canonicalPath,assertRuntimePathsOwned} from "../startup/runtime-profile";
 import {loadOrCreateMemoryKey} from "./protected-key";
 import {copyMemoryKeyBytes,assertMemoryKeyOpenLease,type KeyProtection,type MemoryKeyHandle,type OpenLease} from "./key-provider";
 import {acquireWriterOwnership} from "./writer-ownership";

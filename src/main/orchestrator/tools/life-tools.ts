@@ -8,8 +8,8 @@ import { buildReplacedDiff, countLines, finalizeFileChanges } from "./registry/t
 import { applyStrReplaceEdits } from "./str-replace-core";
 import { currentUserTimezone } from "./built-in-tools";
 import { resolveTimeoutPolicy } from "../../runtime-policy";
-import { getDateLocale } from "../../locale-context";
-import { logger, LogTag } from "../../logger";
+import { getDateLocale } from "../../startup/locale-context";
+import { logger, LogTag } from "../../logging/logger";
 import { reviewTrackerFor } from "../review/review-tracker-access";
 import { TtlResultCache } from "./builtin-tools/ttl-result-cache";
 import { assertWorkspacePathFallback } from "./workspace-boundary";

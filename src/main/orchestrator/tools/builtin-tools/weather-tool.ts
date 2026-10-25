@@ -1,6 +1,6 @@
 import type { ToolDefinition } from "../registry/tool-registry";
 import type { ToolContext } from "../registry/tool-context";
-import { getDateLocale, getWeatherLanguage } from "../../../locale-context";
+import { getDateLocale, getWeatherLanguage } from "../../../startup/locale-context";
 import { currentUserTimezone } from "./timezone";
 import { TtlResultCache } from "./ttl-result-cache";
 

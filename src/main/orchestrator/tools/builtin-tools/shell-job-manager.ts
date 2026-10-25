@@ -3,7 +3,7 @@ import { spawn, type ChildProcess } from "child_process";
 import { app } from "electron";
 import * as path from "path";
 import * as fs from "fs";
-import { logger, LogTag } from "../../../logger";
+import { logger, LogTag } from "../../../logging/logger";
 import { spawnWindowsShellJob } from "./windows-shell-job";
 
 export const SHELL_JOB_LOG_MAX_BYTES = 64 * 1024 * 1024;

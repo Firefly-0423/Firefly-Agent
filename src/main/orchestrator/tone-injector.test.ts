@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-vi.mock("../external-content-paths", () => ({ findPromptPath: vi.fn() }));
-import { findPromptPath } from "../external-content-paths";
+vi.mock("../storage/external-content-paths", () => ({ findPromptPath: vi.fn() }));
+import { findPromptPath } from "../storage/external-content-paths";
 import { buildToneInjection } from "./tone-injector";
 
 afterEach(() => vi.resetAllMocks());

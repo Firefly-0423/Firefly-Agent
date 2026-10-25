@@ -24,7 +24,7 @@ import { createMainPolicy } from "../memory-policy/main-policy";
 import { createMainRecall } from "../memory-recall/main-recall";
 import { createMainHistory } from "../memory-history/main-history";
 import { createHistoryBudgetStatsRecorder } from "../memory-history/history-budget-stats";
-import { getStorageContext } from "../storage-context";
+import { getStorageContext } from "../storage/storage-context";
 import { createMainUserFactCoordinator } from "../memory-policy/main-user-fact-coordinator";
 import { createMainFactSelector } from "../memory-recall/main-fact-selector";
 import { projectKeyForWorkspaceRoot } from "../memory-policy/project-scope";
@@ -51,7 +51,7 @@ import { createShadowModel, type ShadowModel } from "../memory-shadow/shadow-mod
 import {createNaturalExtractionRunner} from "../memory-policy/natural-extraction-runner";
 import {NATURAL_JOB_LIMITS} from "../memory-policy/natural-automation";
 import type {NaturalModelProfile, MemoryAutomationState} from "../../shared/memory-automation-contracts";
-import { recordRequest, recordUsage } from "../token-usage-store";
+import { recordRequest, recordUsage } from "../storage/token-usage-store";
 import { queryScopedHistory } from "./scoped-history-query";
 import { parseHistoryTimeIntent } from "../memory-history/history-time-intent";
 import { createProductionModelRegistry } from "./production-model-registry";

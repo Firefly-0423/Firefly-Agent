@@ -1,7 +1,7 @@
 import type { ToolSpec, ToolCall } from "../vendors/types";
 import type { ToolObservation, TodoStatus, TodoItem, HarnessEvent, AgentState } from "./types";
 import { tryParseToolCallArgs, invalidToolCallArguments } from "./types";
-import { createAbortError, isAbortError, raceWithSignal } from "../../abort-utils";
+import { createAbortError, isAbortError, raceWithSignal } from "../../utils/abort-utils";
 import { resolveUncertainEffect } from "./uncertain-effect-guard";
 import type { DelegationScope } from "../child-session-types";
 import type { AgentExecuteResult, AgentExecuteRequest } from "../persistent-agent-runtime";

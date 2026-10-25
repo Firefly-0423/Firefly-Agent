@@ -7,10 +7,10 @@ import type { ToolDefinition } from "./registry/tool-registry";
 
 const { registry, live } = vi.hoisted(() => ({
   registry: new Map<string, ToolDefinition>(),
-  live: { level: "full" as import("../../permission-policy").AgentFileAccessLevel },
+  live: { level: "full" as import("../../permission/permission-policy").AgentFileAccessLevel },
 }));
-vi.mock("../../permission", async (importOriginal) => ({
-  ...await importOriginal<typeof import("../../permission")>(),
+vi.mock("../../permission/permission", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../../permission/permission")>(),
   getCurrentLevel: () => live.level,
 }));
 vi.mock("./registry/tool-registry", () => ({

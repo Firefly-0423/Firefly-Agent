@@ -2,12 +2,12 @@ import type { BrowserWindow } from "electron";
 import { IPC } from "../../shared/ipc-channels";
 import type { GeneralSettings } from "../settings/general-settings";
 import { loadModelSettings } from "../settings/model-settings";
-import { loadUserProfile } from "../settings-store";
+import { loadUserProfile } from "../storage/settings-store";
 import { setSearchConfig, setUserTimezoneConfig, setWeatherConfig } from "../orchestrator/tools/built-in-tools";
 import { setEmailConfig } from "../orchestrator/tools/email-tools";
 import { setTravelConfig } from "../orchestrator/tools/travel-tools";
 import { resolveVendorRuntimeSettings, setVendorRuntimeSettingsGetter } from "../orchestrator/vendors/runtime-settings";
-import { setChoiceCardSender, setChoiceDismissSender } from "../user-choice";
+import { setChoiceCardSender, setChoiceDismissSender } from "../chat/user-choice";
 import { setAsrConfig } from "../asr/asr-config";
 import { reactChatWindow } from "../windows/window-state";
 

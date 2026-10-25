@@ -41,7 +41,7 @@ test("text-stats manifest matches the actual host schema and disabled API v1 con
   const validate = new Ajv({ strict: false }).compile(schema);
   assert.equal(validate(manifest), true, JSON.stringify(validate.errors));
   assert.equal(manifest.id, "text-stats");
-  assert.equal(manifest.version, "1.0.0");
+  assert.equal(manifest.version, "1.0.1");
   assert.equal(manifest.apiVersion, 1);
   assert.equal(manifest.defaultEnabled, false);
   assert.equal(manifest.entry, "index.cjs");

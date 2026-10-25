@@ -1,5 +1,5 @@
 import * as fs from "node:fs";
-import { findPromptPath } from "../external-content-paths";
+import { findPromptPath } from "../storage/external-content-paths";
 
 /**
  * 读取 prompts 目录下的 Markdown/文本文件。

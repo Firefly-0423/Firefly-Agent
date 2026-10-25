@@ -5,7 +5,7 @@ vi.mock("../runtime-policy", () => ({ resolveTimeoutPolicy: () => ({ totalMs: 30
         stage: string;
     }) => ({ "memory-judge": 800, "memory-compressor": 500, "memory-reflect": 500, "memory-resolver": 700 }[stage] ?? 500) }));
 vi.mock("./memory-llm-shared", () => ({ loadMemoryModelConfig: () => boundary.config, stripThinkBlocks: (text: string) => text }));
-vi.mock("../token-usage-store", () => ({ recordUsage: vi.fn(), recordRequest: vi.fn() }));
+vi.mock("../storage/token-usage-store", () => ({ recordUsage: vi.fn(), recordRequest: vi.fn() }));
 vi.mock("../orchestrator/vendors", () => ({ getAdapterForConfig: () => ({
         buildRequest: (request: unknown, config: {
             model: string;

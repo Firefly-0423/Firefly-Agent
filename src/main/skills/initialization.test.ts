@@ -13,7 +13,7 @@ const ports = vi.hoisted(() => ({
   warn: vi.fn(),
 }));
 vi.mock("electron", () => ({ app: { getPath: () => ports.root } }));
-vi.mock("../external-content-paths", () => ({
+vi.mock("../storage/external-content-paths", () => ({
   getExternalContentPaths: () => ({ userSkillDirectories: [ports.root] }),
   resolvePackagedSkillDirectory: () => ports.source || null,
   resolveSkillScanSources: () => [{ directory: ports.root, source: "user" }],
@@ -25,8 +25,8 @@ vi.mock("./directory-install", () => ({
 vi.mock("./skill-scanner", async (importOriginal) => ({ ...await importOriginal<typeof import("./skill-scanner")>(), scanSkills: () => [{ id: "public-skill", enabled: true }] }));
 vi.mock("./skill-registry", () => ({ skillRegistry: { register: ports.register, getAll: () => [], setExternalAccessGate: vi.fn(), unregister: vi.fn() } }));
 vi.mock("./skill-tools", () => ({ registerSkillTools: ports.tools }));
-vi.mock("../logger", () => ({ logger: { info: vi.fn(), warn: ports.warn }, LogTag: { Skills: "Skills" } }));
-import { createStorageContext } from "../storage-context";
+vi.mock("../logging/logger", () => ({ logger: { info: vi.fn(), warn: ports.warn }, LogTag: { Skills: "Skills" } }));
+import { createStorageContext } from "../storage/storage-context";
 import { initSkills } from "./index";
 
 function storage() { return createStorageContext({ kind: "test", applicationName: "Firefly-test", appData: ports.root, userData: ports.root, sessionData: path.join(ports.root, "session"), logs: path.join(ports.root, "logs"), isolationRoot: ports.root }); }

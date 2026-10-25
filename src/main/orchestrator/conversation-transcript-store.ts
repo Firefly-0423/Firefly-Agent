@@ -15,7 +15,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 import fs from "node:fs";
 import path from "node:path";
-import { ephemeralConversations } from "../ephemeral-conversations";
+import { ephemeralConversations } from "../chats/ephemeral-conversations";
 import { assertValidTranscriptDraft, userRevisionKey, type TranscriptAppendInput, type TranscriptEntry, type TranscriptSnapshot } from "./conversation-transcript-types";
 
 import { assertSAssistantAppend, assertSAssistantSettlement, classifySAssistantSettlement } from "./conversation-transcript-settlement";

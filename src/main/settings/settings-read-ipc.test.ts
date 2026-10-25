@@ -6,7 +6,7 @@ import { IPC } from "../../shared/ipc-channels";
 
 const state = vi.hoisted(() => ({ directory: "" }));
 vi.mock("electron", () => ({ app: { getPath: () => state.directory, getAppPath: () => process.cwd() }, BrowserWindow: {}, dialog: {}, shell: {} }));
-vi.mock("../env", () => ({ isDev: true }));
+vi.mock("../startup/env", () => ({ isDev: true }));
 beforeEach(() => {
   vi.resetModules();
   state.directory = fs.mkdtempSync(path.join(os.tmpdir(), "firefly-settings-ipc-"));

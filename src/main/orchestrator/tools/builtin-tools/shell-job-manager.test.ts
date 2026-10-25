@@ -8,7 +8,7 @@ import * as path from "path";
 const mocks = vi.hoisted(() => ({ spawn: vi.fn(), getPath: vi.fn(), on: vi.fn() }));
 vi.mock("child_process", () => ({ spawn: mocks.spawn }));
 vi.mock("electron", () => ({ app: { getPath: mocks.getPath, on: mocks.on } }));
-vi.mock("../../../logger", () => ({ logger: { info: vi.fn(), warn: vi.fn() }, LogTag: { BuiltinTools: "tools" } }));
+vi.mock("../../../logging/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn() }, LogTag: { BuiltinTools: "tools" } }));
 
 type Manager = typeof import("./shell-job-manager");
 class Child extends EventEmitter {

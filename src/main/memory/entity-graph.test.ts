@@ -15,7 +15,7 @@ vi.mock("../rag/retriever", () => ({
   registerJiebaCustomWord: (word: string) => { state.words.push(word); },
   registerJiebaCustomWords: (words: string[]) => { state.batches.push([...words]); },
 }));
-vi.mock("../logger", () => ({
+vi.mock("../logging/logger", () => ({
   logger: { info: state.info, warn: vi.fn(), error: vi.fn() },
   LogTag: { EntityGraph: "EntityGraph" },
 }));

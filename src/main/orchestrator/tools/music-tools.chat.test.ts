@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { QqMusicService } from "../../music/qqmusic-service";
-import { policyFor } from "../../permission-policy";
+import { policyFor } from "../../permission/permission-policy";
 import { resolveRunCapabilities } from "../run-capabilities";
 import { buildMusicTools } from "./music-tools";
 import { ToolRegistry, type ToolModeOverrides } from "./registry/tool-registry";

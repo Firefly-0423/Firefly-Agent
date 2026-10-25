@@ -9,7 +9,7 @@ let root: string;
 const registry = new Map<string, any>();
 vi.mock("electron", () => ({ app: { getPath: () => root } }));
 vi.mock("./registry/tool-registry", () => ({ toolRegistry: { register: (tool: any) => registry.set(tool.id, tool) } }));
-vi.mock("../../external-content-paths", () => ({ findSkillPath: () => null }));
+vi.mock("../../storage/external-content-paths", () => ({ findSkillPath: () => null }));
 vi.mock("fs", async (importOriginal) => {
   const actual = await importOriginal<typeof import("fs")>();
   return { ...actual, createWriteStream: (...args: any[]) => (actual.default.createWriteStream as any)(...args) };

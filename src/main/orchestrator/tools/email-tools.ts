@@ -3,11 +3,11 @@ import * as path from "path";
 import nodemailer from "nodemailer";
 import { toolRegistry } from "./registry/tool-registry";
 import type { ToolContext } from "./registry/tool-context";
-import { createAbortError } from "../../abort-utils";
-import { requestUserChoice, type ChoiceOption } from "../../user-choice";
+import { createAbortError } from "../../utils/abort-utils";
+import { requestUserChoice, type ChoiceOption } from "../../chat/user-choice";
 import { assertWorkspacePathFallback } from "./workspace-boundary";
 import { readWorkspaceFile } from "./workspace-handle";
-import { logger, LogTag } from "../../logger";
+import { logger, LogTag } from "../../logging/logger";
 
 type EmailConfiguration = {
   enabled: (() => boolean) | null; host: (() => string) | null; port: (() => number) | null;

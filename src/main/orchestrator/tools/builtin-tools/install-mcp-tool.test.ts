@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../mcp-manager", () => ({ addMcpServer: mocks.addMcpServer }));
-vi.mock("../../../user-choice", () => ({ requestUserChoice: mocks.requestUserChoice }));
+vi.mock("../../../chat/user-choice", () => ({ requestUserChoice: mocks.requestUserChoice }));
 
 import { installMcpServerTool } from "./install-mcp-tool";
 

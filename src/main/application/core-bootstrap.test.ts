@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 const profile = vi.hoisted(() => ({ kind: "production" }));
-vi.mock("../storage-context", () => ({ getStorageContext: () => ({ profile }) }));
+vi.mock("../storage/storage-context", () => ({ getStorageContext: () => ({ profile }) }));
 import { syncLaunchAtLogin } from "../settings/launch-at-login";
 import { startCore, type CoreDependencies, type CoreServices } from "./core-bootstrap";
 import { createStartupReadiness } from "./readiness";

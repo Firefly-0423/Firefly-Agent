@@ -1,7 +1,7 @@
 import path from "node:path";
 import {createServer} from "node:net";
 import {createHash} from "node:crypto";
-import {canonicalPath} from "../runtime-profile";
+import {canonicalPath} from "../startup/runtime-profile";
 import type {OpenLease} from "./key-provider";
 /**
  * Main directly owns this kernel resource for the entire worker lifetime.

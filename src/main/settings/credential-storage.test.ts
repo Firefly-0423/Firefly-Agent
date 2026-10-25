@@ -9,7 +9,7 @@ vi.mock("electron", () => ({ safeStorage: {
   encryptString: state.encrypt,
   decryptString: state.decrypt,
 } }));
-vi.mock("../logger", () => ({ logger: { warn: state.warn }, LogTag: { Runtime: "runtime" } }));
+vi.mock("../logging/logger", () => ({ logger: { warn: state.warn }, LogTag: { Runtime: "runtime" } }));
 import { decodeCredentials, migrateCredentials, writeCredentials } from "./credential-storage";
 
 let directory: string;

@@ -31,14 +31,14 @@ import { FileToolOutputStore } from "../orchestrator/harness/tool-output/file-to
 import { getHarnessRunStore } from "../orchestrator/harness/run-store";
 import { getConversationTranscriptStore } from "../orchestrator/conversation-transcript-store";
 import { projectSSettlementMessages } from "../orchestrator/conversation-transcript-context";
-import { getStorageContext } from "../storage-context";
+import { getStorageContext } from "../storage/storage-context";
 import { getRunReviewTracker } from "../orchestrator/review/run-review-tracker";
 import { getAdapterForConfig } from "../orchestrator/vendors";
 import { activeChatTargetRegistry } from "../plugin-host/active-chat-target";
 import { callSummarizeModel } from "../orchestrator/context-manager";
 import { buildContextUsageSnapshot } from "../orchestrator/context-usage";
 import type { LlmClient } from "../services/llm/llm-client";
-import { enqueueLLMTask } from "../llm-queue";
+import { enqueueLLMTask } from "../services/llm/llm-queue";
 import { createConversationTitleService, type ConversationTitleService } from "./conversation-title-service";
 
 function broadcastChanged(skip?: WebContents | null): void {

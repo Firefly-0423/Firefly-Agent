@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { safeStorage } from "electron";
-import { logger, LogTag } from "../logger";
+import { logger, LogTag } from "../logging/logger";
 
 export const MODEL_CREDENTIAL_FIELDS = new Set(["apiKey"]);
 export const GENERAL_CREDENTIAL_FIELDS = new Set([

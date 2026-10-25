@@ -5,7 +5,7 @@ import { resolveContainedPath } from "./path-containment";
 import { app } from "electron";
 import { toolRegistry } from "./registry/tool-registry";
 import type { ToolContext } from "./registry/tool-context";
-import { findSkillPath } from "../../external-content-paths";
+import { findSkillPath } from "../../storage/external-content-paths";
 import { reviewTrackerFor } from "../review/review-tracker-access";
 import { randomUUID } from "node:crypto";
 import { finished, pipeline } from "node:stream/promises";

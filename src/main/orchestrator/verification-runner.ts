@@ -1,7 +1,7 @@
 import spawn from "cross-spawn";
 import * as path from "path";
 import * as fs from "fs";
-import { policyFor, type AgentFileAccessLevel } from "../permission-policy";
+import { policyFor, type AgentFileAccessLevel } from "../permission/permission-policy";
 
 export type VerificationType = "typecheck" | "test" | "lint" | "build";
 export type VerificationCommandTrust = "builtin" | "workspace_script" | "custom";

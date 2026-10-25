@@ -2,8 +2,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { createStorageContext } from "../storage-context";
-import { resolveRuntimeProfile, within } from "../runtime-profile";
+import { createStorageContext } from "../storage/storage-context";
+import { resolveRuntimeProfile, within } from "../startup/runtime-profile";
 import { SimulationJournal } from "./journal";
 import { createFixtures, type JournalState } from "./contracts";
 

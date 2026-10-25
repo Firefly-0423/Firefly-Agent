@@ -11,8 +11,8 @@ const config = { id: "stored", name: "Stored server", transport: "stdio", comman
 async function fixture(configs: unknown[] = [config]) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "firefly-mcp-list-")); roots.push(root);
   fs.mkdirSync(path.join(root, "test"));
-  const { resolveRuntimeProfile } = await import("../runtime-profile");
-  const { initializeStorageContext } = await import("../storage-context");
+  const { resolveRuntimeProfile } = await import("../startup/runtime-profile");
+  const { initializeStorageContext } = await import("../storage/storage-context");
   const storage = initializeStorageContext(resolveRuntimeProfile({ isPackaged: true, env: {}, productionAppData: path.join(root, "unused"), argv: ["--firefly-profile=test", `--firefly-isolation-root=${path.join(root, "test")}`] }));
   fs.mkdirSync(storage.configRoot, { recursive: true });
   fs.writeFileSync(storage.files.mcp, JSON.stringify(configs));

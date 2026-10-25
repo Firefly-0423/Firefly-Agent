@@ -1,7 +1,7 @@
 import { BROWSER_PUBLIC_SCOPE } from "../../shared/manual-browser";
 import { parseLocalAuthority } from "../../shared/local-network-target";
 import { session, dialog, type BrowserWindow, type Session } from "electron";
-import type { RuntimeProfile } from "../runtime-profile";
+import type { RuntimeProfile } from "../startup/runtime-profile";
 import { createElectronBrowserSessionPort } from "./browser-network-binding";
 import { createElectronBrowserGuest } from "./electron-browser-guest";
 import { createBrowserService, type BrowserServiceOptions } from "./browser-service";

@@ -13,8 +13,8 @@ vi.mock("fs", async (importOriginal) => {
 });
 
 // 实时全局档位固定为 full：这里只验证快照档位本身的规范路径判断。
-vi.mock("../../permission", async (importOriginal) => ({
-  ...await importOriginal<typeof import("../../permission")>(),
+vi.mock("../../permission/permission", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../../permission/permission")>(),
   getCurrentLevel: () => "full",
 }));
 

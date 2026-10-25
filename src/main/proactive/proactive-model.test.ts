@@ -3,7 +3,7 @@ import type { ChatMessage } from "../orchestrator/vendors";
 import type { RunProactiveModelInput } from "./proactive-model";
 
 const provider = vi.hoisted(() => ({ encode: vi.fn(), decode: vi.fn(), usage: vi.fn(), request: vi.fn() }));
-vi.mock("../token-usage-store", () => ({ recordRequest: provider.request, recordUsage: provider.usage }));
+vi.mock("../storage/token-usage-store", () => ({ recordRequest: provider.request, recordUsage: provider.usage }));
 vi.mock("../orchestrator/vendors", () => ({
   getAdapterForConfig: () => ({ parseResponse: provider.decode, buildRequest: provider.encode }),
 }));

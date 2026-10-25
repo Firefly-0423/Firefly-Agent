@@ -1,6 +1,6 @@
 # 插件在线目录的发布方式
 
-插件市场是独立仓库 [Firefly-0423/firefly-plugins](https://github.com/Firefly-0423/firefly-plugins)：插件源码、目录文件和发布流程都在那里。应用只认下面两个地址，写在 `src/main/plugin-marketplace.ts`，改动它们属于安全边界变更，需要同时更新 `src/main/skills/external-boundary.test.ts` 里的固定哈希。
+插件市场是独立仓库 [Firefly-0423/firefly-plugins](https://github.com/Firefly-0423/firefly-plugins)：插件源码、目录文件和发布流程都在那里。应用只认下面两个地址，写在 `src/main/plugin-host/plugin-marketplace.ts`，改动它们属于安全边界变更，需要同时更新 `src/main/skills/external-boundary.test.ts` 里的固定哈希。
 
 | 内容 | 位置 |
 |---|---|
@@ -15,11 +15,11 @@
 
 | 插件 | 版本 | Release tag | ZIP SHA-256 |
 |---|---|---|---|
-| `text-stats` | 1.0.0 | `text-stats-1.0.0` | `b0294a0535b0cd34ff4ba28735fdb0e762805ecdece23639133eec7a111eb84b` |
-| `json-tools` | 1.0.0 | `json-tools-1.0.0` | `45f7dd63faae3d468430ca50171a5fa1c78abba54de8fc4fb573f6feb184851a` |
-| `timezone-tools` | 1.0.0 | `timezone-tools-1.0.0` | `6168c3ebe063a3e931cc87262df0c12838ad2309c586d058a0517facf4f51149` |
-| `code-language` | 1.0.0 | `code-language-1.0.0` | `5b41a4999ebfb6e123171a2bd16029c382e62b1c7188337d9b3309a2c10f0539` |
-| `text-trim` | 1.0.0 | `text-trim-1.0.0` | `ee946231547c6da68329554da9346dde6caa25ddc096933220978378957a1608` |
+| `text-stats` | 1.0.1 | `text-stats-1.0.1` | `7ecf64d2f6f2437c9bbac8ec69faf5b1f9ed7829360f25c38f1c6d851f0ceeab` |
+| `json-tools` | 1.0.1 | `json-tools-1.0.1` | `2518b63cbc3bdbb3fcb9206a42a6f036af989f0925871c6c92514b7ba1940668` |
+| `timezone-tools` | 1.0.1 | `timezone-tools-1.0.1` | `5438ba4a88cda3747b3db159813f582038e042ad6150f5fbd507545f8b3e4ae5` |
+| `code-language` | 1.0.1 | `code-language-1.0.1` | `e89243dedc4b3803162c10b80688c9e49f91165bb56f4a93208b6343783e8e53` |
+| `text-trim` | 1.0.1 | `text-trim-1.0.1` | `a9e3175425a5f0f753808cb6961b70d1413d8e4e84a2edfa95294c23ee1c9a20` |
 
 ## 发布新插件或新版本
 

@@ -3,7 +3,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { loadChannelsSettings, saveChannelsSettings } from "./settings-store";
 import { channelManager } from "./manager";
 import type { ChannelId, IncomingMessage } from "./types";
-import { logger, LogTag } from "../logger";
+import { logger, LogTag } from "../logging/logger";
 
 export type NormalizeFn = (channel: ChannelId, raw: unknown) => IncomingMessage | null;
 export interface InboundServerHandle { close(): Promise<void>; port: number; }

@@ -86,18 +86,18 @@ vi.mock("node:fs", () => ({
   },
 }));
 
-vi.mock("../runtime-profile", () => ({
+vi.mock("../startup/runtime-profile", () => ({
   applyElectronPaths: h.applyElectronPaths,
   canonicalPath: (value: string) => value,
   resolveRuntimeProfile: h.resolveRuntimeProfile,
   within: () => h.withinResult,
 }));
 
-vi.mock("../app-identity", () => ({
+vi.mock("../startup/app-identity", () => ({
   getFireflyApplicationDataPath: h.getFireflyApplicationDataPath,
 }));
 
-vi.mock("../storage-context", () => ({
+vi.mock("../storage/storage-context", () => ({
   initializeStorageContext: h.initializeStorageContext,
 }));
 

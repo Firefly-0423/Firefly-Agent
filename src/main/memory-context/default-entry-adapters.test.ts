@@ -12,8 +12,8 @@ import { requireBackgroundMemoryIngress, type BackgroundMemoryHost } from "./bac
 import type { MainMemoryRun } from "./main-memory-runtime";
 
 vi.mock("electron", () => ({ app: { getPath: () => "/tmp" } }));
-vi.mock("../token-usage-store", () => ({ recordModelCall: () => undefined, recordToolCall: () => undefined, recordRequest: vi.fn(), recordUsage: vi.fn() }));
-vi.mock("../timeout-manager", () => ({ getTimeoutSettings: () => ({ chatRequestTimeout: 60000 }) }));
+vi.mock("../storage/token-usage-store", () => ({ recordModelCall: () => undefined, recordToolCall: () => undefined, recordRequest: vi.fn(), recordUsage: vi.fn() }));
+vi.mock("../settings/timeout-manager", () => ({ getTimeoutSettings: () => ({ chatRequestTimeout: 60000 }) }));
 const roots: string[] = [];
 afterEach(() => { vi.unstubAllGlobals(); for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
 async function fixture() {

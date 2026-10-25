@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import type { AgentFileAccessLevel } from "../../../permission-policy";
+import type { AgentFileAccessLevel } from "../../../permission/permission-policy";
 import {
   approvePlan, enterPlanDiscussing, markPlanWritten, moveToReview, resetPlanSessionsForTest,
 } from "../../plan-mode";
@@ -19,7 +19,7 @@ vi.mock("fs", async (original) => {
     return actual.realpathSync(...args);
   } };
 });
-vi.mock("../../../permission", () => ({ getCurrentLevel: () => mocks.level }));
+vi.mock("../../../permission/permission", () => ({ getCurrentLevel: () => mocks.level }));
 vi.mock("child_process", async (original) => {
   const actual = await original<typeof import("child_process")>();
   return { ...actual, spawn: (...args: Parameters<typeof actual.spawn>) => {
@@ -33,7 +33,7 @@ vi.mock("../../shell-runtime", async (original) => {
   return { ...actual, resolveShellExecutable: (...args: unknown[]) => mocks.resolve(...args) };
 });
 vi.mock("./shell-job-manager", () => ({ killTree: vi.fn(), startShellJob: (...args: unknown[]) => mocks.background(...args) }));
-vi.mock("../../../logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() }, LogTag: { BuiltinTools: "test" } }));
+vi.mock("../../../logging/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() }, LogTag: { BuiltinTools: "test" } }));
 import { runShellTool } from "./run-shell-tool";
 import { dispatchToolCall } from "../../harness/tool-dispatcher";
 

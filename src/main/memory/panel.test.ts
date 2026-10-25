@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const deps = vi.hoisted(() => ({ existsSync: vi.fn(), readFileSync: vi.fn(), getL0: vi.fn(), getL1: vi.fn(), getAllL2: vi.fn(), getReflectionLogs: vi.fn() }));
 vi.mock("fs", () => ({ existsSync: deps.existsSync, readFileSync: deps.readFileSync }));
-vi.mock("../settings-store", () => ({ getRagStorePath: () => "rag.json" }));
+vi.mock("../storage/settings-store", () => ({ getRagStorePath: () => "rag.json" }));
 vi.mock("./memory-store", () => ({ memoryStore: deps }));
 import { loadMemoryPanelData, loadImportedDocumentPanelData } from "./panel";
 beforeEach(() => { vi.resetAllMocks(); vi.spyOn(console, "warn").mockImplementation(() => {}); });

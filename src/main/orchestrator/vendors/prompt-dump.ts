@@ -2,7 +2,7 @@ import * as path from "path";
 import * as os from "os";
 import * as fs from "fs";
 import { fireflyEnvironment } from "../../../shared/firefly-environment";
-import { ephemeralConversations } from "../../ephemeral-conversations";
+import { ephemeralConversations } from "../../chats/ephemeral-conversations";
 
 const traceRoot = path.join(os.homedir(), ".firefly", "prompt-dumps");
 let flag: boolean | null = null;

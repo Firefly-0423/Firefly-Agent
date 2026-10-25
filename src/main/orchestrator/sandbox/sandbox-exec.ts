@@ -1,8 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
-import { logger, LogTag } from "../../logger";
-import { getCurrentLevel } from "../../permission";
-import type { AgentFileAccessLevel } from "../../permission-policy";
+import { logger, LogTag } from "../../logging/logger";
+import { getCurrentLevel } from "../../permission/permission";
+import type { AgentFileAccessLevel } from "../../permission/permission-policy";
 import { fireflyEnvironment } from "../../../shared/firefly-environment";
 
 type SrtModule = any;

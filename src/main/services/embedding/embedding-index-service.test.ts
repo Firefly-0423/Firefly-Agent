@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const deps = vi.hoisted(() => ({ provider: vi.fn(), build: vi.fn(), manifest: vi.fn() }));
-vi.mock("../../logger", () => ({ logger: { info: vi.fn() }, LogTag: { StickerEmbed: "sticker" } }));
+vi.mock("../../logging/logger", () => ({ logger: { info: vi.fn() }, LogTag: { StickerEmbed: "sticker" } }));
 vi.mock("../../rag/embedding", () => ({ getEmbeddingProvider: deps.provider }));
 vi.mock("../../stickers/sticker-embedding-cache", () => ({ buildCachedStickerEmbeddingIndex: deps.build }));
 vi.mock("../../stickers/sticker-storage", () => ({ loadUserStickerManifest: deps.manifest }));

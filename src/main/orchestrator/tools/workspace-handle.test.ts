@@ -5,7 +5,7 @@ import type { ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ToolContext } from "./registry/tool-context";
 const { live, guard } = vi.hoisted(() => ({ live: { level: "full" }, guard: vi.fn() }));
-vi.mock("../../permission", () => ({ getCurrentLevel: () => live.level }));
+vi.mock("../../permission/permission", () => ({ getCurrentLevel: () => live.level }));
 vi.mock("electron", () => ({ app: { isPackaged: false, getAppPath: () => "C:\\app" } }));
 vi.mock("./workspace-boundary", async original => ({ ...await original<typeof import("./workspace-boundary")>(), assertWorkspaceBoundary: guard }));
 import { createWorkspaceHandleBridge, workspaceHelperPath } from "./workspace-handle";

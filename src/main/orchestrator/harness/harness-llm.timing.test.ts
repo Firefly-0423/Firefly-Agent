@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const store = vi.hoisted(() => ({ recordUsage: vi.fn(), recordRequest: vi.fn(), recordModelCall: vi.fn() }));
-vi.mock("../../token-usage-store", () => store);
+vi.mock("../../storage/token-usage-store", () => store);
 vi.mock("../vendors", () => ({
   getAdapterForConfig: () => ({}),
   streamChatWithSdk: vi.fn(),

@@ -8,7 +8,7 @@ vi.mock("../../settings-store", async (importOriginal) => ({
   loadChannelsSettings: () => ({ wechat: { enabled: true, allowAnyPrivate: true, allowedSenderIds: [] } }),
 }));
 vi.mock("electron", () => ({ app: { getPath: () => "/synthetic/wechat-memory" } }));
-vi.mock("../../../logger", () => ({ logger: { info() {}, warn() {}, error() {} }, LogTag: {} }));
+vi.mock("../../../logging/logger", () => ({ logger: { info() {}, warn() {}, error() {} }, LogTag: {} }));
 const credentials = { botToken: "synthetic", ilinkBotId: "bot-a", baseUrl: "https://synthetic.invalid", ilinkUserId: "user-a" };
 const polls: Array<{ resolve: (response: Response) => void; reject: (error: Error) => void }> = [];
 const adapters: ILinkBotAdapter[] = [];

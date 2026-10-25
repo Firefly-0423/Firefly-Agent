@@ -1,4 +1,4 @@
-import { getStorageContext } from "../storage-context";
+import { getStorageContext } from "../storage/storage-context";
 
 export interface LoginItemSettingsApp { setLoginItemSettings(settings: { openAtLogin: boolean }): void; }
 

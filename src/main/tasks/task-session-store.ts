@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import type { TaskWriteEvidence, ModelExecutionEvent } from "../../shared/agent-execution-evidence";
-import { fireflyDataDirectory } from "../firefly-data-paths";
+import { fireflyDataDirectory } from "../storage/firefly-data-paths";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { TaskSession, TaskSessionStatus, TodoItem, TodoStatus, TaskTraceRecord, TaskTranscriptMessage, TaskUncertainEffect, AgentSessionIdentity } from "../../shared/task-session";

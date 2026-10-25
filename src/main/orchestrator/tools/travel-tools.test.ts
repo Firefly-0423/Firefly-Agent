@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const registry = vi.hoisted(() => ({ register: vi.fn() }));
 const logger = vi.hoisted(() => ({ info: vi.fn() }));
 vi.mock("./registry/tool-registry", () => ({ toolRegistry: registry }));
-vi.mock("../../logger", () => ({ logger, LogTag: { TravelTools: "travel-tools" } }));
+vi.mock("../../logging/logger", () => ({ logger, LogTag: { TravelTools: "travel-tools" } }));
 
 import { registerTravelTools, setTravelConfig } from "./travel-tools";
 

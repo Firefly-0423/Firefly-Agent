@@ -17,7 +17,7 @@ import { isTrustedExternalMainFrame } from "../skills/external-ipc";
 import { isExternalSkillId } from "../skills/skill-scanner";
 import { setSkillEnabled, skillRegistry, rescanSkills } from "../skills";
 import type { SkillMode } from "../skills/types";
-import { loadUserProfile, saveUserProfile, getAvatarPath } from "../settings-store";
+import { loadUserProfile, saveUserProfile, getAvatarPath } from "../storage/settings-store";
 import { deleteImportedDoc } from "../rag";
 import { loadImportedDocumentPanelData, loadMemoryPanelData } from "./panel";
 import type { WindowManager } from "../windows/window-manager";

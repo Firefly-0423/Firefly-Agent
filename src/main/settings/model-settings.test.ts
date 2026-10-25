@@ -5,8 +5,8 @@ const io = vi.hoisted(() => ({ stat: vi.fn(), read: vi.fn(), write: vi.fn(), mkd
 vi.mock("node:fs", () => ({ default: { statSync: io.stat, readFileSync: io.read, writeFileSync: io.write, mkdirSync: io.mkdir, renameSync: io.rename, unlinkSync: io.unlink } }));
 // 凭据存储在写盘前会询问系统加密是否可用；这里固定为不可用，走明文回退路径。
 vi.mock("electron", () => ({ safeStorage: { isEncryptionAvailable: () => false } }));
-vi.mock("../settings-store", () => ({ getSettingsPath: () => "E:/synthetic/model-settings.json" }));
-vi.mock("../logger", () => ({ logger: { warn: vi.fn(), info: vi.fn() }, LogTag: { Runtime: "runtime" } }));
+vi.mock("../storage/settings-store", () => ({ getSettingsPath: () => "E:/synthetic/model-settings.json" }));
+vi.mock("../logging/logger", () => ({ logger: { warn: vi.fn(), info: vi.fn() }, LogTag: { Runtime: "runtime" } }));
 
 let m: typeof import("./model-settings");
 const profile = { id: "p1", provider: "Custom", baseUrl: "https://model.example/v1", model: "fixture", apiKey: "fake-key", explicitTransport: "openai" as const };

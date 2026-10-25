@@ -9,9 +9,9 @@ const mocks = vi.hoisted(() => ({
   appPath: "", window: null as unknown, confirm: vi.fn(), add: vi.fn(), remove: vi.fn(), list: vi.fn(), setEnabled: vi.fn(), configs: vi.fn(),
 }));
 vi.mock("electron", () => ({ app: { getAppPath: () => mocks.appPath }, dialog: { showMessageBox: mocks.confirm } }));
-vi.mock("../env", () => ({ isDev: false }));
+vi.mock("../startup/env", () => ({ isDev: false }));
 vi.mock("./memory-store", () => ({ memoryStore: {} }));
-vi.mock("../settings-store", () => ({ loadUserProfile: vi.fn(), saveUserProfile: vi.fn(), getAvatarPath: vi.fn() }));
+vi.mock("../storage/settings-store", () => ({ loadUserProfile: vi.fn(), saveUserProfile: vi.fn(), getAvatarPath: vi.fn() }));
 vi.mock("../orchestrator/sticker-settings", () => ({ getStickerManagerConfig: vi.fn(), setStickerEnabled: vi.fn() }));
 vi.mock("../stickers/sticker-storage", () => ({ addUserSticker: vi.fn(), deleteUserSticker: vi.fn() }));
 vi.mock("./panel", () => ({ loadImportedDocumentPanelData: vi.fn(), loadMemoryPanelData: vi.fn() }));

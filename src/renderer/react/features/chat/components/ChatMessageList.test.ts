@@ -72,7 +72,9 @@ test("uses transient display text without modifying persisted content", () => {
 
 test.each([true, false])("renders Markdown for streaming=%s without live-tail decorations", (streaming) => {
   const html = renderToStaticMarkup(React.createElement(MarkdownContent, { content: "Visible response", streaming }));
-  expect(html).toContain("Visible response");
+  // While streaming, each character is wrapped for its fade-in, so compare the visible text.
+  expect(html.replace(/<[^>]+>/g, "")).toContain("Visible response");
+  expect(html.includes("data-sd-animate")).toBe(streaming);
   expect(html).toContain("ff-streamdown-message");
   for (const forbidden of ["ff-live-answer", "流萤正在生成…"]) expect(html).not.toContain(forbidden);
 });
@@ -170,7 +172,7 @@ test("settled round groups retain narration, live reasoning and truthful titles"
   expect(html.match(/class="ff-agent-round(?: is-(?:running|complete))?"/g)).toHaveLength(2);
   for (const oldArt of ["ff-agent-round__art-image", "ff-agent-round__status", "status-moods"]) expect(html).not.toContain(oldArt);
   for (const visible of ["ff-reasoning-status-art is-thinking", "流萤已完成 · 浏览 1 个目录", "流萤正在读取文件",
-    "Inspecting directories", "Verifying cancellation", "Checking the result"]) expect(html).toContain(visible);
+    "Inspecting directories", "Verifying cancellation", "Checking the result"]) expect(html.includes(visible) || html.replace(/<[^>]+>/g, "").includes(visible)).toBe(true);
 });
 
 test("labels interrupted generated text, shows changed-file counts and omits empty rounds", () => {

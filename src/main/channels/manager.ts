@@ -1,7 +1,7 @@
 import type { ChannelAdapter } from "./adapters/base";
 import type { ChannelId, ChannelStatus, IncomingMessage, OutgoingMessage } from "./types";
 import { setAdapterHandler } from "./adapters/base";
-import { logger, LogTag } from "../logger";
+import { logger, LogTag } from "../logging/logger";
 import { createChannelMemoryIngressIssuer, type ChannelMemoryIngress } from "../memory-context/channel-memory-ingress";
 
 export type DispatchFn = (msg: IncomingMessage, ingress?: ChannelMemoryIngress) => Promise<OutgoingMessage | null>;

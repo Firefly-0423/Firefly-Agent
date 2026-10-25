@@ -2,7 +2,7 @@ import type { ModelSettings } from "../../settings/model-settings";
 import { getAdapterForConfig, createSseReader } from "../../orchestrator/vendors";
 import type { StructuredOutputRequest, VendorConfig } from "../../orchestrator/vendors";
 import { createVisibleStreamFilter, stripThinkBlocks } from "../../chat/chat-stream-utils";
-import { recordUsage, recordRequest } from "../../token-usage-store";
+import { recordUsage, recordRequest } from "../../storage/token-usage-store";
 import { appendApiLog } from "../../chat/chat-api-utils";
 type ChatMessage = {
     role: "system" | "user" | "assistant";

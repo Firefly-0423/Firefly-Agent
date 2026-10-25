@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { randomUUID, createHash } from "node:crypto";
 import { afterEach, expect, it, vi } from "vitest";
-import { createStorageContext } from "../storage-context";
+import { createStorageContext } from "../storage/storage-context";
 import { externalSkillId } from "./external-policy";
 import { digestExternalFiles } from "./external-review";
 import type { ExternalHostSession, ExternalSkillRecord } from "./external-types";

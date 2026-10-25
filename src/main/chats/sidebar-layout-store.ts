@@ -3,8 +3,8 @@ import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import type { ChatSessionMeta, ConversationMode } from "../../shared/chat-types";
 import { SIDEBAR_MODES, compareSidebarCreation, orderSidebarSessions, sidebarGroupId, sidebarSessionGroup, type ModeSidebarLayout, type SidebarLayout, type SidebarMutation, type SidebarMutationResult, type SidebarPatch, type SidebarSnapshot } from "../../shared/sidebar-layout";
-import { assertRuntimePathsOwned, canonicalPath, within } from "../runtime-profile";
-import type { StorageContext } from "../storage-context";
+import { assertRuntimePathsOwned, canonicalPath, within } from "../startup/runtime-profile";
+import type { StorageContext } from "../storage/storage-context";
 
 export interface SidebarLayoutStore {
   getSnapshot(): SidebarSnapshot;

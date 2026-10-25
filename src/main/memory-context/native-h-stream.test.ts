@@ -6,7 +6,7 @@ import {contextFixture} from '../../../scripts/verify/memory-context/context-fix
 import {ConversationTranscriptStore} from '../orchestrator/conversation-transcript-store';import {createTranscriptSink} from '../orchestrator/transcript-sink';
 import {createMainHistory,readHistoryEvidence,claimHistoryResponseEvidence} from '../memory-history/main-history';import {createNativeHistoryProvider} from '../memory-sources/native-history-provider';
 import {createMainSourceProvider} from '../memory-sources/main-source-provider';
-import {initializeStorageContext} from '../storage-context';import {resolveRuntimeProfile} from '../runtime-profile';
+import {initializeStorageContext} from '../storage/storage-context';import {resolveRuntimeProfile} from '../startup/runtime-profile';
 import {createConversationTranscriptAdapter} from './conversation-transcript-adapter';import {createMainSRuntimePort} from './main-s-runtime-port';
 import {createMainResponsesBinding,createMainResponsesLimits} from './main-responses-binding';import {setVendorRuntimeSettingsGetter} from '../orchestrator/vendors/runtime-settings';
 vi.mock('electron',()=>({app:{getPath:()=>{throw Error('PRODUCTION_FORBIDDEN')}}}));

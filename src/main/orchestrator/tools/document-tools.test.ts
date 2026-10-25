@@ -24,7 +24,7 @@ vi.mock("./registry/tool-registry", () => ({ toolRegistry: {
   getById: (id: string) => fixture.tools.get(id), getEnabledTools: () => [...fixture.tools.values()],
 } }));
 vi.mock("electron", () => ({ app: { getPath: () => fixture.root } }));
-vi.mock("../../external-content-paths", () => ({ findSkillPath: () => null }));
+vi.mock("../../storage/external-content-paths", () => ({ findSkillPath: () => null }));
 vi.mock("pdfkit", () => ({ default: class { constructor() { throw new Error("INJECTED_PDF_RENDER_FAILURE"); } } }));
 import { registerDocumentTools } from "./document-tools";
 import { getWorkspaceExecutionCoordinator } from "../harness/execution-coordinator";

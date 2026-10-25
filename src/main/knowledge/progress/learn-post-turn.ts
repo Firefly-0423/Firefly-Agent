@@ -11,7 +11,7 @@ import type { ObsidianWorkspaceService } from "../obsidian/obsidian-workspace-se
 import type { ChatVendorAdapter } from "../../orchestrator/vendors/types";
 import type { VendorConfig } from "../../orchestrator/vendors/types";
 import type { QuizAnswerResult } from "../../../shared/pop-quiz";
-import { policyFor, type AgentFileAccessLevel } from "../../permission-policy";
+import { policyFor, type AgentFileAccessLevel } from "../../permission/permission-policy";
 
 export interface LearnPostTurnDeps {
   adapter: ChatVendorAdapter;

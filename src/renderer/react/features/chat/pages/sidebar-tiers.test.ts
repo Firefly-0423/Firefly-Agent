@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ChatSessionMeta, ConversationMode } from "../../../../../shared/chat-types";
 import type { ModeSidebarLayout, SidebarSnapshot } from "../../../../../shared/sidebar-layout";
-import { projectTiers } from "./sidebar-tiers";
+import { chatTiers, projectTiers } from "./sidebar-tiers";
 
 const session = (id: string, updatedAt = 1, pinned = false, mode: ConversationMode = "work"): ChatSessionMeta => ({ id, title: id, identityId: null, mode, createdAt: 1, updatedAt, messageCount: 0, pinned });
 const modeState = (mode: ConversationMode): ModeSidebarLayout => ({ viewMode: mode === "chat" ? "merged" : "project", sortMode: "recent", hiddenProjectIds: [], sections: [{ id: "s1", name: "Research" }], collapsedGroupIds: [], membership: {}, manualOrders: {}, groupOrder: [], pinnedProjectIds: [], projectSections: {} });
@@ -55,5 +55,34 @@ describe("project tiers", () => {
     expect(value[0].folders.map(folder => folder.projectId)).toEqual(["p3", "p2"]);
     const all = value.flatMap(tier => [...tier.folders.flatMap(folder => folder.sessionIds), ...tier.flatSessionIds]);
     expect(all.sort()).toEqual(["b", "c", "e", "f"]);
+  });
+});
+
+describe("chat tiers", () => {
+  const chats = [session("x", 5, false, "chat"), session("y", 9, true, "chat"), session("z", 7, false, "chat"), session("w", 3, false, "work")];
+  const chatSnapshot = (membership: Record<string, string>, extraSections: { id: string; name: string }[] = []): SidebarSnapshot => {
+    const value = snapshot();
+    const chat = value.layout.modes.chat;
+    value.layout.modes.chat = { ...chat, membership, sections: [...chat.sections, ...extraSections] };
+    return value;
+  };
+
+  it("lists one tier per section and then 最近, pinned chats first, other modes left out", () => {
+    const value = chatTiers(chats, chatSnapshot({ z: "s1" }), "chat");
+    expect(value.map(tier => ({ id: tier.id, kind: tier.kind, label: tier.label, flat: tier.flatSessionIds, group: tier.flatGroupId })))
+      .toEqual([
+        { id: "section:s1", kind: "section", label: "Research", flat: ["z"], group: "chat:section:s1" },
+        { id: "recent", kind: "recent", label: undefined, flat: ["y", "x"], group: "chat:default" },
+      ]);
+  });
+
+  it("keeps an empty section as a tier and drops 最近 when every chat is filed", () => {
+    const value = chatTiers(chats, chatSnapshot({ x: "s1", y: "s1", z: "s1" }, [{ id: "s2", name: "Empty" }]), "chat");
+    expect(value.map(tier => [tier.id, tier.flatSessionIds])).toEqual([["section:s1", ["y", "z", "x"]], ["section:s2", []]]);
+  });
+
+  it("ignores membership in a section that no longer exists", () => {
+    const value = chatTiers(chats, chatSnapshot({ x: "gone" }), "chat");
+    expect(value.find(tier => tier.id === "recent")?.flatSessionIds).toEqual(["y", "z", "x"]);
   });
 });

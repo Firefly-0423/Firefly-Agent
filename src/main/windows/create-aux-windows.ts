@@ -1,7 +1,7 @@
 import { app, BrowserWindow, screen } from "electron";
 import * as path from "path";
 import { IPC } from "../../shared/ipc-channels";
-import { isDev } from "../env";
+import { isDev } from "../startup/env";
 import { resolveInitialChatWindow, trackChatWindowState } from "./chat-window-placement";
 import { CHAT_MIN_HEIGHT, CHAT_MIN_WIDTH } from "./chat-window-state";
 import { MARK_GLASS_SCRIPT, resolveGlassWindowOptions } from "./glass-material";

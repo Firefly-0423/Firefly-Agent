@@ -6,7 +6,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 const services = vi.hoisted(() => ({ root: "", run: vi.fn(), permission: vi.fn(), lookup: vi.fn() }));
 vi.mock("./harness", async original => ({ ...await original<typeof import("./harness")>(), runFireflyHarness: services.run }));
 vi.mock("./tools/registry/tool-registry", () => ({ toolRegistry: { getEnabledTools: () => [], getById: services.lookup } }));
-vi.mock("../permission", () => ({ checkPermission: services.permission, getCurrentLevel: () => "read-only" }));
+vi.mock("../permission/permission", () => ({ checkPermission: services.permission, getCurrentLevel: () => "read-only" }));
 vi.mock("../prompts/prompt-loader", () => ({ loadPromptFile: () => "Fixture execution instructions" }));
 vi.mock("electron", () => ({ app: { getPath: () => services.root } }));
 import { runHarnessWithAdapter } from "./harness-adapter";

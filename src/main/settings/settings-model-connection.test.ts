@@ -7,7 +7,7 @@ import { IPC } from "../../shared/ipc-channels";
 
 const fixture = vi.hoisted(() => ({ directory: "", test: vi.fn() }));
 vi.mock("electron", () => ({ app: { getPath: () => fixture.directory, getAppPath: () => fixture.directory }, BrowserWindow: {}, dialog: {}, shell: {} }));
-vi.mock("../env", () => ({ isDev: false }));
+vi.mock("../startup/env", () => ({ isDev: false }));
 vi.mock("../orchestrator/vendors/test-connection", () => ({ testVendorConnection: fixture.test }));
 let dispose: (() => void) | undefined;
 beforeEach(() => {

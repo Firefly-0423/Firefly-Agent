@@ -6,7 +6,7 @@ import * as path from "node:path";
 import { isPidExecuting } from "../../../../../scripts/testing/process-liveness.mjs";
 
 vi.mock("electron", () => ({ app: { on: vi.fn(), getPath: () => { throw new Error("test"); } } }));
-vi.mock("../../../logger", () => ({ logger: { info: vi.fn(), warn: vi.fn() }, LogTag: { BuiltinTools: "test" } }));
+vi.mock("../../../logging/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn() }, LogTag: { BuiltinTools: "test" } }));
 
 import { disposeAllShellJobs, startShellJob, stopShellJob, waitForShellJob } from "./shell-job-manager";
 

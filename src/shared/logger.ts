@@ -5,7 +5,7 @@
  * 级别：debug < info < warn < error
  * stdout 是 TTY 且未设置 NO_COLOR 时着色；可用 FIREFLY_LOG_LEVEL 覆盖默认级别。
  *
- * 这里是日志格式的唯一出处；src/main/logger.ts 在其上按 app.isPackaged
+ * 这里是日志格式的唯一出处；src/main/logging/logger.ts 在其上按 app.isPackaged
  * 设置默认级别，只调用一次 setLogLevel()。
  */
 import process from "node:process";

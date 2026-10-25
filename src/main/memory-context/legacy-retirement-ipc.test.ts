@@ -12,9 +12,9 @@ const mocks = vi.hoisted(() => ({
   deleteDoc: vi.fn(), stickers: vi.fn(), skills: vi.fn(), mcp: vi.fn(), settingsWindow: null as unknown,
 }));
 vi.mock("electron", () => ({ app: { getAppPath: () => process.cwd() }, dialog: { showOpenDialog: mocks.open } }));
-vi.mock("../env", () => ({ isDev: false }));
+vi.mock("../startup/env", () => ({ isDev: false }));
 vi.mock("../memory/memory-store", () => ({ memoryStore: mocks.memory }));
-vi.mock("../settings-store", () => ({ getRagStorePath: () => mocks.path, loadUserProfile: vi.fn(), saveUserProfile: vi.fn(), getAvatarPath: vi.fn() }));
+vi.mock("../storage/settings-store", () => ({ getRagStorePath: () => mocks.path, loadUserProfile: vi.fn(), saveUserProfile: vi.fn(), getAvatarPath: vi.fn() }));
 vi.mock("../orchestrator/sticker-settings", () => ({ getStickerManagerConfig: mocks.stickers, setStickerEnabled: vi.fn() }));
 vi.mock("../stickers/sticker-storage", () => ({ addUserSticker: vi.fn(), deleteUserSticker: vi.fn() }));
 vi.mock("../rag", () => ({ deleteImportedDoc: mocks.deleteDoc }));

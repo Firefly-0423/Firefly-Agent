@@ -9,8 +9,8 @@ function temporary() { const root = fs.mkdtempSync(path.join(os.tmpdir(), "firef
 beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); });
 afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
 async function setup() {
-  const { resolveRuntimeProfile } = await import("../runtime-profile");
-  const { initializeStorageContext } = await import("../storage-context");
+  const { resolveRuntimeProfile } = await import("../startup/runtime-profile");
+  const { initializeStorageContext } = await import("../storage/storage-context");
   const root = temporary();
   const profile = resolveRuntimeProfile({ isPackaged: true, env: {}, productionAppData: temporary(), argv: ["--firefly-profile=test", `--firefly-isolation-root=${root}`] });
   return initializeStorageContext(profile);

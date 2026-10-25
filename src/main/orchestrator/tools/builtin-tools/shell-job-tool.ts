@@ -1,7 +1,7 @@
 import type { ToolDefinition } from "../registry/tool-registry";
 import type { ToolContext } from "../registry/tool-context";
 import { clampWaitMs, stopShellJob, waitForShellJob } from "./shell-job-manager";
-import { LogTag, logger } from "../../../logger";
+import { LogTag, logger } from "../../../logging/logger";
 
 const STATUS_HINTS: Record<string, string> = {
   "running": "任务仍在执行。对比两次查询的 totalBytes 增量可判断活跃度：有增量=正常在跑；连续多次零增量且非预期静默任务=疑似卡死，可考虑 action=stop。",

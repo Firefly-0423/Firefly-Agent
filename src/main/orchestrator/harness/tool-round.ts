@@ -2,7 +2,7 @@ import type { ToolCall, ChatMessage } from "../vendors/types";
 import type { ToolCallResult } from "../types";
 import { TranscriptWriteError } from "../transcript-sink";
 import type { ToolObservation, ToolCallOutcome, SideEffectKind, HarnessToolLifecycleEvent, HarnessToolFinishedEvent } from "./types";
-import type { ToolRiskLevel } from "../../permission-policy";
+import type { ToolRiskLevel } from "../../permission/permission-policy";
 import { parseToolCallArgs, tryParseToolCallArgs, toolCallFingerprint } from "./types";
 import { dispatchToolCall, persistToolDispatchResult, type ToolDispatchResult } from "./tool-dispatcher";
 import { classifyToolExecutionMode, scheduleToolCalls, type ToolScheduleCommitDecision,
@@ -12,7 +12,7 @@ import { extractFileChangesFromOutput } from "../tools/registry/tool-evidence";
 import { classifyToolResultError } from "./error-classifier";
 import { decideRetry, getRetryParams, sleepWithJitter } from "./retry-policy";
 import { isToolBreakerTripped, nextToolFailureStreak, toolBreakerMessage } from "./tool-breaker";
-import { isCancellationError, raceWithSignal } from "../../abort-utils";
+import { isCancellationError, raceWithSignal } from "../../utils/abort-utils";
 import type { HarnessRun } from "./firefly-harness";
 import { extractTaskResult } from "./task-result-evidence";
 

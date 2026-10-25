@@ -1,5 +1,5 @@
 import path from "node:path";
-import { getStorageContext } from "../storage-context";
+import { getStorageContext } from "../storage/storage-context";
 import { getHarnessRunStore } from "./harness/run-store";
 import { prepareHarnessRecovery } from "./harness/run-recovery";
 import { randomUUID } from "node:crypto";
@@ -17,7 +17,7 @@ import { resolveAgentCapabilities } from "./agent-capabilities";
 import { runChildSession } from "./child-session-runtime";
 import type { ChildSessionParent, DelegationScope } from "./child-session-types";
 import type { runFireflyHarness } from "./harness/firefly-harness";
-import { createAbortError } from "../abort-utils";
+import { createAbortError } from "../utils/abort-utils";
 
 export interface AgentExecuteRequest { agentId: string; prompt: string }
 export interface AgentExecuteResult { agentId: string; sessionId: string; status: TaskSessionStatus; text: string; writes?: TaskWriteEvidence[]; executionEvents?: ModelExecutionEvent[]; error?: { code: string; message: string } }

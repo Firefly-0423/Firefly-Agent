@@ -1,8 +1,18 @@
 /* The conversation panel: the dialog on the left, the overview cards on its outer side. */
-.ff-workspace-body { display: flex; min-width: 0; min-height: 0; flex: 1 1 auto; }
+.ff-workspace-body { position: relative; display: flex; min-width: 0; min-height: 0; flex: 1 1 auto; }
 .ff-workspace-content { position: relative; display: flex; min-width: 0; min-height: 0; flex: 1 1 0; flex-direction: column; }
-.ff-chat-cards { display: flex; min-height: 0; flex: 0 0 272px; flex-direction: column; box-sizing: border-box; padding: 8px 8px 8px 0; }
+/* The cards column has no ground of its own: each card floats above the page, and the page (and its code rain) shows between them. */
+.ff-chat-cards { position: relative; z-index: 1; display: flex; min-height: 0; flex: 0 0 272px; flex-direction: column; box-sizing: border-box; padding: 8px 8px 8px 0; background: transparent; }
 @media (max-width: 900px) { .ff-chat-cards { flex-basis: 224px; } }
+/* Opening and closing: the column grows from nothing while its cards fade in, and shrinks back on the way out, so the
+   conversation beside it glides instead of jumping 272px. The cards keep their width while the column is narrower. */
+.ff-chat-cards { overflow: hidden; animation: ff-chat-cards-in 260ms cubic-bezier(0.165, 0.84, 0.44, 1) both; }
+.ff-chat-cards > * { min-width: 264px; }
+.ff-chat-cards.is-leaving { animation: ff-chat-cards-out 200ms cubic-bezier(0.32, 0.72, 0, 1) both; pointer-events: none; }
+@media (max-width: 900px) { .ff-chat-cards > * { min-width: 216px; } }
+@keyframes ff-chat-cards-in { from { flex-basis: 0; padding-right: 0; opacity: 0; } }
+@keyframes ff-chat-cards-out { to { flex-basis: 0; padding-right: 0; opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ff-chat-cards, .ff-chat-cards.is-leaving { animation: none; } }
 
 /* Session overview: a stack of quiet, collapsible cards beside the conversation. */
 .ff-session-overview {
@@ -34,6 +44,8 @@
   border: 1px solid var(--ff-border, #dfe1e8);
   border-radius: 12px;
   background: var(--ff-bg-workspace, var(--ff-surface));
+  /* A soft resting shadow lifts the card off the page it floats over. */
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%), 0 8px 24px -12px rgb(0 0 0 / 12%);
   transition: box-shadow 200ms cubic-bezier(.165, .84, .44, 1), border-color 200ms cubic-bezier(.165, .84, .44, 1), transform 200ms cubic-bezier(.32, .72, 0, 1), opacity 120ms ease;
 }
 .ff-overview-card:hover { border-color: color-mix(in srgb, var(--ff-text-muted) 40%, var(--ff-border)); box-shadow: 0 4px 16px -2px rgb(0 0 0 / 7%); }

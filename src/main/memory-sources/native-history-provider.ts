@@ -1,6 +1,6 @@
 import path from 'node:path';
 import {createHash} from 'node:crypto';
-import {getStorageContext} from '../storage-context';
+import {getStorageContext} from '../storage/storage-context';
 import type {MainActorAuthority} from '../memory-core/main-actor-authority';
 import {canonicalJson} from '../memory-core/repository-types';
 import type {ConversationTranscriptStore,TranscriptMutation} from '../orchestrator/conversation-transcript-store';

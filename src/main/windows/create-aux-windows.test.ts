@@ -9,7 +9,7 @@ vi.mock("electron", () => ({
     isDestroyed() { return false; }
   },
 }));
-vi.mock("../env", () => ({ isDev: false }));
+vi.mock("../startup/env", () => ({ isDev: false }));
 vi.mock("./chat-window-placement", () => ({
   resolveInitialChatWindow: () => ({ bounds: { x: 0, y: 0, width: 1280, height: 760 }, maximized: false }),
   trackChatWindowState: vi.fn(),

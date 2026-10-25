@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { StorageContext } from "../storage-context";
+import type { StorageContext } from "../storage/storage-context";
 import { SimulationJournal } from "./journal";
 import { ACTION_TYPES, DEVICE_IDS, SIMULATION_LIMITS, applyAction, createFixtures, exactKeys, intentDigest, isDeviceId, isRecord, normalizeAction, validOwner, validateReceipt,
   type Action, type DeviceId, type DeviceSnapshot, type Intent, type JournalState, type Operation, type OperationReason, type OperationStatus, type Receipt, type SessionGrant } from "./contracts";

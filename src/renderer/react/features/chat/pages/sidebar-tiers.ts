@@ -71,3 +71,34 @@ export function projectTiers(sessions: readonly ChatSessionMeta[], snapshot: Sid
   if (recentFlat.length) tiers.push({ id: "recent", kind: "recent", folders: [], flatGroupId: defaultGroup, flatSessionIds: recentFlat });
   return tiers;
 }
+
+/**
+ * Chat has no projects: one tier per section (the chats filed there, even when empty) and then 最近 (the rest). Pinned chats
+ * stay in their own tier and come first there, as everywhere in the sidebar.
+ */
+export function chatTiers(sessions: readonly ChatSessionMeta[], snapshot: SidebarSnapshot, mode: ConversationMode): SidebarTier[] {
+  const layout = snapshot.layout.modes[mode];
+  const sections = new Set(layout.sections.map(section => section.id));
+  const bySection = new Map<string, ChatSessionMeta[]>();
+  const rest: ChatSessionMeta[] = [];
+  const seen = new Set<string>();
+  for (const session of sessions) {
+    if (session.mode !== mode || seen.has(session.id)) continue;
+    seen.add(session.id);
+    const sectionId = layout.membership[session.id];
+    if (sectionId && sections.has(sectionId)) bySection.set(sectionId, [...(bySection.get(sectionId) ?? []), session]);
+    else rest.push(session);
+  }
+  const slot = new Map(layout.groupOrder.map((groupId, index) => [groupId, index]));
+  const sectionSlot = (sectionId: string, index: number) => slot.get(sidebarGroupId.section(mode, sectionId)) ?? layout.groupOrder.length + index;
+  const tiers: SidebarTier[] = layout.sections.map((section, index) => ({ section, index }))
+    .sort((left, right) => sectionSlot(left.section.id, left.index) - sectionSlot(right.section.id, right.index))
+    .map(({ section }) => {
+      const groupId = sidebarGroupId.section(mode, section.id);
+      return { id: `section:${section.id}` as const, kind: "section" as const, label: section.name, sectionId: section.id, folders: [],
+        flatGroupId: groupId, flatSessionIds: orderSidebarSessions(bySection.get(section.id) ?? [], layout, groupId).map(session => session.id) };
+    });
+  const defaultGroup = sidebarGroupId.default(mode);
+  if (rest.length) tiers.push({ id: "recent", kind: "recent", folders: [], flatGroupId: defaultGroup, flatSessionIds: orderSidebarSessions(rest, layout, defaultGroup).map(session => session.id) });
+  return tiers;
+}

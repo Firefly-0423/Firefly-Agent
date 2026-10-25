@@ -4,12 +4,12 @@ const fixture = vi.hoisted(() => ({ configs: [] as unknown[], connect: vi.fn(), 
 vi.mock("./mcp-adapter", () => ({
   connectMcpServer: fixture.connect, disconnectMcpServer: fixture.disconnect, getMcpServerStates: () => [],
 }));
-vi.mock("../storage-context", () => ({ getStorageContext: () => ({ files: { mcp: "synthetic" } }) }));
-vi.mock("../atomic-json-store", () => ({ AtomicJsonStore: class {
+vi.mock("../storage/storage-context", () => ({ getStorageContext: () => ({ files: { mcp: "synthetic" } }) }));
+vi.mock("../storage/atomic-json-store", () => ({ AtomicJsonStore: class {
   read() { return fixture.configs; }
   write(configs: unknown[]) { fixture.configs = configs; }
 } }));
-vi.mock("../logger", () => ({ logger: { info: vi.fn(), warn: vi.fn() }, LogTag: { MCP: "mcp" } }));
+vi.mock("../logging/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn() }, LogTag: { MCP: "mcp" } }));
 
 import { addMcpServer, initMcpManager, setMcpServerEnabled } from "./mcp-manager";
 

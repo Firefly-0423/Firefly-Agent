@@ -26,8 +26,8 @@ function deferred() {
 }
 const config = (id: string): McpServerConfig => ({ id, name: id, transport: "stdio", command: "synthetic-command" });
 async function storageAt(root = temporary(), productionAppData = temporary()) {
-  const { resolveRuntimeProfile } = await import("../runtime-profile");
-  const { initializeStorageContext } = await import("../storage-context");
+  const { resolveRuntimeProfile } = await import("../startup/runtime-profile");
+  const { initializeStorageContext } = await import("../storage/storage-context");
   const storage = initializeStorageContext(resolveRuntimeProfile({ isPackaged: true, env: {}, productionAppData, argv: ["--firefly-profile=test", `--firefly-isolation-root=${root}`] }));
   return { storage, root, productionAppData };
 }

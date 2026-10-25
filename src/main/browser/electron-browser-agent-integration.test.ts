@@ -4,7 +4,7 @@ import { createElectronBrowserService } from "./electron-browser-service";
 import { createBrowserWorkspaceExecutor } from "./browser-workspace-executor";
 import { createBrowserWorkspaceTool } from "../orchestrator/tools/browser-workspace-tool";
 import type { BrowserGuestPort, BrowserHostPort, TrustedBrowserOwner } from "./browser-service";
-import type { RuntimeProfile } from "../runtime-profile";
+import type { RuntimeProfile } from "../startup/runtime-profile";
 
 const native = vi.hoisted(() => ({ confirm: vi.fn(), effects: [] as string[], cleanup: async () => {} }));
 vi.mock("electron", () => ({

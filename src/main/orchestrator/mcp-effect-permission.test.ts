@@ -48,8 +48,8 @@ vi.mock("./harness/tool-output/file-tool-output-store", async (importOriginal) =
 
 import { IPC } from "../../shared/ipc-channels";
 import type { ApprovalRequest } from "../../shared/permission-approval";
-import { cancelPendingApprovalsForRun, registerPermissionIpc, setCurrentLevel } from "../permission";
-import { policyFor, type AgentFileAccessLevel, type ToolRiskLevel } from "../permission-policy";
+import { cancelPendingApprovalsForRun, registerPermissionIpc, setCurrentLevel } from "../permission/permission";
+import { policyFor, type AgentFileAccessLevel, type ToolRiskLevel } from "../permission/permission-policy";
 import { connectMcpServer, disconnectMcpServer } from "./mcp-adapter";
 import { ExecutionLedger } from "./execution-ledger";
 import type { FireflyRunOptions } from "./firefly-agent";

@@ -1,7 +1,7 @@
 import { it, expect } from "vitest";
 import type { PluginTool } from "../../plugins/types";
 import { toolRegistry, resolveVerificationPolicy, resolveEffectKind, type ToolDefinition } from "../orchestrator/tools/registry/tool-registry";
-import { policyFor } from "../permission-policy";
+import { policyFor } from "../permission/permission-policy";
 
 it("accepts a plugin declaration with optional host metadata omitted and removes it cleanly", () => {
   const declaration: PluginTool = {

@@ -7,7 +7,7 @@ const fixture = vi.hoisted(() => ({ createChannel: vi.fn(), settings: { enabled:
 vi.mock("@larksuiteoapi/node-sdk", () => ({ createLarkChannel: fixture.createChannel, Domain: { Feishu: "feishu" }, LoggerLevel: { warn: 1 } }));
 vi.mock("../../settings-store", () => ({ loadChannelsSettings: () => ({ feishu: fixture.settings }) }));
 vi.mock("electron", () => ({ app: { getPath: () => "/synthetic/feishu-memory" } }));
-vi.mock("../../../logger", () => ({ logger: { info() {}, warn() {}, error() {} }, LogTag: {} }));
+vi.mock("../../../logging/logger", () => ({ logger: { info() {}, warn() {}, error() {} }, LogTag: {} }));
 function deferred() { let resolve!: () => void; let reject!: (error: Error) => void; const promise = new Promise<void>((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; }
 class Channel extends EventEmitter {
   handshake = deferred();

@@ -3,7 +3,7 @@ import type { RecordStructuredOutputMetric } from "./metrics";
 import type { StructuredOutputMode, StructuredOutputProfile, StructuredOutputStage } from "./types";
 import { normalizeFinishReason } from "./finish-reason";
 import { extractJsonCandidates } from "./json-candidates";
-import { getTimeoutSettings } from "../../timeout-manager";
+import { getTimeoutSettings } from "../../settings/timeout-manager";
 import { resolveModelRequestTimeoutMs, resolveTotalBudgetMs } from "../config/model-timeout";
 
 export type StructuredGenerationResponse = {

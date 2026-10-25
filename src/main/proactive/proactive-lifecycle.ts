@@ -17,7 +17,7 @@ import { buildAlwaysOnContext, buildMemoryInjection, buildWorldbookContext } fro
 import { loadPromptFile } from "../prompts/prompt-loader";
 import type { GeneralSettings } from "../settings/general-settings";
 import { loadModelSettings, getDefaultModelProfile, resolveModelSettingsProfile } from "../settings/model-settings";
-import { loadUserProfile } from "../settings-store";
+import { loadUserProfile } from "../storage/settings-store";
 import { createProactiveChatService } from "./proactive-service";
 import type { ProactiveChatService, ProactiveCommitInput, ProactiveCommitResult } from "./proactive-service";
 import { routeProactiveDelivery } from "./proactive-delivery-routing";

@@ -1,7 +1,7 @@
 import { screen, type BrowserWindow } from "electron";
 import fs from "node:fs";
-import { AtomicJsonStore } from "../atomic-json-store";
-import { getStorageContext } from "../storage-context";
+import { AtomicJsonStore } from "../storage/atomic-json-store";
+import { getStorageContext } from "../storage/storage-context";
 import { isChatWindowState, resolveChatWindow, type ChatWindowState, type ResolvedChatWindow } from "./chat-window-state";
 
 const SAVE_DELAY_MS = 400;
