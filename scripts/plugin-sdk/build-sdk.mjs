@@ -9,7 +9,7 @@ import { execFileSync } from "node:child_process";
 import { build } from "esbuild";
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..");
-const sdkRoot = path.join(repoRoot, "packages", "plugin-sdk");
+const sdkRoot = path.join(repoRoot, "plugin-sdk");
 
 /** 把宿主里的文件原样复制到 SDK 里；verify-package.mjs 要求它与宿主文件逐字节一致，因此不能做任何加工。 */
 async function syncFromHost(hostRelative, sdkRelative) {

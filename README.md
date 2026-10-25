@@ -189,7 +189,7 @@ src/
 └── shared/               # 主进程与渲染进程共享的契约与工具
 
 native/                   # Rust 原生助手：截图、历史读取、工作区句柄访问
-packages/plugin-sdk/      # 插件 SDK 源码
+plugin-sdk/               # 插件 SDK 源码
 examples/                 # 插件示例（text-stats、json-tools、weather-tool 等）
 skills/                   # 项目 Skills
 vendor/firefly-skills/    # 第三方及适配 Skills，附来源与许可

@@ -189,7 +189,7 @@ src/
 └── shared/               # Contracts and helpers shared by main and renderer
 
 native/                   # Rust native helpers: screenshots, history reading, workspace handle access
-packages/plugin-sdk/      # Plugin SDK sources
+plugin-sdk/               # Plugin SDK sources
 examples/                 # Plugin examples (text-stats, json-tools, weather-tool and more)
 skills/                   # Project Skills
 vendor/firefly-skills/    # Third-party and adapted Skills, with sources and licenses

@@ -1,6 +1,6 @@
 # 插件 API v1 参考
 
-本文件适用于 `apiVersion: 1`。权威定义是宿主的 `src/plugins/api.ts`；SDK 中的 `packages/plugin-sdk/src/api.ts` 与它逐字一致。清单校验、加载与生命周期分别由 `src/plugins/manifest-validation.ts`、`loader.ts` 与 `manager.ts` 实现。
+本文件适用于 `apiVersion: 1`。权威定义是宿主的 `src/plugins/api.ts`；SDK 中的 `plugin-sdk/src/api.ts` 与它逐字一致。清单校验、加载与生命周期分别由 `src/plugins/manifest-validation.ts`、`loader.ts` 与 `manager.ts` 实现。
 
 ## 1. 版本与总览
 
@@ -296,7 +296,7 @@ try {
 ## 12. SDK 与测试工具
 
 - 包名为 `@firefly/plugin-sdk`，版本 `0.2.0`，标记为 `private`，不发布到 npm。
-- 构建命令是 `npm run build:plugin-sdk`；打包命令是 `npm pack ./packages/plugin-sdk`，生成的 tarball 名称形如 `firefly-plugin-sdk-0.2.0.tgz`。插件项目用 `npm install /path/to/firefly-plugin-sdk-0.2.0.tgz` 安装。
+- 构建命令是 `npm run build:plugin-sdk`；打包命令是 `npm pack ./plugin-sdk`，生成的 tarball 名称形如 `firefly-plugin-sdk-0.2.0.tgz`。插件项目用 `npm install /path/to/firefly-plugin-sdk-0.2.0.tgz` 安装。
 - 主入口同时提供 ESM 与 CJS 两种格式。它导出全部公开类型，以及 `CURRENT_PLUGIN_API_VERSION`、`PLUGIN_CAPABILITIES`、`PLUGIN_HOST_ERROR_CODES`、`isPluginHostError` 与 `validateManifestData`。
 - 只导入类型不会产生运行时依赖。实际导入上述函数或常量时，插件需要把 SDK 的运行时代码和依赖（`ajv`）一并打包。
 - `@firefly/plugin-sdk/testing` 导出以下三个函数：

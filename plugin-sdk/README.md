@@ -8,7 +8,7 @@ Firefly 插件开发工具包。公开契约、校验与测试工具均由本仓
 
 ```bash
 npm run build:plugin-sdk
-npm pack ./packages/plugin-sdk
+npm pack ./plugin-sdk
 ```
 
 ## 用途

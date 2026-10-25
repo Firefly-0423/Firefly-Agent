@@ -11,7 +11,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..");
-const sdkRoot = path.join(repoRoot, "packages", "plugin-sdk");
+const sdkRoot = path.join(repoRoot, "plugin-sdk");
 
 function fail(message) {
   console.error(`[verify-package] ${message}`);
@@ -46,7 +46,7 @@ async function checkVendoredApi() {
     readFile(path.join(sdkRoot, "src/api.ts"), "utf8"),
   ]);
   if (host !== vendored) {
-    fail("packages/plugin-sdk/src/api.ts 与 src/plugins/api.ts 不一致，请运行 npm run build:plugin-sdk");
+    fail("plugin-sdk/src/api.ts 与 src/plugins/api.ts 不一致，请运行 npm run build:plugin-sdk");
   }
 }
 

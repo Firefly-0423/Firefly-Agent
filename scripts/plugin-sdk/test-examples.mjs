@@ -8,7 +8,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..");
-const sdkRoot = path.join(repoRoot, "packages", "plugin-sdk");
+const sdkRoot = path.join(repoRoot, "plugin-sdk");
 const examplesRoot = path.join(repoRoot, "examples");
 const EXAMPLE_IDS = ["weather-tool", "long-term-memory", "scheduled-automation"];
 
