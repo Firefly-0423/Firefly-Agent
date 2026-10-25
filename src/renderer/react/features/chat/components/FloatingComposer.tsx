@@ -19,6 +19,11 @@ export function clampFloatingOffset(desired: Offset, base: Box, area: Box, margi
   };
 }
 
+/** 输入框能移动的区域：对话栏本身，不含旁边的概览卡片。 */
+export function floatingArea(root: Element | null): HTMLElement | null {
+  return root?.closest<HTMLElement>(".ff-workspace-content") ?? null;
+}
+
 /** 读取上次的位置和收起状态；数据损坏时回到默认位置。 */
 export function parseFloatingComposerState(raw: string | null): FloatingComposerState {
   const fallback = { x: 0, y: 0, collapsed: false };
@@ -84,7 +89,7 @@ export function FloatingComposer({ floating, attention = false, children }: Floa
 
   const bounds = (offset: Offset) => {
     const root = rootRef.current;
-    const area = root?.closest(".ff-workspace")?.getBoundingClientRect();
+    const area = floatingArea(root)?.getBoundingClientRect();
     const rect = root?.getBoundingClientRect();
     if (!area || !rect) return null;
     return {
@@ -105,7 +110,7 @@ export function FloatingComposer({ floating, attention = false, children }: Floa
     });
     settle();
     const root = rootRef.current;
-    const area = root?.closest(".ff-workspace");
+    const area = floatingArea(root);
     const observer = typeof ResizeObserver === "function" && area ? new ResizeObserver(settle) : null;
     if (observer && area) observer.observe(area);
     if (observer && root) observer.observe(root);

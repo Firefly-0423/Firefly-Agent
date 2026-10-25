@@ -148,6 +148,12 @@ export function composerAddMenuEntries(supportsStickers: boolean): Array<"upload
   return supportsStickers ? ["upload", "screenshot", "sticker"] : ["upload", "screenshot"];
 }
 
+/** 一行胶囊放下左侧按钮、输入和模型按钮所需的对话栏宽度。 */
+export const CAPSULE_MIN_ROOM = 600;
+export function capsuleFits(room: number): boolean {
+  return room >= CAPSULE_MIN_ROOM;
+}
+
 function PaperclipIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 11.5-8.6 8.6a5.2 5.2 0 0 1-7.4-7.4l8.6-8.6a3.5 3.5 0 0 1 5 5l-8.7 8.7a1.8 1.8 0 0 1-2.5-2.5l7.9-7.9" /></svg>;
 }
@@ -335,7 +341,18 @@ export function ChatComposer(props: ChatComposerProps) {
     check();
     return () => observer.disconnect();
   }, [docked, grown, value]);
-  const capsule = Boolean(docked) && !grown && !hasComposerHeader;
+  // 对话栏旁边开着概览卡片时可能比胶囊还窄；放不下就用两行卡片，不伸到卡片上面去。
+  const [roomy, setRoomy] = useState(true);
+  useEffect(() => {
+    const column = shellRef.current?.closest<HTMLElement>(".ff-workspace-content");
+    if (!docked || !column || typeof ResizeObserver !== "function") return;
+    const measure = () => setRoomy(capsuleFits(column.clientWidth));
+    const observer = new ResizeObserver(measure);
+    observer.observe(column);
+    measure();
+    return () => observer.disconnect();
+  }, [docked]);
+  const capsule = Boolean(docked) && !grown && !hasComposerHeader && roomy;
 
   // Sender 的 onKeyDown 声明在 Element 层级；函数体只用基类属性，参数随组件声明放宽
   const slash = useSlashCommands({
