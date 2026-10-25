@@ -306,7 +306,10 @@ function buildResult(finalAnswer: string, state: AgentState, terminated: boolean
 function recordFailure(run: HarnessRun, error: unknown, source: RunFailureSource): RunFailure {
   const safe = publicRunFailure(error, source);
   run.failure = safe;
-  console.error(`${logTag} run failed:`, { runId: run.input.runId, round: run.rounds, ...safe });
+  // The local log also names the internal code (an identifier, never a message) that the public code folds away.
+  const internal = (error as { code?: unknown } | null)?.code;
+  const cause = typeof internal === "string" && /^[A-Z][A-Z0-9_]{2,80}$/.test(internal) && internal !== safe.code ? { cause: internal } : {};
+  console.error(`${logTag} run failed:`, { runId: run.input.runId, round: run.rounds, ...safe, ...cause });
   return safe;
 }
 function toAssistantMessage(response: ChatResponse): ChatMessage {
