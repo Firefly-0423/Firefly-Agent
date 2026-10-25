@@ -104,6 +104,15 @@ test("a project created from the sidebar dialog unlocks the composer for its fir
   await act(async () => surface.navigation!.onNewProjectTask!("E:/demo-workspace", "demo-workspace"));
   expect(surface.composer!.workspaceName).toBe("demo-workspace");
 });
+test("a project created from the sidebar dialog starts a task bound to its folder right away", async () => {
+  const view = await page("code");
+  const task: ChatSession = { id: "project-task", mode: "code", title: "New task", identityId: null, createdAt: 9, updatedAt: 9, messageCount: 0, messages: [] };
+  Object.assign(view.store, { create: vi.fn(async () => task), setWorkspace: vi.fn(async () => ({ ok: true })) });
+  await act(async () => surface.navigation!.onNewProjectTask!("E:/demo-workspace", "demo-workspace"));
+  expect(view.store.create).toHaveBeenCalledWith(expect.objectContaining({ mode: "code" }));
+  expect(view.store.setWorkspace).toHaveBeenCalledWith("project-task", "E:/demo-workspace");
+  expect(view.store.get).toHaveBeenCalledWith("project-task");
+});
 test("workspace failures use a readable feedback alert", async () => {
   const view = await page("code"); await act(async () => surface.composer!.onChooseWorkspace?.());
   expect(surface.alert).toHaveBeenCalledWith({ tone: "error", title: t("chatPage.setWorkspaceFailedTitle"), message: t("chatPage.setWorkspaceFailed", { error: "fixture workspace failure" }) });

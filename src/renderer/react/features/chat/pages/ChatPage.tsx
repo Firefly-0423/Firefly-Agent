@@ -156,6 +156,7 @@ function sessionMetaListEqual(a: ChatSessionMeta[], b: ChatSessionMeta[]): boole
 /** 导航动作函数的最小签名（供 navActionsRef 转发，见组件内注释） */
 interface NavActions {
   createNewTask: (workspace?: { path: string; displayName?: string }) => Promise<void>;
+  createProjectTask: (workspace: { path: string; displayName?: string }) => Promise<void>;
   startTemporaryChat: () => Promise<void>;
   selectSession: (sessionId: string, targetMode?: ConversationMode) => Promise<SessionSelectionResult>;
   handleRenameSession: (sessionId: string, newTitle: string) => Promise<void>;
@@ -1136,6 +1137,36 @@ export function ChatPage() {
     setActivePanel(null);
   }
 
+  /** 新建项目：立即开出绑定该目录的任务，侧栏和环境卡片马上可见；失败时仍按待绑定目录在首条消息时绑定。 */
+  async function createProjectTask(workspace: { path: string; displayName?: string }) {
+    const targetMode = mode;
+    await createNewTask(workspace);
+    const store = chatStore();
+    if (!store) return;
+    let session: ChatSession;
+    try {
+      session = await store.create({ identityId: null, mode: targetMode, title: t("chatPage.newTaskTitle") });
+    } catch {
+      return;
+    }
+    const result = await store.setWorkspace(session.id, workspace.path);
+    if (!result.ok) {
+      await feedback.alert({
+        tone: "error",
+        title: t("chatPage.setWorkspaceFailedTitle"),
+        message: t("chatPage.setWorkspaceFailed", { error: result.error ?? t("chatPage.unknownError") }),
+      });
+      return;
+    }
+    setPendingWorkspaceByMode((current) => {
+      const next = { ...current };
+      delete next[targetMode];
+      return next;
+    });
+    await refreshSessions(targetMode, false);
+    await selectSession(session.id, targetMode);
+  }
+
   /** 回到欢迎页，下一条消息开出一个不落盘、不进记忆的临时会话（仅 Chat 模式）。 */
   async function startTemporaryChat() {
     if (mode !== "chat") return;
@@ -1556,6 +1587,7 @@ export function ChatPage() {
   // 外层回调引用恒定，配合 React.memo 让导航/侧栏子树在流式期间保持命中。
   const navActionsRef = useRef<NavActions>({
     createNewTask: () => Promise.resolve(),
+    createProjectTask: () => Promise.resolve(),
     startTemporaryChat: () => Promise.resolve(),
     selectSession: () => Promise.resolve("unavailable"),
     handleRenameSession: () => Promise.resolve(),
@@ -1566,6 +1598,7 @@ export function ChatPage() {
   // 渲染期同步最新实现（函数声明在组件体内提升，此处可安全引用）
   navActionsRef.current = {
     createNewTask,
+    createProjectTask,
     startTemporaryChat,
     selectSession,
     handleRenameSession,
@@ -1591,7 +1624,7 @@ export function ChatPage() {
     void navActionsRef.current.createNewTask();
   }, []);
   const navNewProjectTask = useCallback((path: string, displayName?: string) => {
-    void navActionsRef.current.createNewTask({ path, displayName });
+    void navActionsRef.current.createProjectTask({ path, displayName });
   }, []);
   const navNewTemporaryChat = useCallback(() => {
     void navActionsRef.current.startTemporaryChat();
