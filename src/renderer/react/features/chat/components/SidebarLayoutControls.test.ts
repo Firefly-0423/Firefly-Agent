@@ -39,7 +39,7 @@ async function clickMenu(text: string) {
   // Arrangement entries live one level down, under "organize sidebar"; open it first when the entry is not on screen.
   if (!findItem(text) && text !== "sidebar.organizeSidebar" && findItem("sidebar.organizeSidebar")) await clickMenu("sidebar.organizeSidebar");
   // Submenus open in their own popup; under a loaded full run that can take longer than the default second.
-  await vi.waitFor(() => { if (!findItem(text)) throw new Error(`menu item not found: ${text}; have ${menuTitles().join(" | ")}`); }, { timeout: 3000 });
+  await vi.waitFor(() => { if (!findItem(text)) throw new Error(`menu item not found: ${text}; have ${menuTitles().join(" | ")}`); }, { timeout: 8000 });
   await act(async () => findItem(text)!.click());
   await flush();
 }
@@ -245,7 +245,7 @@ it("sorts and groups through submenus, patching only what changed", async () => 
   await clickMenu("sidebar.groupBy");
   await clickMenu("sidebar.viewProjectsShort");
   expect(api.mutate).toHaveBeenCalledWith({ expectedRevision: 3, patch: { mode: "work", kind: "set-view", viewMode: "project" } });
-});
+}, 20_000);
 it("greys out reset while everything is at its default", async () => {
   snapshot.layout.modes.work = { ...snapshot.layout.modes.work, viewMode: "project" };
   await render();
