@@ -2021,7 +2021,8 @@ export function ChatPage() {
                         onOpenPlan={() => { setPlanDrawerOpen(true); setActiveTabId(planTabId); }} />
                     : <div className="ff-workspace-empty"><p>{t("workspace.chooseProject")}</p>
                         {mode !== "chat" && <button type="button" onClick={() => void chooseWorkspace()}>{t("workspace.chooseFolder")}</button>}</div>}
-                  <WorkspaceResultsIndex outputs={workspaceOutputs} onOpenResult={openResultTab} />
+                  <WorkspaceResultsIndex outputs={workspaceOutputs} workspaceRoot={activeSession?.workspaceBinding?.workspaceRoot}
+                    onOpenFile={openFileTab} onOpenDiff={openResultDiff} onOpenChanges={openChangesTab} />
                 </div>}
                 fileTabs={fileTabs}
                 diffTabs={diffTabs}

@@ -125,15 +125,32 @@ function ChangedFileRow({ file, reviewFile, workspaceRoot, onOpenFile, onOpenDif
   </FoldRow>;
 }
 
-export function WorkspaceResultsIndex({ outputs, onOpenResult }: { outputs: WorkspaceRunOutput[]; onOpenResult(id: string): void }) {
+/** Each run's result folds open in place under the task panel; the newest starts open. */
+export function WorkspaceResultsIndex({ outputs, workspaceRoot, onOpenFile, onOpenDiff, onOpenChanges }: {
+  outputs: WorkspaceRunOutput[]; workspaceRoot?: string;
+  onOpenFile(path: string): void; onOpenDiff(output: WorkspaceRunOutput, file: WorkspaceChangedFile): void;
+  onOpenChanges?(output: WorkspaceRunOutput): void;
+}) {
   const { t } = useTranslation();
+  const newest = outputs.at(-1)?.id;
+  // Only the user's own toggles are kept; a new run's result opens on its own.
+  const [toggled, setToggled] = useState<Record<string, boolean>>({});
+  const isOpen = (id: string) => toggled[id] ?? id === newest;
   return <section className="ff-workspace-results-index" aria-label={t("workspace.results")}>
     <h3>{t("workspace.results")}</h3>
     {!outputs.length && <p>{t("workspace.noResults")}</p>}
-    {outputs.map((output, index) => <button type="button" key={output.id} data-output-result={output.id} onClick={() => onOpenResult(output.id)}>
-      <span>{t("workspace.runResult", { index: index + 1 })}</span>
-      <small>{t("workspace.resultCounts", { files: output.files.length, tools: output.tools.length })}</small>
-    </button>)}
+    {outputs.map((output, index) => {
+      const open = isOpen(output.id);
+      return <div key={output.id} className="ff-workspace-results-index__item">
+        <button type="button" data-output-result={output.id} aria-expanded={open}
+          onClick={() => setToggled(current => ({ ...current, [output.id]: !open }))}>
+          <ChevronRight className={`ff-workspace-results-index__chevron${open ? " is-open" : ""}`} size={13} aria-hidden="true" />
+          <span>{t("workspace.runResult", { index: index + 1 })}</span>
+          <small>{t("workspace.resultCounts", { files: output.files.length, tools: output.tools.length })}</small>
+        </button>
+        {open && <WorkspaceRunResults output={output} workspaceRoot={workspaceRoot} onOpenFile={onOpenFile} onOpenDiff={onOpenDiff} onOpenChanges={onOpenChanges} />}
+      </div>;
+    })}
   </section>;
 }
 
