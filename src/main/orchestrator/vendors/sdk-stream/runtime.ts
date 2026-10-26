@@ -73,12 +73,19 @@ function serialize(adapter: ChatVendorAdapter, request: ChatRequest, config: Ven
 function abortReason(signal: AbortSignal): Error {
   return signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted", "AbortError");
 }
-/** Names and codes along an error's cause chain; identifiers only, so prompts, keys and provider text stay out of the log. */
+/**
+ * Class names, HTTP statuses and system error codes along an error's cause chain.
+ * A provider error's `code` comes from the response body, so it is never logged; only
+ * Node-style socket codes (ECONNRESET, UND_ERR_SOCKET) are.
+ */
 export function causeCodes(error: unknown): string {
   const parts: string[] = [];
   for (let cause = error, depth = 0; cause && typeof cause === "object" && depth < 6; cause = (cause as { cause?: unknown }).cause, depth++) {
     const { name, code, status } = cause as { name?: unknown; code?: unknown; status?: unknown };
-    const label = [name, code, status].filter(value => (typeof value === "string" && /^[\w.-]{1,60}$/.test(value)) || typeof value === "number").join(":");
+    const label = [
+      typeof name === "string" && /^[A-Z][A-Za-z]{0,40}$/.test(name) ? name : undefined,
+      typeof status === "number" ? status : typeof code === "string" && /^(E[A-Z0-9_]{2,30}|UND_ERR_[A-Z_]{2,40})$/.test(code) ? code : undefined,
+    ].filter(value => value !== undefined).join(":");
     if (label) parts.push(label);
   }
   return parts.join(" <- ");
