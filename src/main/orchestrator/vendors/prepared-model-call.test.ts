@@ -101,6 +101,15 @@ describe("prepared provider calls", () => {
     expect(response.text).toBe("完成");
     expect(bodies).toEqual([prepared.serializedBody, prepared.serializedBody, prepared.serializedBody]);
   });
+  it("sends every model request through one shared keep-alive pool so tool rounds reuse the connection", async () => {
+    const f = fixture("responses"), pools: unknown[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_input: RequestInfo | URL, init?: RequestInit & { dispatcher?: unknown }) => { pools.push(init?.dispatcher); return sse("responses"); }));
+    for (let round = 0; round < 2; round++) {
+      await dispatchPreparedModelCall({ prepared: prepareModelCall(f.adapter, f.request, f.config, f.identity), config: f.config, timeoutMs: 5_000 });
+    }
+    expect(pools[0]).toBeDefined();
+    expect(pools[1]).toBe(pools[0]);
+  });
   it("gives up after two retries", async () => {
     const f = fixture("responses");
     const fetch = vi.fn(async () => { throw dropped(); });

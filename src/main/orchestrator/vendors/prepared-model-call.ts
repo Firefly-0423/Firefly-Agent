@@ -1,5 +1,6 @@
 import {requestProviderIdentity} from "./request-provider-identity";
 import { createHash } from "node:crypto";
+import { Agent, type Dispatcher } from "undici";
 import { contextFail, type JsonValue, type PreparedRequest, type RequestIdentity } from "../../memory-context/context-contracts";
 import { AgentRuntimeError } from "../agent-runtime-error";
 import { copyResponseJson } from "./response-request-snapshot";
@@ -171,7 +172,20 @@ export function prepareModelCall(
 const CONNECTION_LOST_CODES = new Set(["ECONNRESET", "ECONNREFUSED", "ECONNABORTED", "EPIPE", "ETIMEDOUT", "ENOTFOUND", "EAI_AGAIN",
   "UND_ERR_SOCKET", "UND_ERR_CONNECT_TIMEOUT", "UND_ERR_CLOSED"]);
 /** Delays before each retry of a model request whose connection was lost before any response arrived. */
-const CONNECTION_RETRY_DELAYS_MS = [300, 900];
+const CONNECTION_RETRY_DELAYS_MS = [1_000, 3_000];
+let modelPool: Agent | undefined;
+/** Where Node's fetch and the undici package keep a dispatcher installed with setGlobalDispatcher. */
+const GLOBAL_DISPATCHER = Symbol.for("undici.globalDispatcher.1");
+/**
+ * One pool for model requests that keeps an idle connection for 20 s (providers close idle ones at about
+ * 30 s). Node's default of 4 s closed it during every tool round, so each round paid a new TLS handshake,
+ * which on an unstable network or behind a proxy is where requests failed. A dispatcher installed on
+ * purpose (a proxy, a test mock) still wins; reading the slot never installs one.
+ */
+function modelConnectionPool(): Dispatcher {
+  const installed = (globalThis as Record<symbol, unknown>)[GLOBAL_DISPATCHER] as Dispatcher | undefined;
+  return installed ?? (modelPool ??= new Agent({ keepAliveTimeout: 20_000, keepAliveMaxTimeout: 20_000 }));
+}
 /** A transport-level failure; fetch rejects this way only before the response headers arrive. */
 function connectionLost(error: unknown): boolean {
   for (let cause = error, depth = 0; cause && typeof cause === "object" && depth < 6; cause = (cause as { cause?: unknown }).cause, depth++) {
@@ -224,7 +238,8 @@ export async function dispatchPreparedModelCall(input: PreparedModelCallInput): 
         // any response is sent again (twice at most); once a response has started it is never replayed.
         const send=async(request:Request,attempt:number):Promise<Response>=>{
           const spare=attempt<CONNECTION_RETRY_DELAYS_MS.length?request.clone():undefined;
-          try{return await delegate(request)}
+          // Node's RequestInit types lag the undici package; the dispatcher option is the same at runtime.
+          try{return await delegate(request,{dispatcher:modelConnectionPool()} as unknown as RequestInit)}
           catch(error){
             if(!spare||!connectionLost(error)||outgoing.signal.aborted)throw error;
             await new Promise(resolve=>setTimeout(resolve,CONNECTION_RETRY_DELAYS_MS[attempt]));
