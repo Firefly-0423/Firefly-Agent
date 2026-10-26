@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { createThinkFilter } from "../../../chat/think-filter";
 import { AgentRuntimeError } from "../../agent-runtime-error";
+import { connectionLost } from "../connection-lost";
 import type { VendorConfig, ChatVendorAdapter, ChatResponse, ChatRequest } from "../types";
 import { FireflyStreamAccumulator } from "./accumulator";
 import { AnthropicEventNormalizer, reconcileAnthropicTerminal } from "./anthropic-normalizer";
@@ -221,7 +222,8 @@ async function runSdkStream(input: Omit<SdkStreamRunInput, "request"> & { model:
     return success("anthropic", response);
   } catch (cause) {
     const code = deadlineExpired ? "E_MODEL_REQUEST_TIMEOUT" : input.signal?.aborted ? "MEMORY_CONTEXT_CANCELLED"
-      : cause instanceof ProviderProtocolError || cause instanceof AgentRuntimeError ? cause.code : "E_MODEL_REQUEST_FAILED";
+      : cause instanceof ProviderProtocolError || cause instanceof AgentRuntimeError ? cause.code
+      : connectionLost(cause) ? "E_MODEL_CONNECTION_LOST" : "E_MODEL_REQUEST_FAILED";
     const description = preparedFetch ? code : describeModelError(cause);
     // Only error names and codes along the cause chain (e.g. APIConnectionError <- TypeError <- ECONNRESET), never messages.
     if (preparedFetch) console.error("[model-request] 流式请求失败:", code, causeCodes(cause));
@@ -231,6 +233,7 @@ async function runSdkStream(input: Omit<SdkStreamRunInput, "request"> & { model:
     if (deadlineExpired) throw new AgentRuntimeError("E_MODEL_REQUEST_TIMEOUT", "模型响应超时，请稍后重试。", { cause });
     if (input.signal?.aborted) throw abortReason(input.signal);
     if (cause instanceof ProviderProtocolError || cause instanceof AgentRuntimeError) throw cause;
+    if (code === "E_MODEL_CONNECTION_LOST") throw new AgentRuntimeError(code, "模型服务连接中断。", { cause });
     throw new AgentRuntimeError("E_MODEL_REQUEST_FAILED", "模型服务请求失败。", { cause });
   } finally {
     if (alarm !== undefined) clearTimeout(alarm);

@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { Agent, type Dispatcher } from "undici";
 import { contextFail, type JsonValue, type PreparedRequest, type RequestIdentity } from "../../memory-context/context-contracts";
 import { AgentRuntimeError } from "../agent-runtime-error";
+import { connectionLost } from "./connection-lost";
 import { copyResponseJson } from "./response-request-snapshot";
 import { getVendorRuntimeSettings } from "./runtime-settings";
 import { streamPreparedChatWithSdk, type SdkStreamRunInput } from "./sdk-stream/runtime";
@@ -169,8 +170,6 @@ export function prepareModelCall(
   return prepared;
 }
 
-const CONNECTION_LOST_CODES = new Set(["ECONNRESET", "ECONNREFUSED", "ECONNABORTED", "EPIPE", "ETIMEDOUT", "ENOTFOUND", "EAI_AGAIN",
-  "UND_ERR_SOCKET", "UND_ERR_CONNECT_TIMEOUT", "UND_ERR_CLOSED"]);
 /** Delays before each retry of a model request whose connection was lost before any response arrived. */
 const CONNECTION_RETRY_DELAYS_MS = [1_000, 3_000];
 let modelPool: Agent | undefined;
@@ -189,15 +188,6 @@ function modelConnectionPool(): Dispatcher {
   if (installed && installed.constructor.name !== "Agent") return installed;
   return modelPool ??= new Agent({ keepAliveTimeout: 20_000, keepAliveMaxTimeout: 20_000 });
 }
-/** A transport-level failure; fetch rejects this way only before the response headers arrive. */
-function connectionLost(error: unknown): boolean {
-  for (let cause = error, depth = 0; cause && typeof cause === "object" && depth < 6; cause = (cause as { cause?: unknown }).cause, depth++) {
-    const { code } = cause as { code?: unknown };
-    if (typeof code === "string" && CONNECTION_LOST_CODES.has(code)) return true;
-  }
-  return false;
-}
-
 /** Must be called by Main's context.dispatch single-use permit callback; it grants no memory authority itself. */
 export async function dispatchPreparedModelCall(input: PreparedModelCallInput): Promise<ChatResponse> {
   input = { ...input };
@@ -308,6 +298,7 @@ async function nonStreaming(input: PreparedModelCallInput, call: PrivateCall, fe
     if (timedOut) throw new AgentRuntimeError("E_MODEL_REQUEST_TIMEOUT", "模型响应超时，请稍后重试。", { cause: error });
     if (input.signal?.aborted) throw cancelled(input.signal);
     if (error instanceof AgentRuntimeError) throw error;
+    if (connectionLost(error)) throw new AgentRuntimeError("E_MODEL_CONNECTION_LOST", "模型服务连接中断。", { cause: error });
     throw new AgentRuntimeError("E_MODEL_REQUEST_FAILED", "模型服务请求失败。", { cause: error });
   } finally {
     if (timer !== undefined) clearTimeout(timer);

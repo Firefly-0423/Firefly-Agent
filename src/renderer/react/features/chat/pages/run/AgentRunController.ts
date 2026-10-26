@@ -243,10 +243,10 @@ export class AgentRunController {
         context: "chatPage.errorContextFailedWith", model: "chatPage.errorModelRequestFailedWith",
         tool: "chatPage.errorToolFailedWith", runtime: "chatPage.errorRuntimeFailedWith",
       } as const;
-      // A lost connection or a silent provider is the network, not Firefly; say so and keep the code for support.
+      // Only a failure Main classified as a dropped connection or a silent provider is the network; an HTTP
+      // rejection (bad key, bad request) keeps the generic model notice. The code stays for support.
       const network = {
-        MEMORY_CONTEXT_SEND_UNKNOWN: "chatPage.errorNetworkInterrupted", E_MODEL_REQUEST_FAILED: "chatPage.errorNetworkInterrupted",
-        E_MODEL_REQUEST_TIMEOUT: "chatPage.errorModelTimedOut",
+        E_MODEL_CONNECTION_LOST: "chatPage.errorNetworkInterrupted", E_MODEL_REQUEST_TIMEOUT: "chatPage.errorModelTimedOut",
       } as Partial<Record<string, "chatPage.errorNetworkInterrupted" | "chatPage.errorModelTimedOut">>;
       const plain = network[publicFailure.code];
       const notice = plain ? t(plain, { code: publicFailure.code }) : t(labels[publicFailure.source], { message: publicFailure.code });

@@ -541,6 +541,13 @@ it("rejects a forgotten M fact during SDK wire verification before the real prov
   expect(f.sent).toHaveLength(0);
 });
 
+it("preserves a dropped connection as its own safe code, never as an unknown send", async () => {
+  const f = await fixture("persistent"), run = await f.runtime.openRun(f.grant());
+  f.onFetch(async () => { throw new TypeError("fetch failed", { cause: Object.assign(new Error("other side closed"), { code: "UND_ERR_SOCKET" }) }); });
+  // Two retries wait 1 s and 3 s before the drop is final.
+  await expect(run.call({ ...f.input(), timeoutMs: 10_000 })).rejects.toThrow(/^E_MODEL_CONNECTION_LOST$/);
+}, 15_000);
+
 it.each(["persistent", "temporary"] as const)("preserves a safe timeout code for a %s invocation without replay", async mode => {
   const f = await fixture(mode, mode === "temporary"), run = await f.runtime.openRun(f.grant());
   f.onFetch(request => new Promise<Response>((_resolve, reject) => {

@@ -130,10 +130,10 @@ describe("prepared provider calls", () => {
     const fetch = vi.fn(async () => { throw dropped(); });
     vi.stubGlobal("fetch", fetch);
     const prepared = prepareModelCall(f.adapter, f.request, f.config, f.identity);
-    await expect(dispatchPreparedModelCall({ prepared, config: f.config, timeoutMs: 5_000 })).rejects.toThrow();
+    await expect(dispatchPreparedModelCall({ prepared, config: f.config, timeoutMs: 5_000 })).rejects.toMatchObject({ code: "E_MODEL_CONNECTION_LOST" });
     expect(fetch).toHaveBeenCalledTimes(3);
   });
-  it("does not retry once the response has started, or when the provider answered with an error", async () => {
+  it("does not retry once the response has started, or when the provider answered with an error; only a dropped connection is labelled as one", async () => {
     const f = fixture("responses");
     const broken = new ReadableStream({ start(controller) {
       controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: "response.output_text.delta", delta: "部分" })}\n\n`));
@@ -141,12 +141,14 @@ describe("prepared provider calls", () => {
     } });
     const streaming = vi.fn(async () => new Response(broken, { headers: { "Content-Type": "text/event-stream" } }));
     vi.stubGlobal("fetch", streaming);
-    await expect(dispatchPreparedModelCall({ prepared: prepareModelCall(f.adapter, f.request, f.config, f.identity), config: f.config, timeoutMs: 5_000 })).rejects.toThrow();
+    await expect(dispatchPreparedModelCall({ prepared: prepareModelCall(f.adapter, f.request, f.config, f.identity), config: f.config, timeoutMs: 5_000 })).rejects.toMatchObject({ code: "E_MODEL_CONNECTION_LOST" });
     expect(streaming).toHaveBeenCalledTimes(1);
     const failing = vi.fn(async () => new Response("{}", { status: 500 }));
     vi.stubGlobal("fetch", failing);
-    await expect(dispatchPreparedModelCall({ prepared: prepareModelCall(f.adapter, f.request, f.config, f.identity), config: f.config, timeoutMs: 5_000 })).rejects.toThrow();
+    await expect(dispatchPreparedModelCall({ prepared: prepareModelCall(f.adapter, f.request, f.config, f.identity), config: f.config, timeoutMs: 5_000 })).rejects.toMatchObject({ code: "E_MODEL_REQUEST_FAILED" });
     expect(failing).toHaveBeenCalledTimes(1);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: { message: "bad key" } }), { status: 401 })));
+    await expect(dispatchPreparedModelCall({ prepared: prepareModelCall(f.adapter, f.request, f.config, f.identity), config: f.config, timeoutMs: 5_000 })).rejects.toMatchObject({ code: "E_MODEL_REQUEST_FAILED" });
   });
 
   it.each(["apiKey", "baseUrl", "model"] as const)("fails closed when %s changes after preparation", async key => {

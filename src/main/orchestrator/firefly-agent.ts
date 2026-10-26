@@ -331,7 +331,7 @@ export function classifyRunError(err: unknown, abortSource: AbortSource | undefi
   if (err instanceof AgentExecutionError && err.cause instanceof Error) return classifyRunError(err.cause, abortSource, runId, conversationId, phase, hasToolResults);
   if (err instanceof AgentRuntimeError) {
     const safe: Record<string, string> = {
-      E_MODEL_REQUEST_FAILED: "模型服务暂时不可用，请稍后重试。", E_MODEL_REQUEST_TIMEOUT: "模型响应超时，请稍后重试。", E_MODEL_HTTP_ERROR: "模型服务请求失败，请稍后重试。",
+      E_MODEL_REQUEST_FAILED: "模型服务暂时不可用，请稍后重试。", E_MODEL_CONNECTION_LOST: "和模型服务的连接中断了，请稍后重试。", E_MODEL_REQUEST_TIMEOUT: "模型响应超时，请稍后重试。", E_MODEL_HTTP_ERROR: "模型服务请求失败，请稍后重试。",
       E_MODEL_RESPONSE_PARSE_FAILED: "模型返回格式异常，请重试。", E_AGENT_NO_PROGRESS: "请求处理遇到问题，请重试。", E_AGENT_GRAPH_ITERATION_LIMIT: "请求处理步骤过多，请简化问题后重试。",
     };
     const message = safe[err.code] ?? "请求处理出错，请重试。";
