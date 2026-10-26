@@ -243,7 +243,13 @@ export class AgentRunController {
         context: "chatPage.errorContextFailedWith", model: "chatPage.errorModelRequestFailedWith",
         tool: "chatPage.errorToolFailedWith", runtime: "chatPage.errorRuntimeFailedWith",
       } as const;
-      const notice = t(labels[publicFailure.source], { message: publicFailure.code });
+      // A lost connection or a silent provider is the network, not Firefly; say so and keep the code for support.
+      const network = {
+        MEMORY_CONTEXT_SEND_UNKNOWN: "chatPage.errorNetworkInterrupted", E_MODEL_REQUEST_FAILED: "chatPage.errorNetworkInterrupted",
+        E_MODEL_REQUEST_TIMEOUT: "chatPage.errorModelTimedOut",
+      } as Partial<Record<string, "chatPage.errorNetworkInterrupted" | "chatPage.errorModelTimedOut">>;
+      const plain = network[publicFailure.code];
+      const notice = plain ? t(plain, { code: publicFailure.code }) : t(labels[publicFailure.source], { message: publicFailure.code });
       this.moveCandidateToInterruptedProcess();
       this.progressEntries = [...this.progressEntries, createRoundProcessMessage(
         "process-" + this.nextProcessNumber++, notice, this.tools.length, this.roundKey, this.nextSeq(),
