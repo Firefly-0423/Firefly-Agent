@@ -110,6 +110,21 @@ describe("prepared provider calls", () => {
     expect(pools[0]).toBeDefined();
     expect(pools[1]).toBe(pools[0]);
   });
+  it("uses its own pool over Node's lazily created default, but yields to an installed mock or proxy", async () => {
+    const f = fixture("responses"), pools: unknown[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_input: RequestInfo | URL, init?: RequestInit & { dispatcher?: unknown }) => { pools.push(init?.dispatcher); return sse("responses"); }));
+    new Request("https://synthetic.invalid/"); // Node fills the global slot with a plain default Agent here.
+    const fallback = getGlobalDispatcher();
+    await dispatchPreparedModelCall({ prepared: prepareModelCall(f.adapter, f.request, f.config, f.identity), config: f.config, timeoutMs: 5_000 });
+    expect(pools[0]).toBeDefined();
+    expect(pools[0]).not.toBe(fallback);
+    const mock = new MockAgent();
+    setGlobalDispatcher(mock);
+    try {
+      await dispatchPreparedModelCall({ prepared: prepareModelCall(f.adapter, f.request, f.config, f.identity), config: f.config, timeoutMs: 5_000 });
+      expect(pools[1]).toBe(mock);
+    } finally { setGlobalDispatcher(fallback); await mock.close(); }
+  });
   it("gives up after two retries", async () => {
     const f = fixture("responses");
     const fetch = vi.fn(async () => { throw dropped(); });

@@ -179,12 +179,15 @@ const GLOBAL_DISPATCHER = Symbol.for("undici.globalDispatcher.1");
 /**
  * One pool for model requests that keeps an idle connection for 20 s (providers close idle ones at about
  * 30 s). Node's default of 4 s closed it during every tool round, so each round paid a new TLS handshake,
- * which on an unstable network or behind a proxy is where requests failed. A dispatcher installed on
- * purpose (a proxy, a test mock) still wins; reading the slot never installs one.
+ * which on an unstable network or behind a proxy is where requests failed. Node fills the slot itself with
+ * a plain Agent the first time anything builds a Request, so a plain Agent there is that default and is
+ * replaced; any other dispatcher (a proxy, a test mock) was installed on purpose and still wins.
+ * Reading the slot never installs one.
  */
 function modelConnectionPool(): Dispatcher {
   const installed = (globalThis as Record<symbol, unknown>)[GLOBAL_DISPATCHER] as Dispatcher | undefined;
-  return installed ?? (modelPool ??= new Agent({ keepAliveTimeout: 20_000, keepAliveMaxTimeout: 20_000 }));
+  if (installed && installed.constructor.name !== "Agent") return installed;
+  return modelPool ??= new Agent({ keepAliveTimeout: 20_000, keepAliveMaxTimeout: 20_000 });
 }
 /** A transport-level failure; fetch rejects this way only before the response headers arrive. */
 function connectionLost(error: unknown): boolean {

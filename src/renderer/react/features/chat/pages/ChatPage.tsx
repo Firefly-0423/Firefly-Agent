@@ -1034,19 +1034,22 @@ export function ChatPage() {
       throw error;
     }
     if (temporary) setPendingTemporary(false);
-    // 欢迎页暂存的模型选择在此落地（问题 2：无会话时选择器曾被静默丢弃）。
-    const pendingModelProfileId = pendingModelProfileByMode[targetMode];
-    if (pendingModelProfileId) {
-      await store.setModelProfile(session.id, pendingModelProfileId);
-      setPendingModelProfileByMode((current) => {
-        const next = { ...current };
-        delete next[targetMode];
-        return next;
-      });
-    }
+    await applyPendingModelProfile(store, session.id, targetMode);
     await refreshSessions(targetMode, false);
     await selectSession(session.id, targetMode);
     return session.id;
+  }
+
+  /** 欢迎页暂存的模型选择在新会话落地后清除（问题 2：无会话时选择器曾被静默丢弃）。 */
+  async function applyPendingModelProfile(store: NonNullable<ReturnType<typeof chatStore>>, sessionId: string, targetMode: ConversationMode) {
+    const pendingModelProfileId = pendingModelProfileByMode[targetMode];
+    if (!pendingModelProfileId) return;
+    await store.setModelProfile(sessionId, pendingModelProfileId);
+    setPendingModelProfileByMode((current) => {
+      const next = { ...current };
+      delete next[targetMode];
+      return next;
+    });
   }
 
   async function chooseWorkspace() {
@@ -1163,6 +1166,7 @@ export function ChatPage() {
       delete next[targetMode];
       return next;
     });
+    await applyPendingModelProfile(store, session.id, targetMode);
     await refreshSessions(targetMode, false);
     await selectSession(session.id, targetMode);
   }
