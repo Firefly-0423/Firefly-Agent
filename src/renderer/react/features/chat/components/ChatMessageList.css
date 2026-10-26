@@ -1270,9 +1270,12 @@
   to { opacity: 1; }
 }
 
+/* antd lays an end-placed footer out row-reverse, which turned flex-end into the left edge; keep the copy action under the bubble's right corner. */
 .ff-message--user .ant-bubble-footer {
+  flex-direction: row;
   justify-content: flex-end;
   display: flex;
+  margin-top: 4px;
 }
 
 .ff-message--assistant .ant-bubble-footer {

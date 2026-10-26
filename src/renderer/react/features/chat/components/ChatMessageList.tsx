@@ -351,7 +351,7 @@ function RunActivityContent(props: ActivityContentProps) {
     <div className="ff-run-activity__header">
       <span className="ff-run-activity__title">
         {state.processing && <span className="ff-run-activity__art" aria-hidden="true"><DotSpinner /></span>}
-        <span>{caption}</span>{props.stage && <RunStageIndicator stage={props.stage} />}
+        <span>{caption}</span>{props.stage && <RunStageIndicator stage={props.stage} dot={!state.processing} />}
       </span>
       <button type="button" className="ff-run-activity__toggle" onClick={() => props.onExpand(!props.expanded)}
         aria-expanded={props.expanded} aria-controls={`${props.activityId}-details`}
@@ -367,7 +367,6 @@ function RunActivityContent(props: ActivityContentProps) {
       <RunActivityDetail live={state.processing} agentRounds={props.agentRounds} reasoningBlocks={props.reasoningBlocks}
         processMessages={props.processMessages} taskDelegations={props.taskDelegations} tools={props.tools}
         interrupted={Boolean(props.activity.keepExpanded && props.activity.completedAt !== undefined)} />
-      <div className="ff-run-activity__divider" />
     </div>}
   </section>;
 }
