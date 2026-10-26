@@ -168,6 +168,17 @@ export function prepareModelCall(
   return prepared;
 }
 
+const UNSENT_CONNECT_CODES = new Set(["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "UND_ERR_CONNECT_TIMEOUT"]);
+/** True only when the connection never came up, so no request byte can have reached the provider. */
+function connectionNeverOpened(error: unknown): boolean {
+  for (let cause = error, depth = 0; cause && typeof cause === "object" && depth < 6; cause = (cause as { cause?: unknown }).cause, depth++) {
+    const { code, message } = cause as { code?: unknown; message?: unknown };
+    if (typeof code === "string" && UNSENT_CONNECT_CODES.has(code)) return true;
+    if (code === "ECONNRESET" && typeof message === "string" && message.includes("before secure TLS connection was established")) return true;
+  }
+  return false;
+}
+
 /** Must be called by Main's context.dispatch single-use permit callback; it grants no memory authority itself. */
 export async function dispatchPreparedModelCall(input: PreparedModelCallInput): Promise<ChatResponse> {
   input = { ...input };
@@ -206,7 +217,14 @@ export async function dispatchPreparedModelCall(input: PreparedModelCallInput): 
         started=true;observe("start");
         check(call,input.config,input.signal);
         if(outgoing.signal.aborted)throw cancelled(outgoing.signal);
-        dispatched=true;return delegate(outgoing);
+        dispatched=true;
+        // The single send is never replayed, except once when the connection itself failed to open.
+        const retry=outgoing.clone();
+        return delegate(outgoing).catch((error:unknown)=>{
+          if(!connectionNeverOpened(error)||outgoing.signal.aborted)throw error;
+          check(call,input.config,input.signal);
+          return delegate(retry);
+        });
       };
       return await (input.guardSend?input.guardSend(invoke):invoke());
     } catch (error) {

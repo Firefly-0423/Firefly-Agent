@@ -85,6 +85,38 @@ describe("prepared provider calls", () => {
     if (transport === "anthropic") expect(response.assistantMessage.rawAssistant).toEqual([{ type: "text", text: "完成" }]);
   });
 
+  const unsent = () => new TypeError("fetch failed", { cause: Object.assign(
+    new Error("Client network socket disconnected before secure TLS connection was established"), { code: "ECONNRESET" }) });
+  it("retries once when the connection drops before TLS is established, sending the same body", async () => {
+    const f = fixture("responses"), bodies: string[] = [];
+    const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      bodies.push(await new Request(input, init).text());
+      if (bodies.length === 1) throw unsent();
+      return sse("responses");
+    });
+    vi.stubGlobal("fetch", fetch);
+    const prepared = prepareModelCall(f.adapter, f.request, f.config, f.identity);
+    const response = await dispatchPreparedModelCall({ prepared, config: f.config, timeoutMs: 1_000 });
+    expect(response.text).toBe("完成");
+    expect(bodies).toEqual([prepared.serializedBody, prepared.serializedBody]);
+  });
+  it("does not retry once the connection was up, since the request may have reached the provider", async () => {
+    const f = fixture("responses");
+    const fetch = vi.fn(async () => { throw new TypeError("fetch failed", { cause: Object.assign(new Error("other side closed"), { code: "UND_ERR_SOCKET" }) }); });
+    vi.stubGlobal("fetch", fetch);
+    const prepared = prepareModelCall(f.adapter, f.request, f.config, f.identity);
+    await expect(dispatchPreparedModelCall({ prepared, config: f.config, timeoutMs: 1_000 })).rejects.toThrow();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it("retries an unsent request only once", async () => {
+    const f = fixture("responses");
+    const fetch = vi.fn(async () => { throw unsent(); });
+    vi.stubGlobal("fetch", fetch);
+    const prepared = prepareModelCall(f.adapter, f.request, f.config, f.identity);
+    await expect(dispatchPreparedModelCall({ prepared, config: f.config, timeoutMs: 1_000 })).rejects.toThrow();
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
   it.each(["apiKey", "baseUrl", "model"] as const)("fails closed when %s changes after preparation", async key => {
     const f = fixture("openai"), fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
     const prepared = prepareModelCall(f.adapter, f.request, f.config, f.identity);
