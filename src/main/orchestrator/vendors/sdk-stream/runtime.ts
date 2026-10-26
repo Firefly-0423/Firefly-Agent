@@ -73,6 +73,16 @@ function serialize(adapter: ChatVendorAdapter, request: ChatRequest, config: Ven
 function abortReason(signal: AbortSignal): Error {
   return signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted", "AbortError");
 }
+/** Names and codes along an error's cause chain; identifiers only, so prompts, keys and provider text stay out of the log. */
+export function causeCodes(error: unknown): string {
+  const parts: string[] = [];
+  for (let cause = error, depth = 0; cause && typeof cause === "object" && depth < 6; cause = (cause as { cause?: unknown }).cause, depth++) {
+    const { name, code, status } = cause as { name?: unknown; code?: unknown; status?: unknown };
+    const label = [name, code, status].filter(value => (typeof value === "string" && /^[\w.-]{1,60}$/.test(value)) || typeof value === "number").join(":");
+    if (label) parts.push(label);
+  }
+  return parts.join(" <- ");
+}
 function describeModelError(error: unknown): string {
   if (!(error instanceof Error)) return String(error);
   const metadata = error as Error & { status?: unknown; code?: unknown; type?: unknown };
@@ -206,7 +216,8 @@ async function runSdkStream(input: Omit<SdkStreamRunInput, "request"> & { model:
     const code = deadlineExpired ? "E_MODEL_REQUEST_TIMEOUT" : input.signal?.aborted ? "MEMORY_CONTEXT_CANCELLED"
       : cause instanceof ProviderProtocolError || cause instanceof AgentRuntimeError ? cause.code : "E_MODEL_REQUEST_FAILED";
     const description = preparedFetch ? code : describeModelError(cause);
-    if (preparedFetch) console.error("[model-request] 流式请求失败:", code);
+    // Only error names and codes along the cause chain (e.g. APIConnectionError <- TypeError <- ECONNRESET), never messages.
+    if (preparedFetch) console.error("[model-request] 流式请求失败:", code, causeCodes(cause));
     else console.error("[image-send] 流式请求失败:", `\n  model id: ${input.model}`,
       `\n  baseUrl: ${endpoint || "请求未发出"}`, `\n  error: ${description}`);
     if (trace) dumpResponse(trace, { transport: input.adapter.transport, ok: false, raw: null, error: description });
