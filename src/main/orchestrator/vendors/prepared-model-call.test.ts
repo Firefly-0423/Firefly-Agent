@@ -87,34 +87,42 @@ describe("prepared provider calls", () => {
 
   const unsent = () => new TypeError("fetch failed", { cause: Object.assign(
     new Error("Client network socket disconnected before secure TLS connection was established"), { code: "ECONNRESET" }) });
-  it("retries once when the connection drops before TLS is established, sending the same body", async () => {
+  const dropped = () => new TypeError("fetch failed", { cause: Object.assign(new Error("other side closed"), { code: "UND_ERR_SOCKET" }) });
+  it("retries a connection lost before any response, up to twice, with the same body", async () => {
     const f = fixture("responses"), bodies: string[] = [];
-    const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       bodies.push(await new Request(input, init).text());
       if (bodies.length === 1) throw unsent();
+      if (bodies.length === 2) throw dropped();
       return sse("responses");
-    });
-    vi.stubGlobal("fetch", fetch);
+    }));
     const prepared = prepareModelCall(f.adapter, f.request, f.config, f.identity);
-    const response = await dispatchPreparedModelCall({ prepared, config: f.config, timeoutMs: 1_000 });
+    const response = await dispatchPreparedModelCall({ prepared, config: f.config, timeoutMs: 5_000 });
     expect(response.text).toBe("完成");
-    expect(bodies).toEqual([prepared.serializedBody, prepared.serializedBody]);
+    expect(bodies).toEqual([prepared.serializedBody, prepared.serializedBody, prepared.serializedBody]);
   });
-  it("does not retry once the connection was up, since the request may have reached the provider", async () => {
+  it("gives up after two retries", async () => {
     const f = fixture("responses");
-    const fetch = vi.fn(async () => { throw new TypeError("fetch failed", { cause: Object.assign(new Error("other side closed"), { code: "UND_ERR_SOCKET" }) }); });
+    const fetch = vi.fn(async () => { throw dropped(); });
     vi.stubGlobal("fetch", fetch);
     const prepared = prepareModelCall(f.adapter, f.request, f.config, f.identity);
-    await expect(dispatchPreparedModelCall({ prepared, config: f.config, timeoutMs: 1_000 })).rejects.toThrow();
-    expect(fetch).toHaveBeenCalledTimes(1);
+    await expect(dispatchPreparedModelCall({ prepared, config: f.config, timeoutMs: 5_000 })).rejects.toThrow();
+    expect(fetch).toHaveBeenCalledTimes(3);
   });
-  it("retries an unsent request only once", async () => {
+  it("does not retry once the response has started, or when the provider answered with an error", async () => {
     const f = fixture("responses");
-    const fetch = vi.fn(async () => { throw unsent(); });
-    vi.stubGlobal("fetch", fetch);
-    const prepared = prepareModelCall(f.adapter, f.request, f.config, f.identity);
-    await expect(dispatchPreparedModelCall({ prepared, config: f.config, timeoutMs: 1_000 })).rejects.toThrow();
-    expect(fetch).toHaveBeenCalledTimes(2);
+    const broken = new ReadableStream({ start(controller) {
+      controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: "response.output_text.delta", delta: "部分" })}\n\n`));
+      controller.error(Object.assign(new Error("other side closed"), { code: "UND_ERR_SOCKET" }));
+    } });
+    const streaming = vi.fn(async () => new Response(broken, { headers: { "Content-Type": "text/event-stream" } }));
+    vi.stubGlobal("fetch", streaming);
+    await expect(dispatchPreparedModelCall({ prepared: prepareModelCall(f.adapter, f.request, f.config, f.identity), config: f.config, timeoutMs: 5_000 })).rejects.toThrow();
+    expect(streaming).toHaveBeenCalledTimes(1);
+    const failing = vi.fn(async () => new Response("{}", { status: 500 }));
+    vi.stubGlobal("fetch", failing);
+    await expect(dispatchPreparedModelCall({ prepared: prepareModelCall(f.adapter, f.request, f.config, f.identity), config: f.config, timeoutMs: 5_000 })).rejects.toThrow();
+    expect(failing).toHaveBeenCalledTimes(1);
   });
 
   it.each(["apiKey", "baseUrl", "model"] as const)("fails closed when %s changes after preparation", async key => {

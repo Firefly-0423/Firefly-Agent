@@ -168,13 +168,15 @@ export function prepareModelCall(
   return prepared;
 }
 
-const UNSENT_CONNECT_CODES = new Set(["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "UND_ERR_CONNECT_TIMEOUT"]);
-/** True only when the connection never came up, so no request byte can have reached the provider. */
-function connectionNeverOpened(error: unknown): boolean {
+const CONNECTION_LOST_CODES = new Set(["ECONNRESET", "ECONNREFUSED", "ECONNABORTED", "EPIPE", "ETIMEDOUT", "ENOTFOUND", "EAI_AGAIN",
+  "UND_ERR_SOCKET", "UND_ERR_CONNECT_TIMEOUT", "UND_ERR_CLOSED"]);
+/** Delays before each retry of a model request whose connection was lost before any response arrived. */
+const CONNECTION_RETRY_DELAYS_MS = [300, 900];
+/** A transport-level failure; fetch rejects this way only before the response headers arrive. */
+function connectionLost(error: unknown): boolean {
   for (let cause = error, depth = 0; cause && typeof cause === "object" && depth < 6; cause = (cause as { cause?: unknown }).cause, depth++) {
-    const { code, message } = cause as { code?: unknown; message?: unknown };
-    if (typeof code === "string" && UNSENT_CONNECT_CODES.has(code)) return true;
-    if (code === "ECONNRESET" && typeof message === "string" && message.includes("before secure TLS connection was established")) return true;
+    const { code } = cause as { code?: unknown };
+    if (typeof code === "string" && CONNECTION_LOST_CODES.has(code)) return true;
   }
   return false;
 }
@@ -218,13 +220,20 @@ export async function dispatchPreparedModelCall(input: PreparedModelCallInput): 
         check(call,input.config,input.signal);
         if(outgoing.signal.aborted)throw cancelled(outgoing.signal);
         dispatched=true;
-        // The single send is never replayed, except once when the connection itself failed to open.
-        const retry=outgoing.clone();
-        return delegate(outgoing).catch((error:unknown)=>{
-          if(!connectionNeverOpened(error)||outgoing.signal.aborted)throw error;
-          check(call,input.config,input.signal);
-          return delegate(retry);
-        });
+        // A model call has no side effect outside the provider, so a request whose connection dropped before
+        // any response is sent again (twice at most); once a response has started it is never replayed.
+        const send=async(request:Request,attempt:number):Promise<Response>=>{
+          const spare=attempt<CONNECTION_RETRY_DELAYS_MS.length?request.clone():undefined;
+          try{return await delegate(request)}
+          catch(error){
+            if(!spare||!connectionLost(error)||outgoing.signal.aborted)throw error;
+            await new Promise(resolve=>setTimeout(resolve,CONNECTION_RETRY_DELAYS_MS[attempt]));
+            check(call,input.config,input.signal);
+            if(outgoing.signal.aborted)throw cancelled(outgoing.signal);
+            return send(spare,attempt+1);
+          }
+        };
+        return send(outgoing,0);
       };
       return await (input.guardSend?input.guardSend(invoke):invoke());
     } catch (error) {
