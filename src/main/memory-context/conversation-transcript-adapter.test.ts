@@ -86,9 +86,21 @@ it("preserves ordered roles and complete canonical tool calls without promoting 
  ]);
  expect(await f.policy.recall(f.actor)).toEqual([]);
 });
-it("refuses missing tool results instead of inventing executed results",async()=>{
+it("carries an interrupted tool call as an explicit unknown outcome instead of inventing an executed result",async()=>{
  const f=await fixture();
  await f.store.append("session-a",{id:"a1",at:1001,kind:"assistant",payload:{role:"assistant",content:"",toolCalls:[{id:"call-a",name:"read_file",arguments:"{}"}]}});
+ // A later turn in the same conversation must still run after the interruption.
+ await f.store.append("session-a",user("u2","still there?"));
+ const messages=(await f.assemble()).request.body.messages as Array<{role:string;text:string;toolCallId?:string}>;
+ const placeholder=messages.find(message=>message.role==="tool");
+ expect(placeholder).toMatchObject({role:"tool",toolCallId:"call-a"});
+ expect(JSON.parse(placeholder!.text)).toMatchObject({outcome:"unknown",tool:"read_file"});
+ expect(messages.at(-1)).toEqual({role:"user",text:"still there?"});
+});
+it("still refuses a tool result that answers no call",async()=>{
+ const f=await fixture();
+ await f.store.append("session-a",{id:"a1",at:1001,kind:"assistant",payload:{role:"assistant",content:"",toolCalls:[{id:"call-a",name:"read_file",arguments:"{}"}]}});
+ await f.store.append("session-a",{id:"t1",at:1002,kind:"tool_result",payload:{assistantEntryId:"a1",toolCallId:"call-b",outcome:"success",message:{role:"tool",content:"orphan",toolCallId:"call-a",name:"read_file"}}});
  await expect(f.capture()).rejects.toThrow("MEMORY_CONTEXT_TOOL_PAIR_INVALID");
 });
 it("preserves actual provider reasoning and local metadata without promoting M",async()=>{
