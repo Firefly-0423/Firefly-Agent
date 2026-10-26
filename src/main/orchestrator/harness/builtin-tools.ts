@@ -158,11 +158,12 @@ function parseAskQuestions(raw: unknown): { questions?: HarnessAskQuestion[]; er
     if (candidates.length < bounds.min || candidates.length > bounds.max) return { error: `第 ${ordinal} 个 ${type} 问题必须有 ${bounds.min}-${bounds.max} 个选项` };
     const values = new Set<string>();
     const options: HarnessAskQuestion["options"] = [];
-    for (const candidate of candidates) {
+    for (const [index, candidate] of candidates.entries()) {
       if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return { error: `第 ${ordinal} 个问题含有无效选项` };
       const option = candidate as Record<string, unknown>;
       const label = String(option.label ?? "").trim();
-      const value = String(option.value ?? "").trim();
+      // Models often give only a label; number such options rather than refuse the whole card.
+      const value = String(option.value ?? "").trim() || `option-${index + 1}`;
       if (!label || !value || values.has(value)) return { error: `第 ${ordinal} 个问题的选项 label/value 必须非空，且 value 不可重复` };
       values.add(value);
       const description = typeof option.description === "string" ? option.description.trim() : "";
