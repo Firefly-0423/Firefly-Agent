@@ -11,8 +11,8 @@ vi.mock("@ant-design/x", async () => {
   return {
     Bubble: { List: () => null },
     CodeHighlighter: () => null,
-    Think: ({ expanded, onExpand, title, rootClassName }: { expanded?: boolean; onExpand?: (value: boolean) => void; title?: React.ReactNode; rootClassName?: string }) =>
-      ReactModule.createElement("div", { "data-think": "", className: rootClassName, "data-expanded": String(Boolean(expanded)), onClick: () => onExpand?.(!expanded) }, title),
+    Think: ({ expanded, onExpand, title, icon, rootClassName }: { expanded?: boolean; onExpand?: (value: boolean) => void; title?: React.ReactNode; icon?: React.ReactNode; rootClassName?: string }) =>
+      ReactModule.createElement("div", { "data-think": "", className: rootClassName, "data-expanded": String(Boolean(expanded)), onClick: () => onExpand?.(!expanded) }, icon, title),
     ThoughtChain: () => null,
   };
 });
@@ -42,6 +42,11 @@ it("locks reasoning open while it streams", () => {
   expect(live.className).toContain("is-live");
   act(() => live.click());
   expect(think().dataset.expanded).toBe("true");
+});
+
+it("leaves the spinner to the run header instead of drawing a second one while thinking", () => {
+  render({ id: "r1", content: "思考中", streaming: true, seq: 1 });
+  expect(container.querySelector(".ff-dot-spinner")).toBeNull();
 });
 
 it("stays open after streaming and hands folding back to the user", () => {
