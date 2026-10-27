@@ -18,7 +18,7 @@ const TOOL_LABEL_KEYS: Record<string, string> = Object.fromEntries([
 const SUMMARY_TOOL_KEYS: Record<string, string> = Object.fromEntries([
   ["list_dir", "agentRounds.summaryListDir"], ["read_file", "agentRounds.summaryReadFile"],
   ["write_file", "agentRounds.summaryWriteFile"], ["edit_file", "agentRounds.summaryEditFile"],
-  ["search_code", "agentRounds.summarySearchCode"], ["search_text", "agentRounds.summarySearchText"],
+  ["search_code", "agentRounds.summarySearchCode"], ["search_text", "agentRounds.summarySearchCode"],
   ["run_shell", "agentRounds.summaryRunShell"],
 ]);
 
@@ -113,19 +113,38 @@ export function applyAgentRoundBoundary(state: AgentRoundBoundaryState, action: 
   }
 }
 
-function successfulFacts(records: readonly ToolExecutionRecord[]): string[] {
+/** One fact per summary line: both search tools share "searched N times". */
+export function summarizeToolFacts(records: readonly ToolExecutionRecord[]): string[] {
   const successful = records.filter(({ status }) => status === "success");
   const totals = new Map<string, number>();
-  successful.forEach(({ name }) => totals.set(name, (totals.get(name) ?? 0) + 1));
-  const facts: string[] = [];
-  for (const [name, translation] of Object.entries(SUMMARY_TOOL_KEYS)) {
-    const count = totals.get(name) ?? 0;
-    if (count !== 0) { facts.push(t(translation, { count })); }
-  }
+  successful.forEach(({ name }) => {
+    const key = SUMMARY_TOOL_KEYS[name];
+    if (key) { totals.set(key, (totals.get(key) ?? 0) + 1); }
+  });
+  const facts = [...new Set(Object.values(SUMMARY_TOOL_KEYS))].flatMap((key) => totals.has(key) ? [t(key, { count: totals.get(key) })] : []);
   if (facts.length === 0 && successful.length > 0) {
     facts.push(t("agentRounds.summaryFallback", { count: successful.length }));
   }
   return facts;
+}
+
+const LOOK_AROUND_TOOLS = new Set(["list_dir", "read_file", "search_code", "search_text"]);
+export type ToolStep = { kind: "single"; tool: ToolExecutionRecord } | { kind: "group"; tools: ToolExecutionRecord[] };
+/** Consecutive successful reads, searches and listings fold into one step; edits, commands, failures and running steps stay on their own. */
+export function groupToolSteps(tools: readonly ToolExecutionRecord[]): ToolStep[] {
+  const steps: ToolStep[] = [];
+  let run: ToolExecutionRecord[] = [];
+  const flush = () => {
+    if (run.length > 1) { steps.push({ kind: "group", tools: run }); } else if (run.length === 1) { steps.push({ kind: "single", tool: run[0] }); }
+    run = [];
+  };
+  for (const tool of tools) {
+    if (tool.status === "success" && LOOK_AROUND_TOOLS.has(tool.name) && !tool.changes?.length) { run.push(tool); continue; }
+    flush();
+    steps.push({ kind: "single", tool });
+  }
+  flush();
+  return steps;
 }
 
 export function countRoundChangedFiles(tools: readonly ToolExecutionRecord[]): number {
@@ -149,7 +168,7 @@ export function resolveAgentRoundTitle(round: AgentRoundRecord, tools: readonly 
     if (!active) { return t("agentRounds.runningThinking"); }
     return t("agentRounds.runningLive", { action: translatedToolName(active.name, active.displayName, true, false) });
   }
-  const pieces = successfulFacts(tools);
+  const pieces = summarizeToolFacts(tools);
   if (failures) { pieces.push(t("agentRounds.failureCount", { count: failures })); }
   return [t("agentRounds.completedTitle"), ...pieces].join(" · ");
 }
@@ -200,6 +219,29 @@ export function buildFlatRunTimeline(input: FlatRunTimelineInput): FlatRunTimeli
     return delta !== 0 ? delta : left.order - right.order;
   });
   return ranked.map(({ value }) => value);
+}
+
+export type RunTimelineRow = FlatRunTimelineEntry | { kind: "group"; key: string; entries: FlatRunTimelineEntry[]; tools: ToolExecutionRecord[] };
+const foldable = (entry: FlatRunTimelineEntry) => entry.kind === "tool" && entry.tool!.status === "success" && LOOK_AROUND_TOOLS.has(entry.tool!.name) && !entry.tool!.changes?.length;
+/** Folds look-around stretches (groupToolSteps) of the timeline; finished thinking between two of their steps folds in with them. */
+export function foldRunTimeline(entries: readonly FlatRunTimelineEntry[]): RunTimelineRow[] {
+  const rows: RunTimelineRow[] = [];
+  let run: FlatRunTimelineEntry[] = [];
+  const flush = () => {
+    let end = run.length;
+    while (end > 0 && !foldable(run[end - 1])) { end -= 1; }
+    const stretch = run.slice(0, end), tools = stretch.filter(foldable).map((entry) => entry.tool!);
+    if (tools.length > 1) { rows.push({ kind: "group", key: `group-${stretch[0].key}`, entries: stretch, tools }); } else { rows.push(...stretch); }
+    rows.push(...run.slice(end));
+    run = [];
+  };
+  for (const entry of entries) {
+    if (foldable(entry) || (run.length > 0 && entry.kind === "reasoning" && !entry.reasoning?.streaming)) { run.push(entry); continue; }
+    flush();
+    rows.push(entry);
+  }
+  flush();
+  return rows;
 }
 
 export function buildAskUserQa(tool: ToolExecutionRecord): string[] {

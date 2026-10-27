@@ -6,7 +6,9 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { ChatMessageChannelSource } from "../../../../../shared/chat-types";
 
 vi.mock("@ant-design/x", () => ({
-  Bubble: { List: () => null }, CodeHighlighter: () => null, ThoughtChain: () => null,
+  Bubble: { List: () => null }, CodeHighlighter: () => null,
+  ThoughtChain: ({ items }: { items: { key: string; title: React.ReactNode; description?: React.ReactNode }[] }) =>
+    items.map((item) => React.createElement("div", { key: item.key, "data-chain-item": item.key }, item.title, " ", item.description)),
   Think: ({ icon, title, children }: { icon: React.ReactNode; title: React.ReactNode; children: React.ReactNode }) =>
     React.createElement("section", null, icon, title, children),
 }));
@@ -160,6 +162,19 @@ test("keeps the live event timeline flat and in sequence across model rounds", (
   expect(html.indexOf("Inspect the workspace")).toBeLessThan(html.indexOf("Evaluate the result"));
 });
 
+test("folds a live stretch of reads and searches into one line of counts and keeps a command on its own", () => {
+  const html = draw({ live: true, agentRounds: [rounds[1]], reasoningBlocks: [], processMessages: [],
+    tools: [{ id: "r1", roundId: "verification", name: "read_file", status: "success", seq: 1, argsText: JSON.stringify({ path: "src/main.rs" }) },
+      { id: "s1", roundId: "verification", name: "search_code", status: "success", seq: 2 },
+      { id: "r2", roundId: "verification", name: "read_file", status: "success", seq: 3, argsText: JSON.stringify({ path: "notes/todo.md" }) },
+      { id: "x1", roundId: "verification", name: "run_shell", status: "running", seq: 4, argsText: JSON.stringify({ command: "cargo test" }) }],
+  });
+  const text = html.replace(/<[^>]+>/g, "");
+  expect(text).toContain("读取 2 个文件 · 搜索 1 次");
+  expect(text).toContain("main.rs, todo.md");
+  expect(text).toContain("cargo test");
+  expect(html.match(/ff-tool-executions"/g)).toHaveLength(2);
+});
 test("settled round groups retain narration, live reasoning and truthful titles", () => {
   const html = draw({ agentRounds: rounds,
     reasoningBlocks: [{ id: "cached-thought", roundId: "verification", content: "Inspection understood", streaming: false },

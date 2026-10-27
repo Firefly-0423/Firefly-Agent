@@ -254,7 +254,6 @@
     "summaryWriteFile": "Wrote {{count}} files",
     "summaryEditFile": "Edited {{count}} files",
     "summarySearchCode": "Searched {{count}} times",
-    "summarySearchText": "Searched {{count}} times",
     "summaryRunShell": "Ran {{count}} commands",
     "summaryFallback": "Completed {{count}} actions",
     "interruptedTitle": "I was interrupted",

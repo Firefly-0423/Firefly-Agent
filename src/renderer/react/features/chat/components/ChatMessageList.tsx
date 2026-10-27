@@ -26,7 +26,8 @@ import { resolveRevisableLastTurn } from "./last-turn-actions";
 import { extractMessageStickerId, stripMessageStickerMarkers } from "./message-sticker";
 import type { WeatherData } from "./weather/weather-types";
 import { WeatherCard } from "./weather/WeatherCard";
-import { buildAskUserQa, buildFlatRunTimeline, countRoundChangedFiles, describeToolExecution, resolveAgentRoundTitle } from "./agent-rounds";
+import { buildAskUserQa, buildFlatRunTimeline, countRoundChangedFiles, describeToolExecution, foldRunTimeline, groupToolSteps, resolveAgentRoundTitle,
+  summarizeToolFacts, type FlatRunTimelineEntry } from "./agent-rounds";
 import { TaskDelegationRow } from "./TaskDelegationRow";
 import { extractFileChanges, FileChangeCard } from "./FileChangeCard";
 import { ReviewPanel } from "./ReviewPanel";
@@ -227,7 +228,8 @@ function useRunActivityNow(processing: boolean): number {
 }
 function RunActivityReasoningBlock({ block }: { block: ReasoningBlock }) {
   const live = Boolean(block.streaming);
-  const [open, changeOpen] = useState(true);
+  // Shown while it streams, then folds to its title; the answer is what stays on screen.
+  const [open, changeOpen] = useState(false);
   return <ReasoningContent content={block.content} loading={live} expanded={open} onExpand={changeOpen} spinner={false} />;
 }
 
@@ -280,8 +282,8 @@ type ActivityDetailProps = {
   processMessages: ProcessMessageRecord[]; taskDelegations?: TaskDelegationDisplayRecord[];
   tools: ToolExecutionRecord[]; interrupted?: boolean;
 };
-function liveActivityRows(input: Required<ActivityDetailProps>): ReactNode[] {
-  return buildFlatRunTimeline(input).flatMap((entry) => {
+function timelineEntryRows(entries: readonly FlatRunTimelineEntry[]): ReactNode[] {
+  return entries.flatMap((entry) => {
     switch (entry.kind) {
       case "process": return entry.process?.content.trim() ? [<FlatTimelineProcess message={entry.process} key={entry.key} />] : [];
       case "reasoning": return entry.reasoning?.content.trim() ? [<RunActivityReasoningBlock block={entry.reasoning} key={entry.key} />] : [];
@@ -289,6 +291,14 @@ function liveActivityRows(input: Required<ActivityDetailProps>): ReactNode[] {
       case "task": return entry.task ? [<TaskDelegationRow delegation={entry.task} key={entry.key} />] : [];
     }
   });
+}
+function liveActivityRows(input: Required<ActivityDetailProps>): ReactNode[] {
+  return foldRunTimeline(buildFlatRunTimeline(input)).flatMap<ReactNode>((row) => row.kind === "group"
+    ? [<section className="ff-tool-executions" key={row.key}>
+      <ThoughtChain rootClassName="ff-tool-executions__chain" line="dashed"
+        items={[toolGroupItem(row.key, row.tools, <div className="ff-tool-group__steps">{timelineEntryRows(row.entries)}</div>)]} />
+    </section>]
+    : timelineEntryRows([row]));
 }
 function completedActivityRows(input: Required<ActivityDetailProps>, translate: (key: string, options?: Record<string, unknown>) => string): ReactNode[] {
   const { agentRounds, processMessages, reasoningBlocks, taskDelegations, tools, interrupted } = input;
@@ -346,7 +356,7 @@ function RunActivityContent(props: ActivityContentProps) {
     previous.current = state.processing;
   }, [props.activity.keepExpanded, props.onExpand, state.processing]);
   const caption = state.processing ? t("messageList.activityProcessingTitle", { elapsed: formatElapsed(state.processingMs) })
-    : t("messageList.activityProcessedTitle", { elapsed: formatElapsed(state.processingMs) });
+    : [t("messageList.activityProcessedTitle", { elapsed: formatElapsed(state.processingMs) }), ...summarizeToolFacts(props.tools)].join(" · ");
   return <section className={`ff-run-activity${state.processing ? " is-processing" : " is-complete"}`}>
     <div className="ff-run-activity__header">
       <span className="ff-run-activity__title">
@@ -385,10 +395,30 @@ function toolChainItem(tool: ToolExecutionRecord) {
     content: (tool.result || tool.changes) ? <ToolResultContent tool={tool} result={tool.result} changes={tool.changes} /> : undefined,
   };
 }
-function ToolExecutionContent({ tools }: { tools: ToolExecutionRecord[] }) {
+/** A folded stretch of reads and searches: one line of counts, the steps themselves one click away. */
+function toolGroupItem(key: string, tools: readonly ToolExecutionRecord[], content: ReactNode) {
+  const targets = tools.map((tool) => describeToolExecution(tool).detail).filter((detail): detail is string => Boolean(detail))
+    .map((detail) => detail.split(/[\\/]/).pop() || detail);
+  const shown = [...new Set(targets)];
+  return {
+    key,
+    title: summarizeToolFacts(tools).join(" · "),
+    description: shown.length > 0 ? <span className="ff-tool-executions__description">
+      <code className="ff-tool-executions__detail">{shown.slice(0, 3).join(", ")}{shown.length > 3 ? ` +${shown.length - 3}` : ""}</code>
+    </span> : undefined,
+    status: "success" as const,
+    collapsible: true,
+    content,
+  };
+}
+function ToolExecutionContent({ tools, grouped = true }: { tools: ToolExecutionRecord[]; grouped?: boolean }) {
   const { t } = useTranslation();
+  const items = grouped
+    ? groupToolSteps(tools).map((step) => step.kind === "single" ? toolChainItem(step.tool)
+      : toolGroupItem(`group-${step.tools[0].id}`, step.tools, <ToolExecutionContent tools={step.tools} grouped={false} />))
+    : tools.map(toolChainItem);
   return <section className="ff-tool-executions" aria-label={t("messageList.toolExecutionsAria")}>
-    <ThoughtChain rootClassName="ff-tool-executions__chain" line="dashed" items={tools.map(toolChainItem)} />
+    <ThoughtChain rootClassName="ff-tool-executions__chain" line="dashed" items={items} />
   </section>;
 }
 function AskUserQaContent({ rows }: { rows: string[] }) {

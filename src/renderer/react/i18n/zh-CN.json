@@ -254,7 +254,6 @@
     "summaryWriteFile": "写入 {{count}} 个文件",
     "summaryEditFile": "编辑 {{count}} 个文件",
     "summarySearchCode": "搜索 {{count}} 次",
-    "summarySearchText": "搜索 {{count}} 次",
     "summaryRunShell": "执行 {{count}} 条命令",
     "summaryFallback": "完成 {{count}} 项操作",
     "interruptedTitle": "流萤已中断",

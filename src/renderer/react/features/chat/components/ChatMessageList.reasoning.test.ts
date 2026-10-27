@@ -49,14 +49,14 @@ it("leaves the spinner to the run header instead of drawing a second one while t
   expect(container.querySelector(".ff-dot-spinner")).toBeNull();
 });
 
-it("stays open after streaming and hands folding back to the user", () => {
-  render({ id: "r1", content: "思考中", streaming: true, seq: 1 });
+it("shows thinking while it streams, folds it to its title afterwards, and lets the user reopen it", () => {
+  expect(render({ id: "r1", content: "思考中", streaming: true, seq: 1 }).dataset.expanded).toBe("true");
   const done = render({ id: "r1", content: "思考完", streaming: false, seq: 1 });
-  expect(done.dataset.expanded).toBe("true");
+  expect(done.dataset.expanded).toBe("false");
   expect(done.className).not.toContain("is-live");
   act(() => done.click());
-  expect(think().dataset.expanded).toBe("false");
-  expect(render({ id: "r1", content: "思考完", streaming: false, seq: 1 }).dataset.expanded).toBe("false");
+  expect(think().dataset.expanded).toBe("true");
+  expect(render({ id: "r1", content: "思考完", streaming: false, seq: 1 }).dataset.expanded).toBe("true");
 });
 
 it("copies the reasoning as a quote without toggling the block", async () => {
@@ -66,7 +66,7 @@ it("copies the reasoning as a quote without toggling the block", async () => {
   const button = container.querySelector<HTMLButtonElement>(".ff-message-reasoning__quote")!;
   await act(async () => { button.click(); });
   expect(writeText).toHaveBeenCalledWith("> 第一行\n>\n> 第二行");
-  expect(think().dataset.expanded).toBe("true");
+  expect(think().dataset.expanded).toBe("false");
   expect(button.textContent).toBe("已复制");
 });
 

@@ -1,7 +1,8 @@
 import { expect, test } from "vitest";
 import type { ToolExecutionRecord } from "../../../../../shared/chat-types";
 import { applyAgentRoundBoundary, buildAskUserQa, buildFlatRunTimeline, countRoundChangedFiles,
-  createRoundProcessMessage, describeToolExecution, finishAgentRound, resolveAgentRoundTitle, startAgentRound } from "./agent-rounds";
+  createRoundProcessMessage, describeToolExecution, finishAgentRound, foldRunTimeline, groupToolSteps, resolveAgentRoundTitle, startAgentRound,
+  summarizeToolFacts } from "./agent-rounds";
 
 const record = (name: string, patch: Partial<ToolExecutionRecord> = {}): ToolExecutionRecord =>
   ({ id: "tool-" + name, name, status: "success", roundId: "round-review", ...patch });
@@ -92,4 +93,36 @@ test("deduplicates changed paths across tool results and accepts absent changes"
     record("read_file")])).toBe(2);
   expect(countRoundChangedFiles([record("list_dir")])).toBe(0);
   expect(countRoundChangedFiles([])).toBe(0);
+});
+
+test("counts both search tools under one search fact", () => {
+  expect(summarizeToolFacts([record("search_code", { id: "a" }), record("search_text", { id: "b" }), record("read_file")]))
+    .toStrictEqual(["读取 1 个文件", "搜索 2 次"]);
+});
+
+test("folds consecutive successful look-around steps into one group and keeps the rest on their own", () => {
+  const steps = [
+    record("read_file", { id: "r1" }), record("search_code", { id: "s1" }), record("list_dir", { id: "d1" }),
+    record("edit_file", { id: "e1" }),
+    record("read_file", { id: "r2" }),
+    record("read_file", { id: "r3", status: "error" }), record("read_file", { id: "r4" }), record("read_file", { id: "r5", status: "running" }),
+  ];
+  expect(groupToolSteps(steps).map((step) => step.kind === "group" ? step.tools.map(({ id }) => id) : step.tool.id))
+    .toStrictEqual([["r1", "s1", "d1"], "e1", "r2", "r3", "r4", "r5"]);
+});
+
+test("folds a look-around stretch of the live timeline, finished thinking between its steps included", () => {
+  const entries = buildFlatRunTimeline({
+    tools: [record("read_file", { id: "r1", seq: 1 }), record("search_code", { id: "s1", seq: 3 }), record("run_shell", { id: "x1", seq: 5 })],
+    reasoningBlocks: [{ id: "think-mid", content: "看看", seq: 2 }, { id: "think-after", content: "再想想", seq: 4 }],
+    processMessages: [], taskDelegations: [],
+  });
+  const rows = foldRunTimeline(entries);
+  expect(rows.map((row) => row.kind === "group" ? row.entries.map(({ key }) => key) : row.key))
+    .toStrictEqual([["r1", "think-mid", "s1"], "think-after", "x1"]);
+  const streaming = buildFlatRunTimeline({
+    tools: [record("read_file", { id: "r1", seq: 1 }), record("read_file", { id: "r2", seq: 3 })],
+    reasoningBlocks: [{ id: "live", content: "…", seq: 2, streaming: true }], processMessages: [], taskDelegations: [],
+  });
+  expect(foldRunTimeline(streaming).map((row) => row.kind)).toStrictEqual(["tool", "reasoning", "tool"]);
 });

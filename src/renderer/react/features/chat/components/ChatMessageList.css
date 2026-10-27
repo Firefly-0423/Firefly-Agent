@@ -582,6 +582,18 @@
   min-width: 0;
 }
 
+/* 合并后的读取/搜索：展开后的各步缩进一级，不再重复外层的上下留白 */
+.ff-tool-group__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.ff-tool-group__steps .ff-tool-executions {
+  padding: 0;
+}
+
 .ff-tool-executions__result {
   white-space: pre-wrap;
   font: 12px/1.55 var(--rb-font-mono, monospace);
