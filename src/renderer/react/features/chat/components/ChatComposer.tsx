@@ -427,7 +427,7 @@ export function ChatComposer(props: ChatComposerProps) {
         <Sender
           rootClassName="ff-composer"
           value={visibleValue}
-          placeholder={modelBusy ? t("composer.placeholderBusy") : placeholder}
+          placeholder={placeholder}
           // 运行中使用 Sender 自带的停止按钮；Enter 入队由 onKeyDown 在内置提交前处理。
           loading={modelBusy}
           disabled={!modelBusy && requiresWorkspace && !workspaceName}
