@@ -2,12 +2,6 @@ import { t } from "../../../i18n";
 import type { AgentRoundRecord, ProcessMessageRecord, ReasoningBlock, TaskDelegationDisplayRecord, ToolExecutionRecord } from "../../../../../shared/chat-types";
 
 // 保持工具顺序，文案在调用时求值。
-const LIVE_TOOL_LABEL_KEYS: Record<string, string> = Object.fromEntries([
-  ["list_dir", "agentRounds.liveListDir"], ["read_file", "agentRounds.liveReadFile"],
-  ["write_file", "agentRounds.liveWriteFile"], ["edit_file", "agentRounds.liveEditFile"],
-  ["search_code", "agentRounds.liveSearchCode"], ["search_text", "agentRounds.liveSearchText"],
-  ["run_shell", "agentRounds.liveRunShell"],
-]);
 const TOOL_LABEL_KEYS: Record<string, string> = Object.fromEntries([
   ["list_dir", "agentRounds.toolListDir"], ["read_file", "agentRounds.toolReadFile"],
   ["write_file", "agentRounds.toolWriteFile"], ["edit_file", "agentRounds.toolEditFile"],
@@ -19,13 +13,13 @@ const SUMMARY_TOOL_KEYS: Record<string, string> = Object.fromEntries([
   ["list_dir", "agentRounds.summaryListDir"], ["read_file", "agentRounds.summaryReadFile"],
   ["write_file", "agentRounds.summaryWriteFile"], ["edit_file", "agentRounds.summaryEditFile"],
   ["search_code", "agentRounds.summarySearchCode"], ["search_text", "agentRounds.summarySearchCode"],
-  ["run_shell", "agentRounds.summaryRunShell"],
+  ["run_shell", "agentRounds.summaryRunShell"], ["update_todo", "agentRounds.summaryUpdateTodo"],
+  ["read_tool_result", "agentRounds.summaryReadToolResult"],
 ]);
 
-function translatedToolName(name: string, displayName: string | undefined, live: boolean, action: boolean): string {
+function translatedToolName(name: string, displayName: string | undefined, action: boolean): string {
   if (displayName) { return displayName; }
-  const lookup = live ? LIVE_TOOL_LABEL_KEYS : TOOL_LABEL_KEYS;
-  const translation = lookup[name];
+  const translation = TOOL_LABEL_KEYS[name];
   if (translation) { return t(translation); }
   return action ? t("agentRounds.fallbackAction") : name;
 }
@@ -60,13 +54,13 @@ export function describeToolExecution(tool: ToolExecutionRecord): ToolExecutionP
   if (tool.name === "ask_user") {
     const stateKey = tool.status === "running" ? "agentRounds.askUserWaiting"
       : tool.status === "error" ? "agentRounds.askUserFailed" : "agentRounds.askUserAnswered";
-    return { label: translatedToolName(tool.name, tool.displayName, false, false), statusText: t(stateKey), detail: undefined };
+    return { label: translatedToolName(tool.name, tool.displayName, false), statusText: t(stateKey), detail: undefined };
   }
   const input = toolObject(tool.argsText);
   const output = toolObject(tool.result);
   const detail = targetArgument(input, tool.name === "run_shell");
-  const label = translatedToolName(tool.name, tool.displayName, false, false);
-  const action = translatedToolName(tool.name, tool.displayName, false, true);
+  const label = translatedToolName(tool.name, tool.displayName, false);
+  const action = translatedToolName(tool.name, tool.displayName, true);
   let statusText: string;
   if (tool.name === "run_shell" && tool.status === "error" && output?.timedOut === true) {
     statusText = t("agentRounds.commandTimeout");
@@ -129,6 +123,12 @@ export function summarizeToolFacts(records: readonly ToolExecutionRecord[]): str
 }
 
 const LOOK_AROUND_TOOLS = new Set(["list_dir", "read_file", "search_code", "search_text"]);
+/** Bookkeeping steps: they keep the run on track but change nothing the user needs to see. */
+const BOOKKEEPING_TOOLS = new Set(["update_todo", "read_tool_result"]);
+/** A finished step that changes nothing: it folds into the quiet stretch around it. */
+const quietTool = (tool: ToolExecutionRecord) => tool.status === "success" && (LOOK_AROUND_TOOLS.has(tool.name) || BOOKKEEPING_TOOLS.has(tool.name)) && !tool.changes?.length;
+/** Steps worth counting in a run's one-line summary; bookkeeping is left out. */
+export const countedTools = (tools: readonly ToolExecutionRecord[]) => tools.filter((tool) => !BOOKKEEPING_TOOLS.has(tool.name));
 export type ToolStep = { kind: "single"; tool: ToolExecutionRecord } | { kind: "group"; tools: ToolExecutionRecord[] };
 /** Consecutive successful reads, searches and listings fold into one step; edits, commands, failures and running steps stay on their own. */
 export function groupToolSteps(tools: readonly ToolExecutionRecord[]): ToolStep[] {
@@ -139,7 +139,7 @@ export function groupToolSteps(tools: readonly ToolExecutionRecord[]): ToolStep[
     run = [];
   };
   for (const tool of tools) {
-    if (tool.status === "success" && LOOK_AROUND_TOOLS.has(tool.name) && !tool.changes?.length) { run.push(tool); continue; }
+    if (quietTool(tool)) { run.push(tool); continue; }
     flush();
     steps.push({ kind: "single", tool });
   }
@@ -154,23 +154,6 @@ export function countRoundChangedFiles(tools: readonly ToolExecutionRecord[]): n
     for (const edit of reported) { unique.add(edit.file); }
   }
   return unique.size;
-}
-
-export function resolveAgentRoundTitle(round: AgentRoundRecord, tools: readonly ToolExecutionRecord[], interrupted = false): string {
-  const failures = tools.filter(({ status }) => status === "error").length;
-  if (interrupted) {
-    const pieces = [t("agentRounds.interruptedTitle")];
-    if (failures) { pieces.push(t("agentRounds.failureCount", { count: failures })); }
-    return pieces.join(" · ");
-  }
-  if (round.status === "running") {
-    const active = [...tools].reverse().find(({ status }) => status === "running");
-    if (!active) { return t("agentRounds.runningThinking"); }
-    return t("agentRounds.runningLive", { action: translatedToolName(active.name, active.displayName, true, false) });
-  }
-  const pieces = summarizeToolFacts(tools);
-  if (failures) { pieces.push(t("agentRounds.failureCount", { count: failures })); }
-  return [t("agentRounds.completedTitle"), ...pieces].join(" · ");
 }
 
 export interface FlatRunTimelineEntry {
@@ -222,21 +205,21 @@ export function buildFlatRunTimeline(input: FlatRunTimelineInput): FlatRunTimeli
 }
 
 export type RunTimelineRow = FlatRunTimelineEntry | { kind: "group"; key: string; entries: FlatRunTimelineEntry[]; tools: ToolExecutionRecord[] };
-const foldable = (entry: FlatRunTimelineEntry) => entry.kind === "tool" && entry.tool!.status === "success" && LOOK_AROUND_TOOLS.has(entry.tool!.name) && !entry.tool!.changes?.length;
-/** Folds look-around stretches (groupToolSteps) of the timeline; finished thinking between two of their steps folds in with them. */
+const quietStep = (entry: FlatRunTimelineEntry) => entry.kind === "tool" ? quietTool(entry.tool!) : entry.kind === "reasoning" && !entry.reasoning?.streaming;
+/**
+ * Folds every quiet stretch of the timeline (quiet steps and the finished thinking around them) into one row.
+ * Narration, edits, commands, failures, delegations and live thinking stay on their own rows.
+ */
 export function foldRunTimeline(entries: readonly FlatRunTimelineEntry[]): RunTimelineRow[] {
   const rows: RunTimelineRow[] = [];
   let run: FlatRunTimelineEntry[] = [];
   const flush = () => {
-    let end = run.length;
-    while (end > 0 && !foldable(run[end - 1])) { end -= 1; }
-    const stretch = run.slice(0, end), tools = stretch.filter(foldable).map((entry) => entry.tool!);
-    if (tools.length > 1) { rows.push({ kind: "group", key: `group-${stretch[0].key}`, entries: stretch, tools }); } else { rows.push(...stretch); }
-    rows.push(...run.slice(end));
+    const tools = run.filter((entry) => entry.kind === "tool").map((entry) => entry.tool!);
+    if (tools.length > 0 && run.length > 1) { rows.push({ kind: "group", key: `group-${run[0].key}`, entries: run, tools }); } else { rows.push(...run); }
     run = [];
   };
   for (const entry of entries) {
-    if (foldable(entry) || (run.length > 0 && entry.kind === "reasoning" && !entry.reasoning?.streaming)) { run.push(entry); continue; }
+    if (quietStep(entry)) { run.push(entry); continue; }
     flush();
     rows.push(entry);
   }

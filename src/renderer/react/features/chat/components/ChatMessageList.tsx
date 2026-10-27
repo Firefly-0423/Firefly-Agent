@@ -26,7 +26,7 @@ import { resolveRevisableLastTurn } from "./last-turn-actions";
 import { extractMessageStickerId, stripMessageStickerMarkers } from "./message-sticker";
 import type { WeatherData } from "./weather/weather-types";
 import { WeatherCard } from "./weather/WeatherCard";
-import { buildAskUserQa, buildFlatRunTimeline, countRoundChangedFiles, describeToolExecution, foldRunTimeline, groupToolSteps, resolveAgentRoundTitle,
+import { buildAskUserQa, buildFlatRunTimeline, countRoundChangedFiles, countedTools, describeToolExecution, foldRunTimeline, groupToolSteps,
   summarizeToolFacts, type FlatRunTimelineEntry } from "./agent-rounds";
 import { TaskDelegationRow } from "./TaskDelegationRow";
 import { extractFileChanges, FileChangeCard } from "./FileChangeCard";
@@ -233,42 +233,6 @@ function RunActivityReasoningBlock({ block }: { block: ReasoningBlock }) {
   return <ReasoningContent content={block.content} loading={live} expanded={open} onExpand={changeOpen} spinner={false} />;
 }
 
-function AgentRoundGroup(props: {
-  round: AgentRoundRecord; reasoningBlocks: ReasoningBlock[]; processMessages: ProcessMessageRecord[];
-  taskDelegations: TaskDelegationDisplayRecord[]; tools: ToolExecutionRecord[]; interrupted: boolean;
-}) {
-  const { t } = useTranslation();
-  const running = props.round.status === "running" && !props.interrupted;
-  const [open, changeOpen] = useState(running);
-  const previous = useRef(running);
-  useEffect(() => {
-    if (!previous.current && running) { changeOpen(true); }
-    if (previous.current && !running) { changeOpen(false); }
-    previous.current = running;
-  }, [running]);
-  return <section className={`ff-agent-round${running ? " is-running" : " is-complete"}`}>
-    {props.processMessages.filter((entry) => entry.content.trim()).map((entry) =>
-      <div className="ff-run-activity__process" key={entry.id}>
-        {entry.interrupted && <div className="ff-run-activity__process-label">{t("messageList.interruptedCandidate")}</div>}
-        <MarkdownContent content={entry.content} />
-      </div>)}
-    {props.taskDelegations.map((entry) => <TaskDelegationRow delegation={entry} key={entry.invocationId} />)}
-    <button type="button" className="ff-agent-round__header" aria-expanded={open} onClick={() => changeOpen((value) => !value)}>
-      <span className="ff-agent-round__title">
-        {resolveAgentRoundTitle(props.round, props.tools, props.interrupted)}
-        {!props.interrupted && props.round.status !== "running" && countRoundChangedFiles(props.tools) > 0 &&
-          <span className="ff-agent-round__files"> · {t("messageList.roundChangedFiles", { count: countRoundChangedFiles(props.tools) })}</span>}
-      </span>
-      <svg className={`ff-agent-round__chevron${open ? " is-expanded" : ""}`} viewBox="0 0 16 16" aria-hidden="true">
-        <path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" />
-      </svg>
-    </button>
-    {open && <div className="ff-agent-round__body">
-      {props.reasoningBlocks.filter((entry) => entry.content.trim()).map((entry) => <RunActivityReasoningBlock block={entry} key={entry.id} />)}
-      {props.tools.length > 0 && <ToolExecutionContent tools={props.tools} />}
-    </div>}
-  </section>;
-}
 function FlatTimelineProcess({ message }: { message: ProcessMessageRecord }) {
   const { t } = useTranslation();
   return <div className="ff-run-activity__process">
@@ -292,7 +256,8 @@ function timelineEntryRows(entries: readonly FlatRunTimelineEntry[]): ReactNode[
     }
   });
 }
-function liveActivityRows(input: Required<ActivityDetailProps>): ReactNode[] {
+/** One continuous timeline, live or finished: narration, folded look-around stretches, then each other step. */
+function activityRows(input: Required<ActivityDetailProps>): ReactNode[] {
   return foldRunTimeline(buildFlatRunTimeline(input)).flatMap<ReactNode>((row) => row.kind === "group"
     ? [<section className="ff-tool-executions" key={row.key}>
       <ThoughtChain rootClassName="ff-tool-executions__chain" line="dashed"
@@ -300,42 +265,9 @@ function liveActivityRows(input: Required<ActivityDetailProps>): ReactNode[] {
     </section>]
     : timelineEntryRows([row]));
 }
-function completedActivityRows(input: Required<ActivityDetailProps>, translate: (key: string, options?: Record<string, unknown>) => string): ReactNode[] {
-  const { agentRounds, processMessages, reasoningBlocks, taskDelegations, tools, interrupted } = input;
-  if (agentRounds.length > 0) {
-    return agentRounds.filter((round) =>
-      processMessages.some((entry) => entry.roundId === round.id && entry.content.trim()) ||
-      reasoningBlocks.some((entry) => entry.roundId === round.id && entry.content.trim()) ||
-      taskDelegations.some((entry) => entry.roundId === round.id) || tools.some((entry) => entry.roundId === round.id),
-    ).map((round) => <AgentRoundGroup key={round.id} round={round} interrupted={interrupted && round.status === "running"}
-      processMessages={processMessages.filter((entry) => entry.roundId === round.id)}
-      taskDelegations={taskDelegations.filter((entry) => entry.roundId === round.id)}
-      reasoningBlocks={reasoningBlocks.filter((entry) => entry.roundId === round.id)}
-      tools={tools.filter((entry) => entry.roundId === round.id)} />);
-  }
-  const rows: ReactNode[] = [];
-  taskDelegations.forEach((entry) => {
-    rows.push(<TaskDelegationRow delegation={entry} key={`task-${entry.invocationId}`} />);
-  });
-  for (let slot = 0; slot <= tools.length; slot += 1) {
-    processMessages.filter((entry) => (entry.afterToolCount ?? 0) === slot).forEach((entry) => {
-      if (!entry.content.trim()) { return; }
-      rows.push(<div className="ff-run-activity__process" key={`process-${entry.id}`}>
-        {entry.interrupted && <div className="ff-run-activity__process-label">{translate("messageList.interruptedCandidate")}</div>}
-        <MarkdownContent content={entry.content} />
-      </div>);
-    });
-    reasoningBlocks.filter((entry) => (entry.afterToolCount ?? 0) === slot).forEach((entry) => {
-      if (entry.content.trim()) { rows.push(<RunActivityReasoningBlock key={`reasoning-${entry.id}`} block={entry} />); }
-    });
-    if (slot < tools.length) { rows.push(<ToolExecutionContent key={`tool-${tools[slot].id}`} tools={[tools[slot]]} />); }
-  }
-  return rows;
-}
 export function RunActivityDetail({ live = false, agentRounds = [], reasoningBlocks, processMessages, taskDelegations = [], tools, interrupted = false }: ActivityDetailProps) {
   const { t } = useTranslation();
-  const input = { live, agentRounds, reasoningBlocks, processMessages, taskDelegations, tools, interrupted };
-  const rows = live ? liveActivityRows(input) : completedActivityRows(input, t);
+  const rows = activityRows({ live, agentRounds, reasoningBlocks, processMessages, taskDelegations, tools, interrupted });
   if (rows.length === 0) { return <div className="ff-run-activity__empty">{t("messageList.organizingReply")}</div>; }
   return <div className="ff-run-activity__detail">{rows}</div>;
 }
@@ -355,13 +287,15 @@ function RunActivityContent(props: ActivityContentProps) {
     if (shouldAutoCollapseRunActivity(previous.current, state.processing, props.activity.keepExpanded)) { props.onExpand(false); }
     previous.current = state.processing;
   }, [props.activity.keepExpanded, props.onExpand, state.processing]);
+  const changed = countRoundChangedFiles(props.tools);
   const caption = state.processing ? t("messageList.activityProcessingTitle", { elapsed: formatElapsed(state.processingMs) })
-    : [t("messageList.activityProcessedTitle", { elapsed: formatElapsed(state.processingMs) }), ...summarizeToolFacts(props.tools)].join(" · ");
+    : [t("messageList.activityProcessedTitle", { elapsed: formatElapsed(state.processingMs) }), ...summarizeToolFacts(countedTools(props.tools)),
+      ...(changed > 0 ? [t("messageList.roundChangedFiles", { count: changed })] : [])].join(" · ");
   return <section className={`ff-run-activity${state.processing ? " is-processing" : " is-complete"}`}>
     <div className="ff-run-activity__header">
       <span className="ff-run-activity__title">
         {state.processing && <span className="ff-run-activity__art" aria-hidden="true"><DotSpinner /></span>}
-        <span>{caption}</span>{props.stage && <RunStageIndicator stage={props.stage} dot={!state.processing} />}
+        <span>{caption}</span>{props.stage && state.processing && <RunStageIndicator stage={props.stage} dot={false} />}
       </span>
       <button type="button" className="ff-run-activity__toggle" onClick={() => props.onExpand(!props.expanded)}
         aria-expanded={props.expanded} aria-controls={`${props.activityId}-details`}
@@ -385,10 +319,11 @@ function toolChainItem(tool: ToolExecutionRecord) {
   return {
     key: tool.id,
     title: view.label,
-    description: <span className="ff-tool-executions__description">
-      <span className="ff-tool-executions__status">{view.statusText}</span>
+    // A finished step needs no "done" line under its name; running and failed steps say so.
+    description: (tool.status !== "success" || view.detail) ? <span className="ff-tool-executions__description">
+      {tool.status !== "success" && <span className="ff-tool-executions__status">{view.statusText}</span>}
       {view.detail && <code className="ff-tool-executions__detail">{view.detail}</code>}
-    </span>,
+    </span> : undefined,
     status: tool.status === "running" ? "loading" as const : tool.status === "error" ? "error" as const : "success" as const,
     blink: tool.status === "running",
     collapsible: Boolean(tool.result || tool.changes),

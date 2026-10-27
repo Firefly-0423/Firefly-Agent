@@ -323,6 +323,13 @@
   display: flex;
 }
 
+/* 完成后收成一行淡色摘要，回答本身才是主角 */
+.ff-run-activity.is-complete .ff-run-activity__header {
+  font-weight: 500;
+  color: var(--ff-text-muted);
+  min-height: 30px;
+}
+
 .ff-run-activity__header:hover {
   color: var(--ff-accent, var(--ff-accent));
 }
@@ -388,69 +395,12 @@
   display: flex;
 }
 
-.ff-agent-round {
-  min-width: 0;
-}
-
-.ff-agent-round__header {
-  cursor: pointer;
-  text-align: left;
-  font: 600 12px/1.4 var(--rb-font-sans, sans-serif);
-  color: var(--ff-text);
-  background: transparent;
-  border: 0;
-  padding: 5px 2px;
-  gap: 8px;
-  align-items: center;
-  grid-template-columns: minmax(0, 1fr) 16px;
-  width: 100%;
-  display: grid;
-}
-
-.ff-agent-round__header:hover {
-  color: var(--ff-accent, var(--ff-accent));
-}
-
-.ff-agent-round__header:focus-visible {
-  outline: 2px solid rgb(45 122 95 / 42%);
-  outline-offset: 2px;
-  border-radius: 12px;
-}
-
-.ff-agent-round__title {
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
-}
-
-/* 完成态标题后的文件改动提示：项目主粉高亮 */
-.ff-agent-round__files {
-  font-weight: 600;
-  color: var(--ff-accent, var(--ff-accent));
-}
-
-.ff-agent-round__chevron {
-  transition: transform 180ms ease;
-  color: var(--ff-accent);
-  height: 16px;
-  width: 16px;
-}
-
-.ff-agent-round__chevron.is-expanded {
-  transform: rotate(180deg);
-}
-
-.ff-agent-round__body {
-  padding: 1px 2px 9px 42px;
-  gap: 6px;
-  display: grid;
-}
-
+/* 过程中的解说：淡色正文，和最终回答区分开，不再加引用竖线 */
 .ff-run-activity__process {
-  font-size: 12px;
-  color: var(--ff-text-secondary);
-  border-left: 2px solid var(--ff-border);
-  padding: 7px 9px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ff-text-muted);
+  padding: 2px 2px;
 }
 
 .ff-run-activity__process-label {

@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import type { ToolExecutionRecord } from "../../../../../shared/chat-types";
 import { applyAgentRoundBoundary, buildAskUserQa, buildFlatRunTimeline, countRoundChangedFiles,
-  createRoundProcessMessage, describeToolExecution, finishAgentRound, foldRunTimeline, groupToolSteps, resolveAgentRoundTitle, startAgentRound,
+  countedTools, createRoundProcessMessage, describeToolExecution, finishAgentRound, foldRunTimeline, groupToolSteps, startAgentRound,
   summarizeToolFacts } from "./agent-rounds";
 
 const record = (name: string, patch: Partial<ToolExecutionRecord> = {}): ToolExecutionRecord =>
@@ -20,17 +20,12 @@ test("starts, settles and associates terminal process text with the same round",
   });
 });
 
-test("uses live tools for running titles and only successful facts for completed titles", () => {
-  const active = startAgentRound([], "round-review", 450)[0];
-  const done = finishAgentRound([active], active.id, 980)[0];
-  expect(resolveAgentRoundTitle(active, [record("list_dir"), record("read_file", { status: "running" })]))
-    .toBe("流萤正在读取文件");
+test("summarizes only successful steps, with a generic count for tools without their own line", () => {
   const tools = [...Array.from({ length: 5 }, (_, n) => record("list_dir", { id: "directory-" + n })),
     record("read_file", { id: "first-read" }), record("read_file", { id: "second-read" }),
-    record("read_file", { status: "error" })];
-  expect(resolveAgentRoundTitle(done, tools)).toBe("流萤已完成 · 浏览 5 个目录 · 读取 2 个文件 · 1 项失败");
-  expect(resolveAgentRoundTitle(done, [record("vendor_lookup"), record("vendor_verify")])).toBe("流萤已完成 · 完成 2 项操作");
-  expect(resolveAgentRoundTitle(active, [record("read_file", { status: "error" })], true)).toBe("流萤已中断 · 1 项失败");
+    record("read_file", { status: "error" }), record("read_file", { id: "pending", status: "running" })];
+  expect(summarizeToolFacts(tools)).toStrictEqual(["浏览 5 个目录", "读取 2 个文件"]);
+  expect(summarizeToolFacts([record("vendor_lookup"), record("vendor_verify")])).toStrictEqual(["完成 2 项操作"]);
 });
 
 test.each([
@@ -111,7 +106,7 @@ test("folds consecutive successful look-around steps into one group and keeps th
     .toStrictEqual([["r1", "s1", "d1"], "e1", "r2", "r3", "r4", "r5"]);
 });
 
-test("folds a look-around stretch of the live timeline, finished thinking between its steps included", () => {
+test("folds a quiet stretch of the timeline, the finished thinking around its steps included", () => {
   const entries = buildFlatRunTimeline({
     tools: [record("read_file", { id: "r1", seq: 1 }), record("search_code", { id: "s1", seq: 3 }), record("run_shell", { id: "x1", seq: 5 })],
     reasoningBlocks: [{ id: "think-mid", content: "看看", seq: 2 }, { id: "think-after", content: "再想想", seq: 4 }],
@@ -119,10 +114,23 @@ test("folds a look-around stretch of the live timeline, finished thinking betwee
   });
   const rows = foldRunTimeline(entries);
   expect(rows.map((row) => row.kind === "group" ? row.entries.map(({ key }) => key) : row.key))
-    .toStrictEqual([["r1", "think-mid", "s1"], "think-after", "x1"]);
+    .toStrictEqual([["r1", "think-mid", "s1", "think-after"], "x1"]);
   const streaming = buildFlatRunTimeline({
     tools: [record("read_file", { id: "r1", seq: 1 }), record("read_file", { id: "r2", seq: 3 })],
     reasoningBlocks: [{ id: "live", content: "…", seq: 2, streaming: true }], processMessages: [], taskDelegations: [],
   });
   expect(foldRunTimeline(streaming).map((row) => row.kind)).toStrictEqual(["tool", "reasoning", "tool"]);
+});
+
+test("plan updates and finished thinking fold with the reads around them; narration and edits split stretches", () => {
+  const entries = buildFlatRunTimeline({
+    tools: [record("update_todo", { id: "plan", seq: 2 }), record("read_file", { id: "read", seq: 3 }),
+      record("edit_file", { id: "edit", seq: 5, changes: [{ file: "a.ts", kind: "modified", insertions: 1, deletions: 0 }] }),
+      record("update_todo", { id: "plan-2", seq: 6 })],
+    reasoningBlocks: [{ id: "think-first", content: "先想想", seq: 1 }],
+    processMessages: [{ id: "say", content: "先看文件", seq: 4 }], taskDelegations: [],
+  });
+  expect(foldRunTimeline(entries).map((row) => row.kind === "group" ? row.entries.map(({ key }) => key) : row.key))
+    .toStrictEqual([["think-first", "plan", "read"], "say", "edit", "plan-2"]);
+  expect(summarizeToolFacts(countedTools([record("update_todo"), record("read_file")]))).toStrictEqual(["读取 1 个文件"]);
 });
