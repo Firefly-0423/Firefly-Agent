@@ -4,7 +4,7 @@ README 使用 GitHub 原生 `picture` / `prefers-color-scheme` 切换明暗素�
 
 - `firefly-banner-{light,dark}[.en].gif`：中英文完整动画，1792 × 468 像素，README 按 896 × 234 显示。155 帧，每帧 80 ms，12.4 秒无限循环。
 - 技术与平台徽章不再保存为文件，直接引用 Shields.io 静态徽章，见 [ICON_SOURCES.md](./ICON_SOURCES.md)。
-- `screenshots-pending-{light,dark}[.en].svg`：明确标为待补的真实界面展示位置，不是产品截图。
+- `screenshots/`：README「界面预览」使用的真实界面截图（Chat、Work、Code），由项目所有者在演示配置下截取。
 - `sources/`：横幅背景 SVG、原生表情时间表与模型来源校验。
 
 ## 原模型动画
