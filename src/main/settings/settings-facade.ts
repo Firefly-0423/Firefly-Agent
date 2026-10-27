@@ -37,7 +37,7 @@ const FALLBACK_SETTINGS: GeneralSettings = {
   asrLanguage: "zh",
   asrMosslandKey: "",
   amapKey: "",
-  chatSocialContextEnabled: false,
+  chatSocialContextEnabled: true,
   chatToolsEnabled: false,
   emailEnabled: false,
   emailFromName: "",

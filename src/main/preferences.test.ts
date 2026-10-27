@@ -3,8 +3,8 @@ import { normalizeChatSocialContextEnabled as social, normalizeProactiveChatMode
   normalizeProactiveDeliveryTarget as delivery, normalizeSegmentedOutputMode as segments } from "../shared/preferences";
 
 describe("values accepted from persisted preferences", () => {
-  it("requires an actual opt-in boolean", () => {
-    expect([true, false, undefined, "true", 1, null].map(social)).toEqual([true, false, false, false, false, false]);
+  it("keeps context enhancement on unless the user turned it off", () => {
+    expect([true, false, undefined, "true", 1, null].map(social)).toEqual([true, false, true, true, true, true]);
   });
   it("recognizes each output mode and falls back for corrupt settings", () => {
     expect(["off", "chat", "all", undefined, "invalid-mode"].map(segments)).toEqual(["off", "chat", "all", "off", "off"]);
