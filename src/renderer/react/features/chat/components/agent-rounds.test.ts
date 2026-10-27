@@ -134,3 +134,17 @@ test("plan updates and finished thinking fold with the reads around them; narrat
     .toStrictEqual([["think-first", "plan", "read"], "say", "edit", "plan-2"]);
   expect(summarizeToolFacts(countedTools([record("update_todo"), record("read_file")]))).toStrictEqual(["读取 1 个文件"]);
 });
+
+test("a delegation stays where it happened in a finished timeline, not after the later rounds", () => {
+  const task = { status: "completed" as const, assetFileName: "", nickname: "Auditor", description: "Review", taskId: "child-session", invocationId: "child-run", roundId: "round-1" };
+  const entries = buildFlatRunTimeline({
+    tools: [record("delegate_agent", { id: "delegate", roundId: "round-1", seq: 1, taskResult: { agentId: "auditor", sessionId: "child-session", status: "completed" } as never }),
+      record("read_file", { id: "verify", roundId: "round-2", seq: 3 })],
+    processMessages: [{ id: "use-result", roundId: "round-2", content: "用伙伴的结果核对", seq: 2 }],
+    reasoningBlocks: [], taskDelegations: [task],
+  });
+  expect(entries.map(({ key }) => key)).toStrictEqual(["delegate", "task-child-run", "use-result", "verify"]);
+  const unmatched = buildFlatRunTimeline({ tools: [record("read_file", { id: "late", roundId: "round-2", seq: 5 })],
+    processMessages: [{ id: "first", roundId: "round-1", content: "先派出去", seq: 4 }], reasoningBlocks: [], taskDelegations: [task] });
+  expect(unmatched.map(({ key }) => key)).toStrictEqual(["task-child-run", "first", "late"]);
+});

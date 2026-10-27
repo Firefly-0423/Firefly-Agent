@@ -187,6 +187,21 @@ function legacyTimeline(input: FlatRunTimelineInput): FlatRunTimelineEntry[] {
   return output;
 }
 
+/**
+ * Where a delegation sits in a sequenced timeline: right after the delegate_agent call that ran it,
+ * else after the round's first delegate_agent call, else at the start of its round; unanchored ones go last.
+ */
+function delegationSeq(task: TaskDelegationDisplayRecord, input: FlatRunTimelineInput): number | undefined {
+  const delegates = input.tools.filter((tool) => tool.name === "delegate_agent" && tool.seq !== undefined);
+  const own = delegates.find((tool) => tool.taskResult?.sessionId === task.taskId)
+    ?? delegates.find((tool) => task.roundId !== undefined && tool.roundId === task.roundId);
+  if (own) { return own.seq! + 0.5; }
+  if (task.roundId === undefined) { return undefined; }
+  const round = [...input.processMessages, ...input.reasoningBlocks, ...input.tools]
+    .filter((entry) => entry.roundId === task.roundId && entry.seq !== undefined).map((entry) => entry.seq!);
+  return round.length > 0 ? Math.min(...round) - 0.5 : undefined;
+}
+
 export function buildFlatRunTimeline(input: FlatRunTimelineInput): FlatRunTimelineEntry[] {
   const { processMessages, reasoningBlocks, tools, taskDelegations } = input;
   const sequenced = [...processMessages, ...reasoningBlocks, ...tools].some(({ seq }) => seq !== undefined);
@@ -195,7 +210,7 @@ export function buildFlatRunTimeline(input: FlatRunTimelineInput): FlatRunTimeli
   reasoningBlocks.forEach((reasoning) => output.push({ kind: "reasoning", key: reasoning.id, seq: reasoning.seq, reasoning }));
   processMessages.forEach((process) => output.push({ kind: "process", key: process.id, seq: process.seq, process }));
   tools.forEach((tool) => output.push({ kind: "tool", key: tool.id, seq: tool.seq, tool }));
-  output.push(...taskDelegations.map((task) => ({ kind: "task" as const, key: `task-${task.invocationId}`, seq: undefined, task })));
+  output.push(...taskDelegations.map((task) => ({ kind: "task" as const, key: `task-${task.invocationId}`, seq: delegationSeq(task, input), task })));
   const ranked = output.map((value, order) => ({ value, order }));
   ranked.sort((left, right) => {
     const delta = (left.value.seq ?? Number.MAX_SAFE_INTEGER) - (right.value.seq ?? Number.MAX_SAFE_INTEGER);
