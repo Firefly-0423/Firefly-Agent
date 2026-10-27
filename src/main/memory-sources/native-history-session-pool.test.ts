@@ -62,6 +62,12 @@ it('a helper that exits while idle is replaced without failing anyone',async()=>
  const f=setup(),endpoint=await acquire(f.pool);await endpoint.dispose('release');f.spawned[0].emit('close',0,null);
  const next=await acquire(f.pool);await next.read(['s','snapshot.json'],2);await next.dispose('release');expect(f.spawned).toHaveLength(2);await f.pool.close();
 });
+it('a startup that times out rejects only after that helper has closed',async()=>{
+ const spawned:Fake[]=[];let closed=false;
+ const pool=createNativeHistorySessionPool({spawn:()=>{const c=helper();c.emitEvent=()=>true;c.kill=()=>{c.kills++;setTimeout(()=>{closed=true;c.emit('close',null,'SIGTERM')},30);return true};spawned.push(c);return c as never}});
+ await expect(acquire(pool,undefined,50)).rejects.toThrow('MEMORY_HISTORY_NATIVE_TIMEOUT');expect(spawned[0].kills).toBe(1);expect(closed).toBe(true);
+ await pool.close();
+});
 it('refuses relative roots and new work after close',async()=>{
  const f=setup();await expect(f.pool({root:'relative',deadlineAt:performance.now()+1000,signal:new AbortController().signal})).rejects.toThrow('MEMORY_HISTORY_NATIVE_TIMEOUT');
  await f.pool.close();await expect(acquire(f.pool)).rejects.toThrow('MEMORY_HISTORY_CANCELLED');expect(f.spawned).toHaveLength(0);

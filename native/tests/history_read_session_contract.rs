@@ -48,7 +48,12 @@ impl Session {
         let mut child = Command::new(env!("CARGO_BIN_EXE_firefly-history-read"))
             .args(["--root"])
             .arg(root)
-            .args(["--parent-pid", &std::process::id().to_string(), "--idle-ms", &idle_ms.to_string()])
+            .args([
+                "--parent-pid",
+                &std::process::id().to_string(),
+                "--idle-ms",
+                &idle_ms.to_string(),
+            ])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -56,7 +61,11 @@ impl Session {
             .unwrap();
         let input = child.stdin.take().unwrap();
         let output = BufReader::new(child.stdout.take().unwrap());
-        Self { child, input, output }
+        Self {
+            child,
+            input,
+            output,
+        }
     }
     fn send(&mut self, value: Value) {
         writeln!(self.input, "{value}").unwrap();
@@ -90,7 +99,10 @@ impl Drop for Session {
 }
 fn text(snapshot: &Value) -> String {
     let hex = snapshot["bytesHex"].as_str().unwrap();
-    let bytes: Vec<u8> = (0..hex.len()).step_by(2).map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap()).collect();
+    let bytes: Vec<u8> = (0..hex.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap())
+        .collect();
     String::from_utf8(bytes).unwrap()
 }
 
@@ -145,6 +157,7 @@ fn a_root_replaced_between_reads_ends_the_session() {
     let refused = session.read();
     assert_eq!(refused["type"], "error");
     assert_eq!(refused["code"], "history-source-changed");
+    assert_eq!(refused["version"], 2);
     assert_eq!(session.exit_code(Duration::from_secs(5)), Some(78));
 }
 
@@ -158,6 +171,18 @@ fn cancel_ends_a_lease_and_the_session_continues() {
     session.send(json!({"type":"cancel","version":2}));
     assert_eq!(session.event()["type"], "cancelled");
     assert_eq!(text(&session.read()), "cancel me");
+}
+
+#[test]
+fn a_missing_leaf_is_reported_on_protocol_two() {
+    let fixture = Fixture::new();
+    let mut session = Session::start(&fixture.root(), 10_000);
+    session.event();
+    let refused = session.read();
+    assert_eq!(refused["type"], "error");
+    assert_eq!(refused["version"], 2);
+    assert_eq!(refused["code"], "history-leaf-missing");
+    assert_eq!(session.exit_code(Duration::from_secs(5)), Some(78));
 }
 
 #[test]

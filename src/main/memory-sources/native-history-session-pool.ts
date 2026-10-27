@@ -72,7 +72,8 @@ export function createNativeHistorySessionPool(options:{spawn:(input:{root:strin
    if(sessions.length<size){
     const session=start(root);
     try{const ready=await bounded(expect(session,['ready']),deadlineAt,signal);objectFields(ready,['type','version','rootIdentity']);session.rootIdentity=identity(ready.rootIdentity);return session}
-    catch(error){session.kill(error instanceof Error&&[TIMEOUT,CANCELLED].includes(error.message)?error.message:PROTOCOL);throw error}
+    // Startup may already hold the root, and no endpoint exists yet to wait on it: wait for the close here.
+    catch(error){session.kill(error instanceof Error&&[TIMEOUT,CANCELLED].includes(error.message)?error.message:PROTOCOL);await session.closed;throw error}
    }
    await new Promise<void>(resume=>{
     const timer=setTimeout(done,Math.max(1,deadlineAt-clock()));

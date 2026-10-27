@@ -283,12 +283,7 @@ fn debug_cancel_barrier(state: &AtomicU8, marker: &str) {
     }
 }
 
-fn run() -> Result<(), &'static str> {
-    let options = options()?;
-    let deadline = match options.mode {
-        Mode::OneShot { deadline } => deadline,
-        Mode::Session { idle } => return run_session(&options, idle),
-    };
+fn run(options: &Options, deadline: u32) -> Result<(), &'static str> {
     // Watchdog is established before potentially blocking root acquisition.
     let parent = parent_watch(options.parent, deadline)?;
     let root = AuthorizedHistoryRoot::open(&options.root).map_err(|error| error.code())?;
@@ -378,7 +373,9 @@ fn session_input(
         // Anything but a new read or a release stops a read still before its commit boundary.
         if !matches!(
             &result,
-            Ok(Some(SessionCommand::Read { .. } | SessionCommand::Release { .. }))
+            Ok(Some(
+                SessionCommand::Read { .. } | SessionCommand::Release { .. }
+            ))
         ) {
             cancel_before_commit(&state);
         }
@@ -504,11 +501,16 @@ fn run_session(options: &Options, idle: u32) -> Result<(), &'static str> {
     }
 }
 fn main() {
-    if let Err(code) = run() {
-        let _ = emit(&Event::Error {
-            version: VERSION,
-            code,
-        });
+    // A session speaks protocol 2 to the end, its errors included; one-shot and CLI errors stay on 1.
+    let (version, result) = match options() {
+        Ok(options) => match options.mode {
+            Mode::OneShot { deadline } => (VERSION, run(&options, deadline)),
+            Mode::Session { idle } => (SESSION_VERSION, run_session(&options, idle)),
+        },
+        Err(code) => (VERSION, Err(code)),
+    };
+    if let Err(code) = result {
+        let _ = emit(&Event::Error { version, code });
         eprintln!("{code}");
         std::process::exit(78);
     }
