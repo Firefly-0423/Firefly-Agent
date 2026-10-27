@@ -68,7 +68,7 @@ vi.mock("../channels/manager", () => ({
     startOne: vi.fn(),
   },
 }));
-vi.mock("../chats/chats-store", () => ({ getSession: vi.fn(), listSessions: vi.fn(() => []) }));
+vi.mock("../chats/chats-store", () => ({ getSession: vi.fn(), getSessionKind: vi.fn(() => null), listSessions: vi.fn(() => []) }));
 vi.mock("../orchestrator/tools/registry/tool-registry", () => ({
   toolRegistry: { register: vi.fn(), unregister: vi.fn(), getById: vi.fn((id: string) => ({ id })) },
 }));

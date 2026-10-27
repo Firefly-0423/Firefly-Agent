@@ -113,7 +113,7 @@ vi.mock("../memory/memory-store", () => ({ memoryStore: vi.fn() }));
 vi.mock("../memory/obsidian-exporter", () => ({ exportMemoryToObsidianVault: vi.fn(), syncToBoundVault: vi.fn() }));
 vi.mock("../memory/obsidian-vault-config", () => ({ loadObsidianVaultConfig: () => ({}), saveObsidianVaultConfig: vi.fn(), unbindVault: vi.fn() }));
 vi.mock("../memory/obsidian-importer", () => ({ startVaultWatcher: vi.fn(), stopVaultWatcher: vi.fn() }));
-vi.mock("../chats/chats-store", () => ({ getSession: vi.fn(), listSessions: () => [] }));
+vi.mock("../chats/chats-store", () => ({ getSession: vi.fn(), getSessionKind: vi.fn(() => null), listSessions: () => [] }));
 vi.mock("../orchestrator/tools/registry/tool-registry", () => ({ toolRegistry: { getAll: () => [], register: vi.fn() } }));
 import { createDefaultApplicationDependencies } from "./default-dependencies";
 import { IPC } from "../../shared/ipc-channels";

@@ -76,6 +76,8 @@ export interface DefaultMemoryHistoryCoverage {
 export interface MainDefaultMemoryOptions extends Pick<AuthorityOptions, "getChatWindow" | "targets"> {
   getSettingsWindow?(): Pick<BrowserWindow, "webContents" | "isDestroyed"> | null;
   getSession(id: string): ChatSession | undefined | null;
+  /** Mode and temporariness without reading the session file; owned() runs on every read check. */
+  getSessionKind?(id: string): { mode: ChatSession["mode"]; temporary: boolean } | null;
   listSessionIds(): string[];
   /** Workspace info from the session index (no session files read); used to name projects in the settings list. */
   listProjectBindings?(): ReadonlyArray<{ workspaceRoot?: string; displayName?: string }>;
@@ -127,13 +129,16 @@ export function createMainDefaultMemory(options: MainDefaultMemoryOptions) {
   const temporaryIds = new Set<string>();
   const isTemporary = (id: string) => temporaryIds.has(id) || options.getSession(id)?.temporary === true;
   function owned(id: string): boolean {
-    const session = options.getSession(id);
-    const valid = id !== SETTINGS_SESSION && !deletedSessions.has(id) && !!session && session.id === id && ["chat", "work", "code"].includes(session.mode)
-      && (session.temporary !== true || session.mode === "chat");
+    const session = options.getSessionKind ? options.getSessionKind(id) : (() => {
+      const full = options.getSession(id);
+      return full && full.id === id ? { mode: full.mode, temporary: full.temporary === true } : null;
+    })();
+    const valid = id !== SETTINGS_SESSION && !deletedSessions.has(id) && !!session && ["chat", "work", "code"].includes(session.mode)
+      && (!session.temporary || session.mode === "chat");
     if (valid) {
       knownSessions.add(id);
-      if (session!.temporary === true) temporaryIds.add(id);
-      sessionModes.bind(id, session!.temporary === true ? "temporary" : "persistent");
+      if (session!.temporary) temporaryIds.add(id);
+      sessionModes.bind(id, session!.temporary ? "temporary" : "persistent");
     }
     return valid;
   }

@@ -436,6 +436,7 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
         getSettingsWindow: () => settingsWindow,
         targets: activeChatTargetRegistry,
         getSession: chatsStore.getSession,
+        getSessionKind: chatsStore.getSessionKind,
         listSessionIds: () => chatsStore.listSessions().map((session) => session.id),
         listProjectBindings: () =>
           chatsStore.listSessions().map((session) => ({
