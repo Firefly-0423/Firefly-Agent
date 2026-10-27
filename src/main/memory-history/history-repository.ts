@@ -175,6 +175,11 @@ export class HistoryRepository {
   if(!range||range.start===0&&range.end===d.messages.length||sizes.slice(range.start,range.end).reduce((n,x)=>n+x,0)>maxChars||!excerptToolSafe(d.messages,range)||!d.messages.slice(range.start,range.end).every(inRange))return null;return range;
  }
  private validateDocuments(scope:string,actorKey:string,value:unknown,response?:{owner:{actorKey:string;providerId:string;sessionId:string};operationId:string}):StoredHistory[]{
+  // Validation only reads, so like a query it shares one origin snapshot; without it every context step took seconds.
+  const own=!this.readSnapshot;if(own)this.readSnapshot={origins:new HistoryOrigins(this.db,this.key,{snapshot:true}),states:new WeakMap()};
+  try{return this.validateDependencies(scope,actorKey,value,response)}finally{if(own)this.readSnapshot=undefined}
+ }
+ private validateDependencies(scope:string,actorKey:string,value:unknown,response?:{owner:{actorKey:string;providerId:string;sessionId:string};operationId:string}):StoredHistory[]{
   return parseHistoryDependencies(value).map(dep=>{
    if(dep.partition.actorKey!==actorKey||!dep.partition.sessions.some(s=>s.providerId===dep.providerId&&s.sessionId===dep.sessionId))fail('MEMORY_HISTORY_ACCESS_DENIED');
    if(dep.generation!==this.generation(scope,actorKey)||dep.indexVersion!=='history-index-v1'||dep.rankingVersion!=='history-ranking-v4'||!/^history-jieba-v2-[a-f0-9]{64}$/.test(dep.tokenizerVersion))fail('MEMORY_HISTORY_STALE');
