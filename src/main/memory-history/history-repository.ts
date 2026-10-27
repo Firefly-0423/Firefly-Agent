@@ -176,8 +176,12 @@ export class HistoryRepository {
  }
  private validateDocuments(scope:string,actorKey:string,value:unknown,response?:{owner:{actorKey:string;providerId:string;sessionId:string};operationId:string}):StoredHistory[]{
   // Validation only reads, so like a query it shares one origin snapshot; without it every context step took seconds.
+  return this.withReadSnapshot(()=>this.validateDependencies(scope,actorKey,value,response));
+ }
+ /** Origin checks inside run share one snapshot; run must not write origins before its last check. */
+ private withReadSnapshot<T>(run:()=>T):T{
   const own=!this.readSnapshot;if(own)this.readSnapshot={origins:new HistoryOrigins(this.db,this.key,{snapshot:true}),states:new WeakMap()};
-  try{return this.validateDependencies(scope,actorKey,value,response)}finally{if(own)this.readSnapshot=undefined}
+  try{return run()}finally{if(own)this.readSnapshot=undefined}
  }
  private validateDependencies(scope:string,actorKey:string,value:unknown,response?:{owner:{actorKey:string;providerId:string;sessionId:string};operationId:string}):StoredHistory[]{
   return parseHistoryDependencies(value).map(dep=>{
@@ -199,7 +203,8 @@ export class HistoryRepository {
    if(c.kind==='originStatus'){objectFields(b,[...identity,'event']);return {valid:new HistoryOrigins(this.db,this.key).valid(scope,owner,parseHistoryOriginEvent(b.event))}}
    if(c.kind==='projectNative'){
     objectFields(b,[...identity,'document']);const doc=parseHistoryDocument(b.document,{allowUnboundTranscript:true}),d={...doc,...owner,generation:this.generation(scope,owner.actorKey),digest:'',state:'live' as const};
-    if(!isResponseNativeHistoryDocument(doc))fail('MEMORY_HISTORY_SOURCE_MISMATCH');const states=this.originStates(scope,d);
+    // Every message of the growing transcript is checked on each projection; they share one origin snapshot.
+    if(!isResponseNativeHistoryDocument(doc))fail('MEMORY_HISTORY_SOURCE_MISMATCH');const states=this.withReadSnapshot(()=>this.originStates(scope,d));
     if(states.every(s=>s==='valid'))return {documents:[doc],partial:false};
     const groups=atomicGroups(doc.messages),documents:HistoryDocument[]=[];let start=0,runStart:number|undefined;
     const flush=(end:number)=>{if(runStart===undefined)return;const part={...doc,id:'native-'+digest({origin:doc.id,start:runStart,end,version:'origin-v1'}),messages:doc.messages.slice(runStart,end),provenance:doc.provenance!.slice(runStart,end)};validateUnit({id:part.id,kind:'summary',messages:part.messages});documents.push(part);runStart=undefined};
@@ -220,8 +225,8 @@ export class HistoryRepository {
    }
    if(c.kind==='put'){objectFields(b,[...identity,'document','generation']);const generation=natural(b.generation);if(generation!==this.generation(scope,owner.actorKey))fail('MEMORY_HISTORY_STALE');const doc=parseHistoryDocument(b.document),old=this.read(scope,owner.actorKey,owner,doc.id),contentDigest=this.contentDigest(doc);
     if(old?.state==='deleted')fail('MEMORY_HISTORY_CONFLICT');
-    if(old&&old.revision===doc.revision){if(old.state==='live'&&old.digest===contentDigest){this.checkedDocument(scope,old);return {status:'duplicate',documentId:doc.id}};fail('MEMORY_HISTORY_CONFLICT')}
-    if(old&&doc.revision<=old.revision)fail('MEMORY_HISTORY_CONFLICT');const stored:StoredHistory={...doc,...owner,generation,digest:contentDigest,state:'live'};this.checkedDocument(scope,stored);this.save(scope,stored);return {status:'stored',documentId:doc.id};
+    if(old&&old.revision===doc.revision){if(old.state==='live'&&old.digest===contentDigest){this.withReadSnapshot(()=>this.checkedDocument(scope,old));return {status:'duplicate',documentId:doc.id}};fail('MEMORY_HISTORY_CONFLICT')}
+    if(old&&doc.revision<=old.revision)fail('MEMORY_HISTORY_CONFLICT');const stored:StoredHistory={...doc,...owner,generation,digest:contentDigest,state:'live'};this.withReadSnapshot(()=>this.checkedDocument(scope,stored));this.save(scope,stored);return {status:'stored',documentId:doc.id};
    }
     if(c.kind==='delete'){objectFields(b,[...identity,'documentId','revision']);const d=this.read(scope,owner.actorKey,owner,parseInternalId(b.documentId));if(!d||d.revision!==positiveRevision(b.revision))fail('MEMORY_HISTORY_STALE');d.state='deleted';this.save(scope,d);if(isResponseNativeHistoryDocument(d))new HistoryOrigins(this.db,this.key).revokeEvents(scope,owner,d.provenance!.map(p=>({originalId:p.originalId,seq:p.seq!,turnId:p.turnId,revision:p.revision,originalRole:p.originalRole as HistoryOriginEvent['originalRole'],digest:p.digest})));return {deleted:true}}
    if(c.kind==='query'){
