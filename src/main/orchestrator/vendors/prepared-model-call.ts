@@ -21,8 +21,11 @@ export interface PreparedModelCallInput {
   config: VendorConfig;
   timeoutMs: number;
   signal?: AbortSignal;
-  /** Main final network gate, invoked only after actual SDK bytes are checked. */
-  guardSend?: (send:()=>Promise<Response>)=>Promise<Response>;
+  /**
+   * Main final network gate, invoked only after actual SDK bytes are checked. It runs again before every
+   * retry of a dropped connection (attempt > 0), so a retry is admitted under the same checks as the first send.
+   */
+  guardSend?: (send:()=>Promise<Response>, attempt:number)=>Promise<Response>;
   onDelta?: (delta: UnifiedStreamDelta) => void;
   onDiagnostic?: SdkStreamRunInput["onDiagnostic"];
   onModelExecution?: (phase: "start" | "end", terminal?: "completed" | "failed" | "cancelled") => void;
@@ -227,23 +230,29 @@ export async function dispatchPreparedModelCall(input: PreparedModelCallInput): 
         check(call,input.config,input.signal);
         if(outgoing.signal.aborted)throw cancelled(outgoing.signal);
         dispatched=true;
-        // A model call has no side effect outside the provider, so a request whose connection dropped before
-        // any response is sent again (twice at most); once a response has started it is never replayed.
-        const send=async(request:Request,attempt:number):Promise<Response>=>{
-          const spare=attempt<CONNECTION_RETRY_DELAYS_MS.length?request.clone():undefined;
-          // Node's RequestInit types lag the undici package; the dispatcher option is the same at runtime.
-          try{return await delegate(request,{dispatcher:modelConnectionPool()} as unknown as RequestInit)}
-          catch(error){
-            if(!spare||!connectionLost(error)||outgoing.signal.aborted)throw error;
-            await new Promise(resolve=>setTimeout(resolve,CONNECTION_RETRY_DELAYS_MS[attempt]));
+        return attemptOnce(outgoing);
+      };
+      // Node's RequestInit types lag the undici package; the dispatcher option is the same at runtime.
+      const attemptOnce=(request:Request)=>delegate(request,{dispatcher:modelConnectionPool()} as unknown as RequestInit);
+      // A model call has no side effect outside the provider, so a request whose connection dropped before
+      // any response is sent again (twice at most); once a response has started it is never replayed.
+      // Each retry passes the send gate again, so memory forgotten during the wait is never sent.
+      const spares=CONNECTION_RETRY_DELAYS_MS.map(()=>outgoing.clone());
+      const gate=(run:()=>Promise<Response>,attempt:number)=>input.guardSend?input.guardSend(run,attempt):run();
+      for(let attempt=0;;attempt++){
+        try{
+          return await gate(attempt===0?invoke:()=>{
             check(call,input.config,input.signal);
             if(outgoing.signal.aborted)throw cancelled(outgoing.signal);
-            return send(spare,attempt+1);
-          }
-        };
-        return send(outgoing,0);
-      };
-      return await (input.guardSend?input.guardSend(invoke):invoke());
+            return attemptOnce(spares[attempt-1]);
+          },attempt);
+        }catch(error){
+          if(attempt>=spares.length||!connectionLost(error)||outgoing.signal.aborted)throw error;
+          await new Promise(resolve=>setTimeout(resolve,CONNECTION_RETRY_DELAYS_MS[attempt]));
+          check(call,input.config,input.signal);
+          if(outgoing.signal.aborted)throw cancelled(outgoing.signal);
+        }
+      }
     } catch (error) {
       boundaryError = error;
       throw error;

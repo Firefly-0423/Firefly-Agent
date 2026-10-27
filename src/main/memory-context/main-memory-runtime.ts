@@ -297,7 +297,7 @@ export function createMainMemoryRuntime(options: MainMemoryRuntimeOptions): Main
           const sent = await context!.dispatch(run.actorToken, permit, approved => {
             assertCurrent(); if (callSignal.aborted) contextFail("MEMORY_CONTEXT_CANCELLED");
             if (requestDigest(approved) !== snapshot.requestDigest || JSON.stringify(approved.body) !== prepared.serializedBody) contextFail("MEMORY_CONTEXT_REQUEST_CHANGED");
-            return sendPrepared(prepared, send => context!.invokeClaimedRequest(run.actorToken, snapshot, send, callSignal, validate));
+            return sendPrepared(prepared, (send, attempt) => context!.invokeClaimedRequest(run.actorToken, snapshot, send, callSignal, validate, attempt > 0));
           }, callSignal);
           if (sent.status !== "sent") {
             if (providerFailure instanceof Error && ["MEMORY_CONTEXT_STREAM_UNSUPPORTED", "MEMORY_CONTEXT_IMAGE_UNSUPPORTED"].includes(providerFailure.message)) contextFail(providerFailure.message);

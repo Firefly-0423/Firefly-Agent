@@ -384,14 +384,15 @@ export function createMainContext(options:ContextOptions){
  }
  const networkAttempts=new WeakSet<object>();
  /** Final network invocation, after SDK serialization. Never hold the queue for I/O settlement. */
- async function invokeClaimedRequest<T>(token:object,value:object,send:()=>Promise<T>,signal:AbortSignal|undefined,check:()=>void):Promise<T>{
+ /** retry: the same claimed request again after its connection dropped; it is admitted under the same checks as the first send. */
+ async function invokeClaimedRequest<T>(token:object,value:object,send:()=>Promise<T>,signal:AbortSignal|undefined,check:()=>void,retry=false):Promise<T>{
   const state=snapshotState(token,value);
   // A synchronous SDK callback may enter before dispatch records claimed=true.
   // Wait for that admission operation and its durable confirmation to settle.
   await options.actorAuthority.coordinate(()=>undefined);
   if(!state.claimed)contextFail("MEMORY_CONTEXT_PERMIT_DENIED");
-  if(networkAttempts.has(value))contextFail("MEMORY_CONTEXT_PERMIT_USED");
-  networkAttempts.add(value);
+  if(retry){if(!networkAttempts.has(value))contextFail("MEMORY_CONTEXT_PERMIT_DENIED")}
+  else{if(networkAttempts.has(value))contextFail("MEMORY_CONTEXT_PERMIT_USED");networkAttempts.add(value)}
   await validateResponse(token,value,signal);
   const admitted=await options.actorAuthority.coordinate(async()=>{
    await command(state.actor,"validateResponse",responseBody(state));

@@ -76,3 +76,17 @@ it('a read snapshot gives the same answers while scanning the policy table once 
   expect(perCall).toBeGreaterThanOrEqual(3);expect(scans).toBe(1);
  }finally{db.close()}
 });
+it('a traversal that runs out of depth does not poison the shared snapshot for a shorter chain inside it',async()=>{
+ const f=fixture(),root=await origin(f,'session-b','chain root'),db=new DatabaseSync(f.databasePath),ledger=new HistoryOrigins(db,f.key);
+ const chain:{actorKey:string;providerId:string;sessionId:string;event:any}[]=[{...root.owner,event:root.event}];
+ try{
+  db.exec('BEGIN IMMEDIATE');
+  for(let i=1;i<=66;i++){const link={...root.owner,event:{originalId:'link-'+i,seq:i+1,turnId:'link-turn-'+i,revision:null,originalRole:'assistant' as const,digest:hash('link-'+i)}};
+   ledger.recordResponse('scope-a',link,link.event,'snapshot-'+i,{sources:[],events:[chain[i-1]],complete:true});chain.push(link)}
+  db.exec('COMMIT');
+  const tail=chain[2],fresh=new HistoryOrigins(db,f.key).valid('scope-a',tail,tail.event),snapshot=new HistoryOrigins(db,f.key,{snapshot:true});
+  expect(fresh).toBe(true);
+  expect(snapshot.valid('scope-a',chain[66],chain[66].event)).toBe(false); // deeper than 64 links
+  expect(snapshot.valid('scope-a',tail,tail.event)).toBe(fresh);
+ }finally{db.close()}
+});

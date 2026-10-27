@@ -91,14 +91,22 @@ export class HistoryOrigins {
   this.memo?.obsolete.set(memoKey,obsolete);return obsolete;
  }
  valid(scope:string,owner:HistoryOriginOwner,value:HistoryOriginEvent):boolean {
-  const memo=this.memo?.valid??new Map<string,boolean>(),visiting=new Set<string>();let remaining=1000;
-  const visit=(identity:HistoryOriginOwner,event:HistoryOriginEvent,depth:number):boolean=>{
-   const id=this.id(scope,identity,event);if(memo.has(id))return memo.get(id)!;if(depth>64||--remaining<0||visiting.has(id))return false;
-   const receipt=this.read(scope,identity,event);if(!receipt?.closure.complete||receipt.revoked)return false;
-   remaining-=receipt.closure.sources.length+(receipt.closure.documents?.length??0);if(remaining<0)return false;
+  // A false reached by running out of depth or budget, or by meeting a cycle, depends on where this traversal
+  // started; only results proved without hitting a limit go into the shared snapshot memo.
+  const shared=this.memo?.valid,local=new Map<string,{valid:boolean;limited:boolean}>(),visiting=new Set<string>();let remaining=1000;
+  const remember=(key:string,valid:boolean,limited:boolean)=>{const result={valid,limited};local.set(key,result);if(!limited)shared?.set(key,valid);return result};
+  const visit=(identity:HistoryOriginOwner,event:HistoryOriginEvent,depth:number):{valid:boolean;limited:boolean}=>{
+   const id=this.id(scope,identity,event),key=`${owner.actorKey}\u0000${id}`,known=shared?.get(key);if(known!==undefined)return {valid:known,limited:false};
+   const seen=local.get(key);if(seen)return seen;
+   if(depth>64||--remaining<0||visiting.has(id))return {valid:false,limited:true};
+   const receipt=this.read(scope,identity,event);if(!receipt?.closure.complete||receipt.revoked)return remember(key,false,false);
+   remaining-=receipt.closure.sources.length+(receipt.closure.documents?.length??0);if(remaining<0)return {valid:false,limited:true};
    const documentsValid=(receipt.closure.documents??[]).every(dep=>{if(dep.actorKey!==owner.actorKey)return false;const row=this.db.prepare("SELECT payload FROM history_records WHERE scope_key=? AND id=? AND kind='document'").get(scope,dep.recordId);if(!row)return false;const doc=this.codec.open<HistoryOriginOwner&{state:string;incarnation:string}>('history-document',scope,dep.recordId,row.payload);return doc.state==='live'&&doc.actorKey===dep.actorKey&&doc.providerId===dep.providerId&&doc.sessionId===dep.sessionId&&doc.incarnation===dep.incarnation});
-   visiting.add(id);const valid=documentsValid&&receipt.closure.sources.every(ref=>this.sourceAllowed(scope,owner.actorKey,ref))&&receipt.closure.events.every(dep=>dep.actorKey===owner.actorKey&&visit(dep,dep.event,depth+1));visiting.delete(id);memo.set(id,valid);return valid;
-  };return visit(owner,parseHistoryOriginEvent(value),0);
+   visiting.add(id);let limited=false;
+   const valid=documentsValid&&receipt.closure.sources.every(ref=>this.sourceAllowed(scope,owner.actorKey,ref))&&receipt.closure.events.every(dep=>{
+    if(dep.actorKey!==owner.actorKey)return false;const result=visit(dep,dep.event,depth+1);limited||=result.limited;return result.valid});
+   visiting.delete(id);return remember(key,valid,limited);
+  };return visit(owner,parseHistoryOriginEvent(value),0).valid;
  }
  known(scope:string,owner:HistoryOriginOwner,event:HistoryOriginEvent):boolean{return this.read(scope,owner,parseHistoryOriginEvent(event))!==null}
  revokeEvents(scope:string,owner:HistoryOriginOwner,events:HistoryOriginEvent[]):void {

@@ -125,6 +125,20 @@ describe("prepared provider calls", () => {
       expect(pools[1]).toBe(mock);
     } finally { setGlobalDispatcher(fallback); await mock.close(); }
   });
+  it("passes every retry through the send gate again and stops when the gate refuses it", async () => {
+    const f = fixture("responses"), attempts: number[] = [];
+    const fetch = vi.fn(async () => { throw dropped(); });
+    vi.stubGlobal("fetch", fetch);
+    const guardSend = async (send: () => Promise<Response>, attempt: number) => {
+      attempts.push(attempt);
+      if (attempt === 2) throw new Error("MEMORY_CONTEXT_REQUEST_CHANGED");
+      return send();
+    };
+    const prepared = prepareModelCall(f.adapter, f.request, f.config, f.identity);
+    await expect(dispatchPreparedModelCall({ prepared, config: f.config, timeoutMs: 10_000, guardSend })).rejects.toThrow();
+    expect(attempts).toEqual([0, 1, 2]);
+    expect(fetch).toHaveBeenCalledTimes(2);
+  }, 15_000);
   it("gives up after two retries", async () => {
     const f = fixture("responses");
     const fetch = vi.fn(async () => { throw dropped(); });
