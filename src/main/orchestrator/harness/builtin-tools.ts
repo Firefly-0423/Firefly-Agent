@@ -259,6 +259,10 @@ export async function executeConfirmUncertainEffect(call: ToolCall, state: Agent
 export const HARNESS_BUILTIN_TOOL_IDS = new Set([DELEGATE_AGENT_TOOL_ID, UPDATE_TODO_TOOL_ID, ASK_USER_TOOL_ID,
   CONFIRM_UNCERTAIN_EFFECT_TOOL_ID, READ_TOOL_RESULT_TOOL_ID, ENTER_PLAN_MODE_TOOL_ID, WRITE_PLAN_TOOL_ID]);
 export function isHarnessBuiltin(toolName: string): boolean { return HARNESS_BUILTIN_TOOL_IDS.has(toolName); }
+/** What the UI calls each non-interactive built-in, like a registry tool's own name. */
+export const HARNESS_BUILTIN_DISPLAY_NAMES: Readonly<Record<string, string>> = Object.freeze({
+  update_todo: "更新待办", delegate_agent: "委派伙伴", enter_plan_mode: "进入计划模式", write_plan: "写入计划",
+});
 export function isInteractiveHarnessBuiltin(toolName: string): boolean {
   return toolName === ASK_USER_TOOL_ID || toolName === CONFIRM_UNCERTAIN_EFFECT_TOOL_ID;
 }
