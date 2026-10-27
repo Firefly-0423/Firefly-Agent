@@ -10,15 +10,18 @@ use std::{
     sync::{
         Arc,
         atomic::{AtomicU8, Ordering},
-        mpsc::{self, SyncSender},
+        mpsc::{self, RecvTimeoutError, SyncSender},
     },
     thread,
+    time::{Duration, Instant},
 };
 use windows::Win32::{
     Foundation::{HANDLE, WAIT_OBJECT_0, WAIT_TIMEOUT},
     System::Threading::{OpenProcess, PROCESS_SYNCHRONIZE, WaitForSingleObject},
 };
 const VERSION: u8 = 1;
+/// Session mode speaks version 2: many sequential read/release cycles in one process.
+const SESSION_VERSION: u8 = 2;
 const MAX_INPUT: usize = 16 * 1024;
 const MAX_OUTPUT: usize = 2 * MAX_SNAPSHOT_BYTES + 1024;
 const ACTIVE: u8 = 0;
@@ -54,6 +57,40 @@ impl Command {
         }
     }
 }
+#[derive(Deserialize, Debug)]
+#[serde(
+    tag = "type",
+    rename_all = "kebab-case",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
+enum SessionCommand {
+    Read {
+        version: u8,
+        components: Vec<String>,
+        max_bytes: usize,
+        deadline_ms: u32,
+    },
+    Release {
+        version: u8,
+    },
+    Cancel {
+        version: u8,
+    },
+    Close {
+        version: u8,
+    },
+}
+impl SessionCommand {
+    fn version(&self) -> u8 {
+        match self {
+            Self::Read { version, .. }
+            | Self::Release { version }
+            | Self::Cancel { version }
+            | Self::Close { version } => *version,
+        }
+    }
+}
 #[derive(Serialize)]
 #[serde(
     tag = "type",
@@ -77,15 +114,24 @@ enum Event<'a> {
     Cancelled {
         version: u8,
     },
+    Closed {
+        version: u8,
+    },
     Error {
         version: u8,
         code: &'a str,
     },
 }
+enum Mode {
+    /// One read, then exit; the whole process ends by `deadline` ms.
+    OneShot { deadline: u32 },
+    /// Sequential reads until `close`, Main's exit, or `idle` ms without a command.
+    Session { idle: u32 },
+}
 struct Options {
     root: PathBuf,
     parent: u32,
-    deadline: u32,
+    mode: Mode,
 }
 fn options() -> Result<Options, &'static str> {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
@@ -95,31 +141,35 @@ fn options() -> Result<Options, &'static str> {
     let mut root = None;
     let mut parent = None;
     let mut deadline = None;
+    let mut idle = None;
     for pair in args.chunks_exact(2) {
         match pair[0].to_str() {
             Some("--root") if root.is_none() => root = Some(PathBuf::from(&pair[1])),
             Some("--parent-pid") if parent.is_none() => {
                 parent = pair[1].to_str().and_then(|s| s.parse::<u32>().ok())
             }
-            Some("--deadline-ms") if deadline.is_none() => {
+            Some("--deadline-ms") if deadline.is_none() && idle.is_none() => {
                 deadline = pair[1].to_str().and_then(|s| s.parse::<u32>().ok())
+            }
+            Some("--idle-ms") if idle.is_none() && deadline.is_none() => {
+                idle = pair[1].to_str().and_then(|s| s.parse::<u32>().ok())
             }
             _ => return Err("history-invalid-cli"),
         }
     }
-    let (root, parent, deadline) = (
+    let (root, parent) = (
         root.ok_or("history-invalid-cli")?,
         parent.ok_or("history-invalid-cli")?,
-        deadline.ok_or("history-invalid-cli")?,
     );
-    if parent == 0 || parent == std::process::id() || !(1..=30_000).contains(&deadline) {
+    let mode = match (deadline, idle) {
+        (Some(deadline), None) if (1..=30_000).contains(&deadline) => Mode::OneShot { deadline },
+        (None, Some(idle)) if (1..=600_000).contains(&idle) => Mode::Session { idle },
+        _ => return Err("history-invalid-cli"),
+    };
+    if parent == 0 || parent == std::process::id() {
         return Err("history-invalid-cli");
     }
-    Ok(Options {
-        root,
-        parent,
-        deadline,
-    })
+    Ok(Options { root, parent, mode })
 }
 fn parent_watch(parent: u32, deadline: u32) -> Result<Arc<OwnedHandle>, &'static str> {
     let handle = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, false, parent) }
@@ -146,31 +196,35 @@ fn parent_watch(parent: u32, deadline: u32) -> Result<Arc<OwnedHandle>, &'static
 fn cancel_before_commit(state: &AtomicU8) {
     let _ = state.compare_exchange(ACTIVE, CANCELLED, Ordering::AcqRel, Ordering::Acquire);
 }
+/// One newline-terminated command line; `None` at a clean end of input.
+fn read_line(stream: &mut impl Read) -> Result<Option<Vec<u8>>, &'static str> {
+    let mut line = Vec::with_capacity(256);
+    loop {
+        let mut byte = [0u8; 1];
+        match stream.read(&mut byte) {
+            Ok(0) if line.is_empty() => return Ok(None),
+            Ok(0) => return Err("history-incomplete-command"),
+            Ok(_) if byte[0] == b'\n' => return Ok(Some(line)),
+            Ok(_) => {
+                line.push(byte[0]);
+                if line.len() > MAX_INPUT {
+                    return Err("history-command-too-large");
+                }
+            }
+            Err(_) => return Err("history-input-failed"),
+        }
+    }
+}
 fn input(sender: SyncSender<Result<Option<Command>, &'static str>>, state: Arc<AtomicU8>) {
     let mut stream = io::stdin().lock();
     loop {
-        let mut line = Vec::with_capacity(256);
-        let result = loop {
-            let mut byte = [0u8; 1];
-            match stream.read(&mut byte) {
-                Ok(0) if line.is_empty() => break Ok(None),
-                Ok(0) => break Err("history-incomplete-command"),
-                Ok(_) if byte[0] == b'\n' => {
-                    let parsed: Result<Command, _> = serde_json::from_slice(&line);
-                    break match parsed {
-                        Ok(command) if command.version() == VERSION => Ok(Some(command)),
-                        _ => Err("history-invalid-command"),
-                    };
-                }
-                Ok(_) => {
-                    line.push(byte[0]);
-                    if line.len() > MAX_INPUT {
-                        break Err("history-command-too-large");
-                    }
-                }
-                Err(_) => break Err("history-input-failed"),
-            }
-        };
+        let result = read_line(&mut stream).and_then(|line| match line {
+            None => Ok(None),
+            Some(line) => match serde_json::from_slice::<Command>(&line) {
+                Ok(command) if command.version() == VERSION => Ok(Some(command)),
+                _ => Err("history-invalid-command"),
+            },
+        });
         if !matches!(
             &result,
             Ok(Some(Command::Read { .. } | Command::Release { .. }))
@@ -202,7 +256,7 @@ fn emit(event: &Event<'_>) -> Result<(), &'static str> {
         .and_then(|_| output.flush())
         .map_err(|_| "history-output-failed")
 }
-fn snapshot_event(lease: &HistorySnapshotLease) -> Event<'static> {
+fn snapshot_event(lease: &HistorySnapshotLease, version: u8) -> Event<'static> {
     const HEX: &[u8] = b"0123456789abcdef";
     let mut bytes_hex = String::with_capacity(lease.bytes().len() * 2);
     for b in lease.bytes() {
@@ -210,7 +264,7 @@ fn snapshot_event(lease: &HistorySnapshotLease) -> Event<'static> {
         bytes_hex.push(HEX[(b & 15) as usize] as char);
     }
     Event::Snapshot {
-        version: VERSION,
+        version,
         identity: lease.identity(),
         raw_length: lease.bytes().len(),
         bytes_hex,
@@ -231,8 +285,12 @@ fn debug_cancel_barrier(state: &AtomicU8, marker: &str) {
 
 fn run() -> Result<(), &'static str> {
     let options = options()?;
+    let deadline = match options.mode {
+        Mode::OneShot { deadline } => deadline,
+        Mode::Session { idle } => return run_session(&options, idle),
+    };
     // Watchdog is established before potentially blocking root acquisition.
-    let parent = parent_watch(options.parent, options.deadline)?;
+    let parent = parent_watch(options.parent, deadline)?;
     let root = AuthorizedHistoryRoot::open(&options.root).map_err(|error| error.code())?;
     if unsafe { WaitForSingleObject(HANDLE(parent.as_raw_handle()), 0) } != WAIT_TIMEOUT {
         return Err("history-parent-unavailable");
@@ -269,7 +327,7 @@ fn run() -> Result<(), &'static str> {
     let lease = root
         .open_snapshot(&components, max_bytes)
         .map_err(|error| error.code())?;
-    let snapshot = encoded(&snapshot_event(&lease))?;
+    let snapshot = encoded(&snapshot_event(&lease, VERSION))?;
     #[cfg(debug_assertions)]
     if std::env::var("FF_HISTORY_TEST_PRECOMMIT_CANCEL").as_deref() == Ok("1") {
         debug_cancel_barrier(&state, "history-test-precommit");
@@ -302,6 +360,147 @@ fn run() -> Result<(), &'static str> {
         }
         None => Ok(()),
         Some(Command::Read { .. }) => Err("history-invalid-state"),
+    }
+}
+fn session_input(
+    sender: SyncSender<Result<Option<SessionCommand>, &'static str>>,
+    state: Arc<AtomicU8>,
+) {
+    let mut stream = io::stdin().lock();
+    loop {
+        let result = read_line(&mut stream).and_then(|line| match line {
+            None => Ok(None),
+            Some(line) => match serde_json::from_slice::<SessionCommand>(&line) {
+                Ok(command) if command.version() == SESSION_VERSION => Ok(Some(command)),
+                _ => Err("history-invalid-command"),
+            },
+        });
+        // Anything but a new read or a release stops a read still before its commit boundary.
+        if !matches!(
+            &result,
+            Ok(Some(SessionCommand::Read { .. } | SessionCommand::Release { .. }))
+        ) {
+            cancel_before_commit(&state);
+        }
+        let done = matches!(
+            &result,
+            Err(_) | Ok(None) | Ok(Some(SessionCommand::Close { .. }))
+        );
+        if sender.send(result).is_err() || done {
+            return;
+        }
+    }
+}
+/// Many one-shot cycles in one process. Every read reopens the root, checks it is the directory the
+/// session started on, reads and holds the leaf, and drops every handle on release or cancel, so
+/// nothing under the root is held between cycles. A lease kept past its read deadline ends the process.
+fn run_session(options: &Options, idle: u32) -> Result<(), &'static str> {
+    let parent = parent_watch(options.parent, u32::MAX)?;
+    let identity = AuthorizedHistoryRoot::open(&options.root)
+        .map_err(|error| error.code())?
+        .identity();
+    if unsafe { WaitForSingleObject(HANDLE(parent.as_raw_handle()), 0) } != WAIT_TIMEOUT {
+        return Err("history-parent-unavailable");
+    }
+    let state = Arc::new(AtomicU8::new(COMMITTED));
+    let (sender, receiver) = mpsc::sync_channel(2);
+    let input_state = Arc::clone(&state);
+    thread::spawn(move || session_input(sender, input_state));
+    emit(&Event::Ready {
+        version: SESSION_VERSION,
+        root_identity: identity,
+    })?;
+    let idle = Duration::from_millis(u64::from(idle));
+    loop {
+        let command = match receiver.recv_timeout(idle) {
+            Ok(command) => command?,
+            Err(RecvTimeoutError::Timeout) => return Ok(()),
+            Err(RecvTimeoutError::Disconnected) => return Err("history-input-failed"),
+        };
+        let (components, max_bytes, deadline_ms) = match command {
+            None => return Ok(()),
+            Some(SessionCommand::Close { .. }) => {
+                return emit(&Event::Closed {
+                    version: SESSION_VERSION,
+                });
+            }
+            Some(SessionCommand::Read {
+                components,
+                max_bytes,
+                deadline_ms,
+                ..
+            }) => (components, max_bytes, deadline_ms),
+            Some(SessionCommand::Release { .. } | SessionCommand::Cancel { .. }) => {
+                return Err("history-invalid-state");
+            }
+        };
+        if !(1..=30_000).contains(&deadline_ms) {
+            return Err("history-invalid-budget");
+        }
+        let deadline = Instant::now() + Duration::from_millis(u64::from(deadline_ms));
+        state.store(ACTIVE, Ordering::Release);
+        let root = AuthorizedHistoryRoot::open(&options.root).map_err(|error| error.code())?;
+        if root.identity() != identity {
+            return Err("history-source-changed");
+        }
+        let lease = root
+            .open_snapshot(&components, max_bytes)
+            .map_err(|error| error.code())?;
+        let snapshot = encoded(&snapshot_event(&lease, SESSION_VERSION))?;
+        if state
+            .compare_exchange(ACTIVE, COMMITTED, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
+        {
+            // The command that stopped this read is still queued: acknowledge a cancel, or end on close.
+            drop(lease);
+            drop(root);
+            match receiver.recv().map_err(|_| "history-input-failed")?? {
+                Some(SessionCommand::Cancel { .. }) => {
+                    emit(&Event::Cancelled {
+                        version: SESSION_VERSION,
+                    })?;
+                    continue;
+                }
+                Some(SessionCommand::Close { .. }) => {
+                    return emit(&Event::Closed {
+                        version: SESSION_VERSION,
+                    });
+                }
+                None => return Ok(()),
+                Some(_) => return Err("history-invalid-state"),
+            }
+        }
+        {
+            let mut output = io::stdout().lock();
+            output
+                .write_all(&snapshot)
+                .and_then(|_| output.flush())
+                .map_err(|_| "history-output-failed")?;
+        }
+        let wait = deadline.saturating_duration_since(Instant::now());
+        match receiver.recv_timeout(wait) {
+            Ok(command) => match command? {
+                Some(SessionCommand::Release { .. }) => {
+                    drop(lease);
+                    drop(root);
+                    emit(&Event::Released {
+                        version: SESSION_VERSION,
+                    })?;
+                }
+                Some(SessionCommand::Cancel { .. }) => {
+                    drop(lease);
+                    drop(root);
+                    emit(&Event::Cancelled {
+                        version: SESSION_VERSION,
+                    })?;
+                }
+                None => return Ok(()),
+                Some(_) => return Err("history-invalid-state"),
+            },
+            // Like the one-shot watchdog: exiting is what releases a lease Main never released.
+            Err(RecvTimeoutError::Timeout) => std::process::exit(75),
+            Err(RecvTimeoutError::Disconnected) => return Err("history-input-failed"),
+        }
     }
 }
 fn main() {
