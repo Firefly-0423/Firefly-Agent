@@ -6,6 +6,8 @@ import { Bubble, Think, ThoughtChain, type BubbleItemType } from "@ant-design/x"
 import { Component, createContext, createElement, useCallback, useContext, useEffect, useMemo, useRef, useState, type ErrorInfo, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { t, useTranslation } from "../../../i18n";
 import { normalizeModelMarkdown } from "./markdown-normalize";
+import { splitChatSegments } from "./chat-segments";
+import { useSegmentedChat } from "../../../hooks/useSegmentedChat";
 import { resolveAsset } from "../../../../../shared/renderer-base";
 import type { AgentRoundRecord, ChatMessageChannelSource, ConversationMode, ProcessMessageRecord, ReasoningBlock, RunActivityRecord, TaskDelegationDisplayRecord, ToolExecutionRecord, ToolFileChange, WorkReadReport } from "../../../../../shared/chat-types";
 import type { ContextUsageSnapshot } from "../../../../../shared/context-usage";
@@ -157,13 +159,24 @@ export function resolveChannelConversationLabel(messages: readonly Pick<ChatMess
   return t("messageList.channelSource.sameConversation", { channels: labels.join("、") });
 }
 
+/** Segmented output: a Chat reply as a column of bubbles, one per paragraph; the last one grows while it streams. */
+export function SegmentedReply({ content, streaming }: { content: string; streaming: boolean }) {
+  const segments = useMemo(() => splitChatSegments(normalizeModelMarkdown(content)), [content]);
+  return <div className="ff-chat-segments">
+    {segments.map((segment, index) => <div className="ff-chat-segment" key={index}>
+      <MarkdownContent content={segment} streaming={streaming && index === segments.length - 1} />
+    </div>)}
+  </div>;
+}
 function AssistantContent(props: {
-  content: string; streaming: boolean; stickerUrl?: string;
+  content: string; streaming: boolean; segmented: boolean; stickerUrl?: string;
   stickerUnavailable?: string; channelSource?: ChatMessageChannelSource;
 }) {
   return <div className="ff-message__assistant-body">
     {props.channelSource && <ChannelSourceLabel source={props.channelSource} direction="outgoing" />}
-    {props.content && <MarkdownContent content={props.content} streaming={props.streaming} />}
+    {props.content && (props.segmented
+      ? <SegmentedReply content={props.content} streaming={props.streaming} />
+      : <MarkdownContent content={props.content} streaming={props.streaming} />)}
     <StickerImage src={props.stickerUrl} unavailable={props.stickerUnavailable}
       alt={t("messageList.assistantStickerAlt")} className="ff-message__sticker" />
   </div>;
@@ -490,7 +503,7 @@ function createRoles(
   onCancelEdit: () => void, onSubmitEdit: () => void,
   onRegenerateLastResponse: ((userMessageId: string, assistantMessageId: string) => Promise<boolean>) | undefined,
   reasoningExpanded: Readonly<Record<string, boolean>>, onReasoningExpand: (id: string, expanded: boolean) => void,
-  onOpenReviewInspector?: (runId: string, fileIndex: number, filePath: string) => void,
+  onOpenReviewInspector?: (runId: string, fileIndex: number, filePath: string) => void, segmented = false,
 ) {
   const user = {
     placement: "end" as const, variant: "filled" as const, rootClassName: "ff-message ff-message--user",
@@ -517,7 +530,7 @@ function createRoles(
     placement: "start" as const, variant: "filled" as const, rootClassName: "ff-message ff-message--assistant",
     avatar: <FireflyMessageAvatar />,
     contentRender: (content: string, info: RoleInfo) => <>
-      <AssistantContent content={content} streaming={Boolean(info.extraInfo?.streaming)} stickerUrl={info.extraInfo?.stickerUrl}
+      <AssistantContent content={content} streaming={Boolean(info.extraInfo?.streaming)} segmented={segmented} stickerUrl={info.extraInfo?.stickerUrl}
         stickerUnavailable={info.extraInfo?.stickerUnavailable} channelSource={info.extraInfo?.channelSource} />
       {info.extraInfo?.reviewRunId && <ReviewPanel runId={info.extraInfo.reviewRunId} onOpenInspector={onOpenReviewInspector} />}
     </>,
@@ -711,10 +724,12 @@ export function ChatMessageList({
     const repeat = window.setTimeout(() => scrollToBottom("auto"), 100);
     return () => window.clearTimeout(repeat);
   }, [conversationId, scrollToBottom]);
+  // Segmented output applies to Chat mode only.
+  const segmented = useSegmentedChat() && mode === "chat";
   const roles = useMemo(() => createRoles(avatar, conversationId, mode, preferredAddress, editingId, draft, revisionBusy,
-    beginEdit, changeDraft, cancelEdit, submitEdit, onRegenerateLastResponse, expanded, expandReasoning, onOpenReviewInspector),
+    beginEdit, changeDraft, cancelEdit, submitEdit, onRegenerateLastResponse, expanded, expandReasoning, onOpenReviewInspector, segmented),
     [beginEdit, cancelEdit, conversationId, draft, editingId, mode, onOpenReviewInspector, expandReasoning,
-      onRegenerateLastResponse, preferredAddress, expanded, revisionBusy, submitEdit, avatar]);
+      onRegenerateLastResponse, preferredAddress, expanded, revisionBusy, submitEdit, avatar, segmented]);
   useEffect(() => {
     if (editingId && editingId !== revisable?.userMessageId) { changeEditingId(null); changeDraft(""); }
   }, [editingId, revisable?.userMessageId]);

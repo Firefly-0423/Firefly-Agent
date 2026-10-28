@@ -9,7 +9,7 @@ import { bindSettingsNavigation, resolveSettingsSection, updateSettingsNavigatio
 import { mountSettingsSearch } from "./shared/search";
 import "../ui/base.css";
 import "../ui/theme";
-import { normalizeChatSocialContextEnabled, normalizeProactiveChatMode, normalizeProactiveDeliveryTarget, normalizeSegmentedOutputMode, type ProactiveChatMode, type ProactiveDeliveryTarget, type SegmentedOutputMode } from "../../shared/preferences";
+import { normalizeChatSocialContextEnabled, normalizeProactiveChatMode, normalizeProactiveDeliveryTarget, normalizeSegmentedChatEnabled, type ProactiveChatMode, type ProactiveDeliveryTarget } from "../../shared/preferences";
 import { isProactiveDeliveryTargetSelectable } from "../../shared/proactive-delivery";
 import { normalizeUiTheme, type UiTheme } from "../../shared/ui-theme";
 import { DEFAULT_UI_FONT, normalizeUiFont, type UiFont } from "../../shared/ui-font";
@@ -36,7 +36,7 @@ import { inputModalitiesSelect, inputModalitiesHint } from "./api/dom";
 import type { InputModality } from "../../shared/input-modalities";
 import { apiForm, apiRuntimeForm, presetCards, profileList, profileListCount, profileEditorTitle, deleteProfileBtn, presetWebsiteLink, displayNameInput, baseUrlInput, baseUrlResetBtn, modelInput, modelInputSuggestions, contextWindowInput, apiKeyInput, apiKeyLabel, apiKeyHint, testConnectionBtn, transportSelect, transportHint, endpointPreview, customEndpointControls, customEndpointOverrides, customEndpointSummary, customEndpointGuideBtn, workFlowAdaptBtn, apiNoteText, fetchModelsBtn, fetchModelsStatus, fetchModelsPicker, fetchModelsSearch, fetchModelsList, fetchModelsEmpty, embeddingDimensionsInput, toggleEnableThinking, toggleDisableThinking, toggleDisableMaxToken } from "./api/dom";
 import { appearanceForm, appearanceSaveStatus, petAlwaysOnTopInput, petVisibleInput, petZoomInput, petZoomVal, chatLineHeightInput, chatLineHeightVal, chatParaSpacingInput, chatParaSpacingVal, uiFontCurrent, uiFontSelect, uiFontCustomOption, uiFontImportButton, uiFontResetButton, uiFontSizeInput, chatFontSizeInput, codeFontSizeInput, uiIconSelect, uiThemeSelect, screenshotHotkeyInput } from "./appearance/dom";
-import { generalForm, languageSelect, segmentedOutputSelect, proactiveChatSelect, proactiveDeliveryRow, proactiveDeliverySelect, chatSocialContextEnabledInput, toastSoundEnabledInput, launchAtLoginInput, desktopSaveStatus } from "./general/dom";
+import { generalForm, languageSelect, segmentedChatEnabledInput, proactiveChatSelect, proactiveDeliveryRow, proactiveDeliverySelect, chatSocialContextEnabledInput, toastSoundEnabledInput, launchAtLoginInput, desktopSaveStatus } from "./general/dom";
 import { minBtn, closeBtn, preferencesForm, sectionTitle, sectionHint, placeholderPanel, fireflyPanel, disclaimerPanel, pluginsPanel, placeholderIcon, placeholderTitle, placeholderCopy, saveStatus, runtimeSaveStatus, preferencesSaveStatus, fireflySaveStatus, openStickerManagerBtn, addStickerBtn } from "./shared/shell";
 import { permissionBlocksWrap, permissionNote } from "./plugins/dom";
 import { stickerEnabledInput, stickerSizeSelect, stickerThresholdInput, stickerThresholdVal, stickerAddOverlay, stickerAddPickBtn, stickerAddFileName, stickerAddId, stickerAddDesc, stickerAddPhrases, stickerAddError, stickerAddConfirm, stickerAddCancel } from "./preferences/dom";
@@ -116,7 +116,7 @@ if (!window.settings) {
       uiColors: { ...DEFAULT_UI_COLORS },
       uiFont: DEFAULT_UI_FONT,
       uiIcon: "firefly",
-      segmentedOutputMode: "off",
+      segmentedChatEnabled: true,
       proactiveChatMode: "off",
       proactiveDeliveryTarget: "local",
       chatSocialContextEnabled: false,
@@ -279,7 +279,6 @@ const applyLanguageSelection = (language: UiLanguage): void => {
   selectButtons(languageSelect, ".language-option", option => option.dataset.lang === language);
 };
 
-const applySegmentedOutputSelection = (mode: SegmentedOutputMode): void => applyOptionGroupValue(segmentedOutputSelect, mode);
 const applyProactiveChatSelection = (mode: ProactiveChatMode): void => applyOptionGroupValue(proactiveChatSelect, mode);
 const applyProactiveDeliverySelection = (target: ProactiveDeliveryTarget): void => applyOptionGroupValue(proactiveDeliverySelect, target);
 const getProactiveChatValue = (): ProactiveChatMode => normalizeProactiveChatMode(getOptionGroupValue(proactiveChatSelect, "off"));
@@ -776,7 +775,7 @@ function restorePetAndAppearance(config: GeneralSettings): void {
 }
 
 function restoreChatPreferences(config: GeneralSettings): void {
-  applySegmentedOutputSelection(normalizeSegmentedOutputMode(config.segmentedOutputMode));
+  segmentedChatEnabledInput.checked = normalizeSegmentedChatEnabled(config.segmentedChatEnabled);
   applyProactiveChatSelection(normalizeProactiveChatMode(config.proactiveChatMode));
   applyProactiveDeliverySelection(normalizeProactiveDeliveryTarget(config.proactiveDeliveryTarget));
   renderProactiveDeliveryVisibility();
@@ -925,10 +924,6 @@ function bindSpacingSlider(key: "chatLineHeight" | "chatParaSpacing", input: HTM
 bindSpacingSlider("chatLineHeight", chatLineHeightInput, chatLineHeightVal, "--rb-chat-line-height", "");
 bindSpacingSlider("chatParaSpacing", chatParaSpacingInput, chatParaSpacingVal, "--rb-chat-para-spacing", "em");
 
-onChoice(segmentedOutputSelect, ".option-block", option => {
-  applySegmentedOutputSelection(normalizeSegmentedOutputMode(option.dataset.value));
-  dirtyPreferences();
-});
 onChoice(proactiveChatSelect, ".option-block", option => {
   applyProactiveChatSelection(normalizeProactiveChatMode(option.dataset.value));
   renderProactiveDeliveryVisibility();
@@ -1610,10 +1605,11 @@ subscribeLocaleChanged(() => {
 });
 
 chatSocialContextEnabledInput.addEventListener("change", dirtyPreferences);
+segmentedChatEnabledInput.addEventListener("change", dirtyPreferences);
 
 bindSettingsSubmit(preferencesForm, setPreferencesSaveStatus, () => window.settings!.saveGeneral({
   chatSocialContextEnabled: chatSocialContextEnabledInput.checked,
-  segmentedOutputMode: "off",
+  segmentedChatEnabled: segmentedChatEnabledInput.checked,
   proactiveChatMode: getProactiveChatValue(),
   proactiveDeliveryTarget: getProactiveDeliveryValue(),
   screenshotHotkey: screenshotHotkeyInput?.value || "Alt+Shift+S",

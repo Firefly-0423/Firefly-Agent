@@ -1,6 +1,6 @@
 import type { ChatAppearanceSettings } from "../../shared/chat-appearance";
 import type { LspServerOverride } from "../lsp/types";
-import type { ProactiveChatMode, ProactiveDeliveryTarget, SegmentedOutputMode } from "../../shared/preferences";
+import type { ProactiveChatMode, ProactiveDeliveryTarget } from "../../shared/preferences";
 import type { SkillModeOverrides } from "../skills/types";
 import type { ToolModeOverrides } from "../orchestrator/tools/registry/tool-registry";
 import type { UiColors } from "../../shared/ui-colors";
@@ -64,7 +64,8 @@ export interface GeneralSettings extends ChatAppearanceSettings {
   searchEngine: "off" | "bocha" | "tavily" | "minimax" | "anySearch";
   searchMinimaxKey: string;
   searchTavilyKey: string;
-  segmentedOutputMode: SegmentedOutputMode;
+  /** Chat-mode replies shown as several bubbles (display only). */
+  segmentedChatEnabled: boolean;
   sidebarVisible: boolean;
   /** Skill 按模式可见性覆盖，键为 skillId；覆盖优先于 skill 自身声明的 modes。 */
   skillModeOverrides: SkillModeOverrides;

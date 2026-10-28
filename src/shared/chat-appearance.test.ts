@@ -24,6 +24,7 @@ describe("normalizeChatAppearance", () => {
       smartPunctuation: false,
       codeThemeLight: "firefly",
       codeThemeDark: "firefly",
+      segmentedChat: true,
     });
   });
 
@@ -44,7 +45,14 @@ describe("normalizeChatAppearance", () => {
       smartPunctuation: false,
       codeThemeLight: "firefly",
       codeThemeDark: "firefly",
+      segmentedChat: true,
     });
+  });
+
+  it("shows Chat replies as segments unless the stored switch is off", () => {
+    expect(normalizeChatAppearance({ segmentedChatEnabled: false }).segmentedChat).toBe(false);
+    expect(normalizeChatAppearance({ segmentedChatEnabled: true }).segmentedChat).toBe(true);
+    expect(normalizeChatAppearance({}).segmentedChat).toBe(true);
   });
 
   it("clamps the font sizes to their supported ranges", () => {

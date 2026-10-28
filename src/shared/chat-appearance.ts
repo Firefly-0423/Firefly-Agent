@@ -6,6 +6,7 @@
 // - uiFontSize / chatFontSize / codeFontSize：字号（px）
 
 import { DARK_CODE_THEMES, LIGHT_CODE_THEMES, type DarkCodeTheme, type LightCodeTheme } from "./code-themes";
+import { normalizeSegmentedChatEnabled } from "./preferences";
 
 export interface ChatAppearanceSettings {
   /** 行高，无单位数字 */
@@ -34,6 +35,8 @@ export interface ChatAppearanceSettings {
   codeThemeLight: LightCodeTheme;
   /** 深色主题下代码块的配色 */
   codeThemeDark: DarkCodeTheme;
+  /** Chat 模式的回复按段落分成几个气泡（存为 segmentedChatEnabled） */
+  segmentedChat: boolean;
 }
 
 export const REDUCE_MOTION_PREFERENCES = ["system", "on", "off"] as const;
@@ -65,6 +68,7 @@ export const DEFAULT_CHAT_APPEARANCE: ChatAppearanceSettings = {
   smartPunctuation: false,
   codeThemeLight: "firefly",
   codeThemeDark: "firefly",
+  segmentedChat: true,
 };
 
 function oneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
@@ -153,5 +157,6 @@ export function normalizeChatAppearance(
     smartPunctuation: source.smartPunctuation === true,
     codeThemeLight: oneOf(source.codeThemeLight, LIGHT_CODE_THEMES, DEFAULT_CHAT_APPEARANCE.codeThemeLight),
     codeThemeDark: oneOf(source.codeThemeDark, DARK_CODE_THEMES, DEFAULT_CHAT_APPEARANCE.codeThemeDark),
+    segmentedChat: normalizeSegmentedChatEnabled(source.segmentedChatEnabled),
   };
 }

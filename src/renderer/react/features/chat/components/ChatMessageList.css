@@ -671,6 +671,30 @@
   display: flex;
 }
 
+/* Segmented output (Chat mode): each paragraph is its own bubble, sized to its text like a sent message. */
+.ff-chat-segments {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.ff-chat-segment {
+  max-width: 100%;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--ff-border);
+  border-radius: 12px;
+  background: var(--ff-surface);
+  animation: ff-chat-segment-in 160ms ease-out;
+}
+.ff-chat-segment:has(pre, .katex-display, table) { align-self: stretch; }
+.ff-chat-segment .ff-message-markdown > :first-child { margin-top: 0; }
+.ff-chat-segment .ff-message-markdown > :last-child { margin-bottom: 0; }
+@keyframes ff-chat-segment-in { from { opacity: 0; transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) { .ff-chat-segment { animation: none; } }
+:root[data-reduce-motion="on"] .ff-chat-segment { animation: none; }
+
 .ff-message__sticker {
   -webkit-user-drag: none;
   border-radius: 12px;

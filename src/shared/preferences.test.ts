@@ -3,7 +3,7 @@ import {
   normalizeChatSocialContextEnabled,
   normalizeProactiveChatMode,
   normalizeProactiveDeliveryTarget,
-  normalizeSegmentedOutputMode,
+  normalizeSegmentedChatEnabled,
 } from "./preferences";
 
 describe("normalizeChatSocialContextEnabled", () => {
@@ -17,15 +17,14 @@ describe("normalizeChatSocialContextEnabled", () => {
   });
 });
 
-describe("normalizeSegmentedOutputMode", () => {
-  it("keeps the supported modes", () => {
-    expect(normalizeSegmentedOutputMode("all")).toBe("all");
-    expect(normalizeSegmentedOutputMode("chat")).toBe("chat");
-    expect(normalizeSegmentedOutputMode("off")).toBe("off");
+describe("normalizeSegmentedChatEnabled", () => {
+  it("is off only when explicitly turned off", () => {
+    expect(normalizeSegmentedChatEnabled(false)).toBe(false);
+    expect(normalizeSegmentedChatEnabled(true)).toBe(true);
   });
 
-  it.each([undefined, null, "", "ALL", "Chat", "on", 0, {}, []])("defaults %j to off", (value) => {
-    expect(normalizeSegmentedOutputMode(value)).toBe("off");
+  it.each([undefined, null, "", "off", 0, {}])("defaults %j to on", (value) => {
+    expect(normalizeSegmentedChatEnabled(value)).toBe(true);
   });
 });
 

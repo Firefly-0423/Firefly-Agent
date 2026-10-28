@@ -398,7 +398,6 @@
 .settings-shell .plugin-switch span::after { top: 3px; left: 3px; width: 18px; height: 18px; background: #ffffff; box-shadow: 0 1px 3px rgba(0, 0, 0, .24); }
 .settings-shell .plugin-switch input:checked + span { background: var(--st-primary); border-color: transparent; box-shadow: none; }
 .settings-shell .plugin-switch input:checked + span::after { transform: translateX(20px); background: #ffffff; }
-.settings-shell .setting-row__tag { margin-left: 8px; font-weight: 500; vertical-align: 1px; }
 .settings-shell .channels-status__dot { width: 8px; height: 8px; border-radius: 50%; box-shadow: none; }
 .settings-shell .channels-status__dot { background: var(--st-dot-idle); }
 .settings-shell .channels-status__dot--running { background: var(--st-dot-ok); }

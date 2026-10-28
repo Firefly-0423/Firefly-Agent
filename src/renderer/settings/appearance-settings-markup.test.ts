@@ -29,7 +29,7 @@ describe("settings navigation and ownership", () => {
     const petIds = ["pet-always-on-top", "pet-visible", "pet-zoom"];
     hasControls(appearance, petIds);
     lacksControls(region("general-form"), petIds);
-    hasControls(preferences, ["segmented-output-select", "proactive-chat-select", "chat-social-context-enabled"]);
+    hasControls(preferences, ["segmented-chat-enabled", "proactive-chat-select", "chat-social-context-enabled"]);
     lacksControls(preferences, ["custom-style-sampling-btn", "custom-style-prompt-btn", "default-chat-mode-select", "mobile-message-segmentation-select"]);
     expect(preferences.textContent).toContain("聊天上下文增强");
     const capsule = preferences.querySelector("#chat-social-context-enabled")?.closest(".switch");
