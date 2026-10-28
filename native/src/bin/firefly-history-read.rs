@@ -8,7 +8,7 @@ use std::{
     os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle},
     path::PathBuf,
     sync::{
-        Arc,
+        Arc, Condvar, Mutex,
         atomic::{AtomicU8, Ordering},
         mpsc::{self, RecvTimeoutError, SyncSender},
     },
@@ -388,11 +388,49 @@ fn session_input(
         }
     }
 }
+/// The session's stand-in for the one-shot watchdog: while armed, it ends the process at the deadline
+/// from its own thread, so a stalled open, read or blocked output cannot hold handles past it.
+struct Watchdog(Arc<(Mutex<Option<Instant>>, Condvar)>);
+impl Watchdog {
+    fn start() -> Self {
+        let shared = Arc::new((Mutex::new(None::<Instant>), Condvar::new()));
+        let watch = Arc::clone(&shared);
+        thread::spawn(move || {
+            let (lock, wake) = &*watch;
+            let mut armed = lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+            loop {
+                let current = *armed;
+                armed = match current {
+                    None => wake
+                        .wait(armed)
+                        .unwrap_or_else(|poisoned| poisoned.into_inner()),
+                    Some(deadline) => {
+                        let left = deadline.saturating_duration_since(Instant::now());
+                        if left.is_zero() {
+                            std::process::exit(75);
+                        }
+                        wake.wait_timeout(armed, left)
+                            .unwrap_or_else(|poisoned| poisoned.into_inner())
+                            .0
+                    }
+                };
+            }
+        });
+        Self(shared)
+    }
+    fn set(&self, deadline: Option<Instant>) {
+        let (lock, wake) = &*self.0;
+        *lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = deadline;
+        wake.notify_one();
+    }
+}
 /// Many one-shot cycles in one process. Every read reopens the root, checks it is the directory the
 /// session started on, reads and holds the leaf, and drops every handle on release or cancel, so
 /// nothing under the root is held between cycles. A lease kept past its read deadline ends the process.
 fn run_session(options: &Options, idle: u32) -> Result<(), &'static str> {
     let parent = parent_watch(options.parent, u32::MAX)?;
+    let watchdog = Watchdog::start();
+    watchdog.set(Some(Instant::now() + Duration::from_millis(30_000)));
     let identity = AuthorizedHistoryRoot::open(&options.root)
         .map_err(|error| error.code())?
         .identity();
@@ -407,6 +445,7 @@ fn run_session(options: &Options, idle: u32) -> Result<(), &'static str> {
         version: SESSION_VERSION,
         root_identity: identity,
     })?;
+    watchdog.set(None);
     let idle = Duration::from_millis(u64::from(idle));
     loop {
         let command = match receiver.recv_timeout(idle) {
@@ -435,6 +474,7 @@ fn run_session(options: &Options, idle: u32) -> Result<(), &'static str> {
             return Err("history-invalid-budget");
         }
         let deadline = Instant::now() + Duration::from_millis(u64::from(deadline_ms));
+        watchdog.set(Some(deadline));
         state.store(ACTIVE, Ordering::Release);
         let root = AuthorizedHistoryRoot::open(&options.root).map_err(|error| error.code())?;
         if root.identity() != identity {
@@ -451,6 +491,7 @@ fn run_session(options: &Options, idle: u32) -> Result<(), &'static str> {
             // The command that stopped this read is still queued: acknowledge a cancel, or end on close.
             drop(lease);
             drop(root);
+            watchdog.set(None);
             match receiver.recv().map_err(|_| "history-input-failed")?? {
                 Some(SessionCommand::Cancel { .. }) => {
                     emit(&Event::Cancelled {
@@ -480,6 +521,7 @@ fn run_session(options: &Options, idle: u32) -> Result<(), &'static str> {
                 Some(SessionCommand::Release { .. }) => {
                     drop(lease);
                     drop(root);
+                    watchdog.set(None);
                     emit(&Event::Released {
                         version: SESSION_VERSION,
                     })?;
@@ -487,6 +529,7 @@ fn run_session(options: &Options, idle: u32) -> Result<(), &'static str> {
                 Some(SessionCommand::Cancel { .. }) => {
                     drop(lease);
                     drop(root);
+                    watchdog.set(None);
                     emit(&Event::Cancelled {
                         version: SESSION_VERSION,
                     })?;

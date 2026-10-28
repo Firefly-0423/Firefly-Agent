@@ -26,6 +26,7 @@ A real Work run in the demo profile spawned `firefly-history-read.exe` about 400
      - Reopen the root. A root identity that differs from the ready one is `history-source-changed` and ends the session.
      - Open and read the leaf exactly as the one-shot mode does (same commit boundary and cancel rules) and emit `snapshot`.
      - Then wait for `release` or `cancel` for at most `deadlineMs` from the read. If that passes, the process exits, which drops every handle.
+     - An independent watchdog thread is armed from before the root is reopened until the lease is dropped (and for 30 s during startup). It exits with 75 at the deadline even while the open, the read or the output is blocked.
    - `release`/`cancel`: drop the lease and the reopened root, then emit `released`/`cancelled`.
    - `close`: emit `closed` and exit 0.
    - Anything else: `history-invalid-state`, and exit.
@@ -38,7 +39,7 @@ The one-shot mode (no `--session`) stays exactly as is, so existing tests and an
 
 `createNativeHistorySessionPool({spawn, size: 4, idleMs: 20000})` implements `NativeHistoryEndpointFactory`:
 
-- `acquire` takes an idle session for the same root, spawns one if fewer than `size` exist, or queues.
+- `acquire` takes an idle session for the same root, or spawns one. It never waits for capacity: a history read holds its transcript lease while it asks for the snapshot, so queueing could deadlock overlapping reads. Helpers beyond `size` end when released.
 - The endpoint's `rootIdentity` is the session's ready identity, and `read` sends `read` with the remaining deadline.
 - `dispose('release'|'cancel')` sends the command and resolves on the acknowledgement. The session then returns to the pool.
 - Any protocol error, timeout, unexpected exit or abort kills that session. Its `dispose` then waits for the process to close, as the one-shot endpoint does today, so the store barrier still waits for the OS to drop the handles.
@@ -52,12 +53,12 @@ Rust:
 - A session serves three reads in a row, each from current bytes: change the file between reads and see the new bytes.
 - A root swapped between reads ends the session with `history-source-changed`.
 - No handle is held after `released`: rename the root after release and the rename succeeds.
-- Idle timeout and lease deadline exits.
+- Idle timeout and lease deadline exits, including a read blocked on output.
 - Session-mode commands with extra fields are rejected.
 
 TS (with a fake child):
 - Sessions are reused.
-- The pool limit queues requests.
+- Four reads that each hold one lease and ask for a second all finish; the extra helpers end on release.
 - A protocol error kills a session and the next acquire spawns a fresh one.
 - `dispose` after a kill waits for close.
 - Cancel before the snapshot.

@@ -15,17 +15,18 @@ interface Session {
 export interface NativeHistorySessionPool extends NativeHistoryEndpointFactory {close():Promise<void>}
 
 /**
- * Resident firefly-history-read sessions (`--idle-ms`), at most `size` at once. A session serves one
- * endpoint at a time; every read still reopens and re-proves the files on disk. Any protocol error,
+ * Resident firefly-history-read sessions (`--idle-ms`); up to `size` stay between uses. A session serves
+ * one endpoint at a time. When every resident one is leased, a caller gets an extra helper that ends on
+ * release instead of waiting: a history read holds one lease while it asks for its second, so waiting
+ * for capacity could deadlock overlapping reads. every read still reopens and re-proves the files on disk. Any protocol error,
  * timeout or abort kills that session, and its endpoint's dispose waits for the process to close, as
  * the one-shot endpoint does. Only a trusted Main composition supplies `spawn`.
  */
 export function createNativeHistorySessionPool(options:{spawn:(input:{root:string;idleMs:number})=>ChildProcessWithoutNullStreams;size?:number;idleMs?:number;clock?:()=>number}):NativeHistorySessionPool {
  const clock=options.clock??(()=>performance.now()),size=options.size??4,idleMs=options.idleMs??20_000;
  // `sessions` can serve; `alive` also holds killed ones until their process has closed.
- const sessions:Session[]=[],alive=new Set<Session>(),waiting=new Set<()=>void>();
+ const sessions:Session[]=[],alive=new Set<Session>();
  let closing=false;
- const wake=()=>{for(const resume of [...waiting])resume()};
  function start(root:string):Session {
   const child=options.spawn({root,idleMs}),closed=deferred<void>();
   let buffer=Buffer.alloc(0),killed=false;
@@ -40,7 +41,7 @@ export function createNativeHistorySessionPool(options:{spawn:(input:{root:strin
     child.stdin.write(line,error=>{if(error)session.kill(PROTOCOL)});
    },
   };
-  const remove=()=>{const at=sessions.indexOf(session);if(at>=0)sessions.splice(at,1);wake()};
+  const remove=()=>{const at=sessions.indexOf(session);if(at>=0)sessions.splice(at,1)};
   function event(value:unknown){
    const v=objectFields(value,['type','version'],['rootIdentity','identity','rawLength','bytesHex','code']) as Event;
    if(v.version!==VERSION)fail(PROTOCOL);
@@ -69,20 +70,14 @@ export function createNativeHistorySessionPool(options:{spawn:(input:{root:strin
    const idle=sessions.find(s=>s.root===root&&!s.busy&&!s.dead&&s.rootIdentity);
    if(idle){idle.busy=true;return idle}
    if(sessions.length>=size){const other=sessions.find(s=>!s.busy&&s.root!==root);if(other){other.kill(CANCELLED);continue}}
-   if(sessions.length<size){
-    const session=start(root);
-    try{const ready=await bounded(expect(session,['ready']),deadlineAt,signal);objectFields(ready,['type','version','rootIdentity']);session.rootIdentity=identity(ready.rootIdentity);return session}
-    // Startup may already hold the root, and no endpoint exists yet to wait on it: wait for the close here.
-    catch(error){session.kill(error instanceof Error&&[TIMEOUT,CANCELLED].includes(error.message)?error.message:PROTOCOL);await session.closed;throw error}
-   }
-   await new Promise<void>(resume=>{
-    const timer=setTimeout(done,Math.max(1,deadlineAt-clock()));
-    function done(){clearTimeout(timer);signal.removeEventListener('abort',done);waiting.delete(done);resume()}
-    signal.addEventListener('abort',done,{once:true});waiting.add(done);
-   });
+   const session=start(root);
+   try{const ready=await bounded(expect(session,['ready']),deadlineAt,signal);objectFields(ready,['type','version','rootIdentity']);session.rootIdentity=identity(ready.rootIdentity);return session}
+   // Startup may already hold the root, and no endpoint exists yet to wait on it: wait for the close here.
+   catch(error){session.kill(error instanceof Error&&[TIMEOUT,CANCELLED].includes(error.message)?error.message:PROTOCOL);await session.closed;throw error}
   }
  }
- function give(session:Session){session.busy=false;wake()}
+ // A released helper holds nothing under the root, so ending an extra one needs no wait.
+ function give(session:Session){if(sessions.length>size)session.kill(CANCELLED);else session.busy=false}
  /** Rejects with TIMEOUT at the deadline or CANCELLED on abort, whichever comes before the operation. */
  function bounded<T>(operation:Promise<T>,deadlineAt:number,signal:AbortSignal):Promise<T> {
   let timer:ReturnType<typeof setTimeout>|undefined,onAbort:(()=>void)|undefined;
@@ -142,7 +137,7 @@ export function createNativeHistorySessionPool(options:{spawn:(input:{root:strin
  // Idle helpers hold no handle under the root, so ending every helper is a safe close; each one is
  // awaited until its process has closed.
  pool.close=async()=>{
-  closing=true;wake();
+  closing=true;
   await Promise.all([...alive].map(async session=>{session.kill(CANCELLED);await session.closed}));
  };
  return pool;

@@ -31,12 +31,23 @@ it('reuses one resident helper for consecutive reads instead of a process per re
  expect(f.spawned).toHaveLength(1);expect(f.spawned[0].reads).toBe(5);expect(f.spawned[0].kills).toBe(0);
  await f.pool.close();expect(f.spawned[0].kills).toBe(1);
 });
-it('holds two leases at once on two helpers and queues a third until one is released',async()=>{
+it('holds two leases on two helpers; a third gets an extra helper that ends on release',async()=>{
  const f=setup(2),a=await acquire(f.pool),b=await acquire(f.pool);await a.read(['s','snapshot.json'],2);await b.read(['s','transcript.jsonl'],2);
- let third=false;const pending=acquire(f.pool).then(endpoint=>{third=true;return endpoint});
- await new Promise(r=>setTimeout(r,20));expect(third).toBe(false);expect(f.spawned).toHaveLength(2);
- await a.dispose('release');const c=await pending;expect(f.spawned).toHaveLength(2);await c.dispose('release');await b.dispose('cancel');
- expect(f.spawned.flatMap(s=>s.commands)).toContain('cancel');await f.pool.close();
+ const c=await acquire(f.pool);expect(f.spawned).toHaveLength(3);await c.read(['s','snapshot.json'],2);
+ await c.dispose('release');expect(f.spawned[2].kills).toBe(1);await a.dispose('release');await b.dispose('cancel');
+ expect(f.spawned.flatMap(s=>s.commands)).toContain('cancel');expect(f.spawned[0].kills+f.spawned[1].kills).toBe(0);
+ const again=await acquire(f.pool);await again.dispose('release');expect(f.spawned).toHaveLength(3);await f.pool.close();
+});
+it('four operations that each hold one lease and ask for a second all finish (no deadlock at capacity)',async()=>{
+ const f=setup(4);
+ const first=await Promise.all([0,1,2,3].map(()=>acquire(f.pool,undefined,500)));
+ await Promise.all(first.map(e=>e.read(['s','transcript.jsonl'],2)));
+ const second=await Promise.all([0,1,2,3].map(()=>acquire(f.pool,undefined,500)));
+ await Promise.all(second.map(e=>e.read(['s','snapshot.json'],2)));
+ await Promise.all([...first,...second].map(e=>e.dispose('release')));
+ // Helpers beyond the resident size end once released.
+ expect(f.spawned).toHaveLength(8);expect(f.spawned.filter(s=>s.kills>0)).toHaveLength(4);
+ await f.pool.close();
 });
 it('kills a helper that breaks the protocol and gives the next caller a fresh one',async()=>{
  const f=setup(),endpoint=await acquire(f.pool);f.spawned[0].answer=false;const read=endpoint.read(['s','snapshot.json'],2);

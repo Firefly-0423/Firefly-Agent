@@ -206,6 +206,18 @@ fn a_lease_held_past_its_deadline_ends_the_process() {
 }
 
 #[test]
+fn a_read_blocked_on_output_still_ends_at_its_deadline() {
+    let fixture = Fixture::new();
+    // Far more than a pipe buffer: publishing it blocks while nobody reads the output.
+    fixture.write(&"x".repeat(1024 * 1024));
+    let mut session = Session::start(&fixture.root(), 10_000);
+    session.event();
+    session.send(json!({"type":"read","version":2,"components":["session-a","snapshot.json"],"maxBytes":2 * 1024 * 1024,"deadlineMs":300}));
+    assert_eq!(session.exit_code(Duration::from_secs(5)), Some(75));
+    fs::rename(fixture.root(), fixture.0.join("free")).unwrap();
+}
+
+#[test]
 fn version_one_commands_and_extra_fields_are_refused() {
     let fixture = Fixture::new();
     for line in [
