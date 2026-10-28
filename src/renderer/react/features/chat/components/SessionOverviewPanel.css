@@ -55,7 +55,7 @@
 .ff-session-overview[data-dragging] .ff-overview-card { will-change: transform; }
 .ff-session-overview[data-settling] .ff-overview-card { transition: none; }
 
-.ff-overview-card__bar { display: flex; min-width: 0; align-items: center; }
+.ff-overview-card__bar { position: relative; display: flex; min-width: 0; align-items: center; }
 .ff-overview-card__head {
   display: flex;
   flex: 1 1 auto;
@@ -85,14 +85,17 @@
 .ff-overview-card[data-entry] .ff-overview-card__head:hover .ff-overview-card__chevron { transform: translateX(2px); }
 .ff-overview-card__head:disabled { cursor: default; }
 
-/* The six-dot grip: quiet until the card is hovered or the grip focused. */
+/* The six-dot grip sits where the header's number ends: hovering the card swaps the number for the grip.
+   Entry cards keep their text clear of it, since their summary is a name, not a number. */
 .ff-overview-card__grip {
+  position: absolute;
+  top: calc(50% - 12px);
+  right: 6px;
   display: inline-grid;
   width: 24px;
   height: 24px;
-  flex: none;
   place-items: center;
-  margin-right: 6px;
+  margin: 0;
   padding: 0;
   border: 0;
   border-radius: 6px;
@@ -106,6 +109,9 @@
 .ff-overview-card:hover .ff-overview-card__grip,
 .ff-overview-card__grip:focus-visible,
 .ff-overview-card[data-dragging] .ff-overview-card__grip { opacity: 1; }
+.ff-overview-card:not([data-entry]):is(:hover, [data-dragging]) .ff-overview-card__bar:has(.ff-overview-card__grip) .ff-overview-card__summary,
+.ff-overview-card:not([data-entry]) .ff-overview-card__bar:has(.ff-overview-card__grip:focus-visible) .ff-overview-card__summary { opacity: 0; }
+.ff-overview-card[data-entry]:has(.ff-overview-card__grip) .ff-overview-card__head { padding-right: 36px; }
 .ff-overview-card__grip:hover { background: var(--ff-bg-hover); color: var(--ff-text); }
 .ff-overview-card__grip:active { cursor: grabbing; }
 .ff-overview-card__grip:focus-visible { outline: none; }
@@ -127,6 +133,7 @@
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: opacity 120ms ease;
 }
 
 .ff-overview-card__body { padding: 0 12px; font-size: 12px; }
@@ -193,7 +200,7 @@
 .ff-overview-list__partner .ff-overview-list__pulse { position: absolute; right: -1px; bottom: -1px; width: 7px; height: 7px; box-shadow: 0 0 0 1.5px var(--ff-surface, #fff); }
 
 @media (prefers-reduced-motion: reduce) {
-  .ff-overview-card, .ff-overview-card__fold, .ff-overview-card__grip { transition: none; }
+  .ff-overview-card, .ff-overview-card__fold, .ff-overview-card__grip, .ff-overview-card__summary { transition: none; }
   .ff-overview-card[data-dragging] { transform: translateY(var(--ff-drag-y, 0px)); }
   .ff-overview-card__chevron { transition: none; }
   .ff-overview-list__pulse { animation: none; }
