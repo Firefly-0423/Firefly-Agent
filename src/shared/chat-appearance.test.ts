@@ -53,6 +53,8 @@ describe("normalizeChatAppearance", () => {
     expect(normalizeChatAppearance({ segmentedChatEnabled: false }).segmentedChat).toBe(false);
     expect(normalizeChatAppearance({ segmentedChatEnabled: true }).segmentedChat).toBe(true);
     expect(normalizeChatAppearance({}).segmentedChat).toBe(true);
+    // Preload normalizes and the renderer normalizes the result again; the choice must survive both.
+    expect(normalizeChatAppearance(normalizeChatAppearance({ segmentedChatEnabled: false })).segmentedChat).toBe(false);
   });
 
   it("clamps the font sizes to their supported ranges", () => {

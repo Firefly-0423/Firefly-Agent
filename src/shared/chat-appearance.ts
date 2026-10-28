@@ -157,6 +157,8 @@ export function normalizeChatAppearance(
     smartPunctuation: source.smartPunctuation === true,
     codeThemeLight: oneOf(source.codeThemeLight, LIGHT_CODE_THEMES, DEFAULT_CHAT_APPEARANCE.codeThemeLight),
     codeThemeDark: oneOf(source.codeThemeDark, DARK_CODE_THEMES, DEFAULT_CHAT_APPEARANCE.codeThemeDark),
-    segmentedChat: normalizeSegmentedChatEnabled(source.segmentedChatEnabled),
+    // Stored settings carry segmentedChatEnabled; an already-normalized object (normalized again by the
+    // renderer) carries segmentedChat.
+    segmentedChat: "segmentedChatEnabled" in source ? normalizeSegmentedChatEnabled(source.segmentedChatEnabled) : source.segmentedChat !== false,
   };
 }
