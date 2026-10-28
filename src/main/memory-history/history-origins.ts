@@ -35,13 +35,25 @@ export function historyOriginEvent(entry:TranscriptEntry):HistoryOriginEvent {
 export class HistoryOrigins {
  private readonly codec:RecordCodec;
  /** Set for a read snapshot: one synchronous read during which the database cannot change, so answers are reused. */
- private readonly memo?:{valid:Map<string,boolean>;sources:Map<string,boolean>;obsolete:Map<string,ObsoleteRoot[]>};
+ private readonly memo?:{valid:Map<string,boolean>;sources:Map<string,boolean>;obsolete:Map<string,ObsoleteRoot[]>;documents:Map<string,boolean>};
+ /** The receipt id is a pure function of the key and the event; a traversal meets the same event on many edges. */
+ private readonly ids=new Map<string,string>();
  constructor(private readonly db:DatabaseSync,private readonly key:Uint8Array,options:{snapshot?:boolean}={}){
   this.codec=new RecordCodec(key);
-  if(options.snapshot)this.memo={valid:new Map(),sources:new Map(),obsolete:new Map()};
+  if(options.snapshot)this.memo={valid:new Map(),sources:new Map(),obsolete:new Map(),documents:new Map()};
  }
  private id(scope:string,owner:HistoryOriginOwner,event:HistoryOriginEvent):string {
-  return 'origin-'+createHmac('sha256',this.key).update('FireflyHistoryOrigin-v1').update(canonicalJson({scope,actorKey:owner.actorKey,providerId:owner.providerId,sessionId:owner.sessionId,event})).digest('hex');
+  const memoKey=JSON.stringify([scope,owner.actorKey,owner.providerId,owner.sessionId,event.originalId,event.seq,event.turnId,event.revision,event.originalRole,event.digest]),known=this.ids.get(memoKey);if(known)return known;
+  const id='origin-'+createHmac('sha256',this.key).update('FireflyHistoryOrigin-v1').update(canonicalJson({scope,actorKey:owner.actorKey,providerId:owner.providerId,sessionId:owner.sessionId,event})).digest('hex');
+  this.ids.set(memoKey,id);return id;
+ }
+ /** Whether a closure's history document is still the live incarnation it was proved against. */
+ private documentLive(scope:string,dep:HistoryOriginOwner&{recordId:string;incarnation:string},documents:Map<string,boolean>):boolean {
+  const memoKey=JSON.stringify([scope,dep.actorKey,dep.providerId,dep.sessionId,dep.recordId,dep.incarnation]),known=documents.get(memoKey);if(known!==undefined)return known;
+  const row=this.db.prepare("SELECT payload FROM history_records WHERE scope_key=? AND id=? AND kind='document'").get(scope,dep.recordId);
+  const doc=row?this.codec.open<HistoryOriginOwner&{state:string;incarnation:string}>('history-document',scope,dep.recordId,row.payload):undefined;
+  const live=!!doc&&doc.state==='live'&&doc.actorKey===dep.actorKey&&doc.providerId===dep.providerId&&doc.sessionId===dep.sessionId&&doc.incarnation===dep.incarnation;
+  documents.set(memoKey,live);return live;
  }
  private read(scope:string,owner:HistoryOriginOwner,event:HistoryOriginEvent):Receipt|null {
   const id=this.id(scope,owner,event),row=this.db.prepare('SELECT payload FROM history_origins WHERE scope_key=? AND id=?').get(scope,id);
@@ -94,6 +106,8 @@ export class HistoryOrigins {
   // A false reached by running out of depth or budget, or by meeting a cycle, depends on where this traversal
   // started; only results proved without hitting a limit go into the shared snapshot memo.
   const shared=this.memo?.valid,local=new Map<string,{valid:boolean;limited:boolean}>(),visiting=new Set<string>();let remaining=1000;
+  // A document's state does not depend on where the traversal started, so its answer is shared like a source's.
+  const documents=this.memo?.documents??new Map<string,boolean>();
   const remember=(key:string,valid:boolean,limited:boolean)=>{const result={valid,limited};local.set(key,result);if(!limited)shared?.set(key,valid);return result};
   const visit=(identity:HistoryOriginOwner,event:HistoryOriginEvent,depth:number):{valid:boolean;limited:boolean}=>{
    const id=this.id(scope,identity,event),key=`${owner.actorKey}\u0000${id}`,known=shared?.get(key);if(known!==undefined)return {valid:known,limited:false};
@@ -101,7 +115,7 @@ export class HistoryOrigins {
    if(depth>64||--remaining<0||visiting.has(id))return {valid:false,limited:true};
    const receipt=this.read(scope,identity,event);if(!receipt?.closure.complete||receipt.revoked)return remember(key,false,false);
    remaining-=receipt.closure.sources.length+(receipt.closure.documents?.length??0);if(remaining<0)return {valid:false,limited:true};
-   const documentsValid=(receipt.closure.documents??[]).every(dep=>{if(dep.actorKey!==owner.actorKey)return false;const row=this.db.prepare("SELECT payload FROM history_records WHERE scope_key=? AND id=? AND kind='document'").get(scope,dep.recordId);if(!row)return false;const doc=this.codec.open<HistoryOriginOwner&{state:string;incarnation:string}>('history-document',scope,dep.recordId,row.payload);return doc.state==='live'&&doc.actorKey===dep.actorKey&&doc.providerId===dep.providerId&&doc.sessionId===dep.sessionId&&doc.incarnation===dep.incarnation});
+   const documentsValid=(receipt.closure.documents??[]).every(dep=>dep.actorKey===owner.actorKey&&this.documentLive(scope,dep,documents));
    visiting.add(id);let limited=false;
    const valid=documentsValid&&receipt.closure.sources.every(ref=>this.sourceAllowed(scope,owner.actorKey,ref))&&receipt.closure.events.every(dep=>{
     if(dep.actorKey!==owner.actorKey)return false;const result=visit(dep,dep.event,depth+1);limited||=result.limited;return result.valid});
