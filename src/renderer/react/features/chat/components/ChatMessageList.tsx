@@ -306,8 +306,8 @@ function RunActivityContent(props: ActivityContentProps) {
       </button>
     </div>
     {props.expanded && <div className="ff-run-activity__expanded" id={`${props.activityId}-details`}>
-      {props.taskPlan && <TaskPlanCard plan={props.taskPlan} />}
-      <div className="ff-run-activity__divider" />
+      {/* The header's hairline already separates it from the steps; a divider only sets a plan apart from them. */}
+      {props.taskPlan && <><TaskPlanCard plan={props.taskPlan} /><div className="ff-run-activity__divider" /></>}
       <RunActivityDetail live={state.processing} agentRounds={props.agentRounds} reasoningBlocks={props.reasoningBlocks}
         processMessages={props.processMessages} taskDelegations={props.taskDelegations} tools={props.tools}
         interrupted={Boolean(props.activity.keepExpanded && props.activity.completedAt !== undefined)} />
