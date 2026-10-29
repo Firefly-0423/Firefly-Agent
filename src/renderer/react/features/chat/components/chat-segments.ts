@@ -10,10 +10,11 @@ interface Block { kind: BlockKind; text: string }
 
 const FENCE = /^\s*(`{3,}|~{3,})/;
 function kindOf(first: string): BlockKind {
+  // Indentation first: an indented fence, table or quote belongs to the list item above it.
+  if (/^( {2,}|\t)/.test(first)) return "continuation";
   if (FENCE.test(first) || /^\s*\$\$/.test(first) || /^\s*\|/.test(first) || /^\s*>/.test(first)) return "rich";
   if (/^\s*([-*+]|\d+[.)])\s/.test(first)) return "list";
   if (/^#{1,6}\s/.test(first)) return "heading";
-  if (/^( {2,}|\t)/.test(first)) return "continuation";
   return "prose";
 }
 
