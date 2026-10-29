@@ -201,6 +201,12 @@
   max-width: 100%;
 }
 
+/* Ant Design keeps a 15% empty gutter at the end of a start-side bubble. A reply instead ends where a user bubble's
+   avatar begins, so the text runs between the two avatar columns. Five classes, to outrank the injected Bubble rule (four). */
+.ff-message-list .ant-bubble-list .ant-bubble.ant-bubble-start.ff-message--assistant {
+  padding-inline-end: calc(38px + var(--ff-avatar-gap));
+}
+
 .ff-message--assistant .ant-bubble-body {
   max-width: calc(100% - 38px - var(--ff-avatar-gap));
   width: calc(100% - 38px - var(--ff-avatar-gap));

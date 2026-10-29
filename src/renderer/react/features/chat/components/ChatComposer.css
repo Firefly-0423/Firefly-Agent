@@ -14,11 +14,11 @@
 .ff-composer-stack.is-docked {
   width: min(100%, var(--ff-reading-width));
 }
-/* In a conversation the composer is as wide as the reply text above it: an assistant bubble gives its text 85% of the
-   row (Ant Design's 15% end padding) minus the 38px avatar and 20px gap. Never narrower than 420px. */
+/* In a conversation the composer is as wide as the reply text above it: the row minus an avatar column (38px avatar,
+   20px gap) on each side and the message list's 12px wider inset on each side. Never narrower than 420px. */
 .ff-composer-stack.is-docked,
 .ff-floating-composer__body .ff-composer-stack.is-docked {
-  width: min(100%, max(calc(85% - 58px), 420px));
+  width: min(100%, max(calc(100% - 140px), 420px));
   margin-inline: auto;
 }
 
