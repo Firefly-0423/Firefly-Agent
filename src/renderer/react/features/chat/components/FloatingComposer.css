@@ -14,18 +14,19 @@
 .ff-floating-composer.is-dragging { user-select: none; }
 .ff-floating-composer.is-dragging .ff-composer-shell { box-shadow: 0 16px 40px rgba(31, 35, 48, 0.18); }
 
-/* Collapse and move sit at the right end of the row under the composer, after the model: always there, quiet until
-   the composer is hovered or one of them has focus. */
+/* Collapse and move sit at the right end of the row under the composer, after the model. They keep their place but
+   stay hidden until the composer is hovered or one of them has focus; on touch screens (no hover) they stay faintly visible. */
 .ff-floating-composer__controls {
   display: flex;
   gap: 2px;
   margin-left: 4px;
-  opacity: .55;
+  opacity: 0;
   transition: opacity 140ms ease;
 }
 .ff-floating-composer:hover .ff-floating-composer__controls,
 .ff-floating-composer__controls:focus-within,
 .ff-floating-composer.is-dragging .ff-floating-composer__controls { opacity: 1; }
+@media (hover: none) { .ff-floating-composer__controls { opacity: .55; } }
 
 .ff-floating-composer__control {
   display: inline-flex;

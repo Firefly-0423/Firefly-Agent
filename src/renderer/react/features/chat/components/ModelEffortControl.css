@@ -63,13 +63,16 @@
   .ff-model-effort > svg:last-child { transition: none; }
 }
 
-/* The effort panel, tidied: a narrower panel, the level and the model link centred as one block, reset aligned with
-   the level, the model link plain (no grey chip when the panel opens with focus on it) . */
+/* The effort panel, tidied: the level and the model link centred as one block, reset aligned with the level, the model
+   link plain (no grey chip when the panel opens with focus on it). Type follows the app scale: the level at 17px, the
+   model and the stop names at 13px, so the panel reads at the same size as the composer row it opens from. */
 .ff-model-popover .ant-popover-inner { padding: 6px; border-radius: 16px; }
-.ff-model-panel.ff-effort { width: 268px; gap: 12px; padding: 10px 12px 8px; }
-.ff-effort__head { min-height: 0; gap: 0; }
-.ff-effort__value { font: 600 14px/1.4 var(--rb-font-sans, sans-serif); }
-.ff-effort__model { padding: 1px 6px; font-size: 12px; }
+.ff-model-panel.ff-effort { width: 292px; gap: 14px; padding: 12px 14px 10px; }
+.ff-effort__head { min-height: 0; gap: 2px; }
+.ff-effort__value { font: 600 17px/1.35 var(--rb-font-sans, sans-serif); letter-spacing: .01em; }
+.ff-effort__model { padding: 1px 6px; font-size: 13px; }
 .ff-effort__model:focus:not(:focus-visible) { background: transparent; }
 .ff-effort__model:hover { background: transparent; color: var(--ff-text); text-decoration: underline; text-underline-offset: 3px; }
-.ff-effort__reset { top: -2px; right: -4px; width: 24px; height: 24px; }
+.ff-effort__model svg { width: 13px; height: 13px; }
+.ff-effort__reset { top: 0; right: -4px; width: 26px; height: 26px; }
+.ff-effort__note { font-size: 13px; }

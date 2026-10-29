@@ -1,7 +1,7 @@
 /* Effort bar, fluid skin: a glowing capsule lit from the left up to the chosen level, a stream of sparks drifting
    right inside the lit part (denser and faster the higher the level), a pearl knob, and the stop names below.
    --ff-effort-level (0..1, set on the bar) turns the glow up with the level. */
-.ff-effort-scale { display: grid; gap: 6px; }
+.ff-effort-scale { display: grid; gap: 8px; }
 
 .ff-effort-bar {
   --ff-effort-spark: 255, 255, 255;
@@ -97,7 +97,7 @@
 .ff-effort-bar__dot.is-disabled { opacity: .18; }
 
 /* Stop names under the bar; the chosen one lights up. */
-.ff-effort-scale__ticks { position: relative; height: 16px; }
+.ff-effort-scale__ticks { position: relative; height: 18px; }
 .ff-effort-scale__tick {
   position: absolute;
   top: 0;
@@ -105,7 +105,7 @@
   border: 0;
   background: transparent;
   color: var(--ff-text-muted);
-  font: 500 11px/16px var(--rb-font-sans, sans-serif);
+  font: 500 13px/18px var(--rb-font-sans, sans-serif);
   white-space: nowrap;
   cursor: pointer;
   transform: translateX(-50%);
