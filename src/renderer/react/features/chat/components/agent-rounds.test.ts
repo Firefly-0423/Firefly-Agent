@@ -1,4 +1,5 @@
 import { expect, test } from "vitest";
+import i18next from "i18next";
 import type { ToolExecutionRecord } from "../../../../../shared/chat-types";
 import { applyAgentRoundBoundary, buildAskUserQa, buildFlatRunTimeline, countRoundChangedFiles,
   countedTools, createRoundProcessMessage, describeToolExecution, finishAgentRound, foldRunTimeline, groupToolSteps, startAgentRound,
@@ -49,6 +50,16 @@ test.each([
   ["running", "等待用户回答"], ["success", "用户已回答"], ["error", "询问用户失败"],
 ] as const)("presents ask_user status %s", (status, statusText) => {
   expect(describeToolExecution(record("ask_user", { status }))).toStrictEqual({ label: "询问用户", statusText, detail: undefined });
+});
+
+test("names harness built-ins in the current language, even over a name an older run saved", async () => {
+  const saved = record("update_todo", { displayName: "更新待办" });
+  expect(describeToolExecution(saved).label).toBe("更新待办");
+  await i18next.changeLanguage("en");
+  try {
+    expect(describeToolExecution(saved).label).toBe("Update to-dos");
+    expect(describeToolExecution(record("delegate_agent")).label).toBe("Delegate to a partner");
+  } finally { await i18next.changeLanguage("zh-CN"); }
 });
 
 test("extracts readable question/answer rows only for ask_user results", () => {
@@ -147,4 +158,19 @@ test("a delegation stays where it happened in a finished timeline, not after the
   const unmatched = buildFlatRunTimeline({ tools: [record("read_file", { id: "late", roundId: "round-2", seq: 5 })],
     processMessages: [{ id: "first", roundId: "round-1", content: "先派出去", seq: 4 }], reasoningBlocks: [], taskDelegations: [task] });
   expect(unmatched.map(({ key }) => key)).toStrictEqual(["task-child-run", "first", "late"]);
+});
+
+test("a saved run without seq still places a delegation after its own call, not after later steps", () => {
+  const task = { status: "completed" as const, assetFileName: "", nickname: "Auditor", description: "Review", taskId: "child-session", invocationId: "child-run", roundId: "round-1" };
+  const legacy = buildFlatRunTimeline({
+    tools: [record("read_file", { id: "look", roundId: "round-1" }),
+      record("delegate_agent", { id: "delegate", roundId: "round-1", taskResult: { agentId: "auditor", sessionId: "child-session", status: "completed" } as never }),
+      record("run_shell", { id: "verify", roundId: "round-2" })],
+    processMessages: [{ id: "use-result", roundId: "round-2", content: "用伙伴的结果核对", afterToolCount: 2 }],
+    reasoningBlocks: [], taskDelegations: [task],
+  });
+  expect(legacy.map(({ key }) => key)).toStrictEqual(["look", "delegate", "task-child-run", "use-result", "verify"]);
+  const noCall = buildFlatRunTimeline({ tools: [record("read_file", { id: "early", roundId: "round-0" }), record("read_file", { id: "same-round", roundId: "round-1" })],
+    processMessages: [], reasoningBlocks: [], taskDelegations: [task, { ...task, invocationId: "orphan", roundId: undefined }] });
+  expect(noCall.map(({ key }) => key)).toStrictEqual(["early", "task-child-run", "same-round", "task-orphan"]);
 });

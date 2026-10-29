@@ -251,6 +251,10 @@
     "summaryReadToolResult": "Read {{count}} tool results",
     "summaryFallback": "Completed {{count}} actions",
     "toolAskUser": "Ask user",
+    "toolUpdateTodo": "Update to-dos",
+    "toolDelegateAgent": "Delegate to a partner",
+    "toolEnterPlanMode": "Enter plan mode",
+    "toolWritePlan": "Write plan",
     "askUserWaiting": "Waiting for answer",
     "askUserAnswered": "User answered",
     "askUserFailed": "Ask failed"

@@ -251,6 +251,10 @@
     "summaryReadToolResult": "查看 {{count}} 份工具结果",
     "summaryFallback": "完成 {{count}} 项操作",
     "toolAskUser": "询问用户",
+    "toolUpdateTodo": "更新待办",
+    "toolDelegateAgent": "委派伙伴",
+    "toolEnterPlanMode": "进入计划模式",
+    "toolWritePlan": "写入计划",
     "askUserWaiting": "等待用户回答",
     "askUserAnswered": "用户已回答",
     "askUserFailed": "询问用户失败"

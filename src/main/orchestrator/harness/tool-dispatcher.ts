@@ -5,7 +5,7 @@ import type { ToolCallResult, ToolExecutionOutcome } from "../types";
 import type { ToolObservation, HarnessEvent, AgentState } from "./types";
 import { tryParseToolCallArgs, parseToolCallArgs, toolCallFingerprint, ToolCallArgumentsError, invalidToolCallArguments } from "./types";
 import { isHarnessBuiltin, isInteractiveHarnessBuiltin, DELEGATE_AGENT_TOOL_ID,
-  HARNESS_BUILTIN_DISPLAY_NAMES, executeUpdateTodo, executeAskUser, executeDelegateAgent, executeConfirmUncertainEffect, CONFIRM_UNCERTAIN_EFFECT_TOOL_ID } from "./builtin-tools";
+  executeUpdateTodo, executeAskUser, executeDelegateAgent, executeConfirmUncertainEffect, CONFIRM_UNCERTAIN_EFFECT_TOOL_ID } from "./builtin-tools";
 import { ENTER_PLAN_MODE_TOOL_ID, WRITE_PLAN_TOOL_ID, executeEnterPlanMode, executeWritePlan } from "./plan-tools";
 import { executeReadToolResult, READ_TOOL_RESULT_TOOL_ID } from "./tool-output/read-tool-result";
 import { resolveSideEffect } from "./side-effect-resolver";
@@ -89,9 +89,8 @@ export async function dispatchToolCall(call: ToolCall, ctx: ToolDispatchContext)
       if (ctx.toolContext?.signal?.aborted) return cancelledBeforeDispatch(call);
       if (call.name !== DELEGATE_AGENT_TOOL_ID) ctx.onExecutionStarted?.();
       // Interactive built-ins announce themselves in the tool round; the rest start here like registry tools,
-      // or the UI only learns of them from their result and cannot name them.
-      if (!isInteractiveHarnessBuiltin(call.name)) ctx.onEvent?.({ type: "tool_start", toolCallId: call.id, toolName: call.name, args: tryParseToolCallArgs(call) ?? {},
-        ...(HARNESS_BUILTIN_DISPLAY_NAMES[call.name] ? { displayName: HARNESS_BUILTIN_DISPLAY_NAMES[call.name] } : {}) });
+      // or the UI only learns of them from their result. The renderer names them in the user's language.
+      if (!isInteractiveHarnessBuiltin(call.name)) ctx.onEvent?.({ type: "tool_start", toolCallId: call.id, toolName: call.name, args: tryParseToolCallArgs(call) ?? {} });
       return executeHarnessBuiltin(call, ctx);
     };
     const observed = owner && call.name !== DELEGATE_AGENT_TOOL_ID && !isInteractiveHarnessBuiltin(call.name)
