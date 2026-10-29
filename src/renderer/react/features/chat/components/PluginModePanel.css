@@ -59,7 +59,7 @@
   border-radius: 12px;
   color: var(--ff-text-muted, var(--ff-text-muted));
   flex-shrink: 0;
-  font-size: 22px;
+  font-size: var(--ff-fs-display);
   height: 42px;
   justify-content: center;
   overflow: hidden;
@@ -104,14 +104,14 @@
 
 .plugin-panel__title {
   color: var(--ff-text, var(--ff-text));
-  font-size: 22px;
+  font-size: var(--ff-fs-display);
   font-weight: 700;
   margin: 0;
 }
 
 .plugin-panel__subtitle {
   color: var(--ff-text-muted, var(--ff-text-muted));
-  font-size: 12px;
+  font-size: var(--ff-fs-caption);
   margin: 6px 0 0;
 }
 
@@ -129,7 +129,7 @@
 
 .plugin-panel__loading, .plugin-panel__empty {
   color: var(--ff-text-muted, var(--ff-text-muted));
-  font-size: 12px;
+  font-size: var(--ff-fs-caption);
   grid-column: 1 / -1;
   padding: 40px 12px;
   text-align: center;
@@ -137,7 +137,7 @@
 
 .plugin-card-ui__name {
   color: var(--ff-text, var(--ff-text));
-  font-size: 13.5px;
+  font-size: var(--ff-fs-ui);
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -147,7 +147,7 @@
 .plugin-card-ui__version {
   color: var(--ff-text-muted, var(--ff-text-muted));
   flex-shrink: 0;
-  font-size: 10.5px;
+  font-size: var(--ff-fs-caption);
 }
 
 .plugin-card-ui__status {
@@ -155,13 +155,13 @@
   border-radius: 12px;
   color: var(--ff-text-muted, var(--ff-text-muted));
   flex-shrink: 0;
-  font-size: 10px;
+  font-size: var(--ff-fs-caption);
   padding: 1px 6px;
 }
 
 .plugin-card-ui__description, .plugin-card-ui__developer, .plugin-card-ui__error {
   color: var(--ff-text-muted, var(--ff-text-muted));
-  font-size: 11.5px;
+  font-size: var(--ff-fs-caption);
   line-height: 1.4;
   margin: 3px 0 0;
   overflow: hidden;
@@ -170,7 +170,7 @@
 }
 
 .plugin-card-ui__developer {
-  font-size: 11px;
+  font-size: var(--ff-fs-caption);
 }
 
 .plugin-card-ui__error {
@@ -206,7 +206,7 @@
 }
 
 .plugin-panel__source-switch-label {
-  font-size: 11px;
+  font-size: var(--ff-fs-caption);
   margin-right: 2px;
 }
 
@@ -218,7 +218,7 @@
   color: var(--ff-text-muted, var(--ff-text-muted));
   cursor: pointer;
   display: inline-flex;
-  font-size: 11px;
+  font-size: var(--ff-fs-caption);
   line-height: 18px;
   padding: 0 8px;
   transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
@@ -256,7 +256,7 @@
   background: rgba(255, 179, 0, 0.1);
   border-radius: 12px;
   color: #8a5a00;
-  font-size: 12px;
+  font-size: var(--ff-fs-caption);
   padding: 8px 10px;
 }
 
@@ -271,7 +271,7 @@
   border-radius: 12px;
   color: var(--ff-text-muted, var(--ff-text-muted));
   cursor: pointer;
-  font-size: 11.5px;
+  font-size: var(--ff-fs-caption);
   font-weight: 500;
   min-width: 52px;
   padding: 5px 10px;
@@ -303,7 +303,7 @@
 
 .plugin-card-ui__compatibility {
   color: var(--ff-text-muted, var(--ff-text-muted));
-  font-size: 11px;
+  font-size: var(--ff-fs-caption);
   margin: 0;
   padding-left: 54px;
 }
@@ -314,7 +314,7 @@
 
 .plugin-card-ui__details {
   color: var(--ff-text-muted, var(--ff-text-muted));
-  font-size: 11.5px;
+  font-size: var(--ff-fs-caption);
   line-height: 1.5;
   margin-left: 54px;
   overflow-wrap: anywhere;

@@ -12,7 +12,7 @@ const base: CSSProperties = {
   color: v("text"),
   background: "transparent",
   textShadow: "none",
-  fontFamily: 'Consolas, "Cascadia Code", "Cascadia Mono", monospace',
+  fontFamily: "var(--rb-font-mono)",
   fontSize: "13px",
   lineHeight: 1.7,
   textAlign: "left",

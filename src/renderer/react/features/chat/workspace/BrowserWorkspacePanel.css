@@ -79,7 +79,7 @@
   background: var(--ff-bg-hover, var(--ff-bg-subtle));
   color: inherit;
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--ff-fs-ui);
   line-height: 20px;
   text-overflow: ellipsis;
   outline: none;
@@ -112,7 +112,7 @@
   padding: 0 12px 6px;
   background: var(--ff-bg-workspace, var(--ff-surface));
   color: var(--ff-text-muted, #828396);
-  font-size: 11px;
+  font-size: var(--ff-fs-caption);
 }
 .ff-browser-workspace__location [data-browser-committed-url] {
   min-width: 0;
@@ -122,7 +122,7 @@
 }
 .ff-browser-workspace__location-dot { width: 5px; height: 5px; flex: 0 0 5px; border-radius: 50%; background: currentColor; }
 
-.ff-browser-workspace__notice { margin: 0; padding: 7px 12px; background: var(--ff-bg-workspace, var(--ff-surface)); color: var(--ff-text-secondary, var(--ff-text)); font-size: 12px; }
+.ff-browser-workspace__notice { margin: 0; padding: 7px 12px; background: var(--ff-bg-workspace, var(--ff-surface)); color: var(--ff-text-secondary, var(--ff-text)); font-size: var(--ff-fs-caption); }
 .ff-browser-workspace__notice.is-error {
   color: var(--ff-danger, #9e3838);
   background: color-mix(in srgb, var(--ff-danger, #c0392b) 12%, var(--ff-bg-workspace, var(--ff-surface)));
@@ -145,7 +145,7 @@
   padding: 4px 12px;
   border-bottom: 1px solid var(--ff-border, #dfe1e8);
   background: var(--ff-bg-workspace, var(--ff-surface));
-  font-size: 12px;
+  font-size: var(--ff-fs-caption);
 }
 .ff-browser-permission p { margin: 6px 0; }
 .ff-browser-permission summary { cursor: pointer; line-height: 1.6; }
@@ -159,7 +159,7 @@
   border-radius: 5px;
   background: var(--ff-bg-page);
   color: var(--ff-accent, #6b9982);
-  font-size: 10px;
+  font-size: var(--ff-fs-caption);
 }
 .ff-browser-permission button,
 .ff-browser-workspace__state button {
@@ -178,12 +178,12 @@
 .ff-browser-resource-consent label { display: flex; align-items: flex-start; gap: 6px; margin: 6px 0; overflow-wrap: anywhere; }
 .ff-browser-resource-consent input { flex: 0 0 auto; }
 .ff-browser-site-consent { overflow-wrap: anywhere; }
-.ff-browser-workspace__state { padding: 12px; color: var(--ff-text); font-size: 12px; }
+.ff-browser-workspace__state { padding: 12px; color: var(--ff-text); font-size: var(--ff-fs-caption); }
 .ff-browser-workspace__state p { margin: 0 0 8px; }
 .ff-browser-workspace__state button { margin-top: 0; }
 
 /* Window browser: a single slim bar for private-network grants and actionable notices. */
-.ff-browser-permission--compact { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 4px 10px; font-size: 12px; }
+.ff-browser-permission--compact { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 4px 10px; font-size: var(--ff-fs-caption); }
 .ff-browser-permission--compact p { margin: 2px 0; }
 .ff-browser-permission--compact button { margin-top: 0; padding: 3px 10px; }
 .ff-browser-chip { display: inline-flex; align-items: center; min-width: 0; gap: 6px; }

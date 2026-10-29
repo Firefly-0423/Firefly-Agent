@@ -16,14 +16,14 @@
   border-radius: 12px;
   background: var(--ff-btn-bg);
   color: var(--ff-btn-fg);
-  font: 600 13px/1 var(--rb-font-sans, sans-serif);
+  font: 600 var(--ff-fs-ui)/1 var(--rb-font-sans, sans-serif);
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
   transition: background-color var(--ff-state-duration) ease, border-color var(--ff-state-duration) ease, color var(--ff-state-duration) ease;
 }
 
-.ff-btn--sm { min-height: 28px; padding: 0 10px; font-size: 12px; }
+.ff-btn--sm { min-height: 28px; padding: 0 10px; font-size: var(--ff-fs-caption); }
 .ff-btn--block { display: flex; width: 100%; }
 .ff-btn--icon { width: 34px; padding: 0; }
 .ff-btn--icon.ff-btn--sm { width: 28px; }

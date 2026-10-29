@@ -22,14 +22,14 @@
 .ff-conversation-sidebar__title {
   padding: 8px 10px 6px;
   color: var(--ff-text-muted);
-  font: 500 12px/1.2 var(--rb-font-sans, sans-serif);
+  font: 500 var(--ff-fs-caption)/1.2 var(--rb-font-sans, sans-serif);
   letter-spacing: 0;
 }
 
 .ff-conversation-sidebar__empty {
   padding: 18px 14px;
   color: var(--ff-text-muted);
-  font: 400 12.5px/1.6 var(--rb-font-sans, sans-serif);
+  font: 400 var(--ff-fs-ui)/1.6 var(--rb-font-sans, sans-serif);
   text-align: center;
 }
 
@@ -58,7 +58,7 @@
   padding: 0 10px;
   border-radius: 8px;
   color: var(--ff-text-secondary);
-  font: 400 13px/1.35 var(--rb-font-sans, sans-serif);
+  font: 400 var(--ff-fs-ui)/1.35 var(--rb-font-sans, sans-serif);
   transition: background-color 120ms ease, color 120ms ease;
 }
 .ff-conversation-list .ant-conversations-item:hover { background: var(--ff-bg-hover); color: var(--ff-text); }
@@ -74,7 +74,7 @@
   padding: 6px 10px;
   border-radius: 10px;
   color: var(--ff-text-secondary);
-  font: 500 13px/1.3 var(--rb-font-sans, sans-serif);
+  font: 500 var(--ff-fs-ui)/1.3 var(--rb-font-sans, sans-serif);
   cursor: pointer;
   align-items: center;
   justify-content: space-between;
@@ -105,7 +105,7 @@
   min-width: 0;
   align-items: center;
   gap: 8px;
-  font: 500 13px/1.3 var(--rb-font-sans, sans-serif);
+  font: 500 var(--ff-fs-ui)/1.3 var(--rb-font-sans, sans-serif);
 }
 .ff-conversation-project svg {
   width: 15px;
@@ -153,11 +153,11 @@
 .ff-session-popover .ant-popover-inner-content { padding: 0; }
 .ff-session-card { padding: 12px 14px 10px; color: var(--ff-text); font-family: var(--rb-font-sans, sans-serif); }
 .ff-session-card__head { display: flex; min-width: 0; align-items: center; gap: 8px; padding-bottom: 8px; }
-.ff-session-card__title { min-width: 0; flex: 1 1 auto; overflow: hidden; font: 600 14px/1.35 var(--rb-font-sans, sans-serif); text-overflow: ellipsis; white-space: nowrap; }
+.ff-session-card__title { min-width: 0; flex: 1 1 auto; overflow: hidden; font: 600 var(--ff-fs-body)/1.35 var(--rb-font-sans, sans-serif); text-overflow: ellipsis; white-space: nowrap; }
 .ff-session-card__device { flex: none; color: var(--ff-text-muted); }
-.ff-session-card__age { flex: none; color: var(--ff-text-muted); font: 400 12.5px/1 var(--rb-font-sans, sans-serif); }
+.ff-session-card__age { flex: none; color: var(--ff-text-muted); font: 400 var(--ff-fs-ui)/1 var(--rb-font-sans, sans-serif); }
 .ff-session-card__rows { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
-.ff-session-card__rows li { display: flex; min-width: 0; align-items: center; gap: 9px; color: var(--ff-text-secondary); font-size: 13px; line-height: 1.35; }
+.ff-session-card__rows li { display: flex; min-width: 0; align-items: center; gap: 9px; color: var(--ff-text-secondary); font-size: var(--ff-fs-ui); line-height: 1.35; }
 .ff-session-card__rows li > svg { flex: none; color: var(--ff-text-muted); }
 .ff-session-card__rows li > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ff-session-card__branch > svg { color: var(--ff-git-branch, #8b5cf6); }
@@ -185,7 +185,7 @@
   border-radius: 8px;
   background: var(--ff-surface);
   color: var(--ff-text);
-  font: 400 12.5px/1.3 var(--rb-font-sans, sans-serif);
+  font: 400 var(--ff-fs-ui)/1.3 var(--rb-font-sans, sans-serif);
 }
 .ff-session-rename-input input { padding: 0; background: transparent; color: inherit; font: inherit; }
 
@@ -207,7 +207,7 @@
   margin: 0;
   border-radius: 8px;
   color: var(--ff-text);
-  font: 400 13px/32px var(--rb-font-sans, sans-serif);
+  font: 400 var(--ff-fs-ui)/32px var(--rb-font-sans, sans-serif);
 }
 .ff-session-context-menu .ant-menu-item:hover,
 .ff-session-context-menu .ant-menu-submenu-title:hover { background: var(--ff-bg-hover); color: var(--ff-text); }
@@ -235,7 +235,7 @@
   margin-block: 10px 2px;
   padding: 4px 10px;
   color: var(--ff-text-muted);
-  font: 500 12px/1.3 var(--rb-font-sans, sans-serif);
+  font: 500 var(--ff-fs-caption)/1.3 var(--rb-font-sans, sans-serif);
 }
 .ff-conversation-list > li:not(:has(.ff-conversation-project)) > .ant-conversations-group-title:hover { background: transparent; color: var(--ff-text-secondary); }
 .ff-conversation-list > li:not(:has(.ff-conversation-project)) .ant-conversations-group-collapse-trigger { opacity: 1; }
@@ -251,7 +251,7 @@
   gap: 4px;
   margin-block: 12px 2px;
   padding: 6px 10px;
-  font: 500 13px/1.3 var(--rb-font-sans, sans-serif);
+  font: 500 var(--ff-fs-ui)/1.3 var(--rb-font-sans, sans-serif);
 }
 .ff-conversation-list > li:first-child:not(:has(.ff-conversation-project)) > .ant-conversations-group-title { margin-top: 4px; }
 .ff-conversation-list .ant-conversations-group-collapse-trigger { transition: transform 200ms cubic-bezier(0.19, 1, 0.22, 1), opacity 120ms ease; }
@@ -260,7 +260,7 @@
 /* An empty section's placeholder row: muted hint text, no hover or pointer, since there is nothing to open. */
 .ff-conversation-list .ant-conversations-item.ff-session-empty-row,
 .ff-conversation-list .ant-conversations-item.ff-session-empty-row:hover { background: transparent; cursor: default; opacity: 1; }
-.ff-session-empty { color: var(--ff-text-muted); font-size: 12px; }
+.ff-session-empty { color: var(--ff-text-muted); font-size: var(--ff-fs-caption); }
 
 /* ===== Tiers: 置顶 ›  项目 ›  (sections) ›  最近 › =====
    Each tier is a quiet caption with its chevron after the word; the chevron turns a quarter when the tier is open. The
@@ -269,7 +269,7 @@
 .ff-tier:first-child > .ff-tier__head { margin-top: 4px; }
 .ff-tier__toggle {
   display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; border: 0; border-radius: 8px; background: transparent;
-  color: var(--ff-text-muted); font: 500 13px/1.3 var(--rb-font-sans, sans-serif); cursor: pointer;
+  color: var(--ff-text-muted); font: 500 var(--ff-fs-ui)/1.3 var(--rb-font-sans, sans-serif); cursor: pointer;
 }
 .ff-tier__toggle:hover { color: var(--ff-text-secondary); }
 .ff-tier__toggle:focus-visible { outline: 2px solid var(--ff-accent); outline-offset: 1px; }
@@ -285,7 +285,7 @@
 .ff-tier__add:hover { background: var(--ff-bg-hover); color: var(--ff-text); }
 .ff-tier__add:focus-visible { outline: 2px solid var(--ff-accent); outline-offset: 1px; }
 .ff-tier__body > .ff-conversation-list > li:first-child > .ant-conversations-group-title { margin-top: 0; }
-.ff-tier__empty { margin: 2px 12px 6px; color: var(--ff-text-muted); font-size: 12px; line-height: 1.5; }
+.ff-tier__empty { margin: 2px 12px 6px; color: var(--ff-text-muted); font-size: var(--ff-fs-caption); line-height: 1.5; }
 @media (prefers-reduced-motion: reduce) { .ff-tier__toggle svg { transition: none; } }
 
 /* A project folder row: "⋯" and "new chat" show while the row is hovered or its menu is open. */

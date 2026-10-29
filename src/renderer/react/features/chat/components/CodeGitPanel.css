@@ -1,4 +1,4 @@
-.ff-code-git { position:fixed; z-index:1000; width:260px; height:min(390px,calc(100vh - 96px)); min-height:min(290px,calc(100vh - 96px)); display:flex; flex-direction:column; overflow:hidden; border-radius: 12px; background:var(--ff-surface); box-shadow:0 8px 28px rgba(0,0,0,.10); color:var(--ff-text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif; }
+.ff-code-git { position:fixed; z-index:1000; width:260px; height:min(390px,calc(100vh - 96px)); min-height:min(290px,calc(100vh - 96px)); display:flex; flex-direction:column; overflow:hidden; border-radius: 12px; background:var(--ff-surface); box-shadow:0 8px 28px rgba(0,0,0,.10); color:var(--ff-text); font-family:var(--rb-font-sans); }
 .ff-code-git--collapsed { height:auto; min-height:0; }
 .ff-code-git--collapsed .ff-code-git__body { max-height:0; padding-top:0; padding-bottom:0; opacity:0; pointer-events:none; overflow:hidden; }
 .ff-code-git__dragbar { width:100%; height:28px; flex:0 0 auto; position:relative; display:flex; align-items:center; justify-content:center; padding:0 10px; border:0; background:transparent; cursor:grab; }
@@ -8,30 +8,30 @@
 .ff-code-git__toggle:hover { color:var(--ff-accent); background:rgba(var(--ff-accent-rgb),.08); }
 .ff-code-git--collapsed .ff-code-git__toggle { transform:translateY(-50%) rotate(180deg); }
 .ff-code-git__body { display:flex; min-height:0; flex:1; flex-direction:column; padding:7px 14px 14px; transition:opacity .2s ease; }
-.ff-code-git__mode { align-self:center; display:inline-flex; align-items:center; gap:6px; margin-bottom:10px; padding:4px 12px; border:1px solid rgba(var(--ff-accent-rgb),.25); border-radius: 12px; background:rgba(var(--ff-accent-rgb),.10); color:var(--ff-accent); font-size:12px; font-weight:600; }
+.ff-code-git__mode { align-self:center; display:inline-flex; align-items:center; gap:6px; margin-bottom:10px; padding:4px 12px; border:1px solid rgba(var(--ff-accent-rgb),.25); border-radius: 12px; background:rgba(var(--ff-accent-rgb),.10); color:var(--ff-accent); font-size:var(--ff-fs-caption); font-weight:600; }
 .ff-code-git__mode i { width:7px; height:7px; border-radius:50%; background:var(--ff-accent-solid); }
 .ff-code-git__hero { display:flex; align-items:center; gap:10px; }
 .ff-code-git__mascot { width:42px; height:42px; object-fit:contain; animation:ff-code-git-float 2.8s ease-in-out infinite; }
 @keyframes ff-code-git-float { 50% { transform:translateY(-4px); } }
 .ff-code-git__project { min-width:0; display:flex; flex:1; flex-direction:column; gap:3px; }
-.ff-code-git__project strong { overflow:hidden; font-size:14px; white-space:nowrap; text-overflow:ellipsis; }
-.ff-code-git__project span { overflow:hidden; color:var(--ff-text-muted); font-size:11px; white-space:nowrap; text-overflow:ellipsis; }
+.ff-code-git__project strong { overflow:hidden; font-size:var(--ff-fs-body); white-space:nowrap; text-overflow:ellipsis; }
+.ff-code-git__project span { overflow:hidden; color:var(--ff-text-muted); font-size:var(--ff-fs-caption); white-space:nowrap; text-overflow:ellipsis; }
 /* Shape only: the colours and every state (hover, pressed, focus, disabled, loading) come from the shared IconButton. */
-.ff-btn.ff-code-git__refresh { --ff-btn-fg:var(--ff-text-muted); width:24px; height:24px; min-height:0; border-radius:50%; font-size:18px; }
+.ff-btn.ff-code-git__refresh { --ff-btn-fg:var(--ff-text-muted); width:24px; height:24px; min-height:0; border-radius:50%; font-size:var(--ff-fs-heading); }
 .ff-code-git__git-actions { display:flex; flex-direction:column; gap:2px; margin-top:10px; }
-.ff-code-git__git-actions button,.ff-code-git__change-row { min-height:28px; display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:7px; padding:3px 5px; border:0; border-radius: 12px; background:transparent; color:var(--ff-text); font-size:12px; text-align:left; }
+.ff-code-git__git-actions button,.ff-code-git__change-row { min-height:28px; display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:7px; padding:3px 5px; border:0; border-radius: 12px; background:transparent; color:var(--ff-text); font-size:var(--ff-fs-caption); text-align:left; }
 .ff-code-git__git-actions button { cursor:pointer; }
 .ff-code-git__git-actions button:hover:not(:disabled) { background:rgba(var(--ff-accent-rgb),.07); }
 .ff-code-git__git-actions button:disabled { color:var(--ff-text-muted); cursor:default; }
-.ff-code-git__git-actions code { max-width:112px; overflow:hidden; color:var(--ff-text-muted); font-family:Consolas,"Cascadia Mono",monospace; font-size:11px; white-space:nowrap; text-overflow:ellipsis; }
-.ff-code-git__git-actions b { color:var(--ff-text-muted); font-size:15px; }
+.ff-code-git__git-actions code { max-width:112px; overflow:hidden; color:var(--ff-text-muted); font-family:var(--rb-font-mono); font-size:var(--ff-fs-caption); white-space:nowrap; text-overflow:ellipsis; }
+.ff-code-git__git-actions b { color:var(--ff-text-muted); font-size:var(--ff-fs-title); }
 .ff-code-git__added { color:var(--ff-add-fg); font-weight:600; }.ff-code-git__deleted { color:var(--ff-del-fg); font-weight:600; }
-.ff-code-git__operation-error { margin:3px 5px; color:var(--ff-danger); font-size:10px; line-height:1.35; }
+.ff-code-git__operation-error { margin:3px 5px; color:var(--ff-danger); font-size:var(--ff-fs-caption); line-height:1.35; }
 .ff-code-git__divider { height:1px; margin:9px 0; flex:0 0 auto; background:rgba(var(--ff-accent-rgb),.18); }
-.ff-code-git__todo-heading { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:7px; font-size:12px; font-weight:700; }
-.ff-code-git__todo-heading small { color:var(--ff-text-muted); font-size:10px; font-weight:400; }
+.ff-code-git__todo-heading { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:7px; font-size:var(--ff-fs-caption); font-weight:700; }
+.ff-code-git__todo-heading small { color:var(--ff-text-muted); font-size:var(--ff-fs-caption); font-weight:400; }
 .ff-code-git__todos { min-height:0; flex:1; display:flex; flex-direction:column; gap:7px; margin:0; padding:0 2px; overflow-y:auto; overscroll-behavior:contain; list-style:none; }
-.ff-code-git__todos li { display:flex; align-items:flex-start; gap:7px; color:var(--ff-text); font-size:12px; line-height:1.45; }
+.ff-code-git__todos li { display:flex; align-items:flex-start; gap:7px; color:var(--ff-text); font-size:var(--ff-fs-caption); line-height:1.45; }
 .ff-code-git__todos i { width:10px; height:10px; margin-top:3px; flex:0 0 auto; border:1.5px solid var(--ff-accent); border-radius:50%; }
 .ff-code-git__todos .is-completed { color:var(--ff-text-muted); text-decoration:line-through; }.ff-code-git__todos .is-completed i { background:var(--ff-accent-solid); }.ff-code-git__todos .is-empty { color:var(--ff-text-muted); }
 .ff-code-git__plan-status { flex:0 0 auto; margin-top:9px; padding-top:9px; border-top:1px solid rgba(var(--ff-accent-rgb),.18); }
@@ -40,7 +40,7 @@
 .ff-code-git-modal .ant-modal-content { border:1px solid var(--ff-border); border-radius: 12px; box-shadow:var(--ff-shadow-popover); }
 .ff-code-git-modal .ant-modal-header { border-bottom:1px solid var(--ff-border); padding-bottom:12px; }
 .ff-code-git-modal .ant-modal-title { color:var(--ff-text); }
-.ff-code-git-modal__hint { margin:0 0 12px; color:var(--ff-text-muted); font-size:13px; }.ff-code-git-modal__hint code { color:var(--ff-accent); }
+.ff-code-git-modal__hint { margin:0 0 12px; color:var(--ff-text-muted); font-size:var(--ff-fs-ui); }.ff-code-git-modal__hint code { color:var(--ff-accent); }
 .ff-code-git-modal__branch-list { display:flex; max-height:220px; flex-direction:column; gap:4px; overflow:auto; padding-right:4px; }
 /* Layout only: the modal buttons are shared Buttons, which own their colours and states. */
 .ff-code-git-modal__branch-list .ff-btn { justify-content:flex-start; font-weight:400; text-align:left; }
@@ -50,7 +50,7 @@
 /* Docked in the right-hand workspace panel: a flat section like the task list, not a floating card. */
 .ff-code-git.ff-code-git--docked { position: relative; z-index: 1; width: 100%; height: auto; min-height: 0; flex: 0 0 auto; border-radius: 0; background: transparent; box-shadow: none; border-bottom: 1px solid var(--ff-border); }
 .ff-code-git--docked .ff-code-git__dragbar { justify-content: flex-start; height: auto; padding: 12px 16px 8px; cursor: pointer; color: var(--ff-text); }
-.ff-code-git__dock-label { font: 600 13px/1.2 var(--rb-font-sans, sans-serif); }
+.ff-code-git__dock-label { font: 600 var(--ff-fs-ui)/1.2 var(--rb-font-sans, sans-serif); }
 .ff-code-git--docked .ff-code-git__toggle { right: 12px; transform: translateY(-50%); }
 .ff-code-git--docked .ff-code-git__toggle svg { display: none; }
 .ff-code-git--docked .ff-code-git__toggle::before { content: ""; width: 5px; height: 5px; border-right: 1.6px solid currentColor; border-bottom: 1.6px solid currentColor; transform: translateY(-1px) rotate(45deg); }
@@ -65,9 +65,9 @@
 .ff-code-git--docked .ff-code-git__change-row { min-height: 32px; padding: 4px 8px; margin-inline: -8px; border-radius: 8px; }
 .ff-code-git--docked .ff-code-git__git-actions button:hover:not(:disabled) { background: var(--ff-bg-hover); }
 .ff-code-git--docked .ff-code-git__divider { background: var(--ff-border); }
-.ff-code-git--docked .ff-code-git__todo-heading { font-weight: 600; font-size: 13px; }
+.ff-code-git--docked .ff-code-git__todo-heading { font-weight: 600; font-size: var(--ff-fs-ui); }
 .ff-code-git--docked .ff-code-git__todos { flex: none; max-height: 260px; gap: 8px; padding: 0; }
-.ff-code-git--docked .ff-code-git__todos li { gap: 10px; font-size: 13px; }
+.ff-code-git--docked .ff-code-git__todos li { gap: 10px; font-size: var(--ff-fs-ui); }
 .ff-code-git--docked .ff-code-git__todos i { width: 16px; height: 16px; margin-top: 2px; box-sizing: border-box; border: 1.5px solid var(--ff-text-muted); }
 .ff-code-git--docked .ff-code-git__todos .is-completed i { border-color: var(--ff-accent-solid); }
 .ff-code-git--docked .ff-code-git__plan-status { border-top-color: var(--ff-border); }

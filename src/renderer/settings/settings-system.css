@@ -70,9 +70,9 @@
   border-right: 0;
 }
 .settings-shell .settings-nav__header { padding: 0 12px 18px; }
-.settings-shell .settings-nav__brand { gap: 8px; font: 500 16px/24px var(--rb-font-sans); color: var(--rb-text-strong); text-shadow: none; }
+.settings-shell .settings-nav__brand { gap: 8px; font: 500 var(--ff-fs-title)/24px var(--rb-font-sans); color: var(--rb-text-strong); text-shadow: none; }
 .settings-shell .settings-nav__list { gap: 4px; }
-.settings-shell .settings-nav__group { padding: 16px 12px 6px; font-size: 11px; font-weight: 500; letter-spacing: .04em; color: var(--rb-text-faint); }
+.settings-shell .settings-nav__group { padding: 16px 12px 6px; font-size: var(--ff-fs-caption); font-weight: 500; letter-spacing: .04em; color: var(--rb-text-faint); }
 .settings-shell .settings-nav__group:first-child { padding-top: 0; }
 .settings-shell .settings-nav__footer { border-top-color: var(--st-divider); color: var(--rb-text-faint); }
 
@@ -84,7 +84,7 @@
   border-radius: var(--st-radius-inner);
   background: transparent;
   color: var(--rb-text-default);
-  font-size: 14px;
+  font-size: var(--ff-fs-body);
   font-weight: 400;
   line-height: 22px;
 }
@@ -123,7 +123,7 @@
 .settings-shell #channels-panel > h1 {
   margin: 0;
   color: var(--rb-text-strong);
-  font: 600 20px/28px var(--rb-font-sans);
+  font: 600 var(--ff-fs-display)/28px var(--rb-font-sans);
   letter-spacing: -.01em;
 }
 .settings-shell .panel-heading p,
@@ -131,7 +131,7 @@
 .settings-shell #channels-panel > .panel-hint {
   margin: 6px 0 0;
   color: var(--rb-text-muted);
-  font-size: 14px;
+  font-size: var(--ff-fs-body);
   line-height: 22px;
 }
 .form-actions { margin-top: var(--sys-gap); }
@@ -154,7 +154,7 @@
 /* 通用页：分组标题放在卡片外面，卡片之间留出呼吸 */
 .settings-shell .settings-group-title {
   margin: 28px 0 10px;
-  font-size: 13px;
+  font-size: var(--ff-fs-ui);
   font-weight: 600;
   letter-spacing: .02em;
   color: var(--rb-text-muted);
@@ -163,9 +163,9 @@
 
 /* 卡片里直接放字段（运行设置）：标题、输入、说明各自成段，段间不再粘在一起 */
 .settings-list > .field { padding: 18px 0; gap: 8px; }
-.settings-list > .field > span:first-child { color: var(--rb-text-strong); font-size: 14px; font-weight: 500; }
+.settings-list > .field > span:first-child { color: var(--rb-text-strong); font-size: var(--ff-fs-body); font-weight: 500; }
 .settings-list > .field .field-hint,
-.settings-list > .field .form-hint { margin: 0; color: var(--rb-text-muted); font-size: 12.5px; line-height: 1.6; }
+.settings-list > .field .form-hint { margin: 0; color: var(--rb-text-muted); font-size: var(--ff-fs-ui); line-height: 1.6; }
 
 /* ── 行里的说明文字 ───────────────────────────────────── */
 .setting-row strong { margin-bottom: 2px; color: var(--rb-text-strong); }
@@ -173,7 +173,7 @@
 .settings-shell .plugin-card--sub,
 .settings-shell .memory-record { background: var(--st-inset-fill); border-color: var(--st-divider); border-radius: var(--st-radius-inner); }
 .settings-shell .appearance-section { margin-bottom: var(--sys-gap); }
-.settings-shell .appearance-section__heading h2, .settings-shell .appearance-section > h2 { font-size: 15px; font-weight: 600; }
+.settings-shell .appearance-section__heading h2, .settings-shell .appearance-section > h2 { font-size: var(--ff-fs-title); font-weight: 600; }
 
 .agent-setting-card h2, .channels-card__header h2, .plugin-panel-card__header h2 { color: var(--rb-text-strong); }
 .settings-shell .agent-setting-card p { color: var(--rb-text-muted); }
@@ -232,7 +232,7 @@
   border-radius: 9px;
   background: transparent;
   color: var(--rb-text-muted);
-  font-size: 13px;
+  font-size: var(--ff-fs-ui);
   font-weight: 500;
   line-height: 1.4;
   white-space: nowrap;
@@ -277,7 +277,7 @@
   border-radius: var(--st-radius-ctl);
   background: var(--st-ghost-fill);
   color: var(--rb-text-strong);
-  font-size: 13px;
+  font-size: var(--ff-fs-ui);
   font-weight: 500;
   line-height: 1.4;
   box-shadow: none;
@@ -299,7 +299,7 @@
   border-radius: var(--st-radius-ctl);
   background: var(--st-primary);
   color: var(--st-on-primary);
-  font-size: 14px;
+  font-size: var(--ff-fs-body);
   font-weight: 500;
   line-height: 1.4;
   box-shadow: none;
@@ -323,7 +323,7 @@
   border: 1px solid color-mix(in srgb, var(--st-danger) 38%, transparent);
   border-radius: var(--st-radius-ctl);
   background: transparent;
-  font-size: 13px;
+  font-size: var(--ff-fs-ui);
 }
 .settings-shell .save-btn--danger:hover:not(:disabled) { background: color-mix(in srgb, var(--st-danger) 8%, transparent); border-color: color-mix(in srgb, var(--st-danger) 60%, transparent); color: var(--st-danger); }
 .settings-shell .save-btn:disabled, .settings-shell .ghost-btn:disabled, .settings-shell .btn-secondary:disabled { opacity: .45; }
@@ -336,7 +336,7 @@
   border-radius: var(--st-radius-ctl);
   background: transparent;
   color: var(--rb-text-default);
-  font-size: 20px;
+  font-size: var(--ff-fs-display);
   box-shadow: none;
 }
 .settings-shell .plugin-add-btn:hover:not(:disabled) { background: var(--st-nav-hover); border-color: var(--st-primary); color: var(--st-primary); transform: none; box-shadow: none; }
@@ -350,7 +350,7 @@
   color: var(--rb-input-text, var(--rb-text-strong));
   box-shadow: none;
   font: inherit;
-  font-size: 14px;
+  font-size: var(--ff-fs-body);
 }
 .settings-shell :is(.field, .settings-list, .panel-body, .channels-card, .plugin-card, .agent-setting-card, .scheduler-card) :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), select):not(textarea) { min-height: var(--st-ctl-h); padding: 6px 12px; }
 .settings-shell :is(.field, .settings-list, .panel-body, .channels-card, .plugin-card, .agent-setting-card, .scheduler-card, .ui-color-controls) :is(input, select, textarea)::placeholder { color: var(--rb-input-placeholder); }
@@ -422,18 +422,18 @@
 .settings-shell .plugin-list > .mcp-server-card { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
 .settings-shell .plugin-list > .plugin-card--accordion { display: block; }
 .settings-shell .plugin-list > :is(.plugin-card--accordion, .plugin-card:has(.plugin-config[style*="block"])) { grid-column: 1 / -1; }
-.settings-shell .plugin-card__icon { width: 36px; height: 36px; border-radius: var(--st-radius-inner); border: 1px solid var(--st-divider); background: var(--st-inset-fill); font-size: 18px; }
+.settings-shell .plugin-card__icon { width: 36px; height: 36px; border-radius: var(--st-radius-inner); border: 1px solid var(--st-divider); background: var(--st-inset-fill); font-size: var(--ff-fs-heading); }
 .settings-shell .plugin-card__icon svg { width: 20px; height: 20px; }
 .settings-shell .plugin-card--sub { grid-template-columns: 30px minmax(0, 1fr) auto; padding: 10px 12px; }
 .settings-shell .plugin-card--sub .plugin-card__icon { width: 30px; height: 30px; }
-.settings-shell .plugin-card__body h2 { font-size: 14px; font-weight: 500; line-height: 20px; color: var(--rb-text-strong); }
-.settings-shell .plugin-card__body p { margin-top: 2px; font-size: 12px; line-height: 18px; color: var(--rb-text-muted); }
-.settings-shell .plugin-card--sub .plugin-card__body p { font-size: 12px; }
+.settings-shell .plugin-card__body h2 { font-size: var(--ff-fs-body); font-weight: 500; line-height: 20px; color: var(--rb-text-strong); }
+.settings-shell .plugin-card__body p { margin-top: 2px; font-size: var(--ff-fs-caption); line-height: 18px; color: var(--rb-text-muted); }
+.settings-shell .plugin-card--sub .plugin-card__body p { font-size: var(--ff-fs-caption); }
 .settings-shell .plugin-card.is-muted { opacity: .6; }
 /* 卡片内的次级文字按钮（音乐工具的"状态与控制"） */
 .settings-shell .plugin-card__link {
   margin-top: 6px; padding: 0; border: 0; background: transparent; cursor: pointer;
-  font: inherit; font-size: 12px; line-height: 18px; color: rgb(var(--rb-accent-rgb));
+  font: inherit; font-size: var(--ff-fs-caption); line-height: 18px; color: rgb(var(--rb-accent-rgb));
   text-decoration: underline; text-decoration-color: rgba(var(--rb-accent-rgb), .35); text-underline-offset: 3px;
   transition: text-decoration-color .15s ease, color .15s ease;
 }
@@ -458,12 +458,12 @@
   border-radius: var(--st-radius-card);
   background: var(--st-card-fill);
 }
-#desktop-asr-form .field-label { margin-top: 10px; color: var(--rb-text-strong); font-size: 14px; font-weight: 500; }
+#desktop-asr-form .field-label { margin-top: 10px; color: var(--rb-text-strong); font-size: var(--ff-fs-body); font-weight: 500; }
 #desktop-asr-form .field-label:first-child { margin-top: 0; }
 #desktop-asr-form fieldset { display: grid; gap: 8px; margin: 8px 0 0; padding: 14px 16px 16px; border: 1px solid var(--st-divider); border-radius: var(--st-radius-inner); background: var(--st-inset-fill); }
 #desktop-asr-form fieldset[hidden] { display: none; }
-#desktop-asr-form legend { padding: 0 6px; color: var(--rb-text-strong); font-size: 13px; font-weight: 600; }
-#desktop-asr-form .field-hint { margin: 0; color: var(--rb-text-muted); font-size: 12.5px; line-height: 1.6; }
+#desktop-asr-form legend { padding: 0 6px; color: var(--rb-text-strong); font-size: var(--ff-fs-ui); font-weight: 600; }
+#desktop-asr-form .field-hint { margin: 0; color: var(--rb-text-muted); font-size: var(--ff-fs-ui); line-height: 1.6; }
 #desktop-asr-form input,
 #desktop-asr-form select {
   box-sizing: border-box;
@@ -475,12 +475,12 @@
   background: var(--rb-input-bg);
   color: var(--rb-input-text, var(--rb-text-strong));
   font: inherit;
-  font-size: 14px;
+  font-size: var(--ff-fs-body);
 }
 #desktop-asr-form :is(input, select):focus { outline: none; border-color: var(--st-primary); box-shadow: var(--st-focus-ring); }
 #desktop-asr-form .primary-button { justify-self: end; margin-top: 12px; cursor: pointer; }
 #desktop-asr-form .primary-button:disabled { opacity: .5; cursor: not-allowed; }
-#desktop-asr-form [role="status"] { margin: 0; min-height: 0; color: var(--rb-text-muted); font-size: 13px; }
+#desktop-asr-form [role="status"] { margin: 0; min-height: 0; color: var(--rb-text-muted); font-size: var(--ff-fs-ui); }
 #desktop-asr-form [role="status"]:empty { display: none; }
 
 /* ── 外观页：卡片设计语言（模式 / 自定义 / 字体 / 高级 / 桌宠） ──────────
@@ -507,7 +507,7 @@ body { font-size: var(--ff-ui-font-size, 16px); }
 #appearance-form .appearance-theme-option:hover:not(:disabled) { background: var(--st-nav-hover); border-color: transparent; }
 #appearance-form .appearance-theme-option.is-active { border-color: var(--st-primary); background: var(--st-selected-fill); }
 #appearance-form .appearance-theme-option:focus-visible { outline: 2px solid color-mix(in srgb, var(--st-primary) 55%, transparent); outline-offset: 2px; }
-#appearance-form .appearance-theme-option__label { color: var(--rb-text-strong); font-size: 13px; font-weight: 500; white-space: nowrap; }
+#appearance-form .appearance-theme-option__label { color: var(--rb-text-strong); font-size: var(--ff-fs-ui); font-weight: 500; white-space: nowrap; }
 #appearance-form .appearance-theme-swatch {
   width: 96px; height: 60px; padding: 5px; gap: 4px; border-radius: 10px; border: 1px solid var(--st-card-stroke);
 }
@@ -530,13 +530,13 @@ body { font-size: var(--ff-ui-font-size, 16px); }
 #appearance-form .ui-color-dot:disabled { cursor: not-allowed; opacity: .5; }
 #appearance-form .ui-color-hex {
   width: 84px; height: 24px; min-height: 0; padding: 0; border: 0; border-radius: 0; background: transparent;
-  box-shadow: none; color: var(--rb-text-strong); font: 500 13px/1 var(--rb-font-mono, monospace);
+  box-shadow: none; color: var(--rb-text-strong); font: 500 var(--ff-fs-ui)/1 var(--rb-font-mono, monospace);
 }
 #appearance-form .ui-color-hex:focus { border: 0; box-shadow: none; outline: none; }
 #appearance-form .ui-color-hex[aria-invalid="true"] { color: var(--st-danger); }
 #appearance-form .ui-color-hex:disabled { opacity: .5; }
 #appearance-form .ui-color-reset-row { justify-content: flex-end; }
-#appearance-form .ui-colors-status { margin: 0; padding: 0 0 14px; min-height: 0; color: var(--rb-text-muted); font-size: 13px; }
+#appearance-form .ui-colors-status { margin: 0; padding: 0 0 14px; min-height: 0; color: var(--rb-text-muted); font-size: var(--ff-fs-ui); }
 #appearance-form .ui-colors-status:empty { display: none; }
 
 /* 字体：下拉 + 导入 / 恢复按钮 */
@@ -548,7 +548,7 @@ body { font-size: var(--ff-ui-font-size, 16px); }
 #appearance-form .appearance-advanced { margin-top: var(--sys-gap); }
 #appearance-form .appearance-advanced__summary {
   display: inline-flex; align-items: center; gap: 8px; padding: 4px 2px 10px; color: var(--rb-text-muted);
-  font-size: 14px; font-weight: 500; list-style: none; cursor: pointer; user-select: none;
+  font-size: var(--ff-fs-body); font-weight: 500; list-style: none; cursor: pointer; user-select: none;
 }
 #appearance-form .appearance-advanced__summary::-webkit-details-marker { display: none; }
 #appearance-form .appearance-advanced__summary::after {
@@ -557,10 +557,10 @@ body { font-size: var(--ff-ui-font-size, 16px); }
 }
 #appearance-form .appearance-advanced[open] > .appearance-advanced__summary::after { transform: rotate(225deg); }
 #appearance-form .appearance-advanced > .appearance-card { margin-top: 0; }
-#appearance-form .appearance-size-input { display: inline-flex; align-items: center; gap: 6px; color: var(--rb-text-muted); font-size: 13px; }
+#appearance-form .appearance-size-input { display: inline-flex; align-items: center; gap: 6px; color: var(--rb-text-muted); font-size: var(--ff-fs-ui); }
 #appearance-form .appearance-size-input input {
   width: 68px; min-height: 32px; height: 32px; padding: 0 8px; border-radius: var(--st-radius-ctl); text-align: center;
-  font-size: 13px; font-variant-numeric: tabular-nums;
+  font-size: var(--ff-fs-ui); font-variant-numeric: tabular-nums;
 }
 
 /* ── 手机页：标题放回第一位，消息日志是次要入口 ──────────────── */
@@ -572,7 +572,7 @@ body { font-size: var(--ff-ui-font-size, 16px); }
 
 /* 手机页：它自己有 form-row / form-input，这里只对齐尺寸、边框和间距 */
 .channels-card__body .form-row { margin-top: 14px; }
-.channels-card__body .form-input { min-height: var(--st-ctl-h); padding: 6px 12px; font-size: 14px; }
+.channels-card__body .form-input { min-height: var(--st-ctl-h); padding: 6px 12px; font-size: var(--ff-fs-body); }
 .channels-card__body .form-input--wide { width: 100%; max-width: none; }
 .settings-shell .channels-card__body .form-input-with-action .btn-reveal { width: var(--st-ctl-h); height: var(--st-ctl-h); border-radius: var(--st-radius-ctl); }
 .channels-card__actions { margin-top: 16px; gap: 8px; }
@@ -613,14 +613,14 @@ body { font-size: var(--ff-ui-font-size, 16px); }
 /* 连接概览 / Firefly 手机 App 接入位 */
 #channels-panel .channels-overview > .channels-card__header,
 #channels-panel .channels-app-card > .channels-card__header { flex-wrap: wrap; gap: 6px 12px; }
-#channels-panel .channels-overview__summary { color: var(--rb-text-muted); font-size: 13px; white-space: nowrap; }
-#channels-panel .channels-overview__sub { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: var(--rb-text-strong); }
+#channels-panel .channels-overview__summary { color: var(--rb-text-muted); font-size: var(--ff-fs-ui); white-space: nowrap; }
+#channels-panel .channels-overview__sub { margin: 0 0 4px; font-size: var(--ff-fs-ui); font-weight: 600; color: var(--rb-text-strong); }
 #channels-panel .channels-badge {
   padding: 2px 8px;
   border: 1px solid var(--st-card-stroke);
   border-radius: 6px;
   color: var(--rb-text-muted);
-  font-size: 11px;
+  font-size: var(--ff-fs-caption);
   line-height: 16px;
   white-space: nowrap;
 }
@@ -638,13 +638,13 @@ body { font-size: var(--ff-ui-font-size, 16px); }
   :root .settings-shell { border-radius: min(var(--st-radius-win), 18px); }
   .settings-shell .settings-nav { padding: 18px 8px 12px; }
   .settings-shell .settings-nav__header { padding-inline: 6px; }
-  .settings-shell .nav-item { gap: 6px; padding-inline: 6px; font-size: 12px; }
+  .settings-shell .nav-item { gap: 6px; padding-inline: 6px; font-size: var(--ff-fs-caption); }
   .settings-shell .settings-nav__group { padding-inline: 6px; }
   .settings-shell .settings-content { padding: 4px 14px 28px; }
   .settings-shell .settings-titlebar { padding-left: 16px; }
   .settings-shell .panel-heading h1,
   .settings-shell .plugin-panel-heading h1,
-  .settings-shell #channels-panel > h1 { font-size: 18px; }
+  .settings-shell #channels-panel > h1 { font-size: var(--ff-fs-heading); }
   .settings-shell .plugin-list > .plugin-card { grid-template-columns: 32px minmax(0, 1fr) auto; padding: 10px 12px; }
 }
 
@@ -655,7 +655,7 @@ body { font-size: var(--ff-ui-font-size, 16px); }
 
 /* 记忆页四张卡片：统一用 .settings-list 表面；卡内只补标题、工具栏、条目动作与 Obsidian 状态行 */
 #memory-panel .memory-section { margin: 0; padding-block: 16px; }
-#memory-panel .memory-section__head h2 { margin: 0; color: var(--rb-text-strong); font: var(--rb-text-body-em); font-size: 16px; line-height: 1.4; font-weight: 600; }
+#memory-panel .memory-section__head h2 { margin: 0; color: var(--rb-text-strong); font: var(--rb-text-body-em); font-size: var(--ff-fs-title); line-height: 1.4; font-weight: 600; }
 #memory-panel .memory-section__head p { margin: 4px 0 0; color: var(--rb-text-muted); font: var(--rb-text-small); }
 #memory-panel .memory-section__hint { margin: 12px 0 0; color: var(--rb-text-muted); font: var(--rb-text-small); }
 #memory-panel .memory-section__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
@@ -663,7 +663,7 @@ body { font-size: var(--ff-ui-font-size, 16px); }
 #memory-panel .memory-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding-top: 4px; }
 #memory-panel .memory-toolbar input[type="search"] { flex: 1 1 220px; min-width: 0; }
 #memory-panel .memory-record__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-#memory-panel .memory-record__actions .save-btn { min-height: 30px; padding: 4px 12px; font-size: 12.5px; }
+#memory-panel .memory-record__actions .save-btn { min-height: 30px; padding: 4px 12px; font-size: var(--ff-fs-ui); }
 #memory-panel .memory-section .setting-row { padding: 14px 0; }
 
 /* ── 用户信息页：账号卡片 + 个人资料 / 位置与时间卡片 ───────
@@ -690,7 +690,7 @@ body { font-size: var(--ff-ui-font-size, 16px); }
 }
 #user-panel .user-avatar > span { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
 #user-panel .user-avatar > span > svg { display: block; flex: none; width: 22px; height: 22px; }
-#user-panel .user-panel-hint { margin: 12px 0 0; padding: 0 4px; font-size: 12px; }
+#user-panel .user-panel-hint { margin: 12px 0 0; padding: 0 4px; font-size: var(--ff-fs-caption); }
 /* 时区下拉：边框、圆角、高度与其他输入一致；原生箭头换成同色的细箭头，聚焦环沿用输入框的规则 */
 #user-panel select#user-timezone {
   -webkit-appearance: none;
@@ -706,7 +706,7 @@ body { font-size: var(--ff-ui-font-size, 16px); }
 /* 账号卡片：未登录 / 已登录两行只显示一行 */
 .account-card__identity { display: flex; align-items: center; gap: 14px; flex: 1 1 auto; min-width: 0; }
 .account-card__identity > div { display: grid; gap: 2px; min-width: 0; }
-.account-card__identity > div > span { color: var(--rb-text-muted); font-size: 13px; line-height: 1.65; overflow-wrap: anywhere; }
+.account-card__identity > div > span { color: var(--rb-text-muted); font-size: var(--ff-fs-ui); line-height: 1.65; overflow-wrap: anywhere; }
 /* 选择器带上 identity 父级：否则 settings.css 里 `.setting-row > div > span { display: block }` 优先级更高，
    会把圆圈压成块级，占位图标贴到上沿。 */
 .account-card__identity > .account-card__avatar {
@@ -724,7 +724,7 @@ body { font-size: var(--ff-ui-font-size, 16px); }
 .account-card__avatar img { width: 100%; height: 100%; object-fit: cover; }
 .account-card__avatar > span { display: grid; place-items: center; }
 .account-card__actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.account-card__soon { color: var(--rb-text-muted); font-size: 12px; }
+.account-card__soon { color: var(--rb-text-muted); font-size: var(--ff-fs-caption); }
 
 @media (max-width: 560px) {
   #user-panel .setting-row { flex-wrap: wrap; }
@@ -744,14 +744,14 @@ body { font-size: var(--ff-ui-font-size, 16px); }
 #channels-panel .channels-rate-pair > .form-row { margin-top: 0; }
 /* 两个开关做成 .setting-row 风格的行：左标题、右开关 */
 #channels-panel .channels-overview .channels-setting-row { min-height: 0; margin-top: 0; padding: 10px 0; border-top: 1px solid var(--st-divider); border-bottom: 0; cursor: pointer; }
-#channels-panel .channels-overview .channels-setting-row strong { margin: 0; font-size: 13.5px; font-weight: 500; }
+#channels-panel .channels-overview .channels-setting-row strong { margin: 0; font-size: var(--ff-fs-ui); font-weight: 500; }
 /* 工具权限：两列选项卡；说明字号和间距收紧 */
 #channels-panel .channels-overview .tool-permission-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 #channels-panel .channels-overview .tool-permission-option { gap: 8px; padding: 8px 10px; background: var(--st-inset-fill); border-color: var(--st-card-stroke); }
 #channels-panel .channels-overview .tool-permission-option:hover { background: var(--st-inset-fill); border-color: color-mix(in srgb, var(--st-primary) 45%, transparent); }
 #channels-panel .channels-overview .tool-permission-option:has(input:checked) { border-color: var(--st-primary); }
-#channels-panel .channels-overview .tool-permission-option__title { font-size: 13px; }
-#channels-panel .channels-overview .tool-permission-option__desc { font-size: 12px; line-height: 1.45; }
+#channels-panel .channels-overview .tool-permission-option__title { font-size: var(--ff-fs-ui); }
+#channels-panel .channels-overview .tool-permission-option__desc { font-size: var(--ff-fs-caption); line-height: 1.45; }
 @media (max-width: 560px) {
   #channels-panel .channels-rate-pair,
   #channels-panel .channels-overview .tool-permission-group { grid-template-columns: minmax(0, 1fr); }
@@ -773,8 +773,8 @@ body { font-size: var(--ff-ui-font-size, 16px); }
 #memory-panel .setting-row.is-hidden,
 #memory-panel #memory-overview > .setting-row.is-hidden { display: none; }
 #memory-panel #memory-overview > .setting-row > div { display: grid; gap: 6px; min-width: 0; }
-#memory-panel #memory-overview > .setting-row strong { margin: 0; color: var(--rb-text-muted); font-size: 12.5px; font-weight: 500; line-height: 1.4; }
-#memory-panel #memory-overview > .setting-row > div > span { color: var(--rb-text-strong); font-size: 18px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+#memory-panel #memory-overview > .setting-row strong { margin: 0; color: var(--rb-text-muted); font-size: var(--ff-fs-ui); font-weight: 500; line-height: 1.4; }
+#memory-panel #memory-overview > .setting-row > div > span { color: var(--rb-text-strong); font-size: var(--ff-fs-heading); font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
 @media (max-width: 900px) {
   #memory-panel #memory-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -867,7 +867,7 @@ body { font-size: var(--ff-ui-font-size, 16px); }
   box-sizing: border-box; width: 100%; height: 36px; padding: 0 12px 0 34px;
   border: 1px solid transparent; border-radius: 10px;
   background: var(--st-inset-fill); color: var(--rb-text-strong);
-  font: 400 14px/20px var(--rb-font-sans);
+  font: 400 var(--ff-fs-body)/20px var(--rb-font-sans);
 }
 .settings-shell .settings-nav__search-input::placeholder { color: var(--rb-text-faint); }
 .settings-shell .settings-nav__search-input:focus { border-color: color-mix(in srgb, var(--st-primary) 40%, transparent); background: var(--st-card-fill); }
@@ -877,10 +877,10 @@ body { font-size: var(--ff-ui-font-size, 16px); }
 .settings-shell .settings-search-result { display: grid; gap: 2px; padding: 8px 10px; border: 0; border-radius: 10px; background: transparent; color: var(--rb-text-strong); text-align: left; cursor: pointer; }
 .settings-shell .settings-search-result:hover,
 .settings-shell .settings-search-result:focus-visible { background: var(--st-nav-hover); }
-.settings-shell .settings-search-result__title { font-size: 13.5px; font-weight: 500; overflow-wrap: anywhere; }
-.settings-shell .settings-search-result__meta { color: var(--rb-text-faint); font-size: 11.5px; }
-.settings-shell .settings-search-result__desc { display: -webkit-box; overflow: hidden; color: var(--rb-text-muted); font-size: 12px; line-height: 1.5; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.settings-shell .settings-search-empty { margin: 12px 10px; color: var(--rb-text-muted); font-size: 13px; }
+.settings-shell .settings-search-result__title { font-size: var(--ff-fs-ui); font-weight: 500; overflow-wrap: anywhere; }
+.settings-shell .settings-search-result__meta { color: var(--rb-text-faint); font-size: var(--ff-fs-caption); }
+.settings-shell .settings-search-result__desc { display: -webkit-box; overflow: hidden; color: var(--rb-text-muted); font-size: var(--ff-fs-caption); line-height: 1.5; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.settings-shell .settings-search-empty { margin: 12px 10px; color: var(--rb-text-muted); font-size: var(--ff-fs-ui); }
 .settings-shell .settings-nav__sr { position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .settings-shell .is-search-hit { border-radius: 10px; animation: st-search-hit 2s ease-out; }
 @keyframes st-search-hit {
@@ -895,20 +895,20 @@ body { font-size: var(--ff-ui-font-size, 16px); }
 .settings-shell .panel-heading h1,
 .settings-shell .plugin-panel-heading h1,
 .settings-shell .plugin-panel-heading__title,
-.settings-shell #channels-panel > h1 { font: 650 26px/34px var(--rb-font-sans); letter-spacing: -.015em; }
+.settings-shell #channels-panel > h1 { font: 650 var(--ff-fs-hero)/34px var(--rb-font-sans); letter-spacing: -.015em; }
 .settings-shell .panel-heading p,
 .settings-shell .plugin-panel-heading p,
-.settings-shell #channels-panel > .panel-hint { margin-top: 4px; font-size: 13.5px; line-height: 21px; }
-.settings-shell .settings-group-title { margin: 34px 0 12px; color: var(--rb-text-strong); font-size: 16px; font-weight: 650; letter-spacing: 0; }
+.settings-shell #channels-panel > .panel-hint { margin-top: 4px; font-size: var(--ff-fs-ui); line-height: 21px; }
+.settings-shell .settings-group-title { margin: 34px 0 12px; color: var(--rb-text-strong); font-size: var(--ff-fs-title); font-weight: 650; letter-spacing: 0; }
 .settings-shell .settings-group-title:first-child { margin-top: 0; }
 .settings-shell { --sys-row-pad: 18px; }
-.settings-shell .setting-row strong { font-size: 14.5px; font-weight: 550; line-height: 22px; }
-.settings-shell .setting-row > div > span { font-size: 13px; line-height: 20px; }
+.settings-shell .setting-row strong { font-size: var(--ff-fs-body); font-weight: 550; line-height: 22px; }
+.settings-shell .setting-row > div > span { font-size: var(--ff-fs-ui); line-height: 20px; }
 @media (max-width: 560px) {
   .settings-shell .settings-content { padding: 8px 14px 28px; }
   .settings-shell .panel-heading h1,
   .settings-shell .plugin-panel-heading h1,
-  .settings-shell #channels-panel > h1 { font-size: 21px; line-height: 28px; }
+  .settings-shell #channels-panel > h1 { font-size: var(--ff-fs-display); line-height: 28px; }
 }
 .settings-shell .settings-nav__list { gap: 2px; }
 .settings-shell .settings-nav__group { padding: 14px 12px 4px; }

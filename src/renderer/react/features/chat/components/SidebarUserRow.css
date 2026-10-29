@@ -20,14 +20,14 @@
   background: transparent;
   color: var(--ff-text-secondary);
   cursor: pointer;
-  font: 500 13px/1.2 var(--rb-font-sans, sans-serif);
+  font: 500 var(--ff-fs-ui)/1.2 var(--rb-font-sans, sans-serif);
   text-align: left;
 }
 .ff-sidebar-user__who:hover { background: var(--ff-bg-hover); color: var(--ff-text); }
 .ff-sidebar-user__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ff-sidebar-user .ff-user-avatar-circle { width: 28px; height: 28px; }
 .ff-sidebar-user .ff-user-avatar-circle.is-placeholder { background: var(--ff-surface); filter: none; border: 1px solid var(--ff-border); }
-.ff-sidebar-user .ff-user-avatar-circle.is-placeholder span { color: var(--ff-text-secondary); font-size: 12px; }
+.ff-sidebar-user .ff-user-avatar-circle.is-placeholder span { color: var(--ff-text-secondary); font-size: var(--ff-fs-caption); }
 
 .ff-sidebar-user__settings {
   display: grid;

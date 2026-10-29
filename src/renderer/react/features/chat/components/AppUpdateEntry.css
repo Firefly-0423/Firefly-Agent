@@ -3,7 +3,7 @@
   cursor: pointer;
   text-align: left;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--ff-fs-caption);
   color: var(--ff-accent);
   background: linear-gradient(135deg, rgba(var(--ff-accent-rgb), 0.08), rgba(var(--ff-accent-rgb), 0.04));
   border-radius: 12px;

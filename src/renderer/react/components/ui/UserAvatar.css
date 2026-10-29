@@ -25,7 +25,7 @@
 
 .ff-user-avatar-circle span {
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--ff-fs-body);
   color: var(--ff-text-secondary);
 }
 
@@ -41,6 +41,6 @@
 .ff-user-avatar-label {
   transition: color 0.15s;
   color: var(--ff-text-muted);
-  font-size: 13px;
+  font-size: var(--ff-fs-ui);
 }
 

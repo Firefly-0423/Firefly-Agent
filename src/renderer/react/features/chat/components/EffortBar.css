@@ -105,7 +105,7 @@
   border: 0;
   background: transparent;
   color: var(--ff-text-muted);
-  font: 500 13px/18px var(--rb-font-sans, sans-serif);
+  font: 500 var(--ff-fs-ui)/18px var(--rb-font-sans, sans-serif);
   white-space: nowrap;
   cursor: pointer;
   transform: translateX(-50%);

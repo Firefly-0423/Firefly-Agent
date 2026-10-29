@@ -227,7 +227,7 @@ body {
   border-radius: 12px;
   background: rgb(255 255 255 / 88%);
   color: var(--ff-accent);
-  font: 600 15px/1.4 var(--rb-font-sans, sans-serif);
+  font: 600 var(--ff-fs-title)/1.4 var(--rb-font-sans, sans-serif);
   pointer-events: none;
   backdrop-filter: blur(3px);
 }
@@ -357,7 +357,7 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--ff-text);
-  font: 500 13px/1.3 var(--rb-font-sans, sans-serif);
+  font: 500 var(--ff-fs-ui)/1.3 var(--rb-font-sans, sans-serif);
 }
 .ff-workspace-header__actions {
   display: flex;
@@ -452,7 +452,7 @@ body {
 }
 .ff-page-newtask > .ff-side-action:hover { background: var(--ff-bg-hover); }
 .ff-page-newtask .ff-side-action-icon { width: 16px; height: 16px; }
-.ff-page-newtask .ff-side-action-label { font: 400 13.5px/1 var(--rb-font-sans, sans-serif); }
+.ff-page-newtask .ff-side-action-label { font: 400 var(--ff-fs-ui)/1 var(--rb-font-sans, sans-serif); }
 /* Temporary chat: a quiet icon button at the right end of the "新对话" row. */
 .ff-page-newtask__temporary {
   display: grid; flex: none; width: 28px; height: 28px; margin-left: 2px; place-items: center; padding: 0;
@@ -527,7 +527,7 @@ body {
 }
 
 .ff-workspace-composer__scroll-to-bottom .anticon {
-  font-size: 16px;
+  font-size: var(--ff-fs-title);
 }
 
 .ff-workspace.is-empty .ff-workspace-composer {
@@ -558,16 +558,16 @@ body {
 .ff-workspace-greeting__title {
   margin: 0;
   color: var(--ff-text);
-  font: 600 26px/1.35 var(--rb-font-sans, sans-serif);
+  font: 600 var(--ff-fs-hero)/1.35 var(--rb-font-sans, sans-serif);
   letter-spacing: -0.01em;
 }
 .ff-temporary-chat-banner {
   display: flex; align-items: center; justify-content: center; gap: 6px;
   margin: 0 auto 8px; padding: 4px 12px; width: fit-content; max-width: calc(100% - 32px);
   border-radius: 999px; background: var(--ff-surface-muted, rgba(127, 127, 127, 0.12));
-  color: var(--ff-text-muted); font: 400 12px/1.5 var(--rb-font-sans, inherit);
+  color: var(--ff-text-muted); font: 400 var(--ff-fs-caption)/1.5 var(--rb-font-sans, inherit);
 }
-.ff-workspace-greeting__hint { margin: 6px 0 0; color: var(--ff-text-muted); font: 400 13px/1.5 var(--rb-font-sans, sans-serif); }
+.ff-workspace-greeting__hint { margin: 6px 0 0; color: var(--ff-text-muted); font: 400 var(--ff-fs-ui)/1.5 var(--rb-font-sans, sans-serif); }
 /* Like the Codex window: the greeting takes the free space and the composer stays docked at the bottom,
    so sending the first message does not move it. */
 .ff-workspace.is-empty .ff-workspace-composer {
@@ -588,7 +588,7 @@ body {
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
   color: var(--ff-text);
-  font-size: 13px;
+  font-size: var(--ff-fs-ui);
   pointer-events: none;
   animation: ff-compressing-fade-in 0.25s ease;
   z-index: 10;
@@ -696,9 +696,9 @@ body {
 .ff-sidebar-resizer:hover::after, .ff-sidebar-resizer.is-resizing::after { background: var(--ff-text-muted); }
 .ff-sidebar-resizer:focus-visible { outline: 2px solid var(--ff-accent); outline-offset: 2px; }
 /* Same scale as the run results below it: 13px text, a compact button, and the panel's 16px side padding. */
-.ff-workspace-empty { padding: 12px 16px 4px; color: var(--ff-text-muted); font: 400 13px/1.6 var(--rb-font-sans, sans-serif); }
+.ff-workspace-empty { padding: 12px 16px 4px; color: var(--ff-text-muted); font: 400 var(--ff-fs-ui)/1.6 var(--rb-font-sans, sans-serif); }
 .ff-workspace-empty p { margin: 0 0 8px; }
-.ff-workspace-empty button { padding: 5px 10px; border: 1px solid var(--ff-border); border-radius: 8px; background: var(--ff-surface); color: var(--ff-text); cursor: pointer; font: 500 12.5px/1.4 var(--rb-font-sans, sans-serif); }
+.ff-workspace-empty button { padding: 5px 10px; border: 1px solid var(--ff-border); border-radius: 8px; background: var(--ff-surface); color: var(--ff-text); cursor: pointer; font: 500 var(--ff-fs-ui)/1.4 var(--rb-font-sans, sans-serif); }
 :root[data-ui-colors] .ff-compressing-context,
 :root[data-ui-colors] .ff-workspace-empty button {
   background: var(--ff-bg-workspace);
@@ -728,7 +728,7 @@ body {
   min-height: 34px;
   border-radius: 10px;
   color: var(--ff-text-secondary, var(--ff-text));
-  font: 500 13px/1.4 var(--rb-font-sans, sans-serif);
+  font: 500 var(--ff-fs-ui)/1.4 var(--rb-font-sans, sans-serif);
 }
 .ant-dropdown .ant-dropdown-menu-item:hover,
 .ant-select-dropdown .ant-select-item-option-active:not(.ant-select-item-option-disabled) { background: var(--ff-bg-hover); color: var(--ff-text); }
