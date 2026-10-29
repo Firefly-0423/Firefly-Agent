@@ -26,14 +26,16 @@ function blocks(markdown: string): Block[] {
   for (const line of markdown.replace(/\r\n?/g, "\n").split("\n")) {
     if (fence) {
       lines.push(line);
-      if (fence === "$$" ? line.trim() === "$$" : line.trim().startsWith(fence) && line.trim().replace(/[`~]/g, "") === "") fence = null;
+      if (fence === "$$" ? line.trim().endsWith("$$") : line.trim().startsWith(fence) && line.trim().replace(/[`~]/g, "") === "") fence = null;
       continue;
     }
     if (!line.trim()) { flush(); continue; }
-    // A fence can open right under a paragraph, with no blank line between them.
+    // A fence can open right under a paragraph, with no blank line between them. Display math opens on a line
+    // starting with $$ that does not also close it ("$$x = 1" opens; "$$x$$" is one line).
     const opener = FENCE.exec(line)?.[1];
+    const math = line.trim();
     if (opener) fence = opener;
-    else if (line.trim() === "$$") fence = "$$";
+    else if (math.startsWith("$$") && (math === "$$" || !math.slice(2).endsWith("$$"))) fence = "$$";
     lines.push(line);
   }
   flush();

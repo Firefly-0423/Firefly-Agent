@@ -19,6 +19,11 @@ describe("splitChatSegments", () => {
     expect(splitChatSegments("先说结论。\n\n```py\nprint(1)\n\nprint(2)")).toEqual(["先说结论。", "```py\nprint(1)\n\nprint(2)"]);
   });
 
+  it("keeps a display formula whole when its first line already holds formula text", () => {
+    expect(splitChatSegments("推导如下：\n\n$$x = 1\n\n+ 2\n$$\n\n就这样。")).toEqual(["推导如下：\n\n$$x = 1\n\n+ 2\n$$", "就这样。"]);
+    expect(splitChatSegments("$$a + b$$\n\n下一段。")).toEqual(["$$a + b$$", "下一段。"]);
+  });
+
   it("holds the blank lines of a fence that opens directly under a paragraph", () => {
     const code = "```ts\nconst a = 1;\n\nconst b = 2;\n```";
     expect(splitChatSegments(`改成这样：\n${code}\n\n好了。`)).toEqual([`改成这样：\n${code}`, "好了。"]);
