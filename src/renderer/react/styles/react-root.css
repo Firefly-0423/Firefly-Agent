@@ -684,6 +684,8 @@ body {
 }
 
 .ff-page-dock.is-compact .ff-workspace-composer { padding: 12px; }
+/* The row under the composer (model, permission, collapse, move) takes the place of the bottom padding. */
+.ff-workspace .ff-workspace-composer:has(.ff-composer__below) { padding-bottom: 0; }
 .ff-page-dock.is-compact textarea.ant-sender-input { max-height: min(120px, 12vh) !important; overflow-y: auto !important; }
 .ff-page-dock.is-compact .ff-message-list { padding: 12px; }
 
