@@ -154,6 +154,7 @@ export function ModelEffortControl({ sessionId, activeProfileId, onSelectModelPr
           count={items.length}
           value={activeIndex}
           disabled={items.map((item) => Boolean(item.disabled))}
+          labels={items.map((item) => shortEffortLabel(item.label))}
           label={t("modelEffort.sliderLabel")}
           onPreview={setPreview}
           onCommit={(index) => void commit(index)}

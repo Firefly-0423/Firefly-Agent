@@ -1,83 +1,135 @@
+/* Effort bar, fluid skin: a glowing capsule lit from the left up to the chosen level, a stream of sparks drifting
+   right inside the lit part (denser and faster the higher the level), a pearl knob, and the stop names below.
+   --ff-effort-level (0..1, set on the bar) turns the glow up with the level. */
+.ff-effort-scale { display: grid; gap: 6px; }
+
 .ff-effort-bar {
+  --ff-effort-spark: 255, 255, 255;
+  --ff-effort-rgb: var(--ff-glow-rgb, var(--ff-accent-rgb, 59, 154, 118));
   position: relative;
   height: 28px;
   border-radius: 999px;
-  background: var(--ff-bg-active);
+  background: linear-gradient(180deg, rgb(0 0 0 / 7%), rgb(0 0 0 / 3%)), var(--ff-bg-active);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 12%);
   cursor: pointer;
   touch-action: none;
   outline: none;
   user-select: none;
 }
-.ff-effort-bar:focus-visible { box-shadow: 0 0 0 3px rgba(var(--ff-accent-rgb), 0.3); }
+.ff-effort-bar:focus-visible { box-shadow: inset 0 1px 2px rgb(0 0 0 / 12%), 0 0 0 3px rgba(var(--ff-effort-rgb), .3); }
 
-/* Fill and knob glide between stops; while dragging they follow the pointer without lag. */
+/* The lit part: a deep-to-bright gradient with a slow sheen flowing through it; the glow grows with the level. */
 .ff-effort-bar__fill {
   position: absolute;
   inset-block: 0;
   left: 0;
+  overflow: hidden;
   border-radius: 999px;
-  background: var(--ff-accent);
-  transition: width 220ms cubic-bezier(.2, .8, .2, 1);
+  background:
+    linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 28%) 45%, transparent 70%) 0 0 / 220% 100%,
+    linear-gradient(90deg, color-mix(in srgb, var(--ff-glow, var(--ff-accent)) 78%, #0b2b22), var(--ff-glow, var(--ff-accent)) 55%, color-mix(in srgb, var(--ff-glow, var(--ff-accent)) 55%, #fff));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 35%),
+    0 0 calc(6px + 14px * var(--ff-effort-level, 0)) rgba(var(--ff-effort-rgb), calc(.18 + .42 * var(--ff-effort-level, 0)));
+  animation: ff-effort-sheen 3.2s linear infinite;
+  transition: width 320ms cubic-bezier(.34, 1.36, .64, 1), box-shadow 320ms ease;
 }
+@keyframes ff-effort-sheen { from { background-position: 120% 0, 0 0; } to { background-position: -120% 0, 0 0; } }
+
+/* Sparks: a canvas over the whole bar, clipped to the lit part with the same timing as the fill. */
+.ff-effort-bar__sparks {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transition: clip-path 320ms cubic-bezier(.34, 1.36, .64, 1);
+}
+
 .ff-effort-bar__knob {
   position: absolute;
   top: 1px;
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 4px rgb(0 0 0 / 22%);
-  transition: left 220ms cubic-bezier(.2, .8, .2, 1), transform 120ms ease;
+  background: radial-gradient(circle at 34% 30%, #fff 0 22%, #f1f6f4 48%, #d6e1dc 100%);
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 70%),
+    0 2px 6px rgb(0 0 0 / 20%),
+    0 0 calc(8px + 10px * var(--ff-effort-level, 0)) rgba(var(--ff-effort-rgb), calc(.25 + .45 * var(--ff-effort-level, 0)));
+  transition: left 320ms cubic-bezier(.34, 1.36, .64, 1), transform 160ms ease, box-shadow 220ms ease;
 }
-.ff-effort-bar:hover .ff-effort-bar__knob { transform: scale(1.04); }
+.ff-effort-bar:hover .ff-effort-bar__knob { transform: scale(1.05); }
+.ff-effort-bar:active:not(.is-dragging) .ff-effort-bar__knob { transform: scale(.96); }
 .ff-effort-bar.is-dragging .ff-effort-bar__fill,
+.ff-effort-bar.is-dragging .ff-effort-bar__sparks,
 .ff-effort-bar.is-dragging .ff-effort-bar__knob { transition-duration: 90ms; }
-.ff-effort-bar.is-dragging .ff-effort-bar__knob { transform: scale(1.08); }
+.ff-effort-bar.is-dragging .ff-effort-bar__knob {
+  transform: scale(1.12);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 80%), 0 3px 10px rgb(0 0 0 / 22%), 0 0 0 6px rgba(var(--ff-effort-rgb), .2);
+}
 
+/* A level change sends one ring of light out from the knob. */
+.ff-effort-bar__ripple {
+  position: absolute;
+  inset: -3px;
+  border: 2px solid rgba(var(--ff-effort-rgb), .75);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: ff-effort-ripple 650ms cubic-bezier(.2, .8, .2, 1) forwards;
+}
+@keyframes ff-effort-ripple { from { opacity: .9; transform: scale(.7); } to { opacity: 0; transform: scale(2.1); } }
+
+/* Stops ahead of the fill keep a small dot; the ones it has passed melt into the light. */
 .ff-effort-bar__dot {
   position: absolute;
-  top: 12px;
-  width: 4px;
-  height: 4px;
-  margin-left: -2px;
+  top: 11.5px;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
   border-radius: 50%;
   background: var(--ff-text-muted);
   opacity: .45;
   pointer-events: none;
-  transition: background-color 220ms ease, opacity 220ms ease;
+  transition: opacity 220ms ease, transform 220ms ease;
 }
-.ff-effort-bar__dot.is-filled { background: var(--ff-on-accent); opacity: .8; }
-.ff-effort-bar__dot.is-disabled { opacity: .2; }
-
-@media (prefers-reduced-motion: reduce) {
-  .ff-effort-bar__fill, .ff-effort-bar__knob, .ff-effort-bar__dot { transition: none; }
-}
-
-/* ===== Motion and legibility =====
-   The knob settles with a slight spring and grows with a soft glow while dragged; the stop under it shows as a teal
-   dot in its centre (it used to vanish under the knob); filled dots are clearer and pop as the fill reaches them;
-   the level name above crossfades when it changes. */
-.ff-effort-bar__fill { transition: width 320ms cubic-bezier(.34, 1.36, .64, 1), background-color 200ms ease; }
-.ff-effort-bar__knob { transition: left 320ms cubic-bezier(.34, 1.36, .64, 1), transform 160ms ease, box-shadow 160ms ease; }
-.ff-effort-bar__knob::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--ff-glow, var(--ff-accent));
-  opacity: .9;
-}
-.ff-effort-bar.is-dragging .ff-effort-bar__knob { transform: scale(1.12); box-shadow: 0 2px 10px rgb(0 0 0 / 22%), 0 0 0 5px rgba(var(--ff-glow-rgb, var(--ff-accent-rgb)), .18); }
-.ff-effort-bar:active:not(.is-dragging) .ff-effort-bar__knob { transform: scale(.96); }
-.ff-effort-bar__dot { width: 5px; height: 5px; margin-left: -2.5px; top: 11.5px; transition: background-color 220ms ease, opacity 220ms ease, transform 220ms ease; }
-/* Stops the fill has passed melt into it: only the green bar remains behind the knob; stops ahead keep their dots. */
 .ff-effort-bar__dot.is-filled { opacity: 0; transform: scale(.4); }
+.ff-effort-bar__dot.is-disabled { opacity: .18; }
+
+/* Stop names under the bar; the chosen one lights up. */
+.ff-effort-scale__ticks { position: relative; height: 16px; }
+.ff-effort-scale__tick {
+  position: absolute;
+  top: 0;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: var(--ff-text-muted);
+  font: 500 11px/16px var(--rb-font-sans, sans-serif);
+  white-space: nowrap;
+  cursor: pointer;
+  transform: translateX(-50%);
+  transition: color 200ms ease, text-shadow 200ms ease;
+}
+.ff-effort-scale__tick:first-child { transform: translateX(-30%); }
+.ff-effort-scale__tick:last-child { transform: translateX(-70%); }
+.ff-effort-scale .ff-effort-scale__tick:hover:not(:disabled):not(.is-active) { color: var(--ff-text); }
+.ff-effort-scale__tick:disabled { opacity: .45; cursor: default; }
+.ff-effort-scale .ff-effort-scale__tick.is-active { color: var(--ff-glow, var(--ff-accent)); font-weight: 600; text-shadow: 0 0 8px rgba(var(--ff-effort-rgb), .45); }
+
+/* Dark: a deeper rail, a stronger glow. */
+:root[data-ui-theme="firefly-dark"] .ff-effort-bar { background: linear-gradient(180deg, #0c1714, #13221d); box-shadow: inset 0 1px 3px rgb(0 0 0 / 45%); }
+:root[data-ui-theme="firefly-dark"] .ff-effort-bar__fill {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 25%), 0 0 calc(10px + 18px * var(--ff-effort-level, 0)) rgba(var(--ff-effort-rgb), calc(.3 + .45 * var(--ff-effort-level, 0)));
+}
+
 .ff-effort__value { display: inline-block; animation: ff-effort-label-in 220ms cubic-bezier(.2, .8, .2, 1); }
 @keyframes ff-effort-label-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+
 @media (prefers-reduced-motion: reduce) {
-  .ff-effort-bar__fill, .ff-effort-bar__knob, .ff-effort-bar__dot { transition: none; }
-  .ff-effort__value { animation: none; }
+  .ff-effort-bar__fill, .ff-effort-bar__sparks, .ff-effort-bar__knob, .ff-effort-bar__dot, .ff-effort-scale__tick { transition: none; }
+  .ff-effort-bar__fill, .ff-effort-bar__ripple, .ff-effort__value { animation: none; }
 }
+:root[data-reduce-motion="on"] .ff-effort-bar__fill,
+:root[data-reduce-motion="on"] .ff-effort-bar__ripple,
+:root[data-reduce-motion="on"] .ff-effort__value { animation: none; }

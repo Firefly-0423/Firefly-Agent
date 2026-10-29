@@ -684,3 +684,33 @@
 /* Dark: the effort fill matches the send button — the same soft translucent mint with a mint edge. */
 :root[data-ui-theme="firefly-dark"] .ff-effort-bar__fill { background: rgba(123, 216, 174, 0.22); box-shadow: inset 0 0 0 1px rgba(123, 216, 174, 0.32); }
 :root[data-ui-theme="firefly-dark"] .ff-effort-bar__knob::after { background: #8fe0bc; }
+
+/* Under the docked composer: permission on the left, model and effort on the right, quiet text buttons. The row
+   hangs in the space below the composer instead of adding to its height, so the composer stays where it was. */
+.ff-composer-stack.is-docked { position: relative; }
+.ff-composer__below {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px 10px 0;
+}
+.ff-composer__below-start,
+.ff-composer__below-end { display: flex; align-items: center; min-width: 0; }
+.ff-composer__below .ff-composer__agent-button {
+  min-height: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ff-text-secondary);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.ff-composer__below .ff-composer__agent-button:hover,
+.ff-composer__below .ff-composer__agent-button.is-open { background: var(--ff-bg-hover); color: var(--ff-text); }

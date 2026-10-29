@@ -66,7 +66,7 @@
 /* The effort panel, tidied: a narrower panel, the level and the model link centred as one block, reset aligned with
    the level, the model link plain (no grey chip when the panel opens with focus on it) . */
 .ff-model-popover .ant-popover-inner { padding: 6px; border-radius: 16px; }
-.ff-model-panel.ff-effort { width: 240px; gap: 12px; padding: 10px 12px 12px; }
+.ff-model-panel.ff-effort { width: 268px; gap: 12px; padding: 10px 12px 8px; }
 .ff-effort__head { min-height: 0; gap: 0; }
 .ff-effort__value { font: 600 14px/1.4 var(--rb-font-sans, sans-serif); }
 .ff-effort__model { padding: 1px 6px; font-size: 12px; }
