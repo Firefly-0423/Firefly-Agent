@@ -4,7 +4,10 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 vi.mock("electron", () => ({ shell: { openPath: vi.fn() } }));
 vi.mock("./chats-store", () => ({ getWorkspaceBinding: () => null }));
-import { parseRegistryDump, expandCandidate, resolveInternals, resolveOpenInApps, type DetectorInternals } from "./open-in-app";
+const child = vi.hoisted(() => ({ spawn: vi.fn() }));
+vi.mock("node:child_process", async (original) => ({ ...(await original<typeof import("node:child_process")>()), spawn: child.spawn }));
+import { EventEmitter } from "node:events";
+import { parseRegistryDump, expandCandidate, launchDetachedApp, resolveInternals, resolveOpenInApps, type DetectorInternals } from "./open-in-app";
 let root: string;
 beforeEach(() => { root = mkdtempSync(join(tmpdir(), "editor-discovery-")); });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -54,5 +57,16 @@ describe("verified launch locations", () => {
     });
     it("returns no applications when no location can be verified", async () => {
         expect((await resolveOpenInApps(deps())).size).toEqual(0);
+    });
+});
+describe("launching an editor", () => {
+    it("starts it detached and visible, so its window shows on screen", async () => {
+        const handle = Object.assign(new EventEmitter(), { unref: vi.fn() });
+        child.spawn.mockReturnValue(handle);
+        const launched = launchDetachedApp("Code.exe", ["E:/work"], 1000);
+        handle.emit("exit", 0);
+        await launched;
+        expect(child.spawn).toHaveBeenCalledWith("Code.exe", ["E:/work"], { detached: true, stdio: "ignore", windowsHide: false });
+        expect(handle.unref).toHaveBeenCalled();
     });
 });
