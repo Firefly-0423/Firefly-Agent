@@ -6,7 +6,8 @@ import { AtomicJsonStore } from "../storage/atomic-json-store";
 import { canonicalPath, within } from "../startup/runtime-profile";
 import type { StorageContext } from "../storage/storage-context";
 import type { ExternalSkillErrorCode } from "../../shared/external-skills";
-import { EXTERNAL_LIMITS, EXTERNAL_SOURCES, externalSkillId } from "./external-policy";
+import { EXTERNAL_LIMITS, EXTERNAL_SOURCES, FIREFLY_NATIVE_POLICY_VERSION, externalSkillId, isExternalSourceId, reviewPolicyFor } from "./external-policy";
+import { FIREFLY_NATIVE_KEYS, readFireflyNative, sameFireflyNative } from "./skill-metadata";
 import { validateExternalPath } from "./external-fetch";
 import { digestExternalFiles } from "./external-review";
 import { assertSkillPath } from "./skill-path-safety";
@@ -14,7 +15,7 @@ import type { ExternalHostSession, ExternalSkillRecord } from "./external-types"
 
 const SHA256 = /^[0-9a-f]{64}$/, SHA1 = /^[0-9a-f]{40}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const ID = /^external-(openai|anthropic)-[0-9a-f]{32}$/;
+const ID = new RegExp(`^external-(${Object.keys(EXTERNAL_SOURCES).join("|")})-[0-9a-f]{32}$`);
 const MAX_STATE_BYTES = 2 * 1024 * 1024, MAX_LOCK_BYTES = 16384;
 const LICENSE = /^(?:LICENSE|LICENCE|COPYING)(?:\.md|\.txt)?$/i;
 const NOTICE = /^(?:NOTICE|COPYRIGHT)(?:\.md|\.txt)?$/i;
@@ -92,8 +93,14 @@ export function isExternalSkillRecord(value: unknown): value is ExternalSkillRec
       || (value.status === "prepared" && value.enabled) || typeof value.contentSha256 !== "string" || !SHA256.test(value.contentSha256)
       || !object(value.skill)) return false;
     const skill = value.skill;
-    if (!keys(skill, ["id", "sourceId", "upstreamName", "description", "bundle", "repository", "path", "commit", "version", "licenses", "files", "review", "blockers"])) return false;
-    if ((skill.sourceId !== "openai" && skill.sourceId !== "anthropic") || skill.repository !== EXTERNAL_SOURCES[skill.sourceId].repository
+    if (!keys(skill, ["id", "sourceId", "upstreamName", "description", "bundle", "repository", "path", "commit", "version", "licenses", "files", "review", "blockers", "native"])) return false;
+    // Firefly-native records always carry their reviewed Firefly metadata; no other record carries any.
+    if (isExternalSourceId(skill.sourceId) && reviewPolicyFor(skill.sourceId) === FIREFLY_NATIVE_POLICY_VERSION) {
+      if (!object(skill.native) || Object.keys(skill.native).some(key => !(FIREFLY_NATIVE_KEYS as readonly string[]).includes(key))) return false;
+      const native = readFireflyNative(skill.native);
+      if (!native || !sameFireflyNative(native, skill.native)) return false;
+    } else if (skill.native !== undefined) return false;
+    if (!isExternalSourceId(skill.sourceId) || skill.repository !== EXTERNAL_SOURCES[skill.sourceId].repository
       || !validPath(skill.path) || skill.id !== value.id || value.id !== externalSkillId(skill.sourceId, String(skill.repository), skill.path)
       || !text(skill.upstreamName, 500) || !text(skill.description, 10000) || !object(skill.bundle) || !keys(skill.bundle, ["name", "version", "license"]) || !text(skill.bundle.name, 500)
       || (skill.version !== undefined && !text(skill.version, 100)) || (skill.bundle.version !== undefined && !text(skill.bundle.version, 100))

@@ -8,8 +8,7 @@ import type { ToolEffectKind } from "../orchestrator/tools/registry/tool-registr
 import { logger } from "../../shared/logger";
 import { LogTag } from "../../shared/logger-tags";
 
-const KNOWN_EFFECTS = new Set(["read", "mutation", "verification", "external_side_effect"]);
-const KNOWN_MODES = new Set<SkillMode>(["work", "code"]);
+import { KNOWN_SKILL_EFFECTS as KNOWN_EFFECTS, KNOWN_SKILL_MODES as KNOWN_MODES } from "./skill-metadata";
 const EXTERNAL_PREFIX = "external-";
 
 /** 读取并校验 manifest.json；任一字段不符或解析失败都视为没有 manifest。 */

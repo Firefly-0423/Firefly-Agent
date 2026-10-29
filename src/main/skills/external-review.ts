@@ -1,10 +1,14 @@
 import { createHash } from "node:crypto";
 import { TextDecoder } from "node:util";
-import type { ExternalSkill, ExternalSkillErrorCode, ExternalSkillFile, LicenseEvidence, ExternalDependencyIssue } from "../../shared/external-skills";
+import type { ExternalNativeMetadata, ExternalSkill, ExternalSkillErrorCode, ExternalSkillFile, LicenseEvidence, ExternalDependencyIssue } from "../../shared/external-skills";
 import type { ExternalSkillReview } from "./external-types";
 import { validateExternalPath } from "./external-fetch";
-import { EXTERNAL_LIMITS, EXTERNAL_SOURCES, EXTERNAL_REVIEW_POLICY_VERSION, externalSkillId, isAllowedExternalLicense } from "./external-policy";
+import { EXTERNAL_LIMITS, EXTERNAL_SOURCES, FIREFLY_NATIVE_POLICY_VERSION, externalSkillId, isAllowedExternalLicense, isExternalSourceId, reviewPolicyFor } from "./external-policy";
 import { parseSkillMatter } from "./skill-frontmatter";
+import { FIREFLY_NATIVE_KEYS, readFireflyNative, sameFireflyNative } from "./skill-metadata";
+
+/** Whether a source's Skills are reviewed under the Firefly-native policy. */
+const fireflyNative = (sourceId: unknown) => isExternalSourceId(sourceId) && reviewPolicyFor(sourceId) === FIREFLY_NATIVE_POLICY_VERSION;
 
 const SHA256 = /^[a-f0-9]{64}$/, SHA1 = /^[a-f0-9]{40}$/;
 const licenseName = /^(?:LICENSE|LICENCE|COPYING)(?:\.md|\.txt)?$/i;
@@ -28,13 +32,19 @@ function licenseSchema(license: unknown): boolean {
 }
 
 export function isExternalSkillReview(value: unknown): value is ExternalSkillReview {
-  if (!plainObject(value) || value.policyVersion !== EXTERNAL_REVIEW_POLICY_VERSION || (value.sourceId !== "openai" && value.sourceId !== "anthropic") ||
+  if (!plainObject(value) || !isExternalSourceId(value.sourceId) || value.policyVersion !== reviewPolicyFor(value.sourceId) ||
       typeof value.commit !== "string" || !SHA1.test(value.commit) || !validPath(value.path) ||
       typeof value.contentSha256 !== "string" || !SHA256.test(value.contentSha256) || value.compatibility !== "instruction-only" ||
       typeof value.reviewer !== "string" || !value.reviewer.trim() || value.reviewer.length > 200 || /[\x00-\x1f\x7f]/.test(value.reviewer) ||
       typeof value.reviewedAt !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value.reviewedAt) ||
       !Number.isFinite(Date.parse(value.reviewedAt)) || new Date(value.reviewedAt).toISOString() !== value.reviewedAt.replace(/Z$/, value.reviewedAt.includes(".") ? "Z" : ".000Z") ||
       !Array.isArray(value.licenses) || !value.licenses.length || value.licenses.length > EXTERNAL_LIMITS.files) return false;
+  // Firefly-native reviews pin the Firefly metadata exactly; other policies carry none.
+  if (fireflyNative(value.sourceId)) {
+    if (!plainObject(value.native) || Object.keys(value.native).some(key => !(FIREFLY_NATIVE_KEYS as readonly string[]).includes(key))) return false;
+    const native = readFireflyNative(value.native);
+    if (!native || !sameFireflyNative(native, value.native)) return false;
+  } else if (value.native !== undefined) return false;
   return value.licenses.every(licenseSchema);
 }
 
@@ -66,18 +76,22 @@ function supportedFile(path: string, root: string): boolean {
 }
 
 /** Conservative structural checks supplement (and never replace) the complete manual static review. */
-function instructionIssue(text: string, root: string, paths: ReadonlySet<string>): Pick<ExternalDependencyIssue, "kind" | "component"> | undefined {
+function instructionIssue(text: string, root: string, paths: ReadonlySet<string>, native = false): Pick<ExternalDependencyIssue, "kind" | "component"> | undefined {
   let matter: ReturnType<typeof parseSkillMatter>;
   try { matter = parseSkillMatter(text); } catch { return { kind: "frontmatter" }; }
-  // No host-only flags are silently removed or rewritten for a different execution engine.
-  const unsupported = Object.keys(matter.data).find(key => !["name", "description", "license", "version", "metadata"].includes(key));
+  // No host-only flags are silently removed or rewritten for a different execution engine. Firefly's own Skills may
+  // also carry Firefly's metadata fields, each strictly validated.
+  const allowed: readonly string[] = ["name", "description", "license", "version", "metadata", ...(native ? FIREFLY_NATIVE_KEYS : [])];
+  const unsupported = Object.keys(matter.data).find(key => !allowed.includes(key));
   if (unsupported) return { kind: "frontmatter", component: /^[a-z-]{1,50}$/i.test(unsupported) ? unsupported : "unsupported-field" };
+  if (native && !readFireflyNative(matter.data)) return { kind: "frontmatter", component: "firefly-metadata" };
   for (const line of matter.content.split(/\r?\n|[.!?;]\s+/)) {
     const mandatory = /\b(?:must|requires?|required|needs?|always)\b/i.test(line) && !/\b(?:no|not) [^.]*required\b/i.test(line);
     const optional = !mandatory && /\boptional\b|\bif (?:[^.]* )?(?:available|supported|supports|present)\b|\b(?:no|not) [^.]*required\b/i.test(line);
     if (optional) continue;
     if (/\b(?:fetch|download|retrieve|read|load)\b[^\n]*https?:\/\//i.test(line)) return { kind: "instruction", component: "remote-resource" };
-    if (/\b(?:requires?|required|must|needs?|invoke|use)\b[^\n]*\b(?:tool|mcp|connector|app|hooks?|library|runtime|external api|another skill|[a-z0-9-]+ skill)\b/i.test(line)) return { kind: "instruction", component: "tool-or-runtime" };
+    // Firefly's own Skills are written for Firefly's tools; the host still enforces every tool permission.
+    if (!native && /\b(?:requires?|required|must|needs?|invoke|use)\b[^\n]*\b(?:tool|mcp|connector|app|hooks?|library|runtime|external api|another skill|[a-z0-9-]+ skill)\b/i.test(line)) return { kind: "instruction", component: "tool-or-runtime" };
     if (/\b(?:via|using)\s+[a-z][\w.-]*'s\s+(?:\w+\s+)?(?:class|library|module|api)\b/i.test(line)) return { kind: "instruction", component: "library" };
     if (/\b(?:run|execute|install)\b[^\n]*(?:scripts?\/|\.(?:sh|py|js|ts|ps1|bat)\b|\bnpm\b|\bpip\b|\bdependencies\b)/i.test(line)) return { kind: "instruction", component: "script" };
     if (/\b(?:read|load|use|invoke)\b[^\n]*(?:\.\.\/|\/SKILL\.md\b)/i.test(line)) return { kind: "instruction", component: "cross-skill" };
@@ -104,10 +118,15 @@ export function evaluateExternalSkill(skill: ExternalSkill, files: ReadonlyMap<s
     deny("DEPENDENCY_BLOCKED");
     if (issues.length < EXTERNAL_LIMITS.files && !issues.some(item => item.kind === issue.kind && item.path === issue.path && item.component === issue.component)) issues.push(issue);
   };
-  const result = (licenses: LicenseEvidence[] = []) => ({ ...skill, files: skill.files.map(file => ({ ...file })),
+  // Firefly metadata comes only from the matching review, and only on an approved result; never from the input.
+  const native = fireflyNative(skill.sourceId);
+  let reviewedNative: ExternalNativeMetadata | undefined;
+  const { native: _untrustedNative, ...input } = skill;
+  const result = (licenses: LicenseEvidence[] = []) => ({ ...input, files: skill.files.map(file => ({ ...file })),
     licenses: licenses.map(license => ({ ...license, covers: [...license.covers] })),
     review: blockers.size === 0 ? "approved" as const : blockers.size === 1 && blockers.has("REVIEW_REQUIRED") ? "unreviewed" as const : "blocked" as const,
-    dependencyIssues: issues.map(issue => ({ ...issue })), blockers: [...blockers] });
+    dependencyIssues: issues.map(issue => ({ ...issue })), blockers: [...blockers],
+    ...(blockers.size === 0 && reviewedNative ? { native: structuredClone(reviewedNative) } : {}) });
   if (issues.length) deny("DEPENDENCY_BLOCKED");
   if (!Object.hasOwn(EXTERNAL_SOURCES, skill.sourceId) || skill.repository !== EXTERNAL_SOURCES[skill.sourceId]?.repository) deny("SOURCE_INVALID");
   if (!validPath(skill.path) || skill.id !== externalSkillId(skill.sourceId, skill.repository, skill.path)) deny("PATH_INVALID");
@@ -139,14 +158,14 @@ export function evaluateExternalSkill(skill: ExternalSkill, files: ReadonlyMap<s
   for (const [path, text] of texts) {
     const basename = path.split("/").at(-1)!;
     if (!licenseName.test(basename) && !noticeName.test(basename)) {
-      const issue = instructionIssue(text, skill.path, paths); if (issue) incompatible({ ...issue, path });
+      const issue = instructionIssue(text, skill.path, paths, native); if (issue) incompatible({ ...issue, path });
     }
   }
   // A package's unknown or conflicting declaration cannot be silently relabeled by inner text.
   if (skill.bundle.license !== undefined && !isAllowedExternalLicense(skill.bundle.license)) deny("LICENSE_BLOCKED");
   const digest = digestExternalFiles(skill.files);
   const matching = reviews.filter(review => plainObject(review) && review.sourceId === skill.sourceId && review.path === skill.path &&
-    review.commit === skill.commit && review.contentSha256 === digest && review.policyVersion === EXTERNAL_REVIEW_POLICY_VERSION);
+    review.commit === skill.commit && review.contentSha256 === digest && isExternalSourceId(skill.sourceId) && review.policyVersion === reviewPolicyFor(skill.sourceId));
   if (matching.length !== 1 || !isExternalSkillReview(matching[0])) {
     if (matching.length === 1 && (!Array.isArray(matching[0].licenses) || !matching[0].licenses.length || !matching[0].licenses.every(licenseSchema))) deny("LICENSE_BLOCKED");
     deny("REVIEW_REQUIRED"); return result();
@@ -176,5 +195,12 @@ export function evaluateExternalSkill(skill: ExternalSkill, files: ReadonlyMap<s
       }
     }
   } catch { deny("LICENSE_BLOCKED"); }
+  if (native) {
+    // The reviewed metadata must be exactly what this Skill declares; otherwise the review does not describe it.
+    let declared: ExternalNativeMetadata | undefined;
+    try { declared = readFireflyNative(parseSkillMatter(texts.get(skill.path + "/SKILL.md") ?? "").data); } catch { declared = undefined; }
+    if (!declared || !sameFireflyNative(declared, matching[0].native)) deny("REVIEW_REQUIRED");
+    else reviewedNative = matching[0].native;
+  }
   return result(evidence);
 }

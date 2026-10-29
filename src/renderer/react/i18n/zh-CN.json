@@ -992,7 +992,8 @@
     "newProjectChat": "在此项目中新建对话",
     "emptyTier": "暂无内容",
     "showProject": "显示项目",
-    "projectVisibility": "项目显示",
+    "projectVisibility": "项目显示"
+,
     "organizeSidebar": "整理侧边栏",
     "sortChats": "聊天排序方式",
     "copy": "复制",
@@ -1332,12 +1333,14 @@
       "text": "不属于受支持的 UTF-8 纯文本"
     },
     "title": "外部技能",
-    "notice": "仅提供 openai/plugins 与 anthropics/skills。只有完整审核通过的纯文本指令型技能可以导入。导入后保持停用，启用需要单独确认。",
+    "notice": "提供流萤自己的 Firefly-0423/firefly-skills，以及 openai/plugins 与 anthropics/skills。只有逐个审核通过的纯文本技能可以导入；流萤已内置的不会重复安装。导入后保持停用，启用需要单独确认。",
     "unavailable": "外部技能接口暂不可用，请在设置桥接就绪后重试。",
     "refresh": "刷新目录",
     "back": "返回目录",
     "search": "搜索名称和描述",
     "noMatch": "无匹配外部技能",
+    "builtIn": "已内置",
+    "builtInNotice": "流萤已经内置了这个 skill，不需要再从市场安装。",
     "bundle": "包名称",
     "bundleVersion": "包版本",
     "bundleLicense": "包许可证声明",

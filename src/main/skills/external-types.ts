@@ -1,4 +1,4 @@
-import type { ExternalSkill, ExternalSkillSourceId, LicenseEvidence } from "../../shared/external-skills";
+import type { ExternalNativeMetadata, ExternalSkill, ExternalSkillSourceId, LicenseEvidence } from "../../shared/external-skills";
 import type { StorageContext } from "../storage/storage-context";
 
 /** Construct only from the real trusted IPC event; never accept from Renderer. */
@@ -20,6 +20,8 @@ export interface ExternalSkillReview {
   compatibility: "instruction-only";
   reviewedAt: string;
   reviewer: string;
+  /** Required under the Firefly-native policy (an empty object when the Skill declares none); absent otherwise. */
+  native?: ExternalNativeMetadata;
 }
 
 export interface ExternalSkillRecord {
@@ -49,4 +51,6 @@ export interface ExternalServiceDeps {
   randomToken: () => string;
   reviews: readonly ExternalSkillReview[];
   rescan: () => number;
+  /** Ids of the Skills that ship with the app; a market Skill of the same name is shown as built in, never installed. */
+  builtInSkillIds?: () => ReadonlySet<string>;
 }

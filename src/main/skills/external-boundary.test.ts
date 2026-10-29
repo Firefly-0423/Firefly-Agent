@@ -52,7 +52,15 @@ it.each(Object.entries(unchangedBoundaries))("no_execution_or_permission_expansi
 it("no_execution_or_permission_expansion native executable marketplace uses exactly the approved catalog and repository rename release prefixes, and fixed source data does not broaden it", () => {
   expect(MARKET_REGISTRY_URLS).toEqual(["https://raw.githubusercontent.com/Firefly-0423/firefly-plugins/main/registry.json"]);
   expect(MARKET_ZIP_URL_PREFIXES).toEqual(["https://github.com/Firefly-0423/firefly-plugins/releases/download/"]);
-  expect(EXTERNAL_SOURCES).toEqual({ openai: { repository: "openai/plugins", owner: "openai", repo: "plugins", catalogPath: ".agents/plugins/marketplace.json" }, anthropic: { repository: "anthropics/skills", owner: "anthropics", repo: "skills", catalogPath: ".claude-plugin/marketplace.json" } });
+  // Reviewed source change (2026-10-29, docs/superpowers/specs/2026-10-29-firefly-skills-market-source.md): Firefly's own
+  // Skill repository joins as a Claude-catalog source under the Firefly-native policy. Its Firefly metadata (modes,
+  // effectKind, tools) is visibility and labelling only; every install still needs an exact per-commit static review and
+  // grants no tool permission. Third-party sources keep the instruction-only policy unchanged.
+  expect(EXTERNAL_SOURCES).toEqual({
+    firefly: { repository: "Firefly-0423/firefly-skills", owner: "Firefly-0423", repo: "firefly-skills", catalogPath: ".claude-plugin/marketplace.json", catalogFormat: "claude-catalog", reviewPolicy: "firefly-native-v1" },
+    openai: { repository: "openai/plugins", owner: "openai", repo: "plugins", catalogPath: ".agents/plugins/marketplace.json", catalogFormat: "openai", reviewPolicy: "firefly-instruction-only-v1" },
+    anthropic: { repository: "anthropics/skills", owner: "anthropics", repo: "skills", catalogPath: ".claude-plugin/marketplace.json", catalogFormat: "claude-catalog", reviewPolicy: "firefly-instruction-only-v1" },
+  });
   expect(Object.isFrozen(EXTERNAL_SOURCES)).toBe(true); expect(Object.values(EXTERNAL_SOURCES).every(Object.isFrozen)).toBe(true);
 });
 it("no_execution_or_permission_expansion fixed budgets and production reviews cannot grant script or native package execution", () => {

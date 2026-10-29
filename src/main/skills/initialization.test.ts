@@ -27,7 +27,7 @@ vi.mock("./skill-registry", () => ({ skillRegistry: { register: ports.register, 
 vi.mock("./skill-tools", () => ({ registerSkillTools: ports.tools }));
 vi.mock("../logging/logger", () => ({ logger: { info: vi.fn(), warn: ports.warn }, LogTag: { Skills: "Skills" } }));
 import { createStorageContext } from "../storage/storage-context";
-import { initSkills } from "./index";
+import { initSkills, shippedSkillIds } from "./index";
 
 function storage() { return createStorageContext({ kind: "test", applicationName: "Firefly-test", appData: ports.root, userData: ports.root, sessionData: path.join(ports.root, "session"), logs: path.join(ports.root, "logs"), isolationRoot: ports.root }); }
 
@@ -72,4 +72,13 @@ it("synchronizes a valid source without adding it to the scan roots", async () =
   expect(ports.sync).toHaveBeenCalledWith({ sourceDirectory: ports.source, userSkillsDir: path.join(ports.root, "skills"),
     expectedIds: ["public-skill"], expectedFileHashes: {} });
   expect(ports.register).toHaveBeenCalledTimes(1);
+});
+
+it("counts the installer's managed Skills as shipped once they are synchronized, so the market never installs a second copy", async () => {
+  fixture();
+  await initSkills(storage());
+  expect([...shippedSkillIds()]).toEqual(["public-skill"]);
+  fs.writeFileSync(path.join(path.dirname(ports.source), "skills-manifest.json"), "{}");
+  await initSkills(storage());
+  expect([...shippedSkillIds()]).toEqual([]);
 });

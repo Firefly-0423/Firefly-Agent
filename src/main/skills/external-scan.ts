@@ -26,10 +26,13 @@ export function scanExternalSkills(storage: StorageContext, state: ExternalSkill
       const proofs = verifyExternalInstallation(storage, record);
       for (const proof of proofs) assertExternalIdentity(proof, storage.dataRoot);
       const dirPath = path.join(outer, "content"), prefix = record.skill.path + "/references/";
-      return { id, name: record.skill.upstreamName, description: record.skill.description, tools: [],
+      // Firefly metadata only from the verified record, which holds what the review pinned; never from the files.
+      const native = record.skill.native;
+      return { id, name: record.skill.upstreamName, description: record.skill.description, tools: native?.tools ? [...native.tools] : [],
         version: record.skill.version, dirPath, bodyPath: path.join(dirPath, "SKILL.md"),
         references: record.skill.files.filter(file => file.path.startsWith(prefix)).map(file => file.path.slice(prefix.length)),
-        enabled: record.enabled, source: "user" as const, hiddenFromUi: false, external: { status: "ready" as const } };
+        enabled: record.enabled, source: "user" as const, hiddenFromUi: false, external: { status: "ready" as const },
+        ...(native?.modes ? { modes: [...native.modes] } : {}), ...(native?.effectKind ? { effectKind: native.effectKind } : {}) };
     } catch { return unavailable; }
   });
 }

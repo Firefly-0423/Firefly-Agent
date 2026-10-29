@@ -5,7 +5,7 @@ import type { ExternalOwner, ExternalServiceDeps, ExternalSkillRecord } from "./
 import { createExternalFetcher, ExternalFetchError, type ExternalFetcher, type ExternalTree, type ExternalRequestDiagnostic } from "./external-fetch";
 import { discoverExternalSkills, verifyExternalSkillDeclaration } from "./external-sources";
 import { digestExternalFiles, evaluateExternalSkill } from "./external-review";
-import { EXTERNAL_LIMITS, EXTERNAL_SOURCES, EXTERNAL_REVIEW_POLICY_VERSION, externalSkillId } from "./external-policy";
+import { EXTERNAL_LIMITS, EXTERNAL_SOURCES, externalSkillId, reviewPolicyFor } from "./external-policy";
 import { isExternalSkillSelection, reviewedExternalSkill } from "./external-revisions";
 import { parseSkillMatter } from "./skill-frontmatter";
 import { ExternalSkillStateStore, ExternalStorageError, verifyExternalInstallation, assertExternalIdentity } from "./external-state";
@@ -250,6 +250,8 @@ export function createExternalSkillService(deps: ExternalServiceDeps) {
     if (selection && current.tree?.commit !== selection.commit) deny("STALE_SNAPSHOT");
     return current;
   }
+  /** A built-in Skill of the same name already exists; the market never installs a second copy. */
+  const builtIn = (skill: Pick<ExternalSkill, "upstreamName">) => deps.builtInSkillIds?.().has(skill.upstreamName) === true;
   function present(skill: ExternalSkill, kind: ExternalSkillSelection["kind"]): ExternalSkill {
     const latest = snapshots.get(skill.sourceId + "/latest")?.candidates.find(item => item.id === skill.id);
     const reviewed = reviewedExternalSkill(skill.sourceId, skill.id, reviews);
@@ -263,7 +265,7 @@ export function createExternalSkillService(deps: ExternalServiceDeps) {
           ...(record.reviewPolicyVersion ? { policyVersion: record.reviewPolicyVersion } : {}) };
       } catch { installedError = "STATE_INVALID"; }
     } else if (record || state.getDiagnostic(skill.id)) installedError = "STATE_INVALID";
-    return { ...clone(skill), selection: { kind, commit: skill.commit }, revisions: {
+    return { ...clone(skill), ...(builtIn(skill) ? { builtIn: true as const } : {}), selection: { kind, commit: skill.commit }, revisions: {
       ...(latest ? { latest: { commit: latest.commit } } : {}),
       ...(reviewed ? { reviewed: { commit: reviewed.commit, contentSha256: reviewed.contentSha256, policyVersion: reviewed.policyVersion, reviewedAt: reviewed.reviewedAt } } : {}),
       ...(installed ? { installed } : {}), ...(installedError ? { installedError } : {}),
@@ -435,13 +437,16 @@ export function createExternalSkillService(deps: ExternalServiceDeps) {
         const timer = deadline(op);
         try {
           const current = await snapshot(op, sourceId, selection, id); tx.snapshot = current;
-          const complete = await content(op, current, id); checkSnapshot(current, op); eligible(complete.skill);
+          const listed = current.candidates.find(skill => skill.id === id);
+          if (listed && builtIn(listed)) deny("TARGET_EXISTS");
+          const complete = await content(op, current, id);
+          if (builtIn(complete.skill)) deny("TARGET_EXISTS"); checkSnapshot(current, op); eligible(complete.skill);
           state.assertWritable(deps.storage);
           // Declaration is a read-only DTO hint, never part of the strict persisted schema.
           const { declaration: _declaration, preview: _preview, selection: _selection, revisions: _revisions,
             dependencyIssues: _issues, compatibilityFormat: _format, ...persistedSkill } = complete.skill;
           const record: ExternalSkillRecord = freeze({ schema: 1, id: complete.skill.id, transactionId: randomUUID(), status: "prepared", enabled: false,
-            skill: persistedSkill, contentSha256: digestExternalFiles(complete.skill.files), reviewPolicyVersion: EXTERNAL_REVIEW_POLICY_VERSION });
+            skill: persistedSkill, contentSha256: digestExternalFiles(complete.skill.files), reviewPolicyVersion: reviewPolicyFor(sourceId) });
           tx.record = record; tx.handle = stageExternalSkill(deps.storage, record, complete.payload); checkSnapshot(current, op);
           const token = deps.randomToken(); if (!/^[a-f0-9]{64}$/.test(token) || invalidTokens.has(token)) deny("STATE_INVALID");
           const publicSkill = present(complete.skill, current.kind);

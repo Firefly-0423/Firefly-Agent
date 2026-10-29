@@ -18,6 +18,8 @@ interface SkillsContext {
   storage: StorageContext;
   state: ExternalSkillStateStore;
   expected: Map<string, string>;
+  /** Ids of the managed Skills this installation ships (synchronized into the user directory from the installer). */
+  managed: ReadonlySet<string>;
 }
 let context: SkillsContext | undefined;
 
@@ -79,7 +81,7 @@ export async function initSkills(storage: StorageContext = getStorageContext(), 
   // Reset before reading the new profile, including a failed initialization.
   skillRegistry.setExternalAccessGate(() => false);
   for (const skill of skillRegistry.getAll()) skillRegistry.unregister(skill.id);
-  context = { storage, state: new ExternalSkillStateStore(storage, host), expected: new Map() };
+  context = { storage, state: new ExternalSkillStateStore(storage, host), expected: new Map(), managed: new Set() };
   const paths = { ...getExternalContentPaths(), userSkillDirectories: [path.join(storage.dataRoot, "skills")] };
   const sourceDirectory = resolvePackagedSkillDirectory(paths), userSkillsDir = paths.userSkillDirectories[0];
   try {
@@ -89,6 +91,7 @@ export async function initSkills(storage: StorageContext = getStorageContext(), 
       if (!Array.isArray(manifest.skills) || !manifest.files || typeof manifest.files !== "object" || Array.isArray(manifest.files)) throw new Error("SKILL_DIRECTORY_MANIFEST_INVALID");
       validateManagedSourceDirectory(sourceDirectory, manifest.skills, manifest.files);
       synchronizeManagedSkillDirectories({ sourceDirectory, userSkillsDir, expectedIds: manifest.skills, expectedFileHashes: manifest.files });
+      context.managed = new Set(manifest.skills.filter((id): id is string => typeof id === "string"));
     }
   } catch (error) {
     const reason = error instanceof Error && /^SKILL_[A-Z_]+$/.test(error.message) ? error.message : "SKILL_DIRECTORY_SYNC_FAILED";
@@ -120,6 +123,12 @@ export function listSkillsForUi() {
   }));
 }
 export function rescanSkills(): number { return scanAndRegister(currentContext()); }
+/** Skills that ship with Firefly: the built-in directory and the managed Skills from the installer. The market never
+ *  installs a second copy of one of these. */
+export function shippedSkillIds(): ReadonlySet<string> {
+  const builtIn = skillRegistry.getAll().filter(skill => skill.source === "builtin").map(skill => skill.id);
+  return new Set([...builtIn, ...(context?.managed ?? [])]);
+}
 export { skillRegistry } from "./skill-registry";
 export { buildAutoInjectedSkillContext, buildAutoInjectedSoulContext, buildSkillCatalog } from "./skill-catalog";
 export { parseSlashCommand } from "./skill-commands";
