@@ -278,6 +278,8 @@ type ActivityContentProps = {
   tools: ToolExecutionRecord[]; stage?: AgentRunStage; taskPlan?: TaskPlanPresentation;
   expanded: boolean; onExpand: (expanded: boolean) => void;
 };
+/** A settled run keeps its stage text only when it did not succeed: the generic caption cannot say so. */
+const UNSUCCESSFUL_STAGES: ReadonlySet<AgentRunStage["kind"]> = new Set(["cancelled", "timeout", "failed"]);
 function RunActivityContent(props: ActivityContentProps) {
   const { t } = useTranslation();
   const time = useRunActivityNow(props.activity.completedAt === undefined);
@@ -295,7 +297,7 @@ function RunActivityContent(props: ActivityContentProps) {
     <div className="ff-run-activity__header">
       <span className="ff-run-activity__title">
         {state.processing && <span className="ff-run-activity__art" aria-hidden="true"><DotSpinner /></span>}
-        <span>{caption}</span>{props.stage && state.processing && <RunStageIndicator stage={props.stage} dot={false} />}
+        <span>{caption}</span>{props.stage && (state.processing || UNSUCCESSFUL_STAGES.has(props.stage.kind)) && <RunStageIndicator stage={props.stage} dot={false} />}
       </span>
       <button type="button" className="ff-run-activity__toggle" onClick={() => props.onExpand(!props.expanded)}
         aria-expanded={props.expanded} aria-controls={`${props.activityId}-details`}

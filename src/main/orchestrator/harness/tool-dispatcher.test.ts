@@ -148,7 +148,7 @@ describe("Built-in tool start events", () => {
   it("announces a non-interactive built-in by name so the UI can label it", async () => {
     const events: unknown[] = [];
     await dispatchToolCall({ id: "plan-pearl", name: "update_todo", arguments: '{"todos":[]}' }, { ...setup(), tools: [], onEvent: (event: unknown) => events.push(event) } as never);
-    expect(events).toContainEqual({ type: "tool_start", toolCallId: "plan-pearl", toolName: "update_todo", args: { todos: [] }, displayName: "更新待办" });
+    expect(events).toContainEqual({ type: "tool_start", toolCallId: "plan-pearl", toolName: "update_todo", args: { todos: [] } });
   });
 });
 

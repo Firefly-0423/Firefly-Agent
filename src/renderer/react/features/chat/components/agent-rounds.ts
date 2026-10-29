@@ -17,7 +17,14 @@ const SUMMARY_TOOL_KEYS: Record<string, string> = Object.fromEntries([
   ["read_tool_result", "agentRounds.summaryReadToolResult"],
 ]);
 
+// Harness built-ins are named here in the user's language; this wins over a displayName saved by older runs.
+const BUILTIN_LABEL_KEYS: Record<string, string> = Object.fromEntries([
+  ["update_todo", "agentRounds.toolUpdateTodo"], ["delegate_agent", "agentRounds.toolDelegateAgent"],
+  ["enter_plan_mode", "agentRounds.toolEnterPlanMode"], ["write_plan", "agentRounds.toolWritePlan"],
+]);
 function translatedToolName(name: string, displayName: string | undefined, action: boolean): string {
+  const builtin = BUILTIN_LABEL_KEYS[name];
+  if (builtin) { return t(builtin); }
   if (displayName) { return displayName; }
   const translation = TOOL_LABEL_KEYS[name];
   if (translation) { return t(translation); }
@@ -169,6 +176,18 @@ interface FlatRunTimelineInput {
 function legacyTimeline(input: FlatRunTimelineInput): FlatRunTimelineEntry[] {
   const output: FlatRunTimelineEntry[] = [];
   const { tools, processMessages, reasoningBlocks, taskDelegations } = input;
+  // Without seq, a delegation still sits right after the delegate_agent call that ran it, or before the first
+  // step of its round; only one with neither goes last.
+  const after = new Map<number, TaskDelegationDisplayRecord[]>(), before = new Map<number, TaskDelegationDisplayRecord[]>(), unplaced: TaskDelegationDisplayRecord[] = [];
+  const place = (into: Map<number, TaskDelegationDisplayRecord[]>, at: number, task: TaskDelegationDisplayRecord) => into.set(at, [...(into.get(at) ?? []), task]);
+  for (const task of taskDelegations) {
+    const delegate = (match: (tool: ToolExecutionRecord) => boolean) => tools.findIndex((tool) => tool.name === "delegate_agent" && match(tool));
+    let own = delegate((tool) => tool.taskResult?.sessionId === task.taskId);
+    if (own < 0 && task.roundId !== undefined) own = delegate((tool) => tool.roundId === task.roundId);
+    const first = own < 0 && task.roundId !== undefined ? tools.findIndex((tool) => tool.roundId === task.roundId) : -1;
+    if (own >= 0) place(after, own, task); else if (first >= 0) place(before, first, task); else unplaced.push(task);
+  }
+  const taskEntry = (task: TaskDelegationDisplayRecord): FlatRunTimelineEntry => ({ kind: "task", key: `task-${task.invocationId}`, task });
   for (let slot = 0; slot <= tools.length; slot += 1) {
     processMessages.forEach((process) => {
       if ((process.afterToolCount ?? 0) === slot) { output.push({ kind: "process", key: process.id, process }); }
@@ -178,12 +197,10 @@ function legacyTimeline(input: FlatRunTimelineInput): FlatRunTimelineEntry[] {
     });
     if (slot < tools.length) {
       const tool = tools[slot];
-      output.push({ kind: "tool", key: tool.id, tool });
+      output.push(...(before.get(slot) ?? []).map(taskEntry), { kind: "tool", key: tool.id, tool }, ...(after.get(slot) ?? []).map(taskEntry));
     }
   }
-  for (const task of taskDelegations) {
-    output.push({ kind: "task", key: `task-${task.invocationId}`, task });
-  }
+  output.push(...unplaced.map(taskEntry));
   return output;
 }
 
