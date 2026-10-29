@@ -47,6 +47,12 @@ describe("splitChatSegments", () => {
     expect(splitChatSegments(`对比一下：\n\n${table}`)).toEqual([`对比一下：\n\n${table}`]);
   });
 
+  it("keeps an indented code fence inside its list item, and the items after it in the same list", () => {
+    const list = "1. Install dependencies\n\n    ```sh\n    npm ci\n    ```\n\n2. Start the app";
+    expect(splitChatSegments(`先这样：\n\n${list}\n\n有问题再说。`)).toEqual([`先这样：\n\n${list}`, "有问题再说。"]);
+    expect(splitChatSegments(`好的。\n\n${list}`)).toEqual(["好的。", list]);
+  });
+
   it("joins a heading to what follows it", () => {
     expect(splitChatSegments("开头。\n\n## 小结\n\n今天就到这里。")).toEqual(["开头。", "## 小结\n\n今天就到这里。"]);
   });
