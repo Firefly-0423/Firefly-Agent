@@ -35,7 +35,10 @@ export interface ChatAppearanceSettings {
   codeThemeLight: LightCodeTheme;
   /** 深色主题下代码块的配色 */
   codeThemeDark: DarkCodeTheme;
-  /** Chat 模式的回复按段落分成几个气泡（存为 segmentedChatEnabled） */
+}
+
+/** 聊天窗口渲染所需：外观设置，加上「分段输出」偏好开关（存为 segmentedChatEnabled，不属于外观，也不随外观重置）。 */
+export interface ChatDisplaySettings extends ChatAppearanceSettings {
   segmentedChat: boolean;
 }
 
@@ -68,7 +71,6 @@ export const DEFAULT_CHAT_APPEARANCE: ChatAppearanceSettings = {
   smartPunctuation: false,
   codeThemeLight: "firefly",
   codeThemeDark: "firefly",
-  segmentedChat: true,
 };
 
 function oneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
@@ -157,8 +159,15 @@ export function normalizeChatAppearance(
     smartPunctuation: source.smartPunctuation === true,
     codeThemeLight: oneOf(source.codeThemeLight, LIGHT_CODE_THEMES, DEFAULT_CHAT_APPEARANCE.codeThemeLight),
     codeThemeDark: oneOf(source.codeThemeDark, DARK_CODE_THEMES, DEFAULT_CHAT_APPEARANCE.codeThemeDark),
-    // Stored settings carry segmentedChatEnabled; an already-normalized object (normalized again by the
-    // renderer) carries segmentedChat.
+  };
+}
+
+/** Stored settings carry segmentedChatEnabled; an object this already returned (normalized again by the
+ *  renderer) carries segmentedChat. */
+export function normalizeChatDisplay(input: unknown): ChatDisplaySettings {
+  const source = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
+  return {
+    ...normalizeChatAppearance(input),
     segmentedChat: "segmentedChatEnabled" in source ? normalizeSegmentedChatEnabled(source.segmentedChatEnabled) : source.segmentedChat !== false,
   };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_CHAT_APPEARANCE, normalizeChatAppearance } from "./chat-appearance";
+import { DEFAULT_CHAT_APPEARANCE, normalizeChatAppearance, normalizeChatDisplay } from "./chat-appearance";
 
 describe("normalizeChatAppearance", () => {
   it("keeps in-range values and drops fields it does not know about", () => {
@@ -24,7 +24,6 @@ describe("normalizeChatAppearance", () => {
       smartPunctuation: false,
       codeThemeLight: "firefly",
       codeThemeDark: "firefly",
-      segmentedChat: true,
     });
   });
 
@@ -45,16 +44,20 @@ describe("normalizeChatAppearance", () => {
       smartPunctuation: false,
       codeThemeLight: "firefly",
       codeThemeDark: "firefly",
-      segmentedChat: true,
     });
   });
 
   it("shows Chat replies as segments unless the stored switch is off", () => {
-    expect(normalizeChatAppearance({ segmentedChatEnabled: false }).segmentedChat).toBe(false);
-    expect(normalizeChatAppearance({ segmentedChatEnabled: true }).segmentedChat).toBe(true);
-    expect(normalizeChatAppearance({}).segmentedChat).toBe(true);
+    expect(normalizeChatDisplay({ segmentedChatEnabled: false }).segmentedChat).toBe(false);
+    expect(normalizeChatDisplay({ segmentedChatEnabled: true }).segmentedChat).toBe(true);
+    expect(normalizeChatDisplay({}).segmentedChat).toBe(true);
     // Preload normalizes and the renderer normalizes the result again; the choice must survive both.
-    expect(normalizeChatAppearance(normalizeChatAppearance({ segmentedChatEnabled: false })).segmentedChat).toBe(false);
+    expect(normalizeChatDisplay(normalizeChatDisplay({ segmentedChatEnabled: false })).segmentedChat).toBe(false);
+  });
+
+  it("keeps segmented output out of the appearance settings, so an appearance reset cannot change it", () => {
+    expect(DEFAULT_CHAT_APPEARANCE).not.toHaveProperty("segmentedChat");
+    expect(normalizeChatAppearance({ segmentedChatEnabled: false })).not.toHaveProperty("segmentedChat");
   });
 
   it("clamps the font sizes to their supported ranges", () => {

@@ -3,7 +3,7 @@ import { IPC } from "../../shared/ipc-channels";
 import { broadcastToAllWindows } from "../windows/broadcast";
 import type { WindowManager } from "../windows/window-manager";
 import { setGetCurrentAppIconPath } from "../windows/window-state";
-import { normalizeChatAppearance } from "../../shared/chat-appearance";
+import { normalizeChatDisplay } from "../../shared/chat-appearance";
 import { updateLocaleContext } from "../startup/locale-context";
 import { validateSearchApiKey } from "../orchestrator/search-backend-filter";
 import { addMcpServer, listMcpServers, removeMcpServer } from "../orchestrator/mcp-manager";
@@ -155,8 +155,8 @@ function reactToThemeAndAppearance(before: GeneralSettings, after: GeneralSettin
   if (before.uiTheme !== after.uiTheme) { broadcast(IPC.UI_THEME_CHANGED, after.uiTheme); }
   if (jsonChanged(before.uiFont, after.uiFont)) { broadcast(IPC.UI_FONT_CHANGED, after.uiFont); }
 
-  const oldLook = normalizeChatAppearance(before);
-  const newLook = normalizeChatAppearance(after);
+  const oldLook = normalizeChatDisplay(before);
+  const newLook = normalizeChatDisplay(after);
   if (jsonChanged(oldLook, newLook)) { broadcastToAllWindows(IPC.CHAT_TYPOGRAPHY_CHANGED, newLook); }
 }
 

@@ -30,11 +30,10 @@ function blocks(markdown: string): Block[] {
       continue;
     }
     if (!line.trim()) { flush(); continue; }
-    if (!lines.length) {
-      const opener = FENCE.exec(line)?.[1];
-      if (opener) fence = opener;
-      else if (line.trim() === "$$") fence = "$$";
-    }
+    // A fence can open right under a paragraph, with no blank line between them.
+    const opener = FENCE.exec(line)?.[1];
+    if (opener) fence = opener;
+    else if (line.trim() === "$$") fence = "$$";
     lines.push(line);
   }
   flush();

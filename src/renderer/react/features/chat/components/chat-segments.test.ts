@@ -19,6 +19,11 @@ describe("splitChatSegments", () => {
     expect(splitChatSegments("先说结论。\n\n```py\nprint(1)\n\nprint(2)")).toEqual(["先说结论。", "```py\nprint(1)\n\nprint(2)"]);
   });
 
+  it("holds the blank lines of a fence that opens directly under a paragraph", () => {
+    const code = "```ts\nconst a = 1;\n\nconst b = 2;\n```";
+    expect(splitChatSegments(`改成这样：\n${code}\n\n好了。`)).toEqual([`改成这样：\n${code}`, "好了。"]);
+  });
+
   it("keeps a list or a table together and attaches the sentence that introduces it", () => {
     const list = "- 第一项\n\n- 第二项\n\n  继续说第二项\n\n- 第三项";
     expect(splitChatSegments(`好的。\n\n可以这样排：\n\n${list}\n\n有问题再叫我。`))

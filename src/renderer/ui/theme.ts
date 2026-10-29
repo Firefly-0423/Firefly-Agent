@@ -2,7 +2,7 @@ import { connectUiColors } from "./colors";
 import type { UiColors } from "../../shared/ui-colors";
 import { DEFAULT_UI_THEME, normalizeUiTheme, type UiTheme } from "../../shared/ui-theme";
 import { DEFAULT_UI_FONT, normalizeUiFont, type UiFont } from "../../shared/ui-font";
-import type { ChatAppearanceSettings } from "../../shared/chat-appearance";
+import type { ChatDisplaySettings } from "../../shared/chat-appearance";
 
 declare global {
   interface Window {
@@ -17,8 +17,8 @@ declare global {
       onChanged: (callback: (font: UiFont) => void) => () => void;
     };
     fireflyAppearance?: {
-      get: () => Promise<ChatAppearanceSettings>;
-      onChanged: (callback: (settings: ChatAppearanceSettings) => void) => () => void;
+      get: () => Promise<ChatDisplaySettings>;
+      onChanged: (callback: (settings: ChatDisplaySettings) => void) => () => void;
     };
   }
 }
