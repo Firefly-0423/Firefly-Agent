@@ -24,6 +24,14 @@ describe("splitChatSegments", () => {
     expect(splitChatSegments("$$a + b$$\n\n下一段。")).toEqual(["$$a + b$$", "下一段。"]);
   });
 
+  it("treats a deeper fence-like line inside a code block as content, not its end", () => {
+    const code = "```text\nfirst\n    ```\n\nsecond\n```";
+    expect(splitChatSegments(`${code}\n\nAfter the example.`)).toEqual([code, "After the example."]);
+    // Inside a list item the closing fence carries the item's indentation.
+    const nested = "1. Run it\n\n    ```sh\n    npm ci\n\n    npm test\n    ```";
+    expect(splitChatSegments(`${nested}\n\n好了。`)).toEqual([nested, "好了。"]);
+  });
+
   it("holds the blank lines of a fence that opens directly under a paragraph", () => {
     const code = "```ts\nconst a = 1;\n\nconst b = 2;\n```";
     expect(splitChatSegments(`改成这样：\n${code}\n\n好了。`)).toEqual([`改成这样：\n${code}`, "好了。"]);
