@@ -679,7 +679,6 @@
 .ff-add-menu .ff-sticker-picker::-webkit-scrollbar { width: 6px; }
 .ff-add-menu .ff-sticker-picker::-webkit-scrollbar-thumb { border-radius: 3px; background: var(--ff-border); }
 
-:root[data-ui-theme="firefly-dark"] .ff-effort-bar { background: #111312; box-shadow: inset 0 0 0 1px #3b4240; }
 /* Send in dark: a soft translucent mint with a mint arrow instead of a bright solid disc. */
 :root[data-ui-theme="firefly-dark"] .ff-composer .ant-sender-actions-btn:not(:disabled) {
   box-shadow: inset 0 0 0 1px rgba(123, 216, 174, 0.28);
@@ -687,10 +686,6 @@
   background: rgba(123, 216, 174, 0.16);
 }
 :root[data-ui-theme="firefly-dark"] .ff-composer .ant-sender-actions-btn:not(:disabled):hover { background: rgba(123, 216, 174, 0.26); color: #a9ead0; }
-
-/* Dark: the effort fill matches the send button — the same soft translucent mint with a mint edge. */
-:root[data-ui-theme="firefly-dark"] .ff-effort-bar__fill { background: rgba(123, 216, 174, 0.22); box-shadow: inset 0 0 0 1px rgba(123, 216, 174, 0.32); }
-:root[data-ui-theme="firefly-dark"] .ff-effort-bar__knob::after { background: #8fe0bc; }
 
 /* Under the docked composer: permission on the left, model and effort, collapse and move on the right, quiet text
    buttons. The row is part of the composer's height, so narrow layouts and the drag bounds include it; the composer

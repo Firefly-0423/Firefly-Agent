@@ -1,8 +1,20 @@
 // @vitest-environment jsdom
 import React, { act } from "react";
+import { readFileSync, readdirSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EffortBar, KNOB, nearestStop, stopFraction } from "./EffortBar";
+
+describe("effort bar styles", () => {
+  it("are all in EffortBar.css, so no theme stylesheet flattens the fluid fill", () => {
+    const root = resolve("src/renderer");
+    const sheets = (dir: string): string[] => readdirSync(dir, { withFileTypes: true })
+      .flatMap(entry => entry.isDirectory() ? sheets(join(dir, entry.name)) : entry.name.endsWith(".css") ? [join(dir, entry.name)] : []);
+    const elsewhere = sheets(root).filter(file => !file.endsWith("EffortBar.css") && readFileSync(file, "utf8").includes(".ff-effort-bar"));
+    expect(elsewhere).toEqual([]);
+  });
+});
 
 describe("effort bar geometry", () => {
   it("spreads the stops evenly from end to end", () => {
