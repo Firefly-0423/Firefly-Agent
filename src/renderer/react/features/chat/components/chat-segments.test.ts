@@ -24,6 +24,16 @@ describe("splitChatSegments", () => {
     expect(splitChatSegments(`改成这样：\n${code}\n\n好了。`)).toEqual([`改成这样：\n${code}`, "好了。"]);
   });
 
+  it("keeps a reply with reference or footnote definitions in one bubble, so its links still resolve", () => {
+    const reply = "看这份[指南][guide]。\n\n还有别的问题吗？\n\n[guide]: https://docs.invalid";
+    expect(splitChatSegments(reply)).toEqual([reply]);
+    expect(splitChatSegments("结论[^1]。\n\n再补一句。\n\n[^1]: 出处")).toHaveLength(1);
+  });
+
+  it("keeps the indentation of a reply that opens with an indented code block", () => {
+    expect(splitChatSegments("\n    const a = 1;\n    const b = 2;\n\n这样就行。")).toEqual(["    const a = 1;\n    const b = 2;", "这样就行。"]);
+  });
+
   it("keeps a list or a table together and attaches the sentence that introduces it", () => {
     const list = "- 第一项\n\n- 第二项\n\n  继续说第二项\n\n- 第三项";
     expect(splitChatSegments(`好的。\n\n可以这样排：\n\n${list}\n\n有问题再叫我。`))

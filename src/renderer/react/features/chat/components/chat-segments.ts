@@ -41,12 +41,17 @@ function blocks(markdown: string): Block[] {
 }
 
 const introduces = (text: string) => /[:：]\s*$/.test(text);
+/** A reference or footnote definition resolves across the whole document, so such a reply is rendered whole. */
+const DEFINITION = /^ {0,3}\[[^\]\n]+\]:/m;
+/** Drops blank lines and trailing space at the edges, keeping the first line's indentation (an indented code block). */
+const edges = (text: string) => text.replace(/^(?:[ \t]*\n)+/, "").replace(/\s+$/, "");
 const visibleLength = (text: string) => text.replace(/\s/g, "").length;
 
 /** Splits a Chat reply into bubbles: one per paragraph, with lists, tables, quotes, code and math kept whole,
  *  a heading kept with what follows it, and a sentence ending in a colon kept with the block it introduces.
  *  Earlier bubbles do not change as more of a streaming reply arrives. */
 export function splitChatSegments(markdown: string): string[] {
+  if (DEFINITION.test(markdown)) { const whole = edges(markdown.replace(/\r\n?/g, "\n")); return whole ? [whole] : []; }
   const segments: Block[] = [];
   for (const block of blocks(markdown)) {
     const last = segments.at(-1);
@@ -65,5 +70,5 @@ export function splitChatSegments(markdown: string): string[] {
       segments.push({ ...block, kind: block.kind === "continuation" ? "prose" : block.kind });
     }
   }
-  return segments.map((segment) => segment.text.trim());
+  return segments.map((segment) => edges(segment.text));
 }
