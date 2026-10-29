@@ -189,6 +189,8 @@ export function ModelEffortControl({ sessionId, activeProfileId, onSelectModelPr
       trigger="click"
       placement="topRight"
       open={open}
+      // Unmount the panel once it has closed, so the effort bar's spark loop stops with it.
+      destroyOnHidden
       overlayClassName="ff-model-popover"
       onOpenChange={(next) => {
         setOpen(next);
