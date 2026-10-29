@@ -56,6 +56,28 @@ describe("effort bar", () => {
     expect(host.querySelector<HTMLElement>(".ff-effort-bar__knob")!.style.left).toMatch(/1px \+ 0 \* \(100% - 28px\)/);
   });
 
+  it("stops the sparks when reduced motion is turned on while open, and resumes when it is turned off", async () => {
+    const frames: FrameRequestCallback[] = [];
+    let cancelled = 0;
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { frames.push(callback); return frames.length; });
+    vi.stubGlobal("cancelAnimationFrame", () => { cancelled += 1; });
+    const context = new Proxy({}, { get: () => () => ({ addColorStop() {} }) });
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(context as never);
+    try {
+      act(() => root.render(React.createElement(EffortBar, { count: 4, value: 2, label: "effort", onCommit: vi.fn() })));
+      expect(frames.length).toBe(1);
+      const before = cancelled;
+      await act(async () => { document.documentElement.dataset.reduceMotion = "on"; await Promise.resolve(); });
+      expect(cancelled).toBe(before + 1);
+      expect(frames.length).toBe(1); // stopped: no new frame asked for
+      await act(async () => { document.documentElement.dataset.reduceMotion = "off"; await Promise.resolve(); });
+      expect(frames.length).toBe(2);
+    } finally {
+      delete document.documentElement.dataset.reduceMotion;
+      getContext.mockRestore(); vi.unstubAllGlobals();
+    }
+  });
+
   it("puts the level back when the drag is cancelled", () => {
     const onCommit = vi.fn(), onPreview = vi.fn();
     act(() => root.render(React.createElement(EffortBar, { count: 4, value: 0, label: "effort", onCommit, onPreview })));

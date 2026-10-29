@@ -69,16 +69,25 @@ function useSparks(canvas: RefObject<HTMLCanvasElement | null>, level: number, b
     sparks = stepSparks([], 0, width, height, state.current.level).map((spark) => ({ ...spark, x: Math.random() * width }));
     const observer = typeof ResizeObserver === "function" ? new ResizeObserver(resize) : undefined;
     observer?.observe(element);
-    // Reduced motion: one still frame of sparks, no animation.
-    if (motionReduced()) { draw(); return () => observer?.disconnect(); }
     const tick = (now: number) => {
       const seconds = Math.min(0.05, (now - last) / 1000); last = now;
       const boost = now - state.current.burstAt < BURST_MS ? BURST : 1;
       if (!document.hidden) { sparks = stepSparks(sparks, seconds, width, height, state.current.level, boost); draw(); }
       frame = requestAnimationFrame(tick);
     };
-    frame = requestAnimationFrame(tick);
-    return () => { cancelAnimationFrame(frame); observer?.disconnect(); };
+    // Reduced motion (the user's appearance choice or the system's) shows one still frame; the loop follows the
+    // preference when it changes while the bar is open.
+    const follow = () => {
+      cancelAnimationFrame(frame); frame = 0;
+      if (motionReduced()) { draw(); return; }
+      last = performance.now(); frame = requestAnimationFrame(tick);
+    };
+    const preference = typeof MutationObserver === "function" ? new MutationObserver(follow) : undefined;
+    preference?.observe(document.documentElement, { attributes: true, attributeFilter: ["data-reduce-motion"] });
+    const system = typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)") : undefined;
+    system?.addEventListener?.("change", follow);
+    follow();
+    return () => { cancelAnimationFrame(frame); observer?.disconnect(); preference?.disconnect(); system?.removeEventListener?.("change", follow); };
   }, [canvas]);
 }
 
