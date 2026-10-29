@@ -701,12 +701,12 @@
   justify-content: space-between;
   gap: 8px;
   min-width: 0;
-  padding: 4px 10px 0;
+  padding: 2px 10px 0;
 }
 .ff-composer__below-start,
 .ff-composer__below-end { display: flex; align-items: center; min-width: 0; }
 .ff-composer__below .ff-composer__agent-button {
-  min-height: 26px;
+  min-height: 24px;
   padding: 0 8px;
   border: 0;
   border-radius: 8px;
@@ -717,3 +717,8 @@
 }
 .ff-composer__below .ff-composer__agent-button:hover,
 .ff-composer__below .ff-composer__agent-button.is-open { background: var(--ff-bg-hover); color: var(--ff-text); }
+/* The permission button keeps its own class; in the row it takes the row's height. */
+.ff-composer__below .ff-composer__footer-button { min-height: 24px; height: 24px; padding: 0 8px; border-radius: 8px; font-size: 12.5px; }
+/* Full access in the row is said by its colour alone, like read-only: no tinted block behind it. */
+.ff-composer__below .ff-permission-control.is-full,
+.ff-composer__below .ff-permission-control.is-full:hover:not(:disabled) { background: transparent; box-shadow: none; color: #d9652b; }
