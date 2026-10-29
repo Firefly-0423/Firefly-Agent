@@ -1,12 +1,14 @@
-import React, { createElement } from "react";
+import React, { createElement, useContext } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { clampFloatingOffset, FloatingComposer, parseFloatingComposerState } from "./FloatingComposer";
+import { clampFloatingOffset, FloatingComposer, FloatingComposerControls, parseFloatingComposerState } from "./FloatingComposer";
 
+/** Stands in for the composer, which shows the controls it is handed in the row under the capsule. */
+function Composer() { return createElement("div", null, "composer", useContext(FloatingComposerControls)); }
 function render(floating: boolean, attention = false): string {
   return renderToStaticMarkup(createElement(FloatingComposer, {
     floating, attention,
-    children: createElement("div", null, "composer"),
+    children: createElement(Composer),
   }));
 }
 
@@ -15,12 +17,11 @@ describe("FloatingComposer", () => {
     vi.stubGlobal("React", React);
   });
 
-  it("adds the collapse and move controls only while floating, around the unchanged composer", () => {
+  it("hands the collapse and move controls to the composer only while floating", () => {
     const floating = render(true);
     expect(floating).toContain("ff-floating-composer is-floating");
-    expect(floating).toContain("ff-floating-composer__controls");
+    expect(floating).toMatch(/<div>composer<div class="ff-floating-composer__controls">/);
     expect(floating).toContain("is-handle");
-    expect(floating).toContain("<div>composer</div>");
 
     const docked = render(false);
     expect(docked).not.toContain("ff-floating-composer__controls");

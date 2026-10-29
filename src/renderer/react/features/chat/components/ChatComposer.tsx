@@ -2,7 +2,7 @@ import { useSlashCommands } from "./SlashCommandMenu";
 import { DesktopAsrButton } from "./DesktopAsrButton";
 import { Sender } from "@ant-design/x";
 import { Popover } from "antd";
-import { useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
+import { useContext, useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import { useTranslation } from "../../../i18n";
 import { resolveAsset } from "../../../../../shared/renderer-base";
 import { FIREFLY_AUTO_STICKERS } from "../../../../../shared/firefly-stickers";
@@ -10,6 +10,7 @@ import type { ContextUsageSnapshot } from "../../../../../shared/context-usage";
 import './ModelEffortControl.css';
 import { PermissionControl } from "./PermissionControl";
 import { ModelEffortControl } from "./ModelEffortControl";
+import { FloatingComposerControls } from "./FloatingComposer";
 import { PendingQueueDock, type PendingQueueDockItem } from "./PendingQueueDock";
 import { StepProgressPill } from "./StepProgressPill";
 import { smartPunctuate } from "./smart-punctuation";
@@ -356,6 +357,7 @@ export function ChatComposer(props: ChatComposerProps) {
   // 对话底部的输入框把权限和模型放在框下面一行（左权限、右模型），框里只留输入和发送；欢迎页的大输入框不变。
   const controlsBelow = Boolean(docked);
   const permissionControl = supportsPermission ? <PermissionControl /> : null;
+  const floatingControls = useContext(FloatingComposerControls);
   const modelControl = onSelectModelProfile
     ? <ModelEffortControl sessionId={conversationId} activeProfileId={activeModelProfileId} onSelectModelProfile={onSelectModelProfile} />
     : null;
@@ -509,10 +511,10 @@ export function ChatComposer(props: ChatComposerProps) {
           </div>
         )}
       </div>
-      {controlsBelow && (permissionControl || modelControl) && (
+      {controlsBelow && (permissionControl || modelControl || floatingControls) && (
         <div className="ff-composer__below">
           <div className="ff-composer__below-start">{permissionControl}</div>
-          <div className="ff-composer__below-end">{modelControl}</div>
+          <div className="ff-composer__below-end">{modelControl}{floatingControls}</div>
         </div>
       )}
     </div>
