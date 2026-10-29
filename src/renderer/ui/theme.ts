@@ -47,8 +47,9 @@ function applyTheme(theme: unknown): void {
 }
 
 const CUSTOM_FONT_STYLE_ID = "firefly-custom-font";
-// Fallback chain for the Chinese-first UI: the faces are listed in priority order, then generic sans-serif.
-const DEFAULT_FONT_STACK = ["\"Noto Sans SC\"", "-apple-system", "BlinkMacSystemFont", "\"Segoe UI\"", "\"PingFang SC\"", "\"Microsoft YaHei\"", "sans-serif"].join(", ");
+// Fallback chain for the Chinese-first UI: the bundled variable face (fonts.css), then the same family if installed, the
+// system faces in priority order, then generic sans-serif. Keep it in step with --rb-font-sans in tokens.css.
+const DEFAULT_FONT_STACK = ["\"Noto Sans SC Variable\"", "\"Noto Sans SC\"", "-apple-system", "BlinkMacSystemFont", "\"Segoe UI\"", "\"PingFang SC\"", "\"Microsoft YaHei\"", "sans-serif"].join(", ");
 
 // Custom fonts are injected as a <style> tag so the rule can point at the local-font scheme.
 function applyFont(value: unknown): void {

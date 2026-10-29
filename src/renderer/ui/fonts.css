@@ -1,3 +1,5 @@
-/* Noto Sans SC (思源黑体) for UI text (a weight range, so the dark theme can set reading text a touch finer), JetBrains Mono for tech accents.
-   Both come from Google Fonts; we preconnect for faster first paint. */
-@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300..700&family=JetBrains+Mono:wght@400;500&display=swap");
+/* Noto Sans SC (思源黑体) for UI text and JetBrains Mono for code, both variable (a weight range, so the dark theme can set
+   reading text a touch finer). Bundled from @fontsource-variable (SIL OFL 1.1) and split by unicode range, so a page loads
+   only the pieces it shows; the app looks the same offline and makes no font request to a third party. */
+@import "@fontsource-variable/noto-sans-sc";
+@import "@fontsource-variable/jetbrains-mono";
