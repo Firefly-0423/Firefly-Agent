@@ -18,25 +18,38 @@ function kindOf(first: string): BlockKind {
   return "prose";
 }
 
+/** An open code fence: its marker ("```", "~~~~") and indentation, or display math. */
+type OpenFence = { marker: string; indent: number } | "math";
+
+/** Indentation width, a tab counting as four spaces. */
+const width = (indent: string) => indent.replace(/\t/g, "    ").length;
+
+/** A line that closes `fence`: the same character, at least as long, nothing after it, and indented at most three
+ *  spaces more than the opener, so a deeper fence-like line is code content, not the end. */
+function closes(fence: Exclude<OpenFence, "math">, line: string): boolean {
+  const match = /^([ \t]*)(`{3,}|~{3,})\s*$/.exec(line);
+  return !!match && match[2][0] === fence.marker[0] && match[2].length >= fence.marker.length && width(match[1]) <= fence.indent + 3;
+}
+
 /** Blank-line separated blocks. A code fence or a $$ block is one block however many blank lines it holds,
  *  and an unclosed one (still streaming) runs to the end. */
 function blocks(markdown: string): Block[] {
   const found: Block[] = [];
-  let lines: string[] = [], fence: string | null = null;
+  let lines: string[] = [], fence: OpenFence | null = null;
   const flush = () => { if (lines.length) found.push({ kind: kindOf(lines[0]), text: lines.join("\n") }); lines = []; };
   for (const line of markdown.replace(/\r\n?/g, "\n").split("\n")) {
     if (fence) {
       lines.push(line);
-      if (fence === "$$" ? line.trim().endsWith("$$") : line.trim().startsWith(fence) && line.trim().replace(/[`~]/g, "") === "") fence = null;
+      if (fence === "math" ? line.trim().endsWith("$$") : closes(fence, line)) fence = null;
       continue;
     }
     if (!line.trim()) { flush(); continue; }
     // A fence can open right under a paragraph, with no blank line between them. Display math opens on a line
     // starting with $$ that does not also close it ("$$x = 1" opens; "$$x$$" is one line).
-    const opener = FENCE.exec(line)?.[1];
+    const opener = /^([ \t]*)(`{3,}|~{3,})/.exec(line);
     const math = line.trim();
-    if (opener) fence = opener;
-    else if (math.startsWith("$$") && (math === "$$" || !math.slice(2).endsWith("$$"))) fence = "$$";
+    if (opener) fence = { marker: opener[2], indent: width(opener[1]) };
+    else if (math.startsWith("$$") && (math === "$$" || !math.slice(2).endsWith("$$"))) fence = "math";
     lines.push(line);
   }
   flush();
