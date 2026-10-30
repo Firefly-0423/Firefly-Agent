@@ -120,14 +120,18 @@ export async function startAuthenticatedConnectProxy(ownerInput: { webContentsId
       try {
         const literalFamily = isIP(target.host);
         let answers: Awaited<ReturnType<ProxyDependencies["resolve"]>>;
+        // Set when the name only resolved to fake-ip addresses: the proxy's own address the connection goes through.
+        let fakeIp: (typeof answers)[number] | undefined;
         if (literalFamily) answers = [{ address: target.host, family: literalFamily }];
         else {
           const resolving = resolveWithinBudget(dependencies, target.host);
           if (!resolving) { reject(client, 503); return; }
           answers = await abortable(resolving, scope.signal);
-          // A TUN proxy in fake-ip mode answers every name from 198.18.0.0/15. Ask DoH where the name really points; the
-          // same public-address check below then applies to those answers, and the real address is what gets dialled.
+          // A TUN proxy in fake-ip mode answers every name from 198.18.0.0/15. Ask DoH where the name really points and
+          // apply the same public-address check below to those answers. Once they pass, the connection still goes to the
+          // fake-ip address: the proxy routes by name, and a bare real IP would miss its rules (and fail under TUN).
           if (answers.length && answers.every(answer => isFakeIpAddress(answer.address)) && !scope.signal.aborted) {
+            fakeIp = answers[0];
             answers = await abortable(Promise.resolve((dependencies.resolveVerified ?? resolveOverHttps)(target.host, scope.signal)), scope.signal);
           }
         }
@@ -135,7 +139,8 @@ export async function startAuthenticatedConnectProxy(ownerInput: { webContentsId
         if (!answers.length || answers.length > 64 || answers.some(answer => isIP(answer.address) !== answer.family)) { report("dns_failed"); reject(client, 403); return; }
         if (answers.some(answer => !isPublicNetworkAddress(answer.address))) { report("restricted_address"); reject(client, 403); return; }
         phase = "connect";
-        const pin: PinnedTarget = { address: answers[0].address, family: answers[0].family as 4 | 6, port: 443 };
+        const dial = fakeIp ?? answers[0];
+        const pin: PinnedTarget = { address: dial.address, family: dial.family as 4 | 6, port: 443 };
         upstream = dependencies.connect(pin, scope.signal); sockets.add(upstream);
         upstream.once("close", () => { sockets.delete(upstream!); client.destroy(); });
         upstream.on("error", () => { if (phase === "connect") report("connection_failed"); reject(client, 403); upstream?.destroy(); });

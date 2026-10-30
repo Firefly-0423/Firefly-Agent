@@ -126,13 +126,13 @@ describe("authenticated CONNECT proxy: actual local TCP + injected public pin", 
   });
   describe("fake-ip answers from a TUN proxy", () => {
     const fakeOnly = async () => [{ address: "198.18.0.201", family: 4 }];
-    it("verifies the name over DoH and dials the real public address", async () => {
+    it("verifies the name over DoH, then dials the fake-ip address so the proxy routes it by name", async () => {
       const verify = vi.fn(async (_host: string, _signal: AbortSignal) => publicAnswer);
       const f = await fixture(fakeOnly, { resolveVerified: verify }, ["example.com"]);
       const r = await request(f.proxy, { auth: authorization(f.proxy) });
       expect(await r.response).toContain("200 Connection Established");
       expect(verify).toHaveBeenCalledExactlyOnceWith("example.com", expect.any(AbortSignal));
-      expect(f.targets).toEqual([{ address: "93.184.216.34", family: 4, port: 443 }]);
+      expect(f.targets).toEqual([{ address: "198.18.0.201", family: 4, port: 443 }]);
     });
     it.each([["a private address", async () => [{ address: "192.168.1.5", family: 4 }]], ["another fake-ip answer", fakeAgain],
       ["no answer", async () => []]] as const)("stays closed when DoH returns %s", async (_case, verify) => {
