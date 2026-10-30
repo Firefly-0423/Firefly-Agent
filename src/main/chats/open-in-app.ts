@@ -316,7 +316,9 @@ async function launcherIcon(executable: string): Promise<string | undefined> {
 
 export function launchDetachedApp(command: string, args: readonly string[], watchMs = 1500): Promise<void> {
   return new Promise((accept, fail) => {
-    const processHandle = spawn(command, [...args], { detached: true, stdio: "ignore", windowsHide: true });
+    // Not windowsHide: an editor is a GUI app, and on Windows that flag starts it with SW_HIDE, which VS Code honours
+    // for its first window, leaving it running with no window on screen.
+    const processHandle = spawn(command, [...args], { detached: true, stdio: "ignore", windowsHide: false });
     let finished = false;
     const complete = (next: () => void): void => {
       if (finished) return;
