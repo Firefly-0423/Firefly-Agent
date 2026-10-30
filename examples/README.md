@@ -31,7 +31,7 @@ npm pack ./plugin-sdk
 npm run test:plugin-examples
 ```
 
-前两条生成本地 SDK tarball；在插件项目通过 `npm install /path/to/firefly-plugin-sdk-0.2.0.tgz` 安装。包名不代表已发布到 npm。
+前两条生成本地 SDK tarball；在插件项目通过 `npm install /path/to/firefly-0423-plugin-sdk-0.2.0.tgz` 安装；已发布的版本也可以直接 `npm install @firefly-0423/plugin-sdk`。
 
 `test:plugin-examples` 自行构建 SDK，在临时项目安装 tarball，编译四个 TypeScript 示例，将各自 `dist/index.js` 复制为 manifest 要求的 `index.cjs`，然后运行 `scripts/plugin-sdk/smoke-examples.mjs`。结束会删除临时项目与该脚本生成的 tarball，不会留下可安装 ZIP，也不启动 Electron。
 

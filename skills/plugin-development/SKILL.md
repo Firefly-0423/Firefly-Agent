@@ -71,7 +71,7 @@ modes:
 
 ## 第四步：本地冒烟
 
-不启动流萤也能先验证 `register` 契约：构建并安装 SDK 的 tarball，再用 `@firefly/plugin-sdk/testing` 提供的模拟上下文跑一遍。命令与脚本见 `references/getting-started.md`。模拟上下文有明确局限：`dispose()` 不会调用插件的 `unregister()`，存储是内存 Map，窗口与渠道都无法模拟。这些只能安装后在宿主里验证。
+不启动流萤也能先验证 `register` 契约：构建并安装 SDK 的 tarball，再用 `@firefly-0423/plugin-sdk/testing` 提供的模拟上下文跑一遍。命令与脚本见 `references/getting-started.md`。模拟上下文有明确局限：`dispose()` 不会调用插件的 `unregister()`，存储是内存 Map，窗口与渠道都无法模拟。这些只能安装后在宿主里验证。
 
 ## 第五步：打包与导入
 
@@ -102,7 +102,7 @@ modes:
 
 - 插件市场的在线索引地址与下载前缀在代码中为空，因此只有随应用提供的离线目录可用。市场安装随附的 ZIP 时会校验 SHA-256、插件 id 与版本。其他插件请以用户提供的本地 ZIP 导入。
 - 仓库根目录没有 `CONTRIBUTING.md`。插件分发以用户提供的 ZIP 为准，不要引导用户向仓库提交插件以求收录。
-- SDK 包标记为 `private`，不发布到 npm。使用的是本仓库构建出的 tarball。
+- SDK 包名为 `@firefly-0423/plugin-sdk`，公开版本发布在 npm（`npm install @firefly-0423/plugin-sdk`）。尚未发布的改动用本仓库 `npm pack ./plugin-sdk` 构建的 tarball 安装。
 - 安装他人的插件时，只使用用户提供的、来源可信的 ZIP，并保留原作者署名与来源说明。
 
 ## 安全与边界
