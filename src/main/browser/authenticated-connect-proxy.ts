@@ -127,10 +127,14 @@ export async function startAuthenticatedConnectProxy(ownerInput: { webContentsId
           const resolving = resolveWithinBudget(dependencies, target.host);
           if (!resolving) { reject(client, 503); return; }
           answers = await abortable(resolving, scope.signal);
-          // A TUN proxy in fake-ip mode answers every name from 198.18.0.0/15. Ask DoH where the name really points and
-          // apply the same public-address check below to those answers. Once they pass, the connection still goes to the
-          // fake-ip address: the proxy routes by name, and a bare real IP would miss its rules (and fail under TUN).
+          // A TUN proxy in fake-ip mode answers every name from 198.18.0.0/15. For the user's own browsing, ask DoH where the
+          // name really points and apply the same public-address check below to those answers. Once they pass, the connection
+          // still goes to the fake-ip address: the proxy routes by name, and a bare real IP misses its rules under TUN.
           if (answers.length && answers.every(answer => isFakeIpAddress(answer.address)) && !scope.signal.aborted) {
+            // The proxy resolves the name again on its own, so a public DoH answer cannot promise where the connection lands
+            // (split-horizon DNS, a local override). Only the user's own browsing accepts that; an Agent grant, which is
+            // host-limited, fails closed (owner's decision, 2026-10-30).
+            if (owner.allowedHosts !== undefined) { report("restricted_address"); reject(client, 403); return; }
             fakeIp = answers[0];
             answers = await abortable(Promise.resolve((dependencies.resolveVerified ?? resolveOverHttps)(target.host, scope.signal)), scope.signal);
           }

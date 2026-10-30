@@ -126,9 +126,16 @@ describe("authenticated CONNECT proxy: actual local TCP + injected public pin", 
   });
   describe("fake-ip answers from a TUN proxy", () => {
     const fakeOnly = async () => [{ address: "198.18.0.201", family: 4 }];
-    it("verifies the name over DoH, then dials the fake-ip address so the proxy routes it by name", async () => {
+    it("fails closed for a host-limited (Agent) grant without asking DoH", async () => {
+      const verify = vi.fn(async () => publicAnswer), report = vi.fn();
+      const f = await fixture(fakeOnly, { resolveVerified: verify }, ["example.com"], () => report);
+      const r = await request(f.proxy, { auth: authorization(f.proxy) });
+      expect(await r.response).toContain("403"); expect(report).toHaveBeenCalledExactlyOnceWith("restricted_address");
+      expect(verify).not.toHaveBeenCalled(); expect(f.dial).not.toHaveBeenCalled();
+    });
+    it("verifies the name over DoH for the user's own browsing, then dials the fake-ip address so the proxy routes it by name", async () => {
       const verify = vi.fn(async (_host: string, _signal: AbortSignal) => publicAnswer);
-      const f = await fixture(fakeOnly, { resolveVerified: verify }, ["example.com"]);
+      const f = await fixture(fakeOnly, { resolveVerified: verify });
       const r = await request(f.proxy, { auth: authorization(f.proxy) });
       expect(await r.response).toContain("200 Connection Established");
       expect(verify).toHaveBeenCalledExactlyOnceWith("example.com", expect.any(AbortSignal));
@@ -136,20 +143,20 @@ describe("authenticated CONNECT proxy: actual local TCP + injected public pin", 
     });
     it.each([["a private address", async () => [{ address: "192.168.1.5", family: 4 }]], ["another fake-ip answer", fakeAgain],
       ["no answer", async () => []]] as const)("stays closed when DoH returns %s", async (_case, verify) => {
-      const report = vi.fn(), f = await fixture(fakeOnly, { resolveVerified: verify }, ["example.com"], () => report);
+      const report = vi.fn(), f = await fixture(fakeOnly, { resolveVerified: verify }, undefined, () => report);
       const r = await request(f.proxy, { auth: authorization(f.proxy) });
       expect(await r.response).toContain("403"); expect(f.dial).not.toHaveBeenCalled();
       expect(report).toHaveBeenCalledExactlyOnceWith(_case === "no answer" ? "dns_failed" : "restricted_address");
     });
     it("reports a failed DoH lookup as a DNS failure", async () => {
-      const report = vi.fn(), f = await fixture(fakeOnly, { resolveVerified: async () => { throw Object.assign(new Error("secret"), { code: "EDOH" }); } }, ["example.com"], () => report);
+      const report = vi.fn(), f = await fixture(fakeOnly, { resolveVerified: async () => { throw Object.assign(new Error("secret"), { code: "EDOH" }); } }, undefined, () => report);
       const r = await request(f.proxy, { auth: authorization(f.proxy) });
       expect(await r.response).toContain("403"); expect(report).toHaveBeenCalledExactlyOnceWith("dns_failed"); expect(f.dial).not.toHaveBeenCalled();
     });
     it("asks DoH only when every answer is a fake-ip address", async () => {
       const verify = vi.fn(async () => publicAnswer);
       for (const answers of [[{ address: "10.0.0.1", family: 4 }], [{ address: "198.18.0.1", family: 4 }, { address: "93.184.216.34", family: 4 }]]) {
-        const f = await fixture(async () => answers, { resolveVerified: verify }, ["example.com"]);
+        const f = await fixture(async () => answers, { resolveVerified: verify });
         const r = await request(f.proxy, { auth: authorization(f.proxy) });
         expect(await r.response).toContain("403"); expect(f.dial).not.toHaveBeenCalled();
       }
