@@ -824,10 +824,15 @@ export function createMainDefaultMemory(options: MainDefaultMemoryOptions) {
         const needed = new Set([...recalled, ...pending].flatMap(item => item.projectKey === undefined ? [] : [item.projectKey]));
         // Names are decoration: resolved only for the projects shown, best effort, never able to fail the panel.
         const names = resolveProjectNames(needed, { listSessionIds: () => options.listSessionIds(), getSession: id => options.getSession(id), ...(options.listProjectBindings ? { listProjectBindings: () => options.listProjectBindings!() } : {}) });
-        const place = <T extends { projectKey?: string }>(item: T): Omit<T, "projectKey"> & { projectName?: string } => {
+        // Conversation titles are decoration too (the memory graph shows where a fact came from): best effort, never failing the panel.
+        const titleOf = (sourceRef: { binding?: { sessionId?: string } }): string | undefined => {
+          try { const title = sourceRef.binding?.sessionId ? options.getSession(sourceRef.binding.sessionId)?.title : undefined; return typeof title === "string" && title.trim() ? title.trim().slice(0, 200) : undefined; }
+          catch { return undefined; }
+        };
+        const place = <T extends { projectKey?: string; sourceRef: { binding?: { sessionId?: string } } }>(item: T): Omit<T, "projectKey"> & { projectName?: string; sourceTitle?: string } => {
           const { projectKey, ...rest } = item;
-          const projectName = projectKey === undefined ? undefined : names.get(projectKey);
-          return { ...rest, ...(projectName ? { projectName } : {}) };
+          const projectName = projectKey === undefined ? undefined : names.get(projectKey), sourceTitle = titleOf(item.sourceRef);
+          return { ...rest, ...(projectName ? { projectName } : {}), ...(sourceTitle ? { sourceTitle } : {}) };
         };
         const facts = recalled.map(place);
         const candidates = pending.map(item => ({ ...place(item), scope: item.projectKey === undefined ? "global" as const : "project" as const }));

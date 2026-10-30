@@ -31,6 +31,8 @@ export interface MemoryPanelCandidate {
   /** Where the candidate would apply once confirmed. */
   scope?: "global" | "project";
   projectName?: string;
+  /** Title of the conversation the candidate came from, when Main still has it. Decoration, never authority. */
+  sourceTitle?: string;
   /** Main-internal; removed before the renderer sees it. */
   projectKey?: string;
   contentHash?: string;

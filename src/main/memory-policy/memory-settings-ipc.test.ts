@@ -70,6 +70,20 @@ describe("settings memory IPC trust boundary", () => {
     f.state.facts = [{ ...f.state.facts[0], scope: "somewhere", projectName: 42 } as any];
     expect(Object.keys((await f.api.getMemoryPanelState(f.event)).facts[0])).not.toEqual(expect.arrayContaining(["scope", "projectName"]));
   });
+  it("passes a fact's category and the source conversation title, but never the typed record", async () => {
+    const f = fixture();
+    const source = { sourceId: "source-1", revision: 1 };
+    f.state.facts = [{ factId: "fact-1", revision: 1, subjectKey: "k", assertion: "请用中文回复", assertionKind: "user-statement", time: { validFrom: 1, validTo: null, referenceTime: 1 }, sourceRef: source,
+      recordedAt: 1, acceptedAt: 1, supersededAt: null, activationReason: "policyAccepted", policyVersion: "t", provenance: { candidateId: null, evidenceId: null, activationSourceRef: source },
+      typed: { legacyAttribute: "language", entityKey: "entity-secret", slotKey: "slot-secret" }, sourceTitle: "周末计划".repeat(60) } as any];
+    f.state.candidates = [{ ...f.state.candidates[0], sourceTitle: "聊聊茶" }];
+    const out = await f.api.getMemoryPanelState(f.event);
+    expect(out.facts[0]).toMatchObject({ attribute: "language" }); expect(out.facts[0].sourceTitle).toHaveLength(200);
+    expect(out.candidates[0]).toMatchObject({ sourceTitle: "聊聊茶" });
+    expect(JSON.stringify(out)).not.toContain("entity-secret"); expect(out.facts[0]).not.toHaveProperty("typed");
+    f.state.facts = [{ ...f.state.facts[0], typed: undefined, sourceTitle: 7 } as any];
+    expect(Object.keys((await f.api.getMemoryPanelState(f.event)).facts[0])).not.toEqual(expect.arrayContaining(["attribute", "sourceTitle"]));
+  });
   it("stale_revision_or_foreign_window_rejected", async () => {
     const f = fixture();
     expect(await f.api.applyMemoryPanelAction(f.event, { ...confirm, expectedRevision: 2 })).toEqual({ status: "rejected", reason: "MEMORY_REVISION_CONFLICT" });

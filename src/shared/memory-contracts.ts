@@ -21,6 +21,10 @@ export interface FactView extends FactDraft {
  projectKey?:string;
  /** Display name of the project a project-scoped fact belongs to, when Main still knows a session bound to it. */
  projectName?:string;
+ /** Settings DTO only: the fact's category (`typed.legacyAttribute`), so the panel need not see the typed record. */
+ attribute?:string;
+ /** Settings DTO only: title of the conversation the fact was learned in, when Main still has it. Decoration, never authority. */
+ sourceTitle?:string;
 }
 export interface MutationResult {id:string;revision:number}
 export interface EvidenceInput {commandId:string;evidenceId:string;sourceRef:SourceRef;text:string}
