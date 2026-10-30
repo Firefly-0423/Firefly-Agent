@@ -1,3 +1,4 @@
+import { promptTokensOf } from "../context-usage";
 import type { ToolSpec, ChatResponse, ChatMessage } from "../vendors/types";
 import { causeCodes } from "../vendors/error-chain";
 import type { RunAdjustmentMessage, HarnessResult, HarnessInput, HarnessConfig, HarnessCacheState, AgentState } from "./types";
@@ -111,7 +112,7 @@ async function runHarnessLoop(run: HarnessRun): Promise<HarnessResult> {
       if (host.signal?.aborted) return abortedResult(run);
       return failedStage(run, cause, cause instanceof ContextError ? "context" : "model");
     }
-    if (generated.usage) run.measuredUsage = { inputTokens: generated.usage.input, outputTokens: generated.usage.output, messageCount: requested };
+    if (generated.usage) run.measuredUsage = { inputTokens: promptTokensOf(generated.usage), outputTokens: generated.usage.output, messageCount: requested };
     const declaration = toAssistantMessage(generated);
     run.messages.push(declaration);
     try { run.currentAssistantEntryId = await host.transcriptSink?.appendAssistant({ message: declaration, roundId: round }); }

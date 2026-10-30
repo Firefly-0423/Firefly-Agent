@@ -8,7 +8,7 @@ import { streamChatWithSdk } from "./vendors/sdk-stream/runtime";
 import type { UnifiedStreamDelta } from "./vendors/sdk-stream/types";
 import { getTimeoutSettings } from "../settings/timeout-manager";
 import { compressConversation } from "./context-manager";
-import { buildContextUsageSnapshot } from "./context-usage";
+import { buildContextUsageSnapshot, promptTokensOf } from "./context-usage";
 import { isExplicitStreamUnsupported } from "./vendors/stream-support";
 import { composePromptLayers } from "./prompt-layers";
 import type { TranscriptSink } from "./transcript-sink";
@@ -67,11 +67,11 @@ export async function runChatLoop(options: ChatLoopOptions): Promise<AgentLoopRe
     messages: options.messages, adapter: options.adapter, settings: options.settings, systemContent: options.soulSystemBaseContent,
     mode: options.mode, onEvent: options.onEvent, signal: options.signal,
   });
-  const publishUsage = (phase: "preRequest" | "terminal", reply?: string, usage?: { input: number; output: number }): void => {
+  const publishUsage = (phase: "preRequest" | "terminal", reply?: string, usage?: { input: number; output: number; cachedInput?: number; cacheCreation?: number }): void => {
     options.onEvent?.({ type: "context_usage", contextUsage: buildContextUsageSnapshot({
       phase, contextWindowTokens: options.settings.contextWindowTokens, personaContent: options.soulSystemBaseContent,
       // The request also carried what the memory run added (facts, retrieved history): only the provider's count sees it.
-      ...(usage ? { measured: { inputTokens: usage.input, outputTokens: usage.output, messageCount: measuredMessages.length } } : {}),
+      ...(usage ? { measured: { inputTokens: promptTokensOf(usage), outputTokens: usage.output, messageCount: measuredMessages.length } } : {}),
       ...(options.runtimeContext ? { runtimeContext: options.runtimeContext } : {}),
       ...(reply !== undefined ? { messages: [...measuredMessages, { role: "assistant" as const, content: reply }] } : { messages: measuredMessages }),
     }) });

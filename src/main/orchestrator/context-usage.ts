@@ -28,6 +28,15 @@ function messageBucket(entry: ChatMessage): ContextUsageCategoryKey {
   }
 }
 
+/**
+ * Prompt tokens a request actually carried. Anthropic reports cache reads and writes beside `input_tokens` and always
+ * sends `cache_creation_input_tokens` (the adapters map it to `cacheCreation`); OpenAI-style APIs count cached tokens
+ * inside the prompt total and never send it.
+ */
+export function promptTokensOf(usage: { input: number; cachedInput?: number; cacheCreation?: number }): number {
+  return usage.cacheCreation === undefined ? usage.input : usage.input + (usage.cachedInput ?? 0) + usage.cacheCreation;
+}
+
 export function buildContextUsageSnapshot(input: ContextUsageSnapshotInput): ContextUsageSnapshot {
   const totals: Record<ContextUsageCategoryKey, number> = {
     systemPrompt: 0, tools: 0, skills: 0, runtimeAndToolLogs: 0, conversation: 0, other: 0, toolDefinitions: 0, retrieved: 0,

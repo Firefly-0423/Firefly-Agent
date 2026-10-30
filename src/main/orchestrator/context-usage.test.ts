@@ -1,5 +1,5 @@
 import { it, describe, expect } from "vitest";
-import { buildContextUsageSnapshot, type ContextUsageSnapshotInput } from "./context-usage";
+import { buildContextUsageSnapshot, promptTokensOf, type ContextUsageSnapshotInput } from "./context-usage";
 import { estimateTokens as cost } from "./context-manager";
 import { buildCompactionCheckpoint } from "./harness/compaction";
 
@@ -70,6 +70,11 @@ describe("Context usage presented for a model turn", () => {
       expect(snapshot.totalTokens).toBe(300);
       expect(snapshot.categories.reduce((sum, part) => sum + part.tokens, 0)).toBe(300);
       expect(snapshot.categories.some(part => part.key === "retrieved")).toBe(false);
+    });
+    it("counts Anthropic cache reads and writes, which it reports beside input, but not OpenAI's, which are inside it", () => {
+      expect(promptTokensOf({ input: 120, cachedInput: 4_000, cacheCreation: 800 })).toBe(4_920);
+      expect(promptTokensOf({ input: 120, cachedInput: 0, cacheCreation: 0 })).toBe(120);
+      expect(promptTokensOf({ input: 5_000, cachedInput: 4_000 })).toBe(5_000);
     });
     it("falls back to the estimate when the provider reported nothing usable", () => {
       expect(measure({ measured: { inputTokens: 0, outputTokens: 0, messageCount: 0 } })).not.toHaveProperty("measured");
