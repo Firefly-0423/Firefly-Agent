@@ -118,6 +118,7 @@ h2 { font-size: clamp(26px, 4vw, 36px); }
 
 .footer { padding: 28px max(16px, calc((100vw - 1200px) / 2)) 40px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; }
 .footer p { margin: 4px 0; }
+.footer-links { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 10px !important; }
 
 .toast {
   position: fixed; left: 50%; bottom: 28px; z-index: 20; transform: translate(-50%, 20px);

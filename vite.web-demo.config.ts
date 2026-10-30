@@ -3,6 +3,7 @@ import { cpSync } from "node:fs";
 import { resolve } from "node:path";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { siteLicenses } from "./scripts/build/site-licenses.mjs";
 
 /**
  * The online demo: the chat UI with in-page fake bridges (src/renderer/web-demo), for the promo site.
@@ -21,7 +22,7 @@ function copyAvatars(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), copyAvatars()],
+  plugins: [react(), tailwindcss(), copyAvatars(), siteLicenses({ outDir, title: "Firefly-Agent online demo" })],
   root: resolve(__dirname, "src/renderer"),
   base: "./",
   publicDir: false,

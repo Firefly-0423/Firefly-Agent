@@ -37,6 +37,8 @@ const EN: Record<string, string> = {
   "download.installer": "Go to GitHub Releases", "download.source": "View the source", "download.issues": "Report an issue",
   "footer.license": "The source code is MIT licensed; third-party dependencies, models, images and character assets follow their own licenses.",
   "footer.ip": "Firefly and Honkai: Star Rail characters and IP belong to HoYoverse / miHoYo and the respective rights holders. This is an unofficial, non-commercial fan project; derivatives containing the Firefly character or character art may not be used commercially.",
+  "footer.notices": "Third-party and asset notices", "footer.siteLicenses": "Open-source licenses in this page",
+  "footer.demoLicenses": "Open-source licenses in the online demo",
   "toast.desktopOnly": "That part needs the desktop app.",
 };
 const ZH_TOAST = "这个功能需要在桌面版里使用。";
