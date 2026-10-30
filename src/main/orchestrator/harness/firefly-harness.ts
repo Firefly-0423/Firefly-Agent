@@ -112,7 +112,8 @@ async function runHarnessLoop(run: HarnessRun): Promise<HarnessResult> {
       if (host.signal?.aborted) return abortedResult(run);
       return failedStage(run, cause, cause instanceof ContextError ? "context" : "model");
     }
-    if (generated.usage) run.measuredUsage = { inputTokens: promptTokensOf(generated.usage), outputTokens: generated.usage.output, messageCount: requested };
+    // A round without usage must not keep the previous round's count as the baseline: the card falls back to the estimate.
+    run.measuredUsage = generated.usage ? { inputTokens: promptTokensOf(generated.usage), outputTokens: generated.usage.output, messageCount: requested } : undefined;
     const declaration = toAssistantMessage(generated);
     run.messages.push(declaration);
     try { run.currentAssistantEntryId = await host.transcriptSink?.appendAssistant({ message: declaration, roundId: round }); }
