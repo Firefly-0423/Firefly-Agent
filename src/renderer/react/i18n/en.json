@@ -170,7 +170,8 @@
       "qqbot": "QQ Bot",
       "unknown": "External channel",
       "sameConversation": "{{channels}} · same conversation"
-    }
+    },
+    "roundFailedTools": "{{count}} failed"
   },
   "contextRing": {
     "categorySystemPrompt": "System prompt",

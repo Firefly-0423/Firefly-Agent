@@ -16,7 +16,7 @@ vi.mock("../../../../../shared/renderer-base", () => ({ resolveAsset: (asset: st
 vi.mock("./MermaidBlock", () => ({ MermaidBlock: () => null }));
 vi.mock("./SvgCardBlock", () => ({ SvgCardBlock: () => null }));
 import { assembleMessageItems, createMessageItems, formatChannelSourceLabel, MarkdownContent, resolveChannelConversationLabel,
-  RunActivityDetail, type ChatMessageItem, type EnabledSticker } from "./ChatMessageList";
+  RunActivityDetail, finishedRunFacts, type ChatMessageItem, type EnabledSticker } from "./ChatMessageList";
 import { extractMessageStickerId, stripMessageStickerMarkers } from "./message-sticker";
 
 beforeEach(() => vi.stubGlobal("React", React));
@@ -193,6 +193,12 @@ test("a finished run reads as one timeline: narration, thinking and steps, witho
   expect(text).not.toContain("Inspection understood");
   expect(text).not.toContain("流萤已完成");
   expect(text.indexOf("Inspecting directories")).toBeLessThan(text.indexOf("Verifying cancellation"));
+});
+
+test("a finished run that recovered from a failed step still says so in its collapsed caption", () => {
+  expect(finishedRunFacts([{ id: "x1", roundId: "inspection", name: "run_shell", status: "error", seq: 1 },
+    { id: "read", roundId: "verification", name: "read_file", status: "success", seq: 2 }] as never)).toEqual(["读取 1 个文件", "1 项失败"]);
+  expect(finishedRunFacts([{ id: "read", roundId: "verification", name: "read_file", status: "success", seq: 2 }] as never)).toEqual(["读取 1 个文件"]);
 });
 
 test("labels interrupted generated text and keeps a finished edit as its own step", () => {

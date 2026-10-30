@@ -4,17 +4,19 @@ import type { MemoryGraphSummary } from "../../../../../shared/memory-panel-cont
 import { MEMORY_GRAPH_CATEGORY_RGB } from "../../../../../shared/memory-graph-categories";
 import { useTranslation } from "../../../i18n";
 
-/** Read again when a run ends (busy → false): a run is where memories are learned. */
-export function useMemorySummary(busy: boolean | undefined): MemoryGraphSummary | null {
+/** Read again when a run ends (busy → false): a run is where memories are learned. A temporary chat never reads it:
+ * it must not see anything from other sessions, counts included. */
+export function useMemorySummary(busy: boolean | undefined, temporary = false): MemoryGraphSummary | null {
   const [summary, setSummary] = useState<MemoryGraphSummary | null>(null);
   useEffect(() => {
+    if (temporary) { setSummary(null); return; }
     if (busy) return;
     const load = window.memoryPanel?.graphSummary;
     if (!load) return;
     let active = true;
     load().then((value) => { if (active) setSummary(value); }).catch(() => {});
     return () => { active = false; };
-  }, [busy]);
+  }, [busy, temporary]);
   return summary;
 }
 
