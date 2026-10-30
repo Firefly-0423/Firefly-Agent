@@ -73,8 +73,11 @@ function fact(item: FactView): FactView {
 }
 function stateDto(state: MemoryPanelState): MemoryPanelState {
   const c = state.coverage;
-  return { facts: state.facts.map(fact), candidates: state.candidates.map((item) => ({ candidateId: item.candidateId, revision: item.revision, attribute: item.attribute,
-    reviewState: item.reviewState === "ready" && item.assertion.trim() ? "ready" : "reference-only",
+  // A candidate the extractor found nothing in (reference-only or blank) can only be rejected. The panel leaves it out
+  // instead of asking the user to dismiss it; the policy still holds it until a later extraction replaces it.
+  const reviewable = state.candidates.filter((item) => item.reviewState === "ready" && item.assertion.trim());
+  return { facts: state.facts.map(fact), candidates: reviewable.map((item) => ({ candidateId: item.candidateId, revision: item.revision, attribute: item.attribute,
+    reviewState: "ready",
     ...(item.time ? { time: { validFrom: item.time.validFrom, validTo: item.time.validTo, referenceTime: item.time.referenceTime } } : {}),
     value: item.value, assertion: item.assertion, reason: item.reason, sourceRef: source(item.sourceRef), ...(item.occurredAt !== undefined ? { occurredAt: item.occurredAt } : {}),
       ...(typeof item.contentHash === "string" && /^[a-f0-9]{64}$/.test(item.contentHash) ? { contentHash: item.contentHash } : {}),
