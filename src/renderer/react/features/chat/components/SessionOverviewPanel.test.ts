@@ -1,4 +1,5 @@
 import React, { createElement } from "react";
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { ContextUsageSnapshot } from "../../../../../shared/context-usage";
@@ -85,16 +86,25 @@ describe("SessionOverviewPanel", () => {
     expect(html).toContain("−3");
   });
 
-  it("leaves the memory card out of a temporary chat", () => {
-    expect(render({ usage })).toContain('data-overview-card="memory"');
-    expect(render({ usage, environment: { mode: "chat", temporary: true } })).not.toContain('data-overview-card="memory"');
+  it("has no memory card; the memory graph lives in settings", () => {
+    expect(render({ usage })).not.toContain('data-overview-card="memory"');
+  });
+
+  it("lays entry cards out like the folding cards: chevron first, summary at the right edge", () => {
+    const css = readFileSync(new URL("./SessionOverviewPanel.css", import.meta.url), "utf8");
+    // No `order:` on entry cards (`border:` is fine), and no extra right padding that pulls their summary inward.
+    expect(css).not.toMatch(/\[data-entry\][^{]*\{[^}]*(?:^|[\s;{])order\s*:/);
+    expect(css).not.toMatch(/\[data-entry\][^{]*\{[^}]*padding-right\s*:/);
+    const html = render({ usage, environment: { mode: "chat" } });
+    const entry = html.slice(html.indexOf('data-overview-card="environment"'));
+    expect(entry.indexOf("ff-overview-card__chevron")).toBeLessThan(entry.indexOf("ff-overview-card__title"));
   });
 
   it("makes every card a labelled disclosure", () => {
     const html = render({ usage, outputs: [output] });
 
     // Tasks, context, changes, outputs, memory and usage fold; environment and connectors are one-row entries.
-    expect((html.match(/aria-expanded="true"/g) ?? []).length).toBe(6);
-    expect((html.match(/aria-controls=/g) ?? []).length).toBe(6);
+    expect((html.match(/aria-expanded="true"/g) ?? []).length).toBe(5);
+    expect((html.match(/aria-controls=/g) ?? []).length).toBe(5);
   });
 });

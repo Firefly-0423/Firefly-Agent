@@ -1981,7 +1981,6 @@ export function ChatPage() {
               environment={{ mode, workspaceName: activeSession?.workspaceBinding?.displayName, temporary: activeSession?.temporary }}
               onOpenEnvironment={activeSession?.workspaceBinding ? openFilesTab : mode !== "chat" ? () => void chooseWorkspace() : undefined}
               onOpenConnectors={() => sidebarApi()?.openSettings("mcp")}
-              onOpenMemoryGraph={() => sidebarApi()?.openSettings("memory-graph")}
               onOpenOutputFile={openOutputFile} workspaceRoot={activeSession?.workspaceBinding?.workspaceRoot}
               sessionId={activeSessionId} busy={isCurrentScopeRunning} />
           </aside>

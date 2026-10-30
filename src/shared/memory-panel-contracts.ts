@@ -1,12 +1,6 @@
 import type { FactView, SourceRef } from "./memory-contracts";
 
 /** Renderer DTOs only. No actor tokens, provider handles, keys or filesystem paths. */
-/** Counts only, for the chat window's memory card: no memory text, ids or titles leave the settings window. */
-export interface MemoryGraphSummary {
-  available: boolean;
-  categories: { key: string; facts: number; pending: number }[];
-  sources: number;
-}
 export interface MemoryPanelAction {
   kind: "confirm" | "reject" | "correct" | "forget";
   id: string;
