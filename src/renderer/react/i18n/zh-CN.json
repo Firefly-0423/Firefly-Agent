@@ -190,7 +190,8 @@
     "menuAria": "上下文占比",
     "menuTitle": "上下文容量",
     "title": "上下文 {{summary}}",
-    "footnote": "估算值（按字符折算），对话后自动刷新"
+    "footnote": "估算值（按字符折算），对话后自动刷新",
+    "categoryRetrieved": "记忆与检索内容"
   },
   "slash": {
     "label": "指令",
@@ -377,9 +378,21 @@
   },
   "scheduledPanel": {
     "suggestions": {
-      "daily": { "title": "每日工作回顾", "description": "每天傍晚 6 点总结当天的进展。", "prompt": "总结我今天的工作进展：做了什么、遇到什么问题、明天要继续什么。" },
-      "weekly": { "title": "每周计划整理", "description": "每周一早上 9 点整理本周要做的事。", "prompt": "根据我最近的对话和任务，整理出本周需要优先处理的事项，并按重要程度排序。" },
-      "todos": { "title": "定时检查待办", "description": "每天早上 9 点提醒还没完成的事项。", "prompt": "检查我还没完成的待办事项，列出最该先做的三件。" }
+      "daily": {
+        "title": "每日工作回顾",
+        "description": "每天傍晚 6 点总结当天的进展。",
+        "prompt": "总结我今天的工作进展：做了什么、遇到什么问题、明天要继续什么。"
+      },
+      "weekly": {
+        "title": "每周计划整理",
+        "description": "每周一早上 9 点整理本周要做的事。",
+        "prompt": "根据我最近的对话和任务，整理出本周需要优先处理的事项，并按重要程度排序。"
+      },
+      "todos": {
+        "title": "定时检查待办",
+        "description": "每天早上 9 点提醒还没完成的事项。",
+        "prompt": "检查我还没完成的待办事项，列出最该先做的三件。"
+      }
     },
     "filterAll": "全部任务",
     "listSection": "任务",
@@ -505,7 +518,13 @@
     "restartRequired": "需要完整重启应用后生效；当前运行版本不会被替换。",
     "restartAfterFailure": "当前进程未运行此插件。请完整重启应用后，按已保存的版本选择重新尝试。",
     "catalogReadAt": "目录读取时间：{{time}}",
-    "sources": { "builtin": "内置插件", "bundled": "随应用分发", "curated-market": "精选市场", "local-zip": "本地 ZIP", "legacy-unknown": "历史安装，来源未核实" },
+    "sources": {
+      "builtin": "内置插件",
+      "bundled": "随应用分发",
+      "curated-market": "精选市场",
+      "local-zip": "本地 ZIP",
+      "legacy-unknown": "历史安装，来源未核实"
+    },
     "title": "功能插件",
     "subtitle": "管理已安装的功能插件；新导入的插件默认停用，请确认来源可信后再启用。",
     "registryPrefix": "Firefly 收录仓库:",
@@ -959,7 +978,12 @@
     "noSearchResults": "没有匹配的任务",
     "viewProjectsShort": "项目",
     "viewStatusShort": "按状态",
-    "status": {"needs-input": "需要你处理", "working": "进行中", "done": "已完成", "needsInputLabel": "等待你处理"},
+    "status": {
+      "needs-input": "需要你处理",
+      "working": "进行中",
+      "done": "已完成",
+      "needsInputLabel": "等待你处理"
+    },
     "viewMergedShort": "合并",
     "dragToReorder": "拖动排序",
     "reorderHint": "拖动或按 Alt+↑ / Alt+↓ 调整顺序",
@@ -986,8 +1010,7 @@
     "newProjectChat": "在此项目中新建对话",
     "emptyTier": "暂无内容",
     "showProject": "显示项目",
-    "projectVisibility": "项目显示"
-,
+    "projectVisibility": "项目显示",
     "organizeSidebar": "整理侧边栏",
     "sortChats": "聊天排序方式",
     "copy": "复制",
@@ -1239,7 +1262,8 @@
     "connectorsManage": "在设置中管理",
     "usage": "用量",
     "outputs": "产出",
-    "outputsEmpty": "本会话还没有产出"
+    "outputsEmpty": "本会话还没有产出",
+    "contextMeasured": "总量来自服务商返回；分项按字符估算。"
   },
   "workspace": {
     "resizeSidebar": "调整会话侧栏宽度",

@@ -29,6 +29,7 @@ export function contextUsageCategoryMeta(): Record<ContextUsageCategoryKey, { la
     ["conversation", "contextRing.categoryConversation", "#10B981"],
     ["other", "contextRing.categoryOther", "#9CA3AF"],
     ["toolDefinitions", "contextRing.categoryToolDefinitions", "#3B82F6"],
+    ["retrieved", "contextRing.categoryRetrieved", "#EC4899"],
   ];
   return Object.fromEntries(entries.map(([category, translation, color]) => [category, { label: t(translation), color }])) as Record<ContextUsageCategoryKey, { label: string; color: string }>;
 }

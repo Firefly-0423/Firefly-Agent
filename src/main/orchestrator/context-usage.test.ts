@@ -52,5 +52,27 @@ describe("Context usage presented for a model turn", () => {
     expect(empty.categories[0]).toEqual({ key: "systemPrompt", tokens: cost("Act as a desktop assistant.") });
     expect(empty.totalTokens).toBe(empty.categories.reduce((total, entry) => total + entry.tokens, 0));
     expect(measure({ phase: "terminal", runId: "calendar-run", round: 7 })).toMatchObject({ phase: "terminal", runId: "calendar-run", round: 7, contextWindowTokens: 96_000 });
+    expect(empty).not.toHaveProperty("measured");
+  });
+
+  describe("with the provider's reported usage", () => {
+    const messages = [{ role: "user" as const, content: "列出待办" }, { role: "assistant" as const, content: "好的" }, { role: "tool" as const, content: "x".repeat(400) }];
+    it("totals what the request carried, its reply and the messages added since, and shows what the estimate missed", () => {
+      const snapshot = measure({ messages, measured: { inputTokens: 5_000, outputTokens: 40, messageCount: 1 } });
+      const since = cost("x".repeat(400)) + 4;
+      expect(snapshot).toMatchObject({ measured: true, totalTokens: 5_040 + since });
+      const parts = snapshot.categories.filter(part => part.key !== "retrieved").reduce((sum, part) => sum + part.tokens, 0);
+      expect(snapshot.categories.find(part => part.key === "retrieved")?.tokens).toBe(5_040 + since - parts);
+      expect(snapshot.categories.reduce((sum, part) => sum + part.tokens, 0)).toBe(snapshot.totalTokens);
+    });
+    it("scales an estimate that overshoots down to the reported total", () => {
+      const snapshot = measure({ messages, personaContent: "persona ".repeat(2_000), measured: { inputTokens: 300, outputTokens: 0, messageCount: 3 } });
+      expect(snapshot.totalTokens).toBe(300);
+      expect(snapshot.categories.reduce((sum, part) => sum + part.tokens, 0)).toBe(300);
+      expect(snapshot.categories.some(part => part.key === "retrieved")).toBe(false);
+    });
+    it("falls back to the estimate when the provider reported nothing usable", () => {
+      expect(measure({ measured: { inputTokens: 0, outputTokens: 0, messageCount: 0 } })).not.toHaveProperty("measured");
+    });
   });
 });

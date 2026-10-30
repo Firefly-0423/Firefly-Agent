@@ -67,9 +67,11 @@ export async function runChatLoop(options: ChatLoopOptions): Promise<AgentLoopRe
     messages: options.messages, adapter: options.adapter, settings: options.settings, systemContent: options.soulSystemBaseContent,
     mode: options.mode, onEvent: options.onEvent, signal: options.signal,
   });
-  const publishUsage = (phase: "preRequest" | "terminal", reply?: string): void => {
+  const publishUsage = (phase: "preRequest" | "terminal", reply?: string, usage?: { input: number; output: number }): void => {
     options.onEvent?.({ type: "context_usage", contextUsage: buildContextUsageSnapshot({
       phase, contextWindowTokens: options.settings.contextWindowTokens, personaContent: options.soulSystemBaseContent,
+      // The request also carried what the memory run added (facts, retrieved history): only the provider's count sees it.
+      ...(usage ? { measured: { inputTokens: usage.input, outputTokens: usage.output, messageCount: measuredMessages.length } } : {}),
       ...(options.runtimeContext ? { runtimeContext: options.runtimeContext } : {}),
       ...(reply !== undefined ? { messages: [...measuredMessages, { role: "assistant" as const, content: reply }] } : { messages: measuredMessages }),
     }) });
@@ -208,7 +210,7 @@ export async function runChatLoop(options: ChatLoopOptions): Promise<AgentLoopRe
     const reply = stripLeakedChatTimeContext(stripToolProtocol(response.text)) || "刚才没有生成正常回复，请再试一次。";
     const canonical: ChatMessage = { ...response.assistantMessage, role: "assistant", content: reply };
     await options.transcriptSink?.appendAssistant({ message: canonical });
-    publishUsage("terminal", reply);
+    publishUsage("terminal", reply, response.usage);
     if (completed.needsReveal) { beginText(); await emitFallbackText(options.onEvent, textId, reply, options.fallbackRevealIntervalMs ?? 20, options.signal); }
     finishText();
     return { reply, toolResults: [], totalUsage: response.usage, completionReason: "no_tool" };

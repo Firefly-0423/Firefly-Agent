@@ -14,6 +14,8 @@ export interface ContextUsageSnapshotInput {
   round?: number;
   runId?: string;
   phase: ContextUsagePhase;
+  /** The provider's usage for the last request: its input and output tokens and how many messages it carried. */
+  measured?: { inputTokens: number; outputTokens: number; messageCount: number };
 }
 
 function messageBucket(entry: ChatMessage): ContextUsageCategoryKey {
@@ -28,7 +30,7 @@ function messageBucket(entry: ChatMessage): ContextUsageCategoryKey {
 
 export function buildContextUsageSnapshot(input: ContextUsageSnapshotInput): ContextUsageSnapshot {
   const totals: Record<ContextUsageCategoryKey, number> = {
-    systemPrompt: 0, tools: 0, skills: 0, runtimeAndToolLogs: 0, conversation: 0, other: 0, toolDefinitions: 0,
+    systemPrompt: 0, tools: 0, skills: 0, runtimeAndToolLogs: 0, conversation: 0, other: 0, toolDefinitions: 0, retrieved: 0,
   };
   totals.systemPrompt += estimateTokens(input.personaContent);
   totals.skills += estimateTokens(input.skillLayerContent ?? "");
@@ -41,8 +43,25 @@ export function buildContextUsageSnapshot(input: ContextUsageSnapshotInput): Con
   }
   for (const entry of input.messages) totals[messageBucket(entry)] += estimateMessageContentTokens(entry.content ?? "") + 4;
   const order: ContextUsageCategoryKey[] = ["systemPrompt", "tools", "skills", "runtimeAndToolLogs", "conversation", "other"];
-  const categories: ContextUsageCategory[] = order.map((key) => ({ key, tokens: totals[key] }));
+  let categories: ContextUsageCategory[] = order.map((key) => ({ key, tokens: totals[key] }));
+  // With the provider's count the total is real: what that request carried, its reply, and an estimate of the
+  // messages added since (tool results). What the estimate cannot see (memory, retrieved history, provider framing)
+  // is shown as its own share; an estimate that overshoots is scaled down to the reported total instead.
+  const measured = input.measured && Number.isSafeInteger(input.measured.inputTokens) && input.measured.inputTokens > 0 ? input.measured : undefined;
+  if (measured) {
+    const since = input.messages.slice(measured.messageCount + 1).reduce((sum, entry) => sum + estimateMessageContentTokens(entry.content ?? "") + 4, 0);
+    const total = measured.inputTokens + Math.max(0, measured.outputTokens || 0) + since;
+    const estimated = categories.reduce((sum, part) => sum + part.tokens, 0);
+    if (estimated <= total) categories.push({ key: "retrieved", tokens: total - estimated });
+    else {
+      const scaled = categories.map((part) => ({ ...part, tokens: Math.floor(part.tokens * total / estimated) }));
+      const largest = scaled.reduce((best, part, index) => part.tokens > scaled[best].tokens ? index : best, 0);
+      scaled[largest].tokens += total - scaled.reduce((sum, part) => sum + part.tokens, 0);
+      categories = scaled;
+    }
+  }
   return {
+    ...(measured ? { measured: true } : {}),
     phase: input.phase, ...(input.runId ? { runId: input.runId } : {}),
     ...(typeof input.round === "number" ? { round: input.round } : {}),
     contextWindowTokens: input.contextWindowTokens,
