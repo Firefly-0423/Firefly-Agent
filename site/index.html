@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; frame-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="以《崩坏：星穹铁道》流萤为角色的 Windows Live2D 桌面伴侣与 AI 工作台。可在网页上直接试用界面。" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Firefly-Agent · 流萤桌面伴侣与 AI 工作台</title>
+  <link rel="icon" href="../src/renderer/public/avatars/firefly-avatar.png" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#top" aria-label="Firefly-Agent">
+      <img src="../src/renderer/public/avatars/firefly-avatar.png" alt="" width="32" height="32" />
+      <span>Firefly-Agent</span>
+    </a>
+    <nav class="nav" aria-label="页面导航">
+      <a href="#demo" data-i18n="nav.demo">在线试用</a>
+      <a href="#features" data-i18n="nav.features">功能</a>
+      <a href="#download" data-i18n="nav.download">下载</a>
+    </nav>
+    <div class="topbar-actions">
+      <a class="icon-link" href="https://github.com/Firefly-0423/Firefly-Agent" aria-label="GitHub" data-i18n-label="nav.github">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.08.63-1.33-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.6 9.6 0 0 1 12 6.84c.85 0 1.71.11 2.51.34 1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg>
+      </a>
+      <button class="chip" type="button" id="lang-toggle" aria-label="Switch to English">EN</button>
+      <button class="icon-link" type="button" id="theme-toggle" aria-label="切换深浅色" data-i18n-label="nav.theme">
+        <svg class="sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>
+        <svg class="moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <img class="hero-banner" id="hero-banner" alt="Firefly-Agent：流萤桌面伴侣与 AI 工作台" width="1792" height="468" data-i18n-alt="hero.bannerAlt" />
+      <h1 data-i18n="hero.title">陪你聊天，也陪你把事情做完</h1>
+      <p class="lede" data-i18n="hero.lede">Firefly 把一个会陪你聊天的桌面角色，和一个能真正动手干活的 Agent 工作台放在同一个窗口里。每一步做了什么、需要你批准什么，都看得见。</p>
+      <div class="cta">
+        <a class="button primary" href="#demo" data-i18n="hero.try">在线试用</a>
+        <a class="button" href="https://github.com/Firefly-0423/Firefly-Agent/releases/latest" data-i18n="hero.download">下载 Windows 版</a>
+      </div>
+      <ul class="pills" aria-label="模式">
+        <li>💬 Chat</li><li>📋 Work</li><li>💻 Code</li>
+      </ul>
+    </section>
+
+    <section id="demo" class="demo-section">
+      <p class="eyebrow" data-i18n="demo.eyebrow">桌面端真实界面</p>
+      <h2 data-i18n="demo.title">先在这里，试试流萤</h2>
+      <p class="section-lede" data-i18n="demo.lede">下面运行的是桌面版的同一套界面代码。左上角可以切换 Chat / Work / Code，发一句话看看流萤怎么回应、怎么请你批准。</p>
+      <div class="demo-frame">
+        <div class="demo-chrome" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="demo-scroll">
+          <iframe id="demo-iframe" title="Firefly 在线演示" src="demo/web-demo/index.html?lang=zh" loading="lazy" data-i18n-title="demo.iframeTitle"></iframe>
+        </div>
+      </div>
+      <ul class="demo-notes">
+        <li data-i18n="demo.note1">可浏览、可试发消息</li>
+        <li data-i18n="demo.note2">消息只保存在当前页面</li>
+        <li data-i18n="demo.note3">固定演示回复，不调用模型</li>
+      </ul>
+    </section>
+
+    <section id="features" class="features">
+      <p class="eyebrow" data-i18n="features.eyebrow">能做什么</p>
+      <h2 data-i18n="features.title">有人设，也有边界</h2>
+      <div class="grid">
+        <article class="card"><h3 data-i18n="features.chat.title">💬 Chat · 桌面陪伴</h3><p data-i18n="features.chat.body">角色化对话与流式回复，Live2D 流萤常驻桌面，有表情和待机动作；可开临时对话，不进历史。</p></article>
+        <article class="card"><h3 data-i18n="features.work.title">📋 Work · 推进任务</h3><p data-i18n="features.work.body">读写文件、整理 Word / Excel / PDF、联网搜索、定时提醒；过程收成一行摘要，结果可展开核对。</p></article>
+        <article class="card"><h3 data-i18n="features.code.title">💻 Code · 代码工作区</h3><p data-i18n="features.code.body">在绑定的项目里用 Git、语言服务器、结构化搜索和命令工具读改代码，改动和差异都在右侧。</p></article>
+        <article class="card"><h3 data-i18n="features.memory.title">🧠 记忆在本地</h3><p data-i18n="features.memory.body">个人记忆与历史检索存在本机 SQLite；设置里有记忆关系图，可确认、更正或忘记每一条。</p></article>
+        <article class="card"><h3 data-i18n="features.market.title">🧩 Skills 与插件市场</h3><p data-i18n="features.market.body">Skills 只安装经过审查、锁定提交且内容一致的版本；插件安装时核对 SHA-256，装好后默认停用。</p></article>
+        <article class="card"><h3 data-i18n="features.safety.title">🔒 默认克制</h3><p data-i18n="features.safety.body">写文件、执行命令、联网操作都走权限等级和审批，可随时取消；角色语气不会放宽这些规则。</p></article>
+      </div>
+    </section>
+
+    <section id="download" class="download">
+      <div class="download-card">
+        <div>
+          <p class="eyebrow" data-i18n="download.eyebrow">下载</p>
+          <h2 data-i18n="download.title">Windows 桌面版</h2>
+          <p data-i18n="download.body">需要 Windows 10 / 11（x64）。安装包里不附带模型服务和账号，首次启动后在设置里填写你自己的模型服务。</p>
+        </div>
+        <div class="download-actions">
+          <a class="button primary" href="https://github.com/Firefly-0423/Firefly-Agent/releases/latest" data-i18n="download.installer">前往 GitHub Releases</a>
+          <a class="button" href="https://github.com/Firefly-0423/Firefly-Agent" data-i18n="download.source">查看源码</a>
+        </div>
+      </div>
+      <ul class="links">
+        <li><a href="https://github.com/Firefly-0423/firefly-skills">firefly-skills</a></li>
+        <li><a href="https://github.com/Firefly-0423/firefly-plugins">firefly-plugins</a></li>
+        <li><a href="https://github.com/Firefly-0423/Firefly-Agent/issues" data-i18n="download.issues">问题反馈</a></li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p data-i18n="footer.license">源码以 MIT License 授权；第三方依赖、模型、图片与角色素材分别遵循各自许可。</p>
+    <p data-i18n="footer.ip">流萤及《崩坏：星穹铁道》相关角色形象与知识产权归 HoYoverse / 米哈游及相应权利人所有。本项目为非官方、非商业的同人项目，含有流萤角色与角色美术的衍生物禁止商业使用。</p>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>

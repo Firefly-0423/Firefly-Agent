@@ -57,8 +57,13 @@ Adding a deploy workflow changes CI, so the workflow is added only after the use
 - A build check that the demo bundle contains no `fetch`/`WebSocket` to other origins and no Live2D model files.
 - Manual check in a browser at desktop and phone widths.
 
-## Open items for the user
+## Decisions after review (2026-10-30)
 
-- The domain name and its registrar, so DNS can be set up.
-- Whether to publish the 1.1.0 installer as a GitHub Release. There is no release yet, and the download button needs one.
-- Approval to add the Pages deploy workflow.
+- The user approved the Pages deploy workflow (`.github/workflows/pages.yml`) and publishing the 1.1.0 installer as a GitHub Release.
+- The site is named "Firefly-Agent". Its banners are the README banners with that title (`site/banner/`); the README and the app keep "Firefly_Agent".
+- The demo build swaps the delegated-partner portraits for a stub, so no other character's artwork is published with the site. The only image it ships is the Firefly avatar.
+- Until the domain is ready, the site is served at the repository's github.io address.
+
+## Open items
+
+- The domain name and its registrar, so DNS and the Pages custom domain can be set up.

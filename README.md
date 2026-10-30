@@ -199,9 +199,11 @@ src/
 ├── renderer/             # 渲染进程
 │   ├── react/            #   React 界面：聊天、侧栏、设置、组件与样式
 │   ├── live2d/           #   Live2D 渲染
+│   ├── web-demo/         #   网站上的在线演示：同一套界面，接页面内的模拟接口
 │   └── public/           #   静态资源（头像、贴纸、Cubism Core）
 └── shared/               # 主进程与渲染进程共享的契约与工具
 
+site/                     # 宣传网站（GitHub Pages），嵌入在线演示
 native/                   # Rust 原生助手：截图、历史读取、工作区句柄访问
 plugin-sdk/               # 插件 SDK 源码
 examples/                 # 插件示例（text-stats、json-tools、weather-tool 等）

@@ -19,6 +19,9 @@
     "src/renderer/react/**/*.tsx",
     "src/renderer/react-perf/**/*.ts",
     "src/renderer/react-perf/**/*.tsx",
+    "src/renderer/web-demo/**/*.ts",
+    "src/renderer/web-demo/**/*.tsx",
+    "site/**/*.ts",
     "src/renderer/global.d.ts",
     "src/shared/**/*.ts"
   ],

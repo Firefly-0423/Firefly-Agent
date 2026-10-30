@@ -199,9 +199,11 @@ src/
 ├── renderer/             # Renderer process
 │   ├── react/            #   React interface: chat, sidebar, settings, components and styles
 │   ├── live2d/           #   Live2D rendering
+│   ├── web-demo/         #   The site's online demo: the same UI on in-page mock bridges
 │   └── public/           #   Static assets (avatars, stickers, Cubism Core)
 └── shared/               # Contracts and helpers shared by main and renderer
 
+site/                     # Promo site (GitHub Pages) that embeds the online demo
 native/                   # Rust native helpers: screenshots, history reading, workspace handle access
 plugin-sdk/               # Plugin SDK sources
 examples/                 # Plugin examples (text-stats, json-tools, weather-tool and more)
