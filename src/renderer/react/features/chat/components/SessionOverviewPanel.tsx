@@ -174,7 +174,7 @@ function ContextCardBody({ overview }: { overview: OverviewContext }) {
           </li>
         )}
       </ul>
-      <p className="ff-overview-card__note">{t("sessionOverview.contextEstimate")}</p>
+      <p className="ff-overview-card__note">{t(overview.measured ? "sessionOverview.contextMeasured" : "sessionOverview.contextEstimate")}</p>
     </>
   );
 }

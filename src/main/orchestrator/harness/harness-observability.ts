@@ -11,7 +11,7 @@ export function emitContextUsage(run: HarnessRun, phase: "preRequest" | "termina
     phase, ...(request.runId ? { runId: request.runId } : {}), round: run.rounds,
     contextWindowTokens: run.config.contextWindowTokens, personaContent: layers.personaContent,
     toolLayerContent: layers.toolLayerContent, ...(layers.skillLayerContent ? { skillLayerContent: layers.skillLayerContent } : {}),
-    toolSpecs: run.allToolSpecs, messages: run.messages,
+    toolSpecs: run.allToolSpecs, messages: run.messages, ...(run.measuredUsage ? { measured: run.measuredUsage } : {}),
   }) });
 }
 function fingerprintCacheDiagnostic(value: unknown): string {

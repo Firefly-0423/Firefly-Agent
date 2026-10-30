@@ -1,5 +1,5 @@
 export type ContextUsageCategoryKey = "systemPrompt" | "tools" | "skills"
-  | "runtimeAndToolLogs" | "conversation" | "other" | "toolDefinitions";
+  | "runtimeAndToolLogs" | "conversation" | "other" | "toolDefinitions" | "retrieved";
 export type ContextUsagePhase = "preRequest" | "terminal";
 export type ContextUsageCategory = { tokens: number; key: ContextUsageCategoryKey };
 export type ContextUsageSnapshot = {
@@ -11,11 +11,13 @@ export type ContextUsageSnapshot = {
   round?: number;
   runId?: string;
   phase: ContextUsagePhase;
+  /** The total comes from the provider's reported token usage; the categories are estimates scaled to it. */
+  measured?: boolean;
 };
 
 const knownCategories = new Set<string>([
   "systemPrompt", "tools", "skills", "runtimeAndToolLogs",
-  "conversation", "other", "toolDefinitions",
+  "conversation", "other", "toolDefinitions", "retrieved",
 ]);
 function finiteNumber(candidate: unknown): candidate is number {
   return typeof candidate === "number" && Number.isFinite(candidate);
@@ -33,6 +35,7 @@ export function isContextUsageSnapshot(value: unknown): value is ContextUsageSna
   if (!wholeCount(usage.messageCount)) return false;
   if (!finiteNumber(usage.updatedAt)) return false;
   if (!Array.isArray(usage.categories)) return false;
+  if (usage.measured !== undefined && typeof usage.measured !== "boolean") return false;
   return usage.categories.every((part) => part && typeof part === "object"
     && typeof part.key === "string" && knownCategories.has(part.key)
     && wholeCount(part.tokens));

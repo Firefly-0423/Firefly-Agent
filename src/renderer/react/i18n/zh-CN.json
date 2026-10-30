@@ -191,7 +191,8 @@
     "menuAria": "上下文占比",
     "menuTitle": "上下文容量",
     "title": "上下文 {{summary}}",
-    "footnote": "估算值（按字符折算），对话后自动刷新"
+    "footnote": "估算值（按字符折算），对话后自动刷新",
+    "categoryRetrieved": "记忆与检索内容"
   },
   "slash": {
     "label": "指令",
@@ -1263,6 +1264,7 @@
     "usage": "用量",
     "outputs": "产出",
     "outputsEmpty": "本会话还没有产出",
+    "contextMeasured": "总量来自服务商返回；分项按字符估算。",
     "memory": "记忆",
     "memoryEmpty": "流萤还没记住什么。",
     "memoryUnavailable": "记忆服务暂不可用。",

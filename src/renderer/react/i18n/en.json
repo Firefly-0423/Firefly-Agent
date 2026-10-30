@@ -191,7 +191,8 @@
     "menuAria": "Context usage",
     "menuTitle": "Context capacity",
     "title": "Context: {{summary}}",
-    "footnote": "Estimated value; refreshes after each message"
+    "footnote": "Estimated value; refreshes after each message",
+    "categoryRetrieved": "Memory and retrieved context"
   },
   "slash": {
     "label": "Commands",
@@ -1263,6 +1264,7 @@
     "usage": "Usage",
     "outputs": "Outputs",
     "outputsEmpty": "No outputs in this session yet",
+    "contextMeasured": "The total is what the provider reported; the parts are estimated from characters.",
     "memory": "Memory",
     "memoryEmpty": "Nothing remembered yet.",
     "memoryUnavailable": "Memory is unavailable right now.",
