@@ -11,18 +11,20 @@ const ports = vi.hoisted(() => ({
   register: vi.fn(),
   tools: vi.fn(),
   warn: vi.fn(),
+  sources: [] as { directory: string; source: string }[],
 }));
 vi.mock("electron", () => ({ app: { getPath: () => ports.root } }));
 vi.mock("../storage/external-content-paths", () => ({
   getExternalContentPaths: () => ({ userSkillDirectories: [ports.root] }),
   resolvePackagedSkillDirectory: () => ports.source || null,
-  resolveSkillScanSources: () => [{ directory: ports.root, source: "user" }],
+  resolveSkillScanSources: () => ports.sources.length ? ports.sources : [{ directory: ports.root, source: "user" }],
 }));
 vi.mock("./directory-install", () => ({
   synchronizeManagedSkillDirectories: ports.sync,
   validateManagedSourceDirectory: ports.validate,
 }));
-vi.mock("./skill-scanner", async (importOriginal) => ({ ...await importOriginal<typeof import("./skill-scanner")>(), scanSkills: () => [{ id: "public-skill", enabled: true }] }));
+vi.mock("./skill-scanner", async (importOriginal) => ({ ...await importOriginal<typeof import("./skill-scanner")>(), scanSkills: (_directory: string, source: string) => source === "builtin" ? [{ id: "built-skill", enabled: true, source }]
+  : [{ id: "public-skill", enabled: true }, ...(ports.sources.length ? [{ id: "built-skill", enabled: true, source }] : [])] }));
 vi.mock("./skill-registry", () => ({ skillRegistry: { register: ports.register, getAll: () => [], setExternalAccessGate: vi.fn(), unregister: vi.fn() } }));
 vi.mock("./skill-tools", () => ({ registerSkillTools: ports.tools }));
 vi.mock("../logging/logger", () => ({ logger: { info: vi.fn(), warn: ports.warn }, LogTag: { Skills: "Skills" } }));
@@ -42,6 +44,7 @@ afterEach(() => {
   if (ports.root) fs.rmSync(ports.root, { recursive: true, force: true });
   ports.root = "";
   ports.source = "";
+  ports.sources = [];
   vi.clearAllMocks();
 });
 
@@ -81,4 +84,13 @@ it("counts the installer's managed Skills as shipped once they are synchronized,
   fs.writeFileSync(path.join(path.dirname(ports.source), "skills-manifest.json"), "{}");
   await initSkills(storage());
   expect([...shippedSkillIds()]).toEqual([]);
+});
+
+it("keeps a built-in Skill shipped when a user Skill of the same id overrides it", async () => {
+  fixture();
+  ports.sources = [{ directory: path.join(ports.root, "builtin"), source: "builtin" }, { directory: ports.root, source: "user" }];
+  await initSkills(storage());
+  // The user copy wins in the registry, but the market must still treat the id as shipped.
+  expect(ports.register).toHaveBeenCalledWith({ id: "built-skill", enabled: true, source: "user" });
+  expect([...shippedSkillIds()].sort()).toEqual(["built-skill", "public-skill"]);
 });

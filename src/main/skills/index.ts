@@ -20,6 +20,8 @@ interface SkillsContext {
   expected: Map<string, string>;
   /** Ids of the managed Skills this installation ships (synchronized into the user directory from the installer). */
   managed: ReadonlySet<string>;
+  /** Ids found in the built-in Skill directory at the last scan, kept even when a user Skill of the same id overrides it. */
+  builtIn: ReadonlySet<string>;
 }
 let context: SkillsContext | undefined;
 
@@ -53,8 +55,12 @@ function verifiedExternalRecord(current: SkillsContext, skill: SkillEntry, requi
 
 function scanAndRegister(current: SkillsContext): number {
   const paths = { ...getExternalContentPaths(), userSkillDirectories: [path.join(current.storage.dataRoot, "skills")] };
-  const sources = resolveSkillScanSources(paths), map = new Map<string, SkillEntry>();
-  for (const source of sources) for (const skill of scanSkills(source.directory, source.source)) map.set(skill.id, skill);
+  const sources = resolveSkillScanSources(paths), map = new Map<string, SkillEntry>(), builtIn = new Set<string>();
+  for (const source of sources) for (const skill of scanSkills(source.directory, source.source)) {
+    if (source.source === "builtin") builtIn.add(skill.id);
+    map.set(skill.id, skill);
+  }
+  current.builtIn = builtIn;
   for (const skill of scanExternalSkills(current.storage, current.state)) map.set(skill.id, skill);
   const saved = enabledStore(current.storage).read({});
   for (const skill of map.values()) {
@@ -81,7 +87,7 @@ export async function initSkills(storage: StorageContext = getStorageContext(), 
   // Reset before reading the new profile, including a failed initialization.
   skillRegistry.setExternalAccessGate(() => false);
   for (const skill of skillRegistry.getAll()) skillRegistry.unregister(skill.id);
-  context = { storage, state: new ExternalSkillStateStore(storage, host), expected: new Map(), managed: new Set() };
+  context = { storage, state: new ExternalSkillStateStore(storage, host), expected: new Map(), managed: new Set(), builtIn: new Set() };
   const paths = { ...getExternalContentPaths(), userSkillDirectories: [path.join(storage.dataRoot, "skills")] };
   const sourceDirectory = resolvePackagedSkillDirectory(paths), userSkillsDir = paths.userSkillDirectories[0];
   try {
@@ -126,8 +132,8 @@ export function rescanSkills(): number { return scanAndRegister(currentContext()
 /** Skills that ship with Firefly: the built-in directory and the managed Skills from the installer. The market never
  *  installs a second copy of one of these. */
 export function shippedSkillIds(): ReadonlySet<string> {
-  const builtIn = skillRegistry.getAll().filter(skill => skill.source === "builtin").map(skill => skill.id);
-  return new Set([...builtIn, ...(context?.managed ?? [])]);
+  // From the scan, not the registry: a user Skill with a shipped id overrides the registry entry but is still shipped.
+  return new Set([...(context?.builtIn ?? []), ...(context?.managed ?? [])]);
 }
 export { skillRegistry } from "./skill-registry";
 export { buildAutoInjectedSkillContext, buildAutoInjectedSoulContext, buildSkillCatalog } from "./skill-catalog";
