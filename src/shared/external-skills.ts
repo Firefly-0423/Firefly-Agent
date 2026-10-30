@@ -1,5 +1,5 @@
 /** Renderer-visible data only. Main owns and validates all source paths and file digests. */
-export type ExternalSkillSourceId = "openai" | "anthropic";
+export type ExternalSkillSourceId = "firefly" | "openai" | "anthropic";
 
 export type ExternalSkillErrorCode =
   | "SOURCE_INVALID" | "CATALOG_INVALID" | "NETWORK_FAILED" | "RATE_LIMITED"
@@ -34,6 +34,13 @@ export interface ExternalSkillRevisions {
   readonly reviewed?: { readonly commit: string; readonly contentSha256: string; readonly policyVersion: string; readonly reviewedAt: string };
   readonly installed?: { readonly commit: string; readonly contentSha256: string; readonly enabled: boolean; readonly policyVersion?: string };
   readonly installedError?: "STATE_INVALID";
+}
+
+/** Reviewed Firefly metadata of a Firefly-native Skill (visibility and labels only, never a grant). */
+export interface ExternalNativeMetadata {
+  modes?: ("work" | "code")[];
+  effectKind?: "read" | "mutation" | "verification" | "external_side_effect";
+  tools?: string[];
 }
 
 export interface ExternalDependencyIssue {
@@ -71,6 +78,10 @@ export interface ExternalSkill {
   };
   review: "unreviewed" | "approved" | "blocked";
   blockers: ExternalSkillErrorCode[];
+  /** Set from an approved Firefly-native review only; installed Skills take it from the host record. */
+  native?: ExternalNativeMetadata;
+  /** Read-only: a built-in Skill of the same name exists, so this one is never offered for install. */
+  readonly builtIn?: true;
 }
 
 /** Messages must not expose unescaped upstream text or real user profile paths. */

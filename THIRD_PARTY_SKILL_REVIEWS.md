@@ -14,6 +14,20 @@ All imported files must be inside the selected Skill directory. This MVP has no 
 
 Allowed license IDs are exactly MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause and ISC. Every file needs exact reviewed coverage and an included, byte-verified applicable license with substantive terms. License labels, adjacent boilerplate, package declarations and renderer flags alone are insufficient. The static reviewer must resolve actual scope and all applicable copyright and NOTICE obligations. Content heuristics are additional fail-closed checks, not a substitute for that review.
 
+## Firefly's own source and the Firefly-native policy
+
+[Firefly-0423/firefly-skills](https://github.com/Firefly-0423/firefly-skills) is a third source. It is read as a Claude marketplace catalog, like `anthropics/skills`, and reviewed under `firefly-native-v1`; the two third-party sources stay on `firefly-instruction-only-v1`.
+
+The Firefly-native policy is the instruction-only policy with two differences:
+- It accepts Firefly's own frontmatter fields: `modes` (known modes), `effectKind` (known effects) and `tools` (tool ids). Each is strictly validated, and a malformed value blocks the Skill rather than being dropped.
+- It does not apply the "requires a tool" body heuristic, because these Skills are written for Firefly's tools.
+
+Everything else applies unchanged: the exact-commit and content-digest binding, the supported file shapes, the remote-resource, script, library and cross-Skill checks, and every license rule. A review entry under this policy also pins those fields in `native`. They must equal what the Skill declares, and the install record keeps them. Registration takes them from that record, never from the installed files. They only limit visibility and label the Skill; the host still decides every tool permission.
+
+A market Skill whose name is a Skill that ships with Firefly is listed as built in and is never prepared or installed, so no second copy exists. At commit `81e0bb6658705fdce08896186626243ba978367a` all four Skills in the repository (`diagram`, `document-reader-validation`, `knowledge-workspace`, `plugin-development`) are byte-identical to the built-in ones, so no review entry is recorded for them.
+
+To draft an entry for a future Skill, run `node scripts/security/external-skill-review-draft.mjs <local clone> <commit> <skill path> firefly`. It prints the hashes, license evidence and Firefly metadata Main will check. It leaves `reviewer` empty, so an unedited draft approves nothing: read every file, fill in the reviewer, and record the rationale here.
+
 ## Reviewed: frontend-design
 
 - Repository: [anthropics/skills](https://github.com/anthropics/skills)

@@ -49,8 +49,9 @@ it("limits_and_contract uses stable source/path IDs without borrowing a bundle v
     expect(skill.bundle.version).toBe("7.0.0");
     expect(skill.version).toBeUndefined();
   }
-  expect(EXTERNAL_SOURCES.openai).toEqual({ repository: "openai/plugins", owner: "openai", repo: "plugins", catalogPath: ".agents/plugins/marketplace.json" });
-  expect(EXTERNAL_SOURCES.anthropic).toEqual({ repository: "anthropics/skills", owner: "anthropics", repo: "skills", catalogPath: ".claude-plugin/marketplace.json" });
+  expect(EXTERNAL_SOURCES.firefly).toEqual({ repository: "Firefly-0423/firefly-skills", owner: "Firefly-0423", repo: "firefly-skills", catalogPath: ".claude-plugin/marketplace.json", catalogFormat: "claude-catalog", reviewPolicy: "firefly-native-v1" });
+  expect(EXTERNAL_SOURCES.openai).toEqual({ repository: "openai/plugins", owner: "openai", repo: "plugins", catalogPath: ".agents/plugins/marketplace.json", catalogFormat: "openai", reviewPolicy: "firefly-instruction-only-v1" });
+  expect(EXTERNAL_SOURCES.anthropic).toEqual({ repository: "anthropics/skills", owner: "anthropics", repo: "skills", catalogPath: ".claude-plugin/marketplace.json", catalogFormat: "claude-catalog", reviewPolicy: "firefly-instruction-only-v1" });
   expect(Object.isFrozen(EXTERNAL_SOURCES)).toBe(true);
   expect(Object.isFrozen(EXTERNAL_SOURCES.openai)).toBe(true);
   expect(Object.isFrozen(EXTERNAL_SOURCES.anthropic)).toBe(true);

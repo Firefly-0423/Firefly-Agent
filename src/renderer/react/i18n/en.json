@@ -93,8 +93,6 @@
     "errorContextFailedWith": "Context processing failed: {{message}}",
     "errorToolFailedWith": "Tool execution failed: {{message}}",
     "errorRuntimeFailedWith": "Task execution failed: {{message}}",
-    "errorNetworkInterrupted": "The connection dropped before the model replied. The network or a proxy may be unstable; send the message again in a moment. ({{code}})",
-    "errorModelTimedOut": "The model took too long to respond, so Firefly stopped waiting. Try again in a moment. ({{code}})",
     "errorChatStoreUnavailable": "The chat session service isn't ready yet",
     "newTaskTitle": "New task",
     "newChatTitle": "New chat",
@@ -125,7 +123,9 @@
     "errorPendingAdjustAttachments": "Messages with attachments can't be inserted into the current run yet; kept in the queue",
     "openProjectFolderFailed": "Couldn't open project folder: {{error}}",
     "unknownError": "Unknown error",
-    "lastRunInterrupted": "The last run was interrupted"
+    "lastRunInterrupted": "The last run was interrupted",
+    "errorNetworkInterrupted": "The connection dropped before the model replied. The network or a proxy may be unstable; send the message again in a moment. ({{code}})",
+    "errorModelTimedOut": "The model took too long to respond, so Firefly stopped waiting. Try again in a moment. ({{code}})"
   },
   "messageList": {
     "loadingAria": "Loading",
@@ -1369,12 +1369,14 @@
       "instruction": "Required capability or reference is unsupported",
       "text": "Not supported plain UTF-8 text"
     },
-    "notice": "Only openai/plugins and anthropics/skills are available. Only fully reviewed instruction-only skills can be imported. Importing keeps the skill disabled; enabling requires a separate confirmation.",
+    "notice": "Firefly's own Firefly-0423/firefly-skills, openai/plugins and anthropics/skills are available. Only individually reviewed text-only skills can be imported, and skills Firefly already ships are not installed again. Importing keeps the skill disabled; enabling requires a separate confirmation.",
     "unavailable": "External skills are unavailable. Please retry when the settings bridge is ready.",
     "refresh": "Refresh catalog",
     "back": "Back to catalog",
     "search": "Search names and descriptions",
     "noMatch": "No matching external skill",
+    "builtIn": "Built in",
+    "builtInNotice": "Firefly already ships this skill, so it is not installed from the market.",
     "bundle": "Package",
     "bundleVersion": "Package version",
     "bundleLicense": "Package license declaration",

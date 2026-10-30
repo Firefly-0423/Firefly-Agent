@@ -1,5 +1,5 @@
 import type { ExternalSkill, ExternalSkillSourceId } from "../../shared/external-skills";
-import { EXTERNAL_LIMITS, EXTERNAL_SOURCES, externalSkillId } from "./external-policy";
+import { EXTERNAL_LIMITS, EXTERNAL_SOURCES, externalSkillId, usesClaudeCatalog } from "./external-policy";
 import { ExternalFetchError, parseExternalJson, validateExternalPath, type ExternalFetcher, type ExternalTree, type ExternalRequestDiagnostic } from "./external-fetch";
 import { inspectExternalManifest } from "./external-manifests";
 
@@ -64,10 +64,10 @@ export async function discoverExternalSkills(sourceId: ExternalSkillSourceId, fe
       if (candidates.length >= EXTERNAL_LIMITS.candidates) throw new ExternalFetchError("LIMIT_EXCEEDED");
       candidates.push({ id, sourceId, upstreamName: blocked ? bundle.name : path.split("/").at(-1)!, description,
         bundle, repository: source.repository, path, commit, licenses: [], files: [],
-        ...(declarationRoot !== undefined ? { declaration: "pending" as const } : sourceId === "anthropic" ? { declaration: "verified" as const } : {}),
+        ...(declarationRoot !== undefined ? { declaration: "pending" as const } : usesClaudeCatalog(sourceId) ? { declaration: "verified" as const } : {}),
         review: blocked ? "blocked" : "unreviewed", blockers: blocked ? ["DEPENDENCY_BLOCKED"] : ["REVIEW_REQUIRED"] });
     }
-    if (sourceId === "anthropic") {
+    if (usesClaudeCatalog(sourceId)) {
       for (const raw of catalog.plugins) {
         const plugin = object(raw), name = label(plugin.name);
         if (typeof plugin.source !== "string" || !plugin.source.startsWith("./")) throw new ExternalFetchError("CATALOG_INVALID");

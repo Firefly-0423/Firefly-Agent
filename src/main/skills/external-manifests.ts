@@ -1,5 +1,5 @@
 import type { ExternalDependencyIssue, ExternalSkill } from "../../shared/external-skills";
-import { EXTERNAL_LIMITS, EXTERNAL_SOURCES, isAllowedExternalLicense } from "./external-policy";
+import { EXTERNAL_LIMITS, EXTERNAL_SOURCES, isAllowedExternalLicense, usesClaudeCatalog } from "./external-policy";
 import { ExternalFetchError, parseExternalJson, validateExternalPath, type ExternalFetcher, type ExternalTree } from "./external-fetch";
 
 type Data = Record<string, unknown>;
@@ -79,12 +79,12 @@ async function inspectManifest(skill: ExternalSkill, root: string, tree: Externa
   }
   const portablePath = join(root, "plugin.json"), codexPath = join(root, ".codex-plugin/plugin.json"), claudePath = join(root, ".claude-plugin/plugin.json");
   const manifestPath = byPath.has(portablePath) ? portablePath : byPath.has(codexPath) ? codexPath : byPath.has(claudePath) ? claudePath : undefined;
-  if (!manifestPath && skill.sourceId === "openai") throw new ExternalFetchError("CATALOG_INVALID");
+  if (!manifestPath && !usesClaudeCatalog(skill.sourceId)) throw new ExternalFetchError("CATALOG_INVALID");
   const manifest = manifestPath ? await readJson(manifestPath) : undefined;
   const format: NonNullable<ExternalSkill["compatibilityFormat"]> = manifestPath === portablePath ? "openai-portable" : manifestPath === codexPath ? "codex" : manifestPath === claudePath ? "claude" : "claude-catalog";
   let allowedRoots: string[] = [], entry: Data | undefined;
-  if (skill.sourceId === "anthropic") {
-    const catalogPath = EXTERNAL_SOURCES.anthropic.catalogPath, catalog = await readJson(catalogPath);
+  if (usesClaudeCatalog(skill.sourceId)) {
+    const catalogPath = EXTERNAL_SOURCES[skill.sourceId].catalogPath, catalog = await readJson(catalogPath);
     if (!Array.isArray(catalog.plugins)) throw new ExternalFetchError("CATALOG_INVALID");
     const matches = catalog.plugins.filter(value => {
       const plugin = data(value);
