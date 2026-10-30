@@ -14,3 +14,7 @@ src/renderer/public/live2dcubismcore.min.js linguist-vendored
 *.sh linguist-detectable=false
 *.bat linguist-detectable=false
 *.nsh linguist-detectable=false
+# Tooling scripts (verification, packaging, evaluation) and the windows' HTML shells: the bar shows the app's own
+# TypeScript, CSS and Rust.
+*.py linguist-detectable=false
+*.html linguist-detectable=false
