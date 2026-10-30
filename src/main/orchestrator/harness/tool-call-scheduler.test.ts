@@ -191,6 +191,16 @@ describe("Delegation scope and independent capacity", () => {
     expect(new Set(scopes.map(scope => scope!.groupId)).size).toEqual(1);
   });
 
+  it("holds every commit until the partners running beside it have settled", async () => {
+    const f = pool(["child-a", "lookup", "child-b"], { classify: call => call.name.startsWith("child") ? "delegation" : "parallel", maxParallel: 3 });
+    await expect.poll(() => f.launched.length).toEqual(3);
+    f.gates[0].fulfill("A"); f.gates[1].fulfill("L");
+    await new Promise(resolve => setTimeout(resolve, 10));
+    expect(f.committed).toEqual([]);
+    f.gates[2].fulfill("B"); await f.running;
+    expect(f.committed).toEqual([[0, "A"], [1, "L"], [2, "B"]]);
+  });
+
   const mixedMode = (entry: ToolCall): ToolExecutionMode => entry.name === "barrier" ? "exclusive" : entry.name.startsWith("child") ? "delegation" : "parallel";
   it.each(["halt", "cancel"] as const)("closes noncontiguous undispatched slots exactly once on %s", async outcome => {
     const controller = new AbortController();
@@ -201,8 +211,10 @@ describe("Delegation scope and independent capacity", () => {
     });
     await expect.poll(() => job.launched).toEqual([0, 1, 3, 4]);
     if (outcome === "halt") {
+      // The halting result commits once its sibling partner settles; nothing launches in between.
       job.gates[0].fulfill("Stop launching");
-      await expect.poll(() => commits).toEqual([[0, "Stop launching"]]);
+      await new Promise(resolve => setTimeout(resolve, 10));
+      expect(commits).toEqual([]); expect(job.launched).toEqual([0, 1, 3, 4]);
       for (const index of [1, 3, 4]) job.gates[index].fulfill("Settled");
     } else {
       controller.abort(); job.gates[0].fail(new Error("Stopped child")); job.gates[1].fail(new Error("Stopped sibling"));
