@@ -31,10 +31,10 @@ To draft an entry for a future Skill, run `node scripts/security/external-skill-
 ## Reviewed: ai-cs-research and general-learning (Firefly-native)
 
 - Repository: [Firefly-0423/firefly-skills](https://github.com/Firefly-0423/firefly-skills)
-- Commit: `6a0dab49c798ca08de12faa8279edfc139e72841`
+- Commit: `709cd2a076a50093bc909ff7e61985c8d9db8b09`
 - Directories:
-  - [skills/ai-cs-research](https://github.com/Firefly-0423/firefly-skills/tree/6a0dab49c798ca08de12faa8279edfc139e72841/skills/ai-cs-research)
-  - [skills/general-learning](https://github.com/Firefly-0423/firefly-skills/tree/6a0dab49c798ca08de12faa8279edfc139e72841/skills/general-learning)
+  - [skills/ai-cs-research](https://github.com/Firefly-0423/firefly-skills/tree/709cd2a076a50093bc909ff7e61985c8d9db8b09/skills/ai-cs-research)
+  - [skills/general-learning](https://github.com/Firefly-0423/firefly-skills/tree/709cd2a076a50093bc909ff7e61985c8d9db8b09/skills/general-learning)
 - Policy: `firefly-native-v1`
 - Static conclusion: PASS for each complete six-file instruction-only payload
 - Reviewer: Claude Code static review for Firefly-0423, 2026-10-30. The draft is from `scripts/security/external-skill-review-draft.mjs`, and every file was read in full.
@@ -58,6 +58,8 @@ Body review:
   - `read_skill_reference` (the Skill tools);
   - `pop_quiz` (1–3 questions per call; types choice, multi, true_false and short_answer; `learningObjective` required; optional `sourceRef`; no native fill-in-the-blank, as `general-learning` says).
 - `knowledge-workspace` conventions are used only when a valid Vault exists, and neither Skill requires it.
+
+Package root: the catalog declares the repository root (`./`) as the plugin package, so the root is checked for plugin components too. At this commit the repository tooling lives in `tools/`, and the root has no `scripts/`, `hooks/`, `bin/`, MCP or settings files.
 
 Not tested: model adherence, real-model runs and learner outcomes. A new commit, any changed file or a new capability needs a fresh review.
 
