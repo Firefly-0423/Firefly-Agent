@@ -94,6 +94,8 @@
     "errorContextFailedWith": "Context processing failed: {{message}}",
     "errorToolFailedWith": "Tool execution failed: {{message}}",
     "errorRuntimeFailedWith": "Task execution failed: {{message}}",
+    "errorNetworkInterrupted": "The connection dropped before the model replied. The network or a proxy may be unstable; send the message again in a moment. ({{code}})",
+    "errorModelTimedOut": "The model took too long to respond, so Firefly stopped waiting. Try again in a moment. ({{code}})",
     "errorChatStoreUnavailable": "The chat session service isn't ready yet",
     "newTaskTitle": "New task",
     "newChatTitle": "New chat",
@@ -992,7 +994,8 @@
     "newProjectChat": "New conversation in this project",
     "emptyTier": "Nothing here yet",
     "showProject": "Show project",
-    "projectVisibility": "Project visibility",
+    "projectVisibility": "Project visibility"
+,
     "organizeSidebar": "Organize sidebar",
     "sortChats": "Sort chats by",
     "copy": "Copy",

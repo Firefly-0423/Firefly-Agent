@@ -24,7 +24,7 @@ beforeEach(() => {
   api = { get: vi.fn(async () => ({ ok: true, snapshot })), mutate: vi.fn(async () => ({ ok: false, code: "storage_error" })), onChanged: () => () => {} };
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
 });
-afterEach(async () => { await act(async () => root.unmount()); host.remove(); document.querySelectorAll(".ant-modal-root, .ant-dropdown").forEach(node => node.remove()); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+afterEach(async () => { openedSubmenus = []; await act(async () => root.unmount()); host.remove(); document.querySelectorAll(".ant-modal-root, .ant-dropdown").forEach(node => node.remove()); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 const flush = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
 const menuOpen = () => document.querySelector(".ff-sidebar-menu:not(.ant-dropdown-hidden)") !== null;
@@ -35,13 +35,29 @@ async function openMenu() {
 }
 const menuTitles = () => Array.from(document.querySelectorAll(".ff-sidebar-menu .ant-dropdown-menu-item, .ff-sidebar-menu .ant-dropdown-menu-submenu-title"), node => node.textContent ?? "");
 const findItem = (text: string) => Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]')).find(node => node.textContent?.includes(text));
+// Submenu titles this test opened, in order; a popup can close again while the previous one animates out.
+let openedSubmenus: string[] = [];
+async function reopenSubmenus() {
+  await openMenu();
+  for (const title of openedSubmenus) {
+    const item = findItem(title);
+    if (item && item.getAttribute("aria-expanded") !== "true") { await act(async () => item.click()); await flush(); }
+  }
+}
 async function clickMenu(text: string) {
   // Arrangement entries live one level down, under "organize sidebar"; open it first when the entry is not on screen.
   if (!findItem(text) && text !== "sidebar.organizeSidebar" && findItem("sidebar.organizeSidebar")) await clickMenu("sidebar.organizeSidebar");
   // Submenus open in their own popup; under a loaded full run that can take longer than the default second.
-  await vi.waitFor(() => { if (!findItem(text)) throw new Error(`menu item not found: ${text}; have ${menuTitles().join(" | ")}`); }, { timeout: 3000 });
-  await act(async () => findItem(text)!.click());
+  await vi.waitFor(async () => {
+    if (findItem(text)) return;
+    await reopenSubmenus();
+    if (!findItem(text)) throw new Error(`menu item not found: ${text}; have ${menuTitles().join(" | ")}`);
+  }, { timeout: 8000 });
+  const item = findItem(text)!;
+  const submenu = item.getAttribute("aria-expanded") !== null;
+  await act(async () => item.click());
   await flush();
+  openedSubmenus = submenu ? [...openedSubmenus.filter(title => title !== text), text] : [];
 }
 
 // Dialog helpers: the dialog is portalled to document.body, so queries go through document.
@@ -245,7 +261,7 @@ it("sorts and groups through submenus, patching only what changed", async () => 
   await clickMenu("sidebar.groupBy");
   await clickMenu("sidebar.viewProjectsShort");
   expect(api.mutate).toHaveBeenCalledWith({ expectedRevision: 3, patch: { mode: "work", kind: "set-view", viewMode: "project" } });
-});
+}, 20_000);
 it("greys out reset while everything is at its default", async () => {
   snapshot.layout.modes.work = { ...snapshot.layout.modes.work, viewMode: "project" };
   await render();

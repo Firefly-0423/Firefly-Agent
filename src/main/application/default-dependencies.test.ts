@@ -340,7 +340,7 @@ vi.mock("../code-git/code-git-ipc", () => ({ registerCodeGitIpc: vi.fn() }));
 vi.mock("../chats/sidebar-layout-store", () => ({ createSidebarLayoutStore: vi.fn(() => ({})) }));
 vi.mock("../chats/sidebar-layout-ipc", () => ({ registerSidebarLayoutIpc: vi.fn() }));
 vi.mock("../chats/chats-ipc", () => ({ registerChatsIpc: vi.fn() }));
-vi.mock("../chats/chats-store", () => ({ getSession: vi.fn(), listSessions: vi.fn(() => []) }));
+vi.mock("../chats/chats-store", () => ({ getSession: vi.fn(), getSessionKind: vi.fn(() => null), listSessions: vi.fn(() => []) }));
 vi.mock("../chats/workspace-files-ipc", () => ({ registerWorkspaceFilesIpc: vi.fn(() => m.workspaceFiles) }));
 vi.mock("../chats/open-in-app", () => ({ registerOpenInAppIpc: vi.fn() }));
 vi.mock("../chats/chat-ui-ipc", () => ({ registerChatUiIpc: vi.fn(), getActiveChatSessionId: vi.fn() }));

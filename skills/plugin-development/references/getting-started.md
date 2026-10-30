@@ -94,7 +94,7 @@ Compress-Archive -Path .\my-first-plugin -DestinationPath .\my-first-plugin-1.0.
 
 ```bash
 npm run build:plugin-sdk
-npm pack ./packages/plugin-sdk
+npm pack ./plugin-sdk
 npm install /path/to/firefly-plugin-sdk-0.2.0.tgz
 ```
 

@@ -1,4 +1,5 @@
 import type { ToolSpec, ChatResponse, ChatMessage } from "../vendors/types";
+import { causeCodes } from "../vendors/error-chain";
 import type { RunAdjustmentMessage, HarnessResult, HarnessInput, HarnessConfig, HarnessCacheState, AgentState } from "./types";
 import type { ToolOutputRef } from "./tool-output/tool-output-store";
 import { INITIAL_HARNESS_CACHE_STATE, DEFAULT_HARNESS_CONFIG } from "./types";
@@ -63,7 +64,7 @@ export async function runFireflyHarness(input: HarnessInput): Promise<HarnessRes
   }
 }
 function failedStage(run: HarnessRun, cause: unknown, source: RunFailureSource, prefix = ""): Promise<HarnessResult> {
-  const publicFailure = recordFailure(run, cause, source);
+  const publicFailure = recordFailure(run, cause, source, prefix);
   return finishRun(run, prefix + publicFailure.code, true, "error");
 }
 function checkpointFailed(run: HarnessRun): Promise<HarnessResult> {
@@ -303,10 +304,17 @@ function buildResult(finalAnswer: string, state: AgentState, terminated: boolean
   terminateReason: HarnessResult["terminateReason"], rounds: number, failure?: RunFailure): HarnessResult {
   return { finalAnswer, finalState: state, terminated, terminateReason, rounds, ...(failure ? { failure } : {}) };
 }
-function recordFailure(run: HarnessRun, error: unknown, source: RunFailureSource): RunFailure {
+function recordFailure(run: HarnessRun, error: unknown, source: RunFailureSource, stage = ""): RunFailure {
   const safe = publicRunFailure(error, source);
   run.failure = safe;
-  console.error(`${logTag} run failed:`, { runId: run.input.runId, round: run.rounds, ...safe });
+  // The local log also names the internal code and the error chain (class names and codes, never a message)
+  // that the public code folds away, and the stage that failed.
+  // Many internal failures carry their code as the whole message (Error("MEMORY_...")); only such identifiers are logged.
+  const { code: internal, message } = (error ?? {}) as { code?: unknown; message?: unknown };
+  const identifier = [internal, message].find((value): value is string => typeof value === "string" && /^[A-Z][A-Z0-9_]{2,80}$/.test(value));
+  const cause = identifier && identifier !== safe.code ? { cause: identifier } : {};
+  const chain = causeCodes(error);
+  console.error(`${logTag} run failed:`, { runId: run.input.runId, round: run.rounds, ...safe, ...cause, ...(chain ? { chain } : {}), ...(stage ? { stage } : {}) });
   return safe;
 }
 function toAssistantMessage(response: ChatResponse): ChatMessage {

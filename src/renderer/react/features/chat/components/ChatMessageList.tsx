@@ -186,7 +186,8 @@ export function toQuote(text: string): string {
   const lines = text.trim().split("\n");
   return lines.map((entry) => entry ? `> ${entry}` : ">").join("\n");
 }
-function ReasoningContent(props: { content: string; loading: boolean; expanded: boolean; onExpand: (expanded: boolean) => void }) {
+/** spinner=false inside the run activity, whose header already spins while the run is live. */
+function ReasoningContent(props: { content: string; loading: boolean; expanded: boolean; onExpand: (expanded: boolean) => void; spinner?: boolean }) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const resetTimer = useRef<number | undefined>(undefined);
@@ -205,7 +206,7 @@ function ReasoningContent(props: { content: string; loading: boolean; expanded: 
     </button>}
   </span>;
   const icon = <span className={`ff-reasoning-status-art${props.loading ? " is-thinking" : " is-complete"}`} aria-hidden="true">
-    {props.loading && <DotSpinner />}
+    {props.loading && props.spinner !== false && <DotSpinner />}
   </span>;
   return <Think rootClassName={`ff-message-reasoning${props.loading ? " is-live" : ""}`}
     title={title} icon={icon} blink={props.loading} expanded={props.loading || props.expanded}
@@ -227,7 +228,7 @@ function useRunActivityNow(processing: boolean): number {
 function RunActivityReasoningBlock({ block }: { block: ReasoningBlock }) {
   const live = Boolean(block.streaming);
   const [open, changeOpen] = useState(true);
-  return <ReasoningContent content={block.content} loading={live} expanded={open} onExpand={changeOpen} />;
+  return <ReasoningContent content={block.content} loading={live} expanded={open} onExpand={changeOpen} spinner={false} />;
 }
 
 function AgentRoundGroup(props: {
@@ -350,7 +351,7 @@ function RunActivityContent(props: ActivityContentProps) {
     <div className="ff-run-activity__header">
       <span className="ff-run-activity__title">
         {state.processing && <span className="ff-run-activity__art" aria-hidden="true"><DotSpinner /></span>}
-        <span>{caption}</span>{props.stage && <RunStageIndicator stage={props.stage} />}
+        <span>{caption}</span>{props.stage && <RunStageIndicator stage={props.stage} dot={!state.processing} />}
       </span>
       <button type="button" className="ff-run-activity__toggle" onClick={() => props.onExpand(!props.expanded)}
         aria-expanded={props.expanded} aria-controls={`${props.activityId}-details`}
@@ -366,7 +367,6 @@ function RunActivityContent(props: ActivityContentProps) {
       <RunActivityDetail live={state.processing} agentRounds={props.agentRounds} reasoningBlocks={props.reasoningBlocks}
         processMessages={props.processMessages} taskDelegations={props.taskDelegations} tools={props.tools}
         interrupted={Boolean(props.activity.keepExpanded && props.activity.completedAt !== undefined)} />
-      <div className="ff-run-activity__divider" />
     </div>}
   </section>;
 }

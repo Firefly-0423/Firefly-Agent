@@ -254,6 +254,24 @@ describe("Formal answer commitment and failure reporting", () => {
     for (const fragment of ["上下文处理失败", "MEMORY_CONTEXT_TRANSCRIPT_SECRET"]) expect(serialized).toContain(fragment);
     for (const forbidden of ["模型请求失败", "SYNTHETIC_SECRET_MUST_NOT_ESCAPE"]) expect(serialized).not.toContain(forbidden);
   });
+  test.each([
+    ["E_MODEL_CONNECTION_LOST", "model", "网络连接中断"],
+    ["E_MODEL_REQUEST_TIMEOUT", "model", "太久没有回应"],
+  ])("a %s failure tells the user it was the network, keeping the code for support", async (code, errorSource, plain) => {
+    const s = runScenario(); await s.ready(); await s.fail("socket hang up", { code, errorSource });
+    const serialized = JSON.stringify(s.disk.upsert.mock.calls.at(-1));
+    expect(serialized).toContain(plain); expect(serialized).toContain(code);
+    expect(serialized).not.toContain("上下文处理失败");
+  });
+  test.each([
+    ["E_MODEL_REQUEST_FAILED", "model", "模型请求失败"],
+    ["MEMORY_CONTEXT_SEND_UNKNOWN", "context", "上下文处理失败"],
+  ])("a %s failure (an HTTP rejection lands here too) keeps the generic notice, not the network one", async (code, errorSource, generic) => {
+    const s = runScenario(); await s.ready(); await s.fail("HTTP 401", { code, errorSource });
+    const serialized = JSON.stringify(s.disk.upsert.mock.calls.at(-1));
+    expect(serialized).toContain(generic); expect(serialized).toContain(code);
+    expect(serialized).not.toContain("网络连接中断");
+  });
 });
 
 describe("Session conflicts preserve the legitimate owner", () => {

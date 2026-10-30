@@ -4,7 +4,7 @@ import { AgentRuntimeError, type AgentErrorCode } from "./agent-runtime-error";
 describe("Runtime failures exposed to consumers", () => {
   it.each<AgentErrorCode>([
     "E_MODEL_RESPONSE_PARSE_FAILED", "E_MODEL_HTTP_ERROR", "E_MODEL_REQUEST_TIMEOUT",
-    "E_MODEL_REQUEST_FAILED", "E_AGENT_GRAPH_ITERATION_LIMIT", "E_AGENT_NO_PROGRESS",
+    "E_MODEL_REQUEST_FAILED", "E_MODEL_CONNECTION_LOST", "E_AGENT_GRAPH_ITERATION_LIMIT", "E_AGENT_NO_PROGRESS",
   ])("retains the %s classification independently of its explanation", (classification) => {
     const failure = new AgentRuntimeError(classification, "Unable to complete this turn");
     expect(failure instanceof Error).toBe(true);

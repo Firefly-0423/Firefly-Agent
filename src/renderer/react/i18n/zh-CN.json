@@ -94,6 +94,8 @@
     "errorContextFailedWith": "上下文处理失败：{{message}}",
     "errorToolFailedWith": "工具执行失败：{{message}}",
     "errorRuntimeFailedWith": "任务执行失败：{{message}}",
+    "errorNetworkInterrupted": "网络连接中断，流萤没收到模型的回复。可能是网络或代理不稳定，稍后重新发送就好。（{{code}}）",
+    "errorModelTimedOut": "模型太久没有回应，已经停止等待。稍后再试一次吧。（{{code}}）",
     "errorChatStoreUnavailable": "聊天会话服务尚未就绪",
     "newTaskTitle": "新任务",
     "newChatTitle": "新对话",
@@ -992,7 +994,8 @@
     "newProjectChat": "在此项目中新建对话",
     "emptyTier": "暂无内容",
     "showProject": "显示项目",
-    "projectVisibility": "项目显示",
+    "projectVisibility": "项目显示"
+,
     "organizeSidebar": "整理侧边栏",
     "sortChats": "聊天排序方式",
     "copy": "复制",

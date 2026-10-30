@@ -27,7 +27,7 @@
 
 ```bash
 npm run build:plugin-sdk
-npm pack ./packages/plugin-sdk
+npm pack ./plugin-sdk
 npm run test:plugin-examples
 ```
 
@@ -37,7 +37,7 @@ npm run test:plugin-examples
 
 手工分发 TypeScript 示例时，把编译后的 `index.js` 作为 `index.cjs` 与原 `manifest.json` 放在同一插件目录再压缩。四个入口仅导入 SDK 类型；实际导入 SDK 函数的其他插件须一并打包运行时代码和依赖。`system-status` 的 JS 入口、两个 HTML 文件及图标直接随目录打包。
 
-导入位置：聊天窗口插件面板添加 ZIP，首次导入保持停用，用户明确启用后加载。接口以 `packages/plugin-sdk` 为准。
+导入位置：聊天窗口插件面板添加 ZIP，首次导入保持停用，用户明确启用后加载。接口以 `plugin-sdk` 为准。
 
 ## 当前源码限制
 

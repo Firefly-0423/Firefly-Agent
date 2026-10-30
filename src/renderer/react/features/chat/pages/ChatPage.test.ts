@@ -99,6 +99,29 @@ test("short export failures use error notices through feedback", async () => {
   expect(surface.notice).toHaveBeenCalledWith({ tone: "error", message: t("sidebar.exportFailed") });
   expect(view.browserAlert.mock.calls).toEqual([]); expect(view.browserConfirm.mock.calls).toEqual([]);
 });
+test("a project created from the sidebar dialog unlocks the composer for its first task", async () => {
+  await page("code");
+  await act(async () => surface.navigation!.onNewProjectTask!("E:/demo-workspace", "demo-workspace"));
+  expect(surface.composer!.workspaceName).toBe("demo-workspace");
+});
+test("a project created from the sidebar dialog starts a task bound to its folder right away", async () => {
+  const view = await page("code");
+  const task: ChatSession = { id: "project-task", mode: "code", title: "New task", identityId: null, createdAt: 9, updatedAt: 9, messageCount: 0, messages: [] };
+  Object.assign(view.store, { create: vi.fn(async () => task), setWorkspace: vi.fn(async () => ({ ok: true })) });
+  await act(async () => surface.navigation!.onNewProjectTask!("E:/demo-workspace", "demo-workspace"));
+  expect(view.store.create).toHaveBeenCalledWith(expect.objectContaining({ mode: "code" }));
+  expect(view.store.setWorkspace).toHaveBeenCalledWith("project-task", "E:/demo-workspace");
+  expect(view.store.get).toHaveBeenCalledWith("project-task");
+});
+test("a project task created from the welcome page keeps the model picked there", async () => {
+  const view = await page("code");
+  const task: ChatSession = { id: "project-task", mode: "code", title: "New task", identityId: null, createdAt: 9, updatedAt: 9, messageCount: 0, messages: [] };
+  Object.assign(view.store, { create: vi.fn(async () => task), setWorkspace: vi.fn(async () => ({ ok: true })), setModelProfile: vi.fn(async () => task) });
+  await act(async () => surface.navigation!.onNewTask());
+  await act(async () => surface.composer!.onSelectModelProfile!("saved-luna"));
+  await act(async () => surface.navigation!.onNewProjectTask!("E:/demo-workspace", "demo-workspace"));
+  expect(view.store.setModelProfile).toHaveBeenCalledWith("project-task", "saved-luna");
+});
 test("workspace failures use a readable feedback alert", async () => {
   const view = await page("code"); await act(async () => surface.composer!.onChooseWorkspace?.());
   expect(surface.alert).toHaveBeenCalledWith({ tone: "error", title: t("chatPage.setWorkspaceFailedTitle"), message: t("chatPage.setWorkspaceFailed", { error: "fixture workspace failure" }) });

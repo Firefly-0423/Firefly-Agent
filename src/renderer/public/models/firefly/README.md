@@ -3,7 +3,7 @@
 This directory is designated for the Live2D Cubism 3/4 runtime model files.
 
 ## Third-Party Asset Notice (第三方资产说明)
-The Live2D model assets are third-party character assets. This checkout tracks the model manifest, model binary, texture, physics, expressions and motions; their presence does not establish redistribution rights. Preserve the source and authorization records in [THIRD_PARTY_NOTICES.md](../../../../../THIRD_PARTY_NOTICES.md) and [MODEL_LICENSE.md](../../../../../MODEL_LICENSE.md). Only the permissions applicable to these assets establish their distribution scope.
+This is the "Firefly 流萤前瞻小人桌宠" Live2D model by **是依七哒** (Steam Workshop), used in Firefly with the creator's permission. It is not covered by the repository's MIT license; reuse outside Firefly needs the creator's own permission. See [MODEL_LICENSE.md](../../../../../MODEL_LICENSE.md) and [THIRD_PARTY_NOTICES.md](../../../../../THIRD_PARTY_NOTICES.md).
 
 ## Resource Installation (模型安装指引)
 To enable full Live2D rendering in local development:

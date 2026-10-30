@@ -1,6 +1,6 @@
 import path from 'node:path';
 import {createHash} from 'node:crypto';
-import {getStorageContext} from '../storage/storage-context';
+import {getStorageContext,installedStorageContext} from '../storage/storage-context';
 import type {MainActorAuthority} from '../memory-core/main-actor-authority';
 import {canonicalJson} from '../memory-core/repository-types';
 import type {ConversationTranscriptStore,TranscriptMutation} from '../orchestrator/conversation-transcript-store';
@@ -39,7 +39,8 @@ export function createNativeHistoryProvider(options:Options){
  // The only cursor owner is this private closure. It never grants authority or skips native acquisition.
  let cursor:{grant:object;bootId:string;actorToken:object;epoch:number;rootIdentity:NativeHistoryIdentity;identities:NativeHistoryIdentity[];pairDigest:string;incarnation:string;maxSeq:number;checkpointThroughSeq:number;refs:TranscriptDependency[]}|undefined;
  function insufficient(reason:CoverageReason,diagnostics:string[]=[]):NativeHistoryCoverageInsufficient{return {status:'coverage-insufficient',source:'native-h',coverage:'partial',reason,diagnostics:[...new Set(['MEMORY_HISTORY_COVERAGE_INSUFFICIENT',...(reason==='snapshot-missing'?['MEMORY_HISTORY_SNAPSHOT_MISSING']:[]),...diagnostics])],selection:{selected:1,covered:0,excluded:1}}}
- function authorize(){if(closed)fail('MEMORY_HISTORY_PROVIDER_DENIED');if(options.actorAuthority.requireActor(options.actorToken)!==actor)fail('MEMORY_HISTORY_PROVIDER_DENIED');if(getStorageContext()!==storage||getStorageContext().dataRoot!==storage.dataRoot)fail('MEMORY_HISTORY_PROVIDER_DENIED')}
+ function authorize(){if(closed)fail('MEMORY_HISTORY_PROVIDER_DENIED');if(options.actorAuthority.requireActor(options.actorToken)!==actor)fail('MEMORY_HISTORY_PROVIDER_DENIED');// Identity only: the paths were checked when this provider took the context, and a full re-check here ran on every gate.
+ if(installedStorageContext()!==storage)fail('MEMORY_HISTORY_PROVIDER_DENIED')}
  function gate(operation:Operation){authorize();if(operation.controller.signal.aborted)fail(performance.now()>=operation.deadlineAt?'MEMORY_HISTORY_NATIVE_TIMEOUT':'MEMORY_HISTORY_CANCELLED');if(!operation.active||operation.epoch!==epoch)fail('MEMORY_HISTORY_STALE');if(performance.now()>=operation.deadlineAt)fail('MEMORY_HISTORY_NATIVE_TIMEOUT');for(const endpoint of operation.endpoints)endpoint.assertLive()}
  function revoke(preserve?:HistoryResponseWitness){for(const witness of [...witnesses])if(witness!==preserve)witness.retire();epoch++;committed=false;cursor=undefined;coverage=insufficient('not-acquired');for(const operation of operations)operation.controller.abort()}
  async function cleanupHeads(){const results=await Promise.allSettled([...captures].map(async([locator,capture])=>{await options.history.prepareTranscriptChange(options.actorToken,capture.transcriptToken);if(captures.get(locator)===capture)captures.delete(locator)}));const failed=results.find(result=>result.status==='rejected');if(failed?.status==='rejected')throw failed.reason}

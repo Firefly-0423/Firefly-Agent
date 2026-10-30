@@ -56,6 +56,11 @@ export function initializeStorageContext(profile: RuntimeProfile): StorageContex
   installed = createStorageContext(profile);
   return installed;
 }
+/** The installed context without re-checking its paths on disk, for identity comparisons on hot paths. */
+export function installedStorageContext(): StorageContext | undefined {
+  return installed;
+}
+
 export function getStorageContext(): StorageContext {
   if (!installed) throw new Error("FIREFLY_STORAGE_NOT_INITIALIZED");
   assertRuntimePathsOwned(installed.profile, [installed.configRoot, installed.cacheRoot, installed.logsRoot, installed.sessionRoot, ...Object.values(installed.memory)]);

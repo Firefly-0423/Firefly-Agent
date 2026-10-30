@@ -85,6 +85,86 @@ describe("prepared provider calls", () => {
     if (transport === "anthropic") expect(response.assistantMessage.rawAssistant).toEqual([{ type: "text", text: "完成" }]);
   });
 
+  const unsent = () => new TypeError("fetch failed", { cause: Object.assign(
+    new Error("Client network socket disconnected before secure TLS connection was established"), { code: "ECONNRESET" }) });
+  const dropped = () => new TypeError("fetch failed", { cause: Object.assign(new Error("other side closed"), { code: "UND_ERR_SOCKET" }) });
+  it("retries a connection lost before any response, up to twice, with the same body", async () => {
+    const f = fixture("responses"), bodies: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      bodies.push(await new Request(input, init).text());
+      if (bodies.length === 1) throw unsent();
+      if (bodies.length === 2) throw dropped();
+      return sse("responses");
+    }));
+    const prepared = prepareModelCall(f.adapter, f.request, f.config, f.identity);
+    const response = await dispatchPreparedModelCall({ prepared, config: f.config, timeoutMs: 5_000 });
+    expect(response.text).toBe("完成");
+    expect(bodies).toEqual([prepared.serializedBody, prepared.serializedBody, prepared.serializedBody]);
+  });
+  it("sends every model request through one shared keep-alive pool so tool rounds reuse the connection", async () => {
+    const f = fixture("responses"), pools: unknown[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_input: RequestInfo | URL, init?: RequestInit & { dispatcher?: unknown }) => { pools.push(init?.dispatcher); return sse("responses"); }));
+    for (let round = 0; round < 2; round++) {
+      await dispatchPreparedModelCall({ prepared: prepareModelCall(f.adapter, f.request, f.config, f.identity), config: f.config, timeoutMs: 5_000 });
+    }
+    expect(pools[0]).toBeDefined();
+    expect(pools[1]).toBe(pools[0]);
+  });
+  it("uses its own pool over Node's lazily created default, but yields to an installed mock or proxy", async () => {
+    const f = fixture("responses"), pools: unknown[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_input: RequestInfo | URL, init?: RequestInit & { dispatcher?: unknown }) => { pools.push(init?.dispatcher); return sse("responses"); }));
+    new Request("https://synthetic.invalid/"); // Node fills the global slot with a plain default Agent here.
+    const fallback = getGlobalDispatcher();
+    await dispatchPreparedModelCall({ prepared: prepareModelCall(f.adapter, f.request, f.config, f.identity), config: f.config, timeoutMs: 5_000 });
+    expect(pools[0]).toBeDefined();
+    expect(pools[0]).not.toBe(fallback);
+    const mock = new MockAgent();
+    setGlobalDispatcher(mock);
+    try {
+      await dispatchPreparedModelCall({ prepared: prepareModelCall(f.adapter, f.request, f.config, f.identity), config: f.config, timeoutMs: 5_000 });
+      expect(pools[1]).toBe(mock);
+    } finally { setGlobalDispatcher(fallback); await mock.close(); }
+  });
+  it("passes every retry through the send gate again and stops when the gate refuses it", async () => {
+    const f = fixture("responses"), attempts: number[] = [];
+    const fetch = vi.fn(async () => { throw dropped(); });
+    vi.stubGlobal("fetch", fetch);
+    const guardSend = async (send: () => Promise<Response>, attempt: number) => {
+      attempts.push(attempt);
+      if (attempt === 2) throw new Error("MEMORY_CONTEXT_REQUEST_CHANGED");
+      return send();
+    };
+    const prepared = prepareModelCall(f.adapter, f.request, f.config, f.identity);
+    await expect(dispatchPreparedModelCall({ prepared, config: f.config, timeoutMs: 10_000, guardSend })).rejects.toThrow();
+    expect(attempts).toEqual([0, 1, 2]);
+    expect(fetch).toHaveBeenCalledTimes(2);
+  }, 15_000);
+  it("gives up after two retries", async () => {
+    const f = fixture("responses");
+    const fetch = vi.fn(async () => { throw dropped(); });
+    vi.stubGlobal("fetch", fetch);
+    const prepared = prepareModelCall(f.adapter, f.request, f.config, f.identity);
+    await expect(dispatchPreparedModelCall({ prepared, config: f.config, timeoutMs: 5_000 })).rejects.toMatchObject({ code: "E_MODEL_CONNECTION_LOST" });
+    expect(fetch).toHaveBeenCalledTimes(3);
+  });
+  it("does not retry once the response has started, or when the provider answered with an error; only a dropped connection is labelled as one", async () => {
+    const f = fixture("responses");
+    const broken = new ReadableStream({ start(controller) {
+      controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: "response.output_text.delta", delta: "部分" })}\n\n`));
+      controller.error(Object.assign(new Error("other side closed"), { code: "UND_ERR_SOCKET" }));
+    } });
+    const streaming = vi.fn(async () => new Response(broken, { headers: { "Content-Type": "text/event-stream" } }));
+    vi.stubGlobal("fetch", streaming);
+    await expect(dispatchPreparedModelCall({ prepared: prepareModelCall(f.adapter, f.request, f.config, f.identity), config: f.config, timeoutMs: 5_000 })).rejects.toMatchObject({ code: "E_MODEL_CONNECTION_LOST" });
+    expect(streaming).toHaveBeenCalledTimes(1);
+    const failing = vi.fn(async () => new Response("{}", { status: 500 }));
+    vi.stubGlobal("fetch", failing);
+    await expect(dispatchPreparedModelCall({ prepared: prepareModelCall(f.adapter, f.request, f.config, f.identity), config: f.config, timeoutMs: 5_000 })).rejects.toMatchObject({ code: "E_MODEL_REQUEST_FAILED" });
+    expect(failing).toHaveBeenCalledTimes(1);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: { message: "bad key" } }), { status: 401 })));
+    await expect(dispatchPreparedModelCall({ prepared: prepareModelCall(f.adapter, f.request, f.config, f.identity), config: f.config, timeoutMs: 5_000 })).rejects.toMatchObject({ code: "E_MODEL_REQUEST_FAILED" });
+  });
+
   it.each(["apiKey", "baseUrl", "model"] as const)("fails closed when %s changes after preparation", async key => {
     const f = fixture("openai"), fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
     const prepared = prepareModelCall(f.adapter, f.request, f.config, f.identity);

@@ -63,3 +63,30 @@ it('revokes a deleted or rewound assistant origin and every cross-session descen
   expect(valid(f,root)).toEqual({valid:true});expect(status()).toEqual({valid:false});f.reopen();expect(status()).toEqual({valid:false});
  }finally{db.close()}
 });
+it('a read snapshot gives the same answers while scanning the policy table once per actor',async()=>{
+ const f=fixture(),origins=[await origin(f,'session-b','cat'),await origin(f,'session-c','dog'),await origin(f,'session-d','bird')];
+ const db=new DatabaseSync(f.databasePath,{readOnly:true});
+ try{
+  let scans=0;const prepare=db.prepare.bind(db);
+  (db as unknown as {prepare:typeof db.prepare}).prepare=(sql:string)=>{if(sql.includes('FROM policy_records'))scans++;return prepare(sql)};
+  const each=origins.map(o=>new HistoryOrigins(db,f.key).valid('scope-a',o.owner,o.event));const perCall=scans;scans=0;
+  const snapshot=new HistoryOrigins(db,f.key,{snapshot:true});
+  const shared=[...origins,...origins].map(o=>snapshot.valid('scope-a',o.owner,o.event));
+  expect(each).toEqual([true,true,true]);expect(shared).toEqual([...each,...each]);
+  expect(perCall).toBeGreaterThanOrEqual(3);expect(scans).toBe(1);
+ }finally{db.close()}
+});
+it('a traversal that runs out of depth does not poison the shared snapshot for a shorter chain inside it',async()=>{
+ const f=fixture(),root=await origin(f,'session-b','chain root'),db=new DatabaseSync(f.databasePath),ledger=new HistoryOrigins(db,f.key);
+ const chain:{actorKey:string;providerId:string;sessionId:string;event:any}[]=[{...root.owner,event:root.event}];
+ try{
+  db.exec('BEGIN IMMEDIATE');
+  for(let i=1;i<=66;i++){const link={...root.owner,event:{originalId:'link-'+i,seq:i+1,turnId:'link-turn-'+i,revision:null,originalRole:'assistant' as const,digest:hash('link-'+i)}};
+   ledger.recordResponse('scope-a',link,link.event,'snapshot-'+i,{sources:[],events:[chain[i-1]],complete:true});chain.push(link)}
+  db.exec('COMMIT');
+  const tail=chain[2],fresh=new HistoryOrigins(db,f.key).valid('scope-a',tail,tail.event),snapshot=new HistoryOrigins(db,f.key,{snapshot:true});
+  expect(fresh).toBe(true);
+  expect(snapshot.valid('scope-a',chain[66],chain[66].event)).toBe(false); // deeper than 64 links
+  expect(snapshot.valid('scope-a',tail,tail.event)).toBe(fresh);
+ }finally{db.close()}
+});

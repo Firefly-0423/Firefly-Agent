@@ -294,6 +294,19 @@ it("revalidates the claimed request at the final network boundary and releases t
  await ready;await f.actorAuthority.coordinate(()=>undefined);release();expect(await request).toMatchObject({status:"sent",result:"ok"});
  await expect(f.context.invokeClaimedRequest(f.actor,snapshot,()=>Promise.resolve("again"),undefined,()=>{})).rejects.toThrow("MEMORY_CONTEXT_PERMIT_USED");
 });
+it("a retry of a dropped connection is admitted only after a first send and is revalidated: a change during the wait stops it",async()=>{
+ const f=await contextFixture(),s=await f.source("I prefer English"),snapshot=await f.assemble([s.ref]),permit=await f.context.validateForDispatch(f.actor,snapshot);
+ let sends=0;
+ const request=f.context.dispatch(f.actor,permit,async()=>{
+  await expect(f.context.invokeClaimedRequest(f.actor,snapshot,()=>{sends++;return Promise.resolve("early")},undefined,()=>{},true)).rejects.toThrow("MEMORY_CONTEXT_PERMIT_DENIED");
+  await f.context.invokeClaimedRequest(f.actor,snapshot,()=>{sends++;return Promise.reject(new Error("dropped"))},undefined,()=>{}).catch(()=>undefined);
+  expect(await f.context.invokeClaimedRequest(f.actor,snapshot,()=>{sends++;return Promise.resolve("retried")},undefined,()=>{},true)).toBe("retried");
+  await f.registry.prepareChange(f.access,f.provider.adapter,s.ref);
+  return f.context.invokeClaimedRequest(f.actor,snapshot,()=>{sends++;return Promise.resolve("forgotten")},undefined,()=>{},true);
+ });
+ await request.catch(()=>undefined);
+ expect(sends).toBe(2);
+});
 it("an edit after SDK admission but before actual fetch causes zero network sends",async()=>{
  const f=await contextFixture(),s=await f.source("I prefer English"),snapshot=await f.assemble([s.ref]),permit=await f.context.validateForDispatch(f.actor,snapshot);
  let proceed!:()=>void;const ready=new Promise<void>(resolve=>proceed=resolve);let sends=0;

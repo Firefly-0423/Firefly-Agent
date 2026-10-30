@@ -10,6 +10,8 @@ import {FactSupports} from '../memory-policy/fact-supports';
 import {objectFields,parseInternalId,parseSourceRef,positiveRevision} from '../memory-core/command-validation';
 import type {TranscriptEntry} from '../orchestrator/conversation-transcript-types';
 
+/** Only the identity of a replaced source is compared. */
+type ObsoleteRoot={sourceId:string;revision:number};
 export interface HistoryOriginOwner {actorKey:string;providerId:string;sessionId:string}
 export interface HistoryOriginEvent {originalId:string;seq:number;turnId:string|null;revision:number|null;originalRole:'user'|'assistant'|'tool';digest:string}
 export interface HistoryOriginDependency extends HistoryOriginOwner {event:HistoryOriginEvent}
@@ -32,7 +34,12 @@ export function historyOriginEvent(entry:TranscriptEntry):HistoryOriginEvent {
 /** Worker-only exact provenance. Neither receipt lookup nor parsing confers acquisition authority. */
 export class HistoryOrigins {
  private readonly codec:RecordCodec;
- constructor(private readonly db:DatabaseSync,private readonly key:Uint8Array){this.codec=new RecordCodec(key)}
+ /** Set for a read snapshot: one synchronous read during which the database cannot change, so answers are reused. */
+ private readonly memo?:{valid:Map<string,boolean>;sources:Map<string,boolean>;obsolete:Map<string,ObsoleteRoot[]>};
+ constructor(private readonly db:DatabaseSync,private readonly key:Uint8Array,options:{snapshot?:boolean}={}){
+  this.codec=new RecordCodec(key);
+  if(options.snapshot)this.memo={valid:new Map(),sources:new Map(),obsolete:new Map()};
+ }
  private id(scope:string,owner:HistoryOriginOwner,event:HistoryOriginEvent):string {
   return 'origin-'+createHmac('sha256',this.key).update('FireflyHistoryOrigin-v1').update(canonicalJson({scope,actorKey:owner.actorKey,providerId:owner.providerId,sessionId:owner.sessionId,event})).digest('hex');
  }
@@ -62,27 +69,44 @@ export class HistoryOrigins {
  }
  /** Precise retraction roots: revision advancement means correction; independent temporal facts retain their own identity. */
  sourceAllowed(scope:string,actorKey:string,ref:BoundSourceRef):boolean {
+  const memoKey=canonicalJson({scope,actorKey,ref}),known=this.memo?.sources.get(memoKey);if(known!==undefined)return known;
+  const allowed=this.checkSourceAllowed(scope,actorKey,ref);this.memo?.sources.set(memoKey,allowed);return allowed;
+ }
+ private checkSourceAllowed(scope:string,actorKey:string,ref:BoundSourceRef):boolean {
   try{
    const head=new SourceLedger(this.db,this.key).assertCurrent(scope,ref);if(!head?.published||new Suppression(this.db,this.key).sourceBlocked(scope,ref))return false;
-   const owned=new Set<string>();for(const row of this.db.prepare('SELECT id,payload FROM policy_records WHERE scope_key=?').all(scope)){
-    const policy=this.codec.open<{actorKey:string;factId:string|null}>('policy-record',scope,row.id as string,row.payload);if(policy.actorKey===actorKey&&policy.factId)owned.add(policy.factId);
-   }
-   const facts=new FactRepository(this.db,this.key),supports=new FactSupports(this.db,this.key);
-   for(const current of facts.current(scope).filter(f=>owned.has(f.factId)&&f.revision>1)){
-    const obsolete=[...facts.history(scope,current.factId).filter(f=>f.revision<current.revision).flatMap(f=>[f.sourceRef,f.provenance.activationSourceRef]),...supports.obsoleteOrigins(scope,actorKey,current.factId,current.revision)];
-    if(obsolete.some(old=>old.sourceId===ref.sourceId&&ref.revision<=old.revision))return false;
-   }return true;
+   return !this.obsoleteOrigins(scope,actorKey).some(old=>old.sourceId===ref.sourceId&&ref.revision<=old.revision);
   }catch(error){if(error instanceof Error&&['MEMORY_SOURCE_PENDING','MEMORY_SOURCE_STALE','MEMORY_SOURCE_DELETED','MEMORY_SOURCE_INVALID'].includes(error.message))return false;throw error}
  }
+ /** Sources replaced by a later revision of one of the actor's facts; the same for every source the actor checks. */
+ private obsoleteOrigins(scope:string,actorKey:string):ObsoleteRoot[] {
+  const memoKey=canonicalJson({scope,actorKey}),known=this.memo?.obsolete.get(memoKey);if(known)return known;
+  const owned=new Set<string>();for(const row of this.db.prepare('SELECT id,payload FROM policy_records WHERE scope_key=?').all(scope)){
+   const policy=this.codec.open<{actorKey:string;factId:string|null}>('policy-record',scope,row.id as string,row.payload);if(policy.actorKey===actorKey&&policy.factId)owned.add(policy.factId);
+  }
+  const facts=new FactRepository(this.db,this.key),supports=new FactSupports(this.db,this.key),obsolete:ObsoleteRoot[]=[];
+  for(const current of facts.current(scope).filter(f=>owned.has(f.factId)&&f.revision>1)){
+   obsolete.push(...facts.history(scope,current.factId).filter(f=>f.revision<current.revision).flatMap(f=>[f.sourceRef,f.provenance.activationSourceRef]),...supports.obsoleteOrigins(scope,actorKey,current.factId,current.revision));
+  }
+  this.memo?.obsolete.set(memoKey,obsolete);return obsolete;
+ }
  valid(scope:string,owner:HistoryOriginOwner,value:HistoryOriginEvent):boolean {
-  const memo=new Map<string,boolean>(),visiting=new Set<string>();let remaining=1000;
-  const visit=(identity:HistoryOriginOwner,event:HistoryOriginEvent,depth:number):boolean=>{
-   const id=this.id(scope,identity,event);if(memo.has(id))return memo.get(id)!;if(depth>64||--remaining<0||visiting.has(id))return false;
-   const receipt=this.read(scope,identity,event);if(!receipt?.closure.complete||receipt.revoked)return false;
-   remaining-=receipt.closure.sources.length+(receipt.closure.documents?.length??0);if(remaining<0)return false;
+  // A false reached by running out of depth or budget, or by meeting a cycle, depends on where this traversal
+  // started; only results proved without hitting a limit go into the shared snapshot memo.
+  const shared=this.memo?.valid,local=new Map<string,{valid:boolean;limited:boolean}>(),visiting=new Set<string>();let remaining=1000;
+  const remember=(key:string,valid:boolean,limited:boolean)=>{const result={valid,limited};local.set(key,result);if(!limited)shared?.set(key,valid);return result};
+  const visit=(identity:HistoryOriginOwner,event:HistoryOriginEvent,depth:number):{valid:boolean;limited:boolean}=>{
+   const id=this.id(scope,identity,event),key=`${owner.actorKey}\u0000${id}`,known=shared?.get(key);if(known!==undefined)return {valid:known,limited:false};
+   const seen=local.get(key);if(seen)return seen;
+   if(depth>64||--remaining<0||visiting.has(id))return {valid:false,limited:true};
+   const receipt=this.read(scope,identity,event);if(!receipt?.closure.complete||receipt.revoked)return remember(key,false,false);
+   remaining-=receipt.closure.sources.length+(receipt.closure.documents?.length??0);if(remaining<0)return {valid:false,limited:true};
    const documentsValid=(receipt.closure.documents??[]).every(dep=>{if(dep.actorKey!==owner.actorKey)return false;const row=this.db.prepare("SELECT payload FROM history_records WHERE scope_key=? AND id=? AND kind='document'").get(scope,dep.recordId);if(!row)return false;const doc=this.codec.open<HistoryOriginOwner&{state:string;incarnation:string}>('history-document',scope,dep.recordId,row.payload);return doc.state==='live'&&doc.actorKey===dep.actorKey&&doc.providerId===dep.providerId&&doc.sessionId===dep.sessionId&&doc.incarnation===dep.incarnation});
-   visiting.add(id);const valid=documentsValid&&receipt.closure.sources.every(ref=>this.sourceAllowed(scope,owner.actorKey,ref))&&receipt.closure.events.every(dep=>dep.actorKey===owner.actorKey&&visit(dep,dep.event,depth+1));visiting.delete(id);memo.set(id,valid);return valid;
-  };return visit(owner,parseHistoryOriginEvent(value),0);
+   visiting.add(id);let limited=false;
+   const valid=documentsValid&&receipt.closure.sources.every(ref=>this.sourceAllowed(scope,owner.actorKey,ref))&&receipt.closure.events.every(dep=>{
+    if(dep.actorKey!==owner.actorKey)return false;const result=visit(dep,dep.event,depth+1);limited||=result.limited;return result.valid});
+   visiting.delete(id);return remember(key,valid,limited);
+  };return visit(owner,parseHistoryOriginEvent(value),0).valid;
  }
  known(scope:string,owner:HistoryOriginOwner,event:HistoryOriginEvent):boolean{return this.read(scope,owner,parseHistoryOriginEvent(event))!==null}
  revokeEvents(scope:string,owner:HistoryOriginOwner,events:HistoryOriginEvent[]):void {

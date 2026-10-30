@@ -1,8 +1,11 @@
 <p align="center"><a href="./README.md">简体中文</a> · <b>English</b></p>
 
-<h1 align="center">Firefly</h1>
-
-<p align="center"><b>Talk with Firefly. Turn ideas into actions you can build on.</b></p>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./readme-assets/firefly-banner-dark.en.gif">
+    <img src="./readme-assets/firefly-banner-light.en.gif" alt="Firefly Live2D animated banner" width="896">
+  </picture>
+</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Electron-47848F?style=flat&logo=electron&logoColor=white" alt="Electron" height="22">
@@ -17,7 +20,7 @@
 <p align="center">A Windows Live2D desktop companion and AI workbench featuring Firefly from Honkai: Star Rail.</p>
 
 <p align="center">
-  <a href="#-quick-start">Quick start</a> · <a href="#-features">Features</a> · <a href="#-security-and-privacy">Security</a> · <a href="#-project-structure">Structure</a> · <a href="#-status-and-limits">Status</a><br>
+  <a href="#-screenshots">Screenshots</a> · <a href="#-quick-start">Quick start</a> · <a href="#-features">Features</a> · <a href="#-security-and-privacy">Security</a> · <a href="#-project-structure">Structure</a> · <a href="#-status-and-limits">Status</a><br>
   <a href="https://github.com/Firefly-0423/Firefly-Agent/issues">Issues</a> · <a href="https://github.com/Firefly-0423/firefly-plugins">Plugin marketplace</a>
 </p>
 
@@ -36,6 +39,16 @@ Firefly puts a desktop character who chats with you and an agent workbench that 
 | 💬 Chat · Companion | 📋 Work · Tasks | 💻 Code · Workspace |
 | --- | --- | --- |
 | In-character chat, streamed replies and history; Live2D expressions and idle motions. | Files, documents and knowledge; tools and Skills, with specialist agents. | Git, LSP, AST, file and command tools inside a bound workspace. |
+
+## 📸 Screenshots
+
+<p align="center"><img src="./readme-assets/screenshots/chat.png" alt="Chat mode: talking with Firefly, the built-in browser on the right and the Live2D Firefly on the desktop" width="100%"></p>
+<p align="center"><sub>Chat: talking with Firefly. The built-in browser is open on the right and the Live2D Firefly sits on the desktop; the overview cards show context, usage and background tasks.</sub></p>
+
+| 📋 Work · Tasks | 💻 Code · Workspace |
+| --- | --- |
+| <img src="./readme-assets/screenshots/work.png" alt="Work mode: reading project notes and turning them into a study plan" width="100%"> | <img src="./readme-assets/screenshots/code.png" alt="Code mode: fixing a bug in a bound Rust project" width="100%"> |
+| Bind a project folder; Firefly reads the material and turns it into tables and checkpoints. The run folds to one summary line and its results open in the task panel. | Read and change code, run commands and tests in a bound workspace; the side panel shows the branch, changes and current task. |
 
 ## 🚀 Quick start
 
@@ -91,6 +104,7 @@ Scripts are described in [scripts/README.md](./scripts/README.md).
 
 - Works with files, documents and knowledge, calls built-in tools and Skills, and delegates to specialist agents; tool runs, approvals and cancellation are all visible.
 - Built-in file read/write and patching, Word / Excel / PDF tools, web search and reading, downloads, scheduled tasks and calendar.
+- A run folds to one summary line (time taken, files read, commands run). Expanded, it is one timeline: consecutive reads and searches share a row, thinking folds away when it ends, and edits, commands and failures keep their own rows.
 - Finished tasks export to Markdown; "task done" and "file fully read" are shown separately.
 - **Knowledge workspace**: bind an existing Obsidian vault or study folder for learning, quizzes, notes and progress.
 
@@ -189,7 +203,7 @@ src/
 └── shared/               # Contracts and helpers shared by main and renderer
 
 native/                   # Rust native helpers: screenshots, history reading, workspace handle access
-packages/plugin-sdk/      # Plugin SDK sources
+plugin-sdk/               # Plugin SDK sources
 examples/                 # Plugin examples (text-stats, json-tools, weather-tool and more)
 skills/                   # Project Skills
 vendor/firefly-skills/    # Third-party and adapted Skills, with sources and licenses

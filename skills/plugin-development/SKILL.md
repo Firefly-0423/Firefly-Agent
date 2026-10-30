@@ -10,7 +10,7 @@ modes:
 
 # 编写流萤运行时插件
 
-本 Skill 说明怎样把一项功能做成可以导入流萤的插件包：先确定形态，再写目录与入口，本地冒烟通过后打成 ZIP，最后在宿主里实测。文中的名称、字段和限制都以宿主源码为准（开发版仓库中对应 `src/plugins/`、`src/main/plugin-host/` 与 `packages/plugin-sdk/`）。拿不准的接口先查 `references/api-spec.md`，不要凭印象填写。
+本 Skill 说明怎样把一项功能做成可以导入流萤的插件包：先确定形态，再写目录与入口，本地冒烟通过后打成 ZIP，最后在宿主里实测。文中的名称、字段和限制都以宿主源码为准（开发版仓库中对应 `src/plugins/`、`src/main/plugin-host/` 与 `plugin-sdk/`）。拿不准的接口先查 `references/api-spec.md`，不要凭印象填写。
 
 ## 核心事实
 
