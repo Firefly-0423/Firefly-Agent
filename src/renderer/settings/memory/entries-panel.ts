@@ -3,8 +3,11 @@ import type { FactView } from "../../../shared/memory-contracts";
 import type { MemoryPanelAction, MemoryPanelCandidate, MemoryPanelState, MemoryPolicyPanelApi } from "../../../shared/memory-panel-contracts";
 import { t } from "../i18n";
 import { formatDateTime } from "../shared/format";
+import { buildMemoryGraph, type MemoryGraphNode } from "./graph-model";
+import { createMemoryGraph } from "./graph-panel";
 
 type Filter = "all" | "facts" | "candidates";
+type View = "list" | "graph";
 
 /** 记忆内容全部按文本渲染；渲染层不构造任何身份或来源凭证。 */
 export function createMemoryEntriesPanel(
@@ -19,6 +22,10 @@ export function createMemoryEntriesPanel(
   let loadError: string | null = null;
   let filter: Filter = "all";
   let query = "";
+  let view: View = "list";
+  /** Graph view: the node picked last; the list under the graph shows only what belongs to it. */
+  let focus: MemoryGraphNode | null = null;
+  let graph: ReturnType<typeof createMemoryGraph> | undefined;
 
   function element<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text?: string): HTMLElementTagNameMap[K] {
     const node = doc.createElement(tag);
@@ -82,13 +89,38 @@ export function createMemoryEntriesPanel(
   filterButtons[0].classList.add("is-active");
   filterButtons[0].setAttribute("aria-pressed", "true");
   filterButtons.slice(1).forEach((node) => node.setAttribute("aria-pressed", "false"));
-  toolbar.append(search, filterGroup);
+  // 列表 / 关系图：关系图里点节点，下面的列表只显示与它相关的卡片，操作与列表完全相同。
+  const viewGroup = element("div", "option-blocks");
+  viewGroup.setAttribute("role", "group");
+  viewGroup.setAttribute("aria-label", t("settings.panel.memory.entries.viewLabel"));
+  const viewButtons = ([["list", t("settings.panel.memory.entries.viewList")], ["graph", t("settings.panel.memory.entries.viewGraph")]] as const).map(([value, label]) => {
+    const node = element("button", "option-block", label);
+    node.type = "button";
+    node.dataset.memoryView = value;
+    node.setAttribute("aria-pressed", String(value === view));
+    node.classList.toggle("is-active", value === view);
+    node.addEventListener("click", () => {
+      if (view === value) return;
+      view = value; focus = null;
+      for (const item of viewButtons) {
+        const active = item.dataset.memoryView === value;
+        item.classList.toggle("is-active", active); item.setAttribute("aria-pressed", String(active));
+      }
+      search.hidden = filterGroup.hidden = value === "graph";
+      renderGraph(); renderList();
+    });
+    viewGroup.append(node);
+    return node;
+  });
+  toolbar.append(search, filterGroup, viewGroup);
+  const graphRoot = element("div", "memory-graph-wrap");
+  graphRoot.hidden = true;
 
   const list = element("div", "memory-list");
   const feedback = element("p", "memory-record__body");
   feedback.setAttribute("role", "status");
   feedback.setAttribute("aria-live", "polite");
-  root.replaceChildren(toolbar, list, feedback);
+  root.replaceChildren(toolbar, graphRoot, list, feedback);
 
   function empty(message: string) {
     list.replaceChildren(element("p", "memory-list__empty", message));
@@ -199,11 +231,38 @@ export function createMemoryEntriesPanel(
     list.append(entry.article);
   }
 
+  function graphLabel(key: string): string {
+    return key === "self" || key === "untitled" ? t(`settings.panel.memory.graph.${key}`) : t(`settings.panel.memory.graph.category.${key}`);
+  }
+  function renderGraph(): void {
+    graphRoot.hidden = view !== "graph" || !state?.backendStatus.available;
+    if (graphRoot.hidden || !state) return;
+    if (!state.facts.length && !state.candidates.length) {
+      graph?.destroy(); graph = undefined;
+      graphRoot.replaceChildren(element("p", "memory-list__empty", t("settings.panel.memory.graph.empty"))); return;
+    }
+    graph ??= createMemoryGraph(graphRoot, { label: t("settings.panel.memory.graph.label"), onSelect: (node) => { focus = node; renderList(); } });
+    graph.update(buildMemoryGraph(state, graphLabel));
+  }
+  /** Whether a fact or candidate belongs to the node picked in the graph. */
+  function focused(item: { sourceRef: { binding?: { sessionId: string } }; projectName?: string }, id: string): boolean {
+    if (!focus) return false;
+    if (focus.kind === "source") return `source:${item.sourceRef.binding?.sessionId}` === focus.id;
+    if (focus.kind === "project") return `project:${item.projectName}` === focus.id;
+    return focus.itemId === id;
+  }
+
   function renderList(): void {
     list.replaceChildren();
     if (loadError) { empty(loadError); return; }
     if (!state) { empty(t("settings.panel.memory.loading")); return; }
     if (!state.backendStatus.available) { empty(t("settings.panel.memory.entries.backendDown")); return; }
+    if (view === "graph") {
+      const facts = state.facts.filter((item) => focused(item, item.factId)), candidates = state.candidates.filter((item) => focused(item, item.candidateId));
+      facts.forEach(renderFact); candidates.forEach(renderCandidate);
+      if (!facts.length && !candidates.length && (state.facts.length || state.candidates.length)) empty(t("settings.panel.memory.graph.hint"));
+      return;
+    }
     const matches = (text: string) => !query || text.toLowerCase().includes(query);
     const facts = filter === "candidates" ? [] : state.facts.filter((item) => matches(item.assertion));
     const candidates = filter === "facts" ? [] : state.candidates.filter((item) => matches(item.assertion));
@@ -224,6 +283,7 @@ export function createMemoryEntriesPanel(
     state = value;
     loadError = error;
     onState?.(value);
+    renderGraph();
     renderList();
     setDisabled();
   }

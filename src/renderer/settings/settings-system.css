@@ -913,3 +913,26 @@ body { font-size: var(--ff-ui-font-size, 16px); }
 .settings-shell .settings-nav__list { gap: 2px; }
 .settings-shell .settings-nav__group { padding: 14px 12px 4px; }
 .settings-shell .nav-item { min-height: 36px; padding-block: 6px; }
+
+/* Memory graph (设置 → 流萤记忆 → 关系图): you in the middle, categories, memories, then the conversations they came from.
+   Confirmed memories are solid, ones waiting for confirmation dashed. Colours come from the theme tokens. */
+#memory-panel .memory-graph-wrap { margin-top: 12px; border: 1px solid var(--rb-border-soft); border-radius: 14px; background: var(--rb-card-bg); overflow: hidden; }
+#memory-panel .memory-graph { display: block; width: 100%; height: auto; min-height: 320px; cursor: grab; touch-action: none; user-select: none; }
+#memory-panel .memory-graph.is-panning { cursor: grabbing; }
+.memory-graph__edge { stroke: var(--rb-border-strong); stroke-width: 1.2; }
+.memory-graph__edge.is-source, .memory-graph__edge.is-project { stroke-dasharray: 3 3; opacity: .7; }
+.memory-graph__node circle { fill: var(--rb-card-bg, #fff); stroke: rgba(var(--rb-accent-rgb), .55); stroke-width: 1.5; transition: stroke-width 120ms ease, fill 120ms ease; }
+.memory-graph__node text { fill: var(--rb-text-muted); font-size: var(--ff-fs-caption); text-anchor: middle; pointer-events: none; }
+.memory-graph__node.is-self circle { fill: rgba(var(--rb-accent-rgb), .9); stroke: rgba(var(--rb-accent-rgb), 1); }
+.memory-graph__node.is-self text { fill: var(--rb-text-strong); font-size: var(--ff-fs-ui); font-weight: 600; }
+.memory-graph__node.is-category circle { fill: rgba(var(--rb-accent-rgb), .18); }
+.memory-graph__node.is-category text { fill: var(--rb-text-default); font-size: var(--ff-fs-ui); }
+.memory-graph__node.is-fact circle { fill: rgba(var(--rb-accent-rgb), .55); }
+.memory-graph__node.is-candidate circle { stroke-dasharray: 3 2; }
+.memory-graph__node.is-source circle, .memory-graph__node.is-project circle { stroke: var(--rb-text-faint); }
+.memory-graph__node[role="button"] { cursor: pointer; outline: none; }
+.memory-graph__node[role="button"]:hover circle, .memory-graph__node[role="button"]:focus-visible circle { stroke-width: 3; }
+.memory-graph__node.is-selected circle { stroke: rgba(var(--rb-accent-rgb), 1); stroke-width: 3; }
+.memory-graph__node.is-selected text { fill: var(--rb-text-strong); }
+.memory-graph__node.is-dragging { cursor: grabbing; }
+@media (prefers-reduced-motion: reduce) { .memory-graph__node circle { transition: none; } }
