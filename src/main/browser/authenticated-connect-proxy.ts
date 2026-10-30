@@ -2,7 +2,8 @@ import { BlockList, connect, isIP, type Socket } from "node:net";
 import { createServer, type IncomingMessage } from "node:http";
 import { lookup } from "node:dns/promises";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { isPublicNetworkAddress, parseConnectAuthority } from "./public-network-target";
+import { isFakeIpAddress, isPublicNetworkAddress, parseConnectAuthority } from "./public-network-target";
+import { resolveOverHttps } from "./browser-doh";
 import type { BrowserConnectionError } from "../../shared/manual-browser";
 /** Main-only snapshot at CONNECT admission; no URL, credentials or raw error crosses it. */
 export type BrowserConnectionObserver = (host: string) => ((code: BrowserConnectionError) => void) | undefined;
@@ -17,10 +18,13 @@ export interface ConnectProxy {
 }
 export interface ProxyDependencies {
   resolve(host: string): Promise<readonly { address: string; family: number }[]>;
+  /** Second opinion for a name the resolver only maps to fake-ip addresses. Defaults to DNS-over-HTTPS. */
+  resolveVerified?(host: string, signal: AbortSignal): Promise<readonly { address: string; family: number }[]>;
   connect(target: PinnedTarget, signal: AbortSignal): Socket;
 }
 const defaults: ProxyDependencies = {
   resolve: (host) => lookup(host, { all: true, verbatim: true }),
+  resolveVerified: resolveOverHttps,
   // Numeric host prevents a second hostname lookup. No proxy-env/HTTP-agent path.
   // https://nodejs.org/download/release/v24.19.0/docs/api/net.html#netcreateconnectionoptions-connectlistener
   connect: (target, signal) => connect({ host: target.address, port: target.port, family: target.family, signal }),
@@ -121,6 +125,11 @@ export async function startAuthenticatedConnectProxy(ownerInput: { webContentsId
           const resolving = resolveWithinBudget(dependencies, target.host);
           if (!resolving) { reject(client, 503); return; }
           answers = await abortable(resolving, scope.signal);
+          // A TUN proxy in fake-ip mode answers every name from 198.18.0.0/15. Ask DoH where the name really points; the
+          // same public-address check below then applies to those answers, and the real address is what gets dialled.
+          if (answers.length && answers.every(answer => isFakeIpAddress(answer.address)) && !scope.signal.aborted) {
+            answers = await abortable(Promise.resolve((dependencies.resolveVerified ?? resolveOverHttps)(target.host, scope.signal)), scope.signal);
+          }
         }
         if (!active || owner.signal.aborted || scope.signal.aborted || client.destroyed) return;
         if (!answers.length || answers.length > 64 || answers.some(answer => isIP(answer.address) !== answer.family)) { report("dns_failed"); reject(client, 403); return; }
