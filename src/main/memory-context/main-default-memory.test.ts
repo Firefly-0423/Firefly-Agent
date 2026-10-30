@@ -1340,9 +1340,31 @@ it("settings state labels a project fact with its project name and a global fact
   await turnIn(f, "learn-chat", "chat", null, "请叫我小林");
   const state = await f.memory.settingsHost.getState(f.settingsEvent);
   const byText = (text: string) => state.facts.find((fact: any) => fact.assertion.includes(text)) as any;
-  expect(byText("bash")).toMatchObject({ scope: "project", projectName: "alpha" });
-  expect(byText("小林")).toMatchObject({ scope: "global" }); expect(byText("小林").projectName).toBeUndefined();
+  expect(byText("bash")).toMatchObject({ scope: "project", projectName: "alpha", attribute: "shell" });
+  expect(byText("小林")).toMatchObject({ scope: "global", attribute: "address" }); expect(byText("小林").projectName).toBeUndefined();
   expect(JSON.stringify(state)).not.toMatch(/project-[a-f0-9]{64}/);
+});
+
+it("the chat's memory summary counts memories per category and their conversations, without any memory text", async () => {
+  const f = await fixture("code");
+  await turnIn(f, "learn-alpha", "code", "alpha", "I prefer bash");
+  await turnIn(f, "learn-chat", "chat", null, "请叫我小林");
+  const summary = await f.memory.graphSummary();
+  expect(summary.available).toBe(true); expect(summary.sources).toBe(2);
+  expect(summary.categories).toEqual(expect.arrayContaining([{ key: "shell", facts: 1, pending: 0 }, { key: "address", facts: 1, pending: 0 }]));
+  expect(JSON.stringify(summary)).not.toMatch(/bash|小林|learn-/);
+});
+
+it("settings state names the conversation a fact came from, and leaves it out when the session is gone or untitled", async () => {
+  const f = await fixture("code");
+  await turnIn(f, "learn-title", "chat", null, "请叫我小林");
+  await turnIn(f, "learn-untitled", "code", "alpha", "I prefer bash");
+  f.sessions.get("learn-title").title = "  周末聊天  ";
+  const state = await f.memory.settingsHost.getState(f.settingsEvent);
+  const byText = (text: string) => state.facts.find((fact: any) => fact.assertion.includes(text)) as any;
+  expect(byText("小林").sourceTitle).toBe("周末聊天"); expect(byText("bash")).not.toHaveProperty("sourceTitle");
+  f.sessions.delete("learn-title");
+  expect(((await f.memory.settingsHost.getState(f.settingsEvent)).facts.find((fact: any) => fact.assertion.includes("小林")) as any)).not.toHaveProperty("sourceTitle");
 });
 it("a project fact keeps its scope but loses the name once no session is bound to that project any more", async () => {
   const f = await fixture("code");
@@ -1352,13 +1374,15 @@ it("a project fact keeps its scope but loses the name once no session is bound t
   expect(fact.scope).toBe("project"); expect(fact.projectName).toBeUndefined();
 });
 
-it("settings state loads without touching any session when no listed memory belongs to a project", async () => {
+it("settings state reads only the listed memories' own source sessions when none belongs to a project", async () => {
   const f = await fixture("chat");
   await turnIn(f, "learn-chat", "chat", null, "请叫我小林");
+  f.sessions.set("unrelated", { id: "unrelated", mode: "chat", messages: [], modelProfileId: "luna" });
   const get = vi.spyOn(f.sessions, "get"); get.mockClear();
   const state = await f.memory.settingsHost.getState(f.settingsEvent);
   expect(state.facts.some((fact: any) => fact.assertion.includes("小林"))).toBe(true);
-  expect(get).not.toHaveBeenCalled();
+  // The conversation title of each memory's source; no scan of other sessions for project names.
+  expect(new Set(get.mock.calls.map(([id]) => id))).toEqual(new Set(["learn-chat"]));
 });
 it("a session that cannot be read never fails the settings list; the project fact just has no name", async () => {
   const f = await fixture("code");

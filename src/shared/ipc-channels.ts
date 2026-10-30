@@ -130,6 +130,7 @@ export const IPC = {
   MEMORY_PANEL_DELETE_IMPORTED_DOC: "memory-panel:delete-imported-doc",
   MEMORY_PANEL_GET_DATA: "memory-panel:get-data",
   MEMORY_PANEL_GET_STATE: "memory-panel:get-state",
+  MEMORY_GRAPH_SUMMARY: "memory-graph:summary",
   MEMORY_SHADOW_CLEAR: "memory-shadow:clear",
   MEMORY_SHADOW_CONFIGURE: "memory-shadow:configure",
   MEMORY_SHADOW_EXPORT: "memory-shadow:export",

@@ -1,3 +1,4 @@
+import { showMemoryView } from "./memory/entries-panel";
 import { bindDesktopAsrSettings } from "./desktop-asr-settings";
 import type {} from "../global";
 import { bindUiColorControls } from "./appearance/colors";
@@ -1398,8 +1399,13 @@ void bindDesktopAsrSettings(document, window.settings);
 void mountPluginPanels();
 window.settings?.onChannelsStatusChanged(status => renderProactiveDeliveryAvailability(status as Record<string, { phase?: string }>));
 void loadChannelsPanel();
-switchSection((window.location.hash || "#general").slice(1));
-window.settings?.onSwitchSection?.(section => switchSection(section));
+/** "memory-graph" (from the chat's memory card) opens 流萤记忆 in its graph view. */
+function openSection(requested: string): void {
+  if (requested !== "memory-graph") { switchSection(requested); return; }
+  switchSection("memory"); showMemoryView("graph");
+}
+openSection((window.location.hash || "#general").slice(1));
+window.settings?.onSwitchSection?.(section => openSection(section));
 
 async function removeImportedDocument(event: Event): Promise<void> {
   const origin = event.target as HTMLElement | null;

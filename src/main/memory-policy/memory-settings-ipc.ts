@@ -1,7 +1,8 @@
+import { MEMORY_GRAPH_CATEGORIES, memoryGraphCategory } from "../../shared/memory-graph-categories";
 import type { IpcMainInvokeEvent } from "electron";
 import { IPC } from "../../shared/ipc-channels";
 import type { FactView, SourceRef } from "../../shared/memory-contracts";
-import type { MemoryPanelAction, MemoryPanelOutcome, MemoryPanelSourceAudit, MemoryPanelState } from "../../shared/memory-panel-contracts";
+import type { MemoryGraphSummary, MemoryPanelAction, MemoryPanelOutcome, MemoryPanelSourceAudit, MemoryPanelState } from "../../shared/memory-panel-contracts";
 import { objectFields, parseInternalId, positiveRevision, textField } from "../memory-core/command-validation";
 
 /** Main-only host closes over the owner's opaque policy/source capabilities.
@@ -63,13 +64,21 @@ function source(ref: SourceRef): SourceRef {
   return { sourceId: ref.sourceId, revision: ref.revision, ...(ref.span ? { span: { start: ref.span.start, end: ref.span.end } } : {}),
     ...(ref.binding ? { binding: { providerId: ref.binding.providerId, sessionId: ref.binding.sessionId, messageId: ref.binding.messageId, contentRevision: ref.binding.contentRevision, generation: ref.binding.generation } } : {}) };
 }
+const CATEGORIES = new Set<string>(MEMORY_GRAPH_CATEGORIES);
+/** A known category name only: never the typed record or a free-form value. */
+function categoryOf(item: FactView): string | undefined {
+  const value = item.typed?.legacyAttribute ?? item.attribute;
+  return typeof value === "string" && CATEGORIES.has(value) ? value : undefined;
+}
 function fact(item: FactView): FactView {
   return { factId: item.factId, revision: item.revision, subjectKey: item.subjectKey, assertion: item.assertion, assertionKind: item.assertionKind,
     time: { validFrom: item.time.validFrom, validTo: item.time.validTo, referenceTime: item.time.referenceTime }, sourceRef: source(item.sourceRef),
     recordedAt: item.recordedAt, acceptedAt: item.acceptedAt, supersededAt: item.supersededAt, activationReason: item.activationReason, policyVersion: item.policyVersion,
     provenance: { candidateId: item.provenance.candidateId, evidenceId: item.provenance.evidenceId, activationSourceRef: source(item.provenance.activationSourceRef) },
     ...(item.scope === "global" || item.scope === "project" ? { scope: item.scope } : {}),
-    ...(typeof item.projectName === "string" && item.projectName ? { projectName: item.projectName.slice(0, 200) } : {}) };
+    ...(typeof item.projectName === "string" && item.projectName ? { projectName: item.projectName.slice(0, 200) } : {}),
+    ...(categoryOf(item) ? { attribute: categoryOf(item) } : {}),
+    ...(typeof item.sourceTitle === "string" && item.sourceTitle ? { sourceTitle: item.sourceTitle.slice(0, 200) } : {}) };
 }
 function stateDto(state: MemoryPanelState): MemoryPanelState {
   const c = state.coverage;
@@ -79,7 +88,8 @@ function stateDto(state: MemoryPanelState): MemoryPanelState {
     value: item.value, assertion: item.assertion, reason: item.reason, sourceRef: source(item.sourceRef), ...(item.occurredAt !== undefined ? { occurredAt: item.occurredAt } : {}),
       ...(typeof item.contentHash === "string" && /^[a-f0-9]{64}$/.test(item.contentHash) ? { contentHash: item.contentHash } : {}),
       ...(item.scope === "global" || item.scope === "project" ? { scope: item.scope } : {}),
-      ...(typeof item.projectName === "string" && item.projectName ? { projectName: item.projectName.slice(0, 200) } : {}) })),
+      ...(typeof item.projectName === "string" && item.projectName ? { projectName: item.projectName.slice(0, 200) } : {}),
+      ...(typeof item.sourceTitle === "string" && item.sourceTitle ? { sourceTitle: item.sourceTitle.slice(0, 200) } : {}) })),
     backendStatus: { available: state.backendStatus.available, ...(state.backendStatus.reason ? { reason: state.backendStatus.reason } : {}) },
     coverage: { status: c.status, ...(c.reason ? { reason: c.reason } : {}), population: c.population, present: c.present, missing: c.missing, unknownDenied: c.unknownDenied,
       exactRatio: c.exactRatio, lowerRatio: c.lowerRatio, upperRatio: c.upperRatio, reasons: { ...c.reasons }, evidence: { status: "not-evaluated", eligible: null, ineligible: null, unknown: c.evidence.unknown, ratio: null } } };
@@ -147,10 +157,27 @@ export function createMemorySettingsIpc(options: Options) {
   }
   return { getMemoryPanelState, applyMemoryPanelAction, auditMemoryPanelSource };
 }
-export function registerMemorySettingsIpc(options: Options & { ipc: { handle(channel: string, listener: (event: IpcMainInvokeEvent, ...args: any[]) => unknown): void } }) {
+/** Counts only, re-shaped so nothing but category names and numbers can cross to the chat window. */
+export async function memoryGraphSummaryDto(summary: (() => Promise<MemoryGraphSummary>) | undefined): Promise<MemoryGraphSummary> {
+  const count = (value: unknown) => Number.isSafeInteger(value) && (value as number) >= 0 ? value as number : 0;
+  try {
+    const value = summary ? await summary() : undefined;
+    if (!value?.available) return { available: false, categories: [], sources: 0 };
+    return { available: true, sources: count(value.sources),
+      categories: value.categories.slice(0, 16).map(item => ({ key: memoryGraphCategory(item.key), facts: count(item.facts), pending: count(item.pending) })) };
+  } catch { return { available: false, categories: [], sources: 0 }; }
+}
+export function registerMemorySettingsIpc(options: Options & { summary?: () => Promise<MemoryGraphSummary>; getChatWindow?: () => MemorySettingsWindow | null; ipc: { handle(channel: string, listener: (event: IpcMainInvokeEvent, ...args: any[]) => unknown): void } }) {
   const handlers = createMemorySettingsIpc(options);
   options.ipc.handle(IPC.MEMORY_PANEL_GET_STATE, handlers.getMemoryPanelState);
   options.ipc.handle(IPC.MEMORY_PANEL_APPLY_ACTION, handlers.applyMemoryPanelAction);
   options.ipc.handle(IPC.MEMORY_PANEL_AUDIT_SOURCE, handlers.auditMemoryPanelSource);
+  // Only the chat window's main frame shows the memory card; the pet, toast and other renderers share the preload.
+  options.ipc.handle(IPC.MEMORY_GRAPH_SUMMARY, (event: IpcMainInvokeEvent) => {
+    const chat = options.getChatWindow?.();
+    if (!chat || chat.isDestroyed() || chat.webContents.isDestroyed() || event.sender !== chat.webContents || !event.senderFrame || event.senderFrame !== chat.webContents.mainFrame)
+      return { available: false, categories: [], sources: 0 };
+    return memoryGraphSummaryDto(options.summary);
+  });
   return handlers;
 }

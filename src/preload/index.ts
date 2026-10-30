@@ -999,6 +999,9 @@ const memoryPanelApi = {
     auditSource: (factId: string): Promise<MemoryPanelSourceAudit> => {
         return ipcRenderer.invoke(IPC.MEMORY_PANEL_AUDIT_SOURCE, factId);
     },
+    graphSummary: (): Promise<import("../shared/memory-panel-contracts").MemoryGraphSummary> => {
+        return ipcRenderer.invoke(IPC.MEMORY_GRAPH_SUMMARY);
+    },
     getData: () => {
         return ipcRenderer.invoke(IPC.MEMORY_PANEL_GET_DATA);
     },
