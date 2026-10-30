@@ -1275,7 +1275,9 @@
       "address": "Name",
       "tool": "Tools",
       "preference": "Preferences",
-      "other": "Other"
+      "other": "Other",
+      "programming-usage": "Coding habits",
+      "programming-ability": "Coding skills"
     }
   },
   "workspace": {

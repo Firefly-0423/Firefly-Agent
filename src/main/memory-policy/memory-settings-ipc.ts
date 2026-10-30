@@ -1,4 +1,4 @@
-import { memoryGraphCategory } from "../../shared/memory-graph-categories";
+import { MEMORY_GRAPH_CATEGORIES, memoryGraphCategory } from "../../shared/memory-graph-categories";
 import type { IpcMainInvokeEvent } from "electron";
 import { IPC } from "../../shared/ipc-channels";
 import type { FactView, SourceRef } from "../../shared/memory-contracts";
@@ -64,7 +64,7 @@ function source(ref: SourceRef): SourceRef {
   return { sourceId: ref.sourceId, revision: ref.revision, ...(ref.span ? { span: { start: ref.span.start, end: ref.span.end } } : {}),
     ...(ref.binding ? { binding: { providerId: ref.binding.providerId, sessionId: ref.binding.sessionId, messageId: ref.binding.messageId, contentRevision: ref.binding.contentRevision, generation: ref.binding.generation } } : {}) };
 }
-const CATEGORIES = new Set(["address", "language", "response-style", "shell", "tool", "preference", "programming-usage", "programming-ability"]);
+const CATEGORIES = new Set<string>(MEMORY_GRAPH_CATEGORIES);
 /** A known category name only: never the typed record or a free-form value. */
 function categoryOf(item: FactView): string | undefined {
   const value = item.typed?.legacyAttribute ?? item.attribute;
@@ -167,11 +167,17 @@ export async function memoryGraphSummaryDto(summary: (() => Promise<MemoryGraphS
       categories: value.categories.slice(0, 16).map(item => ({ key: memoryGraphCategory(item.key), facts: count(item.facts), pending: count(item.pending) })) };
   } catch { return { available: false, categories: [], sources: 0 }; }
 }
-export function registerMemorySettingsIpc(options: Options & { summary?: () => Promise<MemoryGraphSummary>; ipc: { handle(channel: string, listener: (event: IpcMainInvokeEvent, ...args: any[]) => unknown): void } }) {
+export function registerMemorySettingsIpc(options: Options & { summary?: () => Promise<MemoryGraphSummary>; getChatWindow?: () => MemorySettingsWindow | null; ipc: { handle(channel: string, listener: (event: IpcMainInvokeEvent, ...args: any[]) => unknown): void } }) {
   const handlers = createMemorySettingsIpc(options);
   options.ipc.handle(IPC.MEMORY_PANEL_GET_STATE, handlers.getMemoryPanelState);
   options.ipc.handle(IPC.MEMORY_PANEL_APPLY_ACTION, handlers.applyMemoryPanelAction);
   options.ipc.handle(IPC.MEMORY_PANEL_AUDIT_SOURCE, handlers.auditMemoryPanelSource);
-  options.ipc.handle(IPC.MEMORY_GRAPH_SUMMARY, () => memoryGraphSummaryDto(options.summary));
+  // Only the chat window's main frame shows the memory card; the pet, toast and other renderers share the preload.
+  options.ipc.handle(IPC.MEMORY_GRAPH_SUMMARY, (event: IpcMainInvokeEvent) => {
+    const chat = options.getChatWindow?.();
+    if (!chat || chat.isDestroyed() || chat.webContents.isDestroyed() || event.sender !== chat.webContents || !event.senderFrame || event.senderFrame !== chat.webContents.mainFrame)
+      return { available: false, categories: [], sources: 0 };
+    return memoryGraphSummaryDto(options.summary);
+  });
   return handlers;
 }

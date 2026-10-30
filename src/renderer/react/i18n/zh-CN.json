@@ -1275,7 +1275,9 @@
       "address": "称呼",
       "tool": "工具",
       "preference": "偏好",
-      "other": "其他"
+      "other": "其他",
+      "programming-usage": "编程习惯",
+      "programming-ability": "编程能力"
     }
   },
   "workspace": {

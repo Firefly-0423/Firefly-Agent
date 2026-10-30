@@ -30,6 +30,17 @@ vi.mock("electron", () => ({ contextBridge: { exposeInMainWorld: (name: string, 
   ipcRenderer: { invoke: preload.invoke, send: vi.fn(), on: vi.fn(), removeListener: vi.fn(), off: vi.fn() }, webUtils: {} }));
 
 describe("chat memory summary", () => {
+  it("answers only the chat window's main frame; any other renderer gets an unavailable summary", async () => {
+    const f = fixture(), channels = new Map<string, (...args: any[]) => unknown>();
+    const chatFrame = {}, chatContents = { mainFrame: chatFrame, isDestroyed: () => false }, chat = { webContents: chatContents, isDestroyed: () => false };
+    const summary = vi.fn(async () => ({ available: true, sources: 1, categories: [{ key: "programming-usage", facts: 1, pending: 0 }] }));
+    registerMemorySettingsIpc({ host: f.host, getSettingsWindow: () => f.win, getChatWindow: () => chat, summary, ipc: { handle: (name, handler) => { channels.set(name, handler); } } });
+    const ask = (event: unknown) => channels.get(IPC.MEMORY_GRAPH_SUMMARY)!(event);
+    expect(await ask({ sender: chatContents, senderFrame: chatFrame })).toEqual({ available: true, sources: 1, categories: [{ key: "programming-usage", facts: 1, pending: 0 }] });
+    for (const event of [f.event, { sender: chatContents, senderFrame: {} }, { sender: {}, senderFrame: chatFrame }])
+      expect(await ask(event)).toEqual({ available: false, categories: [], sources: 0 });
+    expect(summary).toHaveBeenCalledOnce();
+  });
   it("passes category names and counts only, and reports unavailable on any failure", async () => {
     const { memoryGraphSummaryDto } = await import("./memory-settings-ipc");
     expect(await memoryGraphSummaryDto(async () => ({ available: true, sources: 3, categories: [{ key: "shell", facts: 2, pending: 1 }, { key: "我喜欢茶", facts: -1, pending: 1.5 } as any] })))
