@@ -6,6 +6,7 @@
 // - uiFontSize / chatFontSize / codeFontSize：字号（px）
 
 import { DARK_CODE_THEMES, LIGHT_CODE_THEMES, type DarkCodeTheme, type LightCodeTheme } from "./code-themes";
+import { normalizeSegmentedChatEnabled } from "./preferences";
 
 export interface ChatAppearanceSettings {
   /** 行高，无单位数字 */
@@ -36,6 +37,11 @@ export interface ChatAppearanceSettings {
   codeThemeDark: DarkCodeTheme;
 }
 
+/** 聊天窗口渲染所需：外观设置，加上「分段输出」偏好开关（存为 segmentedChatEnabled，不属于外观，也不随外观重置）。 */
+export interface ChatDisplaySettings extends ChatAppearanceSettings {
+  segmentedChat: boolean;
+}
+
 export const REDUCE_MOTION_PREFERENCES = ["system", "on", "off"] as const;
 export type ReduceMotionPreference = (typeof REDUCE_MOTION_PREFERENCES)[number];
 export const CODE_FONT_CHOICES = ["system", "jetbrains", "cascadia", "consolas"] as const;
@@ -46,7 +52,8 @@ export type DiffMarkerStyle = (typeof DIFF_MARKER_STYLES)[number];
 /** CSS font stacks for each code font choice. */
 export const CODE_FONT_STACKS: Record<CodeFontChoice, string> = {
   system: 'ui-monospace, "Cascadia Mono", Consolas, monospace',
-  jetbrains: '"JetBrains Mono", ui-monospace, Consolas, monospace',
+  // The bundled variable face first (ui/fonts.css), then an installed copy; the CJK face keeps Chinese in code off SimSun.
+  jetbrains: '"JetBrains Mono Variable", "JetBrains Mono", ui-monospace, Consolas, "Noto Sans SC Variable", monospace',
   cascadia: '"Cascadia Code", "Cascadia Mono", ui-monospace, monospace',
   consolas: 'Consolas, ui-monospace, monospace',
 };
@@ -153,5 +160,15 @@ export function normalizeChatAppearance(
     smartPunctuation: source.smartPunctuation === true,
     codeThemeLight: oneOf(source.codeThemeLight, LIGHT_CODE_THEMES, DEFAULT_CHAT_APPEARANCE.codeThemeLight),
     codeThemeDark: oneOf(source.codeThemeDark, DARK_CODE_THEMES, DEFAULT_CHAT_APPEARANCE.codeThemeDark),
+  };
+}
+
+/** Stored settings carry segmentedChatEnabled; an object this already returned (normalized again by the
+ *  renderer) carries segmentedChat. */
+export function normalizeChatDisplay(input: unknown): ChatDisplaySettings {
+  const source = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
+  return {
+    ...normalizeChatAppearance(input),
+    segmentedChat: "segmentedChatEnabled" in source ? normalizeSegmentedChatEnabled(source.segmentedChatEnabled) : source.segmentedChat !== false,
   };
 }

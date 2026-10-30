@@ -30,8 +30,6 @@
   border: 2px solid var(--ff-glow);
   box-shadow: 0 2px 7px rgba(var(--ff-glow-rgb), 0.22);
 }
-:root[data-ui-theme="pearl-white"] .ff-effort-bar__fill { background: var(--ff-glow); }
-:root[data-ui-theme="pearl-white"] .ff-effort-bar:focus-visible { box-shadow: 0 0 0 3px rgba(var(--ff-glow-rgb), 0.3); }
 
 /* Switches, checkboxes, radios and progress. */
 :root[data-ui-theme="pearl-white"] :is(.switch input:checked + .switch__track, .plugin-switch input:checked + span) { background: var(--ff-glow); }

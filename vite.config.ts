@@ -36,9 +36,8 @@ function appVersionPlugin(): Plugin {
 /**
  * 生成 React 渲染页的 Content-Security-Policy。
  * - script-src 只允许 'self'，明确不含 'unsafe-eval'
- * - style-src 保留 'unsafe-inline'，兼容 Ant Design 的 CSS-in-JS 运行时样式；
- *   放行 fonts.googleapis.com（ui/fonts.css 的 Google Fonts 样式表）
- * - font-src 放行 fonts.gstatic.com（Google Fonts 字体文件本体）
+ * - style-src 保留 'unsafe-inline'，兼容 Ant Design 的 CSS-in-JS 运行时样式
+ * - font-src 只允许本地：字体随应用打包（ui/fonts.css），不再向 Google Fonts 请求
  * - frame-ancestors 只在 HTTP 响应头中生效，经 <meta> 传递会被浏览器忽略，故不写入
  * - 开发环境额外放行 Vite 热更新所需的 localhost 连接源
  */
@@ -49,9 +48,9 @@ function reactRendererCsp(isDev: boolean): string {
   return [
     "default-src 'self'",
     "script-src 'self'",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
-    "font-src 'self' data: https://fonts.gstatic.com",
+    "font-src 'self' data:",
     `connect-src ${connectSrc}`,
     "media-src 'self' data: blob: https:",
     "worker-src 'self' blob:",

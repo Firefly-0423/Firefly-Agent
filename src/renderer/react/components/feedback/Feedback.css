@@ -24,7 +24,7 @@
 
 .ff-feedback-modal .ant-modal-title {
   font-weight: 600;
-  font-size: 15px;
+  font-size: var(--ff-fs-title);
   color: var(--rb-feedback-fg);
 }
 
@@ -59,7 +59,7 @@
   word-break: break-all;
   white-space: pre-wrap;
   line-height: 1.6;
-  font-size: 12px;
+  font-size: var(--ff-fs-caption);
   color: var(--rb-feedback-fg);
   background: var(--rb-feedback-details-bg);
   border-radius: 12px;

@@ -6,6 +6,8 @@ import { Bubble, Think, ThoughtChain, type BubbleItemType } from "@ant-design/x"
 import { Component, createContext, createElement, useCallback, useContext, useEffect, useMemo, useRef, useState, type ErrorInfo, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { t, useTranslation } from "../../../i18n";
 import { normalizeModelMarkdown } from "./markdown-normalize";
+import { splitChatSegments } from "./chat-segments";
+import { useSegmentedChat } from "../../../hooks/useSegmentedChat";
 import { resolveAsset } from "../../../../../shared/renderer-base";
 import type { AgentRoundRecord, ChatMessageChannelSource, ConversationMode, ProcessMessageRecord, ReasoningBlock, RunActivityRecord, TaskDelegationDisplayRecord, ToolExecutionRecord, ToolFileChange, WorkReadReport } from "../../../../../shared/chat-types";
 import type { ContextUsageSnapshot } from "../../../../../shared/context-usage";
@@ -26,7 +28,8 @@ import { resolveRevisableLastTurn } from "./last-turn-actions";
 import { extractMessageStickerId, stripMessageStickerMarkers } from "./message-sticker";
 import type { WeatherData } from "./weather/weather-types";
 import { WeatherCard } from "./weather/WeatherCard";
-import { buildAskUserQa, buildFlatRunTimeline, countRoundChangedFiles, describeToolExecution, resolveAgentRoundTitle } from "./agent-rounds";
+import { buildAskUserQa, buildFlatRunTimeline, countRoundChangedFiles, countedTools, describeToolExecution, foldRunTimeline, groupToolSteps,
+  summarizeToolFacts, type FlatRunTimelineEntry } from "./agent-rounds";
 import { TaskDelegationRow } from "./TaskDelegationRow";
 import { extractFileChanges, FileChangeCard } from "./FileChangeCard";
 import { ReviewPanel } from "./ReviewPanel";
@@ -156,13 +159,24 @@ export function resolveChannelConversationLabel(messages: readonly Pick<ChatMess
   return t("messageList.channelSource.sameConversation", { channels: labels.join("、") });
 }
 
+/** Segmented output: a Chat reply as a column of bubbles, one per paragraph; the last one grows while it streams. */
+export function SegmentedReply({ content, streaming }: { content: string; streaming: boolean }) {
+  const segments = useMemo(() => splitChatSegments(normalizeModelMarkdown(content)), [content]);
+  return <div className="ff-chat-segments">
+    {segments.map((segment, index) => <div className="ff-chat-segment" key={index}>
+      <MarkdownContent content={segment} streaming={streaming && index === segments.length - 1} />
+    </div>)}
+  </div>;
+}
 function AssistantContent(props: {
-  content: string; streaming: boolean; stickerUrl?: string;
+  content: string; streaming: boolean; segmented: boolean; stickerUrl?: string;
   stickerUnavailable?: string; channelSource?: ChatMessageChannelSource;
 }) {
   return <div className="ff-message__assistant-body">
     {props.channelSource && <ChannelSourceLabel source={props.channelSource} direction="outgoing" />}
-    {props.content && <MarkdownContent content={props.content} streaming={props.streaming} />}
+    {props.content && (props.segmented
+      ? <SegmentedReply content={props.content} streaming={props.streaming} />
+      : <MarkdownContent content={props.content} streaming={props.streaming} />)}
     <StickerImage src={props.stickerUrl} unavailable={props.stickerUnavailable}
       alt={t("messageList.assistantStickerAlt")} className="ff-message__sticker" />
   </div>;
@@ -227,46 +241,11 @@ function useRunActivityNow(processing: boolean): number {
 }
 function RunActivityReasoningBlock({ block }: { block: ReasoningBlock }) {
   const live = Boolean(block.streaming);
-  const [open, changeOpen] = useState(true);
+  // Shown while it streams, then folds to its title; the answer is what stays on screen.
+  const [open, changeOpen] = useState(false);
   return <ReasoningContent content={block.content} loading={live} expanded={open} onExpand={changeOpen} spinner={false} />;
 }
 
-function AgentRoundGroup(props: {
-  round: AgentRoundRecord; reasoningBlocks: ReasoningBlock[]; processMessages: ProcessMessageRecord[];
-  taskDelegations: TaskDelegationDisplayRecord[]; tools: ToolExecutionRecord[]; interrupted: boolean;
-}) {
-  const { t } = useTranslation();
-  const running = props.round.status === "running" && !props.interrupted;
-  const [open, changeOpen] = useState(running);
-  const previous = useRef(running);
-  useEffect(() => {
-    if (!previous.current && running) { changeOpen(true); }
-    if (previous.current && !running) { changeOpen(false); }
-    previous.current = running;
-  }, [running]);
-  return <section className={`ff-agent-round${running ? " is-running" : " is-complete"}`}>
-    {props.processMessages.filter((entry) => entry.content.trim()).map((entry) =>
-      <div className="ff-run-activity__process" key={entry.id}>
-        {entry.interrupted && <div className="ff-run-activity__process-label">{t("messageList.interruptedCandidate")}</div>}
-        <MarkdownContent content={entry.content} />
-      </div>)}
-    {props.taskDelegations.map((entry) => <TaskDelegationRow delegation={entry} key={entry.invocationId} />)}
-    <button type="button" className="ff-agent-round__header" aria-expanded={open} onClick={() => changeOpen((value) => !value)}>
-      <span className="ff-agent-round__title">
-        {resolveAgentRoundTitle(props.round, props.tools, props.interrupted)}
-        {!props.interrupted && props.round.status !== "running" && countRoundChangedFiles(props.tools) > 0 &&
-          <span className="ff-agent-round__files"> · {t("messageList.roundChangedFiles", { count: countRoundChangedFiles(props.tools) })}</span>}
-      </span>
-      <svg className={`ff-agent-round__chevron${open ? " is-expanded" : ""}`} viewBox="0 0 16 16" aria-hidden="true">
-        <path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" />
-      </svg>
-    </button>
-    {open && <div className="ff-agent-round__body">
-      {props.reasoningBlocks.filter((entry) => entry.content.trim()).map((entry) => <RunActivityReasoningBlock block={entry} key={entry.id} />)}
-      {props.tools.length > 0 && <ToolExecutionContent tools={props.tools} />}
-    </div>}
-  </section>;
-}
 function FlatTimelineProcess({ message }: { message: ProcessMessageRecord }) {
   const { t } = useTranslation();
   return <div className="ff-run-activity__process">
@@ -280,8 +259,8 @@ type ActivityDetailProps = {
   processMessages: ProcessMessageRecord[]; taskDelegations?: TaskDelegationDisplayRecord[];
   tools: ToolExecutionRecord[]; interrupted?: boolean;
 };
-function liveActivityRows(input: Required<ActivityDetailProps>): ReactNode[] {
-  return buildFlatRunTimeline(input).flatMap((entry) => {
+function timelineEntryRows(entries: readonly FlatRunTimelineEntry[]): ReactNode[] {
+  return entries.flatMap((entry) => {
     switch (entry.kind) {
       case "process": return entry.process?.content.trim() ? [<FlatTimelineProcess message={entry.process} key={entry.key} />] : [];
       case "reasoning": return entry.reasoning?.content.trim() ? [<RunActivityReasoningBlock block={entry.reasoning} key={entry.key} />] : [];
@@ -290,42 +269,18 @@ function liveActivityRows(input: Required<ActivityDetailProps>): ReactNode[] {
     }
   });
 }
-function completedActivityRows(input: Required<ActivityDetailProps>, translate: (key: string, options?: Record<string, unknown>) => string): ReactNode[] {
-  const { agentRounds, processMessages, reasoningBlocks, taskDelegations, tools, interrupted } = input;
-  if (agentRounds.length > 0) {
-    return agentRounds.filter((round) =>
-      processMessages.some((entry) => entry.roundId === round.id && entry.content.trim()) ||
-      reasoningBlocks.some((entry) => entry.roundId === round.id && entry.content.trim()) ||
-      taskDelegations.some((entry) => entry.roundId === round.id) || tools.some((entry) => entry.roundId === round.id),
-    ).map((round) => <AgentRoundGroup key={round.id} round={round} interrupted={interrupted && round.status === "running"}
-      processMessages={processMessages.filter((entry) => entry.roundId === round.id)}
-      taskDelegations={taskDelegations.filter((entry) => entry.roundId === round.id)}
-      reasoningBlocks={reasoningBlocks.filter((entry) => entry.roundId === round.id)}
-      tools={tools.filter((entry) => entry.roundId === round.id)} />);
-  }
-  const rows: ReactNode[] = [];
-  taskDelegations.forEach((entry) => {
-    rows.push(<TaskDelegationRow delegation={entry} key={`task-${entry.invocationId}`} />);
-  });
-  for (let slot = 0; slot <= tools.length; slot += 1) {
-    processMessages.filter((entry) => (entry.afterToolCount ?? 0) === slot).forEach((entry) => {
-      if (!entry.content.trim()) { return; }
-      rows.push(<div className="ff-run-activity__process" key={`process-${entry.id}`}>
-        {entry.interrupted && <div className="ff-run-activity__process-label">{translate("messageList.interruptedCandidate")}</div>}
-        <MarkdownContent content={entry.content} />
-      </div>);
-    });
-    reasoningBlocks.filter((entry) => (entry.afterToolCount ?? 0) === slot).forEach((entry) => {
-      if (entry.content.trim()) { rows.push(<RunActivityReasoningBlock key={`reasoning-${entry.id}`} block={entry} />); }
-    });
-    if (slot < tools.length) { rows.push(<ToolExecutionContent key={`tool-${tools[slot].id}`} tools={[tools[slot]]} />); }
-  }
-  return rows;
+/** One continuous timeline, live or finished: narration, folded look-around stretches, then each other step. */
+function activityRows(input: Required<ActivityDetailProps>): ReactNode[] {
+  return foldRunTimeline(buildFlatRunTimeline(input)).flatMap<ReactNode>((row) => row.kind === "group"
+    ? [<section className="ff-tool-executions" key={row.key}>
+      <ThoughtChain rootClassName="ff-tool-executions__chain" line="dashed"
+        items={[toolGroupItem(row.key, row.tools, <div className="ff-tool-group__steps">{timelineEntryRows(row.entries)}</div>)]} />
+    </section>]
+    : timelineEntryRows([row]));
 }
 export function RunActivityDetail({ live = false, agentRounds = [], reasoningBlocks, processMessages, taskDelegations = [], tools, interrupted = false }: ActivityDetailProps) {
   const { t } = useTranslation();
-  const input = { live, agentRounds, reasoningBlocks, processMessages, taskDelegations, tools, interrupted };
-  const rows = live ? liveActivityRows(input) : completedActivityRows(input, t);
+  const rows = activityRows({ live, agentRounds, reasoningBlocks, processMessages, taskDelegations, tools, interrupted });
   if (rows.length === 0) { return <div className="ff-run-activity__empty">{t("messageList.organizingReply")}</div>; }
   return <div className="ff-run-activity__detail">{rows}</div>;
 }
@@ -336,6 +291,15 @@ type ActivityContentProps = {
   tools: ToolExecutionRecord[]; stage?: AgentRunStage; taskPlan?: TaskPlanPresentation;
   expanded: boolean; onExpand: (expanded: boolean) => void;
 };
+/** The facts after "处理了 N 秒" in a finished run's caption. Failed steps stay in it: a run that recovered still collapses,
+ *  and its stage text only shows when it did not succeed. */
+export function finishedRunFacts(tools: readonly ToolExecutionRecord[]): string[] {
+  const changed = countRoundChangedFiles(tools), failed = countedTools(tools).filter((tool) => tool.status === "error").length;
+  return [...summarizeToolFacts(countedTools(tools)), ...(changed > 0 ? [t("messageList.roundChangedFiles", { count: changed })] : []),
+    ...(failed > 0 ? [t("messageList.roundFailedTools", { count: failed })] : [])];
+}
+/** A settled run keeps its stage text only when it did not succeed: the generic caption cannot say so. */
+const UNSUCCESSFUL_STAGES: ReadonlySet<AgentRunStage["kind"]> = new Set(["cancelled", "timeout", "failed"]);
 function RunActivityContent(props: ActivityContentProps) {
   const { t } = useTranslation();
   const time = useRunActivityNow(props.activity.completedAt === undefined);
@@ -346,12 +310,12 @@ function RunActivityContent(props: ActivityContentProps) {
     previous.current = state.processing;
   }, [props.activity.keepExpanded, props.onExpand, state.processing]);
   const caption = state.processing ? t("messageList.activityProcessingTitle", { elapsed: formatElapsed(state.processingMs) })
-    : t("messageList.activityProcessedTitle", { elapsed: formatElapsed(state.processingMs) });
+    : [t("messageList.activityProcessedTitle", { elapsed: formatElapsed(state.processingMs) }), ...finishedRunFacts(props.tools)].join(" · ");
   return <section className={`ff-run-activity${state.processing ? " is-processing" : " is-complete"}`}>
     <div className="ff-run-activity__header">
       <span className="ff-run-activity__title">
         {state.processing && <span className="ff-run-activity__art" aria-hidden="true"><DotSpinner /></span>}
-        <span>{caption}</span>{props.stage && <RunStageIndicator stage={props.stage} dot={!state.processing} />}
+        <span>{caption}</span>{props.stage && (state.processing || UNSUCCESSFUL_STAGES.has(props.stage.kind)) && <RunStageIndicator stage={props.stage} dot={false} />}
       </span>
       <button type="button" className="ff-run-activity__toggle" onClick={() => props.onExpand(!props.expanded)}
         aria-expanded={props.expanded} aria-controls={`${props.activityId}-details`}
@@ -362,8 +326,8 @@ function RunActivityContent(props: ActivityContentProps) {
       </button>
     </div>
     {props.expanded && <div className="ff-run-activity__expanded" id={`${props.activityId}-details`}>
-      {props.taskPlan && <TaskPlanCard plan={props.taskPlan} />}
-      <div className="ff-run-activity__divider" />
+      {/* The header's hairline already separates it from the steps; a divider only sets a plan apart from them. */}
+      {props.taskPlan && <><TaskPlanCard plan={props.taskPlan} /><div className="ff-run-activity__divider" /></>}
       <RunActivityDetail live={state.processing} agentRounds={props.agentRounds} reasoningBlocks={props.reasoningBlocks}
         processMessages={props.processMessages} taskDelegations={props.taskDelegations} tools={props.tools}
         interrupted={Boolean(props.activity.keepExpanded && props.activity.completedAt !== undefined)} />
@@ -375,20 +339,41 @@ function toolChainItem(tool: ToolExecutionRecord) {
   return {
     key: tool.id,
     title: view.label,
-    description: <span className="ff-tool-executions__description">
-      <span className="ff-tool-executions__status">{view.statusText}</span>
+    // A finished step needs no "done" line under its name; running and failed steps say so.
+    description: (tool.status !== "success" || view.detail) ? <span className="ff-tool-executions__description">
+      {tool.status !== "success" && <span className="ff-tool-executions__status">{view.statusText}</span>}
       {view.detail && <code className="ff-tool-executions__detail">{view.detail}</code>}
-    </span>,
+    </span> : undefined,
     status: tool.status === "running" ? "loading" as const : tool.status === "error" ? "error" as const : "success" as const,
     blink: tool.status === "running",
     collapsible: Boolean(tool.result || tool.changes),
     content: (tool.result || tool.changes) ? <ToolResultContent tool={tool} result={tool.result} changes={tool.changes} /> : undefined,
   };
 }
-function ToolExecutionContent({ tools }: { tools: ToolExecutionRecord[] }) {
+/** A folded stretch of reads and searches: one line of counts, the steps themselves one click away. */
+function toolGroupItem(key: string, tools: readonly ToolExecutionRecord[], content: ReactNode) {
+  const targets = tools.map((tool) => describeToolExecution(tool).detail).filter((detail): detail is string => Boolean(detail))
+    .map((detail) => detail.split(/[\\/]/).pop() || detail);
+  const shown = [...new Set(targets)];
+  return {
+    key,
+    title: summarizeToolFacts(tools).join(" · "),
+    description: shown.length > 0 ? <span className="ff-tool-executions__description">
+      <code className="ff-tool-executions__detail">{shown.slice(0, 3).join(", ")}{shown.length > 3 ? ` +${shown.length - 3}` : ""}</code>
+    </span> : undefined,
+    status: "success" as const,
+    collapsible: true,
+    content,
+  };
+}
+function ToolExecutionContent({ tools, grouped = true }: { tools: ToolExecutionRecord[]; grouped?: boolean }) {
   const { t } = useTranslation();
+  const items = grouped
+    ? groupToolSteps(tools).map((step) => step.kind === "single" ? toolChainItem(step.tool)
+      : toolGroupItem(`group-${step.tools[0].id}`, step.tools, <ToolExecutionContent tools={step.tools} grouped={false} />))
+    : tools.map(toolChainItem);
   return <section className="ff-tool-executions" aria-label={t("messageList.toolExecutionsAria")}>
-    <ThoughtChain rootClassName="ff-tool-executions__chain" line="dashed" items={tools.map(toolChainItem)} />
+    <ThoughtChain rootClassName="ff-tool-executions__chain" line="dashed" items={items} />
   </section>;
 }
 function AskUserQaContent({ rows }: { rows: string[] }) {
@@ -525,7 +510,7 @@ function createRoles(
   onCancelEdit: () => void, onSubmitEdit: () => void,
   onRegenerateLastResponse: ((userMessageId: string, assistantMessageId: string) => Promise<boolean>) | undefined,
   reasoningExpanded: Readonly<Record<string, boolean>>, onReasoningExpand: (id: string, expanded: boolean) => void,
-  onOpenReviewInspector?: (runId: string, fileIndex: number, filePath: string) => void,
+  onOpenReviewInspector?: (runId: string, fileIndex: number, filePath: string) => void, segmented = false,
 ) {
   const user = {
     placement: "end" as const, variant: "filled" as const, rootClassName: "ff-message ff-message--user",
@@ -552,7 +537,7 @@ function createRoles(
     placement: "start" as const, variant: "filled" as const, rootClassName: "ff-message ff-message--assistant",
     avatar: <FireflyMessageAvatar />,
     contentRender: (content: string, info: RoleInfo) => <>
-      <AssistantContent content={content} streaming={Boolean(info.extraInfo?.streaming)} stickerUrl={info.extraInfo?.stickerUrl}
+      <AssistantContent content={content} streaming={Boolean(info.extraInfo?.streaming)} segmented={segmented} stickerUrl={info.extraInfo?.stickerUrl}
         stickerUnavailable={info.extraInfo?.stickerUnavailable} channelSource={info.extraInfo?.channelSource} />
       {info.extraInfo?.reviewRunId && <ReviewPanel runId={info.extraInfo.reviewRunId} onOpenInspector={onOpenReviewInspector} />}
     </>,
@@ -746,10 +731,12 @@ export function ChatMessageList({
     const repeat = window.setTimeout(() => scrollToBottom("auto"), 100);
     return () => window.clearTimeout(repeat);
   }, [conversationId, scrollToBottom]);
+  // Segmented output applies to Chat mode only.
+  const segmented = useSegmentedChat() && mode === "chat";
   const roles = useMemo(() => createRoles(avatar, conversationId, mode, preferredAddress, editingId, draft, revisionBusy,
-    beginEdit, changeDraft, cancelEdit, submitEdit, onRegenerateLastResponse, expanded, expandReasoning, onOpenReviewInspector),
+    beginEdit, changeDraft, cancelEdit, submitEdit, onRegenerateLastResponse, expanded, expandReasoning, onOpenReviewInspector, segmented),
     [beginEdit, cancelEdit, conversationId, draft, editingId, mode, onOpenReviewInspector, expandReasoning,
-      onRegenerateLastResponse, preferredAddress, expanded, revisionBusy, submitEdit, avatar]);
+      onRegenerateLastResponse, preferredAddress, expanded, revisionBusy, submitEdit, avatar, segmented]);
   useEffect(() => {
     if (editingId && editingId !== revisable?.userMessageId) { changeEditingId(null); changeDraft(""); }
   }, [editingId, revisable?.userMessageId]);

@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { afterEach, expect, it } from "vitest";
+import { withTypeScale } from "../../../test-utils/type-scale";
 import { renderProviderRows } from "./provider-rows";
 import { applyProviderEditorLayout, mountProfileEditor, renderKeepingProfileEditor } from "./provider-editor";
 import type { SavedProfileLite } from "./state";
@@ -255,7 +256,7 @@ it("connects navigation buttons to their original panels and field inputs to hel
 it("uses readable section typography and grouped rows without decorative backgrounds", () => {
   document.body.innerHTML = html;
   const style = document.createElement("style");
-  style.textContent = fs.readFileSync(path.resolve("src/renderer/settings/settings-layout.css"), "utf8");
+  style.textContent = withTypeScale(fs.readFileSync(path.resolve("src/renderer/settings/settings-layout.css"), "utf8"));
   document.head.append(style);
   try {
     expect(getComputedStyle(document.querySelector(".panel-heading h1")!).fontSize).toBe("26px");

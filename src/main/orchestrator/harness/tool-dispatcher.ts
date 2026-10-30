@@ -3,7 +3,7 @@ import type { ToolDefinition } from "../tools/registry/tool-registry";
 import type { ApprovalOrigin } from "../../../shared/permission-approval";
 import type { ToolCallResult, ToolExecutionOutcome } from "../types";
 import type { ToolObservation, HarnessEvent, AgentState } from "./types";
-import { parseToolCallArgs, toolCallFingerprint, ToolCallArgumentsError, invalidToolCallArguments } from "./types";
+import { tryParseToolCallArgs, parseToolCallArgs, toolCallFingerprint, ToolCallArgumentsError, invalidToolCallArguments } from "./types";
 import { isHarnessBuiltin, isInteractiveHarnessBuiltin, DELEGATE_AGENT_TOOL_ID,
   executeUpdateTodo, executeAskUser, executeDelegateAgent, executeConfirmUncertainEffect, CONFIRM_UNCERTAIN_EFFECT_TOOL_ID } from "./builtin-tools";
 import { ENTER_PLAN_MODE_TOOL_ID, WRITE_PLAN_TOOL_ID, executeEnterPlanMode, executeWritePlan } from "./plan-tools";
@@ -88,6 +88,9 @@ export async function dispatchToolCall(call: ToolCall, ctx: ToolDispatchContext)
     const invoke = async (): Promise<ToolDispatchResult> => {
       if (ctx.toolContext?.signal?.aborted) return cancelledBeforeDispatch(call);
       if (call.name !== DELEGATE_AGENT_TOOL_ID) ctx.onExecutionStarted?.();
+      // Interactive built-ins announce themselves in the tool round; the rest start here like registry tools,
+      // or the UI only learns of them from their result. The renderer names them in the user's language.
+      if (!isInteractiveHarnessBuiltin(call.name)) ctx.onEvent?.({ type: "tool_start", toolCallId: call.id, toolName: call.name, args: tryParseToolCallArgs(call) ?? {} });
       return executeHarnessBuiltin(call, ctx);
     };
     const observed = owner && call.name !== DELEGATE_AGENT_TOOL_ID && !isInteractiveHarnessBuiltin(call.name)

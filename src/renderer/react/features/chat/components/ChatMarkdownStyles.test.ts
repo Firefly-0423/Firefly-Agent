@@ -3,14 +3,15 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, expect, test } from "vitest";
+import { withTypeScale } from "../../../../../test-utils/type-scale";
 
 const directory = dirname(fileURLToPath(import.meta.url));
 afterEach(() => { document.head.replaceChildren(); document.body.replaceChildren(); });
 function mount(markup: string) {
   const style = document.createElement("style");
   style.textContent = ".text-sm { font-size: 14px; }\n" +
-    readFileSync(resolve(directory, "ChatMessageList.css"), "utf8")
-      .replace(/var\(--ff-chat-font-size,\s*([^)]+)\)/g, "$1");
+    withTypeScale(readFileSync(resolve(directory, "ChatMessageList.css"), "utf8")
+      .replace(/var\(--ff-chat-font-size,\s*([^)]+)\)/g, "$1"));
   document.head.append(style);
   document.body.innerHTML = markup;
 }
@@ -30,7 +31,7 @@ test("aligns reasoning and sets the heading, table and separator rhythm", () => 
     '<article class="ff-message ff-message--assistant"><div class="ff-message-markdown">' +
     '<h2>Notes</h2><hr data-streamdown="horizontal-rule"><table data-streamdown="table"><tbody><tr><td class="text-sm">Value</td></tr></tbody></table></div></article>');
   expect(css(".ant-think-content").paddingInlineStart).toBe("46px");
-  expect(css("h2").fontSize).toBe("20px");
+  expect(css("h2").fontSize).toBe("22px");
   expect(css("td").fontSize).toBe("13px");
   expect(css("hr").borderTopWidth).toBe("0px");
   expect(css("hr").backgroundImage).toContain("linear-gradient");

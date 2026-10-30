@@ -1,3 +1,5 @@
+import { memoryGraphCategory } from "../../shared/memory-graph-categories";
+import type { MemoryGraphSummary } from "../../shared/memory-panel-contracts";
 import type { BrowserWindow, IpcMainInvokeEvent } from "electron";
 import { createHash, randomUUID } from "node:crypto";
 import type { MemoryPanelAction, MemoryPanelState, MemoryPanelSourceAudit } from "../../shared/memory-panel-contracts";
@@ -824,10 +826,15 @@ export function createMainDefaultMemory(options: MainDefaultMemoryOptions) {
         const needed = new Set([...recalled, ...pending].flatMap(item => item.projectKey === undefined ? [] : [item.projectKey]));
         // Names are decoration: resolved only for the projects shown, best effort, never able to fail the panel.
         const names = resolveProjectNames(needed, { listSessionIds: () => options.listSessionIds(), getSession: id => options.getSession(id), ...(options.listProjectBindings ? { listProjectBindings: () => options.listProjectBindings!() } : {}) });
-        const place = <T extends { projectKey?: string }>(item: T): Omit<T, "projectKey"> & { projectName?: string } => {
+        // Conversation titles are decoration too (the memory graph shows where a fact came from): best effort, never failing the panel.
+        const titleOf = (sourceRef: { binding?: { sessionId?: string } }): string | undefined => {
+          try { const title = sourceRef.binding?.sessionId ? options.getSession(sourceRef.binding.sessionId)?.title : undefined; return typeof title === "string" && title.trim() ? title.trim().slice(0, 200) : undefined; }
+          catch { return undefined; }
+        };
+        const place = <T extends { projectKey?: string; sourceRef: { binding?: { sessionId?: string } } }>(item: T): Omit<T, "projectKey"> & { projectName?: string; sourceTitle?: string } => {
           const { projectKey, ...rest } = item;
-          const projectName = projectKey === undefined ? undefined : names.get(projectKey);
-          return { ...rest, ...(projectName ? { projectName } : {}) };
+          const projectName = projectKey === undefined ? undefined : names.get(projectKey), sourceTitle = titleOf(item.sourceRef);
+          return { ...rest, ...(projectName ? { projectName } : {}), ...(sourceTitle ? { sourceTitle } : {}) };
         };
         const facts = recalled.map(place);
         const candidates = pending.map(item => ({ ...place(item), scope: item.projectKey === undefined ? "global" as const : "project" as const }));
@@ -887,8 +894,26 @@ export function createMainDefaultMemory(options: MainDefaultMemoryOptions) {
       }); } finally { settingsSource.release(grant); }
     },
   });
+  /** For the chat window's memory card: how many confirmed and pending memories per category, and from how many
+   * conversations. Counts only; the memory text stays with the settings window. */
+  async function graphSummary(): Promise<MemoryGraphSummary> {
+    if (closing) return { available: false, categories: [], sources: 0 };
+    try { return await serialized(async () => {
+      const core = await resources();
+      const facts = await core.policy.manage(core.settingsActor), pending = (await allCandidates(core)).filter(item => item.reviewState === "ready" && item.assertion.trim());
+      const counts = new Map<string, { facts: number; pending: number }>(), sessions = new Set<string>();
+      const count = (attribute: string | undefined, field: "facts" | "pending", sourceRef: { binding?: { sessionId?: string } }) => {
+        const key = memoryGraphCategory(attribute), entry = counts.get(key) ?? { facts: 0, pending: 0 };
+        entry[field]++; counts.set(key, entry);
+        if (sourceRef.binding?.sessionId) sessions.add(sourceRef.binding.sessionId);
+      };
+      for (const fact of facts) count(fact.typed?.legacyAttribute ?? fact.attribute, "facts", fact.sourceRef);
+      for (const item of pending) count(item.attribute, "pending", item.sourceRef);
+      return { available: true, categories: [...counts].map(([key, value]) => ({ key, ...value })), sources: sessions.size };
+    }); } catch { return { available: false, categories: [], sources: 0 }; }
+  }
   const owner = {
-    settingsHost, automationHost, channelHost, backgroundHost, prepareBackgroundRun: backgroundHost.prepareBackgroundRun,
+    settingsHost, automationHost, channelHost, backgroundHost, prepareBackgroundRun: backgroundHost.prepareBackgroundRun, graphSummary,
     usesCanonicalUserContent: true as const,
     /** Honours a session's temporary mode: zero memory writes, no M/H, no cross-session reads. */
     supportsTemporarySessions: true as const,

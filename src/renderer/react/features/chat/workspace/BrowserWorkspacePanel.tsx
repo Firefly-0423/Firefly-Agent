@@ -1,5 +1,5 @@
 import React, { type ReactNode, type Ref } from "react";
-import { ArrowLeft, ArrowRight, CornerDownLeft, RotateCw, Square, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, CornerDownLeft, RotateCw, Square } from "lucide-react";
 import type { BrowserPageState } from "./browser-page-state";
 import "./BrowserWorkspacePanel.css";
 
@@ -11,7 +11,6 @@ export interface BrowserWorkspaceLabels {
   forward: string;
   reload: string;
   stop?: string;
-  close: string;
   loading: string;
   blocked: string;
   loadFailed: string;
@@ -31,9 +30,7 @@ export interface BrowserWorkspacePanelProps {
   onNavigate: (url: string) => void;
   onAddressReset?: () => void;
   commandPending?: boolean;
-  closeAvailable?: boolean;
   onCommand: (command: "back" | "forward" | "reload" | "stop") => void;
-  onClose: () => void;
   viewportRef?: Ref<HTMLDivElement>;
   children?: ReactNode;
   navigationAvailable?: boolean;
@@ -41,7 +38,7 @@ export interface BrowserWorkspacePanelProps {
   addressAvailable?: boolean;
   /** Shown where a page would be while the tab is empty. Presentation only. */
   emptyContent?: ReactNode;
-  /** Extra toolbar controls (downloads, more menu) between the address field and the close control. */
+  /** Extra toolbar controls (downloads, more menu) after the address field. The pane's own tab strip closes it. */
   toolbarEnd?: ReactNode;
   /** Rows under the toolbar: find bar and short notices. */
   belowToolbar?: ReactNode;
@@ -53,7 +50,7 @@ export interface BrowserWorkspacePanelProps {
 
 /** Controlled view: no bridge, navigation API, authority, or asynchronous work. */
 export function BrowserWorkspacePanel({
-  page, address, labels, onAddressChange, onAddressReset, onNavigate, onCommand, onClose, viewportRef, children, navigationAvailable = true, addressAvailable = navigationAvailable && !page.closed, commandPending = false, closeAvailable = !page.closed, emptyContent, toolbarEnd, belowToolbar, overlay, snapshot,
+  page, address, labels, onAddressChange, onAddressReset, onNavigate, onCommand, viewportRef, children, navigationAvailable = true, addressAvailable = navigationAvailable && !page.closed, commandPending = false, emptyContent, toolbarEnd, belowToolbar, overlay, snapshot,
 }: BrowserWorkspacePanelProps) {
   const busy = page.loading || commandPending;
   const canSubmit = addressAvailable && address.trim().length > 0;
@@ -88,10 +85,6 @@ export function BrowserWorkspacePanel({
           <button type="submit" aria-label={labels.go} title={labels.go} disabled={!canSubmit}><CornerDownLeft size={14} aria-hidden="true" /></button>
         </form>
         {toolbarEnd}
-        <button type="button" aria-label={labels.close} title={labels.close}
-          disabled={!closeAvailable} onClick={onClose}>
-          <X size={16} aria-hidden="true" />
-        </button>
       </div>
       {page.url && !page.closed && <div className="ff-browser-workspace__location" aria-label={labels.committedUrl}>
         <span className="ff-browser-workspace__location-dot" aria-hidden="true" />

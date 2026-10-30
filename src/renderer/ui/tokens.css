@@ -98,10 +98,21 @@
   --rb-glow-violet: 0 0 24px rgba(157, 127, 234, 0.28);
   --rb-glow-soft: 0 0 12px rgba(77, 78, 105, 0.18);
   --rb-glow-pink: 0 0 20px rgba(77, 78, 105, 0.35);
-  --rb-font-sans: "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI",
+  /* One sans and one mono stack (fonts.css bundles both web fonts); the CJK font at the end of the mono stack keeps
+     Chinese in code from falling back to SimSun. */
+  --rb-font-sans: "Noto Sans SC Variable", "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI",
                   "PingFang SC", "Microsoft YaHei", sans-serif;
-  --rb-font-mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular,
-                  Menlo, Consolas, monospace;
+  --rb-font-mono: "JetBrains Mono Variable", "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, SFMono-Regular,
+                  Menlo, "Noto Sans SC Variable", monospace;
+  /* The type scale: every UI font size is one of these (font-scale.test.ts holds it). Reply text uses the user's own
+     --ff-chat-font-size instead. */
+  --ff-fs-caption: 12px;
+  --ff-fs-ui: 13px;
+  --ff-fs-body: 14px;
+  --ff-fs-title: 16px;
+  --ff-fs-heading: 18px;
+  --ff-fs-display: 22px;
+  --ff-fs-hero: 26px;
   --rb-divider-light: rgba(0, 0, 0, 0.08);
   --rb-cyan-500: #22d3ee;
   --rb-cyan-400: #67e8f9;

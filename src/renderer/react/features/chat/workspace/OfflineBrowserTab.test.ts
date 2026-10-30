@@ -11,9 +11,9 @@ describe("joint Main availability and browser tab", () => {
   it("renders Main's unavailable state, permits an address draft, and cannot navigate", async () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     window.manualBrowser = { getAvailability: async () => getOfflineBrowserAvailability() };
-    const host = document.createElement("div"), root = createRoot(host), close = vi.fn();
+    const host = document.createElement("div"), root = createRoot(host);
     document.body.append(host);
-    await act(async () => root.render(createElement(OfflineBrowserTab, { sessionId: "s", onClose: close })));
+    await act(async () => root.render(createElement(OfflineBrowserTab, { sessionId: "s" })));
     expect(host.textContent).toContain("browserWorkspace.unavailable");
     const input = host.querySelector("input"), set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
     if (!input || !set) throw new Error("address missing");
@@ -21,8 +21,6 @@ describe("joint Main availability and browser tab", () => {
     expect(input.value).toBe("https://example.com/anonymous-fixture");
     expect(host.querySelector<HTMLButtonElement>('[aria-label="browserWorkspace.go"]')?.disabled).toBe(true);
     expect(host.querySelector("iframe,webview,a[href]")).toBeNull();
-    act(() => host.querySelector<HTMLButtonElement>('[aria-label="browserWorkspace.close"]')?.click());
-    expect(close).toHaveBeenCalledTimes(1);
     act(() => root.unmount()); host.remove();
   });
   it("remains unavailable without a bridge or when the bridge rejects", async () => {
@@ -30,7 +28,7 @@ describe("joint Main availability and browser tab", () => {
     for (const bridge of [undefined, { getAvailability: async () => { throw new Error("private"); } }]) {
       window.manualBrowser = bridge;
       const host = document.createElement("div"), root = createRoot(host);
-      await act(async () => root.render(createElement(OfflineBrowserTab, { sessionId: "s", onClose: () => {} })));
+      await act(async () => root.render(createElement(OfflineBrowserTab, { sessionId: "s" })));
       expect(host.textContent).toContain("browserWorkspace.unavailable");
       expect(host.textContent).not.toContain("private");
       act(() => root.unmount());

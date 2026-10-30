@@ -85,11 +85,16 @@ describe("SessionOverviewPanel", () => {
     expect(html).toContain("−3");
   });
 
+  it("leaves the memory card out of a temporary chat", () => {
+    expect(render({ usage })).toContain('data-overview-card="memory"');
+    expect(render({ usage, environment: { mode: "chat", temporary: true } })).not.toContain('data-overview-card="memory"');
+  });
+
   it("makes every card a labelled disclosure", () => {
     const html = render({ usage, outputs: [output] });
 
-    // Tasks, context, changes, outputs and usage fold; environment and connectors are one-row entries.
-    expect((html.match(/aria-expanded="true"/g) ?? []).length).toBe(5);
-    expect((html.match(/aria-controls=/g) ?? []).length).toBe(5);
+    // Tasks, context, changes, outputs, memory and usage fold; environment and connectors are one-row entries.
+    expect((html.match(/aria-expanded="true"/g) ?? []).length).toBe(6);
+    expect((html.match(/aria-controls=/g) ?? []).length).toBe(6);
   });
 });

@@ -20,7 +20,7 @@ import type { AguiRunAck } from "../shared/run-terminal";
 import type { ReviewSnapshot, ReviewRestoreOutcome } from "../shared/review-types";
 import type { WorkspaceListResult, WorkspaceReadResult, WorkspaceSaveResult } from "../shared/workspace-files-types";
 import type { OpenInAppListResult, OpenInAppOpenResult } from "../shared/open-in-app-types";
-import { normalizeChatAppearance, type ChatAppearanceSettings } from "../shared/chat-appearance";
+import { normalizeChatDisplay, type ChatDisplaySettings } from "../shared/chat-appearance";
 import type { AppUpdateApi, AppUpdateState } from "../shared/app-update";
 import type { ConversationMode } from "../shared/chat-types";
 import type { ToastItem, ToastPushPayload } from "../shared/toast-types";
@@ -358,11 +358,11 @@ const fireflyFontApi = {
 contextBridge.exposeInMainWorld("fireflyFont", fireflyFontApi);
 const fireflyAppearanceApi = {
     get: async () => {
-        return normalizeChatAppearance(await ipcRenderer.invoke(IPC.SETTINGS_GET_GENERAL));
+        return normalizeChatDisplay(await ipcRenderer.invoke(IPC.SETTINGS_GET_GENERAL));
     },
-    onChanged: (receive: (settings: ChatAppearanceSettings) => void) => {
+    onChanged: (receive: (settings: ChatDisplaySettings) => void) => {
         const forwardEvent = (_ipcEvent: Electron.IpcRendererEvent, message: unknown) => {
-            receive(normalizeChatAppearance(message));
+            receive(normalizeChatDisplay(message));
         };
         ipcRenderer.on(IPC.CHAT_TYPOGRAPHY_CHANGED, forwardEvent);
         return () => {
@@ -998,6 +998,9 @@ const memoryPanelApi = {
     },
     auditSource: (factId: string): Promise<MemoryPanelSourceAudit> => {
         return ipcRenderer.invoke(IPC.MEMORY_PANEL_AUDIT_SOURCE, factId);
+    },
+    graphSummary: (): Promise<import("../shared/memory-panel-contracts").MemoryGraphSummary> => {
+        return ipcRenderer.invoke(IPC.MEMORY_GRAPH_SUMMARY);
     },
     getData: () => {
         return ipcRenderer.invoke(IPC.MEMORY_PANEL_GET_DATA);

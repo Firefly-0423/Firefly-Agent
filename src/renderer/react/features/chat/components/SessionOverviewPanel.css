@@ -55,7 +55,7 @@
 .ff-session-overview[data-dragging] .ff-overview-card { will-change: transform; }
 .ff-session-overview[data-settling] .ff-overview-card { transition: none; }
 
-.ff-overview-card__bar { display: flex; min-width: 0; align-items: center; }
+.ff-overview-card__bar { position: relative; display: flex; min-width: 0; align-items: center; }
 .ff-overview-card__head {
   display: flex;
   flex: 1 1 auto;
@@ -68,7 +68,7 @@
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--ff-fs-ui);
   text-align: left;
   cursor: pointer;
 }
@@ -85,14 +85,17 @@
 .ff-overview-card[data-entry] .ff-overview-card__head:hover .ff-overview-card__chevron { transform: translateX(2px); }
 .ff-overview-card__head:disabled { cursor: default; }
 
-/* The six-dot grip: quiet until the card is hovered or the grip focused. */
+/* The six-dot grip sits where the header's number ends: hovering the card swaps the number for the grip.
+   Entry cards keep their text clear of it, since their summary is a name, not a number. */
 .ff-overview-card__grip {
+  position: absolute;
+  top: calc(50% - 12px);
+  right: 6px;
   display: inline-grid;
   width: 24px;
   height: 24px;
-  flex: none;
   place-items: center;
-  margin-right: 6px;
+  margin: 0;
   padding: 0;
   border: 0;
   border-radius: 6px;
@@ -106,6 +109,9 @@
 .ff-overview-card:hover .ff-overview-card__grip,
 .ff-overview-card__grip:focus-visible,
 .ff-overview-card[data-dragging] .ff-overview-card__grip { opacity: 1; }
+.ff-overview-card:not([data-entry]):is(:hover, [data-dragging]) .ff-overview-card__bar:has(.ff-overview-card__grip) .ff-overview-card__summary,
+.ff-overview-card:not([data-entry]) .ff-overview-card__bar:has(.ff-overview-card__grip:focus-visible) .ff-overview-card__summary { opacity: 0; }
+.ff-overview-card[data-entry]:has(.ff-overview-card__grip) .ff-overview-card__head { padding-right: 36px; }
 .ff-overview-card__grip:hover { background: var(--ff-bg-hover); color: var(--ff-text); }
 .ff-overview-card__grip:active { cursor: grabbing; }
 .ff-overview-card__grip:focus-visible { outline: none; }
@@ -124,23 +130,24 @@
   margin-left: auto;
   overflow: hidden;
   color: var(--ff-text-muted, #828396);
-  font-size: 12px;
+  font-size: var(--ff-fs-caption);
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: opacity 120ms ease;
 }
 
-.ff-overview-card__body { padding: 0 12px; font-size: 12px; }
+.ff-overview-card__body { padding: 0 12px; font-size: var(--ff-fs-caption); }
 .ff-overview-card__body > :last-child { margin-bottom: 12px; }
 .ff-overview-card__empty,
 .ff-overview-card__line,
 .ff-overview-card__note { margin: 0; color: var(--ff-text-muted, #828396); line-height: 1.6; }
 .ff-overview-card__line { margin-top: 6px; }
-.ff-overview-card__note { margin-top: 10px; font-size: 11px; }
+.ff-overview-card__note { margin-top: 10px; font-size: var(--ff-fs-caption); }
 .ff-overview-card__warn { color: var(--ff-del-fg, #cf222e); }
 
 /* Context: usage line, segmented bar, then one row per category. */
 .ff-overview-context__totals { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.ff-overview-context__totals strong { font-size: 13px; font-weight: 600; }
+.ff-overview-context__totals strong { font-size: var(--ff-fs-ui); font-weight: 600; }
 .ff-overview-context__totals span { color: var(--ff-text-muted, #828396); font-variant-numeric: tabular-nums; }
 .ff-overview-context__bar {
   display: flex;
@@ -193,7 +200,7 @@
 .ff-overview-list__partner .ff-overview-list__pulse { position: absolute; right: -1px; bottom: -1px; width: 7px; height: 7px; box-shadow: 0 0 0 1.5px var(--ff-surface, #fff); }
 
 @media (prefers-reduced-motion: reduce) {
-  .ff-overview-card, .ff-overview-card__fold, .ff-overview-card__grip { transition: none; }
+  .ff-overview-card, .ff-overview-card__fold, .ff-overview-card__grip, .ff-overview-card__summary { transition: none; }
   .ff-overview-card[data-dragging] { transform: translateY(var(--ff-drag-y, 0px)); }
   .ff-overview-card__chevron { transition: none; }
   .ff-overview-list__pulse { animation: none; }
@@ -207,9 +214,23 @@
 /* Usage card: this conversation's run stats, then the 90-day token breakdown; same type scale as the context card. */
 .ff-overview-usage { display: grid; gap: 12px; font-variant-numeric: tabular-nums; }
 .ff-overview-usage__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
-.ff-overview-usage__head strong { font-size: 12px; font-weight: 600; }
+.ff-overview-usage__head strong { font-size: var(--ff-fs-caption); font-weight: 600; }
 .ff-overview-usage__head span { color: var(--ff-text-muted, #828396); }
 .ff-overview-usage__rows { display: grid; gap: 4px; margin: 0; }
 .ff-overview-usage__rows > div { display: flex; justify-content: space-between; gap: 12px; }
 .ff-overview-usage__rows dt { color: var(--ff-text-secondary); }
 .ff-overview-usage__rows dd { margin: 0; text-align: right; }
+
+/* Memory card: a static picture of the categories (you in the middle, a dot per category sized by how much it holds),
+   a legend, and a link to the full graph in settings. Counts only; the memory text stays in settings. */
+.ff-memory-mini { display: block; width: 100%; height: auto; margin: 2px 0 6px; }
+.ff-memory-mini line { stroke-width: 1.4; }
+.ff-memory-mini circle { stroke-width: 1.3; }
+.ff-memory-mini .ff-memory-mini__self { fill: rgb(var(--ff-glow-rgb, var(--ff-accent-rgb))); stroke: rgba(var(--ff-glow-rgb, var(--ff-accent-rgb)), .25); stroke-width: 6; }
+.ff-memory-mini__legend { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.ff-memory-mini__legend li { display: flex; align-items: center; gap: 8px; font-size: var(--ff-fs-ui); }
+.ff-memory-mini__dot { width: 8px; height: 8px; flex: none; border-radius: 50%; }
+.ff-memory-mini__name { flex: 1; min-width: 0; color: var(--ff-text); }
+.ff-memory-mini__count { color: var(--ff-text-muted); font-size: var(--ff-fs-caption); font-variant-numeric: tabular-nums; }
+.ff-memory-mini__open { margin-top: 6px; padding: 4px 10px; border: 1px solid var(--ff-border); border-radius: 8px; background: transparent; color: var(--ff-text); font-size: var(--ff-fs-caption); cursor: pointer; }
+.ff-memory-mini__open:hover { background: var(--ff-bg-hover); }

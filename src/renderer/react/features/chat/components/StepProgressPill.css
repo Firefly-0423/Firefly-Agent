@@ -44,7 +44,7 @@
   background: var(--ff-popover);
   color: var(--ff-text-secondary);
   box-shadow: var(--ff-shadow-bubble-neutral);
-  font: 500 12.5px/1.4 var(--rb-font-sans, sans-serif);
+  font: 500 var(--ff-fs-ui)/1.4 var(--rb-font-sans, sans-serif);
   white-space: nowrap;
   cursor: pointer;
   animation: ff-step-pill-in 200ms ease-out both;
@@ -163,7 +163,7 @@
   align-items: start;
   padding: 6px 8px;
   border-radius: 8px;
-  font: 400 13px/1.45 var(--rb-font-sans, sans-serif);
+  font: 400 var(--ff-fs-ui)/1.45 var(--rb-font-sans, sans-serif);
   animation: ff-step-item-in 180ms ease-out both;
   animation-delay: calc(var(--ff-step-index, 0) * 20ms);
   transition: color 200ms ease;

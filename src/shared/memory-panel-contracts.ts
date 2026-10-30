@@ -1,6 +1,12 @@
 import type { FactView, SourceRef } from "./memory-contracts";
 
 /** Renderer DTOs only. No actor tokens, provider handles, keys or filesystem paths. */
+/** Counts only, for the chat window's memory card: no memory text, ids or titles leave the settings window. */
+export interface MemoryGraphSummary {
+  available: boolean;
+  categories: { key: string; facts: number; pending: number }[];
+  sources: number;
+}
 export interface MemoryPanelAction {
   kind: "confirm" | "reject" | "correct" | "forget";
   id: string;
@@ -31,6 +37,8 @@ export interface MemoryPanelCandidate {
   /** Where the candidate would apply once confirmed. */
   scope?: "global" | "project";
   projectName?: string;
+  /** Title of the conversation the candidate came from, when Main still has it. Decoration, never authority. */
+  sourceTitle?: string;
   /** Main-internal; removed before the renderer sees it. */
   projectKey?: string;
   contentHash?: string;

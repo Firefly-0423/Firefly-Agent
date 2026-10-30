@@ -25,10 +25,10 @@
   padding: 7px 10px;
   border-radius: 8px;
   cursor: pointer;
-  font: 400 13px/1.4 var(--rb-font-sans, sans-serif);
+  font: 400 var(--ff-fs-ui)/1.4 var(--rb-font-sans, sans-serif);
 }
 
 .ff-slash-menu__item.is-active { background: var(--ff-bg-hover); }
-.ff-slash-menu__name { flex: none; color: var(--ff-text); font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; }
+.ff-slash-menu__name { flex: none; color: var(--ff-text); font-family: var(--rb-font-mono); }
 .ff-slash-menu__desc { min-width: 0; flex: 1; overflow: hidden; color: var(--ff-text-muted); text-overflow: ellipsis; white-space: nowrap; }
-.ff-slash-menu__kind { flex: none; color: var(--ff-text-muted); font-size: 11px; }
+.ff-slash-menu__kind { flex: none; color: var(--ff-text-muted); font-size: var(--ff-fs-caption); }

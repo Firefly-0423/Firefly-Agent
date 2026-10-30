@@ -17,7 +17,7 @@
   transition: background 0.12s;
   text-align: left;
   cursor: pointer;
-  font: 600 14px/1.3 var(--rb-font-sans, sans-serif);
+  font: 600 var(--ff-fs-body)/1.3 var(--rb-font-sans, sans-serif);
   color: var(--ff-text, var(--ff-text));
   background: transparent;
   border: 0;
@@ -47,7 +47,7 @@
 
 .ff-review-panel__title {
   color: var(--ff-text, var(--ff-text));
-  font: 600 14px/1.3 var(--rb-font-sans, sans-serif);
+  font: 600 var(--ff-fs-body)/1.3 var(--rb-font-sans, sans-serif);
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
@@ -61,7 +61,7 @@
   flex-shrink: 0;
   padding-right: 10px;
   border-right: 1px solid var(--ff-border, var(--ff-border));
-  font: 600 12px/1.2 var(--rb-font-mono, monospace);
+  font: 600 var(--ff-fs-caption)/1.2 var(--rb-font-mono, monospace);
   font-variant-numeric: tabular-nums;
 }
 .ff-review-panel__stats .is-add { color: var(--ff-add-fg); }
@@ -91,7 +91,7 @@
   transition: background 0.1s;
   text-align: left;
   cursor: pointer;
-  font: 12.5px/1.35 var(--rb-font-sans, sans-serif);
+  font: var(--ff-fs-ui)/1.35 var(--rb-font-sans, sans-serif);
   color: var(--ff-text, var(--ff-text));
   background: transparent;
   border: 0;
@@ -109,7 +109,7 @@
 .ff-review-panel__kind {
   line-height: 1.5;
   font-weight: 600;
-  font-size: 10.5px;
+  font-size: var(--ff-fs-caption);
   border-radius: 12px;
   padding: 1px 6px;
   flex-shrink: 0;
@@ -143,7 +143,7 @@
   flex-shrink: 0;
   display: flex;
   gap: 6px;
-  font: 600 11px/1.2 var(--rb-font-mono, monospace);
+  font: 600 var(--ff-fs-caption)/1.2 var(--rb-font-mono, monospace);
   font-variant-numeric: tabular-nums;
 }
 .ff-review-panel__file-stats .is-add { color: var(--ff-add-fg); }
@@ -166,7 +166,7 @@
 .ff-review-panel__restore-btn {
   transition: background 0.12s, border-color 0.12s, color 0.12s;
   cursor: pointer;
-  font: 12px/1.4 var(--rb-font-sans, sans-serif);
+  font: var(--ff-fs-caption)/1.4 var(--rb-font-sans, sans-serif);
   color: var(--ff-text, var(--ff-text));
   background: var(--ff-surface);
   border-radius: 12px;
@@ -199,7 +199,7 @@
 
 .ff-review-panel__restore-summary {
   color: var(--ff-add-fg);
-  font: 12px/1.5 var(--rb-font-sans, sans-serif);
+  font: var(--ff-fs-caption)/1.5 var(--rb-font-sans, sans-serif);
 }
 .ff-review-panel__restore-summary.is-error {
   color: var(--ff-del-fg);
@@ -210,21 +210,21 @@
    a 13px header with a file icon, the counts in green / red, and a chevron that turns as the list slides open.
    File rows match the run-result list: bold name, folder dimmed, counts at the end. */
 .ff-review-panel { margin: 0 0 4px; border-color: color-mix(in srgb, var(--ff-border) 80%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--ff-surface) 60%, transparent); box-shadow: none; }
-.ff-review-panel__header { gap: 8px; padding: 8px 12px; font: 500 13px/1.3 var(--rb-font-sans, sans-serif); }
+.ff-review-panel__header { gap: 8px; padding: 8px 12px; font: 500 var(--ff-fs-ui)/1.3 var(--rb-font-sans, sans-serif); }
 .ff-review-panel.is-expanded .ff-review-panel__header { border-bottom: 0; background: transparent; }
 .ff-review-panel__lead { flex: none; color: var(--ff-text-muted); }
-.ff-review-panel__title { font: 500 13px/1.3 var(--rb-font-sans, sans-serif); }
-.ff-review-panel__stats { gap: 6px; padding-right: 0; border-right: 0; font: 500 12px/1.2 var(--rb-font-sans, sans-serif); }
+.ff-review-panel__title { font: 500 var(--ff-fs-ui)/1.3 var(--rb-font-sans, sans-serif); }
+.ff-review-panel__stats { gap: 6px; padding-right: 0; border-right: 0; font: 500 var(--ff-fs-caption)/1.2 var(--rb-font-sans, sans-serif); }
 .ff-review-panel__chevron { transition: transform 200ms cubic-bezier(0.19, 1, 0.22, 1); }
 .ff-review-panel.is-expanded .ff-review-panel__chevron { transform: rotate(90deg); }
 .ff-review-panel__body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 200ms cubic-bezier(0.19, 1, 0.22, 1); }
 .ff-review-panel.is-expanded .ff-review-panel__body { grid-template-rows: 1fr; }
 .ff-review-panel__body > .ff-review-panel__list { min-height: 0; overflow: hidden auto; padding: 0 4px; opacity: 0; transition: opacity 160ms ease; }
 .ff-review-panel.is-expanded .ff-review-panel__body > .ff-review-panel__list { padding-bottom: 4px; opacity: 1; }
-.ff-review-panel__file-item { gap: 8px; padding: 6px 8px; border-radius: 8px; font-size: 12.5px; }
+.ff-review-panel__file-item { gap: 8px; padding: 6px 8px; border-radius: 8px; font-size: var(--ff-fs-ui); }
 .ff-review-panel__base { flex: none; max-width: 55%; overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
-.ff-review-panel__dir { flex: 1; min-width: 0; overflow: hidden; color: var(--ff-text-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.ff-review-panel__file-stats { font: 500 12px/1.2 var(--rb-font-sans, sans-serif); }
+.ff-review-panel__dir { flex: 1; min-width: 0; overflow: hidden; color: var(--ff-text-muted); font-size: var(--ff-fs-caption); text-overflow: ellipsis; white-space: nowrap; }
+.ff-review-panel__file-stats { font: 500 var(--ff-fs-caption)/1.2 var(--rb-font-sans, sans-serif); }
 .ff-review-panel__restore { margin: 2px 4px 0; padding: 8px 8px 6px; }
 @media (prefers-reduced-motion: reduce) {
   .ff-review-panel__chevron, .ff-review-panel__body, .ff-review-panel__body > .ff-review-panel__list { transition: none; }

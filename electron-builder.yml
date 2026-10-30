@@ -33,6 +33,10 @@ extraFiles:
     to: THIRD_PARTY_NOTICES.md
   - from: node_modules/katex/LICENSE
     to: licenses/KaTeX-LICENSE
+  - from: node_modules/@fontsource-variable/noto-sans-sc/LICENSE
+    to: licenses/NotoSansSC-OFL.txt
+  - from: node_modules/@fontsource-variable/jetbrains-mono/LICENSE
+    to: licenses/JetBrainsMono-OFL.txt
   - from: prompts
     to: prompts
   - from: skills

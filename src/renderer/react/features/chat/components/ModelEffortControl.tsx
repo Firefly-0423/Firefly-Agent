@@ -154,6 +154,7 @@ export function ModelEffortControl({ sessionId, activeProfileId, onSelectModelPr
           count={items.length}
           value={activeIndex}
           disabled={items.map((item) => Boolean(item.disabled))}
+          labels={items.map((item) => shortEffortLabel(item.label))}
           label={t("modelEffort.sliderLabel")}
           onPreview={setPreview}
           onCommit={(index) => void commit(index)}
@@ -188,6 +189,8 @@ export function ModelEffortControl({ sessionId, activeProfileId, onSelectModelPr
       trigger="click"
       placement="topRight"
       open={open}
+      // Unmount the panel once it has closed, so the effort bar's spark loop stops with it.
+      destroyOnHidden
       overlayClassName="ff-model-popover"
       onOpenChange={(next) => {
         setOpen(next);

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { createContext, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { useTranslation } from "../../../i18n";
 import "./FloatingComposer.css";
 
@@ -7,6 +7,9 @@ type Box = { left: number; top: number; right: number; bottom: number };
 type FloatingComposerState = Offset & { collapsed: boolean };
 
 const STORAGE_KEY = "ff.floatingComposer";
+
+/** Collapse and move, handed to the composer so it can show them at the right end of the row under the capsule. */
+export const FloatingComposerControls = createContext<ReactNode>(null);
 const EDGE_MARGIN = 8;
 const KEY_STEP = 16;
 
@@ -161,31 +164,35 @@ export function FloatingComposer({ floating, attention = false, children }: Floa
     requestAnimationFrame(() => rootRef.current?.querySelector<HTMLTextAreaElement>(".ff-floating-composer__body textarea")?.focus());
   };
 
+  const controls = floating && !collapsed ? (
+    <div className="ff-floating-composer__controls">
+      <button type="button" className="ff-floating-composer__control" aria-label={t("composer.floatingCollapse")} title={t("composer.floatingCollapse")}
+        onClick={() => update({ ...state, collapsed: true })}>
+        <MinusIcon />
+      </button>
+      <button type="button" className="ff-floating-composer__control is-handle" aria-label={t("composer.floatingMove")} title={t("composer.floatingMove")}
+        onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={endDrag} onPointerCancel={endDrag}
+        onDoubleClick={() => update({ ...state, x: 0, y: 0 })} onKeyDown={onHandleKeyDown}>
+        <GripIcon />
+      </button>
+    </div>
+  ) : null;
+
   const className = ["ff-floating-composer", floating && "is-floating", collapsed && "is-collapsed", dragging && "is-dragging"]
     .filter(Boolean).join(" ");
 
   return (
     <div ref={rootRef} className={className} style={floating ? { transform: `translate(${state.x}px, ${state.y}px)` } : undefined}>
-      {floating && !collapsed && (
-        <div className="ff-floating-composer__controls">
-          <button type="button" className="ff-floating-composer__control" aria-label={t("composer.floatingCollapse")} title={t("composer.floatingCollapse")}
-            onClick={() => update({ ...state, collapsed: true })}>
-            <MinusIcon />
-          </button>
-          <button type="button" className="ff-floating-composer__control is-handle" aria-label={t("composer.floatingMove")} title={t("composer.floatingMove")}
-            onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={endDrag} onPointerCancel={endDrag}
-            onDoubleClick={() => update({ ...state, x: 0, y: 0 })} onKeyDown={onHandleKeyDown}>
-            <GripIcon />
-          </button>
-        </div>
-      )}
+      {/* Shown by the composer in the row under the capsule, where they are always within reach. */}
       {collapsed && (
         <button type="button" className="ff-floating-composer__restore" aria-label={t("composer.floatingExpand")} title={t("composer.floatingExpand")} onClick={expand}>
           <ChatIcon />
         </button>
       )}
       {/* 收起时只隐藏，不卸载：草稿、附件和语音输入的状态都保留。 */}
-      <div className="ff-floating-composer__body" hidden={collapsed}>{children}</div>
+      <div className="ff-floating-composer__body" hidden={collapsed}>
+        <FloatingComposerControls.Provider value={controls}>{children}</FloatingComposerControls.Provider>
+      </div>
     </div>
   );
 }

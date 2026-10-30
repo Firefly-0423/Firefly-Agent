@@ -6,7 +6,9 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { ChatMessageChannelSource } from "../../../../../shared/chat-types";
 
 vi.mock("@ant-design/x", () => ({
-  Bubble: { List: () => null }, CodeHighlighter: () => null, ThoughtChain: () => null,
+  Bubble: { List: () => null }, CodeHighlighter: () => null,
+  ThoughtChain: ({ items }: { items: { key: string; title: React.ReactNode; description?: React.ReactNode }[] }) =>
+    items.map((item) => React.createElement("div", { key: item.key, "data-chain-item": item.key }, item.title, " ", item.description)),
   Think: ({ icon, title, children }: { icon: React.ReactNode; title: React.ReactNode; children: React.ReactNode }) =>
     React.createElement("section", null, icon, title, children),
 }));
@@ -14,7 +16,7 @@ vi.mock("../../../../../shared/renderer-base", () => ({ resolveAsset: (asset: st
 vi.mock("./MermaidBlock", () => ({ MermaidBlock: () => null }));
 vi.mock("./SvgCardBlock", () => ({ SvgCardBlock: () => null }));
 import { assembleMessageItems, createMessageItems, formatChannelSourceLabel, MarkdownContent, resolveChannelConversationLabel,
-  RunActivityDetail, type ChatMessageItem, type EnabledSticker } from "./ChatMessageList";
+  RunActivityDetail, finishedRunFacts, type ChatMessageItem, type EnabledSticker } from "./ChatMessageList";
 import { extractMessageStickerId, stripMessageStickerMarkers } from "./message-sticker";
 
 beforeEach(() => vi.stubGlobal("React", React));
@@ -155,37 +157,59 @@ test("keeps the live event timeline flat and in sequence across model rounds", (
     tools: [{ id: "scan", roundId: "inspection", name: "list_dir", status: "success", seq: 2 }],
   });
   expect(html).not.toContain("ff-agent-round");
-  for (const text of ["Plan the inspection", "Inspect the workspace", "Evaluate the result"]) expect(html).toContain(text);
+  for (const text of ["Plan the inspection", "Inspect the workspace"]) expect(html).toContain(text);
   expect(html.indexOf("Plan the inspection")).toBeLessThan(html.indexOf("Inspect the workspace"));
-  expect(html.indexOf("Inspect the workspace")).toBeLessThan(html.indexOf("Evaluate the result"));
+  // The finished thought after the listing folds into that step's row.
+  expect(html).toContain('data-chain-item="group-scan"');
+  expect(html).not.toContain("Evaluate the result");
 });
 
-test("settled round groups retain narration, live reasoning and truthful titles", () => {
-  const html = draw({ agentRounds: rounds,
-    reasoningBlocks: [{ id: "cached-thought", roundId: "verification", content: "Inspection understood", streaming: false },
-      { id: "live-thought", roundId: "verification", content: "Checking the result", streaming: true }],
-    processMessages: [{ id: "intro", roundId: "inspection", content: "Inspecting directories" },
-      { id: "followup", roundId: "verification", content: "Verifying cancellation" }],
-    tools: [{ id: "scan", roundId: "inspection", name: "list_dir", status: "success" },
-      { id: "read", roundId: "verification", name: "read_file", status: "running" }],
+test("folds a live stretch of reads and searches into one line of counts and keeps a command on its own", () => {
+  const html = draw({ live: true, agentRounds: [rounds[1]], reasoningBlocks: [], processMessages: [],
+    tools: [{ id: "r1", roundId: "verification", name: "read_file", status: "success", seq: 1, argsText: JSON.stringify({ path: "src/main.rs" }) },
+      { id: "s1", roundId: "verification", name: "search_code", status: "success", seq: 2 },
+      { id: "r2", roundId: "verification", name: "read_file", status: "success", seq: 3, argsText: JSON.stringify({ path: "notes/todo.md" }) },
+      { id: "x1", roundId: "verification", name: "run_shell", status: "running", seq: 4, argsText: JSON.stringify({ command: "cargo test" }) }],
   });
-  expect(html.match(/class="ff-agent-round(?: is-(?:running|complete))?"/g)).toHaveLength(2);
-  for (const oldArt of ["ff-agent-round__art-image", "ff-agent-round__status", "status-moods"]) expect(html).not.toContain(oldArt);
-  for (const visible of ["ff-reasoning-status-art is-thinking", "流萤已完成 · 浏览 1 个目录", "流萤正在读取文件",
-    "Inspecting directories", "Verifying cancellation", "Checking the result"]) expect(html.includes(visible) || html.replace(/<[^>]+>/g, "").includes(visible)).toBe(true);
+  const text = html.replace(/<[^>]+>/g, "");
+  expect(text).toContain("读取 2 个文件 · 搜索 1 次");
+  expect(text).toContain("main.rs, todo.md");
+  expect(text).toContain("cargo test");
+  expect(html.match(/ff-tool-executions"/g)).toHaveLength(2);
+});
+test("a finished run reads as one timeline: narration, thinking and steps, without per-round headers", () => {
+  const html = draw({ agentRounds: rounds,
+    reasoningBlocks: [{ id: "cached-thought", roundId: "verification", content: "Inspection understood", streaming: false, seq: 3 }],
+    processMessages: [{ id: "intro", roundId: "inspection", content: "Inspecting directories", seq: 0 },
+      { id: "followup", roundId: "verification", content: "Verifying cancellation", seq: 2 }],
+    tools: [{ id: "scan", roundId: "inspection", name: "list_dir", status: "success", seq: 1 },
+      { id: "read", roundId: "verification", name: "read_file", status: "success", seq: 4 }],
+  });
+  expect(html).not.toContain("ff-agent-round");
+  const text = html.replace(/<[^>]+>/g, "");
+  for (const visible of ["Inspecting directories", "Verifying cancellation"]) expect(text).toContain(visible);
+  // The finished thought and the read after it fold into one row of counts.
+  expect(html).toContain('data-chain-item="group-cached-thought"');
+  expect(text).not.toContain("Inspection understood");
+  expect(text).not.toContain("流萤已完成");
+  expect(text.indexOf("Inspecting directories")).toBeLessThan(text.indexOf("Verifying cancellation"));
 });
 
-test("labels interrupted generated text, shows changed-file counts and omits empty rounds", () => {
+test("a finished run that recovered from a failed step still says so in its collapsed caption", () => {
+  expect(finishedRunFacts([{ id: "x1", roundId: "inspection", name: "run_shell", status: "error", seq: 1 },
+    { id: "read", roundId: "verification", name: "read_file", status: "success", seq: 2 }] as never)).toEqual(["读取 1 个文件", "1 项失败"]);
+  expect(finishedRunFacts([{ id: "read", roundId: "verification", name: "read_file", status: "success", seq: 2 }] as never)).toEqual(["读取 1 个文件"]);
+});
+
+test("labels interrupted generated text and keeps a finished edit as its own step", () => {
   const interrupted = draw({ agentRounds: [rounds[1]], interrupted: true,
     processMessages: [{ id: "unfinished", roundId: "verification", content: "Partial inspection", interrupted: true }] });
   expect(interrupted).toContain("未完成的生成内容");
   expect(interrupted).toContain("Partial inspection");
   const changed = draw({ agentRounds: [rounds[0]], tools: [{ id: "patch", roundId: "inspection", name: "str_replace", status: "success",
     changes: [{ file: "lib/guide.ts", kind: "modified", insertions: 6, deletions: 2 }] }] });
-  expect(changed).toContain("流萤已完成");
-  expect(changed).toContain('class="ff-agent-round__files"');
-  expect(changed).toContain("1 个文件已被改动");
-  expect(draw({ agentRounds: [rounds[0]] })).not.toContain("ff-agent-round");
+  expect(changed).toContain('data-chain-item="patch"');
+  expect(changed).not.toContain("流萤已完成");
   expect(draw({ agentRounds: [rounds[0]], processMessages: [{ id: "visible-narration", roundId: "inspection", content: "Inspection commentary" }],
     tools: [{ id: "scan", roundId: "inspection", name: "list_dir", status: "success" }] })).toContain("Inspection commentary");
 });

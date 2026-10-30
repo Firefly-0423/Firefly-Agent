@@ -10,7 +10,7 @@ import {
   normalizeChatSocialContextEnabled,
   normalizeProactiveChatMode,
   normalizeProactiveDeliveryTarget,
-  normalizeSegmentedOutputMode,
+  normalizeSegmentedChatEnabled,
 } from "../../shared/preferences";
 import { normalizeWindowVisibilitySettings } from "../windows/window-visibility-settings";
 import { getGeneralSettingsPath } from "../storage/settings-store";
@@ -66,7 +66,7 @@ const FALLBACK_SETTINGS: GeneralSettings = {
   searchEngine: "off",
   searchMinimaxKey: "",
   searchTavilyKey: "",
-  segmentedOutputMode: "off",
+  segmentedChatEnabled: true,
   sidebarVisible: true,
   skillModeOverrides: {},
   toastSoundEnabled: true,
@@ -226,7 +226,7 @@ export function normalizeGeneralSettings(
     uiColors: normalizeUiColors(src.uiColors),
     uiFont: normalizeUiFont(src.uiFont),
     uiIcon: normalizeUiIcon(src.uiIcon),
-    segmentedOutputMode: normalizeSegmentedOutputMode(src.segmentedOutputMode),
+    segmentedChatEnabled: normalizeSegmentedChatEnabled(src.segmentedChatEnabled),
     proactiveChatMode: normalizeProactiveChatMode(src.proactiveChatMode),
     proactiveDeliveryTarget: normalizeProactiveDeliveryTarget(src.proactiveDeliveryTarget),
     weatherSource: oneOfOptions(src.weatherSource, ["open-meteo", "amap"] as const, "open-meteo"),

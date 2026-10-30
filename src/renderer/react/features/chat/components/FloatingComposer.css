@@ -14,32 +14,26 @@
 .ff-floating-composer.is-dragging { user-select: none; }
 .ff-floating-composer.is-dragging .ff-composer-shell { box-shadow: 0 16px 40px rgba(31, 35, 48, 0.18); }
 
+/* Collapse and move sit at the right end of the row under the composer, after the model. They keep their place but
+   stay hidden until the composer is hovered or one of them has focus; on touch screens (no hover) they stay faintly visible. */
 .ff-floating-composer__controls {
-  position: absolute;
-  top: -14px;
-  right: 18px;
-  z-index: 30;
   display: flex;
   gap: 2px;
-  padding: 2px;
-  border: 1px solid var(--ff-border);
-  border-radius: 999px;
-  background: var(--ff-popover, var(--ff-surface));
-  box-shadow: var(--ff-shadow-popover);
+  margin-left: 4px;
   opacity: 0;
-  pointer-events: none;
   transition: opacity 140ms ease;
 }
 .ff-floating-composer:hover .ff-floating-composer__controls,
 .ff-floating-composer__controls:focus-within,
-.ff-floating-composer.is-dragging .ff-floating-composer__controls { opacity: 1; pointer-events: auto; }
+.ff-floating-composer.is-dragging .ff-floating-composer__controls { opacity: 1; }
+@media (hover: none) { .ff-floating-composer__controls { opacity: .55; } }
 
 .ff-floating-composer__control {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 24px;
-  height: 22px;
+  height: 26px;
   padding: 0;
   border: 0;
   border-radius: 999px;

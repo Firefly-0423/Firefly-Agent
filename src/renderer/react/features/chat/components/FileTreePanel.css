@@ -14,7 +14,7 @@
 .ff-file-tree__state,
 .ff-file-preview__state {
   text-align: center;
-  font: 500 12px/1.6 var(--rb-font-sans, sans-serif);
+  font: 500 var(--ff-fs-caption)/1.6 var(--rb-font-sans, sans-serif);
   color: var(--ff-text-muted, var(--ff-text-muted));
   padding: 24px;
   justify-content: center;
@@ -28,7 +28,7 @@
 .ff-file-tree .ant-tree {
   color: var(--ff-text, var(--ff-text));
   background: transparent;
-  font: 500 12px/1.6 var(--rb-font-sans, sans-serif);
+  font: 500 var(--ff-fs-caption)/1.6 var(--rb-font-sans, sans-serif);
   padding: 8px 6px;
   overflow: auto;
   min-height: 0;
@@ -68,11 +68,11 @@
 .ff-file-tree__folder-icon {
   user-select: none;
   line-height: 1;
-  font-size: 14px;
+  font-size: var(--ff-fs-body);
 }
 
 .ff-file-tree__truncated {
-  font: 500 11px/1.4 var(--rb-font-sans, sans-serif);
+  font: 500 var(--ff-fs-caption)/1.4 var(--rb-font-sans, sans-serif);
   color: var(--ff-text-muted, var(--ff-text-muted));
   border-top: 1px solid var(--ff-border, var(--ff-border));
   padding: 6px 12px;
@@ -95,7 +95,7 @@
   font-family: var(--rb-font-sans, sans-serif);
   line-height: 1.3;
   font-weight: 500;
-  font-size: 12px;
+  font-size: var(--ff-fs-caption);
   color: var(--ff-text, var(--ff-text));
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -105,13 +105,13 @@
 }
 
 .ff-file-preview__size {
-  font: 500 11px/1.3 var(--rb-font-sans, sans-serif);
+  font: 500 var(--ff-fs-caption)/1.3 var(--rb-font-sans, sans-serif);
   color: var(--ff-text-muted, var(--ff-text-muted));
   flex-shrink: 0;
 }
 
 .ff-file-preview__code {
-  font: 400 12px/1.65 var(--rb-font-mono, ui-monospace, "Cascadia Mono", Consolas, monospace);
+  font: 400 var(--ff-fs-caption)/1.65 var(--rb-font-mono, ui-monospace, "Cascadia Mono", Consolas, monospace);
   background: transparent;
   overflow: auto;
   padding: 8px 0;
@@ -148,7 +148,7 @@
 }
 
 .ff-file-preview__truncated {
-  font: 500 11px/1.4 var(--rb-font-sans, sans-serif);
+  font: 500 var(--ff-fs-caption)/1.4 var(--rb-font-sans, sans-serif);
   color: var(--ff-text-muted, var(--ff-text-muted));
   border-top: 1px solid var(--ff-border, var(--ff-border));
   padding: 6px 12px;
@@ -197,7 +197,7 @@
 
 /* 刷新入口常驻，空目录与读取失败时仍可重试。 */
 .ff-file-tree__header {
-  font: 500 12px/1.4 var(--rb-font-sans, sans-serif);
+  font: 500 var(--ff-fs-caption)/1.4 var(--rb-font-sans, sans-serif);
   color: var(--ff-text-muted, var(--ff-text-muted));
   border-bottom: 1px solid var(--ff-border, var(--ff-border));
   padding: 8px 12px;
@@ -248,11 +248,11 @@
 /* Minimal text editor: use the same workspace colors and scrolling contract. */
 .ff-file-editor { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .ff-file-editor__toolbar,
-.ff-file-editor__decision { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 6px 12px; color: var(--ff-text-muted); font: 500 12px/1.5 var(--rb-font-sans, sans-serif); }
+.ff-file-editor__decision { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 6px 12px; color: var(--ff-text-muted); font: 500 var(--ff-fs-caption)/1.5 var(--rb-font-sans, sans-serif); }
 .ff-file-editor__dirty { color: var(--ff-accent); }
 .ff-file-editor__hint,
-.ff-file-editor__error { margin: 0; padding: 4px 12px 8px; color: var(--ff-text-muted); font: 400 12px/1.5 var(--rb-font-sans, sans-serif); }
+.ff-file-editor__error { margin: 0; padding: 4px 12px 8px; color: var(--ff-text-muted); font: 400 var(--ff-fs-caption)/1.5 var(--rb-font-sans, sans-serif); }
 .ff-file-editor__error { color: var(--ff-text); }
 .ff-file-editor__decision { border-block: 1px solid var(--ff-border); background: var(--ff-bg-hover); }
-.ff-file-editor__input { flex: 1; min-height: 100px; width: 100%; resize: none; box-sizing: border-box; border: 0; padding: 12px; background: var(--ff-bg-page); color: var(--ff-text); tab-size: 2; white-space: pre; overflow: auto; font: 400 12px/1.65 var(--rb-font-mono, ui-monospace, monospace); }
+.ff-file-editor__input { flex: 1; min-height: 100px; width: 100%; resize: none; box-sizing: border-box; border: 0; padding: 12px; background: var(--ff-bg-page); color: var(--ff-text); tab-size: 2; white-space: pre; overflow: auto; font: 400 var(--ff-fs-caption)/1.65 var(--rb-font-mono, ui-monospace, monospace); }
 .ff-file-editor__input:focus-visible { outline: 2px solid var(--ff-accent); outline-offset: -2px; }

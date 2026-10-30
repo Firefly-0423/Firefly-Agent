@@ -92,7 +92,7 @@
   padding: 0 6px 0 12px;
   border-bottom: 1px solid var(--ff-border);
   color: var(--ff-text);
-  font: 600 12.5px/1 var(--rb-font-sans, sans-serif);
+  font: 600 var(--ff-fs-ui)/1 var(--rb-font-sans, sans-serif);
   outline: none;
 }
 .ff-inspector-pane__head:focus-visible { box-shadow: inset 0 0 0 2px var(--ff-accent); border-radius: 12px 12px 0 0; }

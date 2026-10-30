@@ -207,14 +207,8 @@
       "preferences": {
         "subheading": "设置聊天气泡分段、主动聊天与上下文增强等偏好，选择会保存为全局默认值。",
         "segmented": {
-          "unavailable": "暂不可用",
           "title": "分段输出",
-          "option": {
-            "off": "关闭",
-            "chat": "聊天",
-            "all": "所有"
-          },
-          "desc": "控制流萤回复在聊天气泡中的分段显示；不会改变模型实际回复内容。"
+          "desc": "Chat 模式下把流萤的回复按段落分成几个气泡显示；只改变显示，不改变回复内容。"
         },
         "saveStatus": "等待保存",
         "saveButton": "保存偏好",
@@ -561,7 +555,10 @@
           "backendDown": "记忆服务暂不可用，暂时无法查看记忆。",
           "apiMissing": "记忆接口不可用，无法读取记忆。",
           "activationConfirmed": "你已确认",
-          "activationAuto": "自动记住"
+          "activationAuto": "自动记住",
+          "viewLabel": "显示方式",
+          "viewList": "列表",
+          "viewGraph": "关系图"
         },
         "automation": {
           "unknown": "存在结果未返回的请求，不会自动重试。",
@@ -575,6 +572,24 @@
           "failed": "保存失败，已重新读取设置。",
           "desc": "默认关闭。开启后，只有你明确、长期表达的中英文回复语言或简短/详细回复风格可自动记住；冲突及其他候选仍需你确认。临时聊天不参与。关闭不会删除已有记忆，可在下方遗忘。",
           "budget": "今日偏好提取请求 {{used}} / 20。关闭自动保存后，新候选仍需确认；提取请求仍有每日上限。"
+        },
+        "graph": {
+          "label": "记忆关系图",
+          "hint": "点一个节点，在下面查看和处理；拖动节点或空白处可以移动，滚轮缩放。",
+          "empty": "流萤还没记住什么。你在对话里说过的偏好，确认后会出现在这里。",
+          "self": "你",
+          "untitled": "未命名对话",
+          "category": {
+            "language": "回复语言",
+            "response-style": "回复风格",
+            "shell": "Shell",
+            "address": "称呼",
+            "tool": "工具",
+            "preference": "偏好",
+            "other": "其他",
+            "programming-usage": "编程习惯",
+            "programming-ability": "编程能力"
+          }
         }
       },
       "tasks": {

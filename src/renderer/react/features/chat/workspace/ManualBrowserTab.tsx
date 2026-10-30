@@ -346,7 +346,7 @@ export function ManualBrowserTab({ sessionId, workspaceId, tabId, active = true,
     || !!candidates.length || !!blockedNavigationUrl;
   const labels: BrowserWorkspaceLabels = {
     panel: t("browserWorkspace.title"), address: t("browserWorkspace.address"), go: t("browserWorkspace.go"),
-    back: t("browserWorkspace.back"), forward: t("browserWorkspace.forward"), reload: t("browserWorkspace.reload"), stop: t("browserWorkspace.stop"), close: t("browserWorkspace.close"),
+    back: t("browserWorkspace.back"), forward: t("browserWorkspace.forward"), reload: t("browserWorkspace.reload"), stop: t("browserWorkspace.stop"),
     loading: t("browserWorkspace.loading"), blocked: t(available ? "browserWorkspace.blocked" : checked ? "browserWorkspace.unavailable" : "browserWorkspace.checking"),
     loadFailed: t(failure === "restricted_address" ? "browserWorkspace.restrictedAddress" : failure === "dns_failed" ? "browserWorkspace.dnsFailed" : failure === "dns_timeout" ? "browserWorkspace.dnsTimeout" : failure === "connection_failed" ? "browserWorkspace.connectionFailed" : "browserWorkspace.loadFailed"), closed: t(closing ? "browserWorkspace.closing" : failure === "cleanup_failed" ? "browserWorkspace.cleanupFailed" : "browserWorkspace.closed"),
     committedUrl: t("browserWorkspace.currentPage"), addressHint: t("browserWorkspace.addressHint"), addressPlaceholder: t("browserWorkspace.addressPlaceholder"),
@@ -424,7 +424,7 @@ export function ManualBrowserTab({ sessionId, workspaceId, tabId, active = true,
       emptyContent={<BrowserNewTab available={available && !!ownerKey && !stateFailure} onOpen={url => { setAddress(url); navigate(url); }} />}
       viewportRef={viewport} onAddressChange={editAddress} onAddressReset={resetAddress} onNavigate={navigate}
       toolbarEnd={chrome.toolbarEnd} belowToolbar={chrome.belowToolbar} overlay={chrome.overlay} snapshot={chrome.snapshot}
-      commandPending={commandPending} closeAvailable={!closing && !scopeRef.current?.cleanupFailed && !page.closed}
-      onCommand={action => { const id = scopeRef.current?.page?.browserId; if (id) void command(action === "stop" ? { kind: "stop", browserId: id } : { kind: "history", browserId: id, action }); }} onClose={() => { void close(); }} />
+      commandPending={commandPending}
+      onCommand={action => { const id = scopeRef.current?.page?.browserId; if (id) void command(action === "stop" ? { kind: "stop", browserId: id } : { kind: "history", browserId: id, action }); }} />
   </div>;
 }

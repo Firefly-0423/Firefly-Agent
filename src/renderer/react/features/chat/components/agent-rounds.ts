@@ -2,12 +2,6 @@ import { t } from "../../../i18n";
 import type { AgentRoundRecord, ProcessMessageRecord, ReasoningBlock, TaskDelegationDisplayRecord, ToolExecutionRecord } from "../../../../../shared/chat-types";
 
 // 保持工具顺序，文案在调用时求值。
-const LIVE_TOOL_LABEL_KEYS: Record<string, string> = Object.fromEntries([
-  ["list_dir", "agentRounds.liveListDir"], ["read_file", "agentRounds.liveReadFile"],
-  ["write_file", "agentRounds.liveWriteFile"], ["edit_file", "agentRounds.liveEditFile"],
-  ["search_code", "agentRounds.liveSearchCode"], ["search_text", "agentRounds.liveSearchText"],
-  ["run_shell", "agentRounds.liveRunShell"],
-]);
 const TOOL_LABEL_KEYS: Record<string, string> = Object.fromEntries([
   ["list_dir", "agentRounds.toolListDir"], ["read_file", "agentRounds.toolReadFile"],
   ["write_file", "agentRounds.toolWriteFile"], ["edit_file", "agentRounds.toolEditFile"],
@@ -18,14 +12,21 @@ const TOOL_LABEL_KEYS: Record<string, string> = Object.fromEntries([
 const SUMMARY_TOOL_KEYS: Record<string, string> = Object.fromEntries([
   ["list_dir", "agentRounds.summaryListDir"], ["read_file", "agentRounds.summaryReadFile"],
   ["write_file", "agentRounds.summaryWriteFile"], ["edit_file", "agentRounds.summaryEditFile"],
-  ["search_code", "agentRounds.summarySearchCode"], ["search_text", "agentRounds.summarySearchText"],
-  ["run_shell", "agentRounds.summaryRunShell"],
+  ["search_code", "agentRounds.summarySearchCode"], ["search_text", "agentRounds.summarySearchCode"],
+  ["run_shell", "agentRounds.summaryRunShell"], ["update_todo", "agentRounds.summaryUpdateTodo"],
+  ["read_tool_result", "agentRounds.summaryReadToolResult"],
 ]);
 
-function translatedToolName(name: string, displayName: string | undefined, live: boolean, action: boolean): string {
+// Harness built-ins are named here in the user's language; this wins over a displayName saved by older runs.
+const BUILTIN_LABEL_KEYS: Record<string, string> = Object.fromEntries([
+  ["update_todo", "agentRounds.toolUpdateTodo"], ["delegate_agent", "agentRounds.toolDelegateAgent"],
+  ["enter_plan_mode", "agentRounds.toolEnterPlanMode"], ["write_plan", "agentRounds.toolWritePlan"],
+]);
+function translatedToolName(name: string, displayName: string | undefined, action: boolean): string {
+  const builtin = BUILTIN_LABEL_KEYS[name];
+  if (builtin) { return t(builtin); }
   if (displayName) { return displayName; }
-  const lookup = live ? LIVE_TOOL_LABEL_KEYS : TOOL_LABEL_KEYS;
-  const translation = lookup[name];
+  const translation = TOOL_LABEL_KEYS[name];
   if (translation) { return t(translation); }
   return action ? t("agentRounds.fallbackAction") : name;
 }
@@ -60,13 +61,13 @@ export function describeToolExecution(tool: ToolExecutionRecord): ToolExecutionP
   if (tool.name === "ask_user") {
     const stateKey = tool.status === "running" ? "agentRounds.askUserWaiting"
       : tool.status === "error" ? "agentRounds.askUserFailed" : "agentRounds.askUserAnswered";
-    return { label: translatedToolName(tool.name, tool.displayName, false, false), statusText: t(stateKey), detail: undefined };
+    return { label: translatedToolName(tool.name, tool.displayName, false), statusText: t(stateKey), detail: undefined };
   }
   const input = toolObject(tool.argsText);
   const output = toolObject(tool.result);
   const detail = targetArgument(input, tool.name === "run_shell");
-  const label = translatedToolName(tool.name, tool.displayName, false, false);
-  const action = translatedToolName(tool.name, tool.displayName, false, true);
+  const label = translatedToolName(tool.name, tool.displayName, false);
+  const action = translatedToolName(tool.name, tool.displayName, true);
   let statusText: string;
   if (tool.name === "run_shell" && tool.status === "error" && output?.timedOut === true) {
     statusText = t("agentRounds.commandTimeout");
@@ -113,19 +114,44 @@ export function applyAgentRoundBoundary(state: AgentRoundBoundaryState, action: 
   }
 }
 
-function successfulFacts(records: readonly ToolExecutionRecord[]): string[] {
+/** One fact per summary line: both search tools share "searched N times". */
+export function summarizeToolFacts(records: readonly ToolExecutionRecord[]): string[] {
   const successful = records.filter(({ status }) => status === "success");
   const totals = new Map<string, number>();
-  successful.forEach(({ name }) => totals.set(name, (totals.get(name) ?? 0) + 1));
-  const facts: string[] = [];
-  for (const [name, translation] of Object.entries(SUMMARY_TOOL_KEYS)) {
-    const count = totals.get(name) ?? 0;
-    if (count !== 0) { facts.push(t(translation, { count })); }
-  }
+  successful.forEach(({ name }) => {
+    const key = SUMMARY_TOOL_KEYS[name];
+    if (key) { totals.set(key, (totals.get(key) ?? 0) + 1); }
+  });
+  const facts = [...new Set(Object.values(SUMMARY_TOOL_KEYS))].flatMap((key) => totals.has(key) ? [t(key, { count: totals.get(key) })] : []);
   if (facts.length === 0 && successful.length > 0) {
     facts.push(t("agentRounds.summaryFallback", { count: successful.length }));
   }
   return facts;
+}
+
+const LOOK_AROUND_TOOLS = new Set(["list_dir", "read_file", "search_code", "search_text"]);
+/** Bookkeeping steps: they keep the run on track but change nothing the user needs to see. */
+const BOOKKEEPING_TOOLS = new Set(["update_todo", "read_tool_result"]);
+/** A finished step that changes nothing: it folds into the quiet stretch around it. */
+const quietTool = (tool: ToolExecutionRecord) => tool.status === "success" && (LOOK_AROUND_TOOLS.has(tool.name) || BOOKKEEPING_TOOLS.has(tool.name)) && !tool.changes?.length;
+/** Steps worth counting in a run's one-line summary; bookkeeping is left out. */
+export const countedTools = (tools: readonly ToolExecutionRecord[]) => tools.filter((tool) => !BOOKKEEPING_TOOLS.has(tool.name));
+export type ToolStep = { kind: "single"; tool: ToolExecutionRecord } | { kind: "group"; tools: ToolExecutionRecord[] };
+/** Consecutive successful reads, searches and listings fold into one step; edits, commands, failures and running steps stay on their own. */
+export function groupToolSteps(tools: readonly ToolExecutionRecord[]): ToolStep[] {
+  const steps: ToolStep[] = [];
+  let run: ToolExecutionRecord[] = [];
+  const flush = () => {
+    if (run.length > 1) { steps.push({ kind: "group", tools: run }); } else if (run.length === 1) { steps.push({ kind: "single", tool: run[0] }); }
+    run = [];
+  };
+  for (const tool of tools) {
+    if (quietTool(tool)) { run.push(tool); continue; }
+    flush();
+    steps.push({ kind: "single", tool });
+  }
+  flush();
+  return steps;
 }
 
 export function countRoundChangedFiles(tools: readonly ToolExecutionRecord[]): number {
@@ -135,23 +161,6 @@ export function countRoundChangedFiles(tools: readonly ToolExecutionRecord[]): n
     for (const edit of reported) { unique.add(edit.file); }
   }
   return unique.size;
-}
-
-export function resolveAgentRoundTitle(round: AgentRoundRecord, tools: readonly ToolExecutionRecord[], interrupted = false): string {
-  const failures = tools.filter(({ status }) => status === "error").length;
-  if (interrupted) {
-    const pieces = [t("agentRounds.interruptedTitle")];
-    if (failures) { pieces.push(t("agentRounds.failureCount", { count: failures })); }
-    return pieces.join(" · ");
-  }
-  if (round.status === "running") {
-    const active = [...tools].reverse().find(({ status }) => status === "running");
-    if (!active) { return t("agentRounds.runningThinking"); }
-    return t("agentRounds.runningLive", { action: translatedToolName(active.name, active.displayName, true, false) });
-  }
-  const pieces = successfulFacts(tools);
-  if (failures) { pieces.push(t("agentRounds.failureCount", { count: failures })); }
-  return [t("agentRounds.completedTitle"), ...pieces].join(" · ");
 }
 
 export interface FlatRunTimelineEntry {
@@ -167,6 +176,18 @@ interface FlatRunTimelineInput {
 function legacyTimeline(input: FlatRunTimelineInput): FlatRunTimelineEntry[] {
   const output: FlatRunTimelineEntry[] = [];
   const { tools, processMessages, reasoningBlocks, taskDelegations } = input;
+  // Without seq, a delegation still sits right after the delegate_agent call that ran it, or before the first
+  // step of its round; only one with neither goes last.
+  const after = new Map<number, TaskDelegationDisplayRecord[]>(), before = new Map<number, TaskDelegationDisplayRecord[]>(), unplaced: TaskDelegationDisplayRecord[] = [];
+  const place = (into: Map<number, TaskDelegationDisplayRecord[]>, at: number, task: TaskDelegationDisplayRecord) => into.set(at, [...(into.get(at) ?? []), task]);
+  for (const task of taskDelegations) {
+    const delegate = (match: (tool: ToolExecutionRecord) => boolean) => tools.findIndex((tool) => tool.name === "delegate_agent" && match(tool));
+    let own = delegate((tool) => tool.taskResult?.sessionId === task.taskId);
+    if (own < 0 && task.roundId !== undefined) own = delegate((tool) => tool.roundId === task.roundId);
+    const first = own < 0 && task.roundId !== undefined ? tools.findIndex((tool) => tool.roundId === task.roundId) : -1;
+    if (own >= 0) place(after, own, task); else if (first >= 0) place(before, first, task); else unplaced.push(task);
+  }
+  const taskEntry = (task: TaskDelegationDisplayRecord): FlatRunTimelineEntry => ({ kind: "task", key: `task-${task.invocationId}`, task });
   for (let slot = 0; slot <= tools.length; slot += 1) {
     processMessages.forEach((process) => {
       if ((process.afterToolCount ?? 0) === slot) { output.push({ kind: "process", key: process.id, process }); }
@@ -176,13 +197,26 @@ function legacyTimeline(input: FlatRunTimelineInput): FlatRunTimelineEntry[] {
     });
     if (slot < tools.length) {
       const tool = tools[slot];
-      output.push({ kind: "tool", key: tool.id, tool });
+      output.push(...(before.get(slot) ?? []).map(taskEntry), { kind: "tool", key: tool.id, tool }, ...(after.get(slot) ?? []).map(taskEntry));
     }
   }
-  for (const task of taskDelegations) {
-    output.push({ kind: "task", key: `task-${task.invocationId}`, task });
-  }
+  output.push(...unplaced.map(taskEntry));
   return output;
+}
+
+/**
+ * Where a delegation sits in a sequenced timeline: right after the delegate_agent call that ran it,
+ * else after the round's first delegate_agent call, else at the start of its round; unanchored ones go last.
+ */
+function delegationSeq(task: TaskDelegationDisplayRecord, input: FlatRunTimelineInput): number | undefined {
+  const delegates = input.tools.filter((tool) => tool.name === "delegate_agent" && tool.seq !== undefined);
+  const own = delegates.find((tool) => tool.taskResult?.sessionId === task.taskId)
+    ?? delegates.find((tool) => task.roundId !== undefined && tool.roundId === task.roundId);
+  if (own) { return own.seq! + 0.5; }
+  if (task.roundId === undefined) { return undefined; }
+  const round = [...input.processMessages, ...input.reasoningBlocks, ...input.tools]
+    .filter((entry) => entry.roundId === task.roundId && entry.seq !== undefined).map((entry) => entry.seq!);
+  return round.length > 0 ? Math.min(...round) - 0.5 : undefined;
 }
 
 export function buildFlatRunTimeline(input: FlatRunTimelineInput): FlatRunTimelineEntry[] {
@@ -193,13 +227,36 @@ export function buildFlatRunTimeline(input: FlatRunTimelineInput): FlatRunTimeli
   reasoningBlocks.forEach((reasoning) => output.push({ kind: "reasoning", key: reasoning.id, seq: reasoning.seq, reasoning }));
   processMessages.forEach((process) => output.push({ kind: "process", key: process.id, seq: process.seq, process }));
   tools.forEach((tool) => output.push({ kind: "tool", key: tool.id, seq: tool.seq, tool }));
-  output.push(...taskDelegations.map((task) => ({ kind: "task" as const, key: `task-${task.invocationId}`, seq: undefined, task })));
+  output.push(...taskDelegations.map((task) => ({ kind: "task" as const, key: `task-${task.invocationId}`, seq: delegationSeq(task, input), task })));
   const ranked = output.map((value, order) => ({ value, order }));
   ranked.sort((left, right) => {
     const delta = (left.value.seq ?? Number.MAX_SAFE_INTEGER) - (right.value.seq ?? Number.MAX_SAFE_INTEGER);
     return delta !== 0 ? delta : left.order - right.order;
   });
   return ranked.map(({ value }) => value);
+}
+
+export type RunTimelineRow = FlatRunTimelineEntry | { kind: "group"; key: string; entries: FlatRunTimelineEntry[]; tools: ToolExecutionRecord[] };
+const quietStep = (entry: FlatRunTimelineEntry) => entry.kind === "tool" ? quietTool(entry.tool!) : entry.kind === "reasoning" && !entry.reasoning?.streaming;
+/**
+ * Folds every quiet stretch of the timeline (quiet steps and the finished thinking around them) into one row.
+ * Narration, edits, commands, failures, delegations and live thinking stay on their own rows.
+ */
+export function foldRunTimeline(entries: readonly FlatRunTimelineEntry[]): RunTimelineRow[] {
+  const rows: RunTimelineRow[] = [];
+  let run: FlatRunTimelineEntry[] = [];
+  const flush = () => {
+    const tools = run.filter((entry) => entry.kind === "tool").map((entry) => entry.tool!);
+    if (tools.length > 0 && run.length > 1) { rows.push({ kind: "group", key: `group-${run[0].key}`, entries: run, tools }); } else { rows.push(...run); }
+    run = [];
+  };
+  for (const entry of entries) {
+    if (quietStep(entry)) { run.push(entry); continue; }
+    flush();
+    rows.push(entry);
+  }
+  flush();
+  return rows;
 }
 
 export function buildAskUserQa(tool: ToolExecutionRecord): string[] {

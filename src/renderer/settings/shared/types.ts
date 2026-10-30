@@ -3,7 +3,7 @@ import type { ChatAppearanceSettings } from "../../../shared/chat-appearance";
 import type { ExternalSkillsApi } from "../../../shared/external-skills";
 import type { InputModality, InputModalityResolution, InputModalitySource } from "../../../shared/input-modalities";
 import type { MemoryPolicyPanelApi, ShadowPanelApi } from "../../../shared/memory-panel-contracts";
-import type { ProactiveChatMode, ProactiveDeliveryTarget, SegmentedOutputMode } from "../../../shared/preferences";
+import type { ProactiveChatMode, ProactiveDeliveryTarget } from "../../../shared/preferences";
 import type { QqListenAuthRequirement } from "../../../shared/qq-listen";
 import type { ReasoningLevelsConfig, ReasoningPreference } from "../../../shared/reasoning";
 import type { AgentRoutingView, AgentRoutingUpdate } from "../../../shared/specialist-agents";
@@ -101,7 +101,7 @@ export type GeneralSettings = ChatAppearanceSettings & {
   uiTheme: UiTheme; uiColors: UiColors; uiFont: UiFont; uiIcon: UiIcon;
   uiFontSize: number; chatFontSize: number; codeFontSize: number;
   chatLineHeight: number; chatParaSpacing: number;
-  segmentedOutputMode: SegmentedOutputMode;
+  segmentedChatEnabled: boolean;
   proactiveChatMode: ProactiveChatMode; proactiveDeliveryTarget: ProactiveDeliveryTarget;
   screenshotHotkey?: string;
   asrEngine?: "off" | "mossland" | "aliyun" | "local";

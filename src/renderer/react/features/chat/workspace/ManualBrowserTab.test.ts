@@ -1,15 +1,18 @@
 // @vitest-environment jsdom
-import { act, createElement, StrictMode } from "react";
+import { act, createElement, createRef, StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BrowserPageDto, BrowserPermissionDto, BrowserPermissionScope, ManualBrowserCommand } from "../../../../../shared/manual-browser";
 vi.mock("../../../i18n", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
-import { ManualBrowserTab } from "./ManualBrowserTab";
+import { ManualBrowserTab, type ManualBrowserTabHandle } from "./ManualBrowserTab";
 import en from "../../../i18n/en.json";
 import zhCN from "../../../i18n/zh-CN.json";
 const page = (id = "b", requestId = 1): BrowserPageDto => ({ browserId: id, conversationId: "s", requestId, closed: false, loading: false, url: "https://example.com/", pendingUrl: null, canGoBack: true, canGoForward: false, error: null });
 const permission = (status: "required" | "pending" | "granted" | "denied") => ({ conversationId: "s", status, scope: { hosts: ["example.com", "github.com", "github.githubassets.com", "avatars.githubusercontent.com"], actions: ["navigate", "observe", "click", "type"] as const }, requestId: null });
 let changed: (p: BrowserPageDto) => void, host: HTMLDivElement, root: ReturnType<typeof createRoot>;
+// The pane closes the tab through its handle (the tab strip's close control); the toolbar has no close button.
+const handle = createRef<ManualBrowserTabHandle>();
+const closeTab = () => { void handle.current!.close(); };
 let requestPermission: ReturnType<typeof vi.fn>, revokePermission: ReturnType<typeof vi.fn>, onClose: ReturnType<typeof vi.fn>;
 let execute: ReturnType<typeof vi.fn>, off: ReturnType<typeof vi.fn>, resize: (() => void) | undefined;
 beforeEach(() => {
@@ -23,7 +26,7 @@ beforeEach(() => {
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
 });
 afterEach(() => { act(() => root.unmount()); host.remove(); delete window.manualBrowser; vi.restoreAllMocks(); vi.unstubAllGlobals(); });
-async function render(sessionId: string | undefined = "s", active = true) { await act(async () => root.render(createElement(ManualBrowserTab, { sessionId, active, onClose }))); }
+async function render(sessionId: string | undefined = "s", active = true) { await act(async () => root.render(createElement(ManualBrowserTab, { sessionId, active, onClose, ref: handle }))); }
 async function navigate(url = "https://example.com/") {
   const input = host.querySelector("input")!;
   act(() => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, url); input.dispatchEvent(new Event("input", { bubbles: true })); });
@@ -74,7 +77,7 @@ describe("manual browser Main bridge and viewport lifecycle", () => {
     execute.mockImplementation((command: ManualBrowserCommand) => command.kind === "navigate"
       ? new Promise(resolve => { finish = resolve; }) : Promise.resolve({ ok: true, value: null }));
     await navigate("https://example.com/old");
-    if (action === "close") await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="browserWorkspace.close"]')!.click());
+    if (action === "close") await act(async () => closeTab());
     else if (action === "session change") await render("other");
     else if (action === "unmount") await act(async () => root.unmount());
     else await act(async () => host.querySelector<HTMLButtonElement>('[data-browser-revoke]')!.click());
@@ -125,7 +128,7 @@ describe("manual browser Main bridge and viewport lifecycle", () => {
     execute.mockImplementation((c: ManualBrowserCommand) => c.kind === "open" ? new Promise(resolve => { finish = resolve; }) : Promise.resolve({ ok: true, value: null }));
     await render(); await navigate();
     await act(async () => changed({ ...page(), loading: true, url: "", pendingUrl: "https://example.com/" }));
-    await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="browserWorkspace.close"]')!.click());
+    await act(async () => closeTab());
     // Main revoke also cancels navigation and waits for every owned page to close.
     expect(revokePermission).toHaveBeenCalledExactlyOnceWith("s");
     await act(async () => finish({ ok: true, value: page() }));
@@ -212,7 +215,7 @@ describe("separate Agent browser approval controls", () => {
     execute.mockResolvedValue({ ok: true, value: null });
     await render();
     expect(revokePermission).not.toHaveBeenCalled();
-    if (action === "close") await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="browserWorkspace.close"]')!.click());
+    if (action === "close") await act(async () => closeTab());
     else await act(async () => root.unmount());
     expect(revokePermission).toHaveBeenCalledTimes(1);
     expect(execute.mock.calls.some(([command]) => command.kind === "open")).toBe(false);
@@ -275,7 +278,7 @@ describe("separate Agent browser approval controls", () => {
     requestPermission.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
     await act(async () => host.querySelector<HTMLButtonElement>("[data-browser-authorize-agent]")!.click());
     expect(host.querySelector<HTMLButtonElement>("[data-browser-authorize-agent]")!.disabled).toBe(true);
-    await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="browserWorkspace.close"]')!.click());
+    await act(async () => closeTab());
     await act(async () => finish({ ok: true, value: { ...permission("granted"), scope: agentScope, agentScope } }));
     expect(execute.mock.calls.some(([command]) => command.kind === "open")).toBe(false);
     expect(revokePermission).toHaveBeenCalled();
@@ -425,7 +428,7 @@ describe("manual public HTTPS site consent", () => {
     useManualPermission(); let approve!: (reply: unknown) => void;
     requestPermission.mockImplementation(() => new Promise(resolve => { approve = resolve; }));
     await render(); await navigate("https://docs.example/late");
-    if (action === "close") await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="browserWorkspace.close"]')!.click());
+    if (action === "close") await act(async () => closeTab());
     else if (action === "unmount") await act(async () => root.unmount());
     else if (action === "session change") await render("other");
     else await act(async () => host.querySelector<HTMLButtonElement>('[data-browser-revoke]')!.click());
@@ -447,7 +450,7 @@ describe("manual public HTTPS site consent", () => {
   });
   it.each(["close", "unmount"])("cancels a pending native request recovered from Main on %s", async action => {
     useManualPermission("pending", ["docs.example"]); await render();
-    if (action === "close") await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="browserWorkspace.close"]')!.click());
+    if (action === "close") await act(async () => closeTab());
     else await act(async () => root.unmount());
     expect(revokePermission).toHaveBeenCalledExactlyOnceWith("s");
   });
@@ -479,7 +482,7 @@ describe("manual public HTTPS site consent", () => {
     execute.mockImplementation((c: ManualBrowserCommand) => c.kind === "open" ? new Promise(resolve => { finish = resolve; }) : Promise.resolve({ ok: true, value: null }));
     await render(); await navigate("https://docs.example/path");
     expect(navCalls()).toEqual([{ kind: "open", url: "https://docs.example/path" }]);
-    if (action === "close") await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="browserWorkspace.close"]')!.click());
+    if (action === "close") await act(async () => closeTab());
     else await act(async () => root.unmount());
     expect(revokePermission).toHaveBeenCalledExactlyOnceWith("s");
     await act(async () => finish({ ok: true, value: { ...page("late-id", 1), url: "https://docs.example/path" } }));
@@ -490,7 +493,7 @@ describe("manual public HTTPS site consent", () => {
     useManualPermission("granted", ["example.com"]); await render(); await navigate();
     requestPermission.mockResolvedValueOnce({ ok: false, code: "permission_denied" });
     await navigate("https://private.example/path");
-    if (action === "close") await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="browserWorkspace.close"]')!.click());
+    if (action === "close") await act(async () => closeTab());
     else await act(async () => root.unmount());
     expect(revokePermission).toHaveBeenCalledExactlyOnceWith("s");
   });
@@ -606,7 +609,6 @@ describe("browser chrome state follows user intent and confirmed Main cleanup", 
     await navigate();
     expect(host.querySelector('[data-browser-command-pending="true"]')).not.toBeNull();
     expect(host.querySelector('[aria-busy="true"]')).not.toBeNull();
-    expect(host.querySelector<HTMLButtonElement>('[aria-label="browserWorkspace.close"]')!.disabled).toBe(false);
     await act(async () => finish({ ok: false, code: "load_failed" }));
     expect(host.querySelector('[data-browser-command-pending="true"]')).toBeNull();
     expect(host.querySelector('[role="alert"]')?.textContent).toBe("browserWorkspace.loadFailed");
@@ -627,7 +629,7 @@ describe("browser chrome state follows user intent and confirmed Main cleanup", 
     await render(); await navigate(); let finish!: (reply: unknown) => void;
     revokePermission.mockResolvedValue({ ok: false, code: "cleanup_failed" })
       .mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
-    await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="browserWorkspace.close"]')!.click());
+    await act(async () => closeTab());
     expect(onClose).not.toHaveBeenCalled();
     expect(host.textContent).toContain("browserWorkspace.closing");
     expect(execute).toHaveBeenCalledWith({ kind: "layout", browserId: "b", bounds: null });
@@ -635,12 +637,10 @@ describe("browser chrome state follows user intent and confirmed Main cleanup", 
     expect(onClose).not.toHaveBeenCalled();
     expect(host.textContent).toContain("browserWorkspace.cleanupFailed");
     expect(host.querySelector('[aria-label="browserWorkspace.retryClose"]')).toBeNull();
-    const close = host.querySelector<HTMLButtonElement>('[aria-label="browserWorkspace.close"]')!;
-    expect(close.disabled).toBe(true);
     expect(host.querySelector<HTMLInputElement>('input[type="text"]')!.disabled).toBe(true);
     expect(host.querySelector<HTMLButtonElement>('[aria-label="browserWorkspace.go"]')!.disabled).toBe(true);
     expect(host.querySelector('[data-browser-revoke]')).toBeNull();
-    await act(async () => close.click());
+    await act(async () => expect(await handle.current!.close()).toBe(false));
     await act(async () => changed({ ...page("b", 99), url: "https://example.com/late" }));
     expect(revokePermission).toHaveBeenCalledExactlyOnceWith("s");
     expect(onClose).not.toHaveBeenCalled();
@@ -658,7 +658,7 @@ it("closes Main's scope even when initial browser availability is still being ch
   let ready!: (value: { available: boolean }) => void;
   window.manualBrowser!.getAvailability = () => new Promise(resolve => { ready = resolve; });
   await render();
-  await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="browserWorkspace.close"]')!.click());
+  await act(async () => closeTab());
   expect(revokePermission).toHaveBeenCalledExactlyOnceWith("s");
   await act(async () => ready({ available: true }));
   expect(execute.mock.calls.some(([c]) => c.kind === "get")).toBe(false);
@@ -696,13 +696,13 @@ it("recovers the existing Main grant and page through StrictMode effect replay",
 it("shows a cleanup failure from revoking a grant without a page", async () => {
     revokePermission.mockResolvedValue({ ok: false, code: "cleanup_failed" });
     await render();
-    await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="browserWorkspace.close"]')!.click());
+    await act(async () => closeTab());
     expect(host.textContent).toContain("browserWorkspace.cleanupFailed");
   });
 
 it("revokes the session grant when closing before any page exists", async () => {
     await render();
-    await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="browserWorkspace.close"]')!.click());
+    await act(async () => closeTab());
     expect(revokePermission).toHaveBeenCalledWith("s");
     expect(execute.mock.calls.some(([c]) => c.kind === "open")).toBe(false);
   });
@@ -720,7 +720,7 @@ it("cancels a pending native permission on close and ignores its late approval",
     requestPermission.mockImplementation(() => new Promise(resolve => { approve = resolve; }));
     await render();
     await act(async () => host.querySelector<HTMLButtonElement>('[data-browser-enable]')!.click());
-    await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="browserWorkspace.close"]')!.click());
+    await act(async () => closeTab());
     expect(revokePermission).toHaveBeenCalledWith("s");
     await act(async () => approve({ ok: true, value: permission("granted") }));
     await navigate();

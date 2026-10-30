@@ -1,4 +1,4 @@
-.external-skills { box-sizing: border-box; width: 100%; max-width: 1080px; margin: 0 auto; padding: 16px 28px 32px; min-width: 0; color: var(--ff-text, var(--ff-text)); font-size: 13px; line-height: 1.5; user-select: text; }
+.external-skills { box-sizing: border-box; width: 100%; max-width: 1080px; margin: 0 auto; padding: 16px 28px 32px; min-width: 0; color: var(--ff-text, var(--ff-text)); font-size: var(--ff-fs-ui); line-height: 1.5; user-select: text; }
 .external-skills__notice { margin: 0 0 16px; color: var(--ff-text-muted, var(--ff-text-muted)); max-width: 76ch; }
 .external-skills__toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding-bottom: 18px; border-bottom: 1px solid var(--ff-border, var(--ff-border)); margin-bottom: 20px; }
 .external-skills__sources { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 12px; background: var(--ff-bg-page, var(--ff-bg-subtle)); }
@@ -14,11 +14,11 @@
 .external-skills__candidate-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .external-skills__candidate button { padding: 0; border: 0; background: transparent; font-weight: 600; text-align: left; }
 .external-skills__candidate p { margin: 8px 0 0; }
-.external-skills__candidate-meta { color: var(--ff-text-muted, var(--ff-text-muted)); font-size: 12px; }
-.external-skills__badge { flex-shrink: 0; padding: 3px 8px; border-radius: 6px; background: var(--ff-bg-page, var(--ff-bg-subtle)); color: var(--ff-text-muted, var(--ff-text-muted)); font-size: 11px; }
+.external-skills__candidate-meta { color: var(--ff-text-muted, var(--ff-text-muted)); font-size: var(--ff-fs-caption); }
+.external-skills__badge { flex-shrink: 0; padding: 3px 8px; border-radius: 6px; background: var(--ff-bg-page, var(--ff-bg-subtle)); color: var(--ff-text-muted, var(--ff-text-muted)); font-size: var(--ff-fs-caption); }
 .external-skills__badge.is-blocked { color: var(--ff-text, var(--ff-text)); }
 .external-skills__state { box-sizing: border-box; max-width: 640px; margin: 28px auto; padding: 24px; border: 1px solid var(--ff-border, var(--ff-border)); border-radius: 14px; background: var(--ff-bg-page, var(--ff-bg-subtle)); white-space: pre-wrap; }
-.external-skills__state strong { display: block; font-size: 15px; }
+.external-skills__state strong { display: block; font-size: var(--ff-fs-title); }
 .external-skills__state p { margin: 8px 0 0; color: var(--ff-text-muted, var(--ff-text-muted)); }
 .external-skills__detail { padding: 20px; border: 1px solid var(--ff-border, var(--ff-border)); border-radius: 14px; background: var(--ff-bg-workspace, var(--ff-surface)); }
 .external-skills__detail h2 { margin-top: 0; }

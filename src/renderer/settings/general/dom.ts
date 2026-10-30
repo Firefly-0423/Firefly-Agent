@@ -6,7 +6,7 @@ const byId = <T extends HTMLElement>(id: string): T => document.getElementById(i
 
 export const generalForm = byId<HTMLElement>("general-form");
 export const languageSelect = byId<HTMLElement>("language-select");
-export const segmentedOutputSelect = byId<HTMLElement>("segmented-output-select");
+export const segmentedChatEnabledInput = byId<HTMLInputElement>("segmented-chat-enabled");
 export const proactiveChatSelect = byId<HTMLElement>("proactive-chat-select");
 export const proactiveDeliveryRow = byId<HTMLElement>("proactive-delivery-row");
 export const proactiveDeliverySelect = byId<HTMLElement>("proactive-delivery-select");
