@@ -170,7 +170,8 @@
       "qqbot": "QQ Bot",
       "unknown": "外部渠道",
       "sameConversation": "{{channels}} · 同一对话"
-    }
+    },
+    "roundFailedTools": "{{count}} 项失败"
   },
   "contextRing": {
     "categorySystemPrompt": "系统提示词",

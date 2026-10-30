@@ -291,6 +291,13 @@ type ActivityContentProps = {
   tools: ToolExecutionRecord[]; stage?: AgentRunStage; taskPlan?: TaskPlanPresentation;
   expanded: boolean; onExpand: (expanded: boolean) => void;
 };
+/** The facts after "处理了 N 秒" in a finished run's caption. Failed steps stay in it: a run that recovered still collapses,
+ *  and its stage text only shows when it did not succeed. */
+export function finishedRunFacts(tools: readonly ToolExecutionRecord[]): string[] {
+  const changed = countRoundChangedFiles(tools), failed = countedTools(tools).filter((tool) => tool.status === "error").length;
+  return [...summarizeToolFacts(countedTools(tools)), ...(changed > 0 ? [t("messageList.roundChangedFiles", { count: changed })] : []),
+    ...(failed > 0 ? [t("messageList.roundFailedTools", { count: failed })] : [])];
+}
 /** A settled run keeps its stage text only when it did not succeed: the generic caption cannot say so. */
 const UNSUCCESSFUL_STAGES: ReadonlySet<AgentRunStage["kind"]> = new Set(["cancelled", "timeout", "failed"]);
 function RunActivityContent(props: ActivityContentProps) {
@@ -302,10 +309,8 @@ function RunActivityContent(props: ActivityContentProps) {
     if (shouldAutoCollapseRunActivity(previous.current, state.processing, props.activity.keepExpanded)) { props.onExpand(false); }
     previous.current = state.processing;
   }, [props.activity.keepExpanded, props.onExpand, state.processing]);
-  const changed = countRoundChangedFiles(props.tools);
   const caption = state.processing ? t("messageList.activityProcessingTitle", { elapsed: formatElapsed(state.processingMs) })
-    : [t("messageList.activityProcessedTitle", { elapsed: formatElapsed(state.processingMs) }), ...summarizeToolFacts(countedTools(props.tools)),
-      ...(changed > 0 ? [t("messageList.roundChangedFiles", { count: changed })] : [])].join(" · ");
+    : [t("messageList.activityProcessedTitle", { elapsed: formatElapsed(state.processingMs) }), ...finishedRunFacts(props.tools)].join(" · ");
   return <section className={`ff-run-activity${state.processing ? " is-processing" : " is-complete"}`}>
     <div className="ff-run-activity__header">
       <span className="ff-run-activity__title">

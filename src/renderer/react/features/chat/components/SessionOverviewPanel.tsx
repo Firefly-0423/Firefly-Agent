@@ -248,7 +248,8 @@ function TaskPartner({ assetFileName }: { assetFileName: string }) {
 
 export function SessionOverviewPanel({ usage, outputs, environment, onOpenChange, onOpenTask, onOpenEnvironment, onOpenConnectors, onOpenMemoryGraph, onOpenOutputFile, workspaceRoot, sessionId, busy }: SessionOverviewPanelProps) {
   const usageData = useUsageData(busy, sessionId);
-  const memory = useMemorySummary(busy), remembered = memorySummaryTotals(memory);
+  const temporary = environment?.temporary === true;
+  const memory = useMemorySummary(busy, temporary), remembered = memorySummaryTotals(memory);
   const { t } = useTranslation();
   const context = buildContextOverview(usage);
   const changes = summarizeChanges(outputs);
@@ -380,12 +381,13 @@ export function SessionOverviewPanel({ usage, outputs, environment, onOpenChange
       summary: usageCardSummary(usageData),
       body: <UsageCardBody data={usageData} />,
     },
-    {
+    // A temporary chat reads nothing from other sessions, so it has no memory card.
+    ...(temporary ? [] : [{
       id: "memory",
       title: t("sessionOverview.memory"),
       summary: remembered.facts + remembered.pending > 0 ? String(remembered.facts) : undefined,
       body: <MemoryCardBody summary={memory} onOpenGraph={onOpenMemoryGraph} />,
-    },
+    }]),
   ];
   const reconciled = reconcileOrder(order, cards.map(card => card.id));
   const leading = LEADING_CARDS.filter(id => !order.includes(id));

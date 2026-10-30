@@ -85,6 +85,11 @@ describe("SessionOverviewPanel", () => {
     expect(html).toContain("−3");
   });
 
+  it("leaves the memory card out of a temporary chat", () => {
+    expect(render({ usage })).toContain('data-overview-card="memory"');
+    expect(render({ usage, environment: { mode: "chat", temporary: true } })).not.toContain('data-overview-card="memory"');
+  });
+
   it("makes every card a labelled disclosure", () => {
     const html = render({ usage, outputs: [output] });
 
