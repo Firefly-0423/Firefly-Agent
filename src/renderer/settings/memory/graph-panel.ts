@@ -37,7 +37,7 @@ function shapeOf(node: MemoryGraphNode, label: string): Shape {
   switch (node.kind) {
     case "self": return { width: 48, height: 48, collide: 36 };
     case "category": { const width = textWidth(label, 13) + 30; return { width, height: 28, collide: width / 2 + 8 }; }
-    case "fact": case "candidate": { const width = textWidth(label, 12) + 36; return { width, height: 26, collide: width / 2 + 6 }; }
+    case "fact": case "candidate": { const width = textWidth(label, 12) + 35; return { width, height: 26, collide: width / 2 + 6 }; }
     default: return { width: 24, height: 24, collide: 26 };
   }
 }
@@ -48,12 +48,12 @@ export function createMemoryGraph(root: HTMLElement, options: { onSelect(node: M
   svg.classList.add("memory-graph");
   svg.setAttribute("role", "group");
   svg.setAttribute("aria-label", options.label);
-  // The centre node's fill: a soft accent sphere.
+  // The centre node's fill: a soft sphere in Firefly's glow colour (the theme accent where there is no glow).
   const defs = doc.createElementNS(SVG, "defs"), gradient = doc.createElementNS(SVG, "radialGradient");
   gradient.id = "memory-graph-self"; gradient.setAttribute("cx", "35%"); gradient.setAttribute("cy", "30%"); gradient.setAttribute("r", "75%");
   for (const [offset, alpha] of [["0%", ".55"], ["100%", "1"]] as const) {
     const stop = doc.createElementNS(SVG, "stop");
-    stop.setAttribute("offset", offset); stop.setAttribute("style", `stop-color: rgb(var(--rb-accent-rgb)); stop-opacity: ${alpha}`);
+    stop.setAttribute("offset", offset); stop.setAttribute("style", `stop-color: rgb(var(--ff-glow-rgb, var(--rb-accent-rgb))); stop-opacity: ${alpha}`);
     gradient.append(stop);
   }
   defs.append(gradient);
@@ -97,7 +97,7 @@ export function createMemoryGraph(root: HTMLElement, options: { onSelect(node: M
       // A coloured dot leads a memory's text: filled when confirmed, a ring while it waits for confirmation.
       const dot = doc.createElementNS(SVG, "circle"); dot.classList.add("memory-graph__dot"); dot.setAttribute("r", "3.5");
       dot.setAttribute("cx", String(-width / 2 + 13));
-      text.setAttribute("x", String(7));
+      text.classList.add("is-lead"); text.setAttribute("x", String(-width / 2 + 23));
       return [pill, dot, text];
     }
     const disc = doc.createElementNS(SVG, "circle"); disc.classList.add("memory-graph__body"); disc.setAttribute("r", "12");

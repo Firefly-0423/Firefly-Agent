@@ -920,17 +920,18 @@ body { font-size: var(--ff-ui-font-size, 16px); }
 #memory-panel .option-blocks[hidden] { display: none; }
 #memory-panel .memory-graph-wrap {
   margin-top: 12px; border: 1px solid var(--rb-border-soft); border-radius: 16px; overflow: hidden;
-  background: radial-gradient(circle at 50% 45%, rgba(var(--rb-accent-rgb), .07), transparent 62%), var(--rb-card-bg);
+  background: radial-gradient(circle at 50% 45%, rgba(var(--ff-glow-rgb, var(--rb-accent-rgb)), .07), transparent 62%), var(--rb-card-bg);
 }
 #memory-panel .memory-graph { display: block; width: 100%; height: auto; min-height: 340px; cursor: grab; touch-action: none; user-select: none; }
 #memory-panel .memory-graph.is-panning { cursor: grabbing; }
 .memory-graph__edge { fill: none; stroke: rgb(var(--node-rgb, 128 134 150) / .38); stroke-width: 1.6; stroke-linecap: round; transition: opacity 160ms ease, stroke-width 160ms ease; }
-.memory-graph__edge.is-category { stroke: rgba(var(--rb-accent-rgb), .3); stroke-width: 2; }
+.memory-graph__edge.is-category { stroke: rgba(var(--ff-glow-rgb, var(--rb-accent-rgb)), .35); stroke-width: 2; }
 .memory-graph__edge.is-source, .memory-graph__edge.is-project { stroke: var(--rb-border-strong); stroke-dasharray: 2 4; }
 .memory-graph__node { transition: opacity 160ms ease; }
 .memory-graph__node text { pointer-events: none; text-anchor: middle; }
-.memory-graph__node.is-self .memory-graph__halo { fill: rgba(var(--rb-accent-rgb), .12); }
-.memory-graph__node.is-self .memory-graph__body { fill: url(#memory-graph-self); filter: drop-shadow(0 3px 8px rgba(var(--rb-accent-rgb), .35)); }
+.memory-graph__node text.is-lead { text-anchor: start; }
+.memory-graph__node.is-self .memory-graph__halo { fill: rgba(var(--ff-glow-rgb, var(--rb-accent-rgb)), .14); }
+.memory-graph__node.is-self .memory-graph__body { fill: url(#memory-graph-self); filter: drop-shadow(0 3px 10px rgba(var(--ff-glow-rgb, var(--rb-accent-rgb)), .45)); }
 .memory-graph__node.is-self text { fill: #fff; font-size: var(--ff-fs-body); font-weight: 600; }
 .memory-graph__node.is-category .memory-graph__body { fill: rgb(var(--node-rgb) / .15); stroke: rgb(var(--node-rgb) / .55); stroke-width: 1.2; }
 .memory-graph__node.is-category text { fill: rgb(var(--node-rgb)); font-size: var(--ff-fs-ui); font-weight: 600; }
@@ -946,7 +947,7 @@ body { font-size: var(--ff-ui-font-size, 16px); }
 .memory-graph__node:is(.is-source, .is-project) text { fill: var(--rb-text-muted); font-size: var(--ff-fs-caption); }
 .memory-graph__node[role="button"] { cursor: pointer; outline: none; }
 .memory-graph__node[role="button"]:is(:hover, :focus-visible) .memory-graph__body { stroke-width: 2.4; }
-.memory-graph__node.is-selected .memory-graph__body { stroke: rgba(var(--rb-accent-rgb), 1); stroke-width: 2.4; }
+.memory-graph__node.is-selected .memory-graph__body { stroke: rgba(var(--ff-glow-rgb, var(--rb-accent-rgb)), 1); stroke-width: 2.4; }
 .memory-graph__node.is-dragging { cursor: grabbing; }
 .memory-graph.is-focusing .memory-graph__node:not(.is-near) { opacity: .28; }
 .memory-graph.is-focusing .memory-graph__edge:not(.is-near) { opacity: .15; }
