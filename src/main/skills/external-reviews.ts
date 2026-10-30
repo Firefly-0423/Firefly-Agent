@@ -24,7 +24,7 @@ export const EXTERNAL_SKILL_REVIEWS: readonly ExternalSkillReview[] = [
   {
     policyVersion: "firefly-native-v1",
     sourceId: "firefly",
-    commit: "6a0dab49c798ca08de12faa8279edfc139e72841",
+    commit: "709cd2a076a50093bc909ff7e61985c8d9db8b09",
     path: "skills/ai-cs-research",
     contentSha256: "0bca14ab9301530d7496922d29f7fd7c8f2916c8c164292c17c636b1ef0856ea",
     licenses: [{
@@ -41,14 +41,14 @@ export const EXTERNAL_SKILL_REVIEWS: readonly ExternalSkillReview[] = [
       ],
     }],
     compatibility: "instruction-only",
-    reviewedAt: "2026-10-30T12:10:23.796Z",
+    reviewedAt: "2026-10-30T13:01:53.125Z",
     reviewer: "Claude Code static review for Firefly-0423",
     native: { modes: ["work", "code"], effectKind: "mutation" },
   },
   {
     policyVersion: "firefly-native-v1",
     sourceId: "firefly",
-    commit: "6a0dab49c798ca08de12faa8279edfc139e72841",
+    commit: "709cd2a076a50093bc909ff7e61985c8d9db8b09",
     path: "skills/general-learning",
     contentSha256: "25c681d07383edbae8561bd0e88b40191d6b4b464c1eb1cf48040a212fbc20e0",
     licenses: [{
@@ -65,7 +65,7 @@ export const EXTERNAL_SKILL_REVIEWS: readonly ExternalSkillReview[] = [
       ],
     }],
     compatibility: "instruction-only",
-    reviewedAt: "2026-10-30T12:10:24.241Z",
+    reviewedAt: "2026-10-30T13:01:53.576Z",
     reviewer: "Claude Code static review for Firefly-0423",
     native: { modes: ["work"], effectKind: "mutation" },
   },
