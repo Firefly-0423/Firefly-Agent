@@ -1264,24 +1264,7 @@
     "usage": "Usage",
     "outputs": "Outputs",
     "outputsEmpty": "No outputs in this session yet",
-    "contextMeasured": "The total is what the provider reported; the parts are estimated from characters.",
-    "memory": "Memory",
-    "memoryEmpty": "Nothing remembered yet.",
-    "memoryUnavailable": "Memory is unavailable right now.",
-    "memoryPending": "{{count}} pending",
-    "memorySources": "From {{count}} conversations",
-    "memoryOpen": "Open the graph",
-    "memoryCategory": {
-      "language": "Reply language",
-      "response-style": "Reply style",
-      "shell": "Shell",
-      "address": "Name",
-      "tool": "Tools",
-      "preference": "Preferences",
-      "other": "Other",
-      "programming-usage": "Coding habits",
-      "programming-ability": "Coding skills"
-    }
+    "contextMeasured": "The total is what the provider reported; the parts are estimated from characters."
   },
   "workspace": {
     "resizeSidebar": "Resize conversation sidebar",

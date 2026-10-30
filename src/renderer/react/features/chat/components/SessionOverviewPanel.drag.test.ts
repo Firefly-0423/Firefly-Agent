@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SessionOverviewPanel, type SessionOverviewPanelProps } from "./SessionOverviewPanel";
 import type { WorkspaceRunOutput } from "../workspace/workspace-artifacts";
 
-const DEFAULT = ["environment", "connectors", "tasks", "context", "changes", "outputs", "usage", "memory"];
+const DEFAULT = ["environment", "connectors", "tasks", "context", "changes", "outputs", "usage"];
 let host: HTMLDivElement; let root: Root;
 function render(props: Partial<SessionOverviewPanelProps> = {}) {
   act(() => root.render(createElement(SessionOverviewPanel, { outputs: [], ...props })));
@@ -37,10 +37,10 @@ const output = (id: string, files: number, description = ""): WorkspaceRunOutput
   tasks: description ? [{ invocationId: id, taskId: id, description, nickname: "n", status: "completed" }] as unknown as WorkspaceRunOutput["tasks"] : [],
 });
 
-it("lists environment, connectors, tasks, context, changes, outputs, usage and memory, each with a six-dot grip", () => {
+it("lists environment, connectors, tasks, context, changes, outputs and usage, each with a six-dot grip", () => {
   render();
   expect(order()).toEqual(DEFAULT);
-  expect(host.querySelectorAll("[data-overview-grip]")).toHaveLength(8);
+  expect(host.querySelectorAll("[data-overview-grip]")).toHaveLength(7);
 });
 
 it("makes environment and connectors one-row entries that open the project and the connector settings", () => {
@@ -90,7 +90,7 @@ it("keeps a produced file outside the project listed but not openable", () => {
 it("puts the new entry cards on top of an order saved before they existed", () => {
   localStorage.setItem("ff.sessionOverview.order", JSON.stringify(["changes", "tasks", "context"]));
   render();
-  expect(order()).toEqual(["environment", "connectors", "changes", "tasks", "context", "outputs", "usage", "memory"]);
+  expect(order()).toEqual(["environment", "connectors", "changes", "tasks", "context", "outputs", "usage"]);
 });
 
 it("ignores a press that moves less than the 4px dead zone", () => {
@@ -113,7 +113,7 @@ it("drags a card down past the others, shows where it lands, and remembers the o
   expect(card("connectors").style.getPropertyValue("--ff-shift-y")).toBe("");
   pointer(grip("tasks"), "pointerup", 590);
   // The pointer stops over the sixth slot, so the card lands there, ahead of the usage card.
-  const moved = ["environment", "connectors", "context", "changes", "outputs", "tasks", "usage", "memory"];
+  const moved = ["environment", "connectors", "context", "changes", "outputs", "tasks", "usage"];
   expect(order()).toEqual(moved);
   expect(JSON.parse(localStorage.getItem("ff.sessionOverview.order")!)).toEqual(moved);
   expect(host.querySelector("[data-dragging]")).toBeNull();
@@ -122,9 +122,9 @@ it("drags a card down past the others, shows where it lands, and remembers the o
 it("moves a card with the arrow keys on its grip", () => {
   render();
   act(() => { grip("changes").dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true })); });
-  expect(order()).toEqual(["environment", "connectors", "tasks", "changes", "context", "outputs", "usage", "memory"]);
+  expect(order()).toEqual(["environment", "connectors", "tasks", "changes", "context", "outputs", "usage"]);
   act(() => { grip("tasks").dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })); });
-  expect(order()).toEqual(["environment", "connectors", "changes", "tasks", "context", "outputs", "usage", "memory"]);
+  expect(order()).toEqual(["environment", "connectors", "changes", "tasks", "context", "outputs", "usage"]);
 });
 
 it("folds a card with the grid animation and keeps its body out of reach while closed", () => {
@@ -156,7 +156,7 @@ it("drags a whole card by its header, and the release does not also fold it", ()
   expect(card("connectors").style.getPropertyValue("--ff-shift-y")).toBe("100px");
   pointer(head("context"), "pointerup", 110);
   act(() => head("context").click());
-  expect(order()).toEqual(["environment", "context", "connectors", "tasks", "changes", "outputs", "usage", "memory"]);
+  expect(order()).toEqual(["environment", "context", "connectors", "tasks", "changes", "outputs", "usage"]);
   expect(card("context").dataset.open).toBe("true");
   act(() => head("context").click());
   expect(card("context").dataset.open).toBe("false");

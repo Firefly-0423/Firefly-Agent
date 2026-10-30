@@ -646,7 +646,7 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
     shutdown.register({ id: "model-connection-listener", phase: "quiesce", dispose: releaseSettingsConnections });
 
     const settingsContents = () => (settingsWindow && !settingsWindow.isDestroyed() ? settingsWindow.webContents : null);
-    registerMemorySettingsIpc({ ipc, getSettingsWindow: () => settingsWindow, host:defaultMemory?.settingsHost ?? null, ...(defaultMemory ? { summary: () => defaultMemory.graphSummary(), getChatWindow: () => reactChatWindow } : {}) });
+    registerMemorySettingsIpc({ ipc, getSettingsWindow: () => settingsWindow, host:defaultMemory?.settingsHost ?? null });
     registerMemoryAutomationSettingsIpc({
       ipc,
       getSettingsWindow: () => settingsWindow,

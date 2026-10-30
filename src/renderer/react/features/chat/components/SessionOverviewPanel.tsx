@@ -5,7 +5,6 @@
 // 交互参照 open-claude-ui：按住卡片标题或右上角六点抓取柄可上下拖动换顺序（4px 死区，整张卡片跟着鼠标走、
 // 微倾斜浮起，其余卡片实时滑开让位），键盘在抓取柄上按 ↑↓ 也能挪；顺序记在本机。展开收起用 Grid 0fr→1fr 的高度动画。
 
-import { MemoryCardBody, memorySummaryTotals, useMemorySummary } from "./MemoryOverviewCard";
 import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { ChevronRight, GripVertical } from "lucide-react";
 import { useTranslation } from "../../../i18n";
@@ -196,8 +195,6 @@ export interface SessionOverviewPanelProps {
   onOpenEnvironment?: () => void;
   /** Opens the connector (MCP) settings page. */
   onOpenConnectors?: () => void;
-  /** Opens the full memory graph in settings. */
-  onOpenMemoryGraph?: () => void;
   /** Opens a produced file (project-relative path) in the file preview. */
   onOpenOutputFile?: (relPath: string) => void;
   /** The bound project's folder: produced files inside it can be opened. */
@@ -246,10 +243,8 @@ function TaskPartner({ assetFileName }: { assetFileName: string }) {
   );
 }
 
-export function SessionOverviewPanel({ usage, outputs, environment, onOpenChange, onOpenTask, onOpenEnvironment, onOpenConnectors, onOpenMemoryGraph, onOpenOutputFile, workspaceRoot, sessionId, busy }: SessionOverviewPanelProps) {
+export function SessionOverviewPanel({ usage, outputs, environment, onOpenChange, onOpenTask, onOpenEnvironment, onOpenConnectors, onOpenOutputFile, workspaceRoot, sessionId, busy }: SessionOverviewPanelProps) {
   const usageData = useUsageData(busy, sessionId);
-  const temporary = environment?.temporary === true;
-  const memory = useMemorySummary(busy, temporary), remembered = memorySummaryTotals(memory);
   const { t } = useTranslation();
   const context = buildContextOverview(usage);
   const changes = summarizeChanges(outputs);
@@ -381,13 +376,6 @@ export function SessionOverviewPanel({ usage, outputs, environment, onOpenChange
       summary: usageCardSummary(usageData),
       body: <UsageCardBody data={usageData} />,
     },
-    // A temporary chat reads nothing from other sessions, so it has no memory card.
-    ...(temporary ? [] : [{
-      id: "memory",
-      title: t("sessionOverview.memory"),
-      summary: remembered.facts + remembered.pending > 0 ? String(remembered.facts) : undefined,
-      body: <MemoryCardBody summary={memory} onOpenGraph={onOpenMemoryGraph} />,
-    }]),
   ];
   const reconciled = reconcileOrder(order, cards.map(card => card.id));
   const leading = LEADING_CARDS.filter(id => !order.includes(id));
