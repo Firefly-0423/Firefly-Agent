@@ -11,6 +11,7 @@ import { useTranslation } from "../../../i18n";
 import type { ContextUsageSnapshot } from "../../../../../shared/context-usage";
 import type { WorkspaceChangedFile, WorkspaceRunOutput } from "../workspace/workspace-artifacts";
 import { OUTPUT_FILE_ICONS } from "../workspace/output-file-icons";
+import { getCharacterPortraitByAssetFileName } from "../../../character-portraits";
 import { contextUsageCategoryMeta, formatTokenCount } from "./ContextUsageRing";
 import {
   buildContextOverview,
@@ -230,6 +231,18 @@ function slideFor(state: CardDragState, id: string): number {
 const LEADING_CARDS = ["environment", "connectors"];
 
 
+/** The partner's portrait with the running dot on its corner; just the dot when there is no portrait. */
+function TaskPartner({ assetFileName }: { assetFileName: string }) {
+  const portrait = getCharacterPortraitByAssetFileName(assetFileName);
+  if (!portrait) return <span className="ff-overview-list__pulse" aria-hidden="true" />;
+  return (
+    <span className="ff-overview-list__partner" aria-hidden="true">
+      <img className="ff-overview-list__avatar" src={portrait} alt="" draggable={false} />
+      <span className="ff-overview-list__pulse" />
+    </span>
+  );
+}
+
 export function SessionOverviewPanel({ usage, outputs, environment, onOpenChange, onOpenTask, onOpenEnvironment, onOpenConnectors, onOpenOutputFile, workspaceRoot, sessionId, busy }: SessionOverviewPanelProps) {
   const usageData = useUsageData(busy, sessionId);
   const { t } = useTranslation();
@@ -283,7 +296,7 @@ export function SessionOverviewPanel({ usage, outputs, environment, onOpenChange
                 <li key={task.invocationId}>
                   <button type="button" className="ff-overview-list__row" disabled={!onOpenTask}
                     onClick={() => onOpenTask?.(output, task.taskId)} title={task.description}>
-                    <span className="ff-overview-list__pulse" aria-hidden="true" />
+                    <TaskPartner assetFileName={task.assetFileName} />
                     <span className="ff-overview-list__name">{task.description || task.nickname}</span>
                     <span className="ff-overview-list__meta">{task.nickname}</span>
                   </button>

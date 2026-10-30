@@ -83,6 +83,8 @@ export function isResponseNativeHistoryDocument(d:HistoryDocument):boolean {
 /** Worker-only: decrypt authorized partitions, build an ephemeral bounded index, never log bodies. */
 export class HistoryRepository {
  private readonly codec:RecordCodec;private readonly ledger:SourceLedger;private readonly suppression:Suppression;
+ /** Set only while a query reads: origin answers are reused, since nothing writes until it returns. */
+ private readSnapshot?:{origins:HistoryOrigins;states:WeakMap<object,Array<'unknown'|'valid'|'invalid'>>};
  constructor(private readonly db:DatabaseSync,private readonly key:Uint8Array,private readonly fault?:TransactionFault,private readonly clock:()=>number=Date.now){this.codec=new RecordCodec(key);this.ledger=new SourceLedger(db,key);this.suppression=new Suppression(db,key)}
  private generation(scope:string,actorKey:string):number {
   // Read only canonical M ownership metadata, never other actors' history corpus.
@@ -113,8 +115,10 @@ export class HistoryRepository {
   return !!dep.derivedRefs?.length&&dep.derivedRefs.every(root=>{const other=d.sourceDeps.find(v=>canonicalJson(v.sourceRef)===canonicalJson(root));return !!other&&this.checkSource(scope,d,other,new Set([...seen,ref.sourceId]))});
  }
  private originStates(scope:string,d:Pick<StoredHistory,'actorKey'|'providerId'|'sessionId'|'provenance'>):Array<'unknown'|'valid'|'invalid'> {
-  const origins=new HistoryOrigins(this.db,this.key);
-  return (d.provenance??[]).map(p=>{if(p.format!=='transcript-v1'||!p.active||p.field||p.seq===null||p.providerId!==d.providerId||p.sessionId!==d.sessionId||!['user','assistant','tool'].includes(p.originalRole))return 'unknown';const event:HistoryOriginEvent={originalId:p.originalId,seq:p.seq,turnId:p.turnId,revision:p.revision,originalRole:p.originalRole as HistoryOriginEvent['originalRole'],digest:p.digest};return origins.valid(scope,d,event)?'valid':origins.known(scope,d,event)?'invalid':'unknown'});
+  const known=this.readSnapshot?.states.get(d);if(known)return known;
+  const origins=this.readSnapshot?.origins??new HistoryOrigins(this.db,this.key);
+  const states:Array<'unknown'|'valid'|'invalid'>=(d.provenance??[]).map(p=>{if(p.format!=='transcript-v1'||!p.active||p.field||p.seq===null||p.providerId!==d.providerId||p.sessionId!==d.sessionId||!['user','assistant','tool'].includes(p.originalRole))return 'unknown';const event:HistoryOriginEvent={originalId:p.originalId,seq:p.seq,turnId:p.turnId,revision:p.revision,originalRole:p.originalRole as HistoryOriginEvent['originalRole'],digest:p.digest};return origins.valid(scope,d,event)?'valid':origins.known(scope,d,event)?'invalid':'unknown'});
+  this.readSnapshot?.states.set(d,states);return states;
  }
  private provedOrigins(scope:string,d:StoredHistory):boolean {const states=this.originStates(scope,d);return states.length===d.messages.length&&states.length>0&&states.every(s=>s==='valid')}
  private available(scope:string,d:StoredHistory):boolean {if(d.state!=='live'||d.classification!==undefined&&d.classification!=='raw-history'||d.provenance?.some(p=>!p.active))return false;const generation=this.generation(scope,d.actorKey);if(d.origin==='synthetic-import')return d.generation===generation;if(d.generation<generation&&d.messages.some(m=>!m.sourceRef)&&!this.provedOrigins(scope,d))return false;return d.sourceDeps.every(dep=>this.checkSource(scope,d,dep))}
@@ -171,6 +175,15 @@ export class HistoryRepository {
   if(!range||range.start===0&&range.end===d.messages.length||sizes.slice(range.start,range.end).reduce((n,x)=>n+x,0)>maxChars||!excerptToolSafe(d.messages,range)||!d.messages.slice(range.start,range.end).every(inRange))return null;return range;
  }
  private validateDocuments(scope:string,actorKey:string,value:unknown,response?:{owner:{actorKey:string;providerId:string;sessionId:string};operationId:string}):StoredHistory[]{
+  // Validation only reads, so like a query it shares one origin snapshot; without it every context step took seconds.
+  return this.withReadSnapshot(()=>this.validateDependencies(scope,actorKey,value,response));
+ }
+ /** Origin checks inside run share one snapshot; run must not write origins before its last check. */
+ private withReadSnapshot<T>(run:()=>T):T{
+  const own=!this.readSnapshot;if(own)this.readSnapshot={origins:new HistoryOrigins(this.db,this.key,{snapshot:true}),states:new WeakMap()};
+  try{return run()}finally{if(own)this.readSnapshot=undefined}
+ }
+ private validateDependencies(scope:string,actorKey:string,value:unknown,response?:{owner:{actorKey:string;providerId:string;sessionId:string};operationId:string}):StoredHistory[]{
   return parseHistoryDependencies(value).map(dep=>{
    if(dep.partition.actorKey!==actorKey||!dep.partition.sessions.some(s=>s.providerId===dep.providerId&&s.sessionId===dep.sessionId))fail('MEMORY_HISTORY_ACCESS_DENIED');
    if(dep.generation!==this.generation(scope,actorKey)||dep.indexVersion!=='history-index-v1'||dep.rankingVersion!=='history-ranking-v4'||!/^history-jieba-v2-[a-f0-9]{64}$/.test(dep.tokenizerVersion))fail('MEMORY_HISTORY_STALE');
@@ -190,7 +203,8 @@ export class HistoryRepository {
    if(c.kind==='originStatus'){objectFields(b,[...identity,'event']);return {valid:new HistoryOrigins(this.db,this.key).valid(scope,owner,parseHistoryOriginEvent(b.event))}}
    if(c.kind==='projectNative'){
     objectFields(b,[...identity,'document']);const doc=parseHistoryDocument(b.document,{allowUnboundTranscript:true}),d={...doc,...owner,generation:this.generation(scope,owner.actorKey),digest:'',state:'live' as const};
-    if(!isResponseNativeHistoryDocument(doc))fail('MEMORY_HISTORY_SOURCE_MISMATCH');const states=this.originStates(scope,d);
+    // Every message of the growing transcript is checked on each projection; they share one origin snapshot.
+    if(!isResponseNativeHistoryDocument(doc))fail('MEMORY_HISTORY_SOURCE_MISMATCH');const states=this.withReadSnapshot(()=>this.originStates(scope,d));
     if(states.every(s=>s==='valid'))return {documents:[doc],partial:false};
     const groups=atomicGroups(doc.messages),documents:HistoryDocument[]=[];let start=0,runStart:number|undefined;
     const flush=(end:number)=>{if(runStart===undefined)return;const part={...doc,id:'native-'+digest({origin:doc.id,start:runStart,end,version:'origin-v1'}),messages:doc.messages.slice(runStart,end),provenance:doc.provenance!.slice(runStart,end)};validateUnit({id:part.id,kind:'summary',messages:part.messages});documents.push(part);runStart=undefined};
@@ -211,11 +225,13 @@ export class HistoryRepository {
    }
    if(c.kind==='put'){objectFields(b,[...identity,'document','generation']);const generation=natural(b.generation);if(generation!==this.generation(scope,owner.actorKey))fail('MEMORY_HISTORY_STALE');const doc=parseHistoryDocument(b.document),old=this.read(scope,owner.actorKey,owner,doc.id),contentDigest=this.contentDigest(doc);
     if(old?.state==='deleted')fail('MEMORY_HISTORY_CONFLICT');
-    if(old&&old.revision===doc.revision){if(old.state==='live'&&old.digest===contentDigest){this.checkedDocument(scope,old);return {status:'duplicate',documentId:doc.id}};fail('MEMORY_HISTORY_CONFLICT')}
-    if(old&&doc.revision<=old.revision)fail('MEMORY_HISTORY_CONFLICT');const stored:StoredHistory={...doc,...owner,generation,digest:contentDigest,state:'live'};this.checkedDocument(scope,stored);this.save(scope,stored);return {status:'stored',documentId:doc.id};
+    if(old&&old.revision===doc.revision){if(old.state==='live'&&old.digest===contentDigest){this.withReadSnapshot(()=>this.checkedDocument(scope,old));return {status:'duplicate',documentId:doc.id}};fail('MEMORY_HISTORY_CONFLICT')}
+    if(old&&doc.revision<=old.revision)fail('MEMORY_HISTORY_CONFLICT');const stored:StoredHistory={...doc,...owner,generation,digest:contentDigest,state:'live'};this.withReadSnapshot(()=>this.checkedDocument(scope,stored));this.save(scope,stored);return {status:'stored',documentId:doc.id};
    }
     if(c.kind==='delete'){objectFields(b,[...identity,'documentId','revision']);const d=this.read(scope,owner.actorKey,owner,parseInternalId(b.documentId));if(!d||d.revision!==positiveRevision(b.revision))fail('MEMORY_HISTORY_STALE');d.state='deleted';this.save(scope,d);if(isResponseNativeHistoryDocument(d))new HistoryOrigins(this.db,this.key).revokeEvents(scope,owner,d.provenance!.map(p=>({originalId:p.originalId,seq:p.seq!,turnId:p.turnId,revision:p.revision,originalRole:p.originalRole as HistoryOriginEvent['originalRole'],digest:p.digest})));return {deleted:true}}
    if(c.kind==='query'){
+    this.readSnapshot={origins:new HistoryOrigins(this.db,this.key,{snapshot:true}),states:new WeakMap()};
+    try{
     objectFields(b,[...identity,'sessions','query','settings'],['vector','customWords','transcriptHeads','temporal']);const temporal=parseHistoryTemporal(b.temporal),activeHeads=new Set(list(b.transcriptHeads??[],4096).map(parseInternalId));const sessions=parseHistorySessions(b.sessions),config=settings(b.settings),query=text(b.query,4096),v=b.vector===undefined?null:vector(b.vector),partition:HistoryPartition={actorKey:owner.actorKey,sessions};
     const rows=this.db.prepare("SELECT * FROM history_records WHERE scope_key=? AND kind='document' AND partition_index IN ("+sessions.map(()=>'?').join(',')+") ORDER BY id LIMIT ?").all(scope,...sessions.map(s=>this.partition(scope,owner.actorKey,s)),config.maxIndexDocuments+1);
     const result:HistoryResult={status:'ok',hits:[],diversity:v?'vector-mmr':'lexical-dedup',settingsVersion:config.version};if(rows.length>config.maxIndexDocuments)return {...result,status:'index-budget-exhausted'};
@@ -236,6 +252,7 @@ export class HistoryRepository {
      }used+=chars;budget.returned++;
      result.hits.push({document:shown,score:candidate.score,dependency:{documentId:d.id,providerId:d.providerId,sessionId:d.sessionId,incarnation:d.incarnation,revision:d.revision,digest:d.digest,generation:this.generation(scope,owner.actorKey),partition,indexVersion:'history-index-v1',tokenizerVersion:ranked.tokenizerVersion,rankingVersion:ranked.version,recallDeps:this.checkedDocument(scope,d),...(excerpt?{excerpt}:{})}});
     }return result;
+    }finally{this.readSnapshot=undefined}
    }fail();
   };
   if(['query','baseline','validate','migrationPreview','originStatus','projectNative'].includes(c.kind as string)){if(c.commandId!==undefined)fail();this.db.exec('BEGIN IMMEDIATE');try{return withTransactionClock(this.db,this.clock,()=>{const r=apply();this.db.exec('COMMIT');return r})}catch(e){this.db.exec('ROLLBACK');throw e}}

@@ -68,7 +68,9 @@ function transcript(jsonl:DecodedHistoryInput|null,snapshot:DecodedHistoryInput|
 interface Node {message:HistoryMessage;provenance:ReadonlyHistoryProvenance;raw:Record<string,unknown>;assistantEntryId?:string}
 const derived=(text:string)=>/^\s*(?:\[此前对话已压缩为记忆摘要\]|<firefly_compaction_checkpoint>)/u.test(text);
 function message(payload:Record<string,unknown>,role:ContextMessage['role']):ContextMessage {
- if(payload.role!==role||payload.rawAssistant!==undefined||payload.thinking||payload.internal||(payload.content!==undefined&&typeof payload.content!=='string'))fail('MEMORY_HISTORY_FORMAT_UNSUPPORTED');
+ // Reasoning models also persist thinking and the provider's raw output; history keeps only the visible answer.
+ const reasoning=payload.rawAssistant!==undefined||payload.thinking;
+ if(payload.role!==role||(reasoning&&role!=='assistant')||payload.internal||(payload.content!==undefined&&typeof payload.content!=='string'))fail('MEMORY_HISTORY_FORMAT_UNSUPPORTED');
  const m:ContextMessage={role,text:payload.content===undefined?'':string(payload.content)};
  if(payload.toolCalls!==undefined){
   if(role!=='assistant'||!Array.isArray(payload.toolCalls)||payload.toolCalls.length>64)fail();

@@ -188,6 +188,9 @@
 .ff-overview-diffstat.is-add { color: var(--ff-add-fg, #116329); }
 .ff-overview-diffstat.is-del { color: var(--ff-del-fg, #cf222e); }
 @keyframes ff-overview-pulse { 50% { opacity: 0.4; } }
+.ff-overview-list__partner { position: relative; flex: 0 0 20px; width: 20px; height: 20px; }
+.ff-overview-list__avatar { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; display: block; }
+.ff-overview-list__partner .ff-overview-list__pulse { position: absolute; right: -1px; bottom: -1px; width: 7px; height: 7px; box-shadow: 0 0 0 1.5px var(--ff-surface, #fff); }
 
 @media (prefers-reduced-motion: reduce) {
   .ff-overview-card, .ff-overview-card__fold, .ff-overview-card__grip { transition: none; }

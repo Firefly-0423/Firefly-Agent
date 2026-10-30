@@ -6,8 +6,14 @@
 .ff-workspace-results-index h3, .ff-workspace-run-results h3 { margin: 0 0 8px; font: 600 13px/1.2 var(--rb-font-sans, sans-serif); }
 .ff-workspace-results-index p { margin: 0; color: var(--ff-text-muted); font-size: 13px; line-height: 1.5; }
 .ff-workspace-results-index button, .ff-workspace-run-results button { border: 1px solid var(--ff-border); border-radius: 12px; background: var(--ff-bg-page, var(--ff-surface)); color: inherit; cursor: pointer; padding: 6px 10px; }
-.ff-workspace-results-index > button { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; margin: 0 -8px; width: calc(100% + 16px); padding: 7px 8px; border: 0; border-radius: 8px; background: transparent; font-size: 13px; text-align: left; }
-.ff-workspace-results-index > button:hover { background: var(--ff-bg-hover); }
+.ff-workspace-results-index__item > button { display: flex; align-items: center; gap: 6px; margin: 0 -8px; width: calc(100% + 16px); padding: 7px 8px; border: 0; border-radius: 8px; background: transparent; font-size: 13px; text-align: left; }
+.ff-workspace-results-index__item > button > span { flex: 1 1 auto; }
+.ff-workspace-results-index__item > button:hover { background: var(--ff-bg-hover); }
+.ff-workspace-results-index__chevron { flex: none; color: var(--ff-text-muted); transition: transform 0.16s ease; }
+.ff-workspace-results-index__chevron.is-open { transform: rotate(90deg); }
+/* Unfolded in the task panel the result flows with the list instead of filling a panel of its own. */
+.ff-workspace-results-index__item > .ff-workspace-run-results { height: auto; padding: 4px 0 10px 19px; overflow: visible; }
+@media (prefers-reduced-motion: reduce) { .ff-workspace-results-index__chevron { transition: none; } }
 .ff-workspace-results-index small, .ff-workspace-run-results small { color: var(--ff-text-muted); }
 .ff-workspace-run-results__file { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 8px 0; border-bottom: 1px solid var(--ff-border); }
 .ff-workspace-run-results__file > span { flex: 1 1 100%; }

@@ -82,6 +82,19 @@ describe("session metadata and content", () => {
         expect(store.getSession(changed.id)?.title).toEqual("Updated travel question");
     });
 });
+describe("session kind", () => {
+    it("answers mode and temporariness from the index and memory without reading session files", async () => {
+        const store = await ready();
+        const work = store.createSession({ mode: "work" }), temporary = store.createSession({ mode: "chat", temporary: true });
+        const read = vi.spyOn(fs, "readFileSync");
+        expect(store.getSessionKind(work.id)).toEqual({ mode: "work", temporary: false });
+        expect(store.getSessionKind(temporary.id)).toEqual({ mode: "chat", temporary: true });
+        expect(store.getSessionKind("missing-session")).toBeNull();
+        expect(read).not.toHaveBeenCalled();
+        store.deleteSession(work.id);
+        expect(store.getSessionKind(work.id)).toBeNull();
+    });
+});
 describe("coverage census", () => {
     it.each([false, true])("performs no disk operations when initialized=%s", async (initialized) => {
         const store = await import("./chats-store");

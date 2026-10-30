@@ -85,8 +85,8 @@ function frozen<T>(value: T): T {
 }
 function safeFailure(error: unknown, fallback: string, signal?: AbortSignal): never {
   if (signal?.aborted) contextFail("MEMORY_CONTEXT_CANCELLED");
-  if (error instanceof AgentRuntimeError && error.code === "E_MODEL_REQUEST_TIMEOUT") contextFail("E_MODEL_REQUEST_TIMEOUT");
-  if (error instanceof Error && /^(MEMORY_[A-Z0-9_]{1,100}|E_MODEL_REQUEST_TIMEOUT)$/.test(error.message)) contextFail(error.message);
+  if (error instanceof AgentRuntimeError && (error.code === "E_MODEL_REQUEST_TIMEOUT" || error.code === "E_MODEL_CONNECTION_LOST")) contextFail(error.code);
+  if (error instanceof Error && /^(MEMORY_[A-Z0-9_]{1,100}|E_MODEL_REQUEST_TIMEOUT|E_MODEL_CONNECTION_LOST)$/.test(error.message)) contextFail(error.message);
   contextFail(fallback);
 }
 function explicitStreamRejection(error: unknown): boolean {
@@ -297,12 +297,12 @@ export function createMainMemoryRuntime(options: MainMemoryRuntimeOptions): Main
           const sent = await context!.dispatch(run.actorToken, permit, approved => {
             assertCurrent(); if (callSignal.aborted) contextFail("MEMORY_CONTEXT_CANCELLED");
             if (requestDigest(approved) !== snapshot.requestDigest || JSON.stringify(approved.body) !== prepared.serializedBody) contextFail("MEMORY_CONTEXT_REQUEST_CHANGED");
-            return sendPrepared(prepared, send => context!.invokeClaimedRequest(run.actorToken, snapshot, send, callSignal, validate));
+            return sendPrepared(prepared, (send, attempt) => context!.invokeClaimedRequest(run.actorToken, snapshot, send, callSignal, validate, attempt > 0));
           }, callSignal);
           if (sent.status !== "sent") {
             if (providerFailure instanceof Error && ["MEMORY_CONTEXT_STREAM_UNSUPPORTED", "MEMORY_CONTEXT_IMAGE_UNSUPPORTED"].includes(providerFailure.message)) contextFail(providerFailure.message);
             // Timeout identifies why the result is unknown; it never authorizes replay.
-            if (providerFailure instanceof AgentRuntimeError && providerFailure.code === "E_MODEL_REQUEST_TIMEOUT") contextFail("E_MODEL_REQUEST_TIMEOUT");
+            if (providerFailure instanceof AgentRuntimeError && (providerFailure.code === "E_MODEL_REQUEST_TIMEOUT" || providerFailure.code === "E_MODEL_CONNECTION_LOST")) contextFail(providerFailure.code);
             contextFail("MEMORY_CONTEXT_SEND_UNKNOWN");
           }
           assertCurrent(); if (callSignal.aborted) contextFail("MEMORY_CONTEXT_CANCELLED");

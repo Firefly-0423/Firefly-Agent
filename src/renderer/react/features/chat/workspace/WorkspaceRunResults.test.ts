@@ -25,11 +25,21 @@ it("does not offer to read a deleted or outside workspace file", () => {
   expect(host.querySelector('[data-output-file]')).toBeNull();
   expect(host.querySelectorAll('[data-output-diff]')).toHaveLength(2);
 });
-it("selects the source run rather than inferring a result from chat text", () => {
-  const onOpenResult = vi.fn();
-  act(() => root.render(React.createElement(WorkspaceResultsIndex, { outputs: [output], onOpenResult })));
-  act(() => host.querySelector<HTMLButtonElement>('[data-output-result]')!.click());
-  expect(onOpenResult).toHaveBeenCalledExactlyOnceWith(output.id);
+it("unfolds run results in place under the panel, newest open, instead of opening a panel of their own", () => {
+  const onOpenFile = vi.fn(), onOpenDiff = vi.fn(), older = { ...output, id: "results:s:older", runId: "older" };
+  act(() => root.render(React.createElement(WorkspaceResultsIndex, { outputs: [older, output], workspaceRoot: "/work", onOpenFile, onOpenDiff })));
+  const [first, latest] = [...host.querySelectorAll<HTMLButtonElement>('[data-output-result]')];
+  expect(first.getAttribute("aria-expanded")).toBe("false");
+  expect(latest.getAttribute("aria-expanded")).toBe("true");
+  expect(host.querySelectorAll('.ff-workspace-results-index__item > [data-source-run]')).toHaveLength(1);
+  expect(host.textContent).toContain("complete task output");
+  act(() => host.querySelector<HTMLButtonElement>('[data-output-file]')!.click());
+  expect(onOpenFile).toHaveBeenCalledExactlyOnceWith("report.md");
+  act(() => latest.click());
+  expect(latest.getAttribute("aria-expanded")).toBe("false");
+  expect(host.querySelectorAll('.ff-workspace-results-index__item > [data-source-run]')).toHaveLength(0);
+  act(() => first.click());
+  expect(host.querySelector('.ff-workspace-results-index__item > [data-source-run="older"]')).not.toBeNull();
 });
 it("shows real inline diff and a clear state when no diff bytes were supplied", () => {
   act(() => root.render(React.createElement(WorkspaceChangeDiff, { change })));

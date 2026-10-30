@@ -62,7 +62,8 @@ it("Main adapter model failure quiesces only its owned retained process before a
     await expect.poll(() => fakeLLM.mock.calls.length).toBe(2);
     // The background tool returned before the second model request. Error terminal
     // must now stop its owned process; it must not wait for an external cancel.
-    await expect.poll(() => returned).toBe(true);
+    // Stopping the retained process tree takes over a second on some Windows machines.
+    await expect.poll(() => returned, { timeout: 10_000 }).toBe(true);
     const result = await pending;
     expect(result.terminal.status).toBe("runtime_error");
     expect(context!.signal).not.toBe(external.signal);

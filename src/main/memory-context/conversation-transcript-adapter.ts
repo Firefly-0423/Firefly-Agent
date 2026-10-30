@@ -254,7 +254,9 @@ function canonical(snapshot:TranscriptSnapshot,sessionId:string,incarnation:stri
    if(index===latestUser)contextFail("MEMORY_ATTACHMENT_DENIED");
    return {role:"user",text:payload.text+"\n[MEMORY_ATTACHMENT_HISTORY_UNAVAILABLE: historical attachment content is unavailable and has not been read.]"};
   }
-  if(message.role==="tool"&&!persistedTools.has(message))contextFail("MEMORY_CONTEXT_TOOL_PAIR_INVALID");
+  // A tool message is either a persisted result or materialize's unknown/not-executed placeholder for its own assistant's call.
+  const placeholder=entry.kind==="assistant"&&message.role==="tool"&&entry.payload.toolCalls?.some(call=>call.id===message.toolCallId);
+  if(message.role==="tool"&&!persistedTools.has(message)&&!placeholder)contextFail("MEMORY_CONTEXT_TOOL_PAIR_INVALID");
   if(Object.keys(message).some(key=>!["role","content","toolCalls","toolCallId","name","thinking","rawAssistant","visibility","internal"].includes(key)))contextFail("MEMORY_CONTEXT_INPUT_INVALID");
   const text=typeof message.content==="string"?message.content:Array.isArray(message.content)?message.content.filter(block=>block?.type==="text"&&typeof block.text==="string").map(block=>block.type==="text"?block.text:"").join("\n"):"";
   const result:ContextMessage={role:message.role,text};

@@ -1,7 +1,9 @@
 import {requestProviderIdentity} from "./request-provider-identity";
 import { createHash } from "node:crypto";
+import { Agent, type Dispatcher } from "undici";
 import { contextFail, type JsonValue, type PreparedRequest, type RequestIdentity } from "../../memory-context/context-contracts";
 import { AgentRuntimeError } from "../agent-runtime-error";
+import { connectionLost } from "./connection-lost";
 import { copyResponseJson } from "./response-request-snapshot";
 import { getVendorRuntimeSettings } from "./runtime-settings";
 import { streamPreparedChatWithSdk, type SdkStreamRunInput } from "./sdk-stream/runtime";
@@ -19,8 +21,11 @@ export interface PreparedModelCallInput {
   config: VendorConfig;
   timeoutMs: number;
   signal?: AbortSignal;
-  /** Main final network gate, invoked only after actual SDK bytes are checked. */
-  guardSend?: (send:()=>Promise<Response>)=>Promise<Response>;
+  /**
+   * Main final network gate, invoked only after actual SDK bytes are checked. It runs again before every
+   * retry of a dropped connection (attempt > 0), so a retry is admitted under the same checks as the first send.
+   */
+  guardSend?: (send:()=>Promise<Response>, attempt:number)=>Promise<Response>;
   onDelta?: (delta: UnifiedStreamDelta) => void;
   onDiagnostic?: SdkStreamRunInput["onDiagnostic"];
   onModelExecution?: (phase: "start" | "end", terminal?: "completed" | "failed" | "cancelled") => void;
@@ -168,6 +173,24 @@ export function prepareModelCall(
   return prepared;
 }
 
+/** Delays before each retry of a model request whose connection was lost before any response arrived. */
+const CONNECTION_RETRY_DELAYS_MS = [1_000, 3_000];
+let modelPool: Agent | undefined;
+/** Where Node's fetch and the undici package keep a dispatcher installed with setGlobalDispatcher. */
+const GLOBAL_DISPATCHER = Symbol.for("undici.globalDispatcher.1");
+/**
+ * One pool for model requests that keeps an idle connection for 20 s (providers close idle ones at about
+ * 30 s). Node's default of 4 s closed it during every tool round, so each round paid a new TLS handshake,
+ * which on an unstable network or behind a proxy is where requests failed. Node fills the slot itself with
+ * a plain Agent the first time anything builds a Request, so a plain Agent there is that default and is
+ * replaced; any other dispatcher (a proxy, a test mock) was installed on purpose and still wins.
+ * Reading the slot never installs one.
+ */
+function modelConnectionPool(): Dispatcher {
+  const installed = (globalThis as Record<symbol, unknown>)[GLOBAL_DISPATCHER] as Dispatcher | undefined;
+  if (installed && installed.constructor.name !== "Agent") return installed;
+  return modelPool ??= new Agent({ keepAliveTimeout: 20_000, keepAliveMaxTimeout: 20_000 });
+}
 /** Must be called by Main's context.dispatch single-use permit callback; it grants no memory authority itself. */
 export async function dispatchPreparedModelCall(input: PreparedModelCallInput): Promise<ChatResponse> {
   input = { ...input };
@@ -206,9 +229,30 @@ export async function dispatchPreparedModelCall(input: PreparedModelCallInput): 
         started=true;observe("start");
         check(call,input.config,input.signal);
         if(outgoing.signal.aborted)throw cancelled(outgoing.signal);
-        dispatched=true;return delegate(outgoing);
+        dispatched=true;
+        return attemptOnce(outgoing);
       };
-      return await (input.guardSend?input.guardSend(invoke):invoke());
+      // Node's RequestInit types lag the undici package; the dispatcher option is the same at runtime.
+      const attemptOnce=(request:Request)=>delegate(request,{dispatcher:modelConnectionPool()} as unknown as RequestInit);
+      // A model call has no side effect outside the provider, so a request whose connection dropped before
+      // any response is sent again (twice at most); once a response has started it is never replayed.
+      // Each retry passes the send gate again, so memory forgotten during the wait is never sent.
+      const spares=CONNECTION_RETRY_DELAYS_MS.map(()=>outgoing.clone());
+      const gate=(run:()=>Promise<Response>,attempt:number)=>input.guardSend?input.guardSend(run,attempt):run();
+      for(let attempt=0;;attempt++){
+        try{
+          return await gate(attempt===0?invoke:()=>{
+            check(call,input.config,input.signal);
+            if(outgoing.signal.aborted)throw cancelled(outgoing.signal);
+            return attemptOnce(spares[attempt-1]);
+          },attempt);
+        }catch(error){
+          if(attempt>=spares.length||!connectionLost(error)||outgoing.signal.aborted)throw error;
+          await new Promise(resolve=>setTimeout(resolve,CONNECTION_RETRY_DELAYS_MS[attempt]));
+          check(call,input.config,input.signal);
+          if(outgoing.signal.aborted)throw cancelled(outgoing.signal);
+        }
+      }
     } catch (error) {
       boundaryError = error;
       throw error;
@@ -263,6 +307,7 @@ async function nonStreaming(input: PreparedModelCallInput, call: PrivateCall, fe
     if (timedOut) throw new AgentRuntimeError("E_MODEL_REQUEST_TIMEOUT", "模型响应超时，请稍后重试。", { cause: error });
     if (input.signal?.aborted) throw cancelled(input.signal);
     if (error instanceof AgentRuntimeError) throw error;
+    if (connectionLost(error)) throw new AgentRuntimeError("E_MODEL_CONNECTION_LOST", "模型服务连接中断。", { cause: error });
     throw new AgentRuntimeError("E_MODEL_REQUEST_FAILED", "模型服务请求失败。", { cause: error });
   } finally {
     if (timer !== undefined) clearTimeout(timer);

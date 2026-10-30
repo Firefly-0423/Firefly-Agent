@@ -7,6 +7,10 @@ type WorkVerificationCommand = {
   cmd: string; args: string[]; trust: "builtin" | "workspace_script";
   source: "tsconfig" | "vitest" | "package_script"; configPath?: string;
 };
+/** Cargo runs the project's build scripts, so it is a workspace script and follows the shell permission. */
+const CARGO_ARGS: Record<string, string[]> = {
+  typecheck: ["check"], test: ["test"], build: ["build"], lint: ["clippy", "--all-targets", "--", "-D", "warnings"],
+};
 function verificationFailure(kind: string, code: string, detail: string, stderr: string, directory?: { actualCwd: string | undefined }): string {
   return JSON.stringify({
     success: false, errorCode: code, error: detail, verificationType: kind,
@@ -23,7 +27,13 @@ async function executeVerification(input: Record<string, unknown>): Promise<stri
   const paths = require("path");
   let commands: Record<string, WorkVerificationCommand>;
   const workingDirectory = directory || process.cwd();
-  switch (kind) {
+  const has = (name: string) => filesystem.existsSync(paths.join(workingDirectory, name));
+  const javascript = has("package.json") || has("tsconfig.json") || has("tsconfig.main.json");
+  if (!javascript && !has("Cargo.toml")) return verificationFailure(kind, "VERIFICATION_PROJECT_UNSUPPORTED",
+    `run_verification 只支持 JavaScript/TypeScript（package.json 或 tsconfig）和 Rust（Cargo.toml）项目: ${workingDirectory}。请用 run_shell 运行该项目自己的测试或构建命令。`,
+    `[VERIFICATION_PROJECT_UNSUPPORTED] no package.json, tsconfig or Cargo.toml in ${workingDirectory}`, { actualCwd: workingDirectory });
+  if (!javascript) commands = CARGO_ARGS[kind] ? { [kind]: { cmd: "cargo", args: [...CARGO_ARGS[kind]], trust: "workspace_script", source: "package_script" } } : {};
+  else switch (kind) {
     case "typecheck": {
       let configuration: string;
       if (directory) {
@@ -56,10 +66,10 @@ async function executeVerification(input: Record<string, unknown>): Promise<stri
   }
   const selected = commands[kind];
   if (!selected) return verificationFailure(kind, "INVALID_INPUT", `不支持的验证类型: ${kind}，支持: typecheck/test/build/lint`, `[错误] 不支持的验证类型: ${kind}`);
-  if (kind === "test" && !resolveBuiltinExecutable("builtin:vitest", workingDirectory)) return verificationFailure(kind,
+  if (javascript && kind === "test" && !resolveBuiltinExecutable("builtin:vitest", workingDirectory)) return verificationFailure(kind,
     "VITEST_NOT_FOUND", `本地 Vitest 未安装: ${workingDirectory}`,
     `[VITEST_NOT_FOUND] local vitest CLI not found in ${workingDirectory}`, { actualCwd: workingDirectory });
-  if (kind === "lint") {
+  if (javascript && kind === "lint") {
     try {
       const lintCli = require.resolve("eslint/bin/eslint.js", { paths: [workingDirectory] });
       if (!filesystem.existsSync(lintCli) || !paths.isAbsolute(lintCli)) throw new Error("invalid eslint path");

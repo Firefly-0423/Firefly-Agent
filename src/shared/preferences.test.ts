@@ -7,13 +7,13 @@ import {
 } from "./preferences";
 
 describe("normalizeChatSocialContextEnabled", () => {
-  it("only accepts an explicit boolean true", () => {
+  it("is off only when the user turned it off", () => {
     expect(normalizeChatSocialContextEnabled(true)).toBe(true);
     expect(normalizeChatSocialContextEnabled(false)).toBe(false);
   });
 
-  it.each([undefined, null, 1, 0, "true", "1", {}, []])("defaults %j to disabled", (value) => {
-    expect(normalizeChatSocialContextEnabled(value)).toBe(false);
+  it.each([undefined, null, 1, 0, "true", "false", {}, []])("reads %j as the default, on", (value) => {
+    expect(normalizeChatSocialContextEnabled(value)).toBe(true);
   });
 });
 

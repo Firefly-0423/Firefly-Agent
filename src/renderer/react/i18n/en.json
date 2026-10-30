@@ -124,7 +124,9 @@
     "errorPendingAdjustAttachments": "Messages with attachments can't be inserted into the current run yet; kept in the queue",
     "openProjectFolderFailed": "Couldn't open project folder: {{error}}",
     "unknownError": "Unknown error",
-    "lastRunInterrupted": "The last run was interrupted"
+    "lastRunInterrupted": "The last run was interrupted",
+    "errorNetworkInterrupted": "The connection dropped before the model replied. The network or a proxy may be unstable; send the message again in a moment. ({{code}})",
+    "errorModelTimedOut": "The model took too long to respond, so Firefly stopped waiting. Try again in a moment. ({{code}})"
   },
   "messageList": {
     "loadingAria": "Loading",
@@ -383,9 +385,21 @@
   },
   "scheduledPanel": {
     "suggestions": {
-      "daily": { "title": "Daily wrap-up", "description": "Summarise the day's progress every day at 6 pm.", "prompt": "Summarise today's progress: what got done, what blocked me, and what to pick up tomorrow." },
-      "weekly": { "title": "Weekly planning", "description": "Lay out the week's priorities every Monday at 9 am.", "prompt": "From my recent conversations and tasks, list this week's priorities in order of importance." },
-      "todos": { "title": "Check my to-dos", "description": "Remind me of anything still unfinished every day at 9 am.", "prompt": "Check my unfinished to-dos and name the three to do first." }
+      "daily": {
+        "title": "Daily wrap-up",
+        "description": "Summarise the day's progress every day at 6 pm.",
+        "prompt": "Summarise today's progress: what got done, what blocked me, and what to pick up tomorrow."
+      },
+      "weekly": {
+        "title": "Weekly planning",
+        "description": "Lay out the week's priorities every Monday at 9 am.",
+        "prompt": "From my recent conversations and tasks, list this week's priorities in order of importance."
+      },
+      "todos": {
+        "title": "Check my to-dos",
+        "description": "Remind me of anything still unfinished every day at 9 am.",
+        "prompt": "Check my unfinished to-dos and name the three to do first."
+      }
     },
     "filterAll": "All tasks",
     "listSection": "Tasks",
@@ -511,7 +525,13 @@
     "restartRequired": "A full application restart is required. The running version remains unchanged.",
     "restartAfterFailure": "This plugin is not running in the current process. Restart the application to retry the saved version selection.",
     "catalogReadAt": "Catalog read at: {{time}}",
-    "sources": { "builtin": "Built-in", "bundled": "Bundled with app", "curated-market": "Curated market", "local-zip": "Local ZIP", "legacy-unknown": "Legacy installation, unverified source" },
+    "sources": {
+      "builtin": "Built-in",
+      "bundled": "Bundled with app",
+      "curated-market": "Curated market",
+      "local-zip": "Local ZIP",
+      "legacy-unknown": "Legacy installation, unverified source"
+    },
     "title": "Plugins",
     "subtitle": "Manage your installed plugins. Newly imported plugins are disabled by default — only enable ones you trust.",
     "registryPrefix": "Official registry: ",
@@ -965,7 +985,12 @@
     "noSearchResults": "No matching tasks",
     "viewProjectsShort": "Projects",
     "viewStatusShort": "Status",
-    "status": {"needs-input": "Needs input", "working": "Working", "done": "Completed", "needsInputLabel": "Waiting for you"},
+    "status": {
+      "needs-input": "Needs input",
+      "working": "Working",
+      "done": "Completed",
+      "needsInputLabel": "Waiting for you"
+    },
     "viewMergedShort": "Merged",
     "dragToReorder": "Drag to reorder",
     "reorderHint": "Drag, or press Alt+Up or Alt+Down, to reorder",
@@ -992,8 +1017,7 @@
     "newProjectChat": "New conversation in this project",
     "emptyTier": "Nothing here yet",
     "showProject": "Show project",
-    "projectVisibility": "Project visibility"
-,
+    "projectVisibility": "Project visibility",
     "organizeSidebar": "Organize sidebar",
     "sortChats": "Sort chats by",
     "copy": "Copy",

@@ -119,7 +119,7 @@ if (!window.settings) {
       segmentedOutputMode: "off",
       proactiveChatMode: "off",
       proactiveDeliveryTarget: "local",
-      chatSocialContextEnabled: false,
+      chatSocialContextEnabled: true,
       screenshotHotkey: "Alt+Shift+S",
       weatherSource: "open-meteo",
       weatherEnabled: false,

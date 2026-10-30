@@ -151,7 +151,8 @@ export class ContextRepository {
  }
  /** Freeze only selected dependencies; mutable transcript head versions are not historical roots. */
  private historyClosure(scope:string,owner:ContextOwner,snapshot:StoredSnapshot,progress?:{operationId:string;expectedRefs:TranscriptDependency[]}):HistoryOriginClosure {
-  const origins=new HistoryOrigins(this.db,this.key),closure:HistoryOriginClosure={sources:[],events:[],complete:true};
+  // Read-only, so every event check shares one origin snapshot; each fresh traversal cost ~0.1 s and the event list grows every round.
+  const origins=new HistoryOrigins(this.db,this.key,{snapshot:true}),closure:HistoryOriginClosure={sources:[],events:[],complete:true};
   const addSource=(dep:SourceDependency,deps:SourceDependency[],path=new Set<string>())=>{
    if(path.size>=128||path.has(dep.sourceRef.sourceId)){closure.complete=false;return}
    const head=this.ledger.assertCurrent(scope,dep.sourceRef);if(!head?.published){closure.complete=false;return}

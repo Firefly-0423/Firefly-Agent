@@ -52,10 +52,22 @@ describe("Builtin tool contracts visible to the model", () => {
     { label: "four questions", list: Array.from({ length: 4 }, (_, index) => ({ id: `query-${index}`, question: "Additional requirement?", type: "text" })) },
     { label: "one single-select option", list: [{ ...questions()[0], options: [{ label: "Only choice", value: "only" }] }] },
     { label: "text with selection options", list: [{ ...questions()[2], options: [{ label: "First", value: "first" }, { label: "Second", value: "second" }] }] },
+    { label: "an option without a label", list: [{ ...questions()[0], options: [{ label: "", value: "web" }, { label: "文档", value: "document" }] }] },
+    { label: "repeated option values", list: [{ ...questions()[0], options: [{ label: "网页", value: "same" }, { label: "文档", value: "same" }] }] },
   ])("rejects $label before opening a card", async ({ list }) => {
     const request = vi.fn();
     expect(await executeAskUser(invocation("ask_user", { questions: list }), request)).toMatchObject({ outcome: "failure", category: "invalid_arguments", tool: "ask_user" });
     expect(request).not.toHaveBeenCalled();
+  });
+
+  it("numbers options the model left without a value instead of refusing the card", async () => {
+    const request = vi.fn(async () => ({ answers: [{ field: "next", selectedValues: ["option-2"] }] }));
+    const response = await executeAskUser(invocation("ask_user", { questions: [{ id: "next", question: "接下来怎么做？", type: "single_select",
+      options: [{ label: "重新委托", description: "代价很小" }, { label: "先试一位" }] }] }), request);
+    expect(request.mock.calls[0]).toEqual([expect.objectContaining({ questions: [expect.objectContaining({ options: [
+      expect.objectContaining({ label: "重新委托", value: "option-1" }), expect.objectContaining({ label: "先试一位", value: "option-2" }),
+    ] })] })]);
+    expect(JSON.parse(response.output!)).toEqual({ answers: [{ questionId: "next", selectedValues: ["option-2"], selectedLabels: ["先试一位"] }] });
   });
 
   it("maps single, multiple and custom answers back in question order", async () => {

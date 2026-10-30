@@ -9,7 +9,7 @@ vi.mock("./DesktopAsrButton", () => ({ DesktopAsrButton: () => null }));
 vi.mock("./PermissionControl", () => ({ PermissionControl: () => null }));
 vi.mock("./ModelEffortControl", () => ({ ModelEffortControl: () => null }));
 vi.mock("../../../../../shared/renderer-base", () => ({ resolveAsset: (asset: string) => asset }));
-import { ChatComposer, composerAddMenuEntries, parseComposerMessage, pickableStickers, splitStickerMarkers } from "./ChatComposer";
+import { CAPSULE_MIN_ROOM, capsuleFits, ChatComposer, composerAddMenuEntries, parseComposerMessage, pickableStickers, splitStickerMarkers } from "./ChatComposer";
 
 afterEach(() => vi.unstubAllGlobals());
 const draw = (patch: Partial<React.ComponentProps<typeof ChatComposer>> = {}) => {
@@ -65,4 +65,12 @@ test("extracts known markers without losing their order or multiplicity", () => 
   for (const visible of ["Draft ", "Draft update", "", "Draft\n"]) {
     expect(splitStickerMarkers(visible + markers.join(""), known)).toStrictEqual({ visible, markers });
   }
+});
+
+test("keeps the one-line capsule only where the dialog column has room for it", () => {
+  expect(capsuleFits(CAPSULE_MIN_ROOM)).toBe(true);
+  expect(capsuleFits(1200)).toBe(true);
+  // Beside the overview cards the column can be narrower than the capsule's buttons and model picker.
+  expect(capsuleFits(CAPSULE_MIN_ROOM - 1)).toBe(false);
+  expect(capsuleFits(334)).toBe(false);
 });

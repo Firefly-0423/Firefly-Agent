@@ -1,8 +1,11 @@
 <p align="center"><b>简体中文</b> · <a href="./README.en.md">English</a></p>
 
-<h1 align="center">Firefly</h1>
-
-<p align="center"><b>与流萤交流，把想法变成可以继续的行动。</b></p>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./readme-assets/firefly-banner-dark.gif">
+    <img src="./readme-assets/firefly-banner-light.gif" alt="流萤 Live2D 动画横幅" width="896">
+  </picture>
+</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Electron-47848F?style=flat&logo=electron&logoColor=white" alt="Electron" height="22">
@@ -17,7 +20,7 @@
 <p align="center">以《崩坏：星穹铁道》流萤为角色的 Windows Live2D 桌面伴侣与 AI 工作台。</p>
 
 <p align="center">
-  <a href="#-快速开始">快速开始</a> · <a href="#-功能">功能</a> · <a href="#-安全与隐私">安全与隐私</a> · <a href="#-项目结构">项目结构</a> · <a href="#-当前状态与限制">状态与限制</a><br>
+  <a href="#-界面预览">界面预览</a> · <a href="#-快速开始">快速开始</a> · <a href="#-功能">功能</a> · <a href="#-安全与隐私">安全与隐私</a> · <a href="#-项目结构">项目结构</a> · <a href="#-当前状态与限制">状态与限制</a><br>
   <a href="https://github.com/Firefly-0423/Firefly-Agent/issues">问题反馈</a> · <a href="https://github.com/Firefly-0423/firefly-plugins">插件市场</a>
 </p>
 
@@ -36,6 +39,16 @@ Firefly 把一个会陪你聊天的桌面角色，和一个能真正动手干活
 | 💬 Chat · 桌面陪伴 | 📋 Work · 推进任务 | 💻 Code · 代码工作区 |
 | --- | --- | --- |
 | 角色化对话、流式回复与会话历史；Live2D 表情与待机动作。 | 文件、文档与知识资料；调用工具与 Skills，与专业 Agent 协作。 | 在绑定工作区里使用 Git、LSP、AST、文件与命令工具。 |
+
+## 📸 界面预览
+
+<p align="center"><img src="./readme-assets/screenshots/chat.png" alt="Chat 模式：与流萤聊天，右侧是内置浏览器，右下角是桌面 Live2D 流萤" width="100%"></p>
+<p align="center"><sub>Chat：和流萤聊天。右侧是内置浏览器，右下角是常驻桌面的 Live2D 流萤；概览卡片显示上下文、用量与后台任务。</sub></p>
+
+| 📋 Work · 推进任务 | 💻 Code · 代码工作区 |
+| --- | --- |
+| <img src="./readme-assets/screenshots/work.png" alt="Work 模式：读取项目笔记并整理成学习计划表" width="100%"> | <img src="./readme-assets/screenshots/code.png" alt="Code 模式：在绑定的 Rust 项目里修复问题" width="100%"> |
+| 绑定项目文件夹，读取资料后整理成表格与检查点；过程收成一行摘要，运行结果可在右侧任务面板展开。 | 在绑定的工作区里读改代码、跑命令与测试；右侧显示分支、变更与当前任务。 |
 
 ## 🚀 快速开始
 
@@ -91,6 +104,7 @@ npm run dev
 
 - 处理文件、文档与知识资料，调用内置工具与 Skills，并交给专业 Agent 协作；工具执行、审批与取消都可见。
 - 内置文件读写与补丁、Word / Excel / PDF 文档工具、网页搜索与正文读取、文件下载、定时任务与日程。
+- 运行过程收成一行摘要（用时、读了几个文件、跑了几条命令），展开后是一条时间线：连续的读取与搜索合并成一行，思考结束后自动收起，改动、命令和出错单独列出。
 - 已结束的任务可导出为 Markdown；「任务完成」和「文件已完整读取」分开展示。
 - **知识工作区**：绑定已有 Obsidian Vault 或学习资料目录，提供学习、测验、笔记和进度。
 
@@ -189,7 +203,7 @@ src/
 └── shared/               # 主进程与渲染进程共享的契约与工具
 
 native/                   # Rust 原生助手：截图、历史读取、工作区句柄访问
-packages/plugin-sdk/      # 插件 SDK 源码
+plugin-sdk/               # 插件 SDK 源码
 examples/                 # 插件示例（text-stats、json-tools、weather-tool 等）
 skills/                   # 项目 Skills
 vendor/firefly-skills/    # 第三方及适配 Skills，附来源与许可

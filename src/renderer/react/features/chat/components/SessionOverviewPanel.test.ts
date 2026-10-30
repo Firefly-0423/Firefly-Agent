@@ -69,6 +69,14 @@ describe("SessionOverviewPanel", () => {
     expect(html).toContain("1 个失败");
   });
 
+  it("shows each running partner's portrait, keeping the plain dot when there is none", () => {
+    const partner = { ...task("p", "running"), nickname: "艾利欧", assetFileName: "艾利欧.png" };
+    const html = render({ outputs: [{ ...output, tasks: [partner, task("x", "running")] }] });
+    expect(html.match(/class="ff-overview-list__avatar"/g)).toHaveLength(1);
+    expect(html).toMatch(/<img[^>]*class="ff-overview-list__avatar"[^>]*alt=""/);
+    expect(html.match(/ff-overview-list__pulse/g)).toHaveLength(2);
+  });
+
   it("lists changed files with their line counts and a total", () => {
     const html = render({ outputs: [output] });
 

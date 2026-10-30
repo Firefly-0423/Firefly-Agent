@@ -68,7 +68,7 @@ extraResources:
   - from: vendor/firefly-skills/licenses
     to: firefly-skills/licenses
 win:
-  icon: assets/icon-presets/firefly.png
+  icon: assets/icons/firefly.png
   target:
     - nsis
 nsis:

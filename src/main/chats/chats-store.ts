@@ -183,6 +183,13 @@ export function getCachedSessionIdsForCoverage(): CachedCoverageSessions {
 
 export function getRootDir(): string { return directory; }
 export function getSession(id: string): ChatSession | null { return read(id); }
+/** A session's mode and whether it is temporary, from the index or memory; never reads the session file. */
+export function getSessionKind(id: string): { mode: ConversationMode; temporary: boolean } | null {
+  const memoryCopy = volatile.get(id);
+  if (memoryCopy) return { mode: memoryCopy.mode, temporary: memoryCopy.temporary === true };
+  const row = catalog.find((entry) => entry.id === id);
+  return row ? { mode: row.mode, temporary: false } : null;
+}
 
 export function listSessions(options?: { mode?: ConversationMode }): ChatSessionMeta[] {
   if (options?.mode !== undefined && !validMode(options.mode)) throw new Error("INVALID_CONVERSATION_MODE");

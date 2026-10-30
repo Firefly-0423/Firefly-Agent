@@ -137,6 +137,7 @@
     "simple-git": "^4.0.2",
     "streamdown": "^2.6.0",
     "turndown": "^7.2.4",
+    "undici": "7.29.1",
     "unified": "^11.0.5",
     "vscode-jsonrpc": "^9.0.1",
     "vscode-languageserver-types": "^3.18.0",

@@ -23,7 +23,7 @@ it("indexes only current Firefly descriptions and resources", () => {
 
 it("exposes only current Window and SDK contracts", () => {
   expect(read("src/preload/index.ts")).not.toContain("LEGACY_WINDOW_API_NAMES");
-  expect(read("packages/plugin-sdk/src/index.ts")).not.toContain('"./legacy"');
+  expect(read("plugin-sdk/src/index.ts")).not.toContain('"./legacy"');
   expect(fs.existsSync(path.join(root, "examples/system-status-0.1.0.zip"))).toBe(false);
   expect(JSON.parse(read("examples/system-status/manifest.json")).author).toBe("wu02");
 });
