@@ -63,6 +63,12 @@ function source(ref: SourceRef): SourceRef {
   return { sourceId: ref.sourceId, revision: ref.revision, ...(ref.span ? { span: { start: ref.span.start, end: ref.span.end } } : {}),
     ...(ref.binding ? { binding: { providerId: ref.binding.providerId, sessionId: ref.binding.sessionId, messageId: ref.binding.messageId, contentRevision: ref.binding.contentRevision, generation: ref.binding.generation } } : {}) };
 }
+const CATEGORIES = new Set(["address", "language", "response-style", "shell", "tool", "preference", "programming-usage", "programming-ability"]);
+/** A known category name only: never the typed record or a free-form value. */
+function categoryOf(item: FactView): string | undefined {
+  const value = item.typed?.legacyAttribute ?? item.attribute;
+  return typeof value === "string" && CATEGORIES.has(value) ? value : undefined;
+}
 function fact(item: FactView): FactView {
   return { factId: item.factId, revision: item.revision, subjectKey: item.subjectKey, assertion: item.assertion, assertionKind: item.assertionKind,
     time: { validFrom: item.time.validFrom, validTo: item.time.validTo, referenceTime: item.time.referenceTime }, sourceRef: source(item.sourceRef),
@@ -70,7 +76,7 @@ function fact(item: FactView): FactView {
     provenance: { candidateId: item.provenance.candidateId, evidenceId: item.provenance.evidenceId, activationSourceRef: source(item.provenance.activationSourceRef) },
     ...(item.scope === "global" || item.scope === "project" ? { scope: item.scope } : {}),
     ...(typeof item.projectName === "string" && item.projectName ? { projectName: item.projectName.slice(0, 200) } : {}),
-    ...(item.typed?.legacyAttribute ? { attribute: item.typed.legacyAttribute } : {}),
+    ...(categoryOf(item) ? { attribute: categoryOf(item) } : {}),
     ...(typeof item.sourceTitle === "string" && item.sourceTitle ? { sourceTitle: item.sourceTitle.slice(0, 200) } : {}) };
 }
 function stateDto(state: MemoryPanelState): MemoryPanelState {

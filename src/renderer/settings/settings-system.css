@@ -914,25 +914,41 @@ body { font-size: var(--ff-ui-font-size, 16px); }
 .settings-shell .settings-nav__group { padding: 14px 12px 4px; }
 .settings-shell .nav-item { min-height: 36px; padding-block: 6px; }
 
-/* Memory graph (设置 → 流萤记忆 → 关系图): you in the middle, categories, memories, then the conversations they came from.
-   Confirmed memories are solid, ones waiting for confirmation dashed. Colours come from the theme tokens. */
-#memory-panel .memory-graph-wrap { margin-top: 12px; border: 1px solid var(--rb-border-soft); border-radius: 14px; background: var(--rb-card-bg); overflow: hidden; }
-#memory-panel .memory-graph { display: block; width: 100%; height: auto; min-height: 320px; cursor: grab; touch-action: none; user-select: none; }
+/* Memory graph (设置 → 流萤记忆 → 关系图). You are an accent sphere in the middle; categories are tinted pills in their
+   own hue (--node-rgb, set per node); memories are cards edged in their category's hue, dashed while they wait for
+   confirmation; conversations and projects are small icon discs. Hovering lights a node's chain and fades the rest. */
+#memory-panel .option-blocks[hidden] { display: none; }
+#memory-panel .memory-graph-wrap {
+  margin-top: 12px; border: 1px solid var(--rb-border-soft); border-radius: 16px; overflow: hidden;
+  background: radial-gradient(circle at 50% 45%, rgba(var(--rb-accent-rgb), .07), transparent 62%), var(--rb-card-bg);
+}
+#memory-panel .memory-graph { display: block; width: 100%; height: auto; min-height: 340px; cursor: grab; touch-action: none; user-select: none; }
 #memory-panel .memory-graph.is-panning { cursor: grabbing; }
-.memory-graph__edge { stroke: var(--rb-border-strong); stroke-width: 1.2; }
-.memory-graph__edge.is-source, .memory-graph__edge.is-project { stroke-dasharray: 3 3; opacity: .7; }
-.memory-graph__node circle { fill: var(--rb-card-bg, #fff); stroke: rgba(var(--rb-accent-rgb), .55); stroke-width: 1.5; transition: stroke-width 120ms ease, fill 120ms ease; }
-.memory-graph__node text { fill: var(--rb-text-muted); font-size: var(--ff-fs-caption); text-anchor: middle; pointer-events: none; }
-.memory-graph__node.is-self circle { fill: rgba(var(--rb-accent-rgb), .9); stroke: rgba(var(--rb-accent-rgb), 1); }
-.memory-graph__node.is-self text { fill: var(--rb-text-strong); font-size: var(--ff-fs-ui); font-weight: 600; }
-.memory-graph__node.is-category circle { fill: rgba(var(--rb-accent-rgb), .18); }
-.memory-graph__node.is-category text { fill: var(--rb-text-default); font-size: var(--ff-fs-ui); }
-.memory-graph__node.is-fact circle { fill: rgba(var(--rb-accent-rgb), .55); }
-.memory-graph__node.is-candidate circle { stroke-dasharray: 3 2; }
-.memory-graph__node.is-source circle, .memory-graph__node.is-project circle { stroke: var(--rb-text-faint); }
+.memory-graph__edge { fill: none; stroke: rgb(var(--node-rgb, 128 134 150) / .38); stroke-width: 1.6; stroke-linecap: round; transition: opacity 160ms ease, stroke-width 160ms ease; }
+.memory-graph__edge.is-category { stroke: rgba(var(--rb-accent-rgb), .3); stroke-width: 2; }
+.memory-graph__edge.is-source, .memory-graph__edge.is-project { stroke: var(--rb-border-strong); stroke-dasharray: 2 4; }
+.memory-graph__node { transition: opacity 160ms ease; }
+.memory-graph__node text { pointer-events: none; text-anchor: middle; }
+.memory-graph__node.is-self .memory-graph__halo { fill: rgba(var(--rb-accent-rgb), .12); }
+.memory-graph__node.is-self .memory-graph__body { fill: url(#memory-graph-self); filter: drop-shadow(0 3px 8px rgba(var(--rb-accent-rgb), .35)); }
+.memory-graph__node.is-self text { fill: #fff; font-size: var(--ff-fs-body); font-weight: 600; }
+.memory-graph__node.is-category .memory-graph__body { fill: rgb(var(--node-rgb) / .15); stroke: rgb(var(--node-rgb) / .55); stroke-width: 1.2; }
+.memory-graph__node.is-category text { fill: rgb(var(--node-rgb)); font-size: var(--ff-fs-ui); font-weight: 600; }
+.memory-graph__node:is(.is-fact, .is-candidate) .memory-graph__body {
+  fill: var(--rb-card-bg, #fff); stroke: rgb(var(--node-rgb) / .7); stroke-width: 1.3; filter: drop-shadow(0 1px 3px rgb(0 0 0 / .08));
+}
+.memory-graph__node:is(.is-fact, .is-candidate) text { fill: var(--rb-text-default); font-size: var(--ff-fs-caption); }
+.memory-graph__node.is-fact .memory-graph__dot { fill: rgb(var(--node-rgb)); }
+.memory-graph__node.is-candidate .memory-graph__body { stroke-dasharray: 4 3; }
+.memory-graph__node.is-candidate .memory-graph__dot { fill: none; stroke: rgb(var(--node-rgb)); stroke-width: 1.4; }
+.memory-graph__node:is(.is-source, .is-project) .memory-graph__body { fill: var(--rb-card-bg, #fff); stroke: var(--rb-border-strong); stroke-width: 1.2; }
+.memory-graph__node:is(.is-source, .is-project) .memory-graph__icon { fill: none; stroke: var(--rb-text-muted); stroke-width: 1.3; stroke-linejoin: round; }
+.memory-graph__node:is(.is-source, .is-project) text { fill: var(--rb-text-muted); font-size: var(--ff-fs-caption); }
 .memory-graph__node[role="button"] { cursor: pointer; outline: none; }
-.memory-graph__node[role="button"]:hover circle, .memory-graph__node[role="button"]:focus-visible circle { stroke-width: 3; }
-.memory-graph__node.is-selected circle { stroke: rgba(var(--rb-accent-rgb), 1); stroke-width: 3; }
-.memory-graph__node.is-selected text { fill: var(--rb-text-strong); }
+.memory-graph__node[role="button"]:is(:hover, :focus-visible) .memory-graph__body { stroke-width: 2.4; }
+.memory-graph__node.is-selected .memory-graph__body { stroke: rgba(var(--rb-accent-rgb), 1); stroke-width: 2.4; }
 .memory-graph__node.is-dragging { cursor: grabbing; }
-@media (prefers-reduced-motion: reduce) { .memory-graph__node circle { transition: none; } }
+.memory-graph.is-focusing .memory-graph__node:not(.is-near) { opacity: .28; }
+.memory-graph.is-focusing .memory-graph__edge:not(.is-near) { opacity: .15; }
+.memory-graph.is-focusing .memory-graph__edge.is-near { stroke-width: 2.4; }
+@media (prefers-reduced-motion: reduce) { .memory-graph__node, .memory-graph__edge { transition: none; } }

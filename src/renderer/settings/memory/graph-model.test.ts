@@ -29,7 +29,8 @@ it("draws you, the categories in use, each memory, its conversation and its proj
   // One conversation node shared by both memories learned there; unknown categories fold into "other".
   expect(model.links.filter(link => link.target === "source:chat-1").map(link => link.source)).toEqual(["fact:f1", "fact:f2"]);
   expect(model.links).toContainEqual({ source: "category:other", target: "candidate:c1", kind: "item" });
-  expect(model.nodes.find(node => node.id === "fact:f2")?.itemId).toBe("f2");
+  expect(model.nodes.find(node => node.id === "fact:f2")).toMatchObject({ itemId: "f2", category: "shell" });
+  expect(model.nodes.find(node => node.id === "candidate:c1")?.category).toBe("other");
 });
 
 it("is just you when nothing is remembered", () => {

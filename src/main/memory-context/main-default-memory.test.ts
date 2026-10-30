@@ -1340,8 +1340,8 @@ it("settings state labels a project fact with its project name and a global fact
   await turnIn(f, "learn-chat", "chat", null, "请叫我小林");
   const state = await f.memory.settingsHost.getState(f.settingsEvent);
   const byText = (text: string) => state.facts.find((fact: any) => fact.assertion.includes(text)) as any;
-  expect(byText("bash")).toMatchObject({ scope: "project", projectName: "alpha" });
-  expect(byText("小林")).toMatchObject({ scope: "global" }); expect(byText("小林").projectName).toBeUndefined();
+  expect(byText("bash")).toMatchObject({ scope: "project", projectName: "alpha", attribute: "shell" });
+  expect(byText("小林")).toMatchObject({ scope: "global", attribute: "address" }); expect(byText("小林").projectName).toBeUndefined();
   expect(JSON.stringify(state)).not.toMatch(/project-[a-f0-9]{64}/);
 });
 
