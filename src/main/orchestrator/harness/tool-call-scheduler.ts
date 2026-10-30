@@ -256,8 +256,13 @@ async function runParallelGroup<T>(calls: ToolCallExecution[], maxParallel: numb
       } else {
         settled[next.index] = { ready: true, result: next.result };
       }
-      await commitReady();
-      launchAvailable();
+      // While a partner is still running, results and new launches wait. Committing appends to the parent transcript,
+      // which revokes the parent history every running partner read (memory evidence is bound to the transcript as
+      // read); launches wait too, so a commit that halts still stops everything after it.
+      if (activeCounts.delegation === 0) {
+        await commitReady();
+        launchAvailable();
+      }
     }
     cancelled ||= options.signal?.aborted === true;
     await commitReady();
