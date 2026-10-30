@@ -735,6 +735,15 @@ it('a child can inherit only a genuine live parent run capability, and parent ca
  await expect(child.run.call(f.call())).rejects.toThrow('MEMORY_CONTEXT_CANCELLED');
  expect(f.sent).toHaveLength(1);await child.prepared.close();
 });
+it('children of one parent share one history capture, so siblings running together both read the parent context',async()=>{
+ const f=await fixture();await f.user('session-a','parent authorized historical note');await f.store.checkpoint('session-a');await primeHistory(f);f.memory.authorizeRun(f.event,'session-a');
+ const parent=await f.memory.openRun(f.input());
+ const one=await preparedBackground(f,await backgroundIngress('child','child-one','Read the parent context'),'child-one',parent);
+ const two=await preparedBackground(f,await backgroundIngress('child','child-two','Read the parent context'),'child-two',parent);
+ await Promise.all([one.run.call(f.call()),two.run.call(f.call())]);
+ expect(f.sent.filter(sent=>sent.includes('parent authorized historical note'))).toHaveLength(2);
+ await one.prepared.close();await two.prepared.close();await parent.close();
+});
 it('background producer cancellation prevents late dispatch and preserves its canonical instruction',async()=>{
  const f=await fixture(),event=await backgroundIngress('proactive'),p=await preparedBackground(f,event);event.controller.abort();
  await expect(p.run.call(f.call())).rejects.toThrow('MEMORY_CONTEXT_CANCELLED');expect(f.sent).toHaveLength(0);

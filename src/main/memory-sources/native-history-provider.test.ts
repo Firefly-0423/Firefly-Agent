@@ -118,6 +118,30 @@ it('simultaneous captures cannot share an epoch or publication eligibility',asyn
  const f=await fixture();const first=f.native.capture(),second=f.native.capture();await expect(second).rejects.toThrow('MEMORY_HISTORY_STALE');await first;
 });
 
+it('delegated runs share one capture: concurrent callers join it and keep the evidence a direct capture produced',async()=>{
+ const f=await fixture();await f.native.capture();const parent=await f.native.query({query:'harbor'});if(parent.status!=='queried')throw Error('expected queried');
+ const before=f.reads,[a,b]=await Promise.all([f.native.captureShared(),f.native.captureShared()]);
+ expect(a).toMatchObject({status:'captured',captured:1});expect(b).toEqual(a);expect(f.reads).toBe(before);
+ // The parent's evidence survives its children's history step, and the children can query the same capture.
+ expect(readHistoryEvidence(f.authority,f.actor,parent.result.evidence).unit.messages[0].text).toContain('harbor coffee');
+ const child=await f.native.query({query:'harbor'});expect(child.status).toBe('queried');
+});
+
+it('a shared capture acquires once when nothing is current, and again only after the epoch moves',async()=>{
+ const f=await fixture(),before=f.reads,[a,b]=await Promise.all([f.native.captureShared(),f.native.captureShared()]);
+ expect(a).toMatchObject({status:'captured'});expect(b).toEqual(a);expect(f.reads-before).toBe(2);
+ await f.native.captureShared();expect(f.reads-before).toBe(2);
+ await f.native.invalidate('grant-change');await f.native.captureShared();expect(f.reads-before).toBe(4);
+});
+
+it('one caller detaching does not cancel the capture its siblings share, and a direct capture is still refused meanwhile',async()=>{
+ const f=await fixture(),controller=new AbortController(),detached=f.native.captureShared(controller.signal),sibling=f.native.captureShared();
+ await expect(f.native.capture()).rejects.toThrow('MEMORY_HISTORY_STALE');
+ controller.abort();await expect(detached).rejects.toThrow('MEMORY_HISTORY_CANCELLED');
+ expect(await sibling).toMatchObject({status:'captured',captured:1});
+ await expect(f.native.captureShared(controller.signal)).rejects.toThrow('MEMORY_HISTORY_CANCELLED');
+});
+
 it('active query cancellation reaches the exact fresh acquisition signal',async()=>{
  const f=await fixture();let starts=0,entered!:()=>void,release!:()=>void,observed:AbortSignal|undefined;const started=new Promise<void>(r=>entered=r),hold=new Promise<void>(r=>release=r);
  const native=createNativeHistoryProvider({actorAuthority:f.authority,actorToken:f.actor,store:f.store,history:f.history,deadlineMs:1000,endpointFactory:async input=>{const endpoint=await f.endpointFactory();if(++starts<=2)return endpoint;observed=input.signal;return {...endpoint,async read(components,maxBytes){entered();await hold;return endpoint.read(components,maxBytes)}}}});

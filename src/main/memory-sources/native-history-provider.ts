@@ -33,6 +33,8 @@ export function createNativeHistoryProvider(options:Options){
  let epoch=0,closed=false,committed=false,publishing=false,rootPin:NativeHistoryIdentity|undefined;
  let partialCoverage=false;
  let coverage:NativeHistoryCoverageInsufficient=insufficient('not-acquired');
+ // The last committed capture and the one in flight, shared by the runs of one delegation family (captureShared).
+ let shared:{epoch:number;outcome:NativeHistoryCaptureOutcome}|undefined,sharing:Promise<NativeHistoryCaptureOutcome>|undefined;
  const responseClaims=new WeakMap<HistoryResponseBinding,{witness:HistoryResponseWitness;add:(selection:HistoryResponseSelection[])=>void}>();
  const witnesses=new Set<HistoryResponseWitness>(),handledTickets=new WeakMap<object,string>();
  const captures=new Map<string,{transcriptToken:object;ref:TranscriptDependency}>();
@@ -42,7 +44,7 @@ export function createNativeHistoryProvider(options:Options){
  function authorize(){if(closed)fail('MEMORY_HISTORY_PROVIDER_DENIED');if(options.actorAuthority.requireActor(options.actorToken)!==actor)fail('MEMORY_HISTORY_PROVIDER_DENIED');// Identity only: the paths were checked when this provider took the context, and a full re-check here ran on every gate.
  if(installedStorageContext()!==storage)fail('MEMORY_HISTORY_PROVIDER_DENIED')}
  function gate(operation:Operation){authorize();if(operation.controller.signal.aborted)fail(performance.now()>=operation.deadlineAt?'MEMORY_HISTORY_NATIVE_TIMEOUT':'MEMORY_HISTORY_CANCELLED');if(!operation.active||operation.epoch!==epoch)fail('MEMORY_HISTORY_STALE');if(performance.now()>=operation.deadlineAt)fail('MEMORY_HISTORY_NATIVE_TIMEOUT');for(const endpoint of operation.endpoints)endpoint.assertLive()}
- function revoke(preserve?:HistoryResponseWitness){for(const witness of [...witnesses])if(witness!==preserve)witness.retire();epoch++;committed=false;cursor=undefined;coverage=insufficient('not-acquired');for(const operation of operations)operation.controller.abort()}
+ function revoke(preserve?:HistoryResponseWitness){for(const witness of [...witnesses])if(witness!==preserve)witness.retire();epoch++;committed=false;shared=undefined;cursor=undefined;coverage=insufficient('not-acquired');for(const operation of operations)operation.controller.abort()}
  async function cleanupHeads(){const results=await Promise.allSettled([...captures].map(async([locator,capture])=>{await options.history.prepareTranscriptChange(options.actorToken,capture.transcriptToken);if(captures.get(locator)===capture)captures.delete(locator)}));const failed=results.find(result=>result.status==='rejected');if(failed?.status==='rejected')throw failed.reason}
  async function disposeEndpoints(endpoints:NativeHistoryEndpoint[],reason:'cancel'|'release'){const results=await Promise.allSettled(endpoints.map(endpoint=>endpoint.dispose(reason)));const failed=results.find(result=>result.status==='rejected');if(failed?.status==='rejected')throw failed.reason}
  async function invalidate(_reason:'forget'|'history-remove'|'grant-change'|'profile-change'|'root-change'|'actor-teardown'|TranscriptMutation){const pending=[...operations];revoke();const results=await Promise.allSettled([cleanupHeads(),disposeEndpoints(pending.flatMap(operation=>operation.endpoints),'cancel'),...pending.map(async operation=>{await operation.done;if(Object.hasOwn(operation,'cleanupFailure'))throw operation.cleanupFailure})]);const failed=results.find(result=>result.status==='rejected');if(failed?.status==='rejected')throw failed.reason}
@@ -159,12 +161,30 @@ export function createNativeHistoryProvider(options:Options){
     gate(operation);if(operation.documents.size>0){committed=true;cursor={grant,bootId:options.actorAuthority.bootId,actorToken:options.actorToken,epoch,rootIdentity:rootPin!,identities:operation.identities!,pairDigest:operation.pairDigest!,incarnation:operation.head!.incarnation,maxSeq:operation.head!.maxSeq,checkpointThroughSeq:operation.head!.checkpointThroughSeq,refs:[...captures.values()].map(c=>structuredClone(c.ref))}}
     partialCoverage=operation.partial===true;
     if(!operation.documents.size&&partialCoverage){coverage=insufficient('partial-source',['MEMORY_HISTORY_ORIGIN_UNPROVEN']);return structuredClone(coverage)}
-    coverage=insufficient('not-acquired');return {status:'captured',source:'native-h',coverage:partialCoverage?'partial':'complete',captured:operation.documents.size,diagnostics:partialCoverage?['MEMORY_HISTORY_COVERAGE_INSUFFICIENT','MEMORY_HISTORY_ORIGIN_UNPROVEN']:[],selection:{selected:1,covered:1,excluded:0}};
+    coverage=insufficient('not-acquired');const outcome:NativeHistoryCaptureOutcome={status:'captured',source:'native-h',coverage:partialCoverage?'partial':'complete',captured:operation.documents.size,diagnostics:partialCoverage?['MEMORY_HISTORY_COVERAGE_INSUFFICIENT','MEMORY_HISTORY_ORIGIN_UNPROVEN']:[],selection:{selected:1,covered:1,excluded:0}};
+    if(committed&&epoch===captureEpoch)shared={epoch,outcome:structuredClone(outcome)};return outcome;
    },signal);
   }catch(error){
    const insufficientCoverage=error instanceof Error&&error.message==='MEMORY_HISTORY_COVERAGE_INSUFFICIENT'?structuredClone(coverage):undefined;
    revoke();await cleanupHeads();if(insufficientCoverage){coverage=insufficientCoverage;return structuredClone(coverage)}throw error;
   }finally{publishing=false}
+ }
+ /** For delegated runs only (docs/superpowers/specs/2026-10-26-delegated-history-sharing.md): reuse the committed capture
+  * while its epoch has not moved, or join the shared capture in flight, instead of revoking evidence other runs of the
+  * family still hold. The caller's signal only detaches that caller; the shared capture keeps its own deadline. A direct
+  * capture() in progress is still refused, as before. */
+ async function captureShared(signal?:AbortSignal):Promise<NativeHistoryCaptureOutcome>{
+  authorize();if(signal?.aborted)fail('MEMORY_HISTORY_CANCELLED');
+  if(!sharing){
+   if(!publishing&&committed&&shared?.epoch===epoch)return structuredClone(shared.outcome);
+   if(publishing)fail('MEMORY_HISTORY_STALE');
+   sharing=capture().finally(()=>{sharing=undefined});
+  }
+  const work=sharing;if(!signal)return structuredClone(await work);
+  return structuredClone(await new Promise<NativeHistoryCaptureOutcome>((resolve,reject)=>{
+   const detach=()=>reject(Error('MEMORY_HISTORY_CANCELLED'));signal.addEventListener('abort',detach,{once:true});
+   work.then(resolve,reject).finally(()=>signal.removeEventListener('abort',detach));
+  }));
  }
  async function query(input:Omit<Parameters<ReturnType<typeof createMainHistory>['query']>[1],'scope'>):Promise<NativeHistoryQueryOutcome>{
   authorize();if(publishing)fail('MEMORY_HISTORY_STALE');if(!committed)return structuredClone(coverage);
@@ -172,5 +192,5 @@ export function createNativeHistoryProvider(options:Options){
   try{const result=await options.history.query(options.actorToken,input);if(coverage.reason!=='not-acquired')return structuredClone(coverage);evidenceGate(queryEpoch);return {status:'queried',source:'native-h',coverage:partialCoverage?'partial':'complete',result}}
   catch(error){if(error instanceof Error&&error.message==='MEMORY_HISTORY_COVERAGE_INSUFFICIENT'){await cleanupHeads();return structuredClone(coverage)}throw error}
  }
- return Object.freeze({capture,query,beforeMutation:async(kind:TranscriptMutation,entry?:TranscriptEntry,ticket?:object)=>{if(ticket&&entry&&handledTickets.get(ticket)===bytesHash(Buffer.from(JSON.stringify(entry)))){handledTickets.delete(ticket);return Promise.resolve()}if(kind==='delete'||kind==='repair'||entry?.kind==='turn_rewind')await options.history.retireOrigins(options.actorToken,kind,entry);return invalidate(kind)},invalidate,close(){if(!closing){closed=true;closing=invalidate('actor-teardown')}return closing}});
+ return Object.freeze({capture,captureShared,query,beforeMutation:async(kind:TranscriptMutation,entry?:TranscriptEntry,ticket?:object)=>{if(ticket&&entry&&handledTickets.get(ticket)===bytesHash(Buffer.from(JSON.stringify(entry)))){handledTickets.delete(ticket);return Promise.resolve()}if(kind==='delete'||kind==='repair'||entry?.kind==='turn_rewind')await options.history.retireOrigins(options.actorToken,kind,entry);return invalidate(kind)},invalidate,close(){if(!closing){closed=true;closing=invalidate('actor-teardown')}return closing}});
 }
