@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createMemoryEntriesPanel } from "./entries-panel";
+import { createMemoryEntriesPanel, showMemoryView } from "./entries-panel";
 import type { FactView } from "../../../shared/memory-contracts";
 import type { MemoryPanelAction, MemoryPanelState, MemoryPolicyPanelApi } from "../../../shared/memory-panel-contracts";
 
@@ -33,6 +33,29 @@ const click = (root: HTMLElement, action: string) => (root.querySelector(`[data-
 beforeEach(() => { document.body.replaceChildren(); });
 
 describe("memory entries panel", () => {
+  it("switches to the graph, and a picked memory shows the same card with the same actions", async () => {
+    const f = fixture(); await f.panel.load();
+    (f.root.querySelector('[data-memory-view="graph"]') as HTMLButtonElement).click();
+    expect(f.root.querySelector("svg.memory-graph")).not.toBeNull();
+    expect(f.root.querySelector(".memory-search-input")?.hasAttribute("hidden")).toBe(true);
+    expect(f.root.querySelector("[data-memory-action]")).toBeNull();
+    const node = f.root.querySelector('[data-node-id="candidate:candidate-1"]') as SVGGElement;
+    node.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(f.root.querySelectorAll(".memory-record")).toHaveLength(1);
+    click(f.root, "confirm"); await vi.waitFor(() => expect(f.actions.map(action => action.kind)).toEqual(["confirm"]));
+    (f.root.querySelector('[data-memory-view="list"]') as HTMLButtonElement).click();
+    expect(f.root.querySelector(".memory-graph-wrap")?.hasAttribute("hidden")).toBe(true);
+  });
+  it("opens in graph view when settings were asked for the memory graph", async () => {
+    showMemoryView("graph");
+    try { const f = fixture(); await f.panel.load(); expect(f.root.querySelector("svg.memory-graph")).not.toBeNull(); }
+    finally { showMemoryView("list"); }
+  });
+  it("shows an empty graph message when nothing is remembered", async () => {
+    const f = fixture(); f.state.candidates = []; await f.panel.load();
+    (f.root.querySelector('[data-memory-view="graph"]') as HTMLButtonElement).click();
+    expect(f.root.querySelector(".memory-graph-wrap")?.textContent).toContain("流萤还没记住什么");
+  });
   it.each(["", " \n\t", "safe-looking text"])("keeps reference-only/blank cards rejectable without a confirmation action: %j", async assertion => {
     const f = fixture(); Object.assign(f.state.candidates[0], { assertion, reviewState: assertion.trim() ? "reference-only" : "ready", contentHash: "a".repeat(64) });
     await f.panel.load(); await f.panel.load();

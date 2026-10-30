@@ -49,6 +49,7 @@ declare global {
     manualBrowserWorkspace?: import("../shared/manual-browser").ManualBrowserWorkspaceApi;
     manualBrowser?: BrowserAvailabilityApi;
     desktopAsr?: DesktopAsrApi;
+    memoryPanel?: { graphSummary?: () => Promise<import("../shared/memory-panel-contracts").MemoryGraphSummary> };
   }
 }
 export {};

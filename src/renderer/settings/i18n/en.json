@@ -333,7 +333,10 @@
             "unresolved": "Could not work out the corrected text. Try phrasing it differently.",
             "backend": "The memory service is unavailable.",
             "failed": "The action did not complete. Please try again later."
-          }
+          },
+          "viewLabel": "View",
+          "viewList": "List",
+          "viewGraph": "Graph"
         },
         "shadow": {
           "title": "Shadow extraction (experimental)",
@@ -407,6 +410,24 @@
           "unavailable": "Automatic memory saving is unavailable.",
           "budget": "Preference extraction requests today: {{used}} / 20. With automatic saving off, new candidates still need confirmation; extraction remains limited per day.",
           "unknown": "Some requests have no known result and will not be retried automatically."
+        },
+        "graph": {
+          "label": "Memory graph",
+          "hint": "Pick a node to see and manage it below. Drag nodes or the background to move, scroll to zoom.",
+          "empty": "Nothing remembered yet. Preferences you state in a chat appear here once confirmed.",
+          "self": "You",
+          "untitled": "Untitled conversation",
+          "category": {
+            "language": "Reply language",
+            "response-style": "Reply style",
+            "shell": "Shell",
+            "address": "Name",
+            "tool": "Tools",
+            "preference": "Preferences",
+            "other": "Other",
+            "programming-usage": "Coding habits",
+            "programming-ability": "Coding skills"
+          }
         }
       },
       "appearance": {

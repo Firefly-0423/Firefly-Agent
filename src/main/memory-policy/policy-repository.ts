@@ -296,7 +296,9 @@ export class PolicyRepository {
     const owners=this.records(scope).filter(r=>r.actorKey===actor&&r.factId!==null),facts=this.facts.current(scope);
     let result:unknown;
     if(cmd.kind==="audit"){const id=parseInternalId(input.factId);if(!owners.some(r=>r.factId===id))throw new Error("MEMORY_FACT_NOT_FOUND");result=this.supports.audit(scope,actor,id,facts.find(f=>f.factId===id));}
-    else result=this.eligibleFactsWithinTransaction(scope,actor,transactionNow(this.db),cmd.kind==="manage"?"management":undefined).map(f=>({...f,scope:(owners.find(r=>r.factId===f.factId)?.projectKey!==undefined?"project":"global") as "global"|"project",...(owners.find(r=>r.factId===f.factId)?.projectKey!==undefined?{projectKey:owners.find(r=>r.factId===f.factId)!.projectKey}:{})}));
+    // Management also names each fact's category (from the extraction that produced it) for the settings view.
+    else result=this.eligibleFactsWithinTransaction(scope,actor,transactionNow(this.db),cmd.kind==="manage"?"management":undefined).map(f=>{const owner=owners.find(r=>r.factId===f.factId),attribute=owner?.typed?.legacyAttribute??owner?.extraction.attribute;
+     return {...f,scope:(owner?.projectKey!==undefined?"project":"global") as "global"|"project",...(owner?.projectKey!==undefined?{projectKey:owner.projectKey}:{}),...(cmd.kind==="manage"&&attribute&&attribute!=="unclassified"?{attribute}:{})}});
     this.db.exec("COMMIT");return result;
    });}catch(error){this.db.exec("ROLLBACK");throw error}
   }
