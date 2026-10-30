@@ -48,7 +48,7 @@ Firefly puts a desktop character who chats with you and an agent workbench that 
 | 📋 Work · Tasks | 💻 Code · Workspace |
 | --- | --- |
 | <img src="./readme-assets/screenshots/work.png" alt="Work mode: reading project notes and turning them into a study plan" width="100%"> | <img src="./readme-assets/screenshots/code.png" alt="Code mode: fixing a bug in a bound Rust project" width="100%"> |
-| Bind a project folder; Firefly reads the material and turns it into tables and checkpoints. The run folds to one summary line and its results open in the task panel. | Read and change code, run commands and tests in a bound workspace; the side panel shows the branch, changes and current task. |
+| Bind a project folder; Firefly reads the material and turns it into tables and checkpoints. The run folds to one summary line and its results open in the task panel. | Read and change code, run commands and tests in a bound workspace; the side panel shows the branch and changes. |
 
 ## 🚀 Quick start
 
@@ -119,17 +119,21 @@ Scripts are described in [scripts/README.md](./scripts/README.md).
 - **Projects**: the sidebar groups conversations by project; "+" creates a project (name it and choose its source folder), "..." organizes the sidebar and sorts chats, with pinning, sections and hidden projects.
 - **Conversation menu**: rename, pin, copy the title or project path, open the project in File Explorer or a detected editor, export, delete.
 - **Floating composer**: in a conversation, hover the composer to drag it anywhere in the workspace or collapse it to a round button; it reopens for a pending approval or question.
+- **Session overview**: cards beside the conversation show the environment, connectors, background tasks, context, usage, outputs and changes, and can be dragged into any order. The context total comes from the usage the provider reports; the breakdown is estimated from character counts.
 
 ### 🧠 Memory and knowledge
 
 - The default memory chain has three layers: current context (S), fact memory (M) and history search (H), stored in SQLite.
 - Project details mentioned inside a project are used only there; when history lacks a trusted snapshot, Firefly reports incomplete coverage instead of guessing.
 - Character and document knowledge RAG (including BGE-M3) is configured separately and is not the default personal memory.
+- The **memory graph** in settings draws confirmed and pending memories by category and links them to the conversations they came from. Blank candidates are discarded instead of waiting for review.
+- Subtasks delegated to specialist agents reuse the history reading of the conversation that started them instead of opening their own.
 
 ### 🔌 Web, extensions and channels
 
 - **Browser workspace**: manual browsing and agent actions are kept apart; the agent works only within the domains and actions currently approved.
 - **Skills**: 50 third-party and adapted Skills plus 4 project Skills, validated and enabled per mode.
+- **Skills market**: install Skills from [firefly-skills](https://github.com/Firefly-0423/firefly-skills), openai/plugins and anthropics/skills. Only a statically reviewed version, pinned to a commit and matching its content digest, can be installed, and it starts disabled.
 - **Plugins**: a local plugin host, isolated panels, the plugin SDK and examples; the online catalog comes from [firefly-plugins](https://github.com/Firefly-0423/firefly-plugins), packages are checked against their SHA-256 on install and start disabled.
 - **MCP**: add a server by its local command (stdio) or its remote address (Streamable HTTP; an address ending in `/sse` uses legacy SSE).
 - **Channels**: QQ, QQ Bot, WeChat and Feishu adapters, with your own credentials.
@@ -144,7 +148,7 @@ Scripts are described in [scripts/README.md](./scripts/README.md).
 
 - **Permission levels and approvals**: files and commands run at read-only, project read-only, scoped or full access; writes, commands and external actions follow approvals and can be cancelled. Personas, Skills and avatars never widen tool permissions.
 - **Command execution**: the shell tool has total and idle timeouts and cleans up the whole process tree on finish or cancel.
-- **Browser**: approving a site manually gives the agent no rights; private-network targets have their own limits.
+- **Browser**: approving a site manually gives the agent no rights; private-network targets have their own limits. Under a TUN proxy in fake-ip mode (such as Mihomo), manual browsing first confirms over DoH that the real address is public; agent browsing refuses fake-ip addresses.
 - **Local data**: settings, credentials, history and user Skills never enter Git or the installer. The memory database key is protected with Windows DPAPI; channel credentials use system encryption.
 - **Data location**: production data lives in `%APPDATA%\Firefly` by default, development instances use an isolation root; quit the app and back up before touching it by hand.
 - **External services**: depending on the model and action, conversations, documents, tool results and recordings may be sent to external services; use services you trust.
@@ -155,7 +159,7 @@ Scripts are described in [scripts/README.md](./scripts/README.md).
 | --- | --- |
 | Runtime | Node.js 24 + Electron 43 |
 | Language and build | TypeScript, Vite 7, electron-builder |
-| Interface | React 19, Ant Design 6 / Ant Design X, Tailwind CSS 4 |
+| Interface | React 19, Ant Design 6 / Ant Design X, Tailwind CSS 4; bundled Noto Sans SC and JetBrains Mono variable fonts; d3-force for the memory graph |
 | Live2D | PixiJS 7 + pixi-live2d-display |
 | Agent | Own harness loop, AG-UI event protocol, native tool calling |
 | Tools and code | Tool scheduling and approvals, LSP client, `@ast-grep/napi`, `simple-git`, MCP SDK |
