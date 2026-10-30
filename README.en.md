@@ -42,13 +42,21 @@ Firefly puts a desktop character who chats with you and an agent workbench that 
 
 ## 📸 Screenshots
 
-<p align="center"><img src="./readme-assets/screenshots/chat.png" alt="Chat mode: talking with Firefly, the built-in browser on the right and the Live2D Firefly on the desktop" width="100%"></p>
-<p align="center"><sub>Chat: talking with Firefly. The built-in browser is open on the right and the Live2D Firefly sits on the desktop; the overview cards show context, usage and background tasks.</sub></p>
+<p align="center"><b>💬 Chat · Desktop companion</b></p>
+<p align="center"><img src="./readme-assets/screenshots/chat.webp" alt="Chat mode: Firefly suggests a short weekend plan, with the built-in browser open on the right and the Live2D Firefly on the desktop" width="100%"></p>
+<p align="center"><sub>Talking with Firefly. The built-in browser is open on the right, the overview cards show context and usage (the total comes from the provider), and the Live2D Firefly sits on the desktop.</sub></p>
 
-| 📋 Work · Tasks | 💻 Code · Workspace |
-| --- | --- |
-| <img src="./readme-assets/screenshots/work.png" alt="Work mode: reading project notes and turning them into a study plan" width="100%"> | <img src="./readme-assets/screenshots/code.png" alt="Code mode: fixing a bug in a bound Rust project" width="100%"> |
-| Bind a project folder; Firefly reads the material and turns it into tables and checkpoints. The run folds to one summary line and its results open in the task panel. | Read and change code, run commands and tests in a bound workspace; the side panel shows the branch and changes. |
+<p align="center"><b>📋 Work · Tasks</b></p>
+<p align="center"><img src="./readme-assets/screenshots/work.webp" alt="Work mode: Firefly delegates to Blade and Dan Heng in parallel, then combines their results" width="100%"></p>
+<p align="center"><sub>Firefly splits a task between two partners working in parallel (Blade counts the functions, Dan Heng summarizes the notes), checks their answers against the sources, and combines them. Each partner's run result is on the right.</sub></p>
+
+<p align="center"><b>💻 Code · Workspace</b></p>
+<p align="center"><img src="./readme-assets/screenshots/code.webp" alt="Code mode: fixing a panic with no arguments in a bound Rust project and adding a unit test" width="100%"></p>
+<p align="center"><sub>Fixing a panic and adding a test in a bound project. The run folds into one summary line (files read, commands run, what changed, what failed); the branch, changes and run results are on the right.</sub></p>
+
+<p align="center"><b>🧠 Memory graph</b></p>
+<p align="center"><img src="./readme-assets/screenshots/memory-graph.png" alt="The memory graph in settings: you in the centre, linked to categories, memories and the conversations they came from" width="80%"></p>
+<p align="center"><sub>Settings → Memory → Graph: you in the centre, linked to each category, each memory and the conversation it came from. Click a node to review it; drag and zoom to explore.</sub></p>
 
 ## 🚀 Quick start
 
