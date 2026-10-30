@@ -1,5 +1,5 @@
 {
-  "name": "@firefly-0423/plugin-sdk",
+  "name": "@firefly_wu/plugin-sdk",
   "version": "0.2.0",
   "description": "Firefly 插件开发工具包：公开契约类型、Manifest 校验与插件测试工具",
   "license": "MIT",

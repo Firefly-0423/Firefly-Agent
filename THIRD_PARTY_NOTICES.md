@@ -25,7 +25,7 @@ The offline marketplace plugins `json-tools`, `timezone-tools`, `code-language` 
 
 ## JavaScript packages and plugins
 
-Runtime and build dependencies are declared in `package.json` and locked in `package-lock.json`; their individual package licenses remain applicable. The retired `vendor/cloud-music-mcp/` source is no longer shipped. Its provenance and license remain in repository history and historical migration records. The project-maintained SDK is built from this repository as `@firefly-0423/plugin-sdk`, with the original MIT notice included, and its releases are published to npm from `.github/workflows/plugin-sdk-publish.yml`. The upstream plugin registry is no longer a default service; local ZIP installation remains available.
+Runtime and build dependencies are declared in `package.json` and locked in `package-lock.json`; their individual package licenses remain applicable. The retired `vendor/cloud-music-mcp/` source is no longer shipped. Its provenance and license remain in repository history and historical migration records. The project-maintained SDK is built from this repository as `@firefly_wu/plugin-sdk`, with the original MIT notice included, and its releases are published to npm from `.github/workflows/plugin-sdk-publish.yml`. The upstream plugin registry is no longer a default service; local ZIP installation remains available.
 
 ## Skill frontmatter parsing
 

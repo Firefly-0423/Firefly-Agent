@@ -1,12 +1,12 @@
 # Publishing the plugin SDK to npm
 
-The SDK in `plugin-sdk/` is published as `@firefly-0423/plugin-sdk`. Releases go out from `.github/workflows/plugin-sdk-publish.yml` through npm trusted publishing (OIDC): the repository holds no npm token, and npm adds provenance automatically.
+The SDK in `plugin-sdk/` is published as `@firefly_wu/plugin-sdk`. Releases go out from `.github/workflows/plugin-sdk-publish.yml` through npm trusted publishing (OIDC): the repository holds no npm token, and npm adds provenance automatically.
 
 npm only lets you configure a trusted publisher for a package that already exists, so the very first version is published by hand once.
 
 ## First publish (once, by the owner)
 
-1. Have an npm account or organization named `firefly-0423` with two-factor authentication on. The package scope must match it.
+1. Log in as the npm account `firefly_wu`, with two-factor authentication on. The package scope `@firefly_wu` is that account.
 2. From a clean checkout of the commit you want to release, build and check the package:
 
    ```bash

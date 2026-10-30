@@ -1,6 +1,6 @@
 name: plugin-sdk-publish
 
-# 发布 @firefly-0423/plugin-sdk 到 npm：推送 plugin-sdk-v<版本> 标签时触发。
+# 发布 @firefly_wu/plugin-sdk 到 npm：推送 plugin-sdk-v<版本> 标签时触发。
 # 用 npm 可信发布（OIDC），仓库里不存放 npm 令牌；来源证明由 npm 自动生成。
 # 首次发布与 npmjs.com 上的可信发布者设置见 docs/plugin-sdk-publishing.md。
 on:

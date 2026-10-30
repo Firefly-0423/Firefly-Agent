@@ -1,4 +1,4 @@
-// 校验 @firefly-0423/plugin-sdk 的打包质量，共五项：
+// 校验 @firefly_wu/plugin-sdk 的打包质量，共五项：
 //   1. manifest.schema.json 与 PluginManifestInput 类型没有漂移（generate-schema --check）
 //   2. 包内 vendored 的 api.ts 与宿主的 src/plugins/api.ts 逐字节一致
 //   3. npm pack --dry-run 列出的文件只有 dist、package.json、README.md（以及 LICENSE）

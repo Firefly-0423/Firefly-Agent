@@ -41,7 +41,7 @@ test("the plugin SDK publishes to npm only from a version tag, through trusted p
   // No npm token anywhere: publishing relies on the OIDC id-token.
   assert.doesNotMatch(fs.readFileSync(".github/workflows/plugin-sdk-publish.yml", "utf8"), /NODE_AUTH_TOKEN|NPM_TOKEN|secrets\./);
   const sdk = JSON.parse(fs.readFileSync("plugin-sdk/package.json", "utf8"));
-  assert.equal(sdk.name, "@firefly-0423/plugin-sdk");
+  assert.equal(sdk.name, "@firefly_wu/plugin-sdk");
   assert.equal(sdk.private, undefined);
   assert.equal(sdk.repository.url, "git+https://github.com/Firefly-0423/Firefly-Agent.git");
 });
