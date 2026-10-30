@@ -196,7 +196,7 @@ describe("production memory backend", () => {
     expect(f.worker.close).toHaveBeenCalledTimes(1);
   });
 
-  it("uses the actual native transport framing and waits for release acknowledgement and child closure", async () => {
+  it("uses the resident helper framing: a release acknowledgement frees the helper and close ends it", async () => {
     const f = fixture();
     const child = new SyntheticChild();
     cleanup.push(() => child.finish(null));
@@ -204,23 +204,28 @@ describe("production memory backend", () => {
     const backend = await open({ ...f.options, helperExists: () => true, spawn: input => { spawned.push(input); return child.asProcess(); } });
     const opening = backend.endpointFactory(nativeInput(f));
     await tick();
-    child.frame({ type: "ready", version: 1, rootIdentity: nativeIdentity });
+    child.frame({ type: "ready", version: 2, rootIdentity: nativeIdentity });
     const endpoint = await opening;
-    expect(spawned).toEqual([expect.objectContaining({ helperPath: path.join(f.root, "native", "target", "release", "firefly-history-read.exe"), root: f.storage.dataRoot })]);
+    expect(spawned).toEqual([expect.objectContaining({ helperPath: path.join(f.root, "native", "target", "release", "firefly-history-read.exe"), root: f.storage.dataRoot, idleMs: 20_000 })]);
     const reading = endpoint.read(["session-a", "snapshot.json"], 2);
     await tick();
-    child.frame({ type: "snapshot", version: 1, identity: nativeIdentity, rawLength: 2, bytesHex: "6162" });
+    child.frame({ type: "snapshot", version: 2, identity: nativeIdentity, rawLength: 2, bytesHex: "6162" });
     expect((await reading).bytes).toEqual(Uint8Array.from([97, 98]));
     let disposed = false;
     const disposing = endpoint.dispose("release").then(() => { disposed = true; });
     await tick();
-    child.frame({ type: "released", version: 1 });
-    await tick();
     expect(disposed).toBe(false);
-    child.finish();
+    child.frame({ type: "released", version: 2 });
     await disposing;
-    await backend.close();
     expect(child.kills).toBe(0);
+    // The helper stays for the next read; closing the backend ends it and waits for its process.
+    let closed = false;
+    const closing = backend.close().then(() => { closed = true; });
+    await tick();
+    expect(child.kills).toBe(1);
+    expect(closed).toBe(false);
+    child.finish(null);
+    await closing;
   });
 
   it.each([false, true])("waits for the exact helper child on close (handshake ready=%s)", async (ready) => {
@@ -232,7 +237,7 @@ describe("production memory backend", () => {
     const outcome = opening.catch(error => error.message);
     await tick();
     if (ready) {
-      child.frame({ type: "ready", version: 1, rootIdentity: nativeIdentity });
+      child.frame({ type: "ready", version: 2, rootIdentity: nativeIdentity });
       await opening;
     }
     let settled = false;

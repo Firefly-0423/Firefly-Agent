@@ -5,6 +5,7 @@ import {recallFixture} from '../../../scripts/verify/memory-recall/recall-fixtur
 import {canonicalJson} from '../memory-core/repository-types';
 import {createMainContext} from '../memory-context/main-context';
 import {HistoryOrigins} from './history-origins';
+import {RecordCodec} from '../memory-core/record-codec';
 import {initializeSchema} from '../memory-core/schema';
 const fixtures:ReturnType<typeof recallFixture>[]=[];
 const hash=(v:unknown)=>createHash('sha256').update(canonicalJson(v)).digest('hex');
@@ -74,6 +75,26 @@ it('a read snapshot gives the same answers while scanning the policy table once 
   const shared=[...origins,...origins].map(o=>snapshot.valid('scope-a',o.owner,o.event));
   expect(each).toEqual([true,true,true]);expect(shared).toEqual([...each,...each]);
   expect(perCall).toBeGreaterThanOrEqual(3);expect(scans).toBe(1);
+ }finally{db.close()}
+});
+it('a history document shared by many receipts is read once per traversal and once per snapshot',async()=>{
+ const f=fixture(),root=await origin(f,'session-b','shared root'),db=new DatabaseSync(f.databasePath),ledger=new HistoryOrigins(db,f.key),codec=new RecordCodec(f.key);
+ const doc=(id:string,state:string)=>db.prepare("INSERT INTO history_records VALUES(?,?,?,'document',?)").run(id,'scope-a',Buffer.alloc(32,id.length),codec.seal('history-document','scope-a',id,{...root.owner,state,incarnation:'inc-1'}));
+ const dependency=(recordId:string)=>({...root.owner,recordId,incarnation:'inc-1'});
+ const chain=(name:string,recordId:string)=>{const links:{actorKey:string;providerId:string;sessionId:string;event:any}[]=[{...root.owner,event:root.event}];
+  for(let i=1;i<=4;i++){const link={...root.owner,event:{originalId:`${name}-${i}`,seq:i+1,turnId:`${name}-turn-${i}`,revision:null,originalRole:'assistant' as const,digest:hash(`${name}-${i}`)}};
+   ledger.recordResponse('scope-a',link,link.event,`snapshot-${name}-${i}`,{sources:[],events:[links[i-1]],documents:[dependency(recordId)],complete:true});links.push(link)}
+  return links};
+ try{
+  db.exec('BEGIN IMMEDIATE');doc('record-live','live');doc('record-gone','deleted');const live=chain('live','record-live'),gone=chain('gone','record-gone');db.exec('COMMIT');
+  let reads=0;const prepare=db.prepare.bind(db);
+  (db as unknown as {prepare:typeof db.prepare}).prepare=(sql:string)=>{if(sql.includes('FROM history_records'))reads++;return prepare(sql)};
+  expect(new HistoryOrigins(db,f.key).valid('scope-a',live[4],live[4].event)).toBe(true);expect(reads).toBe(1);reads=0;
+  const snapshot=new HistoryOrigins(db,f.key,{snapshot:true});
+  expect([live[4],live[3],live[2]].map(link=>snapshot.valid('scope-a',link,link.event))).toEqual([true,true,true]);expect(reads).toBe(1);
+  // A deleted document still fails every receipt that depends on it, cached or not.
+  expect(new HistoryOrigins(db,f.key).valid('scope-a',gone[4],gone[4].event)).toBe(false);
+  expect([gone[4],gone[1]].map(link=>snapshot.valid('scope-a',link,link.event))).toEqual([false,false]);
  }finally{db.close()}
 });
 it('a traversal that runs out of depth does not poison the shared snapshot for a shorter chain inside it',async()=>{

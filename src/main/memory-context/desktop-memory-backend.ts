@@ -11,7 +11,7 @@ import type {KeyProtection} from "../memory-core/key-provider";
 import {loadModelSettings,resolveModelSettingsProfile,type ModelSettings} from "../settings/model-settings";
 import {createLocalEmbeddingProvider} from "../rag/embedding";
 import {createStandardReranker} from "../rag/reranker";
-import {createNativeHistoryEndpointFactory} from "../memory-sources/native-history-transport";
+import {createNativeHistorySessionPool} from "../memory-sources/native-history-session-pool";
 import {createMainResponsesBinding,createMainResponsesLimits,createMainOpenRouterBoundedLimits,openRouterResponsesContract,type ResponsesSdkClient,type ResponsesLimitsInput} from "./main-responses-binding";
 import type {DesktopMemoryBackend} from "./main-desktop-memory";
 function unsupported():never{throw Error("MEMORY_CONTEXT_COUNTER_UNSUPPORTED")}
@@ -65,10 +65,11 @@ export async function openDesktopMemoryBackend(options:Options):Promise<DesktopM
  const binding=createMainResponsesBinding({enabled:true,client,limits:bounded?createMainOpenRouterBoundedLimits(initial.contextWindowTokens):createMainResponsesLimits(limits),...(bounded?{expense:createOpenRouterExpense({contextCommand:c=>worker.contextCommand(c)},"budget-"+randomBytes(16).toString("hex"))}:{}),configuration:()=>{const current=settings(),next=fingerprint(current);if(next!==previous){revision++;previous=next}return {revision,config:config(current)}}})!;
   const embedding=createLocalEmbeddingProvider('bgem3');if(!embedding)throw Error('MEMORY_HISTORY_VECTOR_UNAVAILABLE');
   const [,reranker]=await Promise.all([embedding.embed('local memory model initialization'),createStandardReranker()]);
-  const endpointFactory=createNativeHistoryEndpointFactory({spawn:input=>spawn(helper,['--root',input.root,'--parent-pid',String(process.pid),'--deadline-ms',String(input.deadlineMs)],{windowsHide:true,stdio:['pipe','pipe','pipe']})});
+  // Resident helpers: one process serves many reads, each still proven from disk.
+  const endpointFactory=createNativeHistorySessionPool({spawn:input=>spawn(helper,['--root',input.root,'--parent-pid',String(process.pid),'--idle-ms',String(input.idleMs)],{windowsHide:true,stdio:['pipe','pipe','pipe']})});
   return {transport:{sourceCommand:c=>worker.sourceCommand(c),policyCommand:c=>worker.policyCommand(c),recallCommand:c=>worker.recallCommand(c),historyCommand:c=>worker.historyCommand(c),contextCommand:c=>worker.contextCommand(c)},binding,localRetrieval:{embedding,reranker},endpointFactory,
    request:input=>{binding.assertCurrent();if(input.settings.model!==limits.model||input.executionMode!=='chat')unsupported();return {model:limits.model,maxTokens:limits.budget.reservedOutputTokens,stream:true,messages:[{role:'system',content:[input.soulSystemBaseContent,input.skillLayerContent].filter(Boolean).join('\n\n')}]}},
-   close:async()=>{await worker.close();salt.fill(0)},
+   close:async()=>{try{await endpointFactory.close()}finally{await worker.close();salt.fill(0)}},
   };
  }catch(error){await worker.close();salt.fill(0);throw error}
 }
