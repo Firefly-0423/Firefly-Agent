@@ -8,6 +8,10 @@ import { createMemoryGraph } from "./graph-panel";
 
 type Filter = "all" | "facts" | "candidates";
 type View = "list" | "graph";
+// A view asked for before or after the panel exists (the chat's memory card opens settings at "memory-graph").
+let requestedView: View | null = null;
+const viewListeners = new Set<(view: View) => void>();
+export function showMemoryView(view: View): void { requestedView = view; viewListeners.forEach((listener) => listener(view)); }
 
 /** 记忆内容全部按文本渲染；渲染层不构造任何身份或来源凭证。 */
 export function createMemoryEntriesPanel(
@@ -99,19 +103,21 @@ export function createMemoryEntriesPanel(
     node.dataset.memoryView = value;
     node.setAttribute("aria-pressed", String(value === view));
     node.classList.toggle("is-active", value === view);
-    node.addEventListener("click", () => {
-      if (view === value) return;
-      view = value; focus = null;
-      for (const item of viewButtons) {
-        const active = item.dataset.memoryView === value;
-        item.classList.toggle("is-active", active); item.setAttribute("aria-pressed", String(active));
-      }
-      search.hidden = filterGroup.hidden = value === "graph";
-      renderGraph(); renderList();
-    });
+    node.addEventListener("click", () => setView(value));
     viewGroup.append(node);
     return node;
   });
+  function setView(value: View): void {
+    if (view === value) return;
+    view = value; focus = null;
+    for (const item of viewButtons) {
+      const active = item.dataset.memoryView === value;
+      item.classList.toggle("is-active", active); item.setAttribute("aria-pressed", String(active));
+    }
+    search.hidden = filterGroup.hidden = value === "graph";
+    renderGraph(); renderList();
+  }
+  viewListeners.add(setView);
   toolbar.append(search, filterGroup, viewGroup);
   const graphRoot = element("div", "memory-graph-wrap");
   graphRoot.hidden = true;
@@ -300,5 +306,6 @@ export function createMemoryEntriesPanel(
   }
 
   renderList();
+  if (requestedView) setView(requestedView);
   return { load };
 }

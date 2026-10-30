@@ -3,6 +3,7 @@
 // 只负责画和交互，点到节点时交给列表的同一张卡片处理（onSelect）。文字一律 textContent，不拼 HTML。
 import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation, type Simulation, type SimulationLinkDatum, type SimulationNodeDatum } from "d3-force";
 import type { MemoryGraphLink, MemoryGraphModel, MemoryGraphNode } from "./graph-model";
+import { MEMORY_GRAPH_CATEGORY_RGB as CATEGORY_RGB } from "../../../shared/memory-graph-categories";
 
 type Shape = { width: number; height: number; collide: number };
 type SimNode = MemoryGraphNode & SimulationNodeDatum & { shape: Shape };
@@ -10,11 +11,6 @@ type SimLink = SimulationLinkDatum<SimNode> & { kind: MemoryGraphLink["kind"] };
 
 const SVG = "http://www.w3.org/2000/svg";
 const DISTANCE: Record<MemoryGraphLink["kind"], number> = { category: 110, item: 95, source: 80, project: 80 };
-/** One hue per category, as "r g b" for rgb(var(--node-rgb) / a); mid tones that read on both themes. */
-const CATEGORY_RGB: Record<string, string> = {
-  language: "47 153 138", "response-style": "132 102 210", shell: "206 132 38", address: "212 86 118",
-  tool: "64 124 206", preference: "70 160 90", other: "128 134 150",
-};
 const ICON = {
   source: "M-5 -4h10a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-5l-3 2.5v-2.5h-2a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2z",
   project: "M-6 -4h4l1.5 1.5h6.5v7.5h-12z",

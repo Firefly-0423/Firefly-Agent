@@ -1345,6 +1345,16 @@ it("settings state labels a project fact with its project name and a global fact
   expect(JSON.stringify(state)).not.toMatch(/project-[a-f0-9]{64}/);
 });
 
+it("the chat's memory summary counts memories per category and their conversations, without any memory text", async () => {
+  const f = await fixture("code");
+  await turnIn(f, "learn-alpha", "code", "alpha", "I prefer bash");
+  await turnIn(f, "learn-chat", "chat", null, "请叫我小林");
+  const summary = await f.memory.graphSummary();
+  expect(summary.available).toBe(true); expect(summary.sources).toBe(2);
+  expect(summary.categories).toEqual(expect.arrayContaining([{ key: "shell", facts: 1, pending: 0 }, { key: "address", facts: 1, pending: 0 }]));
+  expect(JSON.stringify(summary)).not.toMatch(/bash|小林|learn-/);
+});
+
 it("settings state names the conversation a fact came from, and leaves it out when the session is gone or untitled", async () => {
   const f = await fixture("code");
   await turnIn(f, "learn-title", "chat", null, "请叫我小林");

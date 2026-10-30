@@ -29,6 +29,16 @@ const preload = vi.hoisted(() => ({ exposed: new Map<string, any>(), invoke: vi.
 vi.mock("electron", () => ({ contextBridge: { exposeInMainWorld: (name: string, value: unknown) => preload.exposed.set(name, value) },
   ipcRenderer: { invoke: preload.invoke, send: vi.fn(), on: vi.fn(), removeListener: vi.fn(), off: vi.fn() }, webUtils: {} }));
 
+describe("chat memory summary", () => {
+  it("passes category names and counts only, and reports unavailable on any failure", async () => {
+    const { memoryGraphSummaryDto } = await import("./memory-settings-ipc");
+    expect(await memoryGraphSummaryDto(async () => ({ available: true, sources: 3, categories: [{ key: "shell", facts: 2, pending: 1 }, { key: "我喜欢茶", facts: -1, pending: 1.5 } as any] })))
+      .toEqual({ available: true, sources: 3, categories: [{ key: "shell", facts: 2, pending: 1 }, { key: "other", facts: 0, pending: 0 }] });
+    expect(await memoryGraphSummaryDto(async () => { throw Error("backend"); })).toEqual({ available: false, categories: [], sources: 0 });
+    expect(await memoryGraphSummaryDto(undefined)).toEqual({ available: false, categories: [], sources: 0 });
+  });
+});
+
 describe("settings memory IPC trust boundary", () => {
   it.each(["", " \n\t", "safe-looking text"])("refuses unresolved or blank candidates before forwarding: %j", async assertion => {
     const f = fixture();
@@ -158,7 +168,7 @@ describe("settings memory IPC trust boundary", () => {
     const f = fixture();
     const channels = new Map<string, (...args: any[]) => unknown>();
     registerMemorySettingsIpc({ host: f.host, getSettingsWindow: () => f.win, ipc: { handle: (name, handler) => { channels.set(name, handler); } } });
-    expect([...channels.keys()]).toEqual([IPC.MEMORY_PANEL_GET_STATE, IPC.MEMORY_PANEL_APPLY_ACTION, IPC.MEMORY_PANEL_AUDIT_SOURCE]);
+    expect([...channels.keys()]).toEqual([IPC.MEMORY_PANEL_GET_STATE, IPC.MEMORY_PANEL_APPLY_ACTION, IPC.MEMORY_PANEL_AUDIT_SOURCE, IPC.MEMORY_GRAPH_SUMMARY]);
     expect(await channels.get(IPC.MEMORY_PANEL_GET_STATE)!(f.event)).toEqual(f.state);
   });
   it("forwards the exact original event to the Main host and rechecks after action completion", async () => {

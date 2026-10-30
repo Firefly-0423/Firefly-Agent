@@ -1,5 +1,6 @@
 // 记忆关系图的数据：你 → 类别 → 记忆（已记住 / 待确认）→ 来源对话；项目范围的记忆再连到项目。纯函数，不碰 DOM。
 import type { MemoryPanelState } from "../../../shared/memory-panel-contracts";
+import { memoryGraphCategory } from "../../../shared/memory-graph-categories";
 
 export type MemoryGraphNodeKind = "self" | "category" | "fact" | "candidate" | "source" | "project";
 export interface MemoryGraphNode {
@@ -14,14 +15,13 @@ export interface MemoryGraphNode {
 export interface MemoryGraphLink { source: string; target: string; kind: "category" | "item" | "source" | "project" }
 export interface MemoryGraphModel { nodes: MemoryGraphNode[]; links: MemoryGraphLink[] }
 
-export const KNOWN_CATEGORIES = new Set(["language", "response-style", "shell", "address", "tool", "preference"]);
 
 /** `label(key)` turns a category id ("language", …, "other") or "self" into display text. */
 export function buildMemoryGraph(state: MemoryPanelState, label: (key: string) => string): MemoryGraphModel {
   const nodes = new Map<string, MemoryGraphNode>(), links: MemoryGraphLink[] = [];
   const add = (node: MemoryGraphNode) => { if (!nodes.has(node.id)) nodes.set(node.id, node); return node.id; };
   const self = add({ id: "self", kind: "self", label: label("self") });
-  const categoryOf = (attribute: string | undefined) => attribute && KNOWN_CATEGORIES.has(attribute) ? attribute : "other";
+  const categoryOf = memoryGraphCategory;
   const category = (key: string) => {
     const id = `category:${key}`;
     if (!nodes.has(id)) { add({ id, kind: "category", label: label(key), category: key }); links.push({ source: self, target: id, kind: "category" }); }

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createMemoryEntriesPanel } from "./entries-panel";
+import { createMemoryEntriesPanel, showMemoryView } from "./entries-panel";
 import type { FactView } from "../../../shared/memory-contracts";
 import type { MemoryPanelAction, MemoryPanelState, MemoryPolicyPanelApi } from "../../../shared/memory-panel-contracts";
 
@@ -45,6 +45,11 @@ describe("memory entries panel", () => {
     click(f.root, "confirm"); await vi.waitFor(() => expect(f.actions.map(action => action.kind)).toEqual(["confirm"]));
     (f.root.querySelector('[data-memory-view="list"]') as HTMLButtonElement).click();
     expect(f.root.querySelector(".memory-graph-wrap")?.hasAttribute("hidden")).toBe(true);
+  });
+  it("opens in graph view when settings were asked for the memory graph", async () => {
+    showMemoryView("graph");
+    try { const f = fixture(); await f.panel.load(); expect(f.root.querySelector("svg.memory-graph")).not.toBeNull(); }
+    finally { showMemoryView("list"); }
   });
   it("shows an empty graph message when nothing is remembered", async () => {
     const f = fixture(); f.state.candidates = []; await f.panel.load();

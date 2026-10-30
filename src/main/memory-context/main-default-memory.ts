@@ -1,3 +1,5 @@
+import { memoryGraphCategory } from "../../shared/memory-graph-categories";
+import type { MemoryGraphSummary } from "../../shared/memory-panel-contracts";
 import type { BrowserWindow, IpcMainInvokeEvent } from "electron";
 import { createHash, randomUUID } from "node:crypto";
 import type { MemoryPanelAction, MemoryPanelState, MemoryPanelSourceAudit } from "../../shared/memory-panel-contracts";
@@ -892,8 +894,26 @@ export function createMainDefaultMemory(options: MainDefaultMemoryOptions) {
       }); } finally { settingsSource.release(grant); }
     },
   });
+  /** For the chat window's memory card: how many confirmed and pending memories per category, and from how many
+   * conversations. Counts only; the memory text stays with the settings window. */
+  async function graphSummary(): Promise<MemoryGraphSummary> {
+    if (closing) return { available: false, categories: [], sources: 0 };
+    try { return await serialized(async () => {
+      const core = await resources();
+      const facts = await core.policy.manage(core.settingsActor), pending = (await allCandidates(core)).filter(item => item.reviewState === "ready" && item.assertion.trim());
+      const counts = new Map<string, { facts: number; pending: number }>(), sessions = new Set<string>();
+      const count = (attribute: string | undefined, field: "facts" | "pending", sourceRef: { binding?: { sessionId?: string } }) => {
+        const key = memoryGraphCategory(attribute), entry = counts.get(key) ?? { facts: 0, pending: 0 };
+        entry[field]++; counts.set(key, entry);
+        if (sourceRef.binding?.sessionId) sessions.add(sourceRef.binding.sessionId);
+      };
+      for (const fact of facts) count(fact.typed?.legacyAttribute ?? fact.attribute, "facts", fact.sourceRef);
+      for (const item of pending) count(item.attribute, "pending", item.sourceRef);
+      return { available: true, categories: [...counts].map(([key, value]) => ({ key, ...value })), sources: sessions.size };
+    }); } catch { return { available: false, categories: [], sources: 0 }; }
+  }
   const owner = {
-    settingsHost, automationHost, channelHost, backgroundHost, prepareBackgroundRun: backgroundHost.prepareBackgroundRun,
+    settingsHost, automationHost, channelHost, backgroundHost, prepareBackgroundRun: backgroundHost.prepareBackgroundRun, graphSummary,
     usesCanonicalUserContent: true as const,
     /** Honours a session's temporary mode: zero memory writes, no M/H, no cross-session reads. */
     supportsTemporarySessions: true as const,
