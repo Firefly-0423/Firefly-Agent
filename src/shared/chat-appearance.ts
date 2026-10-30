@@ -52,7 +52,8 @@ export type DiffMarkerStyle = (typeof DIFF_MARKER_STYLES)[number];
 /** CSS font stacks for each code font choice. */
 export const CODE_FONT_STACKS: Record<CodeFontChoice, string> = {
   system: 'ui-monospace, "Cascadia Mono", Consolas, monospace',
-  jetbrains: '"JetBrains Mono", ui-monospace, Consolas, monospace',
+  // The bundled variable face first (ui/fonts.css), then an installed copy; the CJK face keeps Chinese in code off SimSun.
+  jetbrains: '"JetBrains Mono Variable", "JetBrains Mono", ui-monospace, Consolas, "Noto Sans SC Variable", monospace',
   cascadia: '"Cascadia Code", "Cascadia Mono", ui-monospace, monospace',
   consolas: 'Consolas, ui-monospace, monospace',
 };

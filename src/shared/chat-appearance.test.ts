@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_CHAT_APPEARANCE, normalizeChatAppearance, normalizeChatDisplay } from "./chat-appearance";
+import { CODE_FONT_STACKS, DEFAULT_CHAT_APPEARANCE, normalizeChatAppearance, normalizeChatDisplay } from "./chat-appearance";
 
 describe("normalizeChatAppearance", () => {
   it("keeps in-range values and drops fields it does not know about", () => {
@@ -95,4 +95,11 @@ it("keeps a known code theme for each scheme and falls back to Firefly's own for
   expect(normalizeChatAppearance({ codeThemeLight: "github", codeThemeDark: "nord" })).toMatchObject({ codeThemeLight: "github", codeThemeDark: "nord" });
   // A dark-only theme is not a light choice, and unknown names fall back.
   expect(normalizeChatAppearance({ codeThemeLight: "dracula", codeThemeDark: "monokai" })).toMatchObject({ codeThemeLight: "firefly", codeThemeDark: "firefly" });
+});
+
+describe("code font choices", () => {
+  it("lead the JetBrains choice with the bundled variable face, so it works without an installed copy", () => {
+    // ui/fonts.css registers @fontsource-variable/jetbrains-mono under this family name.
+    expect(CODE_FONT_STACKS.jetbrains.startsWith('"JetBrains Mono Variable", "JetBrains Mono"')).toBe(true);
+  });
 });
