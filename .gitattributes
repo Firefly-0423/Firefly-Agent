@@ -6,3 +6,11 @@ src/main/memory-history/fixtures/v8-writer/v8-writer.cjs text eol=lf
 
 # Keep GitHub language statistics to our own code: vendored Skills bring their own Python and C#.
 vendor/** linguist-vendored
+# Third-party and test-fixture bytes are not our code.
+src/renderer/public/live2dcubismcore.min.js linguist-vendored
+**/fixtures/** linguist-vendored
+# Small setup, build and installer scripts would only show up as "Other" in the language bar.
+*.ps1 linguist-detectable=false
+*.sh linguist-detectable=false
+*.bat linguist-detectable=false
+*.nsh linguist-detectable=false
