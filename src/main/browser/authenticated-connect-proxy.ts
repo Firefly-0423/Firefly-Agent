@@ -2,7 +2,8 @@ import { BlockList, connect, isIP, type Socket } from "node:net";
 import { createServer, type IncomingMessage } from "node:http";
 import { lookup } from "node:dns/promises";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { isPublicNetworkAddress, parseConnectAuthority } from "./public-network-target";
+import { isFakeIpAddress, isPublicNetworkAddress, parseConnectAuthority } from "./public-network-target";
+import { resolveOverHttps } from "./browser-doh";
 import type { BrowserConnectionError } from "../../shared/manual-browser";
 /** Main-only snapshot at CONNECT admission; no URL, credentials or raw error crosses it. */
 export type BrowserConnectionObserver = (host: string) => ((code: BrowserConnectionError) => void) | undefined;
@@ -17,10 +18,13 @@ export interface ConnectProxy {
 }
 export interface ProxyDependencies {
   resolve(host: string): Promise<readonly { address: string; family: number }[]>;
+  /** Second opinion for a name the resolver only maps to fake-ip addresses. Defaults to DNS-over-HTTPS. */
+  resolveVerified?(host: string, signal: AbortSignal): Promise<readonly { address: string; family: number }[]>;
   connect(target: PinnedTarget, signal: AbortSignal): Socket;
 }
 const defaults: ProxyDependencies = {
   resolve: (host) => lookup(host, { all: true, verbatim: true }),
+  resolveVerified: resolveOverHttps,
   // Numeric host prevents a second hostname lookup. No proxy-env/HTTP-agent path.
   // https://nodejs.org/download/release/v24.19.0/docs/api/net.html#netcreateconnectionoptions-connectlistener
   connect: (target, signal) => connect({ host: target.address, port: target.port, family: target.family, signal }),
@@ -116,17 +120,31 @@ export async function startAuthenticatedConnectProxy(ownerInput: { webContentsId
       try {
         const literalFamily = isIP(target.host);
         let answers: Awaited<ReturnType<ProxyDependencies["resolve"]>>;
+        // Set when the name only resolved to fake-ip addresses: the proxy's own address the connection goes through.
+        let fakeIp: (typeof answers)[number] | undefined;
         if (literalFamily) answers = [{ address: target.host, family: literalFamily }];
         else {
           const resolving = resolveWithinBudget(dependencies, target.host);
           if (!resolving) { reject(client, 503); return; }
           answers = await abortable(resolving, scope.signal);
+          // A TUN proxy in fake-ip mode answers every name from 198.18.0.0/15. For the user's own browsing, ask DoH where the
+          // name really points and apply the same public-address check below to those answers. Once they pass, the connection
+          // still goes to the fake-ip address: the proxy routes by name, and a bare real IP misses its rules under TUN.
+          if (answers.length && answers.every(answer => isFakeIpAddress(answer.address)) && !scope.signal.aborted) {
+            // The proxy resolves the name again on its own, so a public DoH answer cannot promise where the connection lands
+            // (split-horizon DNS, a local override). Only the user's own browsing accepts that; an Agent grant, which is
+            // host-limited, fails closed (owner's decision, 2026-10-30).
+            if (owner.allowedHosts !== undefined) { report("restricted_address"); reject(client, 403); return; }
+            fakeIp = answers[0];
+            answers = await abortable(Promise.resolve((dependencies.resolveVerified ?? resolveOverHttps)(target.host, scope.signal)), scope.signal);
+          }
         }
         if (!active || owner.signal.aborted || scope.signal.aborted || client.destroyed) return;
         if (!answers.length || answers.length > 64 || answers.some(answer => isIP(answer.address) !== answer.family)) { report("dns_failed"); reject(client, 403); return; }
         if (answers.some(answer => !isPublicNetworkAddress(answer.address))) { report("restricted_address"); reject(client, 403); return; }
         phase = "connect";
-        const pin: PinnedTarget = { address: answers[0].address, family: answers[0].family as 4 | 6, port: 443 };
+        const dial = fakeIp ?? answers[0];
+        const pin: PinnedTarget = { address: dial.address, family: dial.family as 4 | 6, port: 443 };
         upstream = dependencies.connect(pin, scope.signal); sockets.add(upstream);
         upstream.once("close", () => { sockets.delete(upstream!); client.destroy(); });
         upstream.on("error", () => { if (phase === "connect") report("connection_failed"); reject(client, 403); upstream?.destroy(); });
