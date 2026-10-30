@@ -36,6 +36,11 @@ describe("settings memory IPC trust boundary", () => {
     expect(await f.api.applyMemoryPanelAction(f.event, { ...confirm, contentHash: "a".repeat(64) })).toEqual({ status: "rejected", reason: "MEMORY_POLICY_UNRESOLVED" });
     expect(f.actions).toEqual([]);
   });
+  it.each(["", " \n\t", "safe-looking text"])("leaves candidates with nothing to confirm out of the panel: %j", async assertion => {
+    const f = fixture(), empty = { ...f.state.candidates[0], candidateId: "candidate-empty", assertion, reviewState: assertion.trim() ? "reference-only" as const : "ready" as const };
+    f.state.candidates.push(empty);
+    expect((await f.api.getMemoryPanelState(f.event)).candidates.map(item => item.candidateId)).toEqual(["candidate-1"]);
+  });
   it("requires the hash displayed to the user even when a candidate revision is current", async () => {
     const f = fixture(); Object.assign(f.state.candidates[0], { reviewState: "ready", contentHash: "a".repeat(64) });
     expect(await f.api.applyMemoryPanelAction(f.event, { ...confirm, contentHash: undefined })).toEqual({ status: "rejected", reason: "MEMORY_CONFIRMATION_STALE" });
