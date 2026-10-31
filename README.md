@@ -42,13 +42,21 @@ Firefly 把一个会陪你聊天的桌面角色，和一个能真正动手干活
 
 ## 📸 界面预览
 
-<p align="center"><img src="./readme-assets/screenshots/chat.png" alt="Chat 模式：与流萤聊天，右侧是内置浏览器，右下角是桌面 Live2D 流萤" width="100%"></p>
-<p align="center"><sub>Chat：和流萤聊天。右侧是内置浏览器，右下角是常驻桌面的 Live2D 流萤；概览卡片显示上下文、用量与后台任务。</sub></p>
+<p align="center"><b>💬 Chat · 桌面陪伴</b></p>
+<p align="center"><img src="./readme-assets/screenshots/chat.webp" alt="Chat 模式：流萤给出周末放松的小计划，右侧打开了内置浏览器，右下角是桌面 Live2D 流萤" width="100%"></p>
+<p align="center"><sub>和流萤聊天。右侧打开了内置浏览器，概览卡片显示上下文与用量（总量来自服务商返回），Live2D 流萤常驻桌面右下角。</sub></p>
 
-| 📋 Work · 推进任务 | 💻 Code · 代码工作区 |
-| --- | --- |
-| <img src="./readme-assets/screenshots/work.png" alt="Work 模式：读取项目笔记并整理成学习计划表" width="100%"> | <img src="./readme-assets/screenshots/code.png" alt="Code 模式：在绑定的 Rust 项目里修复问题" width="100%"> |
-| 绑定项目文件夹，读取资料后整理成表格与检查点；过程收成一行摘要，运行结果可在右侧任务面板展开。 | 在绑定的工作区里读改代码、跑命令与测试；右侧显示分支与变更。 |
+<p align="center"><b>📋 Work · 推进任务</b></p>
+<p align="center"><img src="./readme-assets/screenshots/work.webp" alt="Work 模式：流萤委派刃和丹恒并行工作，再把两份结果合在一起" width="100%"></p>
+<p align="center"><sub>流萤把任务拆给两位伙伴并行处理——刃统计函数、丹恒总结笔记——回来后对照原文核对，再合成一份结论。右侧是每位伙伴的运行结果。</sub></p>
+
+<p align="center"><b>💻 Code · 代码工作区</b></p>
+<p align="center"><img src="./readme-assets/screenshots/code.webp" alt="Code 模式：在绑定的 Rust 项目里修复无参数时的 panic，并补上单元测试" width="100%"></p>
+<p align="center"><sub>在绑定的项目里修复 panic 并补测试。过程收成一行摘要（读了几个文件、跑了几条命令、改了什么、哪项失败），右侧是分支、变更与运行结果。</sub></p>
+
+<p align="center"><b>🧠 记忆关系图</b></p>
+<p align="center"><img src="./readme-assets/screenshots/memory-graph.png" alt="设置中的记忆关系图：你在中心，连到类别、记忆和它们来自的对话" width="80%"></p>
+<p align="center"><sub>设置 → 记忆 → 关系图：你在中心，连到记忆的类别、每条记忆以及它来自的对话。点节点查看和处理，可拖动、缩放。</sub></p>
 
 ## 🚀 快速开始
 
