@@ -75,3 +75,13 @@ At the user's request the landing page follows the structure of GitHub's Copilot
 ## Open items
 
 - The domain name and its registrar, so DNS and the Pages custom domain can be set up.
+
+## Second layout revision (2026-10-31)
+
+The user found the first version still plain and asked for a closer follow of github.com/features/copilot, without the banner, and for a page that works on a phone held upright.
+
+- Dark by default (light stays as a toggle). The page column has hairlines down both sides; blocks are separated by rules and their content is cut into cells by hairlines.
+- The hero is a mono kicker with a blinking block cursor and the product name on the left, the pitch and buttons on the right. The live demo sits right under it in a glowing frame, in place of a product screenshot.
+- Then three ways in (desktop app, plugin SDK with a copyable `npm i`, the Skills and plugin market), the technology strip, the feature accordion beside the real screenshots, three safety cells, a 2×2 "Extend Firefly" grid, a closing panel, and the FAQ with mono categories on the left.
+- The demo keeps its desktop layout and shrinks as a whole below 1100 px wide, so phones never scroll it sideways; an "open full screen" link opens it alone. Its theme follows the page (`theme` URL parameter, then a `firefly-demo:theme` message).
+- Inside the page, the demo's `focus()` and `scrollIntoView()` no longer move the host page (`src/renderer/web-demo/host-scroll.ts`). Before this, opening the mode menu pulled the page to the top, because Ant Design focuses the menu while it is still parked off-screen.
