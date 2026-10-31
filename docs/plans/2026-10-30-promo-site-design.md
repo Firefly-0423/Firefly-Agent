@@ -64,6 +64,10 @@ Adding a deploy workflow changes CI, so the workflow is added only after the use
 - The demo build swaps the delegated-partner portraits for a stub, so no other character's artwork is published with the site. The only image it ships is the Firefly avatar.
 - Until the domain is ready, the site is served at the repository's github.io address.
 
+## Layout revision (2026-10-31)
+
+At the user's request the landing page follows the structure of GitHub's Copilot product page (github.com/features/copilot, checked 2026-10-31): a two-column hero with a product screenshot, three mode cards, a scrolling strip, a feature list on the left that switches the screenshot on the right, the live demo, a feature grid, FAQ in category tabs, a closing band with the banner, and a multi-column footer. The screenshots are the README ones (`readme-assets/screenshots/`). Only the structure is borrowed; no copy or assets come from that page.
+
 ## Open items
 
 - The domain name and its registrar, so DNS and the Pages custom domain can be set up.
