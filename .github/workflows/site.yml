@@ -1,0 +1,49 @@
+name: site
+
+# 宣传网站：main 更新后构建 site/ 与在线演示（dist/site），部署到 Cloudflare（https://hotarufirefly.online）。
+# 也可以手动运行。站点与域名配置见 wrangler.jsonc；演示页不联网、不含 Live2D 模型，见 vite.web-demo.config.ts。
+# 需要仓库 secrets：CLOUDFLARE_API_TOKEN（“Edit Cloudflare Workers”模板，限定本账号和该域名）与 CLOUDFLARE_ACCOUNT_ID。
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 同时只发布一次；正在进行的发布不取消，避免站点停在半新半旧的状态。
+concurrency:
+  group: site
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: cloudflare
+      url: https://hotarufirefly.online/
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+      # 网站构建不需要 Electron 本体
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Install dependencies
+        run: npm ci --foreground-scripts
+
+      - name: Build the site and the online demo
+        run: npm run build:site
+
+      - name: Deploy to Cloudflare
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4.156.0"
+          command: deploy
