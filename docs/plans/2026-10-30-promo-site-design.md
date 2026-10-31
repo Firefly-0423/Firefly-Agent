@@ -64,6 +64,10 @@ Adding a deploy workflow changes CI, so the workflow is added only after the use
 - The demo build swaps the delegated-partner portraits for a stub, so no other character's artwork is published with the site. The only image it ships is the Firefly avatar.
 - Until the domain is ready, the site is served at the repository's github.io address.
 
+## Hosting on Cloudflare (2026-10-31)
+
+At the user's request the site moved to Cloudflare at `hotarufirefly.online`, whose DNS is in the user's Cloudflare account. It is a static-assets Worker (`wrangler.jsonc`: `dist/site`, no script, `workers_dev` and preview URLs off) with the apex and `www` as custom domains, so Cloudflare creates their DNS records and certificates. `.github/workflows/site.yml` replaces `pages.yml`: on `main` it builds the site and runs `cloudflare/wrangler-action@v4` with a pinned Wrangler version. The repository only needs `contents: read`; the API token and account ID live in the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, which the user creates. The token uses the "Edit Cloudflare Workers" template limited to that account and zone. The github.io copy stops updating; turning GitHub Pages off is left to the user.
+
 ## Layout revision (2026-10-31)
 
 At the user's request the landing page follows the structure of GitHub's Copilot product page (github.com/features/copilot, checked 2026-10-31): a two-column hero with a product screenshot, three mode cards, a scrolling strip, a feature list on the left that switches the screenshot on the right, the live demo, a feature grid, FAQ in category tabs, a closing band with the banner, and a multi-column footer. The screenshots are the README ones (`readme-assets/screenshots/`). Only the structure is borrowed; no copy or assets come from that page.
