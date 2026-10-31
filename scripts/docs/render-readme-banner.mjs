@@ -13,7 +13,8 @@ const out=path.resolve(values.out);
 fs.mkdirSync(path.join(out,'frames'),{recursive:true});
 const {chromium}=await import(pathToFileURL(path.join(deps,'node_modules/playwright/index.mjs')));
 const modelRoot=path.join(repo,'src/renderer/public/models/firefly');
-const frameCount=155;
+const sequence=JSON.parse(fs.readFileSync(path.join(repo,'readme-assets/sources/animation-sequence.json'),'utf8'));
+const frameCount=sequence.frames,frameMs=sequence.frame_duration_ms;
 const duration=JSON.parse(fs.readFileSync(path.join(modelRoot,'Motions/Motions_Tick2_0_File_0.json'),'utf8')).Meta.Duration;
 const dt=duration*1000/frameCount;
 const files={
@@ -88,24 +89,22 @@ try{
   }
   fs.writeFileSync(path.join(out,'expression-probes.json'),JSON.stringify(probes,null,2));console.log(JSON.stringify({probe:true,expressions:probes.map(x=>x.name),errors,blocked}));
  }else{
-  // Sequence matches the existing banner: idle, ears, sunglasses, question,
-  // closed-eye expression, then restore idle before the loop boundary.
-  const sequence=JSON.parse(fs.readFileSync(path.join(repo,'readme-assets/sources/animation-sequence.json'),'utf8'));
+  // Sequence from animation-sequence.json: idle, cat ears, then idle again before the loop boundary.
   const events=new Map(sequence.events.map(x=>[x.frame,x.expression]));const records=[];
   for(let i=0;i<=frameCount;i++){
    if(events.has(i)){const name=events.get(i);const ok=await page.evaluate(name=>preview.model.expression(name),name);if(!ok)throw Error('Expression unavailable: '+name);}
-   const f=await page.evaluate(({dt,i})=>{
+   const f=await page.evaluate(({dt,i,frameMs})=>{
     preview.model.update(dt);preview.app.render();const {core,sceneIndices,partIndex,model}=preview;
     const scene=sceneIndices.map(j=>({id:core._model.drawables.ids[j],opacity:core.getDrawableOpacity(j)}));
     if(core.getPartOpacityByIndex(partIndex)!==0||scene.some(x=>x.opacity!==0))throw Error('Scene visible in frame '+i);
-    return {png:document.getElementById('c').toDataURL('image/png'),record:{frame:i,native_time_ms:i*dt,display_time_ms:i*80,applied_parameters:preview.getApplied(),scene,transform:{x:model.x,y:model.y,scale_x:model.scale.x,scale_y:model.scale.y}}};
-   },{dt,i});
+    return {png:document.getElementById('c').toDataURL('image/png'),record:{frame:i,native_time_ms:i*dt,display_time_ms:i*frameMs,applied_parameters:preview.getApplied(),scene,transform:{x:model.x,y:model.y,scale_x:model.scale.x,scale_y:model.scale.y}}};
+   },{dt,i,frameMs});
    fs.writeFileSync(path.join(out,'frames',String(i).padStart(3,'0')+'.png'),Buffer.from(f.png.split(',')[1],'base64'));records.push(f.record);
   }
   const runtime=await page.evaluate(()=>({pixi:PIXI.VERSION,motions:preview.motions,physics_loaded:!!preview.model.internalModel.physics}));
   if(errors.length||blocked.length||runtime.motions.some(x=>x.group!=='Idle'||x.index!==0))throw Error(JSON.stringify({errors,blocked,runtime}));
   const sources=[...served].filter(f=>f.startsWith(repo+path.sep)).sort().map(file=>({file:path.relative(repo,file).split(path.sep).join('/'),sha256:crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')}));
-  const evidence={frame_count:frameCount,native_duration_seconds:duration,display_duration_ms:12400,native_dt_ms:dt,pixel_dimensions:[1200,1200],warmup_periods:5,sequence,runtime,errors,blocked,source_files:sources,records};
-  fs.writeFileSync(path.join(out,'capture-evidence.json'),JSON.stringify(evidence,null,2));console.log(JSON.stringify({frames:frameCount,display_duration_ms:12400,runtime,errors,blocked,sources:sources.length}));
+  const evidence={frame_count:frameCount,native_duration_seconds:duration,display_duration_ms:sequence.display_duration_ms,native_dt_ms:dt,pixel_dimensions:[1200,1200],warmup_periods:5,sequence,runtime,errors,blocked,source_files:sources,records};
+  fs.writeFileSync(path.join(out,'capture-evidence.json'),JSON.stringify(evidence,null,2));console.log(JSON.stringify({frames:frameCount,display_duration_ms:sequence.display_duration_ms,runtime,errors,blocked,sources:sources.length}));
  }
 }finally{await browser.close();await new Promise(r=>server.close(r));}
