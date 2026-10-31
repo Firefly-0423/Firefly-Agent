@@ -1,7 +1,9 @@
-import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
+import { useEffect, useId, useImperativeHandle, useRef, useState, type ReactNode, type Ref } from "react";
+import { Bot, ChevronDown, CircleAlert, Globe, Info, ShieldAlert } from "lucide-react";
 import { type BrowserPermissionScope, type BrowserOwnedPageDto, type BrowserOwnedPermissionDto, type ManualBrowserApi, type BrowserReply, type ManualBrowserCommand } from "../../../../../shared/manual-browser";
 import { manualBrowserTarget, parseLocalAuthority, resolveAddressInput } from "../../../../../shared/local-network-target";
 import { useTranslation } from "../../../i18n";
+import { Button } from "../../../components/ui/Button";
 import { BrowserWorkspacePanel, type BrowserWorkspaceLabels } from "./BrowserWorkspacePanel";
 import { BrowserNewTab, rememberVisitedSite } from "./BrowserNewTab";
 import { useBrowserChrome } from "./useBrowserChrome";
@@ -47,6 +49,11 @@ export function ManualBrowserTab({ sessionId, workspaceId, tabId, active = true,
   const [selectedResources, setSelectedResources] = useState<{ browserId: string; requestId: number; hosts: string[] }>({ browserId: "", requestId: 0, hosts: [] });
   const [scopeReloaded, setScopeReloaded] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  // Which parts of the consent panel are unfolded; the scope details follow the grant until the user toggles them.
+  const [unfolded, setUnfolded] = useState<{ details?: boolean; agentSites?: boolean; agentScope?: boolean }>({});
+  const detailsId = useId();
+  const grantedNow = permission?.status === "granted";
+  useEffect(() => { setUnfolded(value => value.details === undefined ? value : { ...value, details: undefined }); }, [grantedNow]);
   const viewport = useRef<HTMLDivElement>(null), scopeRef = useRef<Scope | null>(null);
   // Window tabs on ordinary browsing get the tools (menu, find, downloads, settings). The native page stays detached while one covers it.
   const chrome = useBrowserChrome({ tabId: workspaceId && tabId ? tabId : undefined,
@@ -344,6 +351,10 @@ export function ManualBrowserTab({ sessionId, workspaceId, tabId, active = true,
   const attention = !compact || !!localHost || permission?.status === "pending" || permission?.status === "denied" || permissionBusy
     || failure === "permission_denied" || failure === "cancelled" || failure === "cleanup_failed" || scopeReloaded
     || !!candidates.length || !!blockedNavigationUrl;
+  const status = permissionBusy || permission?.status === "pending" ? "pending" : permission?.status ?? "required";
+  const hosts = permission?.scope.hosts ?? [];
+  // Agent scope is read before enabling, so it starts unfolded; manual browsing gets the full terms in the native dialog.
+  const detailsOpen = unfolded.details ?? (!granted && !manual);
   const labels: BrowserWorkspaceLabels = {
     panel: t("browserWorkspace.title"), address: t("browserWorkspace.address"), go: t("browserWorkspace.go"),
     back: t("browserWorkspace.back"), forward: t("browserWorkspace.forward"), reload: t("browserWorkspace.reload"), stop: t("browserWorkspace.stop"),
@@ -361,45 +372,58 @@ export function ManualBrowserTab({ sessionId, workspaceId, tabId, active = true,
       {compact ? localHost && <div className="ff-browser-chip">
         <span className="ff-browser-permission__mode">{t("browserWorkspace.localBadge")}</span><code>{localHost}</code>
         {!!permission?.scope.resourceHosts?.length && <span className="ff-browser-chip__extra">+{permission.scope.resourceHosts.length}</span>}
-      </div> : <details open={!granted}>
-        <summary><span className="ff-browser-permission__mode">{t(manual ? "browserWorkspace.manualMode" : "browserWorkspace.agentMode")}</span>{t(granted ? "browserWorkspace.permissionGranted" : "browserWorkspace.permissionRequired")}</summary>
-        <p>{t(manual ? "browserWorkspace.manualScope" : "browserWorkspace.permissionScope")}</p>
-        <p className="ff-browser-permission__scope">{permission?.scope.hosts.join(", ")}<br />{permission?.scope.actions.join(", ")}</p>
-        {manual && !!permission?.scope.resourceHosts?.length && <p className="ff-browser-permission__scope">
-          {t("browserWorkspace.approvedResources")} {permission.scope.resourceHosts.join(", ")}
-        </p>}
-        {manual && <p>{t("browserWorkspace.manualLimits")}</p>}
-        {!manual && permission?.scope.mode === "agent" && <p>{t("browserWorkspace.agentScope")}</p>}
-      </details>}
-      {permission?.status === "denied" && <p role="status">{t("browserWorkspace.permissionDenied")}</p>}
-      {(failure === "permission_denied" || failure === "cancelled") && <p role="alert">{t(manual ? "browserWorkspace.permissionRequestFailed" : "browserWorkspace.permissionFailed")}</p>}
-      {(granted || permissionBusy || permission?.status === "pending" || !manual) && <button type="button" data-browser-enable={!granted && !permissionBusy || undefined} data-browser-revoke={granted || permissionBusy || permission?.status === "pending" || undefined}
-        data-browser-manual={!manual && granted && !!permission?.agentScope || undefined}
-        disabled={!manual && (permissionBusy || permission?.status === "pending")} onClick={() => void changePermission(granted || permissionBusy || permission?.status === "pending")}>
-        {t(manual && (permissionBusy || permission?.status === "pending") ? "browserWorkspace.cancelPermission" : permissionBusy || permission?.status === "pending" ? "browserWorkspace.permissionPending" : granted ? !manual && permission?.agentScope ? "browserWorkspace.switchToManual" : "browserWorkspace.revoke" : "browserWorkspace.enable")}
+      </div> : <>
+        {/* One line: mode, status, what is in scope, the details toggle and the main action. */}
+        <div className="ff-browser-permission__head">
+          <span className="ff-browser-permission__mode">{manual ? <Globe aria-hidden="true" /> : <Bot aria-hidden="true" />}{t(manual ? "browserWorkspace.manualMode" : "browserWorkspace.agentMode")}</span>
+          <span className="ff-browser-permission__status" data-status={status}><span aria-hidden="true" />{t(`browserWorkspace.status.${status}`)}</span>
+          <span className="ff-browser-permission__hint">{hosts.length ? `${hosts[0]}${hosts.length > 1 ? ` +${hosts.length - 1}` : ""}` : t(granted ? "browserWorkspace.permissionGranted" : "browserWorkspace.permissionRequired")}</span>
+          <button type="button" className="ff-browser-permission__toggle" aria-expanded={detailsOpen} aria-controls={detailsId}
+            onClick={() => setUnfolded(value => ({ ...value, details: !detailsOpen }))}>{t("browserWorkspace.details")}<ChevronDown aria-hidden="true" /></button>
+          {(granted || permissionBusy || permission?.status === "pending" || !manual) && <Button size="sm" variant={!granted && !manual && !permissionBusy && permission?.status !== "pending" ? "primary" : "secondary"}
+            data-browser-enable={!granted && !permissionBusy || undefined} data-browser-revoke={granted || permissionBusy || permission?.status === "pending" || undefined}
+            data-browser-manual={!manual && granted && !!permission?.agentScope || undefined}
+            disabled={!manual && (permissionBusy || permission?.status === "pending")} onClick={() => void changePermission(granted || permissionBusy || permission?.status === "pending")}>
+            {t(manual && (permissionBusy || permission?.status === "pending") ? "browserWorkspace.cancelPermission" : permissionBusy || permission?.status === "pending" ? "browserWorkspace.permissionPending" : granted ? !manual && permission?.agentScope ? "browserWorkspace.switchToManual" : "browserWorkspace.revoke" : "browserWorkspace.enable")}
+          </Button>}
+        </div>
+        <div id={detailsId} className="ff-browser-permission__details" hidden={!detailsOpen}>
+          <p>{t(manual ? "browserWorkspace.manualScope" : "browserWorkspace.permissionScope")}</p>
+          <ScopeList label={t("browserWorkspace.scopeHosts")} hosts={hosts} />
+          <ScopeList label={t("browserWorkspace.scopeActions")} actions={permission?.scope.actions.map(action => t(`browserWorkspace.actions.${action}`))} />
+          {manual && !!permission?.scope.resourceHosts?.length && <ScopeList label={t("browserWorkspace.approvedResources")} hosts={permission.scope.resourceHosts} />}
+          <Note tone="info">{t(manual ? "browserWorkspace.manualLimits" : "browserWorkspace.agentScope")}</Note>
+        </div>
+      </>}
+      {permission?.status === "denied" && <Note tone="warning" role="status">{t("browserWorkspace.permissionDenied")}</Note>}
+      {(failure === "permission_denied" || failure === "cancelled") && <Note tone="error" role="alert">{t(manual ? "browserWorkspace.permissionRequestFailed" : "browserWorkspace.permissionFailed")}</Note>}
+      {compact && (granted || permissionBusy || permission?.status === "pending") && <button type="button" data-browser-enable={!granted && !permissionBusy || undefined} data-browser-revoke
+        onClick={() => void changePermission(true)}>
+        {t(permissionBusy || permission?.status === "pending" ? "browserWorkspace.cancelPermission" : "browserWorkspace.revoke")}
       </button>}
-      {!workspaceId && permission?.agentSiteSelection && <details className="ff-browser-agent-consent">
-        <summary>{t("browserWorkspace.agentChooseSites")}</summary>
+      {!workspaceId && permission?.agentSiteSelection && <ConsentCard className="ff-browser-agent-consent" icon={<Bot aria-hidden="true" />} title={t("browserWorkspace.agentChooseSites")}
+        open={!!unfolded.agentSites} onToggle={() => setUnfolded(value => ({ ...value, agentSites: !value.agentSites }))}
+        action={<Button size="sm" variant="primary" data-browser-authorize-agent-sites disabled={permissionBusy || !agentSites.trim() || failure === "cleanup_failed"}
+          onClick={authorizeAgentSites}>{t("browserWorkspace.authorizeAgent")}</Button>}>
         <p>{t("browserWorkspace.agentExactSitesHelp")}</p>
         <label>{t("browserWorkspace.agentSites")}<textarea data-browser-agent-sites value={agentSites} onChange={event => setAgentSites(event.currentTarget.value)} /></label>
         <label>{t("browserWorkspace.agentResources")}<textarea data-browser-agent-resources value={agentResources} onChange={event => setAgentResources(event.currentTarget.value)} /></label>
-        {!!scopeRef.current?.page?.blockedResourceHosts?.length && <p>{t("browserWorkspace.blockedResources")}: {scopeRef.current.page.blockedResourceHosts.join(", ")}</p>}
-        <button type="button" data-browser-authorize-agent-sites disabled={permissionBusy || !agentSites.trim() || failure === "cleanup_failed"}
-          onClick={authorizeAgentSites}>{t("browserWorkspace.authorizeAgent")}</button>
-      </details>}
-      {manual && permission?.agentScope && <details className="ff-browser-agent-consent">
-        <summary>{t("browserWorkspace.separateAgent")}</summary>
+        {!!scopeRef.current?.page?.blockedResourceHosts?.length && <ScopeList label={t("browserWorkspace.blockedResources")} hosts={scopeRef.current.page.blockedResourceHosts} />}
+      </ConsentCard>}
+      {manual && permission?.agentScope && <ConsentCard className="ff-browser-agent-consent" icon={<Bot aria-hidden="true" />} title={t("browserWorkspace.separateAgent")}
+        open={!!unfolded.agentScope} onToggle={() => setUnfolded(value => ({ ...value, agentScope: !value.agentScope }))}
+        action={<Button size="sm" variant="primary" data-browser-authorize-agent disabled={permissionBusy || permission.status === "pending" || !!scopeRef.current?.closed || failure === "cleanup_failed"}
+          onClick={() => void changePermission(false, permission.agentScope)}>{t("browserWorkspace.authorizeAgent")}</Button>}>
         <p>{t("browserWorkspace.agentScope")}</p>
-        <p className="ff-browser-permission__scope">{permission.agentScope.hosts.join(", ")}<br />{permission.agentScope.actions.join(", ")}</p>
-        <button type="button" data-browser-authorize-agent disabled={permissionBusy || permission.status === "pending" || !!scopeRef.current?.closed || failure === "cleanup_failed"}
-          onClick={() => void changePermission(false, permission.agentScope)}>{t("browserWorkspace.authorizeAgent")}</button>
-      </details>}
-      {manual && (permissionBusy || permission?.status === "pending") && <p role="status">{t("browserWorkspace.permissionPending")}</p>}
-      {manual && !scopeRef.current?.page?.closed && scopeRef.current?.page?.blockedRequest && <p className="ff-browser-workspace__notice is-error" role="status">{t("browserWorkspace.blockedRequest")}</p>}
-      {manual && failure === "cleanup_failed" && <p role="alert">{t("browserWorkspace.cleanupFailed")}</p>}
-      {scopeReloaded && <p role="status">{t("browserWorkspace.scopeReloaded")}</p>}
-      {!!candidates.length && <fieldset className="ff-browser-resource-consent" disabled={permissionBusy || !granted || page.loading}>
-        <legend>{t("browserWorkspace.blockedResources")}</legend>
+        <ScopeList label={t("browserWorkspace.scopeHosts")} hosts={permission.agentScope.hosts} />
+        <ScopeList label={t("browserWorkspace.scopeActions")} actions={permission.agentScope.actions.map(action => t(`browserWorkspace.actions.${action}`))} />
+      </ConsentCard>}
+      {manual && (permissionBusy || permission?.status === "pending") && <Note tone="info" role="status">{t("browserWorkspace.permissionPending")}</Note>}
+      {manual && !scopeRef.current?.page?.closed && scopeRef.current?.page?.blockedRequest && <Note tone="error" role="status">{t("browserWorkspace.blockedRequest")}</Note>}
+      {manual && failure === "cleanup_failed" && <Note tone="error" role="alert">{t("browserWorkspace.cleanupFailed")}</Note>}
+      {scopeReloaded && <Note tone="info" role="status">{t("browserWorkspace.scopeReloaded")}</Note>}
+      {!!candidates.length && <fieldset className="ff-browser-card ff-browser-resource-consent" disabled={permissionBusy || !granted || page.loading}>
+        <legend><ShieldAlert aria-hidden="true" />{t("browserWorkspace.blockedResources")}</legend>
         <p>{t("browserWorkspace.resourceScope")}</p>
         {candidates.map(host => <label key={host}>
           <input type="checkbox" checked={selected.includes(host)} onChange={event => {
@@ -407,15 +431,18 @@ export function ManualBrowserTab({ sessionId, workspaceId, tabId, active = true,
             setSelectedResources({ browserId: page.browserId, requestId: page.requestId, hosts: next });
           }} />{host}
         </label>)}
-        <button type="button" data-browser-authorize-resources disabled={permissionBusy || !granted || page.loading || !selected.length} onClick={approveResources}>
-          {t("browserWorkspace.authorizeResources")}
-        </button>
+        <div className="ff-browser-card__actions">
+          <Button size="sm" variant="primary" data-browser-authorize-resources disabled={permissionBusy || !granted || page.loading || !selected.length} onClick={approveResources}>
+            {t("browserWorkspace.authorizeResources")}
+          </Button>
+        </div>
       </fieldset>}
-      {blockedNavigationUrl && <div className="ff-browser-site-consent">
-        <p>{t("browserWorkspace.blockedNavigation")} {blockedNavigationUrl}</p>
-        <button type="button" data-browser-authorize-site disabled={permissionBusy} onClick={() => void proposeSite(blockedNavigationUrl)}>
+      {blockedNavigationUrl && <div className="ff-browser-note ff-browser-site-consent" data-tone="warning">
+        <CircleAlert aria-hidden="true" />
+        <p>{t("browserWorkspace.blockedNavigation")} <code>{blockedNavigationUrl}</code></p>
+        <Button size="sm" data-browser-authorize-site disabled={permissionBusy} onClick={() => void proposeSite(blockedNavigationUrl)}>
           {t("browserWorkspace.authorizeSite")}
-        </button>
+        </Button>
       </div>}
     </section>}
     <BrowserWorkspacePanel page={!available ? { ...page, error: "blocked" } : page}
@@ -426,5 +453,37 @@ export function ManualBrowserTab({ sessionId, workspaceId, tabId, active = true,
       toolbarEnd={chrome.toolbarEnd} belowToolbar={chrome.belowToolbar} overlay={chrome.overlay} snapshot={chrome.snapshot}
       commandPending={commandPending}
       onCommand={action => { const id = scopeRef.current?.page?.browserId; if (id) void command(action === "stop" ? { kind: "stop", browserId: id } : { kind: "history", browserId: id, action }); }} />
+  </div>;
+}
+
+/** A one-line notice in the consent panel; the tone sets its colour and icon. */
+function Note({ tone, role, children }: { tone: "info" | "warning" | "error"; role?: "status" | "alert"; children: ReactNode }) {
+  const Icon = tone === "info" ? Info : CircleAlert;
+  return <div className="ff-browser-note" data-tone={tone} role={role}><Icon aria-hidden="true" /><p>{children}</p></div>;
+}
+
+/** Sites as code chips, or actions as tinted chips, under a small label. */
+function ScopeList({ label, hosts, actions }: { label: string; hosts?: readonly string[]; actions?: readonly string[] }) {
+  const items = hosts ?? actions ?? [];
+  if (!items.length) return null;
+  return <div className="ff-browser-permission__scope">
+    <span className="ff-browser-permission__label">{label}</span>
+    <ul>{items.map(item => <li key={item} className={hosts ? undefined : "is-action"}>{hosts ? <code>{item}</code> : item}</li>)}</ul>
+  </div>;
+}
+
+/** A foldable card whose action stays in the header, so the button is never scrolled out of the bounded panel. */
+function ConsentCard({ className, icon, title, open, onToggle, action, children }: {
+  className: string; icon: ReactNode; title: string; open: boolean; onToggle: () => void; action: ReactNode; children: ReactNode;
+}) {
+  const id = useId();
+  return <div className={`ff-browser-card ${className}`}>
+    <div className="ff-browser-card__head">
+      <button type="button" className="ff-browser-card__toggle" aria-expanded={open} aria-controls={id} onClick={onToggle}>
+        {icon}<span>{title}</span><ChevronDown aria-hidden="true" />
+      </button>
+      {action}
+    </div>
+    <div id={id} className="ff-browser-card__body" hidden={!open}>{children}</div>
   </div>;
 }

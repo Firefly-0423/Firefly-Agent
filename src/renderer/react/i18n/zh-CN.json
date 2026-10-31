@@ -1168,6 +1168,21 @@
     "agentSites": "可导航域名（最多 8 个）",
     "agentResources": "仅资源域名（可选，最多 16 个）",
     "agentExactSitesHelp": "填写精确小写域名，以逗号或空格分隔，不填网址或通配符。每次更改都需原生确认并关闭旧页面。资源域可提供脚本和数据，但不能导航为页面。被阻止的资源仅供参考，请仅填写信任的域名。",
+    "details": "详情",
+    "scopeHosts": "域名",
+    "scopeActions": "允许的动作",
+    "status": {
+      "required": "未授权",
+      "pending": "等待确认",
+      "granted": "已授权",
+      "denied": "已拒绝"
+    },
+    "actions": {
+      "navigate": "导航",
+      "observe": "读取页面",
+      "click": "点击",
+      "type": "输入"
+    },
     "tools": {
       "more": "更多",
       "downloadsButton": "下载",
