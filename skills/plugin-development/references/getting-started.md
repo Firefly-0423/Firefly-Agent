@@ -95,13 +95,13 @@ Compress-Archive -Path .\my-first-plugin -DestinationPath .\my-first-plugin-1.0.
 ```bash
 npm run build:plugin-sdk
 npm pack ./plugin-sdk
-npm install /path/to/firefly-plugin-sdk-0.2.0.tgz
+npm install /path/to/firefly_wu-plugin-sdk-0.2.0.tgz
 ```
 
 然后在插件项目根目录新建 `smoke.cjs`：
 
 ```js
-const { createMockPluginContext, assertPluginTool, assertValidManifest } = require("@firefly/plugin-sdk/testing");
+const { createMockPluginContext, assertPluginTool, assertValidManifest } = require("@firefly_wu/plugin-sdk/testing");
 const manifest = require("./my-first-plugin/manifest.json");
 const plugin = require("./my-first-plugin/index.cjs");
 

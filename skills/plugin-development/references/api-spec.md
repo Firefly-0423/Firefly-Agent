@@ -272,7 +272,7 @@ const text = await ctx.deps.llm.generateText(
 宿主服务失败时会抛出带有 `code` 字段的错误对象。插件应使用 `isPluginHostError(error)` 判断，再按 `error.code` 分支，不要去匹配 message 的文字。
 
 ```js
-const { isPluginHostError } = require("@firefly/plugin-sdk");
+const { isPluginHostError } = require("@firefly_wu/plugin-sdk");
 
 try {
   // 调用宿主服务
@@ -295,11 +295,11 @@ try {
 
 ## 12. SDK 与测试工具
 
-- 包名为 `@firefly/plugin-sdk`，版本 `0.2.0`，标记为 `private`，不发布到 npm。
-- 构建命令是 `npm run build:plugin-sdk`；打包命令是 `npm pack ./plugin-sdk`，生成的 tarball 名称形如 `firefly-plugin-sdk-0.2.0.tgz`。插件项目用 `npm install /path/to/firefly-plugin-sdk-0.2.0.tgz` 安装。
+- 包名为 `@firefly_wu/plugin-sdk`，版本 `0.2.0`，公开版本发布在 npm，插件项目用 `npm install @firefly_wu/plugin-sdk` 安装。
+- 构建命令是 `npm run build:plugin-sdk`；打包命令是 `npm pack ./plugin-sdk`，生成的 tarball 名称形如 `firefly_wu-plugin-sdk-0.2.0.tgz`。尚未发布到 npm 的改动，插件项目用 `npm install /path/to/firefly_wu-plugin-sdk-0.2.0.tgz` 安装。
 - 主入口同时提供 ESM 与 CJS 两种格式。它导出全部公开类型，以及 `CURRENT_PLUGIN_API_VERSION`、`PLUGIN_CAPABILITIES`、`PLUGIN_HOST_ERROR_CODES`、`isPluginHostError` 与 `validateManifestData`。
 - 只导入类型不会产生运行时依赖。实际导入上述函数或常量时，插件需要把 SDK 的运行时代码和依赖（`ajv`）一并打包。
-- `@firefly/plugin-sdk/testing` 导出以下三个函数：
+- `@firefly_wu/plugin-sdk/testing` 导出以下三个函数：
   - `createMockPluginContext({ pluginId?, deps? })`。返回的对象额外提供 `tools`、`promptProviders`、`ipcChannels`、`emittedEvents`、`subscriptions`、`cleanups` 与 `dispose()`，便于在测试中断言。
   - `assertPluginTool(tool, pluginId)`。检查工具 id 前缀、`name`、`description`、`inputSchema.type` 与 `execute`，并把所有问题汇总后一次性抛出。
   - `assertValidManifest(data)`。只做结构层校验。

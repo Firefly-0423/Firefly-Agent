@@ -6,7 +6,7 @@ import path from "node:path";
 import { readdir, readFile } from "node:fs/promises";
 
 const require = createRequire(import.meta.url);
-const { createMockPluginContext, assertPluginTool, assertValidManifest } = require("@firefly/plugin-sdk/testing");
+const { createMockPluginContext, assertPluginTool, assertValidManifest } = require("@firefly_wu/plugin-sdk/testing");
 
 const installRoot = process.argv[2];
 
