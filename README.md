@@ -42,13 +42,21 @@ Firefly 把一个会陪你聊天的桌面角色，和一个能真正动手干活
 
 ## 📸 界面预览
 
-<p align="center"><img src="./readme-assets/screenshots/chat.png" alt="Chat 模式：与流萤聊天，右侧是内置浏览器，右下角是桌面 Live2D 流萤" width="100%"></p>
-<p align="center"><sub>Chat：和流萤聊天。右侧是内置浏览器，右下角是常驻桌面的 Live2D 流萤；概览卡片显示上下文、用量与后台任务。</sub></p>
+<p align="center"><b>💬 Chat · 桌面陪伴</b></p>
+<p align="center"><img src="./readme-assets/screenshots/chat.webp" alt="Chat 模式：流萤给出周末放松的小计划，右侧打开了内置浏览器，右下角是桌面 Live2D 流萤" width="100%"></p>
+<p align="center"><sub>和流萤聊天。右侧打开了内置浏览器，概览卡片显示上下文与用量（总量来自服务商返回），Live2D 流萤常驻桌面右下角。</sub></p>
 
-| 📋 Work · 推进任务 | 💻 Code · 代码工作区 |
-| --- | --- |
-| <img src="./readme-assets/screenshots/work.png" alt="Work 模式：读取项目笔记并整理成学习计划表" width="100%"> | <img src="./readme-assets/screenshots/code.png" alt="Code 模式：在绑定的 Rust 项目里修复问题" width="100%"> |
-| 绑定项目文件夹，读取资料后整理成表格与检查点；过程收成一行摘要，运行结果可在右侧任务面板展开。 | 在绑定的工作区里读改代码、跑命令与测试；右侧显示分支、变更与当前任务。 |
+<p align="center"><b>📋 Work · 推进任务</b></p>
+<p align="center"><img src="./readme-assets/screenshots/work.webp" alt="Work 模式：流萤委派刃和丹恒并行工作，再把两份结果合在一起" width="100%"></p>
+<p align="center"><sub>流萤把任务拆给两位伙伴并行处理——刃统计函数、丹恒总结笔记——回来后对照原文核对，再合成一份结论。右侧是每位伙伴的运行结果。</sub></p>
+
+<p align="center"><b>💻 Code · 代码工作区</b></p>
+<p align="center"><img src="./readme-assets/screenshots/code.webp" alt="Code 模式：在绑定的 Rust 项目里修复无参数时的 panic，并补上单元测试" width="100%"></p>
+<p align="center"><sub>在绑定的项目里修复 panic 并补测试。过程收成一行摘要（读了几个文件、跑了几条命令、改了什么、哪项失败），右侧是分支、变更与运行结果。</sub></p>
+
+<p align="center"><b>🧠 记忆关系图</b></p>
+<p align="center"><img src="./readme-assets/screenshots/memory-graph.png" alt="设置中的记忆关系图：你在中心，连到类别、记忆和它们来自的对话" width="80%"></p>
+<p align="center"><sub>设置 → 记忆 → 关系图：你在中心，连到记忆的类别、每条记忆以及它来自的对话。点节点查看和处理，可拖动、缩放。</sub></p>
 
 ## 🚀 快速开始
 
@@ -119,17 +127,21 @@ npm run dev
 - **项目**：侧栏按项目归拢会话；「+」创建项目（命名并选择源文件夹），「…」整理侧边栏与聊天排序，支持置顶、分组、隐藏项目。
 - **会话菜单**：重命名、置顶、复制标题或项目路径、用资源管理器或已安装的编辑器打开项目、导出、删除。
 - **浮动输入框**：会话中鼠标移到输入框上可以拖动到工作区任意位置或收起成小圆按钮；有审批或提问时会自动展开。
+- **会话概览**：对话右侧的卡片显示环境、连接器、后台任务、上下文、用量、产出与变更，可拖动排序。上下文总量取自服务商返回的用量，分项按字符估算。
 
 ### 🧠 记忆与知识
 
 - 默认记忆链分三层：当前上下文（S）、事实记忆（M）、历史检索（H），由 SQLite 保存。
 - 项目里提到的项目信息只在该项目中使用；历史缺少可信快照时如实报告「覆盖不足」。
 - 角色与文档知识 RAG（含 BGE-M3）独立配置，不承担默认的个人记忆或历史检索。
+- 设置里的**记忆关系图**把已确认和待确认的记忆按类别画出来，并连到它们来自的对话；空白的候选会被自动丢弃，不进入待确认。
+- 委派给专业 Agent 的子任务沿用发起对话的历史读取，不另开一份。
 
 ### 🔌 网页、扩展与渠道
 
 - **浏览器工作区**：手动浏览与 Agent 操作严格分离；Agent 只能在当前批准的域名与动作范围内使用。
 - **Skills**：内置并校验 50 项第三方及适配 Skills 与 4 项项目 Skills，可按模式启用。
+- **Skills 市场**：可从 [firefly-skills](https://github.com/Firefly-0423/firefly-skills)、openai/plugins 与 anthropics/skills 安装 Skills。只有经过静态审查、锁定提交且内容摘要一致的版本才能安装，装好后默认停用。
 - **插件**：本地插件宿主、隔离面板、插件 SDK 与示例；在线目录来自 [firefly-plugins](https://github.com/Firefly-0423/firefly-plugins)，安装时核对 SHA-256，装好后默认停用。
 - **MCP**：可添加本机命令启动的服务（stdio），或填写远程地址（Streamable HTTP；以 `/sse` 结尾的地址走旧式 SSE）。
 - **渠道**：QQ、QQ Bot、微信、飞书适配，需自行配置凭据。
@@ -144,7 +156,7 @@ npm run dev
 
 - **权限等级与审批**：文件与命令按只读、项目只读、受限、完全等等级运行；写入、命令和外部操作遵循审批并可取消。角色、Skills 和头像不会扩大工具权限。
 - **命令执行**：Shell 工具有总时长与空闲超时，结束或取消时清理整个进程树。
-- **浏览器**：手动授权不授予 Agent 操作权；私有网络目标有单独限制。
+- **浏览器**：手动授权不授予 Agent 操作权；私有网络目标有单独限制。在 Mihomo 等 TUN 的 fake-ip 模式下，手动浏览先用 DoH 核实真实地址是公网再连接；Agent 授权的浏览遇到 fake-ip 地址直接拒绝。
 - **本地数据**：设置、凭据、历史与用户 Skills 不进入 Git 或安装包。记忆数据库的密钥使用 Windows DPAPI 保护，渠道凭据使用系统加密存储。
 - **数据位置**：正式数据默认在 `%APPDATA%\Firefly`，开发实例使用隔离目录；手工处理前请退出应用并备份。
 - **外部服务**：根据所选模型与操作，对话、资料、工具结果和录音可能发往外部服务；请只在信任的服务上使用。
@@ -155,7 +167,7 @@ npm run dev
 | --- | --- |
 | 运行环境 | Node.js 24 + Electron 43 |
 | 语言与构建 | TypeScript、Vite 7、electron-builder |
-| 界面 | React 19、Ant Design 6 / Ant Design X、Tailwind CSS 4 |
+| 界面 | React 19、Ant Design 6 / Ant Design X、Tailwind CSS 4；随应用打包 Noto Sans SC 与 JetBrains Mono 可变字体；记忆关系图用 d3-force |
 | Live2D | PixiJS 7 + pixi-live2d-display |
 | Agent | 自研 Harness 主循环、AG-UI 事件协议、原生工具调用 |
 | 工具与代码 | 工具调度与审批、LSP 客户端、`@ast-grep/napi`、`simple-git`、MCP SDK |
@@ -199,9 +211,11 @@ src/
 ├── renderer/             # 渲染进程
 │   ├── react/            #   React 界面：聊天、侧栏、设置、组件与样式
 │   ├── live2d/           #   Live2D 渲染
+│   ├── web-demo/         #   网站上的在线演示：同一套界面，接页面内的模拟接口
 │   └── public/           #   静态资源（头像、贴纸、Cubism Core）
 └── shared/               # 主进程与渲染进程共享的契约与工具
 
+site/                     # 宣传网站（GitHub Pages），嵌入在线演示
 native/                   # Rust 原生助手：截图、历史读取、工作区句柄访问
 plugin-sdk/               # 插件 SDK 源码
 examples/                 # 插件示例（text-stats、json-tools、weather-tool 等）

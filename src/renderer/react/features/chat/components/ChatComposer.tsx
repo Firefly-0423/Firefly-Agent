@@ -2,7 +2,7 @@ import { useSlashCommands } from "./SlashCommandMenu";
 import { DesktopAsrButton } from "./DesktopAsrButton";
 import { Sender } from "@ant-design/x";
 import { Popover } from "antd";
-import { useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
+import { useContext, useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import { useTranslation } from "../../../i18n";
 import { resolveAsset } from "../../../../../shared/renderer-base";
 import { FIREFLY_AUTO_STICKERS } from "../../../../../shared/firefly-stickers";
@@ -10,6 +10,7 @@ import type { ContextUsageSnapshot } from "../../../../../shared/context-usage";
 import './ModelEffortControl.css';
 import { PermissionControl } from "./PermissionControl";
 import { ModelEffortControl } from "./ModelEffortControl";
+import { FloatingComposerControls } from "./FloatingComposer";
 import { PendingQueueDock, type PendingQueueDockItem } from "./PendingQueueDock";
 import { StepProgressPill } from "./StepProgressPill";
 import { smartPunctuate } from "./smart-punctuation";
@@ -148,8 +149,8 @@ export function composerAddMenuEntries(supportsStickers: boolean): Array<"upload
   return supportsStickers ? ["upload", "screenshot", "sticker"] : ["upload", "screenshot"];
 }
 
-/** 一行胶囊放下左侧按钮、输入和模型按钮所需的对话栏宽度。 */
-export const CAPSULE_MIN_ROOM = 600;
+/** 一行胶囊放下“+”、输入、语音和发送所需的对话栏宽度（权限与模型在胶囊下面一行）。 */
+export const CAPSULE_MIN_ROOM = 440;
 export function capsuleFits(room: number): boolean {
   return room >= CAPSULE_MIN_ROOM;
 }
@@ -353,6 +354,13 @@ export function ChatComposer(props: ChatComposerProps) {
     return () => observer.disconnect();
   }, [docked]);
   const capsule = Boolean(docked) && !grown && !hasComposerHeader && roomy;
+  // 对话底部的输入框把权限和模型放在框下面一行（左权限、右模型），框里只留输入和发送；欢迎页的大输入框不变。
+  const controlsBelow = Boolean(docked);
+  const permissionControl = supportsPermission ? <PermissionControl /> : null;
+  const floatingControls = useContext(FloatingComposerControls);
+  const modelControl = onSelectModelProfile
+    ? <ModelEffortControl sessionId={conversationId} activeProfileId={activeModelProfileId} onSelectModelProfile={onSelectModelProfile} />
+    : null;
 
   // Sender 的 onKeyDown 声明在 Element 层级；函数体只用基类属性，参数随组件声明放宽
   const slash = useSlashCommands({
@@ -427,7 +435,7 @@ export function ChatComposer(props: ChatComposerProps) {
         <Sender
           rootClassName="ff-composer"
           value={visibleValue}
-          placeholder={modelBusy ? t("composer.placeholderBusy") : placeholder}
+          placeholder={placeholder}
           // 运行中使用 Sender 自带的停止按钮；Enter 入队由 onKeyDown 在内置提交前处理。
           loading={modelBusy}
           disabled={!modelBusy && requiresWorkspace && !workspaceName}
@@ -456,9 +464,7 @@ export function ChatComposer(props: ChatComposerProps) {
             ) : actionNode;
             return (
               <div className="ff-composer__suffix">
-                {onSelectModelProfile && (
-                  <ModelEffortControl sessionId={conversationId} activeProfileId={activeModelProfileId} onSelectModelProfile={onSelectModelProfile} />
-                )}
+                {!controlsBelow && modelControl}
                 <DesktopAsrButton key={`${mode}:${conversationId ?? "new"}:${workspaceRoot ?? ""}`} onText={text => onChange(`${value}${value && !/\s$/.test(value) ? " " : ""}${text}`)} />
                 {send}
               </div>
@@ -492,7 +498,7 @@ export function ChatComposer(props: ChatComposerProps) {
                 onScreenshot={onScreenshot}
                 onChooseSticker={onChooseSticker}
               />
-              {supportsPermission && <PermissionControl />}
+              {!controlsBelow && permissionControl}
             </div>
           }
         />
@@ -505,6 +511,12 @@ export function ChatComposer(props: ChatComposerProps) {
           </div>
         )}
       </div>
+      {controlsBelow && (permissionControl || modelControl || floatingControls) && (
+        <div className="ff-composer__below">
+          <div className="ff-composer__below-start">{permissionControl}</div>
+          <div className="ff-composer__below-end">{modelControl}{floatingControls}</div>
+        </div>
+      )}
     </div>
   );
 }

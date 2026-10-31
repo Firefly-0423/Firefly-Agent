@@ -17,6 +17,14 @@ for (const [address, prefix] of [["2001::", 23], ["2001:db8::", 32], ["2002::", 
 const globalV6 = new BlockList();
 globalV6.addSubnet("2000::", 3, "ipv6");
 
+// Proxies in fake-ip mode hand out addresses from the benchmarking range. Such an answer says nothing about where
+// the name really points, so the browser proxy verifies it over DNS-over-HTTPS before it trusts or dials anything.
+const fakeIp = new BlockList();
+fakeIp.addSubnet("198.18.0.0", 15, "ipv4");
+export function isFakeIpAddress(address: string): boolean {
+  return isIP(address) === 4 && fakeIp.check(address, "ipv4");
+}
+
 export function isPublicNetworkAddress(address: string): boolean {
   if (address.includes("%")) return false;
   const family = isIP(address);

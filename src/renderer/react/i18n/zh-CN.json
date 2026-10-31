@@ -38,7 +38,6 @@
     "placeholderChat": "流萤在这里，可以聊聊。",
     "placeholderTaskNoWorkspace": "有什么问题或任务，来找流萤（请先选中一个项目路径）。",
     "placeholderTask": "有什么问题或任务，来找流萤。",
-    "placeholderBusy": "运行中 · Enter 加入待发队列 · Shift+Enter 换行",
     "attachmentsLabel": "待发送附件",
     "floatingCollapse": "收起输入框",
     "floatingExpand": "展开输入框",
@@ -94,8 +93,6 @@
     "errorContextFailedWith": "上下文处理失败：{{message}}",
     "errorToolFailedWith": "工具执行失败：{{message}}",
     "errorRuntimeFailedWith": "任务执行失败：{{message}}",
-    "errorNetworkInterrupted": "网络连接中断，流萤没收到模型的回复。可能是网络或代理不稳定，稍后重新发送就好。（{{code}}）",
-    "errorModelTimedOut": "模型太久没有回应，已经停止等待。稍后再试一次吧。（{{code}}）",
     "errorChatStoreUnavailable": "聊天会话服务尚未就绪",
     "newTaskTitle": "新任务",
     "newChatTitle": "新对话",
@@ -126,7 +123,9 @@
     "errorPendingAdjustAttachments": "带附件的消息暂不能插入当前运行，已保留在队列中",
     "openProjectFolderFailed": "无法打开项目文件夹：{{error}}",
     "unknownError": "未知错误",
-    "lastRunInterrupted": "上次运行已中断"
+    "lastRunInterrupted": "上次运行已中断",
+    "errorNetworkInterrupted": "网络连接中断，流萤没收到模型的回复。可能是网络或代理不稳定，稍后重新发送就好。（{{code}}）",
+    "errorModelTimedOut": "模型太久没有回应，已经停止等待。稍后再试一次吧。（{{code}}）"
   },
   "messageList": {
     "loadingAria": "加载中",
@@ -171,7 +170,8 @@
       "qqbot": "QQ Bot",
       "unknown": "外部渠道",
       "sameConversation": "{{channels}} · 同一对话"
-    }
+    },
+    "roundFailedTools": "{{count}} 项失败"
   },
   "contextRing": {
     "categorySystemPrompt": "系统提示词",
@@ -191,7 +191,8 @@
     "menuAria": "上下文占比",
     "menuTitle": "上下文容量",
     "title": "上下文 {{summary}}",
-    "footnote": "估算值（按字符折算），对话后自动刷新"
+    "footnote": "估算值（按字符折算），对话后自动刷新",
+    "categoryRetrieved": "记忆与检索内容"
   },
   "slash": {
     "label": "指令",
@@ -228,13 +229,6 @@
     "rangeNote": "近 {{days}} 天累计，所有对话合计"
   },
   "agentRounds": {
-    "liveListDir": "列出目录",
-    "liveReadFile": "读取文件",
-    "liveWriteFile": "写入文件",
-    "liveEditFile": "编辑文件",
-    "liveSearchCode": "搜索代码",
-    "liveSearchText": "文本搜索",
-    "liveRunShell": "运行命令",
     "toolListDir": "浏览目录",
     "toolReadFile": "读取文件",
     "toolWriteFile": "写入文件",
@@ -254,15 +248,15 @@
     "summaryWriteFile": "写入 {{count}} 个文件",
     "summaryEditFile": "编辑 {{count}} 个文件",
     "summarySearchCode": "搜索 {{count}} 次",
-    "summarySearchText": "搜索 {{count}} 次",
     "summaryRunShell": "执行 {{count}} 条命令",
+    "summaryUpdateTodo": "更新待办 {{count}} 次",
+    "summaryReadToolResult": "查看 {{count}} 份工具结果",
     "summaryFallback": "完成 {{count}} 项操作",
-    "interruptedTitle": "流萤已中断",
-    "failureCount": "{{count}} 项失败",
-    "runningLive": "流萤正在{{action}}",
-    "runningThinking": "流萤正在思考",
-    "completedTitle": "流萤已完成",
     "toolAskUser": "询问用户",
+    "toolUpdateTodo": "更新待办",
+    "toolDelegateAgent": "委派伙伴",
+    "toolEnterPlanMode": "进入计划模式",
+    "toolWritePlan": "写入计划",
     "askUserWaiting": "等待用户回答",
     "askUserAnswered": "用户已回答",
     "askUserFailed": "询问用户失败"
@@ -385,9 +379,21 @@
   },
   "scheduledPanel": {
     "suggestions": {
-      "daily": { "title": "每日工作回顾", "description": "每天傍晚 6 点总结当天的进展。", "prompt": "总结我今天的工作进展：做了什么、遇到什么问题、明天要继续什么。" },
-      "weekly": { "title": "每周计划整理", "description": "每周一早上 9 点整理本周要做的事。", "prompt": "根据我最近的对话和任务，整理出本周需要优先处理的事项，并按重要程度排序。" },
-      "todos": { "title": "定时检查待办", "description": "每天早上 9 点提醒还没完成的事项。", "prompt": "检查我还没完成的待办事项，列出最该先做的三件。" }
+      "daily": {
+        "title": "每日工作回顾",
+        "description": "每天傍晚 6 点总结当天的进展。",
+        "prompt": "总结我今天的工作进展：做了什么、遇到什么问题、明天要继续什么。"
+      },
+      "weekly": {
+        "title": "每周计划整理",
+        "description": "每周一早上 9 点整理本周要做的事。",
+        "prompt": "根据我最近的对话和任务，整理出本周需要优先处理的事项，并按重要程度排序。"
+      },
+      "todos": {
+        "title": "定时检查待办",
+        "description": "每天早上 9 点提醒还没完成的事项。",
+        "prompt": "检查我还没完成的待办事项，列出最该先做的三件。"
+      }
     },
     "filterAll": "全部任务",
     "listSection": "任务",
@@ -513,7 +519,13 @@
     "restartRequired": "需要完整重启应用后生效；当前运行版本不会被替换。",
     "restartAfterFailure": "当前进程未运行此插件。请完整重启应用后，按已保存的版本选择重新尝试。",
     "catalogReadAt": "目录读取时间：{{time}}",
-    "sources": { "builtin": "内置插件", "bundled": "随应用分发", "curated-market": "精选市场", "local-zip": "本地 ZIP", "legacy-unknown": "历史安装，来源未核实" },
+    "sources": {
+      "builtin": "内置插件",
+      "bundled": "随应用分发",
+      "curated-market": "精选市场",
+      "local-zip": "本地 ZIP",
+      "legacy-unknown": "历史安装，来源未核实"
+    },
     "title": "功能插件",
     "subtitle": "管理已安装的功能插件；新导入的插件默认停用，请确认来源可信后再启用。",
     "registryPrefix": "Firefly 收录仓库:",
@@ -967,7 +979,12 @@
     "noSearchResults": "没有匹配的任务",
     "viewProjectsShort": "项目",
     "viewStatusShort": "按状态",
-    "status": {"needs-input": "需要你处理", "working": "进行中", "done": "已完成", "needsInputLabel": "等待你处理"},
+    "status": {
+      "needs-input": "需要你处理",
+      "working": "进行中",
+      "done": "已完成",
+      "needsInputLabel": "等待你处理"
+    },
     "viewMergedShort": "合并",
     "dragToReorder": "拖动排序",
     "reorderHint": "拖动或按 Alt+↑ / Alt+↓ 调整顺序",
@@ -994,8 +1011,7 @@
     "newProjectChat": "在此项目中新建对话",
     "emptyTier": "暂无内容",
     "showProject": "显示项目",
-    "projectVisibility": "项目显示"
-,
+    "projectVisibility": "项目显示",
     "organizeSidebar": "整理侧边栏",
     "sortChats": "聊天排序方式",
     "copy": "复制",
@@ -1247,7 +1263,8 @@
     "connectorsManage": "在设置中管理",
     "usage": "用量",
     "outputs": "产出",
-    "outputsEmpty": "本会话还没有产出"
+    "outputsEmpty": "本会话还没有产出",
+    "contextMeasured": "总量来自服务商返回；分项按字符估算。"
   },
   "workspace": {
     "resizeSidebar": "调整会话侧栏宽度",
@@ -1335,12 +1352,14 @@
       "text": "不属于受支持的 UTF-8 纯文本"
     },
     "title": "外部技能",
-    "notice": "仅提供 openai/plugins 与 anthropics/skills。只有完整审核通过的纯文本指令型技能可以导入。导入后保持停用，启用需要单独确认。",
+    "notice": "提供流萤自己的 Firefly-0423/firefly-skills，以及 openai/plugins 与 anthropics/skills。只有逐个审核通过的纯文本技能可以导入；流萤已内置的不会重复安装。导入后保持停用，启用需要单独确认。",
     "unavailable": "外部技能接口暂不可用，请在设置桥接就绪后重试。",
     "refresh": "刷新目录",
     "back": "返回目录",
     "search": "搜索名称和描述",
     "noMatch": "无匹配外部技能",
+    "builtIn": "已内置",
+    "builtInNotice": "流萤已经内置了这个 skill，不需要再从市场安装。",
     "bundle": "包名称",
     "bundleVersion": "包版本",
     "bundleLicense": "包许可证声明",

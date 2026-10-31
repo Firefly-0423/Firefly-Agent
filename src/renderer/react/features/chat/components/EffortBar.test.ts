@@ -1,8 +1,20 @@
 // @vitest-environment jsdom
 import React, { act } from "react";
+import { readFileSync, readdirSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EffortBar, KNOB, nearestStop, stopFraction } from "./EffortBar";
+
+describe("effort bar styles", () => {
+  it("are all in EffortBar.css, so no theme stylesheet flattens the fluid fill", () => {
+    const root = resolve("src/renderer");
+    const sheets = (dir: string): string[] => readdirSync(dir, { withFileTypes: true })
+      .flatMap(entry => entry.isDirectory() ? sheets(join(dir, entry.name)) : entry.name.endsWith(".css") ? [join(dir, entry.name)] : []);
+    const elsewhere = sheets(root).filter(file => !file.endsWith("EffortBar.css") && readFileSync(file, "utf8").includes(".ff-effort-bar"));
+    expect(elsewhere).toEqual([]);
+  });
+});
 
 describe("effort bar geometry", () => {
   it("spreads the stops evenly from end to end", () => {
@@ -54,6 +66,28 @@ describe("effort bar", () => {
     expect(host.querySelector<HTMLElement>(".ff-effort-bar__knob")!.style.left).toMatch(/1px \+ 1 \* \(100% - 28px\)/);
     act(() => root.render(React.createElement(EffortBar, { count: 4, value: 0, label: "effort", onCommit: vi.fn() })));
     expect(host.querySelector<HTMLElement>(".ff-effort-bar__knob")!.style.left).toMatch(/1px \+ 0 \* \(100% - 28px\)/);
+  });
+
+  it("stops the sparks when reduced motion is turned on while open, and resumes when it is turned off", async () => {
+    const frames: FrameRequestCallback[] = [];
+    let cancelled = 0;
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { frames.push(callback); return frames.length; });
+    vi.stubGlobal("cancelAnimationFrame", () => { cancelled += 1; });
+    const context = new Proxy({}, { get: () => () => ({ addColorStop() {} }) });
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(context as never);
+    try {
+      act(() => root.render(React.createElement(EffortBar, { count: 4, value: 2, label: "effort", onCommit: vi.fn() })));
+      expect(frames.length).toBe(1);
+      const before = cancelled;
+      await act(async () => { document.documentElement.dataset.reduceMotion = "on"; await Promise.resolve(); });
+      expect(cancelled).toBe(before + 1);
+      expect(frames.length).toBe(1); // stopped: no new frame asked for
+      await act(async () => { document.documentElement.dataset.reduceMotion = "off"; await Promise.resolve(); });
+      expect(frames.length).toBe(2);
+    } finally {
+      delete document.documentElement.dataset.reduceMotion;
+      getContext.mockRestore(); vi.unstubAllGlobals();
+    }
   });
 
   it("puts the level back when the drag is cancelled", () => {

@@ -11,15 +11,15 @@ export interface NativeHistoryEndpoint {
 }
 export type NativeHistoryEndpointFactory=(input:{root:string;deadlineAt:number;signal:AbortSignal})=>Promise<NativeHistoryEndpoint>;
 const PROTOCOL='MEMORY_HISTORY_NATIVE_PROTOCOL_INVALID',TIMEOUT='MEMORY_HISTORY_NATIVE_TIMEOUT';
-const MAX_INPUT=16384,MAX_OUTPUT=8*1024*1024+1024;
-const NATIVE_CODES=new Set(['history-invalid-root','history-invalid-path','history-invalid-budget','history-unsupported-filesystem','history-unsafe-attributes','history-multiple-links','history-source-changed','history-native-open-failed','history-native-io-failed','history-leaf-missing','history-invalid-cli','history-parent-unavailable','history-input-failed','history-input-oversize','history-invalid-state','history-output-failed','history-output-oversize','history-invalid-version','history-invalid-command']);
+export const MAX_INPUT=16384,MAX_OUTPUT=8*1024*1024+1024;
+export const NATIVE_CODES=new Set(['history-invalid-root','history-invalid-path','history-invalid-budget','history-unsupported-filesystem','history-unsafe-attributes','history-multiple-links','history-source-changed','history-native-open-failed','history-native-io-failed','history-leaf-missing','history-invalid-cli','history-parent-unavailable','history-input-failed','history-input-oversize','history-invalid-state','history-output-failed','history-output-oversize','history-invalid-version','history-invalid-command']);
 function fail(code:string):never{throw Error(code)}
-function identity(value:unknown):NativeHistoryIdentity {
+export function identity(value:unknown):NativeHistoryIdentity {
  const v=objectFields(value,['volumeSerial','fileIndex']);
  if(!Number.isInteger(v.volumeSerial)||(v.volumeSerial as number)<0||(v.volumeSerial as number)>0xffffffff||typeof v.fileIndex!=='string'||!/^[a-f0-9]{16}$/.test(v.fileIndex))fail(PROTOCOL);
  return Object.freeze({volumeSerial:v.volumeSerial as number,fileIndex:v.fileIndex});
 }
-function deferred<T>(){let resolve!:(value:T)=>void,reject!:(reason:unknown)=>void;const promise=new Promise<T>((a,b)=>{resolve=a;reject=b});void promise.catch(()=>undefined);return {promise,resolve,reject}}
+export function deferred<T>(){let resolve!:(value:T)=>void,reject!:(reason:unknown)=>void;const promise=new Promise<T>((a,b)=>{resolve=a;reject=b});void promise.catch(()=>undefined);return {promise,resolve,reject}}
 /** Only a trusted Main composition supplies a child; this module never resolves or spawns a binary. */
 export function createNativeHistoryEndpointFactory(options:{spawn:(input:{root:string;deadlineMs:number})=>ChildProcessWithoutNullStreams;clock?:()=>number}):NativeHistoryEndpointFactory {
  const clock=options.clock??(()=>performance.now());

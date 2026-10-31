@@ -4,10 +4,11 @@ import { it as test } from "vitest";
 import YAML from "yaml";
 
 for (const [file, runner] of [["test.yml", "windows-latest"], ["plugin-sdk.yml", "ubuntu-latest"]]) {
-  test(`${file} covers release and stacked PR bases with the existing safe triggers and permissions`, () => {
+  // The repo keeps two long-lived branches: every PR lands on firefly-demo, which the owner then merges into main.
+  test(`${file} covers main and firefly-demo with the existing safe triggers and permissions`, () => {
     const workflow = YAML.parse(fs.readFileSync(`.github/workflows/${file}`, "utf8"));
-    assert.deepEqual(workflow.on.pull_request.branches, ["main", "chore/project-structure-finalize", "firefly-mini-v1.1.x"]);
-    assert.deepEqual(workflow.on.push.branches, ["main", "firefly-mini-v1.1.x"]);
+    assert.deepEqual(workflow.on.pull_request.branches, ["main", "firefly-demo"]);
+    assert.deepEqual(workflow.on.push.branches, ["main", "firefly-demo"]);
     assert.deepEqual(Object.keys(workflow.on).sort(), ["pull_request", "push"]);
     assert.deepEqual(workflow.permissions, { contents: "read" });
     assert.equal(Object.values(workflow.jobs)[0]["runs-on"], runner);
@@ -25,4 +26,35 @@ test("Windows Test builds and selects the verified native history helper before 
   assert.match(steps[buildIndex].run, /native\/target\/release\/firefly-history-presence\.exe/);
   assert.match(steps[buildIndex].run, /GITHUB_ENV/);
   assert.equal(steps[buildIndex]["continue-on-error"], undefined);
+});
+
+test("Pages publishes the promo site from main only, with the narrow Pages permissions", () => {
+  const workflow = YAML.parse(fs.readFileSync(".github/workflows/pages.yml", "utf8"));
+  assert.deepEqual(workflow.on.push.branches, ["main"]);
+  assert.deepEqual(Object.keys(workflow.on).sort(), ["push", "workflow_dispatch"]);
+  assert.deepEqual(workflow.permissions, { contents: "read", pages: "write", "id-token": "write" });
+  assert.equal(workflow.concurrency["cancel-in-progress"], false);
+  const steps = workflow.jobs.build.steps as Array<{ run?: string; uses?: string; with?: { path?: string } }>;
+  assert.ok(steps.some(step => step.run === "npm run build:site"));
+  assert.equal(steps.find(step => step.uses?.startsWith("actions/upload-pages-artifact@"))?.with?.path, "dist/site");
+  assert.deepEqual(workflow.jobs.deploy.needs, "build");
+  assert.equal(workflow.jobs.deploy.environment.name, "github-pages");
+});
+
+test("the plugin SDK publishes to npm only from a version tag, through trusted publishing", () => {
+  const workflow = YAML.parse(fs.readFileSync(".github/workflows/plugin-sdk-publish.yml", "utf8"));
+  assert.deepEqual(workflow.on, { push: { tags: ["plugin-sdk-v*"] } });
+  assert.deepEqual(workflow.permissions, { contents: "read", "id-token": "write" });
+  const steps = workflow.jobs.publish.steps as Array<{ run?: string; env?: Record<string, string>; "working-directory"?: string }>;
+  const index = (pattern: RegExp) => steps.findIndex(step => pattern.test(step.run ?? ""));
+  assert.ok(index(/GITHUB_REF_NAME#plugin-sdk-v/) >= 0);
+  assert.ok(index(/npm run check:plugin-sdk/) < index(/npm publish/));
+  assert.ok(index(/npm run test:plugin-examples/) < index(/npm publish/));
+  assert.equal(steps[index(/npm publish/)]["working-directory"], "plugin-sdk");
+  // No npm token anywhere: publishing relies on the OIDC id-token.
+  assert.doesNotMatch(fs.readFileSync(".github/workflows/plugin-sdk-publish.yml", "utf8"), /NODE_AUTH_TOKEN|NPM_TOKEN|secrets\./);
+  const sdk = JSON.parse(fs.readFileSync("plugin-sdk/package.json", "utf8"));
+  assert.equal(sdk.name, "@firefly_wu/plugin-sdk");
+  assert.equal(sdk.private, undefined);
+  assert.equal(sdk.repository.url, "git+https://github.com/Firefly-0423/Firefly-Agent.git");
 });

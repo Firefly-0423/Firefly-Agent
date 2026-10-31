@@ -7,7 +7,7 @@
   border: 1px solid var(--ff-border);
   border-radius: 8px;
   background: var(--ff-bg-workspace, var(--ff-surface));
-  font: 12px/20px var(--rb-font-mono, ui-monospace, "Cascadia Mono", Consolas, monospace);
+  font: var(--ff-fs-caption)/20px var(--rb-font-mono, ui-monospace, "Cascadia Mono", Consolas, monospace);
 }
 .ff-code-diff--plain { --ff-code-diff-gutter: 0px; }
 .ff-code-diff__line { display: grid; grid-template-columns: var(--ff-code-diff-gutter) 18px minmax(0, 1fr); align-items: start; box-shadow: inset 2px 0 transparent; }
@@ -22,7 +22,7 @@
 .ff-code-diff__gap {
   display: flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 10px;
   border-block: 1px solid var(--ff-border); background: var(--ff-bg-hover); color: var(--ff-text-muted);
-  font: 12px/1.3 var(--rb-font-sans, sans-serif);
+  font: var(--ff-fs-caption)/1.3 var(--rb-font-sans, sans-serif);
 }
 .ff-code-diff__gap:first-child { border-top: 0; }
 .ff-code-diff__gap:last-child { border-bottom: 0; }

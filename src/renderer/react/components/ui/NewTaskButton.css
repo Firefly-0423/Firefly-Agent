@@ -32,7 +32,7 @@
 .ff-side-action-label {
   white-space: nowrap;
   font-weight: 500;
-  font-size: 13px;
+  font-size: var(--ff-fs-ui);
 }
 
 .ff-side-action-dot {

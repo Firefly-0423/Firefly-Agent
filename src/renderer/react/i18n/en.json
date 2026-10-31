@@ -38,7 +38,6 @@
     "placeholderChat": "I'm ready to chat with you ♪",
     "placeholderTaskNoWorkspace": "Got a question or task? I can help ♪ (Pick a project folder first!)",
     "placeholderTask": "Got a question or task? I can help ♪",
-    "placeholderBusy": "Running · Enter to queue · Shift+Enter for a new line",
     "attachmentsLabel": "Attachments ready to send",
     "floatingCollapse": "Collapse composer",
     "floatingExpand": "Expand composer",
@@ -94,8 +93,6 @@
     "errorContextFailedWith": "Context processing failed: {{message}}",
     "errorToolFailedWith": "Tool execution failed: {{message}}",
     "errorRuntimeFailedWith": "Task execution failed: {{message}}",
-    "errorNetworkInterrupted": "The connection dropped before the model replied. The network or a proxy may be unstable; send the message again in a moment. ({{code}})",
-    "errorModelTimedOut": "The model took too long to respond, so Firefly stopped waiting. Try again in a moment. ({{code}})",
     "errorChatStoreUnavailable": "The chat session service isn't ready yet",
     "newTaskTitle": "New task",
     "newChatTitle": "New chat",
@@ -126,7 +123,9 @@
     "errorPendingAdjustAttachments": "Messages with attachments can't be inserted into the current run yet; kept in the queue",
     "openProjectFolderFailed": "Couldn't open project folder: {{error}}",
     "unknownError": "Unknown error",
-    "lastRunInterrupted": "The last run was interrupted"
+    "lastRunInterrupted": "The last run was interrupted",
+    "errorNetworkInterrupted": "The connection dropped before the model replied. The network or a proxy may be unstable; send the message again in a moment. ({{code}})",
+    "errorModelTimedOut": "The model took too long to respond, so Firefly stopped waiting. Try again in a moment. ({{code}})"
   },
   "messageList": {
     "loadingAria": "Loading",
@@ -171,7 +170,8 @@
       "qqbot": "QQ Bot",
       "unknown": "External channel",
       "sameConversation": "{{channels}} · same conversation"
-    }
+    },
+    "roundFailedTools": "{{count}} failed"
   },
   "contextRing": {
     "categorySystemPrompt": "System prompt",
@@ -191,7 +191,8 @@
     "menuAria": "Context usage",
     "menuTitle": "Context capacity",
     "title": "Context: {{summary}}",
-    "footnote": "Estimated value; refreshes after each message"
+    "footnote": "Estimated value; refreshes after each message",
+    "categoryRetrieved": "Memory and retrieved context"
   },
   "slash": {
     "label": "Commands",
@@ -228,13 +229,6 @@
     "rangeNote": "Last {{days}} days, all conversations combined"
   },
   "agentRounds": {
-    "liveListDir": "listing directory",
-    "liveReadFile": "reading file",
-    "liveWriteFile": "writing file",
-    "liveEditFile": "editing file",
-    "liveSearchCode": "searching code",
-    "liveSearchText": "searching text",
-    "liveRunShell": "running command",
     "toolListDir": "Browse directory",
     "toolReadFile": "Read file",
     "toolWriteFile": "Write file",
@@ -254,15 +248,15 @@
     "summaryWriteFile": "Wrote {{count}} files",
     "summaryEditFile": "Edited {{count}} files",
     "summarySearchCode": "Searched {{count}} times",
-    "summarySearchText": "Searched {{count}} times",
     "summaryRunShell": "Ran {{count}} commands",
+    "summaryUpdateTodo": "Updated the plan {{count}} times",
+    "summaryReadToolResult": "Read {{count}} tool results",
     "summaryFallback": "Completed {{count}} actions",
-    "interruptedTitle": "I was interrupted",
-    "failureCount": "{{count}} failed",
-    "runningLive": "I'm {{action}}",
-    "runningThinking": "I'm thinking",
-    "completedTitle": "All done",
     "toolAskUser": "Ask user",
+    "toolUpdateTodo": "Update to-dos",
+    "toolDelegateAgent": "Delegate to a partner",
+    "toolEnterPlanMode": "Enter plan mode",
+    "toolWritePlan": "Write plan",
     "askUserWaiting": "Waiting for answer",
     "askUserAnswered": "User answered",
     "askUserFailed": "Ask failed"
@@ -385,9 +379,21 @@
   },
   "scheduledPanel": {
     "suggestions": {
-      "daily": { "title": "Daily wrap-up", "description": "Summarise the day's progress every day at 6 pm.", "prompt": "Summarise today's progress: what got done, what blocked me, and what to pick up tomorrow." },
-      "weekly": { "title": "Weekly planning", "description": "Lay out the week's priorities every Monday at 9 am.", "prompt": "From my recent conversations and tasks, list this week's priorities in order of importance." },
-      "todos": { "title": "Check my to-dos", "description": "Remind me of anything still unfinished every day at 9 am.", "prompt": "Check my unfinished to-dos and name the three to do first." }
+      "daily": {
+        "title": "Daily wrap-up",
+        "description": "Summarise the day's progress every day at 6 pm.",
+        "prompt": "Summarise today's progress: what got done, what blocked me, and what to pick up tomorrow."
+      },
+      "weekly": {
+        "title": "Weekly planning",
+        "description": "Lay out the week's priorities every Monday at 9 am.",
+        "prompt": "From my recent conversations and tasks, list this week's priorities in order of importance."
+      },
+      "todos": {
+        "title": "Check my to-dos",
+        "description": "Remind me of anything still unfinished every day at 9 am.",
+        "prompt": "Check my unfinished to-dos and name the three to do first."
+      }
     },
     "filterAll": "All tasks",
     "listSection": "Tasks",
@@ -513,7 +519,13 @@
     "restartRequired": "A full application restart is required. The running version remains unchanged.",
     "restartAfterFailure": "This plugin is not running in the current process. Restart the application to retry the saved version selection.",
     "catalogReadAt": "Catalog read at: {{time}}",
-    "sources": { "builtin": "Built-in", "bundled": "Bundled with app", "curated-market": "Curated market", "local-zip": "Local ZIP", "legacy-unknown": "Legacy installation, unverified source" },
+    "sources": {
+      "builtin": "Built-in",
+      "bundled": "Bundled with app",
+      "curated-market": "Curated market",
+      "local-zip": "Local ZIP",
+      "legacy-unknown": "Legacy installation, unverified source"
+    },
     "title": "Plugins",
     "subtitle": "Manage your installed plugins. Newly imported plugins are disabled by default — only enable ones you trust.",
     "registryPrefix": "Official registry: ",
@@ -967,7 +979,12 @@
     "noSearchResults": "No matching tasks",
     "viewProjectsShort": "Projects",
     "viewStatusShort": "Status",
-    "status": {"needs-input": "Needs input", "working": "Working", "done": "Completed", "needsInputLabel": "Waiting for you"},
+    "status": {
+      "needs-input": "Needs input",
+      "working": "Working",
+      "done": "Completed",
+      "needsInputLabel": "Waiting for you"
+    },
     "viewMergedShort": "Merged",
     "dragToReorder": "Drag to reorder",
     "reorderHint": "Drag, or press Alt+Up or Alt+Down, to reorder",
@@ -994,8 +1011,7 @@
     "newProjectChat": "New conversation in this project",
     "emptyTier": "Nothing here yet",
     "showProject": "Show project",
-    "projectVisibility": "Project visibility"
-,
+    "projectVisibility": "Project visibility",
     "organizeSidebar": "Organize sidebar",
     "sortChats": "Sort chats by",
     "copy": "Copy",
@@ -1247,7 +1263,8 @@
     "connectorsManage": "Manage in settings",
     "usage": "Usage",
     "outputs": "Outputs",
-    "outputsEmpty": "No outputs in this session yet"
+    "outputsEmpty": "No outputs in this session yet",
+    "contextMeasured": "The total is what the provider reported; the parts are estimated from characters."
   },
   "workspace": {
     "resizeSidebar": "Resize conversation sidebar",
@@ -1335,12 +1352,14 @@
       "instruction": "Required capability or reference is unsupported",
       "text": "Not supported plain UTF-8 text"
     },
-    "notice": "Only openai/plugins and anthropics/skills are available. Only fully reviewed instruction-only skills can be imported. Importing keeps the skill disabled; enabling requires a separate confirmation.",
+    "notice": "Firefly's own Firefly-0423/firefly-skills, openai/plugins and anthropics/skills are available. Only individually reviewed text-only skills can be imported, and skills Firefly already ships are not installed again. Importing keeps the skill disabled; enabling requires a separate confirmation.",
     "unavailable": "External skills are unavailable. Please retry when the settings bridge is ready.",
     "refresh": "Refresh catalog",
     "back": "Back to catalog",
     "search": "Search names and descriptions",
     "noMatch": "No matching external skill",
+    "builtIn": "Built in",
+    "builtInNotice": "Firefly already ships this skill, so it is not installed from the market.",
     "bundle": "Package",
     "bundleVersion": "Package version",
     "bundleLicense": "Package license declaration",

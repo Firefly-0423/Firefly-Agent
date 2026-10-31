@@ -1,3 +1,4 @@
+import { MEMORY_GRAPH_CATEGORIES } from "../../shared/memory-graph-categories";
 import type { IpcMainInvokeEvent } from "electron";
 import { IPC } from "../../shared/ipc-channels";
 import type { FactView, SourceRef } from "../../shared/memory-contracts";
@@ -63,13 +64,22 @@ function source(ref: SourceRef): SourceRef {
   return { sourceId: ref.sourceId, revision: ref.revision, ...(ref.span ? { span: { start: ref.span.start, end: ref.span.end } } : {}),
     ...(ref.binding ? { binding: { providerId: ref.binding.providerId, sessionId: ref.binding.sessionId, messageId: ref.binding.messageId, contentRevision: ref.binding.contentRevision, generation: ref.binding.generation } } : {}) };
 }
+const CATEGORIES = new Set<string>(MEMORY_GRAPH_CATEGORIES);
+/** A known category name only: never the typed record or a free-form value. */
+function categoryOf(item: FactView): string | undefined {
+  const value = item.typed?.legacyAttribute ?? item.attribute;
+  return typeof value === "string" && CATEGORIES.has(value) ? value : undefined;
+}
 function fact(item: FactView): FactView {
   return { factId: item.factId, revision: item.revision, subjectKey: item.subjectKey, assertion: item.assertion, assertionKind: item.assertionKind,
     time: { validFrom: item.time.validFrom, validTo: item.time.validTo, referenceTime: item.time.referenceTime }, sourceRef: source(item.sourceRef),
     recordedAt: item.recordedAt, acceptedAt: item.acceptedAt, supersededAt: item.supersededAt, activationReason: item.activationReason, policyVersion: item.policyVersion,
     provenance: { candidateId: item.provenance.candidateId, evidenceId: item.provenance.evidenceId, activationSourceRef: source(item.provenance.activationSourceRef) },
     ...(item.scope === "global" || item.scope === "project" ? { scope: item.scope } : {}),
-    ...(typeof item.projectName === "string" && item.projectName ? { projectName: item.projectName.slice(0, 200) } : {}) };
+    ...(typeof item.projectRef === "string" && /^[a-f0-9]{16}$/.test(item.projectRef) ? { projectRef: item.projectRef } : {}),
+    ...(typeof item.projectName === "string" && item.projectName ? { projectName: item.projectName.slice(0, 200) } : {}),
+    ...(categoryOf(item) ? { attribute: categoryOf(item) } : {}),
+    ...(typeof item.sourceTitle === "string" && item.sourceTitle ? { sourceTitle: item.sourceTitle.slice(0, 200) } : {}) };
 }
 function stateDto(state: MemoryPanelState): MemoryPanelState {
   const c = state.coverage;
@@ -82,7 +92,9 @@ function stateDto(state: MemoryPanelState): MemoryPanelState {
     value: item.value, assertion: item.assertion, reason: item.reason, sourceRef: source(item.sourceRef), ...(item.occurredAt !== undefined ? { occurredAt: item.occurredAt } : {}),
       ...(typeof item.contentHash === "string" && /^[a-f0-9]{64}$/.test(item.contentHash) ? { contentHash: item.contentHash } : {}),
       ...(item.scope === "global" || item.scope === "project" ? { scope: item.scope } : {}),
-      ...(typeof item.projectName === "string" && item.projectName ? { projectName: item.projectName.slice(0, 200) } : {}) })),
+      ...(typeof item.projectRef === "string" && /^[a-f0-9]{16}$/.test(item.projectRef) ? { projectRef: item.projectRef } : {}),
+    ...(typeof item.projectName === "string" && item.projectName ? { projectName: item.projectName.slice(0, 200) } : {}),
+      ...(typeof item.sourceTitle === "string" && item.sourceTitle ? { sourceTitle: item.sourceTitle.slice(0, 200) } : {}) })),
     backendStatus: { available: state.backendStatus.available, ...(state.backendStatus.reason ? { reason: state.backendStatus.reason } : {}) },
     coverage: { status: c.status, ...(c.reason ? { reason: c.reason } : {}), population: c.population, present: c.present, missing: c.missing, unknownDenied: c.unknownDenied,
       exactRatio: c.exactRatio, lowerRatio: c.lowerRatio, upperRatio: c.upperRatio, reasons: { ...c.reasons }, evidence: { status: "not-evaluated", eligible: null, ineligible: null, unknown: c.evidence.unknown, ratio: null } } };

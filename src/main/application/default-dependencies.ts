@@ -78,7 +78,7 @@ import { loadUserProfile } from "../storage/settings-store";
 import { getAppIconPath } from "../windows/app-icon";
 import { hasActiveConversationRun, isActiveConversationRun, registerAgUiIpc } from "../chat/agui-bridge";
 import { updateLocaleContext } from "../startup/locale-context";
-import { initSkills, rescanSkills, skillRegistry } from "../skills";
+import { initSkills, rescanSkills, shippedSkillIds, skillRegistry } from "../skills";
 import { createExternalSkillService } from "../skills/external-service";
 import { registerExternalSkillsIpc } from "../skills/external-ipc";
 import { recoverExternalSkills } from "../skills/external-install";
@@ -599,6 +599,7 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
       randomToken: () => randomBytes(32).toString("hex"),
       reviews: EXTERNAL_SKILL_REVIEWS,
       rescan: rescanSkills,
+      builtInSkillIds: shippedSkillIds,
     });
     externalSkillsIpc = registerExternalSkillsIpc({
       ipc,

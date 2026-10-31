@@ -20,7 +20,7 @@ input.ff-select__source { display: none !important; }
   background: var(--rb-card-bg, var(--rb-bg-elevated));
   color: var(--rb-text-strong);
   font: inherit;
-  font-size: 13.5px;
+  font-size: var(--ff-fs-ui);
   text-align: left;
   cursor: pointer;
   transition: border-color 120ms ease, box-shadow 120ms ease;
@@ -43,7 +43,7 @@ input.ff-select__source { display: none !important; }
   transition: transform 200ms cubic-bezier(0.19, 1, 0.22, 1);
 }
 .ff-select.is-open > .ff-select__button .ff-select__chevron { margin-top: 3px; transform: rotate(-135deg); }
-.ff-select__icon { display: grid; flex: none; width: 18px; height: 18px; place-items: center; overflow: hidden; border-radius: 4px; font-size: 11px; font-weight: 600; }
+.ff-select__icon { display: grid; flex: none; width: 18px; height: 18px; place-items: center; overflow: hidden; border-radius: 4px; font-size: var(--ff-fs-caption); font-weight: 600; }
 .ff-select__icon img { display: block; width: 18px; height: 18px; object-fit: contain; }
 .ff-select__icon > .preset-card__logo { display: grid; width: 18px; height: 18px; place-items: center; }
 /* Kimi's mark is white, so it sits on a black tile to stay visible on the light list. */
@@ -80,7 +80,7 @@ input.ff-select__source { display: none !important; }
   background: transparent;
   color: var(--rb-text-strong);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--ff-fs-ui);
 }
 .ff-select__filter[hidden] { display: none; }
 .ff-select__list { max-height: 300px; margin: 0; padding: 0; overflow-y: auto; list-style: none; outline: none; }
@@ -92,7 +92,7 @@ input.ff-select__source { display: none !important; }
   padding: 0 10px;
   border-radius: 8px;
   color: var(--rb-text-default);
-  font-size: 13.5px;
+  font-size: var(--ff-fs-ui);
   cursor: pointer;
 }
 .ff-select__option[hidden] { display: none; }
@@ -113,7 +113,7 @@ input.ff-select__source { display: none !important; }
 .ff-date__head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
 .ff-date__pickers { display: flex; flex: 1; gap: 6px; min-width: 0; }
 .ff-date__pickers > .ff-select { flex: 1; width: auto; }
-.ff-date__pickers .ff-select__button { height: 30px; font-size: 13px; }
+.ff-date__pickers .ff-select__button { height: 30px; font-size: var(--ff-fs-ui); }
 .ff-date__nav {
   display: grid;
   flex: none;
@@ -138,7 +138,7 @@ input.ff-select__source { display: none !important; }
 .ff-date__nav:hover:not(:disabled) { background: var(--rb-hover-light); }
 .ff-date__nav:disabled { opacity: .35; cursor: default; }
 .ff-date__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; outline: none; }
-.ff-date__weekday { padding: 4px 0; color: var(--rb-text-muted); font-size: 11.5px; text-align: center; }
+.ff-date__weekday { padding: 4px 0; color: var(--rb-text-muted); font-size: var(--ff-fs-caption); text-align: center; }
 .ff-date__day {
   height: 32px;
   padding: 0;
@@ -147,7 +147,7 @@ input.ff-select__source { display: none !important; }
   background: transparent;
   color: var(--rb-text-strong);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--ff-fs-ui);
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition: background-color 100ms ease, color 100ms ease;
@@ -159,7 +159,7 @@ input.ff-select__source { display: none !important; }
 .ff-date__day.is-selected { background: rgb(var(--rb-accent-rgb)); color: #fff; font-weight: 600; }
 .ff-date__day:disabled { opacity: .3; cursor: default; }
 .ff-date__foot { display: flex; justify-content: flex-end; margin-top: 8px; }
-.ff-date__link { padding: 4px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--rb-text-muted); font: inherit; font-size: 12.5px; cursor: pointer; }
+.ff-date__link { padding: 4px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--rb-text-muted); font: inherit; font-size: var(--ff-fs-ui); cursor: pointer; }
 .ff-date__link:hover { background: var(--rb-hover-light); color: var(--rb-text-strong); }
 
 @media (prefers-reduced-motion: reduce) {
@@ -203,14 +203,14 @@ input.ff-select__source { display: none !important; }
 #appearance-form .appearance-advanced[open] > .appearance-advanced__summary::after { transform: rotate(45deg); }
 #appearance-form .appearance-advanced__reset {
   order: 2; margin-left: auto; padding: 2px 4px; border: 0; background: transparent; color: var(--rb-text-muted);
-  font: 400 13px/1.4 var(--rb-font-sans, sans-serif); cursor: pointer;
+  font: 400 var(--ff-fs-ui)/1.4 var(--rb-font-sans, sans-serif); cursor: pointer;
 }
 #appearance-form .appearance-advanced__reset:hover { color: var(--rb-text-default); }
 #appearance-form .appearance-advanced > .appearance-card + .appearance-card { margin-top: 12px; }
 .appearance-seg { display: inline-flex; align-items: center; gap: 2px; }
 .appearance-seg__option {
   min-width: 44px; height: 28px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent;
-  color: var(--rb-text-muted); font: 400 13px/1 var(--rb-font-sans, sans-serif); cursor: pointer;
+  color: var(--rb-text-muted); font: 400 var(--ff-fs-ui)/1 var(--rb-font-sans, sans-serif); cursor: pointer;
   transition: background-color 150ms ease, color 150ms ease;
 }
 .appearance-seg__option:hover { color: var(--rb-text-default); }
@@ -235,8 +235,8 @@ input.ff-select__source { display: none !important; }
 }
 .settings-shell .rag-model-card:hover { border-color: var(--rb-border-strong); background: var(--rb-card-bg); }
 .settings-shell .rag-model-card__title { grid-area: title; }
-.settings-shell .rag-model-card__desc { grid-area: desc; font-size: 12px; line-height: 1.5; }
-.settings-shell .rag-model-card > em { grid-area: status; margin: 0; padding: 2px 9px; border-radius: 999px; background: var(--rb-hover-light, rgba(127, 127, 127, 0.1)); font-size: 11.5px; white-space: nowrap; }
+.settings-shell .rag-model-card__desc { grid-area: desc; font-size: var(--ff-fs-caption); line-height: 1.5; }
+.settings-shell .rag-model-card > em { grid-area: status; margin: 0; padding: 2px 9px; border-radius: 999px; background: var(--rb-hover-light, rgba(127, 127, 127, 0.1)); font-size: var(--ff-fs-caption); white-space: nowrap; }
 :root .settings-shell .rag-model-card.is-active {
   border-color: rgba(var(--ff-glow-rgb), 0.55);
   background: color-mix(in srgb, var(--ff-glow) 6%, var(--rb-card-bg));
@@ -245,10 +245,10 @@ input.ff-select__source { display: none !important; }
 }
 :root .settings-shell .rag-model-card.is-active .rag-model-card__title { color: var(--rb-text-strong); }
 .settings-shell .agent-setting-card--rag .agent-setting-subgroup + .agent-setting-subgroup { margin-top: 12px; }
-.rag-field-tag { color: var(--rb-text-muted); font-size: 12px; font-weight: 400; }
+.rag-field-tag { color: var(--rb-text-muted); font-size: var(--ff-fs-caption); font-weight: 400; }
 .rag-dim-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 6px; }
 .rag-dim-row .agent-input { width: 180px; }
-.rag-field-note { color: var(--rb-text-muted); font-size: 12px; }
+.rag-field-note { color: var(--rb-text-muted); font-size: var(--ff-fs-caption); }
 
 /* Theme, custom colours and font in one card: the colour fieldset is just a run of rows inside it. */
 #appearance-form .appearance-card__group { display: contents; margin: 0; padding: 0; border: 0; min-width: 0; }
@@ -259,14 +259,14 @@ input.ff-select__source { display: none !important; }
 /* ===== Appearance → 代码外观, after Claude: a code theme picker for each of the light and dark themes, each over a
    small diff painted in that theme, and the code font below. */
 #appearance-form .appearance-code { margin-top: var(--sys-gap, 20px); }
-#appearance-form .appearance-code__title { margin: 0 0 10px; padding: 0 2px; color: var(--rb-text-default); font-size: 14px; font-weight: 600; }
+#appearance-form .appearance-code__title { margin: 0 0 10px; padding: 0 2px; color: var(--rb-text-default); font-size: var(--ff-fs-body); font-weight: 600; }
 #appearance-form .appearance-code__themes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 14px 0; }
 #appearance-form .appearance-code__theme { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 #appearance-form .appearance-code__theme :is(select, .ff-select, .ff-select__button) { width: 100%; }
 @media (max-width: 720px) { #appearance-form .appearance-code__themes { grid-template-columns: minmax(0, 1fr); } }
 .code-theme-preview {
   overflow: hidden; padding: 8px 0; border: 1px solid var(--rb-border-default, #e2e4ea); border-radius: 8px;
-  font: 400 12.5px/1.6 var(--rb-font-mono, ui-monospace, Consolas, monospace); white-space: pre;
+  font: 400 var(--ff-fs-ui)/1.6 var(--rb-font-mono, ui-monospace, Consolas, monospace); white-space: pre;
 }
 .code-theme-preview[data-scheme="dark"] { border-color: transparent; }
 .code-theme-preview__line { display: flex; padding: 0 10px; }

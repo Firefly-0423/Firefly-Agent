@@ -735,6 +735,15 @@ it('a child can inherit only a genuine live parent run capability, and parent ca
  await expect(child.run.call(f.call())).rejects.toThrow('MEMORY_CONTEXT_CANCELLED');
  expect(f.sent).toHaveLength(1);await child.prepared.close();
 });
+it('children of one parent share one history capture, so siblings running together both read the parent context',async()=>{
+ const f=await fixture();await f.user('session-a','parent authorized historical note');await f.store.checkpoint('session-a');await primeHistory(f);f.memory.authorizeRun(f.event,'session-a');
+ const parent=await f.memory.openRun(f.input());
+ const one=await preparedBackground(f,await backgroundIngress('child','child-one','Read the parent context'),'child-one',parent);
+ const two=await preparedBackground(f,await backgroundIngress('child','child-two','Read the parent context'),'child-two',parent);
+ await Promise.all([one.run.call(f.call()),two.run.call(f.call())]);
+ expect(f.sent.filter(sent=>sent.includes('parent authorized historical note'))).toHaveLength(2);
+ await one.prepared.close();await two.prepared.close();await parent.close();
+});
 it('background producer cancellation prevents late dispatch and preserves its canonical instruction',async()=>{
  const f=await fixture(),event=await backgroundIngress('proactive'),p=await preparedBackground(f,event);event.controller.abort();
  await expect(p.run.call(f.call())).rejects.toThrow('MEMORY_CONTEXT_CANCELLED');expect(f.sent).toHaveLength(0);
@@ -1213,9 +1222,9 @@ it("remember, recall in a new session, correct, forget, and keep chatting withou
 });
 
 // ── Project isolation: facts learned in one bound workspace never reach another ──
-const binding = (name: string) => ({ workspaceRoot: "C:\\work\\" + name, displayName: name, boundAt: 1 });
-async function turnIn(f: Awaited<ReturnType<typeof fixture>>, id: string, mode: "chat" | "code", workspace: string | null, text: string) {
-  f.sessions.set(id, { id, mode, messages: [], modelProfileId: "luna", ...(workspace ? { workspaceBinding: binding(workspace) } : {}) });
+const binding = (name: string, root = "C:\\work\\" + name) => ({ workspaceRoot: root, displayName: name, boundAt: 1 });
+async function turnIn(f: Awaited<ReturnType<typeof fixture>>, id: string, mode: "chat" | "code", workspace: string | null, text: string, root?: string) {
+  f.sessions.set(id, { id, mode, messages: [], modelProfileId: "luna", ...(workspace ? { workspaceBinding: binding(workspace, root) } : {}) });
   f.select(id); await f.user(id, text, "u-" + id); const admission = f.memory.authorizeRun(f.event, id);
   const run = await f.memory.openRun(f.input(id, "run-" + id));
   await run.call(f.call()); const request = f.sent.at(-1)!;
@@ -1340,9 +1349,36 @@ it("settings state labels a project fact with its project name and a global fact
   await turnIn(f, "learn-chat", "chat", null, "请叫我小林");
   const state = await f.memory.settingsHost.getState(f.settingsEvent);
   const byText = (text: string) => state.facts.find((fact: any) => fact.assertion.includes(text)) as any;
-  expect(byText("bash")).toMatchObject({ scope: "project", projectName: "alpha" });
-  expect(byText("小林")).toMatchObject({ scope: "global" }); expect(byText("小林").projectName).toBeUndefined();
+  expect(byText("bash")).toMatchObject({ scope: "project", projectName: "alpha", attribute: "shell" });
+  expect(byText("小林")).toMatchObject({ scope: "global", attribute: "address" }); expect(byText("小林").projectName).toBeUndefined();
   expect(JSON.stringify(state)).not.toMatch(/project-[a-f0-9]{64}/);
+});
+
+it("settings state tells two same-named projects apart by an opaque reference that is not the project key", async () => {
+  const f = await fixture("code");
+  await turnIn(f, "learn-work", "code", "app", "I prefer bash", "C:\\work\\app");
+  await turnIn(f, "learn-home", "code", "app", "I prefer bash", "C:\\personal\\app");
+  const state = await f.memory.settingsHost.getState(f.settingsEvent);
+  const projectFacts = state.facts.filter((fact: any) => fact.scope === "project") as any[];
+  expect(projectFacts.map(fact => fact.projectName)).toEqual(["app", "app"]);
+  expect(projectFacts.every(fact => /^[a-f0-9]{16}$/.test(fact.projectRef))).toBe(true);
+  expect(new Set(projectFacts.map(fact => fact.projectRef)).size).toBe(2);
+  expect(JSON.stringify(state)).not.toMatch(/project-[a-f0-9]{64}/);
+  // Stable while the app runs, so the graph keeps its nodes across refreshes.
+  const again = await f.memory.settingsHost.getState(f.settingsEvent);
+  expect((again.facts as any[]).filter(fact => fact.scope === "project").map(fact => fact.projectRef).sort()).toEqual(projectFacts.map(fact => fact.projectRef).sort());
+});
+
+it("settings state names the conversation a fact came from, and leaves it out when the session is gone or untitled", async () => {
+  const f = await fixture("code");
+  await turnIn(f, "learn-title", "chat", null, "请叫我小林");
+  await turnIn(f, "learn-untitled", "code", "alpha", "I prefer bash");
+  f.sessions.get("learn-title").title = "  周末聊天  ";
+  const state = await f.memory.settingsHost.getState(f.settingsEvent);
+  const byText = (text: string) => state.facts.find((fact: any) => fact.assertion.includes(text)) as any;
+  expect(byText("小林").sourceTitle).toBe("周末聊天"); expect(byText("bash")).not.toHaveProperty("sourceTitle");
+  f.sessions.delete("learn-title");
+  expect(((await f.memory.settingsHost.getState(f.settingsEvent)).facts.find((fact: any) => fact.assertion.includes("小林")) as any)).not.toHaveProperty("sourceTitle");
 });
 it("a project fact keeps its scope but loses the name once no session is bound to that project any more", async () => {
   const f = await fixture("code");
@@ -1352,13 +1388,15 @@ it("a project fact keeps its scope but loses the name once no session is bound t
   expect(fact.scope).toBe("project"); expect(fact.projectName).toBeUndefined();
 });
 
-it("settings state loads without touching any session when no listed memory belongs to a project", async () => {
+it("settings state reads only the listed memories' own source sessions when none belongs to a project", async () => {
   const f = await fixture("chat");
   await turnIn(f, "learn-chat", "chat", null, "请叫我小林");
+  f.sessions.set("unrelated", { id: "unrelated", mode: "chat", messages: [], modelProfileId: "luna" });
   const get = vi.spyOn(f.sessions, "get"); get.mockClear();
   const state = await f.memory.settingsHost.getState(f.settingsEvent);
   expect(state.facts.some((fact: any) => fact.assertion.includes("小林"))).toBe(true);
-  expect(get).not.toHaveBeenCalled();
+  // The conversation title of each memory's source; no scan of other sessions for project names.
+  expect(new Set(get.mock.calls.map(([id]) => id))).toEqual(new Set(["learn-chat"]));
 });
 it("a session that cannot be read never fails the settings list; the project fact just has no name", async () => {
   const f = await fixture("code");

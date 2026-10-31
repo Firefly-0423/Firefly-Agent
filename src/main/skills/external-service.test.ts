@@ -454,3 +454,25 @@ it("local_cooldown diagnoses existing snapshot detail and prepare with no physic
   expect(diagnostics).toContainEqual(expect.objectContaining({ operation: "prepare", requestCount: 0, status: null, retryAt: 121000, code: "RATE_LIMITED" }));
   expect(f.calls).toHaveLength(before); expect(stageDirectories(f)).toEqual([]);
 });
+
+it("firefly_native installs our own Skill with exactly its reviewed Firefly metadata, which registration then uses", async () => {
+  const f = fixture("firefly", { "SKILL.md": "---\nname: synthetic-text\ndescription: A synthetic Firefly Skill.\nmodes:\n  - work\neffectKind: mutation\ntools:\n  - obsidian_read_file\n---\nSummarize supplied text.\n" });
+  f.review.policyVersion = "firefly-native-v1";
+  f.review.native = { modes: ["work"], effectKind: "mutation", tools: ["obsidian_read_file"] };
+  const current = await service(f), ready = value(await current.s.prepare(owner, "firefly", f.id));
+  expect(ready.skill.native).toEqual(f.review.native);
+  value(await current.s.commit(owner, ready.token));
+  const store = new ExternalSkillStateStore(f.storage), saved = store.read(f.id)!;
+  expect(saved.reviewPolicyVersion).toBe("firefly-native-v1");
+  expect(saved.skill.native).toEqual(f.review.native);
+  const { scanExternalSkills } = await import("./external-scan");
+  expect(scanExternalSkills(f.storage, store).find(entry => entry.id === f.id)).toMatchObject({ modes: ["work"], effectKind: "mutation", tools: ["obsidian_read_file"] });
+});
+
+it("built_in a market Skill named like a shipped Skill is listed as built in and never staged or installed", async () => {
+  const raw = fixture("anthropic"); raw.deps.builtInSkillIds = () => new Set(["synthetic-text"]);
+  const f = await service(raw);
+  expect(value(await f.s.list(owner, "anthropic"))[0]).toMatchObject({ id: f.id, builtIn: true });
+  expect(await f.s.prepare(owner, "anthropic", f.id)).toMatchObject({ ok: false, code: "TARGET_EXISTS" });
+  expect(stageDirectories(f)).toEqual([]); expect(new ExternalSkillStateStore(f.storage).read(f.id)).toBeUndefined();
+});

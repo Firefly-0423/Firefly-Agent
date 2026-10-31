@@ -8,6 +8,11 @@ import "./ExternalSkillsPanel.css";
 export const ExternalSkillsCommitContext = createContext<(busy: boolean) => void>(() => {});
 
 /** Native buttons handle Enter/Space. Confirms trap Tab, support Escape and restore focus. */
+/** Firefly's own repository first: it is the default tab. */
+const SOURCE_TABS: readonly (readonly [ExternalSkillSourceId, string])[] = [
+  ["firefly", "Firefly-0423/firefly-skills"], ["openai", "openai/plugins"], ["anthropic", "anthropics/skills"],
+];
+
 export function useSkillConfirmationFocus(
   dialog: React.RefObject<HTMLDivElement | null>, open: boolean,
   returnFocus: React.RefObject<HTMLElement | null>, dismiss: () => void, locked: boolean,
@@ -55,7 +60,7 @@ const sameRevision = (left: ExternalSkill, right: ExternalSkill) => left.id === 
 
 export function ExternalSkillsPanel({ onImported }: { onImported: () => Promise<void> }): React.ReactElement {
   const { t, locale } = useTranslation(), notifyCommit = useContext(ExternalSkillsCommitContext);
-  const [source, setSource] = useState<ExternalSkillSourceId>("openai");
+  const [source, setSource] = useState<ExternalSkillSourceId>("firefly");
   const [catalog, setCatalog] = useState<ExternalSkill[]>([]), [selected, setSelected] = useState<ExternalSkill>();
   const [approval, setApproval] = useState<ExternalPrepared>(), [phase, setPhase] = useState<Phase>("loading");
   const [filter, setFilter] = useState(""), [message, setMessage] = useState(""), [expired, setExpired] = useState(false);
@@ -112,7 +117,7 @@ export function ExternalSkillsPanel({ onImported }: { onImported: () => Promise<
 
   useEffect(() => {
     mounted.current = true;
-    void load("openai", false, false);
+    void load("firefly", false, false);
     return () => { mounted.current = false; generation.current++; void cancel(); };
     // Language changes only change presentation, never restart a prepared transaction.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -134,7 +139,8 @@ export function ExternalSkillsPanel({ onImported }: { onImported: () => Promise<
     setPhase("detail");
   };
   const previewCopy = externalSkillPreviewCopy(locale);
-  const canPrepare = (skill: ExternalSkill) => skill.declaration !== "pending" && skill.declaration !== "blocked" && (skill.preview !== undefined
+  // A Skill that ships with Firefly is never installed a second time from the market.
+  const canPrepare = (skill: ExternalSkill) => !skill.builtIn && skill.declaration !== "pending" && skill.declaration !== "blocked" && (skill.preview !== undefined
     ? skill.preview.complete === false && skill.review === "unreviewed" && skill.blockers.every(code => code === "REVIEW_REQUIRED")
     : skill.review === "approved" && skill.blockers.length === 0);
   const prepare = async () => {
@@ -260,7 +266,7 @@ export function ExternalSkillsPanel({ onImported }: { onImported: () => Promise<
       <p className="external-skills__notice">{t("externalSkills.notice")}</p>
       <div className="external-skills__toolbar">
         <div className="external-skills__sources" role="group" aria-label={t("externalSkills.sources")}>
-        {(["openai", "anthropic"] as const).map(item => <button key={item} type="button" disabled={locked || waiting || (phase === "loading" && source === item)} aria-pressed={source === item} onClick={() => void load(item, false, true)}>{item === "openai" ? "openai/plugins" : "anthropics/skills"}</button>)}
+        {SOURCE_TABS.map(([item, name]) => <button key={item} type="button" disabled={locked || waiting || (phase === "loading" && source === item)} aria-pressed={source === item} onClick={() => void load(item, false, true)}>{name}</button>)}
         </div>
         {phase === "browse" && <input type="search" aria-label={t("externalSkills.search")} placeholder={t("externalSkills.search")} value={filter} onChange={event => setFilter(event.target.value)} />}
         <button type="button" disabled={locked || waiting || phase === "loading"} onClick={() => void load(source, true, true)}>{t("externalSkills.refresh")}</button>
@@ -276,10 +282,13 @@ export function ExternalSkillsPanel({ onImported }: { onImported: () => Promise<
         <div className="external-skills__catalog">{shown.map(skill => <article className="external-skills__candidate" key={skill.id}>
           <div className="external-skills__candidate-heading">
             <button type="button" disabled={waiting} onClick={() => void showDetail(skill)}>{skill.upstreamName}</button>
-            <span className={"external-skills__badge is-" + (skill.declaration ?? skill.review)}>{t(skill.declaration ? "externalSkills.declarations." + skill.declaration : "externalSkills.reviews." + skill.review)}</span>
+            {skill.builtIn
+              ? <span className="external-skills__badge is-built-in">{t("externalSkills.builtIn")}</span>
+              : <span className={"external-skills__badge is-" + (skill.declaration ?? skill.review)}>{t(skill.declaration ? "externalSkills.declarations." + skill.declaration : "externalSkills.reviews." + skill.review)}</span>}
           </div>
-          <p>{skill.description}</p><p className="external-skills__candidate-meta">{skill.bundle.name} · {t("externalSkills.reviews." + skill.review)}</p>
-          {skill.blockers.map(code => <p key={code}>{errorText(code)}</p>)}
+          {/* A built-in Skill is not a candidate for import, so its review state and blockers are not shown. */}
+          <p>{skill.description}</p><p className="external-skills__candidate-meta">{skill.bundle.name}{skill.builtIn ? "" : ` · ${t("externalSkills.reviews." + skill.review)}`}</p>
+          {!skill.builtIn && skill.blockers.map(code => <p key={code}>{errorText(code)}</p>)}
         </article>)}</div>
         {shown.length === 0 && !message && !waiting && <div className="external-skills__state" data-state="empty" role="status"><strong>{t("externalSkills.noMatch")}</strong><p>{t("externalSkills.emptyNotice")}</p></div>}
       </>}
@@ -287,6 +296,7 @@ export function ExternalSkillsPanel({ onImported }: { onImported: () => Promise<
       {selected && <article className="external-skills__detail">
         <h2>{selected.upstreamName}</h2>
         <p>{selected.description}</p>
+        {selected.builtIn && <p className="external-skills__built-in">{t("externalSkills.builtInNotice")}</p>}
         {selected.revisions && <div className="external-skills__sources" role="group" aria-label={t("externalSkills.selectRevision")}>
           {(["latest", "reviewed"] as const).map(kind => {
             const revision = selected.revisions?.[kind];

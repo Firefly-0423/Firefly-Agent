@@ -2,7 +2,7 @@ import { connectUiColors } from "./colors";
 import type { UiColors } from "../../shared/ui-colors";
 import { DEFAULT_UI_THEME, normalizeUiTheme, type UiTheme } from "../../shared/ui-theme";
 import { DEFAULT_UI_FONT, normalizeUiFont, type UiFont } from "../../shared/ui-font";
-import type { ChatAppearanceSettings } from "../../shared/chat-appearance";
+import type { ChatDisplaySettings } from "../../shared/chat-appearance";
 
 declare global {
   interface Window {
@@ -17,8 +17,8 @@ declare global {
       onChanged: (callback: (font: UiFont) => void) => () => void;
     };
     fireflyAppearance?: {
-      get: () => Promise<ChatAppearanceSettings>;
-      onChanged: (callback: (settings: ChatAppearanceSettings) => void) => () => void;
+      get: () => Promise<ChatDisplaySettings>;
+      onChanged: (callback: (settings: ChatDisplaySettings) => void) => () => void;
     };
   }
 }
@@ -47,8 +47,9 @@ function applyTheme(theme: unknown): void {
 }
 
 const CUSTOM_FONT_STYLE_ID = "firefly-custom-font";
-// Fallback chain for the Chinese-first UI: the faces are listed in priority order, then generic sans-serif.
-const DEFAULT_FONT_STACK = ["\"Noto Sans SC\"", "-apple-system", "BlinkMacSystemFont", "\"Segoe UI\"", "\"PingFang SC\"", "\"Microsoft YaHei\"", "sans-serif"].join(", ");
+// Fallback chain for the Chinese-first UI: the bundled variable face (fonts.css), then the same family if installed, the
+// system faces in priority order, then generic sans-serif. Keep it in step with --rb-font-sans in tokens.css.
+const DEFAULT_FONT_STACK = ["\"Noto Sans SC Variable\"", "\"Noto Sans SC\"", "-apple-system", "BlinkMacSystemFont", "\"Segoe UI\"", "\"PingFang SC\"", "\"Microsoft YaHei\"", "sans-serif"].join(", ");
 
 // Custom fonts are injected as a <style> tag so the rule can point at the local-font scheme.
 function applyFont(value: unknown): void {

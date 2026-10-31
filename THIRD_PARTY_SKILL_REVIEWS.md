@@ -14,6 +14,55 @@ All imported files must be inside the selected Skill directory. This MVP has no 
 
 Allowed license IDs are exactly MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause and ISC. Every file needs exact reviewed coverage and an included, byte-verified applicable license with substantive terms. License labels, adjacent boilerplate, package declarations and renderer flags alone are insufficient. The static reviewer must resolve actual scope and all applicable copyright and NOTICE obligations. Content heuristics are additional fail-closed checks, not a substitute for that review.
 
+## Firefly's own source and the Firefly-native policy
+
+[Firefly-0423/firefly-skills](https://github.com/Firefly-0423/firefly-skills) is a third source. It is read as a Claude marketplace catalog, like `anthropics/skills`, and reviewed under `firefly-native-v1`; the two third-party sources stay on `firefly-instruction-only-v1`.
+
+The Firefly-native policy is the instruction-only policy with two differences:
+- It accepts Firefly's own frontmatter fields: `modes` (known modes), `effectKind` (known effects) and `tools` (tool ids). Each is strictly validated, and a malformed value blocks the Skill rather than being dropped.
+- It does not apply the "requires a tool" body heuristic, because these Skills are written for Firefly's tools.
+
+Everything else applies unchanged: the exact-commit and content-digest binding, the supported file shapes, the remote-resource, script, library and cross-Skill checks, and every license rule. A review entry under this policy also pins those fields in `native`. They must equal what the Skill declares, and the install record keeps them. Registration takes them from that record, never from the installed files. They only limit visibility and label the Skill; the host still decides every tool permission.
+
+A market Skill whose name is a Skill that ships with Firefly is listed as built in and is never prepared or installed, so no second copy exists. At commit `81e0bb6658705fdce08896186626243ba978367a` all four Skills in the repository (`diagram`, `document-reader-validation`, `knowledge-workspace`, `plugin-development`) are byte-identical to the built-in ones, so no review entry is recorded for them.
+
+To draft an entry for a future Skill, run `node scripts/security/external-skill-review-draft.mjs <local clone> <commit> <skill path> firefly`. It prints the hashes, license evidence and Firefly metadata Main will check. It leaves `reviewer` empty, so an unedited draft approves nothing: read every file, fill in the reviewer, and record the rationale here.
+
+## Reviewed: ai-cs-research and general-learning (Firefly-native)
+
+- Repository: [Firefly-0423/firefly-skills](https://github.com/Firefly-0423/firefly-skills)
+- Commit: `709cd2a076a50093bc909ff7e61985c8d9db8b09`
+- Directories:
+  - [skills/ai-cs-research](https://github.com/Firefly-0423/firefly-skills/tree/709cd2a076a50093bc909ff7e61985c8d9db8b09/skills/ai-cs-research)
+  - [skills/general-learning](https://github.com/Firefly-0423/firefly-skills/tree/709cd2a076a50093bc909ff7e61985c8d9db8b09/skills/general-learning)
+- Policy: `firefly-native-v1`
+- Static conclusion: PASS for each complete six-file instruction-only payload
+- Reviewer: Claude Code static review for Firefly-0423, 2026-10-30. The draft is from `scripts/security/external-skill-review-draft.mjs`, and every file was read in full.
+
+Canonical content digests:
+- `ai-cs-research`: `0bca14ab9301530d7496922d29f7fd7c8f2916c8c164292c17c636b1ef0856ea`
+- `general-learning`: `25c681d07383edbae8561bd0e88b40191d6b4b464c1eb1cf48040a212fbc20e0`
+
+Payload: each Skill is `SKILL.md`, `LICENSE`, `NOTICE.md` and three Markdown files directly under `references/`. There are no scripts, assets, links or nested paths.
+
+License: each `LICENSE` is the repository's MIT text (Copyright (c) 2026 Firefly-0423), SHA-256 `19f8615650a1f98f1866e019542334808ae19731fa264f9e174de5e0cde7bb03`, and covers all six files. Each `NOTICE.md` names the projects consulted for method (OpenAI notebook guidance, Claude Scholar, ARIS, scholar-tools, Orchestra AI Research Skills, Hugging Face Skills for research; similar learning references) and states that no upstream code, templates or Skill bodies are redistributed. Nothing in the text reproduces those projects.
+
+Firefly metadata:
+- `ai-cs-research` declares `modes: [work, code]`; `general-learning` declares `modes: [work]`.
+- Both declare `effectKind: mutation`, because they may save notes or results through the host's file and knowledge tools.
+- Neither declares `tools`.
+
+Body review:
+- Both are method guidance. They require no script, dependency, download, remote resource, connector or other Skill. Each states that loading it grants no command execution, installation, upload, cost or new permission, and that the host's refusals are not to be bypassed.
+- The host tools they name exist and are described accurately:
+  - `read_skill_reference` (the Skill tools);
+  - `pop_quiz` (1–3 questions per call; types choice, multi, true_false and short_answer; `learningObjective` required; optional `sourceRef`; no native fill-in-the-blank, as `general-learning` says).
+- `knowledge-workspace` conventions are used only when a valid Vault exists, and neither Skill requires it.
+
+Package root: the catalog declares the repository root (`./`) as the plugin package, so the root is checked for plugin components too. At this commit the repository tooling lives in `tools/`, and the root has no `scripts/`, `hooks/`, `bin/`, MCP or settings files.
+
+Not tested: model adherence, real-model runs and learner outcomes. A new commit, any changed file or a new capability needs a fresh review.
+
 ## Reviewed: frontend-design
 
 - Repository: [anthropics/skills](https://github.com/anthropics/skills)

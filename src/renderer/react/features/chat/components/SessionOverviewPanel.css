@@ -55,7 +55,7 @@
 .ff-session-overview[data-dragging] .ff-overview-card { will-change: transform; }
 .ff-session-overview[data-settling] .ff-overview-card { transition: none; }
 
-.ff-overview-card__bar { display: flex; min-width: 0; align-items: center; }
+.ff-overview-card__bar { position: relative; display: flex; min-width: 0; align-items: center; }
 .ff-overview-card__head {
   display: flex;
   flex: 1 1 auto;
@@ -68,7 +68,7 @@
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--ff-fs-ui);
   text-align: left;
   cursor: pointer;
 }
@@ -78,21 +78,20 @@
 .ff-session-overview[data-dragging] .ff-overview-card__head { cursor: grabbing; }
 .ff-overview-card__chevron { flex: 0 0 auto; color: var(--ff-text-muted, #828396); transition: transform 150ms ease; }
 .ff-overview-card__head[aria-expanded="true"] .ff-overview-card__chevron { transform: rotate(90deg); }
-/* Entry cards (environment, connectors): one row that opens something; the chevron follows the title, as in Claude desktop. */
-.ff-overview-card[data-entry] .ff-overview-card__title { order: 1; }
-.ff-overview-card[data-entry] .ff-overview-card__chevron { order: 2; }
-.ff-overview-card[data-entry] .ff-overview-card__summary { order: 3; }
+/* Entry cards (environment, connectors) open something instead of folding; they keep the other cards' layout, chevron first. */
 .ff-overview-card[data-entry] .ff-overview-card__head:hover .ff-overview-card__chevron { transform: translateX(2px); }
 .ff-overview-card__head:disabled { cursor: default; }
 
-/* The six-dot grip: quiet until the card is hovered or the grip focused. */
+/* The six-dot grip sits where the header's summary ends: hovering any card swaps the summary for the grip. */
 .ff-overview-card__grip {
+  position: absolute;
+  top: calc(50% - 12px);
+  right: 6px;
   display: inline-grid;
   width: 24px;
   height: 24px;
-  flex: none;
   place-items: center;
-  margin-right: 6px;
+  margin: 0;
   padding: 0;
   border: 0;
   border-radius: 6px;
@@ -106,6 +105,8 @@
 .ff-overview-card:hover .ff-overview-card__grip,
 .ff-overview-card__grip:focus-visible,
 .ff-overview-card[data-dragging] .ff-overview-card__grip { opacity: 1; }
+.ff-overview-card:is(:hover, [data-dragging]) .ff-overview-card__bar:has(.ff-overview-card__grip) .ff-overview-card__summary,
+.ff-overview-card__bar:has(.ff-overview-card__grip:focus-visible) .ff-overview-card__summary { opacity: 0; }
 .ff-overview-card__grip:hover { background: var(--ff-bg-hover); color: var(--ff-text); }
 .ff-overview-card__grip:active { cursor: grabbing; }
 .ff-overview-card__grip:focus-visible { outline: none; }
@@ -124,23 +125,24 @@
   margin-left: auto;
   overflow: hidden;
   color: var(--ff-text-muted, #828396);
-  font-size: 12px;
+  font-size: var(--ff-fs-caption);
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: opacity 120ms ease;
 }
 
-.ff-overview-card__body { padding: 0 12px; font-size: 12px; }
+.ff-overview-card__body { padding: 0 12px; font-size: var(--ff-fs-caption); }
 .ff-overview-card__body > :last-child { margin-bottom: 12px; }
 .ff-overview-card__empty,
 .ff-overview-card__line,
 .ff-overview-card__note { margin: 0; color: var(--ff-text-muted, #828396); line-height: 1.6; }
 .ff-overview-card__line { margin-top: 6px; }
-.ff-overview-card__note { margin-top: 10px; font-size: 11px; }
+.ff-overview-card__note { margin-top: 10px; font-size: var(--ff-fs-caption); }
 .ff-overview-card__warn { color: var(--ff-del-fg, #cf222e); }
 
 /* Context: usage line, segmented bar, then one row per category. */
 .ff-overview-context__totals { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.ff-overview-context__totals strong { font-size: 13px; font-weight: 600; }
+.ff-overview-context__totals strong { font-size: var(--ff-fs-ui); font-weight: 600; }
 .ff-overview-context__totals span { color: var(--ff-text-muted, #828396); font-variant-numeric: tabular-nums; }
 .ff-overview-context__bar {
   display: flex;
@@ -193,7 +195,7 @@
 .ff-overview-list__partner .ff-overview-list__pulse { position: absolute; right: -1px; bottom: -1px; width: 7px; height: 7px; box-shadow: 0 0 0 1.5px var(--ff-surface, #fff); }
 
 @media (prefers-reduced-motion: reduce) {
-  .ff-overview-card, .ff-overview-card__fold, .ff-overview-card__grip { transition: none; }
+  .ff-overview-card, .ff-overview-card__fold, .ff-overview-card__grip, .ff-overview-card__summary { transition: none; }
   .ff-overview-card[data-dragging] { transform: translateY(var(--ff-drag-y, 0px)); }
   .ff-overview-card__chevron { transition: none; }
   .ff-overview-list__pulse { animation: none; }
@@ -207,7 +209,7 @@
 /* Usage card: this conversation's run stats, then the 90-day token breakdown; same type scale as the context card. */
 .ff-overview-usage { display: grid; gap: 12px; font-variant-numeric: tabular-nums; }
 .ff-overview-usage__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
-.ff-overview-usage__head strong { font-size: 12px; font-weight: 600; }
+.ff-overview-usage__head strong { font-size: var(--ff-fs-caption); font-weight: 600; }
 .ff-overview-usage__head span { color: var(--ff-text-muted, #828396); }
 .ff-overview-usage__rows { display: grid; gap: 4px; margin: 0; }
 .ff-overview-usage__rows > div { display: flex; justify-content: space-between; gap: 12px; }

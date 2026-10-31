@@ -31,6 +31,13 @@ test("places plan approval after the task list and keeps the Git controls visibl
   expect(html).not.toContain(">审阅<");
 });
 
+test("leaves the task list out when docked in the Code pane", () => {
+  const html = render({ docked: true, expanded: true,
+    todoState: { updatedAt: 70, todos: [{ id: "review-docs", content: "Review the guide", status: "pending" }] } });
+  expect(html).not.toContain("code-todo-list");
+  expect(html).not.toContain("Review the guide");
+});
+
 test("makes docked collapsed actions inert without offscreen positioning", () => {
   const html = render({ docked: true });
   for (const marker of ["ff-code-git--docked", 'aria-expanded="false"', 'inert=""']) expect(html).toContain(marker);

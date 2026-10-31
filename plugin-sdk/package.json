@@ -1,9 +1,11 @@
 {
-  "name": "@firefly/plugin-sdk",
-  "version": "0.2.0",
+  "name": "@firefly_wu/plugin-sdk",
+  "version": "0.2.1",
   "description": "Firefly 插件开发工具包：公开契约类型、Manifest 校验与插件测试工具",
-  "private": true,
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Firefly-0423/Firefly-Agent.git",

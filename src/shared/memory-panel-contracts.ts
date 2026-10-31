@@ -30,7 +30,11 @@ export interface MemoryPanelCandidate {
   occurredAt?: number | null;
   /** Where the candidate would apply once confirmed. */
   scope?: "global" | "project";
+  /** Opaque handle for the candidate's project, equal for items of the same project during one run. Never the project key. */
+  projectRef?: string;
   projectName?: string;
+  /** Title of the conversation the candidate came from, when Main still has it. Decoration, never authority. */
+  sourceTitle?: string;
   /** Main-internal; removed before the renderer sees it. */
   projectKey?: string;
   contentHash?: string;

@@ -7,7 +7,7 @@ import { BrowserWorkspacePanel, type BrowserWorkspaceLabels } from "./BrowserWor
 
 const labels: BrowserWorkspaceLabels = {
   panel: "浏览器", address: "网页地址", go: "打开网页", back: "后退", forward: "前进",
-  reload: "刷新", stop: "停止加载", close: "关闭网页", loading: "正在加载", blocked: "页面访问受阻",
+  reload: "刷新", stop: "停止加载", loading: "正在加载", blocked: "页面访问受阻",
   loadFailed: "页面加载失败", closed: "网页已关闭", viewport: "网页区域", empty: "输入网页地址以开始浏览",
 };
 
@@ -18,11 +18,10 @@ let address: string;
 const onAddressChange = vi.fn();
 const onNavigate = vi.fn();
 const onCommand = vi.fn();
-const onClose = vi.fn();
 
 function renderPanel(viewportRef?: (node: HTMLDivElement | null) => void) {
   act(() => root.render(createElement(BrowserWorkspacePanel, {
-    page, address, labels, onAddressChange, onNavigate, onCommand, onClose, viewportRef,
+    page, address, labels, onAddressChange, onNavigate, onCommand, viewportRef,
     children: createElement("div", { "data-testid": "viewport-child" }, "页面占位内容"),
   })));
 }
@@ -50,28 +49,27 @@ afterEach(() => {
 });
 
 describe("manual BrowserWorkspacePanel with injected callbacks", () => {
-  it("offers stop after navigation begins and retains close during network initialization", () => {
+  it("offers stop after navigation begins", () => {
     page = { ...page, loading: true, requestId: 1 }; renderPanel();
     expect(findButton(labels.stop).disabled).toBe(false);
     expect(host.querySelector(`button[aria-label="${labels.reload}"]`)).toBeNull();
     act(() => findButton(labels.stop).click()); expect(onCommand).toHaveBeenCalledExactlyOnceWith("stop");
     page = { ...page, requestId: 0 }; renderPanel();
-    expect(findButton(labels.stop).disabled).toBe(true); expect(findButton(labels.close).disabled).toBe(false);
+    expect(findButton(labels.stop).disabled).toBe(true);
   });
   it("keeps all navigation blocked when the production consumer marks it unavailable", () => {
     address = "https://example.com";
     page = { ...page, url: address, canGoBack: true, canGoForward: true };
-    act(() => root.render(createElement(BrowserWorkspacePanel, { page, address, labels, onAddressChange, onNavigate, onCommand, onClose, navigationAvailable: false })));
+    act(() => root.render(createElement(BrowserWorkspacePanel, { page, address, labels, onAddressChange, onNavigate, onCommand, navigationAvailable: false })));
     for (const label of [labels.go, labels.back, labels.forward, labels.reload]) expect(findButton(label).disabled).toBe(true);
     const form = host.querySelector("form");
     act(() => form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     expect(onNavigate).not.toHaveBeenCalled(); expect(onCommand).not.toHaveBeenCalled();
-    expect(findButton(labels.close).disabled).toBe(false);
   });
   it("allows an explicit address proposal while keeping ungranted history unavailable", () => {
     address = "https://docs.example/path";
     page = { ...page, url: "https://old.example/", canGoBack: true, canGoForward: true };
-    act(() => root.render(createElement(BrowserWorkspacePanel, { page, address, labels, onAddressChange, onNavigate, onCommand, onClose, navigationAvailable: false, addressAvailable: true })));
+    act(() => root.render(createElement(BrowserWorkspacePanel, { page, address, labels, onAddressChange, onNavigate, onCommand, navigationAvailable: false, addressAvailable: true })));
     expect(findButton(labels.go).disabled).toBe(false);
     for (const label of [labels.back, labels.forward, labels.reload]) expect(findButton(label).disabled).toBe(true);
     act(() => findButton(labels.go).click());
@@ -85,7 +83,8 @@ describe("manual BrowserWorkspacePanel with injected callbacks", () => {
     expect(findButton(labels.forward).disabled).toBe(true);
     expect(findButton(labels.reload).disabled).toBe(true);
     expect(findButton(labels.go).disabled).toBe(true);
-    expect(findButton(labels.close).disabled).toBe(false);
+    // The pane closes from its tab strip; the toolbar has no second close control.
+    expect(host.querySelectorAll("button svg.lucide-x")).toHaveLength(0);
   });
 
   it("exposes the named page viewport as an accessible region", () => {
@@ -139,13 +138,6 @@ describe("manual BrowserWorkspacePanel with injected callbacks", () => {
     renderPanel();
     act(() => findButton(labels[command]).click());
     expect(onCommand).toHaveBeenCalledExactlyOnceWith(command);
-  });
-
-  it("forwards close only through the injected close callback", () => {
-    renderPanel();
-    act(() => findButton(labels.close).click());
-    expect(onClose).toHaveBeenCalledTimes(1);
-    expect(onNavigate).not.toHaveBeenCalled();
   });
 
   it("shows loading while allowing the user to request a newer address", () => {

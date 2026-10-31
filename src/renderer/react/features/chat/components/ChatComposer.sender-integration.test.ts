@@ -62,7 +62,8 @@ async function enter(extra: KeyboardEventInit = {}) {
 test.each([false, true])("routes plain Enter according to busy=%s with an editable draft", async (busy) => {
   await update({ modelBusy: busy });
   expect(editor().disabled).toBe(false);
-  if (busy) expect(editor().placeholder).toBe(t("composer.placeholderBusy"));
+  // The Firefly prompt stays while a run is busy; Enter queues instead of sending.
+  if (busy) expect(editor().placeholder).not.toContain("Enter");
   await type(editor(), "Inspect release notes");
   expect(editor().value).toBe("Inspect release notes");
   await enter();
@@ -122,7 +123,7 @@ test("ignores Ctrl+Enter, empty drafts and IME confirmation until composition en
 test("returns a finished Work run to idle without replacing the editor", async () => {
   await update({ mode: "work", workspaceName: "Report workspace", modelBusy: true });
   const original = editor();
-  expect(original.placeholder).toBe(t("composer.placeholderBusy"));
+  expect(original.placeholder).toBe(t("composer.placeholderTask"));
   expect(labelled(t("composer.stopRun"))).toBeTruthy();
   await update({ modelBusy: false });
   expect(editor()).toBe(original);

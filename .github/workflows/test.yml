@@ -2,9 +2,9 @@ name: Test
 
 on:
   push:
-    branches: [main, firefly-mini-v1.1.x]
+    branches: [main, firefly-demo]
   pull_request:
-    branches: [main, chore/project-structure-finalize, firefly-mini-v1.1.x]
+    branches: [main, firefly-demo]
 
 permissions:
   contents: read

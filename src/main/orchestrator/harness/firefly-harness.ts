@@ -1,3 +1,4 @@
+import { promptTokensOf } from "../context-usage";
 import type { ToolSpec, ChatResponse, ChatMessage } from "../vendors/types";
 import { causeCodes } from "../vendors/error-chain";
 import type { RunAdjustmentMessage, HarnessResult, HarnessInput, HarnessConfig, HarnessCacheState, AgentState } from "./types";
@@ -31,6 +32,8 @@ export type HarnessRun = {
   failure?: RunFailure;
   checkpointFailure?: string;
   rounds: number;
+  /** The provider's usage for the last model request, for the context card; cleared when compaction rewrites history. */
+  measuredUsage?: { inputTokens: number; outputTokens: number; messageCount: number };
   cache: HarnessCacheState;
   toolOutputs: ToolOutputRef[];
   messages: ChatMessage[];
@@ -103,11 +106,14 @@ async function runHarnessLoop(run: HarnessRun): Promise<HarnessResult> {
     emitContextUsage(run, "preRequest");
     emitCacheDiagnostic(run, layers);
     let generated: ChatResponse;
+    const requested = run.messages.length;
     try { generated = await callRoundLLM(run, layers, round); }
     catch (cause) {
       if (host.signal?.aborted) return abortedResult(run);
       return failedStage(run, cause, cause instanceof ContextError ? "context" : "model");
     }
+    // A round without usage must not keep the previous round's count as the baseline: the card falls back to the estimate.
+    run.measuredUsage = generated.usage ? { inputTokens: promptTokensOf(generated.usage), outputTokens: generated.usage.output, messageCount: requested } : undefined;
     const declaration = toAssistantMessage(generated);
     run.messages.push(declaration);
     try { run.currentAssistantEntryId = await host.transcriptSink?.appendAssistant({ message: declaration, roundId: round }); }
@@ -211,7 +217,7 @@ async function runCompaction(run: HarnessRun, roundSystemPrompt: string, budget:
     summarize: (history) => summarizeHistory(host.vendorConfig, roundSystemPrompt, history, run.allToolSpecs, host.signal) });
   if (replacement === run.messages) { run.messages = replacement; return; }
   run.cache = { cacheEpoch: run.cache.cacheEpoch + 1, epochReason: "compaction" };
-  run.messages = replacement;
+  run.messages = replacement; run.measuredUsage = undefined;
   host.onCompactionLifecycle?.({ status: "committed", messageCountBefore: before, messageCountAfter: replacement.length, cache: { ...run.cache } });
   checkpoint(run);
 }

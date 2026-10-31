@@ -111,6 +111,8 @@ test("the installer carries upstream and font license notices", () => {
   assert.match(source, /from: LICENSE\s+to: LICENSE/);
   assert.match(source, /from: THIRD_PARTY_NOTICES\.md\s+to: THIRD_PARTY_NOTICES\.md/);
   assert.match(source, /from: node_modules\/katex\/LICENSE\s+to: licenses\/KaTeX-LICENSE/);
+  assert.match(source, /from: node_modules\/@fontsource-variable\/noto-sans-sc\/LICENSE\s+to: licenses\/NotoSansSC-OFL\.txt/);
+  assert.match(source, /from: node_modules\/@fontsource-variable\/jetbrains-mono\/LICENSE\s+to: licenses\/JetBrainsMono-OFL\.txt/);
 });
 
 test("the assisted installer stores launch preferences under the Firefly userData directory", () => {

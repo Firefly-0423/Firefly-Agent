@@ -15,9 +15,11 @@ const originalAct = (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_RE
 let root: Root | undefined, element: HTMLDivElement;
 const ok = <T,>(value: T): ExternalResult<T> => ({ ok: true, value });
 const failure = (code: ExternalSkillErrorCode = "NETWORK_FAILED"): ExternalResult<never> => ({ ok: false, code, error: "Fixture error", retryable: code === "NETWORK_FAILED" });
-const fixture = (name = "Fixture A", sourceId: "openai" | "anthropic" = "openai"): ExternalSkill => ({
+type Source = "firefly" | "openai" | "anthropic";
+const REPOSITORIES: Record<Source, string> = { firefly: "Firefly-0423/firefly-skills", openai: "openai/plugins", anthropic: "anthropics/skills" };
+const fixture = (name = "Fixture A", sourceId: Source = "firefly"): ExternalSkill => ({
   id: `external-${sourceId}-${name === "Fixture B" ? "b" : "a"}`, sourceId, upstreamName: name, description: "Synthetic instruction only",
-  bundle: { name: "Fixture bundle", version: "bundle-9", license: "MIT" }, repository: sourceId === "openai" ? "openai/plugins" : "anthropics/skills", path: "skills/fixture", commit: "a".repeat(40),
+  bundle: { name: "Fixture bundle", version: "bundle-9", license: "MIT" }, repository: REPOSITORIES[sourceId], path: "skills/fixture", commit: "a".repeat(40),
   licenses: [{ path: "LICENSE", sha256: "b".repeat(64), spdx: "MIT", covers: ["SKILL.md", "references/readme.txt"] }],
   files: [{ path: "SKILL.md", bytes: 200, blobSha1: "c".repeat(40), sha256: "d".repeat(64) }], review: "approved", blockers: [],
 });
@@ -26,9 +28,9 @@ function deferred<T>() { let resolve!: (value: T) => void; const promise = new P
 async function mount(overrides: Partial<ExternalSkillsApi> = {}, strict = false) {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; setUiLocale("en");
   const api = {
-    list: vi.fn(async (sourceId: "openai" | "anthropic") => ok([fixture("Fixture A", sourceId)])),
-    detail: vi.fn(async (sourceId: "openai" | "anthropic", id: string) => ok({ ...fixture(id.endsWith("b") ? "Fixture B" : "Fixture A", sourceId), id })),
-    prepare: vi.fn(async (sourceId: "openai" | "anthropic", id: string) => ok(prepared({ ...fixture(id.endsWith("b") ? "Fixture B" : "Fixture A", sourceId), id }))),
+    list: vi.fn(async (sourceId: Source) => ok([fixture("Fixture A", sourceId)])),
+    detail: vi.fn(async (sourceId: Source, id: string) => ok({ ...fixture(id.endsWith("b") ? "Fixture B" : "Fixture A", sourceId), id })),
+    prepare: vi.fn(async (sourceId: Source, id: string) => ok(prepared({ ...fixture(id.endsWith("b") ? "Fixture B" : "Fixture A", sourceId), id }))),
     commit: vi.fn(async (_token: string) => ok<ExternalCommitted>({ id: fixture().id, enabled: false, contentSha256: "f".repeat(64) })),
     cancel: vi.fn(async () => ok({ status: "cancelled" as const })), ...overrides,
   };
@@ -46,7 +48,7 @@ async function click(node: HTMLElement) { await act(async () => { node.click(); 
 async function market() { await click(button("External marketplace")); }
 async function detail(name = "Fixture A") { await click(button(name)); }
 async function preview(name = "Fixture A") { await detail(name); await click(button("Prepare import")); }
-async function source(value: "openai" | "anthropic") { await click(button(value === "openai" ? "openai/plugins" : "anthropics/skills")); }
+async function source(value: Source) { await click(button(REPOSITORIES[value])); }
 async function input(value: string) { const node = element.querySelector<HTMLInputElement>('.external-skills input[type="search"]')!; await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(node, value); node.dispatchEvent(new Event("input", { bubbles: true })); }); }
 const text = () => element.textContent ?? "";
 const status = () => [...element.querySelectorAll('[role="status"]')].map(node => node.textContent).join(" ");
@@ -54,11 +56,11 @@ afterEach(async () => { if (root) await act(async () => { root!.unmount(); }); r
 
 it("browse_detail_prepare_commit: actual ChatPagePanelHost uses separate detail, preparation and commit with disabled import result", async () => {
   const { api, getCatalog, enable } = await mount(); await market();
-  expect(api.list).toHaveBeenCalledWith("openai", false); expect(api.prepare).not.toHaveBeenCalled();
-  await detail(); expect(api.detail).toHaveBeenCalledExactlyOnceWith("openai", fixture().id);
-  for (const value of ["Fixture bundle", "bundle-9", "openai/plugins", "skills/fixture", "a".repeat(40), "Not declared", "MIT", "LICENSE", "b".repeat(64), "SKILL.md", "200", "c".repeat(40), "d".repeat(64), "Instruction-only", "No blockers"]) expect(text()).toContain(value);
+  expect(api.list).toHaveBeenCalledWith("firefly", false); expect(api.prepare).not.toHaveBeenCalled();
+  await detail(); expect(api.detail).toHaveBeenCalledExactlyOnceWith("firefly", fixture().id);
+  for (const value of ["Fixture bundle", "bundle-9", "Firefly-0423/firefly-skills", "skills/fixture", "a".repeat(40), "Not declared", "MIT", "LICENSE", "b".repeat(64), "SKILL.md", "200", "c".repeat(40), "d".repeat(64), "Instruction-only", "No blockers"]) expect(text()).toContain(value);
   expect(api.commit).not.toHaveBeenCalled(); await click(button("Prepare import"));
-  expect(api.prepare).toHaveBeenCalledExactlyOnceWith("openai", fixture().id);
+  expect(api.prepare).toHaveBeenCalledExactlyOnceWith("firefly", fixture().id);
   const dialog = element.querySelector('[role="dialog"]'); expect(dialog?.textContent).toContain("f".repeat(64)); expect(dialog?.textContent).toContain("d".repeat(64));
   expect(api.commit).not.toHaveBeenCalled(); await click(button("Confirm import"));
   expect(api.commit).toHaveBeenCalledExactlyOnceWith("e".repeat(64)); expect(status()).toContain("Imported, not enabled"); expect(getCatalog).toHaveBeenCalledTimes(2); expect(enable).not.toHaveBeenCalled();
@@ -80,7 +82,7 @@ it("safe_text_and_stale_responses: upstream HTML and image URLs render as escape
   expect(text()).toContain(malicious.upstreamName); expect(text()).toContain(malicious.description); expect(element.querySelectorAll("img, script, iframe, a")).toHaveLength(0);
 });
 it("an obsolete source list cannot replace the newer selected source", async () => {
-  const late = deferred<ExternalResult<ExternalSkill[]>>(); await mount({ list: selected => selected === "openai" ? late.promise : Promise.resolve(ok([fixture("Fixture B", selected)])) }); await market(); await source("anthropic");
+  const late = deferred<ExternalResult<ExternalSkill[]>>(); await mount({ list: selected => selected === "firefly" ? late.promise : Promise.resolve(ok([fixture("Fixture B", selected)])) }); await market(); await source("anthropic");
   expect(text()).toContain("Fixture B"); await act(async () => { late.resolve(ok([fixture()])); }); expect(text()).toContain("Fixture B"); expect(text()).not.toContain("Fixture A");
 });
 it("an obsolete detail cannot replace a newer candidate detail", async () => {
@@ -223,7 +225,7 @@ it("loading catalog admits one same-source refresh even on repeated same-tick cl
   const late = deferred<ExternalResult<ExternalSkill[]>>(), list = vi.fn(() => late.promise);
   await mount({ list }); await market();
   const refresh = button("Refresh catalog"); expect(refresh.disabled).toBe(true);
-  await act(async () => { refresh.click(); refresh.click(); button("openai/plugins").click(); });
+  await act(async () => { refresh.click(); refresh.click(); button("Firefly-0423/firefly-skills").click(); });
   expect(list).toHaveBeenCalledTimes(1);
   await act(async () => late.resolve(ok([fixture()]))); expect(button("Refresh catalog").disabled).toBe(false);
 });
@@ -265,7 +267,7 @@ it("lightweight_preview visibly remains incomplete and waits for full prepare be
   expect(text()).toContain("Full content has not been reviewed"); expect(text()).toContain("35"); expect(text()).toContain("12345"); expect(text()).toContain("skills/fixture/LICENSE");
   expect(text()).not.toContain("Instruction-only"); expect(text()).not.toContain("SHA-256:");
   expect(api.prepare).not.toHaveBeenCalled(); expect(api.commit).not.toHaveBeenCalled(); expect(enable).not.toHaveBeenCalled();
-  await click(button("Review full content")); expect(api.prepare).toHaveBeenCalledExactlyOnceWith("openai", fixture().id);
+  await click(button("Review full content")); expect(api.prepare).toHaveBeenCalledExactlyOnceWith("firefly", fixture().id);
   expect(element.querySelector('[role="dialog"]')?.textContent).toContain("d".repeat(64));
   expect(api.commit).not.toHaveBeenCalled(); await click(button("Confirm import")); expect(api.commit).toHaveBeenCalledOnce(); expect(enable).not.toHaveBeenCalled();
 });
@@ -343,7 +345,7 @@ it("reviewed snapshot can be selected independently of latest and installed iden
   await click(button("Reviewed snapshot"));
   expect(element.querySelector(".external-skills__detail dl")?.textContent).toContain("firefly-instruction-only-v1");
   await click(button("Review full content"));
-  expect(api.prepare).toHaveBeenCalledExactlyOnceWith("openai", fixture().id, { kind: "reviewed", commit: "a".repeat(40) });
+  expect(api.prepare).toHaveBeenCalledExactlyOnceWith("firefly", fixture().id, { kind: "reviewed", commit: "a".repeat(40) });
   expect(element.querySelector('[role="dialog"]')?.textContent).toContain("a".repeat(40));
 });
 
@@ -364,4 +366,13 @@ it("unsupported component and file evidence is visible as escaped text without g
   await market(); await detail();
   expect(text()).toContain("plugins/bundle/.codex-plugin/plugin.json"); expect(text()).toContain("mcpServers"); expect(text()).toContain("scripts/render.mjs");
   expect(button("Review full content").disabled).toBe(true); expect(element.querySelectorAll("script, iframe, img, a")).toHaveLength(0);
+});
+it("built_in: a market skill Firefly already ships is labelled built in and cannot be prepared", async () => {
+  const shipped = { ...fixture(), review: "unreviewed" as const, blockers: ["REVIEW_REQUIRED" as const], builtIn: true as const };
+  const { api } = await mount({ list: async () => ok([shipped]), detail: async () => ok(shipped) }); await market();
+  expect(text()).toContain("Built in");
+  expect(element.querySelector(".external-skills__catalog")?.textContent).not.toContain("REVIEW_REQUIRED");
+  await detail(); expect(text()).toContain("Firefly already ships this skill");
+  expect(button("Prepare import").disabled).toBe(true);
+  await click(button("Prepare import")); expect(api.prepare).not.toHaveBeenCalled();
 });

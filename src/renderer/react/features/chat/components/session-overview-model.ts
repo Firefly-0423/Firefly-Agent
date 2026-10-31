@@ -17,6 +17,8 @@ export interface OverviewContextRow {
 
 export interface OverviewContext {
   totalTokens: number;
+  /** The total is the provider's reported count rather than a character estimate. */
+  measured: boolean;
   windowTokens: number;
   /** 占窗口的百分比；窗口非法时缺省，由卡片只显示 token 数。 */
   usedPercent?: number;
@@ -42,6 +44,7 @@ export function buildContextOverview(usage: ContextUsageSnapshot | undefined): O
     }));
   return {
     totalTokens: usage.totalTokens,
+    measured: usage.measured === true,
     windowTokens: usage.contextWindowTokens,
     ...(hasWindow ? { usedPercent: Math.round(ratio * 100) } : {}),
     tone: resolveRingTone(ratio),

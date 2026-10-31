@@ -5,11 +5,8 @@ import { MemoryClient } from "../memory-core/worker-client";
 import type { KeyProtection } from "../memory-core/key-provider";
 import { getStorageContext, type StorageContext } from "../storage/storage-context";
 import type { createMainHistory } from "../memory-history/main-history";
-import {
-  createNativeHistoryEndpointFactory,
-  type NativeHistoryEndpoint,
-  type NativeHistoryEndpointFactory,
-} from "../memory-sources/native-history-transport";
+import { createNativeHistorySessionPool } from "../memory-sources/native-history-session-pool";
+import type { NativeHistoryEndpoint, NativeHistoryEndpointFactory } from "../memory-sources/native-history-transport";
 
 type MemoryTransport = Pick<MemoryClient,
   "sourceCommand" | "policyCommand" | "recallCommand" | "historyCommand" | "contextCommand">
@@ -29,7 +26,7 @@ export interface ProductionMemoryBackendOptions {
   resourcesPath?: string;
   helperPath?: string;
   helperExists?: (helperPath: string) => boolean;
-  spawn?: (input: { helperPath: string; root: string; deadlineMs: number }) => ChildProcessWithoutNullStreams;
+  spawn?: (input: { helperPath: string; root: string; idleMs: number }) => ChildProcessWithoutNullStreams;
   /** A rejected opener owns its partial-initialization cleanup, as MemoryClient.open already does. */
   workerFactory?: (input: { storage: StorageContext; keyProtection: KeyProtection }) => Promise<ProductionMemoryWorker>;
 }
@@ -73,10 +70,11 @@ export async function openProductionMemoryBackend(
       ? path.join(options.resourcesPath ?? process.resourcesPath, "bin", "firefly-history-read.exe")
       : path.join(app.getAppPath(), "native", "target", "release", "firefly-history-read.exe"));
     const helperExists = options.helperExists ?? fs.existsSync;
-    const nativeFactory = createNativeHistoryEndpointFactory({
+    // Resident helpers: one process serves many reads, each still proven from disk (about 400 spawns a round before).
+    const nativeFactory = createNativeHistorySessionPool({
       spawn: input => options.spawn
         ? options.spawn({ helperPath, ...input })
-        : spawn(helperPath, ["--root", input.root, "--parent-pid", String(process.pid), "--deadline-ms", String(input.deadlineMs)], {
+        : spawn(helperPath, ["--root", input.root, "--parent-pid", String(process.pid), "--idle-ms", String(input.idleMs)], {
           windowsHide: true, stdio: ["pipe", "pipe", "pipe"],
         }),
     });
@@ -144,6 +142,8 @@ export async function openProductionMemoryBackend(
           // Cancellation/rejected commands still retain ownership until the real operation settles.
           await Promise.allSettled([...operations]);
           const failures: unknown[] = (await disposals).flatMap(result => result.status === "rejected" ? [result.reason] : []);
+          try { await nativeFactory.close(); }
+          catch (error) { failures.push(error); }
           try { await worker.close(); }
           catch (error) { failures.push(error); }
           if (failures.length === 1) throw failures[0];

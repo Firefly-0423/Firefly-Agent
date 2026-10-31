@@ -1,16 +1,17 @@
 // The "高级" appearance preferences that change how every window behaves (motion, cursor, code font, layout, diff
 // markers). They live on the root element as data attributes and one font variable; appearance-prefs.css reads them.
-import { CODE_FONT_STACKS, normalizeChatAppearance } from "../../shared/chat-appearance";
+import { CODE_FONT_STACKS, normalizeChatDisplay } from "../../shared/chat-appearance";
 import { codePalette, type CodePalette } from "../../shared/code-themes";
 import "./appearance-prefs.css";
 
 export function applyAppearancePrefs(input: unknown, root: HTMLElement = document.documentElement): void {
-  const prefs = normalizeChatAppearance(input);
+  const prefs = normalizeChatDisplay(input);
   if (prefs.reduceMotion === "system") delete root.dataset.reduceMotion; else root.dataset.reduceMotion = prefs.reduceMotion;
-  const flag = (name: "fullWidthChat" | "pointerCursor" | "smartPunctuation", on: boolean) => { if (on) root.dataset[name] = ""; else delete root.dataset[name]; };
+  const flag = (name: "fullWidthChat" | "pointerCursor" | "smartPunctuation" | "segmentedChat", on: boolean) => { if (on) root.dataset[name] = ""; else delete root.dataset[name]; };
   flag("fullWidthChat", prefs.fullWidthChat);
   flag("pointerCursor", prefs.pointerCursor);
   flag("smartPunctuation", prefs.smartPunctuation);
+  flag("segmentedChat", prefs.segmentedChat);
   root.dataset.diffMarkers = prefs.diffMarkers;
   if (prefs.codeFont === "system") root.style.removeProperty?.("--rb-font-mono");
   else root.style.setProperty("--rb-font-mono", CODE_FONT_STACKS[prefs.codeFont]);

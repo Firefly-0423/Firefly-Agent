@@ -1558,25 +1558,34 @@ export function ChatPage() {
     dockWidth > 0 ? Math.max(300, dockWidth - INSPECTOR_MIN_WIDTH - 12) : Number.POSITIVE_INFINITY);
 
   const inspectorPanelCount = inspectorTabIds.length;
-  // Panels sit side by side, so the right dock widens (never narrows) to give each opened panel room, up to 70% of the page
-  // and never into the conversation's minimum width. The resize is programmatic, so it is not saved as the user's own drag width.
+  const lastInspectorPanelCount = useRef(inspectorPanelCount);
+  // Panels sit side by side, so the right dock widens to give each opened panel room, up to 70% of the page and never into
+  // the conversation's minimum width. Closing one of several panels gives its share back: the dock narrows by that panel's
+  // part of its width, never below the pane minimum. The resize is programmatic, so it is not saved as the user's own drag width.
   useEffect(() => {
-    if (compactDock || !inspectorVisible || inspectorPanelCount === 0) return;
+    const previousCount = lastInspectorPanelCount.current;
+    if (compactDock || !inspectorVisible || inspectorPanelCount === 0) { lastInspectorPanelCount.current = inspectorPanelCount; return; }
     const frame = requestAnimationFrame(() => {
+      // Recorded once the frame runs, so an effect that is cleaned up and re-run still sees the count it changed from.
+      lastInspectorPanelCount.current = inspectorPanelCount;
       const panel = inspectorPanelRef.current;
       const dockWidth = dockRef.current?.offsetWidth ?? 0;
       // A panel the user collapsed with the separator stays collapsed.
       if (!panel || dockWidth === 0 || panel.isCollapsed()) return;
-      const wanted = Math.min(inspectorPanelCount * 360, dockWidth * 0.7, dockWidth - chatMinWidth - 12);
-      if (panel.getSize().inPixels >= wanted - 1) return;
-      // Widen with the same 220ms width motion as opening and closing the pane, instead of jumping in one frame.
+      const current = panel.getSize().inPixels;
+      const closed = inspectorPanelCount < previousCount;
+      const wanted = closed
+        ? Math.max(INSPECTOR_MIN_WIDTH, current * inspectorPanelCount / previousCount)
+        : Math.min(inspectorPanelCount * 360, dockWidth * 0.7, dockWidth - chatMinWidth - 12);
+      if (closed ? current <= wanted + 1 : current >= wanted - 1) return;
+      // Resize with the same 220ms width motion as opening and closing the pane, instead of jumping in one frame.
       const dock = dockRef.current;
       dock?.setAttribute("data-dock-motion", "");
       panel.resize(Math.round(wanted));
       settle = setTimeout(() => { settle = undefined; dock?.removeAttribute("data-dock-motion"); }, DOCK_WIDEN_MS);
     });
     let settle: ReturnType<typeof setTimeout> | undefined;
-    // Only take the flag down if this widening put it up; an open or close in the same commit has set its own.
+    // Only take the flag down if this resize put it up; an open or close in the same commit has set its own.
     return () => { cancelAnimationFrame(frame); if (settle) { clearTimeout(settle); dockRef.current?.removeAttribute("data-dock-motion"); } };
   }, [inspectorPanelCount, inspectorVisible, compactDock, inspectorPanelRef, chatMinWidth]);
 

@@ -85,31 +85,31 @@
 
 .tool-panel__title {
   color: var(--ff-text, var(--ff-text));
-  font-size: 22px;
+  font-size: var(--ff-fs-display);
   font-weight: 700;
   margin: 0;
 }
 
 .tool-panel__subtitle {
   color: var(--ff-text-muted, var(--ff-text-muted));
-  font-size: 12px;
+  font-size: var(--ff-fs-caption);
   margin: 6px 0 0;
 }
 
 .tool-panel__master-text strong {
   color: var(--ff-text, var(--ff-text));
-  font-size: 13px;
+  font-size: var(--ff-fs-ui);
   font-weight: 600;
 }
 
 .tool-panel__master-text span {
   color: var(--ff-text-muted, var(--ff-text-muted));
-  font-size: 11px;
+  font-size: var(--ff-fs-caption);
 }
 
 .tool-panel__loading, .tool-panel__empty {
   color: var(--ff-text-muted, var(--ff-text-muted));
-  font-size: 12px;
+  font-size: var(--ff-fs-caption);
   grid-column: 1 / -1;
   padding: 40px 12px;
   text-align: center;
@@ -117,7 +117,7 @@
 
 .tool-card__name {
   color: var(--ff-text, var(--ff-text));
-  font-size: 13.5px;
+  font-size: var(--ff-fs-ui);
   font-weight: 600;
   gap: 6px;
   overflow: hidden;
@@ -130,7 +130,7 @@
   border-radius: 12px;
   color: var(--ff-text-muted, var(--ff-text-muted));
   flex-shrink: 0;
-  font-size: 10px;
+  font-size: var(--ff-fs-caption);
   font-weight: 500;
   padding: 1px 6px;
 }
@@ -140,7 +140,7 @@
   -webkit-line-clamp: 2;
   color: var(--ff-text-muted, var(--ff-text-muted));
   display: -webkit-box;
-  font-size: 11.5px;
+  font-size: var(--ff-fs-caption);
   line-height: 1.45;
   margin-top: 2px;
   overflow: hidden;

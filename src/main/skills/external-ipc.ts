@@ -5,6 +5,7 @@ import type { ExternalResult, ExternalSkillSourceId } from "../../shared/externa
 import type { ExternalOwner } from "./external-types";
 import type { createExternalSkillService } from "./external-service";
 import { isExternalSkillSelection } from "./external-revisions";
+import { EXTERNAL_SOURCES, isExternalSourceId } from "./external-policy";
 
 // Shared with the existing enable handler. Navigation must close both mutation routes.
 const blockedHosts = new WeakMap<WebContents, { blocked: boolean }>();
@@ -24,8 +25,9 @@ function record(value: unknown, required: readonly string[], optional: readonly 
     && required.every(key => Object.hasOwn(value, key))
     && Reflect.ownKeys(value).every(key => typeof key === "string" && (required.includes(key) || optional.includes(key)));
 }
-const source = (value: unknown): value is ExternalSkillSourceId => value === "openai" || value === "anthropic";
-const candidate = (value: unknown): value is string => typeof value === "string" && /^external-(openai|anthropic)-[a-z0-9-]{1,80}$/.test(value) && value.length <= 100;
+const source = (value: unknown): value is ExternalSkillSourceId => isExternalSourceId(value);
+const CANDIDATE = new RegExp(`^external-(${Object.keys(EXTERNAL_SOURCES).join("|")})-[a-z0-9-]{1,80}$`);
+const candidate = (value: unknown): value is string => typeof value === "string" && CANDIDATE.test(value) && value.length <= 100;
 
 /** Main-only owner and lifecycle binding. No URL, filesystem path, inventory or approval is accepted. */
 export function registerExternalSkillsIpc(deps: {

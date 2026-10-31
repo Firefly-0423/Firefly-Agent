@@ -14,14 +14,14 @@
 
 .scheduled-panel__title {
   margin: 0;
-  font-size: 22px;
+  font-size: var(--ff-fs-display);
   font-weight: 700;
   color: var(--ff-text, var(--ff-text));
 }
 
 .scheduled-panel__subtitle {
   margin: 6px 0 0;
-  font-size: 12px;
+  font-size: var(--ff-fs-caption);
   line-height: 1.5;
   color: var(--ff-text-muted, var(--ff-text-muted));
   overflow-wrap: anywhere;
@@ -29,7 +29,7 @@
 
 .scheduled-panel__hint {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--ff-fs-caption);
   color: var(--ff-text-muted, var(--ff-text-muted));
   min-width: 0;
   overflow-wrap: anywhere;
@@ -38,7 +38,7 @@
 .scheduled-state {
   padding: 40px 16px;
   text-align: center;
-  font-size: 12px;
+  font-size: var(--ff-fs-caption);
   color: var(--ff-text-muted, var(--ff-text-muted));
   overflow-wrap: anywhere;
 }
@@ -64,7 +64,7 @@
   gap: 5px;
   max-width: 100%;
   padding: 5px 10px;
-  font-size: 11.5px;
+  font-size: var(--ff-fs-caption);
   font-weight: 500;
   color: var(--ff-text-muted, var(--ff-text-muted));
   background: var(--ff-bg-page, var(--ff-bg-subtle));
@@ -157,7 +157,7 @@
   flex: 1 1 120px;
   min-width: 0;
   margin: 0;
-  font-size: 13.5px;
+  font-size: var(--ff-fs-ui);
   font-weight: 600;
   color: var(--ff-text, var(--ff-text));
   overflow-wrap: anywhere;
@@ -166,7 +166,7 @@
 .scheduled-card__badge {
   flex-shrink: 0;
   padding: 1px 7px;
-  font-size: 10px;
+  font-size: var(--ff-fs-caption);
   font-weight: 500;
   color: var(--ff-text-muted, var(--ff-text-muted));
   background: var(--ff-bg-workspace, var(--ff-surface));
@@ -187,7 +187,7 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: 11.5px;
+  font-size: var(--ff-fs-caption);
   line-height: 1.5;
   color: var(--ff-text-muted, var(--ff-text-muted));
   min-width: 0;
@@ -209,7 +209,7 @@
   margin: 0;
   padding: 8px 10px;
   list-style: none;
-  font-size: 11.5px;
+  font-size: var(--ff-fs-caption);
   color: var(--ff-text-muted, var(--ff-text-muted));
   background: var(--ff-bg-workspace, var(--ff-surface));
   border-radius: 8px;
@@ -263,7 +263,7 @@
 
 .scheduled-editor__title {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--ff-fs-title);
   font-weight: 600;
   color: var(--ff-text, var(--ff-text));
   overflow-wrap: anywhere;
@@ -284,7 +284,7 @@
 }
 
 .scheduled-field__label {
-  font-size: 12px;
+  font-size: var(--ff-fs-caption);
   font-weight: 500;
   color: var(--ff-text-muted, var(--ff-text-muted));
   padding: 0;
@@ -297,7 +297,7 @@
   min-width: 0;
   box-sizing: border-box;
   padding: 8px 12px;
-  font-size: 13px;
+  font-size: var(--ff-fs-ui);
   font-family: inherit;
   color: var(--ff-text, var(--ff-text));
   background: var(--ff-bg-page, var(--ff-bg-subtle));
@@ -332,12 +332,12 @@
   flex-direction: column;
   gap: 2px;
   min-width: 0;
-  font-size: 12.5px;
+  font-size: var(--ff-fs-ui);
   color: var(--ff-text, var(--ff-text));
 }
 
 .scheduled-switch-row__copy span {
-  font-size: 11.5px;
+  font-size: var(--ff-fs-caption);
   color: var(--ff-text-muted, var(--ff-text-muted));
   overflow-wrap: anywhere;
 }
@@ -366,7 +366,7 @@
   align-items: center;
   gap: 6px;
   padding: 5px 12px;
-  font-size: 12px;
+  font-size: var(--ff-fs-caption);
   color: var(--ff-text-muted, var(--ff-text-muted));
   background: var(--ff-bg-page, var(--ff-bg-subtle));
   border: 1px solid var(--ff-border, var(--ff-border));
@@ -414,7 +414,7 @@
   align-items: flex-start;
   gap: 4px 8px;
   min-width: 0;
-  font-size: 12px;
+  font-size: var(--ff-fs-caption);
   color: var(--ff-text, var(--ff-text));
   cursor: pointer;
 }
@@ -433,14 +433,14 @@
 .scheduled-tool__tag {
   flex-shrink: 0;
   padding: 0 6px;
-  font-size: 10.5px;
+  font-size: var(--ff-fs-caption);
   color: var(--ff-danger, #e5484d);
   border: 1px solid currentColor;
   border-radius: 8px;
 }
 
 .scheduled-hint {
-  font-size: 11.5px;
+  font-size: var(--ff-fs-caption);
   color: var(--ff-text-muted, var(--ff-text-muted));
   overflow-wrap: anywhere;
 }
@@ -457,7 +457,7 @@
 .scheduled-status {
   flex: 1 1 160px;
   min-width: 0;
-  font-size: 12px;
+  font-size: var(--ff-fs-caption);
   color: var(--ff-text-muted, var(--ff-text-muted));
   overflow-wrap: anywhere;
 }

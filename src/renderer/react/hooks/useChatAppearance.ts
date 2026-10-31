@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { normalizeChatAppearance, type ChatAppearanceSettings } from "../../../shared/chat-appearance";
+import { normalizeChatAppearance, type ChatDisplaySettings } from "../../../shared/chat-appearance";
 import { applyAppearancePrefs } from "../../ui/appearance-prefs";
 
 export function applyChatAppearance(input: unknown): void {
@@ -13,7 +13,7 @@ export function applyChatAppearance(input: unknown): void {
     ["--ff-code-font-size", normalized.codeFontSize + "px"],
   ];
   for (const [property, value] of properties) rootStyle.setProperty(property, value);
-  applyAppearancePrefs(normalized);
+  applyAppearancePrefs(input);
 }
 
 export function useChatAppearance(): void {
@@ -22,7 +22,7 @@ export function useChatAppearance(): void {
     if (!bridge) return;
     let closed = false;
     let changed = false;
-    const stop = bridge.onChanged((update: ChatAppearanceSettings) => {
+    const stop = bridge.onChanged((update: ChatDisplaySettings) => {
       if (closed) return;
       changed = true;
       applyChatAppearance(update);

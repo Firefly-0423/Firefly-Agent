@@ -69,13 +69,13 @@
 }
 
 .ff-context-usage-menu__header strong {
-  font: 600 13px/1.4 var(--rb-font-sans, sans-serif);
+  font: 600 var(--ff-fs-ui)/1.4 var(--rb-font-sans, sans-serif);
   color: var(--ff-text);
   white-space: nowrap;
 }
 
 .ff-context-usage-menu__header span {
-  font: 12px/1.4 var(--rb-font-sans, sans-serif);
+  font: var(--ff-fs-caption)/1.4 var(--rb-font-sans, sans-serif);
   color: var(--ff-text-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -127,7 +127,7 @@
   border-radius: 999px;
   background: var(--ff-surface);
   color: var(--ff-text);
-  font: 500 12px/1 var(--rb-font-sans, sans-serif);
+  font: 500 var(--ff-fs-caption)/1 var(--rb-font-sans, sans-serif);
   white-space: nowrap;
 }
 
@@ -152,7 +152,7 @@
 .ff-context-usage-menu__mood span {
   justify-self: stretch;
   min-width: 0;
-  font: 12px/1.5 var(--rb-font-sans, sans-serif);
+  font: var(--ff-fs-caption)/1.5 var(--rb-font-sans, sans-serif);
   color: var(--ff-text-muted);
   overflow-wrap: anywhere;
 }
@@ -181,7 +181,7 @@
   column-gap: 10px;
   padding: 5px 2px;
   border-radius: 8px;
-  font: 12px/1.6 var(--rb-font-sans, sans-serif);
+  font: var(--ff-fs-caption)/1.6 var(--rb-font-sans, sans-serif);
   color: var(--ff-text);
 }
 
@@ -223,6 +223,6 @@
 .ff-context-usage-menu__footnote {
   padding-top: 8px;
   border-top: 1px solid var(--ff-border);
-  font: 11px/1.4 var(--rb-font-sans, sans-serif);
+  font: var(--ff-fs-caption)/1.4 var(--rb-font-sans, sans-serif);
   color: var(--ff-text-muted);
 }

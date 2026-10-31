@@ -439,6 +439,16 @@ describe("Compaction and request diagnostics", () => {
     expect(terminal.totalTokens).toBe(terminal.categories.reduce((sum, category) => sum + category.tokens, 0));
   });
 
+  it("measures context from a round's reported usage and drops it when a later round reports none", async () => {
+    sequence({ ...response("", [toolCall()]), usage: { input: 6_000, output: 30 } }, response("Final answer"));
+    const job = run({ runId: "usage-gap" });
+    await job.result;
+    const snapshots = selectedEvents(job.events, "context_usage").map(event => event.snapshot);
+    // The second request's snapshot builds on the first round's count; the terminal one has no count of its own.
+    expect(snapshots.map(snapshot => snapshot.measured === true)).toEqual([false, true, false]);
+    expect(snapshots[1].totalTokens).toBeGreaterThanOrEqual(6_030);
+  });
+
   it("emits a terminal usage snapshot on cancellation", async () => {
     const controller = new AbortController();
     sequence(response("", [toolCall()]));

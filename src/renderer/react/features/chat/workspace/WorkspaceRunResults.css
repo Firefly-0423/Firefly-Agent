@@ -3,10 +3,10 @@
 .ff-workspace-results-index { padding: 12px 16px 16px; color: var(--ff-text); }
 .ff-workspace-run-results, .ff-workspace-change-diff { padding: 12px; color: var(--ff-text); overflow: auto; overflow-wrap: anywhere; }
 .ff-workspace-run-results, .ff-workspace-change-diff { height: 100%; box-sizing: border-box; }
-.ff-workspace-results-index h3, .ff-workspace-run-results h3 { margin: 0 0 8px; font: 600 13px/1.2 var(--rb-font-sans, sans-serif); }
-.ff-workspace-results-index p { margin: 0; color: var(--ff-text-muted); font-size: 13px; line-height: 1.5; }
+.ff-workspace-results-index h3, .ff-workspace-run-results h3 { margin: 0 0 8px; font: 600 var(--ff-fs-ui)/1.2 var(--rb-font-sans, sans-serif); }
+.ff-workspace-results-index p { margin: 0; color: var(--ff-text-muted); font-size: var(--ff-fs-ui); line-height: 1.5; }
 .ff-workspace-results-index button, .ff-workspace-run-results button { border: 1px solid var(--ff-border); border-radius: 12px; background: var(--ff-bg-page, var(--ff-surface)); color: inherit; cursor: pointer; padding: 6px 10px; }
-.ff-workspace-results-index__item > button { display: flex; align-items: center; gap: 6px; margin: 0 -8px; width: calc(100% + 16px); padding: 7px 8px; border: 0; border-radius: 8px; background: transparent; font-size: 13px; text-align: left; }
+.ff-workspace-results-index__item > button { display: flex; align-items: center; gap: 6px; margin: 0 -8px; width: calc(100% + 16px); padding: 7px 8px; border: 0; border-radius: 8px; background: transparent; font-size: var(--ff-fs-ui); text-align: left; }
 .ff-workspace-results-index__item > button > span { flex: 1 1 auto; }
 .ff-workspace-results-index__item > button:hover { background: var(--ff-bg-hover); }
 .ff-workspace-results-index__chevron { flex: none; color: var(--ff-text-muted); transition: transform 0.16s ease; }
@@ -19,12 +19,12 @@
 .ff-workspace-run-results__file > span { flex: 1 1 100%; }
 .ff-workspace-run-results__avatar { width: 28px; height: 28px; flex: none; border-radius: 50%; object-fit: cover; }
 .ff-workspace-run-results__task { margin: 6px 0 0; }
-.ff-workspace-run-results__text { margin-top: 8px; font-size: 13px; line-height: 1.6; user-select: text; }
-.ff-workspace-run-results__tool p { font-size: 12px; color: var(--ff-text-muted); }
-.ff-workspace-run-results pre { font-size: 12px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ff-workspace-run-results__text { margin-top: 8px; font-size: var(--ff-fs-ui); line-height: 1.6; user-select: text; }
+.ff-workspace-run-results__tool p { font-size: var(--ff-fs-caption); color: var(--ff-text-muted); }
+.ff-workspace-run-results pre { font-size: var(--ff-fs-caption); line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
 .ff-workspace-change-diff header { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--ff-border); }
-.ff-workspace-change-diff > p { margin: 8px 0 0; color: var(--ff-text-muted); font-size: 12px; line-height: 1.5; }
-.ff-workspace-run-results__text :is(h1, h2, h3, h4) { margin: 10px 0 6px; font-size: 14px; line-height: 1.4; }
+.ff-workspace-change-diff > p { margin: 8px 0 0; color: var(--ff-text-muted); font-size: var(--ff-fs-caption); line-height: 1.5; }
+.ff-workspace-run-results__text :is(h1, h2, h3, h4) { margin: 10px 0 6px; font-size: var(--ff-fs-body); line-height: 1.4; }
 .ff-workspace-run-results__text :is(p, ul, ol) { margin: 6px 0; }
 
 /* Run steps as a list, like a file list: each tool call, group of calls or delegated task is one bar with a chevron,
@@ -38,7 +38,7 @@
 
 .ff-workspace-run-results .ff-run-row__head {
   display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; min-height: 32px; padding: 4px 8px;
-  border: 0; border-radius: 8px; background: transparent; color: var(--ff-text); font-size: 13px; text-align: left;
+  border: 0; border-radius: 8px; background: transparent; color: var(--ff-text); font-size: var(--ff-fs-ui); text-align: left;
   transition: background-color 120ms ease;
 }
 .ff-workspace-run-results .ff-run-row__head:hover { background: var(--ff-bg-hover); }
@@ -46,11 +46,11 @@
 .ff-run-row__chevron { flex: none; color: var(--ff-text-muted); transition: transform 200ms cubic-bezier(0.19, 1, 0.22, 1); }
 .ff-run-row[data-open] > .ff-run-row__head > .ff-run-row__chevron { transform: rotate(90deg); }
 .ff-run-row__head > strong { flex: none; max-width: 45%; overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
-.ff-run-row__preview { flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--ff-text-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.ff-run-row__count, .ff-run-row__failed { flex: none; color: var(--ff-text-muted); font-size: 12px; }
+.ff-run-row__preview { flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--ff-text-muted); font-size: var(--ff-fs-caption); text-overflow: ellipsis; white-space: nowrap; }
+.ff-run-row__count, .ff-run-row__failed { flex: none; color: var(--ff-text-muted); font-size: var(--ff-fs-caption); }
 .ff-run-row--group .ff-run-row__count { margin-right: auto; }
 .ff-run-row__failed, .ff-run-row__status[data-tool-status="error"] { color: var(--ff-del-fg, #cf222e); }
-.ff-run-row__status { flex: none; margin-left: auto; color: var(--ff-text-muted); font-size: 12px; }
+.ff-run-row__status { flex: none; margin-left: auto; color: var(--ff-text-muted); font-size: var(--ff-fs-caption); }
 .ff-run-row__head > .ff-workspace-run-results__avatar { width: 20px; height: 20px; }
 .ff-run-row__body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 200ms cubic-bezier(0.19, 1, 0.22, 1); }
 .ff-run-row[data-open] > .ff-run-row__body { grid-template-rows: 1fr; }
@@ -72,7 +72,7 @@
    red; the row opens the diff in place, and the open-file / diff-tab buttons appear at the right end on hover. */
 .ff-run-files { margin-top: 4px; }
 .ff-run-files__title { display: flex; align-items: baseline; gap: 6px; }
-.ff-run-files__title > span { color: var(--ff-text-muted); font-weight: 400; font-size: 12px; }
+.ff-run-files__title > span { color: var(--ff-text-muted); font-weight: 400; font-size: var(--ff-fs-caption); }
 .ff-run-row__bar { display: flex; align-items: center; min-width: 0; border-radius: 8px; transition: background-color 120ms ease; }
 .ff-run-row__bar:hover { background: var(--ff-bg-hover); }
 .ff-workspace-run-results .ff-run-row__bar > .ff-run-row__head { flex: 1; min-width: 0; }
@@ -95,7 +95,7 @@
 .ff-run-row--file[data-file-type="data"] .ff-run-file__icon { color: #d98a2b; }
 .ff-run-row--file[data-file-type="other"] .ff-run-file__icon { color: var(--ff-text-muted); }
 .ff-run-row--file .ff-run-row__head > strong { max-width: 55%; font-weight: 500; }
-.ff-run-file__stats { display: flex; flex: none; gap: 4px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.ff-run-file__stats { display: flex; flex: none; gap: 4px; font-size: var(--ff-fs-caption); font-variant-numeric: tabular-nums; }
 .ff-run-file__stats .is-add { color: var(--ff-add-fg, #1a7f37); }
 .ff-run-file__stats .is-remove { color: var(--ff-del-fg, #cf222e); }
 .ff-run-row--file > .ff-run-row__body > .ff-run-row__inner { padding: 2px 0 8px; }
@@ -106,13 +106,13 @@
 /* The run's entry to its changed files: one bar that opens them in their own panel. */
 .ff-workspace-run-results .ff-run-files-entry {
   display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; margin-top: 6px; padding: 6px 10px;
-  border: 1px solid var(--ff-border); border-radius: 10px; background: transparent; color: var(--ff-text); font-size: 13px; text-align: left;
+  border: 1px solid var(--ff-border); border-radius: 10px; background: transparent; color: var(--ff-text); font-size: var(--ff-fs-ui); text-align: left;
   transition: background-color 120ms ease, border-color 120ms ease;
 }
 .ff-workspace-run-results .ff-run-files-entry:hover { background: var(--ff-bg-hover); }
 .ff-run-files-entry > svg:first-child { flex: none; color: var(--ff-text-muted); }
 .ff-run-files-entry > strong { font-weight: 500; }
-.ff-run-files-entry__count { color: var(--ff-text-muted); font-size: 12px; }
+.ff-run-files-entry__count { color: var(--ff-text-muted); font-size: var(--ff-fs-caption); }
 .ff-run-files-entry > .ff-run-file__stats { margin-left: auto; }
 .ff-run-files-entry__chevron { flex: none; color: var(--ff-text-muted); }
-.ff-run-files__empty { margin: 0; color: var(--ff-text-muted); font-size: 13px; }
+.ff-run-files__empty { margin: 0; color: var(--ff-text-muted); font-size: var(--ff-fs-ui); }

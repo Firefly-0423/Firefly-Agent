@@ -23,7 +23,7 @@
   text-overflow: ellipsis;
   overflow: hidden;
   color: var(--ff-text, var(--ff-text));
-  font: 600 12px/1.3 var(--rb-font-mono, monospace);
+  font: 600 var(--ff-fs-caption)/1.3 var(--rb-font-mono, monospace);
 }
 
 .ff-review-inspector__body {
@@ -36,7 +36,7 @@
 
 .ff-review-inspector__loading {
   color: var(--ff-text-muted, var(--ff-text-muted));
-  font-size: 12px;
+  font-size: var(--ff-fs-caption);
   justify-content: center;
   flex: 1;
   align-items: center;
@@ -53,7 +53,7 @@
 .ff-review-inspector__kind {
   line-height: 1.4;
   font-weight: 600;
-  font-size: 10px;
+  font-size: var(--ff-fs-caption);
   border-radius: 3px;
   padding: 1px 5px;
   flex-shrink: 0;
@@ -100,9 +100,9 @@
 }
 .ff-review-inspector__meta-size {
   color: var(--ff-text-muted, var(--ff-text-muted));
-  font-size: 11px;
+  font-size: var(--ff-fs-caption);
 }
 .ff-review-inspector__meta-hint {
   color: var(--ff-text-muted, var(--ff-text-muted));
-  font-size: 12px;
+  font-size: var(--ff-fs-caption);
 }

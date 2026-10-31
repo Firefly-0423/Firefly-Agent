@@ -1020,38 +1020,17 @@
           </div>
 
           <div class="settings-list">
-            <div class="setting-row">
+            <label class="setting-row">
               <div>
                 <strong><span
-                      data-i18n="panel.preferences.segmented.title">分段输出</span><span
-                      class="setting-row__tag"
-                      data-i18n="panel.preferences.segmented.unavailable">暂不可用</span></strong>
+                      data-i18n="panel.preferences.segmented.title">分段输出</span></strong>
                 <span><span
-                      data-i18n="panel.preferences.segmented.desc">控制流萤回复在聊天气泡中的分段显示；不会改变模型实际回复内容。</span></span>
+                      data-i18n="panel.preferences.segmented.desc">Chat 模式下把流萤的回复按段落分成几个气泡显示；只改变显示，不改变回复内容。</span></span>
               </div>
-              <div
-                  id="segmented-output-select" class="option-blocks" role="radiogroup"
-                  aria-label="分段输出">
-                <button
-                    class="option-block"
-                    disabled type="button"
-                    aria-pressed="false"
-                    data-value="all"><span
-                      data-i18n="panel.preferences.segmented.option.all">所有</span></button>
-                <button
-                    class="option-block"
-                    disabled type="button"
-                    aria-pressed="false"
-                    data-value="chat"><span
-                      data-i18n="panel.preferences.segmented.option.chat">聊天</span></button>
-                <button
-                    class="option-block is-active"
-                    disabled type="button"
-                    aria-pressed="true"
-                    data-value="off"><span
-                      data-i18n="panel.preferences.segmented.option.off">关闭</span></button>
-              </div>
-            </div>
+              <span class="switch"><input
+                    id="segmented-chat-enabled"
+                    type="checkbox" checked /><span class="switch__track"><span class="switch__thumb"></span></span></span>
+            </label>
 
             <div class="setting-row">
               <div>

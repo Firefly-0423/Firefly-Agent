@@ -29,6 +29,7 @@ const preload = vi.hoisted(() => ({ exposed: new Map<string, any>(), invoke: vi.
 vi.mock("electron", () => ({ contextBridge: { exposeInMainWorld: (name: string, value: unknown) => preload.exposed.set(name, value) },
   ipcRenderer: { invoke: preload.invoke, send: vi.fn(), on: vi.fn(), removeListener: vi.fn(), off: vi.fn() }, webUtils: {} }));
 
+
 describe("settings memory IPC trust boundary", () => {
   it.each(["", " \n\t", "safe-looking text"])("refuses unresolved or blank candidates before forwarding: %j", async assertion => {
     const f = fixture();
@@ -66,14 +67,29 @@ describe("settings memory IPC trust boundary", () => {
     const source = { sourceId: "source-1", revision: 1 };
     f.state.facts = [{ factId: "fact-1", revision: 1, subjectKey: "k", assertion: "我默认用 bash", assertionKind: "user-statement", time: { validFrom: 1, validTo: null, referenceTime: 1 }, sourceRef: source,
       recordedAt: 1, acceptedAt: 1, supersededAt: null, activationReason: "explicitUserConfirmed", policyVersion: "t", provenance: { candidateId: null, evidenceId: null, activationSourceRef: source },
-      scope: "project", projectName: "alpha", projectKey: "project-deadbeef" } as any];
-    f.state.candidates = [{ ...f.state.candidates[0], scope: "project", projectName: "beta", projectKey: "project-cafe" } as any];
+      scope: "project", projectName: "alpha", projectRef: "0123456789abcdef", projectKey: "project-deadbeef" } as any];
+    f.state.candidates = [{ ...f.state.candidates[0], scope: "project", projectName: "beta", projectRef: "fedcba9876543210", projectKey: "project-cafe" } as any];
     const out = await f.api.getMemoryPanelState(f.event);
-    expect(out.facts[0]).toMatchObject({ scope: "project", projectName: "alpha" });
-    expect(out.candidates[0]).toMatchObject({ scope: "project", projectName: "beta" });
+    expect(out.facts[0]).toMatchObject({ scope: "project", projectName: "alpha", projectRef: "0123456789abcdef" });
+    expect(out.candidates[0]).toMatchObject({ scope: "project", projectName: "beta", projectRef: "fedcba9876543210" });
     expect(JSON.stringify(out)).not.toContain("project-deadbeef"); expect(JSON.stringify(out)).not.toContain("project-cafe");
-    f.state.facts = [{ ...f.state.facts[0], scope: "somewhere", projectName: 42 } as any];
-    expect(Object.keys((await f.api.getMemoryPanelState(f.event)).facts[0])).not.toEqual(expect.arrayContaining(["scope", "projectName"]));
+    f.state.facts = [{ ...f.state.facts[0], scope: "somewhere", projectName: 42, projectRef: "project-deadbeef" } as any];
+    const malformed = Object.keys((await f.api.getMemoryPanelState(f.event)).facts[0]);
+    for (const key of ["scope", "projectName", "projectRef"]) expect(malformed).not.toContain(key);
+  });
+  it("passes a fact's category and the source conversation title, but never the typed record", async () => {
+    const f = fixture();
+    const source = { sourceId: "source-1", revision: 1 };
+    f.state.facts = [{ factId: "fact-1", revision: 1, subjectKey: "k", assertion: "请用中文回复", assertionKind: "user-statement", time: { validFrom: 1, validTo: null, referenceTime: 1 }, sourceRef: source,
+      recordedAt: 1, acceptedAt: 1, supersededAt: null, activationReason: "policyAccepted", policyVersion: "t", provenance: { candidateId: null, evidenceId: null, activationSourceRef: source },
+      typed: { legacyAttribute: "language", entityKey: "entity-secret", slotKey: "slot-secret" }, sourceTitle: "周末计划".repeat(60) } as any];
+    f.state.candidates = [{ ...f.state.candidates[0], sourceTitle: "聊聊茶" }];
+    const out = await f.api.getMemoryPanelState(f.event);
+    expect(out.facts[0]).toMatchObject({ attribute: "language" }); expect(out.facts[0].sourceTitle).toHaveLength(200);
+    expect(out.candidates[0]).toMatchObject({ sourceTitle: "聊聊茶" });
+    expect(JSON.stringify(out)).not.toContain("entity-secret"); expect(out.facts[0]).not.toHaveProperty("typed");
+    f.state.facts = [{ ...f.state.facts[0], typed: undefined, sourceTitle: 7 } as any];
+    expect(Object.keys((await f.api.getMemoryPanelState(f.event)).facts[0])).not.toEqual(expect.arrayContaining(["attribute", "sourceTitle"]));
   });
   it("stale_revision_or_foreign_window_rejected", async () => {
     const f = fixture();

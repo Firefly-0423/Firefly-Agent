@@ -19,8 +19,14 @@ export interface FactView extends FactDraft {
  scope?:"global"|"project";
  /** Opaque project key, Main-internal: the settings DTO replaces it with `projectName`. */
  projectKey?:string;
+ /** Settings DTO only: opaque handle for the fact's project, equal for facts of the same project during one run. Never the project key. */
+ projectRef?:string;
  /** Display name of the project a project-scoped fact belongs to, when Main still knows a session bound to it. */
  projectName?:string;
+ /** Settings DTO only: the fact's category (`typed.legacyAttribute`), so the panel need not see the typed record. */
+ attribute?:string;
+ /** Settings DTO only: title of the conversation the fact was learned in, when Main still has it. Decoration, never authority. */
+ sourceTitle?:string;
 }
 export interface MutationResult {id:string;revision:number}
 export interface EvidenceInput {commandId:string;evidenceId:string;sourceRef:SourceRef;text:string}

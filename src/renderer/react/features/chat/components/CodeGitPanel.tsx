@@ -135,17 +135,20 @@ export function CodeGitPanel({ sessionId, projectName, todoState, planPhase, onO
           {operationError && <p className="ff-code-git__operation-error">{operationError}</p>}
         </div>
 
-        <div className="ff-code-git__divider" />
-        <div className="ff-code-git__todo-heading"><span>{t("codeGit.currentTasks")}</span><small>{t("codeGit.todoProgress", { completed, total: todos.length })}</small></div>
-        <ul className="ff-code-git__todos" data-testid="code-todo-list">
-          {todos.length > 0
-            ? todos.map((todo) => (
-              <li key={todo.id} className={todo.status === "completed" ? "is-completed" : ""}>
-                <i /> <span>{todo.content}</span>
-              </li>
-            ))
-            : <li className="is-empty"><i />{t("codeGit.noTasks")}</li>}
-        </ul>
+        {/* Docked in the Code pane, the plan already shows in the run timeline, so the pane keeps to the project and Git. */}
+        {!docked && <>
+          <div className="ff-code-git__divider" />
+          <div className="ff-code-git__todo-heading"><span>{t("codeGit.currentTasks")}</span><small>{t("codeGit.todoProgress", { completed, total: todos.length })}</small></div>
+          <ul className="ff-code-git__todos" data-testid="code-todo-list">
+            {todos.length > 0
+              ? todos.map((todo) => (
+                <li key={todo.id} className={todo.status === "completed" ? "is-completed" : ""}>
+                  <i /> <span>{todo.content}</span>
+                </li>
+              ))
+              : <li className="is-empty"><i />{t("codeGit.noTasks")}</li>}
+          </ul>
+        </>}
         {planPhase && onOpenPlan && (
           <div className="ff-code-git__plan-status" data-testid="code-plan-status">
             <PlanReviewEntry phase={planPhase} onOpen={onOpenPlan} />
