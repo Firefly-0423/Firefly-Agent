@@ -140,10 +140,14 @@ function applyLang(): void {
   syncShowcaseAlt();
 }
 
+const sendDemoTheme = () => frame.contentWindow?.postMessage({ type: "firefly-demo:theme", theme }, window.location.origin);
+// A message sent while the demo is still loading arrives before it listens, so send the current theme again once it has loaded.
+frame.addEventListener("load", sendDemoTheme);
+
 function applyTheme(): void {
   document.documentElement.dataset.theme = theme;
-  // The loaded demo switches in place; its address keeps the choice for the next load and for "open full screen".
-  frame.contentWindow?.postMessage({ type: "firefly-demo:theme", theme }, window.location.origin);
+  // The loaded demo switches in place; "open full screen" carries the choice in its address.
+  sendDemoTheme();
   document.getElementById("demo-open")!.setAttribute("href", demoUrl());
 }
 
