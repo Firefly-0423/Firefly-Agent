@@ -12,7 +12,10 @@ args = parser.parse_args()
 repo, work = args.repo.resolve(), args.out.resolve()
 evidence = json.loads((work / "capture-evidence.json").read_text(encoding="utf-8"))
 count = evidence["frame_count"]
-assert count == 155 and evidence["display_duration_ms"] == 12400
+sequence = evidence["sequence"]
+frame_ms, duration_ms = sequence["frame_duration_ms"], sequence["display_duration_ms"]
+assert count == sequence["frames"] and duration_ms == count * frame_ms
+assert evidence["display_duration_ms"] == duration_ms
 assert not evidence["errors"] and not evidence["blocked"]
 assert evidence["runtime"]["physics_loaded"]
 assert len({json.dumps(r["transform"], sort_keys=True) for r in evidence["records"]}) == 1
@@ -45,22 +48,22 @@ assert active and max(r["applied_parameters"]["Param40"] for r in records) > .99
 assert records[0]["applied_parameters"]["Param40"] == records[-1]["applied_parameters"]["Param40"] == 0
 assert all(records[-1]["applied_parameters"][p] == 0 for p in
            ["Param", "Param2", "Param3", "Param4", "Param5", "Param8", "Param9", "Param10", "Param11"])
-assert max(r["applied_parameters"]["Param"] for r in records) > .99
-assert max(r["applied_parameters"]["Param5"] for r in records) > .99
-assert max(r["applied_parameters"]["Param8"] for r in records) > .5
+# Only the cat ears move: every other expression parameter stays at rest.
+assert all(r["applied_parameters"][p] == 0 for r in records for p in
+           ["Param", "Param2", "Param3", "Param4", "Param5", "Param8", "Param9", "Param10", "Param11"])
 
 report = {
     "native_canvas": [1200, 1200], "native_union_crop": union,
     "actor_size": size, "actor_position": position, "aspect_preserved": True,
     "display_dimensions": [896, 234], "pixel_dimensions": [1792, 468],
-    "pixel_density": 2, "duration_ms": 12400, "frame_duration_ms": 80,
+    "pixel_density": 2, "duration_ms": duration_ms, "frame_duration_ms": frame_ms,
     "raw_frames": count, "infinite_loop": True, "fixed_actor_transform": True,
     "transparent_actor": True, "scene_meshes_hidden": True, "model_changed": False,
     "native_motion_and_physics": True, "ai_redraw": False,
     "cat_ear_visible_window": {
         "first_frame": active[0]["frame"], "last_frame": active[-1]["frame"],
         "first_ms": active[0]["display_time_ms"], "last_ms": active[-1]["display_time_ms"],
-        "visible_duration_ms": (active[-1]["frame"] - active[0]["frame"] + 1) * 80,
+        "visible_duration_ms": (active[-1]["frame"] - active[0]["frame"] + 1) * frame_ms,
     },
     "next_loop_vs_first_actor_mean_absolute_error_rgba": seam,
     "variants": {},
@@ -80,7 +83,7 @@ for lang in ["zh", "en"]:
         # A shared palette keeps labels/background stable and retains antialiased
         # actor edges after alpha composition against each theme's own matte.
         sample = Image.new("RGB", (size[0], size[1] * 12))
-        indices = [0, 15, 28, 40, 52, 60, 75, 90, 105, 120, 138, 154]
+        indices = [round(k * (count - 1) / 11) for k in range(12)]
         for row, i in enumerate(indices):
             sample.paste(frames[i].crop((position[0], position[1], position[0] + size[0], position[1] + size[1])), (0, row * size[1]))
         text_palette = bg.convert("RGB").quantize(colors=128, method=Image.Quantize.MEDIANCUT)
@@ -99,30 +102,30 @@ for lang in ["zh", "en"]:
         name = f"firefly-banner-{theme}" + (".en" if lang == "en" else "") + ".gif"
         dest = asset_dir / name
         indexed[0].save(dest, save_all=True, append_images=indexed[1:],
-                        duration=80, loop=0, optimize=True, disposal=1)
+                        duration=frame_ms, loop=0, optimize=True, disposal=1)
         total = 0
         text_hashes = set()
+        starts = []
         with Image.open(dest) as gif:
             assert gif.size == (1792, 468) and gif.info["loop"] == 0
             for i in range(gif.n_frames):
                 gif.seek(i)
+                starts.append(total)
                 total += gif.info["duration"]
                 rgb = gif.convert("RGB")
                 text_hashes.add(hashlib.sha256(rgb.crop((556, 0, 1792, 468)).tobytes()).hexdigest())
                 # A transparent actor must not introduce a card on either matte.
                 assert max(abs(a - b) for a, b in zip(rgb.getpixel((60, 60)), expected_bg)) <= 2
-            assert total == 12400 and len(text_hashes) == 1
+            assert total == duration_ms and len(text_hashes) == 1
             gif.seek(0)
             gif.convert("RGB").save(work / f"first-{theme}.{lang}.png")
-            gif.seek(50)
-            gif.convert("RGB").save(work / f"cat-{theme}.{lang}.png")
-            gif.seek(80)
-            gif.convert("RGB").save(work / f"glasses-{theme}.{lang}.png")
-            gif.seek(130)
-            gif.convert("RGB").save(work / f"closed-{theme}.{lang}.png")
+            # Pillow merges identical consecutive frames, so locate samples by time.
+            for label, i in [("cat-in", active[0]["frame"] + 12), ("cat", (active[0]["frame"] + active[-1]["frame"]) // 2), ("cat-out", active[-1]["frame"] - 8)]:
+                gif.seek(max(k for k, start in enumerate(starts) if start <= i * frame_ms))
+                gif.convert("RGB").save(work / f"{label}-{theme}.{lang}.png")
             encoded_count = gif.n_frames
         assert dest.stat().st_size < 5 * 1024 * 1024
-        quantization_error = ImageStat.Stat(ImageChops.difference(frames[50], indexed[50].convert("RGB"))).mean
+        quantization_error = ImageStat.Stat(ImageChops.difference(frames[count // 2], indexed[count // 2].convert("RGB"))).mean
         report["variants"][name] = {
             "bytes": dest.stat().st_size, "encoded_frames": encoded_count,
             "duration_ms": total, "text_hash_count": len(text_hashes),

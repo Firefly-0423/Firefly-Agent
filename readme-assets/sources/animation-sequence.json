@@ -1,39 +1,19 @@
 {
-  "frames": 155,
-  "frame_duration_ms": 80,
-  "display_duration_ms": 12400,
+  "frames": 258,
+  "frame_duration_ms": 40,
+  "display_duration_ms": 10320,
   "native_motion": "Idle/0",
   "events": [
     {
-      "frame": 28,
+      "frame": 25,
       "expression": "expression2",
       "meaning": "cat ears (Param40)"
     },
     {
-      "frame": 60,
-      "expression": "expression1",
-      "meaning": "pixel sunglasses"
-    },
-    {
-      "frame": 90,
-      "expression": "expression00",
-      "meaning": "restore idle"
-    },
-    {
-      "frame": 104,
-      "expression": "expression6",
-      "meaning": "question mark"
-    },
-    {
-      "frame": 120,
-      "expression": "expression7",
-      "meaning": "closed-eye expression"
-    },
-    {
-      "frame": 138,
+      "frame": 210,
       "expression": "expression00",
       "meaning": "restore idle before the loop boundary"
     }
   ],
-  "notes": "Preserve the existing expression order and 12.4-second display duration. Extend visible cat-ear time modestly. Expression fades run through the native Cubism expression manager; no persistent expression parameter override."
+  "notes": "Only the cat-ear expression. One native Idle/0 period (10.333 s) sampled at 258 frames and shown at 40 ms per frame, so it plays at native speed (25 fps). The ears fade in through the native expression manager and fade out before the loop boundary; no persistent parameter override."
 }
