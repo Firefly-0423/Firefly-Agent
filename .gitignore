@@ -197,3 +197,6 @@ sticker-descriptions/
 
 # Reproducible bundled plugin catalog and ZIP assets (built before Main).
 resources/plugin-marketplace/
+
+# Wrangler 本地缓存（部署宣传网站时生成）
+.wrangler/

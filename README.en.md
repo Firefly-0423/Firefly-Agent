@@ -21,7 +21,7 @@
 
 <p align="center">
   <a href="#-screenshots">Screenshots</a> · <a href="#-quick-start">Quick start</a> · <a href="#-features">Features</a> · <a href="#-security-and-privacy">Security</a> · <a href="#-project-structure">Structure</a> · <a href="#-status-and-limits">Status</a><br>
-  <a href="https://github.com/Firefly-0423/Firefly-Agent/issues">Issues</a> · <a href="https://github.com/Firefly-0423/firefly-plugins">Plugin marketplace</a>
+  <a href="https://hotarufirefly.online">Website and live demo</a> · <a href="https://github.com/Firefly-0423/Firefly-Agent/issues">Issues</a> · <a href="https://github.com/Firefly-0423/firefly-plugins">Plugin marketplace</a>
 </p>
 
 ---

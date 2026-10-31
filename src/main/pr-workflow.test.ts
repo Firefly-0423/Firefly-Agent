@@ -28,17 +28,36 @@ test("Windows Test builds and selects the verified native history helper before 
   assert.equal(steps[buildIndex]["continue-on-error"], undefined);
 });
 
-test("Pages publishes the promo site from main only, with the narrow Pages permissions", () => {
-  const workflow = YAML.parse(fs.readFileSync(".github/workflows/pages.yml", "utf8"));
+test("the promo site deploys to Cloudflare from main only, with read-only repo access and the token kept in secrets", () => {
+  const workflow = YAML.parse(fs.readFileSync(".github/workflows/site.yml", "utf8"));
   assert.deepEqual(workflow.on.push.branches, ["main"]);
   assert.deepEqual(Object.keys(workflow.on).sort(), ["push", "workflow_dispatch"]);
-  assert.deepEqual(workflow.permissions, { contents: "read", pages: "write", "id-token": "write" });
+  assert.deepEqual(workflow.permissions, { contents: "read" });
   assert.equal(workflow.concurrency["cancel-in-progress"], false);
-  const steps = workflow.jobs.build.steps as Array<{ run?: string; uses?: string; with?: { path?: string } }>;
-  assert.ok(steps.some(step => step.run === "npm run build:site"));
-  assert.equal(steps.find(step => step.uses?.startsWith("actions/upload-pages-artifact@"))?.with?.path, "dist/site");
-  assert.deepEqual(workflow.jobs.deploy.needs, "build");
-  assert.equal(workflow.jobs.deploy.environment.name, "github-pages");
+  const steps = workflow.jobs.deploy.steps as Array<{ run?: string; uses?: string; with?: Record<string, string> }>;
+  const build = steps.findIndex(step => step.run === "npm run build:site");
+  const deploy = steps.findIndex(step => step.uses?.startsWith("cloudflare/wrangler-action@"));
+  assert.ok(build >= 0 && deploy > build);
+  assert.deepEqual(steps[deploy].with, {
+    apiToken: "${{ secrets.CLOUDFLARE_API_TOKEN }}",
+    accountId: "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+    wranglerVersion: steps[deploy].with?.wranglerVersion,
+    command: "deploy",
+  });
+  assert.match(steps[deploy].with?.wranglerVersion ?? "", /^\d+\.\d+\.\d+$/);
+  assert.equal(workflow.jobs.deploy.environment.url, "https://hotarufirefly.online/");
+});
+
+test("wrangler.jsonc serves only the built site, on the project's own domain", () => {
+  const config = JSON.parse(fs.readFileSync("wrangler.jsonc", "utf8").replace(/^\s*\/\/.*$/gm, ""));
+  assert.equal(config.main, undefined);
+  assert.deepEqual(config.assets, { directory: "./dist/site" });
+  assert.deepEqual(config.routes, [
+    { pattern: "hotarufirefly.online", custom_domain: true },
+    { pattern: "www.hotarufirefly.online", custom_domain: true },
+  ]);
+  assert.equal(config.workers_dev, false);
+  assert.equal(config.preview_urls, false);
 });
 
 test("the plugin SDK publishes to npm only from a version tag, through trusted publishing", () => {

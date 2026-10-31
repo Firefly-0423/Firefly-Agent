@@ -70,7 +70,7 @@ for lang in ["zh", "en"]:
     for theme in ["light", "dark"]:
         bg = Image.open(work / f"background-{theme}.{lang}.png").convert("RGBA")
         assert bg.size == (1792, 468)
-        expected_bg = (237, 243, 239) if theme == "light" else (12, 20, 23)
+        expected_bg = (238, 244, 240) if theme == "light" else (11, 20, 22)
         assert bg.getpixel((60, 60))[:3] == expected_bg
         frames = []
         for actor in actors:

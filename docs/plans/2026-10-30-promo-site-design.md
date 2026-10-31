@@ -60,9 +60,13 @@ Adding a deploy workflow changes CI, so the workflow is added only after the use
 ## Decisions after review (2026-10-30)
 
 - The user approved the Pages deploy workflow (`.github/workflows/pages.yml`) and publishing the 1.1.0 installer as a GitHub Release.
-- The site is named "Firefly-Agent". Its banners are the README banners with that title (`site/banner/`); the README and the app keep "Firefly_Agent".
+- The site is named "Firefly-Agent". Its banners are the README banners with that title (`site/banner/`); the README and the app keep "Firefly_Agent". Superseded on 2026-10-31: the README banners were redesigned with the "Firefly-Agent" title, and the site now uses them directly from `readme-assets/`.
 - The demo build swaps the delegated-partner portraits for a stub, so no other character's artwork is published with the site. The only image it ships is the Firefly avatar.
 - Until the domain is ready, the site is served at the repository's github.io address.
+
+## Hosting on Cloudflare (2026-10-31)
+
+At the user's request the site moved to Cloudflare at `hotarufirefly.online`, whose DNS is in the user's Cloudflare account. It is a static-assets Worker (`wrangler.jsonc`: `dist/site`, no script, `workers_dev` and preview URLs off) with the apex and `www` as custom domains, so Cloudflare creates their DNS records and certificates. `.github/workflows/site.yml` replaces `pages.yml`: on `main` it builds the site and runs `cloudflare/wrangler-action@v4` with a pinned Wrangler version. The repository only needs `contents: read`; the API token and account ID live in the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, which the user creates. The token uses the "Edit Cloudflare Workers" template limited to that account and zone. The github.io copy stops updating; turning GitHub Pages off is left to the user.
 
 ## Layout revision (2026-10-31)
 

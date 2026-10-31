@@ -1,0 +1,16 @@
+// 宣传网站的 Cloudflare 配置：只托管静态文件（npm run build:site 生成的 dist/site），没有 Worker 脚本。
+// 由 .github/workflows/site.yml 在 main 更新后部署。域名需在本账号的 Cloudflare 中，DNS 记录和证书由 Cloudflare 自动创建。
+{
+  "name": "firefly-agent-site",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist/site"
+  },
+  "routes": [
+    { "pattern": "hotarufirefly.online", "custom_domain": true },
+    { "pattern": "www.hotarufirefly.online", "custom_domain": true }
+  ],
+  // 只从自己的域名访问，不开 workers.dev 和预览地址
+  "workers_dev": false,
+  "preview_urls": false
+}
