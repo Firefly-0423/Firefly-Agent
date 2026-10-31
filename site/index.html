@@ -18,6 +18,7 @@
       </a>
       <nav class="nav" aria-label="页面导航" data-i18n-label="nav.label">
         <a href="#demo" data-i18n="nav.demo">在线试用</a>
+        <a href="#team" data-i18n="nav.team">伙伴</a>
         <a href="#showcase" data-i18n="nav.features">功能</a>
         <a href="#extend" data-i18n="nav.extend">扩展</a>
         <a href="#faq" data-i18n="nav.faq">常见问题</a>
@@ -37,9 +38,13 @@
   </header>
 
   <main id="top">
-    <!-- 首屏：左侧标题，右侧说明与按钮；下面是可以直接操作的演示 -->
-    <section class="frame hero">
+    <!-- 首屏：左侧头像与标题，右侧说明与按钮；下面是可以直接操作的演示。点头像流萤会打招呼。 -->
+    <section class="frame hero spot">
+      <div class="fireflies" aria-hidden="true"></div>
       <div class="hero-title">
+        <button class="avatar-ring hero-avatar" type="button" id="hero-avatar" aria-label="和流萤打个招呼" data-i18n-label="hero.avatar">
+          <img src="../src/renderer/public/avatars/firefly-avatar.png" alt="" width="88" height="88" />
+        </button>
         <p class="kicker"><span data-i18n="hero.kicker">AI 桌面伙伴</span><span class="cursor" aria-hidden="true"></span></p>
         <h1>Firefly-Agent</h1>
       </div>
@@ -76,13 +81,17 @@
 
     <!-- 三个入口：桌面应用、插件 SDK、市场 -->
     <section class="frame entries" aria-label="开始使用" data-i18n-label="entries.label">
-      <article class="entry">
+      <article class="entry spot">
         <span class="tile" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="12" rx="2"/><path d="M8.5 20h7M12 16.5V20"/></svg></span>
-        <h3 data-i18n="entries.app.title">桌面应用</h3>
-        <p data-i18n="entries.app.body">Windows 10 / 11 安装包。Live2D 流萤常驻桌面，Chat、Work、Code 三种模式在同一个窗口里。</p>
-        <a class="button primary block" href="https://github.com/Firefly-0423/Firefly-Agent/releases" data-i18n="entries.app.action">下载 Windows 版</a>
+        <h3 data-i18n="entries.modes.title">三种模式，一个窗口</h3>
+        <p data-i18n="entries.modes.body">Live2D 流萤常驻桌面；聊天、委派伙伴办事、改代码，都在同一个窗口里切换。</p>
+        <nav class="modes" aria-label="在演示里试试三种模式" data-i18n-label="entries.modes.label">
+          <a class="mode" href="#demo"><strong>Chat</strong><span data-i18n="entries.modes.chat">聊天</span></a>
+          <a class="mode" href="#demo"><strong>Work</strong><span data-i18n="entries.modes.work">工作</span></a>
+          <a class="mode" href="#demo"><strong>Code</strong><span data-i18n="entries.modes.code">代码</span></a>
+        </nav>
       </article>
-      <article class="entry">
+      <article class="entry spot">
         <span class="tile" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg></span>
         <h3 data-i18n="entries.sdk.title">插件 SDK</h3>
         <p data-i18n="entries.sdk.body">用 TypeScript 写插件，只通过公开接口与流萤交互。npm 包带来源证明（provenance）。</p>
@@ -91,7 +100,7 @@
           <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>
         </button>
       </article>
-      <article class="entry">
+      <article class="entry spot">
         <span class="tile" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><path d="M16.5 13v7M13 16.5h7"/></svg></span>
         <h3 data-i18n="entries.market.title">Skills 与插件市场</h3>
         <p data-i18n="entries.market.body">在设置里一键安装。Skills 只装审查过的版本，插件安装前核对 SHA-256，装好后默认停用。</p>
@@ -99,60 +108,77 @@
       </article>
     </section>
 
-    <section class="frame stack" aria-label="构建于" data-i18n-label="stack.label">
-      <p class="stack-title" data-i18n="stack.title">构建于这些开源项目之上</p>
-      <div class="marquee" aria-hidden="true">
-        <div class="marquee-track">
-          <span>Electron</span><span>React 19</span><span>TypeScript</span><span>Rust</span><span>SQLite</span><span>Live2D Cubism</span><span>PixiJS</span><span>AG-UI</span><span>MCP</span><span>Ant Design</span><span>Shiki</span><span>KaTeX</span><span>d3-force</span><span>Vite</span>
-          <span>Electron</span><span>React 19</span><span>TypeScript</span><span>Rust</span><span>SQLite</span><span>Live2D Cubism</span><span>PixiJS</span><span>AG-UI</span><span>MCP</span><span>Ant Design</span><span>Shiki</span><span>KaTeX</span><span>d3-force</span><span>Vite</span>
-        </div>
+    <!-- 伙伴：流萤是主代理，下面两排是 12 位伙伴，卡片由 main.ts 按 src/shared/specialist-agents.ts 生成 -->
+    <section class="frame section team" id="team" aria-labelledby="team-title">
+      <p class="eyebrow" data-i18n="team.eyebrow">主代理 + 伙伴</p>
+      <h2 class="section-title" id="team-title" data-i18n="team.title">流萤带着 12 位伙伴</h2>
+      <p class="section-lede" data-i18n="team.body">在 Work 和 Code 模式里，流萤把任务拆开，交给擅长的伙伴并行处理，回来后核对、汇总。每位伙伴都可以单独指定模型。</p>
+      <div class="lead">
+        <span class="avatar-ring"><img src="../src/renderer/public/avatars/firefly-avatar.png" alt="" width="48" height="48" /></span>
+        <span><strong data-i18n="team.lead.name">流萤</strong><small data-i18n="team.lead.role">主代理 · 拆分、委派、核对</small></span>
       </div>
+      <div class="partners" id="partners"></div>
     </section>
 
     <!-- 功能：左侧折叠列表，右侧对应的真实截图 -->
     <section class="frame section" id="showcase" aria-labelledby="showcase-title">
+      <p class="eyebrow" data-i18n="showcase.eyebrow">功能</p>
       <h2 class="section-title" id="showcase-title" data-i18n="showcase.title">从一句话，到事情做完</h2>
       <div class="showcase">
         <div class="accordion" role="tablist" aria-orientation="vertical" aria-label="功能" data-i18n-label="showcase.label">
           <button class="accordion-item" type="button" role="tab" id="tab-chat" aria-controls="showcase-panel" aria-selected="true" data-key="chat">
             <span class="accordion-head"><strong data-i18n="showcase.chat.title">和流萤聊天</strong><svg class="i chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span>
-            <span class="accordion-body" data-i18n="showcase.chat.body">角色化对话与流式回复，Live2D 流萤常驻桌面右下角。右侧可以打开内置浏览器，概览卡片显示上下文与用量。</span>
+            <span class="accordion-body"><span data-i18n="showcase.chat.body">角色化对话与流式回复，Live2D 流萤常驻桌面右下角。右侧可以打开内置浏览器，概览卡片显示上下文与用量。</span></span>
           </button>
           <button class="accordion-item" type="button" role="tab" id="tab-work" aria-controls="showcase-panel" aria-selected="false" tabindex="-1" data-key="work">
             <span class="accordion-head"><strong data-i18n="showcase.work.title">委派伙伴并行工作</strong><svg class="i chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span>
-            <span class="accordion-body" data-i18n="showcase.work.body">流萤把任务拆给刃和丹恒同时处理，回来后对照原文核对，再合成一份结论；每位伙伴的运行结果都在右侧。</span>
+            <span class="accordion-body"><span data-i18n="showcase.work.body">流萤把任务拆给刃和丹恒同时处理，回来后对照原文核对，再合成一份结论；每位伙伴的运行结果都在右侧。</span></span>
           </button>
           <button class="accordion-item" type="button" role="tab" id="tab-code" aria-controls="showcase-panel" aria-selected="false" tabindex="-1" data-key="code">
             <span class="accordion-head"><strong data-i18n="showcase.code.title">修 Bug、补测试</strong><svg class="i chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span>
-            <span class="accordion-body" data-i18n="showcase.code.body">过程收成一行摘要：读了几个文件、跑了几条命令、改了什么、哪项失败；右侧是分支、变更与运行结果。</span>
+            <span class="accordion-body"><span data-i18n="showcase.code.body">过程收成一行摘要：读了几个文件、跑了几条命令、改了什么、哪项失败；右侧是分支、变更与运行结果。</span></span>
           </button>
           <button class="accordion-item" type="button" role="tab" id="tab-memory" aria-controls="showcase-panel" aria-selected="false" tabindex="-1" data-key="memory">
             <span class="accordion-head"><strong data-i18n="showcase.memory.title">记忆关系图</strong><svg class="i chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span>
-            <span class="accordion-body" data-i18n="showcase.memory.body">记忆存在本机。设置里能看到每条记忆属于哪一类、来自哪次对话，点开即可确认、更正或忘记。</span>
+            <span class="accordion-body"><span data-i18n="showcase.memory.body">记忆存在本机。设置里能看到每条记忆属于哪一类、来自哪次对话，点开即可确认、更正或忘记。</span></span>
           </button>
         </div>
         <figure class="shot" id="showcase-panel" role="tabpanel" aria-labelledby="tab-chat">
-          <div class="shot-stage"><img id="showcase-image" src="../readme-assets/screenshots/chat.webp" width="2000" height="1088" alt="" /></div>
+          <div class="shot-stage"><img id="showcase-image" class="active" src="../readme-assets/screenshots/chat.webp" width="2000" height="1088" alt="" /></div>
         </figure>
       </div>
     </section>
 
     <!-- 边界：权限、记忆、安装核验 -->
+    <!-- 每格上方是一块示意小界面（装饰，读屏跳过），下面是说明 -->
     <section class="frame section" id="safety" aria-labelledby="safety-title">
+      <p class="eyebrow" data-i18n="safety.eyebrow">安全</p>
       <h2 class="section-title" id="safety-title" data-i18n="safety.title">有人设，也有边界</h2>
       <div class="cells three">
-        <article class="cell">
-          <span class="tile" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4-3 7.5-7 9-4-1.5-7-5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span>
+        <article class="cell spot">
+          <div class="mock" aria-hidden="true">
+            <p class="mock-head"><span class="pulse"></span><span data-i18n="safety.approve.mock.ask">流萤想运行一条命令</span></p>
+            <code class="mock-code">npm test</code>
+            <p class="mock-actions"><span class="chip" data-i18n="safety.approve.mock.deny">拒绝</span><span class="chip primary" data-i18n="safety.approve.mock.allow">批准</span></p>
+          </div>
           <h3 data-i18n="safety.approve.title">动手之前先问你</h3>
           <p data-i18n="safety.approve.body">写文件、执行命令、联网操作都按权限等级运行，需要你批准，也可以随时取消。角色语气不会放宽这些规则。</p>
         </article>
-        <article class="cell">
-          <span class="tile" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"/></svg></span>
+        <article class="cell spot">
+          <div class="mock" aria-hidden="true">
+            <p class="mock-head"><svg class="i" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg><code>%APPDATA%\Firefly</code></p>
+            <p class="mock-row"><span data-i18n="safety.local.mock.settings">设置与历史</span><span class="chip" data-i18n="safety.local.mock.local">本机</span></p>
+            <p class="mock-row"><span data-i18n="safety.local.mock.memory">记忆数据库</span><span class="chip primary">DPAPI</span></p>
+          </div>
           <h3 data-i18n="safety.local.title">记忆留在本机</h3>
           <p data-i18n="safety.local.body">设置、历史和记忆存在本机 SQLite，记忆数据库的密钥由 Windows DPAPI 保护。对话内容只发给你选择的模型服务。</p>
         </article>
-        <article class="cell">
-          <span class="tile" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l2.5 2H18v3.5l2 2.5-2 2.5V17h-3.5L12 19l-2.5-2H6v-3.5L4 11l2-2.5V5h3.5z"/><path d="M9 11l2 2 4-4"/></svg></span>
+        <article class="cell spot">
+          <div class="mock" aria-hidden="true">
+            <p class="mock-row"><span>Skills</span><span class="check" data-i18n="safety.verify.mock.pinned">锁定提交</span></p>
+            <p class="mock-row"><span>SHA-256</span><span class="check" data-i18n="safety.verify.mock.match">一致</span></p>
+            <p class="mock-row"><span data-i18n="safety.verify.mock.after">安装后</span><span class="chip" data-i18n="safety.verify.mock.off">默认停用</span></p>
+          </div>
           <h3 data-i18n="safety.verify.title">安装前核验</h3>
           <p data-i18n="safety.verify.body">Skills 只安装锁定提交、内容一致的审查版本；插件核对 SHA-256，装好后默认停用，由你决定是否开启。</p>
         </article>
@@ -161,37 +187,47 @@
 
     <!-- 扩展：2×2 -->
     <section class="frame section" id="extend" aria-labelledby="extend-title">
+      <p class="eyebrow" data-i18n="extend.eyebrow">生态</p>
       <h2 class="section-title" id="extend-title" data-i18n="extend.title">扩展流萤</h2>
       <div class="cells two">
-        <a class="cell link-cell" href="https://github.com/Firefly-0423/firefly-skills">
+        <a class="cell link-cell spot" href="https://github.com/Firefly-0423/firefly-skills">
           <span class="tile" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><path d="M12 4l1.8 4.2L18 10l-4.2 1.8L12 16l-1.8-4.2L6 10l4.2-1.8z"/><path d="M18 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg></span>
           <h3 data-i18n="extend.skills.title">Skills 市场</h3>
           <p data-i18n="extend.skills.body">为流萤添加做事的方法：研究、学习、写作等技能，以审查过的固定版本发布。</p>
-          <span class="round-arrow" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></span>
+          <span class="cell-foot"><code class="tag">firefly-skills</code>
+            <span class="round-arrow" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></span>
+          </span>
         </a>
-        <a class="cell link-cell" href="https://github.com/Firefly-0423/firefly-plugins">
+        <a class="cell link-cell spot" href="https://github.com/Firefly-0423/firefly-plugins">
           <span class="tile" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><path d="M16.5 13v7M13 16.5h7"/></svg></span>
           <h3 data-i18n="extend.plugins.title">插件市场</h3>
           <p data-i18n="extend.plugins.body">插件以压缩包发布并附 SHA-256，装好后默认停用；权限在安装时列清楚。</p>
-          <span class="round-arrow" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></span>
+          <span class="cell-foot"><code class="tag">firefly-plugins</code>
+            <span class="round-arrow" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></span>
+          </span>
         </a>
-        <a class="cell link-cell" href="https://www.npmjs.com/package/@firefly_wu/plugin-sdk">
+        <a class="cell link-cell spot" href="https://www.npmjs.com/package/@firefly_wu/plugin-sdk">
           <span class="tile" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg></span>
           <h3 data-i18n="extend.sdk.title">写自己的插件</h3>
           <p data-i18n="extend.sdk.body">插件 SDK 发布在 npm，仓库里有可运行的示例，插件只通过公开接口与流萤交互。</p>
-          <span class="round-arrow" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></span>
+          <span class="cell-foot"><code class="tag">@firefly_wu/plugin-sdk</code>
+            <span class="round-arrow" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></span>
+          </span>
         </a>
-        <a class="cell link-cell" href="https://github.com/Firefly-0423/Firefly-Agent#readme">
+        <a class="cell link-cell spot" href="https://github.com/Firefly-0423/Firefly-Agent#readme">
           <span class="tile" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M7 8h10v3a5 5 0 0 1-10 0zM12 16v5"/></svg></span>
           <h3 data-i18n="extend.mcp.title">接入 MCP 服务</h3>
           <p data-i18n="extend.mcp.body">添加本机命令启动的服务（stdio），或填写远程地址（Streamable HTTP）。</p>
-          <span class="round-arrow" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></span>
+          <span class="cell-foot"><code class="tag">stdio · Streamable HTTP</code>
+            <span class="round-arrow" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></span>
+          </span>
         </a>
       </div>
     </section>
 
     <section class="frame closing" id="download" aria-labelledby="closing-title">
       <div class="closing-panel">
+        <div class="fireflies" aria-hidden="true"></div>
         <h2 id="closing-title" data-i18n="closing.title">把想法，继续下去</h2>
         <p data-i18n="closing.body">下载 Windows 桌面版，首次启动后填上你自己的模型服务就能开始。</p>
         <div class="cta">
@@ -203,12 +239,13 @@
 
     <!-- 常见问题：左侧分类，右侧问题 -->
     <section class="frame section" id="faq" aria-labelledby="faq-title">
+      <p class="eyebrow left" data-i18n="faq.eyebrow">FAQ</p>
       <h2 class="section-title left" id="faq-title" data-i18n="faq.title">常见问题</h2>
       <div class="faq">
         <div class="faq-tabs" role="tablist" aria-orientation="vertical" aria-label="问题分类" data-i18n-label="faq.label">
-          <button type="button" role="tab" id="faq-tab-use" aria-controls="faq-use" aria-selected="true" data-i18n="faq.tab.use">使用</button>
-          <button type="button" role="tab" id="faq-tab-privacy" aria-controls="faq-privacy" aria-selected="false" tabindex="-1" data-i18n="faq.tab.privacy">隐私与安全</button>
-          <button type="button" role="tab" id="faq-tab-extend" aria-controls="faq-extend" aria-selected="false" tabindex="-1" data-i18n="faq.tab.extend">扩展</button>
+          <button type="button" role="tab" id="faq-tab-use" aria-controls="faq-use" aria-selected="true"><strong data-i18n="faq.tab.use">使用</strong><span class="count" aria-hidden="true"></span><small data-i18n="faq.tab.use.note">费用、系统与模型</small></button>
+          <button type="button" role="tab" id="faq-tab-privacy" aria-controls="faq-privacy" aria-selected="false" tabindex="-1"><strong data-i18n="faq.tab.privacy">隐私与安全</strong><span class="count" aria-hidden="true"></span><small data-i18n="faq.tab.privacy.note">数据、权限与在线演示</small></button>
+          <button type="button" role="tab" id="faq-tab-extend" aria-controls="faq-extend" aria-selected="false" tabindex="-1"><strong data-i18n="faq.tab.extend">扩展</strong><span class="count" aria-hidden="true"></span><small data-i18n="faq.tab.extend.note">Skills、插件与 MCP</small></button>
         </div>
         <div class="faq-panels">
           <div class="faq-list" id="faq-use" role="tabpanel" aria-labelledby="faq-tab-use">
