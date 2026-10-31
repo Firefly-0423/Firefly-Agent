@@ -26,6 +26,7 @@
     "build:preload": "tsc -p tsconfig.preload.json",
     "check:renderer": "tsc -p tsconfig.renderer.json",
     "build:renderer": "vite build",
+    "build:site": "vite build --config vite.site.config.ts && vite build --config vite.web-demo.config.ts",
     "eval:memory-history": "node scripts/eval/memory-history/run.mjs",
     "test:eval": "node --test scripts/eval/memory-history/*.test.mjs",
     "perf:chat-baseline": "node scripts/perf/chat-renderer-baseline.mjs",

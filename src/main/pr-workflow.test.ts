@@ -28,6 +28,19 @@ test("Windows Test builds and selects the verified native history helper before 
   assert.equal(steps[buildIndex]["continue-on-error"], undefined);
 });
 
+test("Pages publishes the promo site from main only, with the narrow Pages permissions", () => {
+  const workflow = YAML.parse(fs.readFileSync(".github/workflows/pages.yml", "utf8"));
+  assert.deepEqual(workflow.on.push.branches, ["main"]);
+  assert.deepEqual(Object.keys(workflow.on).sort(), ["push", "workflow_dispatch"]);
+  assert.deepEqual(workflow.permissions, { contents: "read", pages: "write", "id-token": "write" });
+  assert.equal(workflow.concurrency["cancel-in-progress"], false);
+  const steps = workflow.jobs.build.steps as Array<{ run?: string; uses?: string; with?: { path?: string } }>;
+  assert.ok(steps.some(step => step.run === "npm run build:site"));
+  assert.equal(steps.find(step => step.uses?.startsWith("actions/upload-pages-artifact@"))?.with?.path, "dist/site");
+  assert.deepEqual(workflow.jobs.deploy.needs, "build");
+  assert.equal(workflow.jobs.deploy.environment.name, "github-pages");
+});
+
 test("the plugin SDK publishes to npm only from a version tag, through trusted publishing", () => {
   const workflow = YAML.parse(fs.readFileSync(".github/workflows/plugin-sdk-publish.yml", "utf8"));
   assert.deepEqual(workflow.on, { push: { tags: ["plugin-sdk-v*"] } });
