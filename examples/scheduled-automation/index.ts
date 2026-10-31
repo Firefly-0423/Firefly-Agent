@@ -9,7 +9,7 @@
  *   只改标题不影响授权
  * - 用 storage 记下自己创建的任务 id，用来核对 listTasks 的返回
  */
-import type { FireflyPlugin, PluginDeps, PluginTool } from "@firefly/plugin-sdk";
+import type { FireflyPlugin, PluginDeps, PluginTool } from "@firefly_wu/plugin-sdk";
 
 const TIME_OF_DAY = /^\d{2}:\d{2}$/;
 

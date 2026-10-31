@@ -10,7 +10,7 @@
  * - manifest 声明 llm 依赖后，ctx.deps.llm 可用来生成摘要
  * - registerPromptProvider 只放事实性的短内容，不写指令
  */
-import type { FireflyPlugin, PluginConversationMessage, PluginDeps, PluginTool, PluginPromptProvider, PluginTurnFinishedEvent } from "@firefly/plugin-sdk";
+import type { FireflyPlugin, PluginConversationMessage, PluginDeps, PluginTool, PluginPromptProvider, PluginTurnFinishedEvent } from "@firefly_wu/plugin-sdk";
 
 const KEEP_PER_CONVERSATION = 5;
 const INJECTED_PER_PROMPT = 3;

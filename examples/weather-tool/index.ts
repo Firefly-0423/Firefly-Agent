@@ -6,7 +6,7 @@
  * - 数据源降级：配了 OpenWeather 密钥就走官方接口；没配或请求失败，退回免密钥的 Open-Meteo
  * - 用 ctx.storage 记住最近一次查询的城市，下次不传参数时当作默认城市
  */
-import type { FireflyPlugin, PluginTool } from "@firefly/plugin-sdk";
+import type { FireflyPlugin, PluginTool } from "@firefly_wu/plugin-sdk";
 
 /** 状态放在模块作用域里：register 时读到的密钥，以及最近一次查询的城市。 */
 let openWeatherKey: string | undefined;

@@ -1,4 +1,4 @@
-// 构建 @firefly/plugin-sdk，分三步：
+// 构建 @firefly_wu/plugin-sdk，分三步：
 //   1. 把 src/plugins 下的 api.ts 与 manifest.schema.json 原样同步进 SDK 源码（公开契约只有这一份来源）
 //   2. 用 tsc 输出 CJS 和类型声明到 dist/
 //   3. 用 esbuild 输出 ESM 到 dist/esm/
