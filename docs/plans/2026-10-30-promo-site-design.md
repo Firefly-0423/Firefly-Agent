@@ -60,7 +60,7 @@ Adding a deploy workflow changes CI, so the workflow is added only after the use
 ## Decisions after review (2026-10-30)
 
 - The user approved the Pages deploy workflow (`.github/workflows/pages.yml`) and publishing the 1.1.0 installer as a GitHub Release.
-- The site is named "Firefly-Agent". Its banners are the README banners with that title (`site/banner/`); the README and the app keep "Firefly_Agent".
+- The site is named "Firefly-Agent". Its banners are the README banners with that title (`site/banner/`); the README and the app keep "Firefly_Agent". Superseded on 2026-10-31: the README banners were redesigned with the "Firefly-Agent" title, and the site now uses them directly from `readme-assets/`.
 - The demo build swaps the delegated-partner portraits for a stub, so no other character's artwork is published with the site. The only image it ships is the Firefly avatar.
 - Until the domain is ready, the site is served at the repository's github.io address.
 
