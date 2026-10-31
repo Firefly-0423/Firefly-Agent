@@ -84,4 +84,10 @@ describe("Git null-device adaptation installation", () => {
     expect(installer.applyGitNullConfigBackport(root)).toBe("applied");
     for (const record of installer.reviewedFiles) expect(digest(fs.readFileSync(path.join(moduleRoot, "dist", record.name)))).toBe(record.output);
   });
+
+  it("stays in the normal install path without relaxing the audit command", () => {
+    const metadata = JSON.parse(fs.readFileSync("package.json", "utf8"));
+    expect(metadata.scripts.postinstall).toBe("node scripts/security/git-null-config-backport.mjs");
+    expect(fs.readFileSync(".github/workflows/test.yml", "utf8")).toContain("npm audit --omit=dev --json > npm-audit-prod.json");
+  });
 });

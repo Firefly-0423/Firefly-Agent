@@ -1,15 +1,14 @@
 # Third-party notices
 
-## node-forge security backport
+## node-forge signature regression inputs
 
-The original `node-forge@1.4.0` package remains a Digital Bazaar dependency under
-its BSD/GPL dual license; Firefly uses the BSD option. Firefly's hash-checked
-installer applies the nested DigestAlgorithm validation correction from
-upstream PR #1152, fixed commit `ceba34402e329f0365134f23fe19898756527d65`.
-The correction and public regression inputs retain their attribution and BSD
+`node-forge` is a Digital Bazaar dependency under its BSD/GPL dual license;
+Firefly uses the BSD option and installs it unmodified (1.4.2, which fixes
+CVE-2026-85393 upstream). The public modulus and malformed signature in
+Firefly's regression test come from upstream PR #1152, commit
+`ceba34402e329f0365134f23fe19898756527d65`, and keep their attribution and BSD
 terms in [the source record](vendor/security/node-forge/SOURCE.md) and
-[complete BSD license](vendor/security/node-forge/LICENSE). This is a local
-backport, not an upstream released version or a claim that npm audit is clear.
+[complete BSD license](vendor/security/node-forge/LICENSE).
 
 ## Marketplace plugins adapted from deepseek-harness
 

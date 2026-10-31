@@ -11,7 +11,7 @@
 | `perf/` | Chat Renderer 性能基线与记录处理 | `npm run perf:chat-baseline` |
 | `plugin-sdk/` | 本地 SDK、清单 schema 与示例验证 | `npm run check:plugin-sdk`、`npm run check:plugin-schema`、`npm run test:plugin-examples` |
 | `testing/` | 完整测试入口、结果归档与进程存活辅助 | `npm test`；`node scripts/testing/run-tests.mjs` |
-| `security/` | 已安装依赖的版本与哈希受控安全补丁 | `postinstall` 顺序调用 `node-forge-backport.mjs`、`git-null-config-backport.mjs` |
+| `security/` | 已安装依赖的版本与哈希受控安全补丁 | `postinstall` 调用 `git-null-config-backport.mjs` |
 | `plugin-marketplace/` | 离线插件目录与可复现 ZIP 构建、示例回归 | `npm run build:plugin-marketplace`、`npm run test:plugin-marketplace` |
 
 `packaging/prepare-mingit.mjs` 会根据 `vendor/mingit-manifest.json` 下载、校验并解压 MinGit 到 `resources/mingit/`。该目录是本地打包输入，已被 `.gitignore` 忽略。
