@@ -76,6 +76,7 @@ function fact(item: FactView): FactView {
     recordedAt: item.recordedAt, acceptedAt: item.acceptedAt, supersededAt: item.supersededAt, activationReason: item.activationReason, policyVersion: item.policyVersion,
     provenance: { candidateId: item.provenance.candidateId, evidenceId: item.provenance.evidenceId, activationSourceRef: source(item.provenance.activationSourceRef) },
     ...(item.scope === "global" || item.scope === "project" ? { scope: item.scope } : {}),
+    ...(typeof item.projectRef === "string" && /^[a-f0-9]{16}$/.test(item.projectRef) ? { projectRef: item.projectRef } : {}),
     ...(typeof item.projectName === "string" && item.projectName ? { projectName: item.projectName.slice(0, 200) } : {}),
     ...(categoryOf(item) ? { attribute: categoryOf(item) } : {}),
     ...(typeof item.sourceTitle === "string" && item.sourceTitle ? { sourceTitle: item.sourceTitle.slice(0, 200) } : {}) };
@@ -91,7 +92,8 @@ function stateDto(state: MemoryPanelState): MemoryPanelState {
     value: item.value, assertion: item.assertion, reason: item.reason, sourceRef: source(item.sourceRef), ...(item.occurredAt !== undefined ? { occurredAt: item.occurredAt } : {}),
       ...(typeof item.contentHash === "string" && /^[a-f0-9]{64}$/.test(item.contentHash) ? { contentHash: item.contentHash } : {}),
       ...(item.scope === "global" || item.scope === "project" ? { scope: item.scope } : {}),
-      ...(typeof item.projectName === "string" && item.projectName ? { projectName: item.projectName.slice(0, 200) } : {}),
+      ...(typeof item.projectRef === "string" && /^[a-f0-9]{16}$/.test(item.projectRef) ? { projectRef: item.projectRef } : {}),
+    ...(typeof item.projectName === "string" && item.projectName ? { projectName: item.projectName.slice(0, 200) } : {}),
       ...(typeof item.sourceTitle === "string" && item.sourceTitle ? { sourceTitle: item.sourceTitle.slice(0, 200) } : {}) })),
     backendStatus: { available: state.backendStatus.available, ...(state.backendStatus.reason ? { reason: state.backendStatus.reason } : {}) },
     coverage: { status: c.status, ...(c.reason ? { reason: c.reason } : {}), population: c.population, present: c.present, missing: c.missing, unknownDenied: c.unknownDenied,

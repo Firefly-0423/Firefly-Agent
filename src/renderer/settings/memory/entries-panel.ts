@@ -3,7 +3,7 @@ import type { FactView } from "../../../shared/memory-contracts";
 import type { MemoryPanelAction, MemoryPanelCandidate, MemoryPanelState, MemoryPolicyPanelApi } from "../../../shared/memory-panel-contracts";
 import { t } from "../i18n";
 import { formatDateTime } from "../shared/format";
-import { buildMemoryGraph, type MemoryGraphNode } from "./graph-model";
+import { buildMemoryGraph, projectNodeId, type MemoryGraphNode } from "./graph-model";
 import { createMemoryGraph } from "./graph-panel";
 
 type Filter = "all" | "facts" | "candidates";
@@ -251,10 +251,10 @@ export function createMemoryEntriesPanel(
     graph.update(buildMemoryGraph(state, graphLabel));
   }
   /** Whether a fact or candidate belongs to the node picked in the graph. */
-  function focused(item: { sourceRef: { binding?: { sessionId: string } }; projectName?: string }, id: string): boolean {
+  function focused(item: { sourceRef: { binding?: { sessionId: string } }; projectRef?: string; projectName?: string }, id: string): boolean {
     if (!focus) return false;
     if (focus.kind === "source") return `source:${item.sourceRef.binding?.sessionId}` === focus.id;
-    if (focus.kind === "project") return `project:${item.projectName}` === focus.id;
+    if (focus.kind === "project") return projectNodeId(item) === focus.id;
     return focus.itemId === id;
   }
 

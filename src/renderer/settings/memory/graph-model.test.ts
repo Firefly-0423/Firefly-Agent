@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { buildMemoryGraph } from "./graph-model";
+import { buildMemoryGraph, projectNodeId } from "./graph-model";
 import type { MemoryPanelState } from "../../../shared/memory-panel-contracts";
 
 const binding = (sessionId: string) => ({ providerId: "firefly", sessionId, messageId: "m", contentRevision: 1, generation: 0 });
@@ -37,4 +37,25 @@ it("draws you, the categories in use, each memory, its conversation and its proj
 
 it("is just you when nothing is remembered", () => {
   expect(buildMemoryGraph({ facts: [], candidates: [], backendStatus: { available: true } } as unknown as MemoryPanelState, key => key)).toEqual({ nodes: [{ id: "self", kind: "self", label: "self" }], links: [] });
+});
+
+it("keeps two same-named projects apart by their reference, and joins memories of one project", () => {
+  const state = {
+    facts: [
+      fact("f1", "我默认用 bash", { attribute: "shell", scope: "project", projectName: "app", projectRef: "0123456789abcdef" }),
+      fact("f2", "缩进用两个空格", { attribute: "preference", scope: "project", projectName: "app", projectRef: "0123456789abcdef" }),
+      fact("f3", "我默认用 zsh", { attribute: "shell", scope: "project", projectName: "app", projectRef: "fedcba9876543210" }),
+    ],
+    candidates: [], backendStatus: { available: true },
+  } as unknown as MemoryPanelState;
+  const graph = buildMemoryGraph(state, key => key);
+  const projects = graph.nodes.filter(node => node.kind === "project");
+  expect(projects).toEqual([
+    { id: "project:0123456789abcdef", kind: "project", label: "app" },
+    { id: "project:fedcba9876543210", kind: "project", label: "app" },
+  ]);
+  const projectOf = (item: string) => graph.links.find(link => link.source === item && link.kind === "project")?.target;
+  expect(projectOf("fact:f1")).toBe(projectOf("fact:f2"));
+  expect(projectOf("fact:f3")).not.toBe(projectOf("fact:f1"));
+  expect(projectNodeId({ projectName: "legacy" })).toBe("project:legacy");
 });

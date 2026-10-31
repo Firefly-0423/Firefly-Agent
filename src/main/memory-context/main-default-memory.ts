@@ -817,6 +817,10 @@ export function createMainDefaultMemory(options: MainDefaultMemoryOptions) {
       }); } finally { settingsSource.release(grant); }
     },
   });
+  // Two projects can share a folder name, so the panel needs a project identity besides the label. The raw key never
+  // leaves Main; the panel gets a salted digest that is stable for this run and meaningless anywhere else.
+  const projectRefSalt = randomUUID();
+  const projectRefOf = (projectKey: string) => createHash("sha256").update(projectRefSalt).update(" ").update(projectKey).digest("hex").slice(0, 16);
   const settingsHost: MemorySettingsHost = Object.freeze({
     async getState(event: IpcMainInvokeEvent): Promise<MemoryPanelState> {
       const grant = settingsGrant(event);
@@ -831,10 +835,10 @@ export function createMainDefaultMemory(options: MainDefaultMemoryOptions) {
           try { const title = sourceRef.binding?.sessionId ? options.getSession(sourceRef.binding.sessionId)?.title : undefined; return typeof title === "string" && title.trim() ? title.trim().slice(0, 200) : undefined; }
           catch { return undefined; }
         };
-        const place = <T extends { projectKey?: string; sourceRef: { binding?: { sessionId?: string } } }>(item: T): Omit<T, "projectKey"> & { projectName?: string; sourceTitle?: string } => {
+        const place = <T extends { projectKey?: string; sourceRef: { binding?: { sessionId?: string } } }>(item: T): Omit<T, "projectKey"> & { projectRef?: string; projectName?: string; sourceTitle?: string } => {
           const { projectKey, ...rest } = item;
           const projectName = projectKey === undefined ? undefined : names.get(projectKey), sourceTitle = titleOf(item.sourceRef);
-          return { ...rest, ...(projectName ? { projectName } : {}), ...(sourceTitle ? { sourceTitle } : {}) };
+          return { ...rest, ...(projectKey === undefined ? {} : { projectRef: projectRefOf(projectKey) }), ...(projectName ? { projectName } : {}), ...(sourceTitle ? { sourceTitle } : {}) };
         };
         const facts = recalled.map(place);
         const candidates = pending.map(item => ({ ...place(item), scope: item.projectKey === undefined ? "global" as const : "project" as const }));

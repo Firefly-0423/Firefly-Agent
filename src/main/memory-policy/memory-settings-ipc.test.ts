@@ -67,14 +67,15 @@ describe("settings memory IPC trust boundary", () => {
     const source = { sourceId: "source-1", revision: 1 };
     f.state.facts = [{ factId: "fact-1", revision: 1, subjectKey: "k", assertion: "我默认用 bash", assertionKind: "user-statement", time: { validFrom: 1, validTo: null, referenceTime: 1 }, sourceRef: source,
       recordedAt: 1, acceptedAt: 1, supersededAt: null, activationReason: "explicitUserConfirmed", policyVersion: "t", provenance: { candidateId: null, evidenceId: null, activationSourceRef: source },
-      scope: "project", projectName: "alpha", projectKey: "project-deadbeef" } as any];
-    f.state.candidates = [{ ...f.state.candidates[0], scope: "project", projectName: "beta", projectKey: "project-cafe" } as any];
+      scope: "project", projectName: "alpha", projectRef: "0123456789abcdef", projectKey: "project-deadbeef" } as any];
+    f.state.candidates = [{ ...f.state.candidates[0], scope: "project", projectName: "beta", projectRef: "fedcba9876543210", projectKey: "project-cafe" } as any];
     const out = await f.api.getMemoryPanelState(f.event);
-    expect(out.facts[0]).toMatchObject({ scope: "project", projectName: "alpha" });
-    expect(out.candidates[0]).toMatchObject({ scope: "project", projectName: "beta" });
+    expect(out.facts[0]).toMatchObject({ scope: "project", projectName: "alpha", projectRef: "0123456789abcdef" });
+    expect(out.candidates[0]).toMatchObject({ scope: "project", projectName: "beta", projectRef: "fedcba9876543210" });
     expect(JSON.stringify(out)).not.toContain("project-deadbeef"); expect(JSON.stringify(out)).not.toContain("project-cafe");
-    f.state.facts = [{ ...f.state.facts[0], scope: "somewhere", projectName: 42 } as any];
-    expect(Object.keys((await f.api.getMemoryPanelState(f.event)).facts[0])).not.toEqual(expect.arrayContaining(["scope", "projectName"]));
+    f.state.facts = [{ ...f.state.facts[0], scope: "somewhere", projectName: 42, projectRef: "project-deadbeef" } as any];
+    const malformed = Object.keys((await f.api.getMemoryPanelState(f.event)).facts[0]);
+    for (const key of ["scope", "projectName", "projectRef"]) expect(malformed).not.toContain(key);
   });
   it("passes a fact's category and the source conversation title, but never the typed record", async () => {
     const f = fixture();

@@ -16,6 +16,11 @@ export interface MemoryGraphLink { source: string; target: string; kind: "catego
 export interface MemoryGraphModel { nodes: MemoryGraphNode[]; links: MemoryGraphLink[] }
 
 
+/** The graph node of a project-scoped item's project: its opaque `projectRef` when Main sent one, else its name. */
+export function projectNodeId(item: { projectRef?: string; projectName?: string }): string {
+  return `project:${item.projectRef ?? item.projectName}`;
+}
+
 /** `label(key)` turns a category id ("language", …, "other") or "self" into display text. */
 export function buildMemoryGraph(state: MemoryPanelState, label: (key: string) => string): MemoryGraphModel {
   const nodes = new Map<string, MemoryGraphNode>(), links: MemoryGraphLink[] = [];
@@ -27,7 +32,7 @@ export function buildMemoryGraph(state: MemoryPanelState, label: (key: string) =
     if (!nodes.has(id)) { add({ id, kind: "category", label: label(key), category: key }); links.push({ source: self, target: id, kind: "category" }); }
     return id;
   };
-  const surroundings = (item: string, from: { sourceRef: { binding?: { sessionId: string } }; sourceTitle?: string; scope?: string; projectName?: string }) => {
+  const surroundings = (item: string, from: { sourceRef: { binding?: { sessionId: string } }; sourceTitle?: string; scope?: string; projectRef?: string; projectName?: string }) => {
     const session = from.sourceRef.binding?.sessionId;
     if (session) {
       const id = `source:${session}`;
@@ -35,7 +40,8 @@ export function buildMemoryGraph(state: MemoryPanelState, label: (key: string) =
       links.push({ source: item, target: id, kind: "source" });
     }
     if (from.scope === "project" && from.projectName) {
-      const id = `project:${from.projectName}`;
+      // Two projects can share a folder name: the node is keyed by the project's identity, the name is only its label.
+      const id = projectNodeId(from);
       add({ id, kind: "project", label: from.projectName });
       links.push({ source: item, target: id, kind: "project" });
     }

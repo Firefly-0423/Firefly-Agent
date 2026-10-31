@@ -1222,9 +1222,9 @@ it("remember, recall in a new session, correct, forget, and keep chatting withou
 });
 
 // ── Project isolation: facts learned in one bound workspace never reach another ──
-const binding = (name: string) => ({ workspaceRoot: "C:\\work\\" + name, displayName: name, boundAt: 1 });
-async function turnIn(f: Awaited<ReturnType<typeof fixture>>, id: string, mode: "chat" | "code", workspace: string | null, text: string) {
-  f.sessions.set(id, { id, mode, messages: [], modelProfileId: "luna", ...(workspace ? { workspaceBinding: binding(workspace) } : {}) });
+const binding = (name: string, root = "C:\\work\\" + name) => ({ workspaceRoot: root, displayName: name, boundAt: 1 });
+async function turnIn(f: Awaited<ReturnType<typeof fixture>>, id: string, mode: "chat" | "code", workspace: string | null, text: string, root?: string) {
+  f.sessions.set(id, { id, mode, messages: [], modelProfileId: "luna", ...(workspace ? { workspaceBinding: binding(workspace, root) } : {}) });
   f.select(id); await f.user(id, text, "u-" + id); const admission = f.memory.authorizeRun(f.event, id);
   const run = await f.memory.openRun(f.input(id, "run-" + id));
   await run.call(f.call()); const request = f.sent.at(-1)!;
@@ -1352,6 +1352,21 @@ it("settings state labels a project fact with its project name and a global fact
   expect(byText("bash")).toMatchObject({ scope: "project", projectName: "alpha", attribute: "shell" });
   expect(byText("小林")).toMatchObject({ scope: "global", attribute: "address" }); expect(byText("小林").projectName).toBeUndefined();
   expect(JSON.stringify(state)).not.toMatch(/project-[a-f0-9]{64}/);
+});
+
+it("settings state tells two same-named projects apart by an opaque reference that is not the project key", async () => {
+  const f = await fixture("code");
+  await turnIn(f, "learn-work", "code", "app", "I prefer bash", "C:\\work\\app");
+  await turnIn(f, "learn-home", "code", "app", "I prefer bash", "C:\\personal\\app");
+  const state = await f.memory.settingsHost.getState(f.settingsEvent);
+  const projectFacts = state.facts.filter((fact: any) => fact.scope === "project") as any[];
+  expect(projectFacts.map(fact => fact.projectName)).toEqual(["app", "app"]);
+  expect(projectFacts.every(fact => /^[a-f0-9]{16}$/.test(fact.projectRef))).toBe(true);
+  expect(new Set(projectFacts.map(fact => fact.projectRef)).size).toBe(2);
+  expect(JSON.stringify(state)).not.toMatch(/project-[a-f0-9]{64}/);
+  // Stable while the app runs, so the graph keeps its nodes across refreshes.
+  const again = await f.memory.settingsHost.getState(f.settingsEvent);
+  expect((again.facts as any[]).filter(fact => fact.scope === "project").map(fact => fact.projectRef).sort()).toEqual(projectFacts.map(fact => fact.projectRef).sort());
 });
 
 it("settings state names the conversation a fact came from, and leaves it out when the session is gone or untitled", async () => {
