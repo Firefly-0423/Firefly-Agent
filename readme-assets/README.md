@@ -11,7 +11,7 @@ README 使用 GitHub 原生 `picture` / `prefers-color-scheme` 切换明暗素�
 
 动画直接从仓库的 `src/renderer/public/models/firefly/`、Cubism Core 与现有 Pixi Live2D 运行库透明渲染。运行原生 Idle/0、表情与 physics；角色比例、贴图、网格与模型文件不变，没有使用生成式模型重画，也没有从旧 GIF 抠出角色。
 
-保留待机与眨眼、猫耳、墨镜、问号、闭眼表情的顺序。猫耳 Param40 可见窗口为第 29–74 帧，约 2.32–5.92 秒；循环末尾淡回默认表情。文案和背景使用批准的双主题版式，文字区域在整个循环中保持稳定。
+保留待机与眨眼、猫耳、墨镜、问号、闭眼表情的顺序。猫耳 Param40 可见窗口为第 29–74 帧，约 2.32–5.92 秒；循环末尾淡回默认表情。背景版式（2026-10-31 重新设计）：左侧角色坐在圆形光晕中，右侧为 “Firefly-Agent” 标题、副标题“陪你聊天，也帮你做事”、Chat / Work / Code 三个模式胶囊与标语，四周点缀萤火虫；萤火虫只放在角色区域之外，角色背后保持纯色以免调色时出现色带。文字区域在整个循环中保持稳定。
 
 文档录制器使用固定位置和比例，隐藏 ArtMesh153–157 场景网格，分别在浅灰绿与深墨绿背景上合成透明边缘。此设置只用于展示素材，不改变桌宠行为。保留原动作中的呼吸，关闭另一套独立呼吸振荡，以避免无关周期带来的接缝。
 
@@ -22,6 +22,7 @@ README 使用 GitHub 原生 `picture` / `prefers-color-scheme` 切换明暗素�
 在仓库根目录执行，录制目录使用仓库外的独立临时目录：
 
 ```sh
+node scripts/docs/write-readme-banner-svgs.mjs
 node scripts/docs/render-readme-banner.mjs --out ../firefly-readme-recording
 node scripts/docs/render-readme-backgrounds.mjs --repo . --out ../firefly-readme-recording
 python scripts/docs/encode-readme-banner.py --repo . --out ../firefly-readme-recording

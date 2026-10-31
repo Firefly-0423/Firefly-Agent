@@ -1,10 +1,10 @@
 // 宣传页脚本：中英切换、深浅色、横幅随两者切换、功能展示与常见问题的页签，以及演示页传来的"桌面版功能"提示。
 import "@fontsource-variable/noto-sans-sc";
 import "./styles.css";
-import bannerLight from "./banner/firefly-banner-light.gif";
-import bannerDark from "./banner/firefly-banner-dark.gif";
-import bannerLightEn from "./banner/firefly-banner-light.en.gif";
-import bannerDarkEn from "./banner/firefly-banner-dark.en.gif";
+import bannerLight from "../readme-assets/firefly-banner-light.gif";
+import bannerDark from "../readme-assets/firefly-banner-dark.gif";
+import bannerLightEn from "../readme-assets/firefly-banner-light.en.gif";
+import bannerDarkEn from "../readme-assets/firefly-banner-dark.en.gif";
 import chatShot from "../readme-assets/screenshots/chat.webp";
 import workShot from "../readme-assets/screenshots/work.webp";
 import codeShot from "../readme-assets/screenshots/code.webp";
@@ -72,7 +72,7 @@ const EN: Record<string, string> = {
   "faq.sdk.q": "Can I write my own plugin?",
   "faq.sdk.a": "Yes. The repository has the plugin SDK (plugin-sdk/) and runnable examples (examples/); plugins talk to Firefly only through public interfaces.",
   "faq.mcp.q": "Can it use MCP servers?", "faq.mcp.a": "Yes: add a server started by a local command (stdio), or a remote address (Streamable HTTP).",
-  "closing.bannerAlt": "Firefly-Agent: a Firefly desktop companion and AI workbench",
+  "closing.bannerAlt": "Firefly-Agent: chats with you, gets things done",
   "closing.title": "Keep your ideas moving",
   "closing.body": "Download the Windows desktop app, add your own model service on first launch, and you're ready.",
   "closing.download": "Go to GitHub Releases", "closing.source": "View the source",
