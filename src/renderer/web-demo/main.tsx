@@ -1,14 +1,18 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
+// Before ../ui/theme, which reads window.fireflyTheme as soon as it loads.
+import "./demo-theme";
 import "../ui/theme";
 import { App } from "../react/App";
 import { AppProviders } from "../react/app/providers/AppProviders";
 import { initUiLocale } from "../react/i18n";
 import { installDemoBridges } from "./demo-bridges";
+import { keepHostScroll } from "./host-scroll";
 
 const lang = new URLSearchParams(window.location.search).get("lang") === "en" ? "en" : "zh";
 document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
 installDemoBridges(lang);
+keepHostScroll(window);
 
 const host = document.getElementById("firefly-react-root");
 if (!host) throw new Error("Root element #firefly-react-root not found");

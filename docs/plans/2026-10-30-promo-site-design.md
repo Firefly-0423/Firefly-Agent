@@ -61,7 +61,7 @@ Adding a deploy workflow changes CI, so the workflow is added only after the use
 
 - The user approved the Pages deploy workflow (`.github/workflows/pages.yml`) and publishing the 1.1.0 installer as a GitHub Release.
 - The site is named "Firefly-Agent". Its banners are the README banners with that title (`site/banner/`); the README and the app keep "Firefly_Agent". Superseded on 2026-10-31: the README banners were redesigned with the "Firefly-Agent" title, and the site now uses them directly from `readme-assets/`.
-- The demo build swaps the delegated-partner portraits for a stub, so no other character's artwork is published with the site. The only image it ships is the Firefly avatar.
+- The demo build swaps the delegated-partner portraits for a stub, so no other character's artwork is published with the site. The only image it ships is the Firefly avatar. Superseded on 2026-10-31: at the user's request the landing page shows the twelve partners with small copies of their portraits (`site/partners/`); the demo build still ships none.
 - Until the domain is ready, the site is served at the repository's github.io address.
 
 ## Hosting on Cloudflare (2026-10-31)
@@ -75,3 +75,25 @@ At the user's request the landing page follows the structure of GitHub's Copilot
 ## Open items
 
 - The domain name and its registrar, so DNS and the Pages custom domain can be set up.
+
+## Second layout revision (2026-10-31)
+
+The user found the first version still plain and asked for a closer follow of github.com/features/copilot, without the banner, and for a page that works on a phone held upright.
+
+- Dark by default (light stays as a toggle). The page column has hairlines down both sides; blocks are separated by rules and their content is cut into cells by hairlines.
+- The hero is a mono kicker with a blinking block cursor and the product name on the left, the pitch and buttons on the right. The live demo sits right under it in a glowing frame, in place of a product screenshot.
+- Then three ways in (desktop app, plugin SDK with a copyable `npm i`, the Skills and plugin market), the technology strip, the feature accordion beside the real screenshots, three safety cells, a 2×2 "Extend Firefly" grid, a closing panel, and the FAQ with mono categories on the left.
+- The demo keeps its desktop layout and shrinks as a whole below 1100 px wide, so phones never scroll it sideways; an "open full screen" link opens it alone. Its theme follows the page (`theme` URL parameter, then a `firefly-demo:theme` message).
+- Inside the page, the demo's `focus()` and `scrollIntoView()` no longer move the host page (`src/renderer/web-demo/host-scroll.ts`). Before this, opening the mode menu pulled the page to the top, because Ant Design focuses the menu while it is still parked off-screen.
+
+## Partners and motion (2026-10-31)
+
+The user asked to replace the scrolling technology strip with the twelve partners, to add motion and hover feedback, and to show Firefly's avatar.
+
+- The strip became a "Firefly and 12 partners" section: Firefly as the lead agent, then two rows of partner cards scrolling in opposite directions; hovering a row stops it. The cards are built by `site/main.ts` from `src/shared/specialist-agents.ts`, so the Chinese names, roles and intros match the app's settings page; the English ones are in `site/partners.ts`. The portraits are 192 px WebP copies of `src/renderer/assets/task-portraits/` (about 200 KB for all twelve), named by partner id. `src/main/site-partners.test.ts` checks that every partner has a portrait and English text, and that the heading's count matches.
+- The hero leads with Firefly's avatar in a turning ring; clicking it makes her hop and say one of three lines. Fireflies drift behind the hero and the closing panel, the title catches a slow sheen, and a light runs round the demo's border.
+- Hover: a soft light follows the pointer across cards (mouse and pen only), icon tiles tip, buttons lift and the primary one glints, the arrows in the link cells fill in, nav links underline, and the screenshot frame lifts.
+- Blocks rise in the first time they scroll into view, then drop the classes that did it. With reduced motion none of this runs, and the partners sit still in a wrapped grid, each shown once.
+- Follow-up from the user's review: the page column widened from 1280 to 1760 px, and on wide screens the demo grows taller with its width (60 % of it, 760 to 940 px). The first "ways in" card no longer repeats the hero's download button; it shows the three modes as small blocks that jump to the demo. Sections carry a mono eyebrow over their titles. Each safety cell opens with a small mock of the app (an approval prompt, local storage, install checks), and the extend cells have a filled gradient tile, the icon repeated large and faint in the corner, and a tag naming where the link goes. The hero title keeps room below the line, because `background-clip: text` cut off the descender of the g. Cell grids rise in as a whole, so the hairline background never shows through a fading cell.
+- With a mouse, resting on a feature or an FAQ category for 120 ms opens it, so visitors no longer need to click; touch and keyboard still select by tap, click or arrow keys. The four features now share the screenshot's height, numbered 01 to 04, with the open one taking the most room. The FAQ categories became blocks that fill their column, each with its question count and a line on what it covers; on phones they sit in a row of three.
+- The switches were too abrupt, so every one now moves on a single easing curve (`--ease`). An opening feature grows to its text's height and then fades the text in, while its accent bar grows from the middle. The four screenshots sit stacked in the frame and crossfade, so nothing loads on a switch. An FAQ category's questions rise in one after another, answers open by height in browsers that animate to `auto`, and the theme toggle fades the whole page through a view transition. The hero's padding is tighter (56 / 44 px).
