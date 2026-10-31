@@ -1,7 +1,7 @@
 ---
 name: plugin-development
 description: 为流萤编写或调试运行时插件时使用：涵盖 manifest 与入口文件、AI 工具注册、设置面板与独立窗口、宿主事件与提示词 Provider、deps 声明的数据服务，以及 ZIP 打包导入与安装后验收。改动流萤本体源码，或只是使用已装插件时，不使用本 Skill。
-version: 1.4.1
+version: 1.4.2
 effectKind: mutation
 modes:
   - work

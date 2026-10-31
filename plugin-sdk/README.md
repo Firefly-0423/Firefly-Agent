@@ -24,7 +24,7 @@ npm pack ./plugin-sdk
 - **Manifest 校验**：`validateManifestData(data)` —— 用与宿主同一份 JSON Schema 校验结构、类型、枚举与必填字段；API 版本兼容、ID/SemVer 格式及入口文件检查由宿主加载器完成，纯数据校验通过不代表可安装。
 - **测试工具**：`import { createMockPluginContext, assertPluginTool, assertValidManifest } from "@firefly_wu/plugin-sdk/testing"` —— 脱离宿主的 Mock Context 与契约断言。
 
-本地产物用 `npm install /path/to/firefly_wu-plugin-sdk-0.2.0.tgz` 安装。发布流程见仓库的 `docs/plugin-sdk-publishing.md`。
+本地产物用 `npm install /path/to/firefly_wu-plugin-sdk-<版本>.tgz` 安装。发布流程见仓库的 `docs/plugin-sdk-publishing.md`。
 
 SDK 包含公开类型、常量、Manifest 校验及测试工具，不包含 Electron、React 或 Firefly 宿主运行时。仅使用 `import type` 的插件编译后不依赖 SDK；如果入口实际导入 `isPluginHostError`、常量或校验函数，必须随插件打包这些运行时代码及所需依赖，不能只复制编译入口后省略它们。
 
@@ -32,7 +32,7 @@ Mock Context 的 `dispose()` 触发取消与登记的清理回调，不会代替
 
 接口定义见 `src/`。
 
-## 当前 0.2.0 源码契约
+## 当前 0.2.x 源码契约
 
 提示词 Provider 通过 `sources` 声明参与的活动场景：
 
