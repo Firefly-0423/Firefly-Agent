@@ -24,7 +24,9 @@ const malformedSignature =
   "5be5898e408ad08197a0947794a530b54f84485377ce4a7488ed485ce4e5e105dd89" +
   "698a472f390c3b1b76bc16b73276c4d1c81d";
 
-describe("node-forge CVE-2026-85393 backport", () => {
+// node-forge 1.4.1 fixed CVE-2026-85393 upstream, replacing Firefly's former install-time backport.
+// These checks keep that guarantee: the nested DigestAlgorithm forgery is rejected and normal signatures still verify.
+describe("node-forge RSA PKCS#1 v1.5 verification (CVE-2026-85393)", () => {
   it("rejects the upstream nested DigestAlgorithm garbage signature with normal padding checks", () => {
     const publicKey = forge.pki.rsa.setPublicKey(new forge.jsbn.BigInteger(modulus, 16), new forge.jsbn.BigInteger("3"));
     const digest = forge.md.sha256.create().update("hello world!").digest().getBytes();

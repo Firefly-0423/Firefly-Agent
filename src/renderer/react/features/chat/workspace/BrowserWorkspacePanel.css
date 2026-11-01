@@ -134,34 +134,159 @@
 .ff-browser-tab { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; }
 .ff-browser-tab > .ff-browser-workspace { flex: 1; }
 
-/* Consent and grant notices: a bounded, scrollable bar, so the browser itself keeps the space. */
+/* Consent and grant notices: a bounded, scrollable bar, so the browser itself keeps the space.
+   Firefly's own tokens colour it: the accent marks the mode and the allowed actions, the status tokens the dot and notices. */
 .ff-browser-permission {
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   flex: 0 1 auto;
   min-height: 0;
   max-height: min(40%, 240px);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 4px 12px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--ff-border, #dfe1e8);
   background: var(--ff-bg-workspace, var(--ff-surface));
   font-size: var(--ff-fs-caption);
+  line-height: 1.6;
 }
-.ff-browser-permission p { margin: 6px 0; }
-.ff-browser-permission summary { cursor: pointer; line-height: 1.6; }
-.ff-browser-permission details:not([open]) > summary { color: var(--ff-text-muted); }
-.ff-browser-permission__scope { overflow-wrap: anywhere; color: var(--ff-text-muted); }
-.ff-browser-permission__mode {
-  display: inline-block;
-  margin-right: 7px;
-  padding: 1px 6px;
-  border: 1px solid currentColor;
-  border-radius: 5px;
-  background: var(--ff-bg-page);
-  color: var(--ff-accent, #6b9982);
+.ff-browser-permission p { margin: 0; }
+.ff-browser-permission svg { flex: none; width: 14px; height: 14px; }
+
+/* Header: mode and status pills, what is in scope, the details toggle and the main action on one line. */
+.ff-browser-permission__head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; }
+.ff-browser-permission__mode,
+.ff-browser-permission__status {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 9px;
+  border: 1px solid var(--ff-border);
+  border-radius: 999px;
   font-size: var(--ff-fs-caption);
 }
-.ff-browser-permission button,
+.ff-browser-permission__mode {
+  border-color: color-mix(in srgb, var(--ff-accent) 35%, transparent);
+  background: color-mix(in srgb, var(--ff-accent) 12%, transparent);
+  color: var(--ff-accent, #6b9982);
+}
+.ff-browser-permission__status { background: var(--ff-surface); color: var(--ff-text-secondary); }
+.ff-browser-permission__status > span { width: 7px; height: 7px; border-radius: 50%; background: var(--ff-text-muted); }
+.ff-browser-permission__status[data-status="granted"] > span { background: var(--ff-success); }
+.ff-browser-permission__status[data-status="pending"] > span { background: var(--ff-warning); animation: ff-browser-pulse 1.4s ease-in-out infinite; }
+.ff-browser-permission__status[data-status="denied"] > span { background: var(--ff-danger); }
+@keyframes ff-browser-pulse { 50% { opacity: .35; } }
+.ff-browser-permission__hint { flex: 1 1 0; min-width: 0; overflow: hidden; color: var(--ff-text-muted); text-overflow: ellipsis; white-space: nowrap; }
+.ff-browser-permission__toggle,
+.ff-browser-card__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--ff-text-secondary);
+  font: inherit;
+  cursor: pointer;
+  transition: background-color var(--ff-state-duration) ease, color var(--ff-state-duration) ease;
+}
+.ff-browser-permission__toggle:hover,
+.ff-browser-card__toggle:hover { background: var(--ff-bg-hover); color: var(--ff-text); }
+.ff-browser-permission__toggle > svg:last-child,
+.ff-browser-card__toggle > svg:last-child { transition: transform var(--ff-state-duration) ease; }
+.ff-browser-permission__toggle[aria-expanded="true"] > svg:last-child,
+.ff-browser-card__toggle[aria-expanded="true"] > svg:last-child { transform: rotate(180deg); }
+
+/* Unfolded details and cards: a quiet surface inside the bar. */
+.ff-browser-permission__details,
+.ff-browser-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--ff-border);
+  border-radius: 12px;
+  background: var(--ff-surface);
+  color: var(--ff-text-secondary);
+}
+.ff-browser-permission__details[hidden],
+.ff-browser-card__body[hidden] { display: none; }
+
+/* Sites as code chips, allowed actions as accent chips. */
+.ff-browser-permission__scope { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.ff-browser-permission__label { color: var(--ff-text-muted); }
+.ff-browser-permission__scope ul { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.ff-browser-permission__scope li {
+  min-width: 0;
+  max-width: 100%;
+  padding: 0 8px;
+  border: 1px solid var(--ff-border);
+  border-radius: 6px;
+  background: var(--ff-bg-subtle);
+  color: var(--ff-text);
+}
+.ff-browser-permission__scope code { font: inherit; font-family: var(--rb-font-mono, ui-monospace, monospace); }
+.ff-browser-permission__scope li.is-action {
+  border-color: color-mix(in srgb, var(--ff-accent) 30%, transparent);
+  background: color-mix(in srgb, var(--ff-accent) 10%, transparent);
+  color: var(--ff-accent);
+}
+
+/* Notices: a tinted row with an icon; amber warns, red reports an error, grey informs. */
+.ff-browser-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 10px;
+  border-left: 3px solid var(--ff-border);
+  border-radius: 0;
+  background: var(--ff-bg-subtle);
+  color: var(--ff-text-secondary);
+}
+.ff-browser-note > svg { margin-top: 3px; }
+.ff-browser-note p { flex: 1; min-width: 0; }
+.ff-browser-note[data-tone="warning"] { border-left-color: var(--ff-warning); background: color-mix(in srgb, var(--ff-warning) 12%, transparent); color: var(--ff-text); }
+.ff-browser-note[data-tone="warning"] > svg { color: var(--ff-warning); }
+.ff-browser-note[data-tone="error"] { border-left-color: var(--ff-danger); background: color-mix(in srgb, var(--ff-danger) 10%, transparent); color: var(--ff-text); }
+.ff-browser-note[data-tone="error"] > svg { color: var(--ff-danger); }
+.ff-browser-permission__details .ff-browser-note { background: var(--ff-bg-subtle); }
+
+/* Cards keep their action in the header, so the button is never scrolled out of the bounded bar. */
+.ff-browser-card__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 8px; }
+.ff-browser-card__toggle { margin-left: -6px; color: var(--ff-text); font-weight: 600; }
+.ff-browser-card__toggle > svg:first-child { color: var(--ff-accent); }
+.ff-browser-card__body { display: grid; gap: 8px; min-width: 0; }
+.ff-browser-card__actions { display: flex; justify-content: flex-end; }
+.ff-browser-agent-consent label { display: grid; gap: 4px; color: var(--ff-text-muted); }
+.ff-browser-agent-consent textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 52px;
+  padding: 6px 8px;
+  border: 1px solid var(--ff-border);
+  border-radius: 8px;
+  background: var(--ff-bg-workspace, var(--ff-surface));
+  color: var(--ff-text);
+  font: inherit;
+  font-family: var(--rb-font-mono, ui-monospace, monospace);
+  resize: vertical;
+}
+.ff-browser-resource-consent { min-width: 0; }
+.ff-browser-resource-consent legend { display: inline-flex; align-items: center; gap: 6px; padding: 0 4px; color: var(--ff-text); font-weight: 600; }
+.ff-browser-resource-consent legend > svg { color: var(--ff-warning); }
+.ff-browser-resource-consent label { display: flex; align-items: center; gap: 8px; overflow-wrap: anywhere; color: var(--ff-text); font-family: var(--rb-font-mono, ui-monospace, monospace); }
+.ff-browser-resource-consent input { flex: 0 0 auto; accent-color: var(--ff-accent-solid, var(--ff-accent)); }
+.ff-browser-site-consent { align-items: center; flex-wrap: wrap; overflow-wrap: anywhere; }
+.ff-browser-site-consent code { font-family: var(--rb-font-mono, ui-monospace, monospace); color: var(--ff-text); }
+
+.ff-browser-permission--compact > button,
 .ff-browser-workspace__state button {
   margin-top: 6px;
   padding: 6px 10px;
@@ -173,24 +298,19 @@
   cursor: pointer;
 }
 .ff-browser-permission button:disabled { opacity: .55; cursor: default; }
-.ff-browser-permission button:hover:enabled { background: var(--ff-bg-hover); }
-.ff-browser-resource-consent { min-width: 0; margin: 8px 0 0; padding: 8px; border: 1px solid var(--ff-border); border-radius: 12px; }
-.ff-browser-resource-consent label { display: flex; align-items: flex-start; gap: 6px; margin: 6px 0; overflow-wrap: anywhere; }
-.ff-browser-resource-consent input { flex: 0 0 auto; }
-.ff-browser-site-consent { overflow-wrap: anywhere; }
+.ff-browser-permission--compact > button:hover:enabled { background: var(--ff-bg-hover); }
 .ff-browser-workspace__state { padding: 12px; color: var(--ff-text); font-size: var(--ff-fs-caption); }
 .ff-browser-workspace__state p { margin: 0 0 8px; }
 .ff-browser-workspace__state button { margin-top: 0; }
 
 /* Window browser: a single slim bar for private-network grants and actionable notices. */
-.ff-browser-permission--compact { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 4px 10px; font-size: var(--ff-fs-caption); }
+.ff-browser-permission--compact { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 4px 10px; font-size: var(--ff-fs-caption); }
 .ff-browser-permission--compact p { margin: 2px 0; }
-.ff-browser-permission--compact button { margin-top: 0; padding: 3px 10px; }
+.ff-browser-permission--compact > button { margin-top: 0; padding: 3px 10px; }
 .ff-browser-chip { display: inline-flex; align-items: center; min-width: 0; gap: 6px; }
 .ff-browser-chip .ff-browser-permission__mode { margin-right: 0; }
 .ff-browser-chip code { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: inherit; color: var(--ff-text); }
 .ff-browser-chip__extra { color: var(--ff-text-muted); }
-.ff-browser-agent-consent { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--ff-border); }
 
 /* Load progress: a thin sweep under the toolbar; reduced motion shows a steady line. */
 .ff-browser-workspace__toolbar[data-browser-busy]::after {
@@ -205,11 +325,15 @@
 @media (prefers-reduced-motion: reduce) {
   .ff-browser-workspace__toolbar[data-browser-busy]::after { animation: none; background: var(--ff-accent, #6b9982); opacity: 0.5; }
   .ff-browser-workspace__toolbar button,
-  .ff-browser-workspace__address input { transition: none; }
+  .ff-browser-workspace__address input,
+  .ff-browser-permission__toggle,
+  .ff-browser-card__toggle,
+  .ff-browser-permission__toggle > svg:last-child,
+  .ff-browser-card__toggle > svg:last-child { transition: none; }
+  .ff-browser-permission__status[data-status="pending"] > span { animation: none; }
 }
 
 .ff-browser-permission button:focus-visible,
-.ff-browser-permission summary:focus-visible,
 .ff-browser-workspace__state button:focus-visible,
 .ff-browser-workspace__toolbar button:focus-visible,
 .ff-browser-workspace__address input:focus-visible { outline: 2px solid var(--ff-accent, #6b9982); outline-offset: 2px; }
@@ -221,4 +345,4 @@
 }
 :root[data-ui-colors] .ff-browser-workspace__toolbar button:hover:enabled { background: var(--ff-bg-hover); }
 :root[data-ui-colors] .ff-browser-workspace__notice.is-error { color: var(--ff-text); background: var(--ff-bg-hover); border-left: 3px solid var(--ff-accent); }
-:root[data-ui-colors] .ff-browser-permission button:hover:enabled { background: var(--ff-bg-hover); }
+:root[data-ui-colors] .ff-browser-permission--compact > button:hover:enabled { background: var(--ff-bg-hover); }

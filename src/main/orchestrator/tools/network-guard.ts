@@ -31,7 +31,7 @@ const MAX_REDIRECTS = 5;
 
 /** GET only. Each hop resolves once, validates every answer, then pins the connector
  * to those answers while retaining the URL hostname for Host and TLS verification.
- * Source: https://github.com/nodejs/undici/blob/v7.29.1/docs/docs/api/Connector.md
+ * Source: https://github.com/nodejs/undici/blob/v7.30.1/docs/docs/api/Connector.md
  */
 export async function withPublicResponse<T>(
   input: string,
