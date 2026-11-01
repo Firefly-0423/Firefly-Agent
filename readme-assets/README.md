@@ -3,7 +3,7 @@
 README 使用 GitHub 原生 `picture` / `prefers-color-scheme` 切换明暗素材，并以浅色图片回退。正文、链接、表格及页面背景跟随 GitHub 宿主主题。
 
 - `firefly-banner-{light,dark}[.en].gif`：中英文完整动画，1792 × 468 像素，README 按 896 × 234 显示。258 帧，每帧 40 ms（25 fps），10.32 秒无限循环，与原生 Idle 动作同速。
-- 技术与平台徽章不再保存为文件，直接引用 Shields.io 静态徽章，见 [ICON_SOURCES.md](./ICON_SOURCES.md)。
+- README 顶部的徽章不保存为文件，直接引用 Shields.io，见 [ICON_SOURCES.md](./ICON_SOURCES.md)。
 - `screenshots/`：README「界面预览」使用的真实界面截图（Chat、Work、Code 与记忆关系图），由项目所有者在演示配置下截取。
 - `sources/`：横幅背景 SVG、原生表情时间表与模型来源校验。
 
@@ -39,4 +39,4 @@ python scripts/docs/encode-readme-banner.py --repo . --out ../firefly-readme-rec
 - [Pixi Live2D 手动更新模型](https://guansss.github.io/pixi-live2d-display/models/#updating-manually)
 - [PixiJS 7 Application](https://pixijs.download/v7.3.0/docs/PIXI.Application.html)
 
-徽章来源和许可见 [ICON_SOURCES.md](./ICON_SOURCES.md)。技术徽章只说明技术栈，不表示 CI、排名、发布状态或官方关联。角色及派生渲染的授权边界见 [MODEL_LICENSE.md](../MODEL_LICENSE.md) 和 [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)。
+徽章来源和含义见 [ICON_SOURCES.md](./ICON_SOURCES.md)。徽章不表示 CI、排名或官方关联。角色及派生渲染的授权边界见 [MODEL_LICENSE.md](../MODEL_LICENSE.md) 和 [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)。
