@@ -1168,6 +1168,21 @@
     "agentSites": "Navigation hosts (up to 8)",
     "agentResources": "Resource-only hosts (optional, up to 16)",
     "agentExactSitesHelp": "Enter exact lowercase hostnames, separated by commas or spaces. No URLs or wildcards. Each change requires native approval and closes the old page. Resource hosts can supply scripts and data but cannot become pages. Blocked resource hosts are suggestions only; copy only those you trust.",
+    "details": "Details",
+    "scopeHosts": "Sites",
+    "scopeActions": "Allowed actions",
+    "status": {
+      "required": "Not authorized",
+      "pending": "Waiting for confirmation",
+      "granted": "Authorized",
+      "denied": "Declined"
+    },
+    "actions": {
+      "navigate": "Navigate",
+      "observe": "Read page",
+      "click": "Click",
+      "type": "Type"
+    },
     "tools": {
       "more": "More",
       "downloadsButton": "Downloads",
