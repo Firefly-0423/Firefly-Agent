@@ -121,6 +121,57 @@ Want a look first? The live demo at [hotarufirefly.online](https://hotarufirefly
 - **Data location**: production data lives in `%APPDATA%\Firefly` by default; quit the app and back up before touching it by hand.
 - **External services**: depending on the model and actions you choose, conversations, documents, tool results and recordings may go to external services; use only services you trust.
 
+## 🏗️ Architecture
+
+The interface hands requests over a controlled IPC bridge to the Harness loop in the main process. Every tool call and browser action, by Firefly or a partner, goes through permissions and approvals first; memory, models and extensions are called by the loop as needed.
+
+```mermaid
+flowchart TB
+  user(["You"])
+  subgraph app["Desktop app · Electron"]
+    ui["Chat and sessions<br/>React UI"]
+    live2d["Live2D Firefly"]
+    bridge["preload<br/>controlled IPC"]
+  end
+  subgraph core["Agent workbench · main process"]
+    harness["Harness loop"]
+    partners["12 partners<br/>child sessions"]
+    perm{"Permissions and approvals"}
+    tools["Built-in tools<br/>files · commands · Git · LSP · documents"]
+    models["Model services"]
+    triggers["Scheduled tasks · proactive chat"]
+  end
+  subgraph memory["Memory and knowledge · local SQLite"]
+    mem["Context S · facts M · history H"]
+    rag["Knowledge RAG · knowledge workspace"]
+  end
+  subgraph ext["Extensions and integrations"]
+    browser["Built-in browser"]
+    plugins["Plugin host"]
+    skills["Skills · MCP"]
+    channels["Channels<br/>Feishu · WeChat · QQ"]
+  end
+  native["Rust helpers<br/>screenshots · history reading · workspace handles"]
+
+  user --> ui --> bridge --> harness
+  triggers --> harness
+  channels --> harness
+  harness --> models
+  harness --> partners
+  harness --> perm
+  partners --> perm
+  perm --> tools
+  perm --> browser
+  harness --> mem
+  harness --> rag
+  harness --> plugins
+  harness --> skills
+  tools --> native
+  mem --> native
+  harness -. "progress and results" .-> ui
+  harness -. "working expression" .-> live2d
+```
+
 ## 🛠️ Run from source
 
 You need Windows, Node.js 24 and npm 10 or later; packaging also needs Rust (MSVC toolchain) and C++ build tools. The sources ship no models, voice resources or account credentials.

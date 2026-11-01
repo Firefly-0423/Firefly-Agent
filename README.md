@@ -121,6 +121,57 @@
 - **数据位置**：正式数据默认在 `%APPDATA%\Firefly`；手工处理前请退出应用并备份。
 - **外部服务**：根据所选模型与操作，对话、资料、工具结果和录音可能发往外部服务；请只在信任的服务上使用。
 
+## 🏗️ 架构
+
+界面通过受控 IPC 把请求交给主进程里的 Harness 主循环。流萤和伙伴的每一次工具调用、浏览器操作都先经过权限与审批；记忆、模型与扩展由主循环按需调用。
+
+```mermaid
+flowchart TB
+  user(["你"])
+  subgraph app["桌面应用 · Electron"]
+    ui["聊天与会话<br/>React 界面"]
+    live2d["Live2D 流萤"]
+    bridge["preload<br/>受控 IPC"]
+  end
+  subgraph core["Agent 工作台 · 主进程"]
+    harness["Harness 主循环"]
+    partners["12 位伙伴<br/>子会话"]
+    perm{"权限与审批"}
+    tools["内置工具<br/>文件 · 命令 · Git · LSP · 文档"]
+    models["模型服务"]
+    triggers["定时任务 · 主动聊天"]
+  end
+  subgraph memory["记忆与知识 · 本机 SQLite"]
+    mem["上下文 S · 事实记忆 M · 历史检索 H"]
+    rag["知识 RAG · 知识工作区"]
+  end
+  subgraph ext["扩展与集成"]
+    browser["内置浏览器"]
+    plugins["插件宿主"]
+    skills["Skills · MCP"]
+    channels["渠道<br/>飞书 · 微信 · QQ"]
+  end
+  native["Rust 原生助手<br/>截图 · 历史读取 · 工作区句柄"]
+
+  user --> ui --> bridge --> harness
+  triggers --> harness
+  channels --> harness
+  harness --> models
+  harness --> partners
+  harness --> perm
+  partners --> perm
+  perm --> tools
+  perm --> browser
+  harness --> mem
+  harness --> rag
+  harness --> plugins
+  harness --> skills
+  tools --> native
+  mem --> native
+  harness -. "进度与结果" .-> ui
+  harness -. "工作表情" .-> live2d
+```
+
 ## 🛠️ 从源码运行
 
 需要 Windows、Node.js 24 与 npm 10 以上；本地打包另需 Rust（MSVC 工具链）与 C++ 构建工具。源码不附带模型、语音资源或账户凭据。
