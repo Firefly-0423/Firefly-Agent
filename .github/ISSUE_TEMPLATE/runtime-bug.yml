@@ -14,7 +14,7 @@ body:
     id: app-version
     attributes:
       label: 应用版本
-      description: 设置页 / 关于页显示的版本号（如 v1.1.0）
+      description: 设置页 / 关于页显示的版本号（如 v1.1.1）
       placeholder: "v1.x.x"
     validations:
       required: true
