@@ -204,8 +204,7 @@ The isolation root must be an existing absolute directory that is neither the pr
 
 Scripts are described in [scripts/README.md](./scripts/README.md).
 
-<details>
-<summary><b>Tech stack</b></summary>
+## 🧰 Tech stack
 
 | Layer | Technology |
 | --- | --- |
@@ -220,48 +219,60 @@ Scripts are described in [scripts/README.md](./scripts/README.md).
 | Rendering | Streamdown, Shiki, KaTeX |
 | Tests | Vitest |
 
-</details>
 
-<details>
-<summary><b>Project structure</b></summary>
+## 📦 Project structure
 
 ```
 src/
-├── cli/                  # Command-line entry (the firefly command, dev launcher)
+├── cli/                  # Command line (firefly command, development launcher)
 ├── main/                 # Electron main process, entry index.ts → dist/main/main/index.js
-│   ├── application/      # Startup wiring, dependency injection, IPC scopes and contract scans
-│   ├── startup/          # Runtime profiles and data isolation, identity checks, single instance, splash
-│   ├── orchestrator/     # Agent core: Harness loop, tools, model vendors, sandbox, partner delegation
-│   ├── permission/       # Permission levels, risk checks and approval cards
+│   ├── application/      # Startup wiring, dependency injection, IPC scopes and contract scan
+│   ├── startup/          # Runtime profile and data isolation, identity preflight, single instance, startup windows
+│   ├── orchestrator/     # Agent core
+│   │   ├── harness/      #   Harness loop: turns, compaction, retries, uncertainty
+│   │   ├── tools/        #   Tool registry and built-in tools (files, documents, Git, LSP, ast-grep…)
+│   │   ├── vendors/      #   Model vendor adapters (structured output, function calling)
+│   │   ├── sandbox/      #   Windows command sandbox
+│   │   ├── review/       #   Plan review
+│   │   └── structured-output/  # Unified structured-output pipeline
+│   ├── permission/       # Permission levels, risk verdicts and approval cards
 │   ├── chat/ chats/      # Chat requests and the AG-UI bridge; conversation storage, dispatch and sidebar layout
 │   ├── memory*/          # Memory: core store, policy, recall, history reading, sources, shadow extraction
 │   ├── rag/ knowledge/   # Knowledge retrieval; Obsidian / study workspace
 │   ├── browser/          # Built-in browser workspace and its authorization boundary
 │   ├── code-git/ lsp/    # Git service for Code mode; language server client
 │   ├── channels/         # External channels (Feishu, WeChat, QQ, QQ Bot)
-│   ├── proactive/        # Proactive chat (time of day, policy, delivery)
+│   ├── proactive/        # Proactive chat (timing, policy, delivery)
 │   ├── scheduler/ tasks/ # Scheduled tasks; tasks and partner sessions
 │   ├── skills/           # Skill installation, review and external sources
-│   ├── plugin-host/ plugin-panel/  # Plugin host and online market; plugin panel protocol
-│   └── ...               # settings / storage / asr / music / windows and more
+│   ├── plugin-host/ plugin-panel/  # Plugin host and online marketplace; plugin panel protocol
+│   ├── settings/ storage/ logging/ # Settings and credentials; local storage and paths; logs
+│   ├── asr/ audio/ music/ screenshot/  # Voice input; player; QQ Music; screenshots
+│   ├── windows/ toast/ updater/        # Windows and tray; notifications; app updates
+│   └── ...               # protocols / prompts / services / stickers / social-context and more
 ├── plugins/              # Plugin system core (manifest validation, loading, lifecycle)
 ├── preload/              # Controlled IPC bridge
-├── renderer/             # Renderer: React interface, Live2D, the site's live demo, static assets
+├── renderer/             # Renderer process
+│   ├── react/            #   React interface: chat, sidebar, settings, components and styles
+│   ├── live2d/           #   Live2D rendering
+│   ├── web-demo/         #   The site's online demo: the same UI on in-page mock bridges
+│   └── public/           #   Static assets (avatars, stickers, Cubism Core)
 └── shared/               # Contracts and helpers shared by main and renderer
 
-site/                     # Promo site (Cloudflare, hotarufirefly.online) with the live demo
-native/                   # Rust helpers: screenshots, history reading, workspace handle access
-plugin-sdk/ examples/     # Plugin SDK source; plugin examples
-skills/ vendor/firefly-skills/  # Project Skills; third-party and adapted Skills with sources and licenses
+site/                     # Promo site (Cloudflare, hotarufirefly.online) that embeds the online demo
+native/                   # Rust native helpers: screenshots, history reading, workspace handle access
+plugin-sdk/               # Plugin SDK sources
+examples/                 # Plugin examples (text-stats, json-tools, weather-tool and more)
+skills/                   # Project Skills
+vendor/firefly-skills/    # Third-party and adapted Skills, with sources and licenses
 prompts/                  # Layered persona prompts and lore
-models/                   # Local AI models (place them yourself; see MODEL_LICENSE.md)
-scripts/ docs/            # Build, packaging, verification and evaluation scripts; design, QA and review records
-assets/ build/ resources/ # App and tray icons, file-type icons; installer scripts; resources prepared for packaging
+models/                   # Local AI models (placed by you, see MODEL_LICENSE.md)
+scripts/                  # Build, packaging, verification and evaluation scripts
+docs/                     # Design, verification and review records
+assets/ build/ resources/ # App and tray icons, file-type icons; installer scripts; resources prepared before packaging
 ```
 
 `dist/`, `release/` and `output/` hold build output, packages and local reports, and stay out of Git.
-
-</details>
 
 ## 📌 Status and limits
 

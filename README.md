@@ -204,8 +204,7 @@ npm run dev
 
 脚本说明见 [scripts/README.md](./scripts/README.md)。
 
-<details>
-<summary><b>技术栈</b></summary>
+## 🧰 技术栈
 
 | 层级 | 技术 |
 | --- | --- |
@@ -220,10 +219,8 @@ npm run dev
 | 渲染 | Streamdown、Shiki、KaTeX |
 | 测试 | Vitest |
 
-</details>
 
-<details>
-<summary><b>项目结构</b></summary>
+## 📦 项目结构
 
 ```
 src/
@@ -231,7 +228,13 @@ src/
 ├── main/                 # Electron 主进程，入口 index.ts → dist/main/main/index.js
 │   ├── application/      # 启动装配、依赖注入、IPC 作用域与契约扫描
 │   ├── startup/          # 运行档案与数据隔离、身份预检、单实例、启动窗口
-│   ├── orchestrator/     # Agent 核心：Harness 主循环、工具、模型厂商适配、沙箱、伙伴委派
+│   ├── orchestrator/     # Agent 核心
+│   │   ├── harness/      #   Harness 主循环：回合、压缩、重试与不确定性
+│   │   ├── tools/        #   工具注册表与内置工具（文件、文档、Git、LSP、ast-grep…）
+│   │   ├── vendors/      #   模型厂商适配（结构化输出、函数调用）
+│   │   ├── sandbox/      #   Windows 命令执行沙箱
+│   │   ├── review/       #   计划审批
+│   │   └── structured-output/  # 统一结构化输出管线
 │   ├── permission/       # 权限档位、风险判定与审批卡片
 │   ├── chat/ chats/      # 聊天请求与 AG-UI 桥接；会话存储、派发与侧栏布局
 │   ├── memory*/          # 记忆：核心库、策略、召回、历史读取、来源、影子抽取
@@ -243,25 +246,33 @@ src/
 │   ├── scheduler/ tasks/ # 定时任务；任务与伙伴会话
 │   ├── skills/           # Skills 安装、审查与外部来源
 │   ├── plugin-host/ plugin-panel/  # 插件宿主、在线市场；插件面板协议
-│   └── ...               # settings / storage / asr / music / windows 等
+│   ├── settings/ storage/ logging/ # 设置与凭据；本地存储与路径；日志
+│   ├── asr/ audio/ music/ screenshot/  # 语音输入；播放器；QQ Music；截图
+│   ├── windows/ toast/ updater/        # 窗口与托盘；通知；应用更新
+│   └── ...               # protocols / prompts / services / stickers / social-context 等
 ├── plugins/              # 插件系统核心（manifest 校验、加载、生命周期）
 ├── preload/              # 受控 IPC 桥接
-├── renderer/             # 渲染进程：React 界面、Live2D、网站上的在线演示、静态资源
+├── renderer/             # 渲染进程
+│   ├── react/            #   React 界面：聊天、侧栏、设置、组件与样式
+│   ├── live2d/           #   Live2D 渲染
+│   ├── web-demo/         #   网站上的在线演示：同一套界面，接页面内的模拟接口
+│   └── public/           #   静态资源（头像、贴纸、Cubism Core）
 └── shared/               # 主进程与渲染进程共享的契约与工具
 
 site/                     # 宣传网站（Cloudflare，hotarufirefly.online），嵌入在线演示
 native/                   # Rust 原生助手：截图、历史读取、工作区句柄访问
-plugin-sdk/ examples/     # 插件 SDK 源码；插件示例
-skills/ vendor/firefly-skills/  # 项目 Skills；第三方及适配 Skills，附来源与许可
+plugin-sdk/               # 插件 SDK 源码
+examples/                 # 插件示例（text-stats、json-tools、weather-tool 等）
+skills/                   # 项目 Skills
+vendor/firefly-skills/    # 第三方及适配 Skills，附来源与许可
 prompts/                  # 分层角色提示词与世界观
 models/                   # 本机 AI 模型（自行放置，见 MODEL_LICENSE.md）
-scripts/ docs/            # 构建、打包、验证与评测脚本；设计、验证与审查记录
+scripts/                  # 构建、打包、验证与评测脚本
+docs/                     # 设计、验证与审查记录
 assets/ build/ resources/ # 应用与托盘图标、文件类型图标；安装器脚本；打包前准备的资源
 ```
 
 `dist/`、`release/`、`output/` 是编译产物、打包产物和本地报告，不进入 Git。
-
-</details>
 
 ## 📌 状态与限制
 
