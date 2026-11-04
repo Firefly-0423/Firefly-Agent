@@ -220,7 +220,7 @@ export function createGitService(deps: GitServiceDeps): GitService {
           await assertCompletesOperation(operation, snapshot, paths, ctx.workspaceRoot);
           return await client.commitAll(message.trim());
         }
-        return await client.commit(message.trim(), withRenameSources(snapshot, paths));
+        return await client.commit(message.trim(), await withRenameSources(snapshot, paths, ctx.workspaceRoot));
       } finally {
         // A failed commit may still have run hooks or left the index changed, so the panel reads the repository again either way.
         notify(ctx.sessionId);
@@ -581,12 +581,20 @@ function literalPathspec(file: string): string {
   return `:(literal)${process.platform === "win32" ? file.replace(/\\/g, "/") : file}`;
 }
 
-/** The panel lists a staged rename under its new path; commit --only needs the old path too, or the old file would stay in the commit. */
-function withRenameSources(snapshot: GitStatusSnapshot, paths: string[]): string[] {
+/**
+ * The panel lists a staged rename under its new path; commit --only needs the old path too, or the old file would stay in the commit.
+ * commit --only reads that path from the working tree, so the old path is added only while nothing is there: a file recreated at it
+ * was never chosen and must not be committed. Then the commit records a copy, and the staged deletion waits for a later commit.
+ */
+async function withRenameSources(snapshot: GitStatusSnapshot, paths: string[], workspaceRoot: string): Promise<string[]> {
   const chosen = new Set(paths.map(normalizeRepoPath));
-  const sources = snapshot.files
-    .filter((file) => file.fromPath && chosen.has(normalizeRepoPath(file.path)) && !chosen.has(normalizeRepoPath(file.fromPath)))
-    .map((file) => file.fromPath as string);
+  const sources: string[] = [];
+  for (const file of snapshot.files) {
+    const source = file.fromPath;
+    if (!source || !chosen.has(normalizeRepoPath(file.path)) || chosen.has(normalizeRepoPath(source))) continue;
+    const recreated = await fs.promises.lstat(path.join(workspaceRoot, source)).then(() => true, () => false);
+    if (!recreated) sources.push(source);
+  }
   return [...paths, ...new Set(sources)];
 }
 

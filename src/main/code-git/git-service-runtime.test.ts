@@ -144,6 +144,19 @@ describe("committing selected files in a real repository", () => {
     } finally { await repo.service.dispose(); }
   });
 
+  it("leaves a recreated rename source out unless it was chosen", async () => {
+    const repo = repositoryWithHistory();
+    try {
+      repo.git("mv", "moved.txt", "renamed.txt");
+      fs.writeFileSync(path.join(repo.root, "moved.txt"), "replacement\n");
+      await repo.service.commit(repo.ctx, "rename only", ["renamed.txt"]);
+      expect(lines(repo.git("show", "--name-status", "--format=", "HEAD"))).toEqual(["A\trenamed.txt"]);
+      expect(repo.git("show", "HEAD:moved.txt")).toBe("moved.txt v1\n");
+      // The staged deletion is kept for a later commit, and the replacement stays untracked.
+      expect(lines(repo.git("status", "--porcelain"))).toEqual(["?? moved.txt", "D  moved.txt"]);
+    } finally { await repo.service.dispose(); }
+  });
+
   /** main and side both change edited.txt; side also changes unrelated.txt, which merges cleanly. */
   function conflictedMerge() {
     const repo = repositoryWithHistory();
