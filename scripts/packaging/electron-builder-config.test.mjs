@@ -98,7 +98,7 @@ test("the core package excludes retired music components and includes the QQ bri
   assert.doesNotMatch(source, /-\s+from: resources\/components/);
   assert.doesNotMatch(source, /-\s+from: resources\/bin\/mpv/);
   assert.match(source, /-\s+from: src\/main\/music\/scripts\/qqmusic_gsmtc\.ps1/);
-  assert.match(source, /artifactName:\s+Firefly_Agent-Setup-\$\{version\}\.\$\{ext\}/);
+  assert.match(source, /artifactName:\s+Firefly-Agent-Setup-\$\{version\}\.\$\{ext\}/);
 });
 
 test("the assisted installer exposes Firefly setup choices and an uninstall entry", () => {
