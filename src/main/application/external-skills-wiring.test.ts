@@ -93,7 +93,7 @@ vi.mock("../proactive/proactive-lifecycle", () => ({ createProactiveLifecycle: v
 vi.mock("../services/social-context/social-context-service", () => ({ createSocialContextService: vi.fn() }));
 vi.mock("../code-git/git-service", () => ({ createGitService: vi.fn() }));
 vi.mock("../code-git/git-executable", () => ({ resolveGitExecutable: vi.fn() }));
-vi.mock("../code-git/code-git-ipc", () => ({ registerCodeGitIpc: vi.fn() }));
+vi.mock("../code-git/code-git-ipc", () => ({ registerCodeGitIpc: vi.fn(() => ({ dispose: vi.fn() })) }));
 vi.mock("../windows/tray", () => ({ createTray: vi.fn() }));
 vi.mock("../memory-online-once/runner", () => ({ ADMISSION_ROOT: vi.fn() }));
 vi.mock("../memory-online-once/main-entry", () => ({ createMainProbeEntry: vi.fn() }));

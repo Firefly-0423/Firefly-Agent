@@ -71,8 +71,8 @@ export type GitClient = {
   getLineStats: (files: GitStatusFile[]) => Promise<LineCounts & { byPath: Record<string, LineCounts> }>;
   getDiff: (options: GitDiffQuery) => Promise<GitDiffResult>;
   getLog: (options: GitLogQuery) => Promise<GitLogEntry[]>;
-  add: (paths: string[]) => Promise<void>;
-  commit: (message: string) => Promise<string>;
+  /** Commits exactly these paths as they are in the working tree; anything else already staged stays staged. */
+  commit: (message: string, paths: string[]) => Promise<string>;
   checkout: (branch: string) => Promise<void>;
   checkoutNewBranch: (branch: string) => Promise<void>;
   push: (remote: string) => Promise<void>;
@@ -206,10 +206,12 @@ export function createGitService(deps: GitServiceDeps): GitService {
         throw new Error("请提供要提交的仓库内文件路径");
       }
       const client = await clientFor(ctx);
-      await client.add(paths);
-      const created = await client.commit(message.trim());
-      notify(ctx.sessionId);
-      return created;
+      try {
+        return await client.commit(message.trim(), await withRenameSources(client, paths));
+      } finally {
+        // A failed commit may still have run hooks or left the index changed, so the panel reads the repository again either way.
+        notify(ctx.sessionId);
+      }
     },
 
     async switchBranch(ctx, branch, create) {
@@ -374,12 +376,26 @@ function createSimpleGitClient(input: { workspaceRoot: string; executable: Resol
     init: async () => {
       await git.init();
     },
-    add: async (paths) => {
-      await git.raw(["add", "-A", "--", ...paths]);
-    },
-    async commit(message) {
-      const result = await git.commit(message);
-      return result.commit ? `已创建提交 ${result.commit}` : "已创建提交";
+    async commit(message, paths) {
+      const specs = paths.map(literalPathspec);
+      // commit --only reads the chosen paths from the working tree, but it cannot take a file Git has never seen; stage just those first.
+      const listed = await git.raw(["ls-files", "-z", "--others", "--exclude-standard", "--", ...specs]);
+      const untracked = listed.split("\0").filter(Boolean).map(literalPathspec);
+      // simple-git resolves a command that exits non-zero without writing to stderr (a hook that just exits 1),
+      // so success is judged by HEAD moving, not by the command returning.
+      const head = async () => (await git.raw(["rev-parse", "-q", "--verify", "HEAD"]).catch(() => "")).trim();
+      const before = await head();
+      if (untracked.length) await git.raw(["add", "--", ...untracked]);
+      try {
+        await git.raw(["commit", "-m", message, "--only", "--", ...specs]);
+        const after = await head();
+        if (!after || after === before) throw new Error("提交没有完成：Git 未创建新提交，可能被 hook 拒绝");
+        return `已创建提交 ${after.slice(0, 7)}`;
+      } catch (error) {
+        // Put the new files back to untracked so a failed commit does not leave them staged behind the user's back.
+        if (untracked.length) await git.raw(["reset", "-q", "--", ...untracked]).catch(() => undefined);
+        throw error;
+      }
     },
     checkout: async (branch) => {
       await git.checkout(branch);
@@ -399,7 +415,7 @@ function createSimpleGitClient(input: { workspaceRoot: string; executable: Resol
       const staged = options.staged ?? false;
       const args = options.staged ? ["--cached"] : [];
       args.push(base);
-      if (options.paths?.length) args.push("--", ...options.paths);
+      if (options.paths?.length) args.push("--", ...options.paths.map(literalPathspec));
 
       const fetched = await fetchDiffParts(git, args).then(
         (parts) => parts,
@@ -445,7 +461,7 @@ function createSimpleGitClient(input: { workspaceRoot: string; executable: Resol
         `-n${options.maxCount ?? 20}`,
       ];
       if (options.ref) args.push(options.ref);
-      if (options.path) args.push("--", options.path);
+      if (options.path) args.push("--", literalPathspec(options.path));
 
       const output = await git.raw(args);
       return output
@@ -523,6 +539,27 @@ function tallyKinds(files: CodeGitFileChange[]): Record<CodeGitChangeKind, numbe
   const tally: Record<CodeGitChangeKind, number> = { added: 0, modified: 0, deleted: 0, renamed: 0, conflicted: 0 };
   for (const entry of files) tally[entry.kind] += 1;
   return tally;
+}
+
+/**
+ * A path the caller chose names one file. Without the literal magic Git would read `*`, `?`, `[` and a leading `:(...)` as patterns,
+ * so a single chosen path could match and commit other files.
+ */
+function literalPathspec(file: string): string {
+  return `:(literal)${process.platform === "win32" ? file.replace(/\\/g, "/") : file}`;
+}
+
+/** The panel lists a staged rename under its new path; commit --only needs the old path too, or the old file would stay in the commit. */
+async function withRenameSources(client: GitClient, paths: string[]): Promise<string[]> {
+  const chosen = new Set(paths.map(normalizeRepoPath));
+  const sources = (await client.getStatus()).files
+    .filter((file) => file.fromPath && chosen.has(normalizeRepoPath(file.path)) && !chosen.has(normalizeRepoPath(file.fromPath)))
+    .map((file) => file.fromPath as string);
+  return [...paths, ...new Set(sources)];
+}
+
+function normalizeRepoPath(file: string): string {
+  return file.replace(/\\/g, "/");
 }
 
 function isRepoRelative(candidate: string): boolean {
