@@ -1,6 +1,6 @@
 {
   "name": "firefly-agent",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "packageManager": "npm@11.17.0",
   "description": "Firefly_Agent — 流萤桌面角色助手与 Agent 工作台",
   "author": "Firefly-0423",

@@ -334,7 +334,7 @@ vi.mock("../music/bootstrap", () => ({ bootstrapMusicService: vi.fn(() => ({})) 
 vi.mock("../screenshot/screenshot-lifecycle", () => ({ initializeScreenshotService: vi.fn(() => m.screenshot) }));
 vi.mock("../code-git/git-service", () => ({ createGitService: vi.fn(() => ({})) }));
 vi.mock("../code-git/git-executable", () => ({ resolveGitExecutable: vi.fn(async () => ({})) }));
-vi.mock("../code-git/code-git-ipc", () => ({ registerCodeGitIpc: vi.fn() }));
+vi.mock("../code-git/code-git-ipc", () => ({ registerCodeGitIpc: vi.fn(() => ({ dispose: vi.fn() })) }));
 
 // --- chats / browser / asr ---
 vi.mock("../chats/sidebar-layout-store", () => ({ createSidebarLayoutStore: vi.fn(() => ({})) }));

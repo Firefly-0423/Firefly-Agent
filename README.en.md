@@ -53,7 +53,7 @@
 
 ## 📥 Download and get started
 
-1. Download `Firefly_Agent-Setup-<version>.exe` from [Releases](https://github.com/Firefly-0423/Firefly-Agent/releases/latest) and run it. It needs Windows 10 / 11 (x64). The release page lists the installer's SHA-256; check it with `Get-FileHash <file> -Algorithm SHA256`.
+1. Download `Firefly-Agent-Setup-<version>.exe` from [Releases](https://github.com/Firefly-0423/Firefly-Agent/releases/latest) and run it. It needs Windows 10 / 11 (x64). The release page lists the installer's SHA-256; check it with `Get-FileHash <file> -Algorithm SHA256`.
 2. On first launch, create a **model profile** in Settings: the protocol, endpoint and model your service supports, plus your own credentials. OpenRouter has a preset. The installer includes no model service or account.
 3. Pick **Chat / Work / Code**. Work and Code bind each task to a project folder; you can also create a project first with the "+" next to Projects in the sidebar.
 4. Turn on tools, Skills, plugins or MCP as needed.

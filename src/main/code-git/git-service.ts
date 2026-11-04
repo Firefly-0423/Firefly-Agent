@@ -1,3 +1,4 @@
+import * as fs from "node:fs";
 import * as path from "node:path";
 import { simpleGit } from "simple-git";
 import type { ChatSession } from "../../shared/chat-types";
@@ -62,6 +63,8 @@ export type GitLogEntry = {
   message: string;
 };
 
+export type PendingGitOperation = "merge" | "cherry-pick" | "revert";
+
 export type GitClient = {
   getGitDir: () => Promise<string>;
   isRepository: () => Promise<boolean>;
@@ -71,8 +74,12 @@ export type GitClient = {
   getLineStats: (files: GitStatusFile[]) => Promise<LineCounts & { byPath: Record<string, LineCounts> }>;
   getDiff: (options: GitDiffQuery) => Promise<GitDiffResult>;
   getLog: (options: GitLogQuery) => Promise<GitLogEntry[]>;
-  add: (paths: string[]) => Promise<void>;
-  commit: (message: string) => Promise<string>;
+  /** Commits exactly these paths as they are in the working tree; anything else already staged stays staged. */
+  commit: (message: string, paths: string[]) => Promise<string>;
+  /** Stages every change and commits the whole index; used to conclude a merge, cherry-pick or revert. */
+  commitAll: (message: string) => Promise<string>;
+  /** The operation a commit would conclude, read from MERGE_HEAD, CHERRY_PICK_HEAD and REVERT_HEAD. */
+  getPendingOperation: () => Promise<PendingGitOperation | null>;
   checkout: (branch: string) => Promise<void>;
   checkoutNewBranch: (branch: string) => Promise<void>;
   push: (remote: string) => Promise<void>;
@@ -206,10 +213,18 @@ export function createGitService(deps: GitServiceDeps): GitService {
         throw new Error("请提供要提交的仓库内文件路径");
       }
       const client = await clientFor(ctx);
-      await client.add(paths);
-      const created = await client.commit(message.trim());
-      notify(ctx.sessionId);
-      return created;
+      try {
+        const [snapshot, operation] = await Promise.all([client.getStatus(), client.getPendingOperation()]);
+        if (operation) {
+          // Git refuses a path-limited commit while a merge, cherry-pick or revert is open: that commit has to take every change.
+          await assertCompletesOperation(operation, snapshot, paths, ctx.workspaceRoot);
+          return await client.commitAll(message.trim());
+        }
+        return await client.commit(message.trim(), await withRenameSources(snapshot, paths, ctx.workspaceRoot));
+      } finally {
+        // A failed commit may still have run hooks or left the index changed, so the panel reads the repository again either way.
+        notify(ctx.sessionId);
+      }
     },
 
     async switchBranch(ctx, branch, create) {
@@ -318,6 +333,17 @@ function createSimpleGitClient(input: { workspaceRoot: string; executable: Resol
     });
   }
 
+  // rev-parse -q --verify exits 1 silently for a missing ref; simple-git resolves that with empty output.
+  const readRef = async (ref: string) => (await git.raw(["rev-parse", "-q", "--verify", ref]).catch(() => "")).trim();
+  const readHead = () => readRef("HEAD");
+  // simple-git also resolves a commit that exits non-zero without writing to stderr (a hook that just exits 1),
+  // so success is judged by HEAD moving, not by the command returning.
+  const createdSince = async (before: string) => {
+    const after = await readHead();
+    if (!after || after === before) throw new Error("提交没有完成：Git 未创建新提交，可能被 hook 拒绝");
+    return `已创建提交 ${after.slice(0, 7)}`;
+  };
+
   const client: GitClient = {
     isRepository: () => git.checkIsRepo(),
 
@@ -374,12 +400,34 @@ function createSimpleGitClient(input: { workspaceRoot: string; executable: Resol
     init: async () => {
       await git.init();
     },
-    add: async (paths) => {
-      await git.raw(["add", "-A", "--", ...paths]);
+    async commit(message, paths) {
+      const specs = paths.map(literalPathspec);
+      // commit --only reads the chosen paths from the working tree, but it cannot take a file Git has never seen; stage just those first.
+      const listed = await git.raw(["ls-files", "-z", "--others", "--exclude-standard", "--", ...specs]);
+      const untracked = listed.split("\0").filter(Boolean).map(literalPathspec);
+      const before = await readHead();
+      if (untracked.length) await git.raw(["add", "--", ...untracked]);
+      try {
+        await git.raw(["commit", "-m", message, "--only", "--", ...specs]);
+        return await createdSince(before);
+      } catch (error) {
+        // Put the new files back to untracked so a failed commit does not leave them staged behind the user's back.
+        if (untracked.length) await git.raw(["reset", "-q", "--", ...untracked]).catch(() => undefined);
+        throw error;
+      }
     },
-    async commit(message) {
-      const result = await git.commit(message);
-      return result.commit ? `已创建提交 ${result.commit}` : "已创建提交";
+    async commitAll(message) {
+      const before = await readHead();
+      // The caller has checked that every change was chosen. Nothing is unstaged on failure: during a merge the index holds the resolutions.
+      await git.raw(["add", "--all"]);
+      await git.raw(["commit", "-m", message]);
+      return createdSince(before);
+    },
+    async getPendingOperation() {
+      for (const [ref, operation] of PENDING_OPERATION_REFS) {
+        if (await readRef(ref)) return operation;
+      }
+      return null;
     },
     checkout: async (branch) => {
       await git.checkout(branch);
@@ -399,7 +447,7 @@ function createSimpleGitClient(input: { workspaceRoot: string; executable: Resol
       const staged = options.staged ?? false;
       const args = options.staged ? ["--cached"] : [];
       args.push(base);
-      if (options.paths?.length) args.push("--", ...options.paths);
+      if (options.paths?.length) args.push("--", ...options.paths.map(literalPathspec));
 
       const fetched = await fetchDiffParts(git, args).then(
         (parts) => parts,
@@ -445,7 +493,7 @@ function createSimpleGitClient(input: { workspaceRoot: string; executable: Resol
         `-n${options.maxCount ?? 20}`,
       ];
       if (options.ref) args.push(options.ref);
-      if (options.path) args.push("--", options.path);
+      if (options.path) args.push("--", literalPathspec(options.path));
 
       const output = await git.raw(args);
       return output
@@ -523,6 +571,74 @@ function tallyKinds(files: CodeGitFileChange[]): Record<CodeGitChangeKind, numbe
   const tally: Record<CodeGitChangeKind, number> = { added: 0, modified: 0, deleted: 0, renamed: 0, conflicted: 0 };
   for (const entry of files) tally[entry.kind] += 1;
   return tally;
+}
+
+/**
+ * A path the caller chose names one file. Without the literal magic Git would read `*`, `?`, `[` and a leading `:(...)` as patterns,
+ * so a single chosen path could match and commit other files.
+ */
+function literalPathspec(file: string): string {
+  return `:(literal)${process.platform === "win32" ? file.replace(/\\/g, "/") : file}`;
+}
+
+/**
+ * The panel lists a staged rename under its new path; commit --only needs the old path too, or the old file would stay in the commit.
+ * commit --only reads that path from the working tree, so the old path is added only while nothing is there: a file recreated at it
+ * was never chosen and must not be committed. Then the commit records a copy, and the staged deletion waits for a later commit.
+ */
+async function withRenameSources(snapshot: GitStatusSnapshot, paths: string[], workspaceRoot: string): Promise<string[]> {
+  const chosen = new Set(paths.map(normalizeRepoPath));
+  const sources: string[] = [];
+  for (const file of snapshot.files) {
+    const source = file.fromPath;
+    if (!source || !chosen.has(normalizeRepoPath(file.path)) || chosen.has(normalizeRepoPath(source))) continue;
+    const recreated = await fs.promises.lstat(path.join(workspaceRoot, source)).then(() => true, () => false);
+    if (!recreated) sources.push(source);
+  }
+  return [...paths, ...new Set(sources)];
+}
+
+const PENDING_OPERATION_REFS: ReadonlyArray<readonly [string, PendingGitOperation]> = [
+  ["MERGE_HEAD", "merge"],
+  ["CHERRY_PICK_HEAD", "cherry-pick"],
+  ["REVERT_HEAD", "revert"],
+];
+
+const OPERATION_LABELS: Record<PendingGitOperation, string> = { merge: "合并", "cherry-pick": "拣选（cherry-pick）", revert: "回退（revert）" };
+
+/** git status codes for an unresolved conflict: either side unmerged, or both sides added or deleted. */
+function isUnmergedEntry(file: GitStatusFile): boolean {
+  const code = `${file.index}${file.workingDir}`;
+  return code.includes("U") || code === "AA" || code === "DD";
+}
+
+const CONFLICT_MARKER = /^(?:<{7}|>{7})(?: |$)|^={7}$/m;
+
+/**
+ * Concluding a merge, cherry-pick or revert commits the whole index, so it needs every change chosen and every conflict resolved.
+ * The panel has no separate "mark resolved" step: a conflicted file counts as resolved once its saved content has no conflict markers,
+ * and committing stages it, as `git add` would.
+ */
+async function assertCompletesOperation(operation: PendingGitOperation, snapshot: GitStatusSnapshot, paths: string[], workspaceRoot: string): Promise<void> {
+  const label = OPERATION_LABELS[operation];
+  const chosen = new Set(paths.map(normalizeRepoPath));
+  const left = snapshot.files.map((file) => file.path).filter((file) => !chosen.has(normalizeRepoPath(file)));
+  if (left.length) throw new Error(`正在进行${label}，这次提交需要包含全部改动，还没有选择：${listSome(left)}`);
+  const conflicts: string[] = [];
+  for (const file of snapshot.files.filter(isUnmergedEntry)) {
+    // A side that deleted the file leaves nothing to check; keeping the deletion is a resolution.
+    const content = await fs.promises.readFile(path.join(workspaceRoot, file.path), "utf8").catch(() => "");
+    if (CONFLICT_MARKER.test(content)) conflicts.push(file.path);
+  }
+  if (conflicts.length) throw new Error(`正在进行${label}，还有未解决的冲突：${listSome(conflicts)}。解决并保存后再提交`);
+}
+
+function listSome(files: string[]): string {
+  return files.length > 5 ? `${files.slice(0, 5).join("、")} 等 ${files.length} 个文件` : files.join("、");
+}
+
+function normalizeRepoPath(file: string): string {
+  return file.replace(/\\/g, "/");
 }
 
 function isRepoRelative(candidate: string): boolean {
