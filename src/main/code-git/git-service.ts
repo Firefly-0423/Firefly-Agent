@@ -101,6 +101,8 @@ export type GitClient = {
 
 export type GitServiceDeps = {
   workspaceWatcher?: GitWorkspaceWatcher;
+  /** Builds the watcher with the service's change handler; ignored when workspaceWatcher is given. */
+  createWorkspaceWatcher?: (onWorkspaceChanged: (sessionIds: readonly string[]) => void) => GitWorkspaceWatcher;
   createClient?: (input: { workspaceRoot: string; executable: ResolvedGitExecutable }) => GitClient;
   resolveExecutable: () => Promise<ResolvedGitExecutable | null>;
   getSession: (sessionId: string) => ChatSession | null;
@@ -151,15 +153,22 @@ function isStatusResult(value: ReadyWorkspace | CodeGitStatus): value is CodeGit
 export function createGitService(deps: GitServiceDeps): GitService {
   const makeClient = deps.createClient ?? createSimpleGitClient;
   const subscribers = new Set<(payload: { sessionId: string }) => void>();
-  const workspaceWatcher = deps.workspaceWatcher ?? createGitWorkspaceWatcher({
-    onWorkspaceChanged: (sessionIds) => {
-      for (const id of sessionIds) notify(id);
-    },
+  const onWorkspaceChanged = (sessionIds: readonly string[]) => {
+    for (const id of sessionIds) notify(id);
+  };
+  const workspaceWatcher = deps.workspaceWatcher ?? deps.createWorkspaceWatcher?.(onWorkspaceChanged) ?? createGitWorkspaceWatcher({
+    onWorkspaceChanged,
     // The watcher also asks the panels to read the repository again, so an event lost to the error is caught up.
     onError: (error, workspaceRoot) => console.warn("[code-git] workspace watcher error", workspaceRoot, error),
   });
 
+  /**
+   * Tells the panels the repository changed. A status read already in flight began before the change (a checkout in a terminal,
+   * a write here), so it is retired first: the reads the panels start now must not be handed that earlier snapshot.
+   */
   function notify(sessionId: string): void {
+    const workspaceRoot = deps.getSession(sessionId)?.workspaceBinding?.workspaceRoot;
+    if (workspaceRoot) bumpGeneration(repositoryKey(workspaceRoot));
     for (const listener of subscribers) listener({ sessionId });
   }
 

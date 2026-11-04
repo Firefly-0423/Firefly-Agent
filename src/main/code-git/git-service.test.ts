@@ -158,6 +158,28 @@ describe("Writes to one repository", () => {
 });
 
 describe("Status reads", () => {
+  it("do not hand out a read that started before a workspace change event", async () => {
+    let changed!: (sessionIds: readonly string[]) => void;
+    const stale = deferred<Awaited<ReturnType<GitClient["getStatus"]>>>();
+    const getStatus = vi.fn()
+      .mockImplementationOnce(() => stale.promise)
+      .mockResolvedValue({ current: "checked-out-in-terminal", ahead: 0, behind: 0, files: [] });
+    const tab: ChatSession = { id: identity, title: "Inspect local changes", mode: "code", identityId: null, createdAt: 17, updatedAt: 29,
+      schemaVersion: 1, messages: [], workspaceBinding: { workspaceRoot: directory, displayName: "lantern", boundAt: 13 } };
+    const api = createGitService({ getSession: () => tab, createClient: () => repository({ getStatus }), resolveExecutable: async () => tool,
+      createWorkspaceWatcher: (onWorkspaceChanged) => { changed = onWorkspaceChanged; return { subscribe: vi.fn(), unsubscribe: vi.fn(), dispose: vi.fn() }; } });
+    const notified = vi.fn();
+    api.onChanged(notified);
+    const before = api.getStatusForSession(identity);
+    await vi.waitFor(() => expect(getStatus).toHaveBeenCalledTimes(1));
+    changed([identity]);
+    expect(notified).toHaveBeenCalledExactlyOnceWith({ sessionId: identity });
+    // A panel that refreshes because of the event gets a read started after it, not the one already in flight.
+    expect((await api.getStatusForSession(identity)).branch?.current).toBe("checked-out-in-terminal");
+    stale.resolve({ current: "trunk", ahead: 0, behind: 0, files: [] });
+    expect((await before).branch?.current).toBe("trunk");
+  });
+
   it("share one read between concurrent requests for the same repository", async () => {
     const snapshot = deferred<Awaited<ReturnType<GitClient["getStatus"]>>>();
     const git = repository({ getStatus: vi.fn(() => snapshot.promise) });
