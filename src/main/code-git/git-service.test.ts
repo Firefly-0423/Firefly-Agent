@@ -15,7 +15,7 @@ function repository(replacements: Partial<GitClient> = {}): GitClient {
     getDiff: vi.fn(async (query: GitDiffQuery) => ({ files: [], perFile: [], patch: "", truncated: false,
       insertions: 3, deletions: 4, base: query.ref ?? "HEAD", staged: query.staged ?? false })),
     getGitDir: vi.fn().mockResolvedValue(`${directory}\\.git`), isRepository: vi.fn().mockResolvedValue(true),
-    commit: vi.fn(), init: vi.fn(), checkout: vi.fn(), checkoutNewBranch: vi.fn(), push: vi.fn(), revert: vi.fn(),
+    commit: vi.fn(), commitAll: vi.fn(), getPendingOperation: vi.fn().mockResolvedValue(null), init: vi.fn(), checkout: vi.fn(), checkoutNewBranch: vi.fn(), push: vi.fn(), revert: vi.fn(),
     ...replacements,
   };
 }

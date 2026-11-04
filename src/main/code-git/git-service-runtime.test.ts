@@ -143,4 +143,41 @@ describe("committing selected files in a real repository", () => {
       expect(repo.git("status", "--porcelain", "--", "created.txt").trim()).toBe("?? created.txt");
     } finally { await repo.service.dispose(); }
   });
+
+  /** main and side both change edited.txt; side also changes unrelated.txt, which merges cleanly. */
+  function conflictedMerge() {
+    const repo = repositoryWithHistory();
+    repo.git("switch", "-q", "-c", "side");
+    fs.writeFileSync(path.join(repo.root, "edited.txt"), "side\n");
+    fs.writeFileSync(path.join(repo.root, "unrelated.txt"), "side\n");
+    repo.git("commit", "-q", "-am", "side");
+    repo.git("switch", "-q", "main");
+    fs.writeFileSync(path.join(repo.root, "edited.txt"), "main\n");
+    repo.git("commit", "-q", "-am", "main");
+    expect(() => repo.git("merge", "-q", "side")).toThrow();
+    return repo;
+  }
+
+  it("concludes a merge once every conflict is resolved and every change is chosen", async () => {
+    const repo = conflictedMerge();
+    try {
+      fs.writeFileSync(path.join(repo.root, "edited.txt"), "resolved\n");
+      await repo.service.commit(repo.ctx, "merge side", ["edited.txt", "unrelated.txt"]);
+      expect(repo.git("rev-list", "--parents", "-n", "1", "HEAD").trim().split(" ")).toHaveLength(3);
+      expect(repo.git("show", "HEAD:edited.txt")).toBe("resolved\n");
+      expect(repo.git("status", "--porcelain")).toBe("");
+    } finally { await repo.service.dispose(); }
+  });
+
+  it("refuses to conclude a merge while a conflict is unresolved or a change is left out", async () => {
+    const repo = conflictedMerge();
+    try {
+      const head = repo.git("rev-parse", "HEAD");
+      await expect(repo.service.commit(repo.ctx, "merge side", ["edited.txt", "unrelated.txt"])).rejects.toThrow("还有未解决的冲突：edited.txt");
+      repo.git("add", "edited.txt");
+      await expect(repo.service.commit(repo.ctx, "merge side", ["edited.txt"])).rejects.toThrow("还没有选择：unrelated.txt");
+      expect(repo.git("rev-parse", "HEAD")).toBe(head);
+      expect(repo.git("rev-parse", "-q", "--verify", "MERGE_HEAD").trim()).not.toBe("");
+    } finally { await repo.service.dispose(); }
+  });
 });
