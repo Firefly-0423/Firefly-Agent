@@ -82,7 +82,7 @@ test("the Firefly package identity is consistent and does not publish updates", 
   assert.equal(packageJson.name, "firefly-agent");
   assert.equal(packageLock.name, packageJson.name);
   assert.equal(packageLock.packages[""].name, packageJson.name);
-  assert.equal(packageJson.version, "1.1.1");
+  assert.equal(packageJson.version, "1.1.2");
   assert.equal(packageLock.version, packageJson.version);
   assert.equal(packageLock.packages[""].version, packageJson.version);
   assert.match(source, /^appId: com\.serendipitywu02\.firefly$/m);
