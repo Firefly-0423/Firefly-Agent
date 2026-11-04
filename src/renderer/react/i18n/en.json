@@ -659,6 +659,7 @@
     "noBranch": "No branch",
     "branchSwitch": "Switch branch",
     "changes": "Changes",
+    "linesPartial": "Untracked files past the first {{count}} are not counted in these totals",
     "commitOrPush": "Commit or push",
     "commitChanges": "Commit changes",
     "pushCommits": "Push {{count}} commit(s)",

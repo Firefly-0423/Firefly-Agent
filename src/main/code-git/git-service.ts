@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { simpleGit } from "simple-git";
+import { simpleGit, type DiffResult } from "simple-git";
 import type { ChatSession } from "../../shared/chat-types";
-import { emptyCodeGitStatus } from "../../shared/code-git-types";
+import { emptyCodeGitStatus, MAX_UNTRACKED_LINE_STATS } from "../../shared/code-git-types";
 import type { CodeGitChangeKind, CodeGitFileChange, CodeGitStatus } from "../../shared/code-git-types";
 import type { ResolvedGitExecutable } from "./git-executable";
 import { createGitWorkspaceWatcher } from "./git-workspace-watcher";
@@ -43,9 +43,19 @@ export type GitDiffResult = {
   staged: boolean;
   deletions: number;
   insertions: number;
-  /** 逐文件增删统计，给 Diff Review 卡片使用 */
+  /** 逐文件增删统计，给 Diff Review 卡片使用；二进制文件没有行数，不在其中 */
   perFile: Array<{ file: string; insertions: number; deletions: number }>;
+  /** 有差异的二进制文件，patch 里只有一行说明 */
+  binaryFiles: string[];
+  /** 截断时没有完整出现在 patch 里的文件；未截断时为空 */
+  incompleteFiles: string[];
 };
+
+// 未跟踪文件的行数要逐个运行 git 统计，超过 MAX_UNTRACKED_LINE_STATS 个就不再统计，并标明行数只是部分结果。
+export { MAX_UNTRACKED_LINE_STATS };
+/** patch 先按字符预算截断再按行截断，避免一个巨大的单行或大批文件撑满内存和返回内容。 */
+export const MAX_PATCH_CHARS = 512 * 1024;
+export const MAX_PATCH_LINES = 5000;
 
 export type GitLogQuery = {
   /** 限定某个文件的历史 */
@@ -67,11 +77,14 @@ export type PendingGitOperation = "merge" | "cherry-pick" | "revert";
 
 export type GitClient = {
   getGitDir: () => Promise<string>;
+  /** Shared metadata (refs, packed-refs) of a linked worktree; the same as getGitDir in an ordinary repository. */
+  getCommonDir: () => Promise<string>;
   isRepository: () => Promise<boolean>;
   init: () => Promise<void>;
   getStatus: () => Promise<GitStatusSnapshot>;
   getBranches: () => Promise<string[]>;
-  getLineStats: (files: GitStatusFile[]) => Promise<LineCounts & { byPath: Record<string, LineCounts> }>;
+  /** partial: some untracked files were past the counting budget, so the totals leave them out. */
+  getLineStats: (files: GitStatusFile[]) => Promise<LineCounts & { byPath: Record<string, LineCounts>; partial: boolean }>;
   getDiff: (options: GitDiffQuery) => Promise<GitDiffResult>;
   getLog: (options: GitLogQuery) => Promise<GitLogEntry[]>;
   /** Commits exactly these paths as they are in the working tree; anything else already staged stays staged. */
@@ -123,6 +136,14 @@ type ReadyWorkspace = {
   workspaceRoot: string;
 };
 
+/** A status read before the session it was asked for is filled in; several sessions on one repository share it. */
+type StatusBody = Omit<CodeGitStatus, "sessionId">;
+
+function repositoryKey(workspaceRoot: string): string {
+  const absolute = path.resolve(workspaceRoot);
+  return process.platform === "win32" ? absolute.toLowerCase() : absolute;
+}
+
 function isStatusResult(value: ReadyWorkspace | CodeGitStatus): value is CodeGitStatus {
   return "state" in value;
 }
@@ -134,11 +155,76 @@ export function createGitService(deps: GitServiceDeps): GitService {
     onWorkspaceChanged: (sessionIds) => {
       for (const id of sessionIds) notify(id);
     },
-    onError: () => undefined,
+    // The watcher also asks the panels to read the repository again, so an event lost to the error is caught up.
+    onError: (error, workspaceRoot) => console.warn("[code-git] workspace watcher error", workspaceRoot, error),
   });
 
   function notify(sessionId: string): void {
     for (const listener of subscribers) listener({ sessionId });
+  }
+
+  /**
+   * Writes to one repository run one after another: two commits, or a commit and a checkout, would otherwise interleave their
+   * add/commit steps, and Git's index.lock only refuses the loser instead of ordering them.
+   * Each write also moves the repository's generation on, so a status read that started before it is not handed out afterwards.
+   */
+  const writeQueues = new Map<string, Promise<void>>();
+  const generations = new Map<string, number>();
+  const statusReads = new Map<string, { generation: number; read: Promise<StatusBody> }>();
+
+  function bumpGeneration(key: string): void {
+    generations.set(key, (generations.get(key) ?? 0) + 1);
+  }
+
+  function exclusive<T>(workspaceRoot: string, task: () => Promise<T>): Promise<T> {
+    const key = repositoryKey(workspaceRoot);
+    const previous = writeQueues.get(key) ?? Promise.resolve();
+    const run = previous.then(() => {
+      bumpGeneration(key);
+      return task();
+    });
+    const settled = run.then(() => undefined, () => undefined).then(() => {
+      bumpGeneration(key);
+      if (writeQueues.get(key) === settled) writeQueues.delete(key);
+    });
+    writeQueues.set(key, settled);
+    return run;
+  }
+
+  /** Panels of several sessions on one repository, or a burst of change events, share one status read while it is in flight. */
+  function readStatus(gate: ReadyWorkspace): Promise<StatusBody> {
+    const key = `${repositoryKey(gate.workspaceRoot)}\n${gate.executable.command}`;
+    const generation = generations.get(repositoryKey(gate.workspaceRoot)) ?? 0;
+    const current = statusReads.get(key);
+    if (current && current.generation === generation) return current.read;
+    const entry = { generation, read: computeStatus(gate) };
+    statusReads.set(key, entry);
+    const forget = () => { if (statusReads.get(key) === entry) statusReads.delete(key); };
+    entry.read.then(forget, forget);
+    return entry.read;
+  }
+
+  async function computeStatus(gate: ReadyWorkspace): Promise<StatusBody> {
+    const client = makeClient(gate);
+    if (!(await client.isRepository())) {
+      const { sessionId: _unused, ...body } = emptyCodeGitStatus("", "not_repository", "这个目录还不是 Git 仓库");
+      return body;
+    }
+    const [snapshot, branches] = await Promise.all([client.getStatus(), client.getBranches()]);
+    const stats = await client.getLineStats(snapshot.files);
+    const files = snapshot.files.map((file) => toFileChange(file, stats.byPath[file.path]));
+    const detached = snapshot.current === "HEAD";
+    const { source, version } = gate.executable;
+    return {
+      state: "ready",
+      executable: { source, version },
+      branch: { current: detached ? null : snapshot.current, detached, branches },
+      files,
+      summary: tallyKinds(files),
+      lines: { insertions: stats.insertions, deletions: stats.deletions, ...(stats.partial ? { partial: true } : {}) },
+      ahead: snapshot.ahead,
+      behind: snapshot.behind,
+    };
   }
 
   /** 会话门禁：依次检查会话存在、模式为 code、已绑定目录、Git 可用。 */
@@ -170,6 +256,21 @@ export function createGitService(deps: GitServiceDeps): GitService {
     return { sessionId, mode: "code", workspaceRoot: ready.workspaceRoot };
   }
 
+  async function commitChosen(client: GitClient, ctx: TrustedGitContext, message: string, paths: string[]): Promise<string> {
+    try {
+      const [snapshot, operation] = await Promise.all([client.getStatus(), client.getPendingOperation()]);
+      if (operation) {
+        // Git refuses a path-limited commit while a merge, cherry-pick or revert is open: that commit has to take every change.
+        await assertCompletesOperation(operation, snapshot, paths, ctx.workspaceRoot);
+        return await client.commitAll(message.trim());
+      }
+      return await client.commit(message.trim(), await withRenameSources(snapshot, paths, ctx.workspaceRoot));
+    } finally {
+      // A failed commit may still have run hooks or left the index changed, so the panel reads the repository again either way.
+      notify(ctx.sessionId);
+    }
+  }
+
   return {
     onChanged(listener) {
       subscribers.add(listener);
@@ -180,11 +281,8 @@ export function createGitService(deps: GitServiceDeps): GitService {
       const ready = await requireReadyWorkspace(sessionId);
       const client = makeClient(ready);
       if (!(await client.isRepository())) throw new Error("这个目录还不是 Git 仓库");
-      await workspaceWatcher.subscribe({
-        sessionId,
-        workspaceRoot: ready.workspaceRoot,
-        gitDir: await client.getGitDir(),
-      });
+      const [gitDir, commonDir] = await Promise.all([client.getGitDir(), client.getCommonDir()]);
+      await workspaceWatcher.subscribe({ sessionId, workspaceRoot: ready.workspaceRoot, gitDir, commonDir });
     },
 
     unwatchSession: (sessionId) => workspaceWatcher.unsubscribe(sessionId),
@@ -202,7 +300,7 @@ export function createGitService(deps: GitServiceDeps): GitService {
 
     async initRepository(ctx) {
       const client = await clientFor(ctx);
-      await client.init();
+      await exclusive(ctx.workspaceRoot, () => client.init());
       notify(ctx.sessionId);
       return "已初始化 Git 仓库";
     },
@@ -213,45 +311,29 @@ export function createGitService(deps: GitServiceDeps): GitService {
         throw new Error("请提供要提交的仓库内文件路径");
       }
       const client = await clientFor(ctx);
-      try {
-        const [snapshot, operation] = await Promise.all([client.getStatus(), client.getPendingOperation()]);
-        if (operation) {
-          // Git refuses a path-limited commit while a merge, cherry-pick or revert is open: that commit has to take every change.
-          await assertCompletesOperation(operation, snapshot, paths, ctx.workspaceRoot);
-          return await client.commitAll(message.trim());
-        }
-        return await client.commit(message.trim(), await withRenameSources(snapshot, paths, ctx.workspaceRoot));
-      } finally {
-        // A failed commit may still have run hooks or left the index changed, so the panel reads the repository again either way.
-        notify(ctx.sessionId);
-      }
+      return exclusive(ctx.workspaceRoot, () => commitChosen(client, ctx, message, paths));
     },
 
     async switchBranch(ctx, branch, create) {
       if (!isSafeBranchName(branch)) throw new Error("分支名称不合法");
       const client = await clientFor(ctx);
-      if (create) {
-        await client.checkoutNewBranch(branch);
-      } else {
-        await client.checkout(branch);
-      }
-      notify(ctx.sessionId);
+      await exclusive(ctx.workspaceRoot, () => (create ? client.checkoutNewBranch(branch) : client.checkout(branch)))
+        .finally(() => notify(ctx.sessionId));
       return `已切换到分支 ${branch}`;
     },
 
     async push(ctx, remote = "origin") {
       if (!/^[A-Za-z0-9._-]+$/.test(remote)) throw new Error("远端名称不合法");
       const client = await clientFor(ctx);
-      await client.push(remote);
-      notify(ctx.sessionId);
+      await exclusive(ctx.workspaceRoot, () => client.push(remote)).finally(() => notify(ctx.sessionId));
       return `已推送到 ${remote}`;
     },
 
     async revert(ctx, commit) {
       if (!/^[0-9a-f]{7,40}$/i.test(commit)) throw new Error("提交标识必须是 7 到 40 位十六进制 hash");
       const client = await clientFor(ctx);
-      await client.revert(commit);
-      notify(ctx.sessionId);
+      // A conflicted revert leaves files in the working tree, so the panel reads the repository again either way.
+      await exclusive(ctx.workspaceRoot, () => client.revert(commit)).finally(() => notify(ctx.sessionId));
       return `已创建回退提交 ${commit}`;
     },
 
@@ -261,7 +343,11 @@ export function createGitService(deps: GitServiceDeps): GitService {
       if (!isSafeGitRef(ref)) throw new Error("ref 不合法");
       const paths = options.paths ?? [];
       if (!paths.every(isRepoRelative)) throw new Error("请提供仓库内相对路径");
-      const query: GitDiffQuery = { maxPatchLines: options.maxPatchLines ?? 400, paths, ref };
+      const maxPatchLines = options.maxPatchLines ?? 400;
+      if (!Number.isInteger(maxPatchLines) || maxPatchLines < 1 || maxPatchLines > MAX_PATCH_LINES) {
+        throw new Error(`maxPatchLines 必须是 1 到 ${MAX_PATCH_LINES} 的整数`);
+      }
+      const query: GitDiffQuery = { maxPatchLines, paths, ref };
       query.staged = options.staged ?? false;
       return client.getDiff(query);
     },
@@ -287,29 +373,7 @@ export function createGitService(deps: GitServiceDeps): GitService {
       try {
         const gate = await gateSession(sessionId);
         if (isStatusResult(gate)) return gate;
-
-        const client = makeClient(gate);
-        if (!(await client.isRepository())) {
-          return emptyCodeGitStatus(sessionId, "not_repository", "这个目录还不是 Git 仓库");
-        }
-
-        const [snapshot, branches] = await Promise.all([client.getStatus(), client.getBranches()]);
-        const stats = await client.getLineStats(snapshot.files);
-        const files = snapshot.files.map((file) => toFileChange(file, stats.byPath[file.path]));
-        const detached = snapshot.current === "HEAD";
-        const { source, version } = gate.executable;
-        const ready: CodeGitStatus = {
-          sessionId,
-          state: "ready",
-          executable: { source, version },
-          branch: { current: detached ? null : snapshot.current, detached, branches },
-          files,
-          summary: tallyKinds(files),
-          lines: { insertions: stats.insertions, deletions: stats.deletions },
-          ahead: snapshot.ahead,
-          behind: snapshot.behind,
-        };
-        return ready;
+        return { ...(await readStatus(gate)), sessionId };
       } catch (error) {
         return emptyCodeGitStatus(sessionId, "error", describeFailure(error));
       }
@@ -343,6 +407,13 @@ function createSimpleGitClient(input: { workspaceRoot: string; executable: Resol
     if (!after || after === before) throw new Error("提交没有完成：Git 未创建新提交，可能被 hook 拒绝");
     return `已创建提交 ${after.slice(0, 7)}`;
   };
+  // Before the first commit HEAD does not exist yet; the empty tree is its baseline, so new files count as added rather than as no change.
+  let emptyTree: Promise<string> | undefined;
+  const baselineFor = async (ref: string) => {
+    if (ref !== "HEAD" || (await readHead())) return ref;
+    emptyTree ??= git.raw(["hash-object", "-t", "tree", "/dev/null"]).then((hash) => hash.trim());
+    return emptyTree;
+  };
 
   const client: GitClient = {
     isRepository: () => git.checkIsRepo(),
@@ -368,8 +439,8 @@ function createSimpleGitClient(input: { workspaceRoot: string; executable: Resol
     },
 
     async getLineStats(files) {
-      const emptySummary = { insertions: 0, deletions: 0, files: [] };
-      const tracked = await git.diffSummary(["HEAD"]).catch(() => emptySummary);
+      // A failure here is a real failure (a damaged index, a lock, no permission); it is not reported as zero changed lines.
+      const tracked = await git.diffSummary([await baselineFor("HEAD")]);
       let insertions = tracked.insertions;
       let deletions = tracked.deletions;
       const byPath: Record<string, LineCounts> = {};
@@ -379,8 +450,11 @@ function createSimpleGitClient(input: { workspaceRoot: string; executable: Resol
         }
       }
 
-      // 未跟踪文件没有 HEAD 基线，改用 --no-index 与空文件对比来计算行数。
-      for (const untracked of files.filter(isUntrackedEntry)) {
+      // 未跟踪文件没有 HEAD 基线，改用 --no-index 与空文件对比来计算行数。每个文件一个 git 进程，所以只统计前
+      // MAX_UNTRACKED_LINE_STATS 个，其余标为未统计，而不是当作 0 行。
+      const untrackedFiles = files.filter(isUntrackedEntry);
+      const partial = untrackedFiles.length > MAX_UNTRACKED_LINE_STATS;
+      for (const untracked of untrackedFiles.slice(0, MAX_UNTRACKED_LINE_STATS)) {
         let output: string | undefined;
         try {
           output = await git.raw(["diff", "--no-index", "--numstat", "--", "/dev/null", untracked.path]);
@@ -394,7 +468,7 @@ function createSimpleGitClient(input: { workspaceRoot: string; executable: Resol
         deletions += counts.deletions;
         byPath[untracked.path] = counts;
       }
-      return { insertions, deletions, byPath };
+      return { insertions, deletions, byPath, partial };
     },
 
     init: async () => {
@@ -436,51 +510,26 @@ function createSimpleGitClient(input: { workspaceRoot: string; executable: Resol
       await git.checkoutLocalBranch(branch);
     },
     push: async (remote) => {
-      await git.push(remote);
+      await git.push(remote).catch((error: unknown) => { throw explainFailure(error, PUSH_FAILURES); });
     },
     revert: async (commit) => {
-      await git.raw(["revert", "--no-edit", commit]);
+      await git.raw(["revert", "--no-edit", commit]).catch((error: unknown) => { throw explainFailure(error, REVERT_FAILURES); });
     },
 
     async getDiff(options) {
       const base = options.ref ?? "HEAD";
       const staged = options.staged ?? false;
       const args = options.staged ? ["--cached"] : [];
-      args.push(base);
+      args.push(await baselineFor(base));
       if (options.paths?.length) args.push("--", ...options.paths.map(literalPathspec));
 
-      const fetched = await fetchDiffParts(git, args).then(
-        (parts) => parts,
-        (error: unknown) => {
-          const message = error instanceof Error ? error.message : String(error);
-          // 新仓库尚无提交时 HEAD 不存在，按无差异处理。
-          if (/unknown revision|bad revision|ambiguous argument/i.test(message)) return null;
-          throw error;
-        },
-      );
-      if (fetched === null) {
-        return { base, staged, files: [], insertions: 0, deletions: 0, truncated: false, patch: "", perFile: [] };
-      }
-
-      const [summary, patch] = fetched;
-      const maxLines = options.maxPatchLines ?? 400;
-      const lines = patch.split("\n");
-      const truncated = lines.length > maxLines;
-      const perFile = summary.files.flatMap((entry) => (
-        "insertions" in entry && "deletions" in entry
-          ? [{ file: entry.file, insertions: entry.insertions, deletions: entry.deletions }]
-          : []
-      ));
-      return {
-        base,
-        staged,
-        files: perFile.map((entry) => entry.file),
-        insertions: summary.insertions,
-        deletions: summary.deletions,
-        truncated,
-        patch: truncated ? `${lines.slice(0, maxLines).join("\n")}\n...（已截断）` : patch,
-        perFile,
-      };
+      const [summary, patch] = await fetchDiffParts(git, args).catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        // A ref that does not exist is the caller's mistake, not an empty diff.
+        if (/unknown revision|bad revision|ambiguous argument/i.test(message)) throw new Error(`找不到 ref：${base}`, { cause: error });
+        throw error;
+      });
+      return shapeDiff({ base, staged, summary, patch, maxLines: options.maxPatchLines ?? 400 });
     },
 
     async getLog(options) {
@@ -506,6 +555,12 @@ function createSimpleGitClient(input: { workspaceRoot: string; executable: Resol
         });
     },
 
+    getCommonDir: async () => {
+      // --git-common-dir may answer relative to the working directory (".git").
+      const raw = await git.raw(["rev-parse", "--git-common-dir"]);
+      return path.resolve(input.workspaceRoot, raw.trim());
+    },
+
     getGitDir: async () => {
       const raw = await git.raw(["rev-parse", "--absolute-git-dir"]);
       return path.resolve(input.workspaceRoot, raw.trim());
@@ -514,8 +569,80 @@ function createSimpleGitClient(input: { workspaceRoot: string; executable: Resol
   return client;
 }
 
-async function fetchDiffParts(git: ReturnType<typeof simpleGit>, args: string[]) {
-  return Promise.all([git.diffSummary(args), git.diff(args)]);
+async function fetchDiffParts(git: ReturnType<typeof simpleGit>, args: string[]): Promise<[DiffResult, string]> {
+  // Wait for both processes before reporting a failure, so a rejected summary does not leave the patch process still running.
+  const [summary, patch] = await Promise.allSettled([git.diffSummary(args), git.diff(args)]);
+  if (summary.status === "rejected") throw summary.reason;
+  if (patch.status === "rejected") throw patch.reason;
+  return [summary.value, patch.value];
+}
+
+/**
+ * Cuts the patch by characters, then by lines, and names the files the reader does not get in full, so a cut diff is not
+ * taken for complete review evidence. Git prints files in the same order as the summary, one `diff --git` header each.
+ */
+export function shapeDiff(input: { base: string; staged: boolean; summary: DiffResult; patch: string; maxLines: number }): GitDiffResult {
+  const { base, staged, summary, patch, maxLines } = input;
+  const files = summary.files.map((entry) => entry.file);
+  const perFile = summary.files.flatMap((entry) => (
+    !entry.binary && "insertions" in entry && "deletions" in entry
+      ? [{ file: entry.file, insertions: entry.insertions, deletions: entry.deletions }]
+      : []
+  ));
+  const binaryFiles = summary.files.filter((entry) => entry.binary).map((entry) => entry.file);
+
+  let kept = patch;
+  let truncated = false;
+  if (kept.length > MAX_PATCH_CHARS) {
+    kept = kept.slice(0, MAX_PATCH_CHARS);
+    truncated = true;
+  }
+  let lines = kept.split("\n");
+  if (lines.length > maxLines) {
+    lines = lines.slice(0, maxLines);
+    truncated = true;
+  }
+  const started = lines.filter((line) => line.startsWith("diff --git ")).length;
+  // The file whose header was last shown may have been cut inside it; every file after it was not shown at all.
+  const incompleteFiles = truncated ? files.slice(Math.max(0, started - 1)) : [];
+  const note = incompleteFiles.length > 0
+    ? `...（已截断，以下 ${incompleteFiles.length} 个文件未完整显示：${incompleteFiles.slice(0, 20).join("、")}${incompleteFiles.length > 20 ? " 等" : ""}）`
+    : "...（已截断）";
+  return {
+    base,
+    staged,
+    files,
+    insertions: summary.insertions,
+    deletions: summary.deletions,
+    truncated,
+    patch: truncated ? `${lines.join("\n")}\n${note}` : patch,
+    perFile,
+    binaryFiles,
+    incompleteFiles,
+  };
+}
+
+type FailureRule = readonly [RegExp, string];
+
+const PUSH_FAILURES: readonly FailureRule[] = [
+  [/has no upstream branch|no upstream|does not match any/i, "推送失败：当前分支还没有对应的远端分支，可在终端运行 git push -u origin 分支名 建立关联"],
+  [/\[rejected\]|non-fast-forward|fetch first|failed to push some refs/i, "推送失败：远端有本地没有的提交，先拉取合并后再推送"],
+  [/authentication failed|could not read username|permission denied|access denied|403|401/i, "推送失败：远端拒绝了身份验证，请检查 Git 凭据或访问权限"],
+  [/could not resolve host|unable to access|failed to connect|connection (timed out|refused|reset)|network is unreachable|timed out|SSL|TLS/i, "推送失败：连不上远端，请检查网络或代理"],
+];
+
+const REVERT_FAILURES: readonly FailureRule[] = [
+  [/conflict/i, "回退时出现冲突：冲突文件已留在工作区，解决后提交，或在终端运行 git revert --abort 放弃"],
+  [/is a merge but no -m option/i, "这是一个合并提交，回退需要指定保留哪一侧（git revert -m），面板暂不支持"],
+];
+
+/** Gives a known Git failure a plain reason and keeps Git's own first line for diagnosis. */
+function explainFailure(error: unknown, rules: readonly FailureRule[]): Error {
+  const message = error instanceof Error ? error.message : String(error);
+  const reason = rules.find(([pattern]) => pattern.test(message))?.[1];
+  if (!reason) return error instanceof Error ? error : new Error(message);
+  const detail = message.split(/\r?\n/).map((line) => line.trim()).find(Boolean);
+  return new Error(detail ? `${reason}（${detail}）` : reason, { cause: error });
 }
 
 function parseNumstat(output: string): LineCounts {
