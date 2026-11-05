@@ -195,7 +195,7 @@ export function createMemoryEntriesPanel(
       entry.main.append(editor); input.focus();
     });
     button(entry.actions, t("settings.panel.memory.entries.forget"), "forget", () => { void submit({ kind: "forget", id: item.factId, expectedRevision: item.revision }); });
-    button(entry.actions, t("settings.panel.memory.entries.source"), "source", () => {
+    button(entry.actions, t("settings.panel.memory.entries.viewSource"), "source", () => {
       if (!api) return;
       entry.main.querySelector("[data-memory-provenance]")?.remove();
       const details = element("div", "memory-record__body", t("settings.panel.memory.entries.source.loading"));

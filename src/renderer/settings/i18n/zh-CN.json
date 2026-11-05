@@ -535,6 +535,7 @@
           "kindUser": "你说过",
           "kindInference": "流萤推断",
           "forget": "遗忘",
+          "viewSource": "来源",
           "filterPending": "待确认",
           "filterLabel": "按类型筛选",
           "filterFacts": "已记住",
