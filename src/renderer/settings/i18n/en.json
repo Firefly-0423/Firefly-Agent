@@ -294,6 +294,7 @@
           "recordedAt": "Recorded {{time}}",
           "edit": "Edit",
           "forget": "Forget",
+          "viewSource": "Source",
           "source": {
             "loading": "Loading source…",
             "failed": "Failed to load the source. Please retry.",
