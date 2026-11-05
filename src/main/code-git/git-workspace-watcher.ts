@@ -32,6 +32,8 @@ type NativeEventRecorder = (eventType: string, filename: string | Buffer | null,
 
 export type GitWorkspaceSubscription = {
   gitDir: string;
+  /** `git rev-parse --git-common-dir`: in a linked worktree the branches and packed-refs live here, outside gitDir. */
+  commonDir?: string;
   workspaceRoot: string;
   sessionId: string;
 };
@@ -46,6 +48,8 @@ type DiagnosticsSink = { phase(): string; record(evidence: NativeEventEvidence):
 
 export type GitWorkspaceWatcherDeps = {
   debounceMs?: number;
+  /** Changes that keep arriving faster than the debounce still produce a notification at least this often. */
+  maxWaitMs?: number;
   diagnostics?: DiagnosticsSink;
   onError: (error: unknown, workspaceRoot: string) => void;
   onWorkspaceChanged: (sessionIds: readonly string[]) => void;
@@ -56,6 +60,8 @@ interface OpenWorkspace {
   watcher: WorkspaceFsWatcher;
   sessionIds: Set<string>;
   timer?: ReturnType<typeof setTimeout>;
+  /** When the first change of the pending batch arrived. */
+  pendingSince?: number;
 }
 
 interface SessionBinding {
@@ -64,6 +70,7 @@ interface SessionBinding {
 }
 
 const DEFAULT_DEBOUNCE_MS = 300;
+const DEFAULT_MAX_WAIT_MS = 2000;
 const CHANGE_EVENTS = ["add", "change", "unlink", "addDir", "unlinkDir"] as const;
 const NOISY_PATH_SEGMENT = /(^|\/)(node_modules|dist|build|coverage|\.cache|\.next|\.turbo|release[\w-]*|\.worktrees|tmp)(\/|$)/;
 
@@ -71,6 +78,7 @@ export function createGitWorkspaceWatcher(deps: GitWorkspaceWatcherDeps): GitWor
   const openWorkspaces = new Map<string, OpenWorkspace>();
   const bindings = new Map<string, SessionBinding>();
   const debounceMs = deps.debounceMs ?? DEFAULT_DEBOUNCE_MS;
+  const maxWaitMs = Math.max(debounceMs, deps.maxWaitMs ?? DEFAULT_MAX_WAIT_MS);
   const makeWatcher = deps.createWatcher ?? createPlatformWatcher;
   const sink = resolveDiagnosticsSink(deps.diagnostics);
   let serial = 0;
@@ -112,9 +120,14 @@ export function createGitWorkspaceWatcher(deps: GitWorkspaceWatcherDeps): GitWor
         sink.record(scheduled);
       }
 
+      // A trailing debounce alone would wait forever under a steady stream of writes (a build, a long copy).
+      const now = Date.now();
       if (workspace.timer) clearTimeout(workspace.timer);
+      else workspace.pendingSince = now;
+      const untilMaxWait = (workspace.pendingSince ?? now) + maxWaitMs - now;
       workspace.timer = setTimeout(() => {
         workspace.timer = undefined;
+        workspace.pendingSince = undefined;
         if (sink) {
           fireCount += 1;
           const batch = pending;
@@ -122,12 +135,18 @@ export function createGitWorkspaceWatcher(deps: GitWorkspaceWatcherDeps): GitWor
           for (const event of batch) sink.record({ ...event, stage: "fire", fireId: fireCount, recordedAt: Date.now() });
         }
         deps.onWorkspaceChanged([...workspace.sessionIds]);
-      }, debounceMs);
+      }, Math.min(debounceMs, Math.max(0, untilMaxWait)));
     };
   }
 
   function openWorkspace(key: string, input: GitWorkspaceSubscription): OpenWorkspace {
-    const gitEntries = ["HEAD", "index", "refs"].map((name) => path.join(input.gitDir, name));
+    const commonDir = input.commonDir ?? input.gitDir;
+    const gitEntries = [
+      ...["HEAD", "index", "refs"].map((name) => path.join(input.gitDir, name)),
+      // Branches and `git pack-refs` output are shared by every worktree of the repository.
+      ...(sameDirectory(commonDir, input.gitDir) ? [] : [path.join(commonDir, "refs")]),
+      path.join(commonDir, "packed-refs"),
+    ];
     const options: ChokidarOptions = {
       ignored: createCodeGitIgnoredPredicate(input),
       awaitWriteFinish: { pollInterval: 50, stabilityThreshold: 250 },
@@ -141,7 +160,11 @@ export function createGitWorkspaceWatcher(deps: GitWorkspaceWatcherDeps): GitWor
 
     const schedule = createScheduler(key, input.workspaceRoot);
     for (const event of CHANGE_EVENTS) watcher.on(event, schedule);
-    watcher.on("error", (error) => deps.onError(error, input.workspaceRoot));
+    watcher.on("error", (error) => {
+      deps.onError(error, input.workspaceRoot);
+      // A change may have been lost with the error, so the panels read the repository again instead of trusting what they show.
+      if (openWorkspaces.get(key) === workspace) deps.onWorkspaceChanged([...workspace.sessionIds]);
+    });
     return workspace;
   }
 
@@ -174,22 +197,34 @@ export function createGitWorkspaceWatcher(deps: GitWorkspaceWatcherDeps): GitWor
   };
 }
 
-/** 生成 .git 与工作区的忽略谓词：保留 HEAD/index/refs，过滤对象库、日志、钩子、锁文件与常见产物目录。 */
-export function createCodeGitIgnoredPredicate({ workspaceRoot, gitDir }: { workspaceRoot: string; gitDir: string }): (candidate: string) => boolean {
+/**
+ * 生成 .git 与工作区的忽略谓词：保留 HEAD/index/refs 与公共目录的 refs、packed-refs，过滤对象库、日志、钩子、锁文件、
+ * 其他 worktree 的元数据与常见产物目录。
+ */
+export function createCodeGitIgnoredPredicate({ workspaceRoot, gitDir, commonDir }: { workspaceRoot: string; gitDir: string; commonDir?: string }): (candidate: string) => boolean {
   const root = normalizePath(workspaceRoot);
   const git = normalizePath(gitDir);
-  const kept = new Set([normalizePath(path.join(gitDir, "HEAD")), normalizePath(path.join(gitDir, "index"))]);
-  const keptRefsPrefix = `${normalizePath(path.join(gitDir, "refs"))}/`;
-  const noisyGitDirs = ["objects", "logs", "hooks"].map((name) => `${git}/${name}`);
+  const common = normalizePath(commonDir ?? gitDir);
+  const kept = new Set([
+    normalizePath(path.join(gitDir, "HEAD")),
+    normalizePath(path.join(gitDir, "index")),
+    `${common}/packed-refs`,
+  ]);
+  const keptRefsPrefixes = [`${git}/refs/`, `${common}/refs/`];
+  const metadataRoots = [...new Set([git, common])];
+  const noisyGitDirs = metadataRoots.flatMap((dir) => ["objects", "logs", "hooks"].map((name) => `${dir}/${name}`));
+  // The shared directory lists every linked worktree; only this worktree's own entries (kept above) matter.
+  const otherWorktrees = `${common}/worktrees/`;
 
   return (candidate) => {
     const value = normalizePath(candidate);
-    if (kept.has(value) || value.startsWith(keptRefsPrefix)) return false;
+    if (kept.has(value) || keptRefsPrefixes.some((prefix) => value.startsWith(prefix))) return false;
     // .git 目录本身的事件（Windows 下子项变化会冒泡到父目录）不携带有效信息；
     // objects/logs/hooks 及其内部变化、目录创建都属于噪音。
-    if (value === git) return true;
+    if (metadataRoots.includes(value)) return true;
     if (noisyGitDirs.some((dir) => value === dir || value.startsWith(`${dir}/`))) return true;
     if (value.endsWith(".lock")) return true;
+    if (value.startsWith(otherWorktrees) && value !== git && !value.startsWith(`${git}/`)) return true;
 
     const relative = value.startsWith(`${root}/`) ? value.slice(root.length + 1) : value;
     return NOISY_PATH_SEGMENT.test(relative);
@@ -243,8 +278,15 @@ export function createNativeRecursiveWatcher(paths: string[], options: ChokidarO
 
   const root = paths[0];
   attachRoot(root);
-  // worktree 场景下 gitDir 位于仓库根之外，根句柄覆盖不到元数据，需要额外挂一个句柄。
-  if (paths.slice(1).some((candidate) => !isUnder(candidate, root))) attachRoot(path.dirname(paths[1]));
+  // worktree 场景下 gitDir 与公共目录位于仓库根之外，根句柄覆盖不到元数据：为每个外部条目所在目录挂一个句柄，
+  // 已被其他句柄覆盖的目录不再重复挂。
+  const outside = [...new Set(paths.slice(1).filter((candidate) => !isUnder(candidate, root)).map((candidate) => path.dirname(candidate)))];
+  const handles = outside
+    .filter((dir) => !outside.some((other) => other !== dir && isUnder(dir, other)))
+    .filter((dir, index, all) => all.findIndex((other) => sameDirectory(other, dir)) === index);
+  for (const dir of handles) {
+    if (fs.existsSync(dir)) attachRoot(dir);
+  }
 
   const watcher: WorkspaceFsWatcher = {
     on(event, listener) {
@@ -305,6 +347,10 @@ function isUnder(candidate: string, root: string): boolean {
   const child = normalizePath(candidate);
   const parent = normalizePath(root);
   return child === parent || child.startsWith(`${parent}/`);
+}
+
+function sameDirectory(left: string, right: string): boolean {
+  return normalizePath(left) === normalizePath(right);
 }
 
 function workspaceKey(workspaceRoot: string): string {

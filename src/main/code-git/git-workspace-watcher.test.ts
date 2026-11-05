@@ -44,8 +44,45 @@ describe("workspace subscription lifetime", () => {
         const ignored = createCodeGitIgnoredPredicate(subscription("filter-session"));
         for (const relative of ["node_modules/pkg/entry.js", ".git/objects/ab/object", "release/win/app.asar", "release-check/win/app.asar", "release-check-fc/win/app.asar", ".worktrees/branch/src/entry.ts", "tmp/draft.txt"])
             expect(ignored(join(workspace, relative))).toEqual(true);
-        for (const relative of [".git/HEAD", ".git/index", ".git/refs/heads/trunk"])
+        for (const relative of [".git/HEAD", ".git/index", ".git/refs/heads/trunk", ".git/packed-refs"])
             expect(ignored(join(workspace, relative))).toEqual(false);
+    });
+    it("keeps the shared refs and packed-refs of a linked worktree and drops its shared object store", () => {
+        const common = resolve("watcher-contract-main", ".git"), linked = join(common, "worktrees", "topic");
+        const ignored = createCodeGitIgnoredPredicate({ workspaceRoot: workspace, gitDir: linked, commonDir: common });
+        for (const file of [join(linked, "HEAD"), join(linked, "index"), join(common, "refs", "heads", "trunk"), join(common, "packed-refs")])
+            expect(ignored(file)).toEqual(false);
+        for (const file of [common, join(common, "objects", "ab", "object"), join(common, "logs", "HEAD"), join(common, "packed-refs.lock")])
+            expect(ignored(file)).toEqual(true);
+    });
+    it("watches the shared refs and packed-refs next to the worktree's own metadata", async () => {
+        const fs = adapter(), createWatcher = vi.fn((_paths: string[]) => fs.transport);
+        const common = resolve("watcher-contract-main", ".git"), linked = join(common, "worktrees", "topic");
+        const watcher = createGitWorkspaceWatcher({ createWatcher, onWorkspaceChanged: vi.fn(), onError: vi.fn() });
+        await watcher.subscribe({ sessionId: "linked-session", workspaceRoot: workspace, gitDir: linked, commonDir: common });
+        expect(createWatcher.mock.calls[0][0]).toEqual([workspace, join(linked, "HEAD"), join(linked, "index"), join(linked, "refs"), join(common, "refs"), join(common, "packed-refs")]);
+        await watcher.dispose();
+    });
+    it("still notifies every 2 seconds while changes keep arriving faster than the debounce", async () => {
+        vi.useFakeTimers();
+        const fs = adapter(), changed = vi.fn();
+        const watcher = createGitWorkspaceWatcher({ createWatcher: () => fs.transport, onWorkspaceChanged: changed, onError: vi.fn() });
+        await watcher.subscribe(subscription("busy-session"));
+        for (let elapsed = 0; elapsed < 2000; elapsed += 200) {
+            fs.emit("change");
+            await vi.advanceTimersByTimeAsync(200);
+        }
+        expect(changed).toHaveBeenCalledTimes(1);
+        await watcher.dispose();
+    });
+    it("reports a watcher error and asks the sessions to read the repository again", async () => {
+        const fs = adapter(), changed = vi.fn(), errors = vi.fn();
+        const watcher = createGitWorkspaceWatcher({ createWatcher: () => fs.transport, onWorkspaceChanged: changed, onError: errors });
+        await watcher.subscribe(subscription("error-session"));
+        fs.emit("error");
+        expect(errors).toHaveBeenCalledExactlyOnceWith("changed-file.ts", workspace);
+        expect(changed).toHaveBeenCalledExactlyOnceWith(["error-session"]);
+        await watcher.dispose();
     });
 });
 function observation(delay = 80) {

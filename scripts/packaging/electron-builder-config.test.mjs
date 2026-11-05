@@ -82,7 +82,7 @@ test("the Firefly package identity is consistent and does not publish updates", 
   assert.equal(packageJson.name, "firefly-agent");
   assert.equal(packageLock.name, packageJson.name);
   assert.equal(packageLock.packages[""].name, packageJson.name);
-  assert.equal(packageJson.version, "1.1.1");
+  assert.equal(packageJson.version, "1.1.2");
   assert.equal(packageLock.version, packageJson.version);
   assert.equal(packageLock.packages[""].version, packageJson.version);
   assert.match(source, /^appId: com\.serendipitywu02\.firefly$/m);
@@ -98,7 +98,7 @@ test("the core package excludes retired music components and includes the QQ bri
   assert.doesNotMatch(source, /-\s+from: resources\/components/);
   assert.doesNotMatch(source, /-\s+from: resources\/bin\/mpv/);
   assert.match(source, /-\s+from: src\/main\/music\/scripts\/qqmusic_gsmtc\.ps1/);
-  assert.match(source, /artifactName:\s+Firefly_Agent-Setup-\$\{version\}\.\$\{ext\}/);
+  assert.match(source, /artifactName:\s+Firefly-Agent-Setup-\$\{version\}\.\$\{ext\}/);
 });
 
 test("the assisted installer exposes Firefly setup choices and an uninstall entry", () => {

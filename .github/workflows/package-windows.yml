@@ -60,7 +60,7 @@ jobs:
         with:
           name: firefly-windows-installer
           path: |
-            release/Firefly_Agent-Setup-*.exe
+            release/Firefly-Agent-Setup-*.exe
             release/latest.yml
           if-no-files-found: error
           # 安装器数百 MB，缩短留存时间避免占满产物配额

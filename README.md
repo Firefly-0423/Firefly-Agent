@@ -53,7 +53,7 @@
 
 ## 📥 下载与开始
 
-1. 到 [Releases](https://github.com/Firefly-0423/Firefly-Agent/releases/latest) 下载 `Firefly_Agent-Setup-<版本>.exe` 并运行，需要 Windows 10 / 11（x64）。发布页附有安装包的 SHA-256，可用 `Get-FileHash <文件> -Algorithm SHA256` 核对。
+1. 到 [Releases](https://github.com/Firefly-0423/Firefly-Agent/releases/latest) 下载 `Firefly-Agent-Setup-<版本>.exe` 并运行，需要 Windows 10 / 11（x64）。发布页附有安装包的 SHA-256，可用 `Get-FileHash <文件> -Algorithm SHA256` 核对。
 2. 第一次打开后，在设置里创建**模型档案**：填写服务支持的协议、地址、模型和你自己的凭据；OpenRouter 有现成预设。安装包不附带模型服务或账号。
 3. 选择 **Chat / Work / Code**。Work、Code 按任务绑定项目文件夹，也可以在侧栏「项目」旁的「+」里先创建项目。
 4. 按需开启工具、Skills、插件或 MCP。

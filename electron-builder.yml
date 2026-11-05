@@ -76,7 +76,7 @@ win:
   target:
     - nsis
 nsis:
-  artifactName: Firefly_Agent-Setup-${version}.${ext}
+  artifactName: Firefly-Agent-Setup-${version}.${ext}
   oneClick: false
   differentialPackage: false
   allowToChangeInstallationDirectory: true

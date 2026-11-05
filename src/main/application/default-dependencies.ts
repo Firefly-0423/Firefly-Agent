@@ -694,7 +694,8 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
         }
       },
     });
-    registerCodeGitIpc({ ipc, service: services.git });
+    const codeGitIpc = registerCodeGitIpc({ ipc, service: services.git, getChatContents: () => reactChatWindow?.webContents });
+    shutdown.register({ id: "code-git-ipc", phase: "quiesce", dispose: () => codeGitIpc.dispose() });
     // 会话工作区的只读文件（右侧文件树与预览）
     workspaceFiles = registerWorkspaceFilesIpc(ipc, { getChatContents: () => reactChatWindow?.webContents });
     // 工作区右上角“打开”菜单：探测本机应用并执行打开

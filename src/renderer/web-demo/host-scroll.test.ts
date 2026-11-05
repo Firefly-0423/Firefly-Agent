@@ -4,20 +4,31 @@ import { keepHostScroll } from "./host-scroll";
 /** A demo window whose focus() and scrollIntoView() drag the host page, as browsers do for same-origin frames. */
 function embedded(drag: { x: number; y: number }) {
   const host = { scrollX: 0, scrollY: 2800, scrollTo: vi.fn((to: ScrollToOptions) => { host.scrollX = to.left ?? 0; host.scrollY = to.top ?? 0; }) };
-  const focus = vi.fn((_options?: FocusOptions) => { host.scrollX = drag.x; host.scrollY = drag.y; });
+  const focus = vi.fn((options?: FocusOptions) => { if (!options?.preventScroll) { host.scrollX = drag.x; host.scrollY = drag.y; } });
   const scrollIntoView = vi.fn((_arg?: boolean | ScrollIntoViewOptions) => { host.scrollX = drag.x; host.scrollY = drag.y; });
   const win = { parent: host as unknown, HTMLElement: { prototype: { focus } }, Element: { prototype: { scrollIntoView } } };
   return { host, win, focus, scrollIntoView };
 }
 
 describe("keepHostScroll", () => {
-  it("lets focus run inside the demo and puts the host page back", () => {
-    const { host, win, focus } = embedded({ x: 0, y: 280 });
+  it("focuses without letting the browser scroll, then reveals the element inside the demo and puts the host page back", () => {
+    const { host, win, focus, scrollIntoView } = embedded({ x: 0, y: 280 });
     keepHostScroll(win as never);
     const element = {};
-    win.HTMLElement.prototype.focus.call(element as HTMLElement, { preventScroll: false });
-    expect(focus).toHaveBeenCalledWith({ preventScroll: false });
+    win.HTMLElement.prototype.focus.call(element as HTMLElement, { preventScroll: false, focusVisible: true } as FocusOptions);
+    // A host with smooth scrolling would keep moving after focus() returns, out of reach of a restore.
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true, focusVisible: true });
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", inline: "nearest", behavior: "instant" });
+    expect(scrollIntoView.mock.contexts[0]).toBe(element);
     expect(host.scrollY).toBe(2800);
+  });
+
+  it("keeps a caller's preventScroll focus as it is", () => {
+    const { win, focus, scrollIntoView } = embedded({ x: 0, y: 280 });
+    keepHostScroll(win as never);
+    win.HTMLElement.prototype.focus.call({} as HTMLElement, { preventScroll: true });
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+    expect(scrollIntoView).not.toHaveBeenCalled();
   });
 
   it("scrolls into view at once inside the demo, keeping the caller's alignment, and restores the host", () => {

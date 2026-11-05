@@ -3,6 +3,7 @@ import { Input, Modal } from "antd";
 import { useTranslation } from "../../../i18n";
 import { Button, IconButton } from "../../../components/ui/Button";
 import type { CodeGitChangedPayload, CodeGitStatus } from "../../../../../shared/code-git-types";
+import { MAX_UNTRACKED_LINE_STATS } from "../../../../../shared/code-git-types";
 import type { TodoState } from "../../../../../shared/todo-types";
 import { buildGitStatusCopy } from "./code-git-presentation";
 import { useFloatingCard } from "./floating-card";
@@ -124,7 +125,7 @@ export function CodeGitPanel({ sessionId, projectName, todoState, planPhase, onO
           </button>
           <div className="ff-code-git__change-row">
             <span>{t("codeGit.changes")}</span>
-            <span className="ff-code-git__added">+{status?.lines.insertions ?? 0}</span>
+            <span className="ff-code-git__added" title={status?.lines.partial ? t("codeGit.linesPartial", { count: MAX_UNTRACKED_LINE_STATS }) : undefined}>+{status?.lines.insertions ?? 0}{status?.lines.partial ? "+" : ""}</span>
             <span className="ff-code-git__deleted">-{status?.lines.deletions ?? 0}</span>
           </div>
           <button type="button" disabled={status?.state !== "ready" || (status.files.length === 0 && status.ahead === 0)} onClick={() => setDialog("commit")}>
