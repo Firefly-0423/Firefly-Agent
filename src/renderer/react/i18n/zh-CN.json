@@ -659,6 +659,7 @@
     "noBranch": "暂无分支",
     "branchSwitch": "分支切换",
     "changes": "变更",
+    "linesPartial": "未跟踪文件超过 {{count}} 个，其余文件的行数没有计入",
     "commitOrPush": "提交或推送",
     "commitChanges": "提交变更",
     "pushCommits": "推送 {{count}} 个提交",

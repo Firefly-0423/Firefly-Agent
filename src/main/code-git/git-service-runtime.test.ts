@@ -4,7 +4,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChatSession } from "../../shared/chat-types";
-import { createGitService } from "./git-service";
+import { createGitService, MAX_UNTRACKED_LINE_STATS } from "./git-service";
 
 const roots: string[] = [];
 afterEach(() => {
@@ -193,4 +193,60 @@ describe("committing selected files in a real repository", () => {
       expect(repo.git("rev-parse", "-q", "--verify", "MERGE_HEAD").trim()).not.toBe("");
     } finally { await repo.service.dispose(); }
   });
+
+  it("explains a push without an upstream and a conflicted revert", async () => {
+    const repo = repositoryWithHistory();
+    try {
+      const remote = path.join(repo.root, "..", `${path.basename(repo.root)}-remote.git`);
+      roots.push(remote);
+      git(repo.root, "init", "-q", "--bare", remote);
+      repo.git("remote", "add", "origin", remote);
+      repo.git("switch", "-q", "-c", "topic");
+      await expect(repo.service.push(repo.ctx)).rejects.toThrow("当前分支还没有对应的远端分支");
+
+      fs.writeFileSync(path.join(repo.root, "edited.txt"), "second\n");
+      repo.git("commit", "-q", "-am", "second");
+      const second = repo.git("rev-parse", "HEAD").trim();
+      fs.writeFileSync(path.join(repo.root, "edited.txt"), "third\n");
+      repo.git("commit", "-q", "-am", "third");
+      await expect(repo.service.revert(repo.ctx, second)).rejects.toThrow("回退时出现冲突");
+    } finally { await repo.service.dispose(); }
+  });
+});
+
+describe("reading a repository before and around its first commit", () => {
+  function emptyRepository() {
+    const context = fixture();
+    const service = createGitService({ getSession: () => context.session, resolveExecutable: async () => ({ command: "git", source: "system", version: "public-fixture" }) });
+    return { ...context, service, ctx: { sessionId: context.session.id, mode: "code" as const, workspaceRoot: context.root } };
+  }
+
+  it("compares staged files with the empty tree instead of reporting no change", async () => {
+    const repo = emptyRepository();
+    try {
+      fs.writeFileSync(path.join(repo.root, "first.txt"), "one\ntwo\n");
+      execFileSync("git", ["add", "first.txt"], { cwd: repo.root, windowsHide: true });
+      const diff = await repo.service.diff(repo.ctx, { staged: true });
+      expect(diff).toMatchObject({ base: "HEAD", files: ["first.txt"], insertions: 2 });
+      const status = await repo.service.getStatusForSession(repo.session.id);
+      expect(status).toMatchObject({ state: "ready", lines: { insertions: 2, deletions: 0 } });
+    } finally { await repo.service.dispose(); }
+  });
+
+  it("reports a ref that does not exist instead of an empty diff", async () => {
+    const repo = emptyRepository();
+    try {
+      await expect(repo.service.diff(repo.ctx, { ref: "no-such-branch" })).rejects.toThrow("找不到 ref：no-such-branch");
+    } finally { await repo.service.dispose(); }
+  });
+
+  it("stops counting untracked lines past the budget and says the total is partial", async () => {
+    const repo = emptyRepository();
+    try {
+      for (let index = 0; index <= MAX_UNTRACKED_LINE_STATS; index += 1) fs.writeFileSync(path.join(repo.root, `note-${index}.txt`), "line\n");
+      const status = await repo.service.getStatusForSession(repo.session.id);
+      expect(status.files).toHaveLength(MAX_UNTRACKED_LINE_STATS + 1);
+      expect(status.lines).toEqual({ insertions: MAX_UNTRACKED_LINE_STATS, deletions: 0, partial: true });
+    } finally { await repo.service.dispose(); }
+  }, 120_000);
 });

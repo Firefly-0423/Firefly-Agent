@@ -1,5 +1,6 @@
 import { describe, it, vi, expect } from "vitest";
-import { createGitService, type GitClient, type GitDiffQuery, type GitServiceDeps, type TrustedGitContext } from "./git-service";
+import type { DiffResult } from "simple-git";
+import { createGitService, MAX_PATCH_CHARS, shapeDiff, type GitClient, type GitDiffQuery, type GitServiceDeps, type TrustedGitContext } from "./git-service";
 import type { ChatSession } from "../../shared/chat-types";
 
 const directory = "D:\\projects\\lantern";
@@ -11,10 +12,10 @@ function repository(replacements: Partial<GitClient> = {}): GitClient {
   return {
     getLog: vi.fn().mockResolvedValue([]), getBranches: vi.fn().mockResolvedValue(["trunk"]),
     getStatus: vi.fn().mockResolvedValue({ current: "trunk", ahead: 0, behind: 0, files: [] }),
-    getLineStats: vi.fn().mockResolvedValue({ byPath: {}, insertions: 0, deletions: 0 }),
-    getDiff: vi.fn(async (query: GitDiffQuery) => ({ files: [], perFile: [], patch: "", truncated: false,
+    getLineStats: vi.fn().mockResolvedValue({ byPath: {}, insertions: 0, deletions: 0, partial: false }),
+    getDiff: vi.fn(async (query: GitDiffQuery) => ({ files: [], perFile: [], binaryFiles: [], incompleteFiles: [], patch: "", truncated: false,
       insertions: 3, deletions: 4, base: query.ref ?? "HEAD", staged: query.staged ?? false })),
-    getGitDir: vi.fn().mockResolvedValue(`${directory}\\.git`), isRepository: vi.fn().mockResolvedValue(true),
+    getGitDir: vi.fn().mockResolvedValue(`${directory}\\.git`), getCommonDir: vi.fn().mockResolvedValue(`${directory}\\.git`), isRepository: vi.fn().mockResolvedValue(true),
     commit: vi.fn(), commitAll: vi.fn(), getPendingOperation: vi.fn().mockResolvedValue(null), init: vi.fn(), checkout: vi.fn(), checkoutNewBranch: vi.fn(), push: vi.fn(), revert: vi.fn(),
     ...replacements,
   };
@@ -33,7 +34,7 @@ describe("Validated repository queries", () => {
     const git = repository();
     const output = await openWorkspace(git).diff(trusted);
     expect(git.getDiff).toHaveBeenCalledExactlyOnceWith({ paths: [], maxPatchLines: 400, staged: false, ref: "HEAD" });
-    expect(output).toEqual({ base: "HEAD", staged: false, files: [], perFile: [], patch: "", truncated: false, insertions: 3, deletions: 4 });
+    expect(output).toEqual({ base: "HEAD", staged: false, files: [], perFile: [], binaryFiles: [], incompleteFiles: [], patch: "", truncated: false, insertions: 3, deletions: 4 });
   });
 
   it("accepts hashes, branch names, tags and full ref names", async () => {
@@ -83,10 +84,10 @@ describe("Validated repository queries", () => {
 describe("Session Git presentation", () => {
   it("subscribes with the repository metadata location reported by Git", async () => {
     const subscribe = vi.fn();
-    await openWorkspace(repository({ getGitDir: async () => "D:\\metadata\\linked-tree" }), "code", {
+    await openWorkspace(repository({ getGitDir: async () => "D:\\metadata\\worktrees\\linked-tree", getCommonDir: async () => "D:\\metadata" }), "code", {
       subscribe, unsubscribe: vi.fn(), dispose: vi.fn(),
     }).watchSession(identity);
-    expect(subscribe.mock.calls).toEqual([[{ gitDir: "D:\\metadata\\linked-tree", workspaceRoot: directory, sessionId: identity }]]);
+    expect(subscribe.mock.calls).toEqual([[{ gitDir: "D:\\metadata\\worktrees\\linked-tree", commonDir: "D:\\metadata", workspaceRoot: directory, sessionId: identity }]]);
   });
 
   it.each(["chat", "work", "learn"])("hides repository details in %s mode", async (mode) => {
@@ -119,5 +120,137 @@ describe("Session Git presentation", () => {
       lines: { deletions: 23, insertions: 100 }, summary: { conflicted: 1, renamed: 1, deleted: 1, modified: 1, added: 1 },
       branch: { branches: ["trunk", "repair/toolbar"], detached: false, current: "trunk" } });
     expect(view.files.map(({ kind }) => kind)).toEqual(["added", "modified", "deleted", "renamed", "conflicted"]);
+  });
+});
+
+function deferred<T = void>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail; });
+  return { promise, resolve, reject };
+}
+
+describe("Writes to one repository", () => {
+  it("run one after another, and a failed write does not block the next", async () => {
+    const first = deferred<string>();
+    const order: string[] = [];
+    const git = repository({
+      commit: vi.fn(async () => { order.push("commit:start"); const created = await first.promise; order.push("commit:end"); return created; }),
+      checkout: vi.fn(async () => { order.push("checkout"); }),
+      push: vi.fn(async () => { order.push("push"); throw new Error("offline"); }),
+      revert: vi.fn(async () => { order.push("revert"); }),
+    });
+    const api = openWorkspace(git);
+    const committing = api.commit(trusted, "first", ["a.ts"]);
+    const switching = api.switchBranch(trusted, "topic", false);
+    const pushing = api.push(trusted);
+    const reverting = api.revert(trusted, "abcdef1");
+    await vi.waitFor(() => expect(order).toEqual(["commit:start"]));
+    await new Promise((done) => setTimeout(done, 20));
+    expect(git.checkout).not.toHaveBeenCalled();
+    first.resolve("已创建提交 abcdef1");
+    await committing;
+    await switching;
+    await expect(pushing).rejects.toThrow("offline");
+    await reverting;
+    expect(order).toEqual(["commit:start", "commit:end", "checkout", "push", "revert"]);
+  });
+});
+
+describe("Status reads", () => {
+  it("do not hand out a read that started before a workspace change event", async () => {
+    let changed!: (sessionIds: readonly string[]) => void;
+    const stale = deferred<Awaited<ReturnType<GitClient["getStatus"]>>>();
+    const getStatus = vi.fn()
+      .mockImplementationOnce(() => stale.promise)
+      .mockResolvedValue({ current: "checked-out-in-terminal", ahead: 0, behind: 0, files: [] });
+    const tab: ChatSession = { id: identity, title: "Inspect local changes", mode: "code", identityId: null, createdAt: 17, updatedAt: 29,
+      schemaVersion: 1, messages: [], workspaceBinding: { workspaceRoot: directory, displayName: "lantern", boundAt: 13 } };
+    const api = createGitService({ getSession: () => tab, createClient: () => repository({ getStatus }), resolveExecutable: async () => tool,
+      createWorkspaceWatcher: (onWorkspaceChanged) => { changed = onWorkspaceChanged; return { subscribe: vi.fn(), unsubscribe: vi.fn(), dispose: vi.fn() }; } });
+    const notified = vi.fn();
+    api.onChanged(notified);
+    const before = api.getStatusForSession(identity);
+    await vi.waitFor(() => expect(getStatus).toHaveBeenCalledTimes(1));
+    changed([identity]);
+    expect(notified).toHaveBeenCalledExactlyOnceWith({ sessionId: identity });
+    // A panel that refreshes because of the event gets a read started after it, not the one already in flight.
+    expect((await api.getStatusForSession(identity)).branch?.current).toBe("checked-out-in-terminal");
+    stale.resolve({ current: "trunk", ahead: 0, behind: 0, files: [] });
+    expect((await before).branch?.current).toBe("trunk");
+  });
+
+  it("share one read between concurrent requests for the same repository", async () => {
+    const snapshot = deferred<Awaited<ReturnType<GitClient["getStatus"]>>>();
+    const git = repository({ getStatus: vi.fn(() => snapshot.promise) });
+    const api = openWorkspace(git);
+    const reads = [api.getStatusForSession(identity), api.getStatusForSession(identity), api.getStatusForSession(identity)];
+    await vi.waitFor(() => expect(git.getStatus).toHaveBeenCalledTimes(1));
+    snapshot.resolve({ current: "trunk", ahead: 0, behind: 0, files: [] });
+    const results = await Promise.all(reads);
+    expect(results.map((result) => [result.state, result.sessionId])).toEqual(Array(3).fill(["ready", identity]));
+    expect(git.getStatus).toHaveBeenCalledTimes(1);
+    await api.getStatusForSession(identity);
+    expect(git.getStatus).toHaveBeenCalledTimes(2);
+  });
+
+  it("do not hand out a read that started before a write", async () => {
+    const stale = deferred<Awaited<ReturnType<GitClient["getStatus"]>>>();
+    const getStatus = vi.fn()
+      .mockImplementationOnce(() => stale.promise)
+      .mockResolvedValue({ current: "topic", ahead: 0, behind: 0, files: [] });
+    const api = openWorkspace(repository({ getStatus }));
+    const before = api.getStatusForSession(identity);
+    await vi.waitFor(() => expect(getStatus).toHaveBeenCalledTimes(1));
+    await api.switchBranch(trusted, "topic", false);
+    const after = await api.getStatusForSession(identity);
+    expect(after.branch?.current).toBe("topic");
+    stale.resolve({ current: "trunk", ahead: 0, behind: 0, files: [] });
+    expect((await before).branch?.current).toBe("trunk");
+  });
+
+  it("mark line totals as partial when untracked files were past the counting budget", async () => {
+    const git = repository({ getLineStats: vi.fn().mockResolvedValue({ byPath: {}, insertions: 7, deletions: 0, partial: true }) });
+    expect((await openWorkspace(git).getStatusForSession(identity)).lines).toEqual({ insertions: 7, deletions: 0, partial: true });
+  });
+
+  it("report a failed line count as an error instead of zero changes", async () => {
+    const git = repository({ getLineStats: vi.fn().mockRejectedValue(new Error("fatal: index file corrupt")) });
+    expect(await openWorkspace(git).getStatusForSession(identity)).toMatchObject({ state: "error", message: "fatal: index file corrupt" });
+  });
+});
+
+describe("Diff limits", () => {
+  it.each([0, 5001, 2.5])("reject a patch line limit of %s", async (maxPatchLines) => {
+    const git = repository();
+    await expect(openWorkspace(git).diff(trusted, { maxPatchLines })).rejects.toThrow("maxPatchLines 必须是 1 到 5000 的整数");
+    expect(git.getDiff).not.toHaveBeenCalled();
+  });
+
+  const summary = (files: DiffResult["files"]) => ({ changed: files.length, insertions: 30, deletions: 0, files } as DiffResult);
+  const text = (file: string) => ({ file, changes: 10, insertions: 10, deletions: 0, binary: false as const });
+
+  it("names the files a truncated patch does not show in full", () => {
+    const patch = ["a.ts", "b.ts", "c.ts"].map((file) => [`diff --git a/${file} b/${file}`, "@@ -0,0 +1,3 @@", "+1", "+2", "+3"].join("\n")).join("\n");
+    const result = shapeDiff({ base: "HEAD", staged: false, summary: summary([text("a.ts"), text("b.ts"), text("c.ts")]), patch, maxLines: 7 });
+    expect(result.truncated).toBe(true);
+    expect(result.incompleteFiles).toEqual(["b.ts", "c.ts"]);
+    expect(result.patch.split("\n")).toHaveLength(8);
+    expect(result.patch).toContain("以下 2 个文件未完整显示：b.ts、c.ts");
+  });
+
+  it("cuts an oversized single line by characters before counting lines", () => {
+    const patch = `diff --git a/min.js b/min.js\n+${"x".repeat(MAX_PATCH_CHARS * 2)}`;
+    const result = shapeDiff({ base: "HEAD", staged: false, summary: summary([text("min.js")]), patch, maxLines: 400 });
+    expect(result.truncated).toBe(true);
+    expect(result.patch.length).toBeLessThan(MAX_PATCH_CHARS + 200);
+    expect(result.incompleteFiles).toEqual(["min.js"]);
+  });
+
+  it("lists binary files without inventing line counts for them", () => {
+    const binary = { file: "logo.png", before: 10, after: 12, binary: true as const };
+    const result = shapeDiff({ base: "HEAD", staged: false, summary: summary([text("a.ts"), binary]), patch: "diff --git a/a.ts b/a.ts", maxLines: 400 });
+    expect(result).toMatchObject({ files: ["a.ts", "logo.png"], binaryFiles: ["logo.png"], truncated: false, incompleteFiles: [] });
+    expect(result.perFile.map((entry) => entry.file)).toEqual(["a.ts"]);
   });
 });
