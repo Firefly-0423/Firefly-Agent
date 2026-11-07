@@ -117,7 +117,7 @@ vi.mock("../chats/chats-store", () => ({ getSession: vi.fn(), getSessionKind: vi
 vi.mock("../orchestrator/tools/registry/tool-registry", () => ({ toolRegistry: { getAll: () => [], register: vi.fn() } }));
 import { createDefaultApplicationDependencies } from "./default-dependencies";
 import { IPC } from "../../shared/ipc-channels";
-import { isolatedStorageContext, createExternalFixture } from "../skills/testing/external-fixtures";
+import { isolatedStorageContext, createExternalFixture, rawFile } from "../skills/testing/external-fixtures";
 import { applyElectronPaths } from "../startup/runtime-profile";
 import * as skills from "../skills";
 import * as install from "../skills/external-install";
@@ -137,10 +137,9 @@ function fixture() {
   const files = [...payload].map(([path, bytes]) => ({ path, bytes: bytes.length, blobSha1: sha(bytes), sha256: createHash("sha256").update(bytes).digest("hex") }));
   m.reviews.push({ ...example.review, contentSha256: digestExternalFiles(files), licenses: [{ path: prefix + "/LICENSE", sha256: files.find(file => file.path.endsWith("/LICENSE"))!.sha256, spdx: "MIT", covers: files.map(file => file.path) }] });
   const meta = new Map([[EXTERNAL_SOURCES.openai.catalogPath, Buffer.from(JSON.stringify({ plugins: [{ name: "synthetic", source: { source: "local", path: "./plugins/synthetic" } }] }))], ["plugins/synthetic/.codex-plugin/plugin.json", Buffer.from(JSON.stringify({ name: "synthetic", skills: "./skills", license: "MIT" }))]]);
-  const blobs = new Map([...meta, ...payload].map(([, bytes]) => [sha(bytes), bytes]));
   const tree = [...meta, ...payload].map(([path, bytes]) => ({ path, type: "blob", mode: "100644", sha: sha(bytes), size: bytes.length }));
   const base = "https://api.github.com/repos/" + repository; let hook: typeof globalThis.fetch | undefined;
-  const route: typeof globalThis.fetch = async input => { const url = String(input); if (url === base) return Response.json({ default_branch: "main" }); if (url === base + "/commits/main") return Response.json({ sha: commit }); if (url === base + "/git/commits/" + commit) return Response.json({ sha: commit, tree: { sha: treeSha } }); if (url === base + "/git/trees/" + treeSha + "?recursive=1") return Response.json({ sha: treeSha, tree, truncated: false }); const bytes = blobs.get(url.slice((base + "/git/blobs/").length)); if (url.startsWith(base + "/git/blobs/") && bytes) return Response.json({ sha: sha(bytes), size: bytes.length, encoding: "base64", content: bytes.toString("base64") }); return Response.json({}, { status: 404 }); };
+  const route: typeof globalThis.fetch = async input => { const url = String(input); if (url === base) return Response.json({ default_branch: "main" }); if (url === base + "/commits/main") return Response.json({ sha: commit }); if (url === base + "/git/commits/" + commit) return Response.json({ sha: commit, tree: { sha: treeSha } }); if (url === base + "/git/trees/" + treeSha + "?recursive=1") return Response.json({ sha: treeSha, tree, truncated: false }); const raw = rawFile(url, repository, commit, new Map([...meta, ...payload])); if (raw) return raw; return Response.json({}, { status: 404 }); };
   vi.stubGlobal("fetch", vi.fn((input, init) => (hook ?? route)(input, init)));
   return { ...f, id: externalSkillId("openai", repository, prefix), payload, route, setHook: (next: typeof globalThis.fetch) => { hook = next; } };
 }

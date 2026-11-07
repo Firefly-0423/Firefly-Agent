@@ -20,7 +20,7 @@ function fixture(sourceId: ExternalSkillSourceId, catalog: unknown, input: Recor
   const tree: ExternalTree = { commit, entries: [...payload].map(([path, bytes]) => ({ path, mode: "100644", type: "blob", sha: gitSha(bytes), size: bytes.length })) };
   const reads: string[] = [];
   const fetcher: ExternalFetcher = { resolveCommit: async () => commit, readTree: async () => tree,
-    readBlob: async (_source, sha) => { reads.push(sha); const bytes = blobs.get(sha); if (!bytes) throw Error("Unknown synthetic blob"); return Buffer.from(bytes); } };
+    readBlob: async (_source, _commit, { sha }) => { reads.push(sha); const bytes = blobs.get(sha); if (!bytes) throw Error("Unknown synthetic blob"); return Buffer.from(bytes); } };
   const declarations = new Map<string, string>();
   async function discover() { return discoverExternalSkills(sourceId, fetcher, new AbortController().signal, declarations); }
   async function selected(path: string) {

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { EXTERNAL_LIMITS, EXTERNAL_SOURCES, externalSkillId } from "./external-policy";
 import type { ExternalSkillSourceId } from "../../shared/external-skills";
 import type { ExternalFetcher } from "./external-fetch";
+import { isRawFileUrl, rawFile } from "./testing/external-fixtures";
 const sourceModules = import.meta.glob<typeof import("./external-sources")>("./external-sources.ts");
 const fetchModules = import.meta.glob<typeof import("./external-fetch")>("./external-fetch.ts");
 async function implementation() {
@@ -17,7 +18,6 @@ const instruction = "---\nname: text\ndescription: Synthetic instruction\n---\nS
 function fixture(sourceId: ExternalSkillSourceId, catalog: unknown, otherFiles: Record<string, unknown> = {}) {
   const files = { [EXTERNAL_SOURCES[sourceId].catalogPath]: catalog, ...otherFiles };
   const bytes = Object.fromEntries(Object.entries(files).map(([path, value]) => [path, Buffer.from(typeof value === "string" ? value : JSON.stringify(value))]));
-  const blobs = new Map(Object.values(bytes).map(value => [blobSha(value), value]));
   const entries = Object.entries(bytes).map(([path, value]) => ({ path, mode: "100644", type: "blob", sha: blobSha(value), size: value.length }));
   const calls: string[] = [], base = `https://api.github.com/repos/${EXTERNAL_SOURCES[sourceId].repository}`;
   const fetch: typeof globalThis.fetch = async input => {
@@ -26,8 +26,7 @@ function fixture(sourceId: ExternalSkillSourceId, catalog: unknown, otherFiles: 
     if (url === base + "/commits/main") return Response.json({ sha: commit });
     if (url === base + "/git/commits/" + commit) return Response.json({ sha: commit, tree: { sha: treeSha } });
     if (url === base + "/git/trees/" + treeSha + "?recursive=1") return Response.json({ sha: treeSha, truncated: false, tree: entries });
-    const value = blobs.get(url.slice((base + "/git/blobs/").length));
-    if (url.startsWith(base + "/git/blobs/") && value) return Response.json({ sha: blobSha(value), size: value.length, encoding: "base64", content: value.toString("base64") });
+    const raw = rawFile(url, EXTERNAL_SOURCES[sourceId].repository, commit, new Map(Object.entries(bytes))); if (raw) return raw;
     throw new Error("Unexpected mock route");
   };
   return { fetch, calls, tree: { commit, entries } as import("./external-fetch").ExternalTree };
@@ -68,7 +67,7 @@ describe("real_source_adapters", () => {
     const result = await discoverExternalSkills("openai", createExternalFetcher(mock.fetch), new AbortController().signal);
     expect(result).toHaveLength(2);
     for (const skill of result) { expect(skill.review).toBe("blocked"); expect(skill.blockers).toEqual(["DEPENDENCY_BLOCKED"]); expect(skill.description).toMatch(/informational.only.*no.import/i); expect(skill.path).toMatch(/^catalog-entry\//); }
-    const callsToOtherRepositories = mock.calls.filter(url => !url.startsWith("https://api.github.com/repos/openai/plugins/" ) && url !== "https://api.github.com/repos/openai/plugins");
+    const callsToOtherRepositories = mock.calls.filter(url => !url.startsWith("https://api.github.com/repos/openai/plugins/" ) && url !== "https://api.github.com/repos/openai/plugins" && !url.startsWith("https://raw.githubusercontent.com/openai/plugins/"));
     expect(callsToOtherRepositories).toEqual([]);
   });
   it.each(["bad-source", "toString"])("rejects unknown source %s explicitly", async sourceId => {
@@ -146,7 +145,7 @@ describe("source_metadata_and_fanout_guards", () => {
     const files = Object.fromEntries(plugins.slice(0, 7).flatMap(({ name }) => [[`plugins/${name}/.codex-plugin/plugin.json`, { name, skills: "./skills/" }], [`plugins/${name}/skills/text/SKILL.md`, instruction]]));
     const mock = fixture("openai", openai(plugins), files); let active = 0, maximum = 0;
     const fetch: typeof globalThis.fetch = async (input, init) => {
-      if (!String(input).includes("/git/blobs/")) return mock.fetch(input, init);
+      if (!isRawFileUrl(String(input))) return mock.fetch(input, init);
       active++; maximum = Math.max(maximum, active);
       try { await new Promise(resolve => setTimeout(resolve, 1)); return await mock.fetch(input, init); }
       finally { active--; }
@@ -159,7 +158,7 @@ describe("source_metadata_and_fanout_guards", () => {
     const catalog = Buffer.from(JSON.stringify(openai(Array.from({ length: 8 }, (_, i) => ({ name: "bundle-" + i, source: { source: "local", path: "./plugins/bundle-" + i } })))));
     const entries = [{ path: EXTERNAL_SOURCES.openai.catalogPath, sha: "c".repeat(40), mode: "100644", type: "blob" as const, size: catalog.length }, ...Array.from({ length: 8 }, (_, i) => [{ path: "plugins/bundle-" + i + "/skills/text/SKILL.md", sha: "d".repeat(40), mode: "100644", type: "blob" as const, size: 1 }, { path: "plugins/bundle-" + i + "/.codex-plugin/plugin.json", sha: String(i).repeat(40), mode: "100644", type: "blob" as const, size: 1 }]).flat()];
     let calls = 0;
-    const fetcher: ExternalFetcher = { resolveCommit: async () => commit, readTree: async () => ({ commit, entries }), readBlob: async (_id, hash) => { if (hash === "c".repeat(40)) return catalog; calls++; throw new Error("Synthetic manifest failure"); } };
+    const fetcher: ExternalFetcher = { resolveCommit: async () => commit, readTree: async () => ({ commit, entries }), readBlob: async (_id, _commit, entry) => { if (entry.sha === "c".repeat(40)) return catalog; calls++; throw new Error("Synthetic manifest failure"); } };
     const declarations = new Map<string, string>(), selected = (await discoverExternalSkills("openai", fetcher, new AbortController().signal, declarations)).find(skill => skill.path.includes("/bundle-0/"))!;
     expect(calls).toBe(0);
     await expect(verifyExternalSkillDeclaration(selected, declarations.get(selected.id)!, { commit, entries }, fetcher, new AbortController().signal)).rejects.toMatchObject({ code: "NETWORK_FAILED", message: "External request failed." });

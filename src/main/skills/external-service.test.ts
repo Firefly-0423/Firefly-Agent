@@ -8,7 +8,7 @@ import { externalSkillId, EXTERNAL_LIMITS, EXTERNAL_SOURCES, EXTERNAL_REVIEW_POL
 import { digestExternalFiles } from "./external-review";
 import { ExternalSkillStateStore, ExternalStorageError } from "./external-state";
 import * as install from "./external-install";
-import { isolatedStorageContext, createExternalFixture } from "./testing/external-fixtures";
+import { isolatedStorageContext, createExternalFixture, isRawFileUrl, rawFile, rawFileUrl } from "./testing/external-fixtures";
 
 const modules = import.meta.glob<typeof import("./external-service")>("./external-service.ts");
 const owner: ExternalOwner = { webContentsId: 1, frameProcessId: 2, frameRoutingId: 3, generation: 0 };
@@ -41,8 +41,7 @@ function fixture(sourceId: ExternalSkillSourceId = "openai", extra: Record<strin
     if (url === base + "/commits/main") return Response.json({ sha: commit });
     if (url === base + "/git/commits/" + commit) return Response.json({ sha: commit, tree: { sha: treeSha } });
     if (url === base + "/git/trees/" + treeSha + "?recursive=1") return Response.json({ sha: treeSha, truncated: false, tree });
-    const bytes = blobs.get(url.slice((base + "/git/blobs/").length));
-    if (url.startsWith(base + "/git/blobs/") && bytes) return Response.json({ sha: gitHash(bytes), size: bytes.length, encoding: "base64", content: bytes.toString("base64") });
+    const raw = rawFile(url, source.repository, commit, filePath => { const entry = tree.find(item => item.path === filePath); return entry && blobs.get(entry.sha); }); if (raw) return raw;
     return Response.json({}, { status: 404 }); // Never falls through to live HTTP.
   };
   let hook: typeof globalThis.fetch | undefined, now = 1000, primary = true;
@@ -171,19 +170,19 @@ it.each([0, 1])("F1: successful rescan count %i finalizes the real commit while 
 it("source_invalid is rejected before any request", async () => { const f = await service(); expect(await f.s.list(owner, "unknown" as ExternalSkillSourceId)).toMatchObject({ ok: false, code: "SOURCE_INVALID" }); expect(f.calls).toEqual([]); });
 it("candidate_unknown is rejected without accepting renderer paths", async () => { const f = await service(); expect(await f.s.prepare(owner, "openai", "../outside")).toMatchObject({ ok: false, code: "CATALOG_INVALID" }); expect(stageDirectories(f)).toEqual([]); });
 it("review_required never stages or issues a credential with an empty trusted registry", async () => { const raw = fixture(); raw.deps.reviews = []; const f = await service(raw); expect(await f.s.prepare(owner, "openai", f.id)).toMatchObject({ ok: false, code: "REVIEW_REQUIRED" }); expect(stageDirectories(f)).toEqual([]); });
-it("whole_inventory downloads and blocks an unsupported script rather than dropping it", async () => { const f = await service(fixture("openai", { "scripts/run.py": "Synthetic text; never execute.\n" })); expect(value(await f.s.detail(owner, "openai", f.id)).review).toBe("unreviewed"); expect(await f.s.prepare(owner, "openai", f.id)).toMatchObject({ code: "DEPENDENCY_BLOCKED" }); const detail = value(await f.s.detail(owner, "openai", f.id)); expect(detail.files).toEqual([]); expect(detail.preview?.files).toBe(4); expect(value(await f.s.list(owner, "openai"))[0].files).toHaveLength(4); expect(detail.blockers).toContain("DEPENDENCY_BLOCKED"); expect(f.calls.some(url => url.endsWith(gitHash(f.payload.get(f.root + "/scripts/run.py")!)))).toBe(true); expect(stageDirectories(f)).toEqual([]); });
+it("whole_inventory downloads and blocks an unsupported script rather than dropping it", async () => { const f = await service(fixture("openai", { "scripts/run.py": "Synthetic text; never execute.\n" })); expect(value(await f.s.detail(owner, "openai", f.id)).review).toBe("unreviewed"); expect(await f.s.prepare(owner, "openai", f.id)).toMatchObject({ code: "DEPENDENCY_BLOCKED" }); const detail = value(await f.s.detail(owner, "openai", f.id)); expect(detail.files).toEqual([]); expect(detail.preview?.files).toBe(4); expect(value(await f.s.list(owner, "openai"))[0].files).toHaveLength(4); expect(detail.blockers).toContain("DEPENDENCY_BLOCKED"); expect(f.calls.some(url => url.endsWith("/" + f.root + "/scripts/run.py"))).toBe(true); expect(stageDirectories(f)).toEqual([]); });
 it("ancestor_license is blocked instead of importing evidence outside the Skill prefix", async () => { const raw = fixture(); raw.review.licenses[0].path = "plugins/synthetic/LICENSE"; const f = await service(raw); expect(await f.s.prepare(owner, "openai", f.id)).toMatchObject({ ok: false, code: "LICENSE_BLOCKED" }); expect(stageDirectories(f)).toEqual([]); });
 it("actual_skill_version is read from data-only frontmatter rather than the bundle", async () => { const f = await service(fixture("openai", { "SKILL.md": "---\nname: actual-name\ndescription: Actual description.\nversion: skill-2\n---\nSummarize supplied text.\n" })); const detail = value(await f.s.detail(owner, "openai", f.id)); expect(detail).toMatchObject({ upstreamName: "actual-name", description: "Actual description.", version: "skill-2" }); });
 it.each(["webContentsId", "frameProcessId", "frameRoutingId", "generation"] as const)("confirmation_binding rejects different %s without consuming the valid owner's credential", async key => { const f = await service(); const ready = value(await f.s.prepare(owner, "openai", f.id)); expect(await f.s.commit({ ...owner, [key]: owner[key] + 1 }, ready.token)).toMatchObject({ ok: false, code: "TOKEN_INVALID" }); value(await f.s.commit(owner, ready.token)); });
 it.each([599999, 600000, 600001])("confirmation_expiry at +%ims uses the fixed completion deadline", async elapsed => { const f = await service(); const ready = value(await f.s.prepare(owner, "openai", f.id)); f.setNow(1000 + elapsed); value(await f.s.detail(owner, "openai", f.id)); const result = await f.s.commit(owner, ready.token); if (elapsed < 600000) value(result); else { expect(result).toMatchObject({ ok: false, code: "TOKEN_EXPIRED" }); expect(stageDirectories(f)).toEqual([]); } });
 it("global_transaction repeated prepare and another owner are BUSY and never renew expiry", async () => { const f = await service(); const ready = value(await f.s.prepare(owner, "openai", f.id)); f.setNow(500000); expect(await f.s.prepare(owner, "openai", f.id)).toMatchObject({ code: "BUSY" }); expect(await f.s.prepare({ ...owner, webContentsId: 9 }, "openai", f.id)).toMatchObject({ code: "BUSY" }); f.setNow(ready.expiresAt); expect(await f.s.commit(owner, ready.token)).toMatchObject({ code: "TOKEN_EXPIRED" }); });
 it("repeat_commit consumes the credential before publication and permits one rescan", async () => { const f = await service(); const ready = value(await f.s.prepare(owner, "openai", f.id)); let scans = 0; f.deps.rescan = () => ++scans; const [a, b] = await Promise.all([f.s.commit(owner, ready.token), f.s.commit(owner, ready.token)]); value(a); expect(b).toMatchObject({ code: "TOKEN_INVALID" }); expect(scans).toBe(1); });
-it("explicit_refresh invalidates approval even at the same pinned commit while safely reusing immutable blobs", async () => { const f = await service(); const ready = value(await f.s.prepare(owner, "openai", f.id)); const blobCalls = f.calls.filter(url => url.includes("/git/blobs/")).length; value(await f.s.list(owner, "openai", true)); expect(await f.s.commit(owner, ready.token)).toMatchObject({ code: "STALE_SNAPSHOT" }); expect(stageDirectories(f)).toEqual([]); expect(f.calls.filter(url => url.includes("/git/blobs/")).length).toBe(blobCalls); });
+it("explicit_refresh invalidates approval even at the same pinned commit while safely reusing immutable blobs", async () => { const f = await service(); const ready = value(await f.s.prepare(owner, "openai", f.id)); const blobCalls = f.calls.filter(isRawFileUrl).length; value(await f.s.list(owner, "openai", true)); expect(await f.s.commit(owner, ready.token)).toMatchObject({ code: "STALE_SNAPSHOT" }); expect(stageDirectories(f)).toEqual([]); expect(f.calls.filter(isRawFileUrl).length).toBe(blobCalls); });
 it("old_list cannot publish a new authority after refresh", async () => { const f = await service(); let release!: (response: Response) => void, held = false;
   f.setHook(async (input, init) => { if (!held && String(input) === "https://api.github.com/repos/openai/plugins") { held = true; return new Promise<Response>(resolve => { release = resolve; }); } return f.route(input, init); });
   const old = f.s.list(owner, "openai"); await until(() => held); const fresh = value(await f.s.list(owner, "openai", true)); release(Response.json({ default_branch: "obsolete" })); expect(await old).toMatchObject({ code: "STALE_SNAPSHOT" }); expect(value(await f.s.list(owner, "openai"))).toEqual(fresh);
 });
-it("cancel_before_token aborts all preparation downloads and leaves formal/sentinel data untouched", async () => { const f = await service(); let waiting = false; const bodySha = gitHash(f.payload.get(f.root + "/SKILL.md")!);
+it("cancel_before_token aborts all preparation downloads and leaves formal/sentinel data untouched", async () => { const f = await service(); let waiting = false; const bodySha = "/" + f.root + "/SKILL.md";
   f.setHook(async (input, init) => { if (String(input).endsWith(bodySha)) { waiting = true; return new Promise<Response>((_resolve, reject) => init!.signal!.addEventListener("abort", () => reject(Error("private upstream details")), { once: true })); } return f.route(input, init); });
   const pending = f.s.prepare(owner, "openai", f.id); await until(() => waiting); expect(value(await f.s.cancel(owner))).toEqual({ status: "cancelled" }); expect(await pending).toMatchObject({ code: "CANCELLED" }); expect(stageDirectories(f)).toEqual([]); expect(fs.existsSync(path.join(f.storage.dataRoot, "skills", f.id))).toBe(false); expect(fs.readdirSync(f.productionSentinelRoot)).toEqual([]);
 });
@@ -279,7 +278,7 @@ it("url_catalog_candidate remains informational-only without preparing its synth
   raw.blobs.set(gitHash(bytes), bytes); Object.assign(raw.tree.find(entry => entry.path === catalogPath)!, { sha: gitHash(bytes), size: bytes.length });
   const f = await service(raw); const listing = value(await f.s.list(owner, "openai")); const before = f.calls.length;
   expect(listing[0].review).toBe("blocked"); expect(await f.s.prepare(owner, "openai", listing[0].id)).toMatchObject({ code: "DEPENDENCY_BLOCKED" });
-  expect(f.calls).toHaveLength(before); expect(f.calls.every(url => url.startsWith("https://api.github.com/repos/openai/plugins"))).toBe(true); expect(stageDirectories(f)).toEqual([]);
+  expect(f.calls).toHaveLength(before); expect(f.calls.every(url => url.startsWith("https://api.github.com/repos/openai/plugins") || url.startsWith("https://raw.githubusercontent.com/openai/plugins/"))).toBe(true); expect(stageDirectories(f)).toEqual([]);
 });
 it("expired_preparation can be replaced without extending or reviving the old credential", async () => { const f = await service(); const first = value(await f.s.prepare(owner, "openai", f.id)); f.setNow(first.expiresAt); const second = value(await f.s.prepare(owner, "openai", f.id)); expect(second.expiresAt).toBe(first.expiresAt + 600000); expect(second.token).not.toBe(first.token); expect(await f.s.commit(owner, first.token)).toMatchObject({ code: "TOKEN_EXPIRED" }); value(await f.s.commit(owner, second.token)); });
 it("invalid_completion_clock cannot produce a non-expiring approval", async () => { const f = await service(); f.setNow(NaN); expect(await f.s.prepare(owner, "openai", f.id)).toMatchObject({ ok: false, code: "STATE_INVALID" }); expect(stageDirectories(f)).toEqual([]); });
@@ -373,8 +372,8 @@ it("readonly declaration is verified for preparation but never broadens the pers
 it("queued requests across sources remain blocked when a content request exhausts the shared budget", async () => {
   const f = await service(fixture("openai", Object.fromEntries(Array.from({ length: 8 }, (_, i) => ["references/part-" + i + ".txt", "Synthetic reference."]))));
   value(await f.s.list(owner, "openai"));
-  const bodyHashes = new Set(f.files.map(file => file.blobSha1)), gates: Array<{ url: string; resolve: (response: Response) => void }> = [];
-  f.setHook(async input => { const url = String(input); if (!bodyHashes.has(url.split("/").at(-1)!)) return f.route(input); return new Promise<Response>(resolve => gates.push({ url, resolve })); });
+  const bodyPaths = f.files.map(file => "/" + file.path), gates: Array<{ url: string; resolve: (response: Response) => void }> = [];
+  f.setHook(async input => { const url = String(input); if (!bodyPaths.some(item => url.endsWith(item))) return f.route(input); return new Promise<Response>(resolve => gates.push({ url, resolve })); });
   const detail = f.s.prepare(owner, "openai", f.id); await until(() => gates.length === 4);
   const queued = f.s.list({ ...owner, webContentsId: 55 }, "anthropic"); await new Promise(resolve => setImmediate(resolve));
   const before = f.calls.length; gates[0].resolve(new Response(null, { status: 429, headers: { "retry-after": "120" } }));
@@ -383,11 +382,11 @@ it("queued requests across sources remain blocked when a content request exhaust
 });
 it("selected declaration and detail share one pending manifest read", async () => {
   const f = await service(); value(await f.s.list(owner, "openai"));
-  const manifestSha = f.tree.find(entry => entry.path.endsWith("/.codex-plugin/plugin.json"))!.sha;
+  const manifestPath = f.tree.find(entry => entry.path.endsWith("/.codex-plugin/plugin.json"))!.path;
   let resolve!: (response: Response) => void, reads = 0;
-  f.setHook(async input => { if (String(input).endsWith("/git/blobs/" + manifestSha)) { reads++; return new Promise<Response>(done => { resolve = done; }); } return f.route(input); });
+  f.setHook(async input => { if (String(input) === rawFileUrl("openai/plugins", f.commit, manifestPath)) { reads++; return new Promise<Response>(done => { resolve = done; }); } return f.route(input); });
   const first = f.s.detail(owner, "openai", f.id), second = f.s.detail({ ...owner, webContentsId: 99 }, "openai", f.id);
-  await until(() => reads === 1); resolve(await f.route("https://api.github.com/repos/openai/plugins/git/blobs/" + manifestSha));
+  await until(() => reads === 1); resolve(await f.route(rawFileUrl("openai/plugins", f.commit, manifestPath)));
   expect(value(await first).declaration).toBe("verified"); expect(value(await second).declaration).toBe("verified"); expect(reads).toBe(1);
 });
 
@@ -419,7 +418,7 @@ it("lightweight_preview never treats a known static review as a completed payloa
 it("operation_rate_diagnostics count only actual detail HTTP attempts and no requests during global cooldown", async () => {
   const raw = fixture(), diagnostics: unknown[] = []; raw.deps.diagnose = item => diagnostics.push(item);
   const f = await service(raw); value(await f.s.list(owner, "openai"));
-  const body = gitHash(f.payload.get(f.root + "/SKILL.md")!);
+  const body = "/" + f.root + "/SKILL.md";
   f.setHook(async (input, init) => String(input).endsWith(body) ? new Response(null, { status: 403, headers: { date: "Thu, 01 Jan 1970 00:10:00 GMT", "x-ratelimit-remaining": "0", "x-ratelimit-reset": "720" } }) : f.route(input, init));
   expect(await f.s.detail(owner, "openai", f.id)).toMatchObject({ code: "RATE_LIMITED", retryAt: 121000 });
   expect(diagnostics).toContainEqual(expect.objectContaining({ operation: "detail", requestCount: 2, stage: "blob", status: 403, remaining: 0, reset: 720000, serverTime: 600000, retryAt: 121000, deadlineSource: "reset" }));
@@ -442,7 +441,7 @@ it("local_cooldown diagnoses existing snapshot detail and prepare with no physic
   const raw = fixture(), diagnostics: Array<Record<string, unknown>> = [];
   raw.deps.diagnose = item => diagnostics.push({ ...item });
   const f = await service(raw); value(await f.s.list(owner, "openai"));
-  const body = gitHash(f.payload.get(f.root + "/SKILL.md")!);
+  const body = "/" + f.root + "/SKILL.md";
   f.setHook(async (input, init) => String(input).endsWith(body) ? new Response(null, { status: 403, headers: { date: "Thu, 01 Jan 1970 00:10:00 GMT", "x-ratelimit-remaining": "0", "x-ratelimit-reset": "720" } }) : f.route(input, init));
   expect(await f.s.detail(owner, "openai", f.id)).toMatchObject({ code: "RATE_LIMITED", retryAt: 121000 });
   diagnostics.length = 0; const before = f.calls.length;

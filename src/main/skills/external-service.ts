@@ -180,11 +180,11 @@ export function createExternalSkillService(deps: ExternalServiceDeps) {
       const tree = await limited(signal, { sourceId, stage: "tree" }, () => remote.readTree(sourceId, commit, signal));
       if (signal.aborted) deny("CANCELLED"); trees.set(sourceId, freeze(tree)); return tree;
     },
-    async readBlob(sourceId, sha, limit, signal, stage) {
+    async readBlob(sourceId, commit, entry, limit, signal, stage) {
       if (signal.aborted) deny("CANCELLED");
-      const key = sourceId + "/" + sha, cached = blobs.get(key);
+      const key = sourceId + "/" + entry.sha, cached = blobs.get(key);
       if (cached) { if (cached.length > limit) deny("LIMIT_EXCEEDED"); blobs.delete(key); blobs.set(key, cached); return Buffer.from(cached); }
-      const bytes = await limited(signal, { sourceId, stage: stage ?? "blob" }, () => remote.readBlob(sourceId, sha, limit, signal, stage));
+      const bytes = await limited(signal, { sourceId, stage: stage ?? "blob" }, () => remote.readBlob(sourceId, commit, entry, limit, signal, stage));
       if (signal.aborted) deny("CANCELLED");
       const previous = blobs.get(key); if (previous) { blobs.delete(key); blobBytes -= previous.length; }
       blobs.set(key, Buffer.from(bytes)); blobBytes += bytes.length;
@@ -233,7 +233,7 @@ export function createExternalSkillService(deps: ExternalServiceDeps) {
       const capturing: ExternalFetcher = {
         resolveCommit: (id, signal) => fetcher.resolveCommit(id, counted(signal)),
         async readTree(id, commit, signal) { const tree = await fetcher.readTree(id, commit, counted(signal)); owned.tree = tree; return tree; },
-        readBlob: (id, sha, limit, signal, stage) => fetcher.readBlob(id, sha, limit, counted(signal), stage),
+        readBlob: (id, commit, entry, limit, signal, stage) => fetcher.readBlob(id, commit, entry, limit, counted(signal), stage),
       };
       owned.ready = (async () => {
         try {
@@ -325,7 +325,7 @@ export function createExternalSkillService(deps: ExternalServiceDeps) {
       const inventory = inventoryFor(current, selected), entry = inventory.find(file => file.path === selected.path + "/SKILL.md");
       if (!entry) deny("TREE_INVALID");
       const complete = current.content?.skill.id === id ? current.content : undefined;
-      const bytes = complete?.payload.get(entry.path) ?? await fetcher.readBlob(selected.sourceId, entry.sha, EXTERNAL_LIMITS.fileBytes, op.controller.signal);
+      const bytes = complete?.payload.get(entry.path) ?? await fetcher.readBlob(selected.sourceId, selected.commit, entry, EXTERNAL_LIMITS.fileBytes, op.controller.signal);
       checkSnapshot(current, op); if (bytes.length !== entry.size) deny("BLOB_MISMATCH");
       // Introduction and tree metadata do not prove compatibility, license
       // coverage or the complete content digest. Only prepare performs that audit.
@@ -360,7 +360,7 @@ export function createExternalSkillService(deps: ExternalServiceDeps) {
       async function worker(): Promise<void> {
         while (next < inventory.length) {
           checkSnapshot(current, op); const entry = inventory[next++];
-          const bytes = await fetcher.readBlob(selected.sourceId, entry.sha, EXTERNAL_LIMITS.fileBytes, op.controller.signal);
+          const bytes = await fetcher.readBlob(selected.sourceId, selected.commit, entry, EXTERNAL_LIMITS.fileBytes, op.controller.signal);
           checkSnapshot(current, op); if (bytes.length !== entry.size) deny("BLOB_MISMATCH");
           total += bytes.length; if (total > EXTERNAL_LIMITS.totalBytes) deny("LIMIT_EXCEEDED"); payload.set(entry.path, bytes);
         }

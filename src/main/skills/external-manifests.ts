@@ -55,7 +55,7 @@ async function inspectManifest(skill: ExternalSkill, root: string, tree: Externa
       { kind: "file-mode" as const, path }, ...issues.filter(issue => issue.kind !== "file-mode" || issue.path !== path),
     ].slice(0, EXTERNAL_LIMITS.files));
     if (entry.size !== undefined && entry.size > EXTERNAL_LIMITS.catalogBytes) throw new ExternalFetchError("LIMIT_EXCEEDED");
-    const bytes = await fetcher.readBlob(skill.sourceId, entry.sha, EXTERNAL_LIMITS.catalogBytes, signal, "catalog"); onBytes(bytes.length);
+    const bytes = await fetcher.readBlob(skill.sourceId, skill.commit, entry, EXTERNAL_LIMITS.catalogBytes, signal, "catalog"); onBytes(bytes.length);
     if (signal.aborted) throw new ExternalFetchError("CANCELLED");
     if (bytes.length > EXTERNAL_LIMITS.catalogBytes) throw new ExternalFetchError("LIMIT_EXCEEDED");
     if (entry.size !== undefined && bytes.length !== entry.size) throw new ExternalFetchError("BLOB_MISMATCH");

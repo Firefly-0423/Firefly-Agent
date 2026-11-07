@@ -70,3 +70,14 @@ export function createExternalFixture(): {
   };
   return { fetch: mockFetch, calls, review, expectedFiles };
 }
+
+/** Synthetic raw.githubusercontent.com route: the bytes of a known path at the given commit, else undefined. */
+export function rawFile(url: string, repository: string, commit: string, files: ReadonlyMap<string, Buffer> | ((filePath: string) => Buffer | undefined)): Response | undefined {
+  const prefix = `https://raw.githubusercontent.com/${repository}/${commit}/`;
+  if (!url.startsWith(prefix)) return undefined;
+  const filePath = decodeURIComponent(url.slice(prefix.length));
+  const bytes = typeof files === "function" ? files(filePath) : files.get(filePath);
+  return bytes ? new Response(new Uint8Array(bytes)) : undefined;
+}
+export const rawFileUrl = (repository: string, commit: string, filePath: string) => `https://raw.githubusercontent.com/${repository}/${commit}/${filePath}`;
+export const isRawFileUrl = (url: string) => url.startsWith("https://raw.githubusercontent.com/");

@@ -131,7 +131,7 @@ import { createDefaultApplicationDependencies } from "../application/default-dep
 import { IPC } from "../../shared/ipc-channels";
 import type { ExternalResult, ExternalSkillSourceId } from "../../shared/external-skills";
 import type { SettingsApi } from "../../renderer/settings/shared/types";
-import { isolatedStorageContext, createExternalFixture } from "./testing/external-fixtures";
+import { isolatedStorageContext, createExternalFixture, isRawFileUrl, rawFile } from "./testing/external-fixtures";
 import { applyElectronPaths, within } from "../startup/runtime-profile";
 import { createStorageContext } from "../storage/storage-context";
 import * as skills from "./index";
@@ -215,12 +215,11 @@ async function fixture(sourceId: ExternalSkillSourceId = "anthropic", options: {
     if (url === base + "/commits/main") return Response.json({ sha: commit });
     if (url === base + "/git/commits/" + commit) return Response.json({ sha: commit, tree: { sha: treeSha } });
     if (url === base + "/git/trees/" + treeSha + "?recursive=1") return Response.json({ sha: treeSha, tree, truncated: false });
-    const bytes = blobs.get(url.slice((base + "/git/blobs/").length));
-    if (url.startsWith(base + "/git/blobs/") && bytes) return Response.json({ sha: gitHash(bytes), size: bytes.length, encoding: "base64", content: bytes.toString("base64") });
+    const raw = rawFile(url, source.repository, commit, filePath => { const entry = tree.find(item => item.path === filePath); return entry && blobs.get(entry.sha); }); if (raw) return raw;
     throw Error("UNEXPECTED_SYNTHETIC_ROUTE");
   };
   let hook: typeof globalThis.fetch | undefined;
-  const transport = vi.fn(async (input: Parameters<typeof fetch>[0], init?: RequestInit) => { const url = String(input); expect(url.startsWith(base)).toBe(true); expect(init?.credentials).toBe("omit"); expect(init?.redirect).toBe("manual"); expect(new Headers(init?.headers).has("authorization")).toBe(false); expect(new Headers(init?.headers).has("cookie")).toBe(false); return (hook ?? route)(input, init); });
+  const transport = vi.fn(async (input: Parameters<typeof fetch>[0], init?: RequestInit) => { const url = String(input); expect(url.startsWith(base) || url.startsWith(`https://raw.githubusercontent.com/${source.repository}/${commit}/`)).toBe(true); expect(init?.credentials).toBe("omit"); expect(init?.redirect).toBe("manual"); expect(new Headers(init?.headers).has("authorization")).toBe(false); expect(new Headers(init?.headers).has("cookie")).toBe(false); return (hook ?? route)(input, init); });
   // Real default-dependencies composition uses Main's global fetch; this is a local mock only.
   vi.stubGlobal("fetch", transport);
   m.app.getPath.mockImplementation((name: string) => name === "exe" ? path.join(isolated.root, "app.exe") : isolated.storage.profile[name as "userData"]);
@@ -278,7 +277,7 @@ it.each(["url", "git-subdir"] as const)("end_to_end_isolated OpenAI %s external 
   const candidate = value(await f.api.list("openai")).find(skill => skill.id !== f.id)!; expect(candidate.review).toBe("blocked");
   expect(value(await f.api.detail("openai", candidate.id)).blockers).toContain("DEPENDENCY_BLOCKED");
   expect(await f.api.prepare("openai", candidate.id)).toMatchObject({ ok: false, code: "DEPENDENCY_BLOCKED" });
-  expect(f.transport.mock.calls.every(([url]) => String(url).startsWith("https://api.github.com/repos/openai/plugins"))).toBe(true); expect(f.stages()).toEqual([]); check(); f.preserved();
+  expect(f.transport.mock.calls.every(([url]) => String(url).startsWith("https://api.github.com/repos/openai/plugins") || String(url).startsWith("https://raw.githubusercontent.com/openai/plugins/"))).toBe(true); expect(f.stages()).toEqual([]); check(); f.preserved();
 });
 it.each([
   ["script", { "scripts/run.py": "synthetic forbidden script, never execute" }],
@@ -334,7 +333,7 @@ it.each(["rate-limit", "redirect", "blob-mismatch"] as const)("end_to_end_isolat
   f.setHook(async (input, init) => {
     if (kind === "rate-limit") return Response.json({}, { status: 429 });
     if (kind === "redirect") return new Response(null, { status: 302, headers: { location: "https://example.invalid/fallback" } });
-    const result = await f.route(input, init); if (String(input).includes("/git/blobs/")) { const blob = await result.json() as Record<string, unknown>; return Response.json({ ...blob, content: Buffer.from("tampered").toString("base64") }); } return result;
+    const result = await f.route(input, init); if (isRawFileUrl(String(input))) return new Response("tampered"); return result;
   });
   const result = await f.api.prepare("anthropic", f.id); expect(result).toMatchObject({ ok: false, code: kind === "rate-limit" ? "RATE_LIMITED" : kind === "redirect" ? "NETWORK_FAILED" : "BLOB_MISMATCH" });
   expect(f.stages()).toEqual([]); expect(fs.existsSync(f.formal)).toBe(false); check(); f.preserved();

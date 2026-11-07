@@ -13,7 +13,8 @@ const commit = "a".repeat(40), treeSha = "b".repeat(40);
 const base = "https://api.github.com/repos/openai/plugins";
 const signal = () => new AbortController().signal;
 const blobSha = (bytes: Buffer) => createHash("sha1").update(`blob ${bytes.length}\0`).update(bytes).digest("hex");
-function blob(bytes: Buffer) { return { sha: blobSha(bytes), encoding: "base64", size: bytes.length, content: bytes.toString("base64") }; }
+const raw = "https://raw.githubusercontent.com/openai/plugins/" + commit + "/";
+const ref = (bytes: Buffer, path = "skills/text/SKILL.md") => ({ path, sha: blobSha(bytes) });
 function injected(handler: (url: string, init: RequestInit) => Response | Promise<Response>) {
   const calls: Array<{ url: string; init: RequestInit }> = [];
   const fetch: typeof globalThis.fetch = async (input, init = {}) => {
@@ -39,14 +40,15 @@ describe("fixed_repository_and_commit", () => {
       if (url === base + "/commits/main") return Response.json({ sha: commit });
       if (url === base + "/git/commits/" + commit) return Response.json({ sha: commit, tree: { sha: treeSha } });
       if (url === base + "/git/trees/" + treeSha + "?recursive=1") return Response.json({ sha: treeSha, truncated: false, tree: [{ path: "skills/text/SKILL.md", mode: "100644", type: "blob", sha: blobSha(bytes), size: bytes.length }] });
-      if (url === base + "/git/blobs/" + blobSha(bytes)) return Response.json(blob(bytes));
+      if (url === raw + "skills/text/SKILL.md") return new Response(new Uint8Array(bytes), { headers: { "content-type": "text/plain; charset=utf-8" } });
       throw new Error("Unexpected test request");
     });
     const fetcher = createExternalFetcher(mock.fetch);
     expect(await fetcher.resolveCommit("openai", signal())).toBe(commit);
     expect(await fetcher.readTree("openai", commit, signal())).toEqual({ commit, entries: [{ path: "skills/text/SKILL.md", mode: "100644", type: "blob", sha: blobSha(bytes), size: bytes.length }] });
-    expect(await fetcher.readBlob("openai", blobSha(bytes), bytes.length, signal())).toEqual(bytes);
-    expect(mock.calls.map(call => call.url)).toEqual([base, base + "/commits/main", base + "/git/commits/" + commit, base + "/git/trees/" + treeSha + "?recursive=1", base + "/git/blobs/" + blobSha(bytes)]);
+    expect(await fetcher.readBlob("openai", commit, ref(bytes), bytes.length, signal())).toEqual(bytes);
+    // File bytes come from the pinned raw path, outside the 60-per-hour API budget.
+    expect(mock.calls.map(call => call.url)).toEqual([base, base + "/commits/main", base + "/git/commits/" + commit, base + "/git/trees/" + treeSha + "?recursive=1", raw + "skills/text/SKILL.md"]);
     for (const { init } of mock.calls) {
       expect(init.credentials).toBe("omit"); expect(init.redirect).toBe("manual"); expect(init.method).toBe("GET");
       expect(init.body).toBeUndefined();
@@ -68,7 +70,8 @@ describe("fixed_repository_and_commit", () => {
   it.each(["a".repeat(39), "A".repeat(40), "../main", "https://user@api.github.com", "main%2fnext", "main\\next", "main#next"])("rejects noncanonical commit/blob %s before requesting", async value => {
     const { createExternalFetcher } = await implementation(); const mock = injected(() => Response.json({})); const fetcher = createExternalFetcher(mock.fetch);
     await expect(fetcher.readTree("openai", value, signal())).rejects.toMatchObject({ code: "TREE_INVALID" });
-    await expect(fetcher.readBlob("openai", value, 1, signal())).rejects.toMatchObject({ code: "BLOB_MISMATCH" });
+    await expect(fetcher.readBlob("openai", value, { path: "a.md", sha: commit }, 1, signal())).rejects.toMatchObject({ code: "BLOB_MISMATCH" });
+    await expect(fetcher.readBlob("openai", commit, { path: "a.md", sha: value }, 1, signal())).rejects.toMatchObject({ code: "BLOB_MISMATCH" });
     expect(mock.calls).toHaveLength(0);
   });
   it.each(["../main", "main%2fother", "main\\other", "main#fragment", "https://user@host", "main/other"])("rejects ambiguous default branch %s", async default_branch => {
@@ -152,26 +155,28 @@ describe("tree_validation", () => {
 
 describe("blob_identity", () => {
   it.each([0, 1])("permits exactly one MiB decoded bytes, rejecting +%i", async excess => {
-    const { createExternalFetcher } = await implementation(); const bytes = Buffer.alloc(EXTERNAL_LIMITS.fileBytes + excess, 97); const mock = injected(() => Response.json(blob(bytes)));
-    const promise = createExternalFetcher(mock.fetch).readBlob("openai", blobSha(bytes), EXTERNAL_LIMITS.fileBytes, signal());
+    const { createExternalFetcher } = await implementation(); const bytes = Buffer.alloc(EXTERNAL_LIMITS.fileBytes + excess, 97); const mock = injected(() => new Response(new Uint8Array(bytes)));
+    const promise = createExternalFetcher(mock.fetch).readBlob("openai", commit, ref(bytes), EXTERNAL_LIMITS.fileBytes, signal());
     if (excess) await expect(promise).rejects.toMatchObject({ code: "LIMIT_EXCEEDED" }); else expect(await promise).toEqual(bytes);
   });
-  it("uses the Git blob header and rejects mismatching declared SHA, size or bytes", async () => {
+  it("uses the Git blob header and rejects bytes that do not hash to the tree's blob", async () => {
     const { createExternalFetcher } = await implementation(); const bytes = Buffer.from("hello");
-    for (const response of [{ ...blob(bytes), sha: treeSha }, { ...blob(bytes), size: 4 }, blob(Buffer.from("other"))]) {
-      const mock = injected(() => Response.json(response));
-      await expect(createExternalFetcher(mock.fetch).readBlob("openai", blobSha(bytes), 10, signal())).rejects.toMatchObject({ code: "BLOB_MISMATCH" });
+    for (const served of [Buffer.from("other"), Buffer.from("hell"), Buffer.from("hello\n"), Buffer.alloc(0)]) {
+      const mock = injected(() => new Response(new Uint8Array(served)));
+      await expect(createExternalFetcher(mock.fetch).readBlob("openai", commit, ref(bytes), 10, signal())).rejects.toMatchObject({ code: "BLOB_MISMATCH" });
     }
   });
-  it.each(["aGVsbG8", "aGVsbG8===", "aGV sbG8=", "aGVsbG9=", "%%%%", "aGVsbG8=\u0000"])("rejects corrupt or noncanonical base64 %s", async content => {
-    const { createExternalFetcher } = await implementation(); const bytes = Buffer.from("hello"); const mock = injected(() => Response.json({ ...blob(bytes), content }));
-    await expect(createExternalFetcher(mock.fetch).readBlob("openai", blobSha(bytes), 10, signal())).rejects.toMatchObject({ code: "BLOB_MISMATCH" });
-  });
-  it("accepts GitHub's line-wrapped base64 and preserves bytes for SHA-256", async () => {
-    const { createExternalFetcher } = await implementation(); const bytes = Buffer.from("synthetic instruction"), encoded = bytes.toString("base64");
-    const mock = injected(() => Response.json({ ...blob(bytes), content: encoded.slice(0, 8) + "\n" + encoded.slice(8) + "\n" }));
-    const fetched = await createExternalFetcher(mock.fetch).readBlob("openai", blobSha(bytes), 100, signal());
+  it("reads the exact pinned path, percent-encoding each segment, and preserves bytes for SHA-256", async () => {
+    const { createExternalFetcher } = await implementation(); const bytes = Buffer.from("synthetic instruction");
+    const mock = injected(() => new Response(new Uint8Array(bytes)));
+    const fetched = await createExternalFetcher(mock.fetch).readBlob("openai", commit, ref(bytes, "skills/my text/ä.md"), 100, signal());
+    expect(mock.calls.map(call => call.url)).toEqual([raw + "skills/my%20text/%C3%A4.md"]);
     expect(createHash("sha256").update(fetched).digest("hex")).toBe(createHash("sha256").update(bytes).digest("hex"));
+  });
+  it.each(["../escape.md", "/abs.md", "a/../b.md", "a?b.md", "a#b.md", "a%2fb.md"])("rejects unsafe path %s before requesting", async path => {
+    const { createExternalFetcher } = await implementation(); const mock = injected(() => Response.json({}));
+    await expect(createExternalFetcher(mock.fetch).readBlob("openai", commit, { path, sha: commit }, 10, signal())).rejects.toMatchObject({ code: "PATH_INVALID" });
+    expect(mock.calls).toHaveLength(0);
   });
 });
 
@@ -206,7 +211,7 @@ describe("additional_identity_and_stream_guards", () => {
   });
   it.each([-1, NaN, Infinity, 0.5, EXTERNAL_LIMITS.fileBytes + 1])("rejects invalid decoded budget %s before fetch", async limit => {
     const { createExternalFetcher } = await implementation(); const mock = injected(() => Response.json({}));
-    await expect(createExternalFetcher(mock.fetch).readBlob("openai", treeSha, limit, signal())).rejects.toMatchObject({ code: "LIMIT_EXCEEDED" }); expect(mock.calls).toHaveLength(0);
+    await expect(createExternalFetcher(mock.fetch).readBlob("openai", commit, { path: "a.md", sha: treeSha }, limit, signal())).rejects.toMatchObject({ code: "LIMIT_EXCEEDED" }); expect(mock.calls).toHaveLength(0);
   });
 });
 

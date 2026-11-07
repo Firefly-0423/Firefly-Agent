@@ -8,7 +8,7 @@ import { createExternalSkillService } from "./external-service";
 import { externalSkillId } from "./external-policy";
 import { ExternalSkillStateStore } from "./external-state";
 import { evaluateExternalSkill } from "./external-review";
-import { createExternalFixture, isolatedStorageContext } from "./testing/external-fixtures";
+import { createExternalFixture, isolatedStorageContext, rawFile } from "./testing/external-fixtures";
 
 const policyVersion = "firefly-instruction-only-v1";
 const owner: ExternalOwner = { webContentsId: 17, frameProcessId: 18, frameRoutingId: 19, generation: 0 };
@@ -37,7 +37,6 @@ function revisionFixture(latest: "changed" | "removed" | "empty" = "changed", al
     name.endsWith("/SKILL.md") ? Buffer.from("---\nname: synthetic-text\ndescription: Latest text is unreviewed\n---\nSummarize the newly supplied text.\n") : bytes]));
   const oldFiles = new Map([...metadata, ...oldPayload]);
   const headFiles = latest === "empty" ? new Map([[catalogPath, Buffer.from('{"plugins":[]}')]]) : new Map([...metadata, ...headPayload]);
-  const blobs = new Map([...oldFiles, ...headFiles].map(([, bytes]) => [gitSha(bytes), bytes]));
   const calls: string[] = [];
   const fetch: typeof globalThis.fetch = async input => {
     const url = String(input); calls.push(url);
@@ -48,8 +47,7 @@ function revisionFixture(latest: "changed" | "removed" | "empty" = "changed", al
       if (url === base + "/git/trees/" + treeSha + "?recursive=1") return Response.json({ sha: treeSha, truncated: false,
         tree: [...files].map(([path, bytes]) => ({ path, mode: "100644", type: "blob", sha: gitSha(bytes), size: bytes.length })) });
     }
-    const bytes = blobs.get(url.slice((base + "/git/blobs/").length));
-    if (url.startsWith(base + "/git/blobs/") && bytes) return Response.json({ sha: gitSha(bytes), size: bytes.length, encoding: "base64", content: bytes.toString("base64") });
+    for (const [commit, files] of [[oldCommit, oldFiles], [headCommit, headFiles]] as const) { const raw = rawFile(url, "openai/plugins", commit, files); if (raw) return raw; }
     return Response.json({ message: "Unexpected synthetic route" }, { status: 404 });
   };
   const reviews = [review];

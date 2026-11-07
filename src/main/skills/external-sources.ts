@@ -42,7 +42,7 @@ export async function discoverExternalSkills(sourceId: ExternalSkillSourceId, fe
       check(); const file = byPath.get(path);
       if (!file || file.type !== "blob") throw new ExternalFetchError("CATALOG_INVALID");
       if (file.size !== undefined && file.size > EXTERNAL_LIMITS.catalogBytes) throw new ExternalFetchError("LIMIT_EXCEEDED");
-      const bytes = await fetcher.readBlob(sourceId, file.sha, EXTERNAL_LIMITS.catalogBytes, controller.signal, "catalog"); check();
+      const bytes = await fetcher.readBlob(sourceId, commit, file, EXTERNAL_LIMITS.catalogBytes, controller.signal, "catalog"); check();
       if (bytes.length > EXTERNAL_LIMITS.catalogBytes) throw new ExternalFetchError("LIMIT_EXCEEDED");
       catalogBytes = bytes.length; return object(parseExternalJson(bytes));
     }

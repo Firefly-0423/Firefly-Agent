@@ -7,6 +7,7 @@ export interface ExternalTree {
   commit: string;
   entries: Array<{ path: string; mode: string; type: "blob" | "tree"; sha: string; size?: number }>;
 }
+export interface ExternalBlobRef { path: string; sha: string }
 export interface ExternalRequestDiagnostic {
   sourceId: ExternalSkillSourceId;
   stage: "metadata" | "commit" | "tree" | "catalog" | "blob";
@@ -36,7 +37,8 @@ export interface ExternalFetchOptions {
 export interface ExternalFetcher {
   resolveCommit(sourceId: ExternalSkillSourceId, signal: AbortSignal): Promise<string>;
   readTree(sourceId: ExternalSkillSourceId, commit: string, signal: AbortSignal): Promise<ExternalTree>;
-  readBlob(sourceId: ExternalSkillSourceId, blobSha1: string, decodedLimit: number, signal: AbortSignal, stage?: "catalog" | "blob"): Promise<Buffer>;
+  /** Reads one tree blob at a pinned commit and verifies its Git blob hash. */
+  readBlob(sourceId: ExternalSkillSourceId, commit: string, entry: ExternalBlobRef, decodedLimit: number, signal: AbortSignal, stage?: "catalog" | "blob"): Promise<Buffer>;
 }
 const messages: Partial<Record<ExternalSkillErrorCode, string>> = {
   SOURCE_INVALID: "External source is invalid.", CATALOG_INVALID: "External catalog is invalid.",
@@ -150,7 +152,9 @@ export function createExternalFetcher(fetchImpl: typeof globalThis.fetch, option
       throw error;
     }
   }
-  async function json(url: string, limit: number, parentSignal: AbortSignal, context: ExternalRequestDiagnostic): Promise<unknown> {
+  const json = async (url: string, limit: number, parentSignal: AbortSignal, context: ExternalRequestDiagnostic): Promise<unknown> =>
+    parseExternalJson(await download(url, limit, parentSignal, context, "application/vnd.github+json"));
+  async function download(url: string, limit: number, parentSignal: AbortSignal, context: ExternalRequestDiagnostic, accept: string): Promise<Buffer> {
     if (parentSignal.aborted) throw new ExternalFetchError("CANCELLED");
     const controller = new AbortController();
     let abortError: ExternalFetchError | undefined;
@@ -168,7 +172,7 @@ export function createExternalFetcher(fetchImpl: typeof globalThis.fetch, option
       options.beforeRequest?.();
       try { options.onRequest?.(parentSignal); } catch { /* Observers cannot change requests. */ }
       try {
-        response = await fetchImpl(url, { method: "GET", credentials: "omit", redirect: "manual", headers: { Accept: "application/vnd.github+json" }, signal: controller.signal });
+        response = await fetchImpl(url, { method: "GET", credentials: "omit", redirect: "manual", headers: { Accept: accept }, signal: controller.signal });
       } catch { throw abortError ?? new ExternalFetchError("NETWORK_FAILED", true); }
       context.status = response.status;
       const now = (options.now ?? Date.now)();
@@ -185,7 +189,7 @@ export function createExternalFetcher(fetchImpl: typeof globalThis.fetch, option
       if (!response.ok || (response.status >= 300 && response.status < 400)) rejectResponse(new ExternalFetchError("NETWORK_FAILED", true));
       const declaredLength = response.headers.get("content-length");
       if (declaredLength && /^\d+$/.test(declaredLength) && Number(declaredLength) > limit) rejectResponse(new ExternalFetchError("LIMIT_EXCEEDED"));
-      if (!response.body) throw new ExternalFetchError("CATALOG_INVALID");
+      if (!response.body) return Buffer.alloc(0);
       const reader = response.body.getReader(), chunks: Buffer[] = [];
       let total = 0, completed = false;
       const cancelBody = () => { void reader.cancel().catch(() => {}); };
@@ -199,7 +203,7 @@ export function createExternalFetcher(fetchImpl: typeof globalThis.fetch, option
           if (total > limit) throw new ExternalFetchError("LIMIT_EXCEEDED");
           chunks.push(Buffer.from(value));
         }
-        return parseExternalJson(Buffer.concat(chunks, total));
+        return Buffer.concat(chunks, total);
       } catch (error) {
         if (error instanceof ExternalFetchError) throw error;
         throw abortError ?? new ExternalFetchError("NETWORK_FAILED", true);
@@ -263,22 +267,16 @@ export function createExternalFetcher(fetchImpl: typeof globalThis.fetch, option
       return { commit, entries };
       });
     },
-    async readBlob(sourceId, blobSha1, decodedLimit, signal, requestStage = "blob") {
+    async readBlob(sourceId, commit, entry, decodedLimit, signal, requestStage = "blob") {
       return stage(sourceId, requestStage, signal, async context => {
-      const base = repository(sourceId); sha(blobSha1, "BLOB_MISMATCH");
+      const source = EXTERNAL_SOURCES[sourceId];
+      repository(sourceId); sha(commit, "BLOB_MISMATCH"); sha(entry.sha, "BLOB_MISMATCH"); validateExternalPath(entry.path);
       if (!Number.isSafeInteger(decodedLimit) || decodedLimit < 0 || decodedLimit > EXTERNAL_LIMITS.fileBytes) throw new ExternalFetchError("LIMIT_EXCEEDED");
-      const budget = Math.ceil(decodedLimit / 3) * 4 + 65536;
-      const payload = object(await json(base + "/git/blobs/" + blobSha1, budget, signal, context), "BLOB_MISMATCH");
-      if (payload.encoding !== "base64" || typeof payload.content !== "string" || typeof payload.size !== "number" || !Number.isSafeInteger(payload.size) || payload.size < 0) throw new ExternalFetchError("BLOB_MISMATCH");
-      if (payload.size > decodedLimit) throw new ExternalFetchError("LIMIT_EXCEEDED");
-      // GitHub wraps base64 with newlines; all other whitespace, padding ambiguity and invalid bits fail.
-      const encoded = payload.content.replace(/\r?\n/g, "");
-      if (encoded.length % 4 !== 0 || /[^A-Za-z0-9+/=]/.test(encoded)) throw new ExternalFetchError("BLOB_MISMATCH");
-      const bytes = Buffer.from(encoded, "base64");
-      if (bytes.length > decodedLimit) throw new ExternalFetchError("LIMIT_EXCEEDED");
-      if (bytes.toString("base64") !== encoded || payload.size !== bytes.length || payload.sha !== blobSha1) throw new ExternalFetchError("BLOB_MISMATCH");
+      // Raw file bytes at a pinned commit; they do not use the 60-per-hour API budget. The Git blob hash proves identity.
+      const url = `https://raw.githubusercontent.com/${source.owner}/${source.repo}/${commit}/${entry.path.split("/").map(encodeURIComponent).join("/")}`;
+      const bytes = await download(url, decodedLimit, signal, context, "application/octet-stream");
       const actual = createHash("sha1").update(`blob ${bytes.length}\0`).update(bytes).digest("hex");
-      if (actual !== blobSha1) throw new ExternalFetchError("BLOB_MISMATCH");
+      if (actual !== entry.sha) throw new ExternalFetchError("BLOB_MISMATCH");
       return bytes;
       });
     },
