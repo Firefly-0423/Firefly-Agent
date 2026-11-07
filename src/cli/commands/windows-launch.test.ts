@@ -51,13 +51,11 @@ describe.runIf(process.platform === "win32")("Windows development launcher", () 
   }
   function profile(output: string) { return JSON.parse(/PROFILE=(.+)/.exec(output)![1]); }
 
-  it("refuses a fresh shell without choosing a data root and explains how to supply one", () => {
+  const checkoutRoot = () => path.join(fs.realpathSync.native(project), "output", "development-profile");
+  it("starts from a fresh shell with no setup, keeping the data in the checkout's output folder", () => {
     const result = launch();
-    expect(result.code).toBe(1);
-    expect(result.output).toContain("FIREFLY_RUNTIME_ISOLATION_REQUIRED");
-    expect(result.output).toContain("start.bat");
-    expect(result.output).toContain("FIREFLY_ISOLATION_ROOT");
-    expect(result.output).not.toContain("PROFILE=");
+    expect(result.code, result.output).toBe(0);
+    expect(profile(result.output).userData).toBe(path.join(checkoutRoot(), "Firefly-development"));
   });
   it("starts from a fresh shell with explicit isolation and spaces in both paths", () => {
     const result = launch([isolation]);
@@ -111,14 +109,14 @@ describe.runIf(process.platform === "win32")("Windows development launcher", () 
       expect(result.output).not.toContain("PROFILE=");
     } finally { fs.writeFileSync(cli, original); }
   });
-  it("explains the explicit isolation contract after setup without installing or linking anything", () => {
+  it("explains how to start after setup without installing or linking anything", () => {
     // cmd resolves this current-directory stub before any real npm on PATH.
     fs.writeFileSync(path.join(project, "npm.cmd"), "@echo off\r\nexit /b 0\r\n");
     const result = launch([], {}, true, "setup.bat");
     expect(result.code, result.output).toBe(0);
     expect(result.output).toContain("Setup complete");
-    expect(result.output).toContain('start.bat "isolation directory"');
-    expect(result.output).toContain("FIREFLY_ISOLATION_ROOT");
+    expect(result.output).toContain("Run start.bat");
+    expect(result.output).toContain("output\\development-profile");
   });
   it("propagates an Electron executable resolution failure without writing profile data", () => {
     const shim = path.join(project, "node_modules/.bin/electron.cmd");
@@ -136,10 +134,10 @@ describe.runIf(process.platform === "win32")("Windows development launcher", () 
     expect(result.code, result.output).toBe(23);
     expect(result.output).toContain(kind === "production" ? "FIREFLY_RUNTIME_PRODUCTION_OVERLAP" : "FIREFLY_RUNTIME_ISOLATION_INVALID");
   });
-  it("keeps CLI development isolation mandatory in a fresh shell", () => {
+  it("gives the CLI the same checkout data folder in a fresh shell", () => {
     const result = launch([], {}, false);
-    expect(result.code, result.output).toBe(23);
-    expect(result.output).toContain("FIREFLY_RUNTIME_ISOLATION_REQUIRED");
+    expect(result.code, result.output).toBe(0);
+    expect(profile(result.output).userData).toBe(path.join(checkoutRoot(), "Firefly-development"));
   });
   it("returns CLI child failures even when the Electron shim path has spaces", () => {
     const result = launch([], { FIREFLY_ISOLATION_ROOT: isolation, FIXTURE_EXIT: "17" }, false);
