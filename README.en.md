@@ -142,26 +142,30 @@ flowchart TB
     user(["You"])
     voice["Voice input"]
     timers["Scheduled tasks · Proactive chat"]
-    channels["Channels<br/>Feishu · WeChat · QQ"]
+    channels["Channels · Feishu · WeChat · QQ"]
   end
   subgraph L2["② Desktop interface · renderer"]
     direction LR
-    ui["Chats and sessions<br/>React"]
+    ui["Chats and sessions · React"]
     live2d["Live2D Firefly"]
-    ipc["preload<br/>controlled IPC"]
+    ipc["preload controlled IPC"]
   end
   subgraph L3["③ Agent core · main process"]
     direction LR
     harness["Harness main loop"]
-    partners["12 partners<br/>child sessions"]
+    partners["12 partners"]
     perm{"Permissions and approval"}
+    harness --> partners
+    harness --> perm
+    partners --> perm
   end
   subgraph L4["④ Memory and models"]
     direction LR
     context["Memory runtime<br/>context S · facts M"]
-    recall["History search H<br/>knowledge RAG"]
     vendors["Vendor adapters"]
     models(["Your model service"])
+    recall["History search H · knowledge RAG"]
+    context --> vendors --> models
   end
   subgraph L5["⑤ Capabilities and execution"]
     direction LR
@@ -171,29 +175,18 @@ flowchart TB
   end
   subgraph L6["⑥ Local foundation"]
     direction LR
-    store[("SQLite<br/>memory and indexes")]
+    store[("SQLite memory and indexes")]
     native["Rust native helper<br/>screenshots · history reads · workspace handles"]
   end
 
-  user --> ui
-  voice --> ui
-  ui --> ipc --> harness
-  timers --> harness
-  channels <--> harness
-  harness --> partners
-  harness --> context --> vendors --> models
-  harness --> recall
-  harness --> perm
-  partners --> perm
-  perm --> tools
-  perm --> browser
-  perm --> extensions
-  context --> store
-  recall --> store
-  recall --> native
-  tools --> native
-  harness -. "progress and results" .-> ui
-  harness -. "work state" .-> live2d
+  L1 -- "starts a conversation" --> L2
+  L2 -- "controlled IPC" --> L3
+  L3 -- "add memory · ask the model" --> L4
+  L3 -- "run approved tools" --> L5
+  L4 ~~~ L5
+  L4 -- "read and write memory" --> L6
+  L5 -- "native help" --> L6
+  L3 -. "progress, results, work state" .-> L2
 
   classDef entry fill:#e0e7ff,stroke:#6366f1,color:#1e1b4b
   classDef face fill:#dbeafe,stroke:#3b82f6,color:#172554

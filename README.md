@@ -142,26 +142,30 @@ flowchart TB
     user(["你"])
     voice["语音输入"]
     timers["定时任务 · 主动聊天"]
-    channels["渠道<br/>飞书 · 微信 · QQ"]
+    channels["渠道 · 飞书 · 微信 · QQ"]
   end
   subgraph L2["② 桌面界面 · 渲染进程"]
     direction LR
-    ui["聊天与会话<br/>React"]
+    ui["聊天与会话 · React"]
     live2d["Live2D 流萤"]
-    ipc["preload<br/>受控 IPC"]
+    ipc["preload 受控 IPC"]
   end
   subgraph L3["③ Agent 核心 · 主进程"]
     direction LR
     harness["Harness 主循环"]
-    partners["12 位伙伴<br/>子会话"]
+    partners["12 位伙伴"]
     perm{"权限与审批"}
+    harness --> partners
+    harness --> perm
+    partners --> perm
   end
   subgraph L4["④ 记忆与模型"]
     direction LR
     context["记忆运行时<br/>上下文 S · 事实 M"]
-    recall["历史检索 H<br/>知识 RAG"]
     vendors["厂商适配"]
     models(["你的模型服务"])
+    recall["历史检索 H · 知识 RAG"]
+    context --> vendors --> models
   end
   subgraph L5["⑤ 能力与执行"]
     direction LR
@@ -171,29 +175,18 @@ flowchart TB
   end
   subgraph L6["⑥ 本机底座"]
     direction LR
-    store[("SQLite<br/>记忆与索引")]
+    store[("SQLite 记忆与索引")]
     native["Rust 原生助手<br/>截图 · 历史读取 · 工作区句柄"]
   end
 
-  user --> ui
-  voice --> ui
-  ui --> ipc --> harness
-  timers --> harness
-  channels <--> harness
-  harness --> partners
-  harness --> context --> vendors --> models
-  harness --> recall
-  harness --> perm
-  partners --> perm
-  perm --> tools
-  perm --> browser
-  perm --> extensions
-  context --> store
-  recall --> store
-  recall --> native
-  tools --> native
-  harness -. "进度与结果" .-> ui
-  harness -. "工作状态" .-> live2d
+  L1 -- "发起对话" --> L2
+  L2 -- "受控 IPC" --> L3
+  L3 -- "装入记忆 · 请求模型" --> L4
+  L3 -- "审批通过后执行工具" --> L5
+  L4 ~~~ L5
+  L4 -- "读写记忆与索引" --> L6
+  L5 -- "原生能力" --> L6
+  L3 -. "进度与结果 · 工作表情" .-> L2
 
   classDef entry fill:#e0e7ff,stroke:#6366f1,color:#1e1b4b
   classDef face fill:#dbeafe,stroke:#3b82f6,color:#172554
