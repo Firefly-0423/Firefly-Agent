@@ -73,8 +73,9 @@ export interface ExternalSkill {
   readonly preview?: {
     readonly complete: false;
     readonly files: number;
-    readonly bytes: number;
-    readonly licenseFiles: readonly { path: string; blobSha1: string; bytes: number }[];
+    /** Absent when the tree came over the Git protocol, which carries no file sizes. */
+    readonly bytes?: number;
+    readonly licenseFiles: readonly { path: string; blobSha1: string; bytes?: number }[];
   };
   review: "unreviewed" | "approved" | "blocked";
   blockers: ExternalSkillErrorCode[];

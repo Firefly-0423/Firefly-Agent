@@ -247,9 +247,9 @@ export function ExternalSkillsPanel({ onImported }: { onImported: () => Promise<
       {skill.blockers.length ? <ul>{skill.blockers.map(code => <li key={code}>{errorText(code)}</li>)}</ul> : <p>{t("externalSkills.noBlockers")}</p>}
       {skill.preview ? <>
         <h3>{previewCopy.inventory}</h3>
-        <dl><dt>{previewCopy.files}</dt><dd>{skill.preview.files}</dd><dt>{previewCopy.bytes}</dt><dd>{skill.preview.bytes}</dd></dl>
+        <dl><dt>{previewCopy.files}</dt><dd>{skill.preview.files}</dd><dt>{previewCopy.bytes}</dt><dd>{skill.preview.bytes ?? "—"}</dd></dl>
         <h3>{previewCopy.licenseFiles}</h3>
-        <ul>{skill.preview.licenseFiles.map(file => <li key={file.path}><strong>{file.path}</strong><p>{t("externalSkills.bytes", { count: file.bytes })}</p><p>Blob SHA-1: {file.blobSha1}</p></li>)}</ul>
+        <ul>{skill.preview.licenseFiles.map(file => <li key={file.path}><strong>{file.path}</strong>{file.bytes === undefined ? null : <p>{t("externalSkills.bytes", { count: file.bytes })}</p>}<p>Blob SHA-1: {file.blobSha1}</p></li>)}</ul>
       </> : <>
       <h3>{t("externalSkills.licenses")}</h3>
       {skill.licenses.length ? <ul>{skill.licenses.map((license, index) => <li key={`${license.path}/${index}`}><strong>{license.path}</strong><p>{license.spdx ?? t("externalSkills.undeclared")}</p><p>SHA-256: {license.sha256}</p><p>{t("externalSkills.covers")}: {license.covers.join(", ")}</p></li>)}</ul> : <p>{t("externalSkills.noLicenseEvidence")}</p>}

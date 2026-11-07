@@ -60,9 +60,14 @@ export function createExternalSkillService(deps: ExternalServiceDeps) {
     try { deps.diagnose?.({ ...diagnostic, ...(op ? { operation: op.operation, requestCount: op.requestCount } : {}) }); } catch { /* Diagnostic sinks cannot change authority or results. */ }
   }
   let blobBytes = 0, activeRequests = 0, transaction: Transaction | undefined, disposed = false;
-  let rateLimitedUntil = 0;
-  let cooldownCause: Pick<ExternalRequestDiagnostic, "remaining" | "retryAfter" | "reset" | "serverTime" | "deadlineSource"> = {};
-  function checkRateLimit(): void { if (deps.now() < rateLimitedUntil) throw new ExternalFetchError("RATE_LIMITED", true, { retryAt: rateLimitedUntil }); }
+  // GitHub limits the REST API, raw files and the Git HTTP service separately, so each has its own cooldown.
+  type Channel = "api" | "raw" | "git";
+  const cooldowns: Record<Channel, { until: number; cause: Pick<ExternalRequestDiagnostic, "remaining" | "retryAfter" | "reset" | "serverTime" | "deadlineSource"> }> =
+    { api: { until: 0, cause: {} }, raw: { until: 0, cause: {} }, git: { until: 0, cause: {} } };
+  function checkRateLimit(channel: Channel = "api"): void {
+    const until = cooldowns[channel].until;
+    if (deps.now() < until) throw new ExternalFetchError("RATE_LIMITED", true, { retryAt: until });
+  }
   let disposal: Promise<void> | undefined;
   let retainedStage: ExternalStageHandle | undefined; // at most one failed cleanup; preserve its exact authority
   const queue: Array<{ signal: AbortSignal; enter: () => void }> = [];
@@ -147,20 +152,21 @@ export function createExternalSkillService(deps: ExternalServiceDeps) {
   function releaseSlot(): void {
     const next = queue.shift(); if (next) next.enter(); else activeRequests--;
   }
-  async function limited<T>(signal: AbortSignal, target: Pick<ExternalRequestDiagnostic, "sourceId" | "stage">, work: () => Promise<T>): Promise<T> {
-    const release = await slot(signal);
-    try { checkRateLimit(); return await work(); }
+  /** Every channel shares the concurrency slots; each waits only for its own cooldown. */
+  async function limited<T>(signal: AbortSignal, target: Pick<ExternalRequestDiagnostic, "sourceId" | "stage">, work: () => Promise<T>, channel: Channel = "api"): Promise<T> {
+    const release = await slot(signal), cooldown = cooldowns[channel];
+    try { checkRateLimit(channel); return await work(); }
     catch (error) {
       if (error instanceof ExternalFetchError && error.code === "RATE_LIMITED" && error.retryAt !== undefined) {
-        if (error.retryAt > rateLimitedUntil) {
-          rateLimitedUntil = error.retryAt;
+        if (error.retryAt > cooldown.until) {
+          cooldown.until = error.retryAt;
           const cause = error.diagnostic;
-          cooldownCause = { remaining: cause?.remaining ?? null, retryAfter: cause?.retryAfter ?? null,
+          cooldown.cause = { remaining: cause?.remaining ?? null, retryAfter: cause?.retryAfter ?? null,
             reset: cause?.reset ?? null, serverTime: cause?.serverTime ?? null, deadlineSource: cause?.deadlineSource };
         }
         if (!error.diagnostic) {
-          const diagnostic: ExternalRequestDiagnostic = { ...target, ...cooldownCause, status: null, contentType: "missing",
-            bytes: 0, errorClass: "ExternalFetchError", code: "RATE_LIMITED", retryAt: rateLimitedUntil };
+          const diagnostic: ExternalRequestDiagnostic = { ...target, ...cooldown.cause, status: null, contentType: "missing",
+            bytes: 0, errorClass: "ExternalFetchError", code: "RATE_LIMITED", retryAt: cooldown.until };
           // Discovery/declaration catch paths recognize this local diagnostic.
           error.diagnostic = diagnostic; diagnose(diagnostic, meters.get(signal));
         }
@@ -168,23 +174,36 @@ export function createExternalSkillService(deps: ExternalServiceDeps) {
       throw error;
     } finally { release(); }
   }
-  const remote = createExternalFetcher(deps.fetch, { now: deps.now, beforeRequest: checkRateLimit,
+  const remote = createExternalFetcher(deps.fetch, { now: deps.now, beforeRequest: () => checkRateLimit("api"),
     onRequest: signal => { const op = meters.get(signal); if (op && op.requestCount < Number.MAX_SAFE_INTEGER) op.requestCount++; },
     onDiagnostic: (diagnostic, signal) => diagnose(diagnostic, meters.get(signal)),
   });
+  /** The REST API first; when its unauthenticated budget is exhausted (often by others sharing the same IP), Git's HTTP service. */
+  async function restOrGit<T>(signal: AbortSignal, target: Pick<ExternalRequestDiagnostic, "sourceId" | "stage">, rest: () => Promise<T>, git: () => Promise<T>): Promise<T> {
+    try { return await limited(signal, target, rest); }
+    catch (error) {
+      if (!(error instanceof ExternalFetchError) || error.code !== "RATE_LIMITED") throw error;
+      try { return await limited(signal, target, git, "git"); }
+      catch (fallback) {
+        // Transport trouble on the fallback keeps the original, actionable rate-limit answer.
+        if (fallback instanceof ExternalFetchError && !["NETWORK_FAILED", "REQUEST_TIMEOUT", "RATE_LIMITED"].includes(fallback.code)) throw fallback;
+        throw error;
+      }
+    }
+  }
   const fetcher: ExternalFetcher = {
-    resolveCommit: (sourceId, signal) => limited(signal, { sourceId, stage: "metadata" }, () => remote.resolveCommit(sourceId, signal)),
+    resolveCommit: (sourceId, signal) => restOrGit(signal, { sourceId, stage: "metadata" }, () => remote.resolveCommit(sourceId, signal), () => remote.git.resolveCommit(sourceId, signal)),
     async readTree(sourceId, commit, signal) {
       if (signal.aborted) deny("CANCELLED");
       const existing = trees.get(sourceId); if (existing?.commit === commit) return existing;
-      const tree = await limited(signal, { sourceId, stage: "tree" }, () => remote.readTree(sourceId, commit, signal));
+      const tree = await restOrGit(signal, { sourceId, stage: "tree" }, () => remote.readTree(sourceId, commit, signal), () => remote.git.readTree(sourceId, commit, signal));
       if (signal.aborted) deny("CANCELLED"); trees.set(sourceId, freeze(tree)); return tree;
     },
     async readBlob(sourceId, commit, entry, limit, signal, stage) {
       if (signal.aborted) deny("CANCELLED");
       const key = sourceId + "/" + entry.sha, cached = blobs.get(key);
       if (cached) { if (cached.length > limit) deny("LIMIT_EXCEEDED"); blobs.delete(key); blobs.set(key, cached); return Buffer.from(cached); }
-      const bytes = await limited(signal, { sourceId, stage: stage ?? "blob" }, () => remote.readBlob(sourceId, commit, entry, limit, signal, stage));
+      const bytes = await limited(signal, { sourceId, stage: stage ?? "blob" }, () => remote.readBlob(sourceId, commit, entry, limit, signal, stage), "raw");
       if (signal.aborted) deny("CANCELLED");
       const previous = blobs.get(key); if (previous) { blobs.delete(key); blobBytes -= previous.length; }
       blobs.set(key, Buffer.from(bytes)); blobBytes += bytes.length;
@@ -280,8 +299,9 @@ export function createExternalSkillService(deps: ExternalServiceDeps) {
     const inventory = tree.entries.filter(entry => entry.type === "blob" && entry.path.startsWith(selected.path + "/"));
     if (!inventory.length) deny("TREE_INVALID");
     if (inventory.length > EXTERNAL_LIMITS.files) deny("LIMIT_EXCEEDED");
+    // A Git-protocol tree has no sizes; then the same limits are enforced while each file downloads.
     let total = 0;
-    for (const entry of inventory) { if (entry.size === undefined || entry.size > EXTERNAL_LIMITS.fileBytes) deny("LIMIT_EXCEEDED"); total += entry.size; }
+    for (const entry of inventory) { if (entry.size === undefined) continue; if (entry.size > EXTERNAL_LIMITS.fileBytes) deny("LIMIT_EXCEEDED"); total += entry.size; }
     if (total > EXTERNAL_LIMITS.totalBytes) deny("LIMIT_EXCEEDED");
     return inventory;
   }
@@ -326,16 +346,17 @@ export function createExternalSkillService(deps: ExternalServiceDeps) {
       if (!entry) deny("TREE_INVALID");
       const complete = current.content?.skill.id === id ? current.content : undefined;
       const bytes = complete?.payload.get(entry.path) ?? await fetcher.readBlob(selected.sourceId, selected.commit, entry, EXTERNAL_LIMITS.fileBytes, op.controller.signal);
-      checkSnapshot(current, op); if (bytes.length !== entry.size) deny("BLOB_MISMATCH");
+      checkSnapshot(current, op); if (entry.size !== undefined && bytes.length !== entry.size) deny("BLOB_MISMATCH");
       // Introduction and tree metadata do not prove compatibility, license
       // coverage or the complete content digest. Only prepare performs that audit.
       const skill = introduction({ ...clone(selected), files: [], licenses: [], review: "unreviewed",
         dependencyIssues: complete?.skill.dependencyIssues ?? selected.dependencyIssues,
         blockers: [...new Set([...selected.blockers, ...(complete?.skill.blockers ?? []), "REVIEW_REQUIRED" as const])] }, bytes);
+      const sized = inventory.every(file => file.size !== undefined);
       const result = freeze({ ...skill, preview: { complete: false as const, files: inventory.length,
-        bytes: inventory.reduce((sum, file) => sum + file.size!, 0),
+        ...(sized ? { bytes: inventory.reduce((sum, file) => sum + file.size!, 0) } : {}),
         licenseFiles: inventory.filter(file => /(?:^|\/)(?:licen[cs]e|copying|notice)(?:\.[^/]+)?$/i.test(file.path))
-          .map(file => ({ path: file.path, blobSha1: file.sha, bytes: file.size! })),
+          .map(file => ({ path: file.path, blobSha1: file.sha, ...(file.size === undefined ? {} : { bytes: file.size }) })),
       } });
       checkSnapshot(current, op); current.preview = result; return result;
     })();
@@ -361,7 +382,7 @@ export function createExternalSkillService(deps: ExternalServiceDeps) {
         while (next < inventory.length) {
           checkSnapshot(current, op); const entry = inventory[next++];
           const bytes = await fetcher.readBlob(selected.sourceId, selected.commit, entry, EXTERNAL_LIMITS.fileBytes, op.controller.signal);
-          checkSnapshot(current, op); if (bytes.length !== entry.size) deny("BLOB_MISMATCH");
+          checkSnapshot(current, op); if (entry.size !== undefined && bytes.length !== entry.size) deny("BLOB_MISMATCH");
           total += bytes.length; if (total > EXTERNAL_LIMITS.totalBytes) deny("LIMIT_EXCEEDED"); payload.set(entry.path, bytes);
         }
       }

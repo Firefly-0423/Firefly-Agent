@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ExternalResult, ExternalSkillSourceId } from "../../shared/external-skills";
 import type { ExternalOwner, ExternalServiceDeps, ExternalSkillReview } from "./external-types";
 import { externalSkillId, EXTERNAL_LIMITS, EXTERNAL_SOURCES, EXTERNAL_REVIEW_POLICY_VERSION } from "./external-policy";
@@ -9,6 +9,7 @@ import { digestExternalFiles } from "./external-review";
 import { ExternalSkillStateStore, ExternalStorageError } from "./external-state";
 import * as install from "./external-install";
 import { isolatedStorageContext, createExternalFixture, isRawFileUrl, rawFile, rawFileUrl } from "./testing/external-fixtures";
+import { gitRepository } from "./testing/git-fixtures";
 
 const modules = import.meta.glob<typeof import("./external-service")>("./external-service.ts");
 const owner: ExternalOwner = { webContentsId: 1, frameProcessId: 2, frameRoutingId: 3, generation: 0 };
@@ -189,7 +190,7 @@ it("cancel_before_token aborts all preparation downloads and leaves formal/senti
 it("ready_cancel uses the original opaque stage handle and invalidates its token", async () => { const f = await service(); const ready = value(await f.s.prepare(owner, "openai", f.id)); expect(value(await f.s.cancel({ ...owner, webContentsId: 8 }))).toEqual({ status: "idle" }); expect(stageDirectories(f)).toHaveLength(1); expect(value(await f.s.cancel(owner))).toEqual({ status: "cancelled" }); expect(stageDirectories(f)).toEqual([]); expect(await f.s.commit(owner, ready.token)).toMatchObject({ code: "TOKEN_INVALID" }); });
 it("invalidate prevents a pending generation from surviving into the next one", async () => { const f = await service(); const ready = value(await f.s.prepare(owner, "openai", f.id)); f.s.invalidate(owner); expect(await f.s.commit(owner, ready.token)).toMatchObject({ code: "STALE_SNAPSHOT" }); value(await f.s.list({ ...owner, generation: 1 }, "openai")); expect(await f.s.list(owner, "openai")).toMatchObject({ code: "STALE_SNAPSHOT" }); expect(stageDirectories(f)).toEqual([]); });
 it("primary_capability is required before preparation or cache writes", async () => { const f = await service(); f.setPrimary(false); expect(await f.s.prepare(owner, "openai", f.id)).toMatchObject({ code: "STATE_INVALID" }); expect(f.calls).toEqual([]); expect(stageDirectories(f)).toEqual([]); });
-it("rate_limit is retryable, has no automatic loop and never revives a refreshed stale approval", async () => { const f = await service(); const ready = value(await f.s.prepare(owner, "openai", f.id)); f.setHook(async () => Response.json({ message: "private" }, { status: 429 })); const before = f.calls.length; expect(await f.s.list(owner, "openai", true)).toMatchObject({ code: "RATE_LIMITED", retryable: true }); expect(f.calls).toHaveLength(before + 1); expect(await f.s.commit(owner, ready.token)).toMatchObject({ code: "STALE_SNAPSHOT" }); });
+it("rate_limit is retryable, has no automatic loop and never revives a refreshed stale approval", async () => { const f = await service(); const ready = value(await f.s.prepare(owner, "openai", f.id)); f.setHook(async () => Response.json({ message: "private" }, { status: 429 })); const before = f.calls.length; expect(await f.s.list(owner, "openai", true)).toMatchObject({ code: "RATE_LIMITED", retryable: true }); expect(f.calls).toHaveLength(before + 2); expect(f.calls.at(-1)).toBe("https://github.com/openai/plugins.git/git-upload-pack"); expect(await f.s.commit(owner, ready.token)).toMatchObject({ code: "STALE_SNAPSHOT" }); });
 it("file_count is bounded from the complete tree before selected bytes download", async () => { const raw = fixture(); for (let i = 0; i < 198; i++) raw.tree.push({ path: raw.root + `/references/${i}.txt`, type: "blob", mode: "100644", sha: "c".repeat(40), size: 1 }); const f = await service(raw); expect(await f.s.prepare(owner, "openai", f.id)).toMatchObject({ code: "LIMIT_EXCEEDED" }); expect(f.calls.some(url => url.endsWith(gitHash(f.payload.get(f.root + "/SKILL.md")!)))).toBe(false); });
 it("total_bytes is bounded from complete pinned inventory before selected bytes download", async () => { const raw = fixture(); for (let i = 0; i < 11; i++) raw.tree.push({ path: raw.root + `/references/${i}.txt`, type: "blob", mode: "100644", sha: "c".repeat(40), size: EXTERNAL_LIMITS.fileBytes }); const f = await service(raw); expect(await f.s.prepare(owner, "openai", f.id)).toMatchObject({ code: "LIMIT_EXCEEDED" }); expect(stageDirectories(f)).toEqual([]); });
 it("tree_size must match the verified blob's actual decoded bytes", async () => { const raw = fixture(); raw.tree.find(file => file.path === raw.root + "/SKILL.md")!.size++; const f = await service(raw); expect(await f.s.prepare(owner, "openai", f.id)).toMatchObject({ code: "BLOB_MISMATCH" }); expect(stageDirectories(f)).toEqual([]); });
@@ -369,16 +370,18 @@ it("readonly declaration is verified for preparation but never broadens the pers
   expect(new ExternalSkillStateStore(f.storage).read(f.id)?.status).toBe("committed");
 });
 
-it("queued requests across sources remain blocked when a content request exhausts the shared budget", async () => {
-  const f = await service(fixture("openai", Object.fromEntries(Array.from({ length: 8 }, (_, i) => ["references/part-" + i + ".txt", "Synthetic reference."]))));
+it("queued raw-file reads across sources remain blocked when a content request exhausts the raw-file budget", async () => {
+  const f = await service(fixture("openai", Object.fromEntries(Array.from({ length: 8 }, (_, i) => ["references/part-" + i + ".txt", "Synthetic reference."])))), other = fixture("anthropic");
   value(await f.s.list(owner, "openai"));
   const bodyPaths = f.files.map(file => "/" + file.path), gates: Array<{ url: string; resolve: (response: Response) => void }> = [];
-  f.setHook(async input => { const url = String(input); if (!bodyPaths.some(item => url.endsWith(item))) return f.route(input); return new Promise<Response>(resolve => gates.push({ url, resolve })); });
+  f.setHook(async input => { const url = String(input); if (url.includes("/anthropics/")) return other.route(input); if (!bodyPaths.some(item => url.endsWith(item))) return f.route(input); return new Promise<Response>(resolve => gates.push({ url, resolve })); });
   const detail = f.s.prepare(owner, "openai", f.id); await until(() => gates.length === 4);
   const queued = f.s.list({ ...owner, webContentsId: 55 }, "anthropic"); await new Promise(resolve => setImmediate(resolve));
   const before = f.calls.length; gates[0].resolve(new Response(null, { status: 429, headers: { "retry-after": "120" } }));
   for (const gate of gates.slice(1)) gate.resolve(await f.route(gate.url));
-  const [a, b] = await Promise.all([detail, queued]); expect(a).toMatchObject({ code: "RATE_LIMITED" }); expect(b).toMatchObject({ code: "RATE_LIMITED" }); expect(f.calls).toHaveLength(before);
+  // The REST listing still runs; only the raw-file channel is cooling down, so the catalog read is refused locally.
+  const [a, b] = await Promise.all([detail, queued]); expect(a).toMatchObject({ code: "RATE_LIMITED" }); expect(b).toMatchObject({ code: "RATE_LIMITED" });
+  expect(f.calls.slice(before).filter(isRawFileUrl)).toEqual([]);
 });
 it("selected declaration and detail share one pending manifest read", async () => {
   const f = await service(); value(await f.s.list(owner, "openai"));
@@ -415,15 +418,17 @@ it("lightweight_preview never treats a known static review as a completed payloa
   metadata.licenseFiles[0].path = "forged";
   expect(value(await f.s.detail(owner, "openai", f.id))).not.toEqual(preview); expect(stageDirectories(f)).toEqual([]);
 });
-it("operation_rate_diagnostics count only actual detail HTTP attempts and no requests during global cooldown", async () => {
-  const raw = fixture(), diagnostics: unknown[] = []; raw.deps.diagnose = item => diagnostics.push(item);
+it("operation_rate_diagnostics count only actual detail HTTP attempts and no raw-file requests during its cooldown", async () => {
+  const raw = fixture(), other = fixture("anthropic"), diagnostics: unknown[] = []; raw.deps.diagnose = item => diagnostics.push(item);
   const f = await service(raw); value(await f.s.list(owner, "openai"));
   const body = "/" + f.root + "/SKILL.md";
-  f.setHook(async (input, init) => String(input).endsWith(body) ? new Response(null, { status: 403, headers: { date: "Thu, 01 Jan 1970 00:10:00 GMT", "x-ratelimit-remaining": "0", "x-ratelimit-reset": "720" } }) : f.route(input, init));
+  f.setHook(async (input, init) => String(input).endsWith(body) ? new Response(null, { status: 403, headers: { date: "Thu, 01 Jan 1970 00:10:00 GMT", "x-ratelimit-remaining": "0", "x-ratelimit-reset": "720" } }) : (String(input).includes("/anthropics/") ? other.route : f.route)(input, init));
   expect(await f.s.detail(owner, "openai", f.id)).toMatchObject({ code: "RATE_LIMITED", retryAt: 121000 });
   expect(diagnostics).toContainEqual(expect.objectContaining({ operation: "detail", requestCount: 2, stage: "blob", status: 403, remaining: 0, reset: 720000, serverTime: 600000, retryAt: 121000, deadlineSource: "reset" }));
   const count = f.calls.length; expect(await f.s.list({ ...owner, webContentsId: 99 }, "anthropic")).toMatchObject({ code: "RATE_LIMITED", retryAt: 121000 });
-  expect(f.calls).toHaveLength(count); expect(diagnostics).toContainEqual(expect.objectContaining({ operation: "list", requestCount: 0, code: "RATE_LIMITED" }));
+  // Four REST requests list the source; the catalog's raw read is refused locally without a request.
+  expect(f.calls.slice(count)).toHaveLength(4); expect(f.calls.slice(count).filter(isRawFileUrl)).toEqual([]);
+  expect(diagnostics).toContainEqual(expect.objectContaining({ operation: "list", requestCount: 4, stage: "catalog", code: "RATE_LIMITED" }));
 });
 
 it("lightweight_preview stays incomplete after full prepare and reuses the audited introduction without HTTP", async () => {
@@ -474,4 +479,61 @@ it("built_in a market Skill named like a shipped Skill is listed as built in and
   expect(value(await f.s.list(owner, "anthropic"))[0]).toMatchObject({ id: f.id, builtIn: true });
   expect(await f.s.prepare(owner, "anthropic", f.id)).toMatchObject({ ok: false, code: "TARGET_EXISTS" });
   expect(stageDirectories(f)).toEqual([]); expect(new ExternalSkillStateStore(f.storage).read(f.id)).toBeUndefined();
+});
+
+describe("git_fallback when the REST budget is exhausted", () => {
+  function exhausted(f: ReturnType<typeof fixture>) {
+    const files = new Map(f.tree.map(entry => [entry.path, f.blobs.get(entry.sha)!] as const));
+    const repo = gitRepository(files);
+    f.setHook(async (input, init) => {
+      const url = String(input);
+      if (url.startsWith("https://api.github.com/")) return new Response(null, { status: 403, headers: { "x-ratelimit-remaining": "0", "x-ratelimit-reset": "3600" } });
+      if (url === "https://github.com/openai/plugins.git/git-upload-pack") {
+        expect(init?.method).toBe("POST"); expect(init?.credentials).toBe("omit"); expect(init?.redirect).toBe("manual");
+        expect(new Headers(init?.headers).get("git-protocol")).toBe("version=2"); expect(new Headers(init?.headers).has("authorization")).toBe(false);
+        const body = Buffer.from(init!.body as Uint8Array).toString();
+        return new Response(new Uint8Array(body.includes("command=ls-refs") ? repo.lsRefs : repo.fetch), { headers: { "content-type": "application/x-git-upload-pack-result" } });
+      }
+      return rawFile(url, "openai/plugins", repo.commit, files) ?? Response.json({}, { status: 404 });
+    });
+    return repo;
+  }
+  it("lists, previews and prepares over Git and raw files without further REST requests", async () => {
+    const f = await service(), repo = exhausted(f);
+    const listed = value(await f.s.list(owner, "openai"));
+    expect(listed).toHaveLength(1); expect(listed[0]).toMatchObject({ commit: repo.commit, upstreamName: "synthetic-text" });
+    const restCalls = f.calls.filter(url => url.startsWith("https://api.github.com/")).length;
+    expect(restCalls).toBe(1); // One refused attempt starts the REST cooldown; Git answers from then on.
+    const detail = value(await f.s.detail(owner, "openai", listed[0].id));
+    expect(detail.preview).toMatchObject({ complete: false, files: f.files.length }); expect(detail.preview!.bytes).toBeUndefined();
+    expect(detail.preview!.licenseFiles.every(file => file.bytes === undefined)).toBe(true);
+    const prepared = await f.s.prepare(owner, "openai", listed[0].id);
+    expect(prepared.ok || !["RATE_LIMITED", "NETWORK_FAILED", "TREE_INVALID", "BLOB_MISMATCH"].includes(prepared.code)).toBe(true);
+    expect(f.calls.filter(url => url.startsWith("https://api.github.com/")).length).toBe(restCalls);
+  });
+  it("still enforces the per-file limit while downloading when the tree has no sizes", async () => {
+    const f = await service(fixture("openai", { "references/huge.txt": Buffer.alloc(EXTERNAL_LIMITS.fileBytes + 1, 97) }));
+    exhausted(f);
+    const listed = value(await f.s.list(owner, "openai"));
+    expect(await f.s.prepare(owner, "openai", listed[0].id)).toMatchObject({ ok: false, code: "LIMIT_EXCEEDED" });
+    expect(stageDirectories(f)).toEqual([]);
+  });
+  it("keeps the rate-limit answer when Git is unreachable too", async () => {
+    const f = await service();
+    f.setHook(async input => String(input).startsWith("https://api.github.com/")
+      ? new Response(null, { status: 403, headers: { "x-ratelimit-remaining": "0", "x-ratelimit-reset": "3600" } })
+      : Promise.reject(new TypeError("offline")));
+    expect(await f.s.list(owner, "openai")).toMatchObject({ code: "RATE_LIMITED", retryAt: 3600000 });
+  });
+  it("surfaces a tampered Git tree instead of hiding it behind the rate limit", async () => {
+    const f = await service(), repo = exhausted(f);
+    const tampered = Buffer.from(repo.fetch); tampered[tampered.length - 10] ^= 1;
+    f.setHook(async (input, init) => {
+      const url = String(input);
+      if (url.startsWith("https://api.github.com/")) return new Response(null, { status: 403, headers: { "x-ratelimit-remaining": "0" } });
+      const body = Buffer.from(init!.body as Uint8Array).toString();
+      return new Response(new Uint8Array(body.includes("command=ls-refs") ? repo.lsRefs : tampered));
+    });
+    expect(await f.s.list(owner, "openai")).toMatchObject({ code: "TREE_INVALID" });
+  });
 });

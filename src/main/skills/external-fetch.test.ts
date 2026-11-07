@@ -331,3 +331,31 @@ it("normalized_rate_diagnostics reject raw secrets and malformed date/numeric he
   expect(diagnostics).toEqual([expect.objectContaining({ remaining: null, retryAfter: null, reset: null, serverTime: null, retryAt: 61000, deadlineSource: "fallback" })]);
   expect(JSON.stringify(diagnostics)).not.toContain(secret); expect(JSON.stringify(diagnostics)).not.toContain("https:");
 });
+
+describe("api_budget_scope", () => {
+  it("only REST requests consult the API cooldown hook; raw files and the Git protocol do not", async () => {
+    const { createExternalFetcher } = await implementation();
+    const { gitRepository } = await import("./testing/git-fixtures");
+    const bytes = Buffer.from("synthetic instruction"), repo = gitRepository(new Map([["skills/text/SKILL.md", bytes]]));
+    let budgetChecks = 0;
+    const mock = injected((url, init) => {
+      if (url === "https://github.com/openai/plugins.git/git-upload-pack") return new Response(new Uint8Array(Buffer.from(init.body as Uint8Array).toString().includes("command=ls-refs") ? repo.lsRefs : repo.fetch));
+      if (url.startsWith("https://raw.githubusercontent.com/")) return new Response(new Uint8Array(bytes));
+      return Response.json({ default_branch: "main" });
+    });
+    const fetcher = createExternalFetcher(mock.fetch, { beforeRequest: () => { budgetChecks++; } });
+    const commit = await fetcher.git.resolveCommit("openai", signal());
+    const tree = await fetcher.git.readTree("openai", commit, signal());
+    expect(tree.entries.find(entry => entry.path === "skills/text/SKILL.md")).toEqual({ path: "skills/text/SKILL.md", mode: "100644", type: "blob", sha: blobSha(bytes) });
+    expect(await fetcher.readBlob("openai", commit, ref(bytes), 100, signal())).toEqual(bytes);
+    expect(budgetChecks).toBe(0);
+    await expect(fetcher.resolveCommit("openai", signal())).rejects.toBeDefined(); expect(budgetChecks).toBeGreaterThan(0);
+  });
+  it("rejects a Git tree path the shared validator refuses", async () => {
+    const { createExternalFetcher } = await implementation();
+    const { gitRepository } = await import("./testing/git-fixtures");
+    const repo = gitRepository(new Map([["skills/con/SKILL.md", Buffer.from("x")]]));
+    const mock = injected((_url, init) => new Response(new Uint8Array(Buffer.from(init.body as Uint8Array).toString().includes("command=ls-refs") ? repo.lsRefs : repo.fetch)));
+    await expect(createExternalFetcher(mock.fetch).git.readTree("openai", repo.commit, signal())).rejects.toMatchObject({ code: "PATH_INVALID" });
+  });
+});

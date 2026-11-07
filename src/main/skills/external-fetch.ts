@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { TextDecoder } from "node:util";
 import type { ExternalSkillErrorCode, ExternalSkillSourceId } from "../../shared/external-skills";
 import { EXTERNAL_LIMITS, EXTERNAL_SOURCES } from "./external-policy";
+import { extractPack, LS_REFS_REQUEST, parseHeadRef, readPack, treeFromPack, treesOnlyFetchRequest, type GitPackFailure } from "./external-git-pack";
 
 export interface ExternalTree {
   commit: string;
@@ -105,7 +106,37 @@ function repository(sourceId: ExternalSkillSourceId): string {
   return `https://api.github.com/repos/${source.owner}/${source.repo}`;
 }
 
-export function createExternalFetcher(fetchImpl: typeof globalThis.fetch, options: ExternalFetchOptions = {}): ExternalFetcher {
+const GIT_RESULT = "application/x-git-upload-pack-result";
+const gitFail = (code: GitPackFailure): never => { throw new ExternalFetchError(code, code === "NETWORK_FAILED"); };
+function gitEndpoint(sourceId: ExternalSkillSourceId): string {
+  repository(sourceId);
+  const source = EXTERNAL_SOURCES[sourceId];
+  return `https://github.com/${source.owner}/${source.repo}.git/git-upload-pack`;
+}
+/** Shared by the REST and Git tree readers: unique paths, no file used as a directory, one spelling per parent. */
+function checkTreeEntries(entries: ExternalTree["entries"]): void {
+  // Segment-order sorting groups every ancestor directly before its descendants.
+  // A NUL separator sorts before any allowed segment character. Retain one key per
+  // entry, never every full prefix: memory is linear in bounded input path bytes.
+  const ordered = entries.map(entry => ({ entry, key: entry.path.toLowerCase().replaceAll("/", "\0") }))
+    .sort((left, right) => left.key < right.key ? -1 : left.key > right.key ? 1 : 0);
+  for (let i = 1; i < ordered.length; i++) {
+    const previous = ordered[i - 1], current = ordered[i];
+    if (previous.key === current.key) throw new ExternalFetchError("TREE_INVALID");
+    if (previous.entry.type === "blob" && current.key.startsWith(previous.key) && current.key[previous.key.length] === "\0") throw new ExternalFetchError("TREE_INVALID");
+    // Every case variant of a shared parent occurs at an adjacent group boundary.
+    const left = previous.entry.path.split("/"), right = current.entry.path.split("/");
+    for (let part = 0; part < Math.min(left.length, right.length); part++) {
+      if (left[part].toLowerCase() !== right[part].toLowerCase()) break;
+      if (left[part] !== right[part]) throw new ExternalFetchError("TREE_INVALID");
+    }
+  }
+}
+
+/** The REST reader plus a Git-protocol reader for the commit and tree, used when the REST budget is exhausted. */
+export type ExternalRemoteFetcher = ExternalFetcher & { git: Pick<ExternalFetcher, "resolveCommit" | "readTree"> };
+
+export function createExternalFetcher(fetchImpl: typeof globalThis.fetch, options: ExternalFetchOptions = {}): ExternalRemoteFetcher {
   // Numeric fields only. Never retain raw headers, URLs, bodies or native profile paths.
   const maxEpoch = 253402300799999;
   const epoch = (value: number): number | null => Number.isSafeInteger(value) && value >= 0 && value <= maxEpoch ? value : null;
@@ -153,8 +184,10 @@ export function createExternalFetcher(fetchImpl: typeof globalThis.fetch, option
     }
   }
   const json = async (url: string, limit: number, parentSignal: AbortSignal, context: ExternalRequestDiagnostic): Promise<unknown> =>
-    parseExternalJson(await download(url, limit, parentSignal, context, "application/vnd.github+json"));
-  async function download(url: string, limit: number, parentSignal: AbortSignal, context: ExternalRequestDiagnostic, accept: string): Promise<Buffer> {
+    parseExternalJson(await download(url, limit, parentSignal, context, { accept: "application/vnd.github+json", apiBudget: true }));
+  /** Only REST API requests count against (and wait for) the shared API cooldown; raw files and Git's HTTP service do not. */
+  async function download(url: string, limit: number, parentSignal: AbortSignal, context: ExternalRequestDiagnostic,
+    request: { accept: string; apiBudget: boolean; gitBody?: Buffer }): Promise<Buffer> {
     if (parentSignal.aborted) throw new ExternalFetchError("CANCELLED");
     const controller = new AbortController();
     let abortError: ExternalFetchError | undefined;
@@ -169,10 +202,13 @@ export function createExternalFetcher(fetchImpl: typeof globalThis.fetch, option
     const timeout = setTimeout(() => abort(new ExternalFetchError("REQUEST_TIMEOUT", true)), EXTERNAL_LIMITS.requestMs);
     const work = async () => {
       let response: Response;
-      options.beforeRequest?.();
+      if (request.apiBudget) options.beforeRequest?.();
       try { options.onRequest?.(parentSignal); } catch { /* Observers cannot change requests. */ }
       try {
-        response = await fetchImpl(url, { method: "GET", credentials: "omit", redirect: "manual", headers: { Accept: accept }, signal: controller.signal });
+        response = await fetchImpl(url, request.gitBody
+          ? { method: "POST", credentials: "omit", redirect: "manual", body: new Uint8Array(request.gitBody), signal: controller.signal,
+            headers: { Accept: request.accept, "Content-Type": "application/x-git-upload-pack-request", "Git-Protocol": "version=2" } }
+          : { method: "GET", credentials: "omit", redirect: "manual", headers: { Accept: request.accept }, signal: controller.signal });
       } catch { throw abortError ?? new ExternalFetchError("NETWORK_FAILED", true); }
       context.status = response.status;
       const now = (options.now ?? Date.now)();
@@ -248,24 +284,30 @@ export function createExternalFetcher(fetchImpl: typeof globalThis.fetch, option
         if (blob && (typeof entry.size !== "number" || !Number.isSafeInteger(entry.size) || entry.size < 0)) throw new ExternalFetchError("TREE_INVALID");
         return { path, mode: entry.mode as string, type: entry.type as "blob" | "tree", sha: hash, ...(blob ? { size: entry.size as number } : {}) };
       });
-      // Segment-order sorting groups every ancestor directly before its descendants.
-      // A NUL separator sorts before any allowed segment character. Retain one key per
-      // entry, never every full prefix: memory is linear in bounded input path bytes.
-      const ordered = entries.map(entry => ({ entry, key: entry.path.toLowerCase().replaceAll("/", "\0") }))
-        .sort((left, right) => left.key < right.key ? -1 : left.key > right.key ? 1 : 0);
-      for (let i = 1; i < ordered.length; i++) {
-        const previous = ordered[i - 1], current = ordered[i];
-        if (previous.key === current.key) throw new ExternalFetchError("TREE_INVALID");
-        if (previous.entry.type === "blob" && current.key.startsWith(previous.key) && current.key[previous.key.length] === "\0") throw new ExternalFetchError("TREE_INVALID");
-        // Every case variant of a shared parent occurs at an adjacent group boundary.
-        const left = previous.entry.path.split("/"), right = current.entry.path.split("/");
-        for (let part = 0; part < Math.min(left.length, right.length); part++) {
-          if (left[part].toLowerCase() !== right[part].toLowerCase()) break;
-          if (left[part] !== right[part]) throw new ExternalFetchError("TREE_INVALID");
-        }
-      }
+      checkTreeEntries(entries);
       return { commit, entries };
       });
+    },
+    git: {
+      async resolveCommit(sourceId, signal) {
+        const endpoint = gitEndpoint(sourceId);
+        return stage(sourceId, "metadata", signal, async context => {
+          const response = await download(endpoint, EXTERNAL_LIMITS.catalogBytes, signal, context, { accept: GIT_RESULT, apiBudget: false, gitBody: LS_REFS_REQUEST });
+          return parseHeadRef(response, gitFail);
+        });
+      },
+      async readTree(sourceId, commit, signal) {
+        const endpoint = gitEndpoint(sourceId); sha(commit, "TREE_INVALID");
+        return stage(sourceId, "tree", signal, async context => {
+          const response = await download(endpoint, EXTERNAL_LIMITS.treeBytes, signal, context, { accept: GIT_RESULT, apiBudget: false, gitBody: treesOnlyFetchRequest(commit) });
+          const objects = readPack(extractPack(response, EXTERNAL_LIMITS.treeBytes, gitFail), { objects: EXTERNAL_LIMITS.treeEntries + 1, inflatedBytes: EXTERNAL_LIMITS.treeBytes }, gitFail);
+          // The Git protocol has no blob sizes without the blobs; size limits apply while each file downloads.
+          const entries: ExternalTree["entries"] = treeFromPack(objects, commit, EXTERNAL_LIMITS.treeEntries, gitFail)
+            .map(entry => ({ ...entry, path: validateExternalPath(entry.path) }));
+          checkTreeEntries(entries);
+          return { commit, entries };
+        });
+      },
     },
     async readBlob(sourceId, commit, entry, decodedLimit, signal, requestStage = "blob") {
       return stage(sourceId, requestStage, signal, async context => {
@@ -274,7 +316,7 @@ export function createExternalFetcher(fetchImpl: typeof globalThis.fetch, option
       if (!Number.isSafeInteger(decodedLimit) || decodedLimit < 0 || decodedLimit > EXTERNAL_LIMITS.fileBytes) throw new ExternalFetchError("LIMIT_EXCEEDED");
       // Raw file bytes at a pinned commit; they do not use the 60-per-hour API budget. The Git blob hash proves identity.
       const url = `https://raw.githubusercontent.com/${source.owner}/${source.repo}/${commit}/${entry.path.split("/").map(encodeURIComponent).join("/")}`;
-      const bytes = await download(url, decodedLimit, signal, context, "application/octet-stream");
+      const bytes = await download(url, decodedLimit, signal, context, { accept: "application/octet-stream", apiBudget: false });
       const actual = createHash("sha1").update(`blob ${bytes.length}\0`).update(bytes).digest("hex");
       if (actual !== entry.sha) throw new ExternalFetchError("BLOB_MISMATCH");
       return bytes;
