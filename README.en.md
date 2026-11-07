@@ -143,12 +143,14 @@ flowchart TB
     voice["Voice input"]
     timers["Scheduled tasks · Proactive chat"]
     channels["Channels · Feishu · WeChat · QQ"]
+    user ~~~ voice ~~~ timers ~~~ channels
   end
   subgraph L2["② Desktop interface · renderer"]
     direction LR
     ui["Chats and sessions · React"]
     live2d["Live2D Firefly"]
     ipc["preload controlled IPC"]
+    ui ~~~ live2d ~~~ ipc
   end
   subgraph L3["③ Agent core · main process"]
     direction LR
@@ -165,18 +167,20 @@ flowchart TB
     vendors["Vendor adapters"]
     models(["Your model service"])
     recall["History search H · knowledge RAG"]
-    context --> vendors --> models
+    context --> vendors --> models ~~~ recall
   end
   subgraph L5["⑤ Capabilities and execution"]
     direction LR
     tools["Built-in tools<br/>files · commands · Git · LSP · documents"]
     browser["Built-in browser"]
     extensions["Plugins · Skills · MCP"]
+    tools ~~~ browser ~~~ extensions
   end
   subgraph L6["⑥ Local foundation"]
     direction LR
     store[("SQLite memory and indexes")]
     native["Rust native helper<br/>screenshots · history reads · workspace handles"]
+    store ~~~ native
   end
 
   L1 -- "starts a conversation" --> L2

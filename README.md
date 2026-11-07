@@ -143,12 +143,14 @@ flowchart TB
     voice["语音输入"]
     timers["定时任务 · 主动聊天"]
     channels["渠道 · 飞书 · 微信 · QQ"]
+    user ~~~ voice ~~~ timers ~~~ channels
   end
   subgraph L2["② 桌面界面 · 渲染进程"]
     direction LR
     ui["聊天与会话 · React"]
     live2d["Live2D 流萤"]
     ipc["preload 受控 IPC"]
+    ui ~~~ live2d ~~~ ipc
   end
   subgraph L3["③ Agent 核心 · 主进程"]
     direction LR
@@ -165,18 +167,20 @@ flowchart TB
     vendors["厂商适配"]
     models(["你的模型服务"])
     recall["历史检索 H · 知识 RAG"]
-    context --> vendors --> models
+    context --> vendors --> models ~~~ recall
   end
   subgraph L5["⑤ 能力与执行"]
     direction LR
     tools["内置工具<br/>文件 · 命令 · Git · LSP · 文档"]
     browser["内置浏览器"]
     extensions["插件 · Skills · MCP"]
+    tools ~~~ browser ~~~ extensions
   end
   subgraph L6["⑥ 本机底座"]
     direction LR
     store[("SQLite 记忆与索引")]
     native["Rust 原生助手<br/>截图 · 历史读取 · 工作区句柄"]
+    store ~~~ native
   end
 
   L1 -- "发起对话" --> L2
