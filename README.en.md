@@ -123,76 +123,113 @@ Want a look first? The live demo at [hotarufirefly.online](https://hotarufirefly
 
 ## 🏗️ Architecture
 
-The interface hands requests over a controlled IPC bridge to the Harness loop in the main process. Every tool call and browser action, by Firefly or a partner, goes through permissions and approvals first; memory, models and extensions are called by the loop as needed.
+Firefly is an Electron desktop app: the interface lives in the renderer process, the agent in the main process, with only a controlled IPC layer between them. A conversation flows down from an entry point through the main loop, memory and models, and permissions to the actual work, and the results flow back up.
+
+### How one conversation flows
+
+1. **Entry**: you send a message in the chat window, or speak and it becomes text; scheduled tasks, proactive chat and the Feishu / WeChat / QQ channels start conversations too.
+2. **Interface**: the React interface hands the request to the main process over the preload's controlled IPC; the Live2D Firefly changes expression with the work state.
+3. **Main loop**: the Harness main loop decides the next step: reply, call a tool, or hand the task to one of the 12 partners.
+4. **Memory and models**: before every model request, the memory runtime puts context S and fact memory M into the request, then the vendor adapters send it to the model service you configured; history H and knowledge RAG are searched when needed.
+5. **Permissions**: every tool call by Firefly or a partner passes permissions and approval first; the built-in browser also needs your separate authorization.
+6. **Execution**: built-in tools (files, commands, Git, LSP, documents), the built-in browser, plugins, Skills and MCP do the actual work; screenshots, history reads and workspace handles go to the Rust native helper.
+7. **Back to you**: progress and results stream back to the chat; a conversation that came from a channel is answered there.
 
 ```mermaid
 flowchart TB
-  user(["You"])
-  subgraph app["Desktop app · Electron"]
-    ui["Chat and sessions<br/>React UI"]
-    live2d["Live2D Firefly"]
-    bridge["preload<br/>controlled IPC"]
-  end
-  subgraph core["Agent workbench · main process"]
-    harness["Harness loop"]
-    partners["12 partners<br/>child sessions"]
-    perm{"Permissions and approvals"}
-    tools["Built-in tools<br/>files · commands · Git · LSP · documents"]
-    models["Model services"]
-    triggers["Scheduled tasks · proactive chat"]
-  end
-  subgraph memory["Memory and knowledge · local SQLite"]
-    mem["Context S · facts M · history H"]
-    rag["Knowledge RAG · knowledge workspace"]
-  end
-  subgraph ext["Extensions and integrations"]
-    browser["Built-in browser"]
-    plugins["Plugin host"]
-    skills["Skills · MCP"]
+  subgraph L1["① Entry"]
+    direction LR
+    user(["You"])
+    voice["Voice input"]
+    timers["Scheduled tasks · Proactive chat"]
     channels["Channels<br/>Feishu · WeChat · QQ"]
   end
-  native["Rust helpers<br/>screenshots · history reading · workspace handles"]
+  subgraph L2["② Desktop interface · renderer"]
+    direction LR
+    ui["Chats and sessions<br/>React"]
+    live2d["Live2D Firefly"]
+    ipc["preload<br/>controlled IPC"]
+  end
+  subgraph L3["③ Agent core · main process"]
+    direction LR
+    harness["Harness main loop"]
+    partners["12 partners<br/>child sessions"]
+    perm{"Permissions and approval"}
+  end
+  subgraph L4["④ Memory and models"]
+    direction LR
+    context["Memory runtime<br/>context S · facts M"]
+    recall["History search H<br/>knowledge RAG"]
+    vendors["Vendor adapters"]
+    models(["Your model service"])
+  end
+  subgraph L5["⑤ Capabilities and execution"]
+    direction LR
+    tools["Built-in tools<br/>files · commands · Git · LSP · documents"]
+    browser["Built-in browser"]
+    extensions["Plugins · Skills · MCP"]
+  end
+  subgraph L6["⑥ Local foundation"]
+    direction LR
+    store[("SQLite<br/>memory and indexes")]
+    native["Rust native helper<br/>screenshots · history reads · workspace handles"]
+  end
 
-  user --> ui --> bridge --> harness
-  triggers --> harness
-  channels --> harness
-  harness --> models
+  user --> ui
+  voice --> ui
+  ui --> ipc --> harness
+  timers --> harness
+  channels <--> harness
   harness --> partners
+  harness --> context --> vendors --> models
+  harness --> recall
   harness --> perm
   partners --> perm
   perm --> tools
   perm --> browser
-  harness --> mem
-  harness --> rag
-  harness --> plugins
-  harness --> skills
+  perm --> extensions
+  context --> store
+  recall --> store
+  recall --> native
   tools --> native
-  mem --> native
   harness -. "progress and results" .-> ui
-  harness -. "working expression" .-> live2d
+  harness -. "work state" .-> live2d
+
+  classDef entry fill:#e0e7ff,stroke:#6366f1,color:#1e1b4b
+  classDef face fill:#dbeafe,stroke:#3b82f6,color:#172554
+  classDef core fill:#fef3c7,stroke:#d97706,color:#451a03
+  classDef mind fill:#dcfce7,stroke:#16a34a,color:#052e16
+  classDef act fill:#fce7f3,stroke:#db2777,color:#500724
+  classDef base fill:#ede9fe,stroke:#7c3aed,color:#2e1065
+  class user,voice,timers,channels entry
+  class ui,live2d,ipc face
+  class harness,partners,perm core
+  class context,recall,vendors,models mind
+  class tools,browser,extensions act
+  class store,native base
 ```
+
+### Where each layer lives
+
+| Layer | Responsible for | Code |
+| --- | --- | --- |
+| ① Entry | Voice input, scheduled tasks, proactive chat, external channels | `src/main/asr/`, `src/main/scheduler/`, `src/main/proactive/`, `src/main/channels/` |
+| ② Desktop interface | Chat interface, Live2D, controlled IPC | `src/renderer/react/`, `src/renderer/live2d/`, `src/preload/index.ts` |
+| ③ Agent core | Main loop, partner child sessions, permissions and approval | `src/main/orchestrator/harness/firefly-harness.ts`, `src/main/orchestrator/persistent-agent-runtime.ts`, `src/main/orchestrator/harness/tool-dispatcher.ts`, `src/main/permission/` |
+| ④ Memory and models | Memory runtime, history search, knowledge RAG, vendor adapters | `src/main/memory-context/`, `src/main/memory-history/`, `src/main/rag/`, `src/main/knowledge/`, `src/main/orchestrator/vendors/` |
+| ⑤ Capabilities and execution | Built-in tools, browser, plugins, Skills, MCP, Code Git, LSP | `src/main/orchestrator/tools/built-in-tools.ts`, `src/main/browser/`, `src/plugins/`, `src/main/plugin-host/`, `src/main/skills/`, `src/main/orchestrator/mcp-manager.ts`, `src/main/code-git/`, `src/main/lsp/` |
+| ⑥ Local foundation | Memory store, native helper | `src/main/memory-core/`, `native/src/app.rs` |
 
 ## 🛠️ Run from source
 
-You need Windows, Node.js 24 and npm 10 or later; packaging also needs Rust (MSVC toolchain) and C++ build tools. The sources ship no models, voice resources or account credentials.
+You need Windows, Node.js 24 and npm 10 or later; packaging also needs Rust (MSVC toolchain) and C++ build tools.
 
 ```powershell
 git clone https://github.com/Firefly-0423/Firefly-Agent.git
 cd Firefly-Agent
 npm ci
-```
-
-Start with a development profile inside the repository, so your real data is never touched:
-
-```powershell
-$fireflyDevRoot = Join-Path (Get-Location).Path "output\development-profile"
-New-Item -ItemType Directory -Force -Path $fireflyDevRoot | Out-Null
-$env:FIREFLY_RUNTIME_PROFILE = "development"
-$env:FIREFLY_ISOLATION_ROOT = (Resolve-Path -LiteralPath $fireflyDevRoot).Path
 npm run dev
 ```
-
-The isolation root must be an existing absolute directory that is neither the production appData directory nor its parent or child; otherwise startup is refused. To start from a build, run `npm run build` and `npm start` in the same session with these variables set.
 
 | Command | Purpose |
 | --- | --- |
@@ -204,8 +241,7 @@ The isolation root must be an existing absolute directory that is neither the pr
 
 Scripts are described in [scripts/README.md](./scripts/README.md).
 
-<details>
-<summary><b>Tech stack</b></summary>
+### Tech stack
 
 | Layer | Technology |
 | --- | --- |
@@ -220,10 +256,7 @@ Scripts are described in [scripts/README.md](./scripts/README.md).
 | Rendering | Streamdown, Shiki, KaTeX |
 | Tests | Vitest |
 
-</details>
-
-<details>
-<summary><b>Project structure</b></summary>
+### Project structure
 
 ```
 src/
@@ -260,8 +293,6 @@ assets/ build/ resources/ # App and tray icons, file-type icons; installer scrip
 ```
 
 `dist/`, `release/` and `output/` hold build output, packages and local reports, and stay out of Git.
-
-</details>
 
 ## 📌 Status and limits
 

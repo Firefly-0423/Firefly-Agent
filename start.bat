@@ -6,14 +6,12 @@ if errorlevel 1 exit /b 1
 
 if not "%~2"=="" goto usage
 if not "%~1"=="" set "FIREFLY_ISOLATION_ROOT=%~1"
-if defined FIREFLY_ISOLATION_ROOT goto run
-if defined FIREFLY_ISOLATED_SMOKE_APPDATA goto run
+rem Without a root, firefly run keeps the data in this checkout's output\development-profile.
+goto run
 
 :usage
-echo [Error] FIREFLY_RUNTIME_ISOLATION_REQUIRED: development needs an explicit isolation root.
-echo Usage: start.bat "absolute existing isolation directory"
-echo Or set FIREFLY_ISOLATION_ROOT before running this script.
-echo The root must not overlap production appData. This script does not create directories.
+echo [Error] start.bat takes at most one argument: an optional absolute, existing data directory.
+echo Without it, the data stays in output\development-profile inside this folder.
 pause
 exit /b 1
 

@@ -123,76 +123,113 @@
 
 ## 🏗️ 架构
 
-界面通过受控 IPC 把请求交给主进程里的 Harness 主循环。流萤和伙伴的每一次工具调用、浏览器操作都先经过权限与审批；记忆、模型与扩展由主循环按需调用。
+流萤是一个 Electron 桌面应用：界面在渲染进程，Agent 在主进程，中间只隔一层受控 IPC。一次对话从入口一路往下，经过主循环、记忆与模型、权限，到真正执行，再把结果送回来。
+
+### 一次对话怎么走
+
+1. **入口**：你在聊天窗口发消息，或者语音输入先转成文字；定时任务、主动聊天和飞书 / 微信 / QQ 渠道也会发起对话。
+2. **界面**：React 界面通过 preload 的受控 IPC 把请求交给主进程；Live2D 流萤跟着工作状态变化表情。
+3. **主循环**：Harness 主循环决定下一步：直接回复、调用工具，或者把任务派给 12 位伙伴之一。
+4. **记忆与模型**：每次请求模型前，记忆运行时把上下文 S 和事实记忆 M 装进请求，再经厂商适配层发给你配置的模型服务；需要时检索历史 H 和知识 RAG。
+5. **权限**：流萤和伙伴的每一次工具调用都先经过权限与审批；内置浏览器还要你单独授权。
+6. **执行**：内置工具（文件、命令、Git、LSP、文档）、内置浏览器、插件、Skills 与 MCP 完成实际工作；截图、历史读取和工作区句柄交给 Rust 原生助手。
+7. **回到你**：进度与结果流回聊天界面；来自渠道的对话回复到原渠道。
 
 ```mermaid
 flowchart TB
-  user(["你"])
-  subgraph app["桌面应用 · Electron"]
-    ui["聊天与会话<br/>React 界面"]
-    live2d["Live2D 流萤"]
-    bridge["preload<br/>受控 IPC"]
+  subgraph L1["① 入口"]
+    direction LR
+    user(["你"])
+    voice["语音输入"]
+    timers["定时任务 · 主动聊天"]
+    channels["渠道<br/>飞书 · 微信 · QQ"]
   end
-  subgraph core["Agent 工作台 · 主进程"]
+  subgraph L2["② 桌面界面 · 渲染进程"]
+    direction LR
+    ui["聊天与会话<br/>React"]
+    live2d["Live2D 流萤"]
+    ipc["preload<br/>受控 IPC"]
+  end
+  subgraph L3["③ Agent 核心 · 主进程"]
+    direction LR
     harness["Harness 主循环"]
     partners["12 位伙伴<br/>子会话"]
     perm{"权限与审批"}
+  end
+  subgraph L4["④ 记忆与模型"]
+    direction LR
+    context["记忆运行时<br/>上下文 S · 事实 M"]
+    recall["历史检索 H<br/>知识 RAG"]
+    vendors["厂商适配"]
+    models(["你的模型服务"])
+  end
+  subgraph L5["⑤ 能力与执行"]
+    direction LR
     tools["内置工具<br/>文件 · 命令 · Git · LSP · 文档"]
-    models["模型服务"]
-    triggers["定时任务 · 主动聊天"]
-  end
-  subgraph memory["记忆与知识 · 本机 SQLite"]
-    mem["上下文 S · 事实记忆 M · 历史检索 H"]
-    rag["知识 RAG · 知识工作区"]
-  end
-  subgraph ext["扩展与集成"]
     browser["内置浏览器"]
-    plugins["插件宿主"]
-    skills["Skills · MCP"]
-    channels["渠道<br/>飞书 · 微信 · QQ"]
+    extensions["插件 · Skills · MCP"]
   end
-  native["Rust 原生助手<br/>截图 · 历史读取 · 工作区句柄"]
+  subgraph L6["⑥ 本机底座"]
+    direction LR
+    store[("SQLite<br/>记忆与索引")]
+    native["Rust 原生助手<br/>截图 · 历史读取 · 工作区句柄"]
+  end
 
-  user --> ui --> bridge --> harness
-  triggers --> harness
-  channels --> harness
-  harness --> models
+  user --> ui
+  voice --> ui
+  ui --> ipc --> harness
+  timers --> harness
+  channels <--> harness
   harness --> partners
+  harness --> context --> vendors --> models
+  harness --> recall
   harness --> perm
   partners --> perm
   perm --> tools
   perm --> browser
-  harness --> mem
-  harness --> rag
-  harness --> plugins
-  harness --> skills
+  perm --> extensions
+  context --> store
+  recall --> store
+  recall --> native
   tools --> native
-  mem --> native
   harness -. "进度与结果" .-> ui
-  harness -. "工作表情" .-> live2d
+  harness -. "工作状态" .-> live2d
+
+  classDef entry fill:#e0e7ff,stroke:#6366f1,color:#1e1b4b
+  classDef face fill:#dbeafe,stroke:#3b82f6,color:#172554
+  classDef core fill:#fef3c7,stroke:#d97706,color:#451a03
+  classDef mind fill:#dcfce7,stroke:#16a34a,color:#052e16
+  classDef act fill:#fce7f3,stroke:#db2777,color:#500724
+  classDef base fill:#ede9fe,stroke:#7c3aed,color:#2e1065
+  class user,voice,timers,channels entry
+  class ui,live2d,ipc face
+  class harness,partners,perm core
+  class context,recall,vendors,models mind
+  class tools,browser,extensions act
+  class store,native base
 ```
+
+### 各层代码位置
+
+| 层 | 负责 | 代码 |
+| --- | --- | --- |
+| ① 入口 | 语音输入、定时任务、主动聊天、外部渠道 | `src/main/asr/`、`src/main/scheduler/`、`src/main/proactive/`、`src/main/channels/` |
+| ② 桌面界面 | 聊天界面、Live2D、受控 IPC | `src/renderer/react/`、`src/renderer/live2d/`、`src/preload/index.ts` |
+| ③ Agent 核心 | 主循环、伙伴子会话、权限与审批 | `src/main/orchestrator/harness/firefly-harness.ts`、`src/main/orchestrator/persistent-agent-runtime.ts`、`src/main/orchestrator/harness/tool-dispatcher.ts`、`src/main/permission/` |
+| ④ 记忆与模型 | 记忆运行时、历史检索、知识 RAG、厂商适配 | `src/main/memory-context/`、`src/main/memory-history/`、`src/main/rag/`、`src/main/knowledge/`、`src/main/orchestrator/vendors/` |
+| ⑤ 能力与执行 | 内置工具、浏览器、插件、Skills、MCP、Code Git、LSP | `src/main/orchestrator/tools/built-in-tools.ts`、`src/main/browser/`、`src/plugins/`、`src/main/plugin-host/`、`src/main/skills/`、`src/main/orchestrator/mcp-manager.ts`、`src/main/code-git/`、`src/main/lsp/` |
+| ⑥ 本机底座 | 记忆库、原生助手 | `src/main/memory-core/`、`native/src/app.rs` |
 
 ## 🛠️ 从源码运行
 
-需要 Windows、Node.js 24 与 npm 10 以上；本地打包另需 Rust（MSVC 工具链）与 C++ 构建工具。源码不附带模型、语音资源或账户凭据。
+需要 Windows、Node.js 24 与 npm 10 以上；本地打包另需 Rust（MSVC 工具链）与 C++ 构建工具。
 
 ```powershell
 git clone https://github.com/Firefly-0423/Firefly-Agent.git
 cd Firefly-Agent
 npm ci
-```
-
-用仓库内的开发隔离目录启动，不会碰你的正式数据：
-
-```powershell
-$fireflyDevRoot = Join-Path (Get-Location).Path "output\development-profile"
-New-Item -ItemType Directory -Force -Path $fireflyDevRoot | Out-Null
-$env:FIREFLY_RUNTIME_PROFILE = "development"
-$env:FIREFLY_ISOLATION_ROOT = (Resolve-Path -LiteralPath $fireflyDevRoot).Path
 npm run dev
 ```
-
-隔离根必须是已存在的绝对目录，且不能与正式 appData 目录相同或互为父子目录，否则拒绝启动。要从构建产物启动，在设置了上述变量的同一会话里执行 `npm run build` 与 `npm start`。
 
 | 命令 | 作用 |
 | --- | --- |
@@ -204,8 +241,7 @@ npm run dev
 
 脚本说明见 [scripts/README.md](./scripts/README.md)。
 
-<details>
-<summary><b>技术栈</b></summary>
+### 技术栈
 
 | 层级 | 技术 |
 | --- | --- |
@@ -220,10 +256,7 @@ npm run dev
 | 渲染 | Streamdown、Shiki、KaTeX |
 | 测试 | Vitest |
 
-</details>
-
-<details>
-<summary><b>项目结构</b></summary>
+### 项目结构
 
 ```
 src/
@@ -260,8 +293,6 @@ assets/ build/ resources/ # 应用与托盘图标、文件类型图标；安装�
 ```
 
 `dist/`、`release/`、`output/` 是编译产物、打包产物和本地报告，不进入 Git。
-
-</details>
 
 ## 📌 状态与限制
 

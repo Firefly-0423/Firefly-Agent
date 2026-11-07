@@ -4,6 +4,7 @@
 
 | 目录 | 用途 | 常用入口 |
 | --- | --- | --- |
+| `dev/` | 从源码启动 Electron；没设 `FIREFLY_ISOLATION_ROOT` 时，数据放在仓库的 `output/development-profile` | `npm run dev`、`npm start` |
 | `build/` | 构建 CLI 与原生截图辅助程序 | `npm run build:cli`、`npm run build:screenshot-helper` |
 | `packaging/` | 准备 MinGit、校验 Skills 目录及可选本地 mpv | `npm run prepare:mingit`、`npm run validate:skills`；后者只校验，不生成归档 |
 | `verify/` | 手动或自动验证构建产物及运行链路 | `npm run verify:screenshot-helper`、`npm run smoke:music` |

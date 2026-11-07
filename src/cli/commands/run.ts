@@ -5,7 +5,7 @@
  * runnable package.json; installed applications use their executable.
  */
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { errLine } from "../util/log.js";
 import { resolveElectron } from "../util/resolve-electron.js";
@@ -21,9 +21,17 @@ export async function runFireflyRun(): Promise<RunResult> {
   // Windows wraps electron.cmd in a shell shim, so it must go through cmd /c.
   const viaShim = process.platform === "win32" && electron.endsWith(".cmd");
   const args = [".", "--firefly-profile=development"];
+  // Same default as `npm run dev`: without an explicit root, data stays in the checkout's git-ignored
+  // output/development-profile, apart from an installed Firefly. It goes through the environment, not
+  // argv, so a path with spaces survives the cmd shim.
+  const env = { ...process.env };
+  if (!env.FIREFLY_ISOLATION_ROOT?.trim() && !env.FIREFLY_ISOLATED_SMOKE_APPDATA?.trim()) {
+    env.FIREFLY_ISOLATION_ROOT = path.join(cwd, "output", "development-profile");
+    mkdirSync(env.FIREFLY_ISOLATION_ROOT, { recursive: true });
+  }
   const child = viaShim
-    ? spawn("cmd", ["/c", electron, ...args], { stdio: "inherit", cwd })
-    : spawn(electron, args, { stdio: "inherit", cwd });
+    ? spawn("cmd", ["/c", electron, ...args], { stdio: "inherit", cwd, env })
+    : spawn(electron, args, { stdio: "inherit", cwd, env });
   return new Promise((settle) => {
     // A signal-terminated child is reported as a generic failure (code 1).
     child.on("exit", (code, signal) => settle({ kind: "ok", code: signal ? 1 : (code ?? 0) }));

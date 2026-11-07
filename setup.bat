@@ -37,8 +37,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo [Firefly] Setup complete. Development requires an absolute existing isolation directory.
-echo Run: start.bat "isolation directory"
-echo Or set FIREFLY_ISOLATION_ROOT in the current terminal before running start.bat.
-echo New terminals and double-click launches do not inherit temporary variables from another terminal.
+echo [Firefly] Setup complete. Run start.bat to launch Firefly from this folder.
+echo Its data stays in output\development-profile here, apart from an installed Firefly.
+echo To keep it elsewhere: start.bat "absolute existing directory", or set FIREFLY_ISOLATION_ROOT first.
 pause
