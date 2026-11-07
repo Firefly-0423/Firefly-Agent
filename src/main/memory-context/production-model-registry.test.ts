@@ -40,3 +40,13 @@ it("preserves an existing no-auth local model profile",()=>{
  const value=settings();Object.assign(value.modelProfiles![0],{provider:"自定义端点（本地）",baseUrl:"http://127.0.0.1:11434/v1",model:"local-model",apiKey:"",explicitTransport:"openai"});
  const binding=createProductionModelRegistry({settings:()=>value}).bind("luna");expect(binding.config.apiKey).toBe("");expect(binding.config.model).toBe("local-model");
 });
+it("binds the same config the chat, work and proactive paths send for a profile with reasoning levels",async()=>{
+ const {resolveModelSettingsProfile}=await import("../settings/model-settings");
+ const {vendorConfigFromSettings}=await import("../orchestrator/vendors/vendor-config");
+ const {copyResponseJson}=await import("../orchestrator/vendors/response-request-snapshot");
+ const value=settings();Object.assign(value.modelProfiles![0],{reasoning:{mode:"on",effort:"low"},reasoningLevels:{efforts:["low","high","max"]}});
+ const bound=createProductionModelRegistry({settings:()=>value}).bind("luna").config;
+ const sent=vendorConfigFromSettings(resolveModelSettingsProfile(value,"luna"));
+ expect(sent.reasoningLevels).toEqual({efforts:["low","high","max"]});
+ expect(JSON.stringify(copyResponseJson(sent,true))).toBe(JSON.stringify(copyResponseJson(bound,true)));
+});

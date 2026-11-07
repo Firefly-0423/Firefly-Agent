@@ -4,6 +4,7 @@ import { getCustomEndpointMode, getCustomEndpointPresentation } from "../../shar
 import { createBackgroundMemoryIngressIssuer, type BackgroundMemoryHost, type BackgroundMemoryPreparedRun } from "../memory-context/background-memory-ingress";
 import type { MainMemoryRun } from "../memory-context/main-memory-runtime";
 import type { ChatMessage } from "../orchestrator/vendors/types";
+import { vendorConfigFromSettings } from "../orchestrator/vendors/vendor-config";
 import { searchMemory } from "../rag";
 import { randomUUID } from "crypto";
 import { powerMonitor } from "electron";
@@ -238,14 +239,7 @@ export function createProactiveLifecycle(options: ProactiveLifecycleOptions): Pr
     const keyOptional = customMode !== null && getCustomEndpointPresentation(customMode).apiKeyOptional;
     if (!keyOptional && !resolved.apiKey?.trim()) return { kind: "error", reason: "missing_api_key" };
 
-    const vendorConfig = {
-      provider: resolved.provider,
-      baseUrl: resolved.baseUrl,
-      model: resolved.model,
-      apiKey: resolved.apiKey,
-      explicitTransport: resolved.explicitTransport,
-      reasoning: resolved.reasoning,
-    };
+    const vendorConfig = vendorConfigFromSettings(resolved);
 
     const host = options.memoryHost;
     if (!host) {

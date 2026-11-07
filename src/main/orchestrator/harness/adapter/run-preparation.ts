@@ -4,6 +4,7 @@ import type { FireflyRunOptions } from "../../firefly-agent";
 import type { PromptLayers } from "../../prompt-layers";
 import { toolRegistry, type ToolDefinition } from "../../tools/registry/tool-registry";
 import type { VendorConfig, ChatMessage } from "../../vendors/types";
+import { vendorConfigFromSettings } from "../../vendors/vendor-config";
 import { prepareHarnessRecovery } from "../run-recovery";
 import { getHarnessRunStore, type HarnessRequestSnapshot } from "../run-store";
 import { materializeHarnessStartTranscript, buildHarnessPromptLayers } from "./prompt-builder";
@@ -73,11 +74,7 @@ export async function prepareHarnessRun(
   const conversationId = config.conversationId ?? "default";
   const { planState: plannedState, planContextBlock: approvedContext } = await preparePlanRunContext({ mode: config.conversationMode, threadId: conversationId });
   console.log(`[HarnessAdapter] starting harness run, mode=${config.conversationMode ?? "work"}${plannedState ? ` plan=${plannedState}` : ""}`);
-  const vendor: VendorConfig = {
-    provider: config.settings.provider, baseUrl: config.settings.baseUrl,
-    model: config.settings.model, apiKey: config.settings.apiKey,
-    explicitTransport: config.settings.explicitTransport, reasoning: config.settings.reasoning,
-  };
+  const vendor: VendorConfig = vendorConfigFromSettings(config.settings);
   const available = [...(config.capabilities?.tools ?? config.tools ?? toolRegistry.getEnabledTools())];
   const store = getHarnessRunStore(app.getPath("userData"));
   let restoration: ReturnType<typeof prepareHarnessRecovery> | undefined;

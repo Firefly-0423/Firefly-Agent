@@ -4,6 +4,7 @@ import { recordUsage, recordRequest, recordModelCall } from "../storage/token-us
 import { AgentRuntimeError } from "./agent-runtime-error";
 import type { AgentLoopSettings, AgentLoopEvent, AgentLoopResult } from "./firefly-agent";
 import type { ChatMessage, ChatRequest, ChatVendorAdapter, ChatResponse, VendorConfig } from "./vendors/types";
+import { vendorConfigFromSettings } from "./vendors/vendor-config";
 import { streamChatWithSdk } from "./vendors/sdk-stream/runtime";
 import type { UnifiedStreamDelta } from "./vendors/sdk-stream/types";
 import { getTimeoutSettings } from "../settings/timeout-manager";
@@ -85,10 +86,7 @@ export async function runChatLoop(options: ChatLoopOptions): Promise<AgentLoopRe
     if (left <= 0) throw new Error("E_SOUL_ONLY_TIMEOUT");
     return Math.max(1, Math.min(perRequest, left));
   };
-  const vendor: VendorConfig = {
-    provider: options.settings.provider, baseUrl: options.settings.baseUrl, model: options.settings.model, apiKey: options.settings.apiKey,
-    explicitTransport: options.settings.explicitTransport, reasoning: options.settings.reasoning, reasoningLevels: options.settings.reasoningLevels,
-  };
+  const vendor: VendorConfig = vendorConfigFromSettings(options.settings);
   const makeRequest = (history: ChatMessage[], stream: boolean): ChatRequest => ({
     model: options.settings.model,
     ...composePromptLayers({ stablePrefix: options.soulSystemBaseContent, runtimeContext: options.runtimeContext, mode: options.mode }, history),

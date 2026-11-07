@@ -4,6 +4,7 @@ import type { ModelSettings } from "../settings/model-settings";
 import { getAdapterForConfig } from "../orchestrator/vendors";
 import { resolveTransport } from "../orchestrator/vendors/transport-detector";
 import type { VendorConfig } from "../orchestrator/vendors/types";
+import { vendorConfigFromSettings } from "../orchestrator/vendors/vendor-config";
 import { DEFAULT_HARNESS_CONFIG } from "../orchestrator/harness/types";
 import { autoCompactTriggerTokens } from "../../shared/context-window";
 import type { MainMemoryModelBinding } from "./main-memory-runtime";
@@ -21,8 +22,7 @@ export function createProductionModelRegistry(options:Options) {
   if(closed)return denied();
   const settings=options.settings(),matches=settings.modelProfiles?.filter(profile=>profile.id===id)??[];
   if(matches.length!==1)return null;
-  const profile=matches[0],config:VendorConfig={provider:profile.provider,baseUrl:profile.baseUrl,model:profile.model,apiKey:profile.apiKey,
-   ...(profile.explicitTransport?{explicitTransport:profile.explicitTransport}:{}),...(profile.reasoning?{reasoning:structuredClone(profile.reasoning)}:{})};
+  const profile=matches[0],config:VendorConfig=vendorConfigFromSettings(profile);
   const window=profile.contextWindowTokens??settings.contextWindowTokens;
   const customMode=getCustomEndpointMode(config.provider),keyOptional=customMode!==null&&getCustomEndpointPresentation(customMode).apiKeyOptional;
   if(!config.provider?.trim()||!config.model?.trim()||!config.baseUrl?.trim()||(!keyOptional&&!config.apiKey?.trim())||!Number.isSafeInteger(window)||window<1)return denied();
