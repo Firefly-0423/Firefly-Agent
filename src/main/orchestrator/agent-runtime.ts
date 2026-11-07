@@ -35,6 +35,7 @@ import {
 import { resolveSlashActivation } from "../skills/slash-activation";
 import type { SocialAtom, SocialExtractionInput } from "../social-context/types";
 import type { ToolDefinition, ToolModeOverrides } from "./tools/registry/tool-registry";
+import { RETIRED_MEMORY_TOOL_IDS } from "./tools/registry/retired-memory-tools";
 import type { ConversationMode } from "../../shared/chat-types";
 import {
   buildAgentRunOptions,
@@ -103,7 +104,7 @@ type SchedulerRunOptions = Omit<FireflyRunOptions, "toolSystemContent" | "soulSy
 export function createAgentRuntime(rawDeps: AgentRuntimeDeps): AgentRuntime {
   const background: BackgroundMemoryHost | undefined = rawDeps.defaultMemory?.prepareBackgroundRun
     ? { prepareBackgroundRun: (request) => rawDeps.defaultMemory!.prepareBackgroundRun!(request) } : undefined;
-  const retiredTools = new Set(["user_memory", "read_memory", "write_memory", "recall_history"]);
+  const retiredTools = RETIRED_MEMORY_TOOL_IDS;
   const registry = rawDeps.defaultMemory ? {
     getEnabledTools: () => rawDeps.toolRegistry.getEnabledTools().filter((entry) => !retiredTools.has(entry.id)),
     getEnabledToolsForMode: (mode: ConversationMode, overrides?: ToolModeOverrides) => rawDeps.toolRegistry.getEnabledToolsForMode(mode, overrides).filter((entry) => !retiredTools.has(entry.id)),

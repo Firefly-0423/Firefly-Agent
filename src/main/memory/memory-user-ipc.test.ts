@@ -449,6 +449,16 @@ describe("tool catalog and mode overrides", () => {
     ]);
   });
 
+  it("leaves the retired personal-memory tools out of the catalog when personal memory is retired", async () => {
+    const tools = ["user_memory", "read_memory", "write_memory", "recall_history", "web_search"].map(id => ({ id, name: id, description: "d", enabled: true }));
+    mocks.getAllTools.mockReturnValue(tools);
+
+    const retired = await fixture({ personalMemoryMode: "smh" }).invoke(IPC.TOOL_GET_CATALOG) as Array<{ id: string }>;
+    expect(retired.map(tool => tool.id)).toEqual(["web_search"]);
+    const legacy = await fixture().invoke(IPC.TOOL_GET_CATALOG) as Array<{ id: string }>;
+    expect(legacy.map(tool => tool.id)).toEqual(["user_memory", "read_memory", "write_memory", "recall_history", "web_search"]);
+  });
+
   it("returns saved tool mode overrides", async () => {
     const f = fixture();
     const overrides = { t1: { chat: false } };

@@ -9,6 +9,7 @@ import { getStickerManagerConfig, setStickerEnabled } from "../orchestrator/stic
 import { addUserSticker } from "../stickers/sticker-storage";
 import { registerMcpManagementIpc } from "../orchestrator/mcp-management-ipc";
 import { toolRegistry } from "../orchestrator/tools/registry/tool-registry";
+import { RETIRED_MEMORY_TOOL_IDS } from "../orchestrator/tools/registry/retired-memory-tools";
 import { loadGeneralSettings, saveGeneralSettings } from "../settings/settings-facade";
 import { loadModelSettings, resolveModelSettingsProfile } from "../settings/model-settings";
 import { createLlmClient } from "../services/llm/llm-client";
@@ -152,7 +153,7 @@ export function registerMemoryUserToolIpc(deps: MemoryUserToolIpcDependencies): 
 
   // 目录只暴露可序列化字段（不含 execute / zod schema），供工具页展示
   const listToolCatalog = () => {
-    const entries = toolRegistry.getAllTools();
+    const entries = toolRegistry.getAllTools().filter(entry => !(personalMemoryRetired && RETIRED_MEMORY_TOOL_IDS.has(entry.id)));
     return entries.map(({ id, name, description, enabled, modes, chatBuiltin, deprecated }) => ({
       id,
       name,

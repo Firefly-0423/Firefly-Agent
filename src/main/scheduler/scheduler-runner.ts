@@ -9,6 +9,7 @@ import { AgentRuntimeError } from "../orchestrator/agent-runtime-error";
 import { FireflyAgent, type FireflyRunOptions } from "../orchestrator/firefly-agent";
 import type { LifecyclePublisher } from "../plugin-host/lifecycle-publisher";
 import { toolRegistry } from "../orchestrator/tools/registry/tool-registry";
+import { RETIRED_MEMORY_TOOL_IDS } from "../orchestrator/tools/registry/retired-memory-tools";
 import { toastEvents } from "../toast/toast-events";
 import { filterToolsForTask } from "./tool-filter";
 import type { ScheduledRunResult, ScheduledTask, ScheduledTaskHistoryEntry } from "./types";
@@ -67,7 +68,7 @@ export function createSchedulerRunner(deps: RunnerDeps) {
     const historyId = deps.id();
     const startedAt = deps.now();
     const allTools = toolRegistry.getAllTools();
-    const effectiveTools = filterToolsForTask(task, deps.memoryHost ? allTools.filter(tool => !["user_memory", "read_memory", "write_memory", "recall_history"].includes(tool.id)) : allTools);
+    const effectiveTools = filterToolsForTask(task, deps.memoryHost ? allTools.filter(tool => !RETIRED_MEMORY_TOOL_IDS.has(tool.id)) : allTools);
     const effectiveToolIds = effectiveTools.map(t => t.id);
 
     const send = (event: unknown): void => {
