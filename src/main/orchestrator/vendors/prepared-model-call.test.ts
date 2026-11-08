@@ -101,6 +101,53 @@ describe("prepared provider calls", () => {
     expect(response.text).toBe("完成");
     expect(bodies).toEqual([prepared.serializedBody, prepared.serializedBody, prepared.serializedBody]);
   });
+  // Owner report: a run sat at "流萤正在理解需求" for 8 minutes because a silent stream waited for the 10-minute total limit.
+  const stalled = (input: RequestInfo | URL) => new Promise<Response>((_resolve, reject) => {
+    const signal = (input as Request).signal;
+    signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+  });
+  const idle = { headersMs: 40, bodyMs: 60 };
+  it("retries a request whose response never starts, then reports the silence instead of waiting for the total limit", async () => {
+    const f = fixture("responses");
+    let calls = 0;
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => (++calls === 1 ? stalled(input) : sse("responses"))));
+    const response = await dispatchPreparedModelCall({ prepared: prepareModelCall(f.adapter, f.request, f.config, f.identity), config: f.config, timeoutMs: 60_000, idle });
+    expect(response.text).toBe("完成");
+    expect(calls).toBe(2);
+    const silent = vi.fn(stalled);
+    vi.stubGlobal("fetch", silent);
+    const began = Date.now();
+    await expect(dispatchPreparedModelCall({ prepared: prepareModelCall(f.adapter, f.request, f.config, f.identity), config: f.config, timeoutMs: 60_000, idle }))
+      .rejects.toMatchObject({ code: "E_MODEL_REQUEST_TIMEOUT" });
+    expect(silent).toHaveBeenCalledTimes(3);
+    expect(Date.now() - began).toBeLessThan(10_000);
+  }, 15_000);
+  it("stops a stream that goes silent after it started, without replaying it", async () => {
+    const f = fixture("openai");
+    const body = new ReadableStream({ start(controller) {
+      controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ delta: { content: "部分" }, finish_reason: null }] })}\n\n`));
+    } });
+    const fetch = vi.fn(async () => new Response(body, { headers: { "Content-Type": "text/event-stream" } }));
+    vi.stubGlobal("fetch", fetch);
+    const deltas: string[] = [];
+    await expect(dispatchPreparedModelCall({ prepared: prepareModelCall(f.adapter, f.request, f.config, f.identity), config: f.config, timeoutMs: 60_000, idle,
+      onDelta: delta => { if (delta.type === "text_delta") deltas.push(delta.delta); } })).rejects.toMatchObject({ code: "E_MODEL_REQUEST_TIMEOUT" });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(deltas).toEqual(["部分"]);
+  });
+  it("keeps a slow stream alive while bytes keep arriving", async () => {
+    const f = fixture("openai");
+    const chunks = [{ choices: [{ delta: { reasoning_content: "想" }, finish_reason: null }] }, { choices: [{ delta: { content: "好" }, finish_reason: null }] },
+      { choices: [{ delta: {}, finish_reason: "stop" }] }].map(event => `data: ${JSON.stringify(event)}\n\n`);
+    const body = new ReadableStream({ async pull(controller) {
+      await new Promise(resolve => setTimeout(resolve, 35));
+      const next = chunks.shift();
+      if (next) controller.enqueue(new TextEncoder().encode(next)); else controller.close();
+    } });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { headers: { "Content-Type": "text/event-stream" } })));
+    const response = await dispatchPreparedModelCall({ prepared: prepareModelCall(f.adapter, f.request, f.config, f.identity), config: f.config, timeoutMs: 60_000, idle });
+    expect(response.text).toBe("好");
+  });
   it("sends every model request through one shared keep-alive pool so tool rounds reuse the connection", async () => {
     const f = fixture("responses"), pools: unknown[] = [];
     vi.stubGlobal("fetch", vi.fn(async (_input: RequestInfo | URL, init?: RequestInit & { dispatcher?: unknown }) => { pools.push(init?.dispatcher); return sse("responses"); }));
