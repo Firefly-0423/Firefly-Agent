@@ -1,5 +1,5 @@
 import { findSafeCutPointForRetainedTokens } from "./harness/compaction";
-import type { HarnessRunSession } from "./harness/run-store";
+import type { HarnessRunEvidence, HarnessRunSession } from "./harness/run-store";
 import { DEFAULT_HARNESS_CONFIG, tryParseToolCallArgs, toolCallFingerprint, type UncertainEffect } from "./harness/types";
 import type { ConversationTranscriptStore } from "./conversation-transcript-store";
 import type { TranscriptEntry } from "./conversation-transcript-types";
@@ -8,7 +8,12 @@ import type { ChatMessage, ToolCall } from "./vendors/types";
 import type { ChatMessage as StoredChatMessage } from "../../shared/chat-types";
 import { autoCompactTriggerTokens } from "../../shared/context-window";
 
-export interface TranscriptRunReader { get(runId: string): HarnessRunSession | null }
+/** Run evidence for context assembly: identity, status and tool execution only (HarnessRunStore.evidence). */
+export interface TranscriptRunReader {
+  get(runId: string): HarnessRunEvidence | null;
+  /** The whole run, for the rare recovery path that needs its messages. */
+  session?(runId: string): HarnessRunSession | null;
+}
 export interface MaterializedTranscript {
   throughSeq: number;
   uncertainEffects: UncertainEffect[];
@@ -52,7 +57,10 @@ function addUncertainEffect(effects: UncertainEffect[], runId: string | undefine
   });
 }
 
-export function materializeTranscript(entries: TranscriptEntry[], runReader: TranscriptRunReader, options: { missingRunEvidence?: "unknown" } = {}): MaterializedTranscript {
+export function materializeTranscript(entries: TranscriptEntry[], reader: TranscriptRunReader, options: { missingRunEvidence?: "unknown" } = {}): MaterializedTranscript {
+  // A run with several tool rounds is referenced by several assistant entries; read each run once per pass.
+  const read = new Map<string, HarnessRunEvidence | null>();
+  const runReader: TranscriptRunReader = { get: runId => { if (!read.has(runId)) read.set(runId, reader.get(runId)); return read.get(runId)!; } };
   const view: ActiveNode[] = [];
   const unresolved: UncertainEffect[] = [];
   let lastSequence = 0;

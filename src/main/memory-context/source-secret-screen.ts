@@ -86,6 +86,22 @@ function passes(value: unknown): boolean {
  catch (error) { if (error instanceof Error && error.message === "MEMORY_CONTEXT_TRANSCRIPT_SECRET") return false; throw error; }
 }
 
+// Every round re-assembles the whole conversation, so the same long strings (file contents, tool results) are
+// screened again and again. The screen is a pure function of the string, so its result is remembered.
+const SCREEN_CACHE_MIN_CHARS = 256;
+const SCREEN_CACHE_MAX_CHARS = 16_000_000;
+const screenedStrings = new Map<string, string>();
+let screenedChars = 0;
+function rememberScreened(item: string, screened: string): void {
+ screenedStrings.set(item, screened);
+ screenedChars += item.length;
+ for (const [oldest] of screenedStrings) {
+  if (screenedChars <= SCREEN_CACHE_MAX_CHARS) break;
+  screenedStrings.delete(oldest);
+  screenedChars -= oldest.length;
+ }
+}
+
 /** Replaces each flagged value with *** from where the value starts to the end of its line. */
 function maskLineValues(text: string, starts: RegExp, skip?: (rest: string) => boolean): string {
  const positions = [...text.matchAll(starts)].map(match => match.index! + match[0].length)
@@ -120,16 +136,12 @@ export function maskContextSecrets<T>(value: T): T {
  function visit(item: unknown, depth: number): unknown {
   if (++nodes > 200000 || depth > 100) contextFail("MEMORY_CONTEXT_INPUT_INVALID");
   if (typeof item === "string") {
-   if (/^\s*[{[\"]/.test(item)) {
-    let parsed: unknown;
-    try { parsed = JSON.parse(item); } catch { parsed = undefined; }
-    if (parsed !== undefined) {
-     try { assertUniqueJsonKeys(item); } catch { return OMITTED; }
-     const masked = visit(parsed, depth + 1);
-     return masked === parsed ? item : JSON.stringify(masked);
-    }
-   }
-   return maskText(item);
+   if (item.length < SCREEN_CACHE_MIN_CHARS) return screenString(item, depth);
+   const known = screenedStrings.get(item);
+   if (known !== undefined) return known;
+   const screened = screenString(item, depth);
+   rememberScreened(item, screened);
+   return screened;
   }
   if (item === null || typeof item !== "object") return item;
   if (active.has(item)) contextFail("MEMORY_CONTEXT_INPUT_INVALID");
@@ -150,7 +162,21 @@ export function maskContextSecrets<T>(value: T): T {
   if (!changed) return item;
   return Array.isArray(item) ? entries.map(([, child]) => child) : Object.fromEntries(entries);
  }
- const result = visit(value, 0) as T;
- assertContextSecretFree(result);
- return result;
+ function screenString(item: string, depth: number): string {
+   if (/^\s*[{[\"]/.test(item)) {
+    let parsed: unknown;
+    try { parsed = JSON.parse(item); } catch { parsed = undefined; }
+    if (parsed !== undefined) {
+     try { assertUniqueJsonKeys(item); } catch { return OMITTED; }
+     const masked = visit(parsed, depth + 1);
+     return masked === parsed ? item : JSON.stringify(masked);
+    }
+   }
+   return maskText(item);
+ }
+ // Every leaf is screened above: a rewritten string passed `passes(masked)` in maskText or became OMITTED, a sensitive
+ // key's value became ***, a flagged key was renamed, and re-serialized JSON parses back to those same leaves. So the
+ // result passes assertContextSecretFree by construction (source-secret-mask.test.ts checks it) without a second full
+ // pass over the whole conversation every round.
+ return visit(value, 0) as T;
 }

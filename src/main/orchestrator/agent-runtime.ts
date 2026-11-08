@@ -205,7 +205,7 @@ export function createAgentRuntime(rawDeps: AgentRuntimeDeps): AgentRuntime {
       getWorkspaceBinding: (conversation: string) => rawDeps.chatsStore.getWorkspaceBinding(conversation),
       buildPluginPromptContext: (request) => rawDeps.buildPluginPromptContext(request),
       buildModelContext: (conversationId, retainTokens) => buildModelContext({
-        store: getConversationTranscriptStore(app.getPath("userData")), conversationId, retainTokens, runReader: getHarnessRunStore(app.getPath("userData")),
+        store: getConversationTranscriptStore(app.getPath("userData")), conversationId, retainTokens, runReader: (runs => ({ get: (runId: string) => runs.evidence(runId) }))(getHarnessRunStore(app.getPath("userData"))),
       }),
     };
   }

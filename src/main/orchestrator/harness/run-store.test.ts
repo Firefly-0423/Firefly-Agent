@@ -30,6 +30,48 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+describe("loaded-run cache and evidence reads", () => {
+  it("serves repeated reads and checkpoints from memory instead of re-reading the session file", () => {
+    const { store } = storage();
+    const read = vi.spyOn(fs, "readFileSync");
+    for (let i = 0; i < 5; i++) { store.get("audit-bronze"); store.evidence("audit-bronze"); }
+    store.checkpoint("audit-bronze", { rounds: 2 });
+    expect(read.mock.calls.filter(([file]) => String(file).endsWith("audit-bronze.json"))).toHaveLength(0);
+  });
+  it("evidence carries identity, status and tool calls only, and reflects every write", () => {
+    const { store } = storage();
+    store.recordTools("audit-bronze", [readCall("scan-east")]);
+    const evidence = store.evidence("audit-bronze")!;
+    expect(Object.keys(evidence).sort()).toEqual(["conversationId", "runId", "status", "toolCalls"]);
+    expect(evidence.toolCalls.map(call => call.toolCallId)).toEqual(["scan-east"]);
+    evidence.toolCalls.length = 0;
+    store.markTerminal("audit-bronze", "completed");
+    expect(store.evidence("audit-bronze")).toMatchObject({ status: "completed", toolCalls: [expect.objectContaining({ toolCallId: "scan-east" })] });
+  });
+  it("evidence for more runs than the session cache holds is still served without re-reading run files", () => {
+    // A long conversation references dozens of runs; reading them in a cycle must not thrash back to disk.
+    const { root } = storage();
+    const writer = new HarnessRunStore(root);
+    const ids = Array.from({ length: 40 }, (_, index) => `cycle-${index}`);
+    for (const runId of ids) writer.create({ runId, conversationId: "dialog-cycle", messages: [{ role: "user", content: runId }],
+      request: { provider: "custom", model: "fixture-model", contextWindowTokens: 64000, promptFingerprint: "p", toolSchemaFingerprint: "t" } });
+    const reader = new HarnessRunStore(root);
+    for (const runId of ids) expect(reader.evidence(runId)?.runId).toBe(runId);
+    const read = vi.spyOn(fs, "readFileSync");
+    for (let pass = 0; pass < 3; pass++) for (const runId of ids) reader.evidence(runId);
+    expect(read.mock.calls.filter(([file]) => String(file).includes("cycle-"))).toHaveLength(0);
+    for (const runId of ids) writer.markTerminal(runId, "completed");
+  });
+  it("a new store instance reads what the previous one wrote, and deletion is not served from memory", () => {
+    const { root, store } = storage();
+    store.checkpoint("audit-bronze", { rounds: 3 });
+    expect(new HarnessRunStore(root).get("audit-bronze")?.rounds).toBe(3);
+    store.deleteConversation("dialog-bronze");
+    expect(store.get("audit-bronze")).toBeNull();
+    expect(store.evidence("audit-bronze")).toBeNull();
+  });
+});
+
 describe("Durable main-run ledger", () => {
   it("writes one session for a planned batch while journaling each call in order", () => {
     const { store, location } = storage();

@@ -445,7 +445,7 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
           })),
         store: getConversationTranscriptStore(getStorageContext().dataRoot),
         settings: loadModelSettings,
-        runReader:{get:runId=>getHarnessRunStore(getStorageContext().dataRoot).get(runId)},
+        runReader:(runs=>({get:(runId:string)=>runs.evidence(runId),session:(runId:string)=>runs.session(runId)}))(getHarnessRunStore(getStorageContext().dataRoot)),
       });
   const desktopMemory: DesktopMemory | null = defaultMemory ?? controlledMemory;
 
