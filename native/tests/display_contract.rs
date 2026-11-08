@@ -1,72 +1,28 @@
+//! What the helper learns about the primary display before it freezes the desktop.
 #![cfg(windows)]
 
-use firefly_screenshot::geometry::{DisplayRotation, RectI};
+use firefly_screenshot::geometry::DisplayRotation;
 use firefly_screenshot::win::display::{query_primary_display, set_dpi_awareness};
 
 #[test]
-fn set_dpi_awareness_is_idempotent() {
-    // Calling the awareness setter twice must not produce an error. The
-    // Per-Monitor V2 context only needs to be established once per process,
-    // so a second call is permitted to be a no-op.
-    set_dpi_awareness().expect("first set_dpi_awareness call must succeed");
-    set_dpi_awareness().expect("second set_dpi_awareness call must succeed");
+fn per_monitor_dpi_awareness_can_be_requested_more_than_once() {
+    for attempt in 1..=2 {
+        assert!(set_dpi_awareness().is_ok(), "DPI awareness request {attempt} failed");
+    }
 }
 
 #[test]
-fn query_primary_display_returns_positive_bounds_and_primary_true() {
-    let display = query_primary_display().expect("query_primary_display must succeed");
-
+fn the_primary_display_has_a_usable_size_scale_and_orientation() {
+    let display = query_primary_display().expect("the primary display can be queried");
+    assert!(display.is_primary, "the query returns the primary display");
+    assert!(display.bounds.width > 0 && display.bounds.height > 0, "empty bounds: {:?}", display.bounds);
+    assert!(display.dpi > 0.0, "non-positive DPI: {}", display.dpi);
     assert!(
-        display.bounds.width > 0,
-        "primary display width must be > 0, was {}",
-        display.bounds.width
-    );
-    assert!(
-        display.bounds.height > 0,
-        "primary display height must be > 0, was {}",
-        display.bounds.height
-    );
-    assert!(
-        display.is_primary,
-        "query_primary_display must report is_primary = true"
-    );
-}
-
-#[test]
-fn query_primary_display_returns_known_rotation() {
-    let display = query_primary_display().expect("query_primary_display must succeed");
-
-    let known = matches!(
-        display.rotation,
-        DisplayRotation::Identity
-            | DisplayRotation::Rotate90
-            | DisplayRotation::Rotate180
-            | DisplayRotation::Rotate270,
-    );
-    assert!(
-        known,
-        "rotation must be one of the four DisplayRotation variants, was {:?}",
+        matches!(
+            display.rotation,
+            DisplayRotation::Identity | DisplayRotation::Rotate90 | DisplayRotation::Rotate180 | DisplayRotation::Rotate270
+        ),
+        "unexpected rotation {:?}",
         display.rotation
-    );
-
-    // Also verify the bounds RectI round-trips through Display construction
-    // in a consistent way for downstream callers that pattern-match on the
-    // canonical orientation guarantee.
-    let _round_trip = RectI {
-        x: display.bounds.x,
-        y: display.bounds.y,
-        width: display.bounds.width,
-        height: display.bounds.height,
-    };
-}
-
-#[test]
-fn query_primary_display_dpi_is_positive() {
-    let display = query_primary_display().expect("query_primary_display must succeed");
-
-    assert!(
-        display.dpi > 0.0,
-        "primary display DPI must be > 0, was {}",
-        display.dpi
     );
 }
