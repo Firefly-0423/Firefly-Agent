@@ -74,6 +74,17 @@ describe("maskContextSecrets", () => {
     expect(maskedPlain.text).toBe(maskedPlain.content);
   });
 
+  it("masks many assignments in one pass, not in time quadratic in their number", () => {
+    // Codex review on #47: 30,000 lines took about 50 s because each match rebuilt the whole string.
+    const pasted = "api_key=CANARY\n".repeat(30000);
+    const began = performance.now();
+    const masked = maskContextSecrets(pasted);
+    expect(performance.now() - began).toBeLessThan(2000);
+    expect(masked).not.toContain("CANARY");
+    expect(masked.split("\n")).toHaveLength(30001);
+    expect(maskContextSecrets("a=1\napi_key=CANARY; token=x\nb\ntoken=***\nc")).toBe("a=1\napi_key=***\nb\ntoken=***\nc");
+  });
+
   it("masks inside tool results serialized as JSON and keeps the JSON valid", () => {
     const tool = JSON.stringify({ output: "const token = readToken();\nok", exitCode: 0 });
     const masked = maskContextSecrets([{ role: "tool", text: tool }]);

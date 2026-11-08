@@ -121,15 +121,25 @@ function withOneTextBlock(blocks: unknown[], text: string): unknown[] {
 }
 
 /** Replaces each flagged value with *** from where the value starts to the end of its line. */
+// One pass over the matches, left to right: the first value on a line that is not already masked is replaced with ***
+// to the end of that line, and later matches on the masked part are skipped. The output is built from the untouched
+// ranges between them, so the work is linear in the text (rebuilding the string per match was quadratic).
 function maskLineValues(text: string, starts: RegExp, skip?: (rest: string) => boolean): string {
- const positions = [...text.matchAll(starts)].map(match => match.index! + match[0].length)
-  .filter(at => !maskedAssignmentValue.test(text.slice(at)) && !skip?.(text.slice(at)));
- let result = text;
- for (const at of positions.reverse()) {
-  const rest = result.slice(at), end = rest.search(/[\r\n]/);
-  result = result.slice(0, at) + "***" + (end < 0 ? "" : rest.slice(end));
+ const parts: string[] = [];
+ let cursor = 0;
+ for (const match of text.matchAll(starts)) {
+  const at = match.index! + match[0].length;
+  if (at < cursor) continue;
+  const newline = text.slice(at).search(/[\r\n]/);
+  const lineEnd = newline < 0 ? text.length : at + newline;
+  const value = text.slice(at, lineEnd);
+  if (maskedAssignmentValue.test(value) || skip?.(value)) continue;
+  parts.push(text.slice(cursor, at), "***");
+  cursor = lineEnd;
  }
- return result;
+ if (cursor === 0 && parts.length === 0) return text;
+ parts.push(text.slice(cursor));
+ return parts.join("");
 }
 
 function maskText(item: string): string {
