@@ -39,14 +39,39 @@ describe("extractDocumentText", () => {
     expect(text).toBe("流萤测试文档\nA & B <ok>\n名称\t数量\n流萤\t3\n前\t后\n下一行\n\n## 脚注\n脚注内容");
   });
 
-  it("reads PowerPoint slides in numeric order with their notes", async () => {
+  it("falls back to numeric file order without a slide list, and never guesses notes by number", async () => {
     const slide = (text: string) => `<p:sld xmlns:a="a" xmlns:p="p"><a:p><a:r><a:t>${text}</a:t></a:r></a:p><a:p><a:r><a:t>第二段</a:t></a:r></a:p></p:sld>`;
     const bytes = await zip({
       "ppt/slides/slide10.xml": slide("第十页"),
       "ppt/slides/slide2.xml": slide("第二页"),
       "ppt/notesSlides/notesSlide2.xml": `<p:notes xmlns:a="a" xmlns:p="p"><a:p><a:r><a:t>讲稿</a:t></a:r></a:p></p:notes>`,
     });
-    expect(await extractDocumentText(bytes, ".pptx")).toBe("## 幻灯片 2\n第二页\n第二段\n备注：讲稿\n\n## 幻灯片 10\n第十页\n第二段");
+    expect(await extractDocumentText(bytes, ".pptx")).toBe("## 幻灯片 2\n第二页\n第二段\n\n## 幻灯片 10\n第十页\n第二段");
+  });
+
+  it("follows the presentation's slide list and each slide's notes relationship", async () => {
+    // Codex review on #47: rearranged decks came out in file-name order, and notes were matched by number.
+    const R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+    const rels = (entries: string) => `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${entries}</Relationships>`;
+    const slide = (text: string) => `<p:sld xmlns:a="a" xmlns:p="p"><a:p><a:r><a:t>${text}</a:t></a:r></a:p></p:sld>`;
+    const bytes = await zip({
+      "ppt/presentation.xml": `<p:presentation xmlns:p="p" xmlns:r="${R}"><p:sldIdLst><p:sldId id="256" r:id="rId3"/><p:sldId id="257" r:id="rId2"/></p:sldIdLst></p:presentation>`,
+      "ppt/_rels/presentation.xml.rels": rels(`<Relationship Id="rId2" Type="${R}/slide" Target="slides/slide1.xml"/><Relationship Type="${R}/slide" Target="/ppt/slides/slide2.xml" Id="rId3"/>`),
+      "ppt/slides/slide1.xml": slide("原第一页"),
+      "ppt/slides/slide2.xml": slide("挪到最前"),
+      "ppt/slides/_rels/slide2.xml.rels": rels(`<Relationship Id="rId1" Type="${R}/notesSlide" Target="../notesSlides/notesSlide1.xml"/>`),
+      "ppt/notesSlides/notesSlide1.xml": `<p:notes xmlns:a="a" xmlns:p="p"><a:p><a:r><a:t>属于挪到最前的讲稿</a:t></a:r></a:p></p:notes>`,
+    });
+    expect(await extractDocumentText(bytes, ".pptx")).toBe("## 幻灯片 1\n挪到最前\n备注：属于挪到最前的讲稿\n\n## 幻灯片 2\n原第一页");
+  });
+
+  it("keeps Excel error values instead of printing [object Object]", async () => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("错误");
+    sheet.getCell("A1").value = { formula: "1/0", result: { error: "#DIV/0!" } };
+    sheet.getCell("B1").value = { error: "#N/A" };
+    const bytes = Buffer.from(await workbook.xlsx.writeBuffer());
+    expect(await extractDocumentText(bytes, ".xlsx")).toBe("## 工作表 错误\n#DIV/0!\t#N/A");
   });
 
   it("reads every Excel sheet as tab-separated rows, using formula results", async () => {

@@ -114,19 +114,52 @@ async function docxText(bytes: Buffer): Promise<string> {
 
 const slideNumber = (name: string) => Number(/(\d+)\.xml$/.exec(name)?.[1] ?? 0);
 
+type Relationship = { id: string; type: string; target: string };
+
+function attributes(tag: string): Record<string, string> {
+  const found: Record<string, string> = {};
+  for (const match of tag.matchAll(/([\w:]+)\s*=\s*"([^"]*)"/g)) found[match[1]] = decodeXml(match[2]);
+  return found;
+}
+
+/** Relationships of an Open XML part, with targets resolved to archive paths. */
+async function relationships(zip: any, partName: string): Promise<Relationship[]> {
+  const directory = path.posix.dirname(partName);
+  const xml = await part(zip, `${directory}/_rels/${path.posix.basename(partName)}.rels`);
+  if (xml === null) return [];
+  return [...xml.matchAll(/<Relationship\b[^>]*>/g)].map(match => attributes(match[0])).filter(found => found.Id && found.Target && found.TargetMode !== "External")
+    .map(found => ({ id: found.Id, type: found.Type ?? "", target: found.Target.startsWith("/") ? found.Target.slice(1) : path.posix.normalize(path.posix.join(directory, found.Target)) }));
+}
+
+/** Slides in display order, from ppt/presentation.xml; falls back to file names when the package has no slide list. */
+async function slideOrder(zip: any): Promise<Array<{ name: string; number: number }>> {
+  const presentation = await part(zip, "ppt/presentation.xml");
+  if (presentation !== null) {
+    const byId = new Map((await relationships(zip, "ppt/presentation.xml")).map(relation => [relation.id, relation.target]));
+    const listed = [...presentation.matchAll(/<p:sldId\b[^>]*>/g)].map(match => byId.get(attributes(match[0])["r:id"] ?? ""))
+      .filter((name): name is string => typeof name === "string" && zip.file(name) !== null);
+    if (listed.length) return listed.map((name, index) => ({ name, number: index + 1 }));
+  }
+  return Object.keys(zip.files).filter(name => /^ppt\/slides\/slide\d+\.xml$/.test(name)).sort((a, b) => slideNumber(a) - slideNumber(b))
+    .map(name => ({ name, number: slideNumber(name) }));
+}
+
 async function pptxText(bytes: Buffer): Promise<string> {
   const zip = await openArchive(bytes, ".pptx");
-  const slides = Object.keys(zip.files).filter(name => /^ppt\/slides\/slide\d+\.xml$/.test(name)).sort((a, b) => slideNumber(a) - slideNumber(b));
+  const slides = await slideOrder(zip);
   if (slides.length === 0) throw new DocumentTextError("这个 .pptx 里没有幻灯片");
   const sections: string[] = [];
-  for (const name of slides) {
-    const number = slideNumber(name);
+  let length = 0;
+  for (const { name, number } of slides) {
     let section = `## 幻灯片 ${number}\n` + drawingXmlText((await part(zip, name)) ?? "").trim();
-    const notes = await part(zip, `ppt/notesSlides/notesSlide${number}.xml`);
+    // A slide's notes are whatever its notesSlide relationship names, not the file with the same number.
+    const notesPart = (await relationships(zip, name)).find(relation => relation.type.endsWith("/notesSlide"))?.target;
+    const notes = notesPart ? await part(zip, notesPart) : null;
     const noteText = notes ? drawingXmlText(notes).trim() : "";
     if (noteText) section += "\n备注：" + noteText;
     sections.push(section);
-    if (sections.reduce((sum, text) => sum + text.length, 0) > DOCUMENT_TEXT_MAX_CHARS) break;
+    length += section.length;
+    if (length > DOCUMENT_TEXT_MAX_CHARS) break;
   }
   return sections.join("\n\n");
 }
@@ -134,8 +167,12 @@ async function pptxText(bytes: Buffer): Promise<string> {
 function cellText(cell: any): string {
   const value = cell?.value;
   if (value === null || value === undefined) return "";
+  // ExcelJS gives a cell error, or a formula's cached error result, as { error: "#DIV/0!" }.
+  const errorOf = (candidate: unknown) => candidate && typeof candidate === "object" && typeof (candidate as { error?: unknown }).error === "string" ? (candidate as { error: string }).error : null;
+  if (errorOf(value)) return errorOf(value)!;
   if (value && typeof value === "object" && "result" in value && !("richText" in value)) {
     const result = (value as { result?: unknown }).result;
+    if (errorOf(result)) return errorOf(result)!;
     return result === undefined || result === null ? "" : result instanceof Date ? result.toISOString() : String(result);
   }
   try {
