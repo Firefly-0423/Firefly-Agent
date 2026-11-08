@@ -4,11 +4,22 @@ import { getVendorRuntimeSettings } from "./runtime-settings";
 export type ApplyReasoningContext = { model: string; providerId: string; hasTools: boolean };
 
 function writeEffortField(target: Record<string, unknown>, rules: ReasoningCapability, level: string): void {
+  if (rules.requestStyle === "anthropic-adaptive") {
+    // Anthropic takes effort in output_config, not OpenAI's reasoning_effort; "none" means thinking off.
+    if (level === "none") { anthropicThinkingOff(target, rules); return; }
+    target.thinking = { type: "adaptive" };
+    target.output_config = { ...(target.output_config ?? {}) as Record<string, unknown>, effort: level };
+    return;
+  }
   if (rules.requestStyle !== "openrouter-reasoning") {
     target.reasoning_effort = level;
     return;
   }
   target.reasoning = { effort: level === "max" ? "xhigh" : level };
+}
+function anthropicThinkingOff(target: Record<string, unknown>, rules: ReasoningCapability): void {
+  // Sent without an effort, so models that accept "off" only at high effort or below stay at their default.
+  target.thinking = { type: rules.offThinking ?? "disabled" };
 }
 function enabledThinking(rules: ReasoningCapability, call: ApplyReasoningContext): Record<string, unknown> {
   return rules.keepOnTools === true && call.hasTools ? { type: "enabled", keep: "all" } : { type: "enabled" };
@@ -29,7 +40,9 @@ function disableReasoning(target: Record<string, unknown>, rules: ReasoningCapab
   const style = rules.requestStyle;
   if (style === "openai-effort" || style === "openrouter-reasoning") {
     if (rules.supportsDisable) writeEffortField(target, rules, "none");
-  } else if (style === "thinking-type" || style === "anthropic-adaptive") {
+  } else if (style === "anthropic-adaptive") {
+    anthropicThinkingOff(target, rules);
+  } else if (style === "thinking-type") {
     target.thinking = { type: "disabled" };
   } else if (style === "qwen-enable-thinking" && rules.control === "toggle") {
     target.enable_thinking = false;
