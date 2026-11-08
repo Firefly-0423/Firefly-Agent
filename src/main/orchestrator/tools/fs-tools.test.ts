@@ -87,6 +87,30 @@ describe("observable filesystem read contracts", () => {
   });
 });
 
+describe("document reads", () => {
+  it("returns the numbered text of a Word document and pages it within the confirmed scope", async () => {
+    const JSZip = require("jszip"), archive = new JSZip();
+    archive.file("word/document.xml", '<w:document xmlns:w="w"><w:body>' + ["标题", "第一段", "第二段"].map(line => `<w:p><w:r><w:t>${line}</w:t></w:r></w:p>`).join("") + "</w:body></w:document>");
+    const location = join(fixture.root, "报告.docx");
+    fs.writeFileSync(location, await archive.generateAsync({ type: "nodebuffer" }));
+    const whole = await read(location);
+    expect(whole).toMatchObject({ startLine: 1, endLine: 3, totalLines: 3, extractedText: true });
+    expect(whole.content).toBe("    1 | 标题\n    2 | 第一段\n    3 | 第二段");
+    const { inspectWorkReadDocument } = await import("../../chats/work-read-scope");
+    const confirmed = { ...(await inspectWorkReadDocument(location)), endLine: 2, partialAccepted: true };
+    const limited = await read(location, {}, { userQuery: "Read approved lines", workReadScopes: [confirmed] });
+    expect(limited).toMatchObject({ endLine: 2, scopeLimited: true });
+  });
+
+  it("reports damaged and legacy documents instead of returning binary noise", async () => {
+    const damaged = join(fixture.root, "broken.xlsx"), legacy = join(fixture.root, "old.ppt");
+    fs.writeFileSync(damaged, "not a zip");
+    fs.writeFileSync(legacy, "x");
+    expect(await read(damaged)).toMatchObject({ success: false, errorCode: "DOCUMENT_UNREADABLE" });
+    expect(await read(legacy)).toMatchObject({ success: false, errorCode: "UNSUPPORTED_FORMAT", error: expect.stringContaining(".pptx") });
+  });
+});
+
 describe("filesystem writes and append behavior", () => {
   it("resolves a plain relative filename against the desktop fallback", async () => {
     const target = join(fixture.root, "journal.md");

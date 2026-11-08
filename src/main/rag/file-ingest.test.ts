@@ -23,7 +23,7 @@ describe("attachment classification before and after reading", () => {
   });
   it("recognizes the supported extension sets and image MIME mapping", () => {
     expect([".txt", ".md", ".ts", ".py", ".json", ".svg", "", ".zip"].map(isTextExt)).toEqual([true, true, true, true, true, true, false, false]);
-    expect([".zip", ".pdf", ".png", ".exe", ".txt", ".md", "", ".unlisted"].map(isUnsupportedExt)).toEqual([true, true, true, true, false, false, false, false]);
+    expect([".zip", ".doc", ".png", ".exe", ".txt", ".md", "", ".unlisted", ".pdf", ".docx"].map(isUnsupportedExt)).toEqual([true, true, true, true, false, false, false, false, false, false]);
     expect([".png", ".JPG", ".webp"].map(isImageExt)).toEqual([true, true, true]);
     expect([".png", ".jpg", ".unlisted"].map(getMimeFromExt)).toEqual(["image/png", "image/jpeg", "application/octet-stream"]);
   });
@@ -33,6 +33,12 @@ describe("attachment classification before and after reading", () => {
     expect(description).not.toHaveProperty("text");
     expect(description).not.toHaveProperty("chunks");
     expect(describePendingAttachment(file("clipboard-note"), "text/plain")).toMatchObject({ name: "clipboard-note", kind: "document", status: "pending" });
+  });
+  it.each(["docx", "xlsx", "pptx", "pdf", "DOCX"])("accepts a pending .%s attachment as a readable document", extension => {
+    expect(describePendingAttachment(file(`report.${extension}`))).toMatchObject({ kind: "document", status: "pending" });
+  });
+  it("tells the user to resave legacy Office files", () => {
+    expect(describePendingAttachment(file("report.doc"))).toMatchObject({ kind: "unsupported", reason: expect.stringContaining("另存为 .docx") });
   });
   it.each(["exe", "wav"])("rejects a pending %s attachment with the exact format reason", extension => {
     expect(describePendingAttachment(file(`garden.${extension}`))).toMatchObject({
@@ -91,6 +97,13 @@ it("reports indexing failures as a zero-chunk indexed attachment", async () => {
     vi.fn().mockRejectedValue(new Error("garden embedding offline")));
   expect(result.kind).toBe("indexed");
   if (result.kind === "indexed") { expect(result.chunks).toBe(0); expect(result.reason).toContain("garden embedding offline"); }
+});
+it("reads the text of an Office document and explains a damaged one", async () => {
+  const JSZip = require("jszip"), archive = new JSZip();
+  archive.file("word/document.xml", '<w:document xmlns:w="w"><w:body><w:p><w:r><w:t>花园笔记</w:t></w:r></w:p></w:body></w:document>');
+  const docx = await ingestOneFile(put("garden.docx", await archive.generateAsync({ type: "nodebuffer" })), importer());
+  expect(docx).toMatchObject({ kind: "text", text: "花园笔记" });
+  expect(await ingestOneFile(put("broken.pdf", Buffer.from("not a pdf")), importer())).toMatchObject({ kind: "unsupported", reason: expect.stringContaining("可能已损坏") });
 });
 it("rejects archive, image and disguised binary content", async () => {
   const index = importer();

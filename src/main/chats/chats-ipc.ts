@@ -25,7 +25,7 @@ import * as chatsStore from "./chats-store";
 import * as fs from "fs";
 import * as path from "path";
 import { createWorkMarkdownSnapshot } from "./work-markdown-export";
-import { inspectWorkReadFile, isWorkReadScopeCurrent, WORK_READ_PAGE_LINES } from "./work-read-scope";
+import { inspectWorkReadDocument, isWorkReadScopeCurrent, WORK_READ_PAGE_LINES } from "./work-read-scope";
 import { getDefaultModelProfile, loadModelSettings, resolveModelSettingsProfile } from "../settings/model-settings";
 import { FileToolOutputStore } from "../orchestrator/harness/tool-output/file-tool-output-store";
 import { getHarnessRunStore } from "../orchestrator/harness/run-store";
@@ -439,7 +439,7 @@ export function registerChatsIpc(ipcOption?: IpcScope, options: ChatsIpcOptions 
 
       let scope;
       try {
-        scope = inspectWorkReadFile(attachment.filePath);
+        scope = await inspectWorkReadDocument(attachment.filePath);
       } catch (error) {
         return { ok: false, error: error instanceof Error ? error.message : "file-not-readable" };
       }

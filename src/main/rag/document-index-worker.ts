@@ -4,7 +4,8 @@ import crypto from "node:crypto";
 import { Worker, isMainThread, parentPort } from "worker_threads";
 import { iterateDocumentChunks } from "./chunk";
 import { createLocalEmbeddingProvider, createOpenAIEmbeddingProvider, type EmbeddingWorkerConfig } from "./embedding";
-import { isBinary, isTextExt, isUnsupportedExt, SMALL_THRESHOLD } from "./file-ingest";
+import { DocumentTextError, extractDocumentText, isExtractedDocumentExt, legacyDocumentReason } from "./document-text";
+import { isBinary, isUnsupportedExt, SMALL_THRESHOLD } from "./file-ingest";
 import type { DocumentIndexJobResult, QueuedDocumentIndexJob } from "./document-index-queue";
 
 export type PreparedDocumentChunk = { index: number; text: string };
@@ -242,7 +243,7 @@ function countDocumentChunks(text: string, source: string): number {
   return total;
 }
 
-function prepareFile(filePath: string): WorkerPrepareFileResult {
+async function prepareFile(filePath: string): Promise<WorkerPrepareFileResult> {
   const name = path.basename(filePath);
   const unsupported = (reason: string): PlainResult => ({ kind: "unsupported", name, reason });
 
@@ -255,7 +256,7 @@ function prepareFile(filePath: string): WorkerPrepareFileResult {
   if (!info.isFile()) return unsupported("不是文件");
 
   const ext = path.extname(filePath).toLowerCase();
-  if (isUnsupportedExt(ext)) return unsupported(`暂不支持的文件格式 ${ext}（MVP-0 仅支持文本）`);
+  if (isUnsupportedExt(ext)) return unsupported(legacyDocumentReason(ext) ?? `暂不支持的文件格式 ${ext}（MVP-0 仅支持文本）`);
 
   let raw: Buffer;
   try {
@@ -263,9 +264,17 @@ function prepareFile(filePath: string): WorkerPrepareFileResult {
   } catch (error) {
     return unsupported(messageOf(error));
   }
-  if (isBinary(raw)) return unsupported("二进制文件，暂不支持");
-
-  const text = raw.toString("utf-8");
+  let text: string;
+  if (isExtractedDocumentExt(ext)) {
+    try {
+      text = await extractDocumentText(raw, ext);
+    } catch (error) {
+      return unsupported(error instanceof DocumentTextError ? error.message : `无法读取这个 ${ext} 文件`);
+    }
+  } else {
+    if (isBinary(raw)) return unsupported("二进制文件，暂不支持");
+    text = raw.toString("utf-8");
+  }
   if (!text.trim()) return { kind: "empty", name };
   if (text.length <= SMALL_THRESHOLD) return { kind: "text", name, text };
 
@@ -297,10 +306,10 @@ async function runWorkerThread(): Promise<void> {
   let doc: WorkerPreparedDocument | null = null;
   let flag: Int32Array | null = null;
 
-  const handleStart = (message: WorkerStartMessage) => {
+  const handleStart = async (message: WorkerStartMessage) => {
     flag = new Int32Array(message.cancellationBuffer);
     emit({ type: "stage", status: "reading" });
-    const result = prepareFile(message.filePath);
+    const result = await prepareFile(message.filePath);
 
     if (isFlagged(flag)) {
       emit({ type: "cancelled" });

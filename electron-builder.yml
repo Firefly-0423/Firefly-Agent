@@ -23,6 +23,11 @@ files:
   - vendor/**/*
   - "!vendor/firefly-skills/**/*"
   - "!models/**/*"
+  # pdfjs-dist 只用 legacy/build 的 Node 文字提取；渲染用的 canvas 原生包和浏览器构建不进安装包
+  - "!node_modules/@napi-rs/canvas*/**/*"
+  - "!node_modules/pdfjs-dist/{build,web,types,image_decoders}/**/*"
+  - "!node_modules/pdfjs-dist/legacy/{web,image_decoders}/**/*"
+  - "!node_modules/pdfjs-dist/**/*.map"
   # prompts / skills 作为安装目录根下的独立文件夹，方便用户修改
 extraFiles:
   - from: LICENSE

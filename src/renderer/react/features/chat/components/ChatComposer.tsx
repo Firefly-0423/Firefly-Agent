@@ -426,7 +426,7 @@ export function ChatComposer(props: ChatComposerProps) {
           className="ff-composer__file-input"
           multiple
           type="file"
-          accept=".txt,.md,.json,.csv,.log,.png,.jpg,.jpeg,.webp,.gif,.bmp"
+          accept=".txt,.md,.json,.csv,.log,.docx,.xlsx,.pptx,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp"
           onChange={(event) => {
             const picked = Array.from(event.currentTarget.files ?? []);
             if (picked.length > 0) onChooseFiles(picked);
