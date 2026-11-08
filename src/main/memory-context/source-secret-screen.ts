@@ -175,19 +175,22 @@ export function maskContextSecrets<T>(value: T): T {
   if (active.has(item)) contextFail("MEMORY_CONTEXT_INPUT_INVALID");
   active.add(item);
   let changed = false;
-  const keys = new Set(Object.keys(item));
+  // A flagged key is named by its own masked text, never by position: the same arguments appear in a tool call's
+  // JSON and in the raw provider output, and both copies must mask alike even when their keys are in different
+  // orders (the raw copy is key-sorted). Clashes are numbered in sorted order of the original keys; the mask stays
+  // at the end of the line.
+  const taken = new Set(Object.keys(item).filter(passes));
+  const renamed = new Map<string, string>();
+  for (const key of Object.keys(item).filter(key => !passes(key)).sort()) {
+   const base = maskText(key);
+   let name = base;
+   for (let n = 2; taken.has(name); n++) name = `${n} ${base}`;
+   taken.add(name);
+   renamed.set(key, name);
+  }
   const entries = Object.entries(item).map(([key, child]): [string, unknown] => {
-   let nextKey = key;
-   if (!passes(key)) {
-    // Named by its own masked text, never by traversal position: the same arguments appear in a tool call's JSON
-    // and in the raw provider output, and both copies must mask to the same key. A clash in one object gets a
-    // leading number (keys keep their order, so both copies number alike); the mask stays at the end of the line.
-    const base = maskText(key);
-    nextKey = base;
-    for (let n = 2; keys.has(nextKey); n++) nextKey = `${n} ${base}`;
-    keys.add(nextKey);
-    changed = true;
-   }
+   const nextKey = renamed.get(key) ?? key;
+   if (nextKey !== key) changed = true;
    const sensitive = sensitiveKey.test(key.normalize("NFKC"));
    let next: unknown;
    if (sensitive && (typeof child === "number" || typeof child === "boolean")) next = "***";

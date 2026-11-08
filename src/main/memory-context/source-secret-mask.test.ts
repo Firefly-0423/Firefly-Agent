@@ -87,6 +87,18 @@ describe("maskContextSecrets", () => {
     expect(() => validateUnit({ id: "u", kind: "recent", messages: masked })).not.toThrow();
   });
 
+  it("renames clashing credential keys alike when the two copies list them in different orders", () => {
+    // Codex review on #47: the raw tool input is key-sorted while the arguments JSON keeps the model's order,
+    // so numbering clashes by position paired `api_key=***` with different values in the two copies.
+    const message = { role: "assistant" as const, text: "", toolCalls: [{ id: "call-1", name: "read_file", arguments: '{"api_key=Z":"one","api_key=A":"two"}' }],
+      toolCallIds: ["call-1"], rawAssistant: [{ type: "text", text: "" }, { type: "tool_use", id: "call-1", name: "read_file", input: { "api_key=A": "two", "api_key=Z": "one" } }] };
+    const tool = { role: "tool" as const, text: "done", toolCallId: "call-1", name: "read_file" };
+    expect(() => validateUnit({ id: "u", kind: "recent", messages: [message, tool] })).not.toThrow();
+    const masked = maskContextSecrets([message, tool]);
+    expect(() => validateUnit({ id: "u", kind: "recent", messages: masked })).not.toThrow();
+    expect(JSON.parse((masked[0] as typeof message).toolCalls[0].arguments)).toEqual((masked[0] as typeof message).rawAssistant[1].input);
+  });
+
   it("masks many assignments in one pass, not in time quadratic in their number", () => {
     // Codex review on #47: 30,000 lines took about 50 s because each match rebuilt the whole string.
     const pasted = "api_key=CANARY\n".repeat(30000);
