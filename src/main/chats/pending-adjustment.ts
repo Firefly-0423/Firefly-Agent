@@ -19,6 +19,14 @@ type PollerState = AdjustmentBinding & { handler?: RunAdjustmentHandler; closed?
 const pollers = new WeakMap<object, PollerState>();
 const permits = new WeakMap<object, { binding: PollerState; item: PendingChatMessage; assertPending(): void }>();
 const denied = (): never => { throw new Error("MEMORY_CONTEXT_ADJUSTMENT_DENIED"); };
+/** Queue items a poller has taken and is writing into the run; only these may not be withdrawn. */
+const inFlight = new Set<string>();
+const flightKey = (sessionId: string, messageId: string) => sessionId + "\u0000" + messageId;
+
+/** True while a run is injecting this marked item; until then the user may withdraw or edit it. */
+export function isRunAdjustmentInFlight(sessionId: string, messageId: string): boolean {
+  return inFlight.has(flightKey(sessionId, messageId));
+}
 
 /** A same-shaped function or DTO cannot bind a trusted adjustment producer. */
 export function bindRunAdjustmentPoller(poller: object, binding: AdjustmentBinding, handler: RunAdjustmentHandler): () => void {
@@ -69,6 +77,9 @@ export function createRunAdjustmentPoller(sessionId: string, runId: string, stor
     // 队列为空或读取为 null 时，两种情况都视为"本 run 没有待插话"
     const marked = (store.getPendingMessages(sessionId) ?? []).filter((item) => item.adjustRunId === runId);
     if (!marked.length) return undefined;
+    // Taken synchronously, before the first await, so a removal request handled meanwhile sees it.
+    const keys = marked.map((item) => flightKey(sessionId, item.id));
+    for (const key of keys) inFlight.add(key);
     const operation = (async () => {
       const injected: RunAdjustmentMessage[] = [];
       for (const pending of marked) {
@@ -119,7 +130,8 @@ export function createRunAdjustmentPoller(sessionId: string, runId: string, stor
       return injected;
     })();
     active = operation;
-    void operation.then(() => { active = undefined; }, () => { active = undefined; });
+    const settle = () => { active = undefined; for (const key of keys) inFlight.delete(key); };
+    void operation.then(settle, settle);
     return operation;
   };
   pollers.set(poller, state);

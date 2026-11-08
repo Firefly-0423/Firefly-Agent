@@ -273,6 +273,32 @@ describe("pending edits and run adjustments", () => {
         expect(store.removePendingMessage(id, "alpha")).toEqual({ ok: true, removed: true });
         expect(ids(store.getPendingMessages(id))).toEqual(["beta", "attached"]);
     });
+    it("lets the user withdraw a marked item the run has not started to inject", async () => {
+        // Owner report: a stalled run kept a "继续" item marked, and removing it failed with already-adjusting forever.
+        const { store, id } = await setup(["alpha", "beta"]);
+        const { isRunAdjustmentInFlight } = await import("./pending-adjustment");
+        store.markPendingAdjust(id, "alpha", "running");
+        expect(isRunAdjustmentInFlight(id, "alpha")).toBe(false);
+        expect(store.editPendingMessage(id, "alpha", { rawContent: "Changed mind", visibleContent: "Changed mind" }, { withdrawMark: true })).toMatchObject({ ok: true });
+        expect(store.getPendingMessages(id)![0]).toMatchObject({ id: "alpha", rawContent: "Changed mind" });
+        expect(store.getPendingMessages(id)![0]).not.toHaveProperty("adjustRunId");
+        store.markPendingAdjust(id, "alpha", "running");
+        expect(store.removePendingMessage(id, "alpha", { withdrawMark: true })).toEqual({ ok: true, removed: true });
+        expect(ids(store.getPendingMessages(id))).toEqual(["beta"]);
+    });
+    it("reports a marked item as in flight only while the run is injecting it", async () => {
+        const { store, id } = await setup(["alpha", "beta"]);
+        store.markPendingAdjust(id, "alpha", "running");
+        const { createRunAdjustmentPoller, isRunAdjustmentInFlight } = await import("./pending-adjustment");
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        const processing = createRunAdjustmentPoller(id, "running", store, { appendUser: async () => { await gate; } })();
+        expect(isRunAdjustmentInFlight(id, "alpha")).toBe(true);
+        expect(isRunAdjustmentInFlight(id, "beta")).toBe(false);
+        release();
+        await processing;
+        expect(isRunAdjustmentInFlight(id, "alpha")).toBe(false);
+    });
     it("commits a marked sticker message once without creating dispatch bookkeeping", async () => {
         const { store, id } = await setup([]);
         store.enqueuePendingMessage(id, entry("adjusted", { rawContent: "Try another route [sticker:smile]", visibleContent: "Try another route", userSticker: "smile" }));

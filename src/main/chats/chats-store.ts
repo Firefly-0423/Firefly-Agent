@@ -493,13 +493,19 @@ export function getPendingMessages(sessionId: string): PendingChatMessage[] | nu
   return conversation ? copyQueue(conversation.pendingMessages ?? []) : null;
 }
 
-export function removePendingMessage(sessionId: string, messageId: string): RemovePendingResult {
+/**
+ * withdrawMark: the caller has checked that no run is injecting this item right now
+ * (isRunAdjustmentInFlight), so a mark for "insert into the current run" may be dropped with it.
+ */
+export type PendingMarkOptions = { withdrawMark?: boolean };
+
+export function removePendingMessage(sessionId: string, messageId: string, options: PendingMarkOptions = {}): RemovePendingResult {
   const conversation = read(sessionId);
   if (!conversation) return { ok: false, error: "session-not-found" };
   const pending = conversation.pendingMessages ?? [];
   const match = pending.find((row) => row.id === messageId);
   if (!match) return { ok: true, removed: false };
-  if (match.adjustRunId) return { ok: false, error: "already-adjusting", queue: copyQueue(pending) };
+  if (match.adjustRunId && !options.withdrawMark) return { ok: false, error: "already-adjusting", queue: copyQueue(pending) };
   conversation.pendingMessages = pending.filter((row) => row.id !== messageId);
   if (!persistPending(conversation, "[chats-store] 待发消息删除落盘失败:", sessionId)) return { ok: false, error: "write-failed" };
   return { ok: true, removed: true };
@@ -563,6 +569,7 @@ export function completePendingDispatch(sessionId: string, messageId: string): C
 
 export function editPendingMessage(
   sessionId: string, messageId: string, update: { rawContent: string; visibleContent: string; userSticker?: string },
+  options: PendingMarkOptions = {},
 ): EditPendingResult {
   const conversation = read(sessionId);
   if (!conversation) return { ok: false, error: "session-not-found" };
@@ -572,12 +579,14 @@ export function editPendingMessage(
   const offset = pending.findIndex((row) => row.id === messageId);
   if (offset === -1) return { ok: false, error: "not-found", queue: original };
   const matched = pending[offset];
-  if (matched.adjustRunId) return { ok: false, error: "already-adjusting", queue: original };
+  if (matched.adjustRunId && !options.withdrawMark) return { ok: false, error: "already-adjusting", queue: original };
   if (typeof update?.rawContent !== "string" || !update.rawContent.trim()) return { ok: false, error: "empty-content", queue: original };
   const replacement: PendingChatMessage = {
     ...matched, rawContent: update.rawContent,
     visibleContent: typeof update.visibleContent === "string" && update.visibleContent ? update.visibleContent : update.rawContent,
   };
+  // An edited item goes back to the ordinary queue; the user can insert it into the run again.
+  delete replacement.adjustRunId;
   if (typeof update.userSticker === "string" && update.userSticker.trim()) replacement.userSticker = update.userSticker.trim();
   else delete replacement.userSticker;
   pending[offset] = replacement;
