@@ -26,6 +26,7 @@ export type ChatStoreApi = {
   pickWorkspaceFolder: () => Promise<{ ok: boolean; path?: string; displayName?: string; error?: string }>;
   setModelProfile: (id: string, modelProfileId?: string) => Promise<ChatSession | null>;
   setPinned: (id: string, pinned: boolean) => Promise<ChatSession | null>;
+  pendingUnmark: (id: string, messageId: string) => Promise<PendingMutationResult>;
   pendingAdjust: (id: string, messageId: string) => Promise<PendingMutationResult>;
   pendingEdit: (id: string, messageId: string, update: { rawContent: string; visibleContent: string; userSticker?: string }) => Promise<PendingMutationResult>;
   pendingCompleteDispatch: (id: string, messageId: string) => Promise<{ ok: boolean; error?: string }>;

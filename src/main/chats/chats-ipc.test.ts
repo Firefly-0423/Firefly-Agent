@@ -95,9 +95,9 @@ describe("session IPC persistence", () => {
     });
 });
 describe("queued attachment and title contracts", () => {
-    it("binds partial document confirmation to a version and refuses a file changed during confirmation", async () => {
+    it.each(["work", "code"])("binds %s partial document confirmation to a version and refuses a file changed during confirmation", async (mode) => {
         await register();
-        const session = invoke(IPC.CHATS_CREATE, { mode: "work" });
+        const session = invoke(IPC.CHATS_CREATE, { mode });
         const filePath = join(boundary.root, "selected-lines.txt");
         fs.writeFileSync(filePath, Array.from({ length: 2001 }, (_, n) => `record-${n}`).join("\n"));
         boundary.confirm.mockResolvedValue({ response: 1 });

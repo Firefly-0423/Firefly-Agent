@@ -74,10 +74,10 @@ describe("observable filesystem read contracts", () => {
     expect((await read("unbound/observations.txt")).error).toContain("绝对路径");
     expect((await read(fixture.root)).error).toContain("不是文件");
   });
-  it("enforces the user-confirmed content version and line range", async () => {
+  it.each(["work", "code"] as const)("enforces the %s user-confirmed content version and line range", async (mode) => {
     const path = prepare("north\ncentre\nsouth\nlast");
     const confirmed = { ...inspectWorkReadFile(path), endLine: 2, partialAccepted: true };
-    const context = { userQuery: "Read approved lines", workReadScopes: [confirmed] };
+    const context = { mode, userQuery: "Read approved lines", workReadScopes: [confirmed] };
     const limited = await read(path, { maxLines: 500 }, context);
     expect(limited).toMatchObject({ startLine: 1, endLine: 2, scopeLimited: true });
     expect(limited.content).not.toContain("south");
@@ -88,7 +88,7 @@ describe("observable filesystem read contracts", () => {
 });
 
 describe("document reads", () => {
-  it("returns the numbered text of a Word document and pages it within the confirmed scope", async () => {
+  it.each(["work", "code"] as const)("returns %s numbered Word text within the confirmed scope", async (mode) => {
     const JSZip = require("jszip"), archive = new JSZip();
     archive.file("word/document.xml", '<w:document xmlns:w="w"><w:body>' + ["标题", "第一段", "第二段"].map(line => `<w:p><w:r><w:t>${line}</w:t></w:r></w:p>`).join("") + "</w:body></w:document>");
     const location = join(fixture.root, "报告.docx");
@@ -98,7 +98,7 @@ describe("document reads", () => {
     expect(whole.content).toBe("    1 | 标题\n    2 | 第一段\n    3 | 第二段");
     const { inspectWorkReadDocument } = await import("../../chats/work-read-scope");
     const confirmed = { ...(await inspectWorkReadDocument(location)), endLine: 2, partialAccepted: true };
-    const limited = await read(location, {}, { userQuery: "Read approved lines", workReadScopes: [confirmed] });
+    const limited = await read(location, {}, { mode, userQuery: "Read approved lines", workReadScopes: [confirmed] });
     expect(limited).toMatchObject({ endLine: 2, scopeLimited: true });
   });
 

@@ -426,7 +426,7 @@ export function registerChatsIpc(ipcOption?: IpcScope, options: ChatsIpcOptions 
 
     const session = chatsStore.getSession(sessionId);
     if (!session) return { ok: false, error: "session-not-found" };
-    const wantsRead = session.mode === "work" && entry.requireDocumentRead === true;
+    const wantsRead = (session.mode === "work" || session.mode === "code") && entry.requireDocumentRead === true;
     const hasDocument = (entry.attachments ?? []).some((a) => a.kind === "document");
     if (wantsRead && !hasDocument) return { ok: false, error: "no-document-selected" };
 
@@ -473,6 +473,15 @@ export function registerChatsIpc(ipcOption?: IpcScope, options: ChatsIpcOptions 
   ipc.handle(IPC.CHATS_PENDING_LIST, (_event, sessionId: unknown) => {
     if (typeof sessionId !== "string" || !sessionId) return null;
     return chatsStore.getPendingMessages(sessionId);
+  });
+
+  ipc.handle(IPC.CHATS_PENDING_UNMARK, (event, payload: { sessionId?: unknown; messageId?: unknown }) => {
+    const sessionId = textOrEmpty(payload?.sessionId);
+    const messageId = textOrEmpty(payload?.messageId);
+    if (!sessionId || !messageId) return { ok: false, error: "invalid-payload" };
+    const outcome = chatsStore.unmarkPendingAdjust(sessionId, messageId, isRunAdjustmentInFlight(sessionId, messageId));
+    if (outcome.ok) broadcastChanged(event.sender);
+    return outcome;
   });
 
   // 删除按稳定标识处理竞争：条目恰好已被认领或移除时幂等成功（removed=false 不广播）

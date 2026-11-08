@@ -863,7 +863,7 @@ export function ChatPage() {
 
     const targetMode = mode;
     const entry = createQueueEntry(parsedMessage, attachments, crypto.randomUUID(),
-      targetMode === "work" && requiredReadsByScope[scopeKey] === true, resumeFromRunId);
+      (targetMode === "work" || targetMode === "code") && requiredReadsByScope[scopeKey] === true, resumeFromRunId);
     const sessionId = await ensureSession(targetMode);
 
     // 如果新建任务时已选好工作区但尚未创建 session，在这里一并绑定。
@@ -922,7 +922,7 @@ export function ChatPage() {
     const parsedMessage = parseComposerMessage(mode, value);
     if (!parsedMessage.rawContent) return;
     const entry = createQueueEntry(parsedMessage, attachments, crypto.randomUUID(),
-      mode === "work" && requiredReadsByScope[scopeKey] === true);
+      (mode === "work" || mode === "code") && requiredReadsByScope[scopeKey] === true);
     const enqueued = await queueFlow.enqueue(sessionId, mode, entry);
     if (!enqueued) return;
     // 请求期间用户继续输入时不清掉新内容：仅当草稿仍是排队时的文本才清空；
@@ -941,6 +941,7 @@ export function ChatPage() {
       id: item.id,
       content: item.visibleContent || item.rawContent,
       attachmentCount: item.attachments?.length,
+      adjustRunId: item.adjustRunId,
     }))
     : [];
   // 工作步骤胶囊：步骤来自 update_todo（firefly.todo → todoStateBySession），文件统计取本轮助手消息的工具变更；
@@ -1452,6 +1453,7 @@ export function ChatPage() {
             onEditQueuedMessage={(id, content) => activeSessionId
               ? pendingActions.edit(activeSessionId, mode, id, content)
               : Promise.resolve(false)}
+            onUnmarkQueuedMessage={(id) => activeSessionId ? queueFlow.unmarkMessage(activeSessionId, id) : Promise.resolve(false)}
             onAdjustQueuedMessage={(id) => activeSessionId
               ? queueFlow.adjustMessage(activeSessionId, id)
               : Promise.resolve(false)}

@@ -554,7 +554,7 @@ export class AgentRunController {
   }
 
   private ensureWorkReadReport(): void {
-    if (this.readEvidence || this.request.targetMode !== "work") return;
+    if (this.readEvidence || (this.request.targetMode !== "work" && this.request.targetMode !== "code")) return;
     const question = this.request.session.messages.find((entry) => entry.id === this.request.userMessageId);
     const documents = (question?.attachments ?? []).flatMap((file) => file.kind === "document" && file.readScope ? [file.readScope] : []);
     if (documents.length === 0) return;

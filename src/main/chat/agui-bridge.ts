@@ -366,7 +366,7 @@ export function registerAgUiIpc(
     const userRecord = request.userTurnId
       ? storedSession.messages.find((entry) => entry.id === request.userTurnId && entry.role === "user")
       : undefined;
-    let documents: PendingChatAttachment[] = conversationMode === "work"
+    let documents: PendingChatAttachment[] = (conversationMode === "work" || conversationMode === "code")
       ? (userRecord?.attachments ?? []).filter((entry) => entry.kind === "document") : [];
     let readScopes = documents.flatMap((entry) => entry.kind === "document" && entry.readScope ? [entry.readScope] : []);
     if ((conversationMode === "work" || conversationMode === "code") && !storedSession.workspaceBinding?.workspaceRoot) {
@@ -483,7 +483,7 @@ export function registerAgUiIpc(
           if (projection.sessionId !== conversationId || projection.userTurnId !== request.userTurnId) {
             throw Error("MEMORY_ATTACHMENT_DENIED");
           }
-          documents = conversationMode === "work" ? projection.attachments.filter((entry) => entry.kind === "document") : [];
+          documents = (conversationMode === "work" || conversationMode === "code") ? projection.attachments.filter((entry) => entry.kind === "document") : [];
           readScopes = documents.flatMap((entry) => entry.readScope ? [entry.readScope] : []);
           if (readScopes.some((range) => !isWorkReadScopeCurrent(range))) {
             throw Error("WORK_READ_SCOPE_CHANGED:所选文件已变化，请重新发送并确认读取范围");

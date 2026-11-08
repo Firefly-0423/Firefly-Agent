@@ -521,14 +521,14 @@ describe("transcript ownership and Work read evidence", () => {
         await f.idle();
         expect(agentOptions().messages).toEqual(expect.arrayContaining([expect.objectContaining({ role: "user", content: "Question one" }), expect.objectContaining({ role: "assistant", content: "Answer one" }), expect.objectContaining({ role: "user", content: "Question two" }), expect.objectContaining({ role: "assistant", content: "Answer two" }), expect.objectContaining({ role: "tool", toolCallId: "route-call", content: "A route result" }), expect.objectContaining({ role: "user", content: "Question three" })]));
     });
-    it.each([false, true])("validates the Main-owned file version changed=%s", async (changed) => {
+    it.each([["work", false], ["work", true], ["code", false], ["code", true]] as const)("validates %s Main-owned file version changed=%s", async (mode, changed) => {
         const file = join(wire.root, "required.txt");
         fs.writeFileSync(file, "Original document");
         const { inspectWorkReadFile } = await import("../chats/work-read-scope");
         const scope = inspectWorkReadFile(file);
         if (changed)
             fs.writeFileSync(file, "New document version");
-        session("conversation", "work", [{ ...user("input"), attachments: [{ kind: "document", name: "required.txt", filePath: file, status: "pending", readScope: scope }] }]);
+        session("conversation", mode, [{ ...user("input"), attachments: [{ kind: "document", name: "required.txt", filePath: file, status: "pending", readScope: scope }] }]);
         const f = await bridge();
         if (changed) {
             await expect(f.run("conversation", { userTurnId: "input" })).rejects.toThrow("WORK_READ_SCOPE_CHANGED");

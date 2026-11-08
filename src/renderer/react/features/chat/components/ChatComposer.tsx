@@ -30,6 +30,7 @@ type ChatComposerProps = {
   onChooseFiles: (files: File[]) => void;
   onChooseWorkspace: () => void;
   onAdjustQueuedMessage?: (id: string) => Promise<boolean>;
+  onUnmarkQueuedMessage?: (id: string) => Promise<boolean>;
   onEditQueuedMessage?: (id: string, content: string) => Promise<boolean>;
   onRemoveQueuedMessage?: (id: string) => void;
   onQueueMessage?: (value: string) => void;
@@ -261,7 +262,7 @@ export function ChatComposer(props: ChatComposerProps) {
     value, mode, docked, onNewTask, onNotice, conversationId, workspaceName, workspaceRoot,
     attachments, requireDocumentRead = false, onRequireDocumentReadChange, attachmentBusy = false,
     modelBusy = false, pendingQueue = [], onChange, onSubmit, onCancel, onQueueMessage,
-    onRemoveQueuedMessage, onEditQueuedMessage, onAdjustQueuedMessage, onChooseWorkspace,
+    onRemoveQueuedMessage, onEditQueuedMessage, onAdjustQueuedMessage, onUnmarkQueuedMessage, onChooseWorkspace,
     onChooseFiles, onRemoveAttachment, onScreenshot, onPasteImage, onChooseSticker,
     activeModelProfileId, onSelectModelProfile, contextUsage, stepProgress,
   } = props;
@@ -405,6 +406,7 @@ export function ChatComposer(props: ChatComposerProps) {
       {stepProgress && <StepProgressPill {...stepProgress} />}
       <PendingQueueDock
         onRemove={onRemoveQueuedMessage}
+        onUnmark={onUnmarkQueuedMessage}
         onAdjust={onAdjustQueuedMessage}
         onEdit={onEditQueuedMessage}
         adjustmentAvailable={modelBusy}
@@ -504,7 +506,7 @@ export function ChatComposer(props: ChatComposerProps) {
             </div>
           }
         />
-        {mode === "work" && attachments.some((attachment) => attachment.kind === "document") && (
+        {(mode === "work" || mode === "code") && attachments.some((attachment) => attachment.kind === "document") && (
           <div className="ff-composer__footer">
             <label className="ff-composer__read-requirement">
               <input type="checkbox" checked={requireDocumentRead} onChange={(event) => onRequireDocumentReadChange?.(event.target.checked)} />
