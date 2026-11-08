@@ -99,6 +99,16 @@ describe("maskContextSecrets", () => {
     expect(JSON.parse((masked[0] as typeof message).toolCalls[0].arguments)).toEqual((masked[0] as typeof message).rawAssistant[1].input);
   });
 
+  it("names thousands of clashing masked keys in linear time", () => {
+    // Codex review on #47: each clash restarted its suffix search at 2, so 9,000 keys took about 11 s.
+    const args = Object.fromEntries(Array.from({ length: 9000 }, (_, i) => [`api_key=${i}`, "x"]));
+    const began = performance.now();
+    const masked = maskContextSecrets(args) as Record<string, unknown>;
+    expect(performance.now() - began).toBeLessThan(2000);
+    expect(Object.keys(masked)).toHaveLength(9000);
+    expect(new Set(Object.keys(masked)).size).toBe(9000);
+  });
+
   it("masks many assignments in one pass, not in time quadratic in their number", () => {
     // Codex review on #47: 30,000 lines took about 50 s because each match rebuilt the whole string.
     const pasted = "api_key=CANARY\n".repeat(30000);

@@ -259,13 +259,16 @@ export async function dispatchPreparedModelCall(input: PreparedModelCallInput): 
         if(!response.body){ clearTimeout(timer); return response; }
         arm(limits.bodyMs);
         const reader=response.body.getReader();
+        // One rejection per response, not one abort listener per chunk (long replies piled them up).
+        const silenced=new Promise<never>((_resolve,reject)=>{
+          if(watchdog.signal.aborted)reject(watchdog.signal.reason);
+          else watchdog.signal.addEventListener("abort",()=>reject(watchdog.signal.reason),{once:true});
+        });
+        silenced.catch(()=>{});
         const body=new ReadableStream<Uint8Array>({
           async pull(controller){
             try{
-              const next=await Promise.race([reader.read(),new Promise<never>((_resolve,reject)=>{
-                if(watchdog.signal.aborted)reject(watchdog.signal.reason);
-                else watchdog.signal.addEventListener("abort",()=>reject(watchdog.signal.reason),{once:true});
-              })]);
+              const next=await Promise.race([reader.read(),silenced]);
               if(next.done){ clearTimeout(timer); controller.close(); return; }
               arm(limits.bodyMs);
               controller.enqueue(next.value);

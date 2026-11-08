@@ -181,10 +181,12 @@ export function maskContextSecrets<T>(value: T): T {
   // at the end of the line.
   const taken = new Set(Object.keys(item).filter(passes));
   const renamed = new Map<string, string>();
+  const nextSuffix = new Map<string, number>(); // per base, so many clashing keys stay linear
   for (const key of Object.keys(item).filter(key => !passes(key)).sort()) {
    const base = maskText(key);
-   let name = base;
-   for (let n = 2; taken.has(name); n++) name = `${n} ${base}`;
+   let name = base, n = nextSuffix.get(base) ?? 2;
+   if (taken.has(name)) { do name = `${n++} ${base}`; while (taken.has(name)); }
+   nextSuffix.set(base, n);
    taken.add(name);
    renamed.set(key, name);
   }

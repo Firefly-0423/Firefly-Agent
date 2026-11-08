@@ -135,6 +135,21 @@ describe("prepared provider calls", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(deltas).toEqual(["部分"]);
   });
+  it("reads a long stream without piling up abort listeners", async () => {
+    // Codex review on #47: one listener per chunk stayed registered; 30,000 chunks took about 13 s.
+    const f = fixture("openai");
+    const encoder = new TextEncoder(), chunk = encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: "字" }, finish_reason: null }] })}\n\n`);
+    let left = 20000;
+    const body = new ReadableStream({ pull(controller) {
+      if (left-- > 0) controller.enqueue(chunk);
+      else { controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: "stop" }] })}\n\n`)); controller.close(); }
+    } });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { headers: { "Content-Type": "text/event-stream" } })));
+    const began = Date.now();
+    const response = await dispatchPreparedModelCall({ prepared: prepareModelCall(f.adapter, f.request, f.config, f.identity), config: f.config, timeoutMs: 60_000, idle });
+    expect(response.text).toHaveLength(20000);
+    expect(Date.now() - began).toBeLessThan(8000);
+  }, 20_000);
   it("keeps a slow stream alive while bytes keep arriving", async () => {
     const f = fixture("openai");
     const chunks = [{ choices: [{ delta: { reasoning_content: "想" }, finish_reason: null }] }, { choices: [{ delta: { content: "好" }, finish_reason: null }] },
