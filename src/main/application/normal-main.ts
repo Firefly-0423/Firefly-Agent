@@ -1,11 +1,4 @@
-/**
- * Electron 主进程入口 —— 应用组合根（Composition Root）。
- *
- * 此文件只表达应用生命周期：创建 Application、绑定 Electron 生命周期、
- * 在 ready 前完成同步预配置，并在主进程就绪后按
- * shell → core → background 阶段启动。全部业务子系统的装配位于
- * application/default-dependencies.ts；启动编排位于 application/application.ts。
- */
+/** 主进程启动入口：准备 Electron 环境，再委托 Application 管理各启动阶段。 */
 
 import "../startup/identity-preflight";
 import { app } from "electron";
@@ -15,16 +8,11 @@ import { registerPluginPanelScheme } from "../plugin-panel/plugin-panel-protocol
 import { installGlobalNavigationGuard } from "../windows/external-link";
 import { initializeMainFileLogging, logger, LogTag } from "../logging/logger";
 
-// 打包版双击启动时 stdout/stderr 管道可能不存在或中途关闭，
-// 此时任何 console.log 写入都会抛异步 EPIPE 并升级成 uncaughtException 弹错误框
-// （如 mcp-adapter connectMcpServer 的连接日志）。在入口最顶部挂 error 监听器
-// 静默兜底：日志丢弃无害，业务不受影响。
-for (const stream of [process.stdout, process.stderr]) {
-  stream?.on?.("error", (err: NodeJS.ErrnoException) => {
-    if (err.code === "EPIPE") return;
-    throw err;
-  });
+// 打包应用可能没有可用的输出管道；其他流错误仍需向外抛出。
+function handleOutputError(error: NodeJS.ErrnoException): void {
+  if (error.code !== "EPIPE") throw error;
 }
+for (const output of [process.stdout, process.stderr]) output?.on?.("error", handleOutputError);
 
 initializeMainFileLogging();
 

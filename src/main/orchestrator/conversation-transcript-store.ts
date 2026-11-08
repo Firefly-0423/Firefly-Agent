@@ -440,25 +440,18 @@ function parseEntryRow(line: string): TranscriptEntry {
  * 裁掉被截断的尾行，返回保留下来的文本，以及可以安全解析的完整行。
  * 没有换行结尾的最后一行是崩溃留下的半行，即便碰巧能解析也不信任，直接截到最后一个换行。
  */
+function isCompleteJsonLine(line: string): boolean {
+  if (!line.trim()) return false;
+  try { JSON.parse(line); return true; } catch { return false; }
+}
+
 function repairTruncatedTail(text: string): { kept: string; lines: string[] } {
   if (text === "") return { kept: "", lines: [] };
   const body = text.endsWith("\n") ? text : text.slice(0, text.lastIndexOf("\n") + 1);
   const lines = body.split("\n");
   lines.pop(); // split 之后末尾必然多出一个空串，去掉它
-  // 从尾部往前清理：空行丢弃；遇到第一个能解析的非空行就停下
-  while (lines.length > 0) {
-    const last = lines[lines.length - 1];
-    if (last.trim() === "") {
-      lines.pop();
-      continue;
-    }
-    try {
-      JSON.parse(last);
-      break;
-    } catch {
-      lines.pop();
-    }
-  }
+  // 仅尾部不完整记录可被修复；中间的记录由读取器独立校验。
+  while (lines.length && !isCompleteJsonLine(lines[lines.length - 1])) lines.pop();
   const kept = lines.length > 0 ? `${lines.join("\n")}\n` : "";
   return { kept, lines };
 }

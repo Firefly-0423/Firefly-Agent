@@ -2,10 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import type { LspServerDefinition } from "./types";
 
-export interface ResolvedLspServer {
+type LaunchLocation = { executablePath: string; args: string[] };
+
+export interface ResolvedLspServer extends LaunchLocation {
   definition: LspServerDefinition;
-  executablePath: string;
-  args: string[];
 }
 
 export interface LspDiscoveryOptions {
@@ -54,6 +54,17 @@ interface SearchPlan {
   pathDirectories: readonly string[];
 }
 
+function makeSearchPlan(workspaceRoot: string, options: LspDiscoveryOptions): SearchPlan {
+  const pathValue = options.PATH ?? process.env.PATH ?? "";
+  const directories = pathValue.split(path.delimiter).filter(Boolean);
+  return {
+    workspaceBin: path.join(workspaceRoot, "node_modules", ".bin"),
+    pathDirectories: directories,
+    platform: options.platform ?? process.platform,
+    pathExt: options.PATHEXT ?? process.env.PATHEXT,
+  };
+}
+
 // 查找顺序：绝对路径 -> 工作区 node_modules/.bin -> 系统 PATH 各目录。
 function locate(command: string, plan: SearchPlan): string | null {
   if (path.isAbsolute(command)) return isFile(command) ? command : null;
@@ -64,22 +75,10 @@ function locate(command: string, plan: SearchPlan): string | null {
   return null;
 }
 
-/**
- * 按显式绝对路径、工作区 node_modules/.bin、系统 PATH 的固定顺序发现用户已安装的服务。
- * 不会执行任何命令，也不会拼接 shell 字符串。
- */
-export function resolveLspServer(
-  definition: LspServerDefinition,
-  workspaceRoot: string,
-  options: LspDiscoveryOptions = {},
-): ResolvedLspServer | null {
-  const rawPath = options.PATH ?? process.env.PATH ?? "";
-  const plan: SearchPlan = {
-    platform: options.platform ?? process.platform,
-    pathExt: options.PATHEXT ?? process.env.PATHEXT,
-    workspaceBin: path.join(workspaceRoot, "node_modules", ".bin"),
-    pathDirectories: rawPath.split(path.delimiter).filter((entry) => entry.length > 0),
-  };
+/** 查找已安装服务：先看绝对路径，再看工作区和 PATH，不执行命令。 */
+export function resolveLspServer(definition: LspServerDefinition, workspaceRoot: string,
+  options: LspDiscoveryOptions = {}): ResolvedLspServer | null {
+  const plan = makeSearchPlan(workspaceRoot, options);
 
   for (const spec of definition.commands) {
     const executablePath = locate(spec.command, plan);

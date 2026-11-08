@@ -15,11 +15,14 @@ export interface SimStats {
   totalRounds: number;
 }
 
-export interface EntrySnapshot {
+interface EntryScore {
   entryId: string;
   intrinsicValue: number;
   priority: number;
   activation: number;
+}
+
+interface EntryActivity {
   userSilence: number;
   modelSilence: number;
   state: DmaeState;
@@ -27,6 +30,8 @@ export interface EntrySnapshot {
   modelHit: boolean;        // 本轮是否被 model 命中
   recentUserHits: number[]; // V5.1 repeatWindow 内命中轮次
 }
+
+export interface EntrySnapshot extends EntryScore, EntryActivity {}
 
 export interface Round {
   index: number;            // 0-based 轮次

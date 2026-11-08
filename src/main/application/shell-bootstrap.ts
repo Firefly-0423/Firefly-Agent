@@ -55,6 +55,13 @@ export interface ShellResult {
 
 type ActivateFn = (request: WindowActivationRequest) => Promise<void>;
 
+function wireEmergencySessionFlush(chat: ReactChatWindowHandle, shutdown: ShutdownCoordinator): void {
+  attachWindowsSessionEndHandlers({
+    window: chat.window as unknown as Parameters<typeof attachWindowsSessionEndHandlers>[0]["window"],
+    coordinator: shutdown,
+  });
+}
+
 function makeActivate(windowManager: WindowManager): ActivateFn {
   return async (request) => {
     if (request.kind === "chat") {
@@ -127,22 +134,15 @@ export async function startShell(deps: ShellDependencies): Promise<ShellResult> 
   }
   shutdown.registerEmergencyFlush("token-usage", () => deps.flushTokenUsage());
 
-  // 系统关机/重启/注销时，在聊天主窗口上同步紧急落盘
-  attachWindowsSessionEndHandlers({
-    window: chat.window as unknown as Parameters<typeof attachWindowsSessionEndHandlers>[0]["window"],
-    coordinator: shutdown,
-  });
+  wireEmergencySessionFlush(chat, shutdown);
 
   readiness.transition("shell-ready");
 
   return {
     ipc,
     splashWindow,
-    // ready-to-show 异步触发，可能晚于本函数返回，必须按需读取而不是返回快照，
-    // 否则 core 阶段会丢失最短展示时长的起点。
-    get loadingShownAt() {
-      return shownAt.value;
-    },
+    // 异步显示事件可能在返回后到达，因此每次都读取最新时刻。
+    get loadingShownAt() { return shownAt.value; },
     windowManager,
     chat,
     tray,

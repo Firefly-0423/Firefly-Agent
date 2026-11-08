@@ -96,16 +96,12 @@ describe("isCurrentMemoryStore", () => {
 
 describe("defaults", () => {
   it("creates L0 initialized from the current memory language", () => {
-    expect(createDefaultL0()).toEqual({
-      nickname: "",
-      preferredName: "",
-      occupation: "",
-      longTermInterests: "",
-      language: getMemoryLanguage(),
-      permanentNote: "",
-      isPinned: false,
-      updatedAt: 0,
-    });
+    const profile = createDefaultL0();
+    const emptyFields = ["nickname", "preferredName", "occupation", "longTermInterests", "permanentNote"] as const;
+    expect(Object.keys(profile)).toHaveLength(emptyFields.length + 3);
+    for (const field of emptyFields) expect(profile[field], field).toBe("");
+    expect(profile).toMatchObject({ language: getMemoryLanguage(), isPinned: false, updatedAt: 0 });
+    expect(createDefaultL0()).not.toBe(profile);
   });
 
   it("exposes the default L1 profile", () => {

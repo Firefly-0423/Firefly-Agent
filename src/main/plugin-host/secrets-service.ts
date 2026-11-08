@@ -8,16 +8,22 @@ import { pluginHostError } from "./errors";
 const KEY_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/;
 
 /** Electron safeStorage 的最小接口：宿主注入真实现，测试注入假件。 */
-export interface SafeStorageLike {
-  isEncryptionAvailable(): boolean;
+interface StringEncryption {
   encryptString(plainText: string): Buffer;
   decryptString(encrypted: Buffer): string;
 }
 
-export interface PluginSecretsServiceOptions {
+export interface SafeStorageLike extends StringEncryption {
+  isEncryptionAvailable(): boolean;
+}
+
+interface PluginSecretsLocation {
   pluginId: string;
   /** 密钥目录，约定为 plugin-data/<pluginId>/secrets/。 */
   secretsRoot: string;
+}
+
+export interface PluginSecretsServiceOptions extends PluginSecretsLocation {
   storage: SafeStorageLike;
   /** 插件停止信号；触发后每次调用都以 E_PLUGIN_STOPPING 失败。 */
   signal?: AbortSignal;

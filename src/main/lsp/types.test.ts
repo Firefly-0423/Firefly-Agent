@@ -25,19 +25,12 @@ describe("错误码与操作清单", () => {
     for (const code of LSP_ERROR_CODES) expect(code.startsWith("LSP_")).toBe(true);
   });
 
-  it("导出的错误码列表完整且顺序固定：删除或改名任何一个都会失败", () => {
-    expect([...LSP_ERROR_CODES]).toEqual([
-      "LSP_WORKSPACE_REQUIRED",
-      "LSP_PATH_OUTSIDE_WORKSPACE",
-      "LSP_FILE_NOT_FOUND",
-      "LSP_SERVER_NOT_FOUND",
-      "LSP_SERVER_START_FAILED",
-      "LSP_INITIALIZE_TIMEOUT",
-      "LSP_REQUEST_TIMEOUT",
-      "LSP_REQUEST_FAILED",
-      "LSP_UNSUPPORTED_OPERATION",
-      "LSP_POSITION_INVALID",
-    ]);
+  it("保留完整的错误码及其位置", () => {
+    const expected = ["WORKSPACE_REQUIRED", "PATH_OUTSIDE_WORKSPACE", "FILE_NOT_FOUND", "SERVER_NOT_FOUND",
+      "SERVER_START_FAILED", "INITIALIZE_TIMEOUT", "REQUEST_TIMEOUT", "REQUEST_FAILED",
+      "UNSUPPORTED_OPERATION", "POSITION_INVALID"].map(name => `LSP_${name}`);
+    expect(LSP_ERROR_CODES).toHaveLength(expected.length);
+    expected.forEach((code, index) => expect(LSP_ERROR_CODES[index]).toBe(code));
   });
 
   it("包含工作区、路径、服务、超时、位置相关的关键错误码", () => {
@@ -58,18 +51,10 @@ describe("错误码与操作清单", () => {
     expect(LSP_OPERATIONS).toHaveLength(10);
     expect(new Set(LSP_OPERATIONS).size).toBe(10);
     // 顺序是发给模型的 operation 枚举顺序，要与工具描述一致，所以不能排序后再比。
-    expect([...LSP_OPERATIONS]).toEqual([
-      "goToDefinition",
-      "findReferences",
-      "hover",
-      "documentSymbol",
-      "workspaceSymbol",
-      "goToImplementation",
-      "diagnostics",
-      "prepareCallHierarchy",
-      "incomingCalls",
-      "outgoingCalls",
-    ]);
+    const navigation = ["goToDefinition", "findReferences", "hover", "documentSymbol", "workspaceSymbol", "goToImplementation", "diagnostics"];
+    const hierarchy = ["prepareCallHierarchy", "incomingCalls", "outgoingCalls"];
+    expect([...LSP_OPERATIONS]).toEqual([...navigation, ...hierarchy]);
+    expect(LSP_OPERATIONS.indexOf("prepareCallHierarchy")).toBe(navigation.length);
   });
 });
 

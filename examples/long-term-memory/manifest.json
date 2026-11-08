@@ -3,9 +3,12 @@
   "id": "long-term-memory",
   "name": "长期记忆",
   "version": "0.1.0",
-  "description": "演示轮次事件 + 冻结分页 + LLM + 动态提示词：监听桌面轮次结束，摘要存档并注入下一轮上下文",
+  "description": "演示在桌面对话轮次结束后生成摘要，分页归档并为后续对话提供上下文。",
   "author": "Firefly 示例",
   "entry": "index.cjs",
   "defaultEnabled": false,
-  "deps": ["llm", "conversations"]
+  "deps": [
+    "llm",
+    "conversations"
+  ]
 }

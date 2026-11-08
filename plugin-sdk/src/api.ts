@@ -53,7 +53,7 @@ export function isPluginHostError(value: unknown): value is PluginHostError {
  * 插件可向宿主申请的宿主服务。deps 只是服务可用性声明，不是安全权限：
  * 未声明的服务不会注入，声明的服务也只是获得该服务的稳定接口。
  */
-export type PluginCapability = "channels" | "llm" | "secrets" | "workspace" | "conversations" | "scheduler";
+export type PluginCapability = "conversations" | "scheduler" | "llm" | "secrets" | "workspace" | "channels";
 
 /** 与 PluginCapability 对应的运行时数组，由 SDK 原样再导出。 */
 export const PLUGIN_CAPABILITIES: readonly PluginCapability[] = [
@@ -93,33 +93,38 @@ export interface PluginManifest {
   defaultEnabled: boolean;
 }
 
+interface PluginManifestIdentityInput {
+  id: string;
+  name: string;
+  version: string;
+  apiVersion: number;
+}
+
+interface PluginManifestPublicationInput {
+  entry: string;
+  description: string;
+  author: string;
+}
+
+interface PluginManifestHostOptions {
+  defaultEnabled?: boolean;
+  deps?: PluginCapability[];
+}
+
+interface PluginManifestPanelOptions {
+  icon?: string;
+  settingsPanel?: string;
+  settingsSection?: PluginSettingsSection;
+}
+
 /**
  * 插件作者提交的 manifest 原始形状，是 Manifest JSON Schema 的生成目标。
  * 与 PluginManifest 的区别：defaultEnabled 可省略（宿主归一化为 true），
  * 字段格式约束（id 连字符、SemVer、entry 裸文件名等）由加载器的文件
  * 与格式校验补充完成，Schema 只负责结构、类型和枚举。
  */
-export interface PluginManifestInput {
-  // 注意：字段的声明顺序会原样体现在生成的 Schema 里（properties 与 required 的顺序）。
-  // 契约版本
-  apiVersion: number;
-  // 身份
-  id: string;
-  name: string;
-  // 发布信息
-  version: string;
-  description: string;
-  author: string;
-  // 入口文件
-  entry: string;
-  // 以下均为可选字段：界面资源
-  icon?: string;
-  settingsPanel?: string;
-  settingsSection?: PluginSettingsSection;
-  // 启用策略与服务依赖
-  defaultEnabled?: boolean;
-  deps?: PluginCapability[];
-}
+export interface PluginManifestInput extends PluginManifestIdentityInput,
+  PluginManifestPublicationInput, PluginManifestPanelOptions, PluginManifestHostOptions {}
 
 // ───────────────────────── 工具 ─────────────────────────
 

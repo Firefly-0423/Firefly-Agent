@@ -88,17 +88,20 @@ export type BuildOptionsFn = ((input: AguiRunInput, mainContext?: MainBuildOptio
 export interface RunFinishedEffects {
   sticker?: string | null;
 }
+interface FinishedRunIdentity {
+  conversationId: string;
+  runId?: string;
+  modelProfileId?: string;
+}
+interface FinishedRunContext extends FinishedRunIdentity {
+  source: PluginTurnCompletedEvent["source"];
+  mode: PluginPromptMode;
+  channel?: string;
+}
 export type OnRunFinishedFn = (
   result: FireflyRunResult,
   latestUserText: string,
-  context: {
-    source: PluginTurnCompletedEvent["source"];
-    mode: PluginPromptMode;
-    conversationId: string;
-    channel?: string;
-    runId?: string;
-    modelProfileId?: string;
-  },
+  context: FinishedRunContext,
 ) => Promise<void | RunFinishedEffects> | void | RunFinishedEffects;
 export type GetChatWindowFn = () => { webContents: WebContents; isDestroyed(): boolean } | null;
 export interface AguiConversationLifecycle {

@@ -5,37 +5,23 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// ── Hoisted mocks ──────────────────────────────────────
-
 const { fakeAdapter, fakeStreamChatWithSdk, recordUsage, recordRequest } = vi.hoisted(() => {
   const adapter = {
     id: "fake",
-    buildRequest: (req: unknown) => ({
-      url: "https://fake.local/chat",
-      method: "POST" as const,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req),
-    }),
-    parseResponse: (raw: unknown) => raw,
+    buildRequest: (body: unknown) => ({ url: "https://fake.local/chat", method: "POST" as const,
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+    parseResponse: (response: unknown) => response,
   };
+  const stream = vi.fn(async ({ adapter: vendor, request: body, signal }: {
+    adapter: typeof adapter; request: unknown; signal?: AbortSignal;
+  }) => {
+    const { url, ...init } = vendor.buildRequest(body);
+    const response = await fetch(url, { ...init, signal });
+    return vendor.parseResponse(await response.json());
+  });
   return {
-    fakeAdapter: adapter,
-    recordUsage: vi.fn(),
-    recordRequest: vi.fn(),
-    fakeStreamChatWithSdk: vi.fn(async (input: {
-      adapter: typeof adapter;
-      request: unknown;
-      signal?: AbortSignal;
-    }) => {
-      const request = input.adapter.buildRequest(input.request);
-      const response = await fetch(request.url, {
-        method: request.method,
-        headers: request.headers,
-        body: request.body,
-        signal: input.signal,
-      });
-      return input.adapter.parseResponse(await response.json());
-    }),
+    fakeAdapter: adapter, fakeStreamChatWithSdk: stream,
+    recordUsage: vi.fn(), recordRequest: vi.fn(),
   };
 });
 
@@ -63,75 +49,32 @@ const mockedDispatch = vi.mocked(dispatchToolCall);
 
 // ── Helpers ────────────────────────────────────────────
 
-function assistantResponse(opts: { text?: string; toolCalls?: ToolCall[] }): ChatResponse {
-  const text = opts.text ?? "";
-  const toolCalls = opts.toolCalls ?? [];
-  const assistantMessage: ChatMessage = {
-    role: "assistant",
-    content: text,
-    ...(toolCalls.length ? { toolCalls } : {}),
-  };
-  return {
-    assistantMessage,
-    text,
-    toolCalls,
-    finishReason: toolCalls.length ? "tool_calls" : "stop",
-    raw: {},
-  };
+function assistantResponse({ text = "", toolCalls = [] }: { text?: string; toolCalls?: ToolCall[] }): ChatResponse {
+  const message: ChatMessage = { role: "assistant", content: text };
+  if (toolCalls.length) message.toolCalls = toolCalls;
+  return { assistantMessage: message, text, toolCalls,
+    finishReason: toolCalls.length ? "tool_calls" : "stop", raw: {} };
 }
 
 /** 构建一个可控的 fetch mock：返回 deferred 列表，每个 fetch 调用消费一个。 */
-function deferredFetch(): {
-  fn: (url: unknown, init?: unknown) => Promise<Response>;
-  nextResolve: (resp: ChatResponse) => void;
-  nextReject: (err: Error) => void;
-  pendingAbort: () => void;
-  calls: unknown[];
-} {
+function deferredFetch() {
   const calls: unknown[] = [];
-  let pendingReject: ((err: Error) => void) | null = null;
-  let pendingResolve: ((resp: ChatResponse) => void) | null = null;
-  let pendingSignal: AbortSignal | null = null;
+  let pending: { resolve: (response: Response) => void; reject: (error: Error) => void; signal: AbortSignal | null } | null = null;
 
   const fn = vi.fn(async (_url: unknown, init?: unknown): Promise<Response> => {
     calls.push(init);
-    pendingSignal = (init as { signal?: AbortSignal } | undefined)?.signal ?? null;
     return new Promise<Response>((resolve, reject) => {
-      pendingResolve = (resp) => {
-        resolve({
-          ok: true,
-          json: async () => resp,
-        } as unknown as Response);
-      };
-      pendingReject = (err) => reject(err);
+      pending = { resolve, reject, signal: (init as { signal?: AbortSignal } | undefined)?.signal ?? null };
     });
   });
 
+  const take = () => { const current = pending; pending = null; return current; };
   return {
-    fn,
-    calls,
-    nextResolve: (resp) => {
-      const r = pendingResolve;
-      pendingResolve = null;
-      pendingReject = null;
-      pendingSignal = null;
-      r?.(resp);
-    },
-    nextReject: (err) => {
-      const r = pendingReject;
-      pendingResolve = null;
-      pendingReject = null;
-      pendingSignal = null;
-      r?.(err);
-    },
+    fn, calls,
+    nextResolve: (response: ChatResponse) => take()?.resolve({ ok: true, json: async () => response } as Response),
+    nextReject: (error: Error) => take()?.reject(error),
     pendingAbort: () => {
-      // 模拟 fetch 在 signal abort 时抛 AbortError
-      if (pendingSignal?.aborted) {
-        const r = pendingReject;
-        pendingReject = null;
-        pendingResolve = null;
-        r?.(new DOMException("aborted", "AbortError"));
-      }
+      if (pending?.signal?.aborted) take()?.reject(new DOMException("aborted", "AbortError"));
     },
   };
 }
@@ -145,43 +88,11 @@ const vendorConfig = {
 
 function readTool(): ToolDefinition {
   return {
-    id: "read_file",
-    name: "Read File",
-    description: "read a file",
-    enabled: true,
-    inputSchema: {
-      type: "object",
-      properties: { path: { type: "string" } },
-    },
-    effectKind: "read",
-    execute: vi.fn(),
+    id: "read_file", name: "Read File", description: "read a file", enabled: true,
+    inputSchema: { type: "object", properties: { path: { type: "string" } } },
+    effectKind: "read", execute: vi.fn(),
   };
 }
-
-/** 收集所有 harness 事件，便于断言 final_answer 是否被发出。 */
-function eventCollector(): { events: HarnessEvent[]; fn: (e: HarnessEvent) => void } {
-  const events: HarnessEvent[] = [];
-  return { events, fn: (e: HarnessEvent) => events.push(e) };
-}
-
-/** 断言取消终态不变量。 */
-function assertCancelledTerminal(result: HarnessResult, events: HarnessEvent[]): void {
-  // 恰好一个终止原因：cancelled
-  expect(result.terminateReason).toBe("cancelled");
-  expect(result.terminated).toBe(true);
-  // 不生成 "最终回复被取消。" —— finalAnswer 必须为空
-  expect(result.finalAnswer).toBe("");
-  expect(result.finalAnswer).not.toContain("最终回复被取消");
-  // 不得发 final_answer 事件
-  const finalAnswerEvents = events.filter((e) => e.type === "final_answer");
-  expect(finalAnswerEvents).toHaveLength(0);
-  // terminal 字段：harness 内部可以不填（adapter 会映射），但如果填了必须是 cancelled
-  if (result.terminal) {
-    expect(result.terminal.status).toBe("cancelled");
-    expect(result.terminal.externalEffectsMayContinue).toBe(true);
-  }
-}
-
 
 const toolCall = (id = "call-1"): ToolCall => ({ id, name: "read_file", arguments: JSON.stringify({ path: "/tmp/x" }) });
 
@@ -275,14 +186,14 @@ describe("FireflyHarness run deadline", () => {
     expect(result.finalAnswer).toBe("");
   });
 
-  it("does not abort anything when the total timeout is disabled", async () => {
+  it.each([0, -1])("does not abort work with a disabled deadline (%i)", async (totalTimeoutMs) => {
     const fetchMock = deferredFetch();
     vi.stubGlobal("fetch", fetchMock.fn);
     const { signal, quiesce } = runtimeSignals();
 
     const promise = runFireflyHarness({
       systemPrompt: "test", messages: [{ role: "user", content: "hello" }], tools: [], vendorConfig,
-      config: { totalTimeoutMs: 0 }, signal, quiesceExecution: quiesce,
+      config: { totalTimeoutMs }, signal, quiesceExecution: quiesce,
     });
     await vi.waitFor(() => expect(fetchMock.calls).toHaveLength(1));
     await new Promise((resolve) => setTimeout(resolve, 60));

@@ -12,18 +12,18 @@ import { randomUUID } from "node:crypto";
 import type { WebContents } from "electron";
 import type { ConversationMode } from "../../shared/chat-types";
 
-/** 目标快照：取得时复制一份，之后切换会话不会改动已拿到的值。 */
-export interface ActiveChatTarget {
-  sessionId: string;
-  mode: ConversationMode;
+interface RendererTarget {
   rendererTargetId: string;
   webContentsId: number;
 }
 
-export type ActiveChatTargetInvalidReason =
-  | "target-destroyed"
-  | "navigation"
-  | "session-deleted";
+/** 快照关联会话和接收该会话的渲染页面。 */
+export interface ActiveChatTarget extends RendererTarget {
+  sessionId: string;
+  mode: ConversationMode;
+}
+
+export type ActiveChatTargetInvalidReason = "target-destroyed" | "navigation" | "session-deleted";
 
 export interface ActiveChatTargetRegistry {
   /** 渲染端上报活动会话（首次或切换）。sender 须是聊天窗口的 WebContents。 */

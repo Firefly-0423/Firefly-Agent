@@ -1,12 +1,12 @@
 import type {
   PluginPromptMode,
   PluginScheduledExecutionSpec,
-  PluginScheduledTask,
-  PluginScheduledTaskHistory,
-  PluginScheduledTaskInput,
-  PluginScheduledTaskPatch,
   PluginSchedulerService,
 } from "../../plugins/api";
+type PluginScheduledTask = Awaited<ReturnType<PluginSchedulerService["createTask"]>>;
+type PluginScheduledTaskHistory = Awaited<ReturnType<PluginSchedulerService["getHistory"]>>[number];
+type PluginScheduledTaskInput = Parameters<PluginSchedulerService["createTask"]>[0];
+type PluginScheduledTaskPatch = Parameters<PluginSchedulerService["updateTask"]>[1];
 import {
   computeExecutionSpecFingerprint,
   isPluginTaskEffectivelyEnabled,
@@ -22,12 +22,15 @@ import type {
 import { pluginHostError } from "./errors";
 
 /** 调度存储的只读视图：真实实现是 scheduler-store，测试注入内存假件。 */
-export interface PluginSchedulerStore {
+interface PluginSchedulerReader {
   getTasks(): ScheduledTask[];
+  getHistory(taskId: string, limit?: number): ScheduledTaskHistoryEntry[];
+}
+
+export interface PluginSchedulerStore extends PluginSchedulerReader {
   addTask(input: NewScheduledTaskInput): ScheduledTask;
   updateTask(id: string, patch: ScheduledTaskPatch): ScheduledTask;
   deleteTask(id: string): boolean;
-  getHistory(taskId: string, limit?: number): ScheduledTaskHistoryEntry[];
 }
 
 export interface PluginSchedulerServiceOptions {
@@ -116,14 +119,16 @@ export function createPluginSchedulerService(options: PluginSchedulerServiceOpti
   }
 
   function toPluginTask(task: ScheduledTask): PluginScheduledTask {
+    const id = task.id;
+    const title = task.title;
+    const execution = {
+      schedule: task.schedule, prompt: task.prompt, mode: task.mode ?? "work",
+      allowedToolIds: [...task.allowedToolIds], enabled: isPluginTaskEffectivelyEnabled(task),
+    };
     const view: PluginScheduledTask = {
-      id: task.id,
-      title: task.title,
-      schedule: task.schedule,
-      prompt: task.prompt,
-      mode: task.mode ?? "work",
-      allowedToolIds: [...task.allowedToolIds],
-      enabled: isPluginTaskEffectivelyEnabled(task),
+      id,
+      title,
+      ...execution,
       nextFireAt: task.nextFireAt,
       ...(task.lastFiredAt ? { lastFiredAt: task.lastFiredAt } : {}),
       createdAt: task.createdAt,
@@ -153,19 +158,19 @@ export function createPluginSchedulerService(options: PluginSchedulerServiceOpti
       ensureSpec(input, true);
       let created: ScheduledTask;
       try {
-        // 宿主内部字段不取自插件输入，这里固定写入。
-        created = store.addTask({
+        // 授权状态由宿主初始化，插件输入不能启用任务。
+        const ownership = { ownerPluginId: pluginId, pluginUserEnabled: false, approvalFingerprint: "" };
+        const taskInput: NewScheduledTaskInput = {
           title: input.title.trim(),
           prompt: input.prompt.trim(),
           enabled: false,
           schedule: input.schedule,
           toolMode: "allow-list",
           allowedToolIds: input.allowedToolIds,
-          ownerPluginId: pluginId,
-          pluginUserEnabled: false,
-          approvalFingerprint: "",
+          ...ownership,
           mode: input.mode,
-        });
+        };
+        created = store.addTask(taskInput);
       } catch (failure) {
         throw pluginHostError("E_INTERNAL", "创建调度任务失败", { cause: failure, logPrefix });
       }

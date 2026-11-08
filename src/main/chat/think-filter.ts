@@ -13,12 +13,15 @@
 
 export type ThinkFilterMode = "strict" | "leading-only" | "disabled";
 
-export interface ThinkStreamFilter {
-  /** 推入一个 chunk，返回过滤后的可见文本（可能为空字符串）。 */
+interface StreamingTextFilter {
+  /** 消费一段输入，返回可以展示的内容。 */
   push(chunk: string): string;
-  /** 消息结束时 flush 残留的可见文本（可能为空字符串）。 */
+  /** 在消息结束时输出保留的可见内容。 */
   flush(): string;
-  /** 取出自上次读取后捕获到的公开 <think> 文本。 */
+}
+
+export interface ThinkStreamFilter extends StreamingTextFilter {
+  /** 读取并清空本次积累的思考文本。 */
   takeThinking(): string;
 }
 

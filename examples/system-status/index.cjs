@@ -88,23 +88,16 @@ async function readGpu() {
 // ---------------------------------------------------------------------------
 // 磁盘、网络、电池以及 GPU 引擎回退值：合并成一次 PowerShell 调用
 // ---------------------------------------------------------------------------
-const MISC_SCRIPT = [
-  // 初始化有序结果表
-  "$r = [ordered]@{}",
-  // 本地固定磁盘
-  "$r.disks = @(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=3' | Select-Object DeviceID,Size,FreeSpace)",
-  // 所有网卡累计收发字节
-  "$net = Get-NetAdapterStatistics -ErrorAction SilentlyContinue | Measure-Object -Property ReceivedBytes,SentBytes -Sum",
-  "$r.net = @{ r = [double]$net.ReceivedBytes; s = [double]$net.SentBytes }",
-  // 电池（台式机没有）
-  "$bat = Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue",
-  "if ($bat) { $r.bat = @{ p = [int]$bat.EstimatedChargeRemaining; charging = ($bat.BatteryStatus -eq 2) } } else { $r.bat = $null }",
-  // GPU 引擎占用（非 N 卡时的兜底）
-  "$g = Get-CimInstance Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine -ErrorAction SilentlyContinue | Measure-Object -Property UtilizationPercentage -Sum",
-  "if ($g.Sum -ne $null) { $r.gpuEngine = [math]::Round([double]$g.Sum, 1) } else { $r.gpuEngine = $null }",
-  // 输出紧凑 JSON
-  "ConvertTo-Json -InputObject $r -Compress -Depth 4",
-].join("; ");
+function makeMiscScript() {
+  const collect = {
+    disks: "$r.disks = @(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=3' | Select-Object DeviceID,Size,FreeSpace)",
+    network: "$net = Get-NetAdapterStatistics -ErrorAction SilentlyContinue | Measure-Object -Property ReceivedBytes,SentBytes -Sum; $r.net = @{ r = [double]$net.ReceivedBytes; s = [double]$net.SentBytes }",
+    battery: "$bat = Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue; if ($bat) { $r.bat = @{ p = [int]$bat.EstimatedChargeRemaining; charging = ($bat.BatteryStatus -eq 2) } } else { $r.bat = $null }",
+    gpu: "$g = Get-CimInstance Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine -ErrorAction SilentlyContinue | Measure-Object -Property UtilizationPercentage -Sum; if ($g.Sum -ne $null) { $r.gpuEngine = [math]::Round([double]$g.Sum, 1) } else { $r.gpuEngine = $null }",
+  };
+  return ["$r = [ordered]@{}", ...Object.values(collect), "ConvertTo-Json -InputObject $r -Compress -Depth 4"].join("; ");
+}
+const MISC_SCRIPT = makeMiscScript();
 
 async function readWindowsMisc() {
   const res = await powershell(MISC_SCRIPT, 8000);
@@ -269,50 +262,33 @@ async function collectDisk(drive) {
 // ---------------------------------------------------------------------------
 // 工具定义
 // ---------------------------------------------------------------------------
-const makeStatusTool = () => ({
-  id: "system-status_status",
+function readOnlyTool(id, name, description, properties, execute) {
+  return { id, name, description, enabled: true, risk: "safe", effectKind: "read",
+    inputSchema: { type: "object", properties, required: [] }, execute };
+}
+
+const makeStatusTool = () => readOnlyTool(
+  "system-status_status",
   // 展示给用户与模型的名称和用途说明
-  name: "系统状态查询",
-  description: "查询本机系统状态，包括操作系统、CPU 占用、内存、GPU、电池与开机时长。用户问电脑还剩多少电、内存占用、CPU 温度负载、开了多久等问题时使用。",
-  enabled: true,
-  // 只读、无副作用
-  risk: "safe",
-  effectKind: "read",
-  // 无需参数
-  inputSchema: {
-    type: "object",
-    properties: {},
-    required: [],
-  },
-  async execute() {
+  "系统状态查询",
+  "查询本机系统状态，包括操作系统、CPU 占用、内存、GPU、电池与开机时长。用户问电脑还剩多少电、内存占用、CPU 温度负载、开了多久等问题时使用。",
+  {},
+  async () => {
     return (await collectStatus()).join("\n");
   },
-});
+);
 
-const makeDiskTool = () => ({
-  id: "system-status_disk",
-  // 展示给用户与模型的名称和用途说明
-  name: "磁盘占用查询",
-  description: "查询磁盘空间占用情况。可选指定盘符（如 C、D、E），不指定则查询系统盘。",
-  enabled: true,
-  // 只读、无副作用
-  risk: "safe",
-  effectKind: "read",
-  // 参数：可选盘符
-  inputSchema: {
-    type: "object",
-    properties: {
-      drive: { type: "string", description: "Windows 盘符字母，例如 C、D、E；留空查询系统所在盘" },
-    },
-    required: [],
-  },
-  async execute(args) {
+const makeDiskTool = () => readOnlyTool(
+  "system-status_disk", "磁盘占用查询",
+  "查询磁盘空间占用情况。可选指定盘符（如 C、D、E），不指定则查询系统盘。",
+  { drive: { type: "string", description: "Windows 盘符字母，例如 C、D、E；留空查询系统所在盘" } },
+  async (args) => {
     // 只接受单个英文字母，其余视为未指定
     const given = typeof args.drive === "string" ? args.drive.trim() : "";
     const drive = typeof args.drive === "string" && /^[a-z]$/i.test(given) ? given.toUpperCase() : undefined;
     return collectDisk(drive);
   },
-});
+);
 
 // ---------------------------------------------------------------------------
 // 状态窗口

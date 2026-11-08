@@ -10,21 +10,25 @@ interface Point {
   state: string;
 }
 
+function pointsForEntry(result: SimResult, entryId: string): Point[] {
+  const points: Point[] = [];
+  result.snapshots.forEach((frame, round) => {
+    const hit = frame.find(snapshot => snapshot.entryId === entryId);
+    if (hit) points.push({ round, a: hit.activation, state: hit.state });
+  });
+  return points;
+}
+
 export function renderLineCharts(result: SimResult): void {
   console.log("\n=== ASCII 折线图（每条目一张）===");
-  const yMax = result.params.maxScore;
-  const threshold = result.params.promptThreshold;
+  const { maxScore, promptThreshold } = result.params;
   for (const entry of result.entries) {
     if (entry.permanent) {
       console.log(`\n[permanent] ${entry.id} (常驻旁路，不进 DMAE)`);
       continue;
     }
-    const points: Point[] = [];
-    result.snapshots.forEach((frame, round) => {
-      const hit = frame.find((s) => s.entryId === entry.id);
-      if (hit) points.push({ round, a: hit.activation, state: hit.state });
-    });
-    plot(entry.id, entry.intrinsicValue, points, result.snapshots.length, yMax, threshold);
+    plot(entry.id, entry.intrinsicValue, pointsForEntry(result, entry.id), result.snapshots.length,
+      maxScore, promptThreshold);
   }
 }
 

@@ -11,53 +11,38 @@ import type {
 const LOOP_LIFETIME_MS = 72 * 60 * 60 * 1_000;
 const WRITE_CAP = 3;
 
-// 发给模型的结构化输出 schema，字段名与校验逻辑一一对应。
-export const SOCIAL_EXTRACTION_SCHEMA = {
+// 单条操作的协议与本地校验器共享同一组字段。
+const OPERATION_SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
-    operations: {
-      type: "array",
-      maxItems: WRITE_CAP,
-      items: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          operation: { type: "string", enum: ["add", "supersede", "resolve"] },
-          type: {
-            type: ["string", "null"],
-            enum: ["long_term", "short_term", "open_loop", null],
-          },
-          content: { type: ["string", "null"] },
-          evidenceTurnId: { type: "string" },
-          evidenceQuote: { type: "string" },
-          supersedesAtomId: { type: ["string", "null"] },
-          expiresAt: { type: ["number", "null"] },
-        },
-        required: [
-          "operation",
-          "type",
-          "content",
-          "evidenceTurnId",
-          "evidenceQuote",
-          "supersedesAtomId",
-          "expiresAt",
-        ],
-      },
-    },
+    operation: { type: "string", enum: ["add", "supersede", "resolve"] },
+    type: { type: ["string", "null"], enum: ["long_term", "short_term", "open_loop", null] },
+    content: { type: ["string", "null"] },
+    evidenceTurnId: { type: "string" },
+    evidenceQuote: { type: "string" },
+    supersedesAtomId: { type: ["string", "null"] },
+    expiresAt: { type: ["number", "null"] },
   },
+  required: ["operation", "type", "content", "evidenceTurnId", "evidenceQuote", "supersedesAtomId", "expiresAt"],
+} as const;
+
+export const SOCIAL_EXTRACTION_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: { operations: { type: "array", maxItems: WRITE_CAP, items: OPERATION_SCHEMA } },
   required: ["operations"],
 } as const;
 
-export interface SocialExtractionValidationResult {
+interface RejectionSummary { rejectedCount: number }
+
+export interface SocialExtractionValidationResult extends RejectionSummary {
   operations: ValidatedSocialAtomOperation[];
-  rejectedCount: number;
 }
 
-export interface SocialExtractionRepairContext {
+export interface SocialExtractionRepairContext extends RejectionSummary {
   attempt: 1 | 2;
   previousOutput: string;
-  rejectedCount: number;
 }
 
 // 去掉首尾空白后非空则返回，否则返回 null。
@@ -249,19 +234,18 @@ export function buildSocialExtractionPrompt(
   repair?: SocialExtractionRepairContext,
 ): string {
   const lines = [
-    "你是保守的聊天连续性信息提取器。只记录本轮原文能直接支持、未来对自然聊天有帮助的信息。",
-    "禁止推断情绪，禁止改写证据引文，禁止为了有输出而输出。没有合适内容时返回 {\"operations\":[] }。",
-    "只返回一个 JSON 对象，operations 最多 3 条。每条都必须完整包含以下七个键：",
+    "从当前对话中谨慎提取能帮助后续自然交流的信息；每项都必须有本轮原文直接支持。",
+    "不要揣测情绪或改写引文，也不要勉强提取；没有合适信息时返回 {\"operations\":[] }。",
+    "输出一个 JSON 对象，operations 至多三项。每项必须包含以下全部七个键：",
     "\"operation\"、\"type\"、\"content\"、\"evidenceTurnId\"、\"evidenceQuote\"、\"supersedesAtomId\"、\"expiresAt\"。",
     "禁止使用 op、atomId、targetAtomId 等别名。",
     "add 示例：{\"operation\":\"add\",\"type\":\"long_term\",\"content\":\"用户明确表达的事实\",\"evidenceTurnId\":\"user-id\",\"evidenceQuote\":\"严格原文子串\",\"supersedesAtomId\":null,\"expiresAt\":null}",
     "supersede 示例：{\"operation\":\"supersede\",\"type\":\"long_term\",\"content\":\"纠正后的事实\",\"evidenceTurnId\":\"user-id\",\"evidenceQuote\":\"严格原文子串\",\"supersedesAtomId\":\"旧原子ID\",\"expiresAt\":null}",
     "resolve 示例：{\"operation\":\"resolve\",\"type\":null,\"content\":null,\"evidenceTurnId\":\"user-id\",\"evidenceQuote\":\"严格原文子串\",\"supersedesAtomId\":\"open_loop原子ID\",\"expiresAt\":null}",
-    "operation 只能是 add、supersede 或 resolve。",
-    "type 只能是 long_term、short_term、open_loop。short_term 的 expiresAt 使用毫秒时间戳。",
-    "long_term/short_term 的 evidenceTurnId 必须来自用户；open_loop 可来自助手。",
-    "evidenceQuote 必须是对应消息的严格原文子串。纠正和关闭只能引用下面给出的 supersedesAtomId。",
-    "resolve 只用于用户已经回答一个 open_loop，不带 type/content。",
+    "允许的 operation 为 add、supersede、resolve；type 为 long_term、short_term、open_loop。",
+    "short_term 的 expiresAt 使用毫秒时间戳。long_term 和 short_term 的证据必须来自用户，open_loop 也可引用助手。",
+    "evidenceQuote 必须逐字取自对应消息。纠正或关闭时，supersedesAtomId 只能引用下方列出的原子。",
+    "只有用户已回答 open_loop 才可 resolve；此操作的 type 和 content 为 null。",
     "",
     `当前时间戳：${input.now}`,
     `用户消息 id=${input.userTurn.id}：${input.userTurn.text}`,

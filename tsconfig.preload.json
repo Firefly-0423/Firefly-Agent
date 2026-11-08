@@ -1,18 +1,27 @@
-﻿{
+{
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "commonjs",
-    "lib": ["ES2022", "DOM"],
-    "outDir": "dist/preload",
-    "rootDir": "src",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
     "declaration": false,
-    "sourceMap": true
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "module": "commonjs",
+    "outDir": "dist/preload",
+    "resolveJsonModule": true,
+    "rootDir": "src",
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "strict": true,
+    "target": "ES2022"
   },
-  "include": ["src/preload/**/*.ts", "src/shared/**/*.ts"],
-  "exclude": ["src/shared/renderer-base.ts", "src/**/*.test.ts"]
+  "exclude": [
+    "src/shared/renderer-base.ts",
+    "src/**/*.test.ts"
+  ],
+  "include": [
+    "src/preload/**/*.ts",
+    "src/shared/**/*.ts"
+  ]
 }

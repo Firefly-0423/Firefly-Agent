@@ -83,15 +83,19 @@ export function initMcpManager(options: { signal?: AbortSignal } = {}): Promise<
   const signal = options.signal;
   return queueManagerOperation(() => initMcpManagerNow(signal));
 }
-async function initMcpManagerNow(signal?: AbortSignal): Promise<void> {
+function configsForRestore(): ReturnType<typeof loadConfigs> | null {
   logger.info(LogTag.MCP, "initializing MCP Manager...");
   const configs = loadConfigs();
-
   if (configs.length === 0) {
     logger.info(LogTag.MCP, "no MCP servers configured, skipping");
-    return;
+    return null;
   }
+  return configs;
+}
 
+async function initMcpManagerNow(signal?: AbortSignal): Promise<void> {
+  const configs = configsForRestore();
+  if (!configs) return;
   let connected = 0;
   let failed = 0;
 

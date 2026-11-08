@@ -15,36 +15,28 @@ export interface ZonedDateParts {
  * 不依赖 toLocaleString 的本地化标点和顺序；`h23` 保证午夜是 0 而不是 24。
  * 时区非法时降级为系统本地时间（调用方应先经 resolveChatContextTimezone 校验，此分支只在调试时出现）。
  */
-export function getZonedDateParts(date: Date, timezone: string): ZonedDateParts {
-  let parts: Intl.DateTimeFormatPart[];
-  try {
-    parts = new Intl.DateTimeFormat("en-CA", {
-      timeZone: timezone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hourCycle: "h23",
-    }).formatToParts(date);
-  } catch {
-    return {
-      year: date.getFullYear(),
-      month: date.getMonth() + 1,
-      day: date.getDate(),
-      hour: date.getHours(),
-      minute: date.getMinutes(),
-    };
-  }
-  const get = (type: Intl.DateTimeFormatPartTypes): string =>
-    parts.find((p) => p.type === type)?.value ?? "";
+function localDateParts(date: Date): ZonedDateParts {
   return {
-    year: Number(get("year")),
-    month: Number(get("month")),
-    day: Number(get("day")),
-    hour: Number(get("hour")),
-    minute: Number(get("minute")),
+    year: date.getFullYear(), month: date.getMonth() + 1, day: date.getDate(),
+    hour: date.getHours(), minute: date.getMinutes(),
   };
+}
+
+export function getZonedDateParts(date: Date, timezone: string): ZonedDateParts {
+  try {
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone, hourCycle: "h23", year: "numeric", month: "2-digit",
+      day: "2-digit", hour: "2-digit", minute: "2-digit",
+    });
+    const values = new Map(formatter.formatToParts(date).map(({ type, value }) => [type, value]));
+    const numberFor = (key: Intl.DateTimeFormatPartTypes) => Number(values.get(key) ?? "");
+    return {
+      year: numberFor("year"), month: numberFor("month"), day: numberFor("day"),
+      hour: numberFor("hour"), minute: numberFor("minute"),
+    };
+  } catch {
+    return localDateParts(date);
+  }
 }
 
 export const minuteOfDay = (parts: Pick<ZonedDateParts, "hour" | "minute">): number => parts.hour * 60 + parts.minute;

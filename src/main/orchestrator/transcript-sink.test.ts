@@ -34,26 +34,16 @@ function makeStore(): ConversationTranscriptStore {
 }
 
 function makeRunSession(toolCalls: PersistedToolCall[]): HarnessRunSession {
+  const request = {
+    provider: "fake", model: "fake-model", contextWindowTokens: 100_000,
+    promptFingerprint: "p", toolSchemaFingerprint: "t",
+  };
   return {
-    schemaVersion: 1,
-    conversationId: "c1",
-    runId: "run-1",
-    status: "interrupted",
-    messages: [],
-    state: { todoItems: [], uncertainEffects: [] },
-    toolOutputs: [],
-    toolCalls,
-    rounds: 1,
+    schemaVersion: 1, conversationId: "c1", runId: "run-1", status: "interrupted",
+    messages: [], toolOutputs: [], toolCalls, rounds: 1,
+    state: { todoItems: [], uncertainEffects: [] }, request,
     cache: { cacheEpoch: 1, epochReason: "run_start" },
-    request: {
-      provider: "fake",
-      model: "fake-model",
-      contextWindowTokens: 100_000,
-      promptFingerprint: "p",
-      toolSchemaFingerprint: "t",
-    },
-    createdAt: 0,
-    updatedAt: 0,
+    createdAt: 0, updatedAt: 0,
   };
 }
 
@@ -67,79 +57,40 @@ async function outcomes(store: ConversationTranscriptStore): Promise<Record<stri
   return map;
 }
 
-describe("TranscriptSink", () => {
-  it("commits an assistant group and returns its entry id", async () => {
+describe("transcript interruption boundaries", () => {
+  it("persists the assistant entry with its run and round identity", async () => {
     const store = makeStore();
     const sink = createTranscriptSink({ store, conversationId: "c1", runId: "run-1" });
-    const id = await sink.appendAssistant({
-      message: {
-        role: "assistant",
-        content: "checking",
-        toolCalls: [{ id: "call-1", name: "write_file", arguments: "{}" }],
-      },
-      roundId: "round-0",
+    const message: ChatMessage = { role: "assistant", content: "working", toolCalls: [{ id: "write-a", name: "write_file", arguments: "{}" }] };
+    const entryId = await sink.appendAssistant({ roundId: "round-0", message });
+    const snapshot = await store.read("c1");
+    expect(snapshot.entries.find(entry => entry.id === entryId)).toMatchObject({
+      kind: "assistant", runId: "run-1", roundId: "round-0",
     });
-    expect((await store.read("c1")).entries).toContainEqual(expect.objectContaining({
-      id,
-      kind: "assistant",
-      runId: "run-1",
-      roundId: "round-0",
-    }));
   });
 
-  it("closes cancellation with unknown only for started calls", async () => {
+  it("closes started and queued calls once and retains an already persisted result", async () => {
     const store = makeStore();
     const sink = createTranscriptSink({ store, conversationId: "c1", runId: "run-1" });
-    const assistantWithTwoCalls: ChatMessage = {
-      role: "assistant",
-      content: "checking",
-      toolCalls: [
-        { id: "startedCall", name: "send_email", arguments: "{}" },
-        { id: "queuedCall", name: "write_file", arguments: "{}" },
-      ],
-    };
-    await sink.appendAssistant({ message: assistantWithTwoCalls, roundId: "round-0" });
+    const calls = [
+      { id: "sent", name: "send_email", arguments: "{}" },
+      { id: "waiting", name: "write_file", arguments: "{}" },
+      { id: "finished", name: "write_file", arguments: "{}" },
+    ];
+    const assistantEntryId = await sink.appendAssistant({ roundId: "round-0", message: { role: "assistant", content: "working", toolCalls: calls } });
+    await sink.appendToolResult({ assistantEntryId, roundId: "round-0", outcome: "success",
+      message: { role: "tool", toolCallId: "finished", name: "write_file", content: '{"outcome":"success"}' } });
     const runSession = makeRunSession([
-      { toolCallId: "startedCall", toolName: "send_email", sideEffect: "non_idempotent_side_effect", status: "started", updatedAt: 0 },
-      { toolCallId: "queuedCall", toolName: "write_file", sideEffect: "idempotent_mutation", status: "planned", updatedAt: 0 },
-    ]);
-
-    await sink.closeInterruption({ reason: "user_cancel", runSession });
-
-    expect(await outcomes(store)).toEqual({ startedCall: "unknown", queuedCall: "not_executed" });
-    const entries = (await store.read("c1")).entries;
-    expect(entries.filter((entry) => entry.kind === "interruption")).toHaveLength(1);
-
-    // 确定性 entryId：不确定确认后的重试闭合不会复制合成结果或边界
-    await sink.closeInterruption({ reason: "user_cancel", runSession });
-    expect((await store.read("c1")).entries).toHaveLength(entries.length);
-  });
-
-  it("skips calls whose results are already committed to the transcript", async () => {
-    const store = makeStore();
-    const sink = createTranscriptSink({ store, conversationId: "c1", runId: "run-1" });
-    const assistant = await sink.appendAssistant({
-      message: {
-        role: "assistant",
-        content: "checking",
-        toolCalls: [{ id: "doneCall", name: "write_file", arguments: "{}" }],
-      },
-      roundId: "round-0",
-    });
-    await sink.appendToolResult({
-      assistantEntryId: assistant,
-      message: { role: "tool", toolCallId: "doneCall", name: "write_file", content: "{\"outcome\":\"success\"}" },
-      outcome: "success",
-      roundId: "round-0",
-    });
-
-    // runStore 状态落后于轨迹（committed 但轨迹已闭合）：不得改写既有结果
-    const runSession = makeRunSession([
-      { toolCallId: "doneCall", toolName: "write_file", sideEffect: "idempotent_mutation", status: "committed", updatedAt: 0 },
+      { toolCallId: "sent", toolName: "send_email", sideEffect: "non_idempotent_side_effect", status: "started", updatedAt: 0 },
+      { toolCallId: "waiting", toolName: "write_file", sideEffect: "idempotent_mutation", status: "planned", updatedAt: 0 },
+      { toolCallId: "finished", toolName: "write_file", sideEffect: "idempotent_mutation", status: "committed", updatedAt: 0 },
     ]);
     await sink.closeInterruption({ reason: "user_cancel", runSession });
-
-    expect(await outcomes(store)).toEqual({ doneCall: "success" });
+    const first = (await store.read("c1")).entries;
+    expect(await outcomes(store)).toEqual({ sent: "unknown", waiting: "not_executed", finished: "success" });
+    expect(first.filter(entry => entry.kind === "interruption")).toHaveLength(1);
+    await sink.closeInterruption({ reason: "user_cancel", runSession });
+    expect((await store.read("c1")).entries).toEqual(first);
   });
 });
 

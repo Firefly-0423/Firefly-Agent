@@ -126,12 +126,15 @@ export type PreparePluginZipOptions = {
   expectedIdentity?: { id: string; version: string };
 };
 
-export async function preparePluginZip(zipPath: string, userPluginRoot: string, opts: PreparePluginZipOptions = {}): Promise<PreparedPluginZip> {
+async function validateArchiveFile(zipPath: string): Promise<void> {
   if (path.extname(zipPath).toLowerCase() !== ".zip") throw new Error("只能导入 .zip 插件包");
   const archive = await stat(zipPath);
   if (!archive.isFile()) throw new Error("所选路径不是普通 ZIP 文件");
   if (archive.size > PLUGIN_ZIP_LIMITS.archiveBytes) throw new Error("ZIP 文件超过 50 MiB 限制");
+}
 
+export async function preparePluginZip(zipPath: string, userPluginRoot: string, opts: PreparePluginZipOptions = {}): Promise<PreparedPluginZip> {
+  await validateArchiveFile(zipPath);
   await mkdir(userPluginRoot, { recursive: true });
   const stagingBase = path.join(path.dirname(userPluginRoot), "plugin-install-staging");
   await mkdir(stagingBase, { recursive: true });
