@@ -259,7 +259,7 @@ describe("Image routing and Main attachment grants", () => {
     await expect(build({ userTurnId: "calendar-user", imageAttachments: [{ name: "calendar.png", filePath: "/calendar/never-read.png" }] }, deps)).rejects.toThrow("MEMORY_ATTACHMENT_DENIED");
     expect(deps.captionImageForFallback).not.toHaveBeenCalled(); expect(deps.materializeAttachmentDocument).not.toHaveBeenCalled();
   });
-  it.each(["work", "chat"] as const)("uses only bound %s documents and keeps the human query clean", async (mode) => {
+  it.each(["work", "code", "chat"] as const)("uses only bound %s documents and keeps the human query clean", async (mode) => {
     const owner = authority(), deps = dependencies(), attachment = { kind: "document" as const, name: "agenda.txt", filePath: "/calendar/authorized.txt" };
     deps.requireAttachmentGrant = true; deps.attachmentGrant = owner.issue({ sessionId: "calendar-session", userTurnId: "calendar-user", userRevision: 1, userText: "Use the saved calendar", attachments: [attachment], assertCurrent() {} });
     deps.materializeAttachmentDocument = vi.fn(async (item) => "CALENDAR_BODY:" + item.name);

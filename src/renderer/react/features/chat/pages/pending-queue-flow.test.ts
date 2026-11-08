@@ -32,6 +32,7 @@ function setup(execute: PendingQueueFlowHost["startRun"] = async () => {}) {
     pendingCompleteDispatch: vi.fn<ChatStoreApi["pendingCompleteDispatch"]>(async () => ({ ok: true, cleared: true })),
     pendingRemove: vi.fn<ChatStoreApi["pendingRemove"]>(async () => ({ ok: true })),
     pendingEdit: vi.fn<ChatStoreApi["pendingEdit"]>(async () => ({ ok: true, queue: [] })),
+    pendingUnmark: vi.fn<ChatStoreApi["pendingUnmark"]>(async () => ({ ok: true, queue: [] })),
     pendingAdjust: vi.fn<ChatStoreApi["pendingAdjust"]>(async () => ({ ok: true, queue: [] })),
   };
   const blocked = new Set<string>();
@@ -70,6 +71,17 @@ describe("Pending mutations follow authoritative store replies", () => {
       expect(h.projectionIds()).toEqual(["tail"]);
       expect(h.ports.reportError.mock.calls[0][0]).toContain("already-claimed");
     } else expect(h.ports.replaceProjection).not.toHaveBeenCalled();
+  });
+  test("withdrawal updates the queue and reports an in-flight refusal", async () => {
+    const h = setup();
+    h.disk.pendingUnmark.mockResolvedValueOnce({ ok: true, queue: [queued("head")] });
+    expect(await h.flow.unmarkMessage("owner", "head")).toBe(true);
+    expect(h.disk.pendingUnmark).toHaveBeenCalledWith("owner", "head");
+    expect(h.projectionIds()).toEqual(["head"]);
+    h.disk.pendingUnmark.mockResolvedValueOnce({ ok: false, error: "already-adjusting", queue: [queued("head")] });
+    expect(await h.flow.unmarkMessage("owner", "head")).toBe(false);
+    expect(h.projectionIds()).toEqual(["head"]);
+    expect(h.ports.reportError).toHaveBeenCalledTimes(1);
   });
   test("an accepted adjustment forwards its id and removes the dispatched entry from projection", async () => {
     const h = setup();

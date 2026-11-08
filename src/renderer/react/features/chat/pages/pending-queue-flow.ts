@@ -24,6 +24,7 @@ export type PendingQueueFlowHost = {
 export type PendingQueueFlow = {
   handleRunFinished(input: { mode: ConversationMode; sessionId: string; queuePaused: boolean }): void;
   syncProjection(sessionId: string): Promise<void>;
+  unmarkMessage(sessionId: string, messageId: string): Promise<boolean>;
   adjustMessage(sessionId: string, messageId: string): Promise<boolean>;
   editMessage(sessionId: string, messageId: string, update: { rawContent: string; visibleContent: string; userSticker?: string }): Promise<boolean>;
   consume(mode: ConversationMode, sessionId: string): Promise<void>;
@@ -213,6 +214,21 @@ export function createPendingQueueFlow(getHost: () => PendingQueueFlowHost): Pen
     return true;
   }
 
+  async function unmarkMessage(sessionId: string, messageId: string): Promise<boolean> {
+    const ports = getHost();
+    const storage = ports.getStore();
+    try {
+      if (!storage) throw new Error(t("chatPage.errorChatStoreUnavailable"));
+      const reply = await storage.pendingUnmark(sessionId, messageId);
+      if (reply.queue) ports.replaceProjection(sessionId, copyQueue(reply.queue));
+      if (!reply.ok) throw new Error(reply.error === "already-adjusting" ? t("composer.queueWithdrawInFlight") : reply.error);
+      return true;
+    } catch (failure) {
+      ports.reportError(t("composer.queueWithdrawFailed", { error: failure instanceof Error ? failure.message : String(failure) }));
+      return false;
+    }
+  }
+
   async function adjustMessage(sessionId: string, messageId: string): Promise<boolean> {
     const ports = getHost();
     const storage = ports.getStore();
@@ -259,5 +275,5 @@ export function createPendingQueueFlow(getHost: () => PendingQueueFlowHost): Pen
     else void consume(input.mode, input.sessionId);
   }
 
-  return { enqueue, consume, editMessage, adjustMessage, syncProjection, handleRunFinished };
+  return { enqueue, consume, editMessage, adjustMessage, unmarkMessage, syncProjection, handleRunFinished };
 }

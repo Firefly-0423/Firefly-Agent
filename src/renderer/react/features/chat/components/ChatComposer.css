@@ -199,6 +199,16 @@
   display: inline-flex;
 }
 
+.ff-queue-dock__inserted {
+  color: var(--ff-accent);
+  background: var(--ff-bg-active);
+  border-radius: 8px;
+  padding: 2px 6px;
+  font-size: var(--ff-fs-caption);
+  white-space: nowrap;
+  flex: none;
+}
+
 .ff-queue-dock__editor {
   box-shadow: 0 0 0 2px rgba(var(--ff-accent-rgb), 0.08);
   font: 400 var(--ff-fs-ui)/1.4 var(--rb-font-sans, sans-serif);

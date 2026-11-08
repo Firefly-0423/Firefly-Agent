@@ -1122,6 +1122,7 @@ const chatStoreApi = {
             ...(update.userSticker !== undefined ? { userSticker: update.userSticker } : {}),
         });
     },
+    pendingUnmark: (entityId: string, messageId: string) => ipcRenderer.invoke(IPC.CHATS_PENDING_UNMARK, { sessionId: entityId, messageId }),
     pendingAdjust: (entityId: string, messageId: string) => {
         return ipcRenderer.invoke(IPC.CHATS_PENDING_ADJUST, { sessionId: entityId, messageId });
     },

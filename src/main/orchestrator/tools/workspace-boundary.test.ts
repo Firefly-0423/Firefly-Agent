@@ -65,6 +65,18 @@ describe("native tools enforce the session workspace boundary", () => {
     await expect(run("read_image", { path: path.join(outside, "secret.txt") }, ctx)).rejects.toMatchObject({ category: "permission_denied" });
   });
 
+  it.each(["work", "code"] as const)("applies the same %s access level to confirmed external documents", async (mode) => {
+    const file = path.join(outside, "secret.txt");
+    const { inspectWorkReadFile } = await import("../../chats/work-read-scope");
+    const scope = inspectWorkReadFile(file);
+    const scoped = { ...context("scoped"), mode, workReadScopes: [scope] };
+    expect(JSON.parse(await run("read_file", { path: file }, scoped)).content).toContain("original");
+    await expect(run("read_file", { path: file }, { ...context("project-read-only"), mode, workReadScopes: [scope] }))
+      .rejects.toMatchObject({ category: "permission_denied" });
+    await expect(run("write_file", { path: file, content: "modified" }, scoped))
+      .rejects.toMatchObject({ category: "permission_denied" });
+  });
+
   it("rejects outside create, overwrite, append and replacement before any side effect in scoped", async () => {
     const file = path.join(outside, "secret.txt");
     const ctx = context("scoped");

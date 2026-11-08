@@ -72,6 +72,7 @@ export const IPC = {
   CHATS_LIST: "chats:list",
   CHATS_OPEN_IN_REACT_WINDOW: "chats:open-in-react-window",
   CHATS_OPEN_WORKSPACE: "chats:open-workspace",
+  CHATS_PENDING_UNMARK: "chats:pending-unmark",
   CHATS_PENDING_ADJUST: "chats:pending-adjust",
   CHATS_PENDING_CLAIM: "chats:pending-claim",
   CHATS_PENDING_COMPLETE_DISPATCH: "chats:pending-complete-dispatch",

@@ -125,6 +125,7 @@ export function installDemoBridges(lang: DemoLang): void {
       if (entry) Object.assign(entry, update);
       return { ok: true, queue: [...queue] };
     },
+    pendingUnmark: async () => ({ ok: false, error: "unavailable" }),
     pendingAdjust: async (id) => ({ ok: false, error: desktopOnly, queue: [...queueOf(id)] }),
     pendingClaim: async (id) => {
       const session = found(id); if (!session) return { ok: false, error: "session not found" };

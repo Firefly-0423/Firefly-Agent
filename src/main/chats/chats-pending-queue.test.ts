@@ -369,6 +369,25 @@ describe("pending edits and run adjustments", () => {
     });
 });
 describe("queue IPC boundary", () => {
+    it("withdraws only when the marked message is not being written", async () => {
+        const { registerChatsIpc } = await import("./chats-ipc");
+        const store = await import("./chats-store");
+        const { createRunAdjustmentPoller } = await import("./pending-adjustment");
+        registerChatsIpc();
+        const call = (payload: any) => profile.handlers.get("chats:pending-unmark")({ sender: {} }, payload);
+        const session = store.createSession({ mode: "work" });
+        store.enqueuePendingMessage(session.id, entry("alpha"));
+        store.markPendingAdjust(session.id, "alpha", "running");
+        expect(await call({ sessionId: session.id, messageId: "alpha" })).toMatchObject({ ok: true, queue: [{ id: "alpha" }] });
+        expect(store.getPendingMessages(session.id)![0]).not.toHaveProperty("adjustRunId");
+        store.markPendingAdjust(session.id, "alpha", "running");
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        const writing = createRunAdjustmentPoller(session.id, "running", store, { appendUser: async () => { await gate; } })();
+        expect(await call({ sessionId: session.id, messageId: "alpha" })).toMatchObject({ ok: false, error: "already-adjusting" });
+        expect(store.getPendingMessages(session.id)![0].adjustRunId).toBe("running");
+        release(); await writing;
+    });
     it("validates queue/edit/claim payloads and forwards authoritative outcomes", async () => {
         const { registerChatsIpc } = await import("./chats-ipc");
         registerChatsIpc();

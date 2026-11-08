@@ -596,6 +596,23 @@ export function editPendingMessage(
   return { ok: true, queue: copyQueue(pending) };
 }
 
+export function unmarkPendingAdjust(sessionId: string, messageId: string, inFlight: boolean): MarkPendingAdjustResult {
+  const conversation = read(sessionId);
+  if (!conversation) return { ok: false, error: "session-not-found" };
+  const pending = conversation.pendingMessages ?? [];
+  if (conversation.pendingDispatch?.messageId === messageId) return { ok: false, error: "already-claimed", queue: copyQueue(pending) };
+  const offset = pending.findIndex((row) => row.id === messageId);
+  if (offset < 0) return { ok: false, error: "not-found", queue: copyQueue(pending) };
+  if (inFlight) return { ok: false, error: "already-adjusting", queue: copyQueue(pending) };
+  if (!pending[offset].adjustRunId) return { ok: true, queue: copyQueue(pending) };
+  const original = copyQueue(pending);
+  const replacement = { ...pending[offset] };
+  delete replacement.adjustRunId;
+  pending[offset] = replacement;
+  if (!persistPending(conversation, "[chats-store] pending unmark failed:", sessionId)) return { ok: false, error: "write-failed", queue: original };
+  return { ok: true, queue: copyQueue(pending) };
+}
+
 export function markPendingAdjust(sessionId: string, messageId: string, runId: string): MarkPendingAdjustResult {
   const conversation = read(sessionId);
   if (!conversation) return { ok: false, error: "session-not-found" };
