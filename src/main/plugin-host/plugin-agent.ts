@@ -1,6 +1,7 @@
 import type { PluginAgentEvent, PluginAgentRunOptions, PluginAgentRunResult, PluginTool } from "../../plugins/api";
 import type { AgentRuntime } from "../orchestrator/agent-runtime";
 import { runFireflyHarness } from "../orchestrator/harness/firefly-harness";
+import { vendorConfigFromSettings } from "../orchestrator/vendors/vendor-config";
 import { mapTerminateReasonToTerminal } from "../orchestrator/harness/adapter/terminal-mapper";
 import { buildHarnessPromptLayers } from "../orchestrator/harness/adapter/prompt-builder";
 import { FileToolOutputStore } from "../orchestrator/harness/tool-output/file-tool-output-store";
@@ -138,11 +139,7 @@ export function createPluginAgentRunner(deps: PluginAgentRunnerDeps): NonNullabl
     const outcome = await runWithUsageAttribution({ feature: "plugin", pluginId: deps.pluginId }, () => executeHarness({
       systemPrompt: layers.stablePrefix, promptLayers: layers, usageParts: layers.usageParts,
       messages: prepared.options.messages, runId: identifier, tools: goalTools,
-      vendorConfig: {
-        provider: prepared.options.settings.provider, baseUrl: prepared.options.settings.baseUrl,
-        model: prepared.options.settings.model, apiKey: prepared.options.settings.apiKey,
-        explicitTransport: prepared.options.settings.explicitTransport, reasoning: prepared.options.settings.reasoning,
-      },
+      vendorConfig: vendorConfigFromSettings(prepared.options.settings),
       config: { maxRounds: roundBudget, maxParallelToolCalls: 1, totalTimeoutMs: timeBudget,
         contextWindowTokens: prepared.options.settings.contextWindowTokens },
       signal: cancellation.signal,
