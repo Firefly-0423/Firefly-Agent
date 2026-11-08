@@ -8,9 +8,12 @@ interface SocialAtomFile {
   atoms: SocialAtom[];
 }
 
-export interface SocialAtomStore {
+interface SocialAtomReader {
   listActive(conversationId: string, now?: number): SocialAtom[];
   getById(id: string): SocialAtom | undefined;
+}
+
+interface SocialAtomWriter {
   applyOperations(
     conversationId: string,
     operations: readonly ValidatedSocialAtomOperation[],
@@ -18,6 +21,8 @@ export interface SocialAtomStore {
   ): void;
   replaceForTest(atoms: SocialAtom[]): void;
 }
+
+export interface SocialAtomStore extends SocialAtomReader, SocialAtomWriter {}
 
 type ResolveOperation = Extract<ValidatedSocialAtomOperation, { operation: "resolve" }>;
 type WriteOperation = Exclude<ValidatedSocialAtomOperation, ResolveOperation>;

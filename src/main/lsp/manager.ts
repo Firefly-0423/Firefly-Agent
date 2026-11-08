@@ -6,11 +6,14 @@ import { BUILTIN_LSP_SERVERS, findServerCandidates } from "./server-catalog";
 import { resolveLspServer, type ResolvedLspServer } from "./server-discovery";
 import { LspContractError, toProtocolPosition, type LspQuery, type LspServerOverride, type LspToolResult } from "./types";
 
-export interface LspClientLike {
+interface LspDocumentClient {
   initialize(): Promise<void>;
   touchFile(filePath: string, languageId: string): Promise<void>;
   request(method: string, params: unknown, timeoutMs?: number, signal?: AbortSignal): Promise<unknown>;
   getDiagnostics(filePath: string): unknown[];
+}
+
+export interface LspClientLike extends LspDocumentClient {
   dispose(): Promise<void>;
 }
 
@@ -79,14 +82,14 @@ function clientKey(workspaceRoot: string, serverId: string, executablePath: stri
 /** 复用同一可信工作区中同一外部语言服务进程的管理器。 */
 export class LspManager {
   private readonly clients = new Map<string, LspClientLike>();
-  private readonly resolveServer: NonNullable<LspManagerOptions["resolveServer"]>;
-  private readonly createClient: NonNullable<LspManagerOptions["createClient"]>;
-  private readonly getServerOverrides: NonNullable<LspManagerOptions["getServerOverrides"]>;
+  private readonly services: Required<LspManagerOptions>;
 
   constructor(options: LspManagerOptions = {}) {
-    this.resolveServer = options.resolveServer ?? resolveLspServer;
-    this.createClient = options.createClient ?? ((input) => new LspClient(input));
-    this.getServerOverrides = options.getServerOverrides ?? (() => []);
+    this.services = {
+      resolveServer: options.resolveServer ?? resolveLspServer,
+      createClient: options.createClient ?? (input => new LspClient(input)),
+      getServerOverrides: options.getServerOverrides ?? (() => []),
+    };
   }
 
   async execute(query: LspQuery, context: LspExecutionContext): Promise<LspToolResult> {
@@ -175,10 +178,10 @@ export class LspManager {
   }
 
   private async clientFor(workspaceRoot: string, filePath?: string): Promise<{ client: LspClientLike; serverId: string }> {
-    const overrides = this.getServerOverrides();
+    const overrides = this.services.getServerOverrides.call(this);
     const candidates = filePath ? findServerCandidates(filePath, overrides) : [...BUILTIN_LSP_SERVERS];
     for (const definition of candidates) {
-      const server = this.resolveServer(definition, workspaceRoot);
+      const server = this.services.resolveServer.call(this, definition, workspaceRoot);
       if (!server) continue;
       const client = this.reuseOrCreate(workspaceRoot, server);
       await client.initialize();
@@ -191,7 +194,7 @@ export class LspManager {
     const key = clientKey(workspaceRoot, server.definition.id, server.executablePath);
     const existing = this.clients.get(key);
     if (existing) return existing;
-    const created = this.createClient({ server, workspaceRoot });
+    const created = this.services.createClient.call(this, { server, workspaceRoot });
     this.clients.set(key, created);
     return created;
   }

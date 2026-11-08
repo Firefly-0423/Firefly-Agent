@@ -1,81 +1,36 @@
 name: 安装/构建问题 🔧
 description: npm install / npm run build 等环境与构建失败
-labels: ["bug", "needs-triage"]
+labels:
+  - bug
+  - needs-triage
 body:
   - type: markdown
-    attributes:
-      value: |
-        ## ⚠️ 请先确认环境
-        从源码构建需要 **Node.js 24 LTS**（`npm install` / `npm run build` 依赖此版本）。
-        Electron runtime 当前为 **Electron 43**（暂不升级）。
-
-        > 如果是应用运行中的功能异常（不是安装/构建），请返回选择「运行时 Bug 🐛」。
-
+    attributes: {value: 构建需要 Node.js 24 LTS 和 Electron 43。运行问题请使用运行时问题表单。}
   - type: dropdown
     id: os
-    attributes:
-      label: 操作系统
-      options:
-        - Windows 11
-        - Windows 10
-        - macOS (unsupported)
-        - Linux (unsupported)
-    validations:
-      required: true
-
+    attributes: {label: 构建所在系统, options: [Windows 11, Windows 10, macOS (unsupported), Linux (unsupported)]}
+    validations: {required: true}
   - type: input
     id: node-version
-    attributes:
-      label: Node.js 版本
-      description: 运行 `node --version` 的输出
-      placeholder: "v24.x.x"
-    validations:
-      required: true
-
+    attributes: {label: Node.js 版本号, description: 填写 node --version 的结果, placeholder: v24.x.x}
+    validations: {required: true}
   - type: input
     id: npm-version
-    attributes:
-      label: npm 版本
-      description: 运行 `npm --version` 的输出
-      placeholder: "11.x.x"
-    validations:
-      required: true
-
+    attributes: {label: npm 版本号, description: 填写 npm --version 的结果, placeholder: 11.x.x}
+    validations: {required: true}
   - type: textarea
     id: steps
-    attributes:
-      label: 复现步骤
-      description: 你执行了哪些命令？按顺序列出
-      placeholder: |
-        1. git clone https://github.com/Firefly-0423/Firefly-Agent.git
-        2. cd Firefly-Agent
-        3. npm install
-        4. ...
-    validations:
-      required: true
-
+    attributes: {label: 执行过程, description: 按顺序列出复现命令和操作}
+    validations: {required: true}
   - type: textarea
     id: error
-    attributes:
-      label: 错误日志
-      description: |
-        完整错误信息。请用 `npm install 2>&1 | tee log.txt` 保存日志，
-        然后粘贴 `log.txt` 最后 ~50 行。
-    validations:
-      required: true
-
+    attributes: {label: 失败日志, description: 提供错误上下文；可附安装日志末尾约 50 行}
+    validations: {required: true}
   - type: textarea
     id: expected
-    attributes:
-      label: 期望行为
-      description: 你期望发生什么？实际发生了什么？
-    validations:
-      required: false
-
+    attributes: {label: 预期与实际结果, description: 描述期望结果和实际结果}
+    validations: {required: false}
   - type: textarea
     id: screenshots
-    attributes:
-      label: 截图
-      description: 如果有报错截图，请拖拽上传
-    validations:
-      required: false
+    attributes: {label: 相关截图, description: 有截图时请附上}
+    validations: {required: false}

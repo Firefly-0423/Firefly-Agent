@@ -92,24 +92,17 @@ describe("perf trace visibility", () => {
     expect(log.mock.calls.flat().filter(line => String(line).includes("single-phase"))).toHaveLength(1);
   });
 
-  it("hides performance timing by default", () => {
+  it.each([
+    { debug: undefined, visible: false },
+    { debug: "0", visible: false },
+    { debug: "1", visible: true },
+  ])("reports timing only when debug is enabled ($debug)", ({ debug, visible }) => {
+    vi.stubEnv("FIREFLY_DEBUG_LOGS", debug);
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-
-    perf.beginTurn("test");
-    perf.mark("checkpoint");
+    perf.beginTurn("visibility-case");
+    perf.mark("sample");
     perf.dump();
-
-    expect(log).not.toHaveBeenCalled();
-  });
-
-  it("restores performance timing when debug logging is enabled", () => {
-    vi.stubEnv("FIREFLY_DEBUG_LOGS", "1");
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
-
-    perf.beginTurn("test");
-    perf.mark("checkpoint");
-    perf.dump();
-
-    expect(log.mock.calls.flat().join("\n")).toContain("[Perf]");
+    if (visible) expect(log.mock.calls.flat().join("\n")).toContain("[Perf]");
+    else expect(log).not.toHaveBeenCalled();
   });
 });

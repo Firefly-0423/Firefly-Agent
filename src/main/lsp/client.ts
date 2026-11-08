@@ -14,18 +14,23 @@ const HANDSHAKE_LIMIT_MS = 45_000;
 const DEFAULT_REQUEST_LIMIT_MS = 10_000;
 const SHUTDOWN_LIMIT_MS = 2_000;
 
-export interface LspChildProcess {
+interface LspProcessStreams {
   stdin: NodeJS.WritableStream | null;
   stdout: NodeJS.ReadableStream | null;
   stderr?: NodeJS.ReadableStream | null;
+}
+
+export interface LspChildProcess extends LspProcessStreams {
   on(event: "error" | "exit", listener: (...args: any[]) => void): unknown;
   kill(signal?: NodeJS.Signals | number): boolean;
 }
 
+type LspSpawnOptions = { cwd: string; shell: false; windowsHide: true; stdio: ["pipe", "pipe", "pipe"] };
+
 export interface LspClientOptions {
   server: ResolvedLspServer;
   workspaceRoot: string;
-  spawnImpl?: (command: string, args: string[], options: { cwd: string; shell: false; windowsHide: true; stdio: ["pipe", "pipe", "pipe"] }) => LspChildProcess;
+  spawnImpl?: (command: string, args: string[], options: LspSpawnOptions) => LspChildProcess;
 }
 
 interface TrackedDocument {
@@ -37,7 +42,7 @@ interface TrackedDocument {
 function launchWithNodeSpawn(
   command: string,
   args: string[],
-  options: { cwd: string; shell: false; windowsHide: true; stdio: ["pipe", "pipe", "pipe"] },
+  options: LspSpawnOptions,
 ): LspChildProcess {
   return spawn(command, args, options) as unknown as LspChildProcess;
 }

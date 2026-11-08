@@ -64,20 +64,24 @@ function buildEvidence(memory: L2Memory, input: L2Input): MemoryEvidence {
   }
 }
 
-/** 为输入建出完整的 L2 记忆，并生成一条 evidence（其 id 已追加到 memory.evidenceIds） */
-function composeL2(input: L2Input): { memory: L2Memory; evidence: MemoryEvidence } {
-  const memory: L2Memory = {
-    ...input,
-    id: newId("l2"),
-    createdAt: Date.now(),
-    lastAccessedAt: Date.now(),
-    accessCount: 0,
-    weight: 0,
-    status: "active",
+function initialL2Memory(input: L2Input): L2Memory {
+  const fields = { ...input }
+  const id = newId("l2")
+  const createdAt = Date.now()
+  const lastAccessedAt = Date.now()
+  return {
+    ...fields,
+    id, createdAt, lastAccessedAt,
+    accessCount: 0, weight: 0, status: "active",
     syncStatus: input.syncStatus ?? (input.ragId ? "synced" : "pending_sync"),
     evidenceIds: Array.isArray(input.evidenceIds) ? input.evidenceIds : [],
     keywords: extractMemoryKeywords(`${input.content} ${input.triggerText}`),
   }
+}
+
+/** 为一条新记忆生成首个证据并绑定其标识。 */
+function composeL2(input: L2Input): { memory: L2Memory; evidence: MemoryEvidence } {
+  const memory = initialL2Memory(input)
   const evidence = buildEvidence(memory, input)
   memory.evidenceIds = [...(memory.evidenceIds ?? []), evidence.id]
   return { memory, evidence }

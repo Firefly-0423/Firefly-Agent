@@ -40,9 +40,9 @@ import type { ConversationMode } from "../../shared/chat-types";
 import {
   buildAgentRunOptions,
   onAgentRunFinished,
-  type BuildOptionsDeps,
-  type OnRunFinishedDeps,
 } from "./build-options";
+type BuildOptionsDeps = Parameters<typeof buildAgentRunOptions>[1];
+type OnRunFinishedDeps = Parameters<typeof onAgentRunFinished>[2];
 import { buildModelContext } from "./conversation-transcript-context";
 import { getConversationTranscriptStore } from "./conversation-transcript-store";
 import { getHarnessRunStore } from "./harness/run-store";

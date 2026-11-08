@@ -7,14 +7,16 @@ import { toolRegistry, type ToolDefinition } from "./tools/registry/tool-registr
 import type { ToolContext } from "./tools/registry/tool-context";
 import type {
   PopQuizCard,
-  PopQuizGradedQuestion,
   PopQuizResolveResponse,
   PopQuizSubmission,
   PopQuizToolResult,
   PopQuizSettledPayload,
-  QuizAnswerResult,
   QuizQuestionInput,
 } from "../../shared/pop-quiz";
+
+// 使用发布结果的实际嵌套类型，避免判分与提交契约各自漂移。
+type QuizAnswerResult = Extract<PopQuizToolResult, { status: "submitted" }>["answers"][number];
+type PopQuizGradedQuestion = NonNullable<PopQuizResolveResponse["graded"]>[number];
 
 interface PrivateQuizQuestion {
   correctAnswer?: number | number[] | boolean;

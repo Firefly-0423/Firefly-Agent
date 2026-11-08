@@ -21,6 +21,13 @@ import { decodeCredentials, migrateCredentials, writeCredentials, GENERAL_CREDEN
 const LOG_PREFIX = "[WechatBot]";
 type PendingInboundMedia = { expiresAt: number; messageId: string; media: InboundMediaDescriptor };
 const CAPABILITY: ChannelCapability = { text: true, image: true, audio: false, file: true, video: true, markdown: false, card: false, sticker: true, maxTextLength: 2048 };
+// 把收发和语音处理的默认实现放在一起，适配器仍持有可替换的实例级引用。
+const defaultMediaServices = {
+  uploadFile: uploadWechatMediaFile, uploadBytes: uploadWechatMedia,
+  download: downloadInboundWechatMedia, save: saveInboundWechatMedia,
+  transcribe: transcribeInboundWechatVoice, asrReady: isWechatAsrConfigured,
+  encode: encodeWechatVoiceSilk,
+};
 export class ILinkBotAdapter implements ChannelAdapter {
   readonly id: ChannelId = "wechat";
   readonly displayName = "微信";
@@ -36,13 +43,13 @@ export class ILinkBotAdapter implements ChannelAdapter {
   private recentEvents = new Map<string, number>();
   private saveRequests = new Map<string, number>();
   private heldMedia = new Map<string, PendingInboundMedia>();
-  private uploadMedia = uploadWechatMediaFile;
-  private uploadMediaData = uploadWechatMedia;
-  private downloadMedia = downloadInboundWechatMedia;
-  private saveInboundMedia = saveInboundWechatMedia;
-  private transcribeVoice = transcribeInboundWechatVoice;
-  private isAsrConfigured = isWechatAsrConfigured;
-  private encodeVoice = encodeWechatVoiceSilk;
+  private uploadMedia = defaultMediaServices.uploadFile;
+  private uploadMediaData = defaultMediaServices.uploadBytes;
+  private downloadMedia = defaultMediaServices.download;
+  private saveInboundMedia = defaultMediaServices.save;
+  private transcribeVoice = defaultMediaServices.transcribe;
+  private isAsrConfigured = defaultMediaServices.asrReady;
+  private encodeVoice = defaultMediaServices.encode;
   status: ChannelStatus = { enabled: false, phase: "offline" };
 
   async start(): Promise<void> {

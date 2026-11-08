@@ -1,7 +1,7 @@
 import type { Position } from "vscode-languageserver-types";
 
 // 语义操作清单：模型侧可选值，顺序与工具描述保持一致。
-const OPERATION_NAMES = [
+const NAVIGATION_OPERATIONS = [
   "goToDefinition",
   "findReferences",
   "hover",
@@ -9,19 +9,25 @@ const OPERATION_NAMES = [
   "workspaceSymbol",
   "goToImplementation",
   "diagnostics",
+] as const;
+
+const CALL_HIERARCHY_OPERATIONS = [
   "prepareCallHierarchy",
   "incomingCalls",
   "outgoingCalls",
 ] as const;
 
-export const LSP_OPERATIONS = OPERATION_NAMES;
+export const LSP_OPERATIONS = [...NAVIGATION_OPERATIONS, ...CALL_HIERARCHY_OPERATIONS] as const;
 export type LspOperation = (typeof LSP_OPERATIONS)[number];
 
-const ERROR_CODE_NAMES = [
+const WORKSPACE_ERRORS = [
   "LSP_WORKSPACE_REQUIRED",
   "LSP_PATH_OUTSIDE_WORKSPACE",
   "LSP_FILE_NOT_FOUND",
   "LSP_SERVER_NOT_FOUND",
+] as const;
+
+const SERVER_ERRORS = [
   "LSP_SERVER_START_FAILED",
   "LSP_INITIALIZE_TIMEOUT",
   "LSP_REQUEST_TIMEOUT",
@@ -30,7 +36,7 @@ const ERROR_CODE_NAMES = [
   "LSP_POSITION_INVALID",
 ] as const;
 
-export const LSP_ERROR_CODES = ERROR_CODE_NAMES;
+export const LSP_ERROR_CODES = [...WORKSPACE_ERRORS, ...SERVER_ERRORS] as const;
 export type LspErrorCode = (typeof LSP_ERROR_CODES)[number];
 
 export interface LspServerCommand {
@@ -38,22 +44,23 @@ export interface LspServerCommand {
   args: string[];
 }
 
-export interface LspServerDefinition {
+interface LspServerIdentity {
   id: string;
+  initializationOptions?: unknown;
+}
+
+export interface LspServerDefinition extends LspServerIdentity {
   extensions: string[];
   commands: LspServerCommand[];
   rootMarkers: string[];
   installHint: string;
-  initializationOptions?: unknown;
 }
 
 // 设置页保存的本地覆盖项，只允许覆盖已知服务的少数字段。
-export interface LspServerOverride {
-  id: string;
+export interface LspServerOverride extends LspServerIdentity {
   command?: string;
   args?: string[];
   extensions?: string[];
-  initializationOptions?: unknown;
 }
 
 export interface LspPositionInput {
@@ -72,10 +79,13 @@ export interface LspQuery {
   item?: Record<string, unknown>;
 }
 
-export interface LspToolResult {
+interface LspResultContext {
   serverId: string;
   operation: LspOperation;
   workspaceRoot: string;
+}
+
+export interface LspToolResult extends LspResultContext {
   items: unknown[];
   message: string;
 }

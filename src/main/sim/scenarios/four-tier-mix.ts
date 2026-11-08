@@ -5,87 +5,27 @@ import type { Round, Scenario } from "../sim-types";
 import { parseFixtureMarkdown } from "./fixture-parser";
 
 // 内联 fixture：模拟器自带，编译产物无需额外拷贝 .md
-const MIX_FIXTURE = `## 测试常驻
-- 触发词: 常驻测试, fixture_permanent
-- 常驻: 是
-- 内在价值: 100
-- 优先级: 200
-
-fixture permanent 条目，验证旁路（始终注入，不进 DMAE）。
----
-
-## 流萤主角
-- 触发词: 流萤, Firefly, 萨姆, 星核猎手
-- 内在价值: 90
-- 优先级: 200
-
-流萤是核心角色。原作经历不代表当前用户的共同经历。
----
-
-## 星核猎手同伴
-- 触发词: 卡芙卡, 银狼, 刃, 艾利欧
-- 内在价值: 70
-- 优先级: 150
-
-原作人物关系。
----
-
-## 咖啡
-- 触发词: 咖啡, latte, 美式, espresso
-- 内在价值: 45
-- 优先级: 100
-
-用户日常喜好。
----
-
-## Blender
-- 触发词: Blender, blender, 建模, 渲染
-- 内在价值: 45
-- 优先级: 100
-
-用户 3D 创作工具。
----
-
-## 猫
-- 触发词: 猫, 小猫, 喵, 撸猫
-- 内在价值: 45
-- 优先级: 100
-
-生活兴趣。
----
-
-## 星穹铁道
-- 触发词: 星穹铁道, 星铁, 穹, 列车
-- 内在价值: 45
-- 优先级: 100
-
-用户玩的游戏。
----
-
-## 今天下午
-- 触发词: 今天下午, 刚才, 刚刚
-- 内在价值: 15
-- 优先级: 80
-
-临时事件。
----
-
-## 上周电影
-- 触发词: 上周, 上次, 电影, 影院
-- 内在价值: 15
-- 优先级: 80
-
-临时事件。
----
-
-## 天气
-- 触发词: 天气, 下雨, 出太阳, 阴天
-- 内在价值: 15
-- 优先级: 80
-
-日常闲聊。
----
-`;
+type MixRow = [string, string, boolean, string, string, string];
+const MIX_ROWS: MixRow[] = [
+  ["测试常驻","常驻测试, fixture_permanent",true,"100","200","fixture permanent 条目，验证旁路（始终注入，不进 DMAE）。"],
+  ["流萤主角","流萤, Firefly, 萨姆, 星核猎手",false,"90","200","流萤是核心角色。原作经历不代表当前用户的共同经历。"],
+  ["星核猎手同伴","卡芙卡, 银狼, 刃, 艾利欧",false,"70","150","原作人物关系。"],
+  ["咖啡","咖啡, latte, 美式, espresso",false,"45","100","用户日常喜好。"],
+  ["Blender","Blender, blender, 建模, 渲染",false,"45","100","用户 3D 创作工具。"],
+  ["猫","猫, 小猫, 喵, 撸猫",false,"45","100","生活兴趣。"],
+  ["星穹铁道","星穹铁道, 星铁, 穹, 列车",false,"45","100","用户玩的游戏。"],
+  ["今天下午","今天下午, 刚才, 刚刚",false,"15","80","临时事件。"],
+  ["上周电影","上周, 上次, 电影, 影院",false,"15","80","临时事件。"],
+  ["天气","天气, 下雨, 出太阳, 阴天",false,"15","80","日常闲聊。"],
+];
+const MIX_LABELS = ["- 触发词","- 常驻","- 内在价值","- 优先级"];
+const MIX_FIXTURE = MIX_ROWS.map(([title, keys, permanent, value, priority, content]) => {
+  const [keywordsLabel, permanentLabel, valueLabel, priorityLabel] = MIX_LABELS;
+  const lines = [`## ${title}`, `${keywordsLabel}: ${keys}`];
+  if (permanent) lines.push(`${permanentLabel}: 是`);
+  lines.push(`${valueLabel}: ${value}`, `${priorityLabel}: ${priority}`, "", content, "---\n");
+  return lines.join("\n");
+}).join("\n");
 
 interface Tier {
   tier: string;

@@ -286,15 +286,20 @@ export function registerSettingsIpc(deps: SettingsIpcDependencies): () => void {
     return isSettingsSender(event) ? saved : maskCredentials(saved, GENERAL_CREDENTIAL_FIELDS);
   });
 
+  function savePetSetting(patch: () => Partial<ReturnType<typeof getGeneralSettings>>) {
+    const current = { ...getGeneralSettings() };
+    return saveGeneralSettings({ ...current, ...patch() });
+  }
+
   ipc.on(IPC.SETTINGS_SET_PET_ALWAYS_ON_TOP, (_event, value: boolean) => {
-    const saved = saveGeneralSettings({ ...getGeneralSettings(), petAlwaysOnTop: Boolean(value) });
+    const saved = savePetSetting(() => ({ petAlwaysOnTop: Boolean(value) }));
     deps.windowManager?.setPetWindowAlwaysOnTop(saved.petAlwaysOnTop);
   });
   ipc.on(IPC.SETTINGS_SET_PET_VISIBLE, (_event, value: boolean) => {
-    saveGeneralSettings({ ...getGeneralSettings(), petVisible: Boolean(value) });
+    savePetSetting(() => ({ petVisible: Boolean(value) }));
   });
   ipc.on(IPC.SETTINGS_SET_PET_ZOOM, (_event, value: number) => {
-    const saved = saveGeneralSettings({ ...getGeneralSettings(), petZoom: Number(value) });
+    const saved = savePetSetting(() => ({ petZoom: Number(value) }));
     deps.windowManager?.applyPetWindowZoom(saved.petZoom);
   });
 

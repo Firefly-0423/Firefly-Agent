@@ -35,24 +35,18 @@ describe("Model-facing skill selection text", () => {
       automatic("conversation-tone", { description: "保持简洁", tools: ["tone_lookup"] }),
       capability("plain-policy", { description: "Use clear language" }),
     ];
-    expect(catalog(entries)).toBe([
-      "## Skill 选择",
-      "以下 Skill 均为用户当前明确启用的能力。",
-      "",
-      "在选择基础工具或直接回复用户之前，必须先执行 Skill 匹配判断：",
-      "",
-      "1. 逐项检查下方 Skill 的 description。",
-      "2. 判断该 Skill 描述的能力是否适用于完成当前用户任务。",
-      "3. 如果一个或多个 Skill 适用，必须先调用 invoke_skill(skill_id) 加载对应完整规则，再继续任务。",
-      "4. 不要仅因为你自己已经知道如何完成任务，就跳过适用的 Skill。",
-      "5. 如果没有任何 Skill 适用，则正常使用基础工具或直接回复。",
-      "",
-      "Skill 清单：",
-      "- summarize-notes: Summarize a notebook [tools: notes_read, notes_outline]",
+    const introduction = "## Skill 选择\n以下 Skill 均为用户当前明确启用的能力。\n\n在选择基础工具或直接回复用户之前，必须先执行 Skill 匹配判断：";
+    const procedure = [
+      "逐项检查下方 Skill 的 description。", "判断该 Skill 描述的能力是否适用于完成当前用户任务。",
+      "如果一个或多个 Skill 适用，必须先调用 invoke_skill(skill_id) 加载对应完整规则，再继续任务。",
+      "不要仅因为你自己已经知道如何完成任务，就跳过适用的 Skill。", "如果没有任何 Skill 适用，则正常使用基础工具或直接回复。",
+    ].map((instruction, index) => `${index + 1}. ${instruction}`).join("\n");
+    const rows = ["- summarize-notes: Summarize a notebook [tools: notes_read, notes_outline]",
       "- conversation-tone: 保持简洁 [tools: tone_lookup] [自动注入：无需再次调用 invoke_skill]",
-      "- plain-policy: Use clear language",
-    ].join("\n"));
+      "- plain-policy: Use clear language"].join("\n");
+    expect(catalog(entries)).toBe(`${introduction}\n\n${procedure}\n\nSkill 清单：\n${rows}`);
     expect(catalog(entries)).not.toContain("- archived:");
+    expect(catalog([capability("one"), capability("two")])).toMatch(/- one:[\s\S]*- two:/);
   });
 
   it.each([{ tools: undefined }, { tools: [] }])("omits the tool annotation when tools are $tools", ({ tools }) => {

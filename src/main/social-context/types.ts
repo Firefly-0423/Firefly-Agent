@@ -1,28 +1,23 @@
-export type ValidatedSocialAtomOperation =
-  | {
-      operation: "add";
-      atom: SocialAtom;
-    }
-  | {
-      operation: "supersede";
-      atom: SocialAtom;
-      targetAtomId: string;
-    }
-  | {
-      operation: "resolve";
-      targetAtomId: string;
-      evidenceTurnId: string;
-      evidenceQuote: string;
-    };
+type NewAtom = { operation: "add"; atom: SocialAtom };
+type Replacement = { operation: "supersede"; atom: SocialAtom; targetAtomId: string };
+type Resolution = { operation: "resolve"; targetAtomId: string; evidenceTurnId: string; evidenceQuote: string };
+
+export type ValidatedSocialAtomOperation = NewAtom | Replacement | Resolution;
 
 // 会话原子：长期/短期事实，或等待用户回应的开放话题。
-export interface SocialAtom {
+interface AtomIdentity {
   id: string;
   conversationId: string;
-  type: SocialAtomType;
-  content: string;
+}
+
+interface AtomEvidence {
   evidenceTurnId: string;
   evidenceQuote: string;
+}
+
+export interface SocialAtom extends AtomIdentity, AtomEvidence {
+  type: SocialAtomType;
+  content: string;
   createdAt: number;
   expiresAt?: number;
   status: SocialAtomStatus;
@@ -36,8 +31,7 @@ export interface SocialTurnEvidence {
   text: string;
 }
 
-export interface SocialExtractionInput {
-  conversationId: string;
+export interface SocialExtractionInput extends Pick<AtomIdentity, "conversationId"> {
   userTurn: SocialTurnEvidence & { role: "user" };
   assistantTurn: SocialTurnEvidence & { role: "assistant" };
   retrievedAtoms: SocialAtom[];

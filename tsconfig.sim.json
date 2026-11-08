@@ -1,15 +1,15 @@
 {
   "compilerOptions": {
-    "outDir": "dist/sim",
-    "rootDir": "src",
-    "module": "commonjs",
-    "target": "es2022",
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "resolveJsonModule": true,
     "declaration": false,
+    "esModuleInterop": true,
+    "module": "commonjs",
+    "noImplicitAny": false,
+    "outDir": "dist/sim",
+    "resolveJsonModule": true,
+    "rootDir": "src",
+    "skipLibCheck": true,
     "strict": false,
-    "noImplicitAny": false
+    "target": "es2022"
   },
   "include": [
     "src/main/sim/**/*.ts",

@@ -3,30 +3,15 @@ import type { ToolDefinition } from "./tools/registry/tool-registry";
 import { createSpecialistProfiles } from "./specialist-profiles";
 import { resolveAgentCapabilities } from "./agent-capabilities";
 
-function tool(id: string): ToolDefinition {
-  return {
-    id,
-    name: id,
-    description: id,
-    enabled: true,
-    inputSchema: { type: "object", properties: {} },
-    execute: async () => "ok",
-  };
-}
+const makeTool = (id: string): ToolDefinition => ({
+  id, name: id, description: id, enabled: true,
+  inputSchema: { type: "object", properties: {} }, execute: async () => "ok",
+});
 
-const parentTools = [
-  "read_file",
-  "write_word",
-  "write_excel",
-  "write_pdf",
-  "write_file",
-  "list_dir",
-  "web_search",
-  "fetch_url",
-  "task",
-  "ask_user",
-  "confirm_uncertain_effect",
-].map(tool);
+const files = ["read_file", "write_word", "write_excel", "write_pdf", "write_file", "list_dir"];
+const web = ["web_search", "fetch_url"];
+const delegationAndInteraction = ["task", "ask_user", "confirm_uncertain_effect"];
+const parentTools = [...files, ...web, ...delegationAndInteraction].map(makeTool);
 
 describe("specialist capability intersection", () => {
   it("provides implementation, documents and research without generic profiles", () => {
@@ -54,6 +39,7 @@ describe("specialist capability intersection", () => {
     const resolved = resolveAgentCapabilities(profile, "work", parentTools, []).tools;
 
     expect(resolved.map((entry) => entry.id)).toEqual(["web_search", "fetch_url"]);
-    expect(resolveAgentCapabilities(profile, "work", [tool("web_search")], []).tools.map((entry) => entry.id)).toEqual(["web_search"]);
+    expect(resolveAgentCapabilities(profile, "work", [makeTool("web_search")], []).tools.map((entry) => entry.id)).toEqual(["web_search"]);
+    expect(resolveAgentCapabilities(profile, "work", [], []).tools).toEqual([]);
   });
 });

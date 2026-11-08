@@ -1,63 +1,23 @@
-const RETIRED_STICKER_FILES: Readonly<Record<string, string>> = {
-  playful: "playful.png",
-  "love-happy": "love-happy.png",
-  confident: "confident.png",
-  serious: "serious.png",
-  calm: "calm.png",
-  peek: "peek.gif",
-  "clingy-confused": "clingy-confused.gif",
-  "love-calm": "love-calm.png",
-  HI: "HI.jpg",
-  hello: "hello.jpg",
-  goodmoring1: "goodmoring1.jpg",
-  goodnight: "goodnight.jpg",
-  teatime: "teatime.jpg",
-  eating: "eating.jpg",
-  Allset: "Allset.jpg",
-  OK: "OK.jpg",
-  copythat: "copythat.jpg",
-  Thumbsup: "Thumbsup.jpg",
-  awesome: "awesome.jpg",
-  sogood: "sogood.jpg",
-  sonice: "sonice.jpg",
-  fighting: "fighting.jpg",
-  hellyeah: "hellyeah.jpg",
-  Thanks: "Thanks.jpg",
-  foryou: "foryou.jpg",
-  blushhard: "blushhard.jpg",
-  shyshort: "shyshort.jpg",
-  hmph: "hmph.jpg",
-  hugtight: "hugtight.jpg",
-  Airkiss: "Airkiss.jpg",
-  Gigglelots: "Gigglelots.jpg",
-  thinking: "thinking.jpg",
-  putmd: "putmd.jpg",
-  Whatswrong: "Whatswrong.jpg",
-  midmeh: "midmeh.jpg",
-  awkward: "awkward.jpg",
-  Madnow: "Madnow.jpg",
-  Hurtcry: "Hurtcry.jpg",
-  Sobbinghard: "Sobbinghard.jpg",
-  weeploud: "weeploud.jpg",
-  PanincCrying: "PanincCrying.jpg",
-  missme: "missme.jpg",
-  Free: "Free.jpg",
-  Dreak: "Dreak.jpg",
-  outfast: "outfast.jpg",
-  Vcayover: "Vcayover.jpg",
-  sleepynow: "sleepynow.jpg",
-  deadtired: "deadtired.jpg",
-  sotired: "sotired.jpg",
-  giveup: "giveup.jpg",
-  poorwallet: "poorwallet.jpg",
-  please: "please.jpg",
-};
+// 只识别历史引用，不重新提供这些资源。
+const RETIRED_BY_EXTENSION = {
+  png: ["playful", "love-happy", "confident", "serious", "calm", "love-calm"],
+  gif: ["peek", "clingy-confused"],
+  jpg: ["HI", "hello", "goodmoring1", "goodnight", "teatime", "eating", "Allset", "OK", "copythat", "Thumbsup", "awesome", "sogood", "sonice", "fighting", "hellyeah", "Thanks", "foryou", "blushhard", "shyshort", "hmph", "hugtight", "Airkiss", "Gigglelots", "thinking", "putmd", "Whatswrong", "midmeh", "awkward", "Madnow", "Hurtcry", "Sobbinghard", "weeploud", "PanincCrying", "missme", "Free", "Dreak", "outfast", "Vcayover", "sleepynow", "deadtired", "sotired", "giveup", "poorwallet", "please"],
+} as const;
+
+const retiredIds: Record<string, true> = {};
+const retiredPaths = new Set<string>();
+for (const [extension, ids] of Object.entries(RETIRED_BY_EXTENSION)) {
+  for (const id of ids) {
+    retiredIds[id] = true;
+    retiredPaths.add(`stickers/${id}.${extension}`);
+  }
+}
 
 export function isRetiredStickerId(id: string): boolean {
-  return Object.prototype.hasOwnProperty.call(RETIRED_STICKER_FILES, id);
+  return Object.prototype.hasOwnProperty.call(retiredIds, id);
 }
 
 export function isRetiredStickerRef(ref: string): boolean {
-  const relative = ref.startsWith("/") ? ref.slice(1) : ref;
-  return Object.values(RETIRED_STICKER_FILES).some(file => relative === `stickers/${file}`);
+  return retiredPaths.has(ref.startsWith("/") ? ref.slice(1) : ref);
 }

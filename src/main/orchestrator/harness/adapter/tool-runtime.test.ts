@@ -149,26 +149,13 @@ describe("harness tool runtime", () => {
   it("uses one signal for context, permission, and task execution", async () => {
     const controller = new AbortController();
     const clarify = vi.fn(async () => ({ answers: [] }));
-    const runtime = prepareToolRuntime({
-      options: {
-        conversationId: "thread-1",
-        conversationMode: "work",
-        settings: { provider: "test", baseUrl: "", model: "model", apiKey: "" },
-        messages: [{ role: "user", content: "读文件" }],
-        requestUserClarification: clarify,
-        permissionMode: "prompt",
-      } as never,
-      signal: controller.signal,
-      prepared: {
-        threadId: "thread-1",
-        runId: "run-1",
-        systemPrompt: "system",
-        vendorConfig: {},
-        tools: [],
-        runStore: {},
-      } as never,
-      sendBaseEvent: vi.fn(),
-    });
+    const options = { conversationId: "thread-1", conversationMode: "work",
+      settings: { provider: "test", baseUrl: "", model: "model", apiKey: "" },
+      messages: [{ role: "user", content: "读文件" }], requestUserClarification: clarify, permissionMode: "prompt" };
+    const prepared = { threadId: options.conversationId, runId: "run-1", systemPrompt: "system",
+      vendorConfig: {}, tools: [], runStore: {} };
+    const runtime = prepareToolRuntime({ options: options as never, prepared: prepared as never,
+      signal: controller.signal, sendBaseEvent: vi.fn() });
 
     expect(runtime.toolContext.signal).toBe(runtime.signal);
     expect(runtime.signal).not.toBe(controller.signal);
@@ -183,6 +170,8 @@ describe("harness tool runtime", () => {
       parent: expect.objectContaining({ signal: runtime.signal }),
     }));
     expect(createAgentExecutor.mock.calls[0][0].profiles).toHaveLength(12);
+    controller.abort();
+    expect(runtime.signal.aborted).toBe(true);
   });
 });
 

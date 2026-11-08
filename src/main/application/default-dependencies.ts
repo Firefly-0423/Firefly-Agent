@@ -155,16 +155,20 @@ async function reconcileUserMemoryIndex(): Promise<void> {
     console.warn("[Memory/RAG] reconciliation skipped: vector store is not writable");
     return;
   }
-  const outcome = await reconcileMemoryRag({
+  const memoryAccess = {
     getMemories: () => memoryStore.getAllL2(),
     getVectors: () => getEntriesBySource("user_memory"),
     backup: async () => backupMemoryRagFiles(app.getPath("userData")),
     addVector: addL2MemoryVector,
+  };
+  const reconciliation: Parameters<typeof reconcileMemoryRag>[0] = {
+    ...memoryAccess,
     markSynced: (l2Id, ragId) => memoryStore.markL2SyncStatus(l2Id, "synced", ragId),
     markSyncFailed: (l2Id, error) => memoryStore.markL2SyncStatus(l2Id, "sync_failed", undefined, error),
     deleteVectors: (ids) => deleteUserMemoryVectors(ids),
     warn: (message, error) => console.warn(`[Memory/RAG] ${message}:`, error),
-  });
+  };
+  const outcome = await reconcileMemoryRag(reconciliation);
   logger.info(LogTag.RAG, "reconciliation:", outcome);
 }
 
@@ -582,6 +586,14 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
     });
   };
 
+  const makeShellWindowManager = () => createWindowManager({
+    onChatWindowCreated: bindBrowserHost,
+    getCurrentAppIconPath,
+    isDev,
+    loadPetWindowSettingsSlice: loadGeneralSettings,
+    persistPetWindowPosition: ({ x, y }) => saveGeneralSettings({ petWindowX: x, petWindowY: y }),
+  });
+
   // 应用图标路径 getter 必须先于 shell 阶段注入：聊天窗口壳和托盘在 shell 阶段创建时就会读取，
   // 等到 core 阶段才注入的话托盘会拿到空路径，显示成 Electron 默认图标。
   // getter 是惰性的，注册时不会读磁盘。
@@ -773,14 +785,7 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
           app.once("will-quit", callback);
         },
         createSplashWindow: (options) => createSplashWindow({ isDev, onShown: options.onShown }),
-        createWindowManager: () =>
-          createWindowManager({
-            onChatWindowCreated: bindBrowserHost,
-            getCurrentAppIconPath,
-            isDev,
-            loadPetWindowSettingsSlice: loadGeneralSettings,
-            persistPetWindowPosition: ({ x, y }) => saveGeneralSettings({ petWindowX: x, petWindowY: y }),
-          }),
+        createWindowManager: makeShellWindowManager,
         createChatShell: (windowManager) => windowManager.createReactChatWindowShell(),
         registerProtocolHandlers,
         registerShellIpc: ({ ipc, windowManager, live2dWindowLifecycle }) => {

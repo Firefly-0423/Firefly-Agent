@@ -143,6 +143,19 @@ function summarizeDate(date: string, entries: RelationshipLogEntry[]): Relations
   return { date, updatedAt: Date.now(), summary, nextCareCue: cue };
 }
 
+function makeTurnEntry(input: RelationshipTurnInput, userText: string, assistantText: string,
+  now: number, mood: string, signal: MoodSignal): RelationshipLogEntry {
+  return {
+    ...input,
+    userText: compact(userText, 500), assistantText: compact(assistantText, 500),
+    id: `rel-${now}-${Math.random().toString(36).slice(2, 8)}`,
+    date: localDate(now), createdAt: now, userMood: mood,
+    relationshipSignal: signal.relationshipSignal,
+    importantMoment: signal.importantMoment,
+    nextCareCue: signal.nextCareCue,
+  };
+}
+
 export class RelationshipLogStore {
   constructor(private readonly filePath = defaultFilePath()) {}
 
@@ -154,18 +167,7 @@ export class RelationshipLogStore {
     const now = Date.now();
     const userMood = detectUserMood(userText);
     const derived = deriveSignal(userText, userMood);
-    const entry: RelationshipLogEntry = {
-      ...input,
-      userText: compact(userText, 500),
-      assistantText: compact(assistantText, 500),
-      id: `rel-${now}-${Math.random().toString(36).slice(2, 8)}`,
-      date: localDate(now),
-      createdAt: now,
-      userMood,
-      relationshipSignal: derived.relationshipSignal,
-      importantMoment: derived.importantMoment,
-      nextCareCue: derived.nextCareCue,
-    };
+    const entry = makeTurnEntry(input, userText, assistantText, now, userMood, derived);
 
     const data = readData(this.filePath);
     data.entries.push(entry);

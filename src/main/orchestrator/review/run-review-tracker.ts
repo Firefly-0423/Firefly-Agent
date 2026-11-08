@@ -11,15 +11,16 @@ import { getCurrentLevel } from "../../permission/permission";
 import { readWorkspaceReviewSource, reviewIdentityKey } from "./workspace-review-source";
 import type {
   ReviewSnapshot,
-  ReviewFileChange,
-  ReviewHunk,
-  ReviewLine,
   ReviewRunStatus,
   ReviewFileMeta,
   ReviewRestoreDetail,
   ReviewRestoreOutcome,
 } from "../../../shared/review-types";
 
+// 每个 diff 构件与最终快照的公开形状保持一致。
+type ReviewFileChange = ReviewSnapshot["files"][number];
+type ReviewHunk = NonNullable<ReviewFileChange["hunks"]>[number];
+type ReviewLine = ReviewHunk["lines"][number];
 type CapturedFileKind = "text" | "large-text" | "binary";
 interface JournalCaptureEvent {
   capturedAt: number; contentHash: string; size: number; fileKind: CapturedFileKind;

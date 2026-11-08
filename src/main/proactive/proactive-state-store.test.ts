@@ -29,16 +29,12 @@ const write = (value: unknown): void => fs.writeFileSync(file(), JSON.stringify(
 
 describe("defaultProactiveState", () => {
   it("returns the documented initial values", () => {
-    expect(defaultProactiveState()).toEqual({
-      proactiveEpoch: 0,
-      unansweredCount: 0,
-      lastProactiveAt: null,
-      lastProactiveScene: null,
-      lastNormalConversationEndedAt: null,
-      globalDesire: 0,
-      affinity: {},
-      lastFiredAt: {},
-    });
+    const state = defaultProactiveState();
+    expect(Object.keys(state)).toHaveLength(8);
+    for (const key of ["proactiveEpoch", "unansweredCount", "globalDesire"] as const) expect(state[key]).toBe(0);
+    for (const key of ["lastProactiveAt", "lastProactiveScene", "lastNormalConversationEndedAt"] as const) expect(state[key]).toBeNull();
+    expect(state.affinity).toEqual({});
+    expect(state.lastFiredAt).toEqual({});
   });
 
   it("returns independent nested objects on every call", () => {

@@ -13,38 +13,18 @@ export interface L2Fixture {
   keywords: string[];
 }
 
-export const L2_FIXTURES: L2Fixture[] = [
-  {
-    id: "l2_coffee",
-    content: "用户每天早上都要喝咖啡",
-    triggerText: "我每天早上都要喝咖啡",
-    keywords: ["咖啡", "早上", "喝"],
-  },
-  {
-    id: "l2_cat",
-    content: "用户养了一只叫咪咪的猫",
-    triggerText: "我养了只猫叫咪咪",
-    keywords: ["猫", "咪咪"],
-  },
-  {
-    id: "l2_run",
-    content: "用户习惯周末去公园跑步",
-    triggerText: "我周末去公园跑步",
-    keywords: ["跑步", "公园", "周末"],
-  },
-  {
-    id: "l2_music",
-    content: "用户最近沉迷爵士乐",
-    triggerText: "我最近很喜欢爵士乐",
-    keywords: ["爵士", "音乐"],
-  },
-  {
-    id: "l2_rain",
-    content: "用户喜欢下雨天待在家里",
-    triggerText: "我喜欢下雨天待在家",
-    keywords: ["下雨", "家"],
-  },
+type FixtureRow = [string, string, string, string[]];
+const fixtureRows: FixtureRow[] = [
+  ["coffee", "用户每天早上都要喝咖啡", "我每天早上都要喝咖啡", ["咖啡", "早上", "喝"]],
+  ["cat", "用户养了一只叫咪咪的猫", "我养了只猫叫咪咪", ["猫", "咪咪"]],
+  ["run", "用户习惯周末去公园跑步", "我周末去公园跑步", ["跑步", "公园", "周末"]],
+  ["music", "用户最近沉迷爵士乐", "我最近很喜欢爵士乐", ["爵士", "音乐"]],
+  ["rain", "用户喜欢下雨天待在家里", "我喜欢下雨天待在家", ["下雨", "家"]],
 ];
+
+export const L2_FIXTURES: L2Fixture[] = fixtureRows.map(([id, content, triggerText, keywords]) => ({
+  id: `l2_${id}`, content, triggerText, keywords,
+}));
 
 // 每项为 [用户输入, 模型回复]；轮次序号由数组位置推导
 const L2_SCRIPT: ReadonlyArray<readonly [string, string]> = [

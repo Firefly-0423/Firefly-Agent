@@ -469,6 +469,14 @@ export type TokenUsageReport = {
   models: Array<TokenUsageModel & { model: string }>;
 };
 
+function rankUsageModels(models: Map<string, TokenUsageModel>): TokenUsageReport["models"] {
+  const ranked = Array.from(models, ([model, counts]) => ({ model, ...counts }));
+  // 请求已尝试但没有 usage 时也需要保留对应模型。
+  return ranked.filter(({ input, output, requests, attemptedRequests }) =>
+    input > 0 || output > 0 || requests > 0 || (attemptedRequests ?? 0) > 0,
+  ).sort((a, b) => (b.input + b.output) - (a.input + a.output));
+}
+
 /** 查询某个时间范围内的逐日统计，以及各真实模型的占比；早期 v1 的记录归入“未归类”。 */
 export function getUsageReport(days: number): TokenUsageReport {
   const daily = getUsage(days);
@@ -492,14 +500,7 @@ export function getUsageReport(days: number): TokenUsageReport {
       models.set(model, target);
     }
   }
-  return {
-    days: daily,
-    models: [...models.entries()]
-      .map(([model, value]) => ({ model, ...value }))
-      // 只要 attemptedRequests > 0 也保留：没有返回 usage 的端点仍然可见（显示 0 token），而不是从列表里消失
-      .filter((item) => item.input > 0 || item.output > 0 || item.requests > 0 || (item.attemptedRequests ?? 0) > 0)
-      .sort((left, right) => (right.input + right.output) - (left.input + left.output)),
-  };
+  return { days: daily, models: rankUsageModels(models) };
 }
 
 const MAX_RANKED_SESSIONS = 10;

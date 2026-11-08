@@ -20,20 +20,16 @@ export interface ChildSessionResult {
 
 export interface DelegationScope { groupId: string; toolCallId: string }
 
-export interface ChildSessionParent {
-  /** Trusted process-local coordination. These are never model or IPC arguments. */
-  executionCoordinator?: RunExecutionCoordinator;
-  groupId?: string;
-  modelExecutionRecorder?: ModelExecutionRecorder;
-  /** Main-owned capabilities only; parent IDs never confer memory read permission. */
-  backgroundMemory?: import("../memory-context/background-memory-ingress").BackgroundMemoryHost;
-  memoryRun?: import("../memory-context/main-memory-runtime").MainMemoryRun;
+interface ParentRunContext {
   parentConversationId: string;
   parentRunId: string;
   mode: "work" | "code";
   systemPrompt: string;
   vendorConfig: VendorConfig;
   tools: ToolDefinition[];
+}
+
+interface ParentAccessContext {
   capabilities?: RunCapabilities;
   resolvedWorkspaceRoot?: string;
   signal?: AbortSignal;
@@ -44,4 +40,14 @@ export interface ChildSessionParent {
   toolOutputStore?: ToolOutputStore;
   revalidateToolPermission?: import("./tools/registry/tool-context").ToolContext["revalidateToolPermission"];
   workReadScopes?: import("../../shared/chat-types").WorkReadScope[];
+}
+
+export interface ChildSessionParent extends ParentRunContext, ParentAccessContext {
+  /** 本进程可信协调对象，不来自模型或 IPC。 */
+  executionCoordinator?: RunExecutionCoordinator;
+  groupId?: string;
+  modelExecutionRecorder?: ModelExecutionRecorder;
+  /** 仅接受 Main 持有的记忆能力；父会话 ID 本身不授予读取权限。 */
+  backgroundMemory?: import("../memory-context/background-memory-ingress").BackgroundMemoryHost;
+  memoryRun?: import("../memory-context/main-memory-runtime").MainMemoryRun;
 }
