@@ -1,83 +1,18 @@
 // 定时任务面板的类型与纯函数。
 //
-// 与设置窗口的 src/renderer/settings/scheduler 口径保持一致（字段、校验规则、
-// 主进程 IPC 返回形状），但独立拷贝一份：设置页是另一个 bundle，不能跨包引用。
-// 文案统一经 i18n key 输出，校验函数只返回 key，由调用方翻译。
+// 请求和返回类型共用设置页的声明；type-only 引用不会引入另一个运行时 bundle。
+// 校验只返回翻译 key，具体文案由调用方提供。
+
+import type { ScheduleConfig } from "../../../../settings/scheduler/types";
+export type {
+  ScheduleConfig, SchedulerApi, SchedulerResult, SchedulerToolInfo,
+  SchedulerToolMode, ScheduledTask, ScheduledTaskHistoryEntry,
+} from "../../../../settings/scheduler/types";
 
 export type Translate = (key: string, options?: Record<string, unknown>) => string;
 
-export type ScheduleConfig =
-  | { kind: "once"; runAt: string }
-  | { kind: "daily"; timeOfDay: string }
-  | { kind: "weekly"; dayOfWeek: 0 | 1 | 2 | 3 | 4 | 5 | 6; timeOfDay: string }
-  | { kind: "interval"; every: number; unit: "minutes" | "hours" };
-
 export type ScheduleKind = ScheduleConfig["kind"];
-
-export type SchedulerToolMode = "all-enabled" | "allow-list";
-
-export interface ScheduledTask {
-  id: string;
-  title: string;
-  prompt: string;
-  enabled: boolean;
-  schedule: ScheduleConfig;
-  nextFireAt: string | null;
-  lastFiredAt?: string;
-  toolMode: SchedulerToolMode;
-  allowedToolIds: string[];
-  createdAt: string;
-  updatedAt: string;
-  /** 创建该任务的插件 id；缺失表示用户任务。 */
-  ownerPluginId?: string;
-  /** 插件任务冻结的会话模式；缺失按 work 执行。 */
-  mode?: string;
-}
-
-export interface ScheduledTaskHistoryEntry {
-  id: string;
-  taskId: string;
-  taskTitle: string;
-  firedAt: string;
-  finishedAt?: string;
-  durationMs?: number;
-  status: "running" | "success" | "failed" | "skipped" | "interrupted";
-  hostEpoch?: string;
-  executionOutcome?: "unknown";
-  externalEffectsMayContinue?: boolean;
-  recoveredAt?: string;
-  reason?: string;
-  outputPreview?: string;
-  errorMessage?: string;
-  effectiveToolIds: string[];
-}
-
-export interface SchedulerToolInfo {
-  id: string;
-  name: string;
-  description: string;
-  enabled: boolean;
-  risk: string;
-}
-
-export interface SchedulerResult<T> {
-  ok: boolean;
-  value?: T;
-  error?: string;
-  reason?: string;
-}
-
-/** preload 暴露的 window.fireflyScheduler 形状（与 src/preload/index.ts 一致）。 */
-export interface SchedulerApi {
-  list: () => Promise<SchedulerResult<ScheduledTask[]>>;
-  add: (input: unknown) => Promise<SchedulerResult<ScheduledTask>>;
-  update: (id: string, patch: unknown) => Promise<SchedulerResult<ScheduledTask>>;
-  delete: (id: string) => Promise<SchedulerResult<boolean>>;
-  toggle: (id: string, enabled: boolean) => Promise<SchedulerResult<ScheduledTask>>;
-  fireNow: (id: string) => Promise<SchedulerResult<boolean>>;
-  getHistory: (taskId: string, limit?: number) => Promise<SchedulerResult<ScheduledTaskHistoryEntry[]>>;
-  getTools: () => Promise<SchedulerResult<SchedulerToolInfo[]>>;
-}
+import type { ScheduledTask } from "../../../../settings/scheduler/types";
 
 export const SCHEDULE_KINDS: ScheduleKind[] = ["once", "daily", "weekly", "interval"];
 

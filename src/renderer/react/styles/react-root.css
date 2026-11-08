@@ -497,18 +497,18 @@ body {
 
 .ff-workspace-composer__scroll-to-bottom {
   position: absolute;
+  z-index: 10;
   top: -50px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 10;
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
   width: 40px;
   height: 40px;
-  padding: 0;
   border: none;
   border-radius: 50%;
+  padding: 0;
   background: var(--ff-surface, rgba(255, 255, 255, 0.92));
   color: var(--ff-text-primary, #4c3762);
   box-shadow: 0 4px 14px rgba(76, 55, 98, 0.18);
