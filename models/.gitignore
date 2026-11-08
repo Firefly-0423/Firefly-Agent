@@ -1,11 +1,5 @@
-# Ignore large model binary files
-**/onnx/*.onnx
-**/onnx/*.onnx_data
-
-# Model weights / tokenizers are downloaded or installed at runtime,
-# they must never be committed (a 17MB tokenizer.json once leaked into
-# the remote history via a "backup" commit).
-# Only the placeholder files below are tracked.
+# models/ 只放用户在本机下载或安装的模型，仓库里仅保留这个规则文件和目录占位。
+# 曾有一次“备份”提交把 17MB 的 tokenizer.json 带进了远端历史，所以默认全部忽略。
 *
 !.gitignore
 !.gitkeep

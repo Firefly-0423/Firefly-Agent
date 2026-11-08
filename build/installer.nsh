@@ -1,72 +1,91 @@
+; Firefly 的 NSIS 定制：安装选项页、桌面快捷方式、开机自启，以及升级时保住用户放进安装目录的内容。
 !include "nsDialogs.nsh"
 
-!ifndef BUILD_UNINSTALLER
-Var FireflyDesktopShortcutCheckbox
-Var FireflyLaunchAtLoginCheckbox
-Var FireflyCreateDesktopShortcut
-Var FireflyLaunchAtLogin
+; ---------------------------------------------------------------------------
+; 升级保护（安装器和卸载器共用）
+;
+; 升级时旧版卸载器会 RMDir /r 整个安装目录，models/skills/prompts 里用户自己的文件会一起消失。
+; 先把它们挪到安装目录旁边的暂存位置：
+;   prompts、skills → .Firefly.content-preserve\（应用下次启动时合并进用户数据）
+;   models          → .Firefly.models-preserve（新版装完后原样搬回）
+; ---------------------------------------------------------------------------
+!define FIREFLY_CONTENT_STASH "$INSTDIR\..\.Firefly.content-preserve"
+!define FIREFLY_MODELS_STASH "$INSTDIR\..\.Firefly.models-preserve"
 
-!macro customPageAfterChangeDir
-  Page custom FireflyOptionsPageCreate FireflyOptionsPageLeave
+!macro FireflyStashFolder FOLDER TARGET
+  ClearErrors
+  ${If} ${FileExists} "$INSTDIR\${FOLDER}"
+    Rename "$INSTDIR\${FOLDER}" "${TARGET}"
+  ${EndIf}
 !macroend
 
-Function FireflyOptionsPageCreate
+!macro FireflyStashUserContent
+  CreateDirectory "${FIREFLY_CONTENT_STASH}"
+  !insertmacro FireflyStashFolder "prompts" "${FIREFLY_CONTENT_STASH}\prompts"
+  !insertmacro FireflyStashFolder "skills" "${FIREFLY_CONTENT_STASH}\skills"
+  !insertmacro FireflyStashFolder "models" "${FIREFLY_MODELS_STASH}"
+!macroend
+
+!macro FireflyRestoreModels
+  ${If} ${FileExists} "${FIREFLY_MODELS_STASH}"
+    CreateDirectory "$INSTDIR"
+    Rename "${FIREFLY_MODELS_STASH}" "$INSTDIR\models"
+  ${EndIf}
+!macroend
+
+!ifndef BUILD_UNINSTALLER
+; ---------------------------------------------------------------------------
+; 安装器
+; ---------------------------------------------------------------------------
+Var FireflyShortcutBox
+Var FireflyAutostartBox
+Var FireflyWantsShortcut
+Var FireflyWantsAutostart
+Var FireflyAutostartJson
+
+!macro customPageAfterChangeDir
+  Page custom FireflyOptionsShow FireflyOptionsRead
+!macroend
+
+; 在选项页的第 TOP 行放一个复选框，句柄存进 HANDLE，初始状态由 MARK（Check / Uncheck）决定。
+!macro FireflyOptionBox TOP LABEL HANDLE MARK
+  ${NSD_CreateCheckbox} 0 ${TOP} 100% 12u "${LABEL}"
+  Pop ${HANDLE}
+  ${NSD_${MARK}} ${HANDLE}
+!macroend
+
+; 选项页：桌面快捷方式默认勾选，开机自启默认不勾。
+Function FireflyOptionsShow
   nsDialogs::Create 1018
   Pop $0
-  ${If} $0 == error
+  StrCmp $0 "error" 0 +2
     Abort
-  ${EndIf}
-
   ${NSD_CreateLabel} 0 0 100% 24u "安装选项"
   Pop $0
-
-  ${NSD_CreateCheckbox} 0 34u 100% 12u "创建桌面快捷方式"
-  Pop $FireflyDesktopShortcutCheckbox
-  ${NSD_Check} $FireflyDesktopShortcutCheckbox
-
-  ${NSD_CreateCheckbox} 0 56u 100% 12u "开机时自动启动 Firefly"
-  Pop $FireflyLaunchAtLoginCheckbox
-  ${NSD_Uncheck} $FireflyLaunchAtLoginCheckbox
-
+  !insertmacro FireflyOptionBox 34u "创建桌面快捷方式" $FireflyShortcutBox Check
+  !insertmacro FireflyOptionBox 56u "开机时自动启动 Firefly" $FireflyAutostartBox Uncheck
   nsDialogs::Show
 FunctionEnd
 
-Function FireflyOptionsPageLeave
-  ${NSD_GetState} $FireflyDesktopShortcutCheckbox $FireflyCreateDesktopShortcut
-  ${NSD_GetState} $FireflyLaunchAtLoginCheckbox $FireflyLaunchAtLogin
+Function FireflyOptionsRead
+  ${NSD_GetState} $FireflyShortcutBox $FireflyWantsShortcut
+  ${NSD_GetState} $FireflyAutostartBox $FireflyWantsAutostart
 FunctionEnd
 
-; 升级保护：升级会先跑旧版卸载器，其 RMDir /r 会清空整个安装目录（models/skills/prompts
-; 连同用户放进去的文件）。这里在 .onInit（multiUser 已从注册表恢复 $INSTDIR 为旧安装目录）
-; 阶段把用户内容挪到同级暂存目录，等新版装完后再恢复/合并。
-; 仅静默安装（应用内更新/定制安装器/独立升级器）时启用：向导模式用户在场，取消安装不留烂摊子。
+; .onInit 时 multiUser 已把 $INSTDIR 恢复成旧安装目录。只在静默安装（应用内更新、独立升级器）时暂存：
+; 向导安装有人在场，中途取消不应留下被挪走的目录。
 !macro customInit
   ${If} ${Silent}
-    CreateDirectory "$INSTDIR\..\.Firefly.content-preserve"
-    ClearErrors
-    ${If} ${FileExists} "$INSTDIR\prompts"
-      Rename "$INSTDIR\prompts" "$INSTDIR\..\.Firefly.content-preserve\prompts"
-    ${EndIf}
-    ClearErrors
-    ${If} ${FileExists} "$INSTDIR\skills"
-      Rename "$INSTDIR\skills" "$INSTDIR\..\.Firefly.content-preserve\skills"
-    ${EndIf}
-    ClearErrors
-    ${If} ${FileExists} "$INSTDIR\models"
-      Rename "$INSTDIR\models" "$INSTDIR\..\.Firefly.models-preserve"
-    ${EndIf}
+    !insertmacro FireflyStashUserContent
   ${EndIf}
 !macroend
 
 !macro customInstall
-  ; 恢复 customInit 暂存的 models（新版安装器不写 models 目录，原样搬回即可）
+  ; 新版安装器不写 models，把暂存的原样搬回即可。
   ClearErrors
-  ${If} ${FileExists} "$INSTDIR\..\.Firefly.models-preserve"
-    CreateDirectory "$INSTDIR"
-    Rename "$INSTDIR\..\.Firefly.models-preserve" "$INSTDIR\models"
-  ${EndIf}
+  !insertmacro FireflyRestoreModels
 
-  ${If} $FireflyCreateDesktopShortcut == ${BST_CHECKED}
+  ${If} $FireflyWantsShortcut == ${BST_CHECKED}
     CreateShortCut "$DESKTOP\${SHORTCUT_NAME}.lnk" "$appExe" "" "$appExe" 0 "" "" "${APP_DESCRIPTION}"
     ClearErrors
     WinShell::SetLnkAUMI "$DESKTOP\${SHORTCUT_NAME}.lnk" "${APP_ID}"
@@ -74,49 +93,33 @@ FunctionEnd
 
   CreateShortCut "$SMPROGRAMS\${MENU_FILENAME}\卸载 ${PRODUCT_FILENAME}.lnk" "$INSTDIR\${UNINSTALL_FILENAME}" "" "$INSTDIR\${UNINSTALL_FILENAME}" 0
 
-  ${If} $FireflyLaunchAtLogin == ${BST_CHECKED}
-    CreateDirectory "$APPDATA\Firefly"
-    FileOpen $0 "$APPDATA\Firefly\installer-options.json" w
-    FileWrite $0 "{$\"launchAtLogin$\":true}"
-    FileClose $0
-  ${Else}
-    CreateDirectory "$APPDATA\Firefly"
-    FileOpen $0 "$APPDATA\Firefly\installer-options.json" w
-    FileWrite $0 "{$\"launchAtLogin$\":false}"
-    FileClose $0
+  ; 把“开机自启”的选择交给应用：首次启动时由设置读取 installer-options.json。
+  StrCpy $FireflyAutostartJson "false"
+  ${If} $FireflyWantsAutostart == ${BST_CHECKED}
+    StrCpy $FireflyAutostartJson "true"
   ${EndIf}
+  CreateDirectory "$APPDATA\Firefly"
+  FileOpen $0 "$APPDATA\Firefly\installer-options.json" w
+  FileWrite $0 "{$\"launchAtLogin$\":$FireflyAutostartJson}"
+  FileClose $0
 !macroend
 !endif
 
+; ---------------------------------------------------------------------------
+; 卸载器
+; ---------------------------------------------------------------------------
 !macro customUnInstall
   Delete "$SMPROGRAMS\${MENU_FILENAME}\卸载 ${PRODUCT_FILENAME}.lnk"
 !macroend
 
-; 卸载器侧升级保护：本卸载器被新版安装器以 --updated 调起（而非用户主动卸载）时，
-; 默认的 RMDir /r 会连 models/skills/prompts 一起清掉。这里先把用户内容挪到同级暂存目录：
-; models 清完目录后原样搬回；prompts/skills 留在暂存目录，等应用启动时合并进 userData。
-; 用户主动卸载（无 --updated）时行为不变：整个安装目录干净移除。
+; 新版安装器以 --updated 调起旧卸载器时，先暂存用户内容再清目录，清完把 models 搬回；
+; prompts、skills 留在暂存目录等应用合并。用户主动卸载（没有 --updated）时整个目录照常删除。
 !macro customRemoveFiles
   SetOutPath "$TEMP"
   ${If} ${isUpdated}
-    CreateDirectory "$INSTDIR\..\.Firefly.content-preserve"
-    ClearErrors
-    ${If} ${FileExists} "$INSTDIR\prompts"
-      Rename "$INSTDIR\prompts" "$INSTDIR\..\.Firefly.content-preserve\prompts"
-    ${EndIf}
-    ClearErrors
-    ${If} ${FileExists} "$INSTDIR\skills"
-      Rename "$INSTDIR\skills" "$INSTDIR\..\.Firefly.content-preserve\skills"
-    ${EndIf}
-    ClearErrors
-    ${If} ${FileExists} "$INSTDIR\models"
-      Rename "$INSTDIR\models" "$INSTDIR\..\.Firefly.models-preserve"
-    ${EndIf}
+    !insertmacro FireflyStashUserContent
     RMDir /r "$INSTDIR"
-    ${If} ${FileExists} "$INSTDIR\..\.Firefly.models-preserve"
-      CreateDirectory "$INSTDIR"
-      Rename "$INSTDIR\..\.Firefly.models-preserve" "$INSTDIR\models"
-    ${EndIf}
+    !insertmacro FireflyRestoreModels
   ${Else}
     RMDir /r "$INSTDIR"
   ${EndIf}
