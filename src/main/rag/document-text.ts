@@ -42,6 +42,11 @@ function tidy(text: string): string {
   return text.replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
+/** Thrown the moment extraction passes the cap: a trimmed prefix must never pass for the whole document. */
+function tooLong(): never {
+  throw new DocumentTextError(`文档文字超过 ${DOCUMENT_TEXT_MAX_CHARS.toLocaleString("en-US")} 个字符，无法读取；请拆分后再上传`);
+}
+
 function bounded(text: string): string {
   if (text.length > DOCUMENT_TEXT_MAX_CHARS) {
     throw new DocumentTextError(`文档文字超过 ${DOCUMENT_TEXT_MAX_CHARS.toLocaleString("en-US")} 个字符，无法读取；请拆分后再上传`);
@@ -85,7 +90,7 @@ export function wordXmlText(xml: string): string {
     else if (match[2] || match[3] === "p") push("\n");
     else if (match[3] === "tc") swapTrailing("\n", "\t");
     else swapTrailing("\t", "\n");
-    if (length > DOCUMENT_TEXT_MAX_CHARS) break;
+    if (length > DOCUMENT_TEXT_MAX_CHARS) tooLong();
   }
   return parts.join("");
 }
@@ -96,7 +101,7 @@ function drawingXmlText(xml: string): string {
   const pattern = /<a:t(?:\s[^>]*)?>([^<]*)<\/a:t>|<a:br\b[^>]*\/>|<\/a:p>/g;
   for (let match = pattern.exec(xml); match; match = pattern.exec(xml)) {
     out += match[1] !== undefined ? decodeXml(match[1]) : "\n";
-    if (out.length > DOCUMENT_TEXT_MAX_CHARS) break;
+    if (out.length > DOCUMENT_TEXT_MAX_CHARS) tooLong();
   }
   return out;
 }
@@ -159,7 +164,7 @@ async function pptxText(bytes: Buffer): Promise<string> {
     if (noteText) section += "\n备注：" + noteText;
     sections.push(section);
     length += section.length;
-    if (length > DOCUMENT_TEXT_MAX_CHARS) break;
+    if (length > DOCUMENT_TEXT_MAX_CHARS) tooLong();
   }
   return sections.join("\n\n");
 }
@@ -196,7 +201,7 @@ async function xlsxText(bytes: Buffer): Promise<string> {
   workbook.eachSheet((sheet: any) => {
     const rows: string[] = [`## 工作表 ${sheet.name}`];
     sheet.eachRow({ includeEmpty: false }, (row: any) => {
-      if (length > DOCUMENT_TEXT_MAX_CHARS) return;
+      if (length > DOCUMENT_TEXT_MAX_CHARS) tooLong();
       const cells: string[] = [];
       row.eachCell({ includeEmpty: true }, (cell: any, column: number) => { cells[column - 1] = cellText(cell).replace(/[\t\r\n]+/g, " "); });
       const line = Array.from(cells, cell => cell ?? "").join("\t").replace(/\t+$/, "");
@@ -248,7 +253,7 @@ async function pdfText(bytes: Buffer): Promise<string> {
       page.cleanup();
       length += text.length;
       pages.push(`## 第 ${number} 页\n` + text.trim());
-      if (length > DOCUMENT_TEXT_MAX_CHARS) break;
+      if (length > DOCUMENT_TEXT_MAX_CHARS) tooLong();
     }
     if (length === 0 || !pages.some(page => page.replace(/^## 第 \d+ 页\n?/, "").trim())) {
       throw new DocumentTextError("这个 PDF 里没有可读取的文字（可能是扫描件或图片），请先做文字识别再上传");

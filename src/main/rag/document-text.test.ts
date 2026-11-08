@@ -123,8 +123,12 @@ describe("extractDocumentText", () => {
     expect(text.startsWith("名称名称名称\t12345\n")).toBe(true);
   });
 
-  it("stops at the character cap instead of building an unbounded string", () => {
-    const huge = paragraph("x".repeat(1000)).repeat(9000);
-    expect(wordXmlText(huge).length).toBeLessThan(8_100_000);
+  it("refuses a document over the character cap instead of returning part of it", async () => {
+    // Codex review on #47: trailing spaces counted toward the cap but were trimmed afterwards, so a cut-off prefix
+    // fell back under the limit and passed for the whole document.
+    expect(() => wordXmlText(paragraph("x".repeat(1000)).repeat(9000))).toThrow("无法读取");
+    const padded = paragraph("y".repeat(100) + " ".repeat(900)).repeat(9000) + paragraph("最后一节");
+    const bytes = await zip({ "word/document.xml": `<w:document ${W}><w:body>${padded}</w:body></w:document>` });
+    await expect(extractDocumentText(bytes, ".docx")).rejects.toThrow("请拆分后再上传");
   });
 });
