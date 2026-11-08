@@ -7,7 +7,7 @@ import { ResponsesAdapter } from "./responses-adapter";
 import { setVendorRuntimeSettingsGetter } from "./runtime-settings";
 import * as promptDump from "./prompt-dump";
 import type { ChatRequest, ProviderCapability, Transport, VendorConfig } from "./types";
-import { dispatchPreparedModelCall, prepareModelCall } from "./prepared-model-call";
+import { dispatchPreparedModelCall, prepareModelCall, providerRetryDelayMs } from "./prepared-model-call";
 
 const transports: Transport[] = ["openai", "responses", "anthropic"];
 function fixture(transport: Transport) {
@@ -162,6 +162,43 @@ describe("prepared provider calls", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { headers: { "Content-Type": "text/event-stream" } })));
     const response = await dispatchPreparedModelCall({ prepared: prepareModelCall(f.adapter, f.request, f.config, f.identity), config: f.config, timeoutMs: 60_000, idle });
     expect(response.text).toBe("好");
+  });
+  it("waits out a rate limit or an overloaded provider and sends the same request again", async () => {
+    // Codex parity: a 429 or a temporary 502/503/504/529 before any output is retried, honouring Retry-After.
+    for (const status of [429, 502, 503, 504, 529]) {
+      const f = fixture("responses"), bodies: string[] = [];
+      vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        bodies.push(await new Request(input, init).text());
+        return bodies.length === 1 ? new Response("{}", { status, headers: { "Retry-After": "0" } }) : sse("responses");
+      }));
+      const prepared = prepareModelCall(f.adapter, f.request, f.config, f.identity);
+      const response = await dispatchPreparedModelCall({ prepared, config: f.config, timeoutMs: 5_000 });
+      expect(response.text, `status ${status}`).toBe("完成");
+      expect(bodies, `status ${status}`).toEqual([prepared.serializedBody, prepared.serializedBody]);
+    }
+  });
+  it("gives up on a provider that stays overloaded, and never retries client errors", async () => {
+    const f = fixture("responses");
+    const overloaded = vi.fn(async () => new Response("{}", { status: 503, headers: { "Retry-After": "0" } }));
+    vi.stubGlobal("fetch", overloaded);
+    await expect(dispatchPreparedModelCall({ prepared: prepareModelCall(f.adapter, f.request, f.config, f.identity), config: f.config, timeoutMs: 5_000 }))
+      .rejects.toMatchObject({ code: "E_MODEL_REQUEST_FAILED" });
+    expect(overloaded).toHaveBeenCalledTimes(3);
+    for (const status of [400, 401, 403, 404, 422]) {
+      const refused = vi.fn(async () => new Response("{}", { status }));
+      vi.stubGlobal("fetch", refused);
+      await expect(dispatchPreparedModelCall({ prepared: prepareModelCall(f.adapter, f.request, f.config, f.identity), config: f.config, timeoutMs: 5_000 })).rejects.toThrow();
+      expect(refused, `status ${status}`).toHaveBeenCalledTimes(1);
+    }
+  });
+  it("reads Retry-After as seconds or a date, and caps how long it waits", () => {
+    const now = Date.parse("2026-11-08T12:00:00Z");
+    expect(providerRetryDelayMs(0, null, now)).toBe(2_000);
+    expect(providerRetryDelayMs(1, null, now)).toBe(6_000);
+    expect(providerRetryDelayMs(0, "3", now)).toBe(3_000);
+    expect(providerRetryDelayMs(0, "Sun, 08 Nov 2026 12:00:07 GMT", now)).toBe(7_000);
+    expect(providerRetryDelayMs(0, "600", now)).toBe(20_000);
+    expect(providerRetryDelayMs(0, "soon", now)).toBe(2_000);
   });
   it("sends every model request through one shared keep-alive pool so tool rounds reuse the connection", async () => {
     const f = fixture("responses"), pools: unknown[] = [];
@@ -380,13 +417,14 @@ describe("prepared dispatch boundary", () => {
     expect(observer.mock.calls).toEqual([["start", undefined], ["end", "failed"]]);
   });
 
-  it.each([401, 429, 500])("retains HTTP %s cause and does not retry", async status => {
-    const f = fixture("openai"), fetch = vi.fn(async () => Response.json({ error: { message: "synthetic failure" } }, { status }));
+  it.each([[401, 1], [500, 1], [429, 3]])("retains HTTP %s cause after %s request(s)", async (status, requests) => {
+    // 429 is retried twice (Retry-After 0 keeps the test fast); 401 and 500 are reported at once.
+    const f = fixture("openai"), fetch = vi.fn(async () => Response.json({ error: { message: "synthetic failure" } }, { status, headers: { "Retry-After": "0" } }));
     vi.stubGlobal("fetch", fetch);
     const observer = vi.fn();
     const prepared = prepareModelCall(f.adapter, f.request, f.config, f.identity);
     await expect(dispatchPreparedModelCall({ prepared, config: f.config, timeoutMs: 1000, onModelExecution: observer })).rejects.toMatchObject({ code: "E_MODEL_REQUEST_FAILED", cause: { status } });
-    expect(fetch).toHaveBeenCalledTimes(1); expect(observer.mock.calls.at(-1)).toEqual(["end", "failed"]);
+    expect(fetch).toHaveBeenCalledTimes(requests); expect(observer.mock.calls.at(-1)).toEqual(["end", "failed"]);
   });
 
   it("rejects unsupported content classes and accessors without invoking them", () => {

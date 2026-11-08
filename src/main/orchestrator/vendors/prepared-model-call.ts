@@ -184,6 +184,34 @@ export function prepareModelCall(
 
 /** Delays before each retry of a model request whose connection was lost before any response arrived. */
 const CONNECTION_RETRY_DELAYS_MS = [1_000, 3_000];
+/**
+ * Provider answers that only say "not now": rate limited (429), a gateway or upstream that is briefly unavailable
+ * (502/503/504), and Anthropic's overloaded (529). Nothing was generated, so the same request is sent again, at most
+ * twice like a dropped connection. 500 and every 4xx other than 429 are real failures and are reported at once.
+ */
+const TEMPORARY_PROVIDER_STATUSES = new Set([429, 502, 503, 504, 529]);
+const PROVIDER_RETRY_DELAYS_MS = [2_000, 6_000];
+const PROVIDER_RETRY_MAX_WAIT_MS = 20_000;
+
+/** How long to wait before retry `attempt` (0-based): the provider's Retry-After (seconds or a date) when given, capped. */
+export function providerRetryDelayMs(attempt: number, retryAfter: string | null, now = Date.now()): number {
+  const fallback = PROVIDER_RETRY_DELAYS_MS[Math.min(attempt, PROVIDER_RETRY_DELAYS_MS.length - 1)]!;
+  const text = retryAfter?.trim();
+  if (!text) return fallback;
+  const asked = /^\d+(\.\d+)?$/.test(text) ? Number(text) * 1000 : Date.parse(text) - now;
+  if (!Number.isFinite(asked)) return fallback;
+  return Math.min(Math.max(0, Math.round(asked)), PROVIDER_RETRY_MAX_WAIT_MS);
+}
+
+/** Resolves after `ms`, or as soon as `signal` aborts. */
+function pause(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise(resolve => {
+    if (signal.aborted) return resolve();
+    const done = () => { clearTimeout(timer); signal.removeEventListener("abort", done); resolve(); };
+    const timer = setTimeout(done, ms);
+    signal.addEventListener("abort", done, { once: true });
+  });
+}
 let modelPool: Agent | undefined;
 /** Where Node's fetch and the undici package keep a dispatcher installed with setGlobalDispatcher. */
 const GLOBAL_DISPATCHER = Symbol.for("undici.globalDispatcher.1");
@@ -285,11 +313,18 @@ export async function dispatchPreparedModelCall(input: PreparedModelCallInput): 
       const gate=(run:()=>Promise<Response>,attempt:number)=>input.guardSend?input.guardSend(run,attempt):run();
       for(let attempt=0;;attempt++){
         try{
-          return await gate(attempt===0?invoke:()=>{
+          const answered=await gate(attempt===0?invoke:()=>{
             check(call,input.config,input.signal);
             if(outgoing.signal.aborted)throw cancelled(outgoing.signal);
             return attemptOnce(spares[attempt-1]);
           },attempt);
+          if(!TEMPORARY_PROVIDER_STATUSES.has(answered.status)||attempt>=spares.length||outgoing.signal.aborted)return answered;
+          const wait=providerRetryDelayMs(attempt,answered.headers.get("retry-after"));
+          await answered.body?.cancel().catch(()=>undefined);
+          await pause(wait,outgoing.signal);
+          check(call,input.config,input.signal);
+          if(outgoing.signal.aborted)throw cancelled(outgoing.signal);
+          continue;
         }catch(error){
           // A provider that never started answering is treated like a dropped connection: nothing was shown yet.
           if(attempt>=spares.length||!(connectionLost(error)||idleExpired)||outgoing.signal.aborted)throw error;
