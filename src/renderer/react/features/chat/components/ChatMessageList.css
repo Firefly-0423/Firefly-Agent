@@ -83,15 +83,15 @@
   object-fit: cover;
 }
 
-/* Only the newest message's avatar floats. With every avatar animating, a long conversation kept the window
-   re-layerizing and repainting each frame even when idle (about a quarter of a CPU core), which made switching,
-   streaming and typing stutter. */
-.ant-bubble:last-child .ff-message-avatar__image {
+/* Only the newest avatar floats, and only while a reply is live (.is-live, set by ChatMessageList). In a long
+   conversation any running animation here keeps the window re-layerizing every frame: every avatar floating cost
+   about a quarter of a CPU core while idle, and even one cost about a fifth. */
+.ff-message-list.is-live .ant-bubble:last-child .ff-message-avatar__image {
   animation: firefly-avatar-float 3s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ant-bubble:last-child .ff-message-avatar__image {
+  .ff-message-list.is-live .ant-bubble:last-child .ff-message-avatar__image {
     animation: none;
   }
 }
