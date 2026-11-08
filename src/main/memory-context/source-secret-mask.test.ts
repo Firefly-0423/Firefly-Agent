@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { assertContextSecretFree, maskContextSecrets } from "./source-secret-screen";
+import { validateUnit } from "./token-budget";
 
 const maskedGhStatus = "github.com\n  - Active account: true\n  - Token: gho_" + "*".repeat(36) + "\n  - Token scopes: 'repo'\n";
 const leaked = /CANARY|SYNTHETIC_ONLY|SYNTHETIC_SECRET|abcdefghijklmnop/;
@@ -50,6 +51,27 @@ describe("maskContextSecrets", () => {
       expect(after).toHaveLength(before.length);
       expect(after.filter((line, index) => line === before[index]).length / before.length).toBeGreaterThan(0.9);
     }
+  });
+
+  it("derives a message's text from its masked content blocks, so the two stay identical", () => {
+    // Masking text and content separately gave `{"api_key":***` in text but `{"api_key":"***"}` in the block,
+    // and validateUnit (text must equal the joined text blocks) failed with MEMORY_CONTEXT_INPUT_INVALID.
+    const blocks = [{ type: "text", text: "Please inspect this config" }, { type: "text", text: "{\"api_key\":\"SYNTHETIC_SECRET\"}" },
+      { type: "image_url", image_url: { url: "data:image/png;base64,AAAA" } }];
+    const message = { role: "user" as const, text: blocks.filter(block => block.type === "text").map(block => block.text).join("\n"), content: blocks };
+    const masked = maskContextSecrets(message);
+    expect(JSON.stringify(masked)).not.toContain("SYNTHETIC_SECRET");
+    expect(masked.text).toBe((masked.content as Array<{ type: string; text?: string }>).filter(block => block.type === "text").map(block => block.text).join("\n"));
+    expect(() => validateUnit({ id: "u", kind: "recent", messages: [masked] })).not.toThrow();
+    // A secret split across two text blocks passes block by block; the joined text must still come out masked.
+    const split = [{ type: "image_url", image_url: { url: "data:image/png;base64,AAAA" } }, { type: "text", text: "password:" }, { type: "text", text: "hunter2SYNTHETIC_SECRET" }];
+    const splitMasked = maskContextSecrets({ role: "user" as const, text: "password:\nhunter2SYNTHETIC_SECRET", content: split });
+    expect(JSON.stringify(splitMasked)).not.toContain("SYNTHETIC_SECRET");
+    expect(() => validateUnit({ id: "u", kind: "recent", messages: [splitMasked] })).not.toThrow();
+    expect((splitMasked.content as Array<{ type: string }>)[0]?.type).toBe("image_url");
+    const plain = { role: "user" as const, text: "token = abc123secretvalue", content: "token = abc123secretvalue" };
+    const maskedPlain = maskContextSecrets(plain);
+    expect(maskedPlain.text).toBe(maskedPlain.content);
   });
 
   it("masks inside tool results serialized as JSON and keeps the JSON valid", () => {

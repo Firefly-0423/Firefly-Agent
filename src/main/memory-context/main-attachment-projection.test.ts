@@ -48,6 +48,13 @@ it("masks credential values in prepared text before it can become an S projectio
  expect(JSON.stringify(prepared)).not.toContain("SYNTHETIC_SECRET");
  expect(JSON.stringify(prepared)).toContain("api_key=***");
 });
+it("keeps an attachment's text equal to its masked blocks when ordinary text sits beside a credential JSON block", async () => {
+ // Codex review on #47: masking text and content separately failed validateUnit with MEMORY_CONTEXT_INPUT_INVALID.
+ const authority = createMainAttachmentProjectionAuthority(), grant = authority.issue({ ...source, assertCurrent() {} });
+ const prepared = await prepareMainAttachmentProjection(grant, async () => [
+  { type: "text", text: "Please inspect this config" }, { type: "text", text: "{\"api_key\":\"SYNTHETIC_SECRET\"}" }]);
+ expect(JSON.stringify(prepared)).not.toContain("SYNTHETIC_SECRET");
+});
 
 it("keeps close pending until an already started materializer settles even when it ignores cancellation", async () => {
  const authority=createMainAttachmentProjectionAuthority();let finish!:()=>void,entered!:()=>void;

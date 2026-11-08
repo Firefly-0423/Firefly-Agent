@@ -102,6 +102,24 @@ function rememberScreened(item: string, screened: string): void {
  }
 }
 
+/** The text a context message's content stands for: the string itself, or its text blocks joined by newlines. */
+function contentText(content: unknown): string | undefined {
+ if (typeof content === "string") return content;
+ if (!Array.isArray(content)) return undefined;
+ return content.filter((block): block is { type: "text"; text: string } =>
+  !!block && typeof block === "object" && (block as { type?: unknown }).type === "text" && typeof (block as { text?: unknown }).text === "string")
+  .map(block => block.text).join("\n");
+}
+
+/** The blocks with every text block replaced by one holding `text`, where the first text block was; images kept. */
+function withOneTextBlock(blocks: unknown[], text: string): unknown[] {
+ const isText = (block: unknown) => !!block && typeof block === "object" && (block as { type?: unknown }).type === "text";
+ const first = blocks.findIndex(isText);
+ const others = blocks.filter(block => !isText(block));
+ others.splice(first < 0 ? others.length : blocks.slice(0, first).filter(block => !isText(block)).length, 0, { type: "text", text });
+ return others;
+}
+
 /** Replaces each flagged value with *** from where the value starts to the end of its line. */
 function maskLineValues(text: string, starts: RegExp, skip?: (rest: string) => boolean): string {
  const positions = [...text.matchAll(starts)].map(match => match.index! + match[0].length)
@@ -160,7 +178,22 @@ export function maskContextSecrets<T>(value: T): T {
   });
   active.delete(item);
   if (!changed) return item;
-  return Array.isArray(item) ? entries.map(([, child]) => child) : Object.fromEntries(entries);
+  if (Array.isArray(item)) return entries.map(([, child]) => child);
+  const result = Object.fromEntries(entries) as Record<string, unknown>;
+  // A context message's text is its content's text (validateUnit checks it): when the input kept that invariant, rebuild
+  // text from the masked content, since masking the two separately can mask the same secret differently.
+  const original = item as Record<string, unknown>;
+  if (typeof original.text === "string" && original.content !== undefined && contentText(original.content) === original.text) {
+   const derived = contentText(result.content);
+   if (derived !== undefined && passes(derived)) result.text = derived;
+   else if (derived !== undefined) {
+    // A secret split across text blocks passes block by block: mask the joined text and keep it as one text block.
+    const joined = maskText(derived);
+    result.text = joined;
+    result.content = typeof result.content === "string" ? joined : withOneTextBlock(result.content as unknown[], joined);
+   }
+  }
+  return result;
  }
  function screenString(item: string, depth: number): string {
    if (/^\s*[{[\"]/.test(item)) {
