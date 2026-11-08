@@ -86,6 +86,23 @@ const emptyList = async () => [];
 const emptyObject = async () => ({});
 const noSubscription = () => () => {};
 
+// 浏览器预览没有持久化后端；这些默认值按功能域分别构造，避免凭据对象被复用。
+function previewSearchSettings() {
+  return {
+    searchEngine: "off" as const,
+    searchBochaKey: "", searchTavilyKey: "",
+    searchMinimaxKey: "", searchAnySearchKey: "",
+  };
+}
+
+function previewEmailSettings() {
+  return {
+    emailEnabled: false,
+    emailSmtpHost: "", emailSmtpPort: 465, emailSmtpSecure: true,
+    emailSmtpUser: "", emailSmtpPass: "", emailFromName: "",
+  };
+}
+
 if (!window.settings) {
   (window as unknown as { settings: SettingsApi }).settings = {
     minimize: () => {},
@@ -128,18 +145,8 @@ if (!window.settings) {
       travelEnabled: false,
       musicEnabled: true,
       playwrightMcpEnabled: false,
-      searchEngine: "off",
-      searchBochaKey: "",
-      searchTavilyKey: "",
-      searchMinimaxKey: "",
-      searchAnySearchKey: "",
-      emailEnabled: false,
-      emailSmtpHost: "",
-      emailSmtpPort: 465,
-      emailSmtpSecure: true,
-      emailSmtpUser: "",
-      emailSmtpPass: "",
-      emailFromName: "",
+      ...previewSearchSettings(),
+      ...previewEmailSettings(),
     }),
     saveGeneral: (c) => Promise.resolve(c as GeneralSettings),
     channelsGetConfig: () => Promise.resolve({ wechat: {}, feishu: {}, qq: {} }),

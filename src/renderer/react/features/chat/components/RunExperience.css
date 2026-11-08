@@ -410,12 +410,12 @@
 
 .ff-file-change-card__row {
   display: flex;
-  width: 100%;
-  box-sizing: border-box;
   align-items: center;
   gap: 8px;
-  padding: 6px 11px;
+  box-sizing: border-box;
+  width: 100%;
   border: 0;
+  padding: 6px 11px;
   background: transparent;
   color: var(--ff-text, var(--ff-text));
   font: inherit;

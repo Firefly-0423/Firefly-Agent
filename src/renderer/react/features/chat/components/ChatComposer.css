@@ -463,14 +463,14 @@
 
 .ff-composer__footer svg,
 .ff-composer__agent-button svg {
-  width: 16px;
-  height: 16px;
   flex: none;
+  height: 16px;
+  width: 16px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
+  stroke-width: 1.7;
 }
 
 .ff-composer__footer .ff-composer__code-folder-icon,

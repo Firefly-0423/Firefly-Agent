@@ -67,16 +67,16 @@ export function CodeGitPanel({ sessionId, projectName, todoState, planPhase, onO
     refreshControllerRef.current = controller;
     void api.watch(sessionId).catch(() => undefined);
     controller.request();
-    return (): void => {
+    const unsubscribe = api.onChanged((event) => {
+      if (event.sessionId === sessionId) controller.request();
+    });
+    return () => {
       controller.dispose();
       if (refreshControllerRef.current === controller) refreshControllerRef.current = null;
       void api.unwatch(sessionId).catch(() => undefined);
+      unsubscribe();
     };
   }, [api, sessionId]);
-
-  useEffect(() => api?.onChanged((payload) => {
-    if (payload.sessionId === sessionId) refreshControllerRef.current?.request();
-  }), [api, sessionId]);
 
   const todos = todoState?.todos ?? [];
   const completed = todos.filter((todo) => todo.status === "completed").length;

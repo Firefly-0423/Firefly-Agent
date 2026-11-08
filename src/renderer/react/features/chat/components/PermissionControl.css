@@ -65,14 +65,14 @@
 
 .ff-permission-panel__icon svg,
 .ff-permission-control > svg {
-  width: 17px;
-  height: 17px;
   flex: none;
+  height: 17px;
+  width: 17px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 4;
   stroke-linecap: round;
   stroke-linejoin: round;
+  stroke-width: 4;
 }
 .ff-permission-panel__icon svg { width: 16px; height: 16px; }
 
