@@ -183,6 +183,27 @@ it("assigns durable profile revisions across reopen without persisting the host 
   expect(JSON.stringify(f.repo.readRows("jobs", "scope-a"))).not.toMatch(/SYNTHETIC_PROFILE_SECRET|SYNTHETIC_CHANGED_SECRET|https:\/\/synthetic/);
 });
 
+it("accepts a model profile that declares reasoning levels, and a level change is a new revision", () => {
+  // Since 1.1.3 the bound model config carries reasoningLevels; rejecting it stopped natural extraction for such profiles.
+  const f = fixture();
+  const definition = { provider: "synthetic", baseUrl: "https://synthetic.invalid", model: "fake", apiKey: "SYNTHETIC_PROFILE_SECRET", window: 128000,
+    reasoning: { mode: "on", effort: "high" }, reasoningLevels: { efforts: ["low", "high"] } };
+  expect(f.op("profile", { profileId: "levels", definition })).toEqual({ id: "levels", revision: 1 });
+  expect(f.op("profile", { profileId: "levels", definition })).toEqual({ id: "levels", revision: 1 });
+  expect(f.op("profile", { profileId: "levels", definition: { ...definition, reasoningLevels: { efforts: ["low", "high"], allowOff: true } } })).toEqual({ id: "levels", revision: 2 });
+  for (const reasoningLevels of [{ efforts: "high" }, { efforts: [1] }, { efforts: ["high"], allowOff: "yes" }, { efforts: ["high"], extra: true }, []]) {
+    expect(() => f.op("profile", { profileId: "levels", definition: { ...definition, reasoningLevels } })).toThrow("MEMORY_INPUT_INVALID");
+  }
+});
+
+it("accepts every field the shared model config builder can produce", async () => {
+  // naturalModel sends {...binding.config, window, timeout}; binding.config comes from vendorConfigFromSettings.
+  const { vendorConfigFromSettings } = await import("../orchestrator/vendors/vendor-config");
+  const config = vendorConfigFromSettings({ provider: "synthetic", baseUrl: "https://synthetic.invalid", model: "fake", apiKey: "SYNTHETIC_PROFILE_SECRET",
+    explicitTransport: "openai", reasoning: { mode: "on", effort: "high" }, reasoningLevels: { efforts: ["low", "high"], allowOff: true } } as never);
+  expect(fixture().op("profile", { profileId: "full", definition: { ...config, window: 128000, timeout: 60 } })).toEqual({ id: "full", revision: 1 });
+});
+
 it("accepts separately reported cache usage and checks all reported input units against the reservation", async () => {
   const f = fixture(), q = await queued(f), d = dispatch(f, q);
   expect(save(f, q, d.token, { ok: true, text: raw(), usage: { input: 10, cachedInput: 2000, cacheCreation: 100, output: 5 } })).toMatchObject({ phase: "result-saved" });
