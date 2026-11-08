@@ -42,10 +42,11 @@ it("revokes captured projection guards and never invokes accessors", async () =>
  expect(getters).toBe(0);
  expect(() => readMainAttachmentGrant({} as any)).toThrow("MEMORY_ATTACHMENT_DENIED");
 });
-it("screens prepared text before it can become an S projection", async () => {
+it("masks credential values in prepared text before it can become an S projection", async () => {
  const authority = createMainAttachmentProjectionAuthority(), grant = authority.issue({ ...source, assertCurrent() {} });
- await expect(prepareMainAttachmentProjection(grant, async () => [{ type: "text", text: "api_key=SYNTHETIC_SECRET_1234567890" }])).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_SECRET");
- expect(() => readMainAttachmentProjection(authority.token, "session-a", entry())).toThrow("MEMORY_ATTACHMENT_DENIED");
+ const prepared = await prepareMainAttachmentProjection(grant, async () => [{ type: "text", text: "api_key=SYNTHETIC_SECRET_1234567890" }]);
+ expect(JSON.stringify(prepared)).not.toContain("SYNTHETIC_SECRET");
+ expect(JSON.stringify(prepared)).toContain("api_key=***");
 });
 
 it("keeps close pending until an already started materializer settles even when it ignores cancellation", async () => {

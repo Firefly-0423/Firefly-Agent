@@ -152,11 +152,13 @@ it("disposal revokes captured dependencies before releasing its observer",async(
  await expect(f.context.validateForDispatch(f.actor,snapshot)).rejects.toThrow();
  await f.store.append("session-a",user("u2","ordinary store remains usable"));
 });
-it("tool argument secrets cannot enter an S snapshot",async()=>{
+it("tool argument secrets are masked before they can enter an S snapshot",async()=>{
  const f=await fixture();
  await f.store.append("session-a",{id:"a1",at:1001,kind:"assistant",payload:{role:"assistant",content:"",toolCalls:[{id:"call-a",name:"read_file",arguments:"api_key=SECRET_CANARY_1234567890"}]}});
  await f.store.append("session-a",{id:"t1",at:1002,kind:"tool_result",payload:{assistantEntryId:"a1",toolCallId:"call-a",outcome:"success",message:{role:"tool",content:"result",toolCallId:"call-a"}}});
- await expect(f.capture()).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_SECRET");
+ const request=JSON.stringify((await f.assemble()).request);
+ expect(request).not.toContain("SECRET_CANARY");
+ expect(request).toContain("api_key=***");
 });
 
 it("refuses tool result names that disagree with their canonical call",async()=>{
@@ -251,11 +253,11 @@ it.each([
  {rawAssistant:[{type:"thinking",thinking:"api_key=SECRET_CANARY_1234567890"}]},
  {rawAssistant:[{type:"tool_use",id:"call-a",name:"read_file",input:{password:"SECRET_CANARY_1234567890"}}],toolCalls:[{id:"call-a",name:"read_file",arguments:'{"password":"SECRET_CANARY_1234567890"}'}]},
  {content:[{type:"text",text:"api_key=SECRET_CANARY_1234567890"}]}
-])("rejects secrets in all rich message fields: %j",async fields=>{
+])("masks secrets in all rich message fields: %j",async fields=>{
  const f=await fixture();
  await f.store.append("session-a",{id:"a1",at:1001,kind:"assistant",payload:{role:"assistant",content:"public text",...fields} as any});
  if(fields.toolCalls)await f.store.append("session-a",{id:"t1",at:1002,kind:"tool_result",payload:{assistantEntryId:"a1",toolCallId:"call-a",outcome:"success",message:{role:"tool",content:"result",toolCallId:"call-a"}}});
- await expect(f.capture()).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_SECRET");
+ expect(JSON.stringify((await f.assemble()).request)).not.toContain("SECRET_CANARY");
  expect(await f.policy.recall(f.actor)).toEqual([]);
 });
 it("does not treat code field names as persisted secrets or user facts",async()=>{

@@ -74,3 +74,83 @@ export function assertContextSecretFree(value: unknown): void {
  }
  visit(value, 0);
 }
+
+const OMITTED = "[疑似敏感内容，已从模型上下文中省略]";
+const typeDeclaration = /\b(?:type|interface)\s+[A-Za-z_$][\w$]*(?:\s*=)?\s*\{/;
+const primitiveTypeValue = /^(?:string|number|boolean|unknown|never|any)(?=\s*[;,}])/;
+const privateKeyBlock = /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[\s\S]*?(?:-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|$)/gi;
+const credentialEverywhere = new RegExp(credential.source, "gi");
+
+function passes(value: unknown): boolean {
+ try { assertContextSecretFree(value); return true; }
+ catch (error) { if (error instanceof Error && error.message === "MEMORY_CONTEXT_TRANSCRIPT_SECRET") return false; throw error; }
+}
+
+/** Replaces each flagged value with *** from where the value starts to the end of its line. */
+function maskLineValues(text: string, starts: RegExp, skip?: (rest: string) => boolean): string {
+ const positions = [...text.matchAll(starts)].map(match => match.index! + match[0].length)
+  .filter(at => !maskedAssignmentValue.test(text.slice(at)) && !skip?.(text.slice(at)));
+ let result = text;
+ for (const at of positions.reverse()) {
+  const rest = result.slice(at), end = rest.search(/[\r\n]/);
+  result = result.slice(0, at) + "***" + (end < 0 ? "" : rest.slice(end));
+ }
+ return result;
+}
+
+function maskText(item: string): string {
+ const text = item.normalize("NFKC");
+ if (passes(text)) return item;
+ let masked = text.replace(privateKeyBlock, "***").replace(credentialEverywhere, "***");
+ masked = maskLineValues(masked, personalDisclosure);
+ const declaration = typeDeclaration.test(masked);
+ masked = maskLineValues(masked, assignment, rest => declaration && primitiveTypeValue.test(rest));
+ return passes(masked) ? masked : OMITTED;
+}
+
+/**
+ * The model context version of assertContextSecretFree: instead of failing the whole run, each credential-shaped
+ * value is replaced with *** (to the end of its line), and anything that still does not pass the screen is omitted.
+ * Ordinary code such as `token: object` or `apiKey = model.apiKey` trips the screen, and a run that reads code must
+ * not die for it. The result always passes assertContextSecretFree; the stored transcript is not changed.
+ */
+export function maskContextSecrets<T>(value: T): T {
+ const active = new Set<object>();
+ let nodes = 0;
+ function visit(item: unknown, depth: number): unknown {
+  if (++nodes > 200000 || depth > 100) contextFail("MEMORY_CONTEXT_INPUT_INVALID");
+  if (typeof item === "string") {
+   if (/^\s*[{[\"]/.test(item)) {
+    let parsed: unknown;
+    try { parsed = JSON.parse(item); } catch { parsed = undefined; }
+    if (parsed !== undefined) {
+     try { assertUniqueJsonKeys(item); } catch { return OMITTED; }
+     const masked = visit(parsed, depth + 1);
+     return masked === parsed ? item : JSON.stringify(masked);
+    }
+   }
+   return maskText(item);
+  }
+  if (item === null || typeof item !== "object") return item;
+  if (active.has(item)) contextFail("MEMORY_CONTEXT_INPUT_INVALID");
+  active.add(item);
+  let changed = false;
+  const entries = Object.entries(item).map(([key, child]): [string, unknown] => {
+   let nextKey = key;
+   if (!passes(key)) { nextKey = `***${nodes}`; changed = true; }
+   const sensitive = sensitiveKey.test(key.normalize("NFKC"));
+   let next: unknown;
+   if (sensitive && (typeof child === "number" || typeof child === "boolean")) next = "***";
+   else if (sensitive && typeof child === "string" && child.trim() && !maskedValue.test(child.trim())) next = "***";
+   else next = visit(child, depth + 1);
+   if (next !== child) changed = true;
+   return [nextKey, next];
+  });
+  active.delete(item);
+  if (!changed) return item;
+  return Array.isArray(item) ? entries.map(([, child]) => child) : Object.fromEntries(entries);
+ }
+ const result = visit(value, 0) as T;
+ assertContextSecretFree(result);
+ return result;
+}

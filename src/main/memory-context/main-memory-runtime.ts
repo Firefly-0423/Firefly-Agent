@@ -13,7 +13,7 @@ import type { ChatMessage, ChatRequest, ChatResponse, ChatVendorAdapter, VendorC
 import { contextFail, type ContextBudget, type ContextFact, type ContextTransport, type ContextUnit, type PreparedRequest, type TokenCounter } from "./context-contracts";
 import { createMainContext } from "./main-context";
 import type { MemoryRunAuthority, MemoryRunContext, MemoryRunGrant } from "./main-memory-contracts";
-import { assertContextSecretFree } from "./source-secret-screen";
+import { maskContextSecrets } from "./source-secret-screen";
 import { requestDigest, selectBudget } from "./token-budget";
 import {factContextMessages as memoryMessages} from "./fact-context-messages";
 
@@ -263,7 +263,7 @@ export function createMainMemoryRuntime(options: MainMemoryRuntimeOptions): Main
             if (!captured || !Array.isArray(captured.units) || !captured.units.length || typeof captured.assertCurrent !== "function") contextFail("MEMORY_CONTEXT_RECENT_INCOMPLETE");
             const validate = () => { assertCurrent(); if (callSignal.aborted) contextFail("MEMORY_CONTEXT_CANCELLED"); captured.assertCurrent(); };
             validate(); active.validateCurrent = validate;
-            const units = copyResponseJson(captured.units, true); assertContextSecretFree(units);
+            const units = maskContextSecrets(copyResponseJson(captured.units, true));
             const selected = await selectBudget({ counter, budget, units, prepare: units => prepare(units, []), prepareS: units => prepare(units, [], true), signal: callSignal });
             const prepared = active.calls.get(selected.requestDigest); if (!prepared || !selected.selectedIds.length) contextFail("MEMORY_CONTEXT_RECENT_INCOMPLETE");
             // Private preparation handle is the one-use permit for an entirely ephemeral run.

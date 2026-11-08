@@ -1,4 +1,4 @@
-import {assertContextSecretFree} from "./source-secret-screen";
+import {assertContextSecretFree,maskContextSecrets} from "./source-secret-screen";
 import {readHistoryEvidence,validateHistoryEvidence,claimHistoryResponseEvidence,type HistoryResponseBinding,type HistoryResponseEvidence} from "../memory-history/main-history";
 import {createHash,randomUUID} from "node:crypto";
 import {canonicalJson} from "../memory-core/repository-types";
@@ -201,7 +201,7 @@ export function createMainContext(options:ContextOptions){
    await options.actorAuthority.coordinate(()=>command(a,"transcriptReserve",{generation:baseline.generation,headId,operationId,expectedRef:null},randomUUID()));
    const first=parseCanonicalTranscript(await read()),snapshot=parseCanonicalTranscript(await read());
    if(canonicalJson(first)!==canonicalJson(snapshot))contextFail("MEMORY_CONTEXT_TRANSCRIPT_CHANGED");
-   assertContextSecretFree(snapshot.unit.messages);
+   snapshot.unit.messages=maskContextSecrets(snapshot.unit.messages);
    const {view,...content}=snapshot;
    const refs=snapshot.sourceRefs.map(ref=>checkedRef(a,ref)),digest=createHash("sha256").update(canonicalJson(content)).digest("hex"),guardRefs:TranscriptDependency[]=[];
    if(view){

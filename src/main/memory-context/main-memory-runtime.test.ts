@@ -417,11 +417,12 @@ it("does not authorize fallback for a server failure merely mentioning unsupport
 });
 
 
-it("screens actual credentials from ephemeral S without persisting or sending them", async () => {
+it("masks actual credentials in ephemeral S so they are never persisted or sent", async () => {
   const f = await fixture("temporary", true); f.setTemporaryText("password = synthetic-super-secret-value");
-  const before = f.commands.length, run = await f.runtime.openRun(f.grant());
-  await expect(run.call(f.input())).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_SECRET");
-  expect(f.commands).toHaveLength(before); expect(f.sent).toEqual([]); expect(f.counted).toEqual([]);
+  const run = await f.runtime.openRun(f.grant());
+  await run.call(f.input());
+  for (const seen of [f.commands, f.sent, f.counted]) expect(JSON.stringify(seen)).not.toContain("synthetic-super-secret-value");
+  expect(JSON.stringify(f.sent)).toContain("password = ***");
 });
 
 it("rejects wire output bounds above the approved profile reserve without changing settings", async () => {
