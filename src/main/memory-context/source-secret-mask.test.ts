@@ -74,6 +74,19 @@ describe("maskContextSecrets", () => {
     expect(maskedPlain.text).toBe(maskedPlain.content);
   });
 
+  it("renames a credential-bearing key the same way wherever the same arguments appear", () => {
+    // Codex review on #47: keys were renamed by traversal position (***15 vs ***22), so a tool call's arguments and its
+    // raw input no longer matched and validateUnit threw MEMORY_CONTEXT_TOOL_PAIR_INVALID.
+    const args = { "api_key=CANARY": "ok", "token=CANARY2": "x", plain: "value" };
+    const message = { role: "assistant" as const, text: "", toolCalls: [{ id: "call-1", name: "read_file", arguments: JSON.stringify(args) }], toolCallIds: ["call-1"],
+      rawAssistant: [{ type: "text", text: "" }, { type: "tool_use", id: "call-1", name: "read_file", input: args }] };
+    const tool = { role: "tool" as const, text: "done", toolCallId: "call-1", name: "read_file" };
+    expect(() => validateUnit({ id: "u", kind: "recent", messages: [message, tool] })).not.toThrow();
+    const masked = maskContextSecrets([message, tool]);
+    expect(JSON.stringify(masked)).not.toContain("CANARY");
+    expect(() => validateUnit({ id: "u", kind: "recent", messages: masked })).not.toThrow();
+  });
+
   it("masks many assignments in one pass, not in time quadratic in their number", () => {
     // Codex review on #47: 30,000 lines took about 50 s because each match rebuilt the whole string.
     const pasted = "api_key=CANARY\n".repeat(30000);
