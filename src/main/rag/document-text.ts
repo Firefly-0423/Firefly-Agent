@@ -70,18 +70,24 @@ async function part(zip: any, name: string): Promise<string | null> {
 
 /** Word body text: one line per paragraph, table cells separated by tabs, rows by line breaks. */
 export function wordXmlText(xml: string): string {
-  let out = "";
+  // Fragments, not one growing string: a cell or row end only swaps the last separator, never recopies the text.
+  const parts: string[] = [];
+  let length = 0;
+  const push = (text: string) => { parts.push(text); length += text.length; };
+  const swapTrailing = (from: string, to: string) => {
+    if (parts.length && parts[parts.length - 1] === from) { parts[parts.length - 1] = to; return; }
+    push(to);
+  };
   const pattern = /<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>|<w:(tab|br|cr)\b[^>]*\/>|<\/w:(p|tc|tr)>/g;
   for (let match = pattern.exec(xml); match; match = pattern.exec(xml)) {
-    if (match[1] !== undefined) out += decodeXml(match[1]);
-    else if (match[2] === "tab") out += "\t";
-    else if (match[2]) out += "\n";
-    else if (match[3] === "p") out += "\n";
-    else if (match[3] === "tc") out = out.replace(/\n$/, "") + "\t";
-    else out = out.replace(/\t$/, "") + "\n";
-    if (out.length > DOCUMENT_TEXT_MAX_CHARS) break;
+    if (match[1] !== undefined) { if (match[1]) push(decodeXml(match[1])); }
+    else if (match[2] === "tab") push("\t");
+    else if (match[2] || match[3] === "p") push("\n");
+    else if (match[3] === "tc") swapTrailing("\n", "\t");
+    else swapTrailing("\t", "\n");
+    if (length > DOCUMENT_TEXT_MAX_CHARS) break;
   }
-  return out;
+  return parts.join("");
 }
 
 /** DrawingML text (slides, notes): one line per paragraph. */

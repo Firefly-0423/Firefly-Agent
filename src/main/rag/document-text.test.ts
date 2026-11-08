@@ -88,6 +88,16 @@ describe("extractDocumentText", () => {
     expect(await extractDocumentText(Buffer.from(bytes), ".docx")).toBe("缓存");
   });
 
+  it("extracts a large Word table in linear time", () => {
+    // Codex review on #47: each cell end recopied the whole output, so 5,000 rows took about 8 s.
+    const row = `<w:tr><w:tc>${paragraph("名称名称名称")}</w:tc><w:tc>${paragraph("12345")}</w:tc></w:tr>`;
+    const began = performance.now();
+    const text = wordXmlText(`<w:tbl>${row.repeat(20000)}</w:tbl>`);
+    expect(performance.now() - began).toBeLessThan(1500);
+    expect(text.split("\n")).toHaveLength(20001);
+    expect(text.startsWith("名称名称名称\t12345\n")).toBe(true);
+  });
+
   it("stops at the character cap instead of building an unbounded string", () => {
     const huge = paragraph("x".repeat(1000)).repeat(9000);
     expect(wordXmlText(huge).length).toBeLessThan(8_100_000);
