@@ -62,6 +62,17 @@ describe("loaded-run cache and evidence reads", () => {
     expect(read.mock.calls.filter(([file]) => String(file).includes("cycle-"))).toHaveLength(0);
     for (const runId of ids) writer.markTerminal(runId, "completed");
   });
+  it("a failed write leaves memory at what disk holds, not ahead of it", () => {
+    const { store } = storage();
+    const rename = fs.renameSync.bind(fs);
+    const failing = vi.spyOn(fs, "renameSync").mockImplementationOnce(() => { throw new Error("disk full"); });
+    expect(() => store.recordTools("audit-bronze", [readCall("lost-call")])).toThrow("disk full");
+    failing.mockImplementation(rename);
+    expect(store.get("audit-bronze")?.toolCalls).toEqual([]);
+    expect(store.evidence("audit-bronze")?.toolCalls).toEqual([]);
+    store.recordTools("audit-bronze", [readCall("kept-call")]);
+    expect(store.get("audit-bronze")?.toolCalls.map(call => call.toolCallId)).toEqual(["kept-call"]);
+  });
   it("a new store instance reads what the previous one wrote, and deletion is not served from memory", () => {
     const { root, store } = storage();
     store.checkpoint("audit-bronze", { rounds: 3 });

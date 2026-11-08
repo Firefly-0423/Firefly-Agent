@@ -234,7 +234,13 @@ export class HarnessRunStore {
   private persist(session: HarnessRunSession, mode: "now" | "lazy" = "lazy"): void {
     const memoryOnly = this.volatile.has(session.runId) || ephemeralConversations.has(session.conversationId);
     if (memoryOnly) this.volatile.set(session.runId, session);
-    else { this.atomicWrite(this.sessionPath(session.runId), session); this.remember(session); this.noteEvidence(session); }
+    else {
+      // Callers mutate the loaded session before persisting it. If the write fails, memory must not stay ahead of
+      // disk: forget the cached copy so the next read sees what was actually saved.
+      try { this.atomicWrite(this.sessionPath(session.runId), session); }
+      catch (failure) { this.loaded.delete(session.runId); this.evidenceByRun.delete(session.runId); throw failure; }
+      this.remember(session); this.noteEvidence(session);
+    }
     this.rows.set(session.runId, indexEntry(session));
     if (memoryOnly) return;
     if (mode === "now") this.writeIndexNow();
