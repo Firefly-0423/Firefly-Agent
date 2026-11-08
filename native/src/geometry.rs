@@ -1,75 +1,37 @@
 //! 截图覆盖层用到的纯几何计算：裁剪、拖拽手柄、旋转换算、工具栏摆放，以及标注列表。
 
-/// 整数矩形：左上角加宽高。
+/// 屏幕上的整数点，单位为物理像素。
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct RectI {
-    /// 左上角横坐标
-    pub x: i32,
-    /// 左上角纵坐标
-    pub y: i32,
-    /// 宽度
-    pub width: u32,
-    /// 高度
-    pub height: u32,
+pub struct PointI { pub x: i32, pub y: i32 }
+
+/// 整数矩形：`(x, y)` 是左上角，向右、向下各延伸 `width`、`height` 像素。
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct RectI { pub x: i32, pub y: i32, pub width: u32, pub height: u32 }
+
+/// 标注用的工具与颜色。工具栏上色块的排列由渲染器自行决定，与这里的声明顺序无关。
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AnnotationTool { Arrow, Rectangle }
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AnnotationColor { Blue, Green, Red, Yellow }
+
+/// 选区边框上的八个缩放手柄，从顶边中点起顺时针排列；命中检测的先后另有规定。
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SelectionHandle { Top, TopRight, Right, BottomRight, Bottom, BottomLeft, Left, TopLeft }
+
+/// 一个已画出的标记：用的工具、拖动的起止点和颜色。矩形取两点为对角，箭头从 `start` 指向 `end`。
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Mark {
+    pub tool: AnnotationTool,
+    pub start: PointI,
+    pub end: PointI,
+    pub color: AnnotationColor,
 }
 
-/// 整数坐标点。
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct PointI {
-    pub x: i32,
-    pub y: i32,
-}
-
-/// 选区边框上的八个缩放手柄。
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum SelectionHandle {
-    // 四个角
-    TopLeft,
-    TopRight,
-    BottomRight,
-    BottomLeft,
-    // 四条边的中点
-    Top,
-    Right,
-    Bottom,
-    Left,
-}
-
-/// 标注可选的颜色。
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum AnnotationColor {
-    Red,
-    Yellow,
-    Green,
-    Blue,
-}
-
-/// 标注工具。
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum AnnotationTool {
-    Rectangle,
-    Arrow,
-}
-
-/// 一个已画出的标记：由起止两点与颜色决定。
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Mark {
-    /// 矩形框
-    Rect {
-        /// 起点
-        start: PointI,
-        /// 终点
-        end: PointI,
-        color: AnnotationColor,
-    },
-    /// 箭头
-    Arrow {
-        /// 箭尾
-        start: PointI,
-        /// 箭头所指处
-        end: PointI,
-        color: AnnotationColor,
-    },
+impl Mark {
+    pub fn is_arrow(&self) -> bool {
+        self.tool == AnnotationTool::Arrow
+    }
 }
 
 /// 当前标注会话：选中的工具、颜色，以及已画出的标记（按先后顺序）。

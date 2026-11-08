@@ -119,24 +119,28 @@ const WINDOW_CLASS: PCWSTR = w!("FireflyScreenshotOverlayWindow");
 
 const HWND_TOPMOST: HWND = HWND(-1isize as *mut _);
 
-pub const CMD_CONFIRM: usize = 1;
+// WM_COMMAND 的命令编号：确认当前选区、取消本次截图。
+const CMD_CONFIRM: usize = 1;
+const CMD_CANCEL: usize = CMD_CONFIRM + 1;
 
-pub const CMD_CANCEL: usize = 2;
-
+// 工具栏尺寸，单位是 96 DPI 下的像素，绘制时按显示器 DPI 缩放。
+// 间距：工具栏与选区之间、相邻按钮之间各留 8 像素。
+pub const TOOLBAR_GAP: u32 = 8;
+pub const TOOLBAR_BUTTON_GAP: u32 = TOOLBAR_GAP;
+pub const TOOLBAR_HEIGHT: u32 = 40;
 pub const TOOLBAR_WIDTH: u32 = 232;
 
-pub const TOOLBAR_HEIGHT: u32 = 40;
-
-pub const TOOLBAR_GAP: u32 = 8;
-
-pub const TOOLBAR_BUTTON_GAP: u32 = 8;
-
+/// 遮罩窗口交给主循环处理的一次用户动作。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OverlayAction {
-    Selected,
-    Commit,
-    Cancel,
+    /// 显示器或 DPI 变了，当前冻结帧作废。
     DisplayChanged,
+    /// 框选完成，等待确认或标注。
+    Selected,
+    /// Esc、右键或工具栏取消。
+    Cancel,
+    /// 回车、双击或工具栏确认。
+    Commit,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -826,34 +830,11 @@ fn make_mark(
     to: PointI,
     hue: AnnotationColor
 ) -> Option<Mark> {
-    selected_tool.map(
-        |tool| match tool {
-            AnnotationTool::Rectangle => Mark::Rect {
-                start: from,
-                end: to,
-                color: hue
-            },
-            AnnotationTool::Arrow => Mark::Arrow {
-                start: from,
-                end: to,
-                color: hue
-            },
-        }
-    )
+    selected_tool.map(|tool| Mark { tool, start: from, end: to, color: hue })
 }
 
 fn mark_size(annotation: Mark) -> i32 {
-    let (from, to) = match annotation {
-        Mark::Rect {
-            start: from,
-            end: to,
-            ..
-        } | Mark::Arrow {
-            start: from,
-            end: to,
-            ..
-        } => (from, to),
-    };
+    let (from, to) = (annotation.start, annotation.end);
     (from.x - to.x).abs().max((from.y - to.y).abs())
 }
 
@@ -913,17 +894,7 @@ fn draft_repaint_region(
 }
 
 fn mark_bounds(annotation: Mark) -> (i32, i32, i32, i32) {
-    let (from, to) = match annotation {
-        Mark::Rect {
-            start: from,
-            end: to,
-            ..
-        } | Mark::Arrow {
-            start: from,
-            end: to,
-            ..
-        } => (from, to),
-    };
+    let (from, to) = (annotation.start, annotation.end);
     (from.x.min(to.x), from.y.min(to.y), from.x.max(to.x), from.y.max(to.y))
 }
 
@@ -1018,41 +989,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn selected_mouse_move_without_visual_change_does_not_request_repaint() {
+    fn hovering_over_a_finished_selection_repaints_only_when_something_changed() {
         assert!(!mouse_move_requires_repaint(&InputState::Selected, false));
+        assert!(mouse_move_requires_repaint(&InputState::Selected, true));
     }
 
     #[test]
-    fn drawing_repaint_region_covers_previous_and_current_marks_only() {
-        let previous = Mark::Rect {
-            start: PointI { x: 30, y: 30 },
-            end: PointI { x: 40, y: 40 },
-            color: AnnotationColor::Red,
-        };
-        let current = Mark::Arrow {
-            start: PointI { x: 30, y: 30 },
-            end: PointI { x: 60, y: 50 },
-            color: AnnotationColor::Red,
-        };
-
-        assert_eq!(
-            draft_repaint_region(
-                Some(previous),
-                Some(current),
-                RectI {
-                    x: 0,
-                    y: 0,
-                    width: 100,
-                    height: 80,
-                },
-                16,
-            ),
-            Some(RectI {
-                x: 14,
-                y: 14,
-                width: 62,
-                height: 52,
-            })
-        );
+    fn a_draft_repaints_the_union_of_its_old_and_new_shape_plus_a_margin_inside_the_view() {
+        let old = Mark { tool: AnnotationTool::Arrow, start: PointI { x: 50, y: 20 }, end: PointI { x: 70, y: 35 }, color: AnnotationColor::Yellow };
+        let new = Mark { tool: AnnotationTool::Rectangle, start: PointI { x: 55, y: 25 }, end: PointI { x: 90, y: 60 }, color: AnnotationColor::Yellow };
+        let view = RectI { x: 0, y: 0, width: 95, height: 65 };
+        // Union 50..90 × 20..60, grown by 10 to 40..100 × 10..70, then cut to the 95×65 view.
+        assert_eq!(draft_repaint_region(Some(old), Some(new), view, 10), Some(RectI { x: 40, y: 10, width: 55, height: 55 }));
+        assert_eq!(draft_repaint_region(None, None, view, 10), None, "no draft, nothing to repaint");
     }
 }

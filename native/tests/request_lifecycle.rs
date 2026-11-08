@@ -1,7 +1,7 @@
 //! Bookkeeping for capture requests: a request stays open until Main hears it completed or cancelled.
 
 use firefly_screenshot::protocol::CaptureMode;
-use firefly_screenshot::request::{CaptureInteractionState, RequestRegistry};
+use firefly_screenshot::request::RequestRegistry;
 
 fn opened(id: &str, mode: CaptureMode) -> RequestRegistry {
     let mut registry = RequestRegistry::default();
@@ -41,10 +41,9 @@ fn a_finished_request_cannot_finish_again_and_an_unknown_one_is_reported() {
 }
 
 #[test]
-fn the_interaction_runs_through_six_distinct_phases() {
-    use CaptureInteractionState::*;
-    let phases = [Idle, Freezing, Selecting, Selected, Committing, Cancelling];
-    for (index, phase) in phases.iter().enumerate() {
-        assert_eq!(phases.iter().filter(|other| *other == phase).count(), 1, "phase {index} is distinct");
-    }
+fn a_finished_request_cannot_be_released_again() {
+    let mut registry = opened("over", CaptureMode::ClipboardAndFile);
+    registry.capture_released("over", true, 64, 48).expect("the first release is recorded");
+    registry.complete("over", Some("over.png".to_owned())).expect("the request completes");
+    assert_eq!(registry.capture_released("over", true, 64, 48).expect_err("release after completion").code(), "request-already-finished");
 }

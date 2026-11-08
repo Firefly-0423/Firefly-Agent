@@ -2,7 +2,7 @@
 //! grabbing and dragging selection handles, and the annotation history.
 
 use firefly_screenshot::geometry::{
-    AnnotationColor, AnnotationState, DisplayRotation, Mark, PointI, RectI, SelectionHandle, hit_test_selection_handle,
+    AnnotationColor, AnnotationState, AnnotationTool, DisplayRotation, Mark, PointI, RectI, SelectionHandle, hit_test_selection_handle,
     localize_window_rect, place_toolbar, resize_selection, rotate_rect_to_display,
 };
 
@@ -85,9 +85,9 @@ fn dragging_a_handle_stays_in_bounds_flips_past_the_far_edge_and_keeps_a_minimum
 fn undo_takes_back_the_latest_mark_and_clear_empties_the_history() {
     let mut history = AnnotationState::default();
     assert!(history.undo().is_none(), "nothing to undo yet");
-    history.push(Mark::Arrow { start: at(5, 5), end: at(60, 30), color: AnnotationColor::Yellow });
-    history.push(Mark::Rect { start: at(10, 40), end: at(70, 90), color: AnnotationColor::Red });
-    assert!(matches!(history.undo(), Some(Mark::Rect { .. })));
+    history.push(Mark { tool: AnnotationTool::Arrow, start: at(5, 5), end: at(60, 30), color: AnnotationColor::Yellow });
+    history.push(Mark { tool: AnnotationTool::Rectangle, start: at(10, 40), end: at(70, 90), color: AnnotationColor::Red });
+    assert!(matches!(history.undo(), Some(Mark { tool: AnnotationTool::Rectangle, .. })));
     assert_eq!(history.len(), 1);
     history.clear();
     assert!(history.is_empty());

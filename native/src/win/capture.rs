@@ -22,14 +22,13 @@ use crate::win::display::DisplayInfo;
 /// 调用方无需关心物理显示器的旋转。
 #[derive(Clone, Debug)]
 pub struct CpuBgraFrame {
-    /// 像素宽度
-    pub width: u32,
-    /// 像素高度
-    pub height: u32,
-    /// 每行字节数
-    pub pitch: u32,
-    /// BGRA 像素数据，共 `pitch * height` 字节以内
+    /// 按行排列的 BGRA 字节，行与行之间相隔 `pitch` 字节。
     pub pixels: Vec<u8>,
+    /// 一行占用的字节数（不小于 `width * 4`）。
+    pub pitch: u32,
+    /// 画面宽、高（像素，规范朝向）。
+    pub width: u32,
+    pub height: u32,
 }
 
 /// DXGI 抓屏路径产出的 GPU 冻结帧句柄。
@@ -42,19 +41,18 @@ pub struct CpuBgraFrame {
 /// COM 类型不在抽象层之外暴露，使 trait 面向 UI 线程的用法保持 `Send` 友好。
 #[derive(Debug)]
 pub struct GpuFrozenFrame {
-    /// 规范朝向下的宽度
-    pub(crate) width: u32,
-    /// 规范朝向下的高度
-    pub(crate) height: u32,
-    /// 抓取时显示器的旋转角度
-    #[allow(dead_code)]
-    pub(crate) rotation: DisplayRotation,
-    /// 原始（未旋转）的冻结纹理。
+    // COM 资源按声明顺序释放：纹理先于创建它们的设备与上下文。
+    /// 抓到的原始纹理，保持物理显示器的朝向。
     pub(crate) frozen: ID3D11Texture2D,
-    /// 与规范 `display.bounds` 对应、已按显示朝向摆正的纹理。
+    /// 旋转显示器上已摆正到 `display.bounds` 朝向的副本；未旋转时为 None。
     pub(crate) frozen_oriented: Option<ID3D11Texture2D>,
     pub(crate) device: windows::Win32::Graphics::Direct3D11::ID3D11Device,
     pub(crate) context: windows::Win32::Graphics::Direct3D11::ID3D11DeviceContext,
+    /// 规范朝向下的宽、高，以及抓取时显示器的旋转。
+    pub(crate) width: u32,
+    pub(crate) height: u32,
+    #[allow(dead_code)]
+    pub(crate) rotation: DisplayRotation,
 }
 
 impl GpuFrozenFrame {
@@ -197,11 +195,11 @@ pub enum FrozenFrame {
 /// `Updated` 与 `Lost` 由自带持续帧缓冲的后端（DXGI duplication）产生。
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RefreshOutcome {
-    /// 取得了新画面
-    Updated,
-    /// 画面没有变化
+    /// 与上次相比没有新画面。
     Unchanged,
-    /// duplication 已失效，需要重建
+    /// 拿到了一帧新画面。
+    Updated,
+    /// DXGI duplication 已失效，调用方应先 `recover` 再抓取。
     Lost,
 }
 
@@ -215,17 +213,14 @@ pub enum RefreshOutcome {
 pub struct CaptureDiagnostics {
     /// 协议上显示的后端标识，例如 `"dxgi"`、`"gdi"`。
     pub backend: &'static str,
-    /// 把整屏大小的缓冲读回 CPU 的 `Map`/`BitBlt` 总次数。
-    /// DXGI 在 `Start` 与 `overlay-visible` 之间必须保持为 0。
-    pub full_frame_cpu_readbacks: u64,
-    /// 读回选区（或更小区域）的 `Map`/`BitBlt` 总次数，两种后端都在提交时累加。
-    pub selection_cpu_readbacks: u64,
-    /// `AcquireNextFrame` 返回 `S_OK`（DXGI）或冻结成功（GDI）的次数；
-    /// GDI 在首次冻结时记 1。
+    /// 拿到新画面的次数：DXGI 是 `AcquireNextFrame` 成功，GDI 是冻结成功（首次冻结记 1）。
     pub latest_copies: u64,
-    /// DXGI duplication 与纹理被重建的次数（ACCESS_LOST、显示器或 DPI 变化）；
-    /// 正常桌面下为 0。
+    /// DXGI duplication 与纹理的重建次数（ACCESS_LOST、显示器或 DPI 变化），正常桌面下为 0。
     pub duplication_rebuilds: u64,
+    /// 整屏读回 CPU（`Map`/`BitBlt`）的次数；DXGI 从 `Start` 到 `overlay-visible` 必须为 0。
+    pub full_frame_cpu_readbacks: u64,
+    /// 只读回选区或更小区域的次数，两种后端都在确认时累加。
+    pub selection_cpu_readbacks: u64,
 }
 
 /// 抓屏后端需要提供的能力。
@@ -233,26 +228,9 @@ pub struct CaptureDiagnostics {
 /// 当前 helper 只在单线程内使用后端，实现应保持 `Send` 安全，
 /// 但不要假定 `Sync`；唯一的使用者是 UI 线程。
 pub trait CaptureBackend {
+    // 身份与诊断计数
     /// 后端的稳定名称，会作为 [`CaptureDiagnostics::backend`] 发到协议上。
     fn name(&self) -> &'static str;
-
-    /// 刷新后端认为的最新画面，并说明这一帧是新的、没变还是已丢失。
-    /// `timeout_ms` 只是提示，GDI 后端忽略它。
-    fn refresh_latest(&mut self, timeout_ms: u32) -> Result<RefreshOutcome, HelperError>;
-
-    /// 重建与显示器拓扑或图形设备绑定的资源。DXGI 会替换 duplication 与纹理池，
-    /// 按需拉取的后端可以保持原状。
-    fn recover(&mut self, _display: &DisplayInfo) -> Result<(), HelperError> {
-        Ok(())
-    }
-
-    /// 冻结主显示器当前画面，得到尺寸与规范朝向下 `display.bounds` 一致的 [`FrozenFrame`]。
-    /// 调用方传入 `display`，以便后端施加所需的旋转变换。
-    fn freeze(&mut self, display: &DisplayInfo) -> Result<FrozenFrame, HelperError>;
-
-    /// 丢弃后端持有的持久状态，使下一次冻结重新抓取。
-    /// 没有持久状态的后端可以什么也不做。
-    fn invalidate(&mut self);
 
     /// 取得当前计数快照；返回值是 `Copy`，读取不会影响后端内部状态。
     fn diagnostics(&self) -> CaptureDiagnostics;
@@ -261,11 +239,31 @@ pub trait CaptureBackend {
     /// 使诊断计数与实际读回保持一致。
     fn record_selection_readback(&mut self);
 
+    // 抓取
+    /// 冻结主显示器当前画面，得到尺寸与规范朝向下 `display.bounds` 一致的 [`FrozenFrame`]。
+    /// 调用方传入 `display`，以便后端施加所需的旋转变换。
+    fn freeze(&mut self, display: &DisplayInfo) -> Result<FrozenFrame, HelperError>;
+
+    /// 刷新后端认为的最新画面，并说明这一帧是新的、没变还是已丢失。
+    /// `timeout_ms` 只是提示，GDI 后端忽略它。
+    fn refresh_latest(&mut self, timeout_ms: u32) -> Result<RefreshOutcome, HelperError>;
+
     /// 刚取得的 DXGI 帧是否无法满足 helper 的光标策略，
     /// 为真时本次抓屏会话应改用 GDI。
     fn should_fallback_to_gdi(&self) -> bool {
         false
     }
+
+    // 恢复与清理
+    /// 重建与显示器拓扑或图形设备绑定的资源。DXGI 会替换 duplication 与纹理池，
+    /// 按需拉取的后端可以保持原状。
+    fn recover(&mut self, _display: &DisplayInfo) -> Result<(), HelperError> {
+        Ok(())
+    }
+
+    /// 丢弃后端持有的持久状态，使下一次冻结重新抓取。
+    /// 没有持久状态的后端可以什么也不做。
+    fn invalidate(&mut self);
 }
 
 /// 冻结帧的规范尺寸；帧里任一边为 0 时退回显示器自身的宽高。
