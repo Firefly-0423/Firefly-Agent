@@ -99,6 +99,10 @@ import {
   type TodoStateBySession,
 } from "./session-runtime-state";
 import {
+  planApproved, planClaimedByMessage, planCompleted, planDispatchFailed, planProposed, planRunEnded, planRunStarted,
+  type PlanReviewBySession,
+} from "./plan-review-state";
+import {
   createPendingQueueFlow,
   type PendingQueueFlow,
   type PendingQueueFlowHost,
@@ -253,9 +257,7 @@ export function ChatPage() {
 
   const [todoStateBySession, setTodoStateBySession] = useState<TodoStateBySession>({});
   // 计划模式（Plan Mode 二期）：会话级计划面板内容与阶段（review → executing → completed）。
-  const [planReviewBySession, setPlanReviewBySession] = useState<
-    Record<string, { content: string; planPath: string; phase: PlanReviewPhase; executionRunId?: string; executionAssistantId?: string; dispatchAttemptId?: string }>
-  >({});
+  const [planReviewBySession, setPlanReviewBySession] = useState<PlanReviewBySession>({});
   const [planDrawerOpen, setPlanDrawerOpen] = useState(false);
   const [interruptedRun, setInterruptedRun] = useState<{ runId: string; rounds: number; todoCount: number } | null>(null);
   // 会话守卫冲突（SESSION_RUN_ACTIVE）：主进程拒绝了并发 run，
@@ -626,14 +628,7 @@ export function ChatPage() {
       switch (event.name) {
         case "firefly.plan.review":
           if (value?.sessionId && typeof value.planContent === "string" && value.planContent.trim()) {
-            setPlanReviewBySession((current) => ({
-              ...current,
-              [value.sessionId!]: {
-                content: value.planContent!,
-                planPath: value.planPath ?? "",
-                phase: "review",
-              },
-            }));
+            setPlanReviewBySession(planProposed(value.sessionId, value.planContent, value.planPath));
             setPlanDrawerOpen(true);
             setActiveTabId(`plan:${value.sessionId}`);
           }
@@ -641,16 +636,8 @@ export function ChatPage() {
         case "firefly.plan.approved":
           if (value?.sessionId) {
             const sessionId = value.sessionId, attemptId = crypto.randomUUID();
-            setPlanReviewBySession((current) => current[sessionId]
-              ? { ...current, [sessionId]: { ...current[sessionId], phase: "executing", dispatchAttemptId: attemptId } }
-              : current);
-            const dispatchFailed = () => setPlanReviewBySession(current => {
-              const plan = current[sessionId];
-              // An earlier approval's failed enqueue must not overwrite a newly
-              // reviewed plan or a controller that has already taken execution.
-              if (!plan || plan.phase !== "executing" || plan.dispatchAttemptId !== attemptId || plan.executionAssistantId || plan.executionRunId) return current;
-              return { ...current, [sessionId]: { ...plan, phase: "failed" } };
-            });
+            setPlanReviewBySession(planApproved(sessionId, attemptId));
+            const dispatchFailed = () => setPlanReviewBySession(planDispatchFailed(sessionId, attemptId));
             void sendMessage(t("chatPage.planApprovedAutoMessage"), undefined, dispatchFailed).catch(dispatchFailed);
           }
           break;
@@ -817,35 +804,10 @@ export function ChatPage() {
         },
         setInteraction: setInteractionForSession,
         clearInteraction: clearInteractionForSession,
-        bindPlanAttempt: (sessionId, assistantId) => {
-          setPlanReviewBySession(current => {
-            const plan = current[sessionId];
-            if (!plan || (plan.phase !== "executing" && !(plan.phase === "failed" && !plan.executionRunId))) return current;
-            if (plan.phase === "executing" && plan.executionAssistantId && plan.executionAssistantId !== assistantId) return current;
-            return { ...current, [sessionId]: { ...plan, phase: "executing", executionAssistantId: assistantId } };
-          });
-        },
-        bindPlanRun: (sessionId, runId) => {
-          setPlanReviewBySession(current => {
-            const plan = current[sessionId];
-            if (!plan || plan.phase !== "executing" || plan.executionRunId || plan.executionAssistantId !== input.assistantId) return current;
-            return { ...current, [sessionId]: { ...plan, executionRunId: runId } };
-          });
-        },
-        failPlan: (sessionId, runId, phase) => {
-          setPlanReviewBySession(current => {
-            const plan = current[sessionId];
-            if (!plan || plan.executionRunId !== runId || plan.executionAssistantId !== input.assistantId) return current;
-            return { ...current, [sessionId]: { ...plan, phase } };
-          });
-        },
-        completePlan: (sessionId, planPath, runId) => {
-          setPlanReviewBySession((current) => {
-            const plan = current[sessionId];
-            if (!plan || plan.phase !== "executing" || plan.planPath !== planPath || plan.executionRunId !== runId) return current;
-            return { ...current, [sessionId]: { ...plan, phase: "completed" } };
-          });
-        },
+        bindPlanAttempt: (sessionId, assistantId) => setPlanReviewBySession(planClaimedByMessage(sessionId, assistantId)),
+        bindPlanRun: (sessionId, runId) => setPlanReviewBySession(planRunStarted(sessionId, input.assistantId, runId)),
+        failPlan: (sessionId, runId, phase) => setPlanReviewBySession(planRunEnded(sessionId, input.assistantId, runId, phase)),
+        completePlan: (sessionId, planPath, runId) => setPlanReviewBySession(planCompleted(sessionId, planPath, runId)),
         dismissAskIfMatched: (sessionId, value) => {
           setInteractionsBySession((current) => removeSessionInteractionsWhere(
             current,
