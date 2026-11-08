@@ -78,10 +78,22 @@
 }
 
 .ff-message-avatar__image {
-  animation: firefly-avatar-float 3s ease-in-out infinite;
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.16));
   border: 1px solid var(--ff-border);
   object-fit: cover;
+}
+
+/* Only the newest message's avatar floats. With every avatar animating, a long conversation kept the window
+   re-layerizing and repainting each frame even when idle (about a quarter of a CPU core), which made switching,
+   streaming and typing stutter. */
+.ant-bubble:last-child .ff-message-avatar__image {
+  animation: firefly-avatar-float 3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ant-bubble:last-child .ff-message-avatar__image {
+    animation: none;
+  }
 }
 
 @keyframes firefly-avatar-float {

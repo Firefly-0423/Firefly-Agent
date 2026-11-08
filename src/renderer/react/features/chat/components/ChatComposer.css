@@ -717,3 +717,20 @@
 /* Full access in the row is said by its colour alone, like read-only: no tinted block behind it. */
 .ff-composer__below .ff-permission-control.is-full,
 .ff-composer__below .ff-permission-control.is-full:hover:not(:disabled) { background: transparent; box-shadow: none; color: #d9652b; }
+
+/* Stop button icon (ComposerStopIcon): sized like antd X's loading icon; the arc turns on the compositor. */
+.ff-composer__stop-icon {
+  height: var(--ant-control-height, 32px);
+  width: var(--ant-control-height, 32px);
+  vertical-align: top;
+}
+.ff-composer__stop-arc {
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+  animation: ff-composer-stop-spin 1s linear infinite;
+  will-change: transform;
+}
+@keyframes ff-composer-stop-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .ff-composer__stop-arc { animation: none; }
+}

@@ -14,6 +14,7 @@ import { FloatingComposerControls } from "./FloatingComposer";
 import { PendingQueueDock, type PendingQueueDockItem } from "./PendingQueueDock";
 import { StepProgressPill } from "./StepProgressPill";
 import { smartPunctuate } from "./smart-punctuation";
+import { ComposerStopIcon } from "./ComposerStopIcon";
 import type { StepProgressSummary } from "./step-progress";
 
 type ChatComposerProps = {
@@ -457,6 +458,7 @@ export function ChatComposer(props: ChatComposerProps) {
               <components.LoadingButton
                 title={t("composer.stopRun")}
                 aria-label={t("composer.stopRun")}
+                icon={<ComposerStopIcon title={t("composer.stopRun")} />}
               />
             ) : hiddenMarkers.length > 0 && !visibleValue.trim() ? (
               // 只有一个贴纸也算一条完整消息，即使文字框是空的。
