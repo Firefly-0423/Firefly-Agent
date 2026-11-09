@@ -311,3 +311,9 @@ assets/ build/ resources/ # 应用与托盘图标、文件类型图标；安装�
 流萤及《崩坏：星穹铁道》相关角色形象与知识产权归 HoYoverse / 米哈游及相应权利人所有，本项目为非官方、非商业的同人项目。含有流萤角色、Live2D 模型与角色美术的衍生物禁止商业使用。
 
 顶部徽章由 [Shields.io](https://shields.io) 生成，见 [图标说明](./readme-assets/ICON_SOURCES.md)。
+
+## 🌱 项目来源
+
+Firefly-Agent 基于 [Cyrene-Agent](https://github.com/Playa-Cyrene/Cyrene-Agent) 进行二次开发，并在此基础上进行了功能调整与扩展。
+
+原项目作者：[Playa-Cyrene](https://github.com/Playa-Cyrene) 组织，原项目以 MIT 许可证发布。
