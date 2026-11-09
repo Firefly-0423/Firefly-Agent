@@ -37,7 +37,7 @@ it("keeps Firefly source licensing separate from model and third-party terms", (
   expect(notices).not.toContain("Existing upstream contributions are recorded");
   const license = read("LICENSE");
   expect(license).toMatch(/^MIT License/);
-  expect(license.match(/^Copyright .+$/gm)).toEqual(["Copyright (c) 2026 Firefly-0423"]);
+  expect(license.match(/^Copyright .+$/gm)).toEqual(["Copyright (c) 2026 Playa", "Copyright (c) 2026 Firefly-0423"]);
   expect(license).toContain("Permission is hereby granted, free of charge");
 });
 
