@@ -29,7 +29,16 @@ export interface PreparedModelCallInput {
   onDelta?: (delta: UnifiedStreamDelta) => void;
   onDiagnostic?: SdkStreamRunInput["onDiagnostic"];
   onModelExecution?: (phase: "start" | "end", terminal?: "completed" | "failed" | "cancelled") => void;
+  /** Silence limits; tests shorten them. Defaults are MODEL_IDLE_DEFAULTS. */
+  idle?: Readonly<{ headersMs: number; bodyMs: number }>;
 }
+/**
+ * How long a model request may stay silent. A provider that never answers, or a stream that stops sending
+ * bytes, otherwise held the run until the total request limit (10 minutes). Reasoning models stream their
+ * thinking or keep-alive bytes, and any byte resets the body limit.
+ */
+export const MODEL_IDLE_DEFAULTS = Object.freeze({ headersMs: 120_000, bodyMs: 300_000 });
+const IDLE_REASON = "Model stream idle";
 export interface PreparedModelCallOptions {
   /** Main supplies the live grant/profile revision check. Never serialized into the counting frame. */
   validateCurrent?: () => void;
@@ -202,6 +211,8 @@ export async function dispatchPreparedModelCall(input: PreparedModelCallInput): 
   let dispatched = false;
   let terminal: "completed" | "failed" | "cancelled" = "failed";
   let boundaryError: unknown;
+  let idleExpired = false;
+  const limits = input.idle ?? MODEL_IDLE_DEFAULTS;
   const delegate = globalThis.fetch;
   const observe = (phase: "start" | "end", result?: typeof terminal): void => {
     try {
@@ -233,7 +244,37 @@ export async function dispatchPreparedModelCall(input: PreparedModelCallInput): 
         return attemptOnce(outgoing);
       };
       // Node's RequestInit types lag the undici package; the dispatcher option is the same at runtime.
-      const attemptOnce=(request:Request)=>delegate(request,{dispatcher:modelConnectionPool()} as unknown as RequestInit);
+      // Each attempt has its own silence watchdog: headers must arrive within headersMs, and once the body
+      // streams, every chunk restarts bodyMs. Silence aborts only this attempt's connection.
+      const attemptOnce=async(request:Request)=>{
+        const watchdog=new AbortController();
+        let timer:ReturnType<typeof setTimeout>|undefined;
+        const arm=(ms:number)=>{ clearTimeout(timer); timer=setTimeout(()=>{ idleExpired=true; watchdog.abort(new DOMException(IDLE_REASON,"TimeoutError")); },ms); };
+        const watched=new Request(request,{signal:AbortSignal.any([request.signal,watchdog.signal])});
+        arm(limits.headersMs);
+        let response:Response;
+        try{ response=await delegate(watched,{dispatcher:modelConnectionPool()} as unknown as RequestInit); }
+        catch(error){ clearTimeout(timer); throw error; }
+        idleExpired=false;
+        if(!response.body){ clearTimeout(timer); return response; }
+        arm(limits.bodyMs);
+        const reader=response.body.getReader();
+        const body=new ReadableStream<Uint8Array>({
+          async pull(controller){
+            try{
+              const next=await Promise.race([reader.read(),new Promise<never>((_resolve,reject)=>{
+                if(watchdog.signal.aborted)reject(watchdog.signal.reason);
+                else watchdog.signal.addEventListener("abort",()=>reject(watchdog.signal.reason),{once:true});
+              })]);
+              if(next.done){ clearTimeout(timer); controller.close(); return; }
+              arm(limits.bodyMs);
+              controller.enqueue(next.value);
+            }catch(error){ clearTimeout(timer); void reader.cancel(error).catch(()=>{}); controller.error(error); }
+          },
+          cancel(reason){ clearTimeout(timer); return reader.cancel(reason); },
+        });
+        return new Response(body,{status:response.status,statusText:response.statusText,headers:response.headers});
+      };
       // A model call has no side effect outside the provider, so a request whose connection dropped before
       // any response is sent again (twice at most); once a response has started it is never replayed.
       // Each retry passes the send gate again, so memory forgotten during the wait is never sent.
@@ -247,7 +288,9 @@ export async function dispatchPreparedModelCall(input: PreparedModelCallInput): 
             return attemptOnce(spares[attempt-1]);
           },attempt);
         }catch(error){
-          if(attempt>=spares.length||!connectionLost(error)||outgoing.signal.aborted)throw error;
+          // A provider that never started answering is treated like a dropped connection: nothing was shown yet.
+          if(attempt>=spares.length||!(connectionLost(error)||idleExpired)||outgoing.signal.aborted)throw error;
+          idleExpired=false;
           await new Promise(resolve=>setTimeout(resolve,CONNECTION_RETRY_DELAYS_MS[attempt]));
           check(call,input.config,input.signal);
           if(outgoing.signal.aborted)throw cancelled(outgoing.signal);
@@ -274,6 +317,10 @@ export async function dispatchPreparedModelCall(input: PreparedModelCallInput): 
     if (input.signal?.aborted) { terminal = "cancelled"; throw cancelled(input.signal); }
     // SDKs wrap custom-fetch errors. Restore a boundary rejection without changing provider errors.
     if (error instanceof AgentRuntimeError && error.code === "E_MODEL_REQUEST_TIMEOUT") throw error;
+    if (idleExpired) {
+      const seconds = Math.round(Math.max(limits.headersMs, limits.bodyMs) / 1000);
+      throw new AgentRuntimeError("E_MODEL_REQUEST_TIMEOUT", `模型服务长时间没有任何响应（超过 ${seconds} 秒），已停止等待。可以稍后重试，或换一个模型。`, { cause: error });
+    }
     if (!dispatched && boundaryError !== undefined) throw boundaryError;
     throw error;
   } finally {

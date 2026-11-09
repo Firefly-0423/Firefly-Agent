@@ -197,9 +197,15 @@ export class NaturalJobRepository {
     return executeTransaction({ db: this.db, key: this.key, scope, commandId, request, fault: this.fault, clock: this.clock, apply: () => {
       const now = transactionNow(this.db);
       if (operation === "profile") {
-        const profileId = parseInternalId(body.profileId), definition = objectFields(body.definition, ["provider", "baseUrl", "model", "apiKey", "window"], ["explicitTransport", "reasoning", "timeout"]);
+        const profileId = parseInternalId(body.profileId), definition = objectFields(body.definition, ["provider", "baseUrl", "model", "apiKey", "window"], ["explicitTransport", "reasoning", "reasoningLevels", "timeout"]);
         for (const name of ["provider", "baseUrl", "model", "apiKey"]) if (typeof definition[name] !== "string") throw Error("MEMORY_INPUT_INVALID");
         positiveRevision(definition.window); if (definition.timeout !== undefined) integer(definition.timeout);
+        // The bound model config carries the profile's declared reasoning levels (see vendorConfigFromSettings).
+        if (definition.reasoningLevels !== undefined) {
+          const levels = objectFields(definition.reasoningLevels, ["efforts"], ["allowOff"]);
+          if (!Array.isArray(levels.efforts) || levels.efforts.some(effort => typeof effort !== "string")) throw Error("MEMORY_INPUT_INVALID");
+          if (levels.allowOff !== undefined && typeof levels.allowOff !== "boolean") throw Error("MEMORY_INPUT_INVALID");
+        }
         const bytes = Buffer.from(canonicalJson({ scope, actor, profileId, definition })); let fingerprint: string;
         try { if (bytes.length > limits.requestBytes) throw Error("MEMORY_INPUT_INVALID"); fingerprint = createHmac("sha256", this.key).update("FireflyNaturalProfile-v1").update(bytes).digest("hex"); } finally { bytes.fill(0); }
         const id = this.profileId(actor, profileId), previous = this.record(scope, actor, id);

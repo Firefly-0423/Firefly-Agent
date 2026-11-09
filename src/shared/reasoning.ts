@@ -3,6 +3,10 @@ export type ReasoningEffort = "minimal" | "low" | "medium" | "high" | "xhigh" | 
 export type ReasoningControl = "none" | "toggle" | "effort" | "toggle-effort" | "fixed-on" | "dynamic";
 export type ReasoningRequestStyle = "openai-effort" | "openrouter-reasoning" | "thinking-type" | "anthropic-adaptive" | "qwen-enable-thinking" | "none";
 export type ReasoningCapability = {
+    /** Anthropic thinking type that turns thinking off; "disabled" when unset (Sonnet 5.5 rejects it and takes "between_tools"). */
+    offThinking?: "between_tools";
+    /** The API rejects every way of turning thinking off, so a declared allowOff cannot enable it either. */
+    disableRejected?: boolean;
     autoEffort?: ReasoningEffort;
     keepOnTools?: boolean;
     supportsDisable: boolean;
@@ -45,7 +49,13 @@ export const MODEL_REASONING_RULES: readonly ModelReasoningRule[] = [
   entry("chatgpt", /^o3/i, policy([["control", "effort"], ["supportedEfforts", ["low", "medium", "high"]], ["defaultEffort", "medium"], ["requestStyle", "openai-effort"], ["supportsDisable", true]])),
   entry("chatgpt", /^o4/i, policy([["control", "effort"], ["supportedEfforts", ["medium", "high"]], ["defaultEffort", "medium"], ["requestStyle", "openai-effort"], ["supportsDisable", true]])),
   entry("chatgpt", /.*/, unrecognizedModel),
-  entry("claude", /^claude-fable-5/i, policy([["control", "toggle-effort"], ["supportedEfforts", ["low", "medium", "high", "xhigh", "max"]], ["defaultEffort", "high"], ["requestStyle", "anthropic-adaptive"], ["supportsDisable", true]])),
+  // Claude 5 family thinking rules (Anthropic Claude API docs, 2026-11-08): Fable 5/5.1 and Opus 5.5 cannot turn thinking off;
+  // Sonnet 5.5 turns it off with between_tools; Opus 5 and Haiku 5.5 accept disabled at their default effort or below.
+  entry("claude", /^claude-fable-5/i, policy([["control", "toggle-effort"], ["supportedEfforts", ["low", "medium", "high", "xhigh", "max"]], ["defaultEffort", "high"], ["requestStyle", "anthropic-adaptive"], ["supportsDisable", false], ["disableRejected", true]])),
+  entry("claude", /^claude-opus-5-5/i, policy([["control", "toggle-effort"], ["supportedEfforts", ["low", "medium", "high", "xhigh", "max"]], ["defaultEffort", "medium"], ["requestStyle", "anthropic-adaptive"], ["supportsDisable", false], ["disableRejected", true]])),
+  entry("claude", /^claude-opus-5/i, policy([["control", "toggle-effort"], ["supportedEfforts", ["low", "medium", "high", "xhigh", "max"]], ["defaultEffort", "high"], ["requestStyle", "anthropic-adaptive"], ["supportsDisable", true]])),
+  entry("claude", /^claude-sonnet-5-5/i, policy([["control", "toggle-effort"], ["supportedEfforts", ["low", "medium", "high", "xhigh", "max"]], ["defaultEffort", "high"], ["requestStyle", "anthropic-adaptive"], ["supportsDisable", true], ["offThinking", "between_tools"]])),
+  entry("claude", /^claude-haiku-5-5/i, policy([["control", "toggle-effort"], ["supportedEfforts", ["low", "medium", "high", "xhigh", "max"]], ["defaultEffort", "medium"], ["requestStyle", "anthropic-adaptive"], ["supportsDisable", true]])),
   entry("claude", /^claude-sonnet-5/i, policy([["control", "toggle-effort"], ["supportedEfforts", ["low", "medium", "high", "xhigh", "max"]], ["defaultEffort", "high"], ["requestStyle", "anthropic-adaptive"], ["supportsDisable", true]])),
   entry("claude", /^claude-opus-4-(8|7|6)/i, policy([["control", "toggle-effort"], ["supportedEfforts", ["low", "medium", "high", "xhigh", "max"]], ["defaultEffort", "high"], ["requestStyle", "anthropic-adaptive"], ["supportsDisable", true]])),
   entry("claude", /^claude-sonnet-4-6/i, policy([["control", "toggle-effort"], ["supportedEfforts", ["low", "medium", "high", "xhigh"]], ["defaultEffort", "high"], ["requestStyle", "anthropic-adaptive"], ["supportsDisable", true]])),
@@ -146,7 +156,7 @@ function declaredPolicy(
     supportedEfforts: anyLevels ? supported : undefined,
     defaultEffort: anyLevels ? defaultForLevels(supported, known.defaultEffort) : undefined,
     autoEffort: known.autoEffort && supported.includes(known.autoEffort) ? known.autoEffort : undefined,
-    supportsDisable: declaration.allowOff === true,
+    supportsDisable: declaration.allowOff === true && known.disableRejected !== true,
   };
 }
 

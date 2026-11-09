@@ -648,7 +648,7 @@ export function createMainDefaultMemory(options: MainDefaultMemoryOptions) {
     assertRecoveryCurrent();
     if (context.entry !== "child" || previousRunId === currentRunId) return fail("MEMORY_CHILD_RECOVERY_DENIED");
     const requirePrevious = () => {
-      const previous = options.runReader?.get(previousRunId);
+      const previous = options.runReader?.session?.(previousRunId);
       if (!previous) return fail("MEMORY_CHILD_RECOVERY_EVIDENCE_UNAVAILABLE");
       if (previous.runId !== previousRunId || previous.conversationId !== context.sessionId) return fail("MEMORY_CHILD_RECOVERY_IDENTITY_MISMATCH");
       if (previous.status !== "running" && previous.status !== "interrupted") return fail("MEMORY_CHILD_RECOVERY_NOT_INTERRUPTED");

@@ -76,6 +76,7 @@ The icons in `assets/vscode/` are from [vscode-icons](https://github.com/vscode-
 - `@img/sharp-*` (via `@xenova/transformers`) ships libvips as unmodified dynamic libraries under Apache-2.0 AND LGPL-3.0-or-later. `elkjs` is used unmodified under EPL-2.0.
 - Where a dependency offers a choice of licenses, this project uses: `jszip` under MIT, `dompurify` under Apache-2.0, `node-forge` under BSD (see above).
 - `pdfkit` includes Adobe core-font metrics files, © 1985-1997 Adobe Systems Incorporated.
+- `pdfjs-dist` (Mozilla PDF.js) is used unmodified under Apache-2.0 to extract text from attached PDF files; its `LICENSE` stays with the package inside the installer. Only its Node build and CMap data are shipped; its optional `@napi-rs/canvas` renderer is excluded from the installer.
 - `src/main/chats/open-in-app.ts` ports detection logic from [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) (MIT, © 2026 DeepSeek).
 - The Rust helpers depend on `serde`, `serde_json`, `thiserror`, `uuid` and the `windows` crates, which are published under MIT or Apache-2.0; check `native/Cargo.lock` for the exact versions before redistributing binaries.
 - If the BGE-M3 and bge-reranker models are bundled with an installer, record their licenses and sources there; they are not stored in this repository.

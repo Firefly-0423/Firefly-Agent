@@ -4,7 +4,7 @@ import {materializeTranscript,type TranscriptRunReader} from "../orchestrator/co
 import type {ConversationTranscriptStore} from "../orchestrator/conversation-transcript-store";
 import type {TranscriptSnapshot,TranscriptEntry} from "../orchestrator/conversation-transcript-types";
 import {readMainAttachmentProjection,observeMainAttachmentProjection} from "./main-attachment-projection";
-import {assertContextSecretFree} from "./source-secret-screen";
+import {maskContextSecrets} from "./source-secret-screen";
 import {canonicalJson} from "../memory-core/repository-types";
 import {contextFail,type ContextMessage,type ContextUnit} from "./context-contracts";
 import type {createMainContext} from "./main-context";
@@ -243,7 +243,7 @@ function canonical(snapshot:TranscriptSnapshot,sessionId:string,incarnation:stri
  }
  const active=materializeTranscript(snapshot.entries,runReader??{get:()=>null},{missingRunEvidence:"unknown"});
  const latestUser=active.messages.map(message=>message.role).lastIndexOf("user");
- const messages:ContextMessage[]=active.messages.map((message,index)=>{
+ const messages:ContextMessage[]=maskContextSecrets(active.messages.map((message,index)=>{
   const entry=active.messageSources![index],payload=entry.kind==="user"?entry.payload:entry.kind==="turn_rewind"?entry.payload.replacementUser:undefined;
   if(message.role==="user"&&payload?.attachments?.length){
    let projection:ReturnType<typeof readMainAttachmentProjection>=null;
@@ -272,10 +272,9 @@ function canonical(snapshot:TranscriptSnapshot,sessionId:string,incarnation:stri
   if(message.toolCallId!==undefined)result.toolCallId=message.toolCallId;
   if(message.name!==undefined)result.name=message.name;
   return result;
- });
+ }));
  const unit={id:sessionId,kind:"recent" as const,messages};
  validateUnit(unit);
- assertContextSecretFree(messages);
  // Canonical history is context only; it does not mint direct-user M sources.
  const provenance=active.messageSources!.map((entry,i)=>{
   const original=messages[i].role==="user"?snapshot.entries.find(e=>e.kind==="user"&&e.turnId===entry.turnId):entry;

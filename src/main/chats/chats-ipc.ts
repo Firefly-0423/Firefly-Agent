@@ -22,10 +22,11 @@ import { DEFAULT_CONTEXT_WINDOW_TOKENS } from "../../shared/context-window";
 import { createIpcScope, type IpcScope } from "../application/ipc-scope";
 import type { ChatMessage, ConversationMode, ConversationWorkspaceBinding, PendingChatMessage } from "../../shared/chat-types";
 import * as chatsStore from "./chats-store";
+import { isRunAdjustmentInFlight } from "./pending-adjustment";
 import * as fs from "fs";
 import * as path from "path";
 import { createWorkMarkdownSnapshot } from "./work-markdown-export";
-import { inspectWorkReadFile, isWorkReadScopeCurrent, WORK_READ_PAGE_LINES } from "./work-read-scope";
+import { inspectWorkReadDocument, isWorkReadScopeCurrent, WORK_READ_PAGE_LINES } from "./work-read-scope";
 import { getDefaultModelProfile, loadModelSettings, resolveModelSettingsProfile } from "../settings/model-settings";
 import { FileToolOutputStore } from "../orchestrator/harness/tool-output/file-tool-output-store";
 import { getHarnessRunStore } from "../orchestrator/harness/run-store";
@@ -439,7 +440,7 @@ export function registerChatsIpc(ipcOption?: IpcScope, options: ChatsIpcOptions 
 
       let scope;
       try {
-        scope = inspectWorkReadFile(attachment.filePath);
+        scope = await inspectWorkReadDocument(attachment.filePath);
       } catch (error) {
         return { ok: false, error: error instanceof Error ? error.message : "file-not-readable" };
       }
@@ -479,7 +480,7 @@ export function registerChatsIpc(ipcOption?: IpcScope, options: ChatsIpcOptions 
     const sessionId = textOrEmpty(payload?.sessionId);
     const messageId = textOrEmpty(payload?.messageId);
     if (!sessionId || !messageId) return { ok: false, error: "invalid-payload" };
-    const outcome = chatsStore.removePendingMessage(sessionId, messageId);
+    const outcome = chatsStore.removePendingMessage(sessionId, messageId, { withdrawMark: !isRunAdjustmentInFlight(sessionId, messageId) });
     if (outcome.ok && outcome.removed) broadcastChanged(event.sender);
     return outcome;
   });
@@ -563,7 +564,7 @@ export function registerChatsIpc(ipcOption?: IpcScope, options: ChatsIpcOptions 
       rawContent: payload.rawContent,
       visibleContent: typeof payload.visibleContent === "string" ? payload.visibleContent : payload.rawContent,
       ...(typeof payload.userSticker === "string" ? { userSticker: payload.userSticker } : {}),
-    });
+    }, { withdrawMark: !isRunAdjustmentInFlight(sessionId, messageId) });
     if (outcome.ok) broadcastChanged(event.sender);
     return outcome;
   });

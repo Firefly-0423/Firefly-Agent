@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { pathToFileURL } from "url";
+import { DocumentTextError, extractDocumentText, isExtractedDocumentExt, legacyDocumentReason } from "./document-text";
 import type { ImportedDocumentChunk, ImportedDocumentResult } from "./index";
 
 // ───────────── 对外类型 ─────────────
@@ -58,7 +59,7 @@ export const IMAGE_EXTS = extSet(".png .jpg .jpeg .gif .bmp .webp");
 
 const UNSUPPORTED_EXTS = extSet(`
   .zip .7z .rar .tar .gz
-  .pdf .doc .docx .xls .xlsx .ppt .pptx
+  .doc .xls .ppt
   .png .jpg .jpeg .gif .bmp .webp .ico
   .mp3 .mp4 .wav .avi .mov
   .exe .dll .so .dylib .bin
@@ -86,7 +87,7 @@ export const isUnsupportedExt = (ext: string): boolean => UNSUPPORTED_EXTS.has(e
 
 export function isDocumentExt(ext: string): boolean {
   const lower = ext.toLowerCase();
-  return lower === "" || isTextExt(lower);
+  return lower === "" || isTextExt(lower) || isExtractedDocumentExt(lower);
 }
 
 /** 拖入时的待处理附件：图片以扩展名或 MIME 判定，与渲染端预览保持一致。 */
@@ -110,7 +111,7 @@ export function describePendingAttachment(filePath: string, mime?: string): Atta
     return { name, kind: "document", filePath, status: "pending" };
   }
   const shownExt = ext || "（无扩展名）";
-  return { name, kind: "unsupported", filePath, status: "error", reason: `暂不支持的文件格式 ${shownExt}` };
+  return { name, kind: "unsupported", filePath, status: "error", reason: legacyDocumentReason(ext) ?? `暂不支持的文件格式 ${shownExt}` };
 }
 
 const BINARY_SCAN_BYTES = 8192;
@@ -186,7 +187,7 @@ export async function ingestOneFile(filePath: string, documentImport: DocumentIm
 
   const ext = path.extname(filePath).toLowerCase();
   if (isUnsupportedExt(ext)) {
-    return { name, kind: "unsupported", reason: `暂不支持的文件格式 ${ext}（MVP-0 仅支持文本）` };
+    return { name, kind: "unsupported", reason: legacyDocumentReason(ext) ?? `暂不支持的文件格式 ${ext}（MVP-0 仅支持文本）` };
   }
 
   let raw: Buffer;
@@ -196,13 +197,22 @@ export async function ingestOneFile(filePath: string, documentImport: DocumentIm
     return { name, kind: "unsupported", reason: err?.code || String(err) };
   }
 
-  if (isBinary(raw)) {
-    // 文本扩展名却含 NUL 字节，和未知扩展名的二进制给不同提示
-    const reason = isTextExt(ext) ? `文件 ${ext} 含二进制数据，暂不支持` : "二进制文件，暂不支持";
-    return { name, kind: "unsupported", reason };
+  let text: string;
+  if (isExtractedDocumentExt(ext)) {
+    try {
+      text = await extractDocumentText(raw, ext);
+    } catch (err) {
+      return { name, kind: "unsupported", reason: err instanceof DocumentTextError ? err.message : `无法读取这个 ${ext} 文件` };
+    }
+  } else {
+    if (isBinary(raw)) {
+      // 文本扩展名却含 NUL 字节，和未知扩展名的二进制给不同提示
+      const reason = isTextExt(ext) ? `文件 ${ext} 含二进制数据，暂不支持` : "二进制文件，暂不支持";
+      return { name, kind: "unsupported", reason };
+    }
+    text = raw.toString("utf-8");
   }
 
-  const text = raw.toString("utf-8");
   if (!text.trim()) return { name, kind: "empty" };
   if (text.length > SMALL_THRESHOLD) return indexLargeText(text, name, documentImport);
   return { name, kind: "text", text };

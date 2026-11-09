@@ -77,7 +77,11 @@ export class SmoothTextRevealQueue {
     this.currentRate += (targetRate - this.currentRate) * blend;
     this.credit += (this.currentRate * duration) / 1000;
 
-    let count = Math.min(maxGroupSize, this.pending.length, Math.floor(this.credit));
+    // maxGroupSize holds for normal frames and the 40 ms fallback tick. When frames come much slower (window covered,
+    // machine busy) a frame may release proportionally more, so the reading pace holds instead of collapsing to
+    // maxGroupSize per frame (9 characters a second at the 1 fps a covered window gets).
+    const frameGroup = maxGroupSize * Math.max(1, Math.floor(duration / 50));
+    let count = Math.min(frameGroup, this.pending.length, Math.floor(this.credit));
     if (count === 0) return "";
     // 避免节奏结束时尾部只剩一个字；极短的尾段仍会完整显示
     if (this.pending.length - count === 1 && count < maxGroupSize) count += 1;

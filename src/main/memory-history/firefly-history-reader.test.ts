@@ -123,6 +123,16 @@ it('labelled secrets and oversized turns remain diagnostics instead of lexical r
  write(f.root,[user(),...Array.from({length:128},(_,i)=>assistant(i+2,'咖啡'))]);const huge=await parseSyntheticFixture(f.scope);
  expect(huge.diagnostics).toContain('MEMORY_HISTORY_INPUT_LIMIT');expect(createHistoryIndexBuilder(f.scope,huge).query('咖啡').hits).toEqual([]);
 });
+it('a tool result or tool arguments over 64KB is an oversized turn, not a corrupt history',async()=>{
+ // Reading a large file (or writing one) used to make every later run fail with MEMORY_HISTORY_CORRUPT.
+ const f=fixture(),big='咖啡'.repeat(40000),call={id:'tool:1',name:'write_file',arguments:JSON.stringify({path:'a.txt',content:big})};
+ write(f.root,[user(),{...assistant(),payload:{role:'assistant',content:'写入',toolCalls:[call]}},{id:'result:3',seq:3,at:1003,kind:'tool_result',payload:{assistantEntryId:'a:2',toolCallId:'tool:1',outcome:'success',message:{role:'tool',toolCallId:'tool:1',name:'write_file',content:big}}}]);
+ const r=await parseSyntheticFixture(f.scope);
+ expect(r.diagnostics).toContain('MEMORY_HISTORY_INPUT_LIMIT');
+ expect(r.documents.every(d=>d.classification!=='raw-history')).toBe(true);
+ write(f.root,[user(1,big)]);const pasted=await parseSyntheticFixture(f.scope);
+ expect(pasted.diagnostics).toContain('MEMORY_HISTORY_INPUT_LIMIT');
+});
 it('native unavailable boundary refuses an existing escaping directory junction with both source trees unchanged',async()=>{
  const f=fixture(),outside=fixture();const target=write(outside.root,[user(1,'FOREIGN_JUNCTION_TEXT')]).file;
  fs.mkdirSync(path.join(f.root,'transcripts'),{recursive:true});fs.symlinkSync(path.join(outside.root,'transcripts','session-a'),path.join(f.root,'transcripts','session-a'),process.platform==='win32'?'junction':'dir');

@@ -14,6 +14,7 @@ import { FloatingComposerControls } from "./FloatingComposer";
 import { PendingQueueDock, type PendingQueueDockItem } from "./PendingQueueDock";
 import { StepProgressPill } from "./StepProgressPill";
 import { smartPunctuate } from "./smart-punctuation";
+import { ComposerStopIcon } from "./ComposerStopIcon";
 import type { StepProgressSummary } from "./step-progress";
 
 type ChatComposerProps = {
@@ -425,7 +426,7 @@ export function ChatComposer(props: ChatComposerProps) {
           className="ff-composer__file-input"
           multiple
           type="file"
-          accept=".txt,.md,.json,.csv,.log,.png,.jpg,.jpeg,.webp,.gif,.bmp"
+          accept=".txt,.md,.json,.csv,.log,.docx,.xlsx,.pptx,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp"
           onChange={(event) => {
             const picked = Array.from(event.currentTarget.files ?? []);
             if (picked.length > 0) onChooseFiles(picked);
@@ -457,6 +458,7 @@ export function ChatComposer(props: ChatComposerProps) {
               <components.LoadingButton
                 title={t("composer.stopRun")}
                 aria-label={t("composer.stopRun")}
+                icon={<ComposerStopIcon title={t("composer.stopRun")} />}
               />
             ) : hiddenMarkers.length > 0 && !visibleValue.trim() ? (
               // 只有一个贴纸也算一条完整消息，即使文字框是空的。

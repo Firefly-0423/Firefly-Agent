@@ -12,6 +12,7 @@ import type { SkillEntry } from "../skills/types";
 import { skillRegistry } from "../skills/skill-registry";
 import { FileToolOutputStore } from "./harness/tool-output/file-tool-output-store";
 import { dispatchToolCall } from "./harness/tool-dispatcher";
+import { vendorConfigFromSettings } from "./vendors/vendor-config";
 
 const roots: string[] = [];
 const profile: AgentProfile = {
@@ -121,6 +122,18 @@ describe("persistent specialist runtime", () => {
     } finally {
       skillRegistry.unregister(skill.id);
     }
+  });
+  it("sends the partner's model config exactly as the memory runtime binds it from the saved profile", async () => {
+    // The memory runtime binds vendorConfigFromSettings(profile) and refuses any other shape with
+    // MEMORY_CONTEXT_REQUEST_CHANGED; a profile with reasoning levels used to lose them here.
+    const { store, parent } = setup();
+    const saved = { id: "saved-reasoning", provider: "fixture", baseUrl: "http://127.0.0.1:12345", model: "fixture-model", apiKey: "",
+      reasoning: { mode: "on", effort: "high" }, reasoningLevels: { efforts: ["low", "high"] } } as const;
+    const runHarness = vi.fn(complete);
+    const execute = createAgentExecutor({ parent, store, profiles: [profile], runHarness,
+      modelSettings: { modelProfiles: [structuredClone(saved) as never], agentModelProfiles: { coding: saved.id } } });
+    await execute({ agentId: profile.id, prompt: "Inspect fixture" });
+    expect(runHarness.mock.calls[0][0].vendorConfig).toStrictEqual(vendorConfigFromSettings(structuredClone(saved) as never));
   });
   it("reuses one private transcript and selected model while inheriting permission boundaries", async () => {
     const { store, parent, read } = setup();

@@ -4,7 +4,7 @@ import type { TranscriptEntry, TranscriptUserPayload } from "../orchestrator/con
 import type { OpenAIContentBlock } from "../orchestrator/vendors/types";
 import { copyResponseJson } from "../orchestrator/vendors/response-request-snapshot";
 import { contextFail, type ContextMessage } from "./context-contracts";
-import { assertContextSecretFree } from "./source-secret-screen";
+import { maskContextSecrets } from "./source-secret-screen";
 import { validateUnit } from "./token-budget";
 
 declare const grantBrand: unique symbol;
@@ -113,8 +113,8 @@ function projectedMessage(record: GrantRecord, blocks: OpenAIContentBlock[], cap
    || captionOnly && block.type !== "text"
    || block.type === "image_url" && (typeof block.image_url?.url !== "string" || !/^data:image\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]+$/i.test(block.image_url.url)))) return deny();
  const content: OpenAIContentBlock[] = [{ type: "text", text: record.source.userText }, ...copy];
- const message: ContextMessage = { role: "user", text: content.filter(block => block.type === "text").map(block => block.text).join("\n"), content };
- validateUnit({ id: "authorized-attachment", kind: "recent", messages: [message] }); assertContextSecretFree(message); record.assertCurrent(); return message;
+ const message: ContextMessage = maskContextSecrets({ role: "user", text: content.filter(block => block.type === "text").map(block => block.text).join("\n"), content });
+ validateUnit({ id: "authorized-attachment", kind: "recent", messages: [message] }); record.assertCurrent(); return message;
 }
 /** No filesystem access is performed here. The trusted materializer cannot run before authorization. */
 export async function prepareMainAttachmentProjection(grant: MainAttachmentGrant, materialize: (source: Readonly<MainAttachmentSource>) => Promise<OpenAIContentBlock[]>): Promise<ContextMessage> {

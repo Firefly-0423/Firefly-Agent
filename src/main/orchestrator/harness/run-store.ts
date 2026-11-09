@@ -30,6 +30,10 @@ export type HarnessRunCheckpoint = {
   todoItems?: AgentState["todoItems"]; state?: AgentState; messages?: ChatMessage[];
 };
 export type HarnessRunStoreOptions = { now?: () => number };
+/** What context assembly and recovery checks need from a run: identity, status and tool execution, never messages. */
+export type HarnessRunEvidence = Pick<HarnessRunSession, "runId" | "conversationId" | "status" | "toolCalls">;
+/** Persisted runs kept parsed in memory; every write goes through this store, so a cached run is never stale. */
+const LOADED_RUN_LIMIT = 24;
 type IndexRow = { updatedAt: number; status: HarnessRunStatus; runId: string; conversationId: string };
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 function validRunId(value: string): boolean {
@@ -64,6 +68,9 @@ export class HarnessRunStore {
   private readonly clock: () => number;
   private readonly rows = new Map<string, IndexRow>();
   private readonly volatile = new Map<string, HarnessRunSession>();
+  private readonly loaded = new Map<string, HarnessRunSession>();
+  /** Evidence of every run read or written in this process; small, so it is kept for the store's lifetime. */
+  private readonly evidenceByRun = new Map<string, HarnessRunEvidence>();
   private pendingIndex: ReturnType<typeof setTimeout> | undefined;
   private writes = 0;
   private characters = 0;
@@ -92,6 +99,17 @@ export class HarnessRunStore {
   get(runId: string): HarnessRunSession | null {
     const found = this.load(runId);
     return found ? copy(found) : null;
+  }
+  /** The whole run (same as get); named for TranscriptRunReader.session. */
+  session(runId: string): HarnessRunSession | null { return this.get(runId); }
+  /** A light read for hot paths: copies only the run's identity, status and tool calls. */
+  evidence(runId: string): HarnessRunEvidence | null {
+    if (!validRunId(runId)) return null;
+    const known = this.volatile.get(runId) ?? this.evidenceByRun.get(runId) ?? this.load(runId);
+    return known ? { runId: known.runId, conversationId: known.conversationId, status: known.status, toolCalls: copy(known.toolCalls) } : null;
+  }
+  private noteEvidence(session: HarnessRunSession): void {
+    this.evidenceByRun.set(session.runId, { runId: session.runId, conversationId: session.conversationId, status: session.status, toolCalls: copy(session.toolCalls) });
   }
   getLatestInterrupted(conversationId: string): HarnessRunSession | null {
     const latest = Array.from(this.rows.values()).filter((entry) => entry.conversationId === conversationId && entry.status === "interrupted")
@@ -148,6 +166,8 @@ export class HarnessRunStore {
     const matches = Array.from(this.rows.values()).filter((entry) => entry.conversationId === conversationId);
     let hadDiskData = false;
     for (const entry of matches) {
+      this.loaded.delete(entry.runId);
+      this.evidenceByRun.delete(entry.runId);
       if (this.volatile.delete(entry.runId)) { this.rows.delete(entry.runId); continue; }
       hadDiskData = true;
       const snapshot = this.sessionPath(entry.runId);
@@ -192,18 +212,35 @@ export class HarnessRunStore {
     if (!validRunId(runId)) return null;
     const memory = this.volatile.get(runId);
     if (memory) return memory;
+    const cached = this.loaded.get(runId);
+    if (cached) { this.remember(cached); return cached; }
     const filename = this.sessionPath(runId);
     if (!fs.existsSync(filename)) return null;
+    let session: HarnessRunSession;
     try {
       const decoded = JSON.parse(fs.readFileSync(filename, "utf8")) as unknown;
       if (!isSession(decoded)) throw new Error("HARNESS_RUN_READ_FAILED");
-      return { ...decoded, cache: isCacheState(decoded.cache) ? decoded.cache : { ...INITIAL_HARNESS_CACHE_STATE } };
+      session = { ...decoded, cache: isCacheState(decoded.cache) ? decoded.cache : { ...INITIAL_HARNESS_CACHE_STATE } };
     } catch { throw new Error("HARNESS_RUN_READ_FAILED: 原文件已保留"); }
+    this.remember(session);
+    this.noteEvidence(session);
+    return session;
+  }
+  private remember(session: HarnessRunSession): void {
+    this.loaded.delete(session.runId);
+    this.loaded.set(session.runId, session);
+    if (this.loaded.size > LOADED_RUN_LIMIT) this.loaded.delete(this.loaded.keys().next().value!);
   }
   private persist(session: HarnessRunSession, mode: "now" | "lazy" = "lazy"): void {
     const memoryOnly = this.volatile.has(session.runId) || ephemeralConversations.has(session.conversationId);
     if (memoryOnly) this.volatile.set(session.runId, session);
-    else this.atomicWrite(this.sessionPath(session.runId), session);
+    else {
+      // Callers mutate the loaded session before persisting it. If the write fails, memory must not stay ahead of
+      // disk: forget the cached copy so the next read sees what was actually saved.
+      try { this.atomicWrite(this.sessionPath(session.runId), session); }
+      catch (failure) { this.loaded.delete(session.runId); this.evidenceByRun.delete(session.runId); throw failure; }
+      this.remember(session); this.noteEvidence(session);
+    }
     this.rows.set(session.runId, indexEntry(session));
     if (memoryOnly) return;
     if (mode === "now") this.writeIndexNow();

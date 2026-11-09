@@ -14,6 +14,9 @@ const hash=(v:unknown)=>createHash('sha256').update(canonicalJson(v)).digest('he
 function fail(code='MEMORY_HISTORY_CORRUPT'):never {throw new Error(code)}
 function row(v:unknown):Record<string,unknown>{if(!v||typeof v!=='object'||Array.isArray(v))fail();return v as Record<string,unknown>}
 function string(v:unknown):string{if(typeof v!=='string'||v.length>65536)fail();return v}
+// Message bodies and tool arguments are bounded by the 8 MiB file limit; an oversized turn is classified
+// 'unverified' with MEMORY_HISTORY_INPUT_LIMIT below instead of making the whole history unreadable.
+function body(v:unknown):string{if(typeof v!=='string')fail();return v}
 function id(v:unknown):string{const s=string(v);if(!s||s.length>1024||/[\u0000-\u001f\u007f]/u.test(s))fail();return s}
 function integer(v:unknown,min=0):number{if(!Number.isSafeInteger(v)||(v as number)<min)fail();return v as number}
 function time(v:unknown):number|null{return v===undefined||v===null?null:integer(v)}
@@ -71,10 +74,10 @@ function message(payload:Record<string,unknown>,role:ContextMessage['role']):Con
  // Reasoning models also persist thinking and the provider's raw output; history keeps only the visible answer.
  const reasoning=payload.rawAssistant!==undefined||payload.thinking;
  if(payload.role!==role||(reasoning&&role!=='assistant')||payload.internal||(payload.content!==undefined&&typeof payload.content!=='string'))fail('MEMORY_HISTORY_FORMAT_UNSUPPORTED');
- const m:ContextMessage={role,text:payload.content===undefined?'':string(payload.content)};
+ const m:ContextMessage={role,text:payload.content===undefined?'':body(payload.content)};
  if(payload.toolCalls!==undefined){
   if(role!=='assistant'||!Array.isArray(payload.toolCalls)||payload.toolCalls.length>64)fail();
-  m.toolCalls=payload.toolCalls.map(v=>{const c=row(v);if(Object.keys(c).some(k=>!['id','name','arguments'].includes(k)))fail();return {id:id(c.id),name:id(c.name),arguments:string(c.arguments)}});
+  m.toolCalls=payload.toolCalls.map(v=>{const c=row(v);if(Object.keys(c).some(k=>!['id','name','arguments'].includes(k)))fail();return {id:id(c.id),name:id(c.name),arguments:body(c.arguments)}});
   m.toolCallIds=m.toolCalls.map(c=>c.id);
  }
  if(payload.toolCallId!==undefined)m.toolCallId=id(payload.toolCallId);
@@ -109,11 +112,11 @@ function transcriptRecords(scope:ReadonlyHistoryScope,session:ReadonlyHistorySco
    for(const group of removed){const copy=structuredClone(group);for(const n of copy)n.provenance.active=false;retired.push(copy)}
    if(e.payload.disposition==='keep_user'){active.push([removed[0][0]]);continue}
    if(!e.turnId||e.turnId!==anchor||!e.revision||e.revision<=(removed[0][0].provenance.revision??0))fail();const p=row(e.payload.replacementUser);if(p.attachments!==undefined&&(!Array.isArray(p.attachments)||p.attachments.length))fail('MEMORY_HISTORY_FORMAT_UNSUPPORTED');
-   active.push([makeNode(scope,session,'transcript-v1',incarnation,e.raw,{role:'user',text:string(p.text)},e.seq,e.turnId,e.revision,e.at)]);continue;
+   active.push([makeNode(scope,session,'transcript-v1',incarnation,e.raw,{role:'user',text:body(p.text)},e.seq,e.turnId,e.revision,e.at)]);continue;
   }
   if(['backfill_boundary','interruption','compaction_checkpoint','assistant_settlement'].includes(e.kind))continue;
   let m:ContextMessage;
-  if(e.kind==='user'){if(!e.turnId||!e.revision)fail();if(e.payload.attachments!==undefined&&(!Array.isArray(e.payload.attachments)||e.payload.attachments.length))fail('MEMORY_HISTORY_FORMAT_UNSUPPORTED');m={role:'user',text:string(e.payload.text)}}
+  if(e.kind==='user'){if(!e.turnId||!e.revision)fail();if(e.payload.attachments!==undefined&&(!Array.isArray(e.payload.attachments)||e.payload.attachments.length))fail('MEMORY_HISTORY_FORMAT_UNSUPPORTED');m={role:'user',text:body(e.payload.text)}}
   else if(e.kind==='assistant')m=message(e.payload,'assistant');
   else if(e.kind==='tool_result'){if(!['success','failure','unknown','not_executed'].includes(e.payload.outcome as string))fail();m=message(row(e.payload.message),'tool');if(m.toolCallId!==e.payload.toolCallId)fail();id(e.payload.assistantEntryId)}
   else fail('MEMORY_HISTORY_FORMAT_UNSUPPORTED');
@@ -138,10 +141,10 @@ function chatRecords(scope:ReadonlyHistoryScope,session:ReadonlyHistoryScope['se
  for(const raw of chat.messages){
   const r=row(raw);if(r.role!=='user'&&r.role!=='model')fail();
   if(r.attachments!==undefined&&(!Array.isArray(r.attachments)||r.attachments.length))fail('MEMORY_HISTORY_FORMAT_UNSUPPORTED');
-  const role=r.role==='user'?'user':'assistant',n=makeNode(scope,session,'chat-session-v1',file.incarnation,r,{role,text:string(r.content)},null,role==='user'?id(r.id):null,null,time(r.at));
+  const role=r.role==='user'?'user':'assistant',n=makeNode(scope,session,'chat-session-v1',file.incarnation,r,{role,text:body(r.content)},null,role==='user'?id(r.id):null,null,time(r.at));
   if(derived(n.message.text)){separate.push([n]);if(role==='user')groups.push([])}
   else if(role==='user')groups.push([n]);else if(groups.at(-1)?.length)groups.at(-1)!.push(n);else separate.push([n]);
-  if(r.modelContext!==undefined){const variant=makeNode(scope,session,'chat-session-v1',file.incarnation,{...r,readonlyDerived:true},{role,text:string(r.modelContext)},null,n.provenance.turnId,null,time(r.at));variant.provenance.field='modelContext';separate.push([variant])}
+  if(r.modelContext!==undefined){const variant=makeNode(scope,session,'chat-session-v1',file.incarnation,{...r,readonlyDerived:true},{role,text:body(r.modelContext)},null,n.provenance.turnId,null,time(r.at));variant.provenance.field='modelContext';separate.push([variant])}
   if(r.toolExecutions!==undefined)diagnostics.push('MEMORY_HISTORY_DISPLAY_TOOLS_UNVERIFIED');
  }
  return records(scope,session,[...groups,...separate],diagnostics);

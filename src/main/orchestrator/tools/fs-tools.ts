@@ -13,6 +13,7 @@ import { ToolExecutionError } from "./registry/tool-execution-error";
 import { app } from "electron";
 import { reviewTrackerFor } from "../review/review-tracker-access";
 import { assertWorkspacePathFallback } from "./workspace-boundary";
+import { DocumentTextError, extractDocumentText, isExtractedDocumentExt, legacyDocumentReason } from "../../rag/document-text";
 import { readWorkspaceFile, listWorkspaceDirectory, withWorkspaceWrite, type WorkspaceSnapshot, type WorkspaceWriteLease } from "./workspace-handle";
 
 const LOG_PREFIX = "[FsTools]";
@@ -81,22 +82,33 @@ async function executeReadFile(args: Record<string, unknown>, context?: ToolCont
     path: location, size: formatBytes(entry.size), retryable: false });
   const digest = createHash("sha256").update(bytes).digest("hex");
   if (confirmed && (digest !== confirmed.sha256 || entry.size !== bytes.length)) return JSON.stringify({ success: false, errorCode: "FILE_CHANGED", error: "文件内容已变化，确认范围失效", retryable: false });
-  const prefix = bytes.subarray(0, Math.min(bytes.length, 4096));
-  let zeroes = 0;
-  for (let index = 0; index < prefix.length; index++) if (prefix[index] === 0) zeroes++;
-  if (zeroes > prefix.length * 0.05) return JSON.stringify({ success: false, errorCode: "BINARY_FILE",
-    error: "这看起来是二进制文件，read_file 只支持文本。如果是图片，请改用 read_image。", path: location, size: formatBytes(entry.size), retryable: false });
-  const text = bytes.toString("utf8"), selected = lineWindow(text, start, maximum);
+  const ext = path.extname(canonical).toLowerCase(), legacy = legacyDocumentReason(ext), extracted = isExtractedDocumentExt(ext);
+  if (legacy) return JSON.stringify({ success: false, errorCode: "UNSUPPORTED_FORMAT", error: legacy, path: location, retryable: false });
+  let text: string;
+  if (extracted) {
+    try { text = await extractDocumentText(bytes, ext); }
+    catch (failure) {
+      return JSON.stringify({ success: false, errorCode: "DOCUMENT_UNREADABLE", error: failure instanceof DocumentTextError ? failure.message : "文档解析失败: " + errorText(failure), path: location, retryable: false });
+    }
+  } else {
+    const prefix = bytes.subarray(0, Math.min(bytes.length, 4096));
+    let zeroes = 0;
+    for (let index = 0; index < prefix.length; index++) if (prefix[index] === 0) zeroes++;
+    if (zeroes > prefix.length * 0.05) return JSON.stringify({ success: false, errorCode: "BINARY_FILE",
+      error: "这看起来是二进制文件，read_file 只支持文本和 .docx/.xlsx/.pptx/.pdf 文档。如果是图片，请改用 read_image。", path: location, size: formatBytes(entry.size), retryable: false });
+    text = bytes.toString("utf8");
+  }
+  const selected = lineWindow(text, start, maximum);
   const end = start + selected.rows.length - 1;
   const response = { path: location, canonicalPath: canonical, startLine: start, endLine: end, totalLines: selected.count, sha256: digest,
     content: selected.rows.map((row, index) => String(start + index).padStart(5, " ") + " | " + row).join("\n"),
-    truncated: false, ...(confirmed && requested > maximum ? { scopeLimited: true } : {}) };
+    truncated: false, ...(extracted ? { extractedText: true } : {}), ...(confirmed && requested > maximum ? { scopeLimited: true } : {}) };
   console.log(LOG_PREFIX, "read_file 完成: lines=" + start + ".." + end + "/" + selected.count);
   return JSON.stringify(response);
 }
 toolRegistry.register({
   id: "read_file",   name: "读取文件",
-  description: "读取本地文本文件（小说、笔记、代码、配置、日志等）。返回带行号的文本内容。" + "支持最大 10MB 的文本文件；totalLines 是真实总行数，可用 startLine/maxLines 精确翻页。\n" + "文件超过 10MB 会明确报错，改用 search_text 直接获取匹配行的上下文。\n\n" + "何时用：\n" + "- 用户消息里出现任何本地文件路径、文件名、扩展名（.txt/.md/.json/.py/.log 等）\n" + "- 用户问'这个文件写了什么''看看 xxx'\n" + "- 需要拿文件实际内容才能回答的问题\n\n" + "不要用于：\n" + "- 凭印象猜内容（绝对不行，必须先 read）\n" + "- 读图片 → read_image\n" + "- 列目录 → list_dir\n\n" + "参数：path (必填，绝对路径)，startLine (可选，默认 1)，maxLines (可选，默认 500)。",   enabled: true,
+  description: "读取本地文本文件（小说、笔记、代码、配置、日志等）和 Word/Excel/PowerPoint/PDF 文档（.docx/.xlsx/.pptx/.pdf，返回提取出的文字，extractedText 为 true；行号按提取后的文字计算）。返回带行号的文本内容。" + "支持最大 10MB 的文件；totalLines 是真实总行数，可用 startLine/maxLines 精确翻页。\n" + "文件超过 10MB 会明确报错，改用 search_text 直接获取匹配行的上下文。\n\n" + "何时用：\n" + "- 用户消息里出现任何本地文件路径、文件名、扩展名（.txt/.md/.json/.py/.log/.docx/.xlsx/.pdf 等）\n" + "- 用户问'这个文件写了什么''看看 xxx'\n" + "- 需要拿文件实际内容才能回答的问题\n\n" + "不要用于：\n" + "- 凭印象猜内容（绝对不行，必须先 read）\n" + "- 读图片 → read_image\n" + "- 列目录 → list_dir\n\n" + "参数：path (必填，绝对路径)，startLine (可选，默认 1)，maxLines (可选，默认 500)。",   enabled: true,
   risk: "fs-read",   modes: ["code", "work"],
   effectKind: "read" as const,   isConcurrencySafe: () => true,
   verificationPolicy: "none" as const,   inputSchema: { type: "object", properties: { path: { type: "string", description: "要读的文件绝对路径，例如 'C:\\\\Users\\\\me\\\\notes.txt'" }, startLine: { type: "number", description: "起始行号，默认 1" }, maxLines: { type: "number", description: "最多读多少行，默认 500，最大 2000" }, }, required: ["path"], },

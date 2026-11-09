@@ -18,6 +18,7 @@ import { runChildSession } from "./child-session-runtime";
 import type { ChildSessionParent, DelegationScope } from "./child-session-types";
 import type { runFireflyHarness } from "./harness/firefly-harness";
 import { createAbortError } from "../utils/abort-utils";
+import { vendorConfigFromSettings } from "./vendors/vendor-config";
 
 export interface AgentExecuteRequest { agentId: string; prompt: string }
 export interface AgentExecuteResult { agentId: string; sessionId: string; status: TaskSessionStatus; text: string; writes?: TaskWriteEvidence[]; executionEvents?: ModelExecutionEvent[]; error?: { code: string; message: string } }
@@ -101,8 +102,7 @@ export function createAgentExecutor(input: {
       config: { totalTimeoutMs: profile.timeoutMs, ...(model.contextWindowTokens ? { contextWindowTokens: model.contextWindowTokens } : {}) },
       parent: {
         ...input.parent, capabilities, includeInteractiveTools: false, modelExecutionRecorder,
-        vendorConfig: { provider: model.provider, baseUrl: model.baseUrl, model: model.model,
-          apiKey: model.apiKey, explicitTransport: model.explicitTransport, reasoning: model.reasoning },
+        vendorConfig: vendorConfigFromSettings(model),
       },
     });
     return { agentId: profile.id, sessionId: result.taskId, status: result.status, text: result.text,

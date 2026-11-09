@@ -754,11 +754,14 @@ export function ChatMessageList({
     return batch.items;
   }, [messages, stickers]);
   const channelLabel = resolveChannelConversationLabel(messages);
+  // While a reply is live the newest avatar floats (ChatMessageList.css); idle, nothing animates.
+  const live = messages.some(message => message.streaming || message.loading || message.waitingForFirstEvent || message.reasoningStreaming
+    || (message.runActivity !== undefined && message.runActivity.completedAt === undefined));
   const fileEnvironment = useMemo<FileLinkEnv>(() => ({ workspaceRoot, openFile: onOpenFileLink }), [workspaceRoot, onOpenFileLink]);
   return <FileLinkContext.Provider value={fileEnvironment}>
     <LastTurnIdsContext.Provider value={turnIds}>
       <div className="ff-message-scroll">
-        <div ref={containerRef} className={`ff-message-list ff-message-list--stickers-${stickerSize}`} aria-live="polite" onScroll={onScroll}>
+        <div ref={containerRef} className={`ff-message-list ff-message-list--stickers-${stickerSize}${live ? " is-live" : ""}`} aria-live="polite" onScroll={onScroll}>
           {channelLabel && <div className="ff-message-list__channel-context" role="note" aria-label={channelLabel}>
             <span className="ff-message-list__channel-dot" aria-hidden="true" /><span>{channelLabel}</span>
           </div>}

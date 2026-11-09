@@ -103,6 +103,15 @@ describe("Grapheme queue pacing", () => {
     expect(Math.max(...lengths)).toBeLessThanOrEqual(9);
   });
 
+  it("keeps its reading pace when frames come slowly instead of nine characters per frame", () => {
+    // A covered window gets about one frame a second; the backlog must not crawl at nine characters a second.
+    const queue = new SmoothTextRevealQueue();
+    queue.push("萤".repeat(1000));
+    let shown = 0;
+    for (let second = 0; second < 5; second++) shown += splitGraphemes(queue.takeNext(1000)).length;
+    expect(shown).toBeGreaterThan(5 * 75);
+  });
+
   it("shows the first three characters immediately and preserves all subsequent groups", () => {
     const queue = new SmoothTextRevealQueue(), text = "首先整理公开资料然后逐项核对来源";
     const beginning = queue.push(text), later: string[] = [];
