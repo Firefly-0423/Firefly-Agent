@@ -26,6 +26,12 @@ The offline marketplace plugins `json-tools`, `timezone-tools`, `code-language` 
 
 Runtime and build dependencies are declared in `package.json` and locked in `package-lock.json`; their individual package licenses remain applicable. The retired `vendor/cloud-music-mcp/` source is no longer shipped. Its provenance and license remain in repository history and historical migration records. The project-maintained SDK is built from this repository as `@firefly_wu/plugin-sdk`, with the original MIT notice included, and its releases are published to npm from `.github/workflows/plugin-sdk-publish.yml`. The upstream plugin registry is no longer a default service; local ZIP installation remains available.
 
+## Cyrene-Agent upstream
+
+[Cyrene-Agent](https://github.com/Playa-Cyrene/Cyrene-Agent), `Copyright (c) 2026 Playa`, MIT, is the upstream project this repository is based on; `LICENSE` lists both copyright holders and `README.md` records the relationship in "项目来源".
+
+`plugin-sdk/` is an adapted fork of that project's `packages/plugin-sdk` (npm `@playa0v0/cyrene-plugin-sdk`). The public contract types, the generated manifest schema, the manifest validation entry point and the testing helpers come from upstream; comments and identifiers have been rewritten and host-specific behaviour has been added. The package's own `LICENSE` lists both copyright holders and `plugin-sdk/NOTICE` reproduces the upstream MIT text, so every published `@firefly_wu/plugin-sdk` tarball carries the upstream notice. Keep both files in the package `files` list when republishing.
+
 ## Skill frontmatter parsing
 
 Skill metadata uses [Eleventy's gray-matter fork](https://github.com/11ty/gray-matter/tree/v3.0.0), `@11ty/gray-matter@3.0.0`, under the MIT license, `Copyright (c) 2014-present, Jon Schlinkert`. Preserve the complete dependency LICENSE when redistributing it. The runtime YAML engine is `js-yaml@5.4.3`, MIT-licensed, `Copyright (C) 2011-2015 by Vitaly Puzrin`.
