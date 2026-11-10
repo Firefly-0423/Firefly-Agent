@@ -49,3 +49,12 @@ ctx.registerPromptProvider({
   },
 });
 ```
+
+## 来源与许可
+
+本包改编自 Cyrene-Agent 的插件 SDK：
+
+- 上游仓库：`https://github.com/Playa-Cyrene/Cyrene-Agent`，路径 `packages/plugin-sdk`（npm 包 `@playa0v0/cyrene-plugin-sdk`）
+- 上游版权：`Copyright (c) 2026 Playa`，MIT License
+
+公开发布的 `@firefly_wu/plugin-sdk` 随包携带 `LICENSE` 与 `NOTICE`：`LICENSE` 同时列出上游与本项目版权人，`NOTICE` 保留上游完整 MIT 许可文本与派生边界说明。
