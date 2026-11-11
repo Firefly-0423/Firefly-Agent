@@ -21,6 +21,33 @@ it("durably settled success is included; metadata and rewound success are exclud
  entries.push({id:"rewind",seq:4,at:13,kind:"turn_rewind",payload:{anchorUserTurnId:"user",disposition:"keep_user",reason:"regenerate"}});
  expect(materializeTranscript(entries,{get:()=>null}).messages).toEqual([{role:"user",content:"question"}]);
 });
+it("materializes only the controlled reply when both paths wrote the same assistant turn", () => {
+ const regular:TranscriptEntry={id:"regular",seq:4,at:12,kind:"assistant",runId:"chat-run",turnId:"assistant",roundId:"round-0",payload:{role:"assistant",content:"regular reply"}};
+ const entries=[user,reply,marker("success"),regular];
+ expect(materializeTranscript(entries,{get:()=>null}).messages).toEqual([{role:"user",content:"question"},{role:"assistant",content:"audit original"}]);
+ expect(projectSSettlementMessages([{...cached,content:"regular reply"}],entries)[0].content).toBe("audit original");
+});
+it("excludes an ambiguous multi-controlled turn from the model view, matching the unknown projection", () => {
+ const second:TranscriptEntry={...reply,id:"reply-b",seq:4,runId:"s-run-b"};
+ const entries=[user,reply,marker("success"),second];
+ expect(materializeTranscript(entries,{get:()=>null}).messages).toEqual([{role:"user",content:"question"}]);
+ expect(projectSSettlementMessages([cached],entries)[0]).toMatchObject({content:"",sSettlement:{state:"unknown"}});
+});
+it("drops the regular duplicate and its tool results when the controlled entry owns the turn", () => {
+ const regular:TranscriptEntry={id:"regular",seq:4,at:12,kind:"assistant",runId:"chat-run",turnId:"assistant",roundId:"round-0",payload:{role:"assistant",content:"regular reply",toolCalls:[{id:"call-1",name:"lookup",arguments:"{}"}]}};
+ const result:TranscriptEntry={id:"result-1",seq:5,at:12,kind:"tool_result",payload:{assistantEntryId:"regular",toolCallId:"call-1",outcome:"success",message:{role:"tool",toolCallId:"call-1",name:"lookup",content:"ok"}}};
+ const built=materializeTranscript([user,reply,marker("success"),regular,result],{get:()=>null});
+ expect(built.messages).toEqual([{role:"user",content:"question"},{role:"assistant",content:"audit original"}]);
+ expect(built.messageSources?.map(source=>source.id)).toEqual(["user","reply"]);
+});
+it("keeps every tool round when only the regular path wrote the turn", () => {
+ const first:TranscriptEntry={id:"round-0",seq:3,at:12,kind:"assistant",runId:"chat-run",turnId:"assistant",roundId:"round-0",payload:{role:"assistant",content:"checking",toolCalls:[{id:"call-1",name:"lookup",arguments:"{}"}]}};
+ const result:TranscriptEntry={id:"result-1",seq:4,at:12,kind:"tool_result",payload:{assistantEntryId:"round-0",toolCallId:"call-1",outcome:"success",message:{role:"tool",toolCallId:"call-1",name:"lookup",content:"ok"}}};
+ const second:TranscriptEntry={id:"round-1",seq:5,at:12,kind:"assistant",runId:"chat-run",turnId:"assistant",roundId:"round-1",payload:{role:"assistant",content:"done"}};
+ const built=materializeTranscript([user,first,result,second],{get:()=>null});
+ expect(built.messages.map(message=>message.role)).toEqual(["user","assistant","tool","assistant"]);
+ expect(built.messages.map(message=>message.content)).toEqual(["question","checking","ok","done"]);
+});
 const cached:ChatMessage={id:"assistant",role:"model",at:11,content:"CACHE_NOT_AUTHORITY",answersUserMessageId:"user",ttsCacheKey:"old",runSnapshot:{runId:"s-run",status:"running",updatedAt:11}};
 it("canonical successful run overrides a stale cached run id without changing either source",()=>{
  const cache={...cached,runSnapshot:{...cached.runSnapshot!,runId:"stale-cache-run"}},entries=[user,reply,marker("success")],before=structuredClone({cache,entries});
