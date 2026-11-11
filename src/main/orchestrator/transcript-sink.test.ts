@@ -18,7 +18,9 @@ import { createTranscriptSink, requireTranscriptSinkBinding, wrapTranscriptSink 
 import type { TranscriptAppendGuard } from "./conversation-transcript-store";
 import type { HarnessRunSession, PersistedToolCall } from "./harness/run-store";
 import type { ToolCallOutcome } from "./harness/types";
-import type { ChatMessage } from "./vendors/types";
+import type { ChatMessage, ProviderCapability } from "./vendors/types";
+import { AnthropicAdapter } from "./vendors/anthropic-adapter";
+import { copyResponseJson } from "./vendors/response-request-snapshot";
 
 const roots: string[] = [];
 
@@ -380,6 +382,31 @@ describe("Main-owned TranscriptSink facade", () => {
     await facade.checkpoint();
     expect(await outcomes(store)).toEqual({ "call-1": "unknown" });
     expect((await store.read("c1")).entries.at(-1)?.kind).toBe("interruption");
+  });
+
+  it("accepts SDK-shaped Anthropic blocks and keeps the next request snapshot copyable", async () => {
+    const { store, sink } = await fixture();
+    const capability: ProviderCapability = { id: "agenda-anthropic", displayName: "Agenda messages", transport: "anthropic",
+      baseUrl: "https://agenda.invalid/v1", authStyle: "x-api-key", defaultModel: "agenda-model",
+      supportsTools: true, supportsThinking: true, thinkingField: "thinking", cacheStrategy: "cache_control", testStrategy: "text" };
+    const text: Record<string, unknown> = { type: "text", text: "checking" };
+    Object.defineProperty(text, "parsed_output", { value: { parsed: true }, enumerable: false });
+    const call: Record<string, unknown> = { type: "tool_use", id: "call-2", name: "lookup" };
+    Object.defineProperty(call, "__json_buf", { value: '{"q":"x"}', enumerable: false, writable: true });
+    Object.defineProperty(call, "input", { enumerable: true, configurable: true, get: () => ({ q: "x" }) });
+    const message = new AnthropicAdapter(capability.id, capability)
+      .parseResponse({ stop_reason: "tool_use", content: [text, call] }).assistantMessage;
+
+    const facade = wrapTranscriptSink(sink, {});
+    await expect(facade.appendAssistant({ message, roundId: "round-1" })).resolves.toEqual(expect.any(String));
+    const stored = (await store.read("c1")).entries.at(-1);
+    if (!stored || stored.kind !== "assistant") throw Error("assistant entry missing");
+    const raw = stored.payload.rawAssistant as Array<Record<string, unknown>>;
+    expect(raw.map((block) => block.type)).toEqual(["text", "tool_use"]);
+    expect(raw[1].input).toEqual({ q: "x" });
+    expect(message.toolCalls?.[0].arguments).toBe('{"q":"x"}');
+    // 第二轮请求会复用同一份 rawAssistant；严格拷贝仍须通过，这正是 #52 的判据。
+    expect(() => copyResponseJson({ messages: [{ role: "user", content: "q" }, message] }, true)).not.toThrow();
   });
 
   it("keeps the lifecycle pending until an unawaited real append settles", async () => {
