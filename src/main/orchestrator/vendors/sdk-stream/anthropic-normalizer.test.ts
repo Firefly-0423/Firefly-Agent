@@ -60,6 +60,16 @@ describe("SDK terminal authority over live Anthropic text", () => {
     expect(report).not.toContain("final-calendar-answer");
   });
 
+  it("normalizes SDK-private block fields before the replayable message leaves the reconciler", () => {
+    const text: Record<string, unknown> = { type: "text", text: "Tuesday is free" };
+    Object.defineProperty(text, "parsed_output", { value: { parsed: true }, enumerable: false });
+    const response = reconcileAnthropicTerminal({ text: "Tuesday is free", thinking: "", toolCalls: [] }, {
+      stop_reason: "end_turn", content: [text],
+    }, adapter());
+    const raw = response.assistantMessage.rawAssistant as Array<Record<string, unknown>>;
+    expect(Object.getOwnPropertyNames(raw[0])).toEqual(["type", "text"]);
+  });
+
   it("rejects terminal tool blocks lacking a usable identity", () => {
     expect(() => reconcileAnthropicTerminal({ text: "", toolCalls: [] }, { stop_reason: "tool_use", content: [{ type: "tool_use", id: "", name: "calendar_read", input: { day: "Tuesday" } }] }, adapter())).toThrowError(expect.objectContaining({ code: "E_TOOL_CALL_INCOMPLETE" }));
   });
