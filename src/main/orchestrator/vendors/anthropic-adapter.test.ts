@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { AnthropicAdapter } from "./anthropic-adapter";
+import { copyResponseJson } from "./response-request-snapshot";
 import type { ChatRequest, ProviderCapability, VendorConfig } from "./types";
 
 const provider: ProviderCapability = { id: "agenda-anthropic", displayName: "Agenda messages", transport: "anthropic", baseUrl: "https://agenda.invalid/v1", authStyle: "x-api-key", defaultModel: "agenda-model", supportsTools: true, supportsThinking: true, thinkingField: "thinking", cacheStrategy: "cache_control", testStrategy: "text" };
@@ -65,6 +66,48 @@ describe("Anthropic response channels and canonical replay", () => {
     expect(messages[2]).toEqual({ role: "user", content: "And Wednesday?" });
     expect(messages[3].role).toEqual("user"); expect(Array.isArray(messages[3].content)).toEqual(true);
     expect(messages[3].content).toEqual([{ type: "tool_result", tool_use_id: "calendar-call", content: "09:30 dentist" }]);
+  });
+});
+
+describe("Anthropic SDK-block normalization for transcript replay", () => {
+  /** SDK 私有属性都是非枚举的，toEqual 看不见它们，只能按自有属性名断言。 */
+  const ownKeys = (value: unknown) => Object.getOwnPropertyNames(value);
+
+  it("strips non-enumerable SDK properties while keeping signature and tool input", () => {
+    const text: Record<string, unknown> = { type: "text", text: "Reading your calendar" };
+    Object.defineProperty(text, "parsed_output", { value: { parsed: true }, enumerable: false });
+    const call: Record<string, unknown> = { type: "tool_use", id: "calendar-call", name: "calendar_read", input: { day: "Tuesday" } };
+    Object.defineProperty(call, "__json_buf", { value: '{"day":"Tuesday"}', enumerable: false, writable: true });
+    const content = [{ type: "thinking", thinking: "Check Tuesday", signature: "agenda-signed-proof" }, text, call];
+    const parsed = create().parseResponse({ stop_reason: "tool_use", content });
+    const raw = parsed.assistantMessage.rawAssistant as Array<Record<string, unknown>>;
+    expect(raw.map((block) => ownKeys(block).sort())).toEqual([
+      ["signature", "thinking", "type"], ["text", "type"], ["id", "input", "name", "type"],
+    ]);
+    expect(raw[0].signature).toEqual("agenda-signed-proof");
+    expect(raw[2].input).toEqual({ day: "Tuesday" });
+  });
+
+  it("evaluates a lazy tool input getter that no content_block_stop ever converted", () => {
+    // SDK 在 content_block_stop 才把 input 重定义成数据属性；兼容端点漏发该事件时仍是 getter。
+    const call: Record<string, unknown> = { type: "tool_use", id: "calendar-call", name: "calendar_read" };
+    Object.defineProperty(call, "__json_buf", { value: '{"day":"Tuesday"}', enumerable: false, writable: true });
+    Object.defineProperty(call, "input", {
+      enumerable: true, configurable: true, get: () => ({ day: "Tuesday" }),
+    });
+    const parsed = create().parseResponse({ stop_reason: "tool_use", content: [call as { type: string }] });
+    const raw = parsed.assistantMessage.rawAssistant as Array<Record<string, unknown>>;
+    expect(Object.getOwnPropertyDescriptor(raw[0], "input")).toEqual({
+      value: { day: "Tuesday" }, writable: true, enumerable: true, configurable: true,
+    });
+    expect(ownKeys(raw[0])).toEqual(["type", "id", "name", "input"]);
+  });
+
+  it("passes the strict transcript copy after replay normalization", () => {
+    const text: Record<string, unknown> = { type: "text", text: "Reading your calendar" };
+    Object.defineProperty(text, "parsed_output", { value: { parsed: true }, enumerable: false });
+    const parsed = create().parseResponse({ stop_reason: "end_turn", content: [text] });
+    expect(() => copyResponseJson({ message: parsed.assistantMessage }, true, () => { throw Error("STRICT_COPY_REJECTED"); })).not.toThrow();
   });
 });
 

@@ -166,8 +166,10 @@ export class AnthropicAdapter implements ChatVendorAdapter {
     }
     const ending = response.stop_reason ?? "end_turn";
     const normalized = ending === "tool_use" ? "tool_calls" : ending === "end_turn" ? "stop" : ending === "max_tokens" ? "length" : ending;
+    // SDK 会在块上挂非枚举私有属性（parsed_output / __json_buf）和惰性 input getter；
+    // 轨迹与请求快照只接受自有可枚举数据属性，先归一成纯数据再作为回放原文。
     const assistant: ChatMessage = { role: "assistant", ...(visible ? { content: visible } : {}),
-      ...(thought ? { thinking: thought } : {}), ...(calls.length > 0 ? { toolCalls: calls } : {}), rawAssistant: content };
+      ...(thought ? { thinking: thought } : {}), ...(calls.length > 0 ? { toolCalls: calls } : {}), rawAssistant: structuredClone(content) };
     const counts = response.usage ? usageValue(response.usage) : undefined;
     return { assistantMessage: assistant, text: visible, thinking: thought, toolCalls: calls, finishReason: normalized, raw, usage: counts };
   }
