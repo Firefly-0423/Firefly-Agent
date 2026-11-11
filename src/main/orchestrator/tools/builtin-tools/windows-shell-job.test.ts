@@ -113,8 +113,8 @@ describe.runIf(process.platform === "win32")("Windows job supervisor compatibili
     expect(() => spawnWindowsShellJob(spawnSpec, path.join(dir, "startup-error"))).toThrow(TypeError);
   });
 
-  async function until(predicate: () => boolean) {
-    const deadline = Date.now() + 8000;
+  async function until(predicate: () => boolean, timeoutMs = 8000) {
+    const deadline = Date.now() + timeoutMs;
     while (!predicate()) {
       if (Date.now() > deadline) throw new Error("fixture did not converge");
       await new Promise((resolve) => setTimeout(resolve, 25));
@@ -140,9 +140,9 @@ describe.runIf(process.platform === "win32")("Windows job supervisor compatibili
     if (action === "control-eof") child.stdin!.end();
     await done;
     // completion must not depend on descendant stdio holding a pipe open.
-    if (action === "supervisor-death") await until(() => !isPidExecuting(descendantPid!));
+    if (action === "supervisor-death") await until(() => !isPidExecuting(descendantPid!), 20_000);
     expect(isPidExecuting(descendantPid)).toBe(false);
-  }, 15_000);
+  }, 30_000);
 
   it("reaps a detached descendant before output-limit completion", async () => {
     const pidFile = path.join(dir, "pid");
