@@ -37,22 +37,47 @@ function toUserContentBlocks(content: NonNullable<ChatMessage["content"]>): Arra
 function convertItems(items: OutputItem[]): Array<Record<string, unknown>> {
   return toResponseInputItems(items as unknown as Parameters<typeof toResponseInputItems>[0]) as unknown as Array<Record<string, unknown>>;
 }
-function replayRawAssistant(rawAssistant: unknown, includeEncryptedReasoning: boolean): Array<Record<string, unknown>> {
-  if (!Array.isArray(rawAssistant)) return [];
-  const allowed = rawAssistant.filter((entry): entry is OutputItem => {
-    if (!entry || typeof entry !== "object") return false;
-    const kind = (entry as { type?: unknown }).type;
-    if (kind === "message" || kind === "function_call") return true;
-    return kind === "reasoning" ? includeEncryptedReasoning && typeof (entry as ReasonItem).encrypted_content === "string" : false;
-  });
-  try { return convertItems(allowed); }
+function replayRawAssistant(items: OutputItem[]): Array<Record<string, unknown>> {
+  try { return convertItems(items); }
   catch {
     const partial: Array<Record<string, unknown>> = [];
-    for (const entry of allowed) {
+    for (const entry of items) {
       try { partial.push(...convertItems([entry])); } catch { /* 单条损坏时继续回放其余内容。 */ }
     }
     return partial;
   }
+}
+/**
+ * 原文回放只对 Responses 自己的 output item 成立。异构块（例如 Anthropic 的
+ * thinking / text / tool_use）被忽略后，如果回放会丢掉声明文本或让工具结果
+ * 失去对应的 function_call，就整体放弃回放，交给 content + toolCalls 重建。
+ */
+function replayableOutputItems(message: ChatMessage, includeEncryptedReasoning: boolean): OutputItem[] | undefined {
+  const raw = message.rawAssistant;
+  if (!Array.isArray(raw)) return undefined;
+  const replayable: OutputItem[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return undefined;
+    const item = entry as OutputItem;
+    if (item.type === "message") {
+      const text = item as MessageItem;
+      if (text.role !== "assistant" || !Array.isArray(text.content)) return undefined;
+      replayable.push(item);
+    } else if (item.type === "function_call") {
+      const call = item as CallItem;
+      if (typeof call.call_id !== "string" || typeof call.name !== "string" || typeof call.arguments !== "string") return undefined;
+      replayable.push(item);
+    } else if (item.type === "reasoning") {
+      // 没有加密内容时无法回放，但它是本接口格式，不能据此判定历史异构。
+      if (includeEncryptedReasoning && typeof (item as ReasonItem).encrypted_content === "string") replayable.push(item);
+    }
+  }
+  if (replayable.length === 0) return undefined;
+  const replayedCalls = new Set(replayable.filter((item) => item.type === "function_call").map((item) => (item as CallItem).call_id));
+  if ((message.toolCalls ?? []).some((call) => !replayedCalls.has(call.id))) return undefined;
+  if (typeof message.content === "string" && message.content.length > 0 && !replayable.some((item) => item.type === "message"))
+    return undefined;
+  return replayable;
 }
 function toWireInput(messages: ChatMessage[], includeEncryptedReasoning: boolean): {
   instructions: string | undefined; input: Array<Record<string, unknown>>;
@@ -70,8 +95,9 @@ function toWireInput(messages: ChatMessage[], includeEncryptedReasoning: boolean
       case "user": items.push({ role: "user", content: toUserContentBlocks(message.content ?? "") }); break;
       case "tool": items.push({ type: "function_call_output", call_id: message.toolCallId, output: plain() }); break;
       default: {
-        if (message.rawAssistant !== undefined) {
-          items.push(...replayRawAssistant(message.rawAssistant, includeEncryptedReasoning));
+        const replayable = replayableOutputItems(message, includeEncryptedReasoning);
+        if (replayable) {
+          items.push(...replayRawAssistant(replayable));
           break;
         }
         const text = plain();

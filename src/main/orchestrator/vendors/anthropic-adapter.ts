@@ -72,6 +72,21 @@ function assistantBlocks(message: ChatMessage): ContentBlock[] {
   }
   return converted;
 }
+const anthropicAssistantBlockTypes = new Set(["text", "thinking", "redacted_thinking", "tool_use", "document"]);
+/** 原文回放只对 Anthropic 自己的块成立，且必须覆盖声明里的文本与工具调用；否则交给 content/toolCalls 重建。 */
+function isReplayableAssistantContent(message: ChatMessage): boolean {
+  const raw = message.rawAssistant;
+  if (!Array.isArray(raw) || raw.length === 0) return false;
+  if (!raw.every((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
+    const block = entry as ContentBlock;
+    return typeof block.type === "string" && anthropicAssistantBlockTypes.has(block.type);
+  })) return false;
+  const blocks = raw as ContentBlock[];
+  const declared = new Set(blocks.filter((block) => block.type === "tool_use").map((block) => String(block.id ?? "")));
+  if ((message.toolCalls ?? []).some((call) => !declared.has(call.id))) return false;
+  return typeof message.content !== "string" || message.content.length === 0 || blocks.some((block) => block.type === "text");
+}
 function toWireMessages(messages: ChatMessage[], options?: { cacheBreakpoints?: boolean }): {
   system: string | undefined; messages: Array<Record<string, unknown>>;
 } {
@@ -81,7 +96,7 @@ function toWireMessages(messages: ChatMessage[], options?: { cacheBreakpoints?: 
   for (const message of messages.filter((entry) => entry.role !== "system")) {
     if (message.role === "user") serialized.push({ role: "user", content: toAnthropicContent(message.content ?? "") });
     else if (message.role === "assistant") {
-      if (message.rawAssistant !== undefined) serialized.push({ role: "assistant", content: message.rawAssistant });
+      if (isReplayableAssistantContent(message)) serialized.push({ role: "assistant", content: message.rawAssistant });
       else {
         const blocks = assistantBlocks(message);
         serialized.push({ role: "assistant", content: blocks.length > 0 ? blocks : "" });
