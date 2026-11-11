@@ -88,12 +88,32 @@ export function materializeTranscript(entries: TranscriptEntry[], reader: Transc
       }
     }
   }
+  // 同一 assistant turn 同时存在受控与常规写入时，受控条目是权威版本，常规条目跳过；
+  // 多条受控视为与投影一致的 unknown，整轮都不进入上下文。
+  // 只有常规条目时不做合并：工具循环的每一轮声明都有各自的 tool_result，必须保留。
+  const dispositions = new Map<string, ReturnType<typeof classifySAssistantSettlement>>();
+  const controlledTurns = new Map<string, AssistantEnvelope[]>();
+  for (const node of view) {
+    if (node.kind !== "assistant") continue;
+    dispositions.set(node.entry.id, classifySAssistantSettlement(entries, node.entry.id));
+    const turnId = node.entry.turnId;
+    if (typeof turnId !== "string" || !turnId) continue;
+    if (node.entry.sSettlement === undefined && node.entry.roundId !== "s-response") continue;
+    const bucket = controlledTurns.get(turnId);
+    if (bucket) bucket.push(node.entry); else controlledTurns.set(turnId, [node.entry]);
+  }
+  const authoritativeOf = new Map<string, string | null>();
+  for (const [turnId, bucket] of controlledTurns)
+    authoritativeOf.set(turnId, bucket.length === 1 ? bucket[0].id : null);
   const messages: ChatMessage[] = [];
   const sources: TranscriptEntry[] = [];
   for (const node of view) {
     if (node.kind === "user") { messages.push({ role: "user", content: node.text }); sources.push(node.entry); continue; }
-    const disposition = classifySAssistantSettlement(entries, node.entry.id);
+    const disposition = dispositions.get(node.entry.id);
     if (disposition !== "legacy" && disposition !== "success") continue;
+    const turnId = node.entry.turnId;
+    if (typeof turnId === "string" && turnId && authoritativeOf.has(turnId)
+      && authoritativeOf.get(turnId) !== node.entry.id) continue;
     const assistant = node.entry.payload;
     messages.push(assistant);
     sources.push(node.entry);
