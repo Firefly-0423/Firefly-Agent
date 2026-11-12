@@ -24,6 +24,8 @@
 
 ## ✅ Checklist
 
+* [ ] 本 PR 只包含一个施工包或一件能独立回退的改动（见 docs/contributing/development-workflow.md）
+* [ ] 涉及核心模块的行为、契约或安全边界时，已先在 Issue 中讨论方向（见 .github/CONTRIBUTING.md）
 * [ ] 已记录本次验证结果及未验证部分
 * [ ] 改动范围与本次目标相关
 * [ ] 必要测试覆盖新增或修复行为以及回归风险
