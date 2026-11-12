@@ -1,5 +1,5 @@
 import type { IpcMainInvokeEvent, WebContents } from "electron";
-import type { IpcScope } from "../application/ipc-scope";
+import type { IpcScope } from "../ipc/ipc-scope";
 import type { SidebarLayoutStore } from "./sidebar-layout-store";
 import { SIDEBAR_LAYOUT_IPC } from "../../shared/sidebar-layout";
 

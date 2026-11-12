@@ -1,6 +1,6 @@
 import { BrowserWindow } from "electron";
 import { IPC } from "../../shared/ipc-channels";
-import { createIpcScope, type IpcScope, type IpcScopeMainLike } from "../application/ipc-scope";
+import { createIpcScope, type IpcScope, type IpcScopeMainLike } from "../ipc/ipc-scope";
 import type { AppUpdateState } from "../../shared/app-update";
 import type { AppUpdateService } from "./app-update-service";
 

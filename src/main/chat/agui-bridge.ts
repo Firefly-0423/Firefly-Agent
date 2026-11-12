@@ -5,7 +5,7 @@ import * as fs from "fs";
 import { app, IpcMainInvokeEvent, WebContents } from "electron";
 import { getHarnessRunStore } from "../orchestrator/harness/run-store";
 import { IPC } from "../../shared/ipc-channels";
-import { createIpcScope, type IpcScope } from "../application/ipc-scope";
+import { createIpcScope, type IpcScope } from "../ipc/ipc-scope";
 import { Subscription } from "rxjs";
 import { AgentRuntimeError } from "../orchestrator/agent-runtime-error";
 import {
@@ -15,12 +15,12 @@ import {
   type FireflyRunResult,
 } from "../orchestrator/firefly-agent";
 import { RunSettlementGate } from "../orchestrator/run-settlement";
-import { toastEvents } from "../toast/toast-events";
+import { toastEvents } from "../interaction/toast-events";
 import type { AguiRunAck, FireflyRunTerminalResult } from "../../shared/run-terminal";
 import { indexConversationTurn } from "../orchestrator/tools/history-tools";
 import type { RelationshipChannel } from "../relationship/relationship-log";
-import { createThinkFilter, type ThinkStreamFilter, type ThinkFilterMode } from "./think-filter";
-import { ChatTimeStreamPrefixFilter } from "./chat-time-stream-filter";
+import { createThinkFilter, type ThinkStreamFilter, type ThinkFilterMode } from "../orchestrator/text/think-filter";
+import { ChatTimeStreamPrefixFilter } from "../orchestrator/text/chat-time-stream-filter";
 import { runLearnPostTurnHook } from "../knowledge/progress/learn-post-turn";
 import { openKnowledgeWorkspace } from "../knowledge/knowledge-workspace";
 import { getAdapterForConfig } from "../orchestrator/vendors";
@@ -41,7 +41,7 @@ import {
   cancelPendingChoicesForRun,
   type ChoiceCardData,
   type ChoiceSettlement,
-} from "./user-choice";
+} from "../interaction/user-choice";
 import { cancelPendingApprovalsForRun, getCurrentLevel } from "../permission/permission";
 import { cancelPendingQuizzesForRun, takeQuizEvidenceForRun } from "../orchestrator/pop-quiz";
 import { approvePlan, getPlanPath, moveToReview, supplementPlan } from "../orchestrator/plan-mode";

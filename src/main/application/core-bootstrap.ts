@@ -7,10 +7,10 @@
  * 技能、RAG、沙箱失败仅记为降级；聊天页面加载失败属于致命错误，直接抛出。
  */
 
-import type { IpcScope } from "./ipc-scope";
+import type { IpcScope } from "../ipc/ipc-scope";
 import type { StartupReadiness } from "./readiness";
 import type { ShutdownCoordinator } from "./shutdown";
-import type { WindowActivationBroker } from "./window-activation";
+import type { WindowActivationBroker } from "../windows/window-activation";
 import type { ShellResult } from "./shell-bootstrap";
 import type { RevealStartupWindowsOptions } from "../startup/startup-window-reveal";
 import type { AgentRuntime } from "../orchestrator/agent-runtime";

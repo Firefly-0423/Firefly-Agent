@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   measure: vi.fn(async () => ({ status: "measured", population: 0, present: 0, missing: 0, unknownDenied: 0, evidence: { status: "not-evaluated" } })),
   log: vi.fn(), beforeQuit: undefined as (() => void) | undefined,
 }));
-vi.mock("../startup/identity-preflight", () => ({}));
+vi.mock("./identity-preflight", () => ({}));
 vi.mock("electron", () => ({ app: {
   whenReady: () => mocks.ready(), once: (_event: string, listener: () => void) => { mocks.beforeQuit = listener; },
   removeListener: () => { mocks.beforeQuit = undefined; },

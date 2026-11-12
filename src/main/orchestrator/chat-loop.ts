@@ -1,5 +1,5 @@
-import { stripLeakedChatTimeContext } from "../chat/chat-time-context";
-import { ChatTimeStreamPrefixFilter } from "../chat/chat-time-stream-filter";
+import { stripLeakedChatTimeContext } from "./text/chat-time-context";
+import { ChatTimeStreamPrefixFilter } from "./text/chat-time-stream-filter";
 import { recordUsage, recordRequest, recordModelCall } from "../storage/token-usage-store";
 import { AgentRuntimeError } from "./agent-runtime-error";
 import type { AgentLoopSettings, AgentLoopEvent, AgentLoopResult } from "./firefly-agent";

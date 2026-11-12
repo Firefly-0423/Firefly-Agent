@@ -10,7 +10,7 @@ vi.mock("./permission", () => ({
   registerPermissionIpc: (scope: unknown) => { calls.push(["permission-ipc", scope]); },
   getCurrentLevel: () => "scoped",
 }));
-vi.mock("../chat/user-choice", () => ({
+vi.mock("../interaction/user-choice", () => ({
   registerChoiceIpc: (scope: unknown) => { calls.push(["choice-ipc", scope]); },
 }));
 

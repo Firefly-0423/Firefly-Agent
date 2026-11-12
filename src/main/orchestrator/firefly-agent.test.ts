@@ -11,7 +11,7 @@ import type { TranscriptSink } from "./transcript-sink";
 vi.mock("./vendors", () => ({ getAdapterForConfig: () => ({ id: "calendar-adapter" }) }));
 vi.mock("./tools/registry/tool-registry", () => ({ toolRegistry: { getEnabledTools: () => [], getById: vi.fn() } }));
 vi.mock("../permission/permission", () => ({ checkPermission: vi.fn() }));
-vi.mock("../chat/user-choice", () => ({ requestUserClarification: vi.fn() }));
+vi.mock("../interaction/user-choice", () => ({ requestUserClarification: vi.fn() }));
 vi.mock("./chat-loop", () => ({ runChatLoop: vi.fn() }));
 vi.mock("./harness-adapter", () => ({ runHarnessWithAdapter: vi.fn() }));
 

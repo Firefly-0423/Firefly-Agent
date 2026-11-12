@@ -4,7 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 import { IPC } from "../../shared/ipc-channels";
-import type { IpcScope } from "../application/ipc-scope";
+import type { IpcScope } from "../ipc/ipc-scope";
 
 const mocks = vi.hoisted(() => ({
   path: "", memory: { getL0: vi.fn(), getL1: vi.fn(), getAllL2: vi.fn(), getReflectionLogs: vi.fn(), updateL0: vi.fn(), updateL1: vi.fn() },

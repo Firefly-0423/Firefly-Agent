@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 vi.mock("electron", () => ({ ipcMain: {} }));
-import { createIpcScope } from "../application/ipc-scope";
+import { createIpcScope } from "../ipc/ipc-scope";
 import { IPC } from "../../shared/ipc-channels";
 import { getOfflineBrowserAvailability, registerBrowserAvailabilityIpc } from "./browser-availability-ipc";
 

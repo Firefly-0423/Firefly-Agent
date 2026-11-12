@@ -1,4 +1,4 @@
-import type { IpcScope } from "../application/ipc-scope";
+import type { IpcScope } from "../ipc/ipc-scope";
 import { IPC } from "../../shared/ipc-channels";
 import type { BrowserAvailability } from "../../shared/browser-availability";
 const unavailable: BrowserAvailability = Object.freeze({ available: false, reason: "network_unavailable" });

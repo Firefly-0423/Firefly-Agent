@@ -10,7 +10,7 @@ import { FireflyAgent, type FireflyRunOptions } from "../orchestrator/firefly-ag
 import type { LifecyclePublisher } from "../plugin-host/lifecycle-publisher";
 import { toolRegistry } from "../orchestrator/tools/registry/tool-registry";
 import { RETIRED_MEMORY_TOOL_IDS } from "../orchestrator/tools/registry/retired-memory-tools";
-import { toastEvents } from "../toast/toast-events";
+import { toastEvents } from "../interaction/toast-events";
 import { filterToolsForTask } from "./tool-filter";
 import type { ScheduledRunResult, ScheduledTask, ScheduledTaskHistoryEntry } from "./types";
 

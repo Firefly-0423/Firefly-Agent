@@ -1,4 +1,4 @@
-import type { IpcScope } from "../application/ipc-scope";
+import type { IpcScope } from "../ipc/ipc-scope";
 import type { ShutdownCoordinator } from "../application/shutdown";
 import type { createBrowserService } from "./browser-service";
 import { registerBrowserAvailabilityIpc, getOfflineBrowserAvailability } from "./browser-availability-ipc";

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { createToastService, type ToastServiceDeps } from "./toast-service";
-import { createToastEventBus } from "./toast-events";
+import { createToastEventBus } from "../interaction/toast-events";
 import { TOAST_NOTIFY_TIMEOUT_MS, TOAST_SOUND_MERGE_MS } from "./types";
-import type { IpcScope } from "../application/ipc-scope";
+import type { IpcScope } from "../ipc/ipc-scope";
 import type { ToastPushPayload } from "../../shared/toast-types";
 
 function notificationDesk(options: Partial<ToastServiceDeps> = {}) {

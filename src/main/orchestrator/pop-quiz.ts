@@ -1,8 +1,8 @@
 import { BrowserWindow } from "electron";
-import { createIpcScope, type IpcScope } from "../application/ipc-scope";
+import { createIpcScope, type IpcScope } from "../ipc/ipc-scope";
 import { IPC } from "../../shared/ipc-channels";
 import { createAbortError } from "../utils/abort-utils";
-import { toastEvents } from "../toast/toast-events";
+import { toastEvents } from "../interaction/toast-events";
 import { toolRegistry, type ToolDefinition } from "./tools/registry/tool-registry";
 import type { ToolContext } from "./tools/registry/tool-context";
 import type {

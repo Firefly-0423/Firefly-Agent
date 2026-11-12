@@ -14,7 +14,7 @@ import { BrowserWindow, dialog, type IpcMainInvokeEvent, type WebContents } from
 import { inspectWorkspaceText, saveWorkspaceText } from "./workspace-file-editor";
 import { IPC } from "../../shared/ipc-channels";
 import type { WorkspaceFileEntry, WorkspaceListResult, WorkspaceReadResult, WorkspaceFileErrorCode } from "../../shared/workspace-files-types";
-import { createIpcScope, type IpcScope } from "../application/ipc-scope";
+import { createIpcScope, type IpcScope } from "../ipc/ipc-scope";
 import * as chatsStore from "./chats-store";
 
 /** 单次列目录最多返回的条目数，超出部分直接截掉 */

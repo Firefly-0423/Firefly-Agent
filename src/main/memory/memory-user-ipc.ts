@@ -4,7 +4,7 @@ import { dialog } from "electron";
 import type { IpcMainInvokeEvent } from "electron";
 import { IPC } from "../../shared/ipc-channels";
 import type { ConversationMode } from "../../shared/chat-types";
-import { createIpcScope, type IpcScope } from "../application/ipc-scope";
+import { createIpcScope, type IpcScope } from "../ipc/ipc-scope";
 import { getStickerManagerConfig, setStickerEnabled } from "../orchestrator/sticker-settings";
 import { addUserSticker } from "../stickers/sticker-storage";
 import { registerMcpManagementIpc } from "../orchestrator/mcp-management-ipc";

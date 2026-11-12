@@ -1,5 +1,5 @@
 import { app } from "electron";
-import { applyElectronPaths, resolveRuntimeProfile } from "./runtime-profile";
+import { applyElectronPaths, resolveRuntimeProfile } from "../startup/runtime-profile";
 import { initializeStorageContext } from "../storage/storage-context";
 
 // Keep this import first in Main: CJS evaluates preflight before service imports.

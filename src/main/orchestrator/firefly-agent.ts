@@ -18,7 +18,7 @@ import type { SocialAtom } from "../social-context/types";
 import { ExecutionLedgerStore, type ExecutionLedger } from "./execution-ledger";
 import { perf } from "../logging/perf-trace";
 import { debugLog, flowLog } from "../logging/agent-log";
-import { requestUserClarification } from "../chat/user-choice";
+import { requestUserClarification } from "../interaction/user-choice";
 import type { ConversationMode } from "../../shared/chat-types";
 import type { FireflyRunTerminalResult } from "../../shared/run-terminal";
 import { executeToolDefinition } from "./tools/registry/tool-executor";

@@ -34,7 +34,7 @@ vi.mock("./history-log", () => ({
 vi.mock("./message-log", () => ({ appendLog: () => {} }));
 vi.mock("../orchestrator/tools/registry/tool-registry", () => ({ toolRegistry: { getEnabledTools: () => [], getAllTools: () => [] } }));
 vi.mock("../orchestrator/tools/history-tools", () => ({ indexConversationTurn: fake.indexed }));
-vi.mock("../chat/image-caption", () => ({ captionImageSafe: vi.fn(), IMAGE_CAPTION_PROMPT: "unused" }));
+vi.mock("../orchestrator/image-caption", () => ({ captionImageSafe: vi.fn(), IMAGE_CAPTION_PROMPT: "unused" }));
 vi.mock("./agent-input", () => ({ buildChannelAttachmentInputs: async () => ({}) }));
 vi.mock("../settings/model-settings", () => ({ loadModelSettings: () => ({}), resolveModelSettingsProfile: () => ({ multimodal: false }) }));
 vi.mock("./settings-store", () => ({ loadChannelsSettings: () => ({

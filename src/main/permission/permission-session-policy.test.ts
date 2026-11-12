@@ -9,7 +9,7 @@ vi.mock("electron", () => ({
 }));
 vi.mock("fs", () => ({ mkdirSync: vi.fn(), writeFileSync: vi.fn() }));
 vi.mock("../logging/logger", () => ({ logger: { info: vi.fn() }, LogTag: { Permission: "permission" } }));
-vi.mock("../toast/toast-events", () => ({ toastEvents: { publishApprovalPending: vi.fn(), publishApprovalSettled: vi.fn() } }));
+vi.mock("../interaction/toast-events", () => ({ toastEvents: { publishApprovalPending: vi.fn(), publishApprovalSettled: vi.fn() } }));
 
 import { IPC } from "../../shared/ipc-channels";
 import { checkPermission, registerPermissionIpc, setCurrentLevel } from "./permission";

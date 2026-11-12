@@ -3,7 +3,7 @@
 
 import type { StartupReadiness } from "./readiness";
 import type { ShutdownCoordinator } from "./shutdown";
-import type { WindowActivationBroker } from "./window-activation";
+import type { WindowActivationBroker } from "../windows/window-activation";
 import type { ShellResult } from "./shell-bootstrap";
 import type { CoreResult } from "./core-bootstrap";
 import type { BackgroundHandle } from "./background";

@@ -13,7 +13,7 @@ import { broadcastChatsChanged } from "../chats/chats-ipc";
 import { setChannelsConversationLifecycle } from "../channels/init";
 import { channelManager } from "../channels/manager";
 import { sendProactiveChannelMessage, canStartProactiveChannelDelivery, type ProactiveMobileChannel } from "../channels/proactive-delivery";
-import { resolveChatContextTimezone } from "../chat/chat-time-context";
+import { resolveChatContextTimezone } from "../orchestrator/text/chat-time-context";
 import { buildAlwaysOnContext, buildMemoryInjection, buildWorldbookContext } from "../orchestrator";
 import { loadPromptFile } from "../prompts/prompt-loader";
 import type { GeneralSettings } from "../settings/general-settings";

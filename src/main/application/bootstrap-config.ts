@@ -7,7 +7,7 @@ import { setSearchConfig, setUserTimezoneConfig, setWeatherConfig } from "../orc
 import { setEmailConfig } from "../orchestrator/tools/email-tools";
 import { setTravelConfig } from "../orchestrator/tools/travel-tools";
 import { resolveVendorRuntimeSettings, setVendorRuntimeSettingsGetter } from "../orchestrator/vendors/runtime-settings";
-import { setChoiceCardSender, setChoiceDismissSender } from "../chat/user-choice";
+import { setChoiceCardSender, setChoiceDismissSender } from "../interaction/user-choice";
 import { setAsrConfig } from "../asr/asr-config";
 import { reactChatWindow } from "../windows/window-state";
 

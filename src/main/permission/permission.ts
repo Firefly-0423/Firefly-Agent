@@ -1,13 +1,13 @@
 // 本地权限闸门：当前档位的持有与落盘、工具调用的放行判定、以及「每次审批」的卡片往返。
 import { app, BrowserWindow, ipcMain } from "electron";
-import { createIpcScope, type IpcScope } from "../application/ipc-scope";
+import { createIpcScope, type IpcScope } from "../ipc/ipc-scope";
 import * as fs from "fs";
 import * as path from "path";
 import { IPC } from "../../shared/ipc-channels";
 import { createAbortError } from "../utils/abort-utils";
 import { logger, LogTag } from "../logging/logger";
 import { policyFor, type AgentFileAccessLevel, type ToolRiskLevel } from "./permission-policy";
-import { toastEvents } from "../toast/toast-events";
+import { toastEvents } from "../interaction/toast-events";
 import type { ApprovalOrigin, ApprovalRequest, ApprovalSettleReason, ApprovalSettledPayload } from "../../shared/permission-approval";
 
 export { policyFor, type AgentFileAccessLevel, type ToolRiskLevel };

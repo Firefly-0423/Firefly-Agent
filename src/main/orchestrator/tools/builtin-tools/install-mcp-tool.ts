@@ -3,7 +3,7 @@ import type { ToolDefinition } from "../registry/tool-registry";
 import { addMcpServer } from "../../mcp-manager";
 import { createAbortError } from "../../../utils/abort-utils";
 import { classifyMcpFailure, MCP_FAILURE_REASONS } from "../../mcp-failure";
-import { requestUserChoice, type ChoiceOption } from "../../../chat/user-choice";
+import { requestUserChoice, type ChoiceOption } from "../../../interaction/user-choice";
 
 const LOG_PREFIX = "[BuiltinTools]";
 

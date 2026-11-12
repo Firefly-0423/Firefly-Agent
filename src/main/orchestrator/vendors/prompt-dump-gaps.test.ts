@@ -10,7 +10,7 @@ const ephemeralMock = vi.hoisted(() => ({ any: vi.fn(() => false) }));
 
 vi.mock("fs", () => fsMock);
 vi.mock("os", () => ({ homedir: () => osMock.home }));
-vi.mock("../../chats/ephemeral-conversations", () => ({
+vi.mock("../../storage/ephemeral-conversations", () => ({
   ephemeralConversations: ephemeralMock,
 }));
 

@@ -3,7 +3,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { IPC } from "../../shared/ipc-channels";
-import type { IpcScope } from "../application/ipc-scope";
+import type { IpcScope } from "../ipc/ipc-scope";
 
 const mocks = vi.hoisted(() => ({
   appPath: "", window: null as unknown, confirm: vi.fn(), add: vi.fn(), remove: vi.fn(), list: vi.fn(), setEnabled: vi.fn(), configs: vi.fn(),

@@ -1,6 +1,6 @@
 import { BrowserWindow } from "electron";
 import { IPC } from "../../shared/ipc-channels";
-import { createIpcScope, type IpcScope } from "../application/ipc-scope";
+import { createIpcScope, type IpcScope } from "../ipc/ipc-scope";
 import { loadChannelsSettings, saveChannelsSettings, } from "./settings-store";
 import { channelManager, type DispatchFn } from "./manager";
 import { getChannelConversationBindingStore } from "./conversation-binding-store";

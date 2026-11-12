@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { IPC } from "../../shared/ipc-channels";
-import type { IpcScope } from "../application/ipc-scope";
+import type { IpcScope } from "../ipc/ipc-scope";
 import type { DispatchFn } from "./manager";
 
 const mocks = vi.hoisted(() => ({
@@ -42,7 +42,7 @@ vi.mock("electron", () => ({
     getAllWindows: () => mocks.windows,
   },
 }));
-vi.mock("../application/ipc-scope", () => ({
+vi.mock("../ipc/ipc-scope", () => ({
   createIpcScope: vi.fn(() => ({
     handle: (channel: string, listener: (...args: any[]) => any) => mocks.ipcHandlers.set(channel, listener),
     removeHandler: vi.fn(),

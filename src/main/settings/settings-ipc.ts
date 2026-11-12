@@ -6,7 +6,7 @@ import * as path from "path";
 import { isDev } from "../startup/env";
 import { getModelConnectionSnapshot, onModelConnectionChanged, testModelConnection } from "./model-settings";
 import { IPC } from "../../shared/ipc-channels";
-import { createIpcScope, type IpcScope } from "../application/ipc-scope";
+import { createIpcScope, type IpcScope } from "../ipc/ipc-scope";
 import { DEFAULT_UI_FONT, isSupportedFontFileName } from "../../shared/ui-font";
 import type { GeneralSettings } from "./general-settings";
 import type { TimeoutSettings } from "../../shared/timeout-types";

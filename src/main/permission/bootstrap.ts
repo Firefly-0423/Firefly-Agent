@@ -1,7 +1,7 @@
-import type { IpcScope } from "../application/ipc-scope";
+import type { IpcScope } from "../ipc/ipc-scope";
 import { logger, LogTag } from "../logging/logger";
 import * as gate from "./permission";
-import { registerChoiceIpc } from "../chat/user-choice";
+import { registerChoiceIpc } from "../interaction/user-choice";
 
 /**
  * 权限子系统的启动入口，须在窗口创建之后、首个工具调用之前执行。

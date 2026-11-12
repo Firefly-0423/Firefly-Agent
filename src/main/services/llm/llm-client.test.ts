@@ -17,11 +17,11 @@ vi.mock("../../orchestrator/vendors", () => ({
   }),
 }));
 vi.mock("../../storage/token-usage-store", () => ({ recordRequest: vi.fn(), recordUsage: vi.fn() }));
-vi.mock("../../chat/chat-api-utils", () => ({ appendApiLog: vi.fn() }));
+vi.mock("../../orchestrator/text/chat-api-utils", () => ({ appendApiLog: vi.fn() }));
 
 import { createLlmClient } from "./llm-client";
 import { recordRequest, recordUsage } from "../../storage/token-usage-store";
-import { appendApiLog } from "../../chat/chat-api-utils";
+import { appendApiLog } from "../../orchestrator/text/chat-api-utils";
 import type { ModelSettings } from "../../settings/model-settings";
 
 const settings = {

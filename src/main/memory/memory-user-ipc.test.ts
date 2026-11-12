@@ -95,7 +95,7 @@ vi.mock("../windows/window-state", () => ({
 }));
 
 import { IPC } from "../../shared/ipc-channels";
-import type { IpcScope } from "../application/ipc-scope";
+import type { IpcScope } from "../ipc/ipc-scope";
 import { registerMemoryUserToolIpc } from "./memory-user-ipc";
 
 const tempDirs: string[] = [];

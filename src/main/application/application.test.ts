@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createApplication, type ApplicationDependencies } from "./application";
 import { createStartupReadiness } from "./readiness";
 import { createShutdownCoordinator } from "./shutdown";
-import { createWindowActivationBroker } from "./window-activation";
+import { createWindowActivationBroker } from "../windows/window-activation";
 function setup() {
     const readiness = createStartupReadiness();
     const steps: string[] = [];

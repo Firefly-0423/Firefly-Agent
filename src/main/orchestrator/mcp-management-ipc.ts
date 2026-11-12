@@ -2,7 +2,7 @@ import { app, dialog, type BrowserWindow, type IpcMainInvokeEvent } from "electr
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { IPC } from "../../shared/ipc-channels";
-import type { IpcScope } from "../application/ipc-scope";
+import type { IpcScope } from "../ipc/ipc-scope";
 import { isDev } from "../startup/env";
 import type { McpServerConfig } from "./mcp-adapter";
 import type { McpFailureReason } from "./mcp-failure";

@@ -10,7 +10,7 @@ import { externalSkillId } from "./external-policy";
 import { digestExternalFiles } from "./external-review";
 import { stageExternalSkill, commitExternalSkill } from "./external-install";
 import type { ExternalHostSession, ExternalSkillRecord } from "./external-types";
-import type { IpcScope } from "../application/ipc-scope";
+import type { IpcScope } from "../ipc/ipc-scope";
 import type { EmbeddingIndexService } from "../services/embedding/embedding-index-service";
 import { IPC } from "../../shared/ipc-channels";
 const ports = vi.hoisted(() => ({ root: "", chat: null as null | { isDestroyed: () => boolean; webContents: { isDestroyed: () => boolean; mainFrame: { processId: number; routingId: number; detached: boolean } } } }));

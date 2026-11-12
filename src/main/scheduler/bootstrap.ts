@@ -1,6 +1,6 @@
 import type { BrowserWindow } from "electron";
 import type { BackgroundMemoryHost } from "../memory-context/background-memory-ingress";
-import type { IpcScope } from "../application/ipc-scope";
+import type { IpcScope } from "../ipc/ipc-scope";
 import type { AgentRuntime } from "../orchestrator/agent-runtime";
 import { toolRegistry } from "../orchestrator/tools/registry/tool-registry";
 import type { LifecyclePublisher } from "../plugin-host/lifecycle-publisher";

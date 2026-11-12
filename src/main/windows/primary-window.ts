@@ -1,4 +1,4 @@
-import type { WindowActivationRequest } from "../application/window-activation";
+import type { WindowActivationRequest } from "./window-activation";
 
 export interface PrimaryWindowActions {
   /** 所有窗口激活都经由 activation request 下发，本模块不自行建窗。 */

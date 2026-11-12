@@ -13,7 +13,7 @@ import { TimeoutClock } from "./timeout-clock";
 import { buildCurrentTodoNotebookContext } from "./todo-working-notebook";
 import { appendInternalTranscriptMessage, createInternalTranscriptMessage } from "./internal-transcript";
 import { callLLM, summarizeHistory } from "./harness-llm";
-import { ChatTimeStreamPrefixFilter } from "../../chat/chat-time-stream-filter";
+import { ChatTimeStreamPrefixFilter } from "../text/chat-time-stream-filter";
 import { runToolRound, type ToolRoundOutcome } from "./tool-round";
 import { publicRunFailure, type RunFailure, type RunFailureSource } from "../../../shared/run-failure";
 import { ContextError } from "../../memory-context/context-contracts";

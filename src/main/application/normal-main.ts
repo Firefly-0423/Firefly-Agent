@@ -1,6 +1,6 @@
 /** 主进程启动入口：准备 Electron 环境，再委托 Application 管理各启动阶段。 */
 
-import "../startup/identity-preflight";
+import "./identity-preflight";
 import { app } from "electron";
 import { createApplication } from "./application";
 import { createDefaultApplicationDependencies } from "./default-dependencies";

@@ -1,7 +1,7 @@
 import { BrowserWindow, screen } from "electron";
 import { IPC } from "../../shared/ipc-channels";
 import { createWindowDragController } from "./window-drag";
-import { createIpcScope, type IpcScope } from "../application/ipc-scope";
+import { createIpcScope, type IpcScope } from "../ipc/ipc-scope";
 import { getCapabilityOrOpenAI } from "../orchestrator/vendors";
 import { normalizeReasoningPreference } from "../../shared/reasoning";
 import {
@@ -17,7 +17,7 @@ import { resolveTransport } from "../orchestrator/vendors/transport-detector";
 import { getSession } from "./chats-store";
 import { getActiveLive2dWorkRunCount } from "../orchestrator/live2d-work-signal";
 import { describePendingAttachment } from "../rag/file-ingest";
-import { captionImageSafe, buildImageCaptionPrompt, validateCaptionImagePath } from "../chat/image-caption";
+import { captionImageSafe, buildImageCaptionPrompt, validateCaptionImagePath } from "../orchestrator/image-caption";
 import { resolveCaptionVisionConfig, resolveImageRoute } from "../orchestrator/image-router";
 import type { WindowManager } from "../windows/window-manager";
 import { reactChatSession, reactChatWindow } from "../windows/window-state";

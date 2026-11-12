@@ -1,5 +1,5 @@
 import { Menu, Tray, type MenuItemConstructorOptions } from "electron";
-import { type WindowActivationRequest } from "../application/window-activation";
+import { type WindowActivationRequest } from "./window-activation";
 import { loadTrayIcon } from "./tray-icon";
 
 export type CreateTrayDependencies = {

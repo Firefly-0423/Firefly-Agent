@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { BrowserWindow } from "electron";
-import type { IpcScope } from "../application/ipc-scope";
+import type { IpcScope } from "../ipc/ipc-scope";
 import { IPC } from "../../shared/ipc-channels";
 import type { PluginPromptMode, PluginTurnStatus } from "../../plugins/api";
 import type { RunFinishedEvent } from "@ag-ui/core";
@@ -10,7 +10,7 @@ import { requireChannelMemoryIngress, type ChannelsMemoryHost } from "../memory-
 import type { LifecyclePublisher } from "../plugin-host/lifecycle-publisher";
 import { FireflyAgent } from "../orchestrator/firefly-agent";
 import { toolRegistry } from "../orchestrator/tools/registry/tool-registry";
-import { captionImageSafe, IMAGE_CAPTION_PROMPT } from "../chat/image-caption";
+import { captionImageSafe, IMAGE_CAPTION_PROMPT } from "../orchestrator/image-caption";
 import { resolveCaptionVisionConfig, resolveImageRoute } from "../orchestrator/image-router";
 import { indexConversationTurn } from "../orchestrator/tools/history-tools";
 import type { AgentRuntime } from "../orchestrator/agent-runtime";

@@ -5,7 +5,7 @@ import { syncLaunchAtLogin } from "../settings/launch-at-login";
 import { startCore, type CoreDependencies, type CoreServices } from "./core-bootstrap";
 import { createStartupReadiness } from "./readiness";
 import { createShutdownCoordinator } from "./shutdown";
-import { createWindowActivationBroker } from "./window-activation";
+import { createWindowActivationBroker } from "../windows/window-activation";
 function fixture(petVisible = true, sidebarVisible = false) {
     const events: string[] = [];
     const note = (label: string) => vi.fn(() => { events.push(label); });

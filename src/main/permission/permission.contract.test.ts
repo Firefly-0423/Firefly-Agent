@@ -25,7 +25,7 @@ vi.mock("electron", () => ({
     removeHandler: vi.fn(),
   },
 }));
-vi.mock("../toast/toast-events", () => ({
+vi.mock("../interaction/toast-events", () => ({
   toastEvents: {
     publishApprovalPending: (payload: unknown) => { env.events.push("toast:pending"); env.toastPending(payload); },
     publishApprovalSettled: (payload: unknown) => { env.events.push("toast:settled"); env.toastSettled(payload); },

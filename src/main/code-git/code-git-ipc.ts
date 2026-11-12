@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import { ipcMain } from "electron";
 import { IPC } from "../../shared/ipc-channels";
-import { createIpcScope, type IpcScope, type IpcScopeMainLike } from "../application/ipc-scope";
+import { createIpcScope, type IpcScope, type IpcScopeMainLike } from "../ipc/ipc-scope";
 import type { CodeGitChangedPayload } from "../../shared/code-git-types";
 import type { GitService } from "./git-service";
 

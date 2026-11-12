@@ -3,7 +3,7 @@ import { getAdapterForConfig, createSseReader } from "../../orchestrator/vendors
 import type { StructuredOutputRequest, VendorConfig } from "../../orchestrator/vendors";
 import { createVisibleStreamFilter, stripThinkBlocks } from "../../chat/chat-stream-utils";
 import { recordUsage, recordRequest } from "../../storage/token-usage-store";
-import { appendApiLog } from "../../chat/chat-api-utils";
+import { appendApiLog } from "../../orchestrator/text/chat-api-utils";
 type ChatMessage = {
     role: "system" | "user" | "assistant";
     content: string;

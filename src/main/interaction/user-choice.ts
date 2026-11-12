@@ -1,10 +1,10 @@
 import { IPC } from "../../shared/ipc-channels";
-import { createIpcScope, type IpcScope } from "../application/ipc-scope";
+import { createIpcScope, type IpcScope } from "../ipc/ipc-scope";
 import type { AskCardPayload, AskCardSubmission, AskClarificationCard, AskUserAnswer, } from "../../shared/ask-clarification";
-import { publishAskCard, resolveAskCardSubmission, validateAskUserAnswer, } from "../orchestrator/ask-card";
+import { publishAskCard, resolveAskCardSubmission, validateAskUserAnswer, } from "./ask-card";
 import { getTimeoutSettings } from "../settings/timeout-manager";
 import { createAbortError } from "../utils/abort-utils";
-import { toastEvents } from "../toast/toast-events";
+import { toastEvents } from "./toast-events";
 const CHOICE_LOG = "[UserChoice]";
 export type ChoiceOption = {
     label: string;

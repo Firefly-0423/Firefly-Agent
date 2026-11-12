@@ -69,7 +69,7 @@ vi.mock("../orchestrator/tools/email-tools", () => ({
   },
 }));
 
-vi.mock("../chat/user-choice", () => ({
+vi.mock("../interaction/user-choice", () => ({
   setChoiceCardSender: (sender: (card: unknown) => void) => {
     h.choiceCard = sender;
   },

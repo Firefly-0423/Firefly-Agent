@@ -4,7 +4,7 @@ import nodemailer from "nodemailer";
 import { toolRegistry } from "./registry/tool-registry";
 import type { ToolContext } from "./registry/tool-context";
 import { createAbortError } from "../../utils/abort-utils";
-import { requestUserChoice, type ChoiceOption } from "../../chat/user-choice";
+import { requestUserChoice, type ChoiceOption } from "../../interaction/user-choice";
 import { assertWorkspacePathFallback } from "./workspace-boundary";
 import { readWorkspaceFile } from "./workspace-handle";
 import { logger, LogTag } from "../../logging/logger";

@@ -9,10 +9,10 @@
 import type { BrowserWindow, Tray } from "electron";
 import { createWindowLifecycleTracker, type TrackedBrowserWindowLike } from "../windows/electron-window-lifecycle";
 import { attachWindowsSessionEndHandlers } from "./electron-lifecycle";
-import type { IpcScope } from "./ipc-scope";
+import type { IpcScope } from "../ipc/ipc-scope";
 import type { StartupReadiness } from "./readiness";
 import type { ShutdownCoordinator } from "./shutdown";
-import type { WindowActivationBroker, WindowActivationRequest } from "./window-activation";
+import type { WindowActivationBroker, WindowActivationRequest } from "../windows/window-activation";
 import type { ReactChatWindowHandle } from "../windows/create-aux-windows";
 import type { WindowManager } from "../windows/window-manager";
 

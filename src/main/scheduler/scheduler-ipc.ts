@@ -1,5 +1,5 @@
 import { IPC } from "../../shared/ipc-channels";
-import { createIpcScope, type IpcScope } from "../application/ipc-scope";
+import { createIpcScope, type IpcScope } from "../ipc/ipc-scope";
 import type { ToolDefinition } from "../orchestrator/tools/registry/tool-registry";
 import * as executionSpec from "./execution-spec";
 import type { SchedulerEngine } from "./scheduler-engine";

@@ -37,7 +37,7 @@ vi.mock("../application/core-bootstrap", () => ({ startCore: vi.fn(async deps =>
 vi.mock("../application/shell-bootstrap", () => ({ startShell: vi.fn(async deps => { m.shell = deps; return {} }) }));
 vi.mock("../application/shutdown", () => ({ createShutdownCoordinator: () => ({ register: (input: any) => m.resources.set(input.id, input), registerEmergencyFlush: vi.fn(), requestControlledShutdown: vi.fn() }) }));
 vi.mock("../application/readiness", () => ({ createStartupReadiness: () => ({ transition: vi.fn() }) }));
-vi.mock("../application/window-activation", () => ({ createWindowActivationBroker: () => ({ request: vi.fn() }) }));
+vi.mock("../windows/window-activation", () => ({ createWindowActivationBroker: () => ({ request: vi.fn() }) }));
 vi.mock("../windows/window-manager", () => ({ createWindowManager: (options: any) => { m.windowOptions = options; return {} } }));
 vi.mock("../memory-context/main-default-memory", () => ({ createMainDefaultMemory: () => null }));
 vi.mock("../plugin-host/pending-turn-lifecycle", () => ({ createPendingTurnLifecycle: () => ({ disposeAll: vi.fn() }) }));
@@ -89,7 +89,7 @@ vi.mock("../chats/open-in-app", () => ({ registerOpenInAppIpc: vi.fn() }));
 vi.mock("../chats/chat-ui-ipc", () => ({ registerChatUiIpc: vi.fn(), getActiveChatSessionId: vi.fn() }));
 vi.mock("../toast/toast-window", () => ({ createToastWindowController: vi.fn() }));
 vi.mock("../toast/toast-service", () => ({ createToastService: vi.fn() }));
-vi.mock("../toast/toast-events", () => ({ toastEvents: vi.fn() }));
+vi.mock("../interaction/toast-events", () => ({ toastEvents: vi.fn() }));
 vi.mock("../windows/create-toast-window", () => ({ createToastWindowShell: vi.fn() }));
 vi.mock("../storage/token-usage-store", () => ({ flush: vi.fn() }));
 vi.mock("../storage/settings-store", () => ({ loadUserProfile: vi.fn() }));
@@ -113,7 +113,7 @@ vi.mock("../startup/create-splash-window", () => ({ createSplashWindow: vi.fn() 
 vi.mock("../startup/startup-window-reveal", () => ({ revealStartupWindows: vi.fn() }));
 vi.mock("../music/bootstrap", () => ({ bootstrapMusicService: vi.fn() }));
 vi.mock("../screenshot/screenshot-lifecycle", () => ({ initializeScreenshotService: vi.fn() }));
-vi.mock("../startup/bootstrap-config", () => ({ bootstrapConfigGetters: vi.fn() }));
+vi.mock("../application/bootstrap-config", () => ({ bootstrapConfigGetters: vi.fn() }));
 vi.mock("../permission/bootstrap", () => ({ bootstrapPermission: vi.fn() }));
 vi.mock("../orchestrator/pop-quiz", () => ({ registerPopQuizIpc: vi.fn(), registerPopQuizTool: vi.fn() }));
 vi.mock("../application/background", () => ({ startBackground: vi.fn() }));

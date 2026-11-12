@@ -10,7 +10,7 @@ import { installAppShutdownHandlers } from "./electron-lifecycle";
 import type { ApplicationContext } from "./context";
 import type { StartupReadiness } from "./readiness";
 import type { ShutdownCoordinator } from "./shutdown";
-import type { WindowActivationBroker } from "./window-activation";
+import type { WindowActivationBroker } from "../windows/window-activation";
 import type { PreReadyResult } from "./pre-ready";
 import type { ShellResult } from "./shell-bootstrap";
 import type { CoreResult } from "./core-bootstrap";

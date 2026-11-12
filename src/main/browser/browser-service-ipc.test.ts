@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import type { App } from "electron";
 import { describe, expect, it, vi } from "vitest";
 vi.mock("electron", () => ({ ipcMain: {} }));
-import { createIpcScope } from "../application/ipc-scope";
+import { createIpcScope } from "../ipc/ipc-scope";
 import { createManualBrowserWorkspace } from "./manual-browser-workspace";
 import { createBrowserService } from "./browser-service";
 import { registerBrowserServiceIpc, registerManualBrowserWorkspaceIpc, installBrowserServiceLifecycle } from "./browser-service-ipc";

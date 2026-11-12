@@ -183,7 +183,7 @@
     ]
   },
   {
-    "file": "src/main/chat/chat-api-utils.ts",
+    "file": "src/main/orchestrator/text/chat-api-utils.ts",
     "method": "getPath",
     "root": "userData",
     "count": 1,
@@ -228,7 +228,7 @@
     ]
   },
   {
-    "file": "src/main/startup/identity-preflight.ts",
+    "file": "src/main/application/identity-preflight.ts",
     "method": "getPath",
     "root": "appData",
     "count": 1,

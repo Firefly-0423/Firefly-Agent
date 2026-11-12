@@ -196,10 +196,10 @@ vi.mock("../toast/toast-window", () => ({
 vi.mock("../toast/toast-service", () => ({
   createToastService: vi.fn(() => ({ registerIpc: vi.fn(), dispose: vi.fn() })),
 }));
-vi.mock("../toast/toast-events", () => ({ toastEvents: {} }));
+vi.mock("../interaction/toast-events", () => ({ toastEvents: {} }));
 vi.mock("../startup/create-splash-window", () => ({ createSplashWindow: vi.fn(() => ({})) }));
 vi.mock("../startup/startup-window-reveal", () => ({ revealStartupWindows: vi.fn() }));
-vi.mock("../startup/bootstrap-config", () => ({ bootstrapConfigGetters: vi.fn() }));
+vi.mock("./bootstrap-config", () => ({ bootstrapConfigGetters: vi.fn() }));
 
 // --- startup phases ---
 vi.mock("./pre-ready", () => ({
@@ -226,9 +226,9 @@ vi.mock("./background", () => ({
     return m.backgroundResult;
   }),
 }));
-vi.mock("./ipc-scope", () => ({ createIpcScope: vi.fn(() => m.ipcScope) }));
+vi.mock("../ipc/ipc-scope", () => ({ createIpcScope: vi.fn(() => m.ipcScope) }));
 vi.mock("./readiness", () => ({ createStartupReadiness: vi.fn(() => m.readiness) }));
-vi.mock("./window-activation", () => ({ createWindowActivationBroker: vi.fn(() => m.activation) }));
+vi.mock("../windows/window-activation", () => ({ createWindowActivationBroker: vi.fn(() => m.activation) }));
 vi.mock("./shutdown", () => ({
   createShutdownCoordinator: vi.fn((options: unknown) => {
     m.shutdownOptions = options;
@@ -608,7 +608,7 @@ describe("core phase", () => {
     expect(services.git).toBeDefined();
     expect(services.lsp).toBeDefined();
     expect(services.screenshot).toBe(m.screenshot);
-    const { bootstrapConfigGetters } = await import("../startup/bootstrap-config");
+    const { bootstrapConfigGetters } = await import("./bootstrap-config");
     const { updateLocaleContext } = await import("../startup/locale-context");
     const { setLive2dWorkSignalSender } = await import("../orchestrator/live2d-work-signal");
     expect(bootstrapConfigGetters).toHaveBeenCalled();

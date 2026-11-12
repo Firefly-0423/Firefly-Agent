@@ -15,13 +15,13 @@ import type { ChatMessage, OpenAIContentBlock } from "./vendors/types";
 import type { AguiRunInput } from "../chat/agui-bridge";
 import type { RelationshipChannel, RelationshipTurnInput } from "../relationship/relationship-log";
 import type { ChannelId } from "../channels/types";
-import { validateCaptionImagePath } from "../chat/image-caption";
+import { validateCaptionImagePath } from "./image-caption";
 import { resolveImageRoute } from "./image-router";
 import {
   buildConversationTimeContext,
   resolveChatContextTimezone,
   type ChatContextMessage,
-} from "../chat/chat-time-context";
+} from "./text/chat-time-context";
 import { perf } from "../logging/perf-trace";
 import type {
   SocialAtom,

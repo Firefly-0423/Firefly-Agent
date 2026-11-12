@@ -15,7 +15,7 @@ vi.mock("fs", async () => {
 });
 vi.mock("electron", () => ({ app: { getPath: () => wire.root }, BrowserWindow: { getAllWindows: () => [] }, ipcMain: { handle: (channel: string, callback: any) => wire.handlers.set(channel, callback), on: (channel: string, callback: any) => wire.notifications.set(channel, callback), removeListener: vi.fn() } }));
 vi.mock("../chats/chats-store", () => ({ getSession: (id: string) => wire.sessions.get(id) ?? null, getPendingMessages: wire.pending, markPendingAdjust: wire.mark, resetPendingAdjustByRun: wire.reset }));
-vi.mock("./user-choice", () => ({ requestUserClarification: wire.ask, cancelPendingChoicesForRun: vi.fn() }));
+vi.mock("../interaction/user-choice", () => ({ requestUserClarification: wire.ask, cancelPendingChoicesForRun: vi.fn() }));
 vi.mock("../permission/permission", () => ({ cancelPendingApprovalsForRun: vi.fn(), checkPermission: vi.fn(), getCurrentLevel: () => "read-only" }));
 vi.mock("../orchestrator/tools/history-tools", () => ({ indexConversationTurn: vi.fn() }));
 vi.mock("../orchestrator/firefly-agent", () => ({ FireflyAgent: class {

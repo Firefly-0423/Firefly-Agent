@@ -1,4 +1,4 @@
-import { resolveChatContextTimezone } from "../../../chat/chat-time-context";
+import { resolveChatContextTimezone } from "../../text/chat-time-context";
 
 type TimezoneReader = () => string | undefined;
 const timezoneConfiguration: { reader: TimezoneReader | null } = { reader: null };

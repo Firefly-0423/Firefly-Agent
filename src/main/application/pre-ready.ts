@@ -1,7 +1,7 @@
 // app ready 之前必须完成的同步配置。
 // 约束：保持轻量、同步，不构造业务服务；拿不到单实例锁时通知入口退出。
 
-import type { WindowActivationBroker } from "./window-activation";
+import type { WindowActivationBroker } from "../windows/window-activation";
 
 export interface PreReadyDependencies {
   /** 二次启动时走激活代理，按 chat 请求处理 */

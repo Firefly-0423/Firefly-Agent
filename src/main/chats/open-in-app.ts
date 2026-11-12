@@ -6,7 +6,7 @@ import { homedir, platform as osPlatform } from "node:os";
 import { access, constants as fsConstants, realpath, stat } from "node:fs/promises";
 import { execFile, spawn } from "node:child_process";
 import * as chatsStore from "./chats-store";
-import { createIpcScope, type IpcScope } from "../application/ipc-scope";
+import { createIpcScope, type IpcScope } from "../ipc/ipc-scope";
 import type { OpenInAppEntry } from "../../shared/open-in-app-types";
 import { IPC } from "../../shared/ipc-channels";
 

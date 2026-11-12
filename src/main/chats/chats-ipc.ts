@@ -19,7 +19,7 @@ import { app, BrowserWindow, type WebContents, dialog, shell } from "electron";
 import { randomUUID } from "crypto";
 import { IPC } from "../../shared/ipc-channels";
 import { DEFAULT_CONTEXT_WINDOW_TOKENS } from "../../shared/context-window";
-import { createIpcScope, type IpcScope } from "../application/ipc-scope";
+import { createIpcScope, type IpcScope } from "../ipc/ipc-scope";
 import type { ChatMessage, ConversationMode, ConversationWorkspaceBinding, PendingChatMessage } from "../../shared/chat-types";
 import * as chatsStore from "./chats-store";
 import { isRunAdjustmentInFlight } from "./pending-adjustment";

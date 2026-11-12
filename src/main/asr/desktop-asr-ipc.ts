@@ -1,5 +1,5 @@
 import type { IpcMainInvokeEvent, WebContents } from "electron";
-import type { IpcScope } from "../application/ipc-scope";
+import type { IpcScope } from "../ipc/ipc-scope";
 import { IPC } from "../../shared/ipc-channels";
 import { getAsrConfig } from "./asr-config";
 import { createAsrStream } from "./asr-dispatcher";

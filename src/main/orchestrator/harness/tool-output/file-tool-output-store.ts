@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fireflyDataDirectory } from "../../../storage/firefly-data-paths";
-import { ephemeralConversations } from "../../../chats/ephemeral-conversations";
+import { ephemeralConversations } from "../../../storage/ephemeral-conversations";
 import type { ToolOutputStore, ToolOutputRef, ReadToolOutputResult, ReadToolOutputInput, PutToolOutputInput,
   FindToolOutputResult, FindToolOutputMatch, FindToolOutputInput } from "./types";
 

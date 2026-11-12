@@ -3,7 +3,7 @@ import * as fs from "fs";
 import { randomUUID } from "crypto";
 import { app, shell } from "electron";
 import { LogTag, logger } from "../logging/logger";
-import { ephemeralConversations } from "./ephemeral-conversations";
+import { ephemeralConversations } from "../storage/ephemeral-conversations";
 import { fireflyDataDirectory } from "../storage/firefly-data-paths";
 import {
   CHAT_SCHEMA_VERSION, type ChatSession, type ChatSessionMeta, type ChatSessionPurpose,

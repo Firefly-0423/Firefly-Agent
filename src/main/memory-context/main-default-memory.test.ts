@@ -1091,9 +1091,9 @@ it("keeps working when the memory backend has no shadow storage", async () => {
 
 // ── Temporary chat: zero persistence, no M/H, no cross-session reads in either direction ──
 const marked: string[] = [];
-afterEach(async () => { const { ephemeralConversations } = await import("../chats/ephemeral-conversations"); for (const id of marked.splice(0)) ephemeralConversations.release(id); });
+afterEach(async () => { const { ephemeralConversations } = await import("../storage/ephemeral-conversations"); for (const id of marked.splice(0)) ephemeralConversations.release(id); });
 async function temporarySession(f: Awaited<ReturnType<typeof fixture>>, id = "tmp-1") {
-  const { ephemeralConversations } = await import("../chats/ephemeral-conversations");
+  const { ephemeralConversations } = await import("../storage/ephemeral-conversations");
   ephemeralConversations.mark(id); marked.push(id);
   f.sessions.set(id, { id, mode: "chat", temporary: true, messages: [], modelProfileId: "luna" }); f.select(id);
   return id;

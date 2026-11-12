@@ -22,7 +22,7 @@ import { registerPluginMarketplaceIpc } from "./plugin-marketplace-ipc";
 import { guardPluginIpcHandler, isFromHostDocument, type PluginIpcHosts } from "./plugin-management-ipc-guard";
 import type { LlmClient } from "../services/llm/llm-client";
 import { enqueueLLMTask } from "../services/llm/llm-queue";
-import type { IpcScope } from "../application/ipc-scope";
+import type { IpcScope } from "../ipc/ipc-scope";
 import type { AgentRuntime } from "../orchestrator/agent-runtime";
 
 export type PluginRuntimeSchedulerStore = PluginSchedulerStore & { deleteTasksByOwner(pluginId: string): number };

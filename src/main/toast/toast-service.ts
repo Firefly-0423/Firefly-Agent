@@ -4,8 +4,8 @@
 
 import { IPC } from "../../shared/ipc-channels";
 import type { ToastItem, ToastPushPayload } from "../../shared/toast-types";
-import type { IpcScope } from "../application/ipc-scope";
-import type { WindowActivationRequest } from "../application/window-activation";
+import type { IpcScope } from "../ipc/ipc-scope";
+import type { WindowActivationRequest } from "../windows/window-activation";
 import type { ToastWindowController } from "./toast-window";
 import type {
   ApprovalPendingEvent,
@@ -19,7 +19,7 @@ import type {
   QuizSettledEvent,
   SchedulerFinishedEvent,
   ToastEventBus,
-} from "./toast-events";
+} from "../interaction/toast-events";
 import { TOAST_NOTIFY_TIMEOUT_MS, TOAST_SOUND_MERGE_MS, type ToastTier } from "./types";
 
 export interface ToastServiceDeps {

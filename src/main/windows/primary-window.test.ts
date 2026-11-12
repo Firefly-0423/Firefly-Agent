@@ -1,6 +1,6 @@
 import { expect, vi, it, describe } from "vitest";
 import { openPrimaryWindow } from "./primary-window";
-import type { WindowActivationRequest } from "../application/window-activation";
+import type { WindowActivationRequest } from "./window-activation";
 
 describe("Primary window activation contract", () => {
   it("emits exactly one chat activation and excludes sidebar activation", () => {
