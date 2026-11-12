@@ -42,6 +42,7 @@ it("removes only explicitly requested user vectors", async () => {
   expect(rag.getEntriesBySource("user_memory").map(item => item.id)).toEqual([second]);
 });
 it("returns only recallable memories whose current vector mapping is consistent", async () => {
+  await import("../../memory/legacy/rag-recall-source");
   const { memoryStore } = await import("../../memory/legacy/memory-store");
   const vectorIds: string[] = [];
   for (const [content, archived] of [["sunny active garden", false], ["shade archived garden", true]] as const) {

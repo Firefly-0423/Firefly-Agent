@@ -35,6 +35,7 @@ import { configureDocumentIndexQueue } from "../knowledge/rag/document-index-que
 import { runDocumentIndexJob } from "../knowledge/rag/document-index-worker";
 import { createLlmClient } from "../agent/services/llm/llm-client";
 import { createEmbeddingIndexService } from "../agent/services/embedding/embedding-index-service";
+import "../memory/legacy/rag-recall-source";
 import { addL2MemoryVector, deleteUserMemoryVectors, flushRAGStore, flushRAGStoreSync, getEntriesBySource, initRAG, isUserMemoryVectorStoreReady, } from "../knowledge/rag";
 import { getEmbeddingProvider } from "../knowledge/rag/embedding";
 import { toolRegistry } from "../tooling/registry/tool-registry";

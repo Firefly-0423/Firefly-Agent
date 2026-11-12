@@ -1,6 +1,1 @@
-[
-  "knowledge/rag/index.ts -> memory/legacy/entity-graph.ts",
-  "knowledge/rag/index.ts -> memory/legacy/memory-store.ts",
-  "knowledge/rag/index.ts -> memory/legacy/memory-types.ts",
-  "tooling/registry/tool-executor.ts -> agent/tools/file-write-evidence.ts"
-]
+[]

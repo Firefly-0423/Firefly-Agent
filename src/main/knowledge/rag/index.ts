@@ -17,8 +17,6 @@ import { WorldbookManager } from "./worldbook";
 import { logger, LogTag } from "../../base/logging/logger";
 export { INJECTION_HEADER, INJECTION_PREAMBLE } from "./worldbook-constants";
 import { chunkText } from "./chunk";
-import { feedEntityNamesToJieba } from "../../memory/legacy/entity-graph";
-import { isL2LocallyRecallable } from "../../memory/legacy/memory-types";
 import type { DocumentImportControl } from "./file-ingest";
 import { findPromptPath } from "../../base/storage/external-content-paths";
 
@@ -74,7 +72,7 @@ export async function initRAG(
   await worldbook.loadFromDirectory();
 
   // 把已有实体名灌进 jieba 自定义词典，避免伴侣的核心称呼被误切
-  if (personalMemoryMode !== "smh") await feedEntityNamesToJieba();
+  if (personalMemoryMode !== "smh") await userMemoryRecallSource?.feedEntityNames();
 
   const suffix = provider ? "" : " [Vector retrieval disabled]";
   logger.info(LogTag.RAG, "initialized. Mode:", ragMode, "Provider:", provider?.name ?? "none", "Dims:", provider?.dims ?? "N/A", "Memories:", store.stats.total, suffix);
@@ -194,6 +192,23 @@ export async function searchMemory(query: string, source?: string, topK = 5, opt
   return hits.map((hit) => hit.text);
 }
 
+/**
+ * 早期用户记忆库对检索的支持。检索模块不直接依赖记忆层：记忆层在加载时把自己登记进来
+ * （见 memory/legacy/rag-recall-source.ts），没有登记时用户记忆检索按不可用处理。
+ */
+export interface UserMemoryRecallSource {
+  /** 把已有实体名加入分词词典。 */
+  feedEntityNames(): Promise<void>;
+  /** 当前可以召回的 L2 记忆及其对应的向量条目 id。 */
+  listRecallable(): Promise<Array<{ id: string; ragId?: string }>>;
+  /** 给一条 L2 记忆记一次召回。 */
+  recordRecall(l2Id: string): Promise<void>;
+}
+let userMemoryRecallSource: UserMemoryRecallSource | undefined;
+export function registerUserMemoryRecallSource(source: UserMemoryRecallSource | undefined): void {
+  userMemoryRecallSource = source;
+}
+
 type MemoryHit = { id: string; text: string; createdAt: number; score: number; metadata?: Record<string, unknown> };
 
 export async function searchMemoryEntries(
@@ -208,10 +223,9 @@ export async function searchMemoryEntries(
     : undefined;
   if (source === "user_memory") {
     try {
-      const { memoryStore } = await import("../../memory/legacy/memory-store");
-      const l2Records = await memoryStore.getAllL2();
+      if (!userMemoryRecallSource) throw new Error("user memory recall source is not registered");
       const recallable = new Map(
-        l2Records.filter(isL2LocallyRecallable).map((m) => [m.id, m]),
+        (await userMemoryRecallSource.listRecallable()).map((m) => [m.id, m]),
       );
       // 只放行仍被对应 L2 记忆引用且可召回的向量条目
       allowedEntryIds = getEntriesBySource("user_memory")
@@ -248,8 +262,8 @@ async function recordUserMemoryRecalls(results: Array<{ entry: MemoryEntry }>): 
   if (recalled.size === 0) return;
 
   try {
-    const { memoryStore } = await import("../../memory/legacy/memory-store");
-    for (const l2Id of recalled) await memoryStore.updateL2RecallStats(l2Id, 1);
+    if (!userMemoryRecallSource) throw new Error("user memory recall source is not registered");
+    for (const l2Id of recalled) await userMemoryRecallSource.recordRecall(l2Id);
   } catch (err) {
     console.warn("[RAG] failed to record user memory recall:", err);
   }

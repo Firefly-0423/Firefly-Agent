@@ -1,4 +1,4 @@
-import { getToolWriteEvidence } from "../../agent/tools/file-write-evidence";
+import { getToolWriteEvidence } from "../execution/tool-write-evidence";
 import { isAbortError } from "../../base/utils/abort-utils";
 import { recordSkillUse, recordToolCall } from "../../base/storage/token-usage-store";
 import { currentUsageAttribution, runWithUsageAttribution } from "../../base/storage/usage-attribution";

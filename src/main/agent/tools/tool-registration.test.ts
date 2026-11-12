@@ -58,6 +58,7 @@ vi.mock("../../tooling/registry/tool-registry", () => ({ toolRegistry: mocks.too
 vi.mock("./travel-tools", () => ({ registerTravelTools: mocks.registerTravelTools }));
 vi.mock("./git-tools", () => ({ registerCodeGitTools: mocks.registerCodeGitTools }));
 vi.mock("./lsp-tool", () => ({ registerLspTool: mocks.registerLspTool }));
+vi.mock("./legacy-memory-tools", () => ({}));
 vi.mock("./built-in-tools", () => ({}));
 vi.mock("./music-tools", () => ({ MUSIC_TOOL_IDS: mocks.MUSIC_TOOL_IDS }));
 

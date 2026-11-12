@@ -49,6 +49,7 @@ vi.mock("../knowledge/rag/document-index-queue", () => ({ configureDocumentIndex
 vi.mock("../knowledge/rag/document-index-worker", () => ({ runDocumentIndexJob: vi.fn() }));
 vi.mock("../agent/services/llm/llm-client", () => ({ createLlmClient: vi.fn() }));
 vi.mock("../agent/services/embedding/embedding-index-service", () => ({ createEmbeddingIndexService: vi.fn() }));
+vi.mock("../memory/legacy/rag-recall-source", () => ({}));
 vi.mock("../knowledge/rag", () => ({ addL2MemoryVector: vi.fn(), deleteUserMemoryVectors: vi.fn(), flushRAGStore: vi.fn(), flushRAGStoreSync: vi.fn(), getEntriesBySource: vi.fn(), initRAG: vi.fn(), isUserMemoryVectorStoreReady: vi.fn() }));
 vi.mock("../knowledge/rag/embedding", () => ({ getEmbeddingProvider: vi.fn() }));
 vi.mock("../tooling/registry/tool-registry", () => ({ toolRegistry: vi.fn() }));

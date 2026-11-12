@@ -157,10 +157,4 @@ export function beginWriteBatch(context: ToolContext | undefined, paths: readonl
   };
 }
 
-/** Independent trusted channel. Never consume model/legacy JSON for write facts. */
-export function getToolWriteEvidence(context?: ToolContext): TaskWriteEvidence[] {
-  const execution = context?.execution;
-  return execution ? execution.coordinator.getWriteEvidence({
-    childRunId: execution.scope.childRunId, toolCallId: execution.scope.toolCallId,
-  }) : [];
-}
+export { getToolWriteEvidence } from "../../tooling/execution/tool-write-evidence";

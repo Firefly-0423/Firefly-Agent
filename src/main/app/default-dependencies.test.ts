@@ -282,6 +282,7 @@ vi.mock("../knowledge/rag/document-index-queue", () => ({ configureDocumentIndex
 vi.mock("../knowledge/rag/document-index-worker", () => ({ runDocumentIndexJob: vi.fn() }));
 vi.mock("../agent/services/llm/llm-client", () => ({ createLlmClient: vi.fn(() => m.llmClient) }));
 vi.mock("../agent/services/embedding/embedding-index-service", () => ({ createEmbeddingIndexService: vi.fn(() => m.embedding) }));
+vi.mock("../memory/legacy/rag-recall-source", () => ({}));
 vi.mock("../knowledge/rag", () => ({
   addL2MemoryVector: vi.fn(),
   deleteUserMemoryVectors: vi.fn(),
