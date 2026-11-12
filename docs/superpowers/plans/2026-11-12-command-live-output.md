@@ -196,7 +196,7 @@ ANSI 展示封装在本组件边界。推荐评估 `ansi-to-react`：其官方�
 
 ### 步骤一：落实 1.2.0 数据目录前置条件
 
-- 修改 `src/main/startup/runtime-profile.ts`：production 使用独立于 1.1.x 的数据目录；推荐 `%APPDATA%\Firefly-1.2`。
+- 修改 `src/main/startup/runtime-profile.ts`：production 使用独立于 1.1.x 的数据目录；推荐 `%APPDATA%\Firefly-1.2.0`。
 - 修改 `src/main/startup/runtime-profile.test.ts`：覆盖新正式目录、隔离和无旧目录访问。
 - 修改 `src/main/startup/runtime-profile-documentation.test.ts`：保持开发启动隔离契约。
 - 修改 `README.md`：更新正式数据位置及新版本不迁移说明。
@@ -408,9 +408,11 @@ git diff --check
 
 ## 8. 待负责人决定
 
+> **负责人决定（2026-11-12）**：本节推荐选项全部采纳；1.2.0 正式数据目录为 `%APPDATA%\Firefly-1.2.0`。
+
 | 决策 | 推荐选项 |
 |---|---|
-| 1.2.0 正式数据目录名称与归属 | 使用 `%APPDATA%\Firefly-1.2`，由发布公共步骤统一落实；本功能以上线前置条件验收，避免多份计划重复修改。 |
+| 1.2.0 正式数据目录名称与归属 | 使用 `%APPDATA%\Firefly-1.2.0`，由发布公共步骤统一落实；本功能以上线前置条件验收，避免多份计划重复修改。 |
 | Chat 是否新增命令执行能力 | 不新增。实时展示沿用 Work / Code 当前权限范围；开放 Chat 命令另立需求。 |
 | 伙伴命令是否首版交付 | 纳入首版，采用本计划的独立归属和窄展示字段；不展示子任务私有轨迹。 |
 | “最近 64,000 字符”的捕获含义 | 保持每流 2 MiB 捕获契约，只展示已捕获数据的尾窗，并明确提示；若要求持续保留进程真正最后输出，需要另行调整捕获设计。 |
