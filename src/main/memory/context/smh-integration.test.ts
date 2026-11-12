@@ -11,7 +11,7 @@ import {createMainResponsesBinding,createMainResponsesLimits,type ResponsesSdkCl
 import {createMainUserFactCoordinator} from "../policy/main-user-fact-coordinator";
 import {createMainFactSelector} from "../recall/main-fact-selector";
 import {ConversationTranscriptStore} from "../../conversation/transcript/conversation-transcript-store";
-import {createTranscriptSink} from "../../conversation/transcript/transcript-sink";
+import {createTranscriptSink} from "../../agent/loop/transcript-sink";
 import {classifySAssistantSettlement} from "../../conversation/transcript/conversation-transcript-settlement";
 import {setVendorRuntimeSettingsGetter} from "../../model/providers/runtime-settings";
 import {createMainHistoryProvider,validateHistoryEvidence} from "../history/main-history";

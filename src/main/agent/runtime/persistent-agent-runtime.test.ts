@@ -340,7 +340,7 @@ it("shutdown_during_recovery_preserves_exact_old_target_for_the_next_continuatio
   const { HarnessRunStore } = await import("../loop/run-store");
   const { AgentSessionRegistry } = await import("../tasks/agent-session-registry");
   const { ConversationTranscriptStore } = await import("../../conversation/transcript/conversation-transcript-store");
-  const { createTranscriptSink } = await import("../../conversation/transcript/transcript-sink");
+  const { createTranscriptSink } = await import("../loop/transcript-sink");
   const { requireBackgroundMemoryIngress } = await import("../memory-runtime/background-memory-ingress");
   const { store, parent } = setup(), root = parent.resolvedWorkspaceRoot!, runs = new HarnessRunStore(root), transcripts = new ConversationTranscriptStore(root);
   const old = new AgentSessionRegistry(store).acquire({ agentId: profile.id, modelProfile: profile.modelProfile, savedModelProfileId: "saved-code", parentConversationId: parent.parentConversationId,

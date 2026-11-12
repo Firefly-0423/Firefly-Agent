@@ -1,4 +1,4 @@
-import type { ChannelCapability, ChannelId, ChannelStatus, MessageHandler, OutgoingMessage } from "../../../conversation/channels/channel-types";
+import type { ChannelCapability, ChannelId, ChannelStatus, MessageHandler, OutgoingMessage } from "./channel-types";
 
 export interface ChannelAdapter {
   readonly capability: ChannelCapability;

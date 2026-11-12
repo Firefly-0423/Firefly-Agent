@@ -5,7 +5,7 @@ import {randomUUID} from "node:crypto";
 import {afterEach,expect,it,vi} from "vitest";
 import {createSmhFixture} from "./smh-fixture.test-support";
 import {ConversationTranscriptStore} from "../../conversation/transcript/conversation-transcript-store";
-import {createTranscriptSink} from "../../conversation/transcript/transcript-sink";
+import {createTranscriptSink} from "../../agent/loop/transcript-sink";
 import {createConversationTranscriptAdapter} from "../../agent/memory-runtime/conversation-transcript-adapter";
 import {createMainSRuntimePort} from "../../agent/memory-runtime/main-s-runtime-port";
 import {createMainResponsesBinding,createMainResponsesLimits,type ResponsesSdkClient} from "./main-responses-binding";

@@ -1,7 +1,7 @@
 import { app, dialog, safeStorage } from "electron";
 import path from "node:path";
 import { channelManager } from "../../channels/manager";
-import type { ChannelAdapter } from "../../channels/adapters/base";
+import type { ChannelAdapter } from "../../../conversation/channels/channel-adapter-base";
 import type { ChannelId } from "../../../conversation/channels/channel-types";
 import * as chatsStore from "../../sessions/chats-store";
 import { toolRegistry, type ToolDefinition } from "../../../tooling/registry/tool-registry";

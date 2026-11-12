@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ChannelAdapter } from "../base";
+import type { ChannelAdapter } from "../../../../conversation/channels/channel-adapter-base";
 import { ILinkBotAdapter } from "./ilink-bot-adapter";
 import { ILinkClient, SessionExpiredError } from "./ilink-protocol-client";
 vi.mock("../../settings-store", async (importOriginal) => ({

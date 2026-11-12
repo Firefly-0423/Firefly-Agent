@@ -2,13 +2,13 @@ import {createAttachmentDocumentMaterializer} from "../../memory/context/attachm
 import type {BackgroundMemoryHost} from "../memory-runtime/background-memory-ingress";
 import type {MainMemoryRun} from "../memory-runtime/main-memory-runtime";
 import { app } from "electron";
-import {copyControlledStreamTarget} from "../../conversation/transcript/controlled-responses";
+import {copyControlledStreamTarget} from "../loop/controlled-responses";
 import type {ChatRequest} from "../../model/providers/types";
 import type {AgentLoopResult} from "./firefly-agent";
 import {copyMainResponsesRequest} from "../../model/providers/response-request-snapshot";
 import type {MainSRuntimePort,MainSRuntimeInput,MainSRuntimeResult} from "../memory-runtime/main-s-runtime-port";
 import { loadPromptFile } from "../../base/prompts/prompt-loader";
-import type { AguiRunInput, BuildOptionsFn, MainBuildOptionsContext } from "../../features/chat/agui-bridge";
+import type { AguiRunInput, BuildOptionsFn, MainBuildOptionsContext } from "./run-input-types";
 import type { ScheduledTask } from "../../platform/schedule/schedule-types";
 import type { ChannelId } from "../../conversation/channels/channel-types";
 import type { ModelSettings } from "../../model/config/model-settings";
@@ -43,7 +43,7 @@ import {
 } from "./build-options";
 type BuildOptionsDeps = Parameters<typeof buildAgentRunOptions>[1];
 type OnRunFinishedDeps = Parameters<typeof onAgentRunFinished>[2];
-import { buildModelContext } from "../../conversation/transcript/conversation-transcript-context";
+import { buildModelContext } from "../loop/conversation-transcript-context";
 import { getConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
 import { getHarnessRunStore } from "../loop/run-store";
 import { type FireflyRunResult, type FireflyRunOptions } from "./firefly-agent";

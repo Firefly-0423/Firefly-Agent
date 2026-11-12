@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { app } from "electron";
-import { createChannelMemoryAccountIdentity, type ChannelAdapter, type ChannelMemoryAccountIdentity } from "../base";
+import { createChannelMemoryAccountIdentity, type ChannelAdapter, type ChannelMemoryAccountIdentity } from "../../../../conversation/channels/channel-adapter-base";
 import type { ChannelAttachment, ChannelCapability, ChannelStatus, IncomingMessage, MessageHandler, OutgoingMessage, OutgoingPart, } from "../../../../conversation/channels/channel-types";
 import { loadChannelsSettings, type QqBotChannelConfig } from "../../settings-store";
 import { QqBotApiClient, QqBotApiError } from "./qqbot-api-client";

@@ -4,7 +4,7 @@ import type { ToolDefinition } from "../../tooling/registry/tool-registry";
 import type { ToolCall } from "../../model/providers/types";
 import { DEFAULT_HARNESS_CONFIG, type AgentState, type HarnessInput } from "./types";
 import { StreamController } from "./stream-controller";
-import { TranscriptWriteError } from "../../conversation/transcript/transcript-sink";
+import { TranscriptWriteError } from "./transcript-sink";
 
 vi.mock("../../knowledge/rag/index", () => ({ searchMemory: vi.fn() }));
 vi.mock("electron", () => ({ app: { getPath: () => { throw new Error("no user data in unit test"); }, on: vi.fn() } }));

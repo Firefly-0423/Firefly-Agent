@@ -1,6 +1,6 @@
-import type { TranscriptRunReader } from "../../conversation/transcript/conversation-transcript-context";
+import type { TranscriptRunReader } from "../loop/conversation-transcript-context";
 import type { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
-import { requireTranscriptSinkBinding, wrapTranscriptSink, type TranscriptSink } from "../../conversation/transcript/transcript-sink";
+import { requireTranscriptSinkBinding, wrapTranscriptSink, type TranscriptSink } from "../loop/transcript-sink";
 import { contextFail } from "../../model/context/context-contracts";
 import { canonicalTurnUnits } from "./conversation-transcript-adapter";
 import type { MainMemoryRunLifecycle, MainMemoryTemporaryCapture } from "./main-memory-runtime";

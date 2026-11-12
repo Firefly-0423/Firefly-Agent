@@ -1,8 +1,8 @@
 import type { ChatAppearanceSettings } from "../../../shared/chat-appearance";
 import type { LspServerOverride } from "../lsp/types";
 import type { ProactiveChatMode, ProactiveDeliveryTarget } from "../../../shared/preferences";
-import type { SkillModeOverrides } from "../../knowledge/skills/types";
-import type { ToolModeOverrides } from "../../tooling/registry/tool-registry";
+import type { SkillModeOverrides } from "../../../shared/mode-overrides";
+import type { ToolModeOverrides } from "../../../shared/mode-overrides";
 import type { UiColors } from "../../../shared/ui-colors";
 import type { UiFont } from "../../../shared/ui-font";
 import type { UiIcon } from "../../../shared/ui-icon";

@@ -1,9 +1,9 @@
-import { findSafeCutPointForRetainedTokens } from "../../agent/loop/compaction";
-import type { HarnessRunEvidence, HarnessRunSession } from "../../agent/loop/run-store";
-import { DEFAULT_HARNESS_CONFIG, tryParseToolCallArgs, toolCallFingerprint, type UncertainEffect } from "../../agent/loop/types";
-import type { ConversationTranscriptStore } from "./conversation-transcript-store";
-import type { TranscriptEntry } from "./conversation-transcript-types";
-import { classifySAssistantSettlement } from "./conversation-transcript-settlement";
+import { findSafeCutPointForRetainedTokens } from "./compaction";
+import type { HarnessRunEvidence, HarnessRunSession } from "./run-store";
+import { DEFAULT_HARNESS_CONFIG, tryParseToolCallArgs, toolCallFingerprint, type UncertainEffect } from "./types";
+import type { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
+import type { TranscriptEntry } from "../../conversation/transcript/conversation-transcript-types";
+import { classifySAssistantSettlement } from "../../conversation/transcript/conversation-transcript-settlement";
 import type { ChatMessage, ToolCall } from "../../model/providers/types";
 import type { ChatMessage as StoredChatMessage } from "../../../shared/chat-types";
 import { autoCompactTriggerTokens } from "../../../shared/context-window";

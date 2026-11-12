@@ -6,7 +6,7 @@ import { AgentExecutionError } from "./run-execution-status";
 import { runChatLoop } from "./chat-loop";
 import { runHarnessWithAdapter } from "./harness-adapter";
 import { executeToolDefinition } from "../../tooling/registry/tool-executor";
-import type { TranscriptSink } from "../../conversation/transcript/transcript-sink";
+import type { TranscriptSink } from "../loop/transcript-sink";
 
 vi.mock("../../model/providers", () => ({ getAdapterForConfig: () => ({ id: "calendar-adapter" }) }));
 vi.mock("../../tooling/registry/tool-registry", () => ({ toolRegistry: { getEnabledTools: () => [], getById: vi.fn() } }));

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ChannelAdapter } from "../base";
-import * as base from "../base";
+import type { ChannelAdapter } from "../../../../conversation/channels/channel-adapter-base";
+import * as base from "../../../../conversation/channels/channel-adapter-base";
 import { QqBotAdapter } from "./qqbot-adapter";
 const fixture = vi.hoisted(() => ({ gateway: vi.fn(), sockets: [] as any[], config: { enabled: true, appId: "app-a", appSecret: "synthetic", allowAnyPrivate: true } }));
 vi.mock("../../settings-store", () => ({ loadChannelsSettings: () => ({ qqbot: fixture.config }) }));

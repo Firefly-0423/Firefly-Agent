@@ -10,7 +10,7 @@ import { randomBytes } from "node:crypto";
 import { openMemoryRepository } from "../../memory/core/repository";
 import { createActiveChatTargetRegistry } from "../../platform/interaction/active-chat-target";
 import { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
-import { createTranscriptSink } from "../../conversation/transcript/transcript-sink";
+import { createTranscriptSink } from "../loop/transcript-sink";
 import { getAdapterForConfig } from "../../model/providers";
 import { initializeStorageContext } from "../../base/storage/storage-context";
 import { resolveRuntimeProfile } from "../../base/identity/runtime-profile";
@@ -318,7 +318,7 @@ it.each(['false','throw'])('retries a definitely uncommitted synchronous append 
 });
 
 async function adjustment(f: Awaited<ReturnType<typeof fixture>>, options: { sessionId?: string; runId?: string; failure?: 'false' | 'throw' } = {}) {
- const { createRunAdjustmentPoller } = await import('../../features/sessions/pending-adjustment');
+ const { createRunAdjustmentPoller } = await import('../runtime/pending-adjustment');
  const sessionId=options.sessionId??'session-a', runId=options.runId??'run-a';
  let failure=options.failure;
  const queue=[{id:'adjust-user',rawContent:'I prefer fish',visibleContent:'I prefer fish',enqueuedAt:1001,adjustRunId:runId}];
@@ -549,10 +549,10 @@ it('model settings refresh revokes a changed in-flight grant immediately and wai
 
 async function channelAccount(accountKey='qq:account-a'){
  const {ChannelManager}=await import('../../features/channels/manager');
- const {createChannelMemoryAccountIdentity}=await import('../../features/channels/adapters/base');
+ const {createChannelMemoryAccountIdentity}=await import('../../conversation/channels/channel-adapter-base');
  const {markChannelTextTransform,requireChannelMemoryIngress}=await import('./channel-memory-ingress');
  const identity=createChannelMemoryAccountIdentity();identity.authenticate(accountKey);
- const adapter:import('../../features/channels/adapters/base').ChannelAdapter={id:'qq',displayName:'synthetic',capability:{} as never,onMessage:null,
+ const adapter:import('../../conversation/channels/channel-adapter-base').ChannelAdapter={id:'qq',displayName:'synthetic',capability:{} as never,onMessage:null,
   start:async()=>{},stop:async()=>{},send:async()=>({ok:true}),getMemoryAccountIdentity:identity.read,getStatus:()=>({enabled:true,phase:'running'})};
  const manager=new ChannelManager();manager.register(adapter);let cap:import('./channel-memory-ingress').ChannelMemoryIngress|undefined;
  manager.setDispatcher(async(_message,ingress)=>{cap=ingress;return null});await manager.startOne('qq');

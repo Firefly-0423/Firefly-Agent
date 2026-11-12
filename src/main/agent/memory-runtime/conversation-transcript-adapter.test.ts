@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {expect,it,vi} from "vitest";
 vi.mock("electron",()=>({app:{getPath:()=>""},shell:{openPath:vi.fn()}}));
-import {createRunAdjustmentPoller,bindRunAdjustmentPoller} from "../../features/sessions/pending-adjustment";
+import {createRunAdjustmentPoller,bindRunAdjustmentPoller} from "../runtime/pending-adjustment";
 import type {PendingChatMessage} from "../../../shared/chat-types";
 import os from "node:os";
 import {randomBytes} from "node:crypto";

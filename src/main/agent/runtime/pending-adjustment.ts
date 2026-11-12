@@ -6,9 +6,8 @@
 // 下一轮拉取时轨迹按 ID 幂等命中，只重做聊天历史这一步；未可靠落库的内容不会注入，
 // 已提交的条目也不会被二次注入（提交会把它移出队列，再次提交时按未找到处理）。
 
-import * as chatsStore from "./chats-store";
 import type { PendingChatAttachment, PendingChatMessage } from "../../../shared/chat-types";
-import type { RunAdjustmentMessage } from "../../agent/loop/types";
+import type { RunAdjustmentMessage } from "../loop/types";
 
 /** Opaque Main-only authority for one live, unchanged marked queue item. */
 declare const adjustmentPermitBrand: unique symbol;
@@ -44,7 +43,7 @@ export function requireRunAdjustmentPermit(permit: object, binding: AdjustmentBi
   return Object.freeze({ turnId: state.item.id, revision: 1, text: state.item.rawContent });
 }
 
-/** 拉取器依赖的队列端口；默认走 chats-store，单测可替换成假实现。 */
+/** 拉取器依赖的队列端口：由调用方传入（生产环境是会话存储），本模块不直接依赖会话层。 */
 type PendingCommitOutcome =
   | { ok: true; userMessage: { id: string }; remainingQueue: PendingChatMessage[] }
   | { ok: false; error: string };
@@ -68,7 +67,7 @@ export type TranscriptUserWritePort = {
  * 任一步写入失败会 reject，标记保留到下个边界再试，由 harness 失败关闭。
  * 未提供 transcript 端口（旧调用方未传 userTurnId）时只提交聊天历史，不写轨迹。
  */
-export function createRunAdjustmentPoller(sessionId: string, runId: string, store: PendingAdjustmentStore = chatsStore, transcript?: TranscriptUserWritePort): () => Promise<RunAdjustmentMessage[]> | undefined {
+export function createRunAdjustmentPoller(sessionId: string, runId: string, store: PendingAdjustmentStore, transcript?: TranscriptUserWritePort): () => Promise<RunAdjustmentMessage[]> | undefined {
   const state: PollerState = { sessionId, runId };
   let active: Promise<RunAdjustmentMessage[]> | undefined;
   const poller = () => {

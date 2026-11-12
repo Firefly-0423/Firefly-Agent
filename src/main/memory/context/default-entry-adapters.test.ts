@@ -6,7 +6,7 @@ import { AgentSessionRegistry } from "../../agent/tasks/agent-session-registry";
 import { TaskSessionStore } from "../../agent/tasks/task-session-store";
 import { HarnessRunStore } from "../../agent/loop/run-store";
 import { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
-import { createTranscriptSink } from "../../conversation/transcript/transcript-sink";
+import { createTranscriptSink } from "../../agent/loop/transcript-sink";
 import { createAgentExecutor } from "../../agent/runtime/persistent-agent-runtime";
 import { requireBackgroundMemoryIngress, type BackgroundMemoryHost } from "../../agent/memory-runtime/background-memory-ingress";
 import type { MainMemoryRun } from "../../agent/memory-runtime/main-memory-runtime";

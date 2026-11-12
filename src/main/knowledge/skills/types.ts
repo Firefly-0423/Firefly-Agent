@@ -2,13 +2,8 @@
 
 import type { ToolEffectKind } from "../../tooling/registry/tool-registry";
 
-/** 会话模式：chat 不提供任何 skill。 */
-export type SkillMode = "work" | "code";
-
-/** 按 skillId 记录的逐模式可见性覆盖。 */
-export type SkillModeOverrides = {
-  [skillId: string]: { [M in SkillMode]?: boolean };
-};
+import type { SkillMode, SkillModeOverrides } from "../../../shared/mode-overrides";
+export type { SkillMode, SkillModeOverrides };
 
 export interface SkillManifest {
   id: string;

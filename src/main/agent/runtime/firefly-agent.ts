@@ -68,7 +68,7 @@ export type AgentLoopSettings = {
 };
 
 export type FireflyRunOptions = {
-  transcriptSink?: import("../../conversation/transcript/transcript-sink").TranscriptSink;
+  transcriptSink?: import("../loop/transcript-sink").TranscriptSink;
   pollRunAdjustments?: () => Promise<import("../loop/types").RunAdjustmentMessage[]> | undefined;
   onToolFinished?: (event: import("../loop/types").HarnessToolFinishedEvent) => void;
   signal?: AbortSignal;
@@ -103,7 +103,7 @@ export type FireflyRunOptions = {
   maxParallelToolCalls?: number;
   settings: AgentLoopSettings;
   isControlledRunCurrent?:()=>boolean;
-  controlledResponses?:import("../../conversation/transcript/controlled-responses").ControlledResponsesRun;
+  controlledResponses?:import("../loop/controlled-responses").ControlledResponsesRun;
   openMemoryRun?: (input: FireflyRunOptions) => Promise<MainMemoryRun>;
   backgroundMemory?: BackgroundMemoryHost;
   memoryRun?: MainMemoryRun;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import * as adapters from "./base";
+import * as adapters from "./channel-adapter-base";
 
 // Optional lookup keeps the RED assertion focused on the missing authority, not an import error.
 const signalFor = (identity: unknown): AbortSignal | null => (

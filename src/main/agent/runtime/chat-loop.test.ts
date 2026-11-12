@@ -10,8 +10,8 @@ import { runChatLoop, type ChatLoopOptions } from "./chat-loop";
 import { createSseReader } from "../../model/providers";
 import type { ChatRequest, ChatMessage, ChatResponse, ChatVendorAdapter } from "../../model/providers/types";
 import { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
-import { materializeTranscript } from "../../conversation/transcript/conversation-transcript-context";
-import { createTranscriptSink, type TranscriptSink } from "../../conversation/transcript/transcript-sink";
+import { materializeTranscript } from "../loop/conversation-transcript-context";
+import { createTranscriptSink, type TranscriptSink } from "../loop/transcript-sink";
 import { runFireflyHarness } from "../loop/firefly-harness";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
 

@@ -1,3 +1,5 @@
+import { DEFAULT_MAX_TOOL_ROUNDS, DEFAULT_RUN_TIMEOUT_MS } from "../../platform/settings/run-defaults";
+import type { ToolCallOutcome } from "../../../shared/tool-call-outcome";
 import type { ToolSpec, ToolCall, ChatMessage } from "../../model/providers/types";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
 import type { FireflyRunTerminalResult } from "../../../shared/run-terminal";
@@ -14,7 +16,7 @@ export type { TodoStatus, TodoItem } from "../../../shared/task-session";
 
 export type RetryDecision = "no_retry" | "retry";
 export type SideEffectKind = "non_idempotent_side_effect" | "idempotent_mutation" | "read_only";
-export type ToolCallOutcome = "not_executed" | "unknown" | "failure" | "success";
+export type { ToolCallOutcome } from "../../../shared/tool-call-outcome";
 export type ToolObservation = {
   output?: string; toolOutputRef?: ToolOutputRef; fullOutputRef?: string; preview?: string; truncated?: boolean;
   suggestion?: string; message: string; target?: string; tool: string; retryCount?: number;
@@ -35,8 +37,7 @@ export type HarnessConfig = {
   contextWindowTokens: number; userWaitTimeoutMs: number; modelRequestTimeoutMs: number; totalTimeoutMs: number;
   maxRounds: number; maxParallelToolCalls: number;
 };
-export const DEFAULT_MAX_TOOL_ROUNDS = 200;
-export const DEFAULT_RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
+export { DEFAULT_MAX_TOOL_ROUNDS, DEFAULT_RUN_TIMEOUT_MS };
 export const DEFAULT_HARNESS_MODEL_REQUEST_TIMEOUT_MS = 10 * 60 * 1000;
 export const DEFAULT_HARNESS_CONFIG: HarnessConfig = {
   maxParallelToolCalls: 4, maxRounds: DEFAULT_MAX_TOOL_ROUNDS, totalTimeoutMs: DEFAULT_RUN_TIMEOUT_MS,
@@ -82,7 +83,7 @@ export type HarnessInput = {
   allowedBuiltinToolIds?: ReadonlySet<string>;
   agentDefinitions?: readonly { description: string; nickname: string; id: string }[];
   agentExecutor?: (request: import("../runtime/persistent-agent-runtime").AgentExecuteRequest, scope?: import("../runtime/child-session-types").DelegationScope) => Promise<import("../runtime/persistent-agent-runtime").AgentExecuteResult>;
-  transcriptSink?: import("../../conversation/transcript/transcript-sink").TranscriptSink;
+  transcriptSink?: import("./transcript-sink").TranscriptSink;
   toolOutputStore?: ToolOutputStore;
   executionLedger?: import("../runtime/execution-ledger").ExecutionLedger;
   checkPermission?: (toolId: string, args: Record<string, unknown>, signal?: AbortSignal, origin?: ApprovalOrigin) => Promise<boolean>;

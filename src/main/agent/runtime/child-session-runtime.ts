@@ -3,7 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { createBackgroundMemoryIngressIssuer, type BackgroundMemoryPreparedRun } from "../memory-runtime/background-memory-ingress";
 import type { MainMemoryRun } from "../memory-runtime/main-memory-runtime";
 import { getHarnessRunStore, type HarnessRunStore } from "../loop/run-store";
-import type { TranscriptSink } from "../../conversation/transcript/transcript-sink";
+import type { TranscriptSink } from "../loop/transcript-sink";
 import { DEFAULT_HARNESS_CONFIG } from "../loop/types";
 import type { TaskSession, TaskDelegationPresentation, TaskTranscriptMessage } from "../../../shared/task-session";
 import type { TaskSessionStore } from "../tasks/task-session-store";

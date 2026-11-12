@@ -12,7 +12,7 @@ import { compressConversation } from "./context-manager";
 import { buildContextUsageSnapshot, promptTokensOf } from "./context-usage";
 import { isExplicitStreamUnsupported } from "../../model/providers/stream-support";
 import { composePromptLayers } from "../../model/prompt/prompt-layers";
-import type { TranscriptSink } from "../../conversation/transcript/transcript-sink";
+import type { TranscriptSink } from "../loop/transcript-sink";
 import type { MainMemoryRun } from "../memory-runtime/main-memory-runtime";
 
 export interface ChatLoopOptions {

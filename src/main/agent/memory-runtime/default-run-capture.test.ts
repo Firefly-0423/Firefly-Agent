@@ -8,12 +8,12 @@ import { createMainFactSelector } from "../../memory/recall/main-fact-selector";
 import { createMainRecall } from "../../memory/recall/main-recall";
 import { createMainHistory } from "../../memory/history/main-history";
 import { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
-import { createTranscriptSink, requireTranscriptSinkBinding } from "../../conversation/transcript/transcript-sink";
+import { createTranscriptSink, requireTranscriptSinkBinding } from "../loop/transcript-sink";
 import type { ChatMessage, ChatRequest } from "../../model/providers/types";
 import type { MainMemoryRunLifecycle } from "./main-memory-runtime";
 import { createDefaultRunCapture } from "./default-run-capture";
 import {createMainAttachmentProjectionAuthority,prepareMainAttachmentProjection} from "../../memory/context/main-attachment-projection";
-import { bindRunAdjustmentPoller, createRunAdjustmentPoller } from "../../features/sessions/pending-adjustment";
+import { bindRunAdjustmentPoller, createRunAdjustmentPoller } from "../runtime/pending-adjustment";
 
 async function fixture(options: { attachmentBody?: string; facts?: boolean; userText?: string; historyTexts?: string[]; maxSTokens?: number; summary?: { protectedRecentTurns: number; leaseMs?: number }; beforeMutation?: NonNullable<Parameters<typeof import("./default-run-capture").createDefaultRunCapture>[0]>["beforeMutation"] } = {}) {
   const { createDefaultRunCapture } = await import("./default-run-capture");

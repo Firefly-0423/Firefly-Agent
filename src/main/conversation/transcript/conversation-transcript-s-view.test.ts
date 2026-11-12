@@ -1,5 +1,5 @@
 import {expect,it} from "vitest";
-import {materializeTranscript,projectSSettlementMessages} from "./conversation-transcript-context";
+import {materializeTranscript,projectSSettlementMessages} from "../../agent/loop/conversation-transcript-context";
 import type {TranscriptEntry} from "./conversation-transcript-types";
 import type {ChatMessage} from "../../../shared/chat-types";
 

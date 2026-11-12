@@ -27,15 +27,15 @@ import { getAdapterForConfig } from "../../model/providers";
 import { perf } from "../../base/logging/perf-trace";
 import type { PendingTurnLifecycle } from "../plugins/host/pending-turn-lifecycle";
 import * as chatsStore from "../sessions/chats-store";
-import { createRunAdjustmentPoller } from "../sessions/pending-adjustment";
+import { createRunAdjustmentPoller } from "../../agent/runtime/pending-adjustment";
 import { broadcastChatsChanged } from "../sessions/chats-ipc";
 import type { ConversationMode, PendingChatAttachment } from "../../../shared/chat-types";
 import { prepareTranscriptDispatch, type TranscriptRewindRequest } from "../../conversation/transcript/conversation-transcript-coordinator";
 import { isWorkReadScopeCurrent } from "../sessions/work-read-scope";
 import { evaluateWorkFileEvidence } from "../sessions/work-file-evidence";
 import { getConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
-import { createTranscriptSink, type TranscriptSink } from "../../conversation/transcript/transcript-sink";
-import { controlledSettlement } from "../../conversation/transcript/controlled-responses";
+import { createTranscriptSink, type TranscriptSink } from "../../agent/loop/transcript-sink";
+import { controlledSettlement } from "../../agent/loop/controlled-responses";
 import {
   requestUserClarification,
   cancelPendingChoicesForRun,
@@ -50,40 +50,8 @@ import type { AskUserAnswer } from "../../../shared/ask-clarification";
 import type { PluginPromptMode, PluginTurnCompletedEvent } from "../../../plugins/types";
 import { runWithUsageAttribution } from "../../base/storage/usage-attribution";
 // 桌面运行的输入、归属与结算都在 Main 内维护。
-export interface AguiRunInput {
-  messages: unknown[];
-  userTurnId?: string;
-  assistantTurnId?: string;
-  sessionId?: string;
-  workspaceBindingSessionId?: string | null;
-  channel?: RelationshipChannel;
-  promptSource?: "conversation" | "plugin-agent";
-  promptChannel?: string;
-  executionMode?: ConversationMode;
-  mode?: ConversationMode;
-  attachments?: { name: string; text: string }[];
-  workDocuments?: Array<{
-    name: string; path: string; requiredEndLine?: number;
-    totalLines?: number; partialAccepted?: boolean;
-  }>;
-  imageAttachments?: { name: string; filePath: string; mime?: string }[];
-  recoveryContext?: string;
-  resumeFromRunId?: string;
-  takeoverFromRunId?: string;
-  modelProfileId?: string;
-  transcriptRewind?: TranscriptRewindRequest;
-  useTranscriptContext?: boolean;
-}
-
-export interface MainBuildOptionsContext {
-  attachmentGrant?: MainAttachmentGrant;
-}
-export type BuildOptionsFn = ((input: AguiRunInput, mainContext?: MainBuildOptionsContext) => Promise<{
-  options: FireflyRunOptions;
-  latestUserText: string;
-}>) & {
-  prepareTranscript?: (input: AguiRunInput) => Promise<void>;
-};
+import type { AguiRunInput, BuildOptionsFn, MainBuildOptionsContext } from "../../agent/runtime/run-input-types";
+export type { AguiRunInput, BuildOptionsFn, MainBuildOptionsContext };
 
 export interface RunFinishedEffects {
   sticker?: string | null;

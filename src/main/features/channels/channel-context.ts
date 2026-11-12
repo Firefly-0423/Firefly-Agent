@@ -25,12 +25,8 @@ export function makeSessionId(channel: ChannelId, chatId: string): string {
   const digest = createHash("sha256").update(`${channel}:${chatId}`).digest("hex").slice(0, 16);
   return `channel:${channel}:${digest}`;
 }
-export function formatChannelUserText(msg: IncomingMessage): string {
-  if (msg.chatType !== "group") return msg.text;
-  const author = msg.senderName ? `${msg.senderName} (${msg.senderId})` : msg.senderId;
-  const quotation = msg.reply?.text ? `\n引用 ${msg.reply.senderName || msg.reply.senderId || "未知用户"}：${msg.reply.text}` : "";
-  return `[群聊发送者：${author}]${quotation}\n${msg.text}`;
-}
+import { formatChannelUserText } from "../../conversation/channels/channel-text";
+export { formatChannelUserText };
 export function lookupOriginalSender(sessionId: string): { channel: ChannelId; senderId: string } | null {
   const known = senders.get(sessionId);
   return known ? { channel: known.channel, senderId: known.senderId } : null;

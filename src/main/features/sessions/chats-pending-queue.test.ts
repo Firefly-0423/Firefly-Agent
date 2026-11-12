@@ -276,7 +276,7 @@ describe("pending edits and run adjustments", () => {
     it("lets the user withdraw a marked item the run has not started to inject", async () => {
         // Owner report: a stalled run kept a "继续" item marked, and removing it failed with already-adjusting forever.
         const { store, id } = await setup(["alpha", "beta"]);
-        const { isRunAdjustmentInFlight } = await import("./pending-adjustment");
+        const { isRunAdjustmentInFlight } = await import("../../agent/runtime/pending-adjustment");
         store.markPendingAdjust(id, "alpha", "running");
         expect(isRunAdjustmentInFlight(id, "alpha")).toBe(false);
         expect(store.editPendingMessage(id, "alpha", { rawContent: "Changed mind", visibleContent: "Changed mind" }, { withdrawMark: true })).toMatchObject({ ok: true });
@@ -289,7 +289,7 @@ describe("pending edits and run adjustments", () => {
     it("reports a marked item as in flight only while the run is injecting it", async () => {
         const { store, id } = await setup(["alpha", "beta"]);
         store.markPendingAdjust(id, "alpha", "running");
-        const { createRunAdjustmentPoller, isRunAdjustmentInFlight } = await import("./pending-adjustment");
+        const { createRunAdjustmentPoller, isRunAdjustmentInFlight } = await import("../../agent/runtime/pending-adjustment");
         let release!: () => void;
         const gate = new Promise<void>(resolve => { release = resolve; });
         const processing = createRunAdjustmentPoller(id, "running", store, { appendUser: async () => { await gate; } })();
@@ -330,7 +330,7 @@ describe("pending edits and run adjustments", () => {
     it("preserves the marked item against withdrawal while its transcript write is pending", async () => {
         const { store, id } = await setup(["alpha", "beta"]);
         store.markPendingAdjust(id, "alpha", "running");
-        const { createRunAdjustmentPoller } = await import("./pending-adjustment");
+        const { createRunAdjustmentPoller } = await import("../../agent/runtime/pending-adjustment");
         let release!: () => void;
         const gate = new Promise<void>(resolve => { release = resolve; });
         const recorded: string[] = [];
@@ -372,7 +372,7 @@ describe("queue IPC boundary", () => {
     it("withdraws only when the marked message is not being written", async () => {
         const { registerChatsIpc } = await import("./chats-ipc");
         const store = await import("./chats-store");
-        const { createRunAdjustmentPoller } = await import("./pending-adjustment");
+        const { createRunAdjustmentPoller } = await import("../../agent/runtime/pending-adjustment");
         registerChatsIpc();
         const call = (payload: any) => profile.handlers.get("chats:pending-unmark")({ sender: {} }, payload);
         const session = store.createSession({ mode: "work" });

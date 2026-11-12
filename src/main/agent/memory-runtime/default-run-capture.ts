@@ -1,6 +1,6 @@
-import type { TranscriptRunReader } from "../../conversation/transcript/conversation-transcript-context";
+import type { TranscriptRunReader } from "../loop/conversation-transcript-context";
 import type { BoundSourceRef } from "../../../shared/memory-contracts";
-import type { RunAdjustmentPermit } from "../../features/sessions/pending-adjustment";
+import type { RunAdjustmentPermit } from "../runtime/pending-adjustment";
 import type { RunAdjustmentMessage } from "../loop/types";
 import type { MainActorAuthority } from "../../memory/core/main-actor-authority";
 import { canonicalJson } from "../../memory/core/repository-types";
@@ -10,7 +10,7 @@ import type { createMainFactSelector } from "../../memory/recall/main-fact-selec
 import type { createMainSourceRegistry } from "../../memory/sources/source-registry";
 import type { ConversationTranscriptStore, TranscriptAppendGuard } from "../../conversation/transcript/conversation-transcript-store";
 import type { TranscriptEntry } from "../../conversation/transcript/conversation-transcript-types";
-import { requireTranscriptSinkBinding, wrapTranscriptSink, type GuardedTranscriptSinkMethod, type TranscriptSink, type TranscriptSinkGuardInput } from "../../conversation/transcript/transcript-sink";
+import { requireTranscriptSinkBinding, wrapTranscriptSink, type GuardedTranscriptSinkMethod, type TranscriptSink, type TranscriptSinkGuardInput } from "../loop/transcript-sink";
 import { copyResponseJson } from "../../model/providers/response-request-snapshot";
 import { contextFail, type FactDependency } from "../../model/context/context-contracts";
 import { createConversationTranscriptAdapter } from "./conversation-transcript-adapter";

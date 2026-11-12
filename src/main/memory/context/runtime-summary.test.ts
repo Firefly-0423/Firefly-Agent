@@ -10,7 +10,7 @@ import {createMainContext} from "./main-context";
 import {RecordCodec} from "../core/record-codec";
 import {prepareRuntimeSummary} from "./runtime-summary";
 import {createDefaultRunCapture} from "../../agent/memory-runtime/default-run-capture";
-import {createTranscriptSink} from "../../conversation/transcript/transcript-sink";
+import {createTranscriptSink} from "../../agent/loop/transcript-sink";
 import {createMainMemoryRuntime} from "../../agent/memory-runtime/main-memory-runtime";
 import {createMemoryRunAuthority} from "./main-memory-contracts";
 import {createMemorySessionModes} from "./memory-session-modes";

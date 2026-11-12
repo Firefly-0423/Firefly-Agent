@@ -53,7 +53,8 @@ export interface ToolDefinition {
   verificationPolicy?: VerificationPolicy;
 }
 
-export type ToolModeOverrides = Record<string, Partial<Record<ConversationMode, boolean>>>;
+import type { ToolModeOverrides } from "../../../shared/mode-overrides";
+export type { ToolModeOverrides };
 
 const retiredMemoryIds = RETIRED_MEMORY_TOOL_IDS;
 

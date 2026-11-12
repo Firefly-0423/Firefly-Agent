@@ -139,7 +139,7 @@ describe("canonical conversation recovery and deletion", () => {
     it("projects settlement without mutating cached messages or transcript entries", async () => {
         const cache = await register();
         const { getConversationTranscriptStore } = await import("../../conversation/transcript/conversation-transcript-store");
-        const { createTranscriptSink } = await import("../../conversation/transcript/transcript-sink");
+        const { createTranscriptSink } = await import("../../agent/loop/transcript-sink");
         const session = cache.createSession({ mode: "chat" });
         const store = getConversationTranscriptStore(boundary.root);
         cache.appendMessage(session.id, { id: "human", role: "user", content: "A real question", at: 1 });

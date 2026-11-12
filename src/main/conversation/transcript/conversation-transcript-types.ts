@@ -10,7 +10,7 @@
  */
 
 import type { PendingChatAttachment } from "../../../shared/chat-types";
-import type { ToolCallOutcome } from "../../agent/loop/types";
+import type { ToolCallOutcome } from "../../../shared/tool-call-outcome";
 import type { ChatMessage } from "../../model/providers/types";
 
 export interface SAssistantBinding {

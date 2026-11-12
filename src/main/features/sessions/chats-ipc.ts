@@ -22,7 +22,7 @@ import { DEFAULT_CONTEXT_WINDOW_TOKENS } from "../../../shared/context-window";
 import { createIpcScope, type IpcScope } from "../../base/ipc/ipc-scope";
 import type { ChatMessage, ConversationMode, ConversationWorkspaceBinding, PendingChatMessage } from "../../../shared/chat-types";
 import * as chatsStore from "./chats-store";
-import { isRunAdjustmentInFlight } from "./pending-adjustment";
+import { isRunAdjustmentInFlight } from "../../agent/runtime/pending-adjustment";
 import * as fs from "fs";
 import * as path from "path";
 import { createWorkMarkdownSnapshot } from "./work-markdown-export";
@@ -31,7 +31,7 @@ import { getDefaultModelProfile, loadModelSettings, resolveModelSettingsProfile 
 import { FileToolOutputStore } from "../../agent/loop/tool-output/file-tool-output-store";
 import { getHarnessRunStore } from "../../agent/loop/run-store";
 import { getConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
-import { projectSSettlementMessages } from "../../conversation/transcript/conversation-transcript-context";
+import { projectSSettlementMessages } from "../../agent/loop/conversation-transcript-context";
 import { getStorageContext } from "../../base/storage/storage-context";
 import { getRunReviewTracker } from "../../agent/review/run-review-tracker";
 import { getAdapterForConfig } from "../../model/providers";

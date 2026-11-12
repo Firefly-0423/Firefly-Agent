@@ -12,15 +12,15 @@
  * 本文件只包含类型与逻辑，不依赖任何运行时对象（store 由调用方注入）。
  */
 
-import { TranscriptPersistenceError, type TranscriptAppendGuard } from "./conversation-transcript-store";
+import { TranscriptPersistenceError, type TranscriptAppendGuard } from "../../conversation/transcript/conversation-transcript-store";
 import {
   copySAssistantBinding, copySAssistantMessage, copySAssistantSettlementPayload,
   type SAssistantBinding, type SAssistantSettlementBinding,
   type SAssistantSettlementResult, type TranscriptAppendInput,
-} from "./conversation-transcript-types";
-import type { ConversationTranscriptStore } from "./conversation-transcript-store";
-import type { HarnessRunSession } from "../../agent/loop/run-store";
-import type { ToolCallOutcome } from "../../agent/loop/types";
+} from "../../conversation/transcript/conversation-transcript-types";
+import type { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
+import type { HarnessRunSession } from "./run-store";
+import type { ToolCallOutcome } from "./types";
 import type { ChatMessage } from "../../model/providers/types";
 import { copyResponseJson } from "../../model/providers/response-request-snapshot";
 
@@ -301,7 +301,7 @@ export function createTranscriptSink(input: { store: ConversationTranscriptStore
         if (!closedToolCallIds.has(call.toolCallId) && statusById.get(call.toolCallId)?.status === "committed") throw Error("TRANSCRIPT_TOOL_RESULT_MISSING");
       }
       const markerId = `${runId}:interruption:${reason}`;
-      const matchesMarker = (entry: import("./conversation-transcript-types").TranscriptEntry | undefined): boolean =>
+      const matchesMarker = (entry: import("../../conversation/transcript/conversation-transcript-types").TranscriptEntry | undefined): boolean =>
         !!entry && entry.kind === "interruption" && entry.id === markerId && entry.runId === runId
         && entry.payload.reason === reason && Object.keys(entry.payload).length === 1
         && Object.keys(entry).every(key => ["seq", "id", "at", "kind", "runId", "payload"].includes(key));

@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import { composePromptLayers } from "../../model/prompt/prompt-layers";
-import { createTranscriptSink, requireTranscriptSinkBinding, wrapTranscriptSink } from "../../conversation/transcript/transcript-sink";
+import { createTranscriptSink, requireTranscriptSinkBinding, wrapTranscriptSink } from "../loop/transcript-sink";
 import { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
 import { OpenAICompatAdapter } from "../../model/providers/openai-adapter";
 import { AnthropicAdapter } from "../../model/providers/anthropic-adapter";

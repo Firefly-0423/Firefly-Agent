@@ -1,7 +1,7 @@
 import { expect, it, vi } from "vitest";
 import { contextFixture } from "../../../../scripts/verify/memory-context/context-fixture";
 import { ChannelManager } from "../../features/channels/manager";
-import { createChannelMemoryAccountIdentity, type ChannelAdapter } from "../../features/channels/adapters/base";
+import { createChannelMemoryAccountIdentity, type ChannelAdapter } from "../../conversation/channels/channel-adapter-base";
 import type { IncomingMessage } from "../../conversation/channels/channel-types";
 import { formatChannelUserText } from "../../features/channels/channel-context";
 import { markChannelTextTransform, requireChannelMemoryIngress, type ChannelMemoryIngress } from "./channel-memory-ingress";

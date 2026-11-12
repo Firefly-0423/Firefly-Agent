@@ -7,7 +7,7 @@ import { TaskSessionStore } from "../tasks/task-session-store";
 import { requireBackgroundMemoryIngress, type BackgroundMemoryHost } from "../memory-runtime/background-memory-ingress";
 import { runChildSession } from "./child-session-runtime";
 import { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
-import { createTranscriptSink } from "../../conversation/transcript/transcript-sink";
+import { createTranscriptSink } from "../loop/transcript-sink";
 import { HarnessRunStore, type PersistedToolCall } from "../loop/run-store";
 import { prepareHarnessRecovery } from "../loop/run-recovery";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";

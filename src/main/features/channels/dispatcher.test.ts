@@ -10,7 +10,7 @@ import { appendLog, reloadLogFromDisk } from "./message-log";
 import type { IncomingMessage, ChannelCapability, OutgoingMessage } from "../../conversation/channels/channel-types";
 import type { ChannelsSettings } from "./settings-store";
 import { ChannelManager } from "./manager";
-import { createChannelMemoryAccountIdentity, type ChannelAdapter } from "./adapters/base";
+import { createChannelMemoryAccountIdentity, type ChannelAdapter } from "../../conversation/channels/channel-adapter-base";
 import { requireChannelMemoryIngress } from "../../agent/memory-runtime/channel-memory-ingress";
 
 vi.mock("electron", () => ({

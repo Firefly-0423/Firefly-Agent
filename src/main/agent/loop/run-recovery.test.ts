@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { prepareHarnessRecovery } from "./run-recovery";
-import { materializeTranscript } from "../../conversation/transcript/conversation-transcript-context";
+import { materializeTranscript } from "./conversation-transcript-context";
 import type { HarnessRunSession, PersistedToolCall } from "./run-store";
 import type { TranscriptEntry } from "../../conversation/transcript/conversation-transcript-types";
 

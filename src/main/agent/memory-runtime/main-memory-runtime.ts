@@ -5,7 +5,7 @@ import type { createMainSourceRegistry } from "../../memory/sources/source-regis
 import { AgentRuntimeError } from "../../model/errors/agent-runtime-error";
 import { readTrustedPromptContext } from "../../model/prompt/prompt-layers";
 import { isExplicitStreamUnsupported } from "../../model/providers/stream-support";
-import type { TranscriptSink } from "../../conversation/transcript/transcript-sink";
+import type { TranscriptSink } from "../loop/transcript-sink";
 import { dispatchPreparedModelCall, prepareModelCall, type PreparedModelCall, type PreparedModelCallInput } from "../../model/providers/prepared-model-call";
 import { copyResponseJson } from "../../model/providers/response-request-snapshot";
 import type { SdkStreamRunInput } from "../../model/providers/sdk-stream/runtime";

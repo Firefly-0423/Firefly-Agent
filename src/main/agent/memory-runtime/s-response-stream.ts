@@ -1,5 +1,5 @@
 import type {AgentLoopResult} from "../runtime/firefly-agent";
-import type {ControlledStreamTarget} from "../../conversation/transcript/controlled-responses";
+import type {ControlledStreamTarget} from "../loop/controlled-responses";
 import {contextFail} from "../../model/context/context-contracts";
 
 const invalid=():never=>contextFail("MEMORY_CONTEXT_STREAM_INVALID");

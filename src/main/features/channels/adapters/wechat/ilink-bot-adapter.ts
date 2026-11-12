@@ -12,7 +12,7 @@ import { getAsrConfig, type AsrConfig } from "../../../../platform/speech/asr/as
 import { createAsrStream } from "../../../../platform/speech/asr/asr-dispatcher";
 import { createAbortError, raceWithSignal } from "../../../../base/utils/abort-utils";
 import type { ChannelAttachment, ChannelCapability, ChannelId, ChannelStatus, IncomingMessage, MessageHandler, OutgoingMessage, } from "../../../../conversation/channels/channel-types";
-import { createChannelMemoryAccountIdentity, type ChannelAdapter, type ChannelMemoryAccountIdentity } from "../base";
+import { createChannelMemoryAccountIdentity, type ChannelAdapter, type ChannelMemoryAccountIdentity } from "../../../../conversation/channels/channel-adapter-base";
 import { logger, LogTag } from "../../../../base/logging/logger";
 import { loadChannelsSettings } from "../../settings-store";
 import { admitSender } from "../../sender-gate";

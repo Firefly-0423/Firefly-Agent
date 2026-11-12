@@ -1,6 +1,6 @@
 import {createHash,randomUUID} from "node:crypto";
 import type {MainActorAuthority} from "../../memory/core/main-actor-authority";
-import {materializeTranscript,type TranscriptRunReader} from "../../conversation/transcript/conversation-transcript-context";
+import {materializeTranscript,type TranscriptRunReader} from "../loop/conversation-transcript-context";
 import type {ConversationTranscriptStore} from "../../conversation/transcript/conversation-transcript-store";
 import type {TranscriptSnapshot,TranscriptEntry} from "../../conversation/transcript/conversation-transcript-types";
 import {readMainAttachmentProjection,observeMainAttachmentProjection} from "../../memory/context/main-attachment-projection";
@@ -10,7 +10,7 @@ import {contextFail,type ContextMessage,type ContextUnit} from "../../model/cont
 import type {createMainContext} from "../../memory/context/main-context";
 import {createMainTranscriptProvider,type CanonicalTranscript} from "../../memory/context/main-transcript-provider";
 import {validateUnit} from "../../memory/context/token-budget";
-import {requireRunAdjustmentPermit,type RunAdjustmentPermit} from "../../features/sessions/pending-adjustment";
+import {requireRunAdjustmentPermit,type RunAdjustmentPermit} from "../runtime/pending-adjustment";
 import type {RunAdjustmentMessage} from "../loop/types";
 
 interface AdapterOptions {

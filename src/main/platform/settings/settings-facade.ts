@@ -15,10 +15,10 @@ import {
 import { normalizeWindowVisibilitySettings } from "../windows/window-visibility-settings";
 import { getGeneralSettingsPath } from "../../base/storage/settings-store";
 import type { GeneralSettings } from "./general-settings";
-import { DEFAULT_MAX_TOOL_ROUNDS, DEFAULT_RUN_TIMEOUT_MS } from "../../agent/loop/types";
+import { DEFAULT_MAX_TOOL_ROUNDS, DEFAULT_RUN_TIMEOUT_MS } from "./run-defaults";
 import { decodeCredentials, migrateCredentials, writeCredentials, GENERAL_CREDENTIAL_FIELDS } from "./credential-storage";
-import type { ToolModeOverrides } from "../../tooling/registry/tool-registry";
-import type { SkillModeOverrides } from "../../knowledge/skills/types";
+import type { ToolModeOverrides } from "../../../shared/mode-overrides";
+import type { SkillModeOverrides } from "../../../shared/mode-overrides";
 import { normalizeLspServerOverrides } from "../lsp/server-catalog";
 import {
   applyInstallerLaunchAtLoginSelection,

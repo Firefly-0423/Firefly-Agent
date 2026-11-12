@@ -1,5 +1,5 @@
 import type { FireflyRunOptions } from "../runtime/firefly-agent";
-import type { TranscriptSink } from "../../conversation/transcript/transcript-sink";
+import type { TranscriptSink } from "../loop/transcript-sink";
 import type { MainMemoryRunOptions, MainMemoryRun } from "./main-memory-runtime";
 
 export type BackgroundMemoryEntry = "scheduler" | "proactive" | "child";

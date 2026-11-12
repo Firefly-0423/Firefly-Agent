@@ -3,7 +3,7 @@ import {afterEach,afterAll,expect,it,vi} from 'vitest';
 // Real SQLite / filesystem integration cases: the 5 s default is too tight on CI runners, so this file allows 30 s. Other files keep the default.
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 import {contextFixture} from '../../../../scripts/verify/memory-context/context-fixture';
-import {ConversationTranscriptStore} from '../../conversation/transcript/conversation-transcript-store';import {createTranscriptSink} from '../../conversation/transcript/transcript-sink';
+import {ConversationTranscriptStore} from '../../conversation/transcript/conversation-transcript-store';import {createTranscriptSink} from '../../agent/loop/transcript-sink';
 import {createMainHistory,readHistoryEvidence,claimHistoryResponseEvidence} from '../history/main-history';import {createNativeHistoryProvider} from '../sources/native-history-provider';
 import {createMainSourceProvider} from '../sources/main-source-provider';
 import {initializeStorageContext} from '../../base/storage/storage-context';import {resolveRuntimeProfile} from '../../base/identity/runtime-profile';

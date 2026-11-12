@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { createProactiveChannelRecipientRegistry, sendProactiveChannelMessage } from "./proactive-delivery";
-import type { ChannelAdapter } from "./adapters/base";
+import type { ChannelAdapter } from "../../conversation/channels/channel-adapter-base";
 
 function setup(phase: "offline" | "running" = "running", remember = true) {
   const registry = createProactiveChannelRecipientRegistry();

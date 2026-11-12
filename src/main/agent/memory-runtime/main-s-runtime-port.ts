@@ -1,13 +1,13 @@
 import type {ConversationTranscriptStore} from "../../conversation/transcript/conversation-transcript-store";
 import {consumeSResponseStream} from "./s-response-stream";
 import {factContextMessages} from "../../memory/context/fact-context-messages";
-import {controlledSettlement,copyControlledStreamTarget,type ControlledStreamTarget} from "../../conversation/transcript/controlled-responses";
+import {controlledSettlement,copyControlledStreamTarget,type ControlledStreamTarget} from "../loop/controlled-responses";
 import {classifySAssistantSettlement} from "../../conversation/transcript/conversation-transcript-settlement";
 import type {TranscriptEntry,SAssistantBinding} from "../../conversation/transcript/conversation-transcript-types";
 import type {BoundSourceRef} from "../../../shared/memory-contracts";
 import {requireCommittedUserSource,type createMainUserFactCoordinator} from "../../memory/policy/main-user-fact-coordinator";
 import type {createMainFactSelector} from "../../memory/recall/main-fact-selector";
-import {requireTranscriptSinkBinding} from "../../conversation/transcript/transcript-sink";
+import {requireTranscriptSinkBinding} from "../loop/transcript-sink";
 import type {ChatMessage,ChatRequest} from "../../model/providers/types";
 import type {MainActorAuthority} from "../../memory/core/main-actor-authority";
 import type {createMainSourceRegistry} from "../../memory/sources/source-registry";

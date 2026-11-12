@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { ChannelManager } from "./manager";
-import type { ChannelAdapter } from "./adapters/base";
+import type { ChannelAdapter } from "../../conversation/channels/channel-adapter-base";
 
 function adapterFor(id: "qq" | "feishu"): ChannelAdapter {
   let live = false;

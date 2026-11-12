@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { ChannelManager } from "../../features/channels/manager";
-import { createChannelMemoryAccountIdentity, type ChannelAdapter } from "../../features/channels/adapters/base";
+import { createChannelMemoryAccountIdentity, type ChannelAdapter } from "../../conversation/channels/channel-adapter-base";
 import type { IncomingMessage } from "../../conversation/channels/channel-types";
 import * as ingressApi from "./channel-memory-ingress";
 

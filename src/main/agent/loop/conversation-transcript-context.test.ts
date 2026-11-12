@@ -3,11 +3,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { materializeTranscript, buildModelContext, resolveTranscriptRetainTokens, type TranscriptRunReader } from "./conversation-transcript-context";
-import { ConversationTranscriptStore } from "./conversation-transcript-store";
-import { prepareTranscriptDispatch } from "./conversation-transcript-coordinator";
+import { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
+import { prepareTranscriptDispatch } from "../../conversation/transcript/conversation-transcript-coordinator";
 import { createTranscriptSink } from "./transcript-sink";
-import type { TranscriptEntry, TranscriptAppendInput } from "./conversation-transcript-types";
-import type { HarnessRunSession } from "../../agent/loop/run-store";
+import type { TranscriptEntry, TranscriptAppendInput } from "../../conversation/transcript/conversation-transcript-types";
+import type { HarnessRunSession } from "./run-store";
 import type { ChatMessage, ToolCall } from "../../model/providers/types";
 
 const unavailable: TranscriptRunReader = { get: () => null };

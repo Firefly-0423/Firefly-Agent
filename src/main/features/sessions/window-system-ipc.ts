@@ -1,9 +1,9 @@
 import { IPC } from "../../../shared/ipc-channels";
 import { createIpcScope, type IpcScope } from "../../base/ipc/ipc-scope";
 import { clearUsage, getSessionStats, getUsageHistory, getUsageReport } from "../../base/storage/token-usage-store";
-import { listSessions } from "../../features/sessions/chats-store";
-import { sidebarWindow, settingsWindow } from "./window-state";
-import type { WindowManager } from "./window-manager";
+import { listSessions } from "./chats-store";
+import { sidebarWindow, settingsWindow } from "../../platform/windows/window-state";
+import type { WindowManager } from "../../platform/windows/window-manager";
 
 export interface WindowSystemIpcDependencies {
   get windowManager(): WindowManager | null;

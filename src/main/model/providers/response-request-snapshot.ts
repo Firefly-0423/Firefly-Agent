@@ -1,5 +1,5 @@
 import type {ChatRequest} from "./types";
-import {canonicalJson} from "../../memory/core/repository-types";
+import {canonicalJson} from "../../base/utils/canonical-json";
 
 /** Pure descriptor snapshot; imports no SDK, settings, storage or runtime service. */
 const unsupported=():never=>{throw Error("MEMORY_CONTEXT_COUNTER_UNSUPPORTED")};

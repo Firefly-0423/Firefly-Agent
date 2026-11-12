@@ -49,7 +49,7 @@ import { initMcpManager, pruneMcpServersByIds } from "../agent/mcp/mcp-manager";
 import { syncPlaywrightMcp, REMOVED_BUILTIN_MCP_IDS } from "../agent/mcp/sync-mcp-builtin";
 import { registerAppUpdateIpc } from "../platform/updater/app-update-ipc";
 import { createGitHubAppUpdateService, scheduleStartupUpdateCheck } from "../platform/updater/github-app-updater";
-import { registerWindowSystemIpc } from "../platform/windows/window-system-ipc";
+import { registerWindowSystemIpc } from "../features/sessions/window-system-ipc";
 import { enqueueLLMTask } from "../model/queue/llm-queue";
 import { registerPrivilegedSchemes, registerProtocolHandlers, } from "./protocols-bootstrap";
 import { memoryStore } from "../memory/legacy/memory-store";

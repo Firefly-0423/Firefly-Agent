@@ -1,5 +1,5 @@
 import type { MainMemoryRun } from "../../agent/memory-runtime/main-memory-runtime";
-import type { TranscriptSink } from "../../conversation/transcript/transcript-sink";
+import type { TranscriptSink } from "../../agent/loop/transcript-sink";
 import { recordUsage, recordRequest } from "../../base/storage/token-usage-store";
 import { getAdapterForConfig, type ChatMessage, type VendorConfig } from "../../model/providers";
 import { parseProactiveDecision, type ProactiveModelDecision } from "./proactive-prompt";

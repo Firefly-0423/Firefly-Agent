@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ChannelAdapter } from "../base";
+import type { ChannelAdapter } from "../../../../conversation/channels/channel-adapter-base";
 import { FeishuAdapter } from "./index";
 
 const fixture = vi.hoisted(() => ({ createChannel: vi.fn(), settings: { enabled: true, appId: "app-a", appSecret: "synthetic", allowAnyPrivate: true, allowedSenderIds: [] as string[] } }));

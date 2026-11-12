@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ChannelAdapter } from "../base";
+import type { ChannelAdapter } from "../../../../conversation/channels/channel-adapter-base";
 import { NapCatAdapter } from "./napcat-adapter";
 const fixture = vi.hoisted(() => ({ servers: [] as any[], config: { enabled: true, listenMode: "loopback", port: 6200, allowedPrivateUserIds: ["sender"], allowedGroupIds: [], groupRequireMention: true } }));
 vi.mock("../../settings-store", () => ({ loadChannelsSettings: () => ({ qq: fixture.config }) }));

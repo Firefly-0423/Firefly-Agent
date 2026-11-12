@@ -188,7 +188,7 @@ vi.mock("../base/identity/locale-context", () => ({ updateLocaleContext: vi.fn()
 vi.mock("../base/identity/single-instance", () => ({ installSingleInstanceGuard: vi.fn(() => m.lockResult) }));
 vi.mock("../platform/windows/tray", () => ({ createTray: vi.fn(() => m.tray) }));
 vi.mock("../platform/windows/window-manager", () => ({ createWindowManager: vi.fn(() => m.windowManager) }));
-vi.mock("../platform/windows/window-system-ipc", () => ({ registerWindowSystemIpc: vi.fn() }));
+vi.mock("../features/sessions/window-system-ipc", () => ({ registerWindowSystemIpc: vi.fn() }));
 vi.mock("../platform/windows/create-toast-window", () => ({ createToastWindowShell: vi.fn() }));
 vi.mock("../platform/toast/toast-window", () => ({
   createToastWindowController: vi.fn(() => ({ preload: vi.fn(), dispose: vi.fn() })),

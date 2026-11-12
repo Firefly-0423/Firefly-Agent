@@ -372,7 +372,7 @@ describe("session ownership, cancellation and takeover", () => {
         const f = await bridge({ build: async () => built({ conversationId: "conversation", controlledResponses: vi.fn() }) });
         const patch = { userTurnId: "input", assistantTurnId: "output" };
         const first = await f.run("conversation", patch), original = agentOptions();
-        const { requireTranscriptSinkBinding } = await import("../../conversation/transcript/transcript-sink");
+        const { requireTranscriptSinkBinding } = await import("../../agent/loop/transcript-sink");
         expect(() => requireTranscriptSinkBinding(original.transcriptSink, { conversationId: "conversation", runId: first.runId, assistantTurnId: "output" })).not.toThrow();
         expect(original.isControlledRunCurrent()).toEqual(true);
         const second = await f.run("conversation", { ...patch, takeoverFromRunId: first.runId }), replacement = agentOptions();
@@ -480,7 +480,7 @@ describe("transcript ownership and Work read evidence", () => {
         let materialize = async (): Promise<any[]> => [];
         const f = await bridge({ build: async () => built({ messages: await materialize() }) });
         const { getConversationTranscriptStore } = await import("../../conversation/transcript/conversation-transcript-store");
-        const { buildModelContext, resolveTranscriptRetainTokens } = await import("../../conversation/transcript/conversation-transcript-context");
+        const { buildModelContext, resolveTranscriptRetainTokens } = await import("../../agent/loop/conversation-transcript-context");
         materialize = async () => (await buildModelContext({ store: getConversationTranscriptStore(wire.root), conversationId: "conversation", retainTokens: resolveTranscriptRetainTokens(256000), runReader: { get: () => null } })).messages;
         await f.run("conversation", { userTurnId: "turn-alpha" });
         await f.idle();
@@ -503,7 +503,7 @@ describe("transcript ownership and Work read evidence", () => {
         let materialize = async (): Promise<any[]> => [];
         const f = await bridge({ build: async () => built({ messages: await materialize() }) });
         const { getConversationTranscriptStore } = await import("../../conversation/transcript/conversation-transcript-store");
-        const { buildModelContext, resolveTranscriptRetainTokens } = await import("../../conversation/transcript/conversation-transcript-context");
+        const { buildModelContext, resolveTranscriptRetainTokens } = await import("../../agent/loop/conversation-transcript-context");
         materialize = async () => (await buildModelContext({ store: getConversationTranscriptStore(wire.root), conversationId: "conversation", retainTokens: resolveTranscriptRetainTokens(256000), runReader: { get: () => null } })).messages;
         await f.run("conversation", { userTurnId: "turn-one" });
         await f.idle();
@@ -600,7 +600,7 @@ describe("history index ownership", () => {
         session("conversation", "chat", [user("input"), { ...answer("output", ""), answersUserMessageId: "input" }]);
         wire.omitTerminal = Boolean(bare);
         wire.terminal = { status, externalEffectsMayContinue: status !== "success" };
-        const { controlledSettlement } = await import("../../conversation/transcript/controlled-responses");
+        const { controlledSettlement } = await import("../../agent/loop/controlled-responses");
         wire.run.mockImplementationOnce(options => { if (controlled) {
             const settlement = controlledSettlement(options.transcriptSink), result = status === "success" ? "success" : "interrupted";
             expect(settlement.reserve(result)).toEqual(true);

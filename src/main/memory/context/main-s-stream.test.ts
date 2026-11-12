@@ -7,7 +7,7 @@ import {buildAgentRunOptions} from "../../agent/runtime/build-options";
 import {afterEach,expect,it,vi} from "vitest";
 import {contextFixture} from "../../../../scripts/verify/memory-context/context-fixture";
 import {ConversationTranscriptStore} from "../../conversation/transcript/conversation-transcript-store";
-import {createTranscriptSink} from "../../conversation/transcript/transcript-sink";
+import {createTranscriptSink} from "../../agent/loop/transcript-sink";
 import {createConversationTranscriptAdapter} from "../../agent/memory-runtime/conversation-transcript-adapter";
 import {createMainSRuntimePort} from "../../agent/memory-runtime/main-s-runtime-port";
 import {createMainResponsesBinding,createMainResponsesLimits,type ResponsesSdkClient} from "./main-responses-binding";
@@ -15,7 +15,7 @@ import {setVendorRuntimeSettingsGetter} from "../../model/providers/runtime-sett
 import {createAgentRuntime} from "../../agent/runtime/agent-runtime";
 import {FireflyAgent} from "../../agent/runtime/firefly-agent";
 import {classifySAssistantSettlement} from "../../conversation/transcript/conversation-transcript-settlement";
-import {materializeTranscript} from "../../conversation/transcript/conversation-transcript-context";
+import {materializeTranscript} from "../../agent/loop/conversation-transcript-context";
 import {createMainUserFactCoordinator} from '../policy/main-user-fact-coordinator';
 import {createMainFactSelector} from '../recall/main-fact-selector';
 import {createMainRecall} from '../recall/main-recall';

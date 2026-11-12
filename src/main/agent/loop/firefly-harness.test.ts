@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatMessage, ChatRequest, ChatResponse, ToolCall } from "../../model/providers/types";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
-import type { TranscriptSink } from "../../conversation/transcript/transcript-sink";
+import type { TranscriptSink } from "./transcript-sink";
 import type { HarnessCacheDiagnostic, HarnessCheckpoint, HarnessEvent, HarnessInput, HarnessToolFinishedEvent, HarnessToolLifecycleEvent, RunAdjustmentMessage } from "./types";
 import type { ToolDispatchResult } from "./tool-dispatcher";
 
