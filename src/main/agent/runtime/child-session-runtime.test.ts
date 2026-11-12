@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { AgentSessionRegistry } from "../tasks/agent-session-registry";
 import { TaskSessionStore } from "../tasks/task-session-store";
-import { requireBackgroundMemoryIngress, type BackgroundMemoryHost } from "../../memory/context/background-memory-ingress";
+import { requireBackgroundMemoryIngress, type BackgroundMemoryHost } from "../memory-runtime/background-memory-ingress";
 import { runChildSession } from "./child-session-runtime";
 import { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
 import { createTranscriptSink } from "../../conversation/transcript/transcript-sink";

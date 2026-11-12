@@ -1,12 +1,12 @@
 import {createAttachmentDocumentMaterializer} from "../../memory/context/attachment-document-materializer";
-import type {BackgroundMemoryHost} from "../../memory/context/background-memory-ingress";
-import type {MainMemoryRun} from "../../memory/context/main-memory-runtime";
+import type {BackgroundMemoryHost} from "../memory-runtime/background-memory-ingress";
+import type {MainMemoryRun} from "../memory-runtime/main-memory-runtime";
 import { app } from "electron";
 import {copyControlledStreamTarget} from "../../conversation/transcript/controlled-responses";
 import type {ChatRequest} from "../../model/providers/types";
 import type {AgentLoopResult} from "./firefly-agent";
 import {copyMainResponsesRequest} from "../../model/providers/response-request-snapshot";
-import type {MainSRuntimePort,MainSRuntimeInput,MainSRuntimeResult} from "../../memory/context/main-s-runtime-port";
+import type {MainSRuntimePort,MainSRuntimeInput,MainSRuntimeResult} from "../memory-runtime/main-s-runtime-port";
 import { loadPromptFile } from "../../base/prompts/prompt-loader";
 import type { AguiRunInput, BuildOptionsFn, MainBuildOptionsContext } from "../../features/chat/agui-bridge";
 import type { ScheduledTask } from "../../platform/schedule/schedule-types";

@@ -55,7 +55,7 @@ import "./fs-tools";
 import { registerLifeTools } from "./life-tools";
 import { captionImage } from "../../model/vision/vision-captioner";
 import { getRunReviewTracker, RunReviewTracker } from "../review/run-review-tracker";
-import { WriteOwnership } from "../loop/write-ownership";
+import { WriteOwnership } from "../../tooling/execution/write-ownership";
 import type { ToolContext } from "../../tooling/registry/tool-context";
 import { beginWriteBatch } from "./file-write-evidence";
 registerLifeTools();

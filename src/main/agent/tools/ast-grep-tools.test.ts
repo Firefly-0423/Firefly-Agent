@@ -4,7 +4,7 @@ import { join, dirname, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
 import { registerAstGrepTools } from "./ast-grep-tools";
 import { toolRegistry } from "../../tooling/registry/tool-registry";
-import { getWorkspaceExecutionCoordinator } from "../loop/execution-coordinator";
+import { getWorkspaceExecutionCoordinator } from "../../tooling/execution/execution-coordinator";
 import type { ToolContext } from "../../tooling/registry/tool-context";
 
 const fault = vi.hoisted(() => ({ path: "" }));

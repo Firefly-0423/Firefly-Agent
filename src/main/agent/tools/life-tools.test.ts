@@ -14,7 +14,7 @@ vi.mock("../../tooling/registry/tool-registry", () => ({ toolRegistry: {
 vi.mock("electron", () => ({ app: { getPath: () => fixture.root } }));
 vi.mock("./built-in-tools", () => ({ currentUserTimezone: () => "Asia/Shanghai" }));
 import { clearExchangeRateCache, registerLifeTools } from "./life-tools";
-import { getWorkspaceExecutionCoordinator } from "../loop/execution-coordinator";
+import { getWorkspaceExecutionCoordinator } from "../../tooling/execution/execution-coordinator";
 import { executeToolDefinition } from "../../tooling/registry/tool-executor";
 
 registerLifeTools();

@@ -8,8 +8,8 @@ import { HarnessRunStore } from "../../agent/loop/run-store";
 import { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
 import { createTranscriptSink } from "../../conversation/transcript/transcript-sink";
 import { createAgentExecutor } from "../../agent/runtime/persistent-agent-runtime";
-import { requireBackgroundMemoryIngress, type BackgroundMemoryHost } from "./background-memory-ingress";
-import type { MainMemoryRun } from "./main-memory-runtime";
+import { requireBackgroundMemoryIngress, type BackgroundMemoryHost } from "../../agent/memory-runtime/background-memory-ingress";
+import type { MainMemoryRun } from "../../agent/memory-runtime/main-memory-runtime";
 
 vi.mock("electron", () => ({ app: { getPath: () => "/tmp" } }));
 vi.mock("../../base/storage/token-usage-store", () => ({ recordModelCall: () => undefined, recordToolCall: () => undefined, recordRequest: vi.fn(), recordUsage: vi.fn() }));

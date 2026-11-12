@@ -29,7 +29,7 @@ import { DEFAULT_HARNESS_CONFIG } from "../../agent/loop/types";
 import { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
 import { materializeTranscript } from "../../conversation/transcript/conversation-transcript-context";
 import { createTranscriptSink, type TranscriptSink } from "../../conversation/transcript/transcript-sink";
-import type { MainMemoryRun } from "./main-memory-runtime";
+import type { MainMemoryRun } from "../../agent/memory-runtime/main-memory-runtime";
 import type { SdkStreamRunInput } from "../../model/providers/sdk-stream/runtime";
 import type { UnifiedStreamDelta } from "../../model/providers/sdk-stream/types";
 import type { ChatMessage, ChatResponse, ChatVendorAdapter, ToolCall, VendorConfig } from "../../model/providers/types";

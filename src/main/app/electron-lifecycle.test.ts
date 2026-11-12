@@ -1,8 +1,8 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 import { installAppShutdownHandlers, attachWindowsSessionEndHandlers } from "./electron-lifecycle";
-import { createShutdownCoordinator } from "./shutdown";
-import { createStartupReadiness } from "./readiness";
+import { createShutdownCoordinator } from "../base/lifecycle/shutdown";
+import { createStartupReadiness } from "../base/lifecycle/readiness";
 function lifecycle() {
     const emitter = new EventEmitter();
     return Object.assign(emitter, { quit: vi.fn(), removeListener: vi.spyOn(emitter, "removeListener") });

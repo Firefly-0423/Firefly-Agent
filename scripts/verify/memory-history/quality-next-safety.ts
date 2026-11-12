@@ -18,7 +18,7 @@ import {createMainHistory,createMainHistoryProvider} from '../../../src/main/mem
 import {createHistoryMigration} from '../../../src/main/memory/history/history-migration';
 import {createMainContext} from '../../../src/main/memory/context/main-context';
 import {DEFAULT_HISTORY_SETTINGS,type HistoryDocument} from '../../../src/main/memory/history/history-contracts';
-import type {ContextBudget,ContextUnit,PreparedRequest} from '../../../src/main/memory/context/context-contracts';
+import type {ContextBudget,ContextUnit,PreparedRequest} from '../../../src/main/model/context/context-contracts';
 import type {SourceIdentity} from '../../../src/main/memory/core/source-contracts';
 
 const HEAD='9e5a3dba8cb9f7525d07e3def54a154455609d01';

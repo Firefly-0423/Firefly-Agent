@@ -1,5 +1,5 @@
 import type {ChatMessage} from "../../model/providers/types";
-import type {ContextFact} from "./context-contracts";
+import type {ContextFact} from "../../model/context/context-contracts";
 
 /** Only this fixed framing is trusted. Stored values never enter a system message. */
 export function factContextMessages(facts:ContextFact[]):ChatMessage[] {

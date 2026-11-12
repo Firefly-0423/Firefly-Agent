@@ -22,7 +22,7 @@ vi.mock("fs", async original => {
   return { ...actual, mkdirSync: intercept("mkdirSync"), writeFileSync: intercept("writeFileSync"), statSync: intercept("statSync") };
 });
 import "./fs-tools";
-import { getWorkspaceExecutionCoordinator } from "../loop/execution-coordinator";
+import { getWorkspaceExecutionCoordinator } from "../../tooling/execution/execution-coordinator";
 import { beginWriteBatch } from "./file-write-evidence";
 import { inspectWorkReadFile } from "../../features/sessions/work-read-scope";
 

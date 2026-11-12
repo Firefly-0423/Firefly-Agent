@@ -2,7 +2,7 @@ import type { ChatMessage } from "../../model/providers";
 import { ContextRefRegistry } from "./context-ref-registry";
 import type { ConversationMode, WorkReadScope } from "../../../shared/chat-types";
 import type { AgentFileAccessLevel } from "../../platform/permission/permission-policy";
-import type { ExecutionScope, LeafPermit, RunExecutionCoordinator } from "../../agent/loop/execution-coordinator";
+import type { ExecutionScope, LeafPermit, RunExecutionCoordinator } from "../execution/execution-coordinator";
 
 export const contextRefRegistry = new ContextRefRegistry();
 

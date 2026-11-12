@@ -8,8 +8,8 @@
 import type { App } from "electron";
 import { installAppShutdownHandlers } from "./electron-lifecycle";
 import type { ApplicationContext } from "./context";
-import type { StartupReadiness } from "./readiness";
-import type { ShutdownCoordinator } from "./shutdown";
+import type { StartupReadiness } from "../base/lifecycle/readiness";
+import type { ShutdownCoordinator } from "../base/lifecycle/shutdown";
 import type { WindowActivationBroker } from "../platform/windows/window-activation";
 import type { PreReadyResult } from "./pre-ready";
 import type { ShellResult } from "./shell-bootstrap";

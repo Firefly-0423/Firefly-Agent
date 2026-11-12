@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { ConversationMode } from "../../../../shared/chat-types";
 import type { FireflyRunOptions } from "../../runtime/firefly-agent";
-import type { PromptLayers } from "../../runtime/prompt-layers";
+import type { PromptLayers } from "../../../model/prompt/prompt-layers";
 import { toolRegistry, type ToolDefinition } from "../../../tooling/registry/tool-registry";
 import type { VendorConfig, ChatMessage } from "../../../model/providers/types";
 import { vendorConfigFromSettings } from "../../../model/providers/vendor-config";

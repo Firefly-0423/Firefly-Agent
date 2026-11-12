@@ -10,11 +10,11 @@ import type {createMainSourceRegistry} from "../sources/source-registry";
 import {extractMaintenance} from "../policy/maintenance-extractor";
 import {claimSubjectKeys} from "../policy/policy-repository";
 import {resolveProject} from "../policy/project-scope";
-import {ContextError,contextFail,CONTEXT_CLAIM_WINDOW_MS,type ContextBudget,type TokenCounter,type ContextUnit,type PreparedRequest,type BudgetResult,type ContextTransport,type SourceDependency,type FactDependency,type TranscriptDependency,type StoredSummary,type SummaryReceipt,type SummaryCounting,type SummarySegment} from "./context-contracts";
+import {ContextError,contextFail,CONTEXT_CLAIM_WINDOW_MS,type ContextBudget,type TokenCounter,type ContextUnit,type PreparedRequest,type BudgetResult,type ContextTransport,type SourceDependency,type FactDependency,type TranscriptDependency,type StoredSummary,type SummaryReceipt,type SummaryCounting,type SummarySegment} from "../../model/context/context-contracts";
 import {selectBudget,requestDigest,freezeRequest,countPrepared,countPreparedForAdmission} from "./token-budget";
 import {parseCanonicalTranscript,requireMainTranscriptProvider,type TranscriptEventSource} from "./main-transcript-provider";
 import type {TranscriptEntry} from "../../conversation/transcript/conversation-transcript-types";
-import type {ContextFact} from "./context-contracts";
+import type {ContextFact} from "../../model/context/context-contracts";
 
 interface ContextOptions {
  /** Main run grant must authorize each source before source-provider I/O. */

@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { settleChildExecution } from "./child-run-lifecycle";
-import type { RunExecutionCoordinator } from "../loop/execution-coordinator";
+import type { RunExecutionCoordinator } from "../../tooling/execution/execution-coordinator";
 
 it("late_settlement_keeps_closure_pending_until_actual_child_operation_settles", async () => {
   let settle!: () => void;

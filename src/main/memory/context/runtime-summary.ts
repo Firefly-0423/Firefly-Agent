@@ -1,5 +1,5 @@
 import type {createMainContext} from "./main-context";
-import {contextFail,type SummaryReceipt} from "./context-contracts";
+import {contextFail,type SummaryReceipt} from "../../model/context/context-contracts";
 
 /**
  * Select complete historical turns under the Main-owned S budget; never generate new text.

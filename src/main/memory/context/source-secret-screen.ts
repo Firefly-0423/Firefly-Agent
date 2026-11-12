@@ -1,4 +1,4 @@
-import { contextFail } from "./context-contracts";
+import { contextFail } from "../../model/context/context-contracts";
 
 // Context may discuss credential field names. M's conservative fact extractor is not
 // a context filter: reject credential-shaped values, not the words in code docs.

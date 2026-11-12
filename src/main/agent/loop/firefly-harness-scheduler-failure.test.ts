@@ -7,7 +7,7 @@ const fakeLLM = vi.hoisted(() => vi.fn());
 vi.mock("./harness-llm", () => ({ callLLM: fakeLLM, summarizeHistory: vi.fn() }));
 
 import { runFireflyHarness } from "./firefly-harness";
-import { RunExecutionCoordinator } from "./execution-coordinator";
+import { RunExecutionCoordinator } from "../../tooling/execution/execution-coordinator";
 import { HarnessRunStore, type HarnessRunSession } from "./run-store";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
 import type { TranscriptSink } from "../../conversation/transcript/transcript-sink";

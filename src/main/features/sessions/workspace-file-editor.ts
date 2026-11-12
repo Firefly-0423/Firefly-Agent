@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import type { WorkspaceFileErrorCode, WorkspaceSaveRequest, WorkspaceSaveResult } from "../../../shared/workspace-files-types";
-import { getWorkspaceExecutionCoordinator } from "../../agent/loop/execution-coordinator";
+import { getWorkspaceExecutionCoordinator } from "../../tooling/execution/execution-coordinator";
 
 const MAX_BYTES = 1024 * 1024;
 const SAVE_QUEUE_TIMEOUT_MS = 15_000;

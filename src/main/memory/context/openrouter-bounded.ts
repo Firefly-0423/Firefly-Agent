@@ -4,7 +4,7 @@ import {objectFields,parseInternalId} from "../core/command-validation";
 import {RecordCodec} from "../core/record-codec";
 import {transactionNow} from "../core/transaction-clock";
 import type {ContextOwner} from "./context-repository";
-import {contextFail} from "./context-contracts";
+import {contextFail} from "../../model/context/context-contracts";
 export const OPENROUTER_BASE="https://openrouter.ai/api/v1",OPENROUTER_MODEL="openai/gpt-6-luna";
 export const OPENROUTER_RESERVATION_NANODOLLARS=415284000;
 const CEILING=1000000000,SCOPE="desktop-openrouter-budget-v1",ID="openrouter-luna-usd1-v1";

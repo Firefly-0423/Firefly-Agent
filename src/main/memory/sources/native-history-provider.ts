@@ -9,7 +9,7 @@ import {createMainHistoryProvider,type createMainHistory,type HistoryResponseBin
 import {historyTranscriptDigest} from '../history/history-transcript-digest';
 import {parseFireflyHistoryBytes} from '../history/firefly-history-reader';
 import type {HistoryDocument,ReadonlyHistoryRecord,ReadonlyHistorySelectionHead} from '../history/history-contracts';
-import type {TranscriptDependency} from '../context/context-contracts';
+import type {TranscriptDependency} from '../../model/context/context-contracts';
 import type {NativeHistoryEndpoint,NativeHistoryEndpointFactory,NativeHistoryIdentity} from './native-history-transport';
 
 type CoverageReason='snapshot-missing'|'transcript-missing'|'not-acquired'|'partial-source'|'selection-budget-exhausted'|'disabled-by-forget'|'disabled-by-retraction';

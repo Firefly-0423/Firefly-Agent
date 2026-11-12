@@ -2,10 +2,10 @@ import { getAdapterForConfig, streamChatWithSdk, resolveTransport } from "../../
 import { recordUsage, recordRequest, recordModelCall } from "../../base/storage/token-usage-store";
 import type { VendorConfig, ToolSpec, ChatResponse, ChatRequest, ChatMessage } from "../../model/providers/types";
 import type { HarnessConfig } from "./types";
-import type { MainMemoryRun } from "../../memory/context/main-memory-runtime";
+import type { MainMemoryRun } from "../memory-runtime/main-memory-runtime";
 import { AGENT_COMPACTION_PROMPT } from "./compaction";
 import { isExplicitStreamUnsupported } from "../../model/providers/stream-support";
-import { composePromptLayers, normalizeToolSpecsForCache, type PromptLayers } from "../runtime/prompt-layers";
+import { composePromptLayers, normalizeToolSpecsForCache, type PromptLayers } from "../../model/prompt/prompt-layers";
 
 function resolveRequestMaxTokens(vendorConfig: VendorConfig): number | undefined {
   if (resolveTransport(vendorConfig) === "anthropic") return 32_768;

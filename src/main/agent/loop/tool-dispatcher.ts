@@ -22,7 +22,7 @@ import { isShellJobControlAuthorized } from "../tools/builtin-tools/shell-job-ma
 import { shellJobTool } from "../tools/builtin-tools/shell-job-tool";
 import type { DelegationScope } from "../runtime/child-session-types";
 import { isAbortError, raceWithSignal } from "../../base/utils/abort-utils";
-import type { LeafPermit } from "./execution-coordinator";
+import type { LeafPermit } from "../../tooling/execution/execution-coordinator";
 import { policyFor } from "../../platform/permission/permission-policy";
 import { createToolInvocationContext } from "../../tooling/registry/tool-context";
 

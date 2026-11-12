@@ -1,5 +1,5 @@
 import type { TaskWriteEvidence, ModelExecutionEvent } from "../../../shared/agent-execution-evidence";
-import type { RunExecutionCoordinator } from "../loop/execution-coordinator";
+import type { RunExecutionCoordinator } from "../../tooling/execution/execution-coordinator";
 import type { ModelExecutionRecorder } from "../loop/model-execution-evidence";
 
 import type { TaskSessionStatus } from "../../../shared/task-session";
@@ -48,6 +48,6 @@ export interface ChildSessionParent extends ParentRunContext, ParentAccessContex
   groupId?: string;
   modelExecutionRecorder?: ModelExecutionRecorder;
   /** 仅接受 Main 持有的记忆能力；父会话 ID 本身不授予读取权限。 */
-  backgroundMemory?: import("../../memory/context/background-memory-ingress").BackgroundMemoryHost;
-  memoryRun?: import("../../memory/context/main-memory-runtime").MainMemoryRun;
+  backgroundMemory?: import("../memory-runtime/background-memory-ingress").BackgroundMemoryHost;
+  memoryRun?: import("../memory-runtime/main-memory-runtime").MainMemoryRun;
 }

@@ -1,5 +1,5 @@
 import type { BrowserWindow } from "electron";
-import type { BackgroundMemoryHost } from "../../memory/context/background-memory-ingress";
+import type { BackgroundMemoryHost } from "../../agent/memory-runtime/background-memory-ingress";
 import type { IpcScope } from "../../base/ipc/ipc-scope";
 import type { AgentRuntime } from "../../agent/runtime/agent-runtime";
 import { toolRegistry } from "../../tooling/registry/tool-registry";

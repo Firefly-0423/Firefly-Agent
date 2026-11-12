@@ -1,6 +1,6 @@
 import { publicRunFailure } from "../../../shared/run-failure";
 import {readMainAttachmentGrant,type MainAttachmentGrant} from "../../memory/context/main-attachment-projection";
-import type {MainDesktopMemory} from "../../memory/context/main-desktop-memory";
+import type {MainDesktopMemory} from "../../agent/memory-runtime/main-desktop-memory";
 import * as fs from "fs";
 import { app, IpcMainInvokeEvent, WebContents } from "electron";
 import { getHarnessRunStore } from "../../agent/loop/run-store";

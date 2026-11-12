@@ -11,7 +11,7 @@ import type { IncomingMessage, ChannelCapability, OutgoingMessage } from "../../
 import type { ChannelsSettings } from "./settings-store";
 import { ChannelManager } from "./manager";
 import { createChannelMemoryAccountIdentity, type ChannelAdapter } from "./adapters/base";
-import { requireChannelMemoryIngress } from "../../memory/context/channel-memory-ingress";
+import { requireChannelMemoryIngress } from "../../agent/memory-runtime/channel-memory-ingress";
 
 vi.mock("electron", () => ({
   app: { getPath: () => process.env.TEMP, getAppPath: () => process.cwd(), getName: () => "Contract host" },

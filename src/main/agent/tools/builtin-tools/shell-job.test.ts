@@ -9,7 +9,7 @@ vi.mock("electron", () => ({ app: {
   on: () => undefined,
 } }));
 import { clampWaitMs, disposeAllShellJobs, isShellJobControlAuthorized, startShellJob, stopShellJob, waitForShellJob, type ShellJobSnapshot, type ShellSpawnSpec } from "./shell-job-manager";
-import { getWorkspaceExecutionCoordinator } from "../../loop/execution-coordinator";
+import { getWorkspaceExecutionCoordinator } from "../../../tooling/execution/execution-coordinator";
 import { toolRegistry } from "../../../tooling/registry/tool-registry";
 import { isPidExecuting } from "../../../../../scripts/testing/process-liveness.mjs";
 

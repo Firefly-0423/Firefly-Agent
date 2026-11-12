@@ -1,5 +1,5 @@
 import type { IpcScope } from "../../base/ipc/ipc-scope";
-import type { ShutdownCoordinator } from "../../app/shutdown";
+import type { ShutdownCoordinator } from "../../base/lifecycle/shutdown";
 import type { createBrowserService } from "./browser-service";
 import { registerBrowserAvailabilityIpc, getOfflineBrowserAvailability } from "./browser-availability-ipc";
 import type { App, WebContents } from "electron";

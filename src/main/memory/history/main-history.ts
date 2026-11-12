@@ -6,7 +6,7 @@ import {parseInternalId,parseSourceRef,positiveRevision,objectFields} from '../c
 import type {createMainSourceRegistry} from '../sources/source-registry';
 import type {BoundSourceRef} from '../../../shared/memory-contracts';
 import type {SourceObservation} from '../core/source-contracts';
-import type {ContextUnit,SourceDependency,TranscriptDependency,ContextTransport} from '../context/context-contracts';
+import type {ContextUnit,SourceDependency,TranscriptDependency,ContextTransport} from '../../model/context/context-contracts';
 import {isLocalEmbeddingProvider,type EmbeddingProvider} from '../../knowledge/rag/embedding';
 import {isLocalRerankerProvider,type RerankerProvider} from '../../knowledge/rag/reranker';
 import type {TranscriptEntry} from '../../conversation/transcript/conversation-transcript-types';

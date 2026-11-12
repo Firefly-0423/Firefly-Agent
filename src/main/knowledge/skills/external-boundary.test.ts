@@ -3,8 +3,8 @@ import { createBrowserService, type BrowserHostPort, type BrowserGuestPort, type
 import { registerBrowserServiceIpc, registerManualBrowserWorkspaceIpc, installBrowserServiceLifecycle } from "../../platform/browser/browser-service-ipc";
 import { createManualBrowserWorkspace } from "../../platform/browser/manual-browser-workspace";
 import { BROWSER_PUBLIC_SCOPE, MANUAL_BROWSER_WORKSPACE_IPC, type BrowserOwnedPageDto, type BrowserPermissionScope } from "../../../shared/manual-browser";
-import { createShutdownCoordinator } from "../../app/shutdown";
-import { createStartupReadiness } from "../../app/readiness";
+import { createShutdownCoordinator } from "../../base/lifecycle/shutdown";
+import { createStartupReadiness } from "../../base/lifecycle/readiness";
 import fs from "node:fs";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";

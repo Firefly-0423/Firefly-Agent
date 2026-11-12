@@ -5,7 +5,7 @@ import {beforeEach,expect,it,vi} from "vitest";
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 import {contextFixture} from "../../../../scripts/verify/memory-context/context-fixture";
 import {ConversationTranscriptStore} from "../../conversation/transcript/conversation-transcript-store";
-import {createConversationTranscriptAdapter} from "./conversation-transcript-adapter";
+import {createConversationTranscriptAdapter} from "../../agent/memory-runtime/conversation-transcript-adapter";
 import {RecordCodec} from "../core/record-codec";
 import {DatabaseSync} from "node:sqlite";
 let preparedFixture:Awaited<ReturnType<typeof contextFixture>>;

@@ -8,8 +8,8 @@
  */
 
 import type { IpcScope } from "../base/ipc/ipc-scope";
-import type { StartupReadiness } from "./readiness";
-import type { ShutdownCoordinator } from "./shutdown";
+import type { StartupReadiness } from "../base/lifecycle/readiness";
+import type { ShutdownCoordinator } from "../base/lifecycle/shutdown";
 import type { WindowActivationBroker } from "../platform/windows/window-activation";
 import type { ShellResult } from "./shell-bootstrap";
 import type { RevealStartupWindowsOptions } from "../base/identity/startup-window-reveal";

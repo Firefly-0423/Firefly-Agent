@@ -2,7 +2,7 @@ import type { IncomingMessage, OutgoingMessage } from "../../conversation/channe
 import type { ChannelsSettings } from "./settings-store";
 import type { FireflyRunTerminalResult } from "../../../shared/run-terminal";
 import { appendLog } from "./message-log";
-import { requireChannelMemoryIngress, type ChannelMemoryIngress } from "../../memory/context/channel-memory-ingress";
+import { requireChannelMemoryIngress, type ChannelMemoryIngress } from "../../agent/memory-runtime/channel-memory-ingress";
 import { rememberProactiveChannelRecipient } from "./proactive-delivery";
 import type { ChannelRateLimiter } from "./rate-limiter";
 import type { KeyedQueue } from "./keyed-queue";

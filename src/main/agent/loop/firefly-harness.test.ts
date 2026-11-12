@@ -17,7 +17,7 @@ vi.mock("../../base/storage/token-usage-store", () => ({ recordModelCall: vi.fn(
 import { runFireflyHarness } from "./firefly-harness";
 import { dispatchToolCall } from "./tool-dispatcher";
 import { DEFAULT_HARNESS_CONFIG } from "./types";
-import { projectCacheRelevantChatRequest } from "../runtime/prompt-layers";
+import { projectCacheRelevantChatRequest } from "../../model/prompt/prompt-layers";
 
 const dispatch = vi.mocked(dispatchToolCall);
 const config = { provider: "custom", model: "contract-model", apiKey: "", baseUrl: "https://harness.invalid" } as HarnessInput["vendorConfig"];

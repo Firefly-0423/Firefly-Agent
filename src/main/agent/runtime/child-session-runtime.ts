@@ -1,7 +1,7 @@
 import { getStorageContext } from "../../base/storage/storage-context";
 import { createHash, randomUUID } from "node:crypto";
-import { createBackgroundMemoryIngressIssuer, type BackgroundMemoryPreparedRun } from "../../memory/context/background-memory-ingress";
-import type { MainMemoryRun } from "../../memory/context/main-memory-runtime";
+import { createBackgroundMemoryIngressIssuer, type BackgroundMemoryPreparedRun } from "../memory-runtime/background-memory-ingress";
+import type { MainMemoryRun } from "../memory-runtime/main-memory-runtime";
 import { getHarnessRunStore, type HarnessRunStore } from "../loop/run-store";
 import type { TranscriptSink } from "../../conversation/transcript/transcript-sink";
 import { DEFAULT_HARNESS_CONFIG } from "../loop/types";
@@ -18,7 +18,7 @@ import { projectTaskTraceEvent } from "./task-events";
 import { createTaskTraceBuffer } from "./task-trace-buffer";
 import { settleChildExecution } from "./child-run-lifecycle";
 import type { TaskWriteEvidence, ModelExecutionEvent } from "../../../shared/agent-execution-evidence";
-import type { PromptLayers } from "./prompt-layers";
+import type { PromptLayers } from "../../model/prompt/prompt-layers";
 import { runAsSubagent } from "../../base/storage/usage-attribution";
 
 export function buildChildPromptLayers(parent: ChildSessionParent, profilePrompt: string): PromptLayers {

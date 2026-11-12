@@ -1,6 +1,6 @@
 import {createHash} from "node:crypto";
 import {canonicalJson} from "../core/repository-types";
-import {ContextError,contextFail,type BudgetInput,type BudgetResult,type ContextBudget,type ContextMessage,type ContextUnit,type PreparedRequest,type TokenCounter} from "./context-contracts";
+import {ContextError,contextFail,type BudgetInput,type BudgetResult,type ContextBudget,type ContextMessage,type ContextUnit,type PreparedRequest,type TokenCounter} from "../../model/context/context-contracts";
 
 const identityKeys=["providerId","model","transport","framingVersion"] as const;
 function integer(value:unknown,min=0):number {if(!Number.isSafeInteger(value)||(value as number)<min)contextFail("MEMORY_CONTEXT_INPUT_INVALID");return value as number}

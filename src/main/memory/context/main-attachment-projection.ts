@@ -3,7 +3,7 @@ import type { PendingChatAttachment } from "../../../shared/chat-types";
 import type { TranscriptEntry, TranscriptUserPayload } from "../../conversation/transcript/conversation-transcript-types";
 import type { OpenAIContentBlock } from "../../model/providers/types";
 import { copyResponseJson } from "../../model/providers/response-request-snapshot";
-import { contextFail, type ContextMessage } from "./context-contracts";
+import { contextFail, type ContextMessage } from "../../model/context/context-contracts";
 import { maskContextSecrets } from "./source-secret-screen";
 import { validateUnit } from "./token-budget";
 

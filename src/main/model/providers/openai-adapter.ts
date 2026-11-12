@@ -9,7 +9,7 @@ import { getTimeoutSettings } from "../../platform/settings/timeout-manager";
 import { resolveAutomaticToolChoicePolicy, resolveToolChoicePolicy } from "./tool-choice-policy";
 import { getVendorRuntimeSettings } from "./runtime-settings";
 import { resolveApiEndpoint } from "../../../shared/api-endpoint";
-import { buildStableCacheFingerprint } from "../../agent/runtime/prompt-layers";
+import { buildStableCacheFingerprint } from "../prompt/prompt-layers";
 
 type WireUsage = { prompt_tokens?: number; completion_tokens?: number; prompt_tokens_details?: { cached_tokens?: number } };
 type WireMessage = {

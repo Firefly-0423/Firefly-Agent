@@ -1,4 +1,4 @@
-import type { PromptLayerMetadata } from "../../agent/runtime/prompt-layers";
+import type { PromptLayerMetadata } from "../prompt/prompt-layers";
 import type { ReasoningPreference, ReasoningLevelsConfig } from "../../../shared/reasoning";
 
 export type TestStrategy = "text+tool" | "text";

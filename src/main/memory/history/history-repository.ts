@@ -21,7 +21,7 @@ import {PolicyRepository} from '../policy/policy-repository';
 import {RecallRepository,parseRecallDependencies} from '../recall/recall-repository';
 import type {RecallDependency} from '../recall/recall-contracts';
 import type {BoundSourceRef} from '../../../shared/memory-contracts';
-import type {SourceDependency} from '../context/context-contracts';
+import type {SourceDependency} from '../../model/context/context-contracts';
 import {TranscriptLedger} from '../context/transcript-ledger';
 import {createHistoryTokenizer,normalizeVector,rankHistory} from './history-ranking';
 import {historyTimeSpan,parseHistoryTemporal,type HistoryTemporalQuery} from './history-temporal';

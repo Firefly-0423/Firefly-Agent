@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { getWorkspaceExecutionCoordinator } from "../loop/execution-coordinator";
+import { getWorkspaceExecutionCoordinator } from "../../tooling/execution/execution-coordinator";
 
 let root: string;
 const registry = new Map<string, any>();

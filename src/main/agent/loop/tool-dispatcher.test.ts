@@ -7,7 +7,7 @@ import { dispatchToolCall, truncateOutput, DEFAULT_TRUNCATION, type ToolDispatch
 import { resolveUncertainEffect } from "./uncertain-effect-guard";
 import { ToolOutputPersistenceError } from "./tool-output/file-tool-output-store";
 import type { ToolOutputStore } from "./tool-output/tool-output-store";
-import { RunExecutionCoordinator } from "./execution-coordinator";
+import { RunExecutionCoordinator } from "../../tooling/execution/execution-coordinator";
 
 const state = (): AgentState => ({ uncertainEffects: [], todoItems: [] });
 const request = (id: string, args: object = { destination: "recipient@invalid.test" }) => ({ id, name: "publish_digest", arguments: JSON.stringify(args) });

@@ -49,7 +49,7 @@ import { initializeChannels, startChannels } from "./init";
 import { indexConversationTurn } from "../../agent/tools/history-tools";
 import { ChannelManager } from "./manager";
 import { createChannelMemoryAccountIdentity, type ChannelAdapter } from "./adapters/base";
-import { requireChannelMemoryIngress, type ChannelMemoryIngress } from "../../memory/context/channel-memory-ingress";
+import { requireChannelMemoryIngress, type ChannelMemoryIngress } from "../../agent/memory-runtime/channel-memory-ingress";
 import { createMainAttachmentProjectionAuthority } from "../../memory/context/main-attachment-projection";
 
 beforeEach(() => {

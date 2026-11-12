@@ -1,4 +1,4 @@
-import type { RunExecutionCoordinator } from "../loop/execution-coordinator";
+import type { RunExecutionCoordinator } from "../../tooling/execution/execution-coordinator";
 
 /** Drain this child's genuine leaves, then invoke the existing canonical closure. */
 export async function settleChildExecution(input: {

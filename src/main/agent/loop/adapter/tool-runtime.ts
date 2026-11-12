@@ -15,7 +15,7 @@ import { loadModelSettings } from "../../../model/config/model-settings";
 import { FileToolOutputStore } from "../tool-output/file-tool-output-store";
 import { sendTaskLifecycleAsAgui } from "./event-mapper";
 import type { PreparedHarnessRun } from "./run-preparation";
-import { getWorkspaceExecutionCoordinator } from "../execution-coordinator";
+import { getWorkspaceExecutionCoordinator } from "../../../tooling/execution/execution-coordinator";
 import type { FireflyRunOptions } from "../../runtime/firefly-agent";
 
 /**

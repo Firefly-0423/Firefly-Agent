@@ -11,8 +11,8 @@
  * 四组全部落定后推进到 ready；任何失败只记为降级，不影响聊天。
  */
 
-import type { StartupReadiness } from "./readiness";
-import type { ShutdownCoordinator } from "./shutdown";
+import type { StartupReadiness } from "../base/lifecycle/readiness";
+import type { ShutdownCoordinator } from "../base/lifecycle/shutdown";
 import type { CoreResult } from "./core-bootstrap";
 import type { ChannelsSubsystem } from "../features/channels/bootstrap";
 import type { SchedulerSubsystem } from "../features/scheduler/bootstrap";

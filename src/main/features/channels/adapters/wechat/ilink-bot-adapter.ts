@@ -1,4 +1,4 @@
-import { markChannelTextTransform } from "../../../../memory/context/channel-memory-ingress";
+import { markChannelTextTransform } from "../../../../agent/memory-runtime/channel-memory-ingress";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { app } from "electron";

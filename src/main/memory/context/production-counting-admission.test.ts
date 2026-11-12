@@ -6,9 +6,9 @@ import { randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { createSmhFixture } from "./smh-fixture.test-support";
 import { createMainContext } from "./main-context";
-import { resolveMemoryCounter } from "./model-counting";
+import { resolveMemoryCounter } from "../../agent/memory-runtime/model-counting";
 import { RecordCodec } from "../core/record-codec";
-import type { ContextUnit, PreparedRequest } from "./context-contracts";
+import type { ContextUnit, PreparedRequest } from "../../model/context/context-contracts";
 const fixtures: ReturnType<typeof createSmhFixture>[] = [];
 afterEach(() => { for (const f of fixtures.splice(0)) { f.close(); fs.rmSync(f.root, { recursive: true, force: true }); } });
 function fixture(transport: "openai" | "responses" | "anthropic") {

@@ -3,7 +3,7 @@
 // 进入最终阶段后再触发的退出一律放行。
 // Windows 会话结束只允许同步紧急落盘，不能等待耗时清理。
 
-import type { ShutdownCoordinator } from "./shutdown";
+import type { ShutdownCoordinator } from "../base/lifecycle/shutdown";
 
 type Preventable = { preventDefault(): void };
 type SessionEndEvent = "query-session-end" | "session-end";

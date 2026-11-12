@@ -9,7 +9,7 @@ import {getAdapterForConfig} from "../../model/providers";
 import {getVendorRuntimeSettings} from "../../model/providers/runtime-settings";
 import type {ChatRequest,VendorConfig} from "../../model/providers/types";
 import type {createMainContext} from "./main-context";
-import {contextFail,type ContextBudget,type PreparedRequest,type TokenCounter} from "./context-contracts";
+import {contextFail,type ContextBudget,type PreparedRequest,type TokenCounter} from "../../model/context/context-contracts";
 import {freezeRequest,requestDigest,validateUnit} from "./token-budget";
 
 export interface ResponsesLimitsInput {model:string;limitsSource:string;modelMaxOutputTokens:number;budget:ContextBudget}

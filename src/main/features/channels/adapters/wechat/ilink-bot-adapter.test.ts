@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { ILinkBotAdapter } from "./ilink-bot-adapter";
 import { ILinkClient, type WeixinMessage, type CDNMedia } from "./ilink-protocol-client";
 import { ChannelManager } from "../../manager";
-import { requireChannelMemoryIngress, type ChannelMemoryIngress } from "../../../../memory/context/channel-memory-ingress";
+import { requireChannelMemoryIngress, type ChannelMemoryIngress } from "../../../../agent/memory-runtime/channel-memory-ingress";
 import type { IncomingMessage, OutgoingPart } from "../../../../conversation/channels/channel-types";
 
 const host = vi.hoisted(() => ({

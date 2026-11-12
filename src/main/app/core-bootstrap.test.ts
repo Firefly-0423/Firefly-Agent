@@ -3,8 +3,8 @@ const profile = vi.hoisted(() => ({ kind: "production" }));
 vi.mock("../base/storage/storage-context", () => ({ getStorageContext: () => ({ profile }) }));
 import { syncLaunchAtLogin } from "../platform/settings/launch-at-login";
 import { startCore, type CoreDependencies, type CoreServices } from "./core-bootstrap";
-import { createStartupReadiness } from "./readiness";
-import { createShutdownCoordinator } from "./shutdown";
+import { createStartupReadiness } from "../base/lifecycle/readiness";
+import { createShutdownCoordinator } from "../base/lifecycle/shutdown";
 import { createWindowActivationBroker } from "../platform/windows/window-activation";
 function fixture(petVisible = true, sidebarVisible = false) {
     const events: string[] = [];

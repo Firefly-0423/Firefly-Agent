@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { buildContextUsageSnapshot } from "../runtime/context-usage";
-import { buildStableSystemPrefix, projectCacheRelevantRequest, type PromptLayers } from "../runtime/prompt-layers";
+import { buildStableSystemPrefix, projectCacheRelevantRequest, type PromptLayers } from "../../model/prompt/prompt-layers";
 import type { HarnessRun } from "./firefly-harness";
 
 export function emitContextUsage(run: HarnessRun, phase: "preRequest" | "terminal"): void {

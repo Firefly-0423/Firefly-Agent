@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createElectronBrowserService } from "./electron-browser-service";
-import { createBrowserWorkspaceExecutor } from "./browser-workspace-executor";
+import { createBrowserWorkspaceExecutor } from "../../agent/tools/browser-workspace-executor";
 import { createBrowserWorkspaceTool } from "../../agent/tools/browser-workspace-tool";
 import type { BrowserGuestPort, BrowserHostPort, TrustedBrowserOwner } from "./browser-service";
 import type { RuntimeProfile } from "../../base/identity/runtime-profile";

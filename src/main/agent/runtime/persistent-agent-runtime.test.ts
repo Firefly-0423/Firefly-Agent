@@ -193,7 +193,7 @@ describe("persistent specialist runtime", () => {
 });
 
 it("late_settlement_keeps_lease_and_evidence_before_child_terminal", async () => {
-  const { RunExecutionCoordinator } = await import("../loop/execution-coordinator");
+  const { RunExecutionCoordinator } = await import("../../tooling/execution/execution-coordinator");
   const { store, parent } = setup(), coordinator = new RunExecutionCoordinator(parent.resolvedWorkspaceRoot!);
   let release!: () => void, entered!: () => void, leaseReleased = false;
   const actual = new Promise<void>(resolve => { release = resolve; }), started = new Promise<void>(resolve => { entered = resolve; });
@@ -223,7 +223,7 @@ it("late_settlement_keeps_lease_and_evidence_before_child_terminal", async () =>
 });
 
 it("conflict_returns_failed_child_with_prior_writes_and_preserves_sibling_success", async () => {
-  const { RunExecutionCoordinator } = await import("../loop/execution-coordinator");
+  const { RunExecutionCoordinator } = await import("../../tooling/execution/execution-coordinator");
   const { store, parent } = setup(), coordinator = new RunExecutionCoordinator(parent.resolvedWorkspaceRoot!);
   const sibling = { ...profile, id: "sibling-agent", nickname: "卡芙卡" };
   let conflictSignal: AbortSignal | undefined;
@@ -314,7 +314,7 @@ it("restart_merges_the_stronger_guard_into_an_existing_legacy_task_effect", asyn
 });
 
 it("quiesces_a_failed_child_before_draining_a_retained_operation_and_releasing_its_lease", async () => {
-  const { RunExecutionCoordinator } = await import("../loop/execution-coordinator");
+  const { RunExecutionCoordinator } = await import("../../tooling/execution/execution-coordinator");
   const { store, parent } = setup(), coordinator = new RunExecutionCoordinator(parent.resolvedWorkspaceRoot!), parentController = new AbortController();
   let entered!: () => void, closeOperation!: () => void, leaseReleased = false, childAborted = false;
   const started = new Promise<void>(resolve => { entered = resolve; }), processClosed = new Promise<void>(resolve => { closeOperation = resolve; });
@@ -341,7 +341,7 @@ it("shutdown_during_recovery_preserves_exact_old_target_for_the_next_continuatio
   const { AgentSessionRegistry } = await import("../tasks/agent-session-registry");
   const { ConversationTranscriptStore } = await import("../../conversation/transcript/conversation-transcript-store");
   const { createTranscriptSink } = await import("../../conversation/transcript/transcript-sink");
-  const { requireBackgroundMemoryIngress } = await import("../../memory/context/background-memory-ingress");
+  const { requireBackgroundMemoryIngress } = await import("../memory-runtime/background-memory-ingress");
   const { store, parent } = setup(), root = parent.resolvedWorkspaceRoot!, runs = new HarnessRunStore(root), transcripts = new ConversationTranscriptStore(root);
   const old = new AgentSessionRegistry(store).acquire({ agentId: profile.id, modelProfile: profile.modelProfile, savedModelProfileId: "saved-code", parentConversationId: parent.parentConversationId,
     parentRunId: "old-parent", mode: "code", resolvedWorkspaceRoot: root, description: "fixture", prompt: "old interrupted instruction" });
@@ -353,7 +353,7 @@ it("shutdown_during_recovery_preserves_exact_old_target_for_the_next_continuatio
   await createTranscriptSink({ store: transcripts, conversationId: old.id, runId: old.childRunId, assistantTurnId: old.childRunId + "-assistant" }).appendAssistant({ message: messages[1], roundId: "round-1" });
   const restartedStore = new TaskSessionStore(root), restartedRuns = new HarnessRunStore(root), controller = new AbortController(), targets: string[] = [];
   let first = true;
-  const host: import("../../memory/context/background-memory-ingress").BackgroundMemoryHost = { async prepareBackgroundRun(input) {
+  const host: import("../memory-runtime/background-memory-ingress").BackgroundMemoryHost = { async prepareBackgroundRun(input) {
     const context = requireBackgroundMemoryIngress(input.ingress); targets.push(input.recoverRunId!);
     if (first) { first = false; controller.abort(); throw new DOMException("synthetic owner shutdown during recovery", "AbortError"); }
     await createTranscriptSink({ store: transcripts, conversationId: old.id, runId: input.recoverRunId!, assistantTurnId: input.recoverRunId! + "-assistant" }).closeInterruption({ reason: "user_cancel", runSession: restartedRuns.get(input.recoverRunId!) });

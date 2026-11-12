@@ -12,7 +12,7 @@
 // `chats:open-in-chat-window` 要创建 BrowserWindow，由 src/main/index.ts 注册，
 // 不在这里；本模块只处理纯数据操作。
 
-import type { MainDesktopMemory } from "../../memory/context/main-desktop-memory";
+import type { MainDesktopMemory } from "../../agent/memory-runtime/main-desktop-memory";
 import { mainAttachmentReferences } from "../../memory/context/main-attachment-projection";
 import { canonicalJson } from "../../memory/core/repository-types";
 import { app, BrowserWindow, type WebContents, dialog, shell } from "electron";

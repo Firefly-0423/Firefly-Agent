@@ -110,9 +110,9 @@ export type HarnessInput = {
   runId?: string;
   messages: ChatMessage[];
   usageParts?: { skillLayerContent?: string; toolLayerContent: string; personaContent: string };
-  promptLayers?: import("../runtime/prompt-layers").PromptLayers;
+  promptLayers?: import("../../model/prompt/prompt-layers").PromptLayers;
   systemPrompt: string;
-  memoryRun?: import("../../memory/context/main-memory-runtime").MainMemoryRun;
+  memoryRun?: import("../memory-runtime/main-memory-runtime").MainMemoryRun;
 };
 export type HarnessResult = {
   rounds: number; terminal?: FireflyRunTerminalResult;

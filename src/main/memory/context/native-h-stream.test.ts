@@ -7,7 +7,7 @@ import {ConversationTranscriptStore} from '../../conversation/transcript/convers
 import {createMainHistory,readHistoryEvidence,claimHistoryResponseEvidence} from '../history/main-history';import {createNativeHistoryProvider} from '../sources/native-history-provider';
 import {createMainSourceProvider} from '../sources/main-source-provider';
 import {initializeStorageContext} from '../../base/storage/storage-context';import {resolveRuntimeProfile} from '../../base/identity/runtime-profile';
-import {createConversationTranscriptAdapter} from './conversation-transcript-adapter';import {createMainSRuntimePort} from './main-s-runtime-port';
+import {createConversationTranscriptAdapter} from '../../agent/memory-runtime/conversation-transcript-adapter';import {createMainSRuntimePort} from '../../agent/memory-runtime/main-s-runtime-port';
 import {createMainResponsesBinding,createMainResponsesLimits} from './main-responses-binding';import {setVendorRuntimeSettingsGetter} from '../../model/providers/runtime-settings';
 vi.mock('electron',()=>({app:{getPath:()=>{throw Error('PRODUCTION_FORBIDDEN')}}}));
 const isolation=fs.mkdtempSync(path.join(os.tmpdir(),'smh-native-stream-'));

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { RunFinishedEvent } from "@ag-ui/core";
-import { createBackgroundMemoryIngressIssuer, type BackgroundMemoryHost, type BackgroundMemoryPreparedRun } from "../../memory/context/background-memory-ingress";
+import { createBackgroundMemoryIngressIssuer, type BackgroundMemoryHost, type BackgroundMemoryPreparedRun } from "../../agent/memory-runtime/background-memory-ingress";
 import type { WebContents } from "electron";
 import { IPC } from "../../../shared/ipc-channels";
 import type { FireflyRunTerminalResult } from "../../../shared/run-terminal";

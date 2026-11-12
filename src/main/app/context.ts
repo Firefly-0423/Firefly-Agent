@@ -1,8 +1,8 @@
 // 运行期上下文快照：由编排器在全部阶段成功后创建并独占持有。
 // 其他启动模块只能使用各自的窄接口，不要引用这个类型，防止演变为服务定位器。
 
-import type { StartupReadiness } from "./readiness";
-import type { ShutdownCoordinator } from "./shutdown";
+import type { StartupReadiness } from "../base/lifecycle/readiness";
+import type { ShutdownCoordinator } from "../base/lifecycle/shutdown";
 import type { WindowActivationBroker } from "../platform/windows/window-activation";
 import type { ShellResult } from "./shell-bootstrap";
 import type { CoreResult } from "./core-bootstrap";

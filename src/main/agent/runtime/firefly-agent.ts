@@ -1,4 +1,4 @@
-import type { BackgroundMemoryHost } from "../../memory/context/background-memory-ingress";
+import type { BackgroundMemoryHost } from "../memory-runtime/background-memory-ingress";
 import { AbstractAgent, type RunAgentInput } from "@ag-ui/client";
 import { EventType, type BaseEvent } from "@ag-ui/core";
 import { AgentRuntimeError } from "../../model/errors/agent-runtime-error";
@@ -12,7 +12,7 @@ import { contextRefRegistry, extractLastUserQuery, type ToolContext } from "../.
 import { runChatLoop } from "./chat-loop";
 import type { RunCapabilities } from "./run-capabilities";
 import { runHarnessWithAdapter } from "./harness-adapter";
-import type { MainMemoryRun } from "../../memory/context/main-memory-runtime";
+import type { MainMemoryRun } from "../memory-runtime/main-memory-runtime";
 import { publicRunFailure } from "../../../shared/run-failure";
 import type { SocialAtom } from "../../knowledge/social/types";
 import { ExecutionLedgerStore, type ExecutionLedger } from "./execution-ledger";

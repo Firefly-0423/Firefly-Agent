@@ -100,19 +100,19 @@ vi.mock("electron-updater", () => ({ autoUpdater: m.autoUpdater }));
 
 // --- storage / memory ---
 vi.mock("../base/storage/storage-context", () => ({ getStorageContext: () => m.storage }));
-vi.mock("../memory/context/main-default-memory", () => ({
+vi.mock("../agent/memory-runtime/main-default-memory", () => ({
   createMainDefaultMemory: vi.fn((options: unknown) => {
     m.defaultMemoryOptions = options;
     return m.defaultMemory;
   }),
 }));
-vi.mock("../memory/context/main-desktop-memory", () => ({
+vi.mock("../agent/memory-runtime/main-desktop-memory", () => ({
   createMainDesktopMemory: vi.fn((options: unknown) => {
     m.controlledMemoryOptions = options;
     return m.controlledMemory;
   }),
 }));
-vi.mock("../memory/context/desktop-memory-backend", () => ({
+vi.mock("../agent/memory-runtime/desktop-memory-backend", () => ({
   openDesktopMemoryBackend: vi.fn((options: unknown) => ({ options })),
   desktopMemoryAdmissionMode: vi.fn(() => m.admissionMode),
 }));
@@ -227,9 +227,9 @@ vi.mock("./background", () => ({
   }),
 }));
 vi.mock("../base/ipc/ipc-scope", () => ({ createIpcScope: vi.fn(() => m.ipcScope) }));
-vi.mock("./readiness", () => ({ createStartupReadiness: vi.fn(() => m.readiness) }));
+vi.mock("../base/lifecycle/readiness", () => ({ createStartupReadiness: vi.fn(() => m.readiness) }));
 vi.mock("../platform/windows/window-activation", () => ({ createWindowActivationBroker: vi.fn(() => m.activation) }));
-vi.mock("./shutdown", () => ({
+vi.mock("../base/lifecycle/shutdown", () => ({
   createShutdownCoordinator: vi.fn((options: unknown) => {
     m.shutdownOptions = options;
     return m.shutdown;
@@ -344,7 +344,7 @@ vi.mock("../features/sessions/chats-store", () => ({ getSession: vi.fn(), getSes
 vi.mock("../features/sessions/workspace-files-ipc", () => ({ registerWorkspaceFilesIpc: vi.fn(() => m.workspaceFiles) }));
 vi.mock("../features/sessions/open-in-app", () => ({ registerOpenInAppIpc: vi.fn() }));
 vi.mock("../features/sessions/chat-ui-ipc", () => ({ registerChatUiIpc: vi.fn(), getActiveChatSessionId: vi.fn() }));
-vi.mock("../platform/browser/browser-workspace-executor", () => ({ createBrowserWorkspaceExecutor: vi.fn() }));
+vi.mock("../agent/tools/browser-workspace-executor", () => ({ createBrowserWorkspaceExecutor: vi.fn() }));
 vi.mock("../platform/browser/electron-browser-service", () => ({ createElectronBrowserService: vi.fn(() => ({})) }));
 vi.mock("../platform/browser/manual-browser-workspace", () => ({ createManualBrowserWorkspace: vi.fn(() => ({})) }));
 vi.mock("../platform/browser/browser-downloads", () => ({

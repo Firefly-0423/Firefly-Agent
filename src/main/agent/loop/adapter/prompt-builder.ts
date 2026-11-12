@@ -1,7 +1,7 @@
 import { buildCurrentTodoNotebookContext, TODO_WORKING_NOTEBOOK_POLICY } from "../todo-working-notebook";
-import { createInternalTranscriptMessage, appendInternalTranscriptMessage } from "../internal-transcript";
+import { createInternalTranscriptMessage, appendInternalTranscriptMessage } from "../../../model/prompt/internal-transcript";
 import type { FireflyRunOptions } from "../../runtime/firefly-agent";
-import type { PromptLayers } from "../../runtime/prompt-layers";
+import type { PromptLayers } from "../../../model/prompt/prompt-layers";
 import type { ChatMessage } from "../../../model/providers/types";
 import type { AgentState } from "../types";
 import { loadPromptFile } from "../../../base/prompts/prompt-loader";

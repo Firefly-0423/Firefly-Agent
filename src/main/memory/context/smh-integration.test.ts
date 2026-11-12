@@ -5,8 +5,8 @@ import {afterEach,beforeEach,expect,it,vi} from "vitest";
 // Real SQLite / filesystem integration cases: the 5 s default is too tight on CI runners, so this file allows 30 s. Other files keep the default.
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 import {createSmhFixture} from "./smh-fixture.test-support";
-import {createMainSRuntimePort} from "./main-s-runtime-port";
-import {createConversationTranscriptAdapter} from "./conversation-transcript-adapter";
+import {createMainSRuntimePort} from "../../agent/memory-runtime/main-s-runtime-port";
+import {createConversationTranscriptAdapter} from "../../agent/memory-runtime/conversation-transcript-adapter";
 import {createMainResponsesBinding,createMainResponsesLimits,type ResponsesSdkClient} from "./main-responses-binding";
 import {createMainUserFactCoordinator} from "../policy/main-user-fact-coordinator";
 import {createMainFactSelector} from "../recall/main-fact-selector";

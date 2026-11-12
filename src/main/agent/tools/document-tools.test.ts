@@ -27,7 +27,7 @@ vi.mock("electron", () => ({ app: { getPath: () => fixture.root } }));
 vi.mock("../../base/storage/external-content-paths", () => ({ findSkillPath: () => null }));
 vi.mock("pdfkit", () => ({ default: class { constructor() { throw new Error("INJECTED_PDF_RENDER_FAILURE"); } } }));
 import { registerDocumentTools } from "./document-tools";
-import { getWorkspaceExecutionCoordinator } from "../loop/execution-coordinator";
+import { getWorkspaceExecutionCoordinator } from "../../tooling/execution/execution-coordinator";
 registerDocumentTools();
 const invoke = (id: string, args: Record<string, unknown>, context?: ToolContext) => fixture.tools.get(id)!.execute(args, context);
 function beforeFiles(runId: string) {

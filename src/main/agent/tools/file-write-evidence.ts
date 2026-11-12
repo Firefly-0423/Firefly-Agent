@@ -2,7 +2,7 @@ import * as path from "path";
 import { createHash, randomUUID } from "crypto";
 import type { ToolContext } from "../../tooling/registry/tool-context";
 import type { FileVersionEvidence, TaskWriteEvidence, TaskWriteState } from "../../../shared/agent-execution-evidence";
-import { canonicalWriteIdentity, observedWriteIdentity } from "../loop/write-ownership";
+import { canonicalWriteIdentity, observedWriteIdentity } from "../../tooling/execution/write-ownership";
 import { ToolExecutionError } from "../../tooling/registry/tool-execution-error";
 import type { WorkspaceSnapshot } from "./workspace-handle";
 import { readWorkspaceReviewSource } from "../review/workspace-review-source";

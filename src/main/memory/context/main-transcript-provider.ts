@@ -1,6 +1,6 @@
 import {objectFields,parseInternalId,parseSourceRef,positiveRevision} from "../core/command-validation";
 import type {BoundSourceRef} from "../../../shared/memory-contracts";
-import {contextFail,type ContextUnit} from "./context-contracts";
+import {contextFail,type ContextUnit} from "../../model/context/context-contracts";
 import {CONTEXT_MESSAGE_FIELDS,validateUnit} from "./token-budget";
 export interface TranscriptEventSource {entryDigest?:string;entryId:string;turnId?:string;revision?:number;seq:number;occurredAt:number;suppressionGeneration?:number;role:ContextUnit["messages"][number]["role"]}
 export interface TranscriptView {id:string;incarnation:string;revision:number;throughSeq:number;digest:string}

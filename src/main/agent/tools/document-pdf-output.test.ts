@@ -22,7 +22,7 @@ vi.mock("electron", () => ({ app: { getPath: () => root } }));
 vi.mock("../../tooling/registry/tool-registry", () => ({ toolRegistry: { register: (tool: any) => tools.set(tool.id, tool) } }));
 vi.mock("../../base/storage/external-content-paths", () => ({ findSkillPath: () => null }));
 import { createHash } from "node:crypto";
-import { getWorkspaceExecutionCoordinator } from "../loop/execution-coordinator";
+import { getWorkspaceExecutionCoordinator } from "../../tooling/execution/execution-coordinator";
 import type { ToolContext } from "../../tooling/registry/tool-context";
 import { registerDocumentTools } from "./document-tools";
 registerDocumentTools();

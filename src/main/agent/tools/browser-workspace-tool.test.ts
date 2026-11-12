@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createBrowserWorkspaceTool, registerBrowserWorkspaceTool } from "./browser-workspace-tool";
-import { createBrowserWorkspaceExecutor } from "../../platform/browser/browser-workspace-executor";
+import { createBrowserWorkspaceExecutor } from "./browser-workspace-executor";
 const context = () => ({ userQuery: "Browse", conversationId: "conversation", runId: "run", signal: new AbortController().signal, mode: "work" as const });
 describe("browser_workspace registered Main boundary", () => {
   it("registers a context-dependent uncached tool with no approval or JavaScript capability", () => {

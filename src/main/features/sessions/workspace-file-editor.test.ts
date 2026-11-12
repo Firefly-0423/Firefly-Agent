@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { inspectWorkspaceText, saveWorkspaceText } from "./workspace-file-editor";
-import { getWorkspaceExecutionCoordinator } from "../../agent/loop/execution-coordinator";
+import { getWorkspaceExecutionCoordinator } from "../../tooling/execution/execution-coordinator";
 
 let root: string;
 let outside: string;

@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, expect, it, vi } from "vitest";
 import { IPC } from "../../../shared/ipc-channels";
-import { ContextError } from "../../memory/context/context-contracts";
+import { ContextError } from "../../model/context/context-contracts";
 import { AgentRuntimeError } from "../../model/errors/agent-runtime-error";
 import { AgentExecutionError } from "../../agent/runtime/run-execution-status";
 import { initializeStorageContext } from "../../base/storage/storage-context";

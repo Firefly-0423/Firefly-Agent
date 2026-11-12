@@ -6,7 +6,7 @@ import type { PluginPromptMode, PluginTurnStatus } from "../../../plugins/api";
 import type { RunFinishedEvent } from "@ag-ui/core";
 import { loadModelSettings, resolveModelSettingsProfile } from "../../model/config/model-settings";
 import { resolveDefaultModelProfile } from "../../model/config/model-catalog";
-import { requireChannelMemoryIngress, type ChannelsMemoryHost } from "../../memory/context/channel-memory-ingress";
+import { requireChannelMemoryIngress, type ChannelsMemoryHost } from "../../agent/memory-runtime/channel-memory-ingress";
 import type { LifecyclePublisher } from "../../agent/runtime/lifecycle-publisher";
 import { FireflyAgent } from "../../agent/runtime/firefly-agent";
 import { toolRegistry } from "../../tooling/registry/tool-registry";

@@ -98,7 +98,7 @@ it("duplicate_role_and_failed_sibling_are_local_failures", async () => {
 });
 
 it("child_leaf_does_not_deadlock_parent_delegate", async () => {
-  const { RunExecutionCoordinator } = await import("./execution-coordinator");
+  const { RunExecutionCoordinator } = await import("../../tooling/execution/execution-coordinator");
   const coordinator = new RunExecutionCoordinator("synthetic-delegation-workspace");
   const parentScope = { workspaceId: coordinator.workspaceId, parentRunId: "parent", groupId: "group", agentId: "main", childRunId: "parent", toolCallId: "delegate-1" };
   let childEntered = false;

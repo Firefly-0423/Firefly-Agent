@@ -1,4 +1,4 @@
-import type { BrowserWorkspaceExecutor } from "../../platform/browser/browser-workspace-executor";
+import type { BrowserWorkspaceExecutor } from "./browser-workspace-executor";
 import type { ToolDefinition, ToolRegistry } from "../../tooling/registry/tool-registry";
 import { ToolExecutionError } from "../../tooling/registry/tool-execution-error";
 export function createBrowserWorkspaceTool(execute: BrowserWorkspaceExecutor): ToolDefinition {

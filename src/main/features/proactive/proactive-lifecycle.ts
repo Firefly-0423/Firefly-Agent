@@ -1,8 +1,8 @@
 // 主动聊天的生命周期装配：把 service、trigger、模型调用、投递通道和电源事件接在一起。
 // 本模块只负责接线；判定规则在 policy，文本在 prompt，投递路由在 delivery-routing。
 import { getCustomEndpointMode, getCustomEndpointPresentation } from "../../../shared/custom-endpoint-state";
-import { createBackgroundMemoryIngressIssuer, type BackgroundMemoryHost, type BackgroundMemoryPreparedRun } from "../../memory/context/background-memory-ingress";
-import type { MainMemoryRun } from "../../memory/context/main-memory-runtime";
+import { createBackgroundMemoryIngressIssuer, type BackgroundMemoryHost, type BackgroundMemoryPreparedRun } from "../../agent/memory-runtime/background-memory-ingress";
+import type { MainMemoryRun } from "../../agent/memory-runtime/main-memory-runtime";
 import type { ChatMessage } from "../../model/providers/types";
 import { vendorConfigFromSettings } from "../../model/providers/vendor-config";
 import { searchMemory } from "../../knowledge/rag";

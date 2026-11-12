@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { startShell, type ShellDependencies } from "./shell-bootstrap";
-import { createStartupReadiness } from "./readiness";
-import { createShutdownCoordinator } from "./shutdown";
+import { createStartupReadiness } from "../base/lifecycle/readiness";
+import { createShutdownCoordinator } from "../base/lifecycle/shutdown";
 import { createWindowActivationBroker } from "../platform/windows/window-activation";
 function shellEnvironment(immediateShown = true) {
     const readiness = createStartupReadiness();

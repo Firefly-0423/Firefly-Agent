@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { createDefaultProactiveState } from "./proactive-policy";
-import { requireBackgroundMemoryIngress } from "../../memory/context/background-memory-ingress";
+import { requireBackgroundMemoryIngress } from "../../agent/memory-runtime/background-memory-ingress";
 const mocks = vi.hoisted(() => ({ state: {} as any, listSessions: vi.fn(() => []), getSessionByPurpose: vi.fn(() => null), legacy: vi.fn(async () => "legacy forbidden"), worldbook: vi.fn(async () => "worldbook stays"), searchMemory: vi.fn(async () => ["imported stays"]), profile: { id: "saved-luna", provider: "fixture", baseUrl: "https://fixture.invalid", model: "luna", apiKey: "synthetic", contextWindowTokens: 128000 } }));
 vi.mock("electron", () => ({ powerMonitor: { on: vi.fn(), getSystemIdleTime: () => 0 } }));
 vi.mock("../sessions/chats-store", () => ({ listSessions: mocks.listSessions, getSessionByPurpose: mocks.getSessionByPurpose }));

@@ -3,7 +3,7 @@ import type {BoundSourceRef} from "../../../shared/memory-contracts";
 import {RecordCodec} from "../core/record-codec";
 import {canonicalJson} from "../core/repository-types";
 import type {TransactionFault} from "../core/command-transactions";
-import {contextFail,type TranscriptDependency} from "./context-contracts";
+import {contextFail,type TranscriptDependency} from "../../model/context/context-contracts";
 import {parseTranscriptProvenance,type TranscriptEventSource} from "./main-transcript-provider";
 import {objectFields} from "../core/command-validation";
 import {Suppression} from "../core/suppression";

@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 vi.mock("electron",()=>({app:{getPath:()=>""},shell:{openPath:vi.fn()}}));
-import { canonicalTurnUnits } from "./conversation-transcript-adapter";
+import { canonicalTurnUnits } from "../../agent/memory-runtime/conversation-transcript-adapter";
 import type { TranscriptEntry } from "../../conversation/transcript/conversation-transcript-types";
 
 it.each([0,1])("materializes a fully masked gh-style tool result with exit code %s", exitCode=>{

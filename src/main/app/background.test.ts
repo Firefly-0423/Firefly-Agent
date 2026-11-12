@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { startBackground, createBackgroundTaskRunner, MCP_RESTORE_BARRIER_TIMEOUT_MS, type BackgroundDependencies } from "./background";
-import { createStartupReadiness } from "./readiness";
-import { createShutdownCoordinator } from "./shutdown";
+import { createStartupReadiness } from "../base/lifecycle/readiness";
+import { createShutdownCoordinator } from "../base/lifecycle/shutdown";
 afterEach(() => vi.useRealTimers());
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(r => { resolve = r; }); return { promise, resolve }; }
 function environment() {

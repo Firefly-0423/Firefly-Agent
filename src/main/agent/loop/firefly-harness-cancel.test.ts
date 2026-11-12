@@ -13,7 +13,7 @@ vi.mock("../../base/storage/token-usage-store", () => ({ recordUsage: network.us
 vi.mock("./tool-dispatcher", () => ({ dispatchToolCall: vi.fn(), persistToolDispatchResult: async (_call: unknown, result: unknown) => result }));
 import { runFireflyHarness } from "./firefly-harness";
 import { dispatchToolCall } from "./tool-dispatcher";
-import { RunExecutionCoordinator } from "./execution-coordinator";
+import { RunExecutionCoordinator } from "../../tooling/execution/execution-coordinator";
 
 const dispatch = vi.mocked(dispatchToolCall);
 function gate<T>() {

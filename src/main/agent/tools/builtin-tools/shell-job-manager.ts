@@ -1,4 +1,4 @@
-import type { ExecutionScope } from "../../loop/execution-coordinator";
+import type { ExecutionScope } from "../../../tooling/execution/execution-coordinator";
 import { spawn, type ChildProcess } from "child_process";
 import { app } from "electron";
 import * as path from "path";

@@ -1,6 +1,6 @@
 import path from "node:path";
 import {it,expect} from "vitest";
-import {desktopOpenRouterContract,desktopMemoryAdmissionMode} from "./desktop-memory-backend";
+import {desktopOpenRouterContract,desktopMemoryAdmissionMode} from "../../agent/memory-runtime/desktop-memory-backend";
 const settings={provider:"synthetic-custom",baseUrl:"https://openrouter.ai/api/v1",model:"openai/gpt-6-luna",explicitTransport:"responses",contextWindowTokens:20000};
 it("bounded startup requires both explicit flags in an owned test or smoke profile",()=>{const switches=new Set<string>();const has=(key:string)=>switches.has(key);expect(desktopMemoryAdmissionMode(has,"production")).toBeUndefined();switches.add("firefly-memory-openrouter-bounded");expect(()=>desktopMemoryAdmissionMode(has,"test")).toThrow("MEMORY_CONTEXT_PROFILE_DENIED");switches.add("firefly-memory-controlled");expect(()=>desktopMemoryAdmissionMode(has,"production")).toThrow("MEMORY_CONTEXT_PROFILE_DENIED");expect(desktopMemoryAdmissionMode(has,"test")).toBe("openrouter-bounded");expect(desktopMemoryAdmissionMode(has,"smoke")).toBe("openrouter-bounded")});
 it("bounded desktop contract labels estimates and caps output in the configured window",()=>{const contract=desktopOpenRouterContract(settings as any,{kind:"test",isolationRoot:path.resolve("synthetic")} as any);expect(contract.model).toBe("openai/gpt-6-luna");expect(contract.budget).toMatchObject({admissionMode:"bounded",maxContextTokens:20000,maxInputTokens:922000,reservedOutputTokens:512});});

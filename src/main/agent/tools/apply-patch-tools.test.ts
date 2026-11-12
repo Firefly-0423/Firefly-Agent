@@ -3,7 +3,7 @@ import * as fs from "fs";
 import { join, dirname, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
-import { getWorkspaceExecutionCoordinator } from "../loop/execution-coordinator";
+import { getWorkspaceExecutionCoordinator } from "../../tooling/execution/execution-coordinator";
 import { parsePatch, applyPatchHunks } from "./apply-patch-tools";
 import type { ToolContext } from "../../tooling/registry/tool-context";
 

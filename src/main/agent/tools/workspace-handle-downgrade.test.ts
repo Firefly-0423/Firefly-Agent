@@ -20,7 +20,7 @@ vi.mock("electron", () => ({ app: { getPath: () => state.data, isPackaged: false
 vi.mock("../../tooling/registry/tool-registry", () => ({ toolRegistry: { register: (t: ToolDefinition) => registry.set(t.id, t) } }));
 // This test isolates permission callbacks on plain fixture paths. Native name/ID
 // resolution and role-ownership behavior are exercised in their own tests.
-vi.mock("../loop/write-ownership", () => ({ canonicalWriteIdentity: (file: string) => path.resolve(file).toLowerCase(), observedWriteIdentity: (file: string) => path.resolve(file).toLowerCase() }));
+vi.mock("../../tooling/execution/write-ownership", () => ({ canonicalWriteIdentity: (file: string) => path.resolve(file).toLowerCase(), observedWriteIdentity: (file: string) => path.resolve(file).toLowerCase() }));
 vi.mock("./built-in-tools", () => ({ currentUserTimezone: () => "UTC" }));
 vi.mock("../../model/vision/vision-captioner", () => ({ captionImage: vi.fn() }));
 import "./fs-tools";
