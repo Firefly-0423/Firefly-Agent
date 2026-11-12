@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { isImageExt, getMimeFromExt } from "../../knowledge/rag/file-ingest";
 import { userAnnotationNotice } from "../../../shared/chat-context";
-import { captionImage, type VisionConfig } from "./vision-captioner";
+import { captionImage, type VisionConfig } from "../../model/vision/vision-captioner";
 
 export const IMAGE_CAPTION_MAX_BYTES = 20 * 1024 * 1024;
 export const IMAGE_CAPTION_PROMPT = "请简洁描述这张图片的主要内容，重点提取用户可能想让你看的信息。";

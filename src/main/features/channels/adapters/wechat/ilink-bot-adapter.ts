@@ -11,7 +11,7 @@ import { SAVE_INTENT_TTL_MS, buildUnsupportedWechatFilePrompt, buildWechatAsrFai
 import { getAsrConfig, type AsrConfig } from "../../../../platform/speech/asr/asr-config";
 import { createAsrStream } from "../../../../platform/speech/asr/asr-dispatcher";
 import { createAbortError, raceWithSignal } from "../../../../base/utils/abort-utils";
-import type { ChannelAttachment, ChannelCapability, ChannelId, ChannelStatus, IncomingMessage, MessageHandler, OutgoingMessage, } from "../../types";
+import type { ChannelAttachment, ChannelCapability, ChannelId, ChannelStatus, IncomingMessage, MessageHandler, OutgoingMessage, } from "../../../../conversation/channels/channel-types";
 import { createChannelMemoryAccountIdentity, type ChannelAdapter, type ChannelMemoryAccountIdentity } from "../base";
 import { logger, LogTag } from "../../../../base/logging/logger";
 import { loadChannelsSettings } from "../../settings-store";

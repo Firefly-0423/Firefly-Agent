@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { createProductionModelRegistry } from "./production-model-registry";
-import type { ModelSettings } from "../../platform/settings/model-settings";
+import type { ModelSettings } from "../../model/config/model-settings";
 function settings():ModelSettings {return {provider:"OpenRouter",baseUrl:"https://openrouter.ai/api/v1",model:"openai/gpt-6-luna",apiKey:"synthetic-only",explicitTransport:"responses",contextWindowTokens:128000,chatRequestTimeoutSec:300,modelProfiles:[{id:"luna",provider:"OpenRouter",baseUrl:"https://openrouter.ai/api/v1",model:"openai/gpt-6-luna",apiKey:"synthetic-only",explicitTransport:"responses"}],defaultModelProfileId:"luna"} as ModelSettings}
 it("binds the saved nondefault model without mutating settings or using diagnostic budgets",()=>{
  const value=settings(),before=JSON.stringify(value),registry=createProductionModelRegistry({settings:()=>value});
@@ -41,7 +41,7 @@ it("preserves an existing no-auth local model profile",()=>{
  const binding=createProductionModelRegistry({settings:()=>value}).bind("luna");expect(binding.config.apiKey).toBe("");expect(binding.config.model).toBe("local-model");
 });
 it("binds the same config the chat, work and proactive paths send for a profile with reasoning levels",async()=>{
- const {resolveModelSettingsProfile}=await import("../../platform/settings/model-settings");
+ const {resolveModelSettingsProfile}=await import("../../model/config/model-settings");
  const {vendorConfigFromSettings}=await import("../../model/providers/vendor-config");
  const {copyResponseJson}=await import("../../model/providers/response-request-snapshot");
  const value=settings();Object.assign(value.modelProfiles![0],{reasoning:{mode:"on",effort:"low"},reasoningLevels:{efforts:["low","high","max"]}});

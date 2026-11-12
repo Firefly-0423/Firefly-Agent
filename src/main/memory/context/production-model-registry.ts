@@ -1,6 +1,6 @@
 import {getCustomEndpointMode,getCustomEndpointPresentation} from "../../../shared/custom-endpoint-state";
 import { createHash, randomBytes } from "node:crypto";
-import type { ModelSettings } from "../../platform/settings/model-settings";
+import type { ModelSettings } from "../../model/config/model-settings";
 import { getAdapterForConfig } from "../../model/providers";
 import { resolveTransport } from "../../model/providers/transport-detector";
 import type { VendorConfig } from "../../model/providers/types";

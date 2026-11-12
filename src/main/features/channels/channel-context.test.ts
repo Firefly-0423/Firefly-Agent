@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { createChannelContext, formatChannelUserText, makeSessionId, lookupOriginalSender } from "./channel-context";
-import type { IncomingMessage } from "./types";
+import type { IncomingMessage } from "../../conversation/channels/channel-types";
 
 function envelope(extra: Partial<IncomingMessage> = {}): IncomingMessage {
   return { channel: "qq", chatType: "private", senderId: "speaker-14", senderName: "Mira", chatId: "room-82", text: "Schedule a review", at: new Date(1200), ...extra };

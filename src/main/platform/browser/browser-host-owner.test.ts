@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it } from "vitest";
-import { createActiveChatTargetRegistry } from "../../features/plugins/host/active-chat-target";
+import { createActiveChatTargetRegistry } from "../interaction/active-chat-target";
 import { createBrowserService, type BrowserHostPort } from "./browser-service";
 import { registerBrowserHostOwner } from "./browser-host-owner";
 import type { WebContents } from "electron";

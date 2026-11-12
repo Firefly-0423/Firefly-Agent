@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import type { SavedModelProfile } from "../../../platform/settings/model-catalog";
+import type { SavedModelProfile } from "../../../model/config/model-catalog";
 import { ATTEMPT_RESERVE_MICRO_CNY, BODY_SHA256, BUDGET_MICRO_CNY, buildFixedRequest, EXPERIMENT_ID, sanitizeUsage, TOTAL_RESERVE_MICRO_CNY, type NumericUsage } from "./boundary";
 export const ADMISSION_ROOT = "E:\\Codex\\2026-10-01\\task\\memory-online-once-admission-55df896";
 const MAX_RESPONSE_BYTES = 65536;

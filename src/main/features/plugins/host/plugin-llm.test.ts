@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { pluginGenerateText, type EnqueuePluginLlmTask } from "./plugin-llm";
-import type { ModelSettings } from "../../../platform/settings/model-settings";
+import type { ModelSettings } from "../../../model/config/model-settings";
 import type { LlmClient } from "../../../agent/services/llm/llm-client";
 
 const profile = (apiKey = "test-credential"): ModelSettings => ({

@@ -56,7 +56,7 @@ bg.startBackground=deps=>{
  const handle=realStart(guarded);handle.settled.then(()=>{qa.ready=true});return handle;
 };
 require(${JSON.stringify(path.join(repo,'dist/main/main/index.js'))});
-qa.getTarget=()=>require(${JSON.stringify(path.join(repo,'dist/main/main/features/plugins/host/active-chat-target.js'))}).activeChatTargetRegistry.getActive();
+qa.getTarget=()=>require(${JSON.stringify(path.join(repo,'dist/main/main/platform/interaction/active-chat-target.js'))}).activeChatTargetRegistry.getActive();
 // A host-owned synthetic transcript fixture, never an actual command or credential read.
 qa.stageMaskedTool=async()=>{
  const target=qa.getTarget();if(!target)throw Error('QA_TARGET_MISSING');

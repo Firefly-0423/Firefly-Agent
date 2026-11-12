@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { readImageUrlTool, clearImageCaptionCache } from "./read-image-url-tool";
 import { captionImage } from "../../../model/vision/vision-captioner";
-vi.mock("../../../platform/settings/model-settings", () => ({ loadModelSettings: () => ({}), resolveModelSettingsProfile: () => ({}) }));
+vi.mock("../../../model/config/model-settings", () => ({ loadModelSettings: () => ({}), resolveModelSettingsProfile: () => ({}) }));
 vi.mock("../../../model/vision/image-router", () => ({ resolveCaptionVisionConfig: () => ({ ok: true, config: { model: "fixture-vision-73" } }) }));
 vi.mock("../../../model/vision/vision-captioner", () => ({ captionImage: vi.fn() }));
 

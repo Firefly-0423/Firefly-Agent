@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import type { PreparedOutgoing } from "./outgoing-composer";
-import type { ChannelId, IncomingMessage } from "./types";
+import type { ChannelId, IncomingMessage } from "../../conversation/channels/channel-types";
 
 export type ChatMessage = { content?: string; role: "user" | "assistant" | "system" | "tool" };
 export type DispatchContext = { boundConversationId: string | null; sessionId: string };

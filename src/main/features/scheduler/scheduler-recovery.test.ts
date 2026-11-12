@@ -6,7 +6,7 @@ import { build } from "esbuild";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createSchedulerStore } from "./scheduler-store";
 import { SchedulerEngine } from "./scheduler-engine";
-import type { ScheduledTaskHistoryEntry } from "./types";
+import type { ScheduledTaskHistoryEntry } from "../../platform/schedule/schedule-types";
 
 vi.mock("electron", () => ({ app: { getPath: () => { throw Error("synthetic paths must be explicit"); } } }));
 const roots: string[] = [];

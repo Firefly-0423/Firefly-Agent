@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { EmbeddingProvider } from "../../knowledge/rag/embedding";
+import type { EmbeddingProvider } from "../rag/embedding";
 import { buildStickerEmbeddingIndex, matchSticker } from "./sticker-embedder";
 
 function provider(embed: (text: string) => number[], batches?: string[][]): EmbeddingProvider {

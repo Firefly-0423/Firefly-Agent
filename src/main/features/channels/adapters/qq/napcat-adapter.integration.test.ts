@@ -1,7 +1,7 @@
 import { it, expect, vi } from "vitest";
 import { once } from "node:events";
 import { WebSocket } from "ws";
-import type { IncomingMessage, OutgoingMessage } from "../../types";
+import type { IncomingMessage, OutgoingMessage } from "../../../../conversation/channels/channel-types";
 
 vi.mock("electron", () => ({ app: { getPath: () => process.env.TEMP ?? process.cwd() } }));
 vi.mock("../../settings-store", () => ({

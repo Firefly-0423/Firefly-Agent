@@ -1,5 +1,5 @@
 import type { ChatSession } from "../../../shared/chat-types";
-import type { ModelSettings } from "../../platform/settings/model-settings";
+import type { ModelSettings } from "../../model/config/model-settings";
 import type { LlmClient } from "../../agent/services/llm/llm-client";
 
 const DELAY_BEFORE_TITLE_MS = 3_000;

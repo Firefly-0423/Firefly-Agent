@@ -7,7 +7,7 @@ import {
   type SenderGatedChannel,
 } from "./sender-gate";
 import type { ChannelsSettings } from "./settings-store";
-import type { ChannelStatus } from "./types";
+import type { ChannelStatus } from "../../conversation/channels/channel-types";
 
 export type SenderResolveAction = "approve" | "dismiss";
 

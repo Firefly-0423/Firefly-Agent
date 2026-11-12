@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import type { IncomingMessage } from "./types";
+import type { IncomingMessage } from "../../conversation/channels/channel-types";
 
 const ports = vi.hoisted(() => ({
   dispatchers: [] as any[], contexts: [] as any[], runs: [] as any[],
@@ -36,7 +36,7 @@ vi.mock("../../agent/runtime/firefly-agent", () => ({ FireflyAgent: class {
 } }));
 vi.mock("./settings-store", () => ({ loadChannelsSettings: () => ({ toolSandbox: "off" }) }));
 vi.mock("../../platform/settings/settings-facade", () => ({ loadGeneralSettings: () => ({}) }));
-vi.mock("../../platform/settings/model-settings", () => ({
+vi.mock("../../model/config/model-settings", () => ({
   loadModelSettings: () => ({ defaultModelProfileId: "contract-profile", modelProfiles: [{ id: "contract-profile", provider: "openai" }] }),
   resolveModelSettingsProfile: () => ({ multimodal: false }),
 }));

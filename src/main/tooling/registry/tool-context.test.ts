@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChatMessage } from "../vendors";
-import { ContextRefRegistry } from "../../agent/runtime/context-ref-registry";
+import { ContextRefRegistry } from "./context-ref-registry";
 import {
   contextRefRegistry,
   createToolInvocationContext,

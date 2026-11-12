@@ -9,7 +9,7 @@ import { registerBrowserServiceIpc, registerManualBrowserWorkspaceIpc, installBr
 import { createShutdownCoordinator } from "../../app/shutdown";
 import { createStartupReadiness } from "../../app/readiness";
 import { registerBrowserHostOwner, registerManualBrowserHostOwner } from "./browser-host-owner";
-import { createActiveChatTargetRegistry } from "../../features/plugins/host/active-chat-target";
+import { createActiveChatTargetRegistry } from "../interaction/active-chat-target";
 import type { BrowserHostPort } from "./browser-service";
 import type { WebContents } from "electron";
 

@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { app } from "electron";
-import type { ChannelId } from "../../features/channels/types";
+import type { ChannelId } from "../../conversation/channels/channel-types";
 
 export type RelationshipChannel = "desktop" | ChannelId;
 

@@ -13,7 +13,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConversationTranscriptStore } from "./conversation-transcript-store";
 import { classifySAssistantSettlement } from "./conversation-transcript-settlement";
-import { SRunSettlementGate } from "../../agent/runtime/run-settlement";
+import { SRunSettlementGate } from "./run-settlement";
 import { createTranscriptSink, requireTranscriptSinkBinding, wrapTranscriptSink } from "./transcript-sink";
 import type { TranscriptAppendGuard } from "./conversation-transcript-store";
 import type { HarnessRunSession, PersistedToolCall } from "../../agent/loop/run-store";

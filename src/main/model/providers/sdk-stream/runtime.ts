@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { createThinkFilter } from "../../text/think-filter";
-import { AgentRuntimeError } from "../../../agent/runtime/agent-runtime-error";
+import { AgentRuntimeError } from "../../errors/agent-runtime-error";
 import { connectionLost } from "../connection-lost";
 import { causeCodes } from "../error-chain";
 import type { VendorConfig, ChatVendorAdapter, ChatResponse, ChatRequest } from "../types";

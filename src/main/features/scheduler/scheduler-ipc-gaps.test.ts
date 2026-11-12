@@ -3,7 +3,7 @@ import { IPC } from "../../../shared/ipc-channels";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
 import { computeExecutionSpecFingerprint } from "./execution-spec";
 import { projectTaskForRenderer, registerSchedulerIpc } from "./scheduler-ipc";
-import type { ScheduledTask } from "./types";
+import type { ScheduledTask } from "../../platform/schedule/schedule-types";
 
 type Handler = (...args: any[]) => any;
 

@@ -14,8 +14,8 @@ import type { SkillModeOverrides } from "../../knowledge/skills/types";
 import type { ChatMessage, OpenAIContentBlock } from "../../model/providers/types";
 import type { AguiRunInput } from "../../features/chat/agui-bridge";
 import type { RelationshipChannel, RelationshipTurnInput } from "../../knowledge/relationship/relationship-log";
-import type { ChannelId } from "../../features/channels/types";
-import { validateCaptionImagePath } from "../../model/vision/image-caption";
+import type { ChannelId } from "../../conversation/channels/channel-types";
+import { validateCaptionImagePath } from "./image-caption";
 import { resolveImageRoute } from "../../model/vision/image-router";
 import {
   buildConversationTimeContext,
@@ -29,11 +29,11 @@ import type {
 } from "../../knowledge/social/types";
 import type { ConversationMode } from "../../../shared/chat-types";
 import type { SkillRouteInfo } from "./firefly-agent";
-import { filterToolsBySearchBackend, type SearchBackend } from "./search-backend-filter";
+import { filterToolsBySearchBackend, type SearchBackend } from "../../platform/settings/search-backend-filter";
 import type { RunCapabilities } from "./run-capabilities";
-import { buildStickerEmbeddingQuery } from "../../platform/stickers/sticker-query";
-import { stickerMoodGuard } from "../../platform/stickers/sticker-mood";
-import type { StickerEmbeddingEntry } from "../../platform/stickers/sticker-embedder";
+import { buildStickerEmbeddingQuery } from "../../knowledge/stickers/sticker-query";
+import { stickerMoodGuard } from "../../knowledge/stickers/sticker-mood";
+import type { StickerEmbeddingEntry } from "../../knowledge/stickers/sticker-embedder";
 import { isPlanReadOnly, getPlanState } from "./plan-mode";
 import { policyFor } from "../../platform/permission/permission-policy";
 import { resolveTranscriptRetainTokens, type MaterializedTranscript } from "../../conversation/transcript/conversation-transcript-context";

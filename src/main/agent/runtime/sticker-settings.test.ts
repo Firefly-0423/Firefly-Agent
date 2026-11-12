@@ -5,7 +5,7 @@ import {afterEach,beforeEach,describe,expect,it,vi} from "vitest";
 
 const mocks=vi.hoisted(()=>({settingsDir:"",items:[] as Array<Record<string,unknown>>,getAll:vi.fn()}));
 vi.mock("electron",()=>({app:{getPath:vi.fn(()=>mocks.settingsDir)}}));
-vi.mock("../../platform/stickers/sticker-storage",()=>({getAllStickerConfig:vi.fn((settings:Record<string,boolean>)=>{mocks.getAll(settings);return mocks.items})}));
+vi.mock("../../knowledge/stickers/sticker-storage",()=>({getAllStickerConfig:vi.fn((settings:Record<string,boolean>)=>{mocks.getAll(settings);return mocks.items})}));
 
 import {
  clearStickerSettingsCache,

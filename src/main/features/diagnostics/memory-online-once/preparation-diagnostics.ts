@@ -1,5 +1,5 @@
 /** Fixed, non-secret diagnostics. Profiles and their original values stay in Main. */
-import type { SavedModelProfile } from "../../../platform/settings/model-catalog";
+import type { SavedModelProfile } from "../../../model/config/model-catalog";
 import { getCapability } from "../../../model/providers/capabilities";
 import { eligibleProfile } from "./boundary";
 export const PREPARATION_REASONS = {

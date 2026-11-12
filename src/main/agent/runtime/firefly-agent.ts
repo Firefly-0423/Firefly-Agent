@@ -1,11 +1,11 @@
 import type { BackgroundMemoryHost } from "../../memory/context/background-memory-ingress";
 import { AbstractAgent, type RunAgentInput } from "@ag-ui/client";
 import { EventType, type BaseEvent } from "@ag-ui/core";
-import { AgentRuntimeError } from "./agent-runtime-error";
+import { AgentRuntimeError } from "../../model/errors/agent-runtime-error";
 import { AgentExecutionError, type RunPhase } from "./run-execution-status";
 import { Observable } from "rxjs";
 import { toolRegistry, type ToolDefinition } from "../../tooling/registry/tool-registry";
-import type { ToolCallResult, ToolExecutionOutcome } from "./types";
+import type { ToolCallResult, ToolExecutionOutcome } from "../../tooling/registry/tool-call-types";
 import { checkPermission, type ToolRiskLevel } from "../../platform/permission/permission";
 import { getAdapterForConfig, type ChatMessage } from "../../model/providers";
 import { contextRefRegistry, extractLastUserQuery, type ToolContext } from "../../tooling/registry/tool-context";
@@ -36,7 +36,7 @@ export type AgentLoopResult = {
   terminal?: FireflyRunTerminalResult;
   totalUsage?: { input: number; output: number };
   completionReason: "no_tool" | "timeout" | "max_rounds" | "tool_error";
-  toolResults: import("./types").ToolCallResult[];
+  toolResults: import("../../tooling/registry/tool-call-types").ToolCallResult[];
   reply: string;
 };
 

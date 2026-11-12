@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { ChannelManager } from "../../features/channels/manager";
 import { createChannelMemoryAccountIdentity, type ChannelAdapter } from "../../features/channels/adapters/base";
-import type { IncomingMessage } from "../../features/channels/types";
+import type { IncomingMessage } from "../../conversation/channels/channel-types";
 import * as ingressApi from "./channel-memory-ingress";
 
 vi.mock("../../base/logging/logger", () => ({ logger: { info: vi.fn() }, LogTag: { Channels: "channels" } }));

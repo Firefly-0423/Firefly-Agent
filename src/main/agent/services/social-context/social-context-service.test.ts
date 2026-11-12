@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SocialContextSchedulerDeps } from "../../../knowledge/social/scheduler";
 import type { SocialExtractionInput } from "../../../knowledge/social/types";
 import type { StructuredOutputProfile, StructuredOutputMode } from "../../../model/structured/types";
-import type { ModelSettings } from "../../../platform/settings/model-settings";
+import type { ModelSettings } from "../../../model/config/model-settings";
 
 const state = vi.hoisted(() => ({
   userData: "C:/firefly-user-data",
@@ -25,7 +25,7 @@ const state = vi.hoisted(() => ({
 
 vi.mock("electron", () => ({ app: { getPath: () => state.userData } }));
 
-vi.mock("../../../platform/settings/model-settings", () => ({
+vi.mock("../../../model/config/model-settings", () => ({
   loadModelSettings: () => state.settings,
 }));
 

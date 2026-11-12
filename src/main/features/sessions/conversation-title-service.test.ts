@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChatSession } from "../../../shared/chat-types";
-import type { ModelSettings } from "../../platform/settings/model-settings";
+import type { ModelSettings } from "../../model/config/model-settings";
 import { createConversationTitleService } from "./conversation-title-service";
 afterEach(() => vi.useRealTimers());
 function fixture(output = "旅行路线规划", busy = false, usableEndpoint = true) {

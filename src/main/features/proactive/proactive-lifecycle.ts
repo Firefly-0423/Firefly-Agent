@@ -17,7 +17,7 @@ import { resolveChatContextTimezone } from "../../model/text/chat-time-context";
 import { buildAlwaysOnContext, buildMemoryInjection, buildWorldbookContext } from "../../agent/runtime";
 import { loadPromptFile } from "../../base/prompts/prompt-loader";
 import type { GeneralSettings } from "../../platform/settings/general-settings";
-import { loadModelSettings, getDefaultModelProfile, resolveModelSettingsProfile } from "../../platform/settings/model-settings";
+import { loadModelSettings, getDefaultModelProfile, resolveModelSettingsProfile } from "../../model/config/model-settings";
 import { loadUserProfile } from "../../base/storage/settings-store";
 import { createProactiveChatService } from "./proactive-service";
 import type { ProactiveChatService, ProactiveCommitInput, ProactiveCommitResult } from "./proactive-service";

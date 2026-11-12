@@ -9,20 +9,20 @@ import {copyMainResponsesRequest} from "../../model/providers/response-request-s
 import type {MainSRuntimePort,MainSRuntimeInput,MainSRuntimeResult} from "../../memory/context/main-s-runtime-port";
 import { loadPromptFile } from "../../base/prompts/prompt-loader";
 import type { AguiRunInput, BuildOptionsFn, MainBuildOptionsContext } from "../../features/chat/agui-bridge";
-import type { ScheduledTask } from "../../features/scheduler/types";
-import type { ChannelId } from "../../features/channels/types";
-import type { ModelSettings } from "../../platform/settings/model-settings";
+import type { ScheduledTask } from "../../platform/schedule/schedule-types";
+import type { ChannelId } from "../../conversation/channels/channel-types";
+import type { ModelSettings } from "../../model/config/model-settings";
 import type { GeneralSettings } from "../../platform/settings/general-settings";
 import type { UserProfile } from "../../base/storage/settings-store";
 import { resolveCaptionVisionConfig } from "../../model/vision/image-router";
 import { getTimeoutSettings } from "../../platform/settings/timeout-manager";
-import { resolveModelSettingsProfile, getDefaultModelProfile } from "../../platform/settings/model-settings";
+import { resolveModelSettingsProfile, getDefaultModelProfile } from "../../model/config/model-settings";
 import { normalizeChatMessages } from "../../model/text/chat-api-utils";
-import { captionImageSafe, IMAGE_CAPTION_PROMPT } from "../../model/vision/image-caption";
+import { captionImageSafe, IMAGE_CAPTION_PROMPT } from "./image-caption";
 import { buildEnvironmentContext } from "./environment";
 import { buildToneInjection } from "./tone-injector";
 import { buildAlwaysOnContext, buildWorldbookContext, scheduleMemoryWrite } from "./index";
-import { matchSticker } from "../../platform/stickers/sticker-embedder";
+import { matchSticker } from "../../knowledge/stickers/sticker-embedder";
 import { buildRelationshipContext, recordRelationshipTurn } from "../../knowledge/relationship/relationship-log";
 import { compileSocialContextBlock } from "../../knowledge/social/context";
 import { rankSocialAtoms } from "../../knowledge/social/retrieval";
@@ -35,7 +35,7 @@ import {
 import { resolveSlashActivation } from "../../knowledge/skills/slash-activation";
 import type { SocialAtom, SocialExtractionInput } from "../../knowledge/social/types";
 import type { ToolDefinition, ToolModeOverrides } from "../../tooling/registry/tool-registry";
-import { RETIRED_MEMORY_TOOL_IDS } from "../tools/retired-memory-tools";
+import { RETIRED_MEMORY_TOOL_IDS } from "../../tooling/registry/retired-memory-tools";
 import type { ConversationMode } from "../../../shared/chat-types";
 import {
   buildAgentRunOptions,
@@ -48,7 +48,7 @@ import { getConversationTranscriptStore } from "../../conversation/transcript/co
 import { getHarnessRunStore } from "../loop/run-store";
 import { type FireflyRunResult, type FireflyRunOptions } from "./firefly-agent";
 import type { HarnessToolFinishedEvent } from "../loop/types";
-import type { ToolFinishedInput } from "../../features/plugins/host/lifecycle-publisher";
+import type { ToolFinishedInput } from "./lifecycle-publisher";
 import {
   buildToolSystemPrompt,
   buildSoulSystemBasePrompt,
@@ -56,7 +56,7 @@ import {
 import { buildModePrompt } from "./mode-prompt-profile";
 import { resolveRunCapabilities } from "./run-capabilities";
 import { loadStickerSettings } from "./sticker-settings";
-import { loadUserStickerManifest } from "../../platform/stickers/sticker-storage";
+import { loadUserStickerManifest } from "../../knowledge/stickers/sticker-storage";
 import type { LlmClient } from "../services/llm/llm-client";
 import type {
   PluginTurnCompletedEvent,

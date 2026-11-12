@@ -7,14 +7,14 @@ import { getHarnessRunStore } from "../../agent/loop/run-store";
 import { IPC } from "../../../shared/ipc-channels";
 import { createIpcScope, type IpcScope } from "../../base/ipc/ipc-scope";
 import { Subscription } from "rxjs";
-import { AgentRuntimeError } from "../../agent/runtime/agent-runtime-error";
+import { AgentRuntimeError } from "../../model/errors/agent-runtime-error";
 import {
   FireflyAgent,
   type AgentExecutionMode,
   type FireflyRunOptions,
   type FireflyRunResult,
 } from "../../agent/runtime/firefly-agent";
-import { RunSettlementGate } from "../../agent/runtime/run-settlement";
+import { RunSettlementGate } from "../../conversation/transcript/run-settlement";
 import { toastEvents } from "../../platform/interaction/toast-events";
 import type { AguiRunAck, FireflyRunTerminalResult } from "../../../shared/run-terminal";
 import { indexConversationTurn } from "../../agent/tools/history-tools";

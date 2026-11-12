@@ -3,7 +3,7 @@ import * as path from "path";
 import { app } from "electron";
 import { createLarkChannel, Domain, LoggerLevel, type LarkChannel, type NormalizedMessage, type SendInput, type EventName, } from "@larksuiteoapi/node-sdk";
 import { createChannelMemoryAccountIdentity, type ChannelAdapter, type ChannelMemoryAccountIdentity } from "../base";
-import type { ChannelCapability, ChannelStatus, IncomingMessage, MessageHandler, OutgoingMessage, OutgoingPart, } from "../../types";
+import type { ChannelCapability, ChannelStatus, IncomingMessage, MessageHandler, OutgoingMessage, OutgoingPart, } from "../../../../conversation/channels/channel-types";
 import { loadChannelsSettings } from "../../settings-store";
 import { admitSender } from "../../sender-gate";
 import { getAudioDurationMs } from "./audio-duration";

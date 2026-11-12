@@ -414,7 +414,7 @@
     ]
   },
   {
-    "file": "src/main/platform/protocols/bootstrap.ts",
+    "file": "src/main/app/protocols-bootstrap.ts",
     "method": "getPath",
     "root": "userData",
     "count": 1,
@@ -552,7 +552,7 @@
     ]
   },
   {
-    "file": "src/main/platform/settings/settings-ipc.ts",
+    "file": "src/main/features/settings/settings-ipc.ts",
     "method": "getPath",
     "root": "userData",
     "count": 1,
@@ -572,7 +572,7 @@
     ]
   },
   {
-    "file": "src/main/platform/stickers/sticker-embedding-cache.ts",
+    "file": "src/main/knowledge/stickers/sticker-embedding-cache.ts",
     "method": "getPath",
     "root": "userData",
     "count": 1,
@@ -582,7 +582,7 @@
     ]
   },
   {
-    "file": "src/main/platform/stickers/sticker-storage.ts",
+    "file": "src/main/knowledge/stickers/sticker-storage.ts",
     "method": "getPath",
     "root": "userData",
     "count": 2,

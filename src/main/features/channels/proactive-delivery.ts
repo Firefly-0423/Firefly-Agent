@@ -2,7 +2,7 @@ import type { ChannelManager } from "./manager";
 import { createChannelDeliveryService, type ChannelDeliveryService } from "./delivery-service";
 import { appendHistory as appendChannelHistory } from "./history-log";
 import { appendLog as appendChannelLog, type LogEntry } from "./message-log";
-import type { ChannelId, IncomingMessage, OutgoingMessage } from "./types";
+import type { ChannelId, IncomingMessage, OutgoingMessage } from "../../conversation/channels/channel-types";
 
 export type ProactiveMobileChannel = Extract<ChannelId, "wechat" | "feishu">;
 export type RecentProactiveChannelRecipient = { updatedAt: number; sessionId: string; threadId?: string; targetId: string };

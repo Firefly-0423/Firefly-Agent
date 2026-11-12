@@ -6,7 +6,7 @@ import { ILinkBotAdapter } from "./ilink-bot-adapter";
 import { ILinkClient, type WeixinMessage, type CDNMedia } from "./ilink-protocol-client";
 import { ChannelManager } from "../../manager";
 import { requireChannelMemoryIngress, type ChannelMemoryIngress } from "../../../../memory/context/channel-memory-ingress";
-import type { IncomingMessage, OutgoingPart } from "../../types";
+import type { IncomingMessage, OutgoingPart } from "../../../../conversation/channels/channel-types";
 
 const host = vi.hoisted(() => ({
   directory: "", uploadFile: vi.fn(), uploadData: vi.fn(), download: vi.fn(), encode: vi.fn(),

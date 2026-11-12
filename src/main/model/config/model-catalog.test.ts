@@ -8,7 +8,7 @@ import {
   normalizeModelSettings as normalize, getPublicModelConfig, getDefaultModelProfile,
   resolveModelSettingsProfile as expand,
 } from "./model-settings";
-import { resolveCaptionVisionConfig } from "../../model/vision/image-router";
+import { resolveCaptionVisionConfig } from "../vision/image-router";
 
 function account(id: string, changes: Partial<SavedModelProfile> = {}): SavedModelProfile {
   return {

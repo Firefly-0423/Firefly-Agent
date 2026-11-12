@@ -1,5 +1,5 @@
 import type { ChannelAdapter } from "./adapters/base";
-import type { ChannelId, ChannelStatus, IncomingMessage, OutgoingMessage } from "./types";
+import type { ChannelId, ChannelStatus, IncomingMessage, OutgoingMessage } from "../../conversation/channels/channel-types";
 import { setAdapterHandler } from "./adapters/base";
 import { logger, LogTag } from "../../base/logging/logger";
 import { createChannelMemoryIngressIssuer, type ChannelMemoryIngress } from "../../memory/context/channel-memory-ingress";

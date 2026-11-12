@@ -20,7 +20,7 @@ import type { ProactiveLifecycle } from "../features/proactive/proactive-lifecyc
 import type { GitService } from "../platform/git/git-service";
 import type { LspManager } from "../platform/lsp/manager";
 import type { ScreenshotService } from "../platform/screenshot/screenshot-lifecycle";
-import type { MusicBootstrap } from "../platform/music/bootstrap";
+import type { MusicBootstrap } from "../features/music/bootstrap";
 import type { AppUpdateService } from "../platform/updater/app-update-service";
 import type { LlmClient } from "../agent/services/llm/llm-client";
 import type { SocialContextService } from "../agent/services/social-context/social-context-service";

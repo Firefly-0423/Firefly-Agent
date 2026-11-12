@@ -1,4 +1,4 @@
-import type { IncomingMessage, ChannelMention, ChannelReplyContext } from "../../types";
+import type { IncomingMessage, ChannelMention, ChannelReplyContext } from "../../../../conversation/channels/channel-types";
 import { OneBotActionClient } from "./onebot-action-client";
 import { OneBotMediaManager } from "./onebot-media";
 import type { OneBotMessageEvent, OneBotSegment } from "./onebot-types";

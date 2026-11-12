@@ -16,7 +16,7 @@ beforeEach(() => {
 afterEach(() => fs.rmSync(state.directory, { recursive: true, force: true }));
 
 async function setup() {
-  const model = await import("./model-settings");
+  const model = await import("../../model/config/model-settings");
   const general = await import("./settings-facade");
   model.saveModelSettings({ modelProfiles: [
     { id: "one", provider: "fixture", model: "one", apiKey: "model-secret" },
@@ -34,7 +34,7 @@ async function setup() {
   windows.setReactChatWindow(chat as never);
   const from = (win: typeof settings) => ({ sender: win.webContents, senderFrame: win.webContents.mainFrame });
   const handlers = new Map<string, (...args: any[]) => any>();
-  const { registerSettingsIpc } = await import("./settings-ipc");
+  const { registerSettingsIpc } = await import("../../features/settings/settings-ipc");
   registerSettingsIpc({
     ipc: { handle: (channel: string, handler: (...args: any[]) => any) => handlers.set(channel, handler), on: vi.fn() },
     getModelSettings: model.loadModelSettings, saveModelSettings: model.saveModelSettings,

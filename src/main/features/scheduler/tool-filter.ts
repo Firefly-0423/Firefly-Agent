@@ -1,5 +1,5 @@
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
-import type { ScheduledTask } from "./types";
+import type { ScheduledTask } from "../../platform/schedule/schedule-types";
 
 export function filterToolsForTask(task: ScheduledTask, allTools: ToolDefinition[]): ToolDefinition[] {
   const active = allTools.filter((t) => t.enabled);

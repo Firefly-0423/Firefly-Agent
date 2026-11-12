@@ -43,7 +43,7 @@ vi.mock("../../memory/context/main-default-memory", () => ({ createMainDefaultMe
 vi.mock("../../features/plugins/host/pending-turn-lifecycle", () => ({ createPendingTurnLifecycle: () => ({ disposeAll: vi.fn() }) }));
 vi.mock("../../platform/browser/browser-host-owner", () => ({ registerBrowserHostOwner: () => ({ dispose: vi.fn() }), registerManualBrowserHostOwner: () => ({ dispose: vi.fn() }) }));
 vi.mock("../../platform/speech/asr/desktop-asr-ipc", () => ({ registerDesktopAsrIpc: () => ({ dispose: vi.fn() }) }));
-vi.mock("../../platform/settings/model-settings", () => ({ getDefaultModelProfile: vi.fn(), getCachedSavedModelProfile: vi.fn(), listCachedSavedModelProfileIds: vi.fn(), loadModelSettings: () => ({}), saveModelSettings: vi.fn(), onModelConnectionChanged: () => () => {} }));
+vi.mock("../../model/config/model-settings", () => ({ getDefaultModelProfile: vi.fn(), getCachedSavedModelProfile: vi.fn(), listCachedSavedModelProfileIds: vi.fn(), loadModelSettings: () => ({}), saveModelSettings: vi.fn(), onModelConnectionChanged: () => () => {} }));
 vi.mock("../../memory/policy/memory-settings-ipc", () => ({ registerMemorySettingsIpc: vi.fn() }));
 vi.mock("../../platform/browser/browser-workspace-executor", () => ({ createBrowserWorkspaceExecutor: vi.fn() }));
 vi.mock("../../memory/context/main-desktop-memory", () => ({ createMainDesktopMemory: vi.fn() }));
@@ -55,8 +55,8 @@ vi.mock("../../base/storage/external-content-migration", () => ({ migrateStagedE
 vi.mock("../../../shared/banner", () => ({ renderBanner: vi.fn() }));
 vi.mock("../../base/identity/env", () => ({ isDev: vi.fn() }));
 vi.mock("../../platform/settings/settings-facade", () => ({ loadGeneralSettings: () => ({}), saveGeneralSettings: vi.fn(), onGeneralSettingsChanged: vi.fn() }));
-vi.mock("../../platform/settings/settings-ipc", () => ({ registerSettingsIpc: vi.fn() }));
-vi.mock("../../platform/settings/general-settings-lifecycle", () => ({ applyGeneralSettings: vi.fn(), handleGeneralSettingsChanged: vi.fn(), syncVolcanoSearchMcp: vi.fn() }));
+vi.mock("../../features/settings/settings-ipc", () => ({ registerSettingsIpc: vi.fn() }));
+vi.mock("../../features/settings/general-settings-lifecycle", () => ({ applyGeneralSettings: vi.fn(), handleGeneralSettingsChanged: vi.fn(), syncVolcanoSearchMcp: vi.fn() }));
 vi.mock("../rag/document-index-queue", () => ({ configureDocumentIndexQueue: vi.fn() }));
 vi.mock("../rag/document-index-worker", () => ({ runDocumentIndexJob: vi.fn() }));
 vi.mock("../../agent/services/llm/llm-client", () => ({ createLlmClient: vi.fn() }));
@@ -75,8 +75,8 @@ vi.mock("../../agent/mcp/sync-mcp-builtin", () => ({ syncPlaywrightMcp: vi.fn(),
 vi.mock("../../platform/updater/app-update-ipc", () => ({ registerAppUpdateIpc: vi.fn() }));
 vi.mock("../../platform/updater/github-app-updater", () => ({ createGitHubAppUpdateService: vi.fn(), scheduleStartupUpdateCheck: vi.fn() }));
 vi.mock("../../platform/windows/window-system-ipc", () => ({ registerWindowSystemIpc: vi.fn() }));
-vi.mock("../../agent/services/llm/llm-queue", () => ({ enqueueLLMTask: vi.fn() }));
-vi.mock("../../platform/protocols/bootstrap", () => ({ registerPrivilegedSchemes: vi.fn(), registerProtocolHandlers: vi.fn() }));
+vi.mock("../../model/queue/llm-queue", () => ({ enqueueLLMTask: vi.fn() }));
+vi.mock("../../app/protocols-bootstrap", () => ({ registerPrivilegedSchemes: vi.fn(), registerProtocolHandlers: vi.fn() }));
 vi.mock("../../memory/legacy/memory-store", () => ({ memoryStore: vi.fn() }));
 vi.mock("../../memory/legacy/memory-rag-reconciliation", () => ({ backupMemoryRagFiles: vi.fn(), reconcileMemoryRag: vi.fn() }));
 vi.mock("../../features/sessions/chats-ipc", () => ({ registerChatsIpc: vi.fn() }));
@@ -84,7 +84,7 @@ vi.mock("../../features/sessions/workspace-files-ipc", () => ({ registerWorkspac
 vi.mock("../../platform/browser/electron-browser-service", () => ({ createElectronBrowserService: vi.fn() }));
 vi.mock("../../platform/browser/browser-startup-config", () => ({ createStartupBrowserService: vi.fn() }));
 vi.mock("../../platform/browser/browser-service-ipc", () => ({ registerBrowserServiceIpc: vi.fn(), registerManualBrowserWorkspaceIpc: vi.fn(), installBrowserServiceLifecycle: vi.fn() }));
-vi.mock("../../features/plugins/host/active-chat-target", () => ({ activeChatTargetRegistry: vi.fn() }));
+vi.mock("../../platform/interaction/active-chat-target", () => ({ activeChatTargetRegistry: vi.fn() }));
 vi.mock("../../features/sessions/open-in-app", () => ({ registerOpenInAppIpc: vi.fn() }));
 vi.mock("../../features/sessions/chat-ui-ipc", () => ({ registerChatUiIpc: vi.fn(), getActiveChatSessionId: vi.fn() }));
 vi.mock("../../platform/toast/toast-window", () => ({ createToastWindowController: vi.fn() }));
@@ -98,7 +98,7 @@ vi.mock("../../features/chat/agui-bridge", () => ({ hasActiveConversationRun: vi
 vi.mock("../../base/identity/locale-context", () => ({ updateLocaleContext: vi.fn() }));
 vi.mock("../../features/scheduler/bootstrap", () => ({ createSchedulerSubsystem: vi.fn() }));
 vi.mock("../../features/channels/bootstrap", () => ({ createChannelsSubsystem: m.dangerous.connectorCreate }));
-vi.mock("../../features/plugins/host/lifecycle-publisher", () => ({ createLifecyclePublisher: vi.fn() }));
+vi.mock("../../agent/runtime/lifecycle-publisher", () => ({ createLifecyclePublisher: vi.fn() }));
 vi.mock("../../features/plugins/host/plugin-runtime", () => ({ startPluginRuntime: vi.fn() }));
 vi.mock("../../agent/runtime/agent-runtime", () => ({ createAgentRuntime: vi.fn() }));
 vi.mock("../../features/proactive/proactive-lifecycle", () => ({ createProactiveLifecycle: vi.fn() }));
@@ -111,7 +111,7 @@ vi.mock("../../features/diagnostics/memory-online-once/runner", () => ({ ADMISSI
 vi.mock("../../features/diagnostics/memory-online-once/main-entry", () => ({ createMainProbeEntry: vi.fn() }));
 vi.mock("../../base/identity/create-splash-window", () => ({ createSplashWindow: vi.fn() }));
 vi.mock("../../base/identity/startup-window-reveal", () => ({ revealStartupWindows: vi.fn() }));
-vi.mock("../../platform/music/bootstrap", () => ({ bootstrapMusicService: vi.fn() }));
+vi.mock("../../features/music/bootstrap", () => ({ bootstrapMusicService: vi.fn() }));
 vi.mock("../../platform/screenshot/screenshot-lifecycle", () => ({ initializeScreenshotService: vi.fn() }));
 vi.mock("../../app/bootstrap-config", () => ({ bootstrapConfigGetters: vi.fn() }));
 vi.mock("../../platform/permission/bootstrap", () => ({ bootstrapPermission: vi.fn() }));
@@ -119,7 +119,7 @@ vi.mock("../../agent/runtime/pop-quiz", () => ({ registerPopQuizIpc: vi.fn(), re
 vi.mock("../../app/background", () => ({ startBackground: vi.fn() }));
 vi.mock("../../app/electron-lifecycle", () => ({ installUpdateShutdownFallback: vi.fn() }));
 vi.mock("../../agent/runtime/sticker-settings", () => ({ getStickerManagerConfig: vi.fn(), setStickerEnabled: vi.fn() }));
-vi.mock("../../platform/stickers/sticker-storage", () => ({ addUserSticker: vi.fn(), deleteUserSticker: vi.fn() }));
+vi.mock("../stickers/sticker-storage", () => ({ addUserSticker: vi.fn(), deleteUserSticker: vi.fn() }));
 vi.mock("../../memory/legacy/panel", () => ({ loadImportedDocumentPanelData: vi.fn(), loadMemoryPanelData: vi.fn() }));
 vi.mock("../../memory/legacy/memory-store", () => ({ memoryStore: vi.fn() }));
 vi.mock("../../memory/legacy/obsidian-exporter", () => ({ exportMemoryToObsidianVault: vi.fn(), syncToBoundVault: vi.fn() }));

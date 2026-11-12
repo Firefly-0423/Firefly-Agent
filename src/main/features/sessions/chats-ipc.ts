@@ -27,7 +27,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { createWorkMarkdownSnapshot } from "./work-markdown-export";
 import { inspectWorkReadDocument, isWorkReadScopeCurrent, WORK_READ_PAGE_LINES } from "./work-read-scope";
-import { getDefaultModelProfile, loadModelSettings, resolveModelSettingsProfile } from "../../platform/settings/model-settings";
+import { getDefaultModelProfile, loadModelSettings, resolveModelSettingsProfile } from "../../model/config/model-settings";
 import { FileToolOutputStore } from "../../agent/loop/tool-output/file-tool-output-store";
 import { getHarnessRunStore } from "../../agent/loop/run-store";
 import { getConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
@@ -35,11 +35,11 @@ import { projectSSettlementMessages } from "../../conversation/transcript/conver
 import { getStorageContext } from "../../base/storage/storage-context";
 import { getRunReviewTracker } from "../../agent/review/run-review-tracker";
 import { getAdapterForConfig } from "../../model/providers";
-import { activeChatTargetRegistry } from "../plugins/host/active-chat-target";
+import { activeChatTargetRegistry } from "../../platform/interaction/active-chat-target";
 import { callSummarizeModel } from "../../agent/runtime/context-manager";
 import { buildContextUsageSnapshot } from "../../agent/runtime/context-usage";
 import type { LlmClient } from "../../agent/services/llm/llm-client";
-import { enqueueLLMTask } from "../../agent/services/llm/llm-queue";
+import { enqueueLLMTask } from "../../model/queue/llm-queue";
 import { createConversationTitleService, type ConversationTitleService } from "./conversation-title-service";
 
 function broadcastChanged(skip?: WebContents | null): void {

@@ -1,6 +1,6 @@
 import type { AgentExecutionMode, FireflyRunOptions } from "../../agent/runtime/firefly-agent";
 import type { ChannelToolSandbox } from "./settings-store";
-import type { ChannelChatType, ChannelId } from "./types";
+import type { ChannelChatType, ChannelId } from "../../conversation/channels/channel-types";
 
 export type ChannelAgentPolicy = {
   permissionMode: NonNullable<FireflyRunOptions["permissionMode"]>;

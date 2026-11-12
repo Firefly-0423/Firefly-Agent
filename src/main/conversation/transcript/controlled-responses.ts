@@ -1,5 +1,5 @@
 import type {TranscriptSink} from "./transcript-sink";
-import {SRunSettlementGate} from "../../agent/runtime/run-settlement";
+import {SRunSettlementGate} from "./run-settlement";
 import type {AgentLoopEvent,AgentLoopResult,FireflyRunOptions} from "../../agent/runtime/firefly-agent";
 
 /** Private Main callback contract; never a renderer DTO or a model request override. */

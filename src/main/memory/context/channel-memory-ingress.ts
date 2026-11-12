@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { ChannelAdapter } from "../../features/channels/adapters/base";
 import { getChannelMemoryAccountSignal } from "../../features/channels/adapters/base";
-import type { ChannelChatType, ChannelId, IncomingMessage } from "../../features/channels/types";
+import type { ChannelChatType, ChannelId, IncomingMessage } from "../../conversation/channels/channel-types";
 import { canonicalJson } from "../core/repository-types";
 import type { FireflyRunOptions } from "../../agent/runtime/firefly-agent";
 import type { TranscriptSink } from "../../conversation/transcript/transcript-sink";

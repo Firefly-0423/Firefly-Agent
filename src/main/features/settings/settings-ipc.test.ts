@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { IPC } from "../../../shared/ipc-channels";
 import type { SettingsIpcDependencies } from "./settings-ipc";
-import type { GeneralSettings } from "./general-settings";
+import type { GeneralSettings } from "../../platform/settings/general-settings";
 const fixture = vi.hoisted(() => ({
   dir: "", changed: undefined as undefined | ((snapshot: unknown) => void), unsubscribe: vi.fn(),
   open: vi.fn(), switchModel: vi.fn(), initReranker: vi.fn(), rerankerStatus: vi.fn(),
@@ -13,7 +13,7 @@ const fixture = vi.hoisted(() => ({
 }));
 vi.mock("electron", () => ({ app: { getPath: () => fixture.dir, getAppPath: () => process.cwd() }, dialog: { showOpenDialog: fixture.open } }));
 vi.mock("../../base/identity/env", () => ({ isDev: true }));
-vi.mock("./model-settings", () => ({
+vi.mock("../../model/config/model-settings", () => ({
   getPublicModelConfig: fixture.publicConfig,
   listSavedModelProfiles: (settings: { modelProfiles?: unknown[] }) => settings.modelProfiles ?? [],
   onModelConnectionChanged: (callback: typeof fixture.changed) => { fixture.changed = callback; return fixture.unsubscribe; },
@@ -21,15 +21,15 @@ vi.mock("./model-settings", () => ({
   saveModelProfile: fixture.saveProfile, setDefaultModelProfile: fixture.setDefault, assertModelSettingsReadable: fixture.assertModel,
   normalizeModelSettings: vi.fn(), saveModelSettings: vi.fn(),
 }));
-vi.mock("./settings-facade", () => ({ assertGeneralSettingsReadable: fixture.assertGeneral }));
-vi.mock("./agent-model-routing", () => ({ getAgentRoutingView: (s: unknown) => s, updateAgentRouting: (_s: unknown, input: unknown) => input }));
+vi.mock("../../platform/settings/settings-facade", () => ({ assertGeneralSettingsReadable: fixture.assertGeneral }));
+vi.mock("../../model/config/agent-model-routing", () => ({ getAgentRoutingView: (s: unknown) => s, updateAgentRouting: (_s: unknown, input: unknown) => input }));
 vi.mock("../../knowledge/rag", () => ({ switchEmbeddingModel: fixture.switchModel }));
 vi.mock("../../knowledge/rag/reranker", () => ({ initReranker: fixture.initReranker, getRerankerInstallStatus: fixture.rerankerStatus }));
 vi.mock("../../model/providers/test-connection", () => ({ testVendorConnection: vi.fn() }));
-vi.mock("./fetch-vendor-models", () => ({ fetchVendorModels: fixture.fetchModels }));
-vi.mock("./timeout-manager", () => ({ getTimeoutSettings: fixture.timeoutGet, saveTimeoutSettings: fixture.timeoutSave }));
+vi.mock("../../model/config/fetch-vendor-models", () => ({ fetchVendorModels: fixture.fetchModels }));
+vi.mock("../../platform/settings/timeout-manager", () => ({ getTimeoutSettings: fixture.timeoutGet, saveTimeoutSettings: fixture.timeoutSave }));
 import { registerSettingsIpc } from "./settings-ipc";
-import * as windows from "../windows/window-state";
+import * as windows from "../../platform/windows/window-state";
 import { DEFAULT_UI_FONT } from "../../../shared/ui-font";
 
 type Handler = (...args: any[]) => any;

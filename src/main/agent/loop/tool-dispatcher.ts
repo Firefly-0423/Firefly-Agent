@@ -1,7 +1,7 @@
 import type { ToolCall } from "../../model/providers/types";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
 import type { ApprovalOrigin } from "../../../shared/permission-approval";
-import type { ToolCallResult, ToolExecutionOutcome } from "../runtime/types";
+import type { ToolCallResult, ToolExecutionOutcome } from "../../tooling/registry/tool-call-types";
 import type { ToolObservation, HarnessEvent, AgentState } from "./types";
 import { tryParseToolCallArgs, parseToolCallArgs, toolCallFingerprint, ToolCallArgumentsError, invalidToolCallArguments } from "./types";
 import { isHarnessBuiltin, isInteractiveHarnessBuiltin, DELEGATE_AGENT_TOOL_ID,

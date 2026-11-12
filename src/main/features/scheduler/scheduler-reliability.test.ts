@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { buildSync } from "esbuild";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SchedulerEngine } from "./scheduler-engine";
-import type { ScheduledTask, ScheduledTaskHistoryEntry } from "./types";
+import type { ScheduledTask, ScheduledTaskHistoryEntry } from "../../platform/schedule/schedule-types";
 
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.restoreAllMocks(); });
 function fixture(ids = ["a"]) {

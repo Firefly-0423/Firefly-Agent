@@ -1,4 +1,4 @@
-import type { IncomingMessage, OutgoingMessage } from "./types";
+import type { IncomingMessage, OutgoingMessage } from "../../conversation/channels/channel-types";
 import type { ChannelsSettings } from "./settings-store";
 import type { FireflyRunTerminalResult } from "../../../shared/run-terminal";
 import { appendLog } from "./message-log";

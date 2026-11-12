@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { app } from "electron";
-import type { ChannelAttachment } from "../../types";
+import type { ChannelAttachment } from "../../../../conversation/channels/channel-types";
 import { OneBotActionClient, OneBotActionError } from "./onebot-action-client";
 import type { OneBotSegment, OneBotStreamPacket } from "./onebot-types";
 

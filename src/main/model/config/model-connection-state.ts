@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { normalizeReasoningPreference } from "../../../shared/reasoning";
 import type { ModelConnectionSnapshot, ModelProfileConnection } from "../../../shared/model-connection-types";
-import { getCapabilityOrOpenAI } from "../../model/providers/capabilities";
-import type { TestConnectionResult, VendorConfig } from "../../model/providers/types";
+import { getCapabilityOrOpenAI } from "../providers/capabilities";
+import type { TestConnectionResult, VendorConfig } from "../providers/types";
 import type { SavedModelProfile } from "./model-catalog";
 
 /** Clone the exact request dimensions; the same snapshot is matched and sent. */

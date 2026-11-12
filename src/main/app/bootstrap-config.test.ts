@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GeneralSettings } from "../platform/settings/general-settings";
-import type { ModelSettings } from "../platform/settings/model-settings";
+import type { ModelSettings } from "../model/config/model-settings";
 import { IPC } from "../../shared/ipc-channels";
 
 const h = vi.hoisted(() => ({
@@ -18,7 +18,7 @@ const h = vi.hoisted(() => ({
   sent: [] as unknown[][],
 }));
 
-vi.mock("../platform/settings/model-settings", () => ({
+vi.mock("../model/config/model-settings", () => ({
   loadModelSettings: () => h.model,
 }));
 

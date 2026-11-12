@@ -1,5 +1,5 @@
 import { createChannelMemoryAccountIdentity, type ChannelAdapter, type ChannelMemoryAccountIdentity } from "../base";
-import type { ChannelCapability, ChannelStatus, IncomingMessage, MessageHandler, OutgoingMessage, OutgoingPart, } from "../../types";
+import type { ChannelCapability, ChannelStatus, IncomingMessage, MessageHandler, OutgoingMessage, OutgoingPart, } from "../../../../conversation/channels/channel-types";
 import { loadChannelsSettings } from "../../settings-store";
 import { OneBotActionClient } from "./onebot-action-client";
 import { OneBotMediaManager, versionAtLeast, ONEBOT_STREAM_MIN_VERSION } from "./onebot-media";

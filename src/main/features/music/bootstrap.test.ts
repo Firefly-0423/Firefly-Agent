@@ -14,7 +14,7 @@ const service = vi.hoisted(() => ({
   control: vi.fn(async () => ({ commandSubmission: "accepted", playerStateObservation: "unchanged" })),
   shutdown: vi.fn(async () => ({ transportClosed: true, processTreeExited: true, runtimeRemoved: true })),
 }));
-vi.mock("./qqmusic-service", () => ({
+vi.mock("../../platform/music/qqmusic-service", () => ({
   QqMusicService: vi.fn(function () { return service; }),
   createQqMusicExecutor: vi.fn(() => vi.fn()),
 }));

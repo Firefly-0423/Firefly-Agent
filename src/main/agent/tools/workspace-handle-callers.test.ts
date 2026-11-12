@@ -28,7 +28,7 @@ vi.mock("electron", () => ({ app: { isPackaged: false, getAppPath: () => state.u
 vi.mock("../../tooling/registry/tool-registry", () => ({ toolRegistry: { register: (t: ToolDefinition) => registry.set(t.id, t) } }));
 vi.mock("./built-in-tools", () => ({ currentUserTimezone: () => "UTC" }));
 vi.mock("../../model/vision/vision-captioner", () => ({ captionImage: vi.fn(async () => "native image") }));
-vi.mock("../../platform/settings/model-settings", () => ({ loadModelSettings: () => ({}), resolveModelSettingsProfile: () => ({}) }));
+vi.mock("../../model/config/model-settings", () => ({ loadModelSettings: () => ({}), resolveModelSettingsProfile: () => ({}) }));
 vi.mock("../../model/vision/image-router", () => ({ resolveCaptionVisionConfig: () => ({ ok: true, config: {} }) }));
 vi.mock("node:child_process", async original => ({ ...await original<typeof import("node:child_process")>(), spawn: vi.fn(() => {
   const child = new EventEmitter(); const stdout = new PassThrough(), stderr = new PassThrough();
@@ -57,7 +57,7 @@ import { captionImage } from "../../model/vision/vision-captioner";
 import { getRunReviewTracker, RunReviewTracker } from "../review/run-review-tracker";
 import { WriteOwnership } from "../loop/write-ownership";
 import type { ToolContext } from "../../tooling/registry/tool-context";
-import { beginWriteBatch } from "../../tooling/registry/file-write-evidence";
+import { beginWriteBatch } from "./file-write-evidence";
 registerLifeTools();
 let fixture: string;
 beforeEach(() => {

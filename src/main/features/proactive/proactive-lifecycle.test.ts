@@ -11,7 +11,7 @@ vi.mock("../channels/proactive-delivery", () => ({ canStartProactiveChannelDeliv
 vi.mock("../../agent/runtime", () => ({ buildAlwaysOnContext: mocks.legacy, buildMemoryInjection: mocks.legacy, buildWorldbookContext: mocks.worldbook }));
 vi.mock("../../knowledge/rag", () => ({ searchMemory: mocks.searchMemory }));
 vi.mock("../../base/prompts/prompt-loader", () => ({ loadPromptFile: () => "persona" }));
-vi.mock("../../platform/settings/model-settings", () => ({ loadModelSettings: () => ({ ...mocks.profile, modelProfiles: [mocks.profile], defaultModelProfileId: mocks.profile.id }), getDefaultModelProfile: () => mocks.profile, resolveModelSettingsProfile: () => mocks.profile }));
+vi.mock("../../model/config/model-settings", () => ({ loadModelSettings: () => ({ ...mocks.profile, modelProfiles: [mocks.profile], defaultModelProfileId: mocks.profile.id }), getDefaultModelProfile: () => mocks.profile, resolveModelSettingsProfile: () => mocks.profile }));
 vi.mock("../../base/storage/settings-store", () => ({ loadUserProfile: () => ({ timezone: "UTC" }) }));
 vi.mock("./proactive-state-store", () => ({ loadProactiveState: () => mocks.state, saveProactiveState: vi.fn() }));
 vi.mock("../../base/storage/token-usage-store", () => ({ recordUsage: vi.fn(), recordRequest: vi.fn() }));

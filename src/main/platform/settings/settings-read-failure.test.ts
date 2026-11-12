@@ -16,7 +16,7 @@ for (const kind of ["model", "general"] as const) {
   describe(`${kind} settings read protection`, () => {
     async function storage() {
       if (kind === "model") {
-        const settings = await import("./model-settings");
+        const settings = await import("../../model/config/model-settings");
         return { load: settings.loadModelSettings, assert: settings.assertModelSettingsReadable, save: () => settings.saveModelSettings({}) };
       }
       const settings = await import("./settings-facade");
@@ -78,12 +78,12 @@ for (const kind of ["model", "general"] as const) {
 }
 
 it("preserves a saved model profile when loading", async () => {
-  const settings = await import("./model-settings");
+  const settings = await import("../../model/config/model-settings");
   settings.saveModelProfile({ provider: "openai", model: "test-model", displayName: "Public test" });
   const file = path.join(state.directory, "model-settings.json");
   const contents = fs.readFileSync(file, "utf8");
   vi.resetModules();
-  const reloaded = await import("./model-settings");
+  const reloaded = await import("../../model/config/model-settings");
   reloaded.assertModelSettingsReadable();
   expect(reloaded.loadModelSettings().modelProfiles).toHaveLength(1);
   expect(fs.readFileSync(file, "utf8")).toBe(contents);

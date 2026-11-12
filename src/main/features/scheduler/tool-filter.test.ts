@@ -1,6 +1,6 @@
 import { it, expect } from "vitest";
 import { filterToolsForTask } from "./tool-filter";
-import type { ScheduledTask } from "./types";
+import type { ScheduledTask } from "../../platform/schedule/schedule-types";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
 
 it("filters disabled tools before applying the task allow list and preserves registry order", () => {

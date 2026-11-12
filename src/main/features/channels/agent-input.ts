@@ -1,6 +1,6 @@
 import path from "node:path";
 import type { AguiRunInput } from "../chat/agui-bridge";
-import type { IncomingMessage } from "./types";
+import type { IncomingMessage } from "../../conversation/channels/channel-types";
 
 type AttachmentInputs = Pick<AguiRunInput, "attachments" | "imageAttachments">;
 export type ChannelAttachmentInputOptions = {

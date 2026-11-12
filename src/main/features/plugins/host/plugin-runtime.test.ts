@@ -76,7 +76,7 @@ vi.mock("../../../platform/settings/settings-facade", () => ({
   loadGeneralSettings: () => m.loadGeneralSettings(),
   saveGeneralSettings: (...args: unknown[]) => m.saveGeneralSettings(...args),
 }));
-vi.mock("../../../platform/settings/model-settings", () => ({
+vi.mock("../../../model/config/model-settings", () => ({
   loadModelSettings: () => m.modelSettings,
   resolveModelSettingsProfile: (...args: unknown[]) => m.resolveProfile(...args),
 }));
@@ -120,7 +120,7 @@ vi.mock("./plugin-management-ipc-guard", () => ({
     return (_event: unknown, ...args: unknown[]) => invoke(args);
   }),
 }));
-vi.mock("../../../agent/services/llm/llm-queue", () => ({ enqueueLLMTask: m.enqueue }));
+vi.mock("../../../model/queue/llm-queue", () => ({ enqueueLLMTask: m.enqueue }));
 
 import { startPluginRuntime } from "./plugin-runtime";
 

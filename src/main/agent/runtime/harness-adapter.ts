@@ -2,7 +2,7 @@ import type { BaseEvent } from "@ag-ui/core";
 import { runFireflyHarness } from "../loop";
 import type { HarnessEvent, HarnessInput } from "../loop";
 import type { AgentLoopResult, FireflyRunOptions, AgentLoopSettings } from "./firefly-agent";
-import type { ToolCallResult } from "./types";
+import type { ToolCallResult } from "../../tooling/registry/tool-call-types";
 import { mapTerminateReason, mapTerminateReasonToTerminal } from "../loop/adapter/terminal-mapper";
 import { app } from "electron";
 import { getRunReviewTracker } from "../review/run-review-tracker";

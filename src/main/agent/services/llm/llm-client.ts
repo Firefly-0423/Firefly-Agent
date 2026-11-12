@@ -1,7 +1,7 @@
-import type { ModelSettings } from "../../../platform/settings/model-settings";
+import type { ModelSettings } from "../../../model/config/model-settings";
 import { getAdapterForConfig, createSseReader } from "../../../model/providers";
 import type { StructuredOutputRequest, VendorConfig } from "../../../model/providers";
-import { createVisibleStreamFilter, stripThinkBlocks } from "../../../features/chat/chat-stream-utils";
+import { createVisibleStreamFilter, stripThinkBlocks } from "../../../model/text/chat-stream-utils";
 import { recordUsage, recordRequest } from "../../../base/storage/token-usage-store";
 import { appendApiLog } from "../../../model/text/chat-api-utils";
 type ChatMessage = {

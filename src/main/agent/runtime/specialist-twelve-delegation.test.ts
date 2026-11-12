@@ -13,7 +13,7 @@ import { initializeStorageContext, getStorageContext } from "../../base/storage/
 import { resolveRuntimeProfile } from "../../base/identity/runtime-profile";
 import { createSmhFixture } from "../../memory/context/smh-fixture.test-support";
 import { createMainDefaultMemory } from "../../memory/context/main-default-memory";
-import { createActiveChatTargetRegistry } from "../../features/plugins/host/active-chat-target";
+import { createActiveChatTargetRegistry } from "../../platform/interaction/active-chat-target";
 import { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
 import { HarnessRunStore } from "../loop/run-store";
 import { TaskSessionStore } from "../tasks/task-session-store";
@@ -21,7 +21,7 @@ import { createAgentExecutor } from "./persistent-agent-runtime";
 import { RunExecutionCoordinator } from "../loop/execution-coordinator";
 import { createSpecialistProfiles } from "./specialist-profiles";
 import { SPECIALIST_AGENTS } from "../../../shared/specialist-agents";
-import type { ModelSettings } from "../../platform/settings/model-settings";
+import type { ModelSettings } from "../../model/config/model-settings";
 
 vi.mock("electron", () => ({ app: { getPath: () => getStorageContext().dataRoot } }));
 vi.mock("../../base/storage/token-usage-store", () => ({ recordModelCall: () => undefined, recordToolCall: () => undefined, recordRequest: vi.fn(), recordUsage: vi.fn() }));

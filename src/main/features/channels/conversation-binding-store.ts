@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { app } from "electron";
-import type { ChannelChatType } from "./types";
+import type { ChannelChatType } from "../../conversation/channels/channel-types";
 
 const STORE_VERSION = 1;
 export type ExternalChannelChat = { lastAt: number; senderName?: string; chatType: ChannelChatType; chatId: string; channel: string; sessionId: string };

@@ -1,6 +1,6 @@
 import {EventEmitter} from "node:events";
 import {describe,expect,it} from "vitest";
-import {createActiveChatTargetRegistry} from "../../features/plugins/host/active-chat-target";
+import {createActiveChatTargetRegistry} from "../../platform/interaction/active-chat-target";
 import {createMainDesktopSessionAuthority} from "./main-desktop-session-authority";
 
 function fixture(){

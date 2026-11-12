@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { SchedulerEngine } from "./scheduler-engine";
 import { createSchedulerStore } from "./scheduler-store";
 import { pluginTaskTogglePatch } from "./execution-spec";
-import type { ScheduledTask, ScheduledTaskHistoryEntry, ScheduledRunResult } from "./types";
+import type { ScheduledTask, ScheduledTaskHistoryEntry, ScheduledRunResult } from "../../platform/schedule/schedule-types";
 
 const engines: SchedulerEngine[] = [], folders: string[] = [];
 beforeEach(() => vi.useFakeTimers());

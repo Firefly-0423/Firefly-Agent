@@ -11,7 +11,7 @@ vi.mock("../channels/message-log", () => ({ appendLog: mocks.log }));
 vi.mock("../../agent/runtime", () => ({ buildAlwaysOnContext: async () => "", buildMemoryInjection: async () => "", buildWorldbookContext: async () => "" }));
 vi.mock("../../knowledge/rag", () => ({ searchMemory: async () => [] }));
 vi.mock("../../base/prompts/prompt-loader", () => ({ loadPromptFile: () => "persona" }));
-vi.mock("../../platform/settings/model-settings", () => ({ loadModelSettings: () => ({ provider: "fixture", apiKey: "synthetic" }), getDefaultModelProfile: () => ({ id: "fixture" }), resolveModelSettingsProfile: (settings: unknown) => settings }));
+vi.mock("../../model/config/model-settings", () => ({ loadModelSettings: () => ({ provider: "fixture", apiKey: "synthetic" }), getDefaultModelProfile: () => ({ id: "fixture" }), resolveModelSettingsProfile: (settings: unknown) => settings }));
 vi.mock("../../base/storage/settings-store", () => ({ loadUserProfile: () => ({ timezone: "UTC" }) }));
 vi.mock("./proactive-state-store", () => ({ loadProactiveState: () => mocks.state, saveProactiveState: vi.fn() }));
 vi.mock("./proactive-model", () => ({ runProactiveModel: async () => ({ kind: "send", text: "第一句。第二句。" }) }));

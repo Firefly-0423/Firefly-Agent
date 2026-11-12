@@ -1,6 +1,6 @@
 import type { JsonSchemaProp, ToolDefinition } from "./tool-registry";
 import { controlledInputType } from "./tool-registry";
-import type { ToolCallResult } from "../../agent/runtime/types";
+import type { ToolCallResult } from "./tool-call-types";
 import type { ToolCall } from "../../model/providers/types";
 
 export function resolveToolForCapability(available: ToolDefinition[], requested: string): ToolDefinition {

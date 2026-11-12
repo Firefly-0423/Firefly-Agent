@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import type { PendingChatAttachment } from "../../../shared/chat-types";
 import { formatChannelUserText } from "../../features/channels/channel-context";
-import type { IncomingMessage } from "../../features/channels/types";
+import type { IncomingMessage } from "../../conversation/channels/channel-types";
 import { requireChannelMemoryIngress, type ChannelMemoryIngress, type ChannelMemoryIngressContext } from "../context/channel-memory-ingress";
 import { parseInternalId } from "../core/command-validation";
 import { canonicalJson } from "../core/repository-types";

@@ -16,7 +16,7 @@ vi.mock("../../base/identity/env", () => ({ isDev: false }));
 vi.mock("../legacy/memory-store", () => ({ memoryStore: mocks.memory }));
 vi.mock("../../base/storage/settings-store", () => ({ getRagStorePath: () => mocks.path, loadUserProfile: vi.fn(), saveUserProfile: vi.fn(), getAvatarPath: vi.fn() }));
 vi.mock("../../agent/runtime/sticker-settings", () => ({ getStickerManagerConfig: mocks.stickers, setStickerEnabled: vi.fn() }));
-vi.mock("../../platform/stickers/sticker-storage", () => ({ addUserSticker: vi.fn(), deleteUserSticker: vi.fn() }));
+vi.mock("../../knowledge/stickers/sticker-storage", () => ({ addUserSticker: vi.fn(), deleteUserSticker: vi.fn() }));
 vi.mock("../../knowledge/rag", () => ({ deleteImportedDoc: mocks.deleteDoc }));
 vi.mock("../../agent/mcp/mcp-manager", () => ({ addMcpServer: vi.fn(), removeMcpServer: vi.fn(), listMcpServers: mocks.mcp }));
 vi.mock("../../tooling/registry/tool-registry", () => ({ toolRegistry: {} }));
@@ -27,7 +27,7 @@ vi.mock("../legacy/obsidian-exporter", () => ({ exportMemoryToObsidianVault: moc
 vi.mock("../legacy/obsidian-vault-config", () => ({ loadObsidianVaultConfig: mocks.loadVault, saveObsidianVaultConfig: mocks.saveVault, unbindVault: mocks.unbindVault }));
 vi.mock("../legacy/obsidian-importer", () => ({ startVaultWatcher: mocks.startWatcher, stopVaultWatcher: mocks.stopWatcher }));
 
-import { registerMemoryUserToolIpc } from "../legacy/memory-user-ipc";
+import { registerMemoryUserToolIpc } from "../../features/memory/memory-user-ipc";
 import { loadImportedDocumentPanelData } from "../legacy/panel";
 
 let dir: string;

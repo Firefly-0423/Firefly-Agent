@@ -4,11 +4,11 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { buildCachedStickerEmbeddingIndex as build } from "./sticker-embedding-cache";
 import { BUILT_IN_STICKER_DESCRIPTIONS } from "./sticker-descriptions";
-import type { EmbeddingProvider } from "../../knowledge/rag/embedding";
+import type { EmbeddingProvider } from "../rag/embedding";
 
 const model = vi.hoisted(() => ({ provider: "local", model: "garden-vector", dimensions: 1024 }));
-vi.mock("../../knowledge/rag/embedding", async original => ({
-  ...await original<typeof import("../../knowledge/rag/embedding")>(), getEmbeddingProviderIdentity: async () => ({ ...model }),
+vi.mock("../rag/embedding", async original => ({
+  ...await original<typeof import("../rag/embedding")>(), getEmbeddingProviderIdentity: async () => ({ ...model }),
 }));
 let directory: string;
 beforeEach(() => { directory = mkdtempSync(join(tmpdir(), "ff-stickers-contract-")); model.model = "garden-vector"; model.dimensions = 1024; });

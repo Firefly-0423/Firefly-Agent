@@ -125,7 +125,7 @@ vi.mock("../memory/legacy/memory-rag-reconciliation", () => ({
   backupMemoryRagFiles: vi.fn(),
   reconcileMemoryRag: vi.fn(async () => ({ reconciled: 0 })),
 }));
-vi.mock("../memory/legacy/memory-user-ipc", () => ({ registerMemoryUserToolIpc: vi.fn() }));
+vi.mock("../features/memory/memory-user-ipc", () => ({ registerMemoryUserToolIpc: vi.fn() }));
 vi.mock("../memory/policy/memory-settings-ipc", () => ({ registerMemorySettingsIpc: vi.fn() }));
 vi.mock("../memory/policy/memory-automation-settings-ipc", () => ({ registerMemoryAutomationSettingsIpc: vi.fn() }));
 vi.mock("../memory/shadow/shadow-settings-ipc", () => ({ registerShadowSettingsIpc: vi.fn() }));
@@ -166,7 +166,7 @@ vi.mock("../platform/settings/settings-facade", () => ({
   saveGeneralSettings: vi.fn(),
   onGeneralSettingsChanged: vi.fn(),
 }));
-vi.mock("../platform/settings/model-settings", () => ({
+vi.mock("../model/config/model-settings", () => ({
   getDefaultModelProfile: vi.fn(() => undefined),
   getCachedSavedModelProfile: vi.fn(),
   listCachedSavedModelProfileIds: vi.fn(() => []),
@@ -177,8 +177,8 @@ vi.mock("../platform/settings/model-settings", () => ({
     return m.settingsDispose;
   }),
 }));
-vi.mock("../platform/settings/settings-ipc", () => ({ registerSettingsIpc: vi.fn(() => m.settingsDispose) }));
-vi.mock("../platform/settings/general-settings-lifecycle", () => ({
+vi.mock("../features/settings/settings-ipc", () => ({ registerSettingsIpc: vi.fn(() => m.settingsDispose) }));
+vi.mock("../features/settings/general-settings-lifecycle", () => ({
   applyGeneralSettings: vi.fn(),
   handleGeneralSettingsChanged: vi.fn(),
   syncVolcanoSearchMcp: vi.fn(),
@@ -250,8 +250,8 @@ vi.mock("../knowledge/skills/external-ipc", () => ({
 vi.mock("../knowledge/skills/external-install", () => ({ recoverExternalSkills: vi.fn() }));
 vi.mock("../knowledge/skills/external-state", () => ({ ExternalSkillStateStore: class {} }));
 vi.mock("../knowledge/skills/external-reviews", () => ({ EXTERNAL_SKILL_REVIEWS: [] }));
-vi.mock("../features/plugins/host/active-chat-target", () => ({ activeChatTargetRegistry: {} }));
-vi.mock("../features/plugins/host/lifecycle-publisher", () => ({
+vi.mock("../platform/interaction/active-chat-target", () => ({ activeChatTargetRegistry: {} }));
+vi.mock("../agent/runtime/lifecycle-publisher", () => ({
   createLifecyclePublisher: vi.fn((options: unknown) => {
     m.publisherOpts = options;
     return m.lifecyclePublisher;
@@ -312,7 +312,7 @@ vi.mock("../agent/mcp/mcp-manager", () => ({
   pruneMcpServersByIds: vi.fn(async () => ["removed-a"]),
 }));
 vi.mock("../agent/mcp/sync-mcp-builtin", () => ({ syncPlaywrightMcp: vi.fn(async () => {}), REMOVED_BUILTIN_MCP_IDS: ["removed-a"] }));
-vi.mock("../agent/services/llm/llm-queue", () => ({ enqueueLLMTask: vi.fn() }));
+vi.mock("../model/queue/llm-queue", () => ({ enqueueLLMTask: vi.fn() }));
 vi.mock("../agent/runtime/pop-quiz", () => ({ registerPopQuizIpc: vi.fn(), registerPopQuizTool: vi.fn() }));
 vi.mock("../platform/permission/bootstrap", () => ({ bootstrapPermission: vi.fn() }));
 
@@ -327,10 +327,10 @@ vi.mock("../platform/updater/github-app-updater", () => ({
   createGitHubAppUpdateService: vi.fn(() => m.update),
   scheduleStartupUpdateCheck: vi.fn(() => vi.fn()),
 }));
-vi.mock("../platform/protocols/bootstrap", () => ({ registerPrivilegedSchemes: vi.fn(), registerProtocolHandlers: vi.fn() }));
+vi.mock("./protocols-bootstrap", () => ({ registerPrivilegedSchemes: vi.fn(), registerProtocolHandlers: vi.fn() }));
 vi.mock("../features/diagnostics/memory-online-once/runner", () => ({ ADMISSION_ROOT: "E:/admission" }));
 vi.mock("../features/diagnostics/memory-online-once/main-entry", () => ({ createMainProbeEntry: vi.fn(() => m.onlineEntry) }));
-vi.mock("../platform/music/bootstrap", () => ({ bootstrapMusicService: vi.fn(() => ({})) }));
+vi.mock("../features/music/bootstrap", () => ({ bootstrapMusicService: vi.fn(() => ({})) }));
 vi.mock("../platform/screenshot/screenshot-lifecycle", () => ({ initializeScreenshotService: vi.fn(() => m.screenshot) }));
 vi.mock("../platform/git/git-service", () => ({ createGitService: vi.fn(() => ({})) }));
 vi.mock("../platform/git/git-executable", () => ({ resolveGitExecutable: vi.fn(async () => ({})) }));
@@ -495,7 +495,7 @@ describe("prepare phase", () => {
     await expect(deps.prepare()).resolves.toBe("prepared");
     const { configureDocumentIndexQueue } = await import("../knowledge/rag/document-index-queue");
     const { runDocumentIndexJob } = await import("../knowledge/rag/document-index-worker");
-    const { registerPrivilegedSchemes } = await import("../platform/protocols/bootstrap");
+    const { registerPrivilegedSchemes } = await import("./protocols-bootstrap");
     const { ensureGpuSandboxAcl } = await import("../base/identity/gpu-sandbox-acl");
     m.prepareDeps.configureDocumentIndex();
     expect(configureDocumentIndexQueue).toHaveBeenCalledWith(runDocumentIndexJob);

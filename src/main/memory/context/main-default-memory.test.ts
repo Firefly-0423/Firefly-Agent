@@ -8,14 +8,14 @@ vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 import { HarnessRunStore } from "../../agent/loop/run-store";
 import { randomBytes } from "node:crypto";
 import { openMemoryRepository } from "../core/repository";
-import { createActiveChatTargetRegistry } from "../../features/plugins/host/active-chat-target";
+import { createActiveChatTargetRegistry } from "../../platform/interaction/active-chat-target";
 import { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
 import { createTranscriptSink } from "../../conversation/transcript/transcript-sink";
 import { getAdapterForConfig } from "../../model/providers";
 import { initializeStorageContext } from "../../base/storage/storage-context";
 import { resolveRuntimeProfile } from "../../base/identity/runtime-profile";
 import type { FireflyRunOptions } from "../../agent/runtime/firefly-agent";
-import type { ModelSettings } from "../../platform/settings/model-settings";
+import type { ModelSettings } from "../../model/config/model-settings";
 import { JSDOM } from "jsdom";
 import { createMemoryEntriesPanel } from "../../../renderer/settings/memory/entries-panel";
 import { createMemorySettingsIpc } from "../policy/memory-settings-ipc";
@@ -557,8 +557,8 @@ async function channelAccount(accountKey='qq:account-a'){
  const manager=new ChannelManager();manager.register(adapter);let cap:import('./channel-memory-ingress').ChannelMemoryIngress|undefined;
  manager.setDispatcher(async(_message,ingress)=>{cap=ingress;return null});await manager.startOne('qq');
  cleanups.push(()=>manager.stopAll());
- return {manager,identity,async receive(patch:Partial<import('../../features/channels/types').IncomingMessage>={},asr=false){
-  const message:import('../../features/channels/types').IncomingMessage={channel:'qq',senderId:'sender-one',chatId:'chat-one',text:'I prefer bash',at:new Date(1700000000000),...patch};
+ return {manager,identity,async receive(patch:Partial<import('../../conversation/channels/channel-types').IncomingMessage>={},asr=false){
+  const message:import('../../conversation/channels/channel-types').IncomingMessage={channel:'qq',senderId:'sender-one',chatId:'chat-one',text:'I prefer bash',at:new Date(1700000000000),...patch};
   if(asr)markChannelTextTransform(message,'asr');cap=undefined;await adapter.onMessage!(message);
   return {message,cap:cap!,context:requireChannelMemoryIngress(cap,message)};
  }};

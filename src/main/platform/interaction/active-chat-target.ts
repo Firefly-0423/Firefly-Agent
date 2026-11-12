@@ -10,7 +10,7 @@
  */
 import { randomUUID } from "node:crypto";
 import type { WebContents } from "electron";
-import type { ConversationMode } from "../../../../shared/chat-types";
+import type { ConversationMode } from "../../../shared/chat-types";
 
 interface RendererTarget {
   rendererTargetId: string;

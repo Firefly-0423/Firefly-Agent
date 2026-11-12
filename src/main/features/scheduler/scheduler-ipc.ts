@@ -3,7 +3,7 @@ import { createIpcScope, type IpcScope } from "../../base/ipc/ipc-scope";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
 import * as executionSpec from "./execution-spec";
 import type { SchedulerEngine } from "./scheduler-engine";
-import type { NewScheduledTaskInput, ScheduledTask, ScheduledTaskPatch, SchedulerIpcResult } from "./types";
+import type { NewScheduledTaskInput, ScheduledTask, ScheduledTaskPatch, SchedulerIpcResult } from "../../platform/schedule/schedule-types";
 
 type SchedulerStoreLike = {
   getHistory(taskId: string, limit?: number): unknown[];

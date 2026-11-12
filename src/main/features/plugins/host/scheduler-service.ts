@@ -18,7 +18,7 @@ import type {
   ScheduledTask,
   ScheduledTaskHistoryEntry,
   ScheduledTaskPatch,
-} from "../../scheduler/types";
+} from "../../../platform/schedule/schedule-types";
 import { pluginHostError } from "./errors";
 
 /** 调度存储的只读视图：真实实现是 scheduler-store，测试注入内存假件。 */

@@ -9,7 +9,7 @@ const LOG_PREFIX = "[BuiltinTools]";
 export function clearImageCaptionCache(): void { captionCache.clear(); }
 
 async function loadCaptionVisionConfigLazy(): Promise<import("../../../model/vision/image-router").CaptionVisionConfig> {
-  const profiles = await import("../../../platform/settings/model-settings");
+  const profiles = await import("../../../model/config/model-settings");
   const active = profiles.resolveModelSettingsProfile(profiles.loadModelSettings());
   const routes = await import("../../../model/vision/image-router");
   return routes.resolveCaptionVisionConfig(active);

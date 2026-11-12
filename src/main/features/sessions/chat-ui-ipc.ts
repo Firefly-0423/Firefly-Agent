@@ -11,17 +11,17 @@ import {
   resolveModelSettingsProfile,
   saveModelProfile,
   saveModelSettings,
-} from "../../platform/settings/model-settings";
+} from "../../model/config/model-settings";
 import { resolveVendorRuntimeSettings } from "../../model/providers/runtime-settings";
 import { resolveTransport } from "../../model/providers/transport-detector";
 import { getSession } from "./chats-store";
 import { getActiveLive2dWorkRunCount } from "../../agent/runtime/live2d-work-signal";
 import { describePendingAttachment } from "../../knowledge/rag/file-ingest";
-import { captionImageSafe, buildImageCaptionPrompt, validateCaptionImagePath } from "../../model/vision/image-caption";
+import { captionImageSafe, buildImageCaptionPrompt, validateCaptionImagePath } from "../../agent/runtime/image-caption";
 import { resolveCaptionVisionConfig, resolveImageRoute } from "../../model/vision/image-router";
 import type { WindowManager } from "../../platform/windows/window-manager";
 import { reactChatSession, reactChatWindow } from "../../platform/windows/window-state";
-import { activeChatTargetRegistry, parseActiveTargetPayload } from "../plugins/host/active-chat-target";
+import { activeChatTargetRegistry, parseActiveTargetPayload } from "../../platform/interaction/active-chat-target";
 
 export interface ChatUiIpcDependencies {
   /** Refresh private browser ownership synchronously after the trusted target changes. */

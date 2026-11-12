@@ -4,7 +4,7 @@ import { entityGraph } from "../../memory/legacy/entity-graph";
 import { recordRecentMemoryInjection } from "../../memory/legacy/recent-injected-memory";
 import { l2DmaeManager } from "../../memory/legacy/l2-dmae-manager";
 import { toolRegistry } from "../../tooling/registry/tool-registry";
-export { ToolCallResult } from "./types";
+export { ToolCallResult } from "../../tooling/registry/tool-call-types";
 export { scheduleMemoryWrite } from "./context-builder";
 export { buildToneInjection } from "./tone-injector";
 

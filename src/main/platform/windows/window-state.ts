@@ -1,5 +1,5 @@
 import { BrowserWindow } from "electron";
-import { createReactChatSessionDispatcher, type ReactChatSessionDispatcher } from "../../features/sessions/react-chat-session-dispatcher";
+import { createReactChatSessionDispatcher, type ReactChatSessionDispatcher } from "./react-chat-session-dispatcher";
 
 // 辅助窗口的共享引用集中在此模块，供窗口工厂与 IPC handler 读取。
 // 外部模块拿到的是只读绑定，写入必须经由下方的 set* 函数。

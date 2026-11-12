@@ -3,9 +3,9 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { createHash } from "crypto";
-import { getWorkspaceExecutionCoordinator } from "../../agent/loop/execution-coordinator";
+import { getWorkspaceExecutionCoordinator } from "../loop/execution-coordinator";
 import { beginWriteBatch } from "./file-write-evidence";
-import type { ToolContext } from "./tool-context";
+import type { ToolContext } from "../../tooling/registry/tool-context";
 
 let root: string;
 beforeEach(() => { root = fs.mkdtempSync(path.join(os.tmpdir(), "write-evidence-")); });

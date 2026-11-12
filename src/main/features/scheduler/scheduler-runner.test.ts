@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { applyScheduledExecutionPolicy, createSchedulerRunner } from "./scheduler-runner";
 import { requireBackgroundMemoryIngress } from "../../memory/context/background-memory-ingress";
-import type { ScheduledTask } from "./types";
+import type { ScheduledTask } from "../../platform/schedule/schedule-types";
 
 const agent = vi.hoisted(() => ({ result: { reply: "Garden reviewed", terminal: undefined as undefined | { status: string } },
   failure: undefined as Error | undefined, options: undefined as any, barrier: undefined as Promise<void> | undefined }));

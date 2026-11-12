@@ -1,7 +1,7 @@
 import path from "node:path";
 import { app } from "electron";
-import { loadModelSettings } from "../../../platform/settings/model-settings";
-import type { ModelSettings } from "../../../platform/settings/model-settings";
+import { loadModelSettings } from "../../../model/config/model-settings";
+import type { ModelSettings } from "../../../model/config/model-settings";
 import { getAdapterForConfig } from "../../../model/providers";
 import type { StructuredOutputRequest, VendorConfig } from "../../../model/providers";
 import * as structuredProfiles from "../../../model/structured/profiles";

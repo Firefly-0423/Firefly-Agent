@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import type { AskClarificationInput, AskMissingField, AskUserAnswer } from "../../../shared/ask-clarification";
-import type { ToolCallResult } from "./types";
+import type { ToolCallResult } from "../../tooling/registry/tool-call-types";
 import type { JsonSchemaProp, ToolDefinition } from "../../tooling/registry/tool-registry";
 import { parseAndValidateToolCallArguments } from "../../tooling/registry/tool-argument-validator";
 

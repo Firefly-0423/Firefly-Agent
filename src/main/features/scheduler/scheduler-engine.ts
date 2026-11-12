@@ -1,6 +1,6 @@
 import { isTaskEnabled } from "./execution-spec";
 import { computeNextFireAtAfter, normalizeOverdueNextFireAt } from "./schedule-calculator";
-import type { ScheduledRunResult, ScheduledTask, ScheduledTaskHistoryEntry } from "./types";
+import type { ScheduledRunResult, ScheduledTask, ScheduledTaskHistoryEntry } from "../../platform/schedule/schedule-types";
 const MAX_WAKE_INTERVAL = 60 * 60 * 1000;
 interface SchedulerStoreLike {
     assertHistoryReady?(): void;

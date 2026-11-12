@@ -1,4 +1,4 @@
-import type { ToolExecutionOutcome } from "./types";
+import type { ToolExecutionOutcome } from "../../tooling/registry/tool-call-types";
 
 export interface LogicalInvocationInput {
   args: Record<string, unknown>;

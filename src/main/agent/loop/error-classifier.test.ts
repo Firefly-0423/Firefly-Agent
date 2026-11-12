@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { classifyToolError, classifyToolResultError } from "./error-classifier";
 import { ToolExecutionError } from "../../tooling/registry/tool-execution-error";
-import type { ToolCallResult } from "../runtime/types";
+import type { ToolCallResult } from "../../tooling/registry/tool-call-types";
 
 const failed = (fields: Partial<ToolCallResult> = {}): ToolCallResult => ({
   status: "failed", toolId: "scan_archive", args: { section: 7 }, output: "", ...fields,

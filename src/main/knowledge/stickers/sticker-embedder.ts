@@ -1,4 +1,4 @@
-import type { EmbeddingProvider } from "../../knowledge/rag/embedding";
+import type { EmbeddingProvider } from "../rag/embedding";
 export type StickerEmbeddingEntry = { embedding: number[]; id: string };
 
 function similarity(left: number[], right: number[]): number {

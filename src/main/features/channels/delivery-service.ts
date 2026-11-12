@@ -1,5 +1,5 @@
 import type { ChannelManager } from "./manager";
-import type { OutgoingMessage } from "./types";
+import type { OutgoingMessage } from "../../conversation/channels/channel-types";
 
 export type DeliveryResult = { ok: true } | { ok: false; error: string };
 export interface ChannelDeliveryService {

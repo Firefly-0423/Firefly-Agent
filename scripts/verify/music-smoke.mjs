@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const compiledEntry = path.join(rootDir, "dist", "main", "main", "platform", "music", "music-smoke-entry.js");
+const compiledEntry = path.join(rootDir, "dist", "main", "main", "features", "music", "music-smoke-entry.js");
 
 if (!existsSync(compiledEntry)) {
   console.error(`[music-smoke-runner] compiled entry not found: ${compiledEntry}`);

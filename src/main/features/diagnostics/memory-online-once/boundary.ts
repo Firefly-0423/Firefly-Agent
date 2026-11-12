@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { getCapability } from "../../../model/providers/capabilities";
 import { OpenAICompatAdapter } from "../../../model/providers/openai-adapter";
 import type { ChatRequest, HttpRequest } from "../../../model/providers/types";
-import type { SavedModelProfile } from "../../../platform/settings/model-catalog";
+import type { SavedModelProfile } from "../../../model/config/model-catalog";
 
 export const BODY_SHA256 = "1315510055a951f46d7e721bc056f7443e236bb545ab6550a0331203c82c79ed";
 export const MAX_INPUT_TOKENS = 1_048_576;

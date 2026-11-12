@@ -22,7 +22,7 @@ vi.mock("../../../model/text/chat-api-utils", () => ({ appendApiLog: vi.fn() }))
 import { createLlmClient } from "./llm-client";
 import { recordRequest, recordUsage } from "../../../base/storage/token-usage-store";
 import { appendApiLog } from "../../../model/text/chat-api-utils";
-import type { ModelSettings } from "../../../platform/settings/model-settings";
+import type { ModelSettings } from "../../../model/config/model-settings";
 
 const settings = {
   provider: "synthetic",

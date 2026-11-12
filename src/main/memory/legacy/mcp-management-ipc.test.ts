@@ -13,7 +13,7 @@ vi.mock("../../base/identity/env", () => ({ isDev: false }));
 vi.mock("./memory-store", () => ({ memoryStore: {} }));
 vi.mock("../../base/storage/settings-store", () => ({ loadUserProfile: vi.fn(), saveUserProfile: vi.fn(), getAvatarPath: vi.fn() }));
 vi.mock("../../agent/runtime/sticker-settings", () => ({ getStickerManagerConfig: vi.fn(), setStickerEnabled: vi.fn() }));
-vi.mock("../../platform/stickers/sticker-storage", () => ({ addUserSticker: vi.fn(), deleteUserSticker: vi.fn() }));
+vi.mock("../../knowledge/stickers/sticker-storage", () => ({ addUserSticker: vi.fn(), deleteUserSticker: vi.fn() }));
 vi.mock("./panel", () => ({ loadImportedDocumentPanelData: vi.fn(), loadMemoryPanelData: vi.fn() }));
 vi.mock("../../knowledge/rag", () => ({ deleteImportedDoc: vi.fn() }));
 vi.mock("../../agent/mcp/mcp-manager", () => ({ addMcpServer: mocks.add, removeMcpServer: mocks.remove, listMcpServers: mocks.list, setMcpServerEnabled: mocks.setEnabled, listMcpServerConfigs: mocks.configs }));
@@ -25,7 +25,7 @@ vi.mock("./obsidian-exporter", () => ({ exportMemoryToObsidianVault: vi.fn(), sy
 vi.mock("./obsidian-vault-config", () => ({ loadObsidianVaultConfig: vi.fn(), saveObsidianVaultConfig: vi.fn(), unbindVault: vi.fn() }));
 vi.mock("./obsidian-importer", () => ({ startVaultWatcher: vi.fn(), stopVaultWatcher: vi.fn() }));
 
-import { registerMemoryUserToolIpc } from "./memory-user-ipc";
+import { registerMemoryUserToolIpc } from "../../features/memory/memory-user-ipc";
 
 function fixture() {
   const url = pathToFileURL(path.join(mocks.appPath, "dist/renderer/settings/index.html")).href;

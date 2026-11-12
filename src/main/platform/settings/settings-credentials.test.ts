@@ -34,7 +34,7 @@ for (const kind of ["model", "general"] as const) describe(`${kind} encrypted se
   };
   async function store() {
     if (kind === "model") {
-      const m = await import("./model-settings");
+      const m = await import("../../model/config/model-settings");
       return { load: m.loadModelSettings, save: () => m.saveModelSettings({}), assert: m.assertModelSettingsReadable };
     }
     const m = await import("./settings-facade");
@@ -120,7 +120,7 @@ it("keeps explicit diagnostic model preparation read-only even when migration is
   const original = JSON.stringify({ schemaVersion: 2, modelProfiles: [{ id: "diagnostic", provider: "test", apiKey: "diagnostic-secret" }] });
   const file = path.join(state.directory, "model-settings.json");
   fs.writeFileSync(file, original);
-  const m = await import("./model-settings");
+  const m = await import("../../model/config/model-settings");
   expect(m.prepareReadOnlyDiagnosticModelCache({ kind: "production", userData: state.directory } as never)).toBe(true);
   expect(m.getCachedSavedModelProfile("diagnostic")?.apiKey).toBe("diagnostic-secret");
   expect(fs.readFileSync(file, "utf8")).toBe(original);

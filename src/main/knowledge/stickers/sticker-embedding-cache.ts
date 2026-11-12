@@ -1,7 +1,7 @@
 import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
-import { getEmbeddingProviderIdentity, type EmbeddingProvider } from "../../knowledge/rag/embedding";
+import { getEmbeddingProviderIdentity, type EmbeddingProvider } from "../rag/embedding";
 import { buildStickerEmbeddingIndex, type StickerEmbeddingEntry } from "./sticker-embedder";
 
 type StickerDescriptionInput = Record<string, { phrases: string[] }>;

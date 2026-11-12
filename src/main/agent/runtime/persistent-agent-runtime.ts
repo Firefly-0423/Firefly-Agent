@@ -10,7 +10,7 @@ import type { TaskDelegationPresentation, TaskSessionStatus, TaskTranscriptMessa
 import { AgentSessionRegistry } from "../tasks/agent-session-registry";
 import { taskCharacterLeasePool, type TaskCharacterLeasePool } from "../tasks/task-character-pool";
 import type { TaskSessionStore } from "../tasks/task-session-store";
-import { resolveSpecialistModelProfile, type AgentModelRoutingSettings } from "../../platform/settings/agent-model-routing";
+import { resolveSpecialistModelProfile, type AgentModelRoutingSettings } from "../../model/config/agent-model-routing";
 import { buildSkillCatalog, buildAutoInjectedSkillContext } from "../../knowledge/skills/skill-catalog";
 import { skillRegistry } from "../../knowledge/skills/skill-registry";
 import { resolveAgentCapabilities } from "./agent-capabilities";

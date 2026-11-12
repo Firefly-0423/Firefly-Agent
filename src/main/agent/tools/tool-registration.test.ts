@@ -30,7 +30,7 @@ vi.mock("./browser-workspace-tool", () => ({
 vi.mock("../../platform/settings/settings-facade", () => ({
   loadGeneralSettings: mocks.loadGeneralSettings,
 }));
-vi.mock("../../platform/settings/model-settings", () => ({
+vi.mock("../../model/config/model-settings", () => ({
   loadModelSettings: mocks.loadModelSettings,
 }));
 vi.mock("./email-tools", () => ({ registerEmailTools: mocks.registerEmailTools }));

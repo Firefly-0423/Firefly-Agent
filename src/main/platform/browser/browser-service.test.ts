@@ -4,7 +4,7 @@ import { createBrowserService, type BrowserGuestPort, type BrowserHostPort, type
 import type { BrowserSessionPort } from "./browser-network-binding";
 import type { ConnectProxy } from "./authenticated-connect-proxy";
 import { registerManualBrowserHostOwner } from "./browser-host-owner";
-import { createActiveChatTargetRegistry } from "../../features/plugins/host/active-chat-target";
+import { createActiveChatTargetRegistry } from "../interaction/active-chat-target";
 import type { WebContents } from "electron";
 
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; }

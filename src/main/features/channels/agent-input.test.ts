@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { buildChannelAttachmentInputs } from "./agent-input";
-import type { IncomingMessage } from "./types";
+import type { IncomingMessage } from "../../conversation/channels/channel-types";
 
 function incoming(): IncomingMessage {
   return { channel: "wechat", senderId: "wx-reader", chatId: "wx-reader", text: "Inspect the attachments", at: new Date(1000) };

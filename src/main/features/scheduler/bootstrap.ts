@@ -3,12 +3,12 @@ import type { BackgroundMemoryHost } from "../../memory/context/background-memor
 import type { IpcScope } from "../../base/ipc/ipc-scope";
 import type { AgentRuntime } from "../../agent/runtime/agent-runtime";
 import { toolRegistry } from "../../tooling/registry/tool-registry";
-import type { LifecyclePublisher } from "../plugins/host/lifecycle-publisher";
+import type { LifecyclePublisher } from "../../agent/runtime/lifecycle-publisher";
 import { getSchedulerStore } from "./scheduler-store";
 import { createSchedulerRunner } from "./scheduler-runner";
 import { registerSchedulerIpc } from "./scheduler-ipc";
 import { SchedulerEngine, type SchedulerEngineDeps } from "./scheduler-engine";
-import type { ScheduledTask } from "./types";
+import type { ScheduledTask } from "../../platform/schedule/schedule-types";
 
 type StoreHandle = ReturnType<typeof getSchedulerStore>;
 export type SchedulerSubsystemDeps = {

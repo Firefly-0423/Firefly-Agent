@@ -1,6 +1,6 @@
 import { it, expect, vi } from "vitest";
 import { createChannelDeliveryService } from "./delivery-service";
-import type { OutgoingMessage } from "./types";
+import type { OutgoingMessage } from "../../conversation/channels/channel-types";
 
 const outgoing: OutgoingMessage = { channel: "qq", targetId: "recipient-23", parts: [{ kind: "text", text: "Delivery receipt" }] };
 

@@ -4,19 +4,19 @@ import { randomUUID } from "crypto";
 import * as fs from "fs";
 import * as path from "path";
 import { isDev } from "../../base/identity/env";
-import { getModelConnectionSnapshot, onModelConnectionChanged, testModelConnection } from "./model-settings";
+import { getModelConnectionSnapshot, onModelConnectionChanged, testModelConnection } from "../../model/config/model-settings";
 import { IPC } from "../../../shared/ipc-channels";
 import { createIpcScope, type IpcScope } from "../../base/ipc/ipc-scope";
 import { DEFAULT_UI_FONT, isSupportedFontFileName } from "../../../shared/ui-font";
-import type { GeneralSettings } from "./general-settings";
+import type { GeneralSettings } from "../../platform/settings/general-settings";
 import type { TimeoutSettings } from "../../../shared/timeout-types";
-import type { WindowManager } from "../windows/window-manager";
-import { reactChatWindow, sidebarWindow, settingsWindow } from "../windows/window-state";
+import type { WindowManager } from "../../platform/windows/window-manager";
+import { reactChatWindow, sidebarWindow, settingsWindow } from "../../platform/windows/window-state";
 import type { EmbeddingIndexService } from "../../agent/services/embedding/embedding-index-service";
 import { initReranker, getRerankerInstallStatus } from "../../knowledge/rag/reranker";
 import { switchEmbeddingModel } from "../../knowledge/rag";
 import { testVendorConnection } from "../../model/providers/test-connection";
-import { fetchVendorModels, type FetchModelsInput } from "./fetch-vendor-models";
+import { fetchVendorModels, type FetchModelsInput } from "../../model/config/fetch-vendor-models";
 import type { VendorConfig } from "../../model/providers";
 import {
   getPublicModelConfig,
@@ -25,15 +25,15 @@ import {
   setDefaultModelProfile,
   saveModelSettings,
   type ModelSettings,
-} from "./model-settings";
-import { getAgentRoutingView, updateAgentRouting } from "./agent-model-routing";
-import { assertModelSettingsReadable } from "./model-settings";
+} from "../../model/config/model-settings";
+import { getAgentRoutingView, updateAgentRouting } from "../../model/config/agent-model-routing";
+import { assertModelSettingsReadable } from "../../model/config/model-settings";
 import { resolveInputModalities } from "../../model/providers/multimodal";
 import { normalizeDeclaredInputModalities } from "../../../shared/input-modalities";
-import { assertGeneralSettingsReadable } from "./settings-facade";
-import { maskCredentials, MODEL_CREDENTIAL_FIELDS, GENERAL_CREDENTIAL_FIELDS } from "./credential-storage";
-import { isFromHostDocument } from "../../features/plugins/host/plugin-management-ipc-guard";
-import { getTimeoutSettings, saveTimeoutSettings } from "./timeout-manager";
+import { assertGeneralSettingsReadable } from "../../platform/settings/settings-facade";
+import { maskCredentials, MODEL_CREDENTIAL_FIELDS, GENERAL_CREDENTIAL_FIELDS } from "../../platform/settings/credential-storage";
+import { isFromHostDocument } from "../plugins/host/plugin-management-ipc-guard";
+import { getTimeoutSettings, saveTimeoutSettings } from "../../platform/settings/timeout-manager";
 import type { syncVolcanoSearchMcp } from "./general-settings-lifecycle";
 import type { syncPlaywrightMcp } from "../../agent/mcp/sync-mcp-builtin";
 

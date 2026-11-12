@@ -1,7 +1,7 @@
 import { registerBrowserWorkspaceTool } from "./browser-workspace-tool";
 import type { BrowserWorkspaceExecutor } from "../../platform/browser/browser-workspace-executor";
 import { loadGeneralSettings } from "../../platform/settings/settings-facade";
-import { loadModelSettings } from "../../platform/settings/model-settings";
+import { loadModelSettings } from "../../model/config/model-settings";
 import type { GeneralSettings } from "../../platform/settings/general-settings";
 import { registerEmailTools } from "./email-tools";
 import { registerObsidianTools } from "../../knowledge/workspace/obsidian/obsidian-tools";

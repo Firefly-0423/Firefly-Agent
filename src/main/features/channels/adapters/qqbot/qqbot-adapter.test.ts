@@ -1,6 +1,6 @@
 import { beforeEach, afterEach, it, expect, vi } from "vitest";
 import type { QqBotChannelConfig } from "../../settings-store";
-import type { IncomingMessage, OutgoingMessage } from "../../types";
+import type { IncomingMessage, OutgoingMessage } from "../../../../conversation/channels/channel-types";
 
 const state = vi.hoisted(() => ({
   dispatch: null as null | ((type: string, data: Record<string, unknown>) => void),

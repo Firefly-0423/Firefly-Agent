@@ -1,7 +1,7 @@
 import { expect, describe, it } from "vitest";
 import { inspectToolCallArguments as inspect, parseAndValidateToolCallArguments as validate, resolveToolForCapability } from "./tool-argument-validator";
 import { controlledInputKind, controlledInputType, type ToolDefinition, type ControlledInputPolicy } from "./tool-registry";
-import type { ToolCallResult } from "../../agent/runtime/types";
+import type { ToolCallResult } from "./tool-call-types";
 
 const definition = (overrides: Partial<ToolDefinition> = {}): ToolDefinition => ({
   id: "open_selection", capability: "selection.open", name: "Open selection", description: "Open an approved selection", enabled: true,

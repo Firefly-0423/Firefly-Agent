@@ -23,7 +23,7 @@ vi.mock("fs", async original => {
 });
 import "./fs-tools";
 import { getWorkspaceExecutionCoordinator } from "../loop/execution-coordinator";
-import { beginWriteBatch } from "../../tooling/registry/file-write-evidence";
+import { beginWriteBatch } from "./file-write-evidence";
 import { inspectWorkReadFile } from "../../features/sessions/work-read-scope";
 
 const tool = (id: string) => fixture.tools.get(id)!;

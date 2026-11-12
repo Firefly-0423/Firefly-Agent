@@ -1,5 +1,5 @@
 import type { PluginPromptMode, PluginTurnStatus } from "../../../../plugins/api";
-import type { LifecyclePublisher } from "./lifecycle-publisher";
+import type { LifecyclePublisher } from "../../../agent/runtime/lifecycle-publisher";
 
 /** 桌面轮次开始时已知的标识信息。 */
 export interface PendingTurnInput {

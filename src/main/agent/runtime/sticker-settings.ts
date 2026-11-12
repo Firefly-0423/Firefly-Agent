@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { StickerConfigItem } from "../../../shared/sticker-types";
 import { getStickerSettingsPath } from "../../base/storage/settings-store";
-import { getAllStickerConfig } from "../../platform/stickers/sticker-storage";
+import { getAllStickerConfig } from "../../knowledge/stickers/sticker-storage";
 
 let cachedFlags: Record<string, boolean> | null = null;
 

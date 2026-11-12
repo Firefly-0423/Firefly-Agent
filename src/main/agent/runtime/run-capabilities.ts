@@ -1,7 +1,7 @@
 import type { ConversationMode } from "../../../shared/chat-types";
 import type { SkillEntry, SkillMode, SkillModeOverrides } from "../../knowledge/skills/types";
 import type { ToolDefinition, ToolModeOverrides } from "../../tooling/registry/tool-registry";
-import { filterToolsBySearchBackend, type SearchBackend } from "./search-backend-filter";
+import { filterToolsBySearchBackend, type SearchBackend } from "../../platform/settings/search-backend-filter";
 
 export interface RunCapabilities {
   skillIds: ReadonlySet<string>;

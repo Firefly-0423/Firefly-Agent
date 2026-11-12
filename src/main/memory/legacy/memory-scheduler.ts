@@ -1,4 +1,4 @@
-import { enqueueLLMTask } from "../../agent/services/llm/llm-queue"
+import { enqueueLLMTask } from "../../model/queue/llm-queue"
 import { runReflectionAndCompression } from "./memory-compressor"
 import { entityGraph } from "./entity-graph"
 import type { ExtractedEntity } from "./entity-graph"

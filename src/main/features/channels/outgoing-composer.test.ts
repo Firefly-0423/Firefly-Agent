@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { buildTextOutgoingParts, downgradeToCapability, createOutgoingComposer } from "./outgoing-composer";
-import type { ChannelCapability, OutgoingPart, OutgoingMessage, IncomingMessage } from "./types";
+import type { ChannelCapability, OutgoingPart, OutgoingMessage, IncomingMessage } from "../../conversation/channels/channel-types";
 
 const capability = (change: Partial<ChannelCapability> = {}): ChannelCapability => ({
   maxTextLength: 4096, sticker: true, card: true, markdown: true, video: true, file: true, audio: true, image: true, text: true, ...change,

@@ -1,5 +1,5 @@
 import { expect, it, vi, beforeEach, describe } from "vitest";
-vi.mock("../../platform/settings/model-settings", () => ({ loadModelSettings: vi.fn(), resolveModelSettingsProfile: vi.fn() }));
+vi.mock("../../model/config/model-settings", () => ({ loadModelSettings: vi.fn(), resolveModelSettingsProfile: vi.fn() }));
 vi.mock("../../model/vision/image-router", () => ({ resolveCaptionVisionConfig: vi.fn() }));
 vi.mock("../../model/vision/vision-captioner", () => ({ captionImage: vi.fn() }));
 import { readImageUrlTool, clearImageCaptionCache } from "./builtin-tools/read-image-url-tool";

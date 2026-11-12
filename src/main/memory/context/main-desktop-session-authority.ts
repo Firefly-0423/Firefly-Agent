@@ -1,5 +1,5 @@
 import type {BrowserWindow,IpcMainInvokeEvent,WebContents,WebFrameMain} from "electron";
-import type {ActiveChatTarget,ActiveChatTargetRegistry} from "../../features/plugins/host/active-chat-target";
+import type {ActiveChatTarget,ActiveChatTargetRegistry} from "../../platform/interaction/active-chat-target";
 import {parseInternalId} from "../core/command-validation";
 
 export interface DesktopMemorySession {id:string;mode?:string;modelProfileId?:string}

@@ -105,7 +105,7 @@ vi.mock("../../../platform/windows/tray-icon", () => ({
   loadTrayIcon: h.loadTrayIcon,
 }));
 
-vi.mock("../../../platform/settings/model-settings", () => ({
+vi.mock("../../../model/config/model-settings", () => ({
   getCachedSavedModelProfile: h.getCachedProfile,
   listCachedSavedModelProfileIds: h.listProfileIds,
   loadModelSettings: () => h.model,

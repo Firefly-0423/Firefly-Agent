@@ -1,7 +1,7 @@
 import { beforeEach, afterEach, describe, it, expect, vi } from "vitest";
 import { EventType } from "@ag-ui/core";
 import { FireflyAgent, classifyRunError, toAguiEvent, type FireflyRunOptions } from "./firefly-agent";
-import { AgentRuntimeError } from "./agent-runtime-error";
+import { AgentRuntimeError } from "../../model/errors/agent-runtime-error";
 import { AgentExecutionError } from "./run-execution-status";
 import { runChatLoop } from "./chat-loop";
 import { runHarnessWithAdapter } from "./harness-adapter";

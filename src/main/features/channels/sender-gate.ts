@@ -2,7 +2,7 @@
 //
 // 陌生人第一次发来消息时不进入 Agent，只记入待批准列表；用户在设置页批准后，
 // 该发送者才写入白名单。待批准列表只保存在内存里：重启后陌生人再发一条即可重新出现。
-import type { ChannelId } from "./types";
+import type { ChannelId } from "../../conversation/channels/channel-types";
 
 /** 受发送者白名单约束的渠道。QQ、QQ 机器人各有自己的白名单。 */
 export type SenderGatedChannel = Extract<ChannelId, "wechat" | "feishu">;

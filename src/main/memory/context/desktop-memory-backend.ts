@@ -8,7 +8,7 @@ import {createHash,randomBytes} from "node:crypto";
 import {MemoryClient} from "../core/worker-client";
 import {getStorageContext,type StorageContext} from "../../base/storage/storage-context";
 import type {KeyProtection} from "../core/key-provider";
-import {loadModelSettings,resolveModelSettingsProfile,type ModelSettings} from "../../platform/settings/model-settings";
+import {loadModelSettings,resolveModelSettingsProfile,type ModelSettings} from "../../model/config/model-settings";
 import {createLocalEmbeddingProvider} from "../../knowledge/rag/embedding";
 import {createStandardReranker} from "../../knowledge/rag/reranker";
 import {createNativeHistorySessionPool} from "../sources/native-history-session-pool";

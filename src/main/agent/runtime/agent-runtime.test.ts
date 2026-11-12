@@ -5,7 +5,7 @@ import path from "node:path";
 import { PluginManager } from "../../../plugins/manager";
 import { createPluginPromptRegistry } from "../../../plugins/prompts";
 import type { PluginRuntime } from "../../../plugins/context";
-import type { ScheduledTask } from "../../features/scheduler/types";
+import type { ScheduledTask } from "../../platform/schedule/schedule-types";
 import { createAgentRuntime, type AgentRuntimeDeps } from "./agent-runtime";
 import * as builders from "./build-options";
 

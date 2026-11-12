@@ -1,4 +1,4 @@
-import type { ChannelId } from "./types";
+import type { ChannelId } from "../../conversation/channels/channel-types";
 
 export type ChannelRateLimits = { perChannel: number; perUser: number };
 export type CreateChannelRateLimiterOptions = { now?: () => number; limits: ChannelRateLimits };

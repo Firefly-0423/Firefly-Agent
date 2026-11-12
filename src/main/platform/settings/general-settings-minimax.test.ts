@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GeneralSettings } from "./general-settings";
-import { syncVolcanoSearchMcp } from "./general-settings-lifecycle";
+import { syncVolcanoSearchMcp } from "../../features/settings/general-settings-lifecycle";
 import { addMcpServer, listMcpServers, removeMcpServer } from "../../agent/mcp/mcp-manager";
 
 vi.mock("../../base/storage/storage-context", () => ({ getStorageContext: () => ({ profile: { kind: "production" } }) }));
@@ -9,7 +9,7 @@ vi.mock("../../base/identity/locale-context", () => ({ updateLocaleContext: vi.f
 vi.mock("../windows/window-state", () => ({ setGetCurrentAppIconPath: vi.fn() }));
 vi.mock("../windows/broadcast", () => ({ broadcastToAllWindows: vi.fn() }));
 vi.mock("../windows/app-icon", () => ({ getAppIconPath: vi.fn() }));
-vi.mock("./model-settings", () => ({ getPublicModelConfig: vi.fn(), loadModelSettings: vi.fn() }));
+vi.mock("../../model/config/model-settings", () => ({ getPublicModelConfig: vi.fn(), loadModelSettings: vi.fn() }));
 vi.mock("../../agent/tools/tool-registration", () => ({ syncBuiltInToolToggles: vi.fn() }));
 vi.mock("../../agent/mcp/mcp-manager", () => ({ listMcpServers: vi.fn(() => []), removeMcpServer: vi.fn(), addMcpServer: vi.fn() }));
 

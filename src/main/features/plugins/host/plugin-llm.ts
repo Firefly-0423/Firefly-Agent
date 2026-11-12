@@ -1,6 +1,6 @@
 import type { PluginLlmGenerateOptions, PluginLlmMessage } from "../../../../plugins/api";
 import type { LlmClient } from "../../../agent/services/llm/llm-client";
-import type { ModelSettings } from "../../../platform/settings/model-settings";
+import type { ModelSettings } from "../../../model/config/model-settings";
 import { runWithUsageAttribution } from "../../../base/storage/usage-attribution";
 
 export type EnqueuePluginLlmTask = <T>(label: string, task: () => Promise<T>,

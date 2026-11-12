@@ -7,7 +7,7 @@ import { createChannelRateLimiter } from "./rate-limiter";
 import { createKeyedQueue } from "./keyed-queue";
 import { appendHistory, migrateHistory } from "./history-log";
 import { appendLog, reloadLogFromDisk } from "./message-log";
-import type { IncomingMessage, ChannelCapability, OutgoingMessage } from "./types";
+import type { IncomingMessage, ChannelCapability, OutgoingMessage } from "../../conversation/channels/channel-types";
 import type { ChannelsSettings } from "./settings-store";
 import { ChannelManager } from "./manager";
 import { createChannelMemoryAccountIdentity, type ChannelAdapter } from "./adapters/base";

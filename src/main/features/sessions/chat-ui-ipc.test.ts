@@ -8,7 +8,7 @@ const state = vi.hoisted(() => {
     return { handlers: new Map<string, any>(), sessions: new Map<string, any>(), saveProfile: vi.fn(), saveSettings: vi.fn(), sender: { id: 317, mainFrame: {}, isDestroyed: () => false, on: vi.fn(), once: vi.fn(), removeListener: vi.fn() }, settings: { provider: "MiniMax（稀宇科技）", model: "global-mirror-model", baseUrl: "https://api.minimaxi.com/anthropic", apiKey: "mirror-test-key", perProvider: {}, thinkingOverride: -1, modelProfiles: profiles } };
 });
 vi.mock("electron", () => ({ BrowserWindow: { fromWebContents: vi.fn(), getAllWindows: () => [] }, screen: { getCursorScreenPoint: () => ({ x: 1, y: 1 }), getDisplayNearestPoint: () => ({ workArea: { x: 0, y: 0, width: 1600, height: 900 } }) }, ipcMain: { handle: (channel: string, handler: any) => state.handlers.set(channel, handler), on: vi.fn() } }));
-vi.mock("../../platform/settings/model-settings", () => ({
+vi.mock("../../model/config/model-settings", () => ({
     loadModelSettings: () => state.settings, listSavedModelProfiles: (settings: any) => settings.modelProfiles,
     getDefaultModelProfile: (settings: any) => settings.modelProfiles[0],
     resolveModelSettingsProfile: (settings: any, id: string) => ({ ...settings, ...settings.modelProfiles.find((profile: any) => profile.id === id) }),
@@ -54,7 +54,7 @@ describe("reasoning profile selection", () => {
     });
 });
 it("synchronously updates private browser ownership only for the trusted renderer", async () => {
-    const { activeChatTargetRegistry: targets } = await import("../plugins/host/active-chat-target");
+    const { activeChatTargetRegistry: targets } = await import("../../platform/interaction/active-chat-target");
     const changes: Array<string | null> = [];
     await register(() => { changes.push(targets.getActive()?.sessionId ?? null); });
     const invoke = state.handlers.get(IPC.CHATS_SET_ACTIVE_SESSION);

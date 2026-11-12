@@ -1,4 +1,4 @@
-import { beginWriteBatch } from "../../tooling/registry/file-write-evidence";
+import { beginWriteBatch } from "./file-write-evidence";
 import * as fs from "fs";
 import * as path from "path";
 import { createHash } from "crypto";
@@ -272,7 +272,7 @@ toolRegistry.register({
 });
 
 async function loadCaptionVisionConfigLazy(): Promise<import("../../model/vision/image-router").CaptionVisionConfig> {
-  const storage = await import("../../platform/settings/model-settings");
+  const storage = await import("../../model/config/model-settings");
   const selected = storage.resolveModelSettingsProfile(storage.loadModelSettings());
   const routing = await import("../../model/vision/image-router");
   return routing.resolveCaptionVisionConfig(selected);

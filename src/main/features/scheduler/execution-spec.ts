@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { PluginScheduledExecutionSpec } from "../../../plugins/api";
-import type { ScheduleConfig, ScheduledTask, ScheduledTaskPatch } from "./types";
+import type { ScheduleConfig, ScheduledTask, ScheduledTaskPatch } from "../../platform/schedule/schedule-types";
 
 // 指纹依赖这里的键序；只选执行所需字段。
 function scheduleForDigest(plan: ScheduleConfig): Record<string, unknown> {

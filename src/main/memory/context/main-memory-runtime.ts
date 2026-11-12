@@ -2,7 +2,7 @@ import type { MainActorAuthority } from "../core/main-actor-authority";
 import { canonicalJson } from "../core/repository-types";
 import { readHistoryEvidence } from "../history/main-history";
 import type { createMainSourceRegistry } from "../sources/source-registry";
-import { AgentRuntimeError } from "../../agent/runtime/agent-runtime-error";
+import { AgentRuntimeError } from "../../model/errors/agent-runtime-error";
 import { readTrustedPromptContext } from "../../agent/runtime/prompt-layers";
 import { isExplicitStreamUnsupported } from "../../model/providers/stream-support";
 import type { TranscriptSink } from "../../conversation/transcript/transcript-sink";

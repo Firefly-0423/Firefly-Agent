@@ -2,7 +2,7 @@ import {requestProviderIdentity} from "./request-provider-identity";
 import { createHash } from "node:crypto";
 import { Agent, type Dispatcher } from "undici";
 import { contextFail, type JsonValue, type PreparedRequest, type RequestIdentity } from "../../memory/context/context-contracts";
-import { AgentRuntimeError } from "../../agent/runtime/agent-runtime-error";
+import { AgentRuntimeError } from "../errors/agent-runtime-error";
 import { connectionLost } from "./connection-lost";
 import { copyResponseJson } from "./response-request-snapshot";
 import { getVendorRuntimeSettings } from "./runtime-settings";

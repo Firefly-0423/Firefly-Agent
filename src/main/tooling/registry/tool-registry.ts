@@ -1,7 +1,7 @@
 import { searchMemory } from "../../knowledge/rag/index";
 import type { ToolRiskLevel } from "../../platform/permission/permission";
 import type { ToolContext } from "./tool-context";
-import { RETIRED_MEMORY_TOOL_IDS } from "../../agent/tools/retired-memory-tools";
+import { RETIRED_MEMORY_TOOL_IDS } from "./retired-memory-tools";
 import type { ConversationMode } from "../../../shared/chat-types";
 
 export type ToolEffectKind = "read" | "mutation" | "verification" | "external_side_effect" | "unknown";

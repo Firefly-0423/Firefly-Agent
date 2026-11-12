@@ -6,7 +6,7 @@ import { applyElectronPaths, canonicalPath, resolveRuntimeProfile, within } from
 import { getFireflyApplicationDataPath } from "../../../base/identity/app-identity";
 import { initializeStorageContext } from "../../../base/storage/storage-context";
 import { loadTrayIcon } from "../../../platform/windows/tray-icon";
-import { getCachedSavedModelProfile, listCachedSavedModelProfileIds, loadModelSettings, prepareReadOnlyDiagnosticModelCache } from "../../../platform/settings/model-settings";
+import { getCachedSavedModelProfile, listCachedSavedModelProfileIds, loadModelSettings, prepareReadOnlyDiagnosticModelCache } from "../../../model/config/model-settings";
 import { resolveVendorRuntimeSettings, setVendorRuntimeSettingsGetter } from "../../../model/providers/runtime-settings";
 import { inspectPreparedProfiles } from "./preparation-diagnostics";
 import { createDiagnosticController } from "./diagnostic-controller";

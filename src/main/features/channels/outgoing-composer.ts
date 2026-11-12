@@ -1,11 +1,11 @@
 import * as fs from "fs";
 import * as path from "path";
 import { app } from "electron";
-import { resolveLocalStickerPath } from "../../platform/stickers/sticker-protocol";
-import { getStickersDir, loadUserStickerManifest } from "../../platform/stickers/sticker-storage";
-import { BUILT_IN_STICKER_FILES } from "../../platform/stickers/sticker-descriptions";
+import { resolveLocalStickerPath } from "../../knowledge/stickers/sticker-protocol";
+import { getStickersDir, loadUserStickerManifest } from "../../knowledge/stickers/sticker-storage";
+import { BUILT_IN_STICKER_FILES } from "../../knowledge/stickers/sticker-descriptions";
 import { BUILT_IN_STICKER_IDS } from "../../../shared/sticker-types";
-import type { ChannelCapability, IncomingMessage, OutgoingMessage, OutgoingPart } from "./types";
+import type { ChannelCapability, IncomingMessage, OutgoingMessage, OutgoingPart } from "../../conversation/channels/channel-types";
 
 export type ComposeOutgoingInput = { settings: { stickerEnabled: boolean }; capability?: ChannelCapability; sticker: string | null; replyText: string; incoming: IncomingMessage };
 export type PreparedOutgoing = { transientFiles: string[]; stickerId?: string; assistantText: string; message: OutgoingMessage };

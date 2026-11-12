@@ -12,7 +12,7 @@ const { getById, checkPermission, getCurrentLevel, createAgentExecutor, taskStor
 vi.mock("../../../tooling/registry/tool-registry", () => ({ toolRegistry: { getById } }));
 vi.mock("../../../platform/permission/permission", () => ({ checkPermission, getCurrentLevel }));
 vi.mock("../../runtime/persistent-agent-runtime", () => ({ createAgentExecutor }));
-vi.mock("../../../platform/settings/model-settings", () => ({ loadModelSettings: () => ({ modelProfiles: [], agentModelProfiles: {} }) }));
+vi.mock("../../../model/config/model-settings", () => ({ loadModelSettings: () => ({ modelProfiles: [], agentModelProfiles: {} }) }));
 vi.mock("../../tasks/task-session-store", () => ({ getTaskSessionStore: taskStore }));
 vi.mock("../tool-output/file-tool-output-store", () => ({ FileToolOutputStore: toolOutputStore }));
 vi.mock("./event-mapper", () => ({ sendTaskLifecycleAsAgui: vi.fn() }));

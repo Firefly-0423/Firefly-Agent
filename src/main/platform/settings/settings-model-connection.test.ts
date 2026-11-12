@@ -19,7 +19,7 @@ afterEach(() => { dispose?.(); dispose = undefined; fs.rmSync(fixture.directory,
 const config = { provider: "fixture", baseUrl: "https://fixture.invalid/v1", model: "fixture-model", apiKey: "fixture-secret", explicitTransport: "openai" as const, reasoning: { mode: "off" as const } };
 function deferred() { let resolve!: (value: { ok: boolean; latency: number; error?: string }) => void; let reject!: (error: Error) => void; const promise = new Promise<{ ok: boolean; latency: number; error?: string }>((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; }
 async function setup(profiles = [{ id: "p1", ...config }]) {
-  const model = await import("./model-settings");
+  const model = await import("../../model/config/model-settings");
   model.saveModelSettings({ modelProfiles: profiles, defaultModelProfileId: "p1" });
   const windows = await import("../windows/window-state");
   const mainFrame = { url: pathToFileURL(path.join(fixture.directory, "dist", "renderer", "settings", "index.html")).href + "#api" };
@@ -29,7 +29,7 @@ async function setup(profiles = [{ id: "p1", ...config }]) {
   const handlers = new Map<string, (...args: any[]) => any>();
   const events = new Map<string, (...args: any[]) => any>();
   const createSidebarWindow = vi.fn();
-  const { registerSettingsIpc } = await import("./settings-ipc");
+  const { registerSettingsIpc } = await import("../../features/settings/settings-ipc");
   dispose = registerSettingsIpc({
     ipc: { handle: (channel: string, callback: (...args: any[]) => any) => handlers.set(channel, callback), on: (channel: string, callback: (...args: any[]) => any) => events.set(channel, callback) },
     getModelSettings: model.loadModelSettings, saveModelSettings: model.saveModelSettings,
@@ -122,7 +122,7 @@ it("redacts private exceptions and resets verification on process restart", asyn
   expect(await h.test()).toEqual({ ok: false, latency: expect.any(Number), error: "MODEL_CONNECTION_TEST_ERROR" });
   expect(h.snapshot().profiles[0]).toMatchObject({ state: "failed", reason: "test_error" });
   expect(JSON.stringify(h.snapshot())).not.toMatch(/fixture-secret|fixture.invalid|private response/);
-  dispose?.(); vi.resetModules(); const fresh = await import("./model-settings");
+  dispose?.(); vi.resetModules(); const fresh = await import("../../model/config/model-settings");
   expect(fresh.getPublicModelConfig().connected).toBe(false);
 });
 it("takes an independent normalized snapshot before awaiting the adapter", async () => {

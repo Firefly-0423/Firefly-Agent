@@ -6,7 +6,7 @@ const settingsState = vi.hoisted(() => ({
   resolve: vi.fn(),
 }));
 
-vi.mock("../../platform/settings/model-settings", () => ({
+vi.mock("../../model/config/model-settings", () => ({
   assertModelSettingsReadable: settingsState.assertReadable,
   loadModelSettings: settingsState.load,
   resolveModelSettingsProfile: settingsState.resolve,

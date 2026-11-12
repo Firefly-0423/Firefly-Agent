@@ -1,4 +1,4 @@
-import { getToolWriteEvidence } from "./file-write-evidence";
+import { getToolWriteEvidence } from "../../agent/tools/file-write-evidence";
 import { isAbortError } from "../../base/utils/abort-utils";
 import { recordSkillUse, recordToolCall } from "../../base/storage/token-usage-store";
 import { currentUsageAttribution, runWithUsageAttribution } from "../../base/storage/usage-attribution";
@@ -6,7 +6,7 @@ import type { ToolContext } from "./tool-context";
 import type { ToolDefinition } from "./tool-registry";
 import { normalizeToolExecutionOutcome } from "./tool-outcome-normalizer";
 import { ToolExecutionError, type ToolEffectState, type ToolErrorCategory } from "./tool-execution-error";
-import type { ToolExecutionOutcome } from "../../agent/runtime/types";
+import type { ToolExecutionOutcome } from "./tool-call-types";
 
 function knownCategory(candidate: unknown): candidate is ToolErrorCategory {
   return typeof candidate === "string" && [

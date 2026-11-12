@@ -1,4 +1,4 @@
-import { assertModelSettingsReadable, loadModelSettings, resolveModelSettingsProfile } from "../../platform/settings/model-settings";
+import { assertModelSettingsReadable, loadModelSettings, resolveModelSettingsProfile } from "../../model/config/model-settings";
 
 export type MemoryModelConfigSource = "inherited-main";
 

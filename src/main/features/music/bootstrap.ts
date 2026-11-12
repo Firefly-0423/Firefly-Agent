@@ -3,7 +3,7 @@ import { app, ipcMain } from "electron";
 import { IPC } from "../../../shared/ipc-channels";
 import { buildMusicTools } from "../../agent/tools/music-tools";
 import { toolRegistry } from "../../tooling/registry/tool-registry";
-import { createQqMusicExecutor, QqMusicService, type QqMusicAction } from "./qqmusic-service";
+import { createQqMusicExecutor, QqMusicService, type QqMusicAction } from "../../platform/music/qqmusic-service";
 
 export interface MusicBootstrap {
   service: QqMusicService;

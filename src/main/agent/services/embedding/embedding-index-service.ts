@@ -1,9 +1,9 @@
 import { logger, LogTag } from "../../../base/logging/logger";
 import { getEmbeddingProvider } from "../../../knowledge/rag/embedding";
-import { AUTO_SEND_STICKER_DESCRIPTIONS } from "../../../platform/stickers/sticker-descriptions";
-import { buildCachedStickerEmbeddingIndex } from "../../../platform/stickers/sticker-embedding-cache";
-import type { StickerEmbeddingEntry } from "../../../platform/stickers/sticker-embedder";
-import { loadUserStickerManifest } from "../../../platform/stickers/sticker-storage";
+import { AUTO_SEND_STICKER_DESCRIPTIONS } from "../../../knowledge/stickers/sticker-descriptions";
+import { buildCachedStickerEmbeddingIndex } from "../../../knowledge/stickers/sticker-embedding-cache";
+import type { StickerEmbeddingEntry } from "../../../knowledge/stickers/sticker-embedder";
+import { loadUserStickerManifest } from "../../../knowledge/stickers/sticker-storage";
 
 export type EmbeddingIndexService = {
   scheduleStartupRefreshes(delayMs?: number): void;

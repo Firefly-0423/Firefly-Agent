@@ -2,9 +2,9 @@ import { app, net, protocol } from "electron";
 import * as fs from "fs";
 import * as path from "path";
 import { pathToFileURL } from "url";
-import { getUiFontResponseHeaders, isSafeUiFontRequest } from "./ui-font-protocol";
-import { getStickersDir } from "../stickers/sticker-storage";
-import { parseLocalStickerFileFromUrl, resolveLocalStickerPath } from "../stickers/sticker-protocol";
+import { getUiFontResponseHeaders, isSafeUiFontRequest } from "../platform/protocols/ui-font-protocol";
+import { getStickersDir } from "../knowledge/stickers/sticker-storage";
+import { parseLocalStickerFileFromUrl, resolveLocalStickerPath } from "../knowledge/stickers/sticker-protocol";
 
 export function registerPrivilegedSchemes(): void {
   const stickerPrivileges = { standard: true, secure: true, supportFetchAPI: true, stream: true };

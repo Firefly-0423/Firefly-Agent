@@ -6,7 +6,7 @@ import { app } from "electron";
 import type { PluginPromptMode } from "../../../plugins/api";
 import { AtomicJsonStore } from "../../base/storage/atomic-json-store";
 import { computeInitialNextFireAt, normalizeOverdueNextFireAt } from "./schedule-calculator";
-import type { NewScheduledTaskInput, ScheduledTask, ScheduledTaskHistoryEntry, ScheduledTaskPatch, ScheduleConfig, SchedulerToolMode, } from "./types";
+import type { NewScheduledTaskInput, ScheduledTask, ScheduledTaskHistoryEntry, ScheduledTaskPatch, ScheduleConfig, SchedulerToolMode, } from "../../platform/schedule/schedule-types";
 interface StoreDeps {
     tasksFile: string;
     historyFile: string;

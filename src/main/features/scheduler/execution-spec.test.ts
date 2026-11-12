@@ -1,7 +1,7 @@
 import { it, expect } from "vitest";
 import { computeExecutionSpecFingerprint as fingerprint, taskExecutionSpec as spec, pluginTaskTogglePatch as toggle,
   authorizePluginTaskUpdatePatch as authorize, isPluginTaskEffectivelyEnabled as pluginEnabled, isTaskEnabled as enabled } from "./execution-spec";
-import type { ScheduledTask } from "./types";
+import type { ScheduledTask } from "../../platform/schedule/schedule-types";
 
 function job(patch: Partial<ScheduledTask> = {}): ScheduledTask {
   return { id: "garden-review", title: "Garden review", prompt: "Review the seedlings", enabled: false,

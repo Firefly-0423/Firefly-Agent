@@ -22,7 +22,7 @@ const readDisk = () => JSON.parse(fs.readFileSync(path.join(state.directory, "mo
 
 describe("输入模态声明落盘", () => {
   it("厂商接口记录随档案保存，展开后图片能力与来源一致", async () => {
-    const model = await import("./model-settings");
+    const model = await import("../../model/config/model-settings");
     model.saveModelProfile({ id: "p1", ...base, model: "brand-new-a", inputModalities: ["text", "image"], inputModalitiesSource: "vendor-api" });
 
     const stored = readDisk().modelProfiles[0];
@@ -34,7 +34,7 @@ describe("输入模态声明落盘", () => {
   });
 
   it("用户覆盖替换厂商记录；保存时不带声明即回到自动（内置目录 / 未知）", async () => {
-    const model = await import("./model-settings");
+    const model = await import("../../model/config/model-settings");
     model.saveModelProfile({ id: "p1", ...base, model: "brand-new-a", inputModalities: ["text", "image"], inputModalitiesSource: "vendor-api" });
     model.saveModelProfile({ id: "p1", ...base, model: "brand-new-a", inputModalities: ["text"], inputModalitiesSource: "user" });
     expect(model.resolveModelSettingsProfile(model.loadModelSettings(), "p1")).toMatchObject({ multimodal: false, inputModalitiesSource: "user" });
@@ -47,7 +47,7 @@ describe("输入模态声明落盘", () => {
   });
 
   it("默认档案切换时顶层镜像跟随新默认档案，不残留上一个档案的声明", async () => {
-    const model = await import("./model-settings");
+    const model = await import("../../model/config/model-settings");
     model.saveModelProfile({ id: "p1", ...base, model: "brand-new-a", inputModalities: ["text", "image"], inputModalitiesSource: "vendor-api" });
     model.saveModelProfile({ id: "p2", ...base, model: "plain-b" });
     // 镜像只在显式设置默认档案时刷新（与既有的 provider/model 镜像同一规则）
@@ -66,7 +66,7 @@ describe("输入模态声明落盘", () => {
   });
 
   it("保存全局选项不会抹掉当前厂商的输入模态声明", async () => {
-    const model = await import("./model-settings");
+    const model = await import("../../model/config/model-settings");
     model.saveModelProfile({ id: "p1", ...base, model: "brand-new-a", inputModalities: ["text", "image"], inputModalitiesSource: "user" });
     model.setDefaultModelProfile("p1");
     model.saveModelSettings({ stickerEnabled: true });
@@ -82,7 +82,7 @@ describe("输入模态旧存档与非法值", () => {
       defaultModelProfileId: "old",
       modelProfiles: [{ id: "old", provider: "Claude（Anthropic）", baseUrl: "https://api.anthropic.com/v1", apiKey: "synthetic-key", model: "claude-sonnet-4-6", multimodal: false }],
     }));
-    const model = await import("./model-settings");
+    const model = await import("../../model/config/model-settings");
     const resolved = model.resolveModelSettingsProfile(model.loadModelSettings(), "old");
     expect(resolved.multimodal).toBe(true);
     expect(resolved.inputModalities).toBeUndefined();
@@ -99,7 +99,7 @@ describe("输入模态旧存档与非法值", () => {
         { id: "bad-source", ...base, model: "brand-new-b", inputModalities: ["image"], inputModalitiesSource: "catalog" },
       ],
     }));
-    const model = await import("./model-settings");
+    const model = await import("../../model/config/model-settings");
     const settings = model.loadModelSettings();
     const badList = settings.modelProfiles!.find((item) => item.id === "bad-list")!;
     expect(badList).not.toHaveProperty("inputModalities");
@@ -124,8 +124,8 @@ describe("档案列表视图带出图片能力与依据", () => {
         { id: "d", ...base, model: "mystery" },
       ],
     }));
-    const model = await import("./model-settings");
-    const { registerSettingsIpc } = await import("./settings-ipc");
+    const model = await import("../../model/config/model-settings");
+    const { registerSettingsIpc } = await import("../../features/settings/settings-ipc");
     const windows = await import("../windows/window-state");
     const webContents = { isDestroyed: () => false, mainFrame: { url: "http://localhost:5173/settings/" } };
     windows.setSettingsWindow({ isDestroyed: () => false, webContents } as never);

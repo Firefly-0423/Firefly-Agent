@@ -1,7 +1,7 @@
 import os from "node:os";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FireflyRunTerminalResult } from "../../../shared/run-terminal";
-import type { IncomingMessage, OutgoingMessage } from "./types";
+import type { IncomingMessage, OutgoingMessage } from "../../conversation/channels/channel-types";
 
 const fake = vi.hoisted(() => ({
   terminal: undefined as FireflyRunTerminalResult | undefined,
@@ -34,9 +34,9 @@ vi.mock("./history-log", () => ({
 vi.mock("./message-log", () => ({ appendLog: () => {} }));
 vi.mock("../../tooling/registry/tool-registry", () => ({ toolRegistry: { getEnabledTools: () => [], getAllTools: () => [] } }));
 vi.mock("../../agent/tools/history-tools", () => ({ indexConversationTurn: fake.indexed }));
-vi.mock("../../model/vision/image-caption", () => ({ captionImageSafe: vi.fn(), IMAGE_CAPTION_PROMPT: "unused" }));
+vi.mock("../../agent/runtime/image-caption", () => ({ captionImageSafe: vi.fn(), IMAGE_CAPTION_PROMPT: "unused" }));
 vi.mock("./agent-input", () => ({ buildChannelAttachmentInputs: async () => ({}) }));
-vi.mock("../../platform/settings/model-settings", () => ({ loadModelSettings: () => ({}), resolveModelSettingsProfile: () => ({ multimodal: false }) }));
+vi.mock("../../model/config/model-settings", () => ({ loadModelSettings: () => ({}), resolveModelSettingsProfile: () => ({ multimodal: false }) }));
 vi.mock("./settings-store", () => ({ loadChannelsSettings: () => ({
   toolSandbox: "safe", rateLimitPerUser: 50, rateLimitPerChannel: 50, stickerEnabled: false, mirrorToDesktop: false,
 }) }));

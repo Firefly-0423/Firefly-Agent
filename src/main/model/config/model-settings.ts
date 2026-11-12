@@ -1,22 +1,22 @@
 import fs from "node:fs";
 import { createModelConnectionState, normalizeConnectionConfig } from "./model-connection-state";
 import type { ModelConnectionSnapshot } from "../../../shared/model-connection-types";
-import type { TestConnectionResult, VendorConfig } from "../../model/providers/types";
+import type { TestConnectionResult, VendorConfig } from "../providers/types";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { RuntimeProfile } from "../../base/identity/runtime-profile";
-import { DEFAULT_CONTEXT_WINDOW_TOKENS } from "../../model/config";
+import { DEFAULT_CONTEXT_WINDOW_TOKENS } from "./";
 import { LEGACY_DEFAULT_CONTEXT_WINDOW_TOKENS, parseContextWindowTokens, resolveContextWindowTokens } from "../../../shared/context-window";
 import { foldReasoning, normalizeReasoningLevels, normalizeReasoningPreference, type ReasoningLevelsConfig, type ReasoningPreference } from "../../../shared/reasoning";
 import type { StickerSize } from "../../../shared/sticker-types";
 import { getSettingsPath } from "../../base/storage/settings-store";
 import { logger, LogTag } from "../../base/logging/logger";
-import { getCapabilityOrOpenAI } from "../../model/providers/capabilities";
-import { resolveInputModalities } from "../../model/providers/multimodal";
+import { getCapabilityOrOpenAI } from "../providers/capabilities";
+import { resolveInputModalities } from "../providers/multimodal";
 import { normalizeDeclaredInputModalities, type InputModality, type InputModalitySource } from "../../../shared/input-modalities";
 import { addModelProfile, resolveDefaultModelProfile, updateModelProfile, type SavedModelProfile } from "./model-catalog";
 import { normalizeAgentModelProfiles } from "./agent-model-routing";
-import { decodeCredentials, migrateCredentials, writeCredentials, MODEL_CREDENTIAL_FIELDS } from "./credential-storage";
+import { decodeCredentials, migrateCredentials, writeCredentials, MODEL_CREDENTIAL_FIELDS } from "../../platform/settings/credential-storage";
 
 /**
  * 统一模型配置入口：所有模块（包括 Code 模式）必须通过此函数读取。

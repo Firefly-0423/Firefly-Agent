@@ -1,4 +1,4 @@
-import type { ActiveChatTargetRegistry } from "../../features/plugins/host/active-chat-target";
+import type { ActiveChatTargetRegistry } from "../interaction/active-chat-target";
 import type { ConversationMode } from "../../../shared/chat-types";
 import type { BrowserHostPort, BrowserInvokeEvent, TrustedBrowserOwner, createBrowserService } from "./browser-service";
 import { randomUUID } from "node:crypto";

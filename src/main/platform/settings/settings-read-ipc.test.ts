@@ -19,7 +19,7 @@ it("rejects plugin enablement through general settings without changing disk or 
   const file = path.join(state.directory, "app-settings.json");
   const before = fs.readFileSync(file, "utf8");
   const save = vi.fn(general.saveGeneralSettings);
-  const { registerSettingsIpc } = await import("./settings-ipc");
+  const { registerSettingsIpc } = await import("../../features/settings/settings-ipc");
   const handlers = new Map<string, (...args: unknown[]) => unknown>();
   registerSettingsIpc({
     ipc: { handle: (channel: string, handler: (...args: unknown[]) => unknown) => handlers.set(channel, handler), on: vi.fn() },
@@ -44,7 +44,7 @@ it("accepts settings and chat documents, but rejects foreign, child and navigate
   general.saveGeneralSettings({ plugins: { "fixture-plugin": false } });
   const save = vi.fn(general.saveGeneralSettings);
   const handlers = new Map<string, (...args: unknown[]) => unknown>();
-  const { registerSettingsIpc } = await import("./settings-ipc");
+  const { registerSettingsIpc } = await import("../../features/settings/settings-ipc");
   registerSettingsIpc({
     ipc: { handle: (channel: string, handler: (...args: unknown[]) => unknown) => handlers.set(channel, handler), on: vi.fn() },
     getGeneralSettings: general.loadGeneralSettings, saveGeneralSettings: save,
@@ -67,9 +67,9 @@ it("accepts settings and chat documents, but rejects foreign, child and navigate
 
 it("rejects config and catalog IPC reads without exposing corrupt content or writing defaults", async () => {
   for (const filename of ["model-settings.json", "app-settings.json"]) fs.writeFileSync(path.join(state.directory, filename), "{broken");
-  const model = await import("./model-settings");
+  const model = await import("../../model/config/model-settings");
   const general = await import("./settings-facade");
-  const { registerSettingsIpc } = await import("./settings-ipc");
+  const { registerSettingsIpc } = await import("../../features/settings/settings-ipc");
   const windows = await import("../windows/window-state");
   const webContents = { isDestroyed: () => false, mainFrame: { url: "http://localhost:5173/settings/" } };
   windows.setSettingsWindow({ isDestroyed: () => false, webContents } as never);
@@ -94,7 +94,7 @@ it("reads general settings only from live owned documents, including the pet", a
   windows.setSettingsWindow({ isDestroyed: () => false, webContents: settings } as never);
   const read = vi.fn(() => ({ language: "en" }));
   const handlers = new Map<string, (...args: unknown[]) => unknown>();
-  const { registerSettingsIpc } = await import("./settings-ipc");
+  const { registerSettingsIpc } = await import("../../features/settings/settings-ipc");
   registerSettingsIpc({
     ipc: { handle: (channel: string, handler: (...args: unknown[]) => unknown) => handlers.set(channel, handler), on: vi.fn() },
     getGeneralSettings: read, windowManager: { isPetWindowSender: (id: number) => id === pet.id },
@@ -115,9 +115,9 @@ it("reads general settings only from live owned documents, including the pet", a
 });
 
 it("persists individual routing identities through Main IPC without returning model secrets", async () => {
-  const model = await import("./model-settings");
+  const model = await import("../../model/config/model-settings");
   model.saveModelSettings({ modelProfiles: [{ id: "public-local", provider: "test", model: "fixture", baseUrl: "http://127.0.0.1:12345", apiKey: "private-fixture" }] });
-  const { registerSettingsIpc } = await import("./settings-ipc");
+  const { registerSettingsIpc } = await import("../../features/settings/settings-ipc");
   const handlers = new Map<string, (...args: unknown[]) => unknown>();
   registerSettingsIpc({
     ipc: { handle: (channel: string, handler: (...args: unknown[]) => unknown) => handlers.set(channel, handler), on: vi.fn() },

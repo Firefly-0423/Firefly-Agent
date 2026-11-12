@@ -1,6 +1,6 @@
 import {beforeEach,it,expect,vi} from "vitest";
 import {EventEmitter} from "node:events";
-import {createActiveChatTargetRegistry} from "../../features/plugins/host/active-chat-target";
+import {createActiveChatTargetRegistry} from "../../platform/interaction/active-chat-target";
 import {createMainDesktopMemory} from "./main-desktop-memory";
 import {contextFixture} from "../../../../scripts/verify/memory-context/context-fixture";
 import {ConversationTranscriptStore} from "../../conversation/transcript/conversation-transcript-store";

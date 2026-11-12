@@ -1,18 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { app } from "electron";
 import { IPC } from "../../../shared/ipc-channels";
-import type { GeneralSettings } from "./general-settings";
-import type { WindowManager } from "../windows/window-manager";
+import type { GeneralSettings } from "../../platform/settings/general-settings";
+import type { WindowManager } from "../../platform/windows/window-manager";
 import { applyGeneralSettings, handleGeneralSettingsChanged } from "./general-settings-lifecycle";
 
 const environment = vi.hoisted(() => ({ profile: "production" }));
 vi.mock("../../base/storage/storage-context", () => ({ getStorageContext: () => ({ profile: { kind: environment.profile } }) }));
 vi.mock("electron", () => ({ nativeImage: {}, app: { setLoginItemSettings: vi.fn() } }));
 vi.mock("../../base/identity/locale-context", () => ({ updateLocaleContext: vi.fn() }));
-vi.mock("../windows/window-state", () => ({ setGetCurrentAppIconPath: vi.fn() }));
-vi.mock("../windows/broadcast", () => ({ broadcastToAllWindows: vi.fn() }));
-vi.mock("../windows/app-icon", () => ({ getAppIconPath: vi.fn() }));
-vi.mock("./model-settings", () => ({ getPublicModelConfig: vi.fn(), loadModelSettings: vi.fn() }));
+vi.mock("../../platform/windows/window-state", () => ({ setGetCurrentAppIconPath: vi.fn() }));
+vi.mock("../../platform/windows/broadcast", () => ({ broadcastToAllWindows: vi.fn() }));
+vi.mock("../../platform/windows/app-icon", () => ({ getAppIconPath: vi.fn() }));
+vi.mock("../../model/config/model-settings", () => ({ getPublicModelConfig: vi.fn(), loadModelSettings: vi.fn() }));
 vi.mock("../../agent/tools/tool-registration", () => ({ syncBuiltInToolToggles: vi.fn() }));
 vi.mock("../../agent/mcp/mcp-manager", () => ({ listMcpServers: () => [], removeMcpServer: vi.fn(), addMcpServer: vi.fn() }));
 

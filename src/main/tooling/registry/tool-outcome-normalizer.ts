@@ -1,4 +1,4 @@
-import type { ToolExecutionOutcome } from "../../agent/runtime/types";
+import type { ToolExecutionOutcome } from "./tool-call-types";
 
 export function normalizeToolExecutionOutcome(
   facts: ToolExecutionOutcome,

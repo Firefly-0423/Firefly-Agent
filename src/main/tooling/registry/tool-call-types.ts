@@ -1,5 +1,5 @@
 import type { TaskWriteEvidence } from "../../../shared/agent-execution-evidence";
-import type { ToolEffectState, ToolErrorCategory } from "../../tooling/registry/tool-execution-error";
+import type { ToolEffectState, ToolErrorCategory } from "./tool-execution-error";
 
 export interface ToolCallResult {
   stepAttemptId?: string;

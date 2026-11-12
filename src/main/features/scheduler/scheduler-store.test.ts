@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createSchedulerStore } from "./scheduler-store";
-import type { NewScheduledTaskInput } from "./types";
+import type { NewScheduledTaskInput } from "../../platform/schedule/schedule-types";
 
 let directory: string, clock: Date;
 beforeEach(() => { directory = mkdtempSync(join(tmpdir(), "ff-schedule-store-")); clock = new Date("2026-10-21T06:00:00Z"); });

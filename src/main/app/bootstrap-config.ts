@@ -1,7 +1,7 @@
 import type { BrowserWindow } from "electron";
 import { IPC } from "../../shared/ipc-channels";
 import type { GeneralSettings } from "../platform/settings/general-settings";
-import { loadModelSettings } from "../platform/settings/model-settings";
+import { loadModelSettings } from "../model/config/model-settings";
 import { loadUserProfile } from "../base/storage/settings-store";
 import { setSearchConfig, setUserTimezoneConfig, setWeatherConfig } from "../agent/tools/built-in-tools";
 import { setEmailConfig } from "../agent/tools/email-tools";

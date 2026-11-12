@@ -1,5 +1,5 @@
 import type { ToolCall, ChatMessage } from "../../model/providers/types";
-import type { ToolCallResult } from "../runtime/types";
+import type { ToolCallResult } from "../../tooling/registry/tool-call-types";
 import { TranscriptWriteError } from "../../conversation/transcript/transcript-sink";
 import type { ToolObservation, ToolCallOutcome, SideEffectKind, HarnessToolLifecycleEvent, HarnessToolFinishedEvent } from "./types";
 import type { ToolRiskLevel } from "../../platform/permission/permission-policy";

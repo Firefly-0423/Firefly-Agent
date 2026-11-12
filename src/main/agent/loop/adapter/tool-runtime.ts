@@ -11,7 +11,7 @@ import type { HarnessInput } from "../index";
 import { getTaskSessionStore } from "../../tasks/task-session-store";
 import { createAgentExecutor } from "../../runtime/persistent-agent-runtime";
 import { createSpecialistProfiles } from "../../runtime/specialist-profiles";
-import { loadModelSettings } from "../../../platform/settings/model-settings";
+import { loadModelSettings } from "../../../model/config/model-settings";
 import { FileToolOutputStore } from "../tool-output/file-tool-output-store";
 import { sendTaskLifecycleAsAgui } from "./event-mapper";
 import type { PreparedHarnessRun } from "./run-preparation";

@@ -2,7 +2,7 @@ import * as fs from "fs";
 import { randomUUID } from "node:crypto";
 import * as path from "path";
 import { app, safeStorage } from "electron";
-import type { ChannelId } from "./types";
+import type { ChannelId } from "../../conversation/channels/channel-types";
 import { normalizeQqListenMode, type QqListenMode } from "../../../shared/qq-listen";
 import { normalizeSenderIds } from "./sender-gate";
 export type { QqListenMode };

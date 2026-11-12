@@ -1,4 +1,4 @@
-import { beginWriteBatch } from "../../tooling/registry/file-write-evidence";
+import { beginWriteBatch } from "./file-write-evidence";
 import * as fs from "fs";
 import * as path from "path";
 import { resolveContainedPath } from "./path-containment";

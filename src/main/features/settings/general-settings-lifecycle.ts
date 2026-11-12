@@ -1,19 +1,19 @@
 import { app, nativeImage, type Tray } from "electron";
 import { IPC } from "../../../shared/ipc-channels";
-import { broadcastToAllWindows } from "../windows/broadcast";
-import type { WindowManager } from "../windows/window-manager";
-import { setGetCurrentAppIconPath } from "../windows/window-state";
+import { broadcastToAllWindows } from "../../platform/windows/broadcast";
+import type { WindowManager } from "../../platform/windows/window-manager";
+import { setGetCurrentAppIconPath } from "../../platform/windows/window-state";
 import { normalizeChatDisplay } from "../../../shared/chat-appearance";
 import { updateLocaleContext } from "../../base/identity/locale-context";
-import { validateSearchApiKey } from "../../agent/runtime/search-backend-filter";
+import { validateSearchApiKey } from "../../platform/settings/search-backend-filter";
 import { addMcpServer, listMcpServers, removeMcpServer } from "../../agent/mcp/mcp-manager";
-import { getAppIconPath } from "../windows/app-icon";
-import { loadTrayIcon } from "../windows/tray-icon";
+import { getAppIconPath } from "../../platform/windows/app-icon";
+import { loadTrayIcon } from "../../platform/windows/tray-icon";
 import { syncBuiltInToolToggles } from "../../agent/tools/tool-registration";
-import { loadModelSettings, getPublicModelConfig } from "./model-settings";
-import type { GeneralSettings } from "./general-settings";
+import { loadModelSettings, getPublicModelConfig } from "../../model/config/model-settings";
+import type { GeneralSettings } from "../../platform/settings/general-settings";
 import type { UiIcon } from "../../../shared/ui-icon";
-import { syncLaunchAtLogin } from "./launch-at-login";
+import { syncLaunchAtLogin } from "../../platform/settings/launch-at-login";
 
 export interface GeneralSettingsLifecycleDependencies {
   get windowManager(): WindowManager | null;

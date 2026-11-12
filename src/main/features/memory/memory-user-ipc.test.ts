@@ -55,7 +55,7 @@ vi.mock("../../knowledge/skills/skill-description-zh", () => ({
   translationMessages: mocks.translationMessages,
 }));
 vi.mock("../../agent/services/llm/llm-client", () => ({ createLlmClient: mocks.createLlmClient }));
-vi.mock("../../platform/settings/model-settings", () => ({
+vi.mock("../../model/config/model-settings", () => ({
   loadModelSettings: mocks.loadModelSettings,
   resolveModelSettingsProfile: mocks.resolveModelSettingsProfile,
 }));
@@ -65,8 +65,8 @@ vi.mock("../../agent/runtime/sticker-settings", () => ({
   getStickerManagerConfig: mocks.getStickerManagerConfig,
   setStickerEnabled: mocks.setStickerEnabled,
 }));
-vi.mock("../../platform/stickers/sticker-storage", () => ({ addUserSticker: mocks.addUserSticker }));
-vi.mock("./panel", () => ({
+vi.mock("../../knowledge/stickers/sticker-storage", () => ({ addUserSticker: mocks.addUserSticker }));
+vi.mock("../../memory/legacy/panel", () => ({
   loadImportedDocumentPanelData: mocks.loadImportedDocumentPanelData,
   loadMemoryPanelData: mocks.loadMemoryPanelData,
 }));

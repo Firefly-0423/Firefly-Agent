@@ -1,4 +1,4 @@
-import type { ScheduleConfig } from "./types";
+import type { ScheduleConfig } from "../../platform/schedule/schedule-types";
 
 function localClock(anchor: Date, hhmm: string, daysAhead = 0): Date | null {
   const digits = /^(\d{2}):(\d{2})$/.exec(hhmm);

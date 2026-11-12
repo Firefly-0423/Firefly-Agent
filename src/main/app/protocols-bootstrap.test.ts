@@ -14,7 +14,7 @@ vi.mock("electron", () => ({
   },
   net: { fetch: () => { throw new Error("Invalid URLs must not read disk"); } },
 }));
-import { registerPrivilegedSchemes, registerProtocolHandlers } from "./bootstrap";
+import { registerPrivilegedSchemes, registerProtocolHandlers } from "./protocols-bootstrap";
 
 beforeEach(() => { mock.schemes = []; mock.handlers.clear(); });
 

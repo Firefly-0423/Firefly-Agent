@@ -5,14 +5,14 @@ import type { WebContents } from "electron";
 import { IPC } from "../../../shared/ipc-channels";
 import type { FireflyRunTerminalResult } from "../../../shared/run-terminal";
 import type { PluginPromptMode, PluginTurnStatus } from "../../../plugins/api";
-import { AgentRuntimeError } from "../../agent/runtime/agent-runtime-error";
+import { AgentRuntimeError } from "../../model/errors/agent-runtime-error";
 import { FireflyAgent, type FireflyRunOptions } from "../../agent/runtime/firefly-agent";
-import type { LifecyclePublisher } from "../plugins/host/lifecycle-publisher";
+import type { LifecyclePublisher } from "../../agent/runtime/lifecycle-publisher";
 import { toolRegistry } from "../../tooling/registry/tool-registry";
-import { RETIRED_MEMORY_TOOL_IDS } from "../../agent/tools/retired-memory-tools";
+import { RETIRED_MEMORY_TOOL_IDS } from "../../tooling/registry/retired-memory-tools";
 import { toastEvents } from "../../platform/interaction/toast-events";
 import { filterToolsForTask } from "./tool-filter";
-import type { ScheduledRunResult, ScheduledTask, ScheduledTaskHistoryEntry } from "./types";
+import type { ScheduledRunResult, ScheduledTask, ScheduledTaskHistoryEntry } from "../../platform/schedule/schedule-types";
 
 /**
  * 第一期：scheduler 的 buildOptions 返回"传统"形式（包含 system 消息）。

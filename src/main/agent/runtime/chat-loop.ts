@@ -1,7 +1,7 @@
 import { stripLeakedChatTimeContext } from "../../model/text/chat-time-context";
 import { ChatTimeStreamPrefixFilter } from "../../model/text/chat-time-stream-filter";
 import { recordUsage, recordRequest, recordModelCall } from "../../base/storage/token-usage-store";
-import { AgentRuntimeError } from "./agent-runtime-error";
+import { AgentRuntimeError } from "../../model/errors/agent-runtime-error";
 import type { AgentLoopSettings, AgentLoopEvent, AgentLoopResult } from "./firefly-agent";
 import type { ChatMessage, ChatRequest, ChatVendorAdapter, ChatResponse, VendorConfig } from "../../model/providers/types";
 import { vendorConfigFromSettings } from "../../model/providers/vendor-config";

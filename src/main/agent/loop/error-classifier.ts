@@ -1,6 +1,6 @@
 import { ToolExecutionError } from "../../tooling/registry/tool-execution-error";
 import type { ToolErrorCategory } from "./types";
-import type { ToolCallResult } from "../runtime/types";
+import type { ToolCallResult } from "../../tooling/registry/tool-call-types";
 
 type CategoryRule = readonly [ToolErrorCategory, readonly string[]];
 

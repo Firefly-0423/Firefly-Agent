@@ -8,7 +8,7 @@ vi.mock("../../../preload/music", () => ({ exposeMusicApi: vi.fn() }));
 vi.mock("./", () => ({ listSkillsForUi: vi.fn(), setSkillEnabled: m.setEnabled, skillRegistry: { getById: () => ({ id: "external-openai-test" }) }, rescanSkills: vi.fn() }));
 vi.mock("../../platform/windows/window-state", () => ({ get reactChatWindow() { return m.chat; }, sidebarWindow: null, settingsWindow: null, stickerManagerWindow: null }));
 vi.mock("../../agent/runtime/sticker-settings", () => ({ getStickerManagerConfig: vi.fn(), setStickerEnabled: vi.fn() }));
-vi.mock("../../platform/stickers/sticker-storage", () => ({ addUserSticker: vi.fn(), deleteUserSticker: vi.fn() }));
+vi.mock("../stickers/sticker-storage", () => ({ addUserSticker: vi.fn(), deleteUserSticker: vi.fn() }));
 vi.mock("../../memory/legacy/panel", () => ({ loadImportedDocumentPanelData: vi.fn(), loadMemoryPanelData: vi.fn() }));
 vi.mock("../rag", () => ({ deleteImportedDoc: vi.fn() }));
 vi.mock("../../base/storage/settings-store", () => ({ loadUserProfile: vi.fn(), saveUserProfile: vi.fn(), getAvatarPath: vi.fn() }));
@@ -19,7 +19,7 @@ vi.mock("../../memory/legacy/memory-store", () => ({ memoryStore: vi.fn() }));
 vi.mock("../../memory/legacy/obsidian-exporter", () => ({ exportMemoryToObsidianVault: vi.fn(), syncToBoundVault: vi.fn() }));
 vi.mock("../../memory/legacy/obsidian-vault-config", () => ({ loadObsidianVaultConfig: () => ({}), saveObsidianVaultConfig: vi.fn(), unbindVault: vi.fn() }));
 vi.mock("../../memory/legacy/obsidian-importer", () => ({ startVaultWatcher: vi.fn(), stopVaultWatcher: vi.fn() }));
-import { registerMemoryUserToolIpc } from "../../memory/legacy/memory-user-ipc";
+import { registerMemoryUserToolIpc } from "../../features/memory/memory-user-ipc";
 afterEach(() => { vi.clearAllMocks(); m.chat = null; });
 it("preload_bridge exposes five DTO-only methods and reuses explicit enabled bridge", async () => {
   await import("../../../preload/index"); const settings = m.exposed.get("settings") as SettingsApi;

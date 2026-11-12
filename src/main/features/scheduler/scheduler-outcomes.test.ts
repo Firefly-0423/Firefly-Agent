@@ -8,7 +8,7 @@ import { createSchedulerRunner } from "./scheduler-runner";
 import { SchedulerEngine } from "./scheduler-engine";
 import { registerSchedulerIpc } from "./scheduler-ipc";
 import { toastEvents } from "../../platform/interaction/toast-events";
-import type { ScheduledTaskHistoryEntry } from "./types";
+import type { ScheduledTaskHistoryEntry } from "../../platform/schedule/schedule-types";
 
 const model = vi.hoisted(() => ({ terminal: undefined as undefined | "success" | "timeout" | "cancelled" | "runtime_error", executions: 0,
   eventTerminal: undefined as undefined | "success" | "timeout" | "cancelled" | "runtime_error", noResult: false }));

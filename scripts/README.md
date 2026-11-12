@@ -19,7 +19,7 @@
 
 `npm run smoke:music` 只读取 Windows QQ Music 桌面会话状态，不改变播放。发布包通过 `electron-builder.yml` 携带 `qqmusic_gsmtc.ps1`；旧网易云组件与 mpv 不再进入有效打包链。
 
-该命令先运行 `build:main`，然后启动 Electron 中的 `src/main/platform/music/music-smoke-entry.ts`。没有 QQ Music 会话时 `QQ_MUSIC_SESSION_NOT_FOUND` 也返回退出码 0，因此成功退出不证明播放器控制或应用内审批通过。
+该命令先运行 `build:main`，然后启动 Electron 中的 `src/main/features/music/music-smoke-entry.ts`。没有 QQ Music 会话时 `QQ_MUSIC_SESSION_NOT_FOUND` 也返回退出码 0，因此成功退出不证明播放器控制或应用内审批通过。
 
 `npm test` 经 `testing/run-tests.mjs` 启动 Vitest，并保留结果归档 reporter；`FIREFLY_TEST_REPORT_ROOT` 可显式指定归档目录。`security/` 中两项补丁仅接受脚本列出的依赖版本和文件哈希，修改已安装依赖，不改 manifest 或锁文件。`plugin-marketplace/` 默认构建离线目录与禁用状态的示例插件；生成目录不表示已有在线市场或发布授权。
 

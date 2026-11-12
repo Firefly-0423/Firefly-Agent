@@ -1,7 +1,7 @@
 import {EventEmitter} from "node:events";
 import {expect,it} from "vitest";
 import {contextFixture} from "../../../../scripts/verify/memory-context/context-fixture";
-import {createActiveChatTargetRegistry} from "../../features/plugins/host/active-chat-target";
+import {createActiveChatTargetRegistry} from "../../platform/interaction/active-chat-target";
 import {createMainDesktopSessionAuthority} from "../context/main-desktop-session-authority";
 import {createDesktopUserSourceProvider} from "./desktop-user-source-provider";
 

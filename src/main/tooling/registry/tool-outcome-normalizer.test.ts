@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { normalizeToolExecutionOutcome as normalize } from "./tool-outcome-normalizer";
-import type { ToolExecutionOutcome } from "../../agent/runtime/types";
+import type { ToolExecutionOutcome } from "./tool-call-types";
 
 describe("execution completion flags", () => {
   it.each(["succeeded", "failed"] as const)("makes a %s result final unless told otherwise", (status) => {

@@ -1,8 +1,8 @@
 // 从用户接入的厂商 API 拉取模型清单，供设置页的"模型名"联想使用。
 // 型号由厂商决定，不再只靠预设里写死的几个名字；拉不到时设置页仍回退到预设建议。
 import type { ApiTransport } from "../../../shared/api-endpoint";
-import { authHeaderFor } from "../../model/providers/auth";
-import { getCapabilityOrOpenAI } from "../../model/providers/capabilities";
+import { authHeaderFor } from "../providers/auth";
+import { getCapabilityOrOpenAI } from "../providers/capabilities";
 import type { InputModality } from "../../../shared/input-modalities";
 
 export interface FetchModelsInput {
