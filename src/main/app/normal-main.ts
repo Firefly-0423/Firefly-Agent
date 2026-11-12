@@ -37,7 +37,8 @@ async function runHistoryPresenceOnce(): Promise<void> {
   try {
     const { selectCachedHistoryCoverage, measureHistoryPresence } = await import("../memory/sources/native-history-coverage");
     const { createNativeHistoryPresenceEndpoint } = await import("../memory/sources/native-history-presence-process");
-    const result = await measureHistoryPresence(selectCachedHistoryCoverage(), createNativeHistoryPresenceEndpoint(presenceHelper), { signal: controller.signal });
+    const { getCachedSessionIdsForCoverage } = await import("../features/sessions/chats-store");
+    const result = await measureHistoryPresence(selectCachedHistoryCoverage(getCachedSessionIdsForCoverage), createNativeHistoryPresenceEndpoint(presenceHelper), { signal: controller.signal });
     logger.warn(LogTag.Runtime, "history presence once", result);
   } catch {
     logger.warn(LogTag.Runtime, "history presence once", { status: "not-measured", reason: "measurement-failed" });

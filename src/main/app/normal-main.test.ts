@@ -20,6 +20,7 @@ vi.mock("../features/plugins/panel/plugin-panel-protocol", () => ({ registerPlug
 vi.mock("../platform/windows/external-link", () => ({ installGlobalNavigationGuard() {} }));
 vi.mock("../base/logging/logger", () => ({ initializeMainFileLogging() {}, logger: { warn: (...args: unknown[]) => mocks.log(...args) }, LogTag: { Runtime: "Runtime" } }));
 vi.mock("../memory/sources/native-history-coverage", () => ({ selectCachedHistoryCoverage: () => mocks.select(), measureHistoryPresence: (...args: unknown[]) => mocks.measure(...args as []) }));
+vi.mock("../features/sessions/chats-store", () => ({ getCachedSessionIdsForCoverage: () => ({ state: "not-ready", ids: null }) }));
 vi.mock("../memory/sources/native-history-presence-process", () => ({ createNativeHistoryPresenceEndpoint: (...args: unknown[]) => mocks.endpoint(...args as []) }));
 let stdoutListeners: Function[], stderrListeners: Function[];
 beforeEach(() => {

@@ -110,7 +110,7 @@ describe("native metadata process endpoint", () => {
     fs.writeFileSync(path.join(context.dataRoot, "transcripts", "a", "snapshot.json"), "SYNTHETIC_BODY");
     const store = await import("../../features/sessions/chats-store"); store.initialize(); // Synthetic setup before measurement.
     const { selectCachedHistoryCoverage, measureHistoryPresence } = await import("./native-history-coverage");
-    const selected = selectCachedHistoryCoverage();
+    const selected = selectCachedHistoryCoverage(store.getCachedSessionIdsForCoverage);
     const spies = ["readFileSync", "writeFileSync", "readdirSync", "mkdirSync", "statSync"].map((name) => vi.spyOn(fs, name as "readFileSync"));
     try {
       expect(await measureHistoryPresence(selected, createNativeHistoryPresenceEndpoint(HELPER))).toMatchObject({

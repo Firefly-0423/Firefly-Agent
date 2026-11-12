@@ -1,5 +1,4 @@
 import path from "node:path";
-import { getCachedSessionIdsForCoverage } from "../../features/sessions/chats-store";
 import { getStorageContext, type StorageContext } from "../../base/storage/storage-context";
 import { fireflyDataDirectory } from "../../base/storage/firefly-data-paths";
 
@@ -41,12 +40,16 @@ export interface PresenceCoverage {
   reasons: Readonly<Record<string, number>>;
   evidence: { status: "not-evaluated"; eligible: null; ineligible: null; unknown: number | null; ratio: null };
 }
-export function selectCachedHistoryCoverage(): CoverageSelection {
+/** 会话 id 缓存的读取结果；由调用方（组合根）从会话存储取来传入，本模块不依赖会话层。 */
+export type CachedCoverageSessions =
+  | { ids: null; state: "not-ready" | "read-failed" | "budget-exhausted" }
+  | { ids: readonly string[]; rootDir: string; state: "ready" };
+export function selectCachedHistoryCoverage(readSessionIds: () => CachedCoverageSessions): CoverageSelection {
   const token = Object.freeze({}) as CoverageSelection;
   let selection: Selection;
   try {
     const context = getStorageContext();
-    const cache = getCachedSessionIdsForCoverage();
+    const cache = readSessionIds();
     if (cache.state !== "ready") selection = { unavailable: cache.state };
     else if (canonical(cache.rootDir) !== canonical(fireflyDataDirectory(context.dataRoot, "chats"))) {
       selection = { unavailable: "profile-mismatch" };

@@ -11,7 +11,6 @@ const main = vi.hoisted(() => ({
   cache: { state: "ready", rootDir: "E:\\synthetic-profile\\firefly-chats", ids: [] } as Record<string, unknown>,
 }));
 vi.mock("../../base/storage/storage-context", () => ({ getStorageContext: () => main.context }));
-vi.mock("../../features/sessions/chats-store", () => ({ getCachedSessionIdsForCoverage: () => main.cache }));
 
 function endpoint(statuses: unknown[] = []): PresenceEndpoint & { batches: string[][]; closed: number } {
   const state = { batches: [] as string[][], closed: 0 };
@@ -37,7 +36,7 @@ describe("metadata presence census", () => {
     const open = vi.fn();
     for (const state of ["not-ready", "read-failed", "budget-exhausted"]) {
       main.cache = { state, ids: null };
-      const result = await measureHistoryPresence(selectCachedHistoryCoverage(), { open });
+      const result = await measureHistoryPresence(selectCachedHistoryCoverage(() => main.cache as never), { open });
       expect(result.status).toBe("not-measured");
       expect(result.population).toBeNull();
       expect(result.present).toBeNull();
@@ -48,7 +47,7 @@ describe("metadata presence census", () => {
   it("counts unknown separately and refuses to call presence effective evidence", async () => {
     main.cache.ids = ["a", "b", "c"];
     const api = endpoint([{ status: "present" }, { status: "missing", component: "snapshot" }, { status: "unknown-denied", reason: "history-native-open-failed" }]);
-    const result = await measureHistoryPresence(selectCachedHistoryCoverage(), api);
+    const result = await measureHistoryPresence(selectCachedHistoryCoverage(() => main.cache as never), api);
     expect(result).toMatchObject({ status: "measured", population: 3, present: 1, missing: 1, unknownDenied: 1,
       exactRatio: null, lowerRatio: 1 / 3, upperRatio: 2 / 3,
       evidence: { status: "not-evaluated", eligible: null, ineligible: null, unknown: 3, ratio: null } });
@@ -57,7 +56,7 @@ describe("metadata presence census", () => {
   });
   it("handles genuine empty population without launching a child", async () => {
     const api = endpoint();
-    expect(await measureHistoryPresence(selectCachedHistoryCoverage(), api)).toMatchObject({
+    expect(await measureHistoryPresence(selectCachedHistoryCoverage(() => main.cache as never), api)).toMatchObject({
       status: "measured", population: 0, present: 0, missing: 0, unknownDenied: 0, exactRatio: null,
     });
     expect(api.batches).toEqual([]);
@@ -66,12 +65,12 @@ describe("metadata presence census", () => {
     const api = endpoint();
     expect((await measureHistoryPresence({} as CoverageSelection, api)).status).toBe("not-measured");
     main.cache.rootDir = "E:\\another-profile\\firefly-chats";
-    expect((await measureHistoryPresence(selectCachedHistoryCoverage(), api)).status).toBe("not-measured");
+    expect((await measureHistoryPresence(selectCachedHistoryCoverage(() => main.cache as never), api)).status).toBe("not-measured");
     expect(api.batches).toEqual([]);
   });
   it("freezes the population, deduplicates exact IDs, and leaves aliases and invalid IDs unknown", async () => {
     main.cache.ids = ["valid", "valid", "Case", "case", "../escape", "NUL", "trail."];
-    const selected = selectCachedHistoryCoverage();
+    const selected = selectCachedHistoryCoverage(() => main.cache as never);
     main.cache.ids = ["later"];
     const api = endpoint();
     expect(await measureHistoryPresence(selected, api)).toMatchObject({ population: 6, present: 1, unknownDenied: 5, missing: 0 });
@@ -79,7 +78,7 @@ describe("metadata presence census", () => {
   });
   it("consumes each selection once", async () => {
     main.cache.ids = ["valid"];
-    const selected = selectCachedHistoryCoverage();
+    const selected = selectCachedHistoryCoverage(() => main.cache as never);
     const api = endpoint();
     expect((await measureHistoryPresence(selected, api)).status).toBe("measured");
     expect((await measureHistoryPresence(selected, api)).status).toBe("not-measured");
@@ -87,7 +86,7 @@ describe("metadata presence census", () => {
   });
   it("uses batches of at most 32 without filesystem access", async () => {
     main.cache.ids = Array.from({ length: 65 }, (_, i) => String(i));
-    const selected = selectCachedHistoryCoverage();
+    const selected = selectCachedHistoryCoverage(() => main.cache as never);
     const api = endpoint();
     const spies = ["readFileSync", "writeFileSync", "readdirSync", "mkdirSync", "statSync"].map((name) => vi.spyOn(fs, name as "readFileSync"));
     try {
@@ -99,18 +98,18 @@ describe("metadata presence census", () => {
   it("does not count malformed native replies as missing", async () => {
     main.cache.ids = ["a", "b"];
     for (const statuses of [[{ status: "missing", component: "arbitrary" }], [{ status: "present", bytes: "forbidden" }, { status: "present" }]]) {
-      expect(await measureHistoryPresence(selectCachedHistoryCoverage(), endpoint(statuses))).toMatchObject({ present: 0, missing: 0, unknownDenied: 2 });
+      expect(await measureHistoryPresence(selectCachedHistoryCoverage(() => main.cache as never), endpoint(statuses))).toMatchObject({ present: 0, missing: 0, unknownDenied: 2 });
     }
   });
   it("keeps the denominator when the native endpoint cannot open", async () => {
     main.cache.ids = ["a", "b"];
     const api = { async open() { throw new Error("denied"); } };
-    expect(await measureHistoryPresence(selectCachedHistoryCoverage(), api)).toMatchObject({ population: 2, present: 0, missing: 0, unknownDenied: 2 });
+    expect(await measureHistoryPresence(selectCachedHistoryCoverage(() => main.cache as never), api)).toMatchObject({ population: 2, present: 0, missing: 0, unknownDenied: 2 });
   });
   it("discards results on cancellation or profile replacement and closes the exact session", async () => {
     for (const cause of ["cancel", "profile"]) {
       main.cache.ids = ["a"];
-      const selected = selectCachedHistoryCoverage();
+      const selected = selectCachedHistoryCoverage(() => main.cache as never);
       const controller = new AbortController();
       let finish!: (value: unknown) => void;
       let closeCount = 0;
@@ -133,7 +132,7 @@ describe("metadata presence census", () => {
       main.cache.ids = ["a", "b"];
       let closed = 0;
       const api: PresenceEndpoint = { async open() { return { probe: () => new Promise(() => {}), close() { closed++; } }; } };
-      const pending = measureHistoryPresence(selectCachedHistoryCoverage(), api);
+      const pending = measureHistoryPresence(selectCachedHistoryCoverage(() => main.cache as never), api);
       await vi.advanceTimersByTimeAsync(30000);
       expect(await pending).toMatchObject({ population: 2, unknownDenied: 2, present: 0, missing: 0 });
       expect(closed).toBe(1);
@@ -148,7 +147,7 @@ describe("metadata presence census", () => {
         probe(ids) { calls++; return new Promise((resolve) => setTimeout(() => resolve(ids.map(() => ({ status: "present" }))), 20000)); },
         close() {},
       }; } };
-      const pending = measureHistoryPresence(selectCachedHistoryCoverage(), api);
+      const pending = measureHistoryPresence(selectCachedHistoryCoverage(() => main.cache as never), api);
       await vi.advanceTimersByTimeAsync(30000);
       expect(await pending).toMatchObject({ population: 33, present: 32, unknownDenied: 1, exactRatio: null });
       expect(calls).toBe(2);
@@ -159,7 +158,7 @@ describe("metadata presence census", () => {
     const controller = new AbortController();
     let finish!: (session: Awaited<ReturnType<PresenceEndpoint["open"]>>) => void;
     let closed = 0; let probes = 0;
-    const pending = measureHistoryPresence(selectCachedHistoryCoverage(), {
+    const pending = measureHistoryPresence(selectCachedHistoryCoverage(() => main.cache as never), {
       open: () => new Promise((resolve) => { finish = resolve; }),
     }, { signal: controller.signal });
     controller.abort();
@@ -174,7 +173,7 @@ describe("metadata presence census", () => {
     const api: PresenceEndpoint = { async open() { return {
       async probe() { return [{ status: "present" }]; }, close() { throw new Error("close failed"); },
     }; } };
-    expect(await measureHistoryPresence(selectCachedHistoryCoverage(), api)).toMatchObject({ status: "not-measured", reason: "cleanup-failed", present: null });
+    expect(await measureHistoryPresence(selectCachedHistoryCoverage(() => main.cache as never), api)).toMatchObject({ status: "not-measured", reason: "cleanup-failed", present: null });
   });
   it("rejects a late reply even if a stalled timer has not fired", async () => {
     main.cache.ids = ["a"];
@@ -184,7 +183,7 @@ describe("metadata presence census", () => {
       async probe() { clock = 30001; return [{ status: "present" }]; }, close() {},
     }; } };
     try {
-      expect(await measureHistoryPresence(selectCachedHistoryCoverage(), api)).toMatchObject({ population: 1, present: 0, missing: 0, unknownDenied: 1, reasons: { deadline: 1 } });
+      expect(await measureHistoryPresence(selectCachedHistoryCoverage(() => main.cache as never), api)).toMatchObject({ population: 1, present: 0, missing: 0, unknownDenied: 1, reasons: { deadline: 1 } });
     } finally { now.mockRestore(); }
   });
 
@@ -195,7 +194,7 @@ describe("metadata presence census", () => {
       async probe() { return [{ status: "present" }]; },
       async close() { await Promise.resolve(); closed = true; throw new Error("exit failed"); },
     }; } };
-    expect(await measureHistoryPresence(selectCachedHistoryCoverage(), api)).toMatchObject({ status: "not-measured", reason: "cleanup-failed" });
+    expect(await measureHistoryPresence(selectCachedHistoryCoverage(() => main.cache as never), api)).toMatchObject({ status: "not-measured", reason: "cleanup-failed" });
     expect(closed).toBe(true);
   });
   it("bounds a nonsettling child close and refuses a success report", async () => {
@@ -205,7 +204,7 @@ describe("metadata presence census", () => {
       const api: PresenceEndpoint = { async open() { return {
         async probe() { return [{ status: "present" }]; }, close: () => new Promise(() => {}),
       }; } };
-      const pending = measureHistoryPresence(selectCachedHistoryCoverage(), api);
+      const pending = measureHistoryPresence(selectCachedHistoryCoverage(() => main.cache as never), api);
       await vi.advanceTimersByTimeAsync(1000);
       expect(await pending).toMatchObject({ status: "not-measured", reason: "cleanup-failed" });
     } finally { vi.useRealTimers(); }
