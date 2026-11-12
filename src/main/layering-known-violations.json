@@ -2,8 +2,5 @@
   "knowledge/rag/index.ts -> memory/legacy/entity-graph.ts",
   "knowledge/rag/index.ts -> memory/legacy/memory-store.ts",
   "knowledge/rag/index.ts -> memory/legacy/memory-types.ts",
-  "tooling/registry/tool-executor.ts -> agent/tools/file-write-evidence.ts",
-  "tooling/registry/tool-registry.ts -> knowledge/rag/index.ts",
-  "tooling/registry/tool-registry.ts -> memory/legacy/memory-manager.ts",
-  "tooling/registry/tool-registry.ts -> memory/legacy/memory-store.ts"
+  "tooling/registry/tool-executor.ts -> agent/tools/file-write-evidence.ts"
 ]

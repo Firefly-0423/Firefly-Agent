@@ -5,9 +5,11 @@ vi.mock("../../knowledge/rag/index", () => ({ searchMemory }));
 
 import {
   ToolRegistry, toolRegistry, controlledInputKind, controlledInputType,
-  resolveEffectKind, resolveVerificationPolicy, buildWriteCandidate, formatMemoryOverview,
+  resolveEffectKind, resolveVerificationPolicy,
   type ControlledInputPolicy, type ToolDefinition,
 } from "./tool-registry";
+// 早期记忆工具在 agent/tools 登记；引入它才会出现在全局注册表里。
+import { buildWriteCandidate, formatMemoryOverview } from "../../agent/tools/legacy-memory-tools";
 
 function tool(id: string, extra: Partial<ToolDefinition> = {}): ToolDefinition {
   return { id, name: id, description: "fixture", enabled: true,

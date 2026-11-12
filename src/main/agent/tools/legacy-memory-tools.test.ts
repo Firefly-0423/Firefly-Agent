@@ -1,5 +1,6 @@
 import { expect, it, describe } from "vitest";
-import { toolRegistry, formatMemoryOverview, buildWriteCandidate } from "./tool-registry";
+import { toolRegistry } from "../../tooling/registry/tool-registry";
+import { formatMemoryOverview, buildWriteCandidate } from "./legacy-memory-tools";
 
 describe("memory tools exposed by the registry", () => {
   it("registers separate read and mutation capabilities with explicit-user guidance", () => {

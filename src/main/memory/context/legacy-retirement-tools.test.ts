@@ -4,6 +4,7 @@ vi.mock("../../knowledge/rag", () => ({ searchMemory: mocks.searchMemory, isUser
 vi.mock("../../agent/tools/built-in-tools", () => ({ currentUserTimezone: () => "UTC" }));
 vi.mock("../../base/identity/locale-context", () => ({ getDateLocale: () => "en-US" }));
 import { ToolRegistry, toolRegistry } from "../../tooling/registry/tool-registry";
+import "../../agent/tools/legacy-memory-tools"; // 早期记忆工具在这里登记到全局注册表
 import { indexConversationTurn, registerRecallHistoryTool } from "../../agent/tools/history-tools";
 
 beforeEach(() => { vi.clearAllMocks(); toolRegistry.setPersonalMemoryMode?.("legacy"); mocks.searchMemory.mockResolvedValue(["knowledge"]); mocks.ready.mockReturnValue(true); mocks.searchHistory.mockResolvedValue([]); });

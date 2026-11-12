@@ -19,6 +19,7 @@ import { registerCodeGitTools } from "./git-tools";
 import type { LspManager } from "../../platform/lsp/manager";
 import { registerLspTool } from "./lsp-tool";
 import "./built-in-tools";
+import "./legacy-memory-tools";
 import { MUSIC_TOOL_IDS } from "./music-tools";
 
 export function syncBuiltInToolToggles(preferences: GeneralSettings): void {
