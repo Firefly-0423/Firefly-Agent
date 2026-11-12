@@ -22,7 +22,7 @@
 | `review/` | 工作区改动审查。 |
 | `runtime/` | 运行入口（`agent-runtime.ts`、`firefly-agent.ts`、`chat-loop.ts`）、提示词与上下文组装、伙伴会话、计划模式。 |
 | `sandbox/` | 命令沙箱。 |
-| `services/` | 后台模型任务队列、向量索引服务等。 |
+| `services/` | 后台模型客户端、向量索引服务等。 |
 | `tasks/` | 伙伴会话注册与任务人设。 |
 | `tools/` | 内置工具及其登记（`tool-registration.ts`）、命令执行策略。新增工具（尤其写文件、执行命令、联网）先开 Issue。 |
 

@@ -17,11 +17,13 @@
 
 | 目录 | 职责 |
 |---|---|
-| `config/` | 模型配置与能力声明。 |
+| `config/` | 模型档案（`model-settings.ts`）、模型目录、伙伴模型路由、连接状态、能力声明。 |
+| `errors/` | 运行错误类型（`agent-runtime-error.ts`），模型层及以上共用。 |
 | `providers/` | 各厂商接口适配（Anthropic / OpenAI / Responses 等）、请求准备、重试与看门狗、流式解析。重试策略和接口契约的改动先开 Issue。 |
+| `queue/` | 后台模型任务队列（`llm-queue.ts`）。 |
 | `structured/` | 结构化输出的运行与校验。 |
-| `text/` | 模型文本处理：时间上下文、思考内容过滤等。 |
-| `vision/` | 图片转述与图片路由。 |
+| `text/` | 模型文本处理：时间上下文、思考内容过滤、流式文本工具。 |
+| `vision/` | 图片转述（`vision-captioner.ts`）与图片路由。 |
 
 ## 验证
 

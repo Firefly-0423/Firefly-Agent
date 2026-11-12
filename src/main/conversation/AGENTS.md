@@ -17,7 +17,8 @@
 
 | 目录 | 职责 |
 |---|---|
-| `transcript/` | 会话记录的类型、存储（`conversation-transcript-store.ts`）、上下文物化、结算与写入口（`transcript-sink.ts`）。持久化格式的改动先开 Issue。 |
+| `channels/` | 外部渠道的公共类型（`channel-types.ts`），供记忆、运行和功能层共用。 |
+| `transcript/` | 会话记录的类型、存储（`conversation-transcript-store.ts`）、上下文物化、结算（含 `run-settlement.ts`）与写入口（`transcript-sink.ts`）。持久化格式的改动先开 Issue。 |
 
 ## 验证
 

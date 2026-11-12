@@ -9,7 +9,7 @@
 
 ## 引用规则
 
-- 可以引用：本层内部，以及 `base`、`platform`。
+- 可以引用：本层内部，以及 `base`、`platform`、`model`。
 - 不能引用更高的层，类型引用也不行。上层的东西要用时，让上层在启动时传进来（函数或接口），或者把共用类型下沉。
 - 规则由 `src/main/layering.test.ts` 检查，层级表在 `src/main/layers.json`。存量违规记在 `src/main/layering-known-violations.json`，这份清单只能减少：修掉一条就删掉一条，不能新增。
 
@@ -17,7 +17,7 @@
 
 | 目录 | 职责 |
 |---|---|
-| `registry/` | 工具注册表、`ToolContext`、参数校验、执行器与结果归一。工具参数和返回格式的契约改动先开 Issue。 |
+| `registry/` | 工具注册表、`ToolContext`、工具调用类型（`tool-call-types.ts`）、参数校验、执行器与结果归一。工具参数和返回格式的契约改动先开 Issue。 |
 
 ## 验证
 

@@ -19,15 +19,15 @@
 |---|---|
 | `browser/` | 浏览器控制与代理。 |
 | `git/` | Code 模式的 Git 服务与 IPC。 |
-| `interaction/` | 向用户提问（`user-choice.ts`、`ask-card.ts`）和提醒事件（`toast-events.ts`）。 |
+| `interaction/` | 向用户提问（`user-choice.ts`、`ask-card.ts`）、提醒事件（`toast-events.ts`）和当前聊天目标（`active-chat-target.ts`）。 |
 | `lsp/` | 语言服务客户端。 |
 | `music/` | 音乐服务。 |
 | `permission/` | 权限档位（只读 / 请求审批 / 完全访问）与审批流程。任何放宽权限的改动先开 Issue。 |
-| `protocols/` | 自定义协议注册。 |
+| `protocols/` | 自定义协议处理（界面字体等）；协议的统一注册在 `app/protocols-bootstrap.ts`。 |
+| `schedule/` | 定时任务的公共类型（`schedule-types.ts`），供运行层和功能层共用。 |
 | `screenshot/` | 截图助手的生命周期与调用。 |
-| `settings/` | 通用设置、设置门面和设置窗口的 IPC。（模型档案相关文件按设计要迁到 `model/config`，设置 IPC 要迁到 `features`，见存量违规清单。） |
+| `settings/` | 通用设置与设置门面、超时设置。模型档案在 `model/config`，设置窗口的 IPC 在 `features/settings`。 |
 | `speech/` | 语音识别（asr）、音频播放（audio）和对应服务封装（mossland）。 |
-| `stickers/` | 贴纸资源与向量。 |
 | `toast/` | 提醒窗口。 |
 | `updater/` | 应用更新。 |
 | `windows/` | 窗口创建、状态与激活请求。 |
