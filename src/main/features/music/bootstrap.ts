@@ -14,7 +14,7 @@ export interface MusicBootstrap {
 export function resolveQqMusicScriptPath(): string {
   return app.isPackaged
     ? path.join(process.resourcesPath, "music", "qqmusic_gsmtc.ps1")
-    : path.join(app.getAppPath(), "src", "main", "music", "scripts", "qqmusic_gsmtc.ps1");
+    : path.join(app.getAppPath(), "src", "main", "platform", "music", "scripts", "qqmusic_gsmtc.ps1");
 }
 
 export function bootstrapMusicService(options: { enabled?: boolean } = {}): MusicBootstrap {

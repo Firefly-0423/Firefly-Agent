@@ -1,5 +1,5 @@
 import {Responses} from "openai/resources/responses/responses";
-import {loggerFor} from "../../../node_modules/openai/internal/utils/log.js";
+import {loggerFor} from "../../../../node_modules/openai/internal/utils/log.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";

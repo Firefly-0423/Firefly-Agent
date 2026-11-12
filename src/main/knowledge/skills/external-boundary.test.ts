@@ -26,12 +26,14 @@ const hash = (file: string) => createHash("sha256").update(fs.readFileSync(path.
 // Keep untouched code boundaries frozen. The domain/IPC files now support a
 // separately approved manual window lane; market_browser_* below assert their
 // actual authorization, network, IPC and lifecycle invariants instead of bytes.
+// Layer regroup (2026-11-12): these files moved under src/main/<layer>/ and only their relative import paths changed;
+// each diff against the previous preimage was checked to contain import lines only before the hashes were refreshed.
 const unchangedBoundaries = {
   // Reviewed plugin lifecycle update: host-owned provenance and install/activation
   // outcomes only. Exact catalog and repository rename prefixes are independently asserted below.
   // Reviewed marketplace move: the catalog and Release prefix now point only at Firefly-0423/firefly-plugins; size, timeout,
   // redirect, SHA-256 and disabled-install rules are unchanged.
-  "src/main/features/plugins/host/plugin-marketplace.ts": "6f7600e703094d009a13c042dc4c97f9b6be235bbaf2bbee163a7672ad803c8c",
+  "src/main/features/plugins/host/plugin-marketplace.ts": "38fe0edc715e9150042bc2166f6a84cebb374cf11525c3506f8374bf66ac8a7e",
   "src/main/platform/browser/browser-request-policy.ts": "9ce32fdba4722e49b7c96d27ad7a2058fae3d62a4186d44aac98e49d7e62bdf1",
   // Reviewed window-browser tools change: browser-startup-config only forwards the optional acceptDownload callback, and
   // electron-browser-guest only attaches the per-page tools object. No navigation, network or sandbox setting changed here;
@@ -40,13 +42,13 @@ const unchangedBoundaries = {
   // Also reviewed: renderer-crash cancellation and safe native failure/redirect forwarding; native preferences, routing,
   // certificate denial and fixed isolated-world scripts retain their boundaries.
   // See docs/browser-reference-audit-2026-10-15.md (boundary preimage review).
-  "src/main/platform/browser/electron-browser-guest.ts": "a71fade70a93bb0c1ab40e7cbee856c2b423e87092bbaf4f3174a3d896de8d21",
-  "src/main/platform/permission/permission-policy.ts": "f686d292755780fca07366b96fe432b69e5bff7d8602006e0172a436108b5f40",
+  "src/main/platform/browser/electron-browser-guest.ts": "bde77619d13add92b14d9754fd244bb312821ee3b7e7aaae49847672438502d7",
+  "src/main/platform/permission/permission-policy.ts": "79d8456fce1598dd91651f7b86508824569941ec96cb563ef6c73f85bedab801",
   // Reimplemented from observable behavior with identical allow/ask/deny decisions; verified by the policyFor decision-table
   // test (permission-policy.matrix.test.ts) and the approval contract tests (permission.contract.test.ts, permission.test.ts).
   // The only difference is stricter: an unrecognised session level now denies instead of yielding no decision.
-  "src/main/platform/permission/permission.ts": "5984d04a0a6c0682d1112364198d178b1eec446de08620660b098d729d212d89",
-  "src/main/platform/permission/bootstrap.ts": "e2c6f41a87e947a0838f16fd920f5c31c7a35549ea4e60627f4257059a6aec71",
+  "src/main/platform/permission/permission.ts": "6c449f2eefaef84458a611b7aca91f8d5be3418e04aa75395ad7578435beb29d",
+  "src/main/platform/permission/bootstrap.ts": "765b21f85aa5f048ebed87c0fb0cf53c7fa3059f34dc3451521d4a58fc523ce1",
 } as const;
 it.each(Object.entries(unchangedBoundaries))("no_execution_or_permission_expansion: %s exactly matches approved boundary preimage", (file, expected) => { expect(hash(file)).toBe(expected); });
 it("no_execution_or_permission_expansion native executable marketplace uses exactly the approved catalog and repository rename release prefixes, and fixed source data does not broaden it", () => {

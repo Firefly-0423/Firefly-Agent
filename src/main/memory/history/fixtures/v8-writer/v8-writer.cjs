@@ -26,7 +26,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// src/main/memory/core/repository.ts
+// src/main/memory-core/repository.ts
 var repository_exports = {};
 __export(repository_exports, {
   MemoryRepository: () => MemoryRepository,
@@ -36,10 +36,10 @@ module.exports = __toCommonJS(repository_exports);
 var import_node_path3 = __toESM(require("node:path"));
 var import_node_crypto11 = require("node:crypto");
 
-// src/main/memory/core/jobs.ts
+// src/main/memory-core/jobs.ts
 var import_node_crypto6 = require("node:crypto");
 
-// src/main/memory/core/repository-types.ts
+// src/main/memory-core/repository-types.ts
 var ENTITY_TABLES = ["sources", "evidence", "candidates", "fact_revisions", "current_facts", "jobs", "deletion_markers", "index_state"];
 function internalId(value) {
   if (typeof value !== "string" || !/[a-zA-Z0-9_-]/.test(value) || !/^[-a-zA-Z0-9_]{1,96}$/.test(value)) throw new Error("MEMORY_INPUT_INVALID");
@@ -62,7 +62,7 @@ function canonicalJson(value, depth = 0) {
   throw new Error("MEMORY_INPUT_INVALID");
 }
 
-// src/main/memory/core/command-validation.ts
+// src/main/memory-core/command-validation.ts
 function objectFields(value, required, optional = []) {
   if (!value || typeof value !== "object" || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) throw new Error("MEMORY_INPUT_INVALID");
   const keys = Reflect.ownKeys(value), allowed = [...required, ...optional];
@@ -105,10 +105,10 @@ function parseFact(value) {
   return { subjectKey: textField(fact.subjectKey), assertion: textField(fact.assertion), assertionKind: fact.assertionKind, time: { ...parsed } };
 }
 
-// src/main/memory/core/command-transactions.ts
+// src/main/memory-core/command-transactions.ts
 var import_node_crypto2 = require("node:crypto");
 
-// src/main/memory/core/payload-codec.ts
+// src/main/memory-core/payload-codec.ts
 var import_node_crypto = require("node:crypto");
 var MAGIC = Buffer.from("FMM1");
 var HEADER = 12;
@@ -156,7 +156,7 @@ function openPayload(key, binding, envelope) {
   }
 }
 
-// src/main/memory/core/command-transactions.ts
+// src/main/memory-core/command-transactions.ts
 function executeTransaction(input) {
   internalId(input.scope);
   internalId(input.commandId);
@@ -204,7 +204,7 @@ function executeTransaction(input) {
   }
 }
 
-// src/main/memory/core/record-codec.ts
+// src/main/memory-core/record-codec.ts
 var RecordCodec = class {
   constructor(key) {
     this.key = key;
@@ -232,7 +232,7 @@ var RecordCodec = class {
   }
 };
 
-// src/main/memory/core/suppression.ts
+// src/main/memory-core/suppression.ts
 var import_node_crypto3 = require("node:crypto");
 var Suppression = class {
   constructor(db, key) {
@@ -302,10 +302,10 @@ var Suppression = class {
   }
 };
 
-// src/main/memory/core/fact-repository.ts
+// src/main/memory-core/fact-repository.ts
 var import_node_crypto5 = require("node:crypto");
 
-// src/main/memory/core/source-ledger.ts
+// src/main/memory-core/source-ledger.ts
 var import_node_crypto4 = require("node:crypto");
 function parseSourceIdentity(value) {
   const v = objectFields(value, ["providerId", "sessionId", "messageId"]);
@@ -473,7 +473,7 @@ var SourceLedger = class {
   }
 };
 
-// src/main/memory/core/fact-repository.ts
+// src/main/memory-core/fact-repository.ts
 var FactRepository = class {
   constructor(db, key, fault) {
     this.db = db;
@@ -671,7 +671,7 @@ var FactRepository = class {
   }
 };
 
-// src/main/memory/core/jobs.ts
+// src/main/memory-core/jobs.ts
 function parseJobBody(kind, value) {
   if (kind === "enqueue") {
     const b = objectFields(value, ["jobId", "sourceRef"]);
@@ -781,7 +781,7 @@ var JobRepository = class {
   }
 };
 
-// src/main/memory/policy/extractor.ts
+// src/main/memory-policy/extractor.ts
 function extractPreference(text) {
   if (typeof text !== "string" || text.length > 1e5) throw new Error("MEMORY_INPUT_INVALID");
   if (/password|passwd|passphrase|credential|api[ _-]?key|(?:access|refresh|session|id|auth)[ _-]?token|bearer\s|\btoken\s*[:=]|(?:client[ _-]?)?secret\s*[:=]|private[ _-]?key|\b(?:ghp_|sk-)[A-Za-z0-9_-]{16,}|密码|口令|私钥|密钥|令牌/i.test(text.normalize("NFKC"))) return { kind: "rejected", reason: "secret" };
@@ -816,7 +816,7 @@ function extractPreference(text) {
   return entry && (!declared || declared === entry[0]) ? { kind: "direct", attribute: entry[0], value: entry[1], reason: "direct-preference", text } : candidate("unknown");
 }
 
-// src/main/memory/policy/maintenance-extractor.ts
+// src/main/memory-policy/maintenance-extractor.ts
 var MAINTENANCE_VERSION = "main-maintenance-v1";
 function extractMaintenance(text) {
   const base = extractPreference(text);
@@ -863,10 +863,10 @@ function extractMaintenance(text) {
   return { ...base, kind: "candidate" };
 }
 
-// src/main/memory/policy/policy-repository.ts
+// src/main/memory-policy/policy-repository.ts
 var import_node_crypto8 = require("node:crypto");
 
-// src/main/memory/policy/fact-supports.ts
+// src/main/memory-policy/fact-supports.ts
 var import_node_crypto7 = require("node:crypto");
 var FactSupports = class {
   constructor(db, key) {
@@ -985,7 +985,7 @@ var FactSupports = class {
   }
 };
 
-// src/main/memory/policy/policy-repository.ts
+// src/main/memory-policy/policy-repository.ts
 var POLICY_VERSION = "main-preferences-v1";
 function generation(value) {
   if (!Number.isSafeInteger(value) || value < 0) throw new Error("MEMORY_INPUT_INVALID");
@@ -1372,7 +1372,7 @@ var PolicyRepository = class {
   }
 };
 
-// src/main/memory/context/context-contracts.ts
+// src/main/memory-context/context-contracts.ts
 var CONTEXT_CLAIM_WINDOW_MS = 5e3;
 var ContextError = class extends Error {
   constructor(code) {
@@ -1386,7 +1386,7 @@ function contextFail(code) {
   throw new ContextError(code);
 }
 
-// src/main/memory/context/transcript-ledger.ts
+// src/main/memory-context/transcript-ledger.ts
 var TranscriptLedger = class {
   constructor(db, key, fault) {
     this.db = db;
@@ -1442,15 +1442,15 @@ var TranscriptLedger = class {
   }
 };
 
-// src/main/memory/recall/recall-repository.ts
+// src/main/memory-recall/recall-repository.ts
 var import_node_crypto9 = require("node:crypto");
 
-// src/main/memory/recall/recall-contracts.ts
+// src/main/memory-recall/recall-contracts.ts
 function recallFail(code) {
   throw new Error(code);
 }
 
-// src/main/memory/recall/recall-decay.ts
+// src/main/memory-recall/recall-decay.ts
 var DAY = 864e5;
 var DEFAULT_RECALL_POLICY = Object.freeze({ version: "recall-decay-v1", halfLifeMs: 30 * DAY, archiveThreshold: 0.125, minIdleMs: 90 * DAY, protectExplicitConfirmation: true, maintenanceMode: "dry-run", batchSize: 100 });
 function clock(value) {
@@ -1498,7 +1498,7 @@ function isArchiveCandidate(value, now, policy, protection) {
   return !protectedFact && now - s.decayAnchorAt >= p.minIdleMs && s.strengthAtLastCalculation <= p.archiveThreshold + tolerance;
 }
 
-// src/main/memory/recall/recall-repository.ts
+// src/main/memory-recall/recall-repository.ts
 function natural(value) {
   if (!Number.isSafeInteger(value) || value < 0) recallFail("MEMORY_RECALL_STATE_INVALID");
   return value;
@@ -1806,7 +1806,7 @@ var RecallRepository = class {
   }
 };
 
-// src/main/memory/context/context-repository.ts
+// src/main/memory-context/context-repository.ts
 function natural2(value) {
   if (!Number.isSafeInteger(value) || value < 0) contextFail("MEMORY_CONTEXT_INPUT_INVALID");
   return value;
@@ -2129,10 +2129,10 @@ var ContextRepository = class {
   }
 };
 
-// src/main/memory/core/repository.ts
+// src/main/memory-core/repository.ts
 var import_node_sqlite2 = require("node:sqlite");
 
-// src/main/memory/core/database-auth.ts
+// src/main/memory-core/database-auth.ts
 var import_node_fs = __toESM(require("node:fs"));
 var import_node_path = __toESM(require("node:path"));
 var import_node_crypto10 = require("node:crypto");
@@ -2203,7 +2203,7 @@ function ensureDatabaseAuth(databasePath, key) {
   return id;
 }
 
-// src/main/memory/core/backups.ts
+// src/main/memory-core/backups.ts
 var import_node_fs2 = __toESM(require("node:fs"));
 var import_node_path2 = __toESM(require("node:path"));
 var import_node_sqlite = require("node:sqlite");
@@ -2251,7 +2251,7 @@ async function createMemoryBackup(input) {
   }
 }
 
-// src/main/memory/core/schema.ts
+// src/main/memory-core/schema.ts
 function baseSchema(db, databaseId) {
   db.exec("CREATE TABLE memory_metadata (singleton INTEGER PRIMARY KEY CHECK(singleton=1), database_id TEXT NOT NULL, key_version INTEGER NOT NULL CHECK(key_version=1)) STRICT");
   db.prepare("INSERT INTO memory_metadata VALUES (1,?,1)").run(databaseId);
@@ -2351,7 +2351,7 @@ function initializeSchema(db, databaseId) {
   if (metadata?.database_id !== databaseId || metadata.key_version !== 1) throw new Error("MEMORY_DATABASE_AUTH_MISMATCH");
 }
 
-// src/main/memory/core/repository.ts
+// src/main/memory-core/repository.ts
 var STATES = /* @__PURE__ */ new Set(["recorded", "proposed", "active", "superseded", "forgotten", "pending", "running", "complete", "invalidated"]);
 var MemoryRepository = class {
   constructor(db, key, databasePath, databaseId, fault, clock2 = Date.now) {
