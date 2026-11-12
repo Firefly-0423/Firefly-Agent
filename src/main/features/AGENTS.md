@@ -25,7 +25,7 @@
 | `plugins/` | 插件宿主（host）与插件面板（panel）。清单字段、能力、生命周期和隔离边界的改动先开 Issue。 |
 | `proactive/` | 主动聊天。 |
 | `scheduler/` | 定时任务的存储、引擎与 IPC。 |
-| `sessions/` | 会话存储、待发队列和会话相关 IPC。 |
+| `sessions/` | 会话存储、待发队列、会话与窗口相关 IPC。 |
 | `settings/` | 设置窗口的 IPC 与通用设置生效流程。 |
 
 ## 验证

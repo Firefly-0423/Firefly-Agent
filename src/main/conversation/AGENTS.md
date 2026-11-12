@@ -4,7 +4,7 @@
 
 ## 职责
 
-- **负责**：对话的权威记录：记录的类型、存储、读取视图和结算。
+- **负责**：对话的权威记录：记录的类型、存储和结算；以及渠道消息的公共类型。
 - **不负责**：怎么生成回复、怎么执行工具。
 
 ## 引用规则
@@ -17,8 +17,8 @@
 
 | 目录 | 职责 |
 |---|---|
-| `channels/` | 外部渠道的公共类型（`channel-types.ts`），供记忆、运行和功能层共用。 |
-| `transcript/` | 会话记录的类型、存储（`conversation-transcript-store.ts`）、上下文物化、结算（含 `run-settlement.ts`）与写入口（`transcript-sink.ts`）。持久化格式的改动先开 Issue。 |
+| `channels/` | 外部渠道的公共类型（`channel-types.ts`）、适配器基类和消息文本格式，供记忆、运行和功能层共用。 |
+| `transcript/` | 会话记录的类型、存储（`conversation-transcript-store.ts`）、分发协调与结算（含 `run-settlement.ts`）。把记录接进运行的部分（写入口、上下文物化）在 `agent/loop`。持久化格式的改动先开 Issue。 |
 
 ## 验证
 

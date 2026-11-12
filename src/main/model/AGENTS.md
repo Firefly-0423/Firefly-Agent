@@ -18,7 +18,9 @@
 | 目录 | 职责 |
 |---|---|
 | `config/` | 模型档案（`model-settings.ts`）、模型目录、伙伴模型路由、连接状态、能力声明。 |
+| `context/` | 一次请求的上下文契约（`context-contracts.ts`）：请求身份、预备请求、上下文错误。 |
 | `errors/` | 运行错误类型（`agent-runtime-error.ts`），模型层及以上共用。 |
+| `prompt/` | 提示词分层与缓存指纹（`prompt-layers.ts`）、内部记录消息（`internal-transcript.ts`）。提示词分层的改动先开 Issue。 |
 | `providers/` | 各厂商接口适配（Anthropic / OpenAI / Responses 等）、请求准备、重试与看门狗、流式解析。重试策略和接口契约的改动先开 Issue。 |
 | `queue/` | 后台模型任务队列（`llm-queue.ts`）。 |
 | `structured/` | 结构化输出的运行与校验。 |

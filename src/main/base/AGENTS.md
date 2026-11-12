@@ -19,12 +19,13 @@
 |---|---|
 | `identity/` | 应用身份、运行档案（production / dev / test / smoke）和数据目录的确定。数据目录、单实例、安装身份的改动先开 Issue。 |
 | `ipc/` | IPC 注册范围（`ipc-scope.ts`）：各模块注册通道时用它统一登记和清理。 |
+| `lifecycle/` | 启动就绪状态与退出协调（`readiness.ts`、`shutdown.ts`）。 |
 | `logging/` | 日志输出与调试开关。 |
 | `prompts/` | 提示词文件的定位与加载。 |
 | `runtime-policy/` | 各阶段的超时与预算策略。 |
 | `security/` | 安全相关的回归测试（依赖补丁、Git 配置等）。 |
 | `storage/` | 存储上下文、原子写、设置文件、内容清单；所有落盘路径从这里取。 |
-| `utils/` | 通用小函数（取消信号等）。 |
+| `utils/` | 通用小函数（取消信号、规范化 JSON 等）。 |
 
 ## 验证
 

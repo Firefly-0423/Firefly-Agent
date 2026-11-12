@@ -17,14 +17,15 @@
 
 | 目录 | 职责 |
 |---|---|
-| `loop/` | 运行循环（agent loop）：模型轮次、工具调度、压缩、恢复、运行存档。运行终态、取消 / 超时 / 错误的区分、重试策略的改动先开 Issue。目录已从 harness 改名，类型和函数名的改名按 1.2 规格另行进行。 |
+| `loop/` | 运行循环（agent loop）：模型轮次、工具调度、压缩、恢复、运行存档，以及会话记录的写入口和上下文物化。运行终态、取消 / 超时 / 错误的区分、重试策略的改动先开 Issue。目录已从 harness 改名，类型和函数名的改名按 1.2 规格另行进行。 |
 | `mcp/` | MCP 接入与管理。 |
+| `memory-runtime/` | 把记忆接进一次运行：记忆运行时、各入口的接入（桌面、渠道、后台）、运行捕获、会话记录适配、模型计数。 |
 | `review/` | 工作区改动审查。 |
-| `runtime/` | 运行入口（`agent-runtime.ts`、`firefly-agent.ts`、`chat-loop.ts`）、提示词与上下文组装、伙伴会话、计划模式。 |
+| `runtime/` | 运行入口（`agent-runtime.ts`、`firefly-agent.ts`、`chat-loop.ts`）、运行输入类型、上下文组装、伙伴会话、计划模式、排队消息插入（`pending-adjustment.ts`）。 |
 | `sandbox/` | 命令沙箱。 |
 | `services/` | 后台模型客户端、向量索引服务等。 |
 | `tasks/` | 伙伴会话注册与任务人设。 |
-| `tools/` | 内置工具及其登记（`tool-registration.ts`）、命令执行策略。新增工具（尤其写文件、执行命令、联网）先开 Issue。 |
+| `tools/` | 内置工具及其登记（`tool-registration.ts`，含早期记忆工具 `legacy-memory-tools.ts`）、命令执行策略。新增工具（尤其写文件、执行命令、联网）先开 Issue。 |
 
 ## 验证
 
