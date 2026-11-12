@@ -2,7 +2,7 @@
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getOfflineBrowserAvailability } from "../../../../../main/browser/browser-availability-ipc";
+import { getOfflineBrowserAvailability } from "../../../../../main/platform/browser/browser-availability-ipc";
 vi.mock("../../../i18n", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 import { OfflineBrowserTab } from "./OfflineBrowserTab";
 

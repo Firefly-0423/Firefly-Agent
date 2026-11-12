@@ -8,11 +8,11 @@ import {createPackage} from "@electron/asar";
 const cwd=process.cwd();assert.equal(cwd,process.env.FIREFLY_RECALL_VERIFY_WORKSPACE);assert.equal(path.parse(cwd).root.toUpperCase(),"E:\\");
 const output=path.join(cwd,"output","memory-m","electron-"+Date.now()),source=path.join(output,"app-source");fs.mkdirSync(source,{recursive:true});
 await build({entryPoints:["scripts/verify/memory-recall/electron-entry.ts"],outfile:path.join(source,"entry.cjs"),bundle:true,platform:"node",target:"node24",format:"cjs",external:["electron"]});
-await build({entryPoints:["src/main/memory-core/worker.ts"],outfile:path.join(source,"worker.cjs"),bundle:true,platform:"node",target:"node24",format:"cjs"});
+await build({entryPoints:["src/main/memory/core/worker.ts"],outfile:path.join(source,"worker.cjs"),bundle:true,platform:"node",target:"node24",format:"cjs"});
 fs.writeFileSync(path.join(source,"package.json"),JSON.stringify({name:"firefly-recall-probe",version:"0.0.0",main:"entry.cjs"}));
 const oldWriter=process.env.FIREFLY_RECALL_V7_WRITER;assert.ok(oldWriter&&path.isAbsolute(oldWriter)&&path.parse(oldWriter).root.toUpperCase()==="E:\\");
 assert.equal(createHash("sha256").update(fs.readFileSync(oldWriter)).digest("hex"),"a3bacc528674773aa5b6a8743a028c26e6e9fed731e57e5803ab09b1fa37a82e");
-fs.copyFileSync(oldWriter,path.join(source,"v7-writer.cjs"));fs.cpSync(path.join(cwd,"src/main/memory-recall/fixtures/v7-writer"),path.join(source,"v7-fixture"),{recursive:true});
+fs.copyFileSync(oldWriter,path.join(source,"v7-writer.cjs"));fs.cpSync(path.join(cwd,"src/main/memory/recall/fixtures/v7-writer"),path.join(source,"v7-fixture"),{recursive:true});
 const packaged=path.join(output,"win-unpacked");fs.cpSync(path.join(cwd,"node_modules","electron","dist"),packaged,{recursive:true});fs.renameSync(path.join(packaged,"electron.exe"),path.join(packaged,"FireflyRecallProbe.exe"));await createPackage(source,path.join(packaged,"resources","app.asar"));
 const runs=[];
 async function run(packagedMode,root,mode){

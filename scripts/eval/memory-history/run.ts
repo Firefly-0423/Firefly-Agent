@@ -1,22 +1,22 @@
 // @ts-nocheck  评测脚本由 esbuild 打包运行，不参与 tsc 检查。
 /**
  * H（历史检索）离线评测。直接调用生产代码：
- *   - 排序：src/main/memory-history/history-ranking.ts 的 rankHistory（BM25 + 向量 + RRF + MMR）
- *   - 向量：src/main/rag/embedding.ts 的本地 BGE-M3
- *   - 重排：src/main/rag/reranker.ts 的本地 bge-reranker-base
+ *   - 排序：src/main/memory/history/history-ranking.ts 的 rankHistory（BM25 + 向量 + RRF + MMR）
+ *   - 向量：src/main/knowledge/rag/embedding.ts 的本地 BGE-M3
+ *   - 重排：src/main/knowledge/rag/reranker.ts 的本地 bge-reranker-base
  * 评测的是"排序层"。授权、来源校验、预算裁剪等不在范围内。
  */
 import { execSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { rankHistory } from "../../../src/main/memory-history/history-ranking";
-import { createLocalEmbeddingProvider } from "../../../src/main/rag/embedding";
-import { createStandardReranker } from "../../../src/main/rag/reranker";
-import { tokenizeJieba } from "../../../src/main/rag/jieba-tokenizer";
-import { toWindows } from "../../../src/main/memory-history/history-windows";
-import { selectExcerpt } from "../../../src/main/memory-history/history-excerpts";
-import { DEFAULT_HISTORY_SETTINGS } from "../../../src/main/memory-history/history-contracts";
+import { rankHistory } from "../../../src/main/memory/history/history-ranking";
+import { createLocalEmbeddingProvider } from "../../../src/main/knowledge/rag/embedding";
+import { createStandardReranker } from "../../../src/main/knowledge/rag/reranker";
+import { tokenizeJieba } from "../../../src/main/knowledge/rag/jieba-tokenizer";
+import { toWindows } from "../../../src/main/memory/history/history-windows";
+import { selectExcerpt } from "../../../src/main/memory/history/history-excerpts";
+import { DEFAULT_HISTORY_SETTINGS } from "../../../src/main/memory/history/history-contracts";
 import { assertNoLeakage, buildDataset, sessionText } from "./dataset.mjs";
 import { auc, bootstrapCi, dedupe, evidenceContains, hitAtK, mean, ndcgAtK, packEvidence, percentile, recallAtK, reciprocalRank, supersededOrder } from "./metrics.mjs";
 

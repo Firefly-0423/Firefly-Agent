@@ -4,9 +4,9 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {recallFixture} from '../memory-recall/recall-fixture';
 import {SyntheticSourceProvider} from '../memory-sources/synthetic-provider';
-import {createMainHistory,createMainHistoryProvider} from '../../../src/main/memory-history/main-history';
-import {createMainContext} from '../../../src/main/memory-context/main-context';
-import {createMainRecall} from '../../../src/main/memory-recall/main-recall';
+import {createMainHistory,createMainHistoryProvider} from '../../../src/main/memory/history/main-history';
+import {createMainContext} from '../../../src/main/memory/context/main-context';
+import {createMainRecall} from '../../../src/main/memory/recall/main-recall';
 
 async function main(){
  const workspace=process.cwd(),temp=process.env.TEMP??'';

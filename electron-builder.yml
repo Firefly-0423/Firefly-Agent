@@ -16,7 +16,7 @@ electronDist: node_modules/electron/dist
 files:
   - dist/**/*
   - "!dist/components/**/*"
-  - "!dist/main/main/sim/**/*"
+  - "!dist/main/main/features/diagnostics/sim/**/*"
   - "!dist/sim/**/*"
   - package.json
   - assets/**/*
@@ -61,7 +61,7 @@ extraResources:
       - "provenance/**/*"
   - from: resources/bin/firefly-screenshot.exe
     to: bin/firefly-screenshot.exe
-  - from: src/main/music/scripts/qqmusic_gsmtc.ps1
+  - from: src/main/platform/music/scripts/qqmusic_gsmtc.ps1
     to: music/qqmusic_gsmtc.ps1
   - from: resources/mingit
     to: mingit

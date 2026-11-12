@@ -1,6 +1,6 @@
 # External Skill static reviews
 
-These are engineering license-scope and complete-text compatibility reviews, not legal advice, runtime verification, installation, or activation. The Main-only static table is `src/main/skills/external-reviews.ts`. User confirmation cannot create or bypass a review. Synthetic test entries never appear in this table.
+These are engineering license-scope and complete-text compatibility reviews, not legal advice, runtime verification, installation, or activation. The Main-only static table is `src/main/knowledge/skills/external-reviews.ts`. User confirmation cannot create or bypass a review. Synthetic test entries never appear in this table.
 
 ## Review boundary
 

@@ -6,6 +6,6 @@ export default defineConfig({
   ...ordinary,
   test: {
     ...ordinary.test,
-    include: ["src/main/memory-sources/native-history-zero-write.acceptance.ts"],
+    include: ["src/main/memory/sources/native-history-zero-write.acceptance.ts"],
   },
 });

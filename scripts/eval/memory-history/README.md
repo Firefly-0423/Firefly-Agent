@@ -6,9 +6,9 @@
 
 | 环节 | 生产代码 |
 |---|---|
-| 排序（BM25、向量、RRF、MMR、时间过滤） | `src/main/memory-history/history-ranking.ts` 的 `rankHistory` |
-| 向量 | `src/main/rag/embedding.ts` 的本地 BGE-M3 |
-| 重排 | `src/main/rag/reranker.ts` 的本地 bge-reranker-base |
+| 排序（BM25、向量、RRF、MMR、时间过滤） | `src/main/memory/history/history-ranking.ts` 的 `rankHistory` |
+| 向量 | `src/main/knowledge/rag/embedding.ts` 的本地 BGE-M3 |
+| 重排 | `src/main/knowledge/rag/reranker.ts` 的本地 bge-reranker-base |
 
 评测的是**排序层**。授权、来源校验、预算裁剪、遗忘等治理逻辑不在范围内，它们有各自的测试。
 

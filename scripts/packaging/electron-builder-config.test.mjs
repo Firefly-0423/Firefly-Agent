@@ -221,12 +221,12 @@ test("Main compilation omits simulator sources while the independent simulator e
   };
   const main = compileSet("tsconfig.main.json");
   assert.ok(main.includes("src/main/index.ts"));
-  assert.deepEqual(main.filter(file => file.startsWith("src/main/sim/")), [],
+  assert.deepEqual(main.filter(file => file.startsWith("src/main/features/diagnostics/sim/")), [],
     "production Main must not compile simulator roots or import them transitively");
   const sim = compileSet("tsconfig.sim.json");
-  assert.ok(sim.includes("src/main/sim/dmae-sim.ts"));
-  assert.ok(sim.includes("src/main/sim/run-l2-sim.ts"));
-  assert.ok(sim.includes("src/main/rag/worldbook.ts"));
+  assert.ok(sim.includes("src/main/features/diagnostics/sim/dmae-sim.ts"));
+  assert.ok(sim.includes("src/main/features/diagnostics/sim/run-l2-sim.ts"));
+  assert.ok(sim.includes("src/main/knowledge/rag/worldbook.ts"));
 });
 
 test("installer file selection excludes both simulator outputs while retaining production entries", async context => {
@@ -239,8 +239,8 @@ test("installer file selection excludes both simulator outputs while retaining p
     "dist/renderer/react/index.html", "dist/cli/index.js", "package.json",
   ];
   const omitted = [
-    "dist/main/main/sim/dmae-sim.js", "dist/main/main/sim/render/stats.js",
-    "dist/sim/main/sim/run-l2-sim.js",
+    "dist/main/main/features/diagnostics/sim/dmae-sim.js", "dist/main/main/features/diagnostics/sim/render/stats.js",
+    "dist/sim/main/features/diagnostics/sim/run-l2-sim.js",
   ];
   for (const file of [...retained, ...omitted]) {
     const location = path.join(input, file);

@@ -2,10 +2,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {randomBytes,randomUUID} from "node:crypto";
-import {openMemoryRepository} from "../../../src/main/memory-core/repository";
-import {createMainActorAuthority} from "../../../src/main/memory-core/main-actor-authority";
-import {createMainSourceRegistry} from "../../../src/main/memory-sources/source-registry";
-import {createMainPolicy} from "../../../src/main/memory-policy/main-policy";
+import {openMemoryRepository} from "../../../src/main/memory/core/repository";
+import {createMainActorAuthority} from "../../../src/main/memory/core/main-actor-authority";
+import {createMainSourceRegistry} from "../../../src/main/memory/sources/source-registry";
+import {createMainPolicy} from "../../../src/main/memory/policy/main-policy";
 import {SyntheticSourceProvider} from "../memory-sources/synthetic-provider";
 /** Test/probe fixture only; creates owned synthetic data, never product userData. */
 export function recallFixture(){

@@ -63,7 +63,7 @@ class FetchTests(unittest.TestCase):
         self.project = Path(self.tmp.name) / 'Firefly'
         self.project.mkdir()
         (self.project / 'package.json').write_text('{"name":"fixture"}')
-        scanner = self.project / 'src/main/skills/skill-scanner.ts'
+        scanner = self.project / 'src/main/knowledge/skills/skill-scanner.ts'
         scanner.parent.mkdir(parents=True)
         scanner.write_text('// synthetic project marker')
         self.original = self.project / 'vendor/firefly-skills/skills-snapshot.zip'
@@ -177,7 +177,7 @@ class FetchTests(unittest.TestCase):
         self.assertEqual((a / 'receipt.json').read_bytes(), before)
 
     def test_missing_project_marker_fails_without_writes(self):
-        (self.project / 'src/main/skills/skill-scanner.ts').unlink()
+        (self.project / 'src/main/knowledge/skills/skill-scanner.ts').unlink()
         with self.assertRaises(M.FetchError):
             self.run_fetch()
         self.assertFalse((self.project / 'vendor/firefly-upstream').exists())

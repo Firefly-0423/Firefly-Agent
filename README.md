@@ -210,12 +210,12 @@ flowchart TB
 
 | 层 | 负责 | 代码 |
 | --- | --- | --- |
-| ① 入口 | 语音输入、定时任务、主动聊天、外部渠道 | `src/main/asr/`、`src/main/scheduler/`、`src/main/proactive/`、`src/main/channels/` |
+| ① 入口 | 语音输入、定时任务、主动聊天、外部渠道 | `src/main/platform/speech/asr/`、`src/main/features/scheduler/`、`src/main/features/proactive/`、`src/main/features/channels/` |
 | ② 桌面界面 | 聊天界面、Live2D、受控 IPC | `src/renderer/react/`、`src/renderer/live2d/`、`src/preload/index.ts` |
-| ③ Agent 核心 | 主循环、伙伴子会话、权限与审批 | `src/main/orchestrator/harness/firefly-harness.ts`、`src/main/orchestrator/persistent-agent-runtime.ts`、`src/main/orchestrator/harness/tool-dispatcher.ts`、`src/main/permission/` |
-| ④ 记忆与模型 | 记忆运行时、历史检索、知识 RAG、厂商适配 | `src/main/memory-context/`、`src/main/memory-history/`、`src/main/rag/`、`src/main/knowledge/`、`src/main/orchestrator/vendors/` |
-| ⑤ 能力与执行 | 内置工具、浏览器、插件、Skills、MCP、Code Git、LSP | `src/main/orchestrator/tools/built-in-tools.ts`、`src/main/browser/`、`src/plugins/`、`src/main/plugin-host/`、`src/main/skills/`、`src/main/orchestrator/mcp-manager.ts`、`src/main/code-git/`、`src/main/lsp/` |
-| ⑥ 本机底座 | 记忆库、原生助手 | `src/main/memory-core/`、`native/src/app.rs` |
+| ③ Agent 核心 | 主循环、伙伴子会话、权限与审批 | `src/main/agent/loop/firefly-harness.ts`、`src/main/agent/runtime/persistent-agent-runtime.ts`、`src/main/agent/loop/tool-dispatcher.ts`、`src/main/platform/permission/` |
+| ④ 记忆与模型 | 记忆运行时、历史检索、知识 RAG、厂商适配 | `src/main/memory/context/`、`src/main/memory/history/`、`src/main/knowledge/rag/`、`src/main/knowledge/workspace/`、`src/main/model/providers/` |
+| ⑤ 能力与执行 | 内置工具、浏览器、插件、Skills、MCP、Code Git、LSP | `src/main/agent/tools/built-in-tools.ts`、`src/main/platform/browser/`、`src/plugins/`、`src/main/features/plugins/host/`、`src/main/knowledge/skills/`、`src/main/agent/mcp/mcp-manager.ts`、`src/main/platform/git/`、`src/main/platform/lsp/` |
+| ⑥ 本机底座 | 记忆库、原生助手 | `src/main/memory/core/`、`native/src/app.rs` |
 
 ## 🛠️ 从源码运行
 

@@ -1,6 +1,6 @@
 import { expect, describe, it } from "vitest";
 import { DEFAULT_UI_FONT, normalizeUiFont, isSupportedFontFileName } from "../shared/ui-font";
-import { isSafeUiFontRequest, getUiFontResponseHeaders } from "./protocols/ui-font-protocol";
+import { isSafeUiFontRequest, getUiFontResponseHeaders } from "./platform/protocols/ui-font-protocol";
 
 describe("imported font selection and delivery", () => {
   it.each([undefined, { kind: "custom", fileName: "../private.ttf", displayName: "Hidden" },

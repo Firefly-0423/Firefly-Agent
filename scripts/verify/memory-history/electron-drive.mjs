@@ -8,10 +8,10 @@ import {createPackageWithOptions} from "@electron/asar";
 const cwd=process.cwd();assert.equal(cwd,process.env.FIREFLY_HISTORY_VERIFY_WORKSPACE);assert.equal(path.parse(cwd).root.toUpperCase(),"E:\\");
 const output=path.join(cwd,"output","memory-h","electron-"+Date.now()),source=path.join(output,"app-source");fs.mkdirSync(source,{recursive:true});
 await build({entryPoints:["scripts/verify/memory-history/electron-entry.ts"],outfile:path.join(source,"entry.cjs"),bundle:true,platform:"node",target:"node24",format:"cjs",external:["electron"]});
-await build({entryPoints:["src/main/memory-core/worker.ts"],outfile:path.join(source,"worker.cjs"),bundle:true,platform:"node",target:"node24",format:"cjs"});
+await build({entryPoints:["src/main/memory/core/worker.ts"],outfile:path.join(source,"worker.cjs"),bundle:true,platform:"node",target:"node24",format:"cjs"});
 fs.writeFileSync(path.join(source,"package.json"),JSON.stringify({name:"firefly-history-probe",version:"0.0.0",main:"entry.cjs"}));
 await build({entryPoints:["scripts/verify/memory-history/v8-worker.ts"],outfile:path.join(source,"v8-worker.cjs"),bundle:true,platform:"node",target:"node24",format:"cjs"});
-const fixture=path.join(cwd,"src/main/memory-history/fixtures/v8-writer"),manifest=JSON.parse(fs.readFileSync(path.join(fixture,"manifest.json"),"utf8"));
+const fixture=path.join(cwd,"src/main/memory/history/fixtures/v8-writer"),manifest=JSON.parse(fs.readFileSync(path.join(fixture,"manifest.json"),"utf8"));
 const oldWriter=path.join(fixture,"v8-writer.cjs");assert.equal(createHash("sha256").update(fs.readFileSync(oldWriter)).digest("hex"),manifest.hashes["v8-writer.cjs"]);
 fs.copyFileSync(oldWriter,path.join(source,"v8-writer.cjs"));fs.copyFileSync(path.join(fixture,"manifest.json"),path.join(source,"v8-manifest.json"));
 for(const name of ["@node-rs/jieba","@node-rs/jieba-win32-x64-msvc"]){fs.cpSync(path.join(cwd,"node_modules",name),path.join(source,"node_modules",name),{recursive:true});}

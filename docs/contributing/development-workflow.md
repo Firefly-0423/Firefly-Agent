@@ -142,15 +142,15 @@ Issue（问题或需求）
 
 | 模块 | 代码位置 | 先讨论 | 可直接 PR |
 |---|---|---|---|
-| 运行循环 | `src/main/orchestrator/harness/`、`firefly-agent.ts`、`chat-loop.ts`、`src/main/chat/agui-bridge.ts` | 运行终态与结算、取消 / 超时 / 错误的区分、重试策略、事件顺序、适配层接口 | 不改语义的修复、日志 |
+| 运行循环 | `src/main/agent/loop/`、`firefly-agent.ts`、`chat-loop.ts`、`src/main/features/chat/agui-bridge.ts` | 运行终态与结算、取消 / 超时 / 错误的区分、重试策略、事件顺序、适配层接口 | 不改语义的修复、日志 |
 | 记忆 | `src/main/memory*/` | 判定与冲突策略、存储结构、注入逻辑 | 导入导出修复、记忆管理界面 |
-| 插件 | `src/plugins/`、`src/main/plugin-host/`、`plugin-sdk/` | 清单字段、能力与权限、生命周期、隔离与安全边界 | 示例插件、SDK 文档、不改契约的修复 |
-| 工具 | `src/main/orchestrator/tools/` | 新增内置工具（尤其写文件、执行命令、联网）、各模式的工具暴露、参数和返回格式、写入防护 | 工具说明文案、不改行为的修复 |
-| 上下文 | `build-options.ts`、`context-manager.ts`、`prompt-layers.ts`、`src/main/runtime-policy/` | 提示词分层、压缩与裁剪、Token 预算、各来源的注入顺序 | 上下文查看界面、注入格式修复 |
-| 权限 | `src/main/permission/`、`src/main/orchestrator/sandbox/` | 任何**放宽**权限的改动、审批流语义、沙箱和命令执行规则 | 审批卡片界面和文案、不改安全语义的修复 |
-| 调度 | `src/main/scheduler/` | 错过任务的处理、下次触发时间规则、插件任务的所有权和授权、存储格式 | 不改语义的修复（如时区计算）、调度界面 |
-| 渠道 | `src/main/channels/` | 外部消息进入的模式和工具范围、账号与会话绑定、审批相关 | 单个适配器的修复 |
-| 启动与数据 | `src/main/startup/`、`src/main/storage/`、`src/main/updater/` | 数据目录、单实例、安装身份、更新、资源路径 | 日志和诊断 |
+| 插件 | `src/plugins/`、`src/main/features/plugins/host/`、`plugin-sdk/` | 清单字段、能力与权限、生命周期、隔离与安全边界 | 示例插件、SDK 文档、不改契约的修复 |
+| 工具 | `src/main/agent/tools/` | 新增内置工具（尤其写文件、执行命令、联网）、各模式的工具暴露、参数和返回格式、写入防护 | 工具说明文案、不改行为的修复 |
+| 上下文 | `build-options.ts`、`context-manager.ts`、`prompt-layers.ts`、`src/main/base/runtime-policy/` | 提示词分层、压缩与裁剪、Token 预算、各来源的注入顺序 | 上下文查看界面、注入格式修复 |
+| 权限 | `src/main/platform/permission/`、`src/main/agent/sandbox/` | 任何**放宽**权限的改动、审批流语义、沙箱和命令执行规则 | 审批卡片界面和文案、不改安全语义的修复 |
+| 调度 | `src/main/features/scheduler/` | 错过任务的处理、下次触发时间规则、插件任务的所有权和授权、存储格式 | 不改语义的修复（如时区计算）、调度界面 |
+| 渠道 | `src/main/features/channels/` | 外部消息进入的模式和工具范围、账号与会话绑定、审批相关 | 单个适配器的修复 |
+| 启动与数据 | `src/main/base/identity/`、`src/main/base/storage/`、`src/main/platform/updater/` | 数据目录、单实例、安装身份、更新、资源路径 | 日志和诊断 |
 
 ## 7. 测试
 

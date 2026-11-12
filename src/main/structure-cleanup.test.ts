@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { expect, it } from "vitest";
-import { BUILT_IN_STICKER_DESCRIPTIONS, BUILT_IN_STICKER_FILES } from "./stickers/sticker-descriptions";
+import { BUILT_IN_STICKER_DESCRIPTIONS, BUILT_IN_STICKER_FILES } from "./platform/stickers/sticker-descriptions";
 import { TASK_CHARACTERS } from "../shared/task-characters";
 
 const root = path.resolve(__dirname, "../..");

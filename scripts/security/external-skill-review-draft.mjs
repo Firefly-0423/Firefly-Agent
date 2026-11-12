@@ -1,4 +1,4 @@
-// Prints a DRAFT static review entry for one market Skill at one commit, for src/main/skills/external-reviews.ts.
+// Prints a DRAFT static review entry for one market Skill at one commit, for src/main/knowledge/skills/external-reviews.ts.
 // It only computes what Main will check (file hashes, the canonical content digest, license evidence and, for Firefly's
 // own source, the Firefly metadata). It approves nothing: the reviewer reads every file, decides, and records the
 // rationale in THIRD_PARTY_SKILL_REVIEWS.md before the entry ships.

@@ -5,15 +5,15 @@ import {Worker} from "node:worker_threads";
 import {DatabaseSync} from "node:sqlite";
 import {createHash,randomUUID} from "node:crypto";
 import {app} from "electron";
-import {canonicalPath,within,resolveRuntimeProfile,applyElectronPaths} from "../../../src/main/startup/runtime-profile";
-import {createStorageContext} from "../../../src/main/storage/storage-context";
-import {createWindowsKeyProtection} from "../../../src/main/memory-core/windows-dpapi";
-import {MemoryClient} from "../../../src/main/memory-core/worker-client";
-import {createMainActorAuthority} from "../../../src/main/memory-core/main-actor-authority";
-import {createMainPolicy} from "../../../src/main/memory-policy/main-policy";
-import {createMainSourceRegistry} from "../../../src/main/memory-sources/source-registry";
-import {createMainContext} from "../../../src/main/memory-context/main-context";
-import {createMainRecall} from "../../../src/main/memory-recall/main-recall";
+import {canonicalPath,within,resolveRuntimeProfile,applyElectronPaths} from "../../../src/main/base/identity/runtime-profile";
+import {createStorageContext} from "../../../src/main/base/storage/storage-context";
+import {createWindowsKeyProtection} from "../../../src/main/memory/core/windows-dpapi";
+import {MemoryClient} from "../../../src/main/memory/core/worker-client";
+import {createMainActorAuthority} from "../../../src/main/memory/core/main-actor-authority";
+import {createMainPolicy} from "../../../src/main/memory/policy/main-policy";
+import {createMainSourceRegistry} from "../../../src/main/memory/sources/source-registry";
+import {createMainContext} from "../../../src/main/memory/context/main-context";
+import {createMainRecall} from "../../../src/main/memory/recall/main-recall";
 import {SyntheticSourceProvider} from "../memory-sources/synthetic-provider";
 
 const arg=(name:string)=>process.argv.find(v=>v.startsWith(name+"="))?.slice(name.length+1);
@@ -40,7 +40,7 @@ async function migrateAndRollback(){
  if(mode==="rollback"){
   // Exact v7 writer from the retained pre-v8 bundle, never a current writer with
   // dropped tables/reset PRAGMA. Roll back into a new owned root from full backup.
-  const old=require(path.join(__dirname,"v7-writer.cjs")) as typeof import("../../../src/main/memory-core/repository");const snapshot=bytes(folder),testKey=Buffer.alloc(32,7);
+  const old=require(path.join(__dirname,"v7-writer.cjs")) as typeof import("../../../src/main/memory/core/repository");const snapshot=bytes(folder),testKey=Buffer.alloc(32,7);
   assert.throws(()=>{const opened=old.openMemoryRepository({databasePath:file,key:testKey});opened.close()},/MEMORY_SCHEMA_UNSUPPORTED/);assert.deepEqual(bytes(folder),snapshot);
   const restored=path.join(ownedRoot,"restored-v7");fs.mkdirSync(restored);for(const suffix of ["",".auth"])fs.copyFileSync(path.join(backup,"memory.sqlite"+suffix),path.join(restored,"memory.sqlite"+suffix));assert.equal(hash(path.join(restored,"memory.sqlite")),"abe66d5aabccf0dcba143f8184b5ae41a029de9dbcabea889bfd3d17ff818434");
   const repo=old.openMemoryRepository({databasePath:path.join(restored,"memory.sqlite"),key:testKey});assert.deepEqual(repo.readRows("sources","scope-a")[0].payload,{text:"ACTUAL_V7_SYNTHETIC_RECORD"});repo.close();testKey.fill(0);db=new DatabaseSync(path.join(restored,"memory.sqlite"));assert.equal(db.prepare("PRAGMA user_version").get()?.user_version,7);db.close();
