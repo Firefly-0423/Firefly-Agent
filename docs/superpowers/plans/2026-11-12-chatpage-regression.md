@@ -1,4 +1,5 @@
 # Firefly-Agent 1.2.0 ChatPage 回归清单施工计划
+
 状态：待施工
 规格：无独立规格；沿用本计划已确认回归范围及负责人决定；权限档位按 `docs/superpowers/specs/2026-11-12-plugin-sdk-1-2-0.md` §7.2，施工结构按 `docs/contributing/development-workflow.md` §3–5。
 
