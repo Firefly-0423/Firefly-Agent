@@ -1,7 +1,6 @@
 import * as fs from "fs";
 import { fireflyExportManifest } from "../../base/storage/firefly-data-paths";
 import * as path from "path";
-import { memoryStore } from "./memory-store";
 import { entityGraph } from "./entity-graph";
 import type { L0Profile, L1Profile, L2Memory, ReflectionLog, ConflictLog } from "./memory-types";
 import { logger, LogTag } from "../../base/logging/logger";
@@ -375,7 +374,19 @@ function removePreviouslyExported(manifestPath: string, outputDir: string): void
  * 把当前记忆库导出成 Obsidian vault。
  * @param outputDir 用户指定的输出目录（vault 根目录）
  */
-export async function exportMemoryToObsidianVault(outputDir: string): Promise<ExportResult> {
+/**
+ * 导出所需的记忆读取面。由调用方（memory-store）传入，导出器不再反向引用记忆库，
+ * 这样 memory-store 与 obsidian-exporter 之间没有文件级循环依赖。
+ */
+export interface ObsidianExportSource {
+  getL0(): Promise<L0Profile>;
+  getL1(): Promise<L1Profile>;
+  getAllL2(): Promise<L2Memory[]>;
+  getReflectionLogs(): Promise<ReflectionLog[]>;
+  getConflictLogs(): Promise<ConflictLog[]>;
+}
+
+export async function exportMemoryToObsidianVault(outputDir: string, source: ObsidianExportSource): Promise<ExportResult> {
   try {
     if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
     const subDirs = [L2_DIR, ENTITY_DIR, REFLECTION_DIR, CONFLICT_DIR].map((d) => path.join(outputDir, d));
@@ -390,11 +401,11 @@ export async function exportMemoryToObsidianVault(outputDir: string): Promise<Ex
     }
 
     const pending = [
-      memoryStore.getL0(),
-      memoryStore.getL1(),
-      memoryStore.getAllL2(),
-      memoryStore.getReflectionLogs(),
-      memoryStore.getConflictLogs(),
+      source.getL0(),
+      source.getL1(),
+      source.getAllL2(),
+      source.getReflectionLogs(),
+      source.getConflictLogs(),
     ] as const;
     const [l0, l1, l2List, reflectionLogs, conflictLogs] = await Promise.all(pending);
 
@@ -483,11 +494,11 @@ export type SyncResult = {
 };
 
 /** 导出到已绑定的 vault 并更新 lastSyncAt；未绑定返回 { ok: false, skipped: true } */
-export async function syncToBoundVault(): Promise<SyncResult> {
+export async function syncToBoundVault(source: ObsidianExportSource): Promise<SyncResult> {
   const { vaultPath } = loadObsidianVaultConfig();
   if (!vaultPath) return { ok: false, skipped: true, error: "未绑定 vault" };
 
-  const outcome = await exportMemoryToObsidianVault(vaultPath);
+  const outcome = await exportMemoryToObsidianVault(vaultPath, source);
   if (outcome.ok) {
     saveObsidianVaultConfig({ lastSyncAt: Date.now() });
     return { ok: true, vaultPath, fileCount: outcome.fileCount };
@@ -504,14 +515,14 @@ const SYNC_DEBOUNCE_MS = 2000;
  * 记忆写入后调用：已绑定 vault 且开启 autoSync 时，2 秒防抖后同步一次（连续写入只同步一次）。
  * 回流（Obsidian→PMRS）期间直接跳过以免双向循环；主防线是 memory-store.save() 里同步检查标志，这里是兜底。
  */
-export function notifyMemoryChanged(): void {
+export function notifyMemoryChanged(source: ObsidianExportSource): void {
   if (isImportingMemory()) return;
   if (!isVaultBound()) return;
   if (!loadObsidianVaultConfig().autoSync) return;
 
   const runSync = () => {
     syncTimer = null;
-    void syncToBoundVault().then((r) => {
+    void syncToBoundVault(source).then((r) => {
       if (r.ok) {
         logger.info(LogTag.Firefly, `[obsidian-sync] auto-synced ${r.fileCount} files to ${r.vaultPath}`);
         return;

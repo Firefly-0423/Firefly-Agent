@@ -113,7 +113,6 @@ vi.mock("../memory/legacy/panel", () => ({ loadImportedDocumentPanelData: vi.fn(
 vi.mock("../memory/legacy/memory-store", () => ({ memoryStore: vi.fn() }));
 vi.mock("../memory/legacy/obsidian-exporter", () => ({ exportMemoryToObsidianVault: vi.fn(), syncToBoundVault: vi.fn() }));
 vi.mock("../memory/legacy/obsidian-vault-config", () => ({ loadObsidianVaultConfig: () => ({}), saveObsidianVaultConfig: vi.fn(), unbindVault: vi.fn() }));
-vi.mock("../memory/legacy/obsidian-importer", () => ({ startVaultWatcher: vi.fn(), stopVaultWatcher: vi.fn() }));
 vi.mock("../features/sessions/chats-store", () => ({ getSession: vi.fn(), getSessionKind: vi.fn(() => null), listSessions: () => [] }));
 vi.mock("../tooling/registry/tool-registry", () => ({ toolRegistry: { getAll: () => [], register: vi.fn() } }));
 import { createDefaultApplicationDependencies } from "./default-dependencies";

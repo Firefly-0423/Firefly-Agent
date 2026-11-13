@@ -35,6 +35,7 @@ import { extractFileChanges, FileChangeCard } from "./FileChangeCard";
 import { ReviewPanel } from "./ReviewPanel";
 import { reportChatPerfRender } from "./chat-perf-probe";
 import { StreamdownMessageContent } from "./StreamdownMessageContent";
+import { FileLinkContext, MessageStreamingContext, type FileLinkEnv } from "./message-contexts";
 import { useScrollPinning } from "./useScrollPinning";
 
 export interface ChatMessageItem {
@@ -66,9 +67,6 @@ interface ChatMessageListProps {
 
 
 const fireflyAvatarUrl = resolveAsset("avatars/firefly-avatar.png");
-export const MessageStreamingContext = createContext(false);
-export interface FileLinkEnv { workspaceRoot?: string; openFile?: (relPath: string, line?: number) => void; }
-export const FileLinkContext = createContext<FileLinkEnv>({});
 export interface LastTurnIds { userMessageId: string | null; assistantMessageId: string | null; }
 export const LastTurnIdsContext = createContext<LastTurnIds>({ userMessageId: null, assistantMessageId: null });
 
