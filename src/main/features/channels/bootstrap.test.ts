@@ -2,7 +2,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import type { IncomingMessage } from "../../conversation/channels/channel-types";
 
 const ports = vi.hoisted(() => ({
-  dispatchers: [] as any[], contexts: [] as any[], runs: [] as any[],
+  dispatchers: [] as any[], contexts: [] as any[], runs: [] as any[], toolSandbox: "off" as "off" | "all",
   resolveBinding: vi.fn(), flush: vi.fn(), listSessions: vi.fn(), getSession: vi.fn(), appendMessage: vi.fn(),
   attachmentInputs: vi.fn(async () => ({ attachments: [], imageAttachments: [] })),
   result: { reply: "Contract response", toolResults: [] } as any, failure: undefined as Error | undefined,
@@ -34,16 +34,13 @@ vi.mock("../../agent/runtime/firefly-agent", () => ({ FireflyAgent: class {
     return { subscribe: ({ complete, error }: any) => ports.failure ? error(ports.failure) : complete() };
   }
 } }));
-vi.mock("./settings-store", () => ({ loadChannelsSettings: () => ({ toolSandbox: "off" }) }));
+vi.mock("./settings-store", () => ({ loadChannelsSettings: () => ({ toolSandbox: ports.toolSandbox }) }));
 vi.mock("../../platform/settings/settings-facade", () => ({ loadGeneralSettings: () => ({}) }));
 vi.mock("../../model/config/model-settings", () => ({
   loadModelSettings: () => ({ defaultModelProfileId: "contract-profile", modelProfiles: [{ id: "contract-profile", provider: "openai" }] }),
   resolveModelSettingsProfile: () => ({ multimodal: false }),
 }));
 vi.mock("./agent-input", () => ({ buildChannelAttachmentInputs: ports.attachmentInputs }));
-vi.mock("./agent-policy", () => ({
-  resolveChannelAgentPolicy: () => ({ exposeTools: false, executionMode: "chat" }), enforceChannelAgentPolicy: vi.fn(),
-}));
 import { createChannelsSubsystem, type ChannelsSubsystemDeps, type ChannelsLifecycleAdapter } from "./bootstrap";
 import { initializeChannels, startChannels } from "./init";
 import { indexConversationTurn } from "../../agent/tools/history-tools";
@@ -54,6 +51,7 @@ import { createMainAttachmentProjectionAuthority } from "../../memory/context/ma
 
 beforeEach(() => {
   vi.clearAllMocks(); ports.dispatchers.length = 0; ports.contexts.length = 0; ports.runs.length = 0;
+  ports.toolSandbox = "off";
   ports.result = { reply: "Contract response", toolResults: [] }; ports.failure = undefined;
 });
 function runtime() {
@@ -254,6 +252,7 @@ it("rejects missing account authority before preparing memory or model options",
   createChannelsSubsystem(dependencies({ agentRuntime: agentRuntime as never, memory }));
   await expect(run(incoming(), "untrusted-session", [])).rejects.toThrow("MEMORY_CHANNEL_ACCOUNT_UNAVAILABLE");
   expect(memory.prepareRun).not.toHaveBeenCalled(); expect(agentRuntime.buildOptions).not.toHaveBeenCalled();
+  expect(ports.runs).toStrictEqual([]);
   expect(indexConversationTurn).not.toHaveBeenCalled();
 });
 
@@ -310,5 +309,35 @@ it("rejects unauthorized media without legacy media IO or model preparation", as
     await expect(run(input.message, input.binding.sessionId, [], input.ingress)).rejects.toThrow("MEMORY_ATTACHMENT_DENIED");
     expect(ports.attachmentInputs).not.toHaveBeenCalled(); expect(agentRuntime.buildOptions).not.toHaveBeenCalled();
     expect(ports.runs).toStrictEqual([]);
+  } finally { await input.manager.stopAll(); }
+});
+
+
+it.each([
+  ["private", "off", "chat"], ["private", "all", "work"], ["group", "off", "chat"], ["group", "all", "chat"],
+] as const)("QQ %s with tools %s enters the runtime as %s and closes its memory run", async (chatType, toolSandbox, mode) => {
+  ports.toolSandbox = toolSandbox;
+  const input = await trusted({ chatType });
+  try {
+    const memory = admitted(input), agentRuntime = runtime(), events = publisher();
+    agentRuntime.buildOptions.mockImplementation(async (request: any) => ({
+      options: { executionMode: request.executionMode, conversationMode: request.executionMode,
+        tools: [{ id: "fixture-tool" }], capabilities: { tools: [{ id: "fixture-tool" }], toolIds: new Set(["fixture-tool"]) } },
+      latestUserText: "Contract question",
+    }));
+    createChannelsSubsystem(dependencies({ agentRuntime: agentRuntime as never, memory, publishLifecycle: events as never }));
+    expect(await run(input.message, input.binding.sessionId, [], input.ingress)).toMatchObject({ text: "Contract response" });
+    expect(agentRuntime.buildOptions).toHaveBeenCalledTimes(1);
+    expect(agentRuntime.buildOptions.mock.calls[0][0]).toMatchObject({ executionMode: mode, workspaceBindingSessionId: null });
+    const actual = ports.runs[0];
+    expect({ executionMode: actual.executionMode, conversationMode: actual.conversationMode, permissionMode: actual.permissionMode,
+      interactiveTools: actual.interactiveTools, tools: actual.tools }).toStrictEqual({
+      executionMode: mode, conversationMode: mode, permissionMode: mode === "work" ? "allow_all" : "normal",
+      interactiveTools: false, tools: mode === "work" ? [{ id: "fixture-tool" }] : [],
+    });
+    expect(events.publishTurnStarted).toHaveBeenCalledTimes(1);
+    expect(events.publishTurnFinished).toHaveBeenCalledTimes(1);
+    expect(events.publishTurnFinished.mock.calls[0][0]).toMatchObject({ mode, status: "success" });
+    expect(memory.close).toHaveBeenCalledTimes(1);
   } finally { await input.manager.stopAll(); }
 });

@@ -32,3 +32,20 @@ it.each(["qq", "qqbot"] as const)("removes tools and their model-visible catalog
   expect(run.permissionMode).toEqual("normal");
   expect(run.interactiveTools).toEqual(false);
 });
+
+
+it.each([
+  ["feishu", "off"], ["feishu", "all"], ["qq", "off"], ["qq", "all"], ["qqbot", "off"], ["qqbot", "all"],
+] as const)("%s private chat with tools %s has the complete noninteractive policy", (channel, toolSandbox) => {
+  const enabled = toolSandbox === "all";
+  expect(resolveChannelAgentPolicy(toolSandbox, { channel, chatType: "private" })).toStrictEqual({
+    permissionMode: enabled ? "allow_all" : "normal", includeInteractiveTools: false,
+    exposeTools: enabled, executionMode: enabled ? "work" : "chat",
+  });
+});
+
+it.each([["qq", "off"], ["qqbot", "off"]] as const)("%s group with tools %s stays in Chat", (channel, toolSandbox) => {
+  expect(resolveChannelAgentPolicy(toolSandbox, { channel, chatType: "group" })).toStrictEqual({
+    permissionMode: "normal", includeInteractiveTools: false, exposeTools: false, executionMode: "chat",
+  });
+});

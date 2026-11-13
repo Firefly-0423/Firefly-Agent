@@ -40,7 +40,13 @@ function groupEvent() {
 }
 let adapters: QqBotAdapter[];
 beforeEach(() => { adapters = []; state.sent.length = 0; });
-afterEach(async () => { for (const adapter of adapters) await adapter.stop(); });
+afterEach(async () => {
+  try {
+    for (const adapter of adapters) await adapter.stop();
+  } finally {
+    vi.useRealTimers();
+  }
+});
 async function start() { const adapter = new QqBotAdapter(); adapters.push(adapter); await adapter.start(); return adapter; }
 function outgoing(): OutgoingMessage {
   return { channel: "qqbot", chatType: "private", targetId: "contract-user-alpha", parts: [{ kind: "text", text: "Draft received. Review next." }] };
@@ -145,4 +151,65 @@ it("refuses proactive sends without a recent inbound reply context", async () =>
   const result = await adapter.send({ ...outgoing(), targetId: "contract-unseen-user" });
   expect(result.ok).toEqual(false);
   expect(result.error).toContain("被动回复");
+});
+
+
+it.each([
+  ["private", 3_600_000, -1, true], ["private", 3_600_000, 0, true], ["private", 3_600_000, 1, false],
+  ["group", 300_000, -1, true], ["group", 300_000, 0, true], ["group", 300_000, 1, false],
+] as const)("%s passive window=%dms offset=%dms has ok=%s", async (chatType, window, offset, ok) => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-11-13T00:00:00Z"));
+  const adapter = await start();
+  state.dispatch!(chatType === "private" ? "C2C_MESSAGE_CREATE" : "GROUP_AT_MESSAGE_CREATE",
+    chatType === "private" ? privateEvent() : groupEvent());
+  vi.advanceTimersByTime(window + offset);
+  const message = { ...outgoing(), chatType, targetId: chatType === "private" ? "contract-user-alpha" : "contract-group-alpha" };
+  expect(await adapter.send(message)).toStrictEqual(ok ? { ok: true } : {
+    ok: false, error: `被动回复窗口已过（${chatType === "private" ? "60 分钟" : "5 分钟"}）`,
+  });
+  expect(state.sent).toStrictEqual(ok ? [{ target: `${chatType}:${message.targetId}`, content: "Draft received. Review next.",
+    msgId: chatType === "private" ? "contract-private-12" : "contract-group-12", msgSeq: 1 }] : []);
+});
+
+it.each([["private", 4], ["group", 5]] as const)("%s allows %d passive replies then refuses without another API call", async (chatType, limit) => {
+  const adapter = await start();
+  state.dispatch!(chatType === "private" ? "C2C_MESSAGE_CREATE" : "GROUP_AT_MESSAGE_CREATE",
+    chatType === "private" ? privateEvent() : groupEvent());
+  const message = { ...outgoing(), chatType, targetId: chatType === "private" ? "contract-user-alpha" : "contract-group-alpha" };
+  for (let count = 0; count < limit; count++) expect(await adapter.send(message)).toStrictEqual({ ok: true });
+  const expected = Array.from({ length: limit }, (_, index) => ({ target: `${chatType}:${message.targetId}`,
+    content: "Draft received. Review next.", msgId: chatType === "private" ? "contract-private-12" : "contract-group-12", msgSeq: index + 1 }));
+  expect(state.sent).toStrictEqual(expected);
+  expect(await adapter.send(message)).toStrictEqual({ ok: false, error: `该消息回复次数已达上限（${limit} 次）` });
+  expect(state.sent).toStrictEqual(expected);
+});
+
+it("refuses an unseen target without calling the API", async () => {
+  const adapter = await start();
+  expect(await adapter.send(outgoing())).toStrictEqual({ ok: false, error: "官方 QQ Bot 仅支持被动回复（没有可引用的入站消息）" });
+  expect(state.sent).toStrictEqual([]);
+});
+
+it("rejects an unapproved sender before dispatch or reply-context creation", async () => {
+  const adapter = await start();
+  const receive = vi.fn(async () => null);
+  adapter.onMessage = receive;
+  state.dispatch!("C2C_MESSAGE_CREATE", privateEvent({ author: { user_openid: "contract-stranger" } }));
+  await Promise.resolve();
+  expect(receive).not.toHaveBeenCalled();
+  expect(await adapter.send({ ...outgoing(), targetId: "contract-stranger" })).toStrictEqual({
+    ok: false, error: "官方 QQ Bot 仅支持被动回复（没有可引用的入站消息）",
+  });
+  expect(state.sent).toStrictEqual([]);
+});
+
+
+it("normalizes a group message without an at event using the group openid", () => {
+  const payload = groupEvent();
+  expect(normalizeQqBotEvent("GROUP_MESSAGE_CREATE", payload)).toStrictEqual({
+    channel: "qqbot", chatType: "group", messageId: "contract-group-12", senderId: "contract-user-beta",
+    senderName: undefined, chatId: "contract-group-alpha", text: "Begin the review", attachments: undefined,
+    at: new Date(timestamp), _raw: payload,
+  });
 });
