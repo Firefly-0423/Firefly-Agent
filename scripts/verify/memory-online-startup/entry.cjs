@@ -17,8 +17,8 @@ Module._load=function(id,parent,...args){
 const originalRead=fs.readFileSync,originalWrite=fs.writeFileSync;
 fs.readFileSync=function(file,...args){if(path.basename(String(file))==='model-settings.json'){assert.equal(path.resolve(String(file)).toLowerCase(),source.toLowerCase(),'NON_SYNTHETIC_CONFIG_READ_FORBIDDEN');reads++;}return originalRead.call(this,file,...args);};
 fs.writeFileSync=function(file,...args){if(path.resolve(String(file))===source){writes++;throw Error('SOURCE_WRITE_FORBIDDEN');}return originalWrite.call(this,file,...args);};
-require('./compiled/main/memory-online-once/runner').ADMISSION_ROOT=admission;
-const boundary=require('./compiled/main/memory-online-once/boundary');
+require('./compiled/main/features/diagnostics/memory-online-once/runner').ADMISSION_ROOT=admission;
+const boundary=require('./compiled/main/features/diagnostics/memory-online-once/boundary');
 const secret='SYNTHETIC-H-KEY';
 globalThis.fetch=async(url,options)=>{
  fetches++;assert.equal(url,'https://api.deepseek.com/chat/completions');assert.equal(options.redirect,'error');

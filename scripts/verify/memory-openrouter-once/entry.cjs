@@ -10,8 +10,8 @@ const secret='SYNTHETIC-OPENROUTER-KEY-ONLY';
 Module._load=function(id,parent,...rest){if(/normal-main|identity-preflight|core-bootstrap|background-bootstrap|gpu-sandbox-acl|agent-runtime|settings[\\/]model-settings/.test(String(id))){normalLoads++;throw Error('ORDINARY_FORBIDDEN');}return load.call(this,id,parent,...rest);};
 fs.readFileSync=function(file,...rest){if(path.basename(String(file))==='model-settings.json'){reads++;throw Error('CONFIG_READ_FORBIDDEN');}return read.call(this,file,...rest);};
 fs.writeFileSync=function(file,...rest){if(path.basename(String(file))==='model-settings.json'){writes++;throw Error('CONFIG_WRITE_FORBIDDEN');}assert.ok(!String(rest[0]).includes(secret),'KEY_DISK_FORBIDDEN');return write.call(this,file,...rest);};
-require('./compiled/main/memory-openrouter-once/runner').ADMISSION_ROOT=admission;
-const boundary=require('./compiled/main/memory-openrouter-once/boundary');
+require('./compiled/main/features/diagnostics/memory-openrouter-once/runner').ADMISSION_ROOT=admission;
+const boundary=require('./compiled/main/features/diagnostics/memory-openrouter-once/boundary');
 function completion(){return {id:'synthetic-result',object:'chat.completion',provider:'DeepSeek',model:boundary.MODEL,choices:[{index:0,message:{role:'assistant',content:secret},finish_reason:'stop'}],usage:{is_byok:false,prompt_tokens:100,completion_tokens:20,total_tokens:120,cost:0.000027}};}
 globalThis.fetch=async(url,options)=>{
  fetches++;assert.equal(url,boundary.ENDPOINT);assert.equal(options.redirect,'error');assert.equal(require('node:crypto').createHash('sha256').update(options.body).digest('hex'),boundary.BODY_SHA256);const ledger=JSON.parse(read(path.join(admission,'ledger.json'),'utf8'));assert.equal(ledger.reservedNanoUsd,1e9);assert.equal(ledger.attempts.at(-1).status,'pending');
