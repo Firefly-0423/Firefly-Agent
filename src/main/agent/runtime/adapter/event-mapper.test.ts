@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BaseEvent } from "@ag-ui/core";
-import type { HarnessEvent } from "../types";
+import type { HarnessEvent } from "../../loop/types";
 import { sendHarnessEventAsAgui, sendTaskLifecycleAsAgui } from "./event-mapper";
 
 const identity = { threadId: "thread-slate", runId: "run-slate" };

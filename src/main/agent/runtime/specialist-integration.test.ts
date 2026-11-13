@@ -16,7 +16,7 @@ vi.mock("../../model/providers", () => ({
 }));
 vi.mock("../../base/storage/token-usage-store", () => ({ recordModelCall: () => undefined, recordToolCall: () => undefined, recordUsage: vi.fn(), recordRequest: vi.fn() }));
 
-import { prepareToolRuntime } from "../loop/adapter/tool-runtime";
+import { prepareToolRuntime } from "./adapter/tool-runtime";
 import { saveModelSettings } from "../../model/config/model-settings";
 import { getTaskSessionStore, TaskSessionStore } from "../tasks/task-session-store";
 import { SPECIALIST_AGENTS } from "../../../shared/specialist-agents";

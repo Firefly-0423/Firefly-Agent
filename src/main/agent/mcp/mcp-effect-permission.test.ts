@@ -51,14 +51,14 @@ import type { ApprovalRequest } from "../../../shared/permission-approval";
 import { cancelPendingApprovalsForRun, registerPermissionIpc, setCurrentLevel } from "../../platform/permission/permission";
 import { policyFor, type AgentFileAccessLevel, type ToolRiskLevel } from "../../platform/permission/permission-policy";
 import { connectMcpServer, disconnectMcpServer } from "./mcp-adapter";
-import { ExecutionLedger } from "../runtime/execution-ledger";
+import { ExecutionLedger } from "../loop/execution-ledger";
 import type { FireflyRunOptions } from "../runtime/firefly-agent";
-import { prepareToolRuntime } from "../loop/adapter/tool-runtime";
-import type { PreparedHarnessRun } from "../loop/adapter/run-preparation";
+import { prepareToolRuntime } from "../runtime/adapter/tool-runtime";
+import type { PreparedHarnessRun } from "../runtime/adapter/run-preparation";
 import { dispatchToolCall, type ToolDispatchContext } from "../loop/tool-dispatcher";
 import { resolveSideEffect } from "../loop/side-effect-resolver";
 import { resolveUncertainEffect } from "../loop/uncertain-effect-guard";
-import { enterPlanDiscussing, resetPlanSessionsForTest } from "../runtime/plan-mode";
+import { enterPlanDiscussing, resetPlanSessionsForTest } from "../tools/plan-mode";
 import { toolRegistry, type ToolDefinition, type ToolEffectKind } from "../../tooling/registry/tool-registry";
 
 type Annotations = { readOnlyHint?: boolean; destructiveHint?: boolean };

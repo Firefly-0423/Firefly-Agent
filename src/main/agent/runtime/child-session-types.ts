@@ -1,3 +1,5 @@
+import type { DelegationScope } from "../loop/run-ports";
+export type { DelegationScope };
 import type { TaskWriteEvidence, ModelExecutionEvent } from "../../../shared/agent-execution-evidence";
 import type { RunExecutionCoordinator } from "../../tooling/execution/execution-coordinator";
 import type { ModelExecutionRecorder } from "../loop/model-execution-evidence";
@@ -18,7 +20,6 @@ export interface ChildSessionResult {
   error?: { code: string; message: string };
 }
 
-export interface DelegationScope { groupId: string; toolCallId: string }
 
 interface ParentRunContext {
   parentConversationId: string;

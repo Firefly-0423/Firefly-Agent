@@ -1,3 +1,5 @@
+import type { AgentExecuteRequest, AgentExecuteResult } from "../loop/run-ports";
+export type { AgentExecuteRequest, AgentExecuteResult };
 import path from "node:path";
 import { getStorageContext } from "../../base/storage/storage-context";
 import { getHarnessRunStore } from "../loop/run-store";
@@ -20,8 +22,6 @@ import type { runFireflyHarness } from "../loop/firefly-harness";
 import { createAbortError } from "../../base/utils/abort-utils";
 import { vendorConfigFromSettings } from "../../model/providers/vendor-config";
 
-export interface AgentExecuteRequest { agentId: string; prompt: string }
-export interface AgentExecuteResult { agentId: string; sessionId: string; status: TaskSessionStatus; text: string; writes?: TaskWriteEvidence[]; executionEvents?: ModelExecutionEvent[]; error?: { code: string; message: string } }
 
 export function createAgentExecutor(input: {
   parent: ChildSessionParent;

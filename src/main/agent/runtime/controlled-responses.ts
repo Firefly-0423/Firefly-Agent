@@ -1,6 +1,6 @@
-import type {TranscriptSink} from "./transcript-sink";
+import type {TranscriptSink} from "../loop/transcript-sink";
 import {SRunSettlementGate} from "../../conversation/transcript/run-settlement";
-import type {AgentLoopEvent,AgentLoopResult,FireflyRunOptions} from "../runtime/firefly-agent";
+import type {AgentLoopEvent,AgentLoopResult,FireflyRunOptions} from "./firefly-agent";
 
 /** Private Main callback contract; never a renderer DTO or a model request override. */
 export interface ControlledStreamTarget {

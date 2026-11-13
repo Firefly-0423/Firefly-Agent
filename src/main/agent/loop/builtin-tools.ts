@@ -3,8 +3,8 @@ import type { ToolObservation, TodoStatus, TodoItem, HarnessEvent, AgentState } 
 import { tryParseToolCallArgs, invalidToolCallArguments } from "./types";
 import { createAbortError, isAbortError, raceWithSignal } from "../../base/utils/abort-utils";
 import { resolveUncertainEffect } from "./uncertain-effect-guard";
-import type { DelegationScope } from "../runtime/child-session-types";
-import type { AgentExecuteResult, AgentExecuteRequest } from "../runtime/persistent-agent-runtime";
+import type { DelegationScope } from "./run-ports";
+import type { AgentExecuteResult, AgentExecuteRequest } from "./run-ports";
 import { READ_TOOL_RESULT_TOOL_ID, readToolResultToolSpec } from "./tool-output/read-tool-result";
 import { ENTER_PLAN_MODE_TOOL_ID, WRITE_PLAN_TOOL_ID, enterPlanModeToolSpec, writePlanToolSpec } from "./plan-tools";
 
@@ -262,14 +262,14 @@ export function isHarnessBuiltin(toolName: string): boolean { return HARNESS_BUI
 export function isInteractiveHarnessBuiltin(toolName: string): boolean {
   return toolName === ASK_USER_TOOL_ID || toolName === CONFIRM_UNCERTAIN_EFFECT_TOOL_ID;
 }
-function planToolSpecsFor(planState: import("../runtime/plan-mode").PlanStateName | undefined): ToolSpec[] {
+function planToolSpecsFor(planState: import("../tools/plan-mode").PlanStateName | undefined): ToolSpec[] {
   if (planState === "NORMAL") return [enterPlanModeToolSpec, writePlanToolSpec];
   return planState === "PLAN_DISCUSSING" ? [writePlanToolSpec] : [];
 }
 export function getHarnessBuiltinToolSpecs(options?: {
   includeInteractive?: boolean; includeAgent?: boolean;
   agentDefinitions?: readonly { id: string; nickname: string; description: string }[];
-  planState?: import("../runtime/plan-mode").PlanStateName;
+  planState?: import("../tools/plan-mode").PlanStateName;
 }): ToolSpec[] {
   const interactive = options?.includeInteractive !== false ? [askUserToolSpec, confirmUncertainEffectToolSpec] : [];
   const roles = options?.agentDefinitions;

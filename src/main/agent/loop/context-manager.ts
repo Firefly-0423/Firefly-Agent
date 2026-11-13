@@ -1,5 +1,5 @@
 import type { ChatVendorAdapter, ChatMessage, ChatRequest, OpenAIContentBlock } from "../../model/providers/types";
-import type { AgentLoopSettings, AgentLoopEvent } from "./firefly-agent";
+import type { AgentLoopSettings, AgentLoopEvent } from "./run-ports";
 import { recordRequest, recordUsage } from "../../base/storage/token-usage-store";
 import { DEFAULT_CONTEXT_WINDOW_TOKENS, autoCompactTriggerTokens } from "../../../shared/context-window";
 

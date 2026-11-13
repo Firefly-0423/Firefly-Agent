@@ -7,8 +7,8 @@ const collaborators = vi.hoisted(() => ({
 vi.mock("electron", () => ({ app: { getPath: vi.fn(() => "D:\\isolated-profile") } }));
 vi.mock("./plan-lifecycle", () => ({ preparePlanRunContext: collaborators.plan }));
 vi.mock("./prompt-builder", () => ({ buildHarnessPromptLayers: collaborators.layers, materializeHarnessStartTranscript: collaborators.transcript }));
-vi.mock("../run-store", () => ({ getHarnessRunStore: () => ({ create: collaborators.create, get: collaborators.lookup }) }));
-vi.mock("../run-recovery", () => ({ prepareHarnessRecovery: collaborators.recover }));
+vi.mock("../../loop/run-store", () => ({ getHarnessRunStore: () => ({ create: collaborators.create, get: collaborators.lookup }) }));
+vi.mock("../../loop/run-recovery", () => ({ prepareHarnessRecovery: collaborators.recover }));
 vi.mock("../../../tooling/registry/tool-registry", () => ({ toolRegistry: { getEnabledTools: collaborators.enabled } }));
 import { prepareHarnessRun } from "./run-preparation";
 

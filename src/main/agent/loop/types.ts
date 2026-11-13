@@ -49,7 +49,7 @@ export type HarnessEvent =
   | { message: string; type: "error" }
   | { message: string; type: "runtime_feedback" }
   | { planPath: string; type: "plan_written" }
-  | { state: import("../runtime/plan-mode").PlanStateName; type: "plan_mode_changed" }
+  | { state: import("../tools/plan-mode").PlanStateName; type: "plan_mode_changed" }
   | { card: unknown; type: "ask_user" }
   | { snapshot: ContextUsageSnapshot; type: "context_usage" }
   | { items: TodoItem[]; type: "todo_update" }
@@ -82,13 +82,13 @@ export type HarnessToolSpec = ToolSpec & { harnessBuiltin?: boolean };
 export type HarnessInput = {
   allowedBuiltinToolIds?: ReadonlySet<string>;
   agentDefinitions?: readonly { description: string; nickname: string; id: string }[];
-  agentExecutor?: (request: import("../runtime/persistent-agent-runtime").AgentExecuteRequest, scope?: import("../runtime/child-session-types").DelegationScope) => Promise<import("../runtime/persistent-agent-runtime").AgentExecuteResult>;
+  agentExecutor?: (request: import("./run-ports").AgentExecuteRequest, scope?: import("./run-ports").DelegationScope) => Promise<import("./run-ports").AgentExecuteResult>;
   transcriptSink?: import("./transcript-sink").TranscriptSink;
   toolOutputStore?: ToolOutputStore;
-  executionLedger?: import("../runtime/execution-ledger").ExecutionLedger;
+  executionLedger?: import("./execution-ledger").ExecutionLedger;
   checkPermission?: (toolId: string, args: Record<string, unknown>, signal?: AbortSignal, origin?: ApprovalOrigin) => Promise<boolean>;
   toolContext?: import("../../tooling/registry/tool-context").ToolContext;
-  planState?: import("../runtime/plan-mode").PlanStateName;
+  planState?: import("../tools/plan-mode").PlanStateName;
   includeInteractiveTools?: boolean;
   requestUserClarification?: (card: unknown) => Promise<unknown>;
   pollRunAdjustments?: () => Promise<RunAdjustmentMessage[]> | undefined;
@@ -113,7 +113,7 @@ export type HarnessInput = {
   usageParts?: { skillLayerContent?: string; toolLayerContent: string; personaContent: string };
   promptLayers?: import("../../model/prompt/prompt-layers").PromptLayers;
   systemPrompt: string;
-  memoryRun?: import("../memory-runtime/main-memory-runtime").MainMemoryRun;
+  memoryRun?: import("./run-ports").MainMemoryRun;
 };
 export type HarnessResult = {
   rounds: number; terminal?: FireflyRunTerminalResult;

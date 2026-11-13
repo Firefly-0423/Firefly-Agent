@@ -1,6 +1,6 @@
 import type { ChatMessage } from "../../model/providers/types";
 import { estimateTokens, estimateMessageContentTokens } from "./context-manager";
-import { isCompactionCheckpointMessage } from "../loop/compaction";
+import { isCompactionCheckpointMessage } from "./compaction";
 import type { ContextUsageCategory, ContextUsageCategoryKey, ContextUsagePhase, ContextUsageSnapshot } from "../../../shared/context-usage";
 
 export interface ContextUsageSnapshotInput {

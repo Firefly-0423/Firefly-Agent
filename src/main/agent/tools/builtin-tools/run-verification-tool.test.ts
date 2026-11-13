@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const runner = vi.hoisted(() => ({ steps: [] as Array<{ executable: string; args: string[]; trust: string; cwd: string }> }));
-vi.mock("../../runtime/verification-runner", () => ({
+vi.mock("../verification-runner", () => ({
   resolveBuiltinExecutable: () => null,
   VerificationRunner: class {
     async runStep(step: { executable: string; args: string[]; trust: string; cwd: string }) {

@@ -1,3 +1,5 @@
+import type { MainMemoryRun } from "../loop/run-ports";
+export type { MainMemoryRun };
 import type { MainActorAuthority } from "../../memory/core/main-actor-authority";
 import { canonicalJson } from "../../memory/core/repository-types";
 import { readHistoryEvidence } from "../../memory/history/main-history";
@@ -64,11 +66,6 @@ export interface MainMemoryRuntimeOptions {
   onModelExecution?: PreparedModelCallInput["onModelExecution"];
   /** Owner closes its one shared backend after every real operation has settled. */
   close?(): Promise<void>;
-}
-export interface MainMemoryRun {
-  call(input: SdkStreamRunInput): Promise<ChatResponse>;
-  bindSink(sink: TranscriptSink): TranscriptSink;
-  close(): Promise<void>;
 }
 /** Trusted Main observer allocation. No IDs or callbacks are accepted from model/IPC call DTOs. */
 export interface MainMemoryRunOptions {

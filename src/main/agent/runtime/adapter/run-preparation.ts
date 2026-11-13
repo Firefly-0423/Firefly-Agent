@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto";
 import type { ConversationMode } from "../../../../shared/chat-types";
-import type { FireflyRunOptions } from "../../runtime/firefly-agent";
+import type { FireflyRunOptions } from "../firefly-agent";
 import type { PromptLayers } from "../../../model/prompt/prompt-layers";
 import { toolRegistry, type ToolDefinition } from "../../../tooling/registry/tool-registry";
 import type { VendorConfig, ChatMessage } from "../../../model/providers/types";
 import { vendorConfigFromSettings } from "../../../model/providers/vendor-config";
-import { prepareHarnessRecovery } from "../run-recovery";
-import { getHarnessRunStore, type HarnessRequestSnapshot } from "../run-store";
+import { prepareHarnessRecovery } from "../../loop/run-recovery";
+import { getHarnessRunStore, type HarnessRequestSnapshot } from "../../loop/run-store";
 import { materializeHarnessStartTranscript, buildHarnessPromptLayers } from "./prompt-builder";
 import { preparePlanRunContext } from "./plan-lifecycle";
 import { app } from "electron";

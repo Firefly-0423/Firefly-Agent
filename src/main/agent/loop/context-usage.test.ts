@@ -1,7 +1,7 @@
 import { it, describe, expect } from "vitest";
 import { buildContextUsageSnapshot, promptTokensOf, type ContextUsageSnapshotInput } from "./context-usage";
 import { estimateTokens as cost } from "./context-manager";
-import { buildCompactionCheckpoint } from "../loop/compaction";
+import { buildCompactionCheckpoint } from "./compaction";
 
 describe("Context usage presented for a model turn", () => {
   const measure = (options: Partial<ContextUsageSnapshotInput> = {}) => buildContextUsageSnapshot({

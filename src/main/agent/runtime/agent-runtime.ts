@@ -2,7 +2,7 @@ import {createAttachmentDocumentMaterializer} from "../../memory/context/attachm
 import type {BackgroundMemoryHost} from "../memory-runtime/background-memory-ingress";
 import type {MainMemoryRun} from "../memory-runtime/main-memory-runtime";
 import { app } from "electron";
-import {copyControlledStreamTarget} from "../loop/controlled-responses";
+import {copyControlledStreamTarget} from "./controlled-responses";
 import type {ChatRequest} from "../../model/providers/types";
 import type {AgentLoopResult} from "./firefly-agent";
 import {copyMainResponsesRequest} from "../../model/providers/response-request-snapshot";

@@ -2,7 +2,7 @@ import * as fs from "fs";
 import { type BaseEvent, EventType } from "@ag-ui/core";
 import type { ReviewRunStatus } from "../../../../shared/review-types";
 import type { ConversationMode } from "../../../../shared/chat-types";
-import { getPlanState, supplementPlan, getPlanPath, completeExecution } from "../../runtime/plan-mode";
+import { getPlanState, supplementPlan, getPlanPath, completeExecution } from "../../tools/plan-mode";
 
 export async function preparePlanRunContext(request: {
   threadId: string;

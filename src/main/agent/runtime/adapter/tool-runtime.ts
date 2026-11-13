@@ -5,18 +5,18 @@ import type { ToolDefinition } from "../../../tooling/registry/tool-registry";
 import { toolRegistry } from "../../../tooling/registry/tool-registry";
 import { checkPermission, getCurrentLevel, type ToolRiskLevel } from "../../../platform/permission/permission";
 import { policyFor } from "../../../platform/permission/permission-policy";
-import { isPlanReadOnly } from "../../runtime/plan-mode";
+import { isPlanReadOnly } from "../../tools/plan-mode";
 import { contextRefRegistry, extractLastUserQuery, type ToolContext } from "../../../tooling/registry/tool-context";
-import type { HarnessInput } from "../index";
+import type { HarnessInput } from "../../loop/index";
 import { getTaskSessionStore } from "../../tasks/task-session-store";
-import { createAgentExecutor } from "../../runtime/persistent-agent-runtime";
-import { createSpecialistProfiles } from "../../runtime/specialist-profiles";
+import { createAgentExecutor } from "../persistent-agent-runtime";
+import { createSpecialistProfiles } from "../specialist-profiles";
 import { loadModelSettings } from "../../../model/config/model-settings";
-import { FileToolOutputStore } from "../tool-output/file-tool-output-store";
+import { FileToolOutputStore } from "../../loop/tool-output/file-tool-output-store";
 import { sendTaskLifecycleAsAgui } from "./event-mapper";
 import type { PreparedHarnessRun } from "./run-preparation";
 import { getWorkspaceExecutionCoordinator } from "../../../tooling/execution/execution-coordinator";
-import type { FireflyRunOptions } from "../../runtime/firefly-agent";
+import type { FireflyRunOptions } from "../firefly-agent";
 
 /**
  * 为一次 Harness run 构造工具运行时（tool runtime）。

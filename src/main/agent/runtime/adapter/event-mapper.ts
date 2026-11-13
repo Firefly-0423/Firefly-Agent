@@ -1,7 +1,7 @@
 import { type BaseEvent, EventType } from "@ag-ui/core";
 import { normalizeToolTaskResult } from "../../../../shared/task-result-evidence";
 import type { TaskDelegationPresentation } from "../../../../shared/task-session";
-import type { HarnessEvent } from "../types";
+import type { HarnessEvent } from "../../loop/types";
 
 export function sendHarnessEventAsAgui(
   incoming: HarnessEvent,

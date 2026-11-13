@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { DelegationScope } from "../runtime/child-session-types";
+import type { DelegationScope } from "./run-ports";
 import type { ToolCall } from "../../model/providers/types";
 import { resolveEffectKind, type ToolDefinition } from "../../tooling/registry/tool-registry";
 import { parseToolCallArgs } from "./types";

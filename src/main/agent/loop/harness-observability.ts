@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { buildContextUsageSnapshot } from "../runtime/context-usage";
+import { buildContextUsageSnapshot } from "./context-usage";
 import { buildStableSystemPrefix, projectCacheRelevantRequest, type PromptLayers } from "../../model/prompt/prompt-layers";
 import type { HarnessRun } from "./firefly-harness";
 

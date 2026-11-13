@@ -28,8 +28,8 @@ import { dispatchToolCall, type ToolDispatchContext } from "../../loop/tool-disp
 import { runToolRound } from "../../loop/tool-round";
 import { StreamController } from "../../loop/stream-controller";
 import { TimeoutClock } from "../../loop/timeout-clock";
-import { ExecutionLedger } from "../../runtime/execution-ledger";
-import { enterPlanDiscussing, resetPlanSessionsForTest } from "../../runtime/plan-mode";
+import { ExecutionLedger } from "../../loop/execution-ledger";
+import { enterPlanDiscussing, resetPlanSessionsForTest } from "../plan-mode";
 
 const resolved = { kind: "cmd", executable: "synthetic-cmd" };
 const args = { command: "echo synthetic", shell: "cmd" };

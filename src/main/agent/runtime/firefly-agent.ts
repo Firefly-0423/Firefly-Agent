@@ -1,3 +1,5 @@
+import type { AgentLoopEvent, AgentLoopSettings } from "../loop/run-ports";
+export type { AgentLoopEvent, AgentLoopSettings };
 import type { BackgroundMemoryHost } from "../memory-runtime/background-memory-ingress";
 import { AbstractAgent, type RunAgentInput } from "@ag-ui/client";
 import { EventType, type BaseEvent } from "@ag-ui/core";
@@ -15,7 +17,7 @@ import { runHarnessWithAdapter } from "./harness-adapter";
 import type { MainMemoryRun } from "../memory-runtime/main-memory-runtime";
 import { publicRunFailure } from "../../../shared/run-failure";
 import type { SocialAtom } from "../../knowledge/social/types";
-import { ExecutionLedgerStore, type ExecutionLedger } from "./execution-ledger";
+import { ExecutionLedgerStore, type ExecutionLedger } from "../loop/execution-ledger";
 import { perf } from "../../base/logging/perf-trace";
 import { debugLog, flowLog } from "../../base/logging/agent-log";
 import { requestUserClarification } from "../../platform/interaction/user-choice";
@@ -38,33 +40,6 @@ export type AgentLoopResult = {
   completionReason: "no_tool" | "timeout" | "max_rounds" | "tool_error";
   toolResults: import("../../tooling/registry/tool-call-types").ToolCallResult[];
   reply: string;
-};
-
-export type AgentLoopEvent = {
-  contextUsage?: import("../../../shared/context-usage").ContextUsageSnapshot;
-  taskPlan?: unknown;
-  snapshot?: unknown;
-  status?: string;
-  content?: string;
-  totalUsage?: unknown;
-  stepName?: string;
-  toolCallName?: string;
-  toolCallId?: string;
-  delta?: string;
-  role?: string;
-  messageId?: string;
-  type: string;
-};
-
-export type AgentLoopSettings = {
-  contextWindowTokens: number;
-  reasoningLevels?: import("../../../shared/reasoning").ReasoningLevelsConfig;
-  reasoning?: import("../../../shared/reasoning").ReasoningPreference;
-  explicitTransport?: "openai" | "anthropic" | "responses";
-  apiKey: string;
-  model: string;
-  baseUrl: string;
-  provider: string;
 };
 
 export type FireflyRunOptions = {
@@ -103,7 +78,7 @@ export type FireflyRunOptions = {
   maxParallelToolCalls?: number;
   settings: AgentLoopSettings;
   isControlledRunCurrent?:()=>boolean;
-  controlledResponses?:import("../loop/controlled-responses").ControlledResponsesRun;
+  controlledResponses?:import("./controlled-responses").ControlledResponsesRun;
   openMemoryRun?: (input: FireflyRunOptions) => Promise<MainMemoryRun>;
   backgroundMemory?: BackgroundMemoryHost;
   memoryRun?: MainMemoryRun;

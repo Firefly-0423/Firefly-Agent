@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { delegateAgentToolSpec, executeDelegateAgent, getHarnessBuiltinToolSpecs, isHarnessBuiltin } from "./builtin-tools";
 import { dispatchToolCall } from "./tool-dispatcher";
-import { getPlanState } from "../runtime/plan-mode";
+import { getPlanState } from "../tools/plan-mode";
 
 const call = (args: Record<string, unknown>) => ({ id: "delegate-1", name: "delegate_agent", arguments: JSON.stringify(args) });
 

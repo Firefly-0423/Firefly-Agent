@@ -11,15 +11,15 @@ const { getById, checkPermission, getCurrentLevel, createAgentExecutor, taskStor
 
 vi.mock("../../../tooling/registry/tool-registry", () => ({ toolRegistry: { getById } }));
 vi.mock("../../../platform/permission/permission", () => ({ checkPermission, getCurrentLevel }));
-vi.mock("../../runtime/persistent-agent-runtime", () => ({ createAgentExecutor }));
+vi.mock("../persistent-agent-runtime", () => ({ createAgentExecutor }));
 vi.mock("../../../model/config/model-settings", () => ({ loadModelSettings: () => ({ modelProfiles: [], agentModelProfiles: {} }) }));
 vi.mock("../../tasks/task-session-store", () => ({ getTaskSessionStore: taskStore }));
-vi.mock("../tool-output/file-tool-output-store", () => ({ FileToolOutputStore: toolOutputStore }));
+vi.mock("../../loop/tool-output/file-tool-output-store", () => ({ FileToolOutputStore: toolOutputStore }));
 vi.mock("./event-mapper", () => ({ sendTaskLifecycleAsAgui: vi.fn() }));
 vi.mock("electron", () => ({ app: { getPath: vi.fn(() => "E:\\synthetic-firefly-runtime") } }));
 
 import { prepareToolRuntime } from "./tool-runtime";
-import { approvePlan, enterPlanDiscussing, markPlanWritten, moveToReview, resetPlanSessionsForTest } from "../../runtime/plan-mode";
+import { approvePlan, enterPlanDiscussing, markPlanWritten, moveToReview, resetPlanSessionsForTest } from "../../tools/plan-mode";
 
 function prepareRuntime(mode: "code" | "chat" | "work" = "code", permissionMode: "normal" | "allow_all" = "normal") {
   return prepareToolRuntime({

@@ -4,7 +4,7 @@ const services = vi.hoisted(() => ({
   state: vi.fn(), supplement: vi.fn(), path: vi.fn(), release: vi.fn(), read: vi.fn(),
 }));
 vi.mock("fs", () => ({ promises: { readFile: services.read } }));
-vi.mock("../../runtime/plan-mode", () => ({
+vi.mock("../../tools/plan-mode", () => ({
   getPlanState: services.state, supplementPlan: services.supplement, getPlanPath: services.path, completeExecution: services.release,
 }));
 import { completePlanRun, preparePlanRunContext } from "./plan-lifecycle";

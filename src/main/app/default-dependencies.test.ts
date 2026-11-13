@@ -301,7 +301,7 @@ vi.mock("../../plugins/prompts", () => ({ pluginPromptRegistry: { build: vi.fn()
 vi.mock("../agent/runtime/live2d-work-signal", () => ({ setLive2dWorkSignalSender: vi.fn() }));
 vi.mock("../platform/lsp/manager", () => ({ LspManager: class {} }));
 vi.mock("../agent/sandbox/sandbox-exec", () => ({ initSandbox: vi.fn() }));
-vi.mock("../agent/runtime/plan-mode", () => ({
+vi.mock("../agent/tools/plan-mode", () => ({
   enterPlanDiscussing: vi.fn(),
   exitPlanMode: vi.fn(),
   getPlanState: vi.fn(() => "NORMAL"),

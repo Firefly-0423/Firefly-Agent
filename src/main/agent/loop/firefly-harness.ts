@@ -1,4 +1,4 @@
-import { promptTokensOf } from "../runtime/context-usage";
+import { promptTokensOf } from "./context-usage";
 import type { ToolSpec, ChatResponse, ChatMessage } from "../../model/providers/types";
 import { causeCodes } from "../../model/providers/error-chain";
 import type { RunAdjustmentMessage, HarnessResult, HarnessInput, HarnessConfig, HarnessCacheState, AgentState } from "./types";

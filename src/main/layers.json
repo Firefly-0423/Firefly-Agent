@@ -102,6 +102,25 @@
         "conversation",
         "knowledge",
         "memory"
+      ],
+      "internal": [
+        [
+          "services",
+          "tasks",
+          "sandbox",
+          "mcp"
+        ],
+        [
+          "review",
+          "tools"
+        ],
+        [
+          "loop"
+        ],
+        [
+          "memory-runtime",
+          "runtime"
+        ]
       ]
     },
     "features": {

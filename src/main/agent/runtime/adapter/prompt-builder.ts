@@ -1,9 +1,9 @@
-import { buildCurrentTodoNotebookContext, TODO_WORKING_NOTEBOOK_POLICY } from "../todo-working-notebook";
+import { buildCurrentTodoNotebookContext, TODO_WORKING_NOTEBOOK_POLICY } from "../../loop/todo-working-notebook";
 import { createInternalTranscriptMessage, appendInternalTranscriptMessage } from "../../../model/prompt/internal-transcript";
-import type { FireflyRunOptions } from "../../runtime/firefly-agent";
+import type { FireflyRunOptions } from "../firefly-agent";
 import type { PromptLayers } from "../../../model/prompt/prompt-layers";
 import type { ChatMessage } from "../../../model/providers/types";
-import type { AgentState } from "../types";
+import type { AgentState } from "../../loop/types";
 import { loadPromptFile } from "../../../base/prompts/prompt-loader";
 
 const layerSeparator = "\n\n---\n\n";

@@ -5,7 +5,7 @@ import type { ToolSpec, ToolCall } from "../../model/providers/types";
 import type { ToolObservation, HarnessEvent } from "./types";
 import { tryParseToolCallArgs } from "./types";
 import type { ToolContext } from "../../tooling/registry/tool-context";
-import { enterPlanDiscussing, getPlanPath, getPlanState, markPlanWritten } from "../runtime/plan-mode";
+import { enterPlanDiscussing, getPlanPath, getPlanState, markPlanWritten } from "../tools/plan-mode";
 
 export const ENTER_PLAN_MODE_TOOL_ID = "enter_plan_mode";
 export const WRITE_PLAN_TOOL_ID = "write_plan";

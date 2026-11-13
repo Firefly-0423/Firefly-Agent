@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { TODO_WORKING_NOTEBOOK_POLICY } from "../todo-working-notebook";
+import { TODO_WORKING_NOTEBOOK_POLICY } from "../../loop/todo-working-notebook";
 import { loadPromptFile } from "../../../base/prompts/prompt-loader";
 import { buildHarnessPromptLayers, buildHarnessSystemPrompt, materializeHarnessStartTranscript } from "./prompt-builder";
 

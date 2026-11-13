@@ -45,7 +45,7 @@ import { setLive2dWorkSignalSender } from "../agent/runtime/live2d-work-signal";
 import { registerAllTools } from "../agent/tools/tool-registration";
 import { LspManager } from "../platform/lsp/manager";
 import { initSandbox } from "../agent/sandbox/sandbox-exec";
-import { enterPlanDiscussing, exitPlanMode, getPlanState, initPlanPaths, initPlanStateBroadcaster, } from "../agent/runtime/plan-mode";
+import { enterPlanDiscussing, exitPlanMode, getPlanState, initPlanPaths, initPlanStateBroadcaster, } from "../agent/tools/plan-mode";
 import { initMcpManager, pruneMcpServersByIds } from "../agent/mcp/mcp-manager";
 import { syncPlaywrightMcp, REMOVED_BUILTIN_MCP_IDS } from "../agent/mcp/sync-mcp-builtin";
 import { registerAppUpdateIpc } from "../platform/updater/app-update-ipc";

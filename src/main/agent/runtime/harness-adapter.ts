@@ -3,18 +3,18 @@ import { runFireflyHarness } from "../loop";
 import type { HarnessEvent, HarnessInput } from "../loop";
 import type { AgentLoopResult, FireflyRunOptions, AgentLoopSettings } from "./firefly-agent";
 import type { ToolCallResult } from "../../tooling/registry/tool-call-types";
-import { mapTerminateReason, mapTerminateReasonToTerminal } from "../loop/adapter/terminal-mapper";
+import { mapTerminateReason, mapTerminateReasonToTerminal } from "./adapter/terminal-mapper";
 import { app } from "electron";
 import { getRunReviewTracker } from "../review/run-review-tracker";
 import type { ReviewRunStatus } from "../../../shared/review-types";
-import { sendHarnessEventAsAgui } from "../loop/adapter/event-mapper";
-import { completePlanRun } from "../loop/adapter/plan-lifecycle";
-import { prepareHarnessRun } from "../loop/adapter/run-preparation";
-import { prepareToolRuntime } from "../loop/adapter/tool-runtime";
-export { mapTerminateReasonToTerminal } from "../loop/adapter/terminal-mapper";
-export { buildHarnessPromptLayers, buildHarnessSystemPrompt, materializeHarnessStartTranscript } from "../loop/adapter/prompt-builder";
-export { sendHarnessEventAsAgui, sendTaskLifecycleAsAgui } from "../loop/adapter/event-mapper";
-export { filterToolsForConversationMode } from "../loop/adapter/run-preparation";
+import { sendHarnessEventAsAgui } from "./adapter/event-mapper";
+import { completePlanRun } from "./adapter/plan-lifecycle";
+import { prepareHarnessRun } from "./adapter/run-preparation";
+import { prepareToolRuntime } from "./adapter/tool-runtime";
+export { mapTerminateReasonToTerminal } from "./adapter/terminal-mapper";
+export { buildHarnessPromptLayers, buildHarnessSystemPrompt, materializeHarnessStartTranscript } from "./adapter/prompt-builder";
+export { sendHarnessEventAsAgui, sendTaskLifecycleAsAgui } from "./adapter/event-mapper";
+export { filterToolsForConversationMode } from "./adapter/run-preparation";
 
 export async function runHarnessWithAdapter(options: FireflyRunOptions, signal: AbortSignal, sendBaseEvent: (event: BaseEvent) => void): Promise<AgentLoopResult> {
   if (options.memoryRun && options.transcriptSink) options = { ...options, transcriptSink: options.memoryRun.bindSink(options.transcriptSink) };

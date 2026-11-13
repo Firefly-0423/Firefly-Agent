@@ -2,11 +2,11 @@ import type { PluginAgentEvent, PluginAgentRunOptions, PluginAgentRunResult, Plu
 import type { AgentRuntime } from "../../../agent/runtime/agent-runtime";
 import { runFireflyHarness } from "../../../agent/loop/firefly-harness";
 import { vendorConfigFromSettings } from "../../../model/providers/vendor-config";
-import { mapTerminateReasonToTerminal } from "../../../agent/loop/adapter/terminal-mapper";
-import { buildHarnessPromptLayers } from "../../../agent/loop/adapter/prompt-builder";
+import { mapTerminateReasonToTerminal } from "../../../agent/runtime/adapter/terminal-mapper";
+import { buildHarnessPromptLayers } from "../../../agent/runtime/adapter/prompt-builder";
 import { FileToolOutputStore } from "../../../agent/loop/tool-output/file-tool-output-store";
 import type { HarnessEvent } from "../../../agent/loop/types";
-import { ExecutionLedgerStore } from "../../../agent/runtime/execution-ledger";
+import { ExecutionLedgerStore } from "../../../agent/loop/execution-ledger";
 import { buildToolSystemPrompt } from "../../../agent/runtime/system-prompt-builder";
 import type { ToolDefinition } from "../../../tooling/registry/tool-registry";
 import { recordPluginCall } from "../../../base/storage/token-usage-store";
