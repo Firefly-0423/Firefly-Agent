@@ -219,7 +219,7 @@ flowchart TB
 
 ## 🛠️ 从源码运行
 
-需要 Windows、Node.js 24 与 npm 10 以上；本地打包另需 Rust（MSVC 工具链）与 C++ 构建工具。
+需要 Windows、Node.js 24 及以上与 npm 10 以上；本地打包另需 Rust（MSVC 工具链）与 C++ 构建工具。
 
 ```powershell
 git clone https://github.com/Firefly-0423/Firefly-Agent.git
@@ -242,7 +242,7 @@ npm run dev
 
 | 层级 | 技术 |
 | --- | --- |
-| 运行环境 | Node.js 24 + Electron 43 |
+| 运行环境 | Node.js 24 及以上 + Electron 43 |
 | 语言与构建 | TypeScript、Vite 7、electron-builder |
 | 界面 | React 19、Ant Design 6 / Ant Design X、Tailwind CSS 4；随应用打包 Noto Sans SC 与 JetBrains Mono 可变字体；记忆关系图用 d3-force |
 | Live2D | PixiJS 7 + pixi-live2d-display |

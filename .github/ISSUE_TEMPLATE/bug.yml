@@ -5,7 +5,7 @@ labels:
   - needs-triage
 body:
   - type: markdown
-    attributes: {value: 构建需要 Node.js 24 LTS 和 Electron 43。运行问题请使用运行时问题表单。}
+    attributes: {value: 构建需要 Node.js 24 及以上和 Electron 43。运行问题请使用运行时问题表单。}
   - type: dropdown
     id: os
     attributes: {label: 构建所在系统, options: [Windows 11, Windows 10, macOS (unsupported), Linux (unsupported)]}

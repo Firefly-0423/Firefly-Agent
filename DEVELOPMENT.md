@@ -6,7 +6,7 @@
 
 ## 环境与构建
 
-需要 Windows、Node.js 24、npm 10 及项目锁文件对应的依赖。
+需要 Windows、Node.js 24 及以上、npm 10 及项目锁文件对应的依赖。
 
 ```powershell
 npm ci
