@@ -117,7 +117,7 @@ vi.mock("../agent/memory-runtime/desktop-memory-backend", () => ({
   desktopMemoryAdmissionMode: vi.fn(() => m.admissionMode),
 }));
 vi.mock("../conversation/transcript/conversation-transcript-store", () => ({ getConversationTranscriptStore: vi.fn(() => m.transcriptStore) }));
-vi.mock("../agent/loop/run-store", () => ({ getHarnessRunStore: vi.fn(() => ({ get: vi.fn() })) }));
+vi.mock("../agent/loop/run-store", () => ({ getAgentRunStore: vi.fn(() => ({ get: vi.fn() })) }));
 vi.mock("../memory/legacy/memory-store", () => ({
   memoryStore: { getAllL2: vi.fn(() => []), markL2SyncStatus: vi.fn() },
 }));

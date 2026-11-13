@@ -234,7 +234,7 @@ const aguiApi = {
         ipcRenderer.send(IPC.AGUI_RUN_PERSISTED, message);
     },
     getInterruptedRun: (conversationKey: string) => {
-        return ipcRenderer.invoke(IPC.HARNESS_GET_INTERRUPTED_RUN, conversationKey) as Promise<{
+        return ipcRenderer.invoke(IPC.AGENT_RUN_GET_INTERRUPTED, conversationKey) as Promise<{
             runId: string;
             rounds: number;
             todoCount: number;

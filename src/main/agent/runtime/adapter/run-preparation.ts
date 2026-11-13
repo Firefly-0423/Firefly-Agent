@@ -5,9 +5,9 @@ import type { PromptLayers } from "../../../model/prompt/prompt-layers";
 import { toolRegistry, type ToolDefinition } from "../../../tooling/registry/tool-registry";
 import type { VendorConfig, ChatMessage } from "../../../model/providers/types";
 import { vendorConfigFromSettings } from "../../../model/providers/vendor-config";
-import { prepareHarnessRecovery } from "../../loop/run-recovery";
-import { getHarnessRunStore, type HarnessRequestSnapshot } from "../../loop/run-store";
-import { materializeHarnessStartTranscript, buildHarnessPromptLayers } from "./prompt-builder";
+import { prepareAgentRunRecovery } from "../../loop/run-recovery";
+import { getAgentRunStore, type AgentRunRequestSnapshot } from "../../loop/run-store";
+import { materializeAgentLoopStartTranscript, buildAgentLoopPromptLayers } from "./prompt-builder";
 import { preparePlanRunContext } from "./plan-lifecycle";
 import { app } from "electron";
 
@@ -27,11 +27,11 @@ function fingerprint(payload: unknown): string {
   return hash.update(JSON.stringify(payload)).digest("hex");
 }
 
-function snapshotHarnessRequest(
+function snapshotAgentLoopRequest(
   config: FireflyRunOptions,
   layers: PromptLayers,
   available: ToolDefinition[],
-): HarnessRequestSnapshot {
+): AgentRunRequestSnapshot {
   return {
     provider: config.settings.provider,
     model: config.settings.model,
@@ -47,13 +47,13 @@ function snapshotHarnessRequest(
   };
 }
 
-export interface PreparedHarnessRun {
-  runStore: ReturnType<typeof getHarnessRunStore>;
-  recovered?: ReturnType<typeof prepareHarnessRecovery>;
+export interface PreparedAgentLoopRun {
+  runStore: ReturnType<typeof getAgentRunStore>;
+  recovered?: ReturnType<typeof prepareAgentRunRecovery>;
   runMessages: ChatMessage[];
   systemPrompt: string;
-  harnessPromptLayers: PromptLayers;
-  promptLayers: ReturnType<typeof buildHarnessPromptLayers>;
+  agentLoopPromptLayers: PromptLayers;
+  promptLayers: ReturnType<typeof buildAgentLoopPromptLayers>;
   tools: ToolDefinition[];
   vendorConfig: VendorConfig;
   planState: Awaited<ReturnType<typeof preparePlanRunContext>>["planState"];
@@ -62,26 +62,26 @@ export interface PreparedHarnessRun {
   threadId: string;
 }
 
-export async function prepareHarnessRun(
+export async function prepareAgentLoopRun(
   config: FireflyRunOptions,
   signal: AbortSignal,
-): Promise<PreparedHarnessRun> {
+): Promise<PreparedAgentLoopRun> {
   const responseId = `msg-${Date.now()}`;
   const executionId = config.runId;
   if (!executionId) throw new Error(
-    "[HarnessAdapter] options.runId is required. FireflyAgent.runWithEvents must populate it before invoking the adapter.",
+    "[AgentLoopAdapter] options.runId is required. FireflyAgent.runWithEvents must populate it before invoking the adapter.",
   );
   const conversationId = config.conversationId ?? "default";
   const { planState: plannedState, planContextBlock: approvedContext } = await preparePlanRunContext({ mode: config.conversationMode, threadId: conversationId });
-  console.log(`[HarnessAdapter] starting harness run, mode=${config.conversationMode ?? "work"}${plannedState ? ` plan=${plannedState}` : ""}`);
+  console.log(`[AgentLoopAdapter] starting harness run, mode=${config.conversationMode ?? "work"}${plannedState ? ` plan=${plannedState}` : ""}`);
   const vendor: VendorConfig = vendorConfigFromSettings(config.settings);
   const available = [...(config.capabilities?.tools ?? config.tools ?? toolRegistry.getEnabledTools())];
-  const store = getHarnessRunStore(app.getPath("userData"));
-  let restoration: ReturnType<typeof prepareHarnessRecovery> | undefined;
+  const store = getAgentRunStore(app.getPath("userData"));
+  let restoration: ReturnType<typeof prepareAgentRunRecovery> | undefined;
   if (config.resumeFromRunId) {
     const stored = store.get(config.resumeFromRunId!);
-    if (!stored || stored.conversationId !== conversationId) throw new Error("HARNESS_RECOVERY_NOT_FOUND");
-    restoration = prepareHarnessRecovery(stored, {
+    if (!stored || stored.conversationId !== conversationId) throw new Error("AGENT_RUN_RECOVERY_NOT_FOUND");
+    restoration = prepareAgentRunRecovery(stored, {
       workspaceRoot: config.resolvedWorkspaceRoot,
       provider: config.settings.provider,
       model: config.settings.model,
@@ -93,8 +93,8 @@ export async function prepareHarnessRun(
     ? [...restoration.messages, ...(incoming?.role === "user" ? [{ ...incoming }] : [])]
     : config.messages;
   const context = [config.recoveryContext, restoration?.recoveryContext, approvedContext].filter(Boolean).join("\n\n");
-  const assembled = buildHarnessPromptLayers(context ? { ...config, recoveryContext: context } : config);
-  const transcript = materializeHarnessStartTranscript({
+  const assembled = buildAgentLoopPromptLayers(context ? { ...config, recoveryContext: context } : config);
+  const transcript = materializeAgentLoopStartTranscript({
     messages: history, runId: executionId,
     runtimeContext: assembled.runtimeContext, initialState: restoration?.state,
     kind: restoration ? "recovery" : "run_start",
@@ -107,14 +107,14 @@ export async function prepareHarnessRun(
   const system = stable.stablePrefix;
   store.create({
     conversationId, runId: executionId, messages: transcript,
-    request: snapshotHarnessRequest(config, stable, available),
+    request: snapshotAgentLoopRequest(config, stable, available),
     ...(restoration ? { state: restoration.state, cache: restoration.cache } : {}),
     ...(config.resumeFromRunId ? { resumedFromRunId: config.resumeFromRunId } : {}),
   });
   return {
     threadId: conversationId, runId: executionId, messageId: responseId,
     planState: plannedState, vendorConfig: vendor, tools: available,
-    promptLayers: assembled, harnessPromptLayers: stable, systemPrompt: system,
+    promptLayers: assembled, agentLoopPromptLayers: stable, systemPrompt: system,
     runMessages: transcript,
     ...(restoration ? { recovered: restoration } : {}),
     runStore: store,

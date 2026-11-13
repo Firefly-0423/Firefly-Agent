@@ -1,5 +1,5 @@
-import type { AgentLoopEvent, AgentLoopSettings } from "../loop/run-ports";
-export type { AgentLoopEvent, AgentLoopSettings };
+import type { RunEvent, RunModelSettings } from "../loop/run-ports";
+export type { RunEvent, RunModelSettings };
 import type { BackgroundMemoryHost } from "../memory-runtime/background-memory-ingress";
 import { AbstractAgent, type RunAgentInput } from "@ag-ui/client";
 import { EventType, type BaseEvent } from "@ag-ui/core";
@@ -13,7 +13,7 @@ import { getAdapterForConfig, type ChatMessage } from "../../model/providers";
 import { contextRefRegistry, extractLastUserQuery, type ToolContext } from "../../tooling/registry/tool-context";
 import { runChatLoop } from "./chat-loop";
 import type { RunCapabilities } from "./run-capabilities";
-import { runHarnessWithAdapter } from "./harness-adapter";
+import { runAgentLoopWithAdapter } from "./agent-loop-adapter";
 import type { MainMemoryRun } from "../memory-runtime/main-memory-runtime";
 import { publicRunFailure } from "../../../shared/run-failure";
 import type { SocialAtom } from "../../knowledge/social/types";
@@ -34,7 +34,7 @@ export type SkillRouteInfo = {
   id: string;
 };
 
-export type AgentLoopResult = {
+export type RunResult = {
   terminal?: FireflyRunTerminalResult;
   totalUsage?: { input: number; output: number };
   completionReason: "no_tool" | "timeout" | "max_rounds" | "tool_error";
@@ -45,7 +45,7 @@ export type AgentLoopResult = {
 export type FireflyRunOptions = {
   transcriptSink?: import("../loop/transcript-sink").TranscriptSink;
   pollRunAdjustments?: () => Promise<import("../loop/types").RunAdjustmentMessage[]> | undefined;
-  onToolFinished?: (event: import("../loop/types").HarnessToolFinishedEvent) => void;
+  onToolFinished?: (event: import("../loop/types").AgentLoopToolFinishedEvent) => void;
   signal?: AbortSignal;
   resolvedWorkspaceRoot?: string;
   executionLedger?: ExecutionLedger;
@@ -62,7 +62,7 @@ export type FireflyRunOptions = {
   toolSystemContent: string;
   imageCaptionFallback?: () => Promise<ChatMessage[]>;
   permissionMode?: "normal" | "allow_all";
-  harnessInteractiveTools?: boolean;
+  interactiveTools?: boolean;
   capabilities?: RunCapabilities;
   tools?: ToolDefinition[];
   timeoutMs: number;
@@ -76,7 +76,7 @@ export type FireflyRunOptions = {
   runTimeoutMs?: number;
   maxToolRounds?: number;
   maxParallelToolCalls?: number;
-  settings: AgentLoopSettings;
+  settings: RunModelSettings;
   isControlledRunCurrent?:()=>boolean;
   controlledResponses?:import("./controlled-responses").ControlledResponsesRun;
   openMemoryRun?: (input: FireflyRunOptions) => Promise<MainMemoryRun>;
@@ -119,7 +119,7 @@ function terminalFromCompletionReason(completionReason: "no_tool" | "max_rounds"
 }
 export function resolveExecutionMode(mode: unknown): AgentExecutionMode { return mode === "chat" ? "chat" : "work"; }
 
-export function toAguiEvent(event: AgentLoopEvent): BaseEvent {
+export function toAguiEvent(event: RunEvent): BaseEvent {
   const category = event.type;
   switch (category) {
     case "step_started": case "step_finished":
@@ -199,7 +199,7 @@ export class FireflyAgent extends AbstractAgent {
           const timing = perf.begin("get_adapter");
           const vendor = getAdapterForConfig(options.settings);
           timing.end();
-          const notify = (event: AgentLoopEvent) => {
+          const notify = (event: RunEvent) => {
             if (event.type === "tool_call_start") work.markToolStarted();
             if (unsubscribed) return;
             observer.next(toAguiEvent(event));
@@ -207,12 +207,12 @@ export class FireflyAgent extends AbstractAgent {
           const mode = resolveExecutionMode(options.executionMode);
           const chatTools = (options.tools ?? []).length;
           const toolChat = mode === "chat" && chatTools > 0;
-          debugLog(`[FireflyAgent] executionMode=${mode} loop=${mode === "chat" && !toolChat ? "chat" : "harness"} provider=${options.settings.provider} model=${options.settings.model}`);
+          debugLog(`[FireflyAgent] executionMode=${mode} loop=${mode === "chat" && !toolChat ? "chat" : "agent"} provider=${options.settings.provider} model=${options.settings.model}`);
           const toolCount = mode === "chat" ? chatTools : (options.tools ?? toolRegistry.getEnabledTools()).filter((definition) => definition.enabled).length;
           flowLog("── 新请求 ─────────────────────────");
           flowLog(`1. 准备上下文：${mode === "chat" ? "Chat" : "Work"} 模式，模型 ${options.settings.model}，${toolCount} 个工具可用`);
           flowLog(`2. 理解用户请求：${mode === "chat" ? "Chat 模式无需工具上下文" : `完成`}`);
-          let completed: AgentLoopResult;
+          let completed: RunResult;
           if (current.controlledResponses) completed = await current.controlledResponses(current, cancellation.signal, notify);
           else if (mode === "chat" && !toolChat) {
             flowLog("3. Chat 模式：生成回复");
@@ -228,7 +228,7 @@ export class FireflyAgent extends AbstractAgent {
               mode: options.conversationMode, allowedSkillIds: options.capabilities?.skillIds, workReadScopes: options.workReadScopes,
             });
             const conversationId = options.conversationId ?? "default";
-            completed = await perf.track("harness_loop", () => runHarnessWithAdapter(current, cancellation.signal, (event: BaseEvent) => {
+            completed = await perf.track("agent_loop", () => runAgentLoopWithAdapter(current, cancellation.signal, (event: BaseEvent) => {
               if (event.type === EventType.TOOL_CALL_START) work.markToolStarted();
               if (!unsubscribed) observer.next(event);
             }));

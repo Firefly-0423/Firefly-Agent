@@ -1,29 +1,29 @@
 import type { BaseEvent } from "@ag-ui/core";
-import { runFireflyHarness } from "../loop";
-import type { HarnessEvent, HarnessInput } from "../loop";
-import type { AgentLoopResult, FireflyRunOptions, AgentLoopSettings } from "./firefly-agent";
+import { runAgentLoop } from "../loop";
+import type { AgentLoopEvent, AgentLoopInput } from "../loop";
+import type { RunResult, FireflyRunOptions, RunModelSettings } from "./firefly-agent";
 import type { ToolCallResult } from "../../tooling/registry/tool-call-types";
 import { mapTerminateReason, mapTerminateReasonToTerminal } from "./adapter/terminal-mapper";
 import { app } from "electron";
 import { getRunReviewTracker } from "../review/run-review-tracker";
 import type { ReviewRunStatus } from "../../../shared/review-types";
-import { sendHarnessEventAsAgui } from "./adapter/event-mapper";
+import { sendAgentLoopEventAsAgui } from "./adapter/event-mapper";
 import { completePlanRun } from "./adapter/plan-lifecycle";
-import { prepareHarnessRun } from "./adapter/run-preparation";
+import { prepareAgentLoopRun } from "./adapter/run-preparation";
 import { prepareToolRuntime } from "./adapter/tool-runtime";
 export { mapTerminateReasonToTerminal } from "./adapter/terminal-mapper";
-export { buildHarnessPromptLayers, buildHarnessSystemPrompt, materializeHarnessStartTranscript } from "./adapter/prompt-builder";
-export { sendHarnessEventAsAgui, sendTaskLifecycleAsAgui } from "./adapter/event-mapper";
+export { buildAgentLoopPromptLayers, buildAgentLoopSystemPrompt, materializeAgentLoopStartTranscript } from "./adapter/prompt-builder";
+export { sendAgentLoopEventAsAgui, sendTaskLifecycleAsAgui } from "./adapter/event-mapper";
 export { filterToolsForConversationMode } from "./adapter/run-preparation";
 
-export async function runHarnessWithAdapter(options: FireflyRunOptions, signal: AbortSignal, sendBaseEvent: (event: BaseEvent) => void): Promise<AgentLoopResult> {
+export async function runAgentLoopWithAdapter(options: FireflyRunOptions, signal: AbortSignal, sendBaseEvent: (event: BaseEvent) => void): Promise<RunResult> {
   if (options.memoryRun && options.transcriptSink) options = { ...options, transcriptSink: options.memoryRun.bindSink(options.transcriptSink) };
-  const preparation = await prepareHarnessRun(options, signal);
+  const preparation = await prepareAgentLoopRun(options, signal);
   const { messageId: message, runId: run, threadId: thread, planState: plan, vendorConfig: vendor, tools: enabled, runStore: journal,
-    recovered: resume, promptLayers: layers, harnessPromptLayers: requestLayers, systemPrompt: prefix, runMessages: history } = preparation;
+    recovered: resume, promptLayers: layers, agentLoopPromptLayers: requestLayers, systemPrompt: prefix, runMessages: history } = preparation;
   const runtime = prepareToolRuntime({ options, signal, prepared: preparation, sendBaseEvent });
   const { toolContext: context, checkPermission: permission, toolOutputStore: outputStore, agentExecutor: executeAgent, agentDefinitions: agents } = runtime;
-  const invocation: HarnessInput = {
+  const invocation: AgentLoopInput = {
     systemPrompt: prefix,
     promptLayers: requestLayers,
     usageParts: layers.usageParts,
@@ -41,7 +41,7 @@ export async function runHarnessWithAdapter(options: FireflyRunOptions, signal: 
     },
     signal: runtime.signal,
     quiesceExecution: runtime.quiesceExecution,
-    onEvent: (event: HarnessEvent) => { if (!signal.aborted) sendHarnessEventAsAgui(event, message, thread, run, sendBaseEvent); },
+    onEvent: (event: AgentLoopEvent) => { if (!signal.aborted) sendAgentLoopEventAsAgui(event, message, thread, run, sendBaseEvent); },
     onCheckpoint: (checkpoint) => { journal.checkpoint(run, {
       messages: checkpoint.messages, state: checkpoint.state, toolOutputs: checkpoint.toolOutputs, rounds: checkpoint.rounds, cache: checkpoint.cache,
     }); },
@@ -51,7 +51,7 @@ export async function runHarnessWithAdapter(options: FireflyRunOptions, signal: 
     ...(options.onToolFinished ? { onToolFinished: options.onToolFinished } : {}),
     ...(options.pollRunAdjustments ? { pollRunAdjustments: options.pollRunAdjustments } : {}),
     requestUserClarification: options.requestUserClarification ? (card) => options.requestUserClarification!(card as never, runtime.signal) : undefined,
-    includeInteractiveTools: options.harnessInteractiveTools,
+    includeInteractiveTools: options.interactiveTools,
     planState: plan,
     toolContext: context,
     toolOutputStore: outputStore,
@@ -62,7 +62,7 @@ export async function runHarnessWithAdapter(options: FireflyRunOptions, signal: 
     ...(options.transcriptSink ? { transcriptSink: options.transcriptSink } : {}),
     ...(options.memoryRun ? { memoryRun: options.memoryRun } : {}),
   };
-  const completed = await runFireflyHarness(invocation);
+  const completed = await runAgentLoop(invocation);
   const completionReason = mapTerminateReason(completed.terminateReason);
   const unresolved = completed.finalState.uncertainEffects.length > 0;
   let terminal = completed.terminal ?? mapTerminateReasonToTerminal(completed.terminateReason, unresolved, completed.failure);
@@ -70,7 +70,7 @@ export async function runHarnessWithAdapter(options: FireflyRunOptions, signal: 
   if (terminal.status === "cancelled" || completed.terminateReason === "cancelled") {
     try { await options.transcriptSink?.closeInterruption({ reason: "user_cancel", runSession: journal.get(run) }); }
     catch (failure) {
-      console.error("[HarnessAdapter] transcript interruption closure failed:", failure);
+      console.error("[AgentLoopAdapter] transcript interruption closure failed:", failure);
       terminal = { status: "runtime_error", reason: "transcript_interruption_closure_failed", externalEffectsMayContinue: true };
       status = "failed";
     }
@@ -80,10 +80,10 @@ export async function runHarnessWithAdapter(options: FireflyRunOptions, signal: 
     const review = getRunReviewTracker(app.getPath("userData"));
     const reviewStatus: ReviewRunStatus = status;
     review.finalizeReview(run, session.createdAt, reviewStatus);
-  } catch (failure) { console.error("[HarnessAdapter] finalizeReview failed:", failure); }
+  } catch (failure) { console.error("[AgentLoopAdapter] finalizeReview failed:", failure); }
   completePlanRun({ mode: options.conversationMode, threadId: thread, runId: run, runStatus: status, planState: plan, signal, send: sendBaseEvent });
   const toolResults: ToolCallResult[] = [];
-  console.log(`[HarnessAdapter] harness run complete, rounds=${completed.rounds} terminated=${completed.terminated} terminal=${terminal.status}`);
+  console.log(`[AgentLoopAdapter] harness run complete, rounds=${completed.rounds} terminated=${completed.terminated} terminal=${terminal.status}`);
   try { await options.transcriptSink?.checkpoint(); }
   catch (failure) { console.error("[ConversationTranscriptStore] snapshot checkpoint failed:", failure); }
   return { reply: completed.finalAnswer, toolResults, completionReason, terminal, totalUsage: undefined };

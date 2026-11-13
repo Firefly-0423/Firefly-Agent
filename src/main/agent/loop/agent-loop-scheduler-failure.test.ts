@@ -4,14 +4,14 @@ import path from "node:path";
 import { beforeEach, expect, it, vi } from "vitest";
 
 const fakeLLM = vi.hoisted(() => vi.fn());
-vi.mock("./harness-llm", () => ({ callLLM: fakeLLM, summarizeHistory: vi.fn() }));
+vi.mock("./agent-loop-llm", () => ({ callLLM: fakeLLM, summarizeHistory: vi.fn() }));
 
-import { runFireflyHarness } from "./firefly-harness";
+import { runAgentLoop } from "./agent-loop";
 import { RunExecutionCoordinator } from "../../tooling/execution/execution-coordinator";
-import { HarnessRunStore, type HarnessRunSession } from "./run-store";
+import { AgentRunStore, type AgentRunSession } from "./run-store";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
 import type { TranscriptSink } from "./transcript-sink";
-import type { HarnessToolLifecycleEvent } from "./types";
+import type { AgentLoopToolLifecycleEvent } from "./types";
 
 function deferred() {
   let resolve!: () => void;
@@ -45,7 +45,7 @@ it.each(["started persistence", "transcript append", "committed persistence", "r
     let siblingSettled = false;
     let competingEntered = false;
     const terminalEvents: string[] = [];
-    const lifecycle: HarnessToolLifecycleEvent[] = [];
+    const lifecycle: AgentLoopToolLifecycleEvent[] = [];
     const tools = [read("read_first", async () => "first"), read("read_second", async (_args, context) => {
       siblingStarted.resolve();
       await new Promise<void>(resolve => {
@@ -64,7 +64,7 @@ it.each(["started persistence", "transcript append", "committed persistence", "r
       if (failurePoint === "transcript append" && message.toolCallId === "read_first") throw error;
       return "result-entry";
     } } as unknown as TranscriptSink;
-    const pending = runFireflyHarness({
+    const pending = runAgentLoop({
       systemPrompt: "synthetic", messages: [], tools, vendorConfig, transcriptSink: sink,
       config: { maxParallelToolCalls: 2 }, signal,
       quiesceExecution: () => { quiesceCalls++; owner.abort(); },
@@ -128,14 +128,14 @@ it("checkpoints each canonical result before publishing its committed lifecycle"
     text: "", toolCalls: calls, finishReason: "tool_calls", raw: {} })
     .mockResolvedValueOnce({ assistantMessage: { role: "assistant", content: "done" }, text: "done", toolCalls: [], finishReason: "stop", raw: {} });
   const trace: string[] = [];
-  let committedSnapshot: HarnessRunSession | undefined;
+  let committedSnapshot: AgentRunSession | undefined;
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "firefly-result-checkpoint-"));
-  const store = new HarnessRunStore(root);
+  const store = new AgentRunStore(root);
   store.create({ conversationId: "synthetic", runId: "snapshot", messages: [], request: {
     provider: "fixture", model: "fixture", contextWindowTokens: 128000, promptFingerprint: "synthetic", toolSchemaFingerprint: "synthetic",
   } });
   try {
-    await runFireflyHarness({
+    await runAgentLoop({
       systemPrompt: "synthetic", messages: [], vendorConfig, tools: [read("read_one", async () => "known canonical result")],
       transcriptSink: { appendAssistant: async () => "assistant-entry", appendToolResult: async () => { trace.push("canonical result"); return "result-entry"; } } as unknown as TranscriptSink,
       onCheckpoint: value => {

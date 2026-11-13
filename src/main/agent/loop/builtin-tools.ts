@@ -1,5 +1,5 @@
 import type { ToolSpec, ToolCall } from "../../model/providers/types";
-import type { ToolObservation, TodoStatus, TodoItem, HarnessEvent, AgentState } from "./types";
+import type { ToolObservation, TodoStatus, TodoItem, AgentLoopEvent, AgentState } from "./types";
 import { tryParseToolCallArgs, invalidToolCallArguments } from "./types";
 import { createAbortError, isAbortError, raceWithSignal } from "../../base/utils/abort-utils";
 import { resolveUncertainEffect } from "./uncertain-effect-guard";
@@ -89,7 +89,7 @@ function validateAndCorrectTodos(newItems: TodoItem[], oldItems: TodoItem[]): To
   }
   return { items: accepted, corrections };
 }
-export async function executeUpdateTodo(call: ToolCall, state: AgentState, onEvent?: (event: HarnessEvent) => void): Promise<ToolObservation> {
+export async function executeUpdateTodo(call: ToolCall, state: AgentState, onEvent?: (event: AgentLoopEvent) => void): Promise<ToolObservation> {
   const parsed = tryParseToolCallArgs(call);
   if (parsed === undefined) return invalidToolCallArguments(call);
   const supplied = (parsed.todos as unknown) ?? [];
@@ -131,16 +131,16 @@ export async function executeDelegateAgent(call: ToolCall,
     message: `Agent ${terminal.agentId}: ${terminal.status}`, output: JSON.stringify(terminal) };
 }
 
-type HarnessAskQuestionType = "text" | "multi_select" | "single_select";
-type HarnessAskQuestion = { options: Array<{ description?: string; value: string; label: string }>; type: HarnessAskQuestionType; question: string; id: string };
+type AgentLoopAskQuestionType = "text" | "multi_select" | "single_select";
+type AgentLoopAskQuestion = { options: Array<{ description?: string; value: string; label: string }>; type: AgentLoopAskQuestionType; question: string; id: string };
 type AskAnswer = { customInput?: string; selectedLabels?: string[]; selectedValues?: string[]; questionId: string };
-const optionBounds: Record<HarnessAskQuestionType, { min: number; max: number }> = {
+const optionBounds: Record<AgentLoopAskQuestionType, { min: number; max: number }> = {
   single_select: { min: 2, max: 6 }, multi_select: { min: 2, max: 8 }, text: { min: 0, max: 0 },
 };
-function parseAskQuestions(raw: unknown): { questions?: HarnessAskQuestion[]; error?: string } {
+function parseAskQuestions(raw: unknown): { questions?: AgentLoopAskQuestion[]; error?: string } {
   if (!Array.isArray(raw) || raw.length === 0 || raw.length > 3) return { error: "questions 必须是包含 1-3 个问题的数组" };
   const used = new Set<string>();
-  const questions: HarnessAskQuestion[] = [];
+  const questions: AgentLoopAskQuestion[] = [];
   for (const [position, value] of raw.entries()) {
     const ordinal = position + 1;
     if (!value || typeof value !== "object" || Array.isArray(value)) return { error: `第 ${ordinal} 个问题必须是对象` };
@@ -157,7 +157,7 @@ function parseAskQuestions(raw: unknown): { questions?: HarnessAskQuestion[]; er
     const bounds = optionBounds[type];
     if (candidates.length < bounds.min || candidates.length > bounds.max) return { error: `第 ${ordinal} 个 ${type} 问题必须有 ${bounds.min}-${bounds.max} 个选项` };
     const values = new Set<string>();
-    const options: HarnessAskQuestion["options"] = [];
+    const options: AgentLoopAskQuestion["options"] = [];
     for (const [index, candidate] of candidates.entries()) {
       if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return { error: `第 ${ordinal} 个问题含有无效选项` };
       const option = candidate as Record<string, unknown>;
@@ -174,7 +174,7 @@ function parseAskQuestions(raw: unknown): { questions?: HarnessAskQuestion[]; er
   }
   return { questions };
 }
-export function formatAskUserPreview(parsed: { questions?: HarnessAskQuestion[] }, observation: ToolObservation): string[] | string {
+export function formatAskUserPreview(parsed: { questions?: AgentLoopAskQuestion[] }, observation: ToolObservation): string[] | string {
   if (observation.outcome !== "success") return observation.message;
   let replies: AskAnswer[] = [];
   try {
@@ -189,7 +189,7 @@ export function formatAskUserPreview(parsed: { questions?: HarnessAskQuestion[] 
   });
 }
 export async function executeAskUser(call: ToolCall, requestUserClarification: ((card: unknown) => Promise<unknown>) | undefined,
-  onEvent?: (event: HarnessEvent) => void): Promise<ToolObservation> {
+  onEvent?: (event: AgentLoopEvent) => void): Promise<ToolObservation> {
   const parsed = tryParseToolCallArgs(call);
   if (parsed === undefined) return invalidToolCallArguments(call);
   const validated = parseAskQuestions((parsed.questions as unknown) ?? []);
@@ -256,17 +256,17 @@ export async function executeConfirmUncertainEffect(call: ToolCall, state: Agent
     return { outcome: "failure", category: "timeout", tool: CONFIRM_UNCERTAIN_EFFECT_TOOL_ID, message: `用户确认超时或失败：${cause instanceof Error ? cause.message : String(cause)}` };
   }
 }
-export const HARNESS_BUILTIN_TOOL_IDS = new Set([DELEGATE_AGENT_TOOL_ID, UPDATE_TODO_TOOL_ID, ASK_USER_TOOL_ID,
+export const AGENT_LOOP_BUILTIN_TOOL_IDS = new Set([DELEGATE_AGENT_TOOL_ID, UPDATE_TODO_TOOL_ID, ASK_USER_TOOL_ID,
   CONFIRM_UNCERTAIN_EFFECT_TOOL_ID, READ_TOOL_RESULT_TOOL_ID, ENTER_PLAN_MODE_TOOL_ID, WRITE_PLAN_TOOL_ID]);
-export function isHarnessBuiltin(toolName: string): boolean { return HARNESS_BUILTIN_TOOL_IDS.has(toolName); }
-export function isInteractiveHarnessBuiltin(toolName: string): boolean {
+export function isAgentLoopBuiltin(toolName: string): boolean { return AGENT_LOOP_BUILTIN_TOOL_IDS.has(toolName); }
+export function isInteractiveAgentLoopBuiltin(toolName: string): boolean {
   return toolName === ASK_USER_TOOL_ID || toolName === CONFIRM_UNCERTAIN_EFFECT_TOOL_ID;
 }
 function planToolSpecsFor(planState: import("../tools/plan-mode").PlanStateName | undefined): ToolSpec[] {
   if (planState === "NORMAL") return [enterPlanModeToolSpec, writePlanToolSpec];
   return planState === "PLAN_DISCUSSING" ? [writePlanToolSpec] : [];
 }
-export function getHarnessBuiltinToolSpecs(options?: {
+export function getAgentLoopBuiltinToolSpecs(options?: {
   includeInteractive?: boolean; includeAgent?: boolean;
   agentDefinitions?: readonly { id: string; nickname: string; description: string }[];
   planState?: import("../tools/plan-mode").PlanStateName;

@@ -1,10 +1,10 @@
-import type {AgentLoopResult} from "../runtime/firefly-agent";
+import type {RunResult} from "../runtime/firefly-agent";
 import type {ControlledStreamTarget} from "../runtime/controlled-responses";
 import {contextFail} from "../../model/context/context-contracts";
 
 const invalid=():never=>contextFail("MEMORY_CONTEXT_STREAM_INVALID");
 /** Consumes the actual SDK iterable; does not construct requests, retry, or synthesize tool results. */
-export async function consumeSResponseStream(input:{stream:unknown;target:ControlledStreamTarget;signal?:AbortSignal;validate:()=>Promise<void>;afterCommit:()=>void;commit:(text:string)=>Promise<void>}):Promise<AgentLoopResult>{
+export async function consumeSResponseStream(input:{stream:unknown;target:ControlledStreamTarget;signal?:AbortSignal;validate:()=>Promise<void>;afterCommit:()=>void;commit:(text:string)=>Promise<void>}):Promise<RunResult>{
  const stream=input.stream as AsyncIterable<any>&{controller?:AbortController};
  if(!stream||typeof stream[Symbol.asyncIterator]!=="function")invalid();
  const iterator=stream[Symbol.asyncIterator]();let stage=0,sequence=-1,events=0,responseId="",itemId="",text="",textDone=false,terminal=false,started=false,eof=false;

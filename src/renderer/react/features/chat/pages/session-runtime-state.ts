@@ -8,7 +8,7 @@ export type SessionInteractionEntry = {
   resolved?: boolean; queued: ComposerInteraction[]; busy: boolean; interaction: ComposerInteraction;
 };
 export type SessionInteractionState = Record<string, SessionInteractionEntry>;
-type HarnessTodoPresentation = { status: string; content: string; id: string };
+type AgentLoopTodoPresentation = { status: string; content: string; id: string };
 export type SessionTodoState = { updatedAt: number; todos: TodoItem[]; runId?: string };
 export type TodoStateBySession = Record<string, SessionTodoState>;
 export type ClaimRecoveryStatus = { kind: "dispatched" } | { kind: "needs-dispatch" } | { kind: "claim-message-missing" };
@@ -159,7 +159,7 @@ export function startSessionTodos(state: TodoStateBySession, sessionId: string, 
   return { ...state, [sessionId]: { runId, todos: [], updatedAt } };
 }
 
-export function mergeHarnessTodosForSession(state: TodoStateBySession, sessionId: string, runId: string | undefined, items: readonly HarnessTodoPresentation[], updatedAt = Date.now()): TodoStateBySession {
+export function mergeAgentLoopTodosForSession(state: TodoStateBySession, sessionId: string, runId: string | undefined, items: readonly AgentLoopTodoPresentation[], updatedAt = Date.now()): TodoStateBySession {
   const previous = state[sessionId];
   if (previous?.runId && runId && previous.runId !== runId) return state;
   const accepted = items.flatMap<TodoItem>((entry) => {

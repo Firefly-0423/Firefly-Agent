@@ -2,9 +2,9 @@ import type { ToolCall } from "../../model/providers/types";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
 import type { ApprovalOrigin } from "../../../shared/permission-approval";
 import type { ToolCallResult, ToolExecutionOutcome } from "../../tooling/registry/tool-call-types";
-import type { ToolObservation, HarnessEvent, AgentState } from "./types";
+import type { ToolObservation, AgentLoopEvent, AgentState } from "./types";
 import { tryParseToolCallArgs, parseToolCallArgs, toolCallFingerprint, ToolCallArgumentsError, invalidToolCallArguments } from "./types";
-import { isHarnessBuiltin, isInteractiveHarnessBuiltin, DELEGATE_AGENT_TOOL_ID,
+import { isAgentLoopBuiltin, isInteractiveAgentLoopBuiltin, DELEGATE_AGENT_TOOL_ID,
   executeUpdateTodo, executeAskUser, executeDelegateAgent, executeConfirmUncertainEffect, CONFIRM_UNCERTAIN_EFFECT_TOOL_ID } from "./builtin-tools";
 import { ENTER_PLAN_MODE_TOOL_ID, WRITE_PLAN_TOOL_ID, executeEnterPlanMode, executeWritePlan } from "./plan-tools";
 import { executeReadToolResult, READ_TOOL_RESULT_TOOL_ID } from "./tool-output/read-tool-result";
@@ -41,7 +41,7 @@ export type ToolDispatchContext = {
   onExecutionStarted?: () => void;
   delegationScope?: DelegationScope;
   allowedBuiltinToolIds?: ReadonlySet<string>;
-  agentExecutor?: import("./types").HarnessInput["agentExecutor"];
+  agentExecutor?: import("./types").AgentLoopInput["agentExecutor"];
   executionLedger?: ExecutionLedger;
   deferOutputPersistence?: boolean;
   toolOutputStore?: ToolOutputStore;
@@ -50,7 +50,7 @@ export type ToolDispatchContext = {
   checkPermission?: (toolId: string, args: Record<string, unknown>, signal?: AbortSignal, origin?: ApprovalOrigin) => Promise<boolean>;
   includeInteractiveTools?: boolean;
   requestUserClarification?: (card: unknown) => Promise<unknown>;
-  onEvent?: (event: HarnessEvent) => void;
+  onEvent?: (event: AgentLoopEvent) => void;
   tools: ToolDefinition[];
   state: AgentState;
 };
@@ -77,11 +77,11 @@ export async function dispatchToolCall(call: ToolCall, ctx: ToolDispatchContext)
     if (!(cause instanceof ToolCallArgumentsError)) throw cause;
     return invalidToolCallArguments(call);
   }
-  if (isHarnessBuiltin(call.name)) {
+  if (isAgentLoopBuiltin(call.name)) {
     if (ctx.allowedBuiltinToolIds && !ctx.allowedBuiltinToolIds.has(call.name)) return {
       outcome: "not_executed", category: "runtime_safety", tool: call.name, message: "当前运行未授权该控制工具",
     };
-    if (ctx.includeInteractiveTools === false && isInteractiveHarnessBuiltin(call.name)) return {
+    if (ctx.includeInteractiveTools === false && isInteractiveAgentLoopBuiltin(call.name)) return {
       outcome: "failure", category: "not_found", tool: call.name, message: "当前渠道不支持交互式工具",
     };
     const owner = ctx.toolContext?.execution;
@@ -90,10 +90,10 @@ export async function dispatchToolCall(call: ToolCall, ctx: ToolDispatchContext)
       if (call.name !== DELEGATE_AGENT_TOOL_ID) ctx.onExecutionStarted?.();
       // Interactive built-ins announce themselves in the tool round; the rest start here like registry tools,
       // or the UI only learns of them from their result. The renderer names them in the user's language.
-      if (!isInteractiveHarnessBuiltin(call.name)) ctx.onEvent?.({ type: "tool_start", toolCallId: call.id, toolName: call.name, args: tryParseToolCallArgs(call) ?? {} });
-      return executeHarnessBuiltin(call, ctx);
+      if (!isInteractiveAgentLoopBuiltin(call.name)) ctx.onEvent?.({ type: "tool_start", toolCallId: call.id, toolName: call.name, args: tryParseToolCallArgs(call) ?? {} });
+      return executeAgentLoopBuiltin(call, ctx);
     };
-    const observed = owner && call.name !== DELEGATE_AGENT_TOOL_ID && !isInteractiveHarnessBuiltin(call.name)
+    const observed = owner && call.name !== DELEGATE_AGENT_TOOL_ID && !isInteractiveAgentLoopBuiltin(call.name)
       ? await owner.coordinator.runLeaf({ ...owner.scope, toolCallId: call.id },
         classifyToolExecutionMode(call, ctx.tools) === "parallel" ? "shared" : "exclusive", ctx.toolContext?.signal, invoke)
       : await invoke();
@@ -178,7 +178,7 @@ export async function dispatchToolCall(call: ToolCall, ctx: ToolDispatchContext)
 function shouldPersistResult(call: ToolCall, result: ToolDispatchResult): result is ToolDispatchResult & {
   output: string; outcome: "success" | "failure" | "unknown";
 } {
-  return (call.name === DELEGATE_AGENT_TOOL_ID || !isHarnessBuiltin(call.name)) && result.output !== undefined
+  return (call.name === DELEGATE_AGENT_TOOL_ID || !isAgentLoopBuiltin(call.name)) && result.output !== undefined
     && (result.outcome === "success" || result.outcome === "failure" || result.outcome === "unknown");
 }
 export async function persistToolDispatchResult(call: ToolCall, result: ToolDispatchResult, ctx: ToolDispatchContext): Promise<ToolDispatchResult> {
@@ -194,7 +194,7 @@ export async function persistToolDispatchResult(call: ToolCall, result: ToolDisp
     runId: run, toolCallId: call.id, toolName: call.name, outcome: result.outcome, output: content, truncatedForModel: projected.truncated });
   return { ...result, preview: projected.preview, truncated: projected.truncated, fullOutputRef: saved.resultRef, toolOutputRef: saved };
 }
-async function executeHarnessBuiltin(call: ToolCall, ctx: ToolDispatchContext): Promise<ToolDispatchResult> {
+async function executeAgentLoopBuiltin(call: ToolCall, ctx: ToolDispatchContext): Promise<ToolDispatchResult> {
   if (call.name === "update_todo") return executeUpdateTodo(call, ctx.state, ctx.onEvent);
   if (call.name === "ask_user") return executeAskUser(call, ctx.requestUserClarification, ctx.onEvent);
   if (call.name === CONFIRM_UNCERTAIN_EFFECT_TOOL_ID) return executeConfirmUncertainEffect(call, ctx.state, ctx.requestUserClarification, ctx.toolContext?.signal);
@@ -202,5 +202,5 @@ async function executeHarnessBuiltin(call: ToolCall, ctx: ToolDispatchContext): 
   if (call.name === WRITE_PLAN_TOOL_ID) return executeWritePlan(call, ctx.toolContext, ctx.onEvent);
   if (call.name === DELEGATE_AGENT_TOOL_ID) return executeDelegateAgent(call, ctx.agentExecutor, ctx.delegationScope, ctx.onExecutionStarted);
   if (call.name === READ_TOOL_RESULT_TOOL_ID) return executeReadToolResult(call, ctx.toolOutputStore, ctx.toolContext);
-  return { outcome: "failure", category: "not_found", tool: call.name, message: `未知的 Harness 内置工具: ${call.name}` };
+  return { outcome: "failure", category: "not_found", tool: call.name, message: `未知的运行循环内置工具: ${call.name}` };
 }

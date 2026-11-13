@@ -1,23 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { buildHarnessPromptLayers, buildHarnessSystemPrompt, mapTerminateReasonToTerminal, materializeHarnessStartTranscript, sendHarnessEventAsAgui, sendTaskLifecycleAsAgui } from "./harness-adapter";
-import type { HarnessEvent } from "../loop/types";
+import { buildAgentLoopPromptLayers, buildAgentLoopSystemPrompt, mapTerminateReasonToTerminal, materializeAgentLoopStartTranscript, sendAgentLoopEventAsAgui, sendTaskLifecycleAsAgui } from "./agent-loop-adapter";
+import type { AgentLoopEvent } from "../loop/types";
 import type { BaseEvent } from "@ag-ui/core";
 
 describe("Adapter facade prompt contracts", () => {
   const base = { soulSystemBaseContent: "审查助手角色核心", toolSystemContent: "审查工具目录" };
   it("deduplicates environment facts and keeps recovery separate from the stable prefix", () => {
-    expect(buildHarnessSystemPrompt({ ...base, soulSystemBaseContent: "[WORKSPACE_FACTS]", runtimeEnvironmentContext: "[WORKSPACE_FACTS]" } as never).split("[WORKSPACE_FACTS]").length - 1).toBe(1);
-    const layers = buildHarnessPromptLayers({ ...base, recoveryContext: "已检查持久化边界" } as never);
+    expect(buildAgentLoopSystemPrompt({ ...base, soulSystemBaseContent: "[WORKSPACE_FACTS]", runtimeEnvironmentContext: "[WORKSPACE_FACTS]" } as never).split("[WORKSPACE_FACTS]").length - 1).toBe(1);
+    const layers = buildAgentLoopPromptLayers({ ...base, recoveryContext: "已检查持久化边界" } as never);
     expect(layers.stablePrefix).not.toContain("RECOVERY_CONTEXT");
     expect(layers.runtimeContext).toBe("[RECOVERY_CONTEXT]\n已检查持久化边界");
-    const prompt = buildHarnessSystemPrompt({ ...base, recoveryContext: "已检查持久化边界" } as never);
+    const prompt = buildAgentLoopSystemPrompt({ ...base, recoveryContext: "已检查持久化边界" } as never);
     expect(prompt).toContain("[RECOVERY_CONTEXT]");
     expect(prompt).toContain("已检查持久化边界");
   });
 
   it("supplies the same persona and shared tool policy in Work and Code, with soft notebook guidance", () => {
-    const work = buildHarnessSystemPrompt({ ...base, conversationMode: "work" } as never);
-    const code = buildHarnessSystemPrompt({ ...base, conversationMode: "code" } as never);
+    const work = buildAgentLoopSystemPrompt({ ...base, conversationMode: "work" } as never);
+    const code = buildAgentLoopSystemPrompt({ ...base, conversationMode: "code" } as never);
     expect(code).toBe(work);
     for (const token of ["审查助手角色核心", "[TODO_WORKING_NOTEBOOK_POLICY]", "至少 2 个 execution step", "不得作为后续行动的强约束", "## 工具使用", "主动调用", "invoke_skill", "多个互不依赖的调查或执行方向"]) expect(work).toContain(token);
     expect(work).not.toContain("Work / Learn / Code");
@@ -25,7 +25,7 @@ describe("Adapter facade prompt contracts", () => {
   });
 
   it("separates usage buckets while preserving the stable prefix's original order", () => {
-    const layers = buildHarnessPromptLayers({ ...base, conversationMode: "work" } as never);
+    const layers = buildAgentLoopPromptLayers({ ...base, conversationMode: "work" } as never);
     const persona = layers.usageParts!.personaContent, tools = layers.usageParts!.toolLayerContent;
     expect(persona).toContain("审查助手角色核心");
     expect(persona).toContain("[TODO_WORKING_NOTEBOOK_POLICY]");
@@ -38,16 +38,16 @@ describe("Adapter facade prompt contracts", () => {
   });
 
   it("keeps the full chat persona with neither compact execution persona nor file tool policy", () => {
-    const layers = buildHarnessPromptLayers({ ...base, toolSystemContent: "", conversationMode: "chat" } as never);
+    const layers = buildAgentLoopPromptLayers({ ...base, toolSystemContent: "", conversationMode: "chat" } as never);
     expect(layers.usageParts!.toolLayerContent).toBe("");
     expect(layers.stablePrefix).toBe(layers.usageParts!.personaContent);
     expect(layers.stablePrefix).toContain("审查助手角色核心");
     expect(layers.stablePrefix).not.toContain("# 流萤 · 执行人设");
-    expect(buildHarnessSystemPrompt({ ...base, conversationMode: "chat" } as never)).not.toContain("## 工具使用");
+    expect(buildAgentLoopSystemPrompt({ ...base, conversationMode: "chat" } as never)).not.toContain("## 工具使用");
   });
 
   it("materializes the runtime context and interrupted notebook in one internal recovery entry", () => {
-    const transcript = materializeHarnessStartTranscript({
+    const transcript = materializeAgentLoopStartTranscript({
       messages: [{ role: "user", content: "Continue audit" }], runId: "facade-coral", kind: "recovery",
       runtimeContext: "[RECOVERY_CONTEXT]\n持久化验证尚未完成",
       initialState: { todoItems: [{ id: "verify", content: "核对持久化记录", status: "in_progress" }], uncertainEffects: [] },
@@ -78,9 +78,9 @@ describe("Adapter facade terminal truth", () => {
 
 describe("Adapter facade public event stream", () => {
   const stamp = { threadId: "dialog-coral", runId: "facade-coral" };
-  function events(input: HarnessEvent) {
+  function events(input: AgentLoopEvent) {
     const sent: BaseEvent[] = [];
-    sendHarnessEventAsAgui(input, "answer-coral", stamp.threadId, stamp.runId, value => sent.push(value));
+    sendAgentLoopEventAsAgui(input, "answer-coral", stamp.threadId, stamp.runId, value => sent.push(value));
     return sent as unknown as Record<string, unknown>[];
   }
   it("projects process text, round boundaries and public reasoning with canonical run identity", () => {
@@ -92,7 +92,7 @@ describe("Adapter facade public event stream", () => {
       { type: "reasoning_start", messageId: "thought-coral" },
       { type: "reasoning_delta", messageId: "thought-coral", delta: "验证顺序" },
       { type: "reasoning_end", messageId: "thought-coral" },
-    ] as HarnessEvent[]).flatMap(events);
+    ] as AgentLoopEvent[]).flatMap(events);
     expect(reasoning).toEqual([
       { ...stamp, type: "REASONING_MESSAGE_START", messageId: "thought-coral", role: "assistant" },
       { ...stamp, type: "REASONING_MESSAGE_CONTENT", messageId: "thought-coral", delta: "验证顺序" },

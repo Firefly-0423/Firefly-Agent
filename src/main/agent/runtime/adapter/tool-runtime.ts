@@ -7,14 +7,14 @@ import { checkPermission, getCurrentLevel, type ToolRiskLevel } from "../../../p
 import { policyFor } from "../../../platform/permission/permission-policy";
 import { isPlanReadOnly } from "../../tools/plan-mode";
 import { contextRefRegistry, extractLastUserQuery, type ToolContext } from "../../../tooling/registry/tool-context";
-import type { HarnessInput } from "../../loop/index";
+import type { AgentLoopInput } from "../../loop/index";
 import { getTaskSessionStore } from "../../tasks/task-session-store";
 import { createAgentExecutor } from "../persistent-agent-runtime";
 import { createSpecialistProfiles } from "../specialist-profiles";
 import { loadModelSettings } from "../../../model/config/model-settings";
 import { FileToolOutputStore } from "../../loop/tool-output/file-tool-output-store";
 import { sendTaskLifecycleAsAgui } from "./event-mapper";
-import type { PreparedHarnessRun } from "./run-preparation";
+import type { PreparedAgentLoopRun } from "./run-preparation";
 import { getWorkspaceExecutionCoordinator } from "../../../tooling/execution/execution-coordinator";
 import type { FireflyRunOptions } from "../firefly-agent";
 
@@ -28,15 +28,15 @@ export interface PreparedToolRuntime {
   /** Stop only this Main execution's owned work before error/cancellation drain. */
   quiesceExecution: () => void;
   toolContext: ToolContext;
-  checkPermission: NonNullable<HarnessInput["checkPermission"]>;
+  checkPermission: NonNullable<AgentLoopInput["checkPermission"]>;
   toolOutputStore: FileToolOutputStore;
-  agentExecutor: HarnessInput["agentExecutor"];
-  agentDefinitions: HarnessInput["agentDefinitions"];
+  agentExecutor: AgentLoopInput["agentExecutor"];
+  agentDefinitions: AgentLoopInput["agentDefinitions"];
 }
 
 type ToolRuntimeInput = {
   sendBaseEvent: (event: BaseEvent) => void;
-  prepared: PreparedHarnessRun;
+  prepared: PreparedAgentLoopRun;
   options: FireflyRunOptions;
   signal: AbortSignal;
 };
@@ -49,7 +49,7 @@ export function prepareToolRuntime(input: ToolRuntimeInput): PreparedToolRuntime
   const { threadId, runId, systemPrompt, vendorConfig, tools } = prepared;
   // 会话权限由可信设置捕获一次；随后全局档位只能进一步限制，不能扩大该快照。
   const fileAccessLevel = options.permissionMode === "allow_all" ? "full" : getCurrentLevel();
-  const permissionCheck: NonNullable<HarnessInput["checkPermission"]> = async (
+  const permissionCheck: NonNullable<AgentLoopInput["checkPermission"]> = async (
     toolId: string,
     args: Record<string, unknown>,
     invocationSignal?: AbortSignal,
@@ -62,7 +62,7 @@ export function prepareToolRuntime(input: ToolRuntimeInput): PreparedToolRuntime
       && (risk === "shell" || policyFor("read-only", risk) !== "allow");
     // 计划限制先于显式免审批授权，并使用父会话实时状态，覆盖会话中途进入计划模式。
     if (blockedByPlan()) {
-      console.log(`[HarnessAdapter] [Plan] read-only enforcement blocked tool=${toolId} risk=${risk}`);
+      console.log(`[AgentLoopAdapter] [Plan] read-only enforcement blocked tool=${toolId} risk=${risk}`);
       return false;
     }
     if (policyFor(fileAccessLevel, risk) === "deny") return false;
@@ -106,7 +106,7 @@ export function prepareToolRuntime(input: ToolRuntimeInput): PreparedToolRuntime
         backgroundMemory: options.backgroundMemory, memoryRun: options.memoryRun, parentConversationId: threadId, parentRunId: runId,
         mode: options.conversationMode, capabilities: options.capabilities, systemPrompt, vendorConfig, tools,
         resolvedWorkspaceRoot: options.resolvedWorkspaceRoot, signal, checkPermission: permissionCheck,
-        includeInteractiveTools: options.harnessInteractiveTools, permissionMode: options.permissionMode,
+        includeInteractiveTools: options.interactiveTools, permissionMode: options.permissionMode,
         fileAccessLevel, toolOutputStore, workReadScopes: options.workReadScopes, executionCoordinator, revalidateToolPermission,
       },
       store: getTaskSessionStore(app.getPath("userData")),

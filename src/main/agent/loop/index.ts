@@ -1,10 +1,10 @@
-export { runFireflyHarness } from "./firefly-harness";
+export { runAgentLoop } from "./agent-loop";
 export type {
   UncertainEffect, ToolObservation, ToolErrorCategory, ToolCallOutcome, TodoStatus, TodoItem,
-  SideEffectKind, HarnessResult, HarnessInput, HarnessEvent, HarnessConfig, AgentState,
+  SideEffectKind, AgentLoopResult, AgentLoopInput, AgentLoopEvent, AgentLoopConfig, AgentState,
 } from "./types";
-export { DEFAULT_HARNESS_CONFIG } from "./types";
-export { getHarnessBuiltinToolSpecs, isHarnessBuiltin } from "./builtin-tools";
+export { DEFAULT_AGENT_LOOP_CONFIG } from "./types";
+export { getAgentLoopBuiltinToolSpecs, isAgentLoopBuiltin } from "./builtin-tools";
 export { resolveSideEffect } from "./side-effect-resolver";
 export { classifyToolResultError, classifyToolError } from "./error-classifier";
 export { sleepWithJitter, getRetryParams, decideRetry } from "./retry-policy";

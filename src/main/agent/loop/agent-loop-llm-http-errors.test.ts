@@ -7,7 +7,7 @@ vi.mock("../../model/providers", () => ({
   resolveTransport: () => "openai",
   getAdapterForConfig: () => ({ buildRequest: () => ({ url: "https://model.example.test/chat", headers: {}, body: "{}" }) }),
 }));
-import { callLLM } from "./harness-llm";
+import { callLLM } from "./agent-loop-llm";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 

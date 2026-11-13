@@ -2,8 +2,8 @@ import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgentFileAccessLevel } from "../../../platform/permission/permission-policy";
 import type { ToolContext } from "../../../tooling/registry/tool-context";
-import type { HarnessRun } from "../../loop/firefly-harness";
-import { DEFAULT_HARNESS_CONFIG, INITIAL_HARNESS_CACHE_STATE, type HarnessEvent, type HarnessToolFinishedEvent } from "../../loop/types";
+import type { AgentLoopRun } from "../../loop/agent-loop";
+import { DEFAULT_AGENT_LOOP_CONFIG, INITIAL_AGENT_LOOP_CACHE_STATE, type AgentLoopEvent, type AgentLoopToolFinishedEvent } from "../../loop/types";
 
 const mocks = vi.hoisted(() => ({
   level: "full" as AgentFileAccessLevel,
@@ -45,15 +45,15 @@ function deferred<T>() {
   return { promise, resolve };
 }
 function round(toolContext = context, ledger = new ExecutionLedger()) {
-  const events: HarnessEvent[] = [];
-  const finished: HarnessToolFinishedEvent[] = [];
+  const events: AgentLoopEvent[] = [];
+  const finished: AgentLoopToolFinishedEvent[] = [];
   const state = { todoItems: [], uncertainEffects: [], toolFailureStreaks: {} };
   const toolDispatchContext: ToolDispatchContext = { state, tools: [runShellTool], toolContext, executionLedger: ledger, deferOutputPersistence: true };
-  const run: HarnessRun = {
+  const run: AgentLoopRun = {
     input: { systemPrompt: "synthetic", messages: [], tools: [runShellTool], vendorConfig: { provider: "openai", model: "synthetic", apiKey: "synthetic", baseUrl: "https://invalid.example" },
       signal: toolContext.signal, toolContext, onEvent: event => events.push(event), onToolFinished: event => finished.push(event) },
-    config: DEFAULT_HARNESS_CONFIG, state, clock: new TimeoutClock(0, 0), streamController: new StreamController(),
-    allToolSpecs: [], messages: [], toolOutputs: [], cache: { ...INITIAL_HARNESS_CACHE_STATE }, rounds: 0,
+    config: DEFAULT_AGENT_LOOP_CONFIG, state, clock: new TimeoutClock(0, 0), streamController: new StreamController(),
+    allToolSpecs: [], messages: [], toolOutputs: [], cache: { ...INITIAL_AGENT_LOOP_CACHE_STATE }, rounds: 0,
     askDispatchContext: toolDispatchContext, toolDispatchContext, toolCallStartedAt: new Map(), checkpoint: vi.fn(),
   };
   return { run, events, finished, ledger };

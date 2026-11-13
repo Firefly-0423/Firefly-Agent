@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatMessage, ChatRequest, ChatResponse, ToolCall } from "../../model/providers/types";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
 import type { TranscriptSink } from "./transcript-sink";
-import type { HarnessCacheDiagnostic, HarnessCheckpoint, HarnessEvent, HarnessInput, HarnessToolFinishedEvent, HarnessToolLifecycleEvent, RunAdjustmentMessage } from "./types";
+import type { AgentLoopCacheDiagnostic, AgentLoopCheckpoint, AgentLoopEvent, AgentLoopInput, AgentLoopToolFinishedEvent, AgentLoopToolLifecycleEvent, RunAdjustmentMessage } from "./types";
 import type { ToolDispatchResult } from "./tool-dispatcher";
 
 const provider = vi.hoisted(() => {
@@ -14,13 +14,13 @@ const provider = vi.hoisted(() => {
 vi.mock("../../model/providers", () => ({ getAdapterForConfig: provider.select, streamChatWithSdk: provider.stream, resolveTransport: () => "openai" }));
 vi.mock("./tool-dispatcher", () => ({ dispatchToolCall: vi.fn(), persistToolDispatchResult: async (_call: unknown, result: unknown) => result }));
 vi.mock("../../base/storage/token-usage-store", () => ({ recordModelCall: vi.fn(), recordToolCall: vi.fn(), recordUsage: provider.usage, recordRequest: provider.requests }));
-import { runFireflyHarness } from "./firefly-harness";
+import { runAgentLoop } from "./agent-loop";
 import { dispatchToolCall } from "./tool-dispatcher";
-import { DEFAULT_HARNESS_CONFIG } from "./types";
+import { DEFAULT_AGENT_LOOP_CONFIG } from "./types";
 import { projectCacheRelevantChatRequest } from "../../model/prompt/prompt-layers";
 
 const dispatch = vi.mocked(dispatchToolCall);
-const config = { provider: "custom", model: "contract-model", apiKey: "", baseUrl: "https://harness.invalid" } as HarnessInput["vendorConfig"];
+const config = { provider: "custom", model: "contract-model", apiKey: "", baseUrl: "https://harness.invalid" } as AgentLoopInput["vendorConfig"];
 const toolCall = (id = "save-amber", name = "write_file", args: object = { path: "D:/fixture/audit.md", content: "Verified contracts" }): ToolCall =>
   ({ id, name, arguments: JSON.stringify(args) });
 function response(text = "", calls: ToolCall[] = []): ChatResponse {
@@ -48,14 +48,14 @@ function sequence(...responses: ChatResponse[]) {
     return next;
   });
 }
-function run(extra: Partial<HarnessInput> = {}) {
-  const events: HarnessEvent[] = [];
-  const input: HarnessInput = { systemPrompt: "Evidence review persona", messages: [{ role: "user", content: "Review observable contracts" }], tools: [], vendorConfig: config, onEvent: event => events.push(event), ...extra };
-  return { input, events, result: runFireflyHarness(input) };
+function run(extra: Partial<AgentLoopInput> = {}) {
+  const events: AgentLoopEvent[] = [];
+  const input: AgentLoopInput = { systemPrompt: "Evidence review persona", messages: [{ role: "user", content: "Review observable contracts" }], tools: [], vendorConfig: config, onEvent: event => events.push(event), ...extra };
+  return { input, events, result: runAgentLoop(input) };
 }
 const sentRequest = (index: number): ChatRequest => provider.stream.mock.calls[index][0].request;
-const selectedEvents = <T extends HarnessEvent["type"]>(events: HarnessEvent[], type: T) =>
-  events.filter((event): event is Extract<HarnessEvent, { type: T }> => event.type === type);
+const selectedEvents = <T extends AgentLoopEvent["type"]>(events: AgentLoopEvent[], type: T) =>
+  events.filter((event): event is Extract<AgentLoopEvent, { type: T }> => event.type === type);
 function sink(overrides: Partial<TranscriptSink> = {}): TranscriptSink {
   return { appendAssistant: vi.fn(async () => "canonical-amber"), appendToolResult: vi.fn(async () => {}),
     closeInterruption: vi.fn(async () => {}), checkpoint: vi.fn(async () => {}), ...overrides };
@@ -68,7 +68,7 @@ describe("Provider request and public streaming behavior", () => {
     sequence(response("Audit delivered"));
     const job = run({ tools: [tool()] });
     expect((await job.result).finalAnswer).toBe("Audit delivered");
-    expect(DEFAULT_HARNESS_CONFIG).toMatchObject({ maxRounds: 200, totalTimeoutMs: 7200000, modelRequestTimeoutMs: 600000 });
+    expect(DEFAULT_AGENT_LOOP_CONFIG).toMatchObject({ maxRounds: 200, totalTimeoutMs: 7200000, modelRequestTimeoutMs: 600000 });
     expect(provider.stream).toHaveBeenCalledTimes(1);
     expect(provider.stream).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: 600000, request: expect.objectContaining({ stream: true, tools: expect.any(Array) }) }));
     expect("maxTokens" in sentRequest(0)).toBe(false);
@@ -259,7 +259,7 @@ describe("Tool rounds, completion and output projection", () => {
     const reference = { recordId: "f".repeat(64), resultRef: `tool-result://v1/${"f".repeat(64)}`, runId: "run-amber", toolCallId: "output-amber", toolName: "write_file", bytes: raw.length, codePoints: [...raw].length, truncatedForModel: true, createdAt: 91 };
     sequence(response("", [toolCall("output-amber")]), response("Output reviewed"));
     dispatch.mockResolvedValue({ ...success(), output: raw, message: preview, preview, truncated: true, toolOutputRef: reference });
-    const checkpoints: HarnessCheckpoint[] = [];
+    const checkpoints: AgentLoopCheckpoint[] = [];
     await run({ onCheckpoint: checkpoint => checkpoints.push(checkpoint) }).result;
     const message = sentRequest(1).messages.find(m => m.role === "tool")!;
     expect(message.content).toContain("BEGIN_AUDIT");
@@ -274,7 +274,7 @@ describe("Tool rounds, completion and output projection", () => {
 
   it("passes the same live checkpoint references while their observed transcript lengths grow", async () => {
     sequence(response("", [toolCall()]), response("Checkpointed"));
-    const snapshots: HarnessCheckpoint[] = [], lengths: number[] = [];
+    const snapshots: AgentLoopCheckpoint[] = [], lengths: number[] = [];
     await run({ tools: [tool()], onCheckpoint: checkpoint => { snapshots.push(checkpoint); lengths.push(checkpoint.messages.length); } }).result;
     expect(snapshots.length).toBeGreaterThanOrEqual(2);
     expect(snapshots.at(-1)!.messages).toBe(snapshots[0].messages);
@@ -286,7 +286,7 @@ describe("Tool rounds, completion and output projection", () => {
   it("publishes planned, actual started and committed lifecycle facts and a bounded completion event", async () => {
     sequence(response("", [toolCall("lifecycle-amber")]), response("Lifecycle complete"));
     dispatch.mockImplementation(async (_call, context) => { context.onExecutionStarted?.(); return success(); });
-    const lifecycle: HarnessToolLifecycleEvent[] = [], finished: HarnessToolFinishedEvent[] = [];
+    const lifecycle: AgentLoopToolLifecycleEvent[] = [], finished: AgentLoopToolFinishedEvent[] = [];
     await run({ tools: [{ ...tool(), risk: "fs-write" }], runId: "run-amber", onToolLifecycle: event => lifecycle.push(event), onToolFinished: event => finished.push(event) }).result;
     expect(lifecycle).toEqual([
       { toolCallId: "lifecycle-amber", toolName: "write_file", toolSideEffect: "idempotent_mutation", status: "planned" },
@@ -323,7 +323,7 @@ describe("Interactive tools and append-only runtime facts", () => {
   it("displaces other calls with Ask, discards candidate text and exposes completion timing only for the actual Ask", async () => {
     sequence(response("Before asking", [toolCall("ask-amber", "ask_user", { questions: [{ id: "delivery", question: "Delivery preference?", type: "text" }] }), toolCall("read-amber", "read_file", {})]), response("Following preferences"));
     dispatch.mockResolvedValue({ outcome: "success", tool: "ask_user", message: "User answered" });
-    const finished: HarnessToolFinishedEvent[] = [];
+    const finished: AgentLoopToolFinishedEvent[] = [];
     const job = run({ runId: "interactive-amber", tools: [tool("read_file", "read")], onToolFinished: event => finished.push(event) });
     await job.result;
     expect(finished).toEqual([
@@ -382,7 +382,7 @@ describe("Compaction and request diagnostics", () => {
   it("persists a structured checkpoint and incremented cache epoch before asking the model again", async () => {
     const fetch = vi.fn(async () => ({ ok: true, json: async () => response("## 原始任务与意图\n- 核对契约\n\n## 下一步\n- 继续") }));
     vi.stubGlobal("fetch", fetch); sequence(response("Compacted audit complete"));
-    const checkpoints: HarnessCheckpoint[] = [], lifecycle: unknown[] = [];
+    const checkpoints: AgentLoopCheckpoint[] = [], lifecycle: unknown[] = [];
     await run({ messages: history(), config: smallWindow, onCheckpoint: checkpoint => checkpoints.push(checkpoint), onCompactionLifecycle: event => lifecycle.push(event) }).result;
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(provider.stream).toHaveBeenCalledTimes(1);
@@ -410,7 +410,7 @@ describe("Compaction and request diagnostics", () => {
   it("retains original history and the initial cache epoch when summary generation fails", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 503, text: async () => "Unavailable" })));
     sequence(response("Continuing without compaction"));
-    const checkpoints: HarnessCheckpoint[] = [];
+    const checkpoints: AgentLoopCheckpoint[] = [];
     const result = await run({ messages: history(), config: smallWindow, onCheckpoint: value => checkpoints.push(value) }).result;
     expect(result.finalAnswer).toBe("Continuing without compaction");
     expect(checkpoints.at(-1)!.messages.some(m => m.content === "首个历史请求".repeat(100))).toBe(true);
@@ -419,7 +419,7 @@ describe("Compaction and request diagnostics", () => {
 
   it("emits hash-only per-request diagnostics and increasing context snapshots through final settlement", async () => {
     sequence(response("", [toolCall()]), response("Final audit evidence ".repeat(12)));
-    const diagnostics: HarnessCacheDiagnostic[] = [];
+    const diagnostics: AgentLoopCacheDiagnostic[] = [];
     const job = run({ runId: "diagnostic-amber", onCacheDiagnostic: diagnostic => diagnostics.push(diagnostic) });
     await job.result;
     expect(diagnostics).toHaveLength(2);
@@ -466,7 +466,7 @@ describe("Durable transcript failure boundaries", () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     if (boundary === "model") provider.stream.mockRejectedValueOnce(error);
     else sequence(response("Safe answer"));
-    const extra: Partial<HarnessInput> = boundary === "assistant" ? { transcriptSink: sink({ appendAssistant: async () => { throw error; } }) }
+    const extra: Partial<AgentLoopInput> = boundary === "assistant" ? { transcriptSink: sink({ appendAssistant: async () => { throw error; } }) }
       : boundary === "adjustment" ? { pollRunAdjustments: () => Promise.reject(error) }
       : boundary === "checkpoint" ? { onCheckpoint: () => { throw error; } } : {};
     const result = await run(extra).result;
@@ -505,7 +505,7 @@ describe("Durable transcript failure boundaries", () => {
 
   it("retains the exact declaration in the recovery snapshot before planned, started and dispatch", async () => {
     const declaration = toolCall("durable-amber"), trace: string[] = [];
-    let snapshot: HarnessCheckpoint | undefined, atDispatch: HarnessCheckpoint | undefined;
+    let snapshot: AgentLoopCheckpoint | undefined, atDispatch: AgentLoopCheckpoint | undefined;
     sequence(response("", [declaration]), response("Durable declaration"));
     dispatch.mockImplementation(async (_call, context) => { atDispatch = structuredClone(snapshot); context.onExecutionStarted?.(); trace.push("execute"); return success(); });
     await run({ tools: [tool()], transcriptSink: sink({ appendAssistant: vi.fn(async () => { trace.push("canonical"); return "canonical-amber"; }) }),
@@ -519,7 +519,7 @@ describe("Durable transcript failure boundaries", () => {
   it("never publishes committed after a tool-result persistence failure and retains external uncertainty", async () => {
     sequence(response("", [toolCall("send-durable", "send_email", { to: "recipient@invalid.test" })]), response("Must remain unused"));
     dispatch.mockImplementation(async (_call, context) => { context.onExecutionStarted?.(); return success("send_email"); });
-    const lifecycle: HarnessToolLifecycleEvent[] = [];
+    const lifecycle: AgentLoopToolLifecycleEvent[] = [];
     const result = await run({ tools: [tool("send_email", "external_side_effect")],
       transcriptSink: sink({ appendToolResult: async () => { throw new Error("Tool result write refused"); } }), onToolLifecycle: event => lifecycle.push(event),
     }).result;
@@ -533,7 +533,7 @@ describe("Durable transcript failure boundaries", () => {
   it("settles unexpected dispatch errors through terminal context and a closed synthetic transcript", async () => {
     sequence(response("", [toolCall("broken-dispatch")]));
     dispatch.mockRejectedValue(new Error("Infrastructure dispatch failure"));
-    const checkpoints: HarnessCheckpoint[] = [], job = run({ tools: [tool()], onCheckpoint: value => checkpoints.push(value) });
+    const checkpoints: AgentLoopCheckpoint[] = [], job = run({ tools: [tool()], onCheckpoint: value => checkpoints.push(value) });
     const result = await job.result;
     expect(result.terminateReason).toBe("error");
     expect(result.finalAnswer).toContain("工具执行异常");
@@ -556,7 +556,7 @@ describe("Queued user adjustments", () => {
     sequence(response("", [toolCall()]), response("Revised audit complete"));
     const queued: RunAdjustmentMessage[] = [];
     dispatch.mockImplementation(async () => { queued.push({ id: "adjust-east", rawContent: "Inspect the second document" }, { id: "adjust-west", rawContent: "Include command evidence" }); return success(); });
-    const poll = vi.fn(() => queued.length ? Promise.resolve(queued.splice(0)) : undefined), checkpoints: HarnessCheckpoint[] = [];
+    const poll = vi.fn(() => queued.length ? Promise.resolve(queued.splice(0)) : undefined), checkpoints: AgentLoopCheckpoint[] = [];
     const result = await run({ tools: [tool()], pollRunAdjustments: poll, onCheckpoint: value => checkpoints.push(value) }).result;
     expect(poll).toHaveBeenCalledTimes(3);
     const messages = sentRequest(1).messages;
@@ -669,7 +669,7 @@ describe("Workspace lifetime and settlement", () => {
   it("records planned before actual entry and drains a started dispatch before cancellation terminal", async () => {
     const declaration = toolCall("late-amber"), gate = latch<void>(), controller = new AbortController();
     sequence(response("", [declaration]));
-    const lifecycle: HarnessToolLifecycleEvent[] = [], checkpoint = vi.fn();
+    const lifecycle: AgentLoopToolLifecycleEvent[] = [], checkpoint = vi.fn();
     let entered = false, returned = false;
     dispatch.mockImplementation(async (_call, context) => {
       expect(lifecycle).toEqual([expect.objectContaining({ status: "planned", toolCallId: "late-amber" })]);

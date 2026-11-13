@@ -11,7 +11,7 @@ import { createBrowserWorkspaceExecutor } from "../agent/tools/browser-workspace
 import { createMainDesktopMemory } from "../agent/memory-runtime/main-desktop-memory";
 import { openDesktopMemoryBackend,desktopMemoryAdmissionMode } from "../agent/memory-runtime/desktop-memory-backend";
 import { getConversationTranscriptStore } from "../conversation/transcript/conversation-transcript-store";
-import { getHarnessRunStore } from "../agent/loop/run-store";
+import { getAgentRunStore } from "../agent/loop/run-store";
 import { getStorageContext } from "../base/storage/storage-context";
 import { app, BrowserWindow, dialog, screen, shell } from "electron";
 import * as path from "path";
@@ -450,7 +450,7 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
           })),
         store: getConversationTranscriptStore(getStorageContext().dataRoot),
         settings: loadModelSettings,
-        runReader:(runs=>({get:(runId:string)=>runs.evidence(runId),session:(runId:string)=>runs.session(runId)}))(getHarnessRunStore(getStorageContext().dataRoot)),
+        runReader:(runs=>({get:(runId:string)=>runs.evidence(runId),session:(runId:string)=>runs.session(runId)}))(getAgentRunStore(getStorageContext().dataRoot)),
       });
   const desktopMemory: DesktopMemory | null = defaultMemory ?? controlledMemory;
 

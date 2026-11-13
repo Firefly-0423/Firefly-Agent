@@ -38,10 +38,10 @@ vi.mock("./tool-dispatcher", () => ({
 
 vi.mock("../../base/storage/token-usage-store", () => ({ recordModelCall: () => undefined, recordToolCall: () => undefined, recordUsage, recordRequest }));
 
-import { runFireflyHarness } from "./firefly-harness";
+import { runAgentLoop } from "./agent-loop";
 import { dispatchToolCall } from "./tool-dispatcher";
 import type { ToolDispatchResult } from "./tool-dispatcher";
-import type { HarnessEvent, HarnessInput } from "./types";
+import type { AgentLoopEvent, AgentLoopInput } from "./types";
 import type { ChatMessage, ChatResponse, ToolCall } from "../../model/providers/types";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
 
@@ -84,7 +84,7 @@ const vendorConfig = {
   baseUrl: "https://fake.local",
   model: "fake-model",
   apiKey: "fake-key",
-} as unknown as HarnessInput["vendorConfig"];
+} as unknown as AgentLoopInput["vendorConfig"];
 
 function readTool(): ToolDefinition {
   return {
@@ -122,11 +122,11 @@ describe("FireflyHarness run deadline", () => {
   it("aborts an in-flight model request when the total time runs out and settles as timeout", async () => {
     const fetchMock = deferredFetch();
     vi.stubGlobal("fetch", fetchMock.fn);
-    const events: HarnessEvent[] = [];
+    const events: AgentLoopEvent[] = [];
     const { signal, quiesce } = runtimeSignals();
     const started = Date.now();
 
-    const promise = runFireflyHarness({
+    const promise = runAgentLoop({
       systemPrompt: "test", messages: [{ role: "user", content: "hello" }], tools: [], vendorConfig,
       config: { totalTimeoutMs: 40 }, signal, quiesceExecution: quiesce, onEvent: (e) => events.push(e),
     });
@@ -153,7 +153,7 @@ describe("FireflyHarness run deadline", () => {
       signal.addEventListener("abort", () => resolve(successResult()), { once: true });
     }));
 
-    const promise = runFireflyHarness({
+    const promise = runAgentLoop({
       systemPrompt: "test", messages: [{ role: "user", content: "do work" }], tools: [readTool()], vendorConfig,
       config: { totalTimeoutMs: 80 }, signal, quiesceExecution: quiesce,
     });
@@ -172,7 +172,7 @@ describe("FireflyHarness run deadline", () => {
     const user = new AbortController();
     const { signal, quiesce } = runtimeSignals(user.signal);
 
-    const promise = runFireflyHarness({
+    const promise = runAgentLoop({
       systemPrompt: "test", messages: [{ role: "user", content: "hello" }], tools: [], vendorConfig,
       config: { totalTimeoutMs: 60 }, signal, quiesceExecution: quiesce,
     });
@@ -191,7 +191,7 @@ describe("FireflyHarness run deadline", () => {
     vi.stubGlobal("fetch", fetchMock.fn);
     const { signal, quiesce } = runtimeSignals();
 
-    const promise = runFireflyHarness({
+    const promise = runAgentLoop({
       systemPrompt: "test", messages: [{ role: "user", content: "hello" }], tools: [], vendorConfig,
       config: { totalTimeoutMs }, signal, quiesceExecution: quiesce,
     });

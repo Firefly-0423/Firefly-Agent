@@ -42,7 +42,7 @@ type RunnerDeps = {
  */
 export function applyScheduledExecutionPolicy(options: FireflyRunOptions, mode: PluginPromptMode = "work"): FireflyRunOptions {
   const executionMode = mode === "chat" ? "chat" : "work";
-  return { ...options, executionMode, conversationMode: mode, harnessInteractiveTools: false, permissionMode: "allow_all" };
+  return { ...options, executionMode, conversationMode: mode, interactiveTools: false, permissionMode: "allow_all" };
 }
 
 export function createSchedulerRunner(deps: RunnerDeps) {

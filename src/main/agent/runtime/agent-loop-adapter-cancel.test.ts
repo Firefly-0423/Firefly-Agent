@@ -4,13 +4,13 @@ import path from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const services = vi.hoisted(() => ({ root: "", run: vi.fn(), permission: vi.fn(), lookup: vi.fn() }));
-vi.mock("../loop", async original => ({ ...await original<typeof import("../loop")>(), runFireflyHarness: services.run }));
+vi.mock("../loop", async original => ({ ...await original<typeof import("../loop")>(), runAgentLoop: services.run }));
 vi.mock("../../tooling/registry/tool-registry", () => ({ toolRegistry: { getEnabledTools: () => [], getById: services.lookup } }));
 vi.mock("../../platform/permission/permission", () => ({ checkPermission: services.permission, getCurrentLevel: () => "read-only" }));
 vi.mock("../../base/prompts/prompt-loader", () => ({ loadPromptFile: () => "Fixture execution instructions" }));
 vi.mock("electron", () => ({ app: { getPath: () => services.root } }));
-import { runHarnessWithAdapter } from "./harness-adapter";
-import type { HarnessInput } from "../loop";
+import { runAgentLoopWithAdapter } from "./agent-loop-adapter";
+import type { AgentLoopInput } from "../loop";
 
 beforeAll(() => { services.root = fs.mkdtempSync(path.join(os.tmpdir(), "adapter-owned-signal-")); });
 afterAll(() => { fs.rmSync(services.root, { recursive: true, force: true }); });
@@ -26,8 +26,8 @@ describe("Adapter ownership of cancellation and approval", () => {
     const caller = new AbortController(), clarify = vi.fn(async () => ({ answers: [] }));
     services.lookup.mockReturnValue({ id: "read_file", name: "Read document", description: "Inspect a document", risk: "safe" });
     services.permission.mockResolvedValue({ allowed: true });
-    await runHarnessWithAdapter({ ...options("signal-ochre"), requestUserClarification: clarify } as never, caller.signal, vi.fn());
-    const input = services.run.mock.calls[0][0] as HarnessInput;
+    await runAgentLoopWithAdapter({ ...options("signal-ochre"), requestUserClarification: clarify } as never, caller.signal, vi.fn());
+    const input = services.run.mock.calls[0][0] as AgentLoopInput;
     expect(input.signal).not.toBe(caller.signal);
     expect(input.toolContext?.signal).toBe(input.signal);
     expect(input.quiesceExecution).toEqual(expect.any(Function));
@@ -42,8 +42,8 @@ describe("Adapter ownership of cancellation and approval", () => {
 
   it("forwards noninteractive allow-all policy without opening an approval request", async () => {
     services.lookup.mockReturnValue({ id: "write_file", name: "Write document", description: "Save a document", risk: "dangerous" });
-    await runHarnessWithAdapter({ ...options("mobile-ochre"), harnessInteractiveTools: false, permissionMode: "allow_all" } as never, new AbortController().signal, vi.fn());
-    const input = services.run.mock.calls[0][0] as HarnessInput;
+    await runAgentLoopWithAdapter({ ...options("mobile-ochre"), interactiveTools: false, permissionMode: "allow_all" } as never, new AbortController().signal, vi.fn());
+    const input = services.run.mock.calls[0][0] as AgentLoopInput;
     expect(input.includeInteractiveTools).toBe(false);
     expect(input.toolContext?.permissionMode).toBe("allow_all");
     await expect(input.checkPermission!("write_file", { path: "inventory.md" })).resolves.toBe(true);

@@ -8,7 +8,7 @@ vi.mock("../../model/providers", () => ({
   resolveTransport: () => "openai",
 }));
 
-import { callLLM } from "./harness-llm";
+import { callLLM } from "./agent-loop-llm";
 
 const vendor = { provider: "p", baseUrl: "http://x", model: "m", apiKey: "k" } as never;
 const layers = { stablePrefix: "system" };

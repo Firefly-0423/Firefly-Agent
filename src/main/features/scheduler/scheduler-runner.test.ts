@@ -35,7 +35,7 @@ const publisher = () => ({ publishTurnStarted: vi.fn(), publishTurnFinished: vi.
 it("applies unattended Work policy without replacing the supplied conversation messages", async () => {
   const original = await dependencies().buildOptions();
   const options = applyScheduledExecutionPolicy({ ...original, toolSystemContent: "Garden tools", soulSystemBaseContent: "Garden persona" } as never);
-  expect(options).toMatchObject({ executionMode: "work", conversationMode: "work", harnessInteractiveTools: false, permissionMode: "allow_all" });
+  expect(options).toMatchObject({ executionMode: "work", conversationMode: "work", interactiveTools: false, permissionMode: "allow_all" });
   expect(options.messages).toEqual([{ role: "user", content: "Review the seedlings" }]);
 });
 it("publishes exact lifecycle identities and duration without inventing a desktop conversation", async () => {

@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { BaseEvent } from "@ag-ui/core";
-import type { HarnessEvent } from "../../loop/types";
-import { sendHarnessEventAsAgui, sendTaskLifecycleAsAgui } from "./event-mapper";
+import type { AgentLoopEvent } from "../../loop/types";
+import { sendAgentLoopEventAsAgui, sendTaskLifecycleAsAgui } from "./event-mapper";
 
 const identity = { threadId: "thread-slate", runId: "run-slate" };
-function transmit(input: HarnessEvent): Record<string, unknown>[] {
+function transmit(input: AgentLoopEvent): Record<string, unknown>[] {
   const result: BaseEvent[] = [];
-  sendHarnessEventAsAgui(input, "answer-slate", identity.threadId, identity.runId, event => result.push(event));
+  sendAgentLoopEventAsAgui(input, "answer-slate", identity.threadId, identity.runId, event => result.push(event));
   return result as unknown as Record<string, unknown>[];
 }
 
@@ -43,7 +43,7 @@ describe("AG-UI events exposed by the harness adapter", () => {
       taskResult: { agentId: "analyst", sessionId: "child-foreign", status: "failed", text: "Untrusted result",
         executionEvents: [{ id: "trace-foreign", seq: 1, monotonicMs: 0, clockDomainId: "test-clock", agentId: "analyst",
           parentRunId: "unrelated-parent", childRunId: "child-run-foreign", executionId: "execution-foreign", phase: "start" }] },
-    } as HarnessEvent);
+    } as AgentLoopEvent);
     expect(events[0].taskResult).toBeUndefined();
     expect(events.map(event => event.type)).toEqual(["TOOL_CALL_RESULT", "TOOL_CALL_END"]);
   });

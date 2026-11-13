@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
 import { AgentSessionRegistry } from "../../agent/tasks/agent-session-registry";
 import { TaskSessionStore } from "../../agent/tasks/task-session-store";
-import { HarnessRunStore } from "../../agent/loop/run-store";
+import { AgentRunStore } from "../../agent/loop/run-store";
 import { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
 import { createTranscriptSink } from "../../agent/loop/transcript-sink";
 import { createAgentExecutor } from "../../agent/runtime/persistent-agent-runtime";
@@ -18,7 +18,7 @@ const roots: string[] = [];
 afterEach(() => { vi.unstubAllGlobals(); for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
 async function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "entry-adapter-")); roots.push(root);
-  const store = new TaskSessionStore(root), transcripts = new ConversationTranscriptStore(root), runStore = new HarnessRunStore(root);
+  const store = new TaskSessionStore(root), transcripts = new ConversationTranscriptStore(root), runStore = new AgentRunStore(root);
   const profile = { id: "specialist", nickname: "艾利欧", role: "review", description: "review", systemPrompt: "system fixture", modelProfile: "coding", allowedToolIds: ["inspect"], allowedSkillIds: [], supportedModes: ["code" as const], persistent: true as const, timeoutMs: 0, maxConcurrency: 1 as const };
   const model = { id: "saved-luna", provider: "OpenAI", baseUrl: "https://synthetic.invalid/v1", model: "fixture", apiKey: "synthetic", contextWindowTokens: 64000 };
   const requests: any[] = [], prepared: any[] = [];

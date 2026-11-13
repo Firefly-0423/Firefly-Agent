@@ -19,7 +19,7 @@ import {
   type SAssistantSettlementResult, type TranscriptAppendInput,
 } from "../../conversation/transcript/conversation-transcript-types";
 import type { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
-import type { HarnessRunSession } from "./run-store";
+import type { AgentRunSession } from "./run-store";
 import type { ToolCallOutcome } from "./types";
 import type { ChatMessage } from "../../model/providers/types";
 import { copyResponseJson } from "../../model/providers/response-request-snapshot";
@@ -61,7 +61,7 @@ export type TranscriptSink = {
   appendToolResult(input: ToolResultAppendInput): Promise<void>;
   /** 取消时的收尾：为 started / planned 工具补上合成结果，并写入 interruption 边界。 */
   closeInterruption(input: {
-    runSession: HarnessRunSession | null;
+    runSession: AgentRunSession | null;
     reason: "user_cancel";
     /** Main-only recovery fence, rechecked inside every final canonical write. */
     createGuard?: (throughSeq: number) => TranscriptAppendGuard;

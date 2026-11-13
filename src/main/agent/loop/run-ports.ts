@@ -6,7 +6,7 @@ import type { TranscriptSink } from "./transcript-sink";
 import type { TaskSessionStatus } from "../../../shared/task-session";
 import type { TaskWriteEvidence, ModelExecutionEvent } from "../../../shared/agent-execution-evidence";
 
-export type AgentLoopEvent = {
+export type RunEvent = {
   contextUsage?: import("../../../shared/context-usage").ContextUsageSnapshot;
   taskPlan?: unknown;
   snapshot?: unknown;
@@ -21,7 +21,7 @@ export type AgentLoopEvent = {
   messageId?: string;
   type: string;
 };
-export type AgentLoopSettings = {
+export type RunModelSettings = {
   contextWindowTokens: number;
   reasoningLevels?: import("../../../shared/reasoning").ReasoningLevelsConfig;
   reasoning?: import("../../../shared/reasoning").ReasoningPreference;

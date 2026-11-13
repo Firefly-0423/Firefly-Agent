@@ -8,10 +8,10 @@ vi.mock("electron", () => ({ app: {
   getPath: () => { if (!paths.userData) throw new Error("synthetic userData not ready"); return paths.userData; },
   on: () => undefined,
 } }));
-vi.mock("../loop/harness-llm", () => ({ callLLM: fakeLLM, summarizeHistory: vi.fn() }));
+vi.mock("../loop/agent-loop-llm", () => ({ callLLM: fakeLLM, summarizeHistory: vi.fn() }));
 vi.mock("../../platform/permission/permission", () => ({ getCurrentLevel: () => "full", checkPermission: vi.fn(async () => ({ allowed: true })) }));
 
-import { runHarnessWithAdapter } from "./harness-adapter";
+import { runAgentLoopWithAdapter } from "./agent-loop-adapter";
 import { toolRegistry, type ToolDefinition } from "../../tooling/registry/tool-registry";
 import { startShellJob, stopShellJob, waitForShellJob } from "../tools/builtin-tools/shell-job-manager";
 import type { ToolContext } from "../../tooling/registry/tool-context";
@@ -51,7 +51,7 @@ it("Main adapter model failure quiesces only its owned retained process before a
     text: "", toolCalls: [call], finishReason: "tool_calls", raw: {} })
     .mockRejectedValueOnce(new Error("synthetic Main model failure"));
   let returned = false;
-  const pending = runHarnessWithAdapter({
+  const pending = runAgentLoopWithAdapter({
     runId: "synthetic-main-owner", conversationId: "synthetic-main-conversation", conversationMode: "code",
     resolvedWorkspaceRoot: paths.userData, tools: [background],
     settings: { provider: "synthetic", baseUrl: "http://127.0.0.1:1", model: "synthetic", apiKey: "" },

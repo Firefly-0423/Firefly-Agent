@@ -20,7 +20,7 @@ import { prepareToolRuntime } from "./adapter/tool-runtime";
 import { saveModelSettings } from "../../model/config/model-settings";
 import { getTaskSessionStore, TaskSessionStore } from "../tasks/task-session-store";
 import { SPECIALIST_AGENTS } from "../../../shared/specialist-agents";
-import { getHarnessBuiltinToolSpecs } from "../loop/builtin-tools";
+import { getAgentLoopBuiltinToolSpecs } from "../loop/builtin-tools";
 
 afterEach(() => { if (fixture.root) fs.rmSync(fixture.root, { recursive: true, force: true }); fixture.requests.length = 0; });
 
@@ -35,7 +35,7 @@ it("uses Main's real factory, shared store and child Harness for all twelve iden
     prepared: { threadId: "public-conversation", runId: "public-run", systemPrompt: "Main fixture", vendorConfig: {}, tools: [] } as never,
     sendBaseEvent: vi.fn(),
   });
-  const spec = getHarnessBuiltinToolSpecs({ includeAgent: true, agentDefinitions: runtime.agentDefinitions });
+  const spec = getAgentLoopBuiltinToolSpecs({ includeAgent: true, agentDefinitions: runtime.agentDefinitions });
   expect(spec.find(tool => tool.name === "delegate_agent")?.description).toContain("strategy-planning（艾利欧）");
   const sessions = new Map<string, string>();
   for (const id of SPECIALIST_AGENTS.map(agent => agent.id)) {

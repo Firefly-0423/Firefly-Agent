@@ -4,7 +4,7 @@ import { FireflyAgent, classifyRunError, toAguiEvent, type FireflyRunOptions } f
 import { AgentRuntimeError } from "../../model/errors/agent-runtime-error";
 import { AgentExecutionError } from "./run-execution-status";
 import { runChatLoop } from "./chat-loop";
-import { runHarnessWithAdapter } from "./harness-adapter";
+import { runAgentLoopWithAdapter } from "./agent-loop-adapter";
 import { executeToolDefinition } from "../../tooling/registry/tool-executor";
 import type { TranscriptSink } from "../loop/transcript-sink";
 
@@ -13,9 +13,9 @@ vi.mock("../../tooling/registry/tool-registry", () => ({ toolRegistry: { getEnab
 vi.mock("../../platform/permission/permission", () => ({ checkPermission: vi.fn() }));
 vi.mock("../../platform/interaction/user-choice", () => ({ requestUserClarification: vi.fn() }));
 vi.mock("./chat-loop", () => ({ runChatLoop: vi.fn() }));
-vi.mock("./harness-adapter", () => ({ runHarnessWithAdapter: vi.fn() }));
+vi.mock("./agent-loop-adapter", () => ({ runAgentLoopWithAdapter: vi.fn() }));
 
-const chat = vi.mocked(runChatLoop), harness = vi.mocked(runHarnessWithAdapter);
+const chat = vi.mocked(runChatLoop), harness = vi.mocked(runAgentLoopWithAdapter);
 const success = { reply: "Calendar ready", toolResults: [], completionReason: "no_tool" as const };
 function options(patch: Partial<FireflyRunOptions> = {}): FireflyRunOptions {
   return { settings: { provider: "Calendar", baseUrl: "", model: "calendar-model", apiKey: "", contextWindowTokens: 256_000 }, messages: [{ role: "user", content: "Read my calendar" }], timeoutMs: 60_000, toolSystemContent: "", soulSystemBaseContent: "", executionMode: "chat", tools: [], conversationId: "calendar-session", ...patch };

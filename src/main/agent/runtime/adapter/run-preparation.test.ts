@@ -6,11 +6,11 @@ const collaborators = vi.hoisted(() => ({
 }));
 vi.mock("electron", () => ({ app: { getPath: vi.fn(() => "D:\\isolated-profile") } }));
 vi.mock("./plan-lifecycle", () => ({ preparePlanRunContext: collaborators.plan }));
-vi.mock("./prompt-builder", () => ({ buildHarnessPromptLayers: collaborators.layers, materializeHarnessStartTranscript: collaborators.transcript }));
-vi.mock("../../loop/run-store", () => ({ getHarnessRunStore: () => ({ create: collaborators.create, get: collaborators.lookup }) }));
-vi.mock("../../loop/run-recovery", () => ({ prepareHarnessRecovery: collaborators.recover }));
+vi.mock("./prompt-builder", () => ({ buildAgentLoopPromptLayers: collaborators.layers, materializeAgentLoopStartTranscript: collaborators.transcript }));
+vi.mock("../../loop/run-store", () => ({ getAgentRunStore: () => ({ create: collaborators.create, get: collaborators.lookup }) }));
+vi.mock("../../loop/run-recovery", () => ({ prepareAgentRunRecovery: collaborators.recover }));
 vi.mock("../../../tooling/registry/tool-registry", () => ({ toolRegistry: { getEnabledTools: collaborators.enabled } }));
-import { prepareHarnessRun } from "./run-preparation";
+import { prepareAgentLoopRun } from "./run-preparation";
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -28,7 +28,7 @@ const options = () => ({
 
 describe("Run preparation persistence boundary", () => {
   it("materializes runtime facts before persisting the final transcript and static prompt identity", async () => {
-    const prepared = await prepareHarnessRun(options() as never, new AbortController().signal);
+    const prepared = await prepareAgentLoopRun(options() as never, new AbortController().signal);
     expect(collaborators.transcript.mock.invocationCallOrder[0]).toBeLessThan(collaborators.create.mock.invocationCallOrder[0]);
     expect(collaborators.create).toHaveBeenCalledTimes(1);
     expect(prepared.runId).toEqual("preflight-copper");
@@ -44,12 +44,12 @@ describe("Run preparation persistence boundary", () => {
         toolSchemaFingerprint: createHash("sha256").update("[]").digest("hex"), enabledToolIds: [],
       },
     });
-    expect(prepared.harnessPromptLayers).toEqual({ stablePrefix: "Reusable system layer", mode: "work" });
+    expect(prepared.agentLoopPromptLayers).toEqual({ stablePrefix: "Reusable system layer", mode: "work" });
   });
 
   it("rejects an unidentified run before touching plan state or the store", async () => {
-    await expect(prepareHarnessRun({ ...options(), runId: "" } as never, new AbortController().signal)).rejects.toThrow(
-      "[HarnessAdapter] options.runId is required. FireflyAgent.runWithEvents must populate it before invoking the adapter.",
+    await expect(prepareAgentLoopRun({ ...options(), runId: "" } as never, new AbortController().signal)).rejects.toThrow(
+      "[AgentLoopAdapter] options.runId is required. FireflyAgent.runWithEvents must populate it before invoking the adapter.",
     );
     expect(collaborators.plan).not.toHaveBeenCalled();
     expect(collaborators.create).not.toHaveBeenCalled();

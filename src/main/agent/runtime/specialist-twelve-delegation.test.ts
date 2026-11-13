@@ -5,17 +5,17 @@ import http, { type ServerResponse } from "node:http";
 import { afterAll, afterEach, expect, it, vi } from "vitest";
 // Real SQLite / filesystem integration case: the 5 s default is too tight on CI runners, so this file allows 30 s. Other files keep the default.
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
-import { runFireflyHarness } from "../loop/firefly-harness";
+import { runAgentLoop } from "../loop/agent-loop";
 import { createBackgroundMemoryIngressIssuer } from "../memory-runtime/background-memory-ingress";
 import { toolRegistry } from "../../tooling/registry/tool-registry";
-import type { HarnessEvent } from "../loop/types";
+import type { AgentLoopEvent } from "../loop/types";
 import { initializeStorageContext, getStorageContext } from "../../base/storage/storage-context";
 import { resolveRuntimeProfile } from "../../base/identity/runtime-profile";
 import { createSmhFixture } from "../../memory/context/smh-fixture.test-support";
 import { createMainDefaultMemory } from "../memory-runtime/main-default-memory";
 import { createActiveChatTargetRegistry } from "../../platform/interaction/active-chat-target";
 import { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
-import { HarnessRunStore } from "../loop/run-store";
+import { AgentRunStore } from "../loop/run-store";
 import { TaskSessionStore } from "../tasks/task-session-store";
 import { createAgentExecutor } from "./persistent-agent-runtime";
 import { RunExecutionCoordinator } from "../../tooling/execution/execution-coordinator";
@@ -67,7 +67,7 @@ it("the main agent can delegate to all twelve specialists in one round and each 
   });
   await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
   const port = (server.address() as { port: number }).port;
-  const smh = createSmhFixture(root, { clock: Date.now }), transcripts = new ConversationTranscriptStore(root), store = new TaskSessionStore(root), runStore = new HarnessRunStore(root);
+  const smh = createSmhFixture(root, { clock: Date.now }), transcripts = new ConversationTranscriptStore(root), store = new TaskSessionStore(root), runStore = new AgentRunStore(root);
   const model = { id: "synthetic-saved-profile", provider: "OpenRouter", baseUrl: `http://127.0.0.1:${port}/v1`, model: "synthetic-model", apiKey: "synthetic-no-account", explicitTransport: "openai" as const, contextWindowTokens: 128000 };
   const tiers = Object.fromEntries(["reasoning", "coding", "research", "vision", "document", "fast"].map(tier => [tier, model.id]));
   const settings = { ...model, modelProfiles: [model], contextWindowTokens: 128000, defaultModelProfileId: model.id, chatRequestTimeoutSec: 20, agentModelProfiles: tiers } as ModelSettings;
@@ -85,10 +85,10 @@ it("the main agent can delegate to all twelve specialists in one round and each 
   const prepared = await memory.prepareBackgroundRun({ ingress, modelProfileId: model.id, runId: parentRunId, userTurnId: parentRunId + "-instruction", assistantTurnId: parentRunId + "-assistant", instructionText: instruction });
   const memoryRun = await prepared.openMemoryRun({ settings: model, runId: parentRunId, conversationId: "twelve-parent", signal: prepared.signal,
     transcriptSink: prepared.transcriptSink, messages: [{ role: "user", content: instruction }], toolSystemContent: "", soulSystemBaseContent: "Synthetic parent", timeoutMs: 20000 });
-  const events: HarnessEvent[] = [];
+  const events: AgentLoopEvent[] = [];
   const vendorConfig = { provider: model.provider, model: model.model, baseUrl: model.baseUrl, apiKey: model.apiKey, explicitTransport: model.explicitTransport };
   try {
-    const parent = await runFireflyHarness({ runId: parentRunId, systemPrompt: "Synthetic parent", messages: [{ role: "user", content: instruction }],
+    const parent = await runAgentLoop({ runId: parentRunId, systemPrompt: "Synthetic parent", messages: [{ role: "user", content: instruction }],
       tools: [write], vendorConfig, config: { maxParallelToolCalls: 12, totalTimeoutMs: 25000 }, memoryRun, transcriptSink: memoryRun.bindSink(prepared.transcriptSink),
       signal: prepared.signal, includeInteractiveTools: false, checkPermission: async () => true, agentExecutor: execute, agentDefinitions: profiles,
       toolContext: { userQuery: instruction, conversationId: "twelve-parent", runId: parentRunId, resolvedWorkspaceRoot: root, mode: "work", permissionMode: "allow_all", fileAccessLevel: "full",

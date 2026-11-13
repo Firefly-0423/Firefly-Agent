@@ -289,7 +289,7 @@
     ]
   },
   {
-    "file": "src/main/agent/runtime/harness-adapter.ts",
+    "file": "src/main/agent/runtime/agent-loop-adapter.ts",
     "method": "getPath",
     "root": "userData",
     "count": 1,

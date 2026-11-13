@@ -1,10 +1,10 @@
 import { type RunFailure, publicRunFailure } from "../../../../shared/run-failure";
 import type { FireflyRunTerminalResult } from "../../../../shared/run-terminal";
 
-export type HarnessTerminateReason = undefined | "error" | "cancelled" | "timeout" | "max_rounds";
+export type AgentLoopTerminateReason = undefined | "error" | "cancelled" | "timeout" | "max_rounds";
 
 export function mapTerminateReason(
-  termination: HarnessTerminateReason,
+  termination: AgentLoopTerminateReason,
 ): "no_tool" | "timeout" | "max_rounds" | "tool_error" {
   if (termination === "max_rounds") return "max_rounds";
   if (termination === "timeout") return "timeout";
@@ -12,7 +12,7 @@ export function mapTerminateReason(
 }
 
 export function mapTerminateReasonToTerminal(
-  termination: HarnessTerminateReason,
+  termination: AgentLoopTerminateReason,
   uncertain: boolean = false,
   diagnostic?: RunFailure,
 ): FireflyRunTerminalResult {

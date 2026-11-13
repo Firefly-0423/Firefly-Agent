@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { buildContextUsageSnapshot } from "./context-usage";
 import { buildStableSystemPrefix, projectCacheRelevantRequest, type PromptLayers } from "../../model/prompt/prompt-layers";
-import type { HarnessRun } from "./firefly-harness";
+import type { AgentLoopRun } from "./agent-loop";
 
-export function emitContextUsage(run: HarnessRun, phase: "preRequest" | "terminal"): void {
+export function emitContextUsage(run: AgentLoopRun, phase: "preRequest" | "terminal"): void {
   const request = run.input;
   const persona = request.promptLayers?.stablePrefix ?? request.systemPrompt;
   const layers = request.usageParts ?? { personaContent: persona, toolLayerContent: "" };
@@ -19,7 +19,7 @@ function fingerprintCacheDiagnostic(value: unknown): string {
   digest.update(JSON.stringify(value));
   return digest.digest("hex");
 }
-export function emitCacheDiagnostic(run: HarnessRun, promptLayers: PromptLayers): void {
+export function emitCacheDiagnostic(run: AgentLoopRun, promptLayers: PromptLayers): void {
   if (!run.input.onCacheDiagnostic) return;
   const projection = projectCacheRelevantRequest({ stableSystem: buildStableSystemPrefix(promptLayers), tools: run.allToolSpecs, messages: run.messages });
   run.input.onCacheDiagnostic?.({ ...(run.input.runId ? { runId: run.input.runId } : {}),

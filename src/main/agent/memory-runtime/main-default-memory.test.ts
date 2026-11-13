@@ -5,7 +5,7 @@ import { EventEmitter } from "node:events";
 import { afterEach, expect, it, vi } from "vitest";
 // Real SQLite / filesystem integration cases: the 5 s default is too tight on CI runners, so this file allows 30 s. Other files keep the default.
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
-import { HarnessRunStore } from "../loop/run-store";
+import { AgentRunStore } from "../loop/run-store";
 import { randomBytes } from "node:crypto";
 import { openMemoryRepository } from "../../memory/database/repository";
 import { createActiveChatTargetRegistry } from "../../platform/interaction/active-chat-target";
@@ -48,7 +48,7 @@ async function fixture(mode: "chat" | "work" | "code" = "chat", options: { witho
   select();
   const config = { provider: "OpenRouter", model: "openai/gpt-6-luna", baseUrl: "https://synthetic.invalid/v1", apiKey: "synthetic-only", explicitTransport: "openai" as const };
   const settings = { ...config, contextWindowTokens: 128000, chatRequestTimeoutSec: 300, modelProfiles: [{ id: "luna", ...config }], defaultModelProfileId: "luna" } as ModelSettings;
-  const store = new ConversationTranscriptStore(storage.dataRoot), runStore = new HarnessRunStore(root);
+  const store = new ConversationTranscriptStore(storage.dataRoot), runStore = new AgentRunStore(root);
   let opened = 0, closed = 0, nativeStarts = 0;
   let unavailable = false, nativeError: string | undefined;
   const sent: string[] = [], sentSignals: AbortSignal[] = [];

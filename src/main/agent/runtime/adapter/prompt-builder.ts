@@ -8,7 +8,7 @@ import { loadPromptFile } from "../../../base/prompts/prompt-loader";
 
 const layerSeparator = "\n\n---\n\n";
 
-export function materializeHarnessStartTranscript(start: {
+export function materializeAgentLoopStartTranscript(start: {
   kind: "run_start" | "recovery";
   initialState?: AgentState;
   runtimeContext?: string;
@@ -32,7 +32,7 @@ export function materializeHarnessStartTranscript(start: {
   return appendInternalTranscriptMessage(start.messages, addition);
 }
 
-export function buildHarnessPromptLayers(
+export function buildAgentLoopPromptLayers(
   config: FireflyRunOptions,
 ): PromptLayers & { usageParts?: { personaContent: string; toolLayerContent: string; skillLayerContent?: string } } {
   const identity: string[] = [];
@@ -75,7 +75,7 @@ export function buildHarnessPromptLayers(
 }
 
 /** @deprecated 旧入口仍按相同分隔符输出完整文本。 */
-export function buildHarnessSystemPrompt(config: FireflyRunOptions): string {
-  const assembled = buildHarnessPromptLayers(config);
+export function buildAgentLoopSystemPrompt(config: FireflyRunOptions): string {
+  const assembled = buildAgentLoopPromptLayers(config);
   return [assembled.stablePrefix, assembled.runtimeContext].filter(Boolean).join(layerSeparator);
 }

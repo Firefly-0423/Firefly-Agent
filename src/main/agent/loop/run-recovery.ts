@@ -1,13 +1,13 @@
 import type { ToolCall, ChatMessage } from "../../model/providers/types";
-import { tryParseToolCallArgs, toolCallFingerprint, type HarnessCacheState, type AgentState } from "./types";
-import type { HarnessRunSession } from "./run-store";
+import { tryParseToolCallArgs, toolCallFingerprint, type AgentLoopCacheState, type AgentState } from "./types";
+import type { AgentRunSession } from "./run-store";
 
-export type HarnessRecoveryEnvironment = { enabledToolIds?: string[]; model?: string; provider?: string; workspaceRoot?: string };
-export type PreparedHarnessRecovery = { recoveryContext: string; cache: HarnessCacheState; state: AgentState; messages: ChatMessage[] };
+export type AgentRunRecoveryEnvironment = { enabledToolIds?: string[]; model?: string; provider?: string; workspaceRoot?: string };
+export type PreparedAgentRunRecovery = { recoveryContext: string; cache: AgentLoopCacheState; state: AgentState; messages: ChatMessage[] };
 
-export function prepareHarnessRecovery(session: HarnessRunSession, environment: HarnessRecoveryEnvironment): PreparedHarnessRecovery {
-  if (session.status !== "interrupted") throw new Error("HARNESS_RECOVERY_NOT_INTERRUPTED");
-  if (session.request.workspaceRoot && environment.workspaceRoot !== session.request.workspaceRoot) throw new Error("HARNESS_RECOVERY_WORKSPACE_MISMATCH");
+export function prepareAgentRunRecovery(session: AgentRunSession, environment: AgentRunRecoveryEnvironment): PreparedAgentRunRecovery {
+  if (session.status !== "interrupted") throw new Error("AGENT_RUN_RECOVERY_NOT_INTERRUPTED");
+  if (session.request.workspaceRoot && environment.workspaceRoot !== session.request.workspaceRoot) throw new Error("AGENT_RUN_RECOVERY_WORKSPACE_MISMATCH");
   const transcript = JSON.parse(JSON.stringify(session.messages)) as ChatMessage[];
   const restored = JSON.parse(JSON.stringify(session.state)) as AgentState;
   const paired = new Set(transcript.flatMap((entry) => entry.role === "tool" && entry.toolCallId ? [entry.toolCallId] : []));

@@ -9,13 +9,13 @@ const collaborators = vi.hoisted(() => ({
   finalize: vi.fn(),
 }));
 vi.mock("electron", () => ({ app: { getPath: () => collaborators.root } }));
-vi.mock("../loop", async original => ({ ...await original<typeof import("../loop")>(), runFireflyHarness: collaborators.run }));
-vi.mock("../loop/run-store", () => ({ getHarnessRunStore: () => collaborators.store }));
+vi.mock("../loop", async original => ({ ...await original<typeof import("../loop")>(), runAgentLoop: collaborators.run }));
+vi.mock("../loop/run-store", () => ({ getAgentRunStore: () => collaborators.store }));
 vi.mock("../review/run-review-tracker", () => ({ getRunReviewTracker: () => ({ finalizeReview: collaborators.finalize }) }));
 vi.mock("../../tooling/registry/tool-registry", () => ({ toolRegistry: { getEnabledTools: () => [], getById: vi.fn() } }));
 vi.mock("../../base/prompts/prompt-loader", () => ({ loadPromptFile: () => "Auditing policy" }));
-import { runHarnessWithAdapter } from "./harness-adapter";
-import { DEFAULT_HARNESS_CONFIG, type HarnessInput } from "../loop/types";
+import { runAgentLoopWithAdapter } from "./agent-loop-adapter";
+import { DEFAULT_AGENT_LOOP_CONFIG, type AgentLoopInput } from "../loop/types";
 
 const result = () => ({ finalAnswer: "Audit ready", finalState: { todoItems: [], uncertainEffects: [] }, terminated: false, rounds: 2 });
 const options = (runId: string) => ({
@@ -34,7 +34,7 @@ beforeEach(() => {
 
 describe("Adapter orchestration boundaries", () => {
   it("persists startup before execution and terminal truth before review and return", async () => {
-    const response = await runHarnessWithAdapter(options("ordered-ochre") as never, new AbortController().signal, vi.fn());
+    const response = await runAgentLoopWithAdapter(options("ordered-ochre") as never, new AbortController().signal, vi.fn());
     collaborators.trace.push("returned");
     expect(response.reply).toBe("Audit ready");
     expect(collaborators.trace).toEqual(["persist initial", "invoke harness", "persist terminal", "finalize review", "returned"]);
@@ -43,7 +43,7 @@ describe("Adapter orchestration boundaries", () => {
   it("binds the Main memory guard once and checkpoints exclusively through its guarded sink", async () => {
     const unguarded = { checkpoint: vi.fn(async () => {}) }, guarded = { checkpoint: vi.fn(async () => {}) };
     const memoryRun = { call: vi.fn(), close: vi.fn(async () => {}), bindSink: vi.fn(() => guarded) };
-    await runHarnessWithAdapter({ ...options("guarded-ochre"), memoryRun, transcriptSink: unguarded } as never, new AbortController().signal, vi.fn());
+    await runAgentLoopWithAdapter({ ...options("guarded-ochre"), memoryRun, transcriptSink: unguarded } as never, new AbortController().signal, vi.fn());
     expect(memoryRun.bindSink).toHaveBeenCalledWith(unguarded);
     expect(collaborators.run).toHaveBeenCalledWith(expect.objectContaining({ memoryRun, transcriptSink: guarded }));
     expect(guarded.checkpoint).toHaveBeenCalledOnce();
@@ -52,19 +52,19 @@ describe("Adapter orchestration boundaries", () => {
 
   it("preserves all checkpoint fields including a committed compaction epoch", async () => {
     const checkpoint = { messages: [], state: { todoItems: [], uncertainEffects: [] }, toolOutputs: [], rounds: 2, cache: { cacheEpoch: 5, epochReason: "compaction" }, at: 83 };
-    collaborators.run.mockImplementation(async (input: HarnessInput) => { input.onCheckpoint!(checkpoint as never); return result(); });
-    await runHarnessWithAdapter(options("checkpoint-ochre") as never, new AbortController().signal, vi.fn());
+    collaborators.run.mockImplementation(async (input: AgentLoopInput) => { input.onCheckpoint!(checkpoint as never); return result(); });
+    await runAgentLoopWithAdapter(options("checkpoint-ochre") as never, new AbortController().signal, vi.fn());
     const { at: _at, ...persisted } = checkpoint;
     expect(collaborators.store.checkpoint).toHaveBeenCalledWith("checkpoint-ochre", persisted);
   });
 
   it("writes every planned invocation through to the recoverable batch before terminal completion", async () => {
-    const { HarnessRunStore } = await vi.importActual<typeof import("./harness/run-store")>("../loop/run-store");
-    const durable = new HarnessRunStore(collaborators.root);
+    const { AgentRunStore } = await vi.importActual<typeof import("../loop/run-store")>("../loop/run-store");
+    const durable = new AgentRunStore(collaborators.root);
     collaborators.store.create.mockImplementation(input => durable.create(input));
     collaborators.store.recordTools.mockImplementation((id, calls) => durable.recordTools(id, calls));
     collaborators.store.markTerminal.mockImplementation((id, status) => durable.markTerminal(id, status));
-    collaborators.run.mockImplementation(async (input: HarnessInput) => {
+    collaborators.run.mockImplementation(async (input: AgentLoopInput) => {
       input.onToolsPlanned!([
         { toolCallId: "inspect-ochre", toolName: "read_file", toolSideEffect: "read_only", status: "planned" },
         { toolCallId: "save-ochre", toolName: "write_file", toolSideEffect: "idempotent_mutation", status: "planned" },
@@ -75,14 +75,14 @@ describe("Adapter orchestration boundaries", () => {
       ]);
       return result();
     });
-    await runHarnessWithAdapter(options("batch-ochre") as never, new AbortController().signal, vi.fn());
+    await runAgentLoopWithAdapter(options("batch-ochre") as never, new AbortController().signal, vi.fn());
     expect(durable.get("batch-ochre")?.status).toBe("completed");
   });
 
   it.each([undefined, 2])("preserves default parallelism and explicit override %s", async configured => {
     let effective: number | undefined;
-    collaborators.run.mockImplementation(async (input: HarnessInput) => { effective = { ...DEFAULT_HARNESS_CONFIG, ...input.config }.maxParallelToolCalls; return result(); });
-    await runHarnessWithAdapter({ ...options("capacity-ochre"), maxParallelToolCalls: configured } as never, new AbortController().signal, vi.fn());
+    collaborators.run.mockImplementation(async (input: AgentLoopInput) => { effective = { ...DEFAULT_AGENT_LOOP_CONFIG, ...input.config }.maxParallelToolCalls; return result(); });
+    await runAgentLoopWithAdapter({ ...options("capacity-ochre"), maxParallelToolCalls: configured } as never, new AbortController().signal, vi.fn());
     expect(effective).toBe(configured ?? 4);
   });
 });

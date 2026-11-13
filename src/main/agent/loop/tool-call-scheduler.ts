@@ -4,7 +4,7 @@ import type { ToolCall } from "../../model/providers/types";
 import { resolveEffectKind, type ToolDefinition } from "../../tooling/registry/tool-registry";
 import { parseToolCallArgs } from "./types";
 import { resolveSideEffect } from "./side-effect-resolver";
-import { DELEGATE_AGENT_TOOL_ID, isHarnessBuiltin } from "./builtin-tools";
+import { DELEGATE_AGENT_TOOL_ID, isAgentLoopBuiltin } from "./builtin-tools";
 import { READ_TOOL_RESULT_TOOL_ID } from "./tool-output/read-tool-result";
 
 export type ToolExecutionMode = "parallel" | "exclusive" | "delegation";
@@ -34,7 +34,7 @@ export type ToolCallScheduleResult = { halted: boolean; cancelled: boolean };
 
 /** 默认拒绝并发：工具必须自报参数安全，且本身是只读的；内置工具里只有 read_tool_result 不改动父状态，可以并发。 */
 export function classifyToolExecutionMode(call: ToolCall, tools: ToolDefinition[]): ToolExecutionMode {
-  if (isHarnessBuiltin(call.name)) {
+  if (isAgentLoopBuiltin(call.name)) {
     if (call.name === DELEGATE_AGENT_TOOL_ID) return "delegation";
     return call.name === READ_TOOL_RESULT_TOOL_ID ? "parallel" : "exclusive";
   }

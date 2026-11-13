@@ -30,5 +30,5 @@ it.each(["qq", "qqbot"] as const)("removes tools and their model-visible catalog
   expect(run.capabilities?.tools).toStrictEqual([]);
   expect(run.capabilities?.toolIds.size).toEqual(0);
   expect(run.permissionMode).toEqual("normal");
-  expect(run.harnessInteractiveTools).toEqual(false);
+  expect(run.interactiveTools).toEqual(false);
 });

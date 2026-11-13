@@ -7,7 +7,7 @@ import { ConversationTranscriptStore } from "../../conversation/transcript/conve
 import { prepareTranscriptDispatch } from "../../conversation/transcript/conversation-transcript-coordinator";
 import { createTranscriptSink } from "./transcript-sink";
 import type { TranscriptEntry, TranscriptAppendInput } from "../../conversation/transcript/conversation-transcript-types";
-import type { HarnessRunSession } from "./run-store";
+import type { AgentRunSession } from "./run-store";
 import type { ChatMessage, ToolCall } from "../../model/providers/types";
 
 const unavailable: TranscriptRunReader = { get: () => null };
@@ -27,7 +27,7 @@ function rows() {
     result: (assistantEntryId: string, message: ChatMessage) => wrap({ at: 840, id: "result-" + message.toolCallId, kind: "tool_result", payload: { assistantEntryId, toolCallId: message.toolCallId!, outcome: "success", message } }),
   };
 }
-function evidence(toolCalls: unknown[]): TranscriptRunReader { return { get: () => ({ toolCalls }) as HarnessRunSession }; }
+function evidence(toolCalls: unknown[]): TranscriptRunReader { return { get: () => ({ toolCalls }) as AgentRunSession }; }
 const outcome = (messages: ChatMessage[], id: string) => JSON.parse(String(messages.find(({ toolCallId }) => toolCallId === id)?.content)).outcome;
 
 describe("Canonical transcript materialization", () => {

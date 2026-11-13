@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { delegateAgentToolSpec, executeDelegateAgent, getHarnessBuiltinToolSpecs, isHarnessBuiltin } from "./builtin-tools";
+import { delegateAgentToolSpec, executeDelegateAgent, getAgentLoopBuiltinToolSpecs, isAgentLoopBuiltin } from "./builtin-tools";
 import { dispatchToolCall } from "./tool-dispatcher";
 import { getPlanState } from "../tools/plan-mode";
 
@@ -7,8 +7,8 @@ const call = (args: Record<string, unknown>) => ({ id: "delegate-1", name: "dele
 
 describe("persistent agent delegation contract", () => {
   it("never exposes the retired public task schema in a new run", () => {
-    expect(isHarnessBuiltin("task")).toBe(false);
-    expect(getHarnessBuiltinToolSpecs().some(tool => tool.name === "task")).toBe(false);
+    expect(isAgentLoopBuiltin("task")).toBe(false);
+    expect(getAgentLoopBuiltinToolSpecs().some(tool => tool.name === "task")).toBe(false);
   });
   it.each(["null", "[]", "123", "\"text\""])("rejects non-object JSON %s without invoking an agent", async raw => {
     const executor = vi.fn();
@@ -37,7 +37,7 @@ describe("persistent agent delegation contract", () => {
       required: ["agent_id", "prompt"], additionalProperties: false,
     });
     expect(Object.keys(delegateAgentToolSpec.parameters.properties)).toEqual(["agent_id", "prompt"]);
-    expect(getHarnessBuiltinToolSpecs({ includeInteractive: false, includeAgent: true }).map(tool => tool.name))
+    expect(getAgentLoopBuiltinToolSpecs({ includeInteractive: false, includeAgent: true }).map(tool => tool.name))
       .toEqual(["update_todo", "delegate_agent", "read_tool_result"]);
   });
 

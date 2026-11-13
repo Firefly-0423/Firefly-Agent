@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { askUserToolSpec, delegateAgentToolSpec, executeAskUser, executeConfirmUncertainEffect, executeDelegateAgent, executeUpdateTodo, formatAskUserPreview, getHarnessBuiltinToolSpecs, updateTodoToolSpec } from "./builtin-tools";
+import { askUserToolSpec, delegateAgentToolSpec, executeAskUser, executeConfirmUncertainEffect, executeDelegateAgent, executeUpdateTodo, formatAskUserPreview, getAgentLoopBuiltinToolSpecs, updateTodoToolSpec } from "./builtin-tools";
 import type { AgentState } from "./types";
 
 const invocation = (name: string, args: unknown) => ({ id: "builtin-request-jade", name, arguments: JSON.stringify(args) });
@@ -15,7 +15,7 @@ const questions = () => [
 describe("Builtin tool contracts visible to the model", () => {
   it("lists only notebook and result-reader tools when interaction or delegation is unavailable", () => {
     for (const options of [{ includeInteractive: false }, { includeInteractive: false, includeAgent: false }]) {
-      expect(getHarnessBuiltinToolSpecs(options).map(spec => spec.name)).toEqual(["update_todo", "read_tool_result"]);
+      expect(getAgentLoopBuiltinToolSpecs(options).map(spec => spec.name)).toEqual(["update_todo", "read_tool_result"]);
     }
   });
 

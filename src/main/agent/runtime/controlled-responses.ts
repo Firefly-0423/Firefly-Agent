@@ -1,13 +1,13 @@
 import type {TranscriptSink} from "../loop/transcript-sink";
 import {SRunSettlementGate} from "../../conversation/transcript/run-settlement";
-import type {AgentLoopEvent,AgentLoopResult,FireflyRunOptions} from "./firefly-agent";
+import type {RunEvent,RunResult,FireflyRunOptions} from "./firefly-agent";
 
 /** Private Main callback contract; never a renderer DTO or a model request override. */
 export interface ControlledStreamTarget {
  conversationId:string;runId:string;userTurnId:string;assistantTurnId:string;
- sink:TranscriptSink;onEvent:(event:AgentLoopEvent)=>void;isCurrent:()=>boolean;
+ sink:TranscriptSink;onEvent:(event:RunEvent)=>void;isCurrent:()=>boolean;
 }
-export type ControlledResponsesRun=(options:FireflyRunOptions,signal:AbortSignal,onEvent:(event:AgentLoopEvent)=>void)=>Promise<AgentLoopResult>;
+export type ControlledResponsesRun=(options:FireflyRunOptions,signal:AbortSignal,onEvent:(event:RunEvent)=>void)=>Promise<RunResult>;
 const settlements=new WeakMap<TranscriptSink,SRunSettlementGate>();
 /** Shared only by the Main runtime and bridge for this actual bound sink. */
 export function controlledSettlement(sink:TranscriptSink):SRunSettlementGate {

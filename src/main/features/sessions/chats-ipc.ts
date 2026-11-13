@@ -29,7 +29,7 @@ import { createWorkMarkdownSnapshot } from "./work-markdown-export";
 import { inspectWorkReadDocument, isWorkReadScopeCurrent, WORK_READ_PAGE_LINES } from "./work-read-scope";
 import { getDefaultModelProfile, loadModelSettings, resolveModelSettingsProfile } from "../../model/config/model-settings";
 import { FileToolOutputStore } from "../../agent/loop/tool-output/file-tool-output-store";
-import { getHarnessRunStore } from "../../agent/loop/run-store";
+import { getAgentRunStore } from "../../agent/loop/run-store";
 import { getConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
 import { projectSSettlementMessages } from "../../agent/loop/conversation-transcript-context";
 import { getStorageContext } from "../../base/storage/storage-context";
@@ -396,7 +396,7 @@ export function registerChatsIpc(ipcOption?: IpcScope, options: ChatsIpcOptions 
       warnCleanup("persisted tool outputs", error);
     }
     try {
-      getHarnessRunStore(app.getPath("userData")).deleteConversation(id);
+      getAgentRunStore(app.getPath("userData")).deleteConversation(id);
     } catch (error) {
       warnCleanup("persisted harness runs", error);
     }
@@ -649,7 +649,7 @@ export function registerChatsIpc(ipcOption?: IpcScope, options: ChatsIpcOptions 
     const reviews = getRunReviewTracker(app.getPath("userData"));
     const saved = reviews.loadReview(runId);
     if (saved) return saved;
-    const run = getHarnessRunStore(app.getPath("userData")).get(runId);
+    const run = getAgentRunStore(app.getPath("userData")).get(runId);
     if (!run || run.status === "running") return null;
     return reviews.finalizeIfPending(runId, run.createdAt, "halted");
   });

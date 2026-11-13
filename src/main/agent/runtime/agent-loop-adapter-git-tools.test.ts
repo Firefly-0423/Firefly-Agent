@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterToolsForConversationMode } from "./harness-adapter";
+import { filterToolsForConversationMode } from "./agent-loop-adapter";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
 
 const catalog = ["read_file", "git_status", "git_init", "git_commit", "git_switch_branch", "git_push", "git_revert", "search_code"].map(id => ({

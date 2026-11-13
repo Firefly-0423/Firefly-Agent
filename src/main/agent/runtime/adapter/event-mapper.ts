@@ -1,10 +1,10 @@
 import { type BaseEvent, EventType } from "@ag-ui/core";
 import { normalizeToolTaskResult } from "../../../../shared/task-result-evidence";
 import type { TaskDelegationPresentation } from "../../../../shared/task-session";
-import type { HarnessEvent } from "../../loop/types";
+import type { AgentLoopEvent } from "../../loop/types";
 
-export function sendHarnessEventAsAgui(
-  incoming: HarnessEvent,
+export function sendAgentLoopEventAsAgui(
+  incoming: AgentLoopEvent,
   assistantId: string,
   conversationId: string,
   executionId: string,
@@ -93,7 +93,7 @@ export function sendHarnessEventAsAgui(
     custom("firefly.plan", { action: "written", planPath: incoming.planPath });
     return;
   }
-  if (variant === "error") console.error(`[HarnessAdapter] harness error: ${incoming.message}`);
+  if (variant === "error") console.error(`[AgentLoopAdapter] harness error: ${incoming.message}`);
 }
 
 export function sendTaskLifecycleAsAgui(

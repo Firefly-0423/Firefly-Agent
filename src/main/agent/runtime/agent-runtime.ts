@@ -4,7 +4,7 @@ import type {MainMemoryRun} from "../memory-runtime/main-memory-runtime";
 import { app } from "electron";
 import {copyControlledStreamTarget} from "./controlled-responses";
 import type {ChatRequest} from "../../model/providers/types";
-import type {AgentLoopResult} from "./firefly-agent";
+import type {RunResult} from "./firefly-agent";
 import {copyMainResponsesRequest} from "../../model/providers/response-request-snapshot";
 import type {MainSRuntimePort,MainSRuntimeInput,MainSRuntimeResult} from "../memory-runtime/main-s-runtime-port";
 import { loadPromptFile } from "../../base/prompts/prompt-loader";
@@ -45,9 +45,9 @@ type BuildOptionsDeps = Parameters<typeof buildAgentRunOptions>[1];
 type OnRunFinishedDeps = Parameters<typeof onAgentRunFinished>[2];
 import { buildModelContext } from "../loop/conversation-transcript-context";
 import { getConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
-import { getHarnessRunStore } from "../loop/run-store";
+import { getAgentRunStore } from "../loop/run-store";
 import { type FireflyRunResult, type FireflyRunOptions } from "./firefly-agent";
-import type { HarnessToolFinishedEvent } from "../loop/types";
+import type { AgentLoopToolFinishedEvent } from "../loop/types";
 import type { ToolFinishedInput } from "./lifecycle-publisher";
 import {
   buildToolSystemPrompt,
@@ -205,7 +205,7 @@ export function createAgentRuntime(rawDeps: AgentRuntimeDeps): AgentRuntime {
       getWorkspaceBinding: (conversation: string) => rawDeps.chatsStore.getWorkspaceBinding(conversation),
       buildPluginPromptContext: (request) => rawDeps.buildPluginPromptContext(request),
       buildModelContext: (conversationId, retainTokens) => buildModelContext({
-        store: getConversationTranscriptStore(app.getPath("userData")), conversationId, retainTokens, runReader: (runs => ({ get: (runId: string) => runs.evidence(runId) }))(getHarnessRunStore(app.getPath("userData"))),
+        store: getConversationTranscriptStore(app.getPath("userData")), conversationId, retainTokens, runReader: (runs => ({ get: (runId: string) => runs.evidence(runId) }))(getAgentRunStore(app.getPath("userData"))),
       }),
     };
   }
@@ -223,7 +223,7 @@ export function createAgentRuntime(rawDeps: AgentRuntimeDeps): AgentRuntime {
       recordRelationshipTurn,
     };
   }
-  const toolFinished = rawDeps.publishToolFinished ? (event: HarnessToolFinishedEvent) => rawDeps.publishToolFinished!(event) : undefined;
+  const toolFinished = rawDeps.publishToolFinished ? (event: AgentLoopToolFinishedEvent) => rawDeps.publishToolFinished!(event) : undefined;
 
   const buildOptions = Object.assign(async (input: AguiRunInput, mainContext?: MainBuildOptionsContext) => {
     const configuration = rawDeps.sContext;
@@ -269,7 +269,7 @@ export function createAgentRuntime(rawDeps: AgentRuntimeDeps): AgentRuntime {
             runId: current.runId, sink: current.transcriptSink, isCurrent: current.isControlledRunCurrent, onEvent: notify,
           } });
           if (response.status !== "sent") throw Error("MEMORY_CONTEXT_SEND_UNKNOWN");
-          return response.result as AgentLoopResult;
+          return response.result as RunResult;
         } catch (failure) {
           if (failure instanceof Error && failure.message === "MEMORY_CONTEXT_SETTLEMENT_UNKNOWN") return {
             reply: "", toolResults: [], completionReason: "no_tool", terminal: { status: "runtime_error", reason: "MEMORY_CONTEXT_SETTLEMENT_UNKNOWN", externalEffectsMayContinue: false },

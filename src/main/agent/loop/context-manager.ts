@@ -1,5 +1,5 @@
 import type { ChatVendorAdapter, ChatMessage, ChatRequest, OpenAIContentBlock } from "../../model/providers/types";
-import type { AgentLoopSettings, AgentLoopEvent } from "./run-ports";
+import type { RunModelSettings, RunEvent } from "./run-ports";
 import { recordRequest, recordUsage } from "../../base/storage/token-usage-store";
 import { DEFAULT_CONTEXT_WINDOW_TOKENS, autoCompactTriggerTokens } from "../../../shared/context-window";
 
@@ -54,10 +54,10 @@ function renderHistory(history: ChatMessage[]): string {
 
 export interface CompressOptions {
   signal?: AbortSignal;
-  onEvent?: (event: AgentLoopEvent) => void;
+  onEvent?: (event: RunEvent) => void;
   mode?: string;
   systemContent: string;
-  settings: AgentLoopSettings;
+  settings: RunModelSettings;
   adapter: ChatVendorAdapter;
   messages: ChatMessage[];
 }
@@ -87,7 +87,7 @@ export async function compressConversation(options: CompressOptions): Promise<Ch
   }
 }
 
-export async function callSummarizeModel(messages: ChatMessage[], adapter: ChatVendorAdapter, settings: AgentLoopSettings, signal?: AbortSignal): Promise<string> {
+export async function callSummarizeModel(messages: ChatMessage[], adapter: ChatVendorAdapter, settings: RunModelSettings, signal?: AbortSignal): Promise<string> {
   const instruction = summaryInstruction.replace("{history}", renderHistory(messages));
   const envelope: ChatRequest = {
     model: settings.model,

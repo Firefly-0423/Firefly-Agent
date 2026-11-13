@@ -14,7 +14,7 @@ export async function preparePlanRunContext(request: {
   const eligible = request.mode === "code" || request.mode === "chat";
   if (eligible && getPlanState(request.threadId) === "PLAN_REVIEW") {
     supplementPlan(request.threadId);
-    console.log("[HarnessAdapter] [Plan] new message during PLAN_REVIEW, back to PLAN_DISCUSSING");
+    console.log("[AgentLoopAdapter] [Plan] new message during PLAN_REVIEW, back to PLAN_DISCUSSING");
   }
   const snapshot = eligible ? getPlanState(request.threadId) : undefined;
   if (snapshot === "EXECUTING") {
@@ -25,7 +25,7 @@ export async function preparePlanRunContext(request: {
         + approved.trim();
       return { planState: snapshot, planContextBlock: context };
     } catch (problem) {
-      console.warn("[HarnessAdapter] [Plan] read plan.md failed:", problem instanceof Error ? problem.message : problem);
+      console.warn("[AgentLoopAdapter] [Plan] read plan.md failed:", problem instanceof Error ? problem.message : problem);
     }
   }
   return { planState: snapshot };
@@ -44,7 +44,7 @@ export function completePlanRun(completion: {
   if (completion.planState !== "EXECUTING") return;
   const archivedPath = completeExecution(completion.threadId);
   if (!archivedPath) return;
-  console.log(`[HarnessAdapter] [Plan] execution finished, back to NORMAL, plan=${archivedPath}`);
+  console.log(`[AgentLoopAdapter] [Plan] execution finished, back to NORMAL, plan=${archivedPath}`);
   // 先释放执行态，再决定是否通知界面。
   if (completion.signal.aborted || completion.runStatus !== "completed") return;
   completion.send({

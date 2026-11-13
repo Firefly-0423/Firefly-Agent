@@ -3,7 +3,7 @@ import {readMainAttachmentGrant,type MainAttachmentGrant} from "../../memory/con
 import type {MainDesktopMemory} from "../../agent/memory-runtime/main-desktop-memory";
 import * as fs from "fs";
 import { app, IpcMainInvokeEvent, WebContents } from "electron";
-import { getHarnessRunStore } from "../../agent/loop/run-store";
+import { getAgentRunStore } from "../../agent/loop/run-store";
 import { IPC } from "../../../shared/ipc-channels";
 import { createIpcScope, type IpcScope } from "../../base/ipc/ipc-scope";
 import { Subscription } from "rxjs";
@@ -269,9 +269,9 @@ export function registerAgUiIpc(
     });
   }
 
-  routes.handle(IPC.HARNESS_GET_INTERRUPTED_RUN, (_notice, id: unknown) => {
+  routes.handle(IPC.AGENT_RUN_GET_INTERRUPTED, (_notice, id: unknown) => {
     if (typeof id !== "string" || !id) return null;
-    const checkpoint = getHarnessRunStore(app.getPath("userData")).getLatestInterrupted(id);
+    const checkpoint = getAgentRunStore(app.getPath("userData")).getLatestInterrupted(id);
     return checkpoint ? {
       runId: checkpoint.runId,
       rounds: checkpoint.rounds,

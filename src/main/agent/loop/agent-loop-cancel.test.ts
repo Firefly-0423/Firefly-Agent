@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatResponse, ToolCall } from "../../model/providers/types";
-import type { HarnessEvent, HarnessInput, HarnessResult } from "./types";
+import type { AgentLoopEvent, AgentLoopInput, AgentLoopResult } from "./types";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
 import type { ToolDispatchResult } from "./tool-dispatcher";
 
@@ -11,7 +11,7 @@ vi.mock("../../model/providers", () => ({
 }));
 vi.mock("../../base/storage/token-usage-store", () => ({ recordUsage: network.usage, recordRequest: network.requests, recordModelCall: vi.fn(), recordToolCall: vi.fn() }));
 vi.mock("./tool-dispatcher", () => ({ dispatchToolCall: vi.fn(), persistToolDispatchResult: async (_call: unknown, result: unknown) => result }));
-import { runFireflyHarness } from "./firefly-harness";
+import { runAgentLoop } from "./agent-loop";
 import { dispatchToolCall } from "./tool-dispatcher";
 import { RunExecutionCoordinator } from "../../tooling/execution/execution-coordinator";
 
@@ -32,13 +32,13 @@ const readTool = (): ToolDefinition => ({
   id: "read_file", name: "Inspect notes", description: "Inspect notes", enabled: true, effectKind: "read",
   inputSchema: { type: "object", properties: { path: { type: "string" } } }, execute: vi.fn(),
 });
-const vendorConfig = { provider: "custom", model: "cancel-model", apiKey: "", baseUrl: "https://cancel.invalid" } as HarnessInput["vendorConfig"];
-function launch(extra: Partial<HarnessInput> = {}) {
-  const events: HarnessEvent[] = [];
-  const input: HarnessInput = { systemPrompt: "Cancellation contract", messages: [{ role: "user", content: "Inspect notes" }], tools: [], vendorConfig, onEvent: event => events.push(event), ...extra };
-  return { events, running: runFireflyHarness(input) };
+const vendorConfig = { provider: "custom", model: "cancel-model", apiKey: "", baseUrl: "https://cancel.invalid" } as AgentLoopInput["vendorConfig"];
+function launch(extra: Partial<AgentLoopInput> = {}) {
+  const events: AgentLoopEvent[] = [];
+  const input: AgentLoopInput = { systemPrompt: "Cancellation contract", messages: [{ role: "user", content: "Inspect notes" }], tools: [], vendorConfig, onEvent: event => events.push(event), ...extra };
+  return { events, running: runAgentLoop(input) };
 }
-function cancelled(result: HarnessResult, events: HarnessEvent[]) {
+function cancelled(result: AgentLoopResult, events: AgentLoopEvent[]) {
   expect(result).toMatchObject({ terminated: true, terminateReason: "cancelled", finalAnswer: "" });
   expect(result.finalAnswer).not.toContain("最终回复被取消");
   expect(events.filter(event => event.type === "final_answer")).toHaveLength(0);

@@ -1,7 +1,7 @@
 import { getAdapterForConfig, streamChatWithSdk, resolveTransport } from "../../model/providers";
 import { recordUsage, recordRequest, recordModelCall } from "../../base/storage/token-usage-store";
 import type { VendorConfig, ToolSpec, ChatResponse, ChatRequest, ChatMessage } from "../../model/providers/types";
-import type { HarnessConfig } from "./types";
+import type { AgentLoopConfig } from "./types";
 import type { MainMemoryRun } from "./run-ports";
 import { AGENT_COMPACTION_PROMPT } from "./compaction";
 import { isExplicitStreamUnsupported } from "../../model/providers/stream-support";
@@ -12,7 +12,7 @@ function resolveRequestMaxTokens(vendorConfig: VendorConfig): number | undefined
   return undefined;
 }
 export async function callLLM(vendorConfig: VendorConfig, promptLayers: PromptLayers,
-  messages: ChatMessage[], tools: ToolSpec[], config: HarnessConfig, signal?: AbortSignal,
+  messages: ChatMessage[], tools: ToolSpec[], config: AgentLoopConfig, signal?: AbortSignal,
   onReasoningDelta?: (delta: string) => void, onTextDelta?: (delta: string) => void,
   memoryRun?: MainMemoryRun): Promise<ChatResponse> {
   const adapter = getAdapterForConfig(vendorConfig);

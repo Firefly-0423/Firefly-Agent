@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import type { AskClarificationCard } from "../../../shared/ask-clarification";
 import type { ToolSpec, ToolCall } from "../../model/providers/types";
-import type { ToolObservation, HarnessEvent } from "./types";
+import type { ToolObservation, AgentLoopEvent } from "./types";
 import { tryParseToolCallArgs } from "./types";
 import type { ToolContext } from "../../tooling/registry/tool-context";
 import { enterPlanDiscussing, getPlanPath, getPlanState, markPlanWritten } from "../tools/plan-mode";
@@ -35,7 +35,7 @@ async function ensureWorkspaceMetadataIgnored(workspaceRoot: string): Promise<vo
   } catch { /* 忽略规则无法写入时仍允许保存计划。 */ }
 }
 export async function executeEnterPlanMode(call: ToolCall, ctx: ToolContext | undefined,
-  onEvent?: (event: HarnessEvent) => void): Promise<ToolObservation> {
+  onEvent?: (event: AgentLoopEvent) => void): Promise<ToolObservation> {
   const conversation = conversationIdOf(ctx);
   const entered = enterPlanDiscussing(conversation, ctx?.resolvedWorkspaceRoot);
   if (!entered.ok) return { outcome: "failure", category: "runtime_safety", tool: ENTER_PLAN_MODE_TOOL_ID, message: entered.reason ?? "当前状态不可进入计划模式" };
@@ -44,7 +44,7 @@ export async function executeEnterPlanMode(call: ToolCall, ctx: ToolContext | un
     message: "已进入计划模式。后续只能读取信息、讨论方案，修改类工具已被禁用。请与用户讨论方案；讨论收敛后，将完整计划（目标、任务 checkbox 清单、风险）通过 write_plan 写入并提交审批。" };
 }
 export async function executeWritePlan(call: ToolCall, ctx: ToolContext | undefined,
-  onEvent?: (event: HarnessEvent) => void): Promise<ToolObservation> {
+  onEvent?: (event: AgentLoopEvent) => void): Promise<ToolObservation> {
   const conversation = conversationIdOf(ctx);
   if (getPlanState(conversation) !== "PLAN_DISCUSSING") return { outcome: "failure", category: "runtime_safety", tool: WRITE_PLAN_TOOL_ID, message: "write_plan 仅在计划讨论状态可用" };
   const parsed = tryParseToolCallArgs(call);

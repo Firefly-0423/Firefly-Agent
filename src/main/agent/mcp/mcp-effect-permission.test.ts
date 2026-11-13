@@ -54,7 +54,7 @@ import { connectMcpServer, disconnectMcpServer } from "./mcp-adapter";
 import { ExecutionLedger } from "../loop/execution-ledger";
 import type { FireflyRunOptions } from "../runtime/firefly-agent";
 import { prepareToolRuntime } from "../runtime/adapter/tool-runtime";
-import type { PreparedHarnessRun } from "../runtime/adapter/run-preparation";
+import type { PreparedAgentLoopRun } from "../runtime/adapter/run-preparation";
 import { dispatchToolCall, type ToolDispatchContext } from "../loop/tool-dispatcher";
 import { resolveSideEffect } from "../loop/side-effect-resolver";
 import { resolveUncertainEffect } from "../loop/uncertain-effect-guard";
@@ -120,7 +120,7 @@ function dispatchContext(permissionMode: FireflyRunOptions["permissionMode"] = "
       permissionMode,
     },
     signal: new AbortController().signal,
-    prepared: { threadId: "thread-1", runId: "run-1", systemPrompt: "system", tools } as PreparedHarnessRun,
+    prepared: { threadId: "thread-1", runId: "run-1", systemPrompt: "system", tools } as PreparedAgentLoopRun,
     sendBaseEvent: vi.fn(),
   });
   return {

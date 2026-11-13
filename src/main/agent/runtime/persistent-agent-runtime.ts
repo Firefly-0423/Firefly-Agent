@@ -2,8 +2,8 @@ import type { AgentExecuteRequest, AgentExecuteResult } from "../loop/run-ports"
 export type { AgentExecuteRequest, AgentExecuteResult };
 import path from "node:path";
 import { getStorageContext } from "../../base/storage/storage-context";
-import { getHarnessRunStore } from "../loop/run-store";
-import { prepareHarnessRecovery } from "../loop/run-recovery";
+import { getAgentRunStore } from "../loop/run-store";
+import { prepareAgentRunRecovery } from "../loop/run-recovery";
 import { randomUUID } from "node:crypto";
 import { createModelExecutionRecorder } from "../loop/model-execution-evidence";
 import type { TaskWriteEvidence, ModelExecutionEvent } from "../../../shared/agent-execution-evidence";
@@ -18,7 +18,7 @@ import { skillRegistry } from "../../knowledge/skills/skill-registry";
 import { resolveAgentCapabilities } from "./agent-capabilities";
 import { runChildSession } from "./child-session-runtime";
 import type { ChildSessionParent, DelegationScope } from "./child-session-types";
-import type { runFireflyHarness } from "../loop/firefly-harness";
+import type { runAgentLoop } from "../loop/agent-loop";
 import { createAbortError } from "../../base/utils/abort-utils";
 import { vendorConfigFromSettings } from "../../model/providers/vendor-config";
 
@@ -28,8 +28,8 @@ export function createAgentExecutor(input: {
   store: TaskSessionStore;
   profiles: readonly AgentProfile[];
   modelSettings: AgentModelRoutingSettings;
-  runHarness?: typeof runFireflyHarness;
-  runStore?: import("../loop/run-store").HarnessRunStore;
+  runLoop?: typeof runAgentLoop;
+  runStore?: import("../loop/run-store").AgentRunStore;
   characterPool?: Pick<TaskCharacterLeasePool, "acquire">;
   onLifecycle?: (event: TaskDelegationPresentation) => void;
 }): (request: AgentExecuteRequest, delegationScope?: DelegationScope) => Promise<AgentExecuteResult> {
@@ -58,14 +58,14 @@ export function createAgentExecutor(input: {
       && session.resolvedWorkspaceRoot === (input.parent.resolvedWorkspaceRoot ? path.resolve(input.parent.resolvedWorkspaceRoot) : undefined));
     let recoverRunId: string | undefined;
     if (previous && (previous.status === "interrupted" || previous.recoveryRunId)) {
-      const recoveryStore = input.runStore ?? (input.parent.backgroundMemory ? getHarnessRunStore(getStorageContext().dataRoot) : undefined);
+      const recoveryStore = input.runStore ?? (input.parent.backgroundMemory ? getAgentRunStore(getStorageContext().dataRoot) : undefined);
       const priorId = previous.recoveryRunId ?? previous.childRunId;
       const priorRun = recoveryStore?.get(priorId);
       if (!priorRun) throw Error("AGENT_RECOVERY_EVIDENCE_UNAVAILABLE");
       if (priorRun.conversationId !== previous.id || priorRun.runId !== priorId) throw Error("AGENT_RECOVERY_EVIDENCE_MISMATCH");
       if (priorRun) {
         if (priorRun.status === "running" || priorRun.status === "interrupted") recoverRunId = priorId;
-        const recovered = prepareHarnessRecovery({ ...priorRun, status: "interrupted" }, {
+        const recovered = prepareAgentRunRecovery({ ...priorRun, status: "interrupted" }, {
           workspaceRoot: input.parent.resolvedWorkspaceRoot, provider: model.provider, model: model.model, enabledToolIds: capabilities.tools.map(tool => tool.id),
         });
         const instructionIndex = previous.messages.map(message => message.role).lastIndexOf("user");

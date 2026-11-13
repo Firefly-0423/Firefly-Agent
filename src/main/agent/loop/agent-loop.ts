@@ -1,26 +1,26 @@
 import { promptTokensOf } from "./context-usage";
 import type { ToolSpec, ChatResponse, ChatMessage } from "../../model/providers/types";
 import { causeCodes } from "../../model/providers/error-chain";
-import type { RunAdjustmentMessage, HarnessResult, HarnessInput, HarnessConfig, HarnessCacheState, AgentState } from "./types";
+import type { RunAdjustmentMessage, AgentLoopResult, AgentLoopInput, AgentLoopConfig, AgentLoopCacheState, AgentState } from "./types";
 import type { ToolOutputRef } from "./tool-output/tool-output-store";
-import { INITIAL_HARNESS_CACHE_STATE, DEFAULT_HARNESS_CONFIG } from "./types";
-import { getHarnessBuiltinToolSpecs } from "./builtin-tools";
+import { INITIAL_AGENT_LOOP_CACHE_STATE, DEFAULT_AGENT_LOOP_CONFIG } from "./types";
+import { getAgentLoopBuiltinToolSpecs } from "./builtin-tools";
 import type { ToolDispatchContext } from "./tool-dispatcher";
 import { computeTokenBudget, compressForAgentLoop, type TokenBudget } from "./compaction";
-import { emitContextUsage, emitCacheDiagnostic } from "./harness-observability";
+import { emitContextUsage, emitCacheDiagnostic } from "./agent-loop-observability";
 import { StreamController } from "./stream-controller";
 import { TimeoutClock } from "./timeout-clock";
 import { buildCurrentTodoNotebookContext } from "./todo-working-notebook";
 import { appendInternalTranscriptMessage, createInternalTranscriptMessage } from "../../model/prompt/internal-transcript";
-import { callLLM, summarizeHistory } from "./harness-llm";
+import { callLLM, summarizeHistory } from "./agent-loop-llm";
 import { ChatTimeStreamPrefixFilter } from "../../model/text/chat-time-stream-filter";
 import { runToolRound, type ToolRoundOutcome } from "./tool-round";
 import { publicRunFailure, type RunFailure, type RunFailureSource } from "../../../shared/run-failure";
 import { ContextError } from "../../model/context/context-contracts";
 import { buildStableSystemPrefix, type PromptLayers } from "../../model/prompt/prompt-layers";
 
-const logTag = "[FireflyHarness]";
-export type HarnessRun = {
+const logTag = "[AgentLoop]";
+export type AgentLoopRun = {
   deadlineExceeded?: boolean;
   executionSettlement?: Promise<void>;
   currentAssistantEntryId?: string;
@@ -34,18 +34,18 @@ export type HarnessRun = {
   rounds: number;
   /** The provider's usage for the last model request, for the context card; cleared when compaction rewrites history. */
   measuredUsage?: { inputTokens: number; outputTokens: number; messageCount: number };
-  cache: HarnessCacheState;
+  cache: AgentLoopCacheState;
   toolOutputs: ToolOutputRef[];
   messages: ChatMessage[];
   allToolSpecs: ToolSpec[];
   streamController: StreamController;
   clock: TimeoutClock;
   state: AgentState;
-  config: HarnessConfig;
-  input: HarnessInput;
+  config: AgentLoopConfig;
+  input: AgentLoopInput;
 };
 
-export async function runFireflyHarness(input: HarnessInput): Promise<HarnessResult> {
+export async function runAgentLoop(input: AgentLoopInput): Promise<AgentLoopResult> {
   if (input.memoryRun && input.transcriptSink) input = { ...input, transcriptSink: input.memoryRun.bindSink(input.transcriptSink) };
   const current = createRun(input);
   current.clock.setDeadlineHandler(() => {
@@ -57,7 +57,7 @@ export async function runFireflyHarness(input: HarnessInput): Promise<HarnessRes
   materializeInitialContext(current);
   let returned = false;
   try {
-    const terminal = await runHarnessLoop(current);
+    const terminal = await runAgentLoopRounds(current);
     returned = true;
     return terminal;
   } finally {
@@ -66,14 +66,14 @@ export async function runFireflyHarness(input: HarnessInput): Promise<HarnessRes
     finally { await drainRunExecution(current); }
   }
 }
-function failedStage(run: HarnessRun, cause: unknown, source: RunFailureSource, prefix = ""): Promise<HarnessResult> {
+function failedStage(run: AgentLoopRun, cause: unknown, source: RunFailureSource, prefix = ""): Promise<AgentLoopResult> {
   const publicFailure = recordFailure(run, cause, source, prefix);
   return finishRun(run, prefix + publicFailure.code, true, "error");
 }
-function checkpointFailed(run: HarnessRun): Promise<HarnessResult> {
+function checkpointFailed(run: AgentLoopRun): Promise<AgentLoopResult> {
   return finishRun(run, `执行状态保存失败：${run.checkpointFailure}`, true, "error");
 }
-async function runHarnessLoop(run: HarnessRun): Promise<HarnessResult> {
+async function runAgentLoopRounds(run: AgentLoopRun): Promise<AgentLoopResult> {
   const host = run.input;
   while (!run.clock.isExecutionTimeout()) {
     if (run.checkpointFailure) return checkpointFailed(run);
@@ -161,12 +161,12 @@ async function runHarnessLoop(run: HarnessRun): Promise<HarnessResult> {
   return finishRun(run, reply, true, "timeout");
 }
 
-function createRun(input: HarnessInput): HarnessRun {
-  const limits: HarnessConfig = { ...DEFAULT_HARNESS_CONFIG, ...input.config };
+function createRun(input: AgentLoopInput): AgentLoopRun {
+  const limits: AgentLoopConfig = { ...DEFAULT_AGENT_LOOP_CONFIG, ...input.config };
   const restored: AgentState = input.initialState ? deepClone(input.initialState) : { todoItems: [], uncertainEffects: [] };
   const registered: ToolSpec[] = input.tools.map((definition) => ({ name: definition.id, description: definition.description,
     parameters: { type: "object" as const, properties: definition.inputSchema.properties, required: definition.inputSchema.required } }));
-  const advertised: ToolSpec[] = [...registered, ...getHarnessBuiltinToolSpecs({
+  const advertised: ToolSpec[] = [...registered, ...getAgentLoopBuiltinToolSpecs({
     includeInteractive: input.includeInteractiveTools, includeAgent: Boolean(input.agentExecutor), agentDefinitions: input.agentDefinitions, planState: input.planState,
   }).filter((spec) => !input.allowedBuiltinToolIds || input.allowedBuiltinToolIds.has(spec.name))];
   const interactive: ToolDispatchContext = { state: restored, tools: input.tools, onEvent: input.onEvent,
@@ -176,13 +176,13 @@ function createRun(input: HarnessInput): HarnessRun {
   return {
     input, config: limits, state: restored, clock: new TimeoutClock(limits.totalTimeoutMs, limits.userWaitTimeoutMs),
     streamController: new StreamController(), allToolSpecs: advertised, messages: [...input.messages], toolOutputs: [],
-    cache: input.initialCache ? { ...input.initialCache } : { ...INITIAL_HARNESS_CACHE_STATE }, rounds: 0,
+    cache: input.initialCache ? { ...input.initialCache } : { ...INITIAL_AGENT_LOOP_CACHE_STATE }, rounds: 0,
     checkpoint() { checkpoint(this); }, askDispatchContext: interactive,
     toolDispatchContext: { ...interactive, checkPermission: input.checkPermission, toolContext: input.toolContext,
       executionLedger: input.executionLedger, agentExecutor: input.agentExecutor, deferOutputPersistence: true }, toolCallStartedAt: new Map(),
   };
 }
-function materializeInitialContext(run: HarnessRun): void {
+function materializeInitialContext(run: AgentLoopRun): void {
   const host = run.input;
   const facts = [host.initialInternalContext?.content, host.promptLayers?.runtimeContext,
     run.state.todoItems.length > 0 ? buildCurrentTodoNotebookContext(run.state.todoItems) : undefined]
@@ -193,12 +193,12 @@ function materializeInitialContext(run: HarnessRun): void {
     kind: host.initialInternalContext?.kind ?? "run_start", revision: revision + 1, runId: host.runId ?? "harness-run", content: facts.join("\n\n---\n\n"),
   }));
 }
-function buildRoundPromptLayers(input: HarnessInput): PromptLayers {
+function buildRoundPromptLayers(input: AgentLoopInput): PromptLayers {
   return { stablePrefix: input.promptLayers?.stablePrefix ?? input.systemPrompt,
     ...(input.promptLayers?.sessionPrefix ? { sessionPrefix: input.promptLayers.sessionPrefix } : {}),
     ...(input.promptLayers?.mode ? { mode: input.promptLayers.mode } : {}) };
 }
-function compactIfNeeded(run: HarnessRun, promptLayers: PromptLayers): Promise<void> | undefined {
+function compactIfNeeded(run: AgentLoopRun, promptLayers: PromptLayers): Promise<void> | undefined {
   if (run.input.memoryRun) return undefined;
   const limits = run.config;
   const system = buildStableSystemPrefix(promptLayers);
@@ -206,7 +206,7 @@ function compactIfNeeded(run: HarnessRun, promptLayers: PromptLayers): Promise<v
     limits.reservedOutputTokens, limits.safetyMarginTokens, limits.compactionThreshold);
   return budget.needsCompaction ? runCompaction(run, system, budget) : undefined;
 }
-async function runCompaction(run: HarnessRun, roundSystemPrompt: string, budget: TokenBudget): Promise<void> {
+async function runCompaction(run: AgentLoopRun, roundSystemPrompt: string, budget: TokenBudget): Promise<void> {
   const host = run.input;
   const limits = run.config;
   console.log(`${logTag} mid-loop compaction triggered (estimated=${budget.estimatedInput} budget=${budget.usableInputBudget})`);
@@ -221,7 +221,7 @@ async function runCompaction(run: HarnessRun, roundSystemPrompt: string, budget:
   host.onCompactionLifecycle?.({ status: "committed", messageCountBefore: before, messageCountAfter: replacement.length, cache: { ...run.cache } });
   checkpoint(run);
 }
-async function callRoundLLM(run: HarnessRun, promptLayers: PromptLayers, roundId: string): Promise<ChatResponse> {
+async function callRoundLLM(run: AgentLoopRun, promptLayers: PromptLayers, roundId: string): Promise<ChatResponse> {
   const reasoningId = `reasoning-${run.rounds}`;
   let thinking = false;
   const prefix = new ChatTimeStreamPrefixFilter();
@@ -242,7 +242,7 @@ async function callRoundLLM(run: HarnessRun, promptLayers: PromptLayers, roundId
   }
 }
 
-function checkpoint(run: HarnessRun): void {
+function checkpoint(run: AgentLoopRun): void {
   try { run.input.onCheckpoint?.({ messages: run.messages, state: run.state, toolOutputs: run.toolOutputs,
     rounds: run.rounds, cache: { ...run.cache }, at: Date.now() }); }
   catch (cause) {
@@ -252,34 +252,34 @@ function checkpoint(run: HarnessRun): void {
     console.error(`${logTag} checkpoint failed:`, { runId: run.input.runId, round: run.rounds, ...safe });
   }
 }
-function drainRunExecution(run: HarnessRun): Promise<void> {
+function drainRunExecution(run: AgentLoopRun): Promise<void> {
   if (run.executionSettlement) return run.executionSettlement;
   const owner = run.input.toolContext?.execution;
   run.executionSettlement = owner ? owner.scope.childRunId === owner.scope.parentRunId
     ? owner.coordinator.closeGroup(owner.scope.groupId) : owner.coordinator.whenChildSettled(owner.scope.childRunId) : Promise.resolve();
   return run.executionSettlement;
 }
-async function settleRun(run: HarnessRun): Promise<void> {
+async function settleRun(run: AgentLoopRun): Promise<void> {
   await drainRunExecution(run);
   run.clock.stopActive();
   emitContextUsage(run, "terminal");
   checkpoint(run);
 }
-function abortedResult(run: HarnessRun): Promise<HarnessResult> {
+function abortedResult(run: AgentLoopRun): Promise<AgentLoopResult> {
   if (!run.deadlineExceeded) return cancelledResult(run);
   const reply = run.streamController.getBuffered() || buildTimeoutReply(run.state);
   run.input.onEvent?.({ type: "final_answer", content: reply });
   return finishRun(run, reply, true, "timeout");
 }
-async function cancelledResult(run: HarnessRun): Promise<HarnessResult> {
+async function cancelledResult(run: AgentLoopRun): Promise<AgentLoopResult> {
   run.input.quiesceExecution?.();
   await settleRun(run);
   if (run.checkpointFailure) return buildResult(`执行状态保存失败：${run.checkpointFailure}`, run.state, true, "error", run.rounds, run.failure);
   return { finalAnswer: "", finalState: run.state, terminated: true, terminateReason: "cancelled",
     terminal: { status: "cancelled", reason: "user_cancelled", externalEffectsMayContinue: true }, rounds: run.rounds };
 }
-async function finishRun(run: HarnessRun, finalAnswer: string, terminated: boolean,
-  terminateReason: HarnessResult["terminateReason"]): Promise<HarnessResult> {
+async function finishRun(run: AgentLoopRun, finalAnswer: string, terminated: boolean,
+  terminateReason: AgentLoopResult["terminateReason"]): Promise<AgentLoopResult> {
   if (terminated) run.input.quiesceExecution?.();
   await settleRun(run);
   if (run.checkpointFailure) {
@@ -307,10 +307,10 @@ function buildMaxRoundsReply(state: AgentState, maxRounds: number): string {
   return interruptionReply(state, [`任务已达到工具轮次上限（${maxRounds}），已停止继续执行。`, "", "中断原因：工具轮次上限"]);
 }
 function buildResult(finalAnswer: string, state: AgentState, terminated: boolean,
-  terminateReason: HarnessResult["terminateReason"], rounds: number, failure?: RunFailure): HarnessResult {
+  terminateReason: AgentLoopResult["terminateReason"], rounds: number, failure?: RunFailure): AgentLoopResult {
   return { finalAnswer, finalState: state, terminated, terminateReason, rounds, ...(failure ? { failure } : {}) };
 }
-function recordFailure(run: HarnessRun, error: unknown, source: RunFailureSource, stage = ""): RunFailure {
+function recordFailure(run: AgentLoopRun, error: unknown, source: RunFailureSource, stage = ""): RunFailure {
   const safe = publicRunFailure(error, source);
   run.failure = safe;
   // The local log also names the internal code and the error chain (class names and codes, never a message)
