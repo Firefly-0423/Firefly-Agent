@@ -250,10 +250,10 @@ describe("authenticated Main user admission", () => {
     });
     it("issues a direct-user receipt containing the queued human text without attachment bytes", async () => {
         const { EventEmitter } = await import("node:events");
-        const { createMainDesktopSessionAuthority } = await import("../../memory/context/main-desktop-session-authority");
+        const { createMainDesktopSessionAuthority } = await import("../../memory/sources/main-desktop-session-authority");
         const { createActiveChatTargetRegistry } = await import("../../platform/interaction/active-chat-target");
         const { createDesktopUserSourceProvider } = await import("../../memory/sources/desktop-user-source-provider");
-        const { requireMainSourceProvider } = await import("../../memory/sources/main-source-provider");
+        const { requireMainSourceProvider } = await import("../../memory/core/main-source-provider");
         const cache = await import("./chats-store");
         cache.initialize();
         const sender = Object.assign(new EventEmitter(), { id: 381, mainFrame: {}, isDestroyed: () => false }), targets = createActiveChatTargetRegistry(), received = { sender, senderFrame: sender.mainFrame };

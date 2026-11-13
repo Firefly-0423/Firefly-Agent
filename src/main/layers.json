@@ -60,6 +60,35 @@
         "tooling",
         "conversation",
         "knowledge"
+      ],
+      "internal": [
+        [
+          "core"
+        ],
+        [
+          "shadow"
+        ],
+        [
+          "sources"
+        ],
+        [
+          "policy"
+        ],
+        [
+          "recall"
+        ],
+        [
+          "history"
+        ],
+        [
+          "context"
+        ],
+        [
+          "database"
+        ],
+        [
+          "legacy"
+        ]
       ]
     },
     "agent": {

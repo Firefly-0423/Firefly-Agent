@@ -4,7 +4,7 @@ import path from "node:path";
 import {randomBytes} from "node:crypto";
 import {DatabaseSync} from "node:sqlite";
 import {afterEach,it,expect} from "vitest";
-import {openMemoryRepository} from "./repository";
+import {openMemoryRepository} from "../database/repository";
 import {MEMORY_SCHEMA_VERSION} from "./schema";
 const roots:string[]=[],repositories:ReturnType<typeof openMemoryRepository>[]=[];
 afterEach(()=>{for(const r of repositories.splice(0))r.close();for(const p of roots.splice(0))fs.rmSync(p,{recursive:true,force:true})});

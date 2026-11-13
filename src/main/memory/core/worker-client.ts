@@ -55,7 +55,7 @@ export class MemoryClient {
    held();handle=await loadOrCreateMemoryKey({roots:input.storage.memory,protection:input.keyProtection,checkpoint:held});held();
    const bytes=copyMemoryKeyBytes(handle);let worker:MemoryWorkerPort;
    try{
-    worker=(input.workerFactory??(data=>new Worker(path.join(__dirname,"worker.js"),{workerData:data,execArgv:[]})))({databasePath:path.join(input.storage.memory.dataRoot,"memory.sqlite"),key:bytes});
+    worker=(input.workerFactory??(data=>new Worker(path.join(__dirname,"..","database","worker.js"),{workerData:data,execArgv:[]})))({databasePath:path.join(input.storage.memory.dataRoot,"memory.sqlite"),key:bytes});
    }finally{bytes.fill(0)}
    client=new MemoryClient(worker,writer,handle);client.unsubscribe=unsubscribe;
    await client.ready;held();assertMemoryKeyOpenLease(handle);

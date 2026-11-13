@@ -5,7 +5,7 @@ import {randomUUID} from "node:crypto";
 import {afterEach,expect,it,vi} from "vitest";
 import {createSmhFixture} from "../context/smh-fixture.test-support";
 import {createMainUserFactCoordinator} from "./main-user-fact-coordinator";
-import {createMainSourceProvider,type SourceSnapshot} from "../sources/main-source-provider";
+import {createMainSourceProvider,type SourceSnapshot} from "../core/main-source-provider";
 import {canonicalJson} from "../core/repository-types";
 
 const owned:ReturnType<typeof createSmhFixture>[]=[];

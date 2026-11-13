@@ -1,6 +1,6 @@
 import {createHash} from "node:crypto";
 import {canonicalJson} from "../core/repository-types";
-import type {Attribute} from "./extractor";
+import type {Attribute} from "../core/extractor";
 import type {ContextKey} from "./maintenance-extractor";
 
 /** Compatibility v1: keep these bytes stable, including for existing deletion markers. */

@@ -5,7 +5,7 @@ import {randomBytes,createHash} from "node:crypto";
 import {DatabaseSync} from "node:sqlite";
 import {afterEach,it,expect,vi} from "vitest";
 import {openMemoryRepository} from "./repository";
-import {canonicalJson} from "./repository-types";
+import {canonicalJson} from "../core/repository-types";
 const dirs:string[]=[];const repos:any[]=[];
 afterEach(()=>{for(const repo of repos.splice(0))repo.close();for(const dir of dirs.splice(0))fs.rmSync(dir,{recursive:true,force:true})});
 function fixture(){const root=fs.mkdtempSync(path.join(os.tmpdir(),"memory-repo-"));dirs.push(root);return{databasePath:path.join(root,"memory.sqlite"),key:randomBytes(32)}}

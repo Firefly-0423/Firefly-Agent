@@ -180,7 +180,7 @@ it("supplied-byte S pending text remains diagnostic and never enters H evidence 
 });
 
 it("native H joins S and M through one observer and coverage never invokes legacy RAG",async()=>{
- const {initializeStorageContext}=await import('../../base/storage/storage-context'),{resolveRuntimeProfile}=await import('../../base/identity/runtime-profile'),{createNativeHistoryProvider}=await import('../sources/native-history-provider');
+ const {initializeStorageContext}=await import('../../base/storage/storage-context'),{resolveRuntimeProfile}=await import('../../base/identity/runtime-profile'),{createNativeHistoryProvider}=await import('../history/native-history-provider');
  const isolation=fs.mkdtempSync(path.join(os.tmpdir(),'smh-native-joint-'));roots.push(isolation);
  const storage=initializeStorageContext(resolveRuntimeProfile({argv:['--firefly-profile=test','--firefly-isolation-root='+isolation],env:{},isPackaged:false,productionAppData:path.join(os.tmpdir(),'synthetic-production-never-used')}));
  const f=createSmhFixture(path.join(isolation,'index'));fixtures.push(f);const store=new ConversationTranscriptStore(storage.dataRoot);

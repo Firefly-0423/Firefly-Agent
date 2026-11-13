@@ -2,7 +2,7 @@ import {historyMessageChars} from './history-message';
 import {canonicalJson} from '../core/repository-types';
 import {rankHistory} from './history-ranking';
 import {toWindows} from './history-windows';
-import {historyTimeSpan,type HistoryTemporalQuery} from './history-temporal';
+import {historyTimeSpan,type HistoryTemporalQuery} from '../core/history-temporal';
 import {validateReadonlyHistoryScope} from './firefly-history-reader';
 import {DEFAULT_HISTORY_SETTINGS,type ReadonlyHistoryScope,type ReadonlyHistoryReadResult,type HistorySettings} from './history-contracts';
 /** Bounded read-only lexical nominations. Never a Worker truth/support/evidence capability. */

@@ -3,7 +3,7 @@ import { contextFixture } from "../../../../scripts/verify/memory-context/contex
 import { createBackgroundMemoryIngressIssuer } from "./background-memory-ingress";
 import { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
 import { createMainUserFactCoordinator } from "../../memory/policy/main-user-fact-coordinator";
-import { requireMainSourceProvider } from "../../memory/sources/main-source-provider";
+import { requireMainSourceProvider } from "../../memory/core/main-source-provider";
 import { createTaskSourceProvider } from "./task-source-provider";
 
 async function fixture(entry: "scheduler" | "child" | "proactive") {

@@ -10,7 +10,7 @@ import {SourceLedger} from "../core/source-ledger";
 import {Suppression} from "../core/suppression";
 import {FactRepository} from "../core/fact-repository";
 import {executeTransaction,type TransactionFault} from "../core/command-transactions";
-import {extractPreference,type Extraction, type Attribute} from "./extractor";
+import {extractPreference,type Extraction, type Attribute} from "../core/extractor";
 import type {PolicyCandidate,PolicyOutcome,PolicyBaseline,IntegrationResult} from "./policy-contracts";
 import {FactSupports,type ConfirmationProof} from "./fact-supports";
 import {transactionNow,withTransactionClock} from "../core/transaction-clock";

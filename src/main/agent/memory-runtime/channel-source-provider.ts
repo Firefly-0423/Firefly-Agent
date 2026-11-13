@@ -9,7 +9,7 @@ import { canonicalJson } from "../../memory/core/repository-types";
 import type { SourceIdentity, SourceTrust } from "../../memory/core/source-contracts";
 import type { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
 import type { TranscriptSnapshot } from "../../conversation/transcript/conversation-transcript-types";
-import { createMainSourceProvider, type SourceSnapshot } from "../../memory/sources/main-source-provider";
+import { createMainSourceProvider, type SourceSnapshot } from "../../memory/core/main-source-provider";
 
 interface Options {
   providerId: string;

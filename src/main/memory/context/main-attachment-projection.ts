@@ -4,8 +4,8 @@ import type { TranscriptEntry, TranscriptUserPayload } from "../../conversation/
 import type { OpenAIContentBlock } from "../../model/providers/types";
 import { copyResponseJson } from "../../model/providers/response-request-snapshot";
 import { contextFail, type ContextMessage } from "../../model/context/context-contracts";
-import { maskContextSecrets } from "./source-secret-screen";
-import { validateUnit } from "./token-budget";
+import { maskContextSecrets } from "../core/source-secret-screen";
+import { validateUnit } from "../core/token-budget";
 
 declare const grantBrand: unique symbol;
 export type MainAttachmentGrant = Readonly<{ [grantBrand]: true }>;

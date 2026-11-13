@@ -1,4 +1,4 @@
-import {assertContextSecretFree} from "../context/source-secret-screen";
+import {assertContextSecretFree} from "../core/source-secret-screen";
 import type {BoundSourceRef,FactView} from "../../../shared/memory-contracts";
 import {objectFields} from "../core/command-validation";
 import type {MainActorAuthority} from "../core/main-actor-authority";

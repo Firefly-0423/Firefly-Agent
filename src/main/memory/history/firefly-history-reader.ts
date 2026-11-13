@@ -6,7 +6,7 @@ import {parseInternalId} from '../core/command-validation';
 import {classifySAssistantSettlement} from '../../conversation/transcript/conversation-transcript-settlement';
 import type {TranscriptEntry} from '../../conversation/transcript/conversation-transcript-types';
 import {extractMaintenance} from '../policy/maintenance-extractor';
-import {validateUnit} from '../context/token-budget';
+import {validateUnit} from '../core/token-budget';
 import type {ContextMessage} from '../../model/context/context-contracts';
 import type {ReadonlyHistoryScope,ReadonlyHistoryReadResult,ReadonlyHistoryRecord,ReadonlyHistoryProvenance,HistoryMessage,ReadonlyHistoryBytes,ReadonlyHistorySelectionHead} from './history-contracts';
 

@@ -1,4 +1,4 @@
-import {objectFields} from '../core/command-validation';
+import {objectFields} from './command-validation';
 export type HistoryTemporalQuery={kind:'latest'}|{kind:'range';from:number;to:number};
 export interface HistoryTimeSpan {start:number;end:number}
 export interface HistoryTemporalResult {kind:HistoryTemporalQuery['kind'];status:'applied'|'partial'|'unavailable';unknownDocuments:number}

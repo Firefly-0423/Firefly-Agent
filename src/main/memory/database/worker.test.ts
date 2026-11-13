@@ -11,8 +11,8 @@ import {afterEach,beforeAll,describe,it,expect,vi} from "vitest";
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 import {resolveRuntimeProfile} from "../../base/identity/runtime-profile";
 import {createStorageContext} from "../../base/storage/storage-context";
-import {sealPayload,openPayload} from "./payload-codec";
-import {MemoryClient} from "./worker-client";
+import {sealPayload,openPayload} from "../core/payload-codec";
+import {MemoryClient} from "../core/worker-client";
 // Both real and fake Workers acquire the real Windows protected-key publication lease.
 describe.runIf(process.platform==="win32")("Windows protected-key and writer lease integration",()=>{
 const dirs:string[]=[],scopes:ReturnType<typeof clientScope>[]=[];
@@ -21,7 +21,7 @@ const verifiedSyntheticCleanupFailures=new WeakSet<MemoryClient>();
 function clientScope(){return createTestResourceScope<MemoryClient>(async client=>{if(!verifiedSyntheticCleanupFailures.has(client))await client.close()})}
 function openClient(input:Parameters<typeof MemoryClient.open>[0]){return owned.get(input.storage)!.open(()=>MemoryClient.open(input))}
 const workerPath=path.resolve(process.env.FIREFLY_MEMORY_WORKER_TEST_OUTPUT??"output/memory-core/worker-tests/worker.cjs");
-beforeAll(async()=>{await build({entryPoints:["src/main/memory/core/worker.ts"],outfile:workerPath,bundle:true,platform:"node",target:"node24",format:"cjs"})});
+beforeAll(async()=>{await build({entryPoints:["src/main/memory/database/worker.ts"],outfile:workerPath,bundle:true,platform:"node",target:"node24",format:"cjs"})});
 afterEach(async()=>{const ownScopes=scopes.splice(0),ownDirs=dirs.splice(0);vi.useRealTimers();await Promise.all(ownScopes.map(scope=>scope.close()));for(const dir of ownDirs)fs.rmSync(dir,{recursive:true,force:true})});
 function fixture(){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),"memory-client-"));dirs.push(root);
@@ -147,8 +147,8 @@ it("reports failed ownership cleanup rather than claiming shutdown completed",as
 });
 
 it("executes trusted fact commands on the worker and preserves Main scope boundaries",async()=>{
- const {MemoryService}=await import("./memory-service");
- const {createMainMemoryAuthority}=await import("./main-access");
+ const {MemoryService}=await import("../core/memory-service");
+ const {createMainMemoryAuthority}=await import("../core/main-access");
  const client=await openClient(fixture());
  const sourceRef={sourceId:"trusted-worker-source",revision:1};
  const authority=createMainMemoryAuthority({policyVersion:"policy-v1",resolveSource:()=>({...sourceRef,scopeKey:"scope-a",kind:"user",intent:"statement",policyEligibility:{directStatement:true,inferred:false,sensitive:false,conflict:false}})});
@@ -167,7 +167,7 @@ it("executes trusted fact commands on the worker and preserves Main scope bounda
 
 it("validates a streamed claimed context through the real Worker without reusing its permit",async()=>{
  const {createMainSourceRegistry}=await import("../sources/source-registry"),{SyntheticSourceProvider}=await import("../../../../scripts/verify/memory-sources/synthetic-provider");
- const {createMainActorAuthority}=await import("./main-actor-authority"),{createMainContext}=await import("../context/main-context");
+ const {createMainActorAuthority}=await import("../core/main-actor-authority"),{createMainContext}=await import("../context/main-context");
  const f=fixture(),client=await openClient(f),authority=createMainActorAuthority({resolveActor:()=>"worker-human"});
  const registry=createMainSourceRegistry(client,{coordinate:authority.coordinate}),access=registry.authority.access("scope-a"),provider=new SyntheticSourceProvider(path.join(f.storage.memory.dataRoot,"stream-context.json"),"scope-a");
  const identity={providerId:"synthetic",sessionId:"worker-stream-session",messageId:"u1"};provider.write(identity,{text:"synthetic controlled stream",role:"user",trust:"direct-user-event"});

@@ -4,7 +4,7 @@ import {expect,it} from 'vitest';
 import {contextFixture} from '../../../../scripts/verify/memory-context/context-fixture';
 import {createMainHistory,createMainHistoryProvider} from '../history/main-history';
 import {parseFireflyHistoryBytes} from '../history/firefly-history-reader';
-import {createMainTranscriptProvider} from './main-transcript-provider';
+import {createMainTranscriptProvider} from '../history/main-transcript-provider';
 async function fixture(options:{reserve?:boolean;claim?:boolean;generic?:boolean}={}){
  const f=await contextFixture(),transport={...f.transport,historyCommand:async(c:any)=>f.repo.historyCommand(c)};
  const history=createMainHistory({actorAuthority:f.actorAuthority,registry:f.registry,transport});

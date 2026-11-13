@@ -12,7 +12,7 @@ if(!/SCHEMA_VERSION\s*=\s*8\s*[;,]/.test(fs.readFileSync(path.join(cwd,'src/main
 if(fs.existsSync(root))throw new Error('ACTUAL_V8_CAPTURE_DESTINATION_EXISTS');
 fs.mkdirSync(root,{recursive:true});
 const bundle=path.join(root,'v8-writer.cjs');
-await build({entryPoints:['src/main/memory/core/repository.ts'],outfile:bundle,bundle:true,platform:'node',target:'node24',format:'cjs'});
+await build({entryPoints:['src/main/memory/database/repository.ts'],outfile:bundle,bundle:true,platform:'node',target:'node24',format:'cjs'});
 const {openMemoryRepository}=createRequire(import.meta.url)(bundle);
 const file=path.join(root,'memory.sqlite'),key=Buffer.alloc(32,8);
 const repo=openMemoryRepository({databasePath:file,key});

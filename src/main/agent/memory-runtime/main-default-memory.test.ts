@@ -7,7 +7,7 @@ import { afterEach, expect, it, vi } from "vitest";
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 import { HarnessRunStore } from "../loop/run-store";
 import { randomBytes } from "node:crypto";
-import { openMemoryRepository } from "../../memory/core/repository";
+import { openMemoryRepository } from "../../memory/database/repository";
 import { createActiveChatTargetRegistry } from "../../platform/interaction/active-chat-target";
 import { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
 import { createTranscriptSink } from "../loop/transcript-sink";
@@ -397,7 +397,7 @@ it('a closed memory run never lets its enrolled poller fall back to unguarded qu
 async function candidate(f:Awaited<ReturnType<typeof fixture>>,text='I prefer English'){
  const {createMainActorAuthority}=await import('../../memory/core/main-actor-authority');
  const {createMainSourceRegistry}=await import('../../memory/sources/source-registry');
- const {createMainSourceProvider}=await import('../../memory/sources/main-source-provider');
+ const {createMainSourceProvider}=await import('../../memory/core/main-source-provider');
  const {createMainPolicy}=await import('../../memory/policy/main-policy');
  const actorAuthority=createMainActorAuthority({resolveActor:()=> 'desktop-local-user-v1'});
  const registry=createMainSourceRegistry(f.transport,{coordinate:actorAuthority.coordinate}),access=registry.authority.access('desktop-local-profile-v1');

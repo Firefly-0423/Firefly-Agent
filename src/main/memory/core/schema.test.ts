@@ -5,7 +5,7 @@ import {randomBytes} from "node:crypto";
 import {DatabaseSync} from "node:sqlite";
 import {it,expect} from "vitest";
 import {ensureDatabaseAuth} from "./database-auth";
-import {openMemoryRepository} from "./repository";
+import {openMemoryRepository} from "../database/repository";
 import {MEMORY_SCHEMA_VERSION} from "./schema";
 import {ENTITY_TABLES} from "./repository-types";
 it("upgrades a schema-equivalent v6 fixture to the current schema",()=>{

@@ -9,7 +9,7 @@ import {createMainHistory} from '../history/main-history';
 import {ConversationTranscriptStore} from '../../conversation/transcript/conversation-transcript-store';
 import {initializeStorageContext} from '../../base/storage/storage-context';
 import {resolveRuntimeProfile} from '../../base/identity/runtime-profile';
-import {createNativeHistoryProvider} from './native-history-provider';
+import {createNativeHistoryProvider} from '../history/native-history-provider';
 import {createNativeHistoryEndpointFactory} from './native-history-transport';
 // E: is the local acceptance workspace, not a universal drive-letter requirement.
 // CI must explicitly supply a dedicated local NTFS synthetic root and matching TEMP/TMP.

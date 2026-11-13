@@ -7,7 +7,7 @@ import {DatabaseSync} from "node:sqlite";
 import {RecordCodec} from "../core/record-codec";
 import {createSmhFixture} from "./smh-fixture.test-support";
 import {createMainContext} from "./main-context";
-import {countPrepared,selectBudget} from "./token-budget";
+import {countPrepared,selectBudget} from "../core/token-budget";
 const identity={providerId:"openrouter",model:"openai/gpt-6-luna",transport:"responses",framingVersion:"bounded-fixture-v1"};
 const budget={maxContextTokens:20000,reservedOutputTokens:512,safetyMarginTokens:1024,maxSTokens:4000,minRecentCompleteTurns:1};
 const prepare=(units:any[])=>({...identity,inputTypes:["text"],maxOutputTokens:512,body:{model:identity.model,instructions:"fixed synthetic instruction",input:units.flatMap(u=>u.messages),max_output_tokens:512}});

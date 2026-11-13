@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { assertContextSecretFree, maskContextSecrets } from "./source-secret-screen";
-import { validateUnit } from "./token-budget";
+import { assertContextSecretFree, maskContextSecrets } from "../core/source-secret-screen";
+import { validateUnit } from "../core/token-budget";
 
 const maskedGhStatus = "github.com\n  - Active account: true\n  - Token: gho_" + "*".repeat(36) + "\n  - Token scopes: 'repo'\n";
 const leaked = /CANARY|SYNTHETIC_ONLY|SYNTHETIC_SECRET|abcdefghijklmnop/;

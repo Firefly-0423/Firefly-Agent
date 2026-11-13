@@ -8,7 +8,7 @@ import { initializeSchema } from "../core/schema";
 import { RecordCodec } from "../core/record-codec";
 import { Suppression } from "../core/suppression";
 import { TranscriptLedger, type TranscriptHead } from "./transcript-ledger";
-import type { ContextOwner } from "./context-repository";
+import type { ContextOwner } from "../context/context-repository";
 
 const SCOPE = "scope-a";
 const owner: ContextOwner = { actorKey: "actor-a", providerId: "provider-a", sessionId: "session-a", bootId: "boot-a" };

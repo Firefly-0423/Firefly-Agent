@@ -6,7 +6,7 @@ import {createHash,randomBytes,randomUUID} from "node:crypto";
 import {afterEach,it,expect,vi} from "vitest";
 // Real SQLite / filesystem integration cases: the 5 s default is too tight on CI runners, so this file allows 30 s. Other files keep the default.
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
-import {openMemoryRepository} from "../core/repository";
+import {openMemoryRepository} from "../database/repository";
 import {MemoryService} from "../core/memory-service";
 import {createMainSourceRegistry} from "../sources/source-registry";
 import {SyntheticSourceProvider} from "../../../../scripts/verify/memory-sources/synthetic-provider";

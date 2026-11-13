@@ -1,8 +1,8 @@
 /** Dedicated SQLite owner. This module is loaded only inside a Main-created Worker. */
 import {isMainThread,parentPort,workerData} from "node:worker_threads";
 import {openMemoryRepository} from "./repository";
-import {objectFields,parseInternalId} from "./command-validation";
-import type {BatchCommand,EntityTable} from "./repository-types";
+import {objectFields,parseInternalId} from "../core/command-validation";
+import type {BatchCommand,EntityTable} from "../core/repository-types";
 if(isMainThread||!parentPort)throw new Error("MEMORY_WORKER_REQUIRED");
 const port=parentPort,key=workerData?.key;
 let closing=false;

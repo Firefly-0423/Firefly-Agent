@@ -5,7 +5,7 @@ import { canonicalJson } from "../core/repository-types";
 import type { SourceIdentity } from "../core/source-contracts";
 import type { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
 import type { TranscriptSnapshot } from "../../conversation/transcript/conversation-transcript-types";
-import { createMainSourceProvider, type SourceSnapshot } from "./main-source-provider";
+import { createMainSourceProvider, type SourceSnapshot } from "../core/main-source-provider";
 
 type Event = Pick<IpcMainInvokeEvent, "sender" | "senderFrame">;
 interface Options {

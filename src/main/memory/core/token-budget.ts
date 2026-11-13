@@ -1,5 +1,5 @@
 import {createHash} from "node:crypto";
-import {canonicalJson} from "../core/repository-types";
+import {canonicalJson} from "./repository-types";
 import {ContextError,contextFail,type BudgetInput,type BudgetResult,type ContextBudget,type ContextMessage,type ContextUnit,type PreparedRequest,type TokenCounter} from "../../model/context/context-contracts";
 
 const identityKeys=["providerId","model","transport","framingVersion"] as const;

@@ -7,7 +7,7 @@ import {contextFail,type TranscriptDependency} from "../../model/context/context
 import {parseTranscriptProvenance,type TranscriptEventSource} from "./main-transcript-provider";
 import {objectFields} from "../core/command-validation";
 import {Suppression} from "../core/suppression";
-import type {ContextOwner} from "./context-repository";
+import type {ContextOwner} from "../core/context-owner";
 export interface TranscriptHead extends ContextOwner {
  id:string;generation:number;state:"pending"|"ready"|"deleted";operationId:string|null;
  ref:TranscriptDependency|null;incarnation:string|null;contentRevision:number;throughSeq:number;sourceRefs:BoundSourceRef[];retired:string[];provenance?:Array<TranscriptEventSource&{subjectKeys:string[]|null}>;

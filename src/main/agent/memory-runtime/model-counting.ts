@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import type { VendorConfig } from "../../model/providers/types";
 import { resolveTransport } from "../../model/providers/transport-detector";
 import { estimateTokens, DEFAULT_IMAGE_TOKEN_ESTIMATE } from "../runtime/context-manager";
-import { freezeRequest } from "../../memory/context/token-budget";
+import { freezeRequest } from "../../memory/core/token-budget";
 import { contextFail, type JsonValue, type PreparedRequest, type TokenCounter } from "../../model/context/context-contracts";
 
 import { PRODUCTION_ESTIMATOR_VERSION } from "../../memory/context/model-counting-contract";

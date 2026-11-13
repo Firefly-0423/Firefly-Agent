@@ -3,7 +3,7 @@ import path from "node:path";
 import {randomUUID} from "node:crypto";
 import {canonicalJson} from "../../../src/main/memory/core/repository-types";
 import type {SourceIdentity,SourceRole,SourceTrust} from "../../../src/main/memory/core/source-contracts";
-import {createMainSourceProvider,type SourceSnapshot} from "../../../src/main/memory/sources/main-source-provider";
+import {createMainSourceProvider,type SourceSnapshot} from "../../../src/main/memory/core/main-source-provider";
 
 /** Synthetic file-backed provider only. Never opens chatsStore or application userData. */
 export class SyntheticSourceProvider {

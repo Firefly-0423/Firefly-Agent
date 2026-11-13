@@ -4,11 +4,11 @@ import path from "node:path";
 import { randomBytes, randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, expect, it } from "vitest";
-import { MemoryRepository } from "../core/repository";
+import { MemoryRepository } from "../database/repository";
 import { initializeSchema } from "../core/schema";
 import { canonicalJson } from "../core/repository-types";
 import { RecordCodec } from "../core/record-codec";
-import { createMainSourceProvider, type SourceSnapshot } from "../sources/main-source-provider";
+import { createMainSourceProvider, type SourceSnapshot } from "../core/main-source-provider";
 import { createMainSourceRegistry } from "../sources/source-registry";
 import type { BoundSourceRef } from "../../../shared/memory-contracts";
 

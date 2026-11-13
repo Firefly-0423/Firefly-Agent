@@ -13,8 +13,8 @@ import type { ChatMessage, ChatRequest, ChatResponse, ChatVendorAdapter, VendorC
 import { contextFail, type ContextBudget, type ContextFact, type ContextTransport, type ContextUnit, type PreparedRequest, type TokenCounter } from "../../model/context/context-contracts";
 import { createMainContext } from "../../memory/context/main-context";
 import type { MemoryRunAuthority, MemoryRunContext, MemoryRunGrant } from "../../memory/context/main-memory-contracts";
-import { maskContextSecrets } from "../../memory/context/source-secret-screen";
-import { requestDigest, selectBudget } from "../../memory/context/token-budget";
+import { maskContextSecrets } from "../../memory/core/source-secret-screen";
+import { requestDigest, selectBudget } from "../../memory/core/token-budget";
 import {factContextMessages as memoryMessages} from "../../memory/context/fact-context-messages";
 
 export interface MainMemoryModelBinding {

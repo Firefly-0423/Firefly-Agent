@@ -5,12 +5,12 @@ import type {MainActorAuthority} from '../core/main-actor-authority';
 import {canonicalJson} from '../core/repository-types';
 import type {ConversationTranscriptStore,TranscriptMutation} from '../../conversation/transcript/conversation-transcript-store';
 import type {TranscriptEntry} from '../../conversation/transcript/conversation-transcript-types';
-import {createMainHistoryProvider,type createMainHistory,type HistoryResponseBinding,type HistoryResponseSelection,type HistoryResponseWitness,type NativeHistoryResponseFactory} from '../history/main-history';
-import {historyTranscriptDigest} from '../history/history-transcript-digest';
-import {parseFireflyHistoryBytes} from '../history/firefly-history-reader';
-import type {HistoryDocument,ReadonlyHistoryRecord,ReadonlyHistorySelectionHead} from '../history/history-contracts';
+import {createMainHistoryProvider,type createMainHistory,type HistoryResponseBinding,type HistoryResponseSelection,type HistoryResponseWitness,type NativeHistoryResponseFactory} from './main-history';
+import {historyTranscriptDigest} from './history-transcript-digest';
+import {parseFireflyHistoryBytes} from './firefly-history-reader';
+import type {HistoryDocument,ReadonlyHistoryRecord,ReadonlyHistorySelectionHead} from './history-contracts';
 import type {TranscriptDependency} from '../../model/context/context-contracts';
-import type {NativeHistoryEndpoint,NativeHistoryEndpointFactory,NativeHistoryIdentity} from './native-history-transport';
+import type {NativeHistoryEndpoint,NativeHistoryEndpointFactory,NativeHistoryIdentity} from '../sources/native-history-transport';
 
 type CoverageReason='snapshot-missing'|'transcript-missing'|'not-acquired'|'partial-source'|'selection-budget-exhausted'|'disabled-by-forget'|'disabled-by-retraction';
 export interface NativeHistoryCoverageInsufficient {status:'coverage-insufficient';source:'native-h';coverage:'partial';reason:CoverageReason;diagnostics:string[];selection:{selected:1;covered:0;excluded:1}}

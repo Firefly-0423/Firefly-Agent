@@ -1,5 +1,5 @@
-import type {SourceIdentity,SourceRole,SourceTrust,SourceObservation} from "../core/source-contracts";
-import {parseInternalId} from "../core/command-validation";
+import type {SourceIdentity,SourceRole,SourceTrust,SourceObservation} from "./source-contracts";
+import {parseInternalId} from "./command-validation";
 
 export interface SourceSnapshot extends SourceIdentity {
  contentRevision:number;generation:string;state:"live"|"deleted";

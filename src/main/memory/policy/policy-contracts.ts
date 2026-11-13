@@ -1,5 +1,5 @@
 import type {BoundSourceRef} from "../../../shared/memory-contracts";
-import type {Extraction,Attribute} from "./extractor";
+import type {Extraction,Attribute} from "../core/extractor";
 export interface IntegrationResult {items:PolicyOutcome[]}
 export interface PolicyBaseline {factId:string;revision:number;subjectKey:string}
 /** Private worker/Main contracts, never renderer DTOs. */

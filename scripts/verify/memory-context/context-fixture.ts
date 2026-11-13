@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import {randomBytes,randomUUID} from "node:crypto";
 import {afterEach} from "vitest";
-import {openMemoryRepository} from "../../../src/main/memory/core/repository";
+import {openMemoryRepository} from "../../../src/main/memory/database/repository";
 import {createMainSourceRegistry} from "../../../src/main/memory/sources/source-registry";
 import {createMainPolicy} from "../../../src/main/memory/policy/main-policy";
 import {SyntheticSourceProvider} from "../memory-sources/synthetic-provider";

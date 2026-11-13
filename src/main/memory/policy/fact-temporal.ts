@@ -1,5 +1,5 @@
 import type {FactTime} from "../../../shared/memory-contracts";
-import {parseHistoryTimeIntent} from "../history/history-time-intent";
+import {parseHistoryTimeIntent} from "../core/history-time-intent";
 export interface TemporalSource {occurredAt?:number;timeZone?:string}
 export type FactTemporal = {kind:"none"}|{kind:"unresolved"}|{kind:"resolved";time:FactTime;clause:{start:number;end:number}};
 const MARKER=/\d{4}[-年]\d{1,2}|昨天|昨日|今天|今日|前天|明天|上个?月|上周|上个?星期|本月|这周|以前|曾经|最近|过去|当时|暂时|\b(?:yesterday|today|tomorrow|last|previous|recently|formerly|temporarily|used to|since|until|during|in \d{4})\b/iu;

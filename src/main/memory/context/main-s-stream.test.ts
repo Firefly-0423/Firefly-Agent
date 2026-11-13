@@ -318,7 +318,7 @@ it("the next real controlled turn reads the preceding sink-written canonical rep
 });
 
 it.each(["", "bad\nentry", "bad\u0000entry", "bad\u007fentry", "x".repeat(1025)])("provenance rejects malformed event IDs without weakening private memory IDs: %j",async id=>{
- const {parseTranscriptProvenance}=await import("./main-transcript-provider"),{parseInternalId}=await import("../core/command-validation");
+ const {parseTranscriptProvenance}=await import("../history/main-transcript-provider"),{parseInternalId}=await import("../core/command-validation");
  expect(()=>parseTranscriptProvenance([{entryId:id,turnId:"ui:u1",seq:1,occurredAt:1000,role:"user"}])).toThrow("MEMORY_CONTEXT_INPUT_INVALID");
  expect(()=>parseInternalId("run-s:assistant:s-response")).toThrow("MEMORY_INPUT_INVALID");
 });
