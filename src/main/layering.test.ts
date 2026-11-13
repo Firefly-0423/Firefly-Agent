@@ -5,14 +5,13 @@ import { describe, expect, it } from "vitest";
 
 /**
  * 依赖方向测试：src/main 的每个文件只能引用自己所在层和 layers.json 允许的层。
- * 过渡期的存量违规记在 layering-known-violations.json 里，这份清单只能减少：
- * 新增违规会失败；清单里已经修掉的条目也会失败，提醒把它从清单删除。
+ * 没有例外清单：出现越层引用就失败。修法依次是挪文件、把共用类型下沉、由上层传入或登记，
+ * 不要为了过测试放宽 layers.json。
  */
 const mainRoot = __dirname;
 const layers = (JSON.parse(fs.readFileSync(path.join(mainRoot, "layers.json"), "utf8")) as {
   layers: Record<string, { level: number; allow: string[] }>;
 }).layers;
-const known = new Set(JSON.parse(fs.readFileSync(path.join(mainRoot, "layering-known-violations.json"), "utf8")) as string[]);
 
 const codeExtensions = [".ts", ".tsx", ".js", ".cjs", ".mjs"];
 const isTestFile = (file: string) =>
@@ -72,14 +71,12 @@ function collectViolations(): string[] {
 }
 
 describe("src/main layering", () => {
-  const violations = collectViolations();
-
-  it("has no import that goes up or sideways beyond what layers.json allows, except the recorded ones", () => {
-    expect(violations.filter((entry) => !known.has(entry))).toEqual([]);
+  it("has no import that goes up or sideways beyond what layers.json allows", () => {
+    expect(collectViolations()).toEqual([]);
   });
 
-  it("keeps the recorded violation list in step with the code: fixed entries are removed", () => {
-    const current = new Set(violations);
-    expect([...known].filter((entry) => !current.has(entry))).toEqual([]);
+  it("assigns every directory under src/main to a layer", () => {
+    const directories = fs.readdirSync(mainRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name);
+    expect(directories.filter((name) => !(name in layers))).toEqual([]);
   });
 });
