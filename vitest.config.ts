@@ -24,6 +24,9 @@ export default defineConfig({
     // 本地仍用 Vitest 默认值，卡住的测试在本地依旧快速失败。
     testTimeout: process.env.CI ? 30_000 : 5_000,
     hookTimeout: process.env.CI ? 30_000 : 10_000,
+    // Node 25 起自带全局 localStorage（Web Storage），会盖住 jsdom 提供的那一份，渲染进程测试读到 undefined。
+    // 项目支持 Node 24 及以上：在 25+ 上关掉 Node 自带的这一份，24 上不传任何参数。
+    execArgv: Number(process.versions.node.split(".")[0]) >= 25 ? ["--no-experimental-webstorage"] : [],
     // 明确禁用 watch/cache，减少 fs 事件
     watch: false,
     cache: false,

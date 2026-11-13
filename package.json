@@ -102,7 +102,7 @@
     "vitest": "^4.1.9"
   },
   "engines": {
-    "node": ">=24 <25",
+    "node": ">=24",
     "npm": ">=10"
   },
   "homepage": "https://github.com/Firefly-0423/Firefly-Agent",

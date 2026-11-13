@@ -219,7 +219,7 @@ flowchart TB
 
 ## 🛠️ Run from source
 
-You need Windows, Node.js 24 and npm 10 or later; packaging also needs Rust (MSVC toolchain) and C++ build tools.
+You need Windows, Node.js 24 or later and npm 10 or later; packaging also needs Rust (MSVC toolchain) and C++ build tools.
 
 ```powershell
 git clone https://github.com/Firefly-0423/Firefly-Agent.git
@@ -242,7 +242,7 @@ Scripts are described in [scripts/README.md](./scripts/README.md).
 
 | Layer | Technology |
 | --- | --- |
-| Runtime | Node.js 24 + Electron 43 |
+| Runtime | Node.js 24 or later + Electron 43 |
 | Language and build | TypeScript, Vite 7, electron-builder |
 | Interface | React 19, Ant Design 6 / Ant Design X, Tailwind CSS 4; bundled Noto Sans SC and JetBrains Mono variable fonts; d3-force for the memory graph |
 | Live2D | PixiJS 7 + pixi-live2d-display |
