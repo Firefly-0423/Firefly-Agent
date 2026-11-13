@@ -2,6 +2,8 @@
 状态：待施工
 规格：无独立规格；沿用本计划已确认回归范围及负责人决定；权限档位按 `docs/superpowers/specs/2026-11-12-plugin-sdk-1-2-0.md` §7.2，施工结构按 `docs/contributing/development-workflow.md` §3–5。
 
+> 路径说明（2026-11-13）：主进程已按七层重组（#57、#58），本文的文件路径和符号名已换成新位置（如 `src/main/agent/loop/agent-loop.ts`、`runAgentLoop`）。`文件:行号` 里的行号仍是重组前（`39987fc`）的位置，施工时以符号名为准，并在进度文档记录实际行号。
+
 **目标：** 建立一份以 Firefly 实际行为为准、可以重复执行并留下证据的 ChatPage 回归清单。覆盖 Chat、Work、Code 中适用的流式回答、工具过程、取消、终态持久化、恢复与接管、消息队列、交互卡、会话管理、附件、语音输入、待办和上下文状态。
 
 本次施工以**补齐测试和交互验收证据**为主，不重写已有功能。已有源码或测试只能证明存在相应实现、测试场景，不能直接标记为交互验收通过。只有回归发现并复现缺陷后，才在所属模块安排最小修复。
@@ -28,9 +30,9 @@
 | 流式回答与工具过程 | `pages/run/AgentRunController.ts` 的 `handleEvent`、`buildCheckpoint` 处理 reasoning、正文、候选文本、工具和检查点；同目录测试已有候选文本、过程顺序、正式回答提交及外来事件隔离场景。 | 不重做流式实现；补三模式组合和页面衔接验证。 |
 | 正式回答与终态 | 控制器 `start` 在正式回答满足提交条件后写入终态，再刷新主进程的 `sSettlement` 并调用 `reportRunPersisted`；`AgentRunController.test.ts:202–275`、`:365` 已覆盖部分场景。 | 补真实文件重载及故障边界，不能只检查 mock 收到保存调用。 |
 | 取消 | `AgentRunController.test.ts:127` 已有 ack 前取消；`:235` 已有部分正文后取消；`pages/cancel-run.ts` 是页面取消入口。 | 不新增取消协议；补停止按钮、队列衔接及迟到事件验证。 |
-| 守卫与接管 | `src/main/chat/agui-bridge.ts:398–402` 已有 `SESSION_RUN_ACTIVE:<runId>`、`SESSION_RUN_TAKEOVER_STUCK:<runId>`；对应测试覆盖并发、接管等待、陈旧取消。控制器测试 `:277–337` 覆盖接管卡和合法 owner 保留。 | 不重写守卫；补刷新后页面接管和跨会话验收。 |
+| 守卫与接管 | `src/main/features/chat/agui-bridge.ts:398–402` 已有 `SESSION_RUN_ACTIVE:<runId>`、`SESSION_RUN_TAKEOVER_STUCK:<runId>`；对应测试覆盖并发、接管等待、陈旧取消。控制器测试 `:277–337` 覆盖接管卡和合法 owner 保留。 | 不重写守卫；补刷新后页面接管和跨会话验收。 |
 | 恢复 | `ChatPage.tsx:426–440` 仅对非 Chat 查询中断任务；`session-runtime-state.ts` 的 `recoverInterruptedMessage` 会停止未完成检查点的动画。已持久化终态不会统一改写为中断。 | 区分“已结束后重开”与“运行中崩溃后重开”，分别验收。 |
-| 待发队列 | `ChatPage.tsx:859–898` 的发送统一经过主进程权威队列，入队成功后才清发送快照；`pending-queue-flow.ts` 实现认领、恢复、串行消费和暂停。`src/main/chats/chats-pending-queue.test.ts` 已有 FIFO、幂等、真实落盘重启和写失败测试。 | 不另建页面队列；补页面、控制器、存储之间的组合测试。 |
+| 待发队列 | `ChatPage.tsx:859–898` 的发送统一经过主进程权威队列，入队成功后才清发送快照；`pending-queue-flow.ts` 实现认领、恢复、串行消费和暂停。`src/main/features/sessions/chats-pending-queue.test.ts` 已有 FIFO、幂等、真实落盘重启和写失败测试。 | 不另建页面队列；补页面、控制器、存储之间的组合测试。 |
 | 审批与选择卡 | `interaction-events.ts` 订阅请求和结算；`interaction-resolution.ts` 区分 `ok:false` 与传输异常；`session-runtime-state.test.ts:57–111` 已有去重、排队及跨会话清卡测试。 | 补真实页面操作与取消结算的衔接。 |
 | 审批归属差异 | `interaction-owner.ts` 的 `interactionOwner` 在找不到 run owner 时回退可见会话；`ChatPage.tsx:252–260` 使用该结果投递卡片。 | 已定：已携带但无法归属的 run 不回退当前会话；施工包 G 单列修复及测试，无 run ID 的合法请求另定规则。 |
 | 计划 | `ChatPage.tsx:443–495` 持久监听审阅、批准、补充事件；`plan-review-state.ts` 绑定批准尝试、助手消息、执行 run 和计划路径；`ChatPage.plan-lifecycle.test.ts` 已有迟到、重复、失败及后台完成场景。 | 不重建计划状态机；补缺少的批准次数和页面呈现验证。 |
@@ -42,7 +44,7 @@
 | 编辑与重生成 | `use-last-turn-actions.ts` 限制 Chat、空闲状态和单次 revision；`last-turn-revision.ts` 重新读取存储并调用 `replaceTail`，通过 `transcriptRewind` 重启。 | 保持仅 Chat 可用，补入口禁用和存储失败不派发。 |
 | Todo 与上下文 | 控制器处理 `firefly.todo`、`firefly.context.usage`、`firefly.compressingContext`；`session-runtime-state.ts` 过滤旧 run Todo；`session-snapshot.ts` 恢复快照。`ChatPage.tsx:947–963` 构造步骤胶囊和上下文展示值。 | 验证实际组件，不另建独立 Todo 面板。Code 另验 `CodeGitPanel` 的 Todo 呈现。 |
 | TTS | `ChatMessageList.tsx`、`src/shared/chat-types.ts` 保留缓存字段，中文资源保留 TTS 文案；在已检查的页面控制器、preload、IPC 常量及主进程装配中未找到完整播放链路。 | 不将字段存在算作可播放。已定：本主题暂不承诺正向播放验收；若要求交付，先明确已有入口或单列实现计划。 |
-| 数据隔离 | `src/main/startup/runtime-profile.ts` 支持独立 development/test/smoke 档案；production 仍定位 `%APPDATA%\Firefly`。`scripts/dev/launch-electron.mjs` 支持 `FIREFLY_ISOLATION_ROOT`。 | 测试隔离能力复用；1.2.0 正式新目录是发布前置条件，不能宣称当前已满足。 |
+| 数据隔离 | `src/main/base/identity/runtime-profile.ts` 支持独立 development/test/smoke 档案；production 仍定位 `%APPDATA%\Firefly`。`scripts/dev/launch-electron.mjs` 支持 `FIREFLY_ISOLATION_ROOT`。 | 测试隔离能力复用；1.2.0 正式新目录是发布前置条件，不能宣称当前已满足。 |
 
 上述页面文件均位于 `src/renderer/react/features/chat/pages/`，组件位于同一 feature 的 `components/`，附件 Hook 位于 `hooks/`。
 
@@ -167,9 +169,9 @@
 
 ### 修改
 
-- `src/main/chat/agui-bridge.test.ts`
-- `src/main/chats/chats-pending-queue.test.ts`
-- `src/main/chats/chats-store.test.ts`
+- `src/main/features/chat/agui-bridge.test.ts`
+- `src/main/features/sessions/chats-pending-queue.test.ts`
+- `src/main/features/sessions/chats-store.test.ts`
 - `src/renderer/react/features/chat/components/ChatComposer.test.ts`
 - `src/renderer/react/features/chat/components/ChatMessageList.last-turn.test.ts`
 - `src/renderer/react/features/chat/components/DesktopAsrButton.test.ts`
@@ -205,7 +207,7 @@
 | --- | --- |
 | `docs/qa/1.2.0-chatpage-regression-checklist.md` | 固定基线、模式矩阵、执行方法、结果分类和证据字段。初始状态全部为未执行。 |
 | `src/renderer/react/features/chat/pages/run/AgentRunController.test.ts` | 补三模式运行、终态状态组合、上下文与取消边界中的缺项。 |
-| `src/main/chats/chats-store.test.ts` | 补四类终态真实落盘、模块重载读取及未完成快照保留。 |
+| `src/main/features/sessions/chats-store.test.ts` | 补四类终态真实落盘、模块重载读取及未完成快照保留。 |
 | `src/renderer/react/features/chat/pages/chat-page-normalizers.test.ts` | 补存储结果恢复后的正式回答、过程、动画和结算投影。 |
 
 **已定结论：** 实施基线采用届时 dev/firefly-1.2.0 确认提交；先补齐相对 c991111 差异，保留原基线说明。
@@ -243,9 +245,9 @@
   - 验证：`npm test -- src/renderer/react/features/chat/pages/run/AgentRunController.test.ts`；任务涉及多个测试文件时，再执行本包最近测试命令。
 
 - [ ] A7 四类终态分别保存后重载模块
-  - 先写的测试：`src/main/chats/chats-store.test.ts`：四类终态分别保存后重载模块 → 读取的 `runSnapshot`、正文和过程符合原终态；不统一变为 interrupted。 同时断言无额外派发、意外写入或跨会话更新。
+  - 先写的测试：`src/main/features/sessions/chats-store.test.ts`：四类终态分别保存后重载模块 → 读取的 `runSnapshot`、正文和过程符合原终态；不统一变为 interrupted。 同时断言无额外派发、意外写入或跨会话更新。
   - 实现：独立临时目录真实落盘并重载模块，完整比较快照、正文和过程。
-  - 验证：`npm test -- src/main/chats/chats-store.test.ts`；任务涉及多个测试文件时，再执行本包最近测试命令。
+  - 验证：`npm test -- src/main/features/sessions/chats-store.test.ts`；任务涉及多个测试文件时，再执行本包最近测试命令。
 
 - [ ] A8 running/waiting_user 检查点重载
   - 先写的测试：`src/renderer/react/features/chat/pages/chat-page-normalizers.test.ts`：running/waiting_user 检查点重载 → 页面停止动画，呈现中断；不伪装成功，不自动重放工具。 同时断言无额外派发、意外写入或跨会话更新。
@@ -258,14 +260,14 @@
   - 验证：`npm test -- src/renderer/react/features/chat/pages/run/AgentRunController.test.ts`；任务涉及多个测试文件时，再执行本包最近测试命令。
 
 - [ ] A10 持久化写入拒绝
-  - 先写的测试：`src/main/chats/chats-store.test.ts`、`src/renderer/react/features/chat/pages/run/AgentRunController.test.ts`：写入拒绝 → 不能假报完成，也不能丢失已确认的旧记录；不提前报告持久化完成、不覆盖旧记录。
+  - 先写的测试：`src/main/features/sessions/chats-store.test.ts`、`src/renderer/react/features/chat/pages/run/AgentRunController.test.ts`：写入拒绝 → 不能假报完成，也不能丢失已确认的旧记录；不提前报告持久化完成、不覆盖旧记录。
   - 实现：补真实临时文件失败场景与控制器结算衔接。失败分类以复现结果为准，不提前声称现有实现有缺陷。
-  - 验证：`npm test -- src/renderer/react/features/chat/pages/run/AgentRunController.test.ts src/main/chats/chats-store.test.ts src/renderer/react/features/chat/pages/chat-page-normalizers.test.ts`
+  - 验证：`npm test -- src/renderer/react/features/chat/pages/run/AgentRunController.test.ts src/main/features/sessions/chats-store.test.ts src/renderer/react/features/chat/pages/chat-page-normalizers.test.ts`
 
 **最近测试命令：**
 
 ```powershell
-npm test -- src/renderer/react/features/chat/pages/run/AgentRunController.test.ts src/main/chats/chats-store.test.ts src/renderer/react/features/chat/pages/chat-page-normalizers.test.ts
+npm test -- src/renderer/react/features/chat/pages/run/AgentRunController.test.ts src/main/features/sessions/chats-store.test.ts src/renderer/react/features/chat/pages/chat-page-normalizers.test.ts
 ```
 
 **验收：** 本包全部任务有对应测试，最近测试通过并记录退出码、归档报告、失败和显式跳过原因；涉及界面或运行行为在开发版或打包版实际操作，在 PR 记录完整链路步骤及结果。
@@ -282,8 +284,8 @@ npm test -- src/renderer/react/features/chat/pages/run/AgentRunController.test.t
 | --- | --- |
 | `src/renderer/react/features/chat/pages/ChatPage.regression.test.ts` | 使用实际 `ChatPage`、队列流程与控制器，替换网络、系统服务和 IPC；不 mock 掉正在验证的运行链路。先覆盖刷新、接管和多会话。 |
 | `src/renderer/react/features/chat/pages/pending-queue-flow.test.ts` | 补各终态后消费、拒绝后暂停、入队期间编辑及跨会话组合缺项。 |
-| `src/main/chat/agui-bridge.test.ts` | 只补组合测试暴露的守卫契约空缺，复用已有并发、陈旧取消和接管等待场景。 |
-| `src/main/chats/chats-pending-queue.test.ts` | 补页面组合所需且尚无等价覆盖的认领恢复、稳定 ID 和写失败场景。 |
+| `src/main/features/chat/agui-bridge.test.ts` | 只补组合测试暴露的守卫契约空缺，复用已有并发、陈旧取消和接管等待场景。 |
+| `src/main/features/sessions/chats-pending-queue.test.ts` | 补页面组合所需且尚无等价覆盖的认领恢复、稳定 ID 和写失败场景。 |
 
 **已定结论：** 不重写守卫，不另建页面队列；权威认领及恢复沿用现有数据结构。
 
@@ -300,14 +302,14 @@ npm test -- src/renderer/react/features/chat/pages/run/AgentRunController.test.t
   - 验证：`npm test -- src/renderer/react/features/chat/pages/ChatPage.regression.test.ts`；任务涉及多个测试文件时，再执行本包最近测试命令。
 
 - [ ] B3 接管旧 run，旧终态与取消迟到
-  - 先写的测试：`src/main/chat/agui-bridge.test.ts`：接管旧 run，旧终态与取消迟到 → 新请求携带原 run ID；旧 run 先按守卫结算；旧取消不杀新 run，旧终态不覆盖新消息。 同时断言无额外派发、意外写入或跨会话更新。
+  - 先写的测试：`src/main/features/chat/agui-bridge.test.ts`：接管旧 run，旧终态与取消迟到 → 新请求携带原 run ID；旧 run 先按守卫结算；旧取消不杀新 run，旧终态不覆盖新消息。 同时断言无额外派发、意外写入或跨会话更新。
   - 实现：复用已有并发和陈旧取消场景，补跨会话接管链路。
-  - 验证：`npm test -- src/main/chat/agui-bridge.test.ts`；任务涉及多个测试文件时，再执行本包最近测试命令。
+  - 验证：`npm test -- src/main/features/chat/agui-bridge.test.ts`；任务涉及多个测试文件时，再执行本包最近测试命令。
 
 - [ ] B4 接管等待超过当前实现时限
-  - 先写的测试：`src/main/chat/agui-bridge.test.ts`：接管等待超过当前实现时限 → 精确断言 `SESSION_RUN_TAKEOVER_STUCK:<runId>`；无重复启动、无悬空 busy。时限取自实现，以假时钟测试边界及两侧。 同时断言无额外派发、意外写入或跨会话更新。
+  - 先写的测试：`src/main/features/chat/agui-bridge.test.ts`：接管等待超过当前实现时限 → 精确断言 `SESSION_RUN_TAKEOVER_STUCK:<runId>`；无重复启动、无悬空 busy。时限取自实现，以假时钟测试边界及两侧。 同时断言无额外派发、意外写入或跨会话更新。
   - 实现：复用已有接管等待测试，以实现时限和假时钟测临界点及两侧。
-  - 验证：`npm test -- src/main/chat/agui-bridge.test.ts`；任务涉及多个测试文件时，再执行本包最近测试命令。
+  - 验证：`npm test -- src/main/features/chat/agui-bridge.test.ts`；任务涉及多个测试文件时，再执行本包最近测试命令。
 
 - [ ] B5 忙会话依次发送两条消息并删除其中一条
   - 先写的测试：`src/renderer/react/features/chat/pages/ChatPage.regression.test.ts`：忙会话依次发送两条消息并删除其中一条 → 队列完整顺序正确；仅成功入队后清发送快照；删除只作用目标 ID，不写正式历史。 同时断言无额外派发、意外写入或跨会话更新。
@@ -335,14 +337,14 @@ npm test -- src/renderer/react/features/chat/pages/run/AgentRunController.test.t
   - 验证：`npm test -- src/renderer/react/features/chat/pages/ChatPage.regression.test.ts`；任务涉及多个测试文件时，再执行本包最近测试命令。
 
 - [ ] B10 认领后刷新、保存失败、缺少认领用户锚点
-  - 先写的测试：`src/main/chats/chats-pending-queue.test.ts`：认领后刷新、保存失败、缺少认领用户锚点 → 不重复追加已存在用户消息；损坏只暂停所属会话；不擅自清账或影响邻会话。 同时断言无额外派发、意外写入或跨会话更新。
+  - 先写的测试：`src/main/features/sessions/chats-pending-queue.test.ts`：认领后刷新、保存失败、缺少认领用户锚点 → 不重复追加已存在用户消息；损坏只暂停所属会话；不擅自清账或影响邻会话。 同时断言无额外派发、意外写入或跨会话更新。
   - 实现：复用已有 FIFO、幂等、真实重启和写失败场景，补认领恢复组合缺项。
-  - 验证：`npm test -- src/main/chats/chats-pending-queue.test.ts`；任务涉及多个测试文件时，再执行本包最近测试命令。
+  - 验证：`npm test -- src/main/features/sessions/chats-pending-queue.test.ts`；任务涉及多个测试文件时，再执行本包最近测试命令。
 
 **最近测试命令：**
 
 ```powershell
-npm test -- src/renderer/react/features/chat/pages/ChatPage.regression.test.ts src/renderer/react/features/chat/pages/pending-queue-flow.test.ts src/main/chat/agui-bridge.test.ts src/main/chats/chats-pending-queue.test.ts
+npm test -- src/renderer/react/features/chat/pages/ChatPage.regression.test.ts src/renderer/react/features/chat/pages/pending-queue-flow.test.ts src/main/features/chat/agui-bridge.test.ts src/main/features/sessions/chats-pending-queue.test.ts
 ```
 
 **验收：** 本包全部任务有对应测试，最近测试通过并记录退出码、归档报告、失败和显式跳过原因；涉及界面或运行行为在开发版或打包版实际操作，在 PR 记录完整链路步骤及结果。
@@ -786,10 +788,10 @@ git show-ref --verify refs/heads/dev/firefly-1.2.0
 
 ```powershell
 # 施工包 A
-npm test -- src/renderer/react/features/chat/pages/run/AgentRunController.test.ts src/main/chats/chats-store.test.ts src/renderer/react/features/chat/pages/chat-page-normalizers.test.ts
+npm test -- src/renderer/react/features/chat/pages/run/AgentRunController.test.ts src/main/features/sessions/chats-store.test.ts src/renderer/react/features/chat/pages/chat-page-normalizers.test.ts
 
 # 施工包 B
-npm test -- src/renderer/react/features/chat/pages/ChatPage.regression.test.ts src/renderer/react/features/chat/pages/pending-queue-flow.test.ts src/main/chat/agui-bridge.test.ts src/main/chats/chats-pending-queue.test.ts
+npm test -- src/renderer/react/features/chat/pages/ChatPage.regression.test.ts src/renderer/react/features/chat/pages/pending-queue-flow.test.ts src/main/features/chat/agui-bridge.test.ts src/main/features/sessions/chats-pending-queue.test.ts
 
 # 施工包 C
 npm test -- src/renderer/react/features/chat/pages/ChatPage.regression.test.ts src/renderer/react/features/chat/pages/interaction-resolution.test.ts src/renderer/react/features/chat/pages/interaction-events.test.ts src/renderer/react/features/chat/pages/ChatPage.plan-lifecycle.test.ts src/renderer/react/features/chat/components/PlanReviewPanel.test.ts

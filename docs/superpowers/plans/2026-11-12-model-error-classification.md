@@ -2,6 +2,8 @@
 状态：待施工
 规格：无独立规格，沿用本计划已确认设计和 2026-11-12 负责人决定；权限约束见 `docs/superpowers/specs/2026-11-12-plugin-sdk-1-2-0.md` §7.2。
 
+> 路径说明（2026-11-13）：主进程已按七层重组（#57、#58），本文的文件路径和符号名已换成新位置（如 `src/main/agent/loop/agent-loop.ts`、`runAgentLoop`）。`文件:行号` 里的行号仍是重组前（`39987fc`）的位置，施工时以符号名为准，并在进度文档记录实际行号。
+
 **目标：** 主模型请求失败时，用户能分清认证失败、权限不足、欠费、额度耗尽、暂时限流、服务过载、网络中断等情况，获得中文处理建议，并在详情中查看安全的状态码、厂商错误码和请求 ID。最终失败在输入区显示一条会话级错误项，对应轮次保留简短摘要。
 
 对尚未开始响应的暂时性故障执行有限、可取消的重试，显示等待与重连状态；明确的认证、欠费、额度耗尽和参数错误直接提示处理办法。Chat、Work、Code 使用同一分类与重试策略，保留各自现有执行、权限和持久化边界。
@@ -19,36 +21,36 @@
 - 实际 HEAD 为 `c991111efa68087b9d625868179c03fea1b83e14`，与指定提交一致；工作树干净。
 - `git branch --show-current` 为空，`git symbolic-ref -q --short HEAD` 返回非零，实际处于 detached HEAD，不能表述为已检出 `dev/firefly-1.2.0`。本计划不切换分支。
 - 已完整读取 `AGENTS.md`，沿用“修改与验证”和“测试断言写法”的要求。
-- 模块归属按 `README.md` 的“各层代码位置”和“项目结构”：厂商调用归 `src/main/orchestrator/vendors/`，记忆授权与发送边界归 `src/main/memory-context/`，事件桥归 `src/main/chat/`，共享契约归 `src/shared/`，界面归 `src/renderer/react/`。
+- 模块归属按 `README.md` 的“各层代码位置”和“项目结构”：厂商调用归 `src/main/model/providers/`，记忆授权与发送边界归 `src/main/memory/context/`，事件桥归 `src/main/features/chat/`，共享契约归 `src/shared/`，界面归 `src/renderer/react/`。
 - `package.json` 当前版本仍为 `1.1.4`；本主题不负责整仓版本号发布调整。
 
 ### 2. 已有能力与缺口
 
 | 项目 | Firefly 证据 | 判断与施工范围 |
 |---|---|---|
-| 主模型统一发送入口 | `src/main/memory-context/main-memory-runtime.ts:184`、`:234`：准备请求并调用 `dispatchPreparedModelCall` | 在现有授权发送链路接入，不另造模型客户端 |
+| 主模型统一发送入口 | `src/main/agent/memory-runtime/main-memory-runtime.ts:184`、`:234`：准备请求并调用 `dispatchPreparedModelCall` | 在现有授权发送链路接入，不另造模型客户端 |
 | 请求不可变及发送前校验 | `prepared-model-call.ts` 的 `check`、`prepareModelCall`、`dispatchPreparedModelCall`；`guardSend` 接口 | 已有，保留；重试必须继续逐次校验 |
 | 有限重试 | `prepared-model-call.ts:185` 起的状态集合、`:300` 起的发送循环 | 已有两次额外尝试；不重复建设基础重试，改进分类依据、预算、等待和状态呈现 |
 | 服务端等待建议 | `prepared-model-call.ts` 的 `providerRetryDelayMs` | 已支持秒数及 HTTP 日期，封顶 20 秒；已有功能从新增范围剔除，仅调整策略 |
 | 可取消等待 | `prepared-model-call.ts` 的 `pause`；连接异常分支仍使用普通 `setTimeout` | HTTP 状态重试已有取消能力；连接异常等待需要统一 |
 | 请求静默监控 | `prepared-model-call.ts` 的 `MODEL_IDLE_DEFAULTS`、`attemptOnce` | 已有响应头和响应体静默监控，响应体任意字节重置计时；本主题不直接替换为参考文档的超时语义 |
-| SDK 内置重试关闭 | `src/main/orchestrator/vendors/sdk-stream/client-config.ts` 的 `maxRetries: 0` | 已有，保留，避免重试次数相乘 |
-| 通用模型错误 | `src/main/orchestrator/agent-runtime-error.ts` 的 `AgentErrorCode`、`AgentRuntimeError` | 已有内部错误码；缺安全结构化厂商诊断 |
-| SDK 异常包装 | `sdk-stream/runtime.ts:209` 起的 `catch` | 大多转换为通用错误，未形成统一厂商分类对象 |
+| SDK 内置重试关闭 | `src/main/model/providers/sdk-stream/client-config.ts` 的 `maxRetries: 0` | 已有，保留，避免重试次数相乘 |
+| 通用模型错误 | `src/main/model/errors/agent-runtime-error.ts` 的 `AgentErrorCode`、`AgentRuntimeError` | 已有内部错误码；缺安全结构化厂商诊断 |
+| SDK 异常包装 | `model/providers/sdk-stream/runtime.ts:209` 起的 `catch` | 大多转换为通用错误，未形成统一厂商分类对象 |
 | 非流式错误 | `prepared-model-call.ts` 的 `nonStreaming` | 保留状态，但读取原始错误正文并放入内部 `cause`；需要限制读取和诊断输出 |
-| 流内失败 | `sdk-stream/responses-normalizer.ts:54`；`anthropic-normalizer.ts:34` | 当前使用 `ProviderProtocolError`，厂商业务错误与协议不支持需要分开 |
+| 流内失败 | `model/providers/sdk-stream/responses-normalizer.ts:54`；`anthropic-normalizer.ts:34` | 当前使用 `ProviderProtocolError`，厂商业务错误与协议不支持需要分开 |
 | 安全终态 | `firefly-agent.ts:134` 的 `safeTerminalError`；`src/shared/run-failure.ts` 的 `publicRunFailure` | 已有有限错误码白名单，但安全厂商详情尚未贯通 |
-| AG-UI 失败事件 | `src/main/chat/agui-bridge.ts:758` | 已有 `RUN_ERROR` 和一次性结算路径；在此增加可选安全字段 |
+| AG-UI 失败事件 | `src/main/features/chat/agui-bridge.ts:758` | 已有 `RUN_ERROR` 和一次性结算路径；在此增加可选安全字段 |
 | 失败轮次摘要 | `AgentRunController.ts:243` 起的分类文案、`:738` 的 `RUN_ERROR` 分支；同目录测试 | 已有，扩展分类摘要，不重新建设失败记录 |
 | 输入区容器 | `ChatComposer.tsx:402`、`:407`、`:425` | 可在 `PendingQueueDock` 与 `ff-composer-shell` 之间加入错误项 |
 | 三种模式 | `agui-bridge.ts:319`、`:473`；`firefly-agent.ts:234` 起 | 接收 Chat / Work / Code；Code 映射到 Work 执行路径，Chat 有无工具两条路径 |
-| 历史压缩摘要 | `harness/firefly-harness.ts:217`；`harness/harness-llm.ts:76` 的 `summarizeHistory` | 仍有独立非流式请求，不能声称统一发送入口覆盖全部摘要 |
-| 运行设置 | `src/shared/timeout-types.ts`；`src/main/settings/timeout-manager.ts`；`src/renderer/settings/timeout/panel.ts` | 已有超时设置及持久化，无模型重试次数字段 |
-| 数据隔离 | `src/main/startup/runtime-profile.ts:54` 起 | production 当前使用 `Firefly` 目录，不能据此认定 1.2 已具备版本隔离；须作为实施前置条件核对 |
+| 历史压缩摘要 | `agent/loop/agent-loop.ts:217`；`agent/loop/agent-loop-llm.ts:76` 的 `summarizeHistory` | 仍有独立非流式请求，不能声称统一发送入口覆盖全部摘要 |
+| 运行设置 | `src/shared/timeout-types.ts`；`src/main/platform/settings/timeout-manager.ts`；`src/renderer/settings/timeout/panel.ts` | 已有超时设置及持久化，无模型重试次数字段 |
+| 数据隔离 | `src/main/base/identity/runtime-profile.ts:54` 起 | production 当前使用 `Firefly` 目录，不能据此认定 1.2 已具备版本隔离；须作为实施前置条件核对 |
 
 ### 3. 厂商范围修正
 
-以 `src/main/orchestrator/vendors/capabilities.ts` 的 `PROVIDER_CAPABILITIES` 为准，当前注册：
+以 `src/main/model/providers/capabilities.ts` 的 `PROVIDER_CAPABILITIES` 为准，当前注册：
 
 `minimax`、`deepseek`、`glm`、`kimi`、`qwen`、`chatgpt`、`claude`、`mimo`、`openrouter`。
 
@@ -71,48 +73,48 @@
 ### 新建
 
 - `src/shared/model-failure.ts`（施工包 A）
-- `src/main/orchestrator/vendors/model-error-classifier.ts`（施工包 A）
+- `src/main/model/providers/model-error-classifier.ts`（施工包 A）
 - `docs/references/model-errors.md`（施工包 A）
 - `src/shared/model-failure.test.ts`（施工包 A）
-- `src/main/orchestrator/vendors/model-error-classifier.test.ts`（施工包 A）
-- `src/main/orchestrator/vendors/model-request-retry.ts`（施工包 C）
-- `src/main/orchestrator/vendors/model-request-retry.test.ts`（施工包 C）
+- `src/main/model/providers/model-error-classifier.test.ts`（施工包 A）
+- `src/main/model/providers/model-request-retry.ts`（施工包 C）
+- `src/main/model/providers/model-request-retry.test.ts`（施工包 C）
 - `src/renderer/react/features/chat/components/ModelFailureNotice.tsx`（施工包 E）
 - `src/renderer/react/features/chat/components/ModelFailureNotice.test.ts`（施工包 E）
 
 ### 修改
 
-- `src/main/orchestrator/agent-runtime-error.ts`（施工包 B）
-- `src/main/orchestrator/vendors/prepared-model-call.ts`（施工包 B、C）
-- `src/main/orchestrator/vendors/sdk-stream/runtime.ts`（施工包 B）
-- `src/main/orchestrator/vendors/sdk-stream/responses-normalizer.ts`（施工包 B）
-- `src/main/orchestrator/vendors/sdk-stream/anthropic-normalizer.ts`（施工包 B）
-- `src/main/orchestrator/firefly-agent.ts`（施工包 B、C）
-- `src/main/chat/agui-bridge.ts`（施工包 B、C）
-- `src/main/orchestrator/vendors/prepared-model-call.test.ts`（施工包 B、C）
-- `src/main/orchestrator/vendors/sdk-stream/runtime.test.ts`（施工包 B）
-- `src/main/orchestrator/vendors/sdk-stream/responses-normalizer.test.ts`（施工包 B）
-- `src/main/orchestrator/vendors/sdk-stream/anthropic-normalizer.test.ts`（施工包 B）
-- `src/main/orchestrator/firefly-agent.test.ts`（施工包 B）
-- `src/main/chat/agui-bridge.test.ts`（施工包 B）
-- `src/main/chat/agui-chat-failure.integration.test.ts`（施工包 B）
+- `src/main/model/errors/agent-runtime-error.ts`（施工包 B）
+- `src/main/model/providers/prepared-model-call.ts`（施工包 B、C）
+- `src/main/model/providers/sdk-stream/runtime.ts`（施工包 B）
+- `src/main/model/providers/sdk-stream/responses-normalizer.ts`（施工包 B）
+- `src/main/model/providers/sdk-stream/anthropic-normalizer.ts`（施工包 B）
+- `src/main/agent/runtime/firefly-agent.ts`（施工包 B、C）
+- `src/main/features/chat/agui-bridge.ts`（施工包 B、C）
+- `src/main/model/providers/prepared-model-call.test.ts`（施工包 B、C）
+- `src/main/model/providers/sdk-stream/runtime.test.ts`（施工包 B）
+- `src/main/model/providers/sdk-stream/responses-normalizer.test.ts`（施工包 B）
+- `src/main/model/providers/sdk-stream/anthropic-normalizer.test.ts`（施工包 B）
+- `src/main/agent/runtime/firefly-agent.test.ts`（施工包 B）
+- `src/main/features/chat/agui-bridge.test.ts`（施工包 B）
+- `src/main/features/chat/agui-chat-failure.integration.test.ts`（施工包 B）
 - `src/shared/timeout-types.ts`（施工包 C）
-- `src/main/settings/timeout-manager.ts`（施工包 C）
-- `src/main/memory-context/main-memory-runtime.ts`（施工包 C）
+- `src/main/platform/settings/timeout-manager.ts`（施工包 C）
+- `src/main/agent/memory-runtime/main-memory-runtime.ts`（施工包 C）
 - `src/renderer/settings/index.html`（施工包 C）
 - `src/renderer/settings/timeout/dom.ts`（施工包 C）
 - `src/renderer/settings/timeout/panel.ts`（施工包 C）
 - `src/renderer/settings/i18n/zh-CN.json`（施工包 C）
-- `src/main/memory-context/main-memory-runtime.test.ts`（施工包 C）
-- `src/main/settings/timeout-manager.test.ts`（施工包 C）
+- `src/main/agent/memory-runtime/main-memory-runtime.test.ts`（施工包 C）
+- `src/main/platform/settings/timeout-manager.test.ts`（施工包 C）
 - `src/renderer/settings/timeout/panel.test.ts`（施工包 C）
-- `src/main/orchestrator/chat-loop.ts`（施工包 D）
-- `src/main/orchestrator/harness/harness-llm.ts`（施工包 D）
-- `src/main/orchestrator/harness/firefly-harness.ts`（施工包 D）
-- `src/main/orchestrator/chat-loop.test.ts`（施工包 D）
-- `src/main/orchestrator/harness/harness-llm.test.ts`（施工包 D）
-- `src/main/orchestrator/harness/firefly-harness.test.ts`（施工包 D）
-- `src/main/orchestrator/harness/compaction.test.ts`（施工包 D）
+- `src/main/agent/runtime/chat-loop.ts`（施工包 D）
+- `src/main/agent/loop/agent-loop-llm.ts`（施工包 D）
+- `src/main/agent/loop/agent-loop.ts`（施工包 D）
+- `src/main/agent/runtime/chat-loop.test.ts`（施工包 D）
+- `src/main/agent/loop/agent-loop-llm.test.ts`（施工包 D）
+- `src/main/agent/loop/agent-loop.test.ts`（施工包 D）
+- `src/main/agent/loop/compaction.test.ts`（施工包 D）
 - `src/renderer/react/features/chat/pages/chat-page-bridge.ts`（施工包 E）
 - `src/renderer/react/features/chat/pages/run/AgentRunController.ts`（施工包 E）
 - `src/renderer/react/features/chat/pages/ChatPage.tsx`（施工包 E）
@@ -150,10 +152,10 @@
 **改动文件：** 共 5 个（非测试 3 个、测试 2 个）；不超过 §5.2 非测试文件规模参考。
 
 - `src/shared/model-failure.ts`
-- `src/main/orchestrator/vendors/model-error-classifier.ts`
+- `src/main/model/providers/model-error-classifier.ts`
 - `docs/references/model-errors.md`
 - `src/shared/model-failure.test.ts`
-- `src/main/orchestrator/vendors/model-error-classifier.test.ts`
+- `src/main/model/providers/model-error-classifier.test.ts`
 
 **设计与契约：**
 
@@ -186,7 +188,7 @@
 
 #### 分类器与优先级
 
-新增 `src/main/orchestrator/vendors/model-error-classifier.ts`，提供纯函数：
+新增 `src/main/model/providers/model-error-classifier.ts`，提供纯函数：
 
 `classifyModelFailure(input: ModelFailureInput): ModelFailureInfo`
 
@@ -221,7 +223,7 @@ HTTP 响应中的权限、额度错误不能被通用 SDK 异常类型覆盖。�
 **实施范围（保留原改动清单）：**
 
 - 新增 `src/shared/model-failure.ts`：安全 DTO、枚举、验证函数。
-- 新增 `src/main/orchestrator/vendors/model-error-classifier.ts`：协议限定的提取和分类。
+- 新增 `src/main/model/providers/model-error-classifier.ts`：协议限定的提取和分类。
 - 新增上述文件对应的 `.test.ts`。
 - 新增 `docs/references/model-errors.md`：Firefly 映射、证据强弱和维护规则。
 
@@ -230,34 +232,34 @@ HTTP 响应中的权限、额度错误不能被通用 SDK 异常类型覆盖。�
 **任务：**
 
 - [ ] A1 精确业务码与 HTTP 状态冲突
-  - 先写的测试：`src/main/orchestrator/vendors/model-error-classifier.test.ts`：精确业务码与 HTTP 状态冲突 → 比较完整分类对象，确认业务码优先；429 欠费不成为 `RATE_LIMIT`。 不误归限流，不泄露原文。
+  - 先写的测试：`src/main/model/providers/model-error-classifier.test.ts`：精确业务码与 HTTP 状态冲突 → 比较完整分类对象，确认业务码优先；429 欠费不成为 `RATE_LIMIT`。 不误归限流，不泄露原文。
   - 实现：在 model-error-classifier.ts 按精确业务码、厂商 HTTP、通用 HTTP 顺序分类；HTTP 权限或额度不得被通用 SDK 类型覆盖。
-  - 验证：`npm test -- src/shared/model-failure.test.ts src/main/orchestrator/vendors/model-error-classifier.test.ts`
+  - 验证：`npm test -- src/shared/model-failure.test.ts src/main/model/providers/model-error-classifier.test.ts`
 
 - [ ] A2 同一业务码出现在其他厂商或协议
-  - 先写的测试：`src/main/orchestrator/vendors/model-error-classifier.test.ts`：同一业务码出现在其他厂商或协议 → 不命中专属规则。 不更改厂商、端点或注册配置。
+  - 先写的测试：`src/main/model/providers/model-error-classifier.test.ts`：同一业务码出现在其他厂商或协议 → 不命中专属规则。 不更改厂商、端点或注册配置。
   - 实现：专属规则同时限定实际 providerId 和 protocolMode，未知端点不根据 URL、模型名或自由文本猜厂商。
-  - 验证：`npm test -- src/shared/model-failure.test.ts src/main/orchestrator/vendors/model-error-classifier.test.ts`
+  - 验证：`npm test -- src/shared/model-failure.test.ts src/main/model/providers/model-error-classifier.test.ts`
 
 - [ ] A3 DeepSeek 402/422、MiMo 421、Anthropic 类型、Kimi 类型、Qwen 业务码
-  - 先写的测试：`src/main/orchestrator/vendors/model-error-classifier.test.ts`：DeepSeek 402/422、MiMo 421、Anthropic 类型、Kimi 类型、Qwen 业务码 → 表驱动逐项比较类别、重试性及安全字段。 未核实映射不启用，不扩大厂商注册范围。
+  - 先写的测试：`src/main/model/providers/model-error-classifier.test.ts`：DeepSeek 402/422、MiMo 421、Anthropic 类型、Kimi 类型、Qwen 业务码 → 表驱动逐项比较类别、重试性及安全字段。 未核实映射不启用，不扩大厂商注册范围。
   - 实现：实现首批映射表；docs/references/model-errors.md 逐条记录厂商、协议、精确字段和值、分类、重试性、来源、核对日期及证据强弱。
-  - 验证：`npm test -- src/shared/model-failure.test.ts src/main/orchestrator/vendors/model-error-classifier.test.ts`
+  - 验证：`npm test -- src/shared/model-failure.test.ts src/main/model/providers/model-error-classifier.test.ts`
 
 - [ ] A4 空响应、HTML、残缺 JSON、未知码、未知状态
-  - 先写的测试：`src/main/orchestrator/vendors/model-error-classifier.test.ts`：空响应、HTML、残缺 JSON、未知码、未知状态 → 不二次抛错，不虚构业务码或状态。 不二次抛错、不输出未知字段。
+  - 先写的测试：`src/main/model/providers/model-error-classifier.test.ts`：空响应、HTML、残缺 JSON、未知码、未知状态 → 不二次抛错，不虚构业务码或状态。 不二次抛错、不输出未知字段。
   - 实现：分类器受限解析非标准响应；解析失败保留已知状态，无法识别则 UNKNOWN。
-  - 验证：`npm test -- src/shared/model-failure.test.ts src/main/orchestrator/vendors/model-error-classifier.test.ts`
+  - 验证：`npm test -- src/shared/model-failure.test.ts src/main/model/providers/model-error-classifier.test.ts`
 
 - [ ] A5 密钥、提示词、长正文藏在错误字段或 request ID
   - 先写的测试：`src/shared/model-failure.test.ts`：密钥、提示词、长正文藏在错误字段或 request ID → DTO 不包含敏感内容；允许的安全字段仍完整保留。 允许的安全字段完整保留。
   - 实现：在 model-failure.ts 显式构造白名单 DTO，不展开 SDK 异常，不输出原始正文和不可信 request ID。
-  - 验证：`npm test -- src/shared/model-failure.test.ts src/main/orchestrator/vendors/model-error-classifier.test.ts`
+  - 验证：`npm test -- src/shared/model-failure.test.ts src/main/model/providers/model-error-classifier.test.ts`
 
 - [ ] A6 字段长度、字符集、状态范围
   - 先写的测试：`src/shared/model-failure.test.ts`：字段长度、字符集、状态范围 → 测临界值两侧；未知字段不进入输出。 疑似凭据、超限及未知字段不输出。
   - 实现：实现共享验证函数；合法整数状态、128 字符短码 / request ID、256 字符模型名及受限字符集，疑似凭据或超长字段直接丢弃。
-  - 验证：`npm test -- src/shared/model-failure.test.ts src/main/orchestrator/vendors/model-error-classifier.test.ts`
+  - 验证：`npm test -- src/shared/model-failure.test.ts src/main/model/providers/model-error-classifier.test.ts`
 
 **验收：** A1–A6 全部完成，本包对应 6 条用例全部通过；设计契约、完整安全字段及禁止副作用有断言。执行本包命令与受影响模块检查，PR 记录实际结果和未验证项，CI 通过并按 AGENTS.md 审查；涉及运行行为 / 界面的包在开发版或打包版实际操作。
 
@@ -271,20 +273,20 @@ HTTP 响应中的权限、额度错误不能被通用 SDK 异常类型覆盖。�
 
 **改动文件：** 共 14 个（非测试 7 个、测试 7 个）；不超过 §5.2 非测试文件规模参考。
 
-- `src/main/orchestrator/agent-runtime-error.ts`
-- `src/main/orchestrator/vendors/prepared-model-call.ts`
-- `src/main/orchestrator/vendors/sdk-stream/runtime.ts`
-- `src/main/orchestrator/vendors/sdk-stream/responses-normalizer.ts`
-- `src/main/orchestrator/vendors/sdk-stream/anthropic-normalizer.ts`
-- `src/main/orchestrator/firefly-agent.ts`
-- `src/main/chat/agui-bridge.ts`
-- `src/main/orchestrator/vendors/prepared-model-call.test.ts`
-- `src/main/orchestrator/vendors/sdk-stream/runtime.test.ts`
-- `src/main/orchestrator/vendors/sdk-stream/responses-normalizer.test.ts`
-- `src/main/orchestrator/vendors/sdk-stream/anthropic-normalizer.test.ts`
-- `src/main/orchestrator/firefly-agent.test.ts`
-- `src/main/chat/agui-bridge.test.ts`
-- `src/main/chat/agui-chat-failure.integration.test.ts`
+- `src/main/model/errors/agent-runtime-error.ts`
+- `src/main/model/providers/prepared-model-call.ts`
+- `src/main/model/providers/sdk-stream/runtime.ts`
+- `src/main/model/providers/sdk-stream/responses-normalizer.ts`
+- `src/main/model/providers/sdk-stream/anthropic-normalizer.ts`
+- `src/main/agent/runtime/firefly-agent.ts`
+- `src/main/features/chat/agui-bridge.ts`
+- `src/main/model/providers/prepared-model-call.test.ts`
+- `src/main/model/providers/sdk-stream/runtime.test.ts`
+- `src/main/model/providers/sdk-stream/responses-normalizer.test.ts`
+- `src/main/model/providers/sdk-stream/anthropic-normalizer.test.ts`
+- `src/main/agent/runtime/firefly-agent.test.ts`
+- `src/main/features/chat/agui-bridge.test.ts`
+- `src/main/features/chat/agui-chat-failure.integration.test.ts`
 
 **设计与契约：**
 
@@ -306,41 +308,41 @@ HTTP 响应中的权限、额度错误不能被通用 SDK 异常类型覆盖。�
 
 **实施范围（保留原改动清单）：**
 
-- 修改 `src/main/orchestrator/agent-runtime-error.ts`。
-- 修改 `vendors/prepared-model-call.ts`：受限读取非成功响应并分类，先识别业务码再决定现有重试。
-- 修改 `vendors/sdk-stream/runtime.ts`。
-- 修改 `vendors/sdk-stream/responses-normalizer.ts`、`anthropic-normalizer.ts`：保留受控业务信号，区分业务失败和协议不支持。
-- 修改 `firefly-agent.ts`、`src/main/chat/agui-bridge.ts`：传递安全详情，保留终态闸门。
-- 修改对应测试及 `src/main/chat/agui-chat-failure.integration.test.ts`。
+- 修改 `src/main/model/errors/agent-runtime-error.ts`。
+- 修改 `model/providers/prepared-model-call.ts`：受限读取非成功响应并分类，先识别业务码再决定现有重试。
+- 修改 `model/providers/sdk-stream/runtime.ts`。
+- 修改 `model/providers/sdk-stream/responses-normalizer.ts`、`anthropic-normalizer.ts`：保留受控业务信号，区分业务失败和协议不支持。
+- 修改 `firefly-agent.ts`、`src/main/features/chat/agui-bridge.ts`：传递安全详情，保留终态闸门。
+- 修改对应测试及 `src/main/features/chat/agui-chat-failure.integration.test.ts`。
 
 本步继续使用当前次数和等待参数，先修复额度类 429 被统一重试的问题。
 
 **任务：**
 
 - [ ] B1 429 额度耗尽
-  - 先写的测试：`src/main/orchestrator/vendors/prepared-model-call.test.ts`：429 额度耗尽 → 网络仅调用一次，终态带安全 `QUOTA`，不等待、不泄露响应正文。 不等待、不重复发送。
+  - 先写的测试：`src/main/model/providers/prepared-model-call.test.ts`：429 额度耗尽 → 网络仅调用一次，终态带安全 `QUOTA`，不等待、不泄露响应正文。 不等待、不重复发送。
   - 实现：修改 agent-runtime-error.ts 和 prepared-model-call.ts，受限读取非成功响应（建议 64 KiB）；先识别业务码再决定现有重试，本包继续当前次数和等待参数。
-  - 验证：`npm test -- src/main/orchestrator/vendors/prepared-model-call.test.ts src/main/orchestrator/vendors/sdk-stream src/main/orchestrator/firefly-agent.test.ts src/main/chat/agui-bridge.test.ts src/main/chat/agui-chat-failure.integration.test.ts`
+  - 验证：`npm test -- src/main/model/providers/prepared-model-call.test.ts src/main/model/providers/sdk-stream src/main/agent/runtime/firefly-agent.test.ts src/main/features/chat/agui-bridge.test.ts src/main/features/chat/agui-chat-failure.integration.test.ts`
 
 - [ ] B2 流内 `response.failed` / Anthropic error
-  - 先写的测试：`src/main/orchestrator/vendors/sdk-stream/runtime.test.ts`：流内 `response.failed` / Anthropic error → 保留允许的业务码，不伪造 HTTP 状态，不触发“不支持流式”降级。 不误降级、不虚构状态。
-  - 实现：修改 sdk-stream/runtime.ts、responses-normalizer.ts、anthropic-normalizer.ts，保留受控业务信号，分开业务失败和协议不支持；两个 normalizer 对应测试同包补齐。
-  - 验证：`npm test -- src/main/orchestrator/vendors/prepared-model-call.test.ts src/main/orchestrator/vendors/sdk-stream src/main/orchestrator/firefly-agent.test.ts src/main/chat/agui-bridge.test.ts src/main/chat/agui-chat-failure.integration.test.ts`
+  - 先写的测试：`src/main/model/providers/sdk-stream/runtime.test.ts`：流内 `response.failed` / Anthropic error → 保留允许的业务码，不伪造 HTTP 状态，不触发“不支持流式”降级。 不误降级、不虚构状态。
+  - 实现：修改 model/providers/sdk-stream/runtime.ts、responses-normalizer.ts、anthropic-normalizer.ts，保留受控业务信号，分开业务失败和协议不支持；两个 normalizer 对应测试同包补齐。
+  - 验证：`npm test -- src/main/model/providers/prepared-model-call.test.ts src/main/model/providers/sdk-stream src/main/agent/runtime/firefly-agent.test.ts src/main/features/chat/agui-bridge.test.ts src/main/features/chat/agui-chat-failure.integration.test.ts`
 
 - [ ] B3 包装错误经过真实 Agent 和桥层
-  - 先写的测试：`src/main/chat/agui-chat-failure.integration.test.ts`：包装错误经过真实 Agent 和桥层 → 比较完整安全事件；终态仅一次。 不重复结算、不产生第二次终态。
+  - 先写的测试：`src/main/features/chat/agui-chat-failure.integration.test.ts`：包装错误经过真实 Agent 和桥层 → 比较完整安全事件；终态仅一次。 不重复结算、不产生第二次终态。
   - 实现：修改 firefly-agent.ts 的 safeTerminalError 和 agui-bridge.ts，传递 RUN_ERROR.metadata.fireflyModelFailure 并保留终态闸门；firefly-agent.test.ts、agui-bridge.test.ts 同时断言完整事件。
-  - 验证：`npm test -- src/main/orchestrator/vendors/prepared-model-call.test.ts src/main/orchestrator/vendors/sdk-stream src/main/orchestrator/firefly-agent.test.ts src/main/chat/agui-bridge.test.ts src/main/chat/agui-chat-failure.integration.test.ts`
+  - 验证：`npm test -- src/main/model/providers/prepared-model-call.test.ts src/main/model/providers/sdk-stream src/main/agent/runtime/firefly-agent.test.ts src/main/features/chat/agui-bridge.test.ts src/main/features/chat/agui-chat-failure.integration.test.ts`
 
 - [ ] B4 用户取消、工具失败、记忆关闭失败
-  - 先写的测试：`src/main/orchestrator/firefly-agent.test.ts`：用户取消、工具失败、记忆关闭失败 → 不附主模型失败对象；保留原内部错误码与来源。 不附主模型失败对象。
+  - 先写的测试：`src/main/agent/runtime/firefly-agent.test.ts`：用户取消、工具失败、记忆关闭失败 → 不附主模型失败对象；保留原内部错误码与来源。 不附主模型失败对象。
   - 实现：保留 publicRunFailure 的既有内部错误码与来源；非主模型错误不附厂商失败对象。
-  - 验证：`npm test -- src/main/orchestrator/vendors/prepared-model-call.test.ts src/main/orchestrator/vendors/sdk-stream src/main/orchestrator/firefly-agent.test.ts src/main/chat/agui-bridge.test.ts src/main/chat/agui-chat-failure.integration.test.ts`
+  - 验证：`npm test -- src/main/model/providers/prepared-model-call.test.ts src/main/model/providers/sdk-stream src/main/agent/runtime/firefly-agent.test.ts src/main/features/chat/agui-bridge.test.ts src/main/features/chat/agui-chat-failure.integration.test.ts`
 
 - [ ] B5 原始异常含凭据
-  - 先写的测试：`src/main/chat/agui-chat-failure.integration.test.ts`：原始异常含凭据 → 检查 IPC、日志捕获和失败摘要均无敏感原文。 允许安全字段仍完整，无敏感泄露。
+  - 先写的测试：`src/main/features/chat/agui-chat-failure.integration.test.ts`：原始异常含凭据 → 检查 IPC、日志捕获和失败摘要均无敏感原文。 允许安全字段仍完整，无敏感泄露。
   - 实现：在安全终态和日志路径实施白名单清理；捕获 IPC、日志和失败摘要，验证所有输出都没有敏感原文。
-  - 验证：`npm test -- src/main/orchestrator/vendors/prepared-model-call.test.ts src/main/orchestrator/vendors/sdk-stream src/main/orchestrator/firefly-agent.test.ts src/main/chat/agui-bridge.test.ts src/main/chat/agui-chat-failure.integration.test.ts`
+  - 验证：`npm test -- src/main/model/providers/prepared-model-call.test.ts src/main/model/providers/sdk-stream src/main/agent/runtime/firefly-agent.test.ts src/main/features/chat/agui-bridge.test.ts src/main/features/chat/agui-chat-failure.integration.test.ts`
 
 **验收：** B1–B5 全部完成，本包对应 5 条用例全部通过；设计契约、完整安全字段及禁止副作用有断言。执行本包命令与受影响模块检查，PR 记录实际结果和未验证项，CI 通过并按 AGENTS.md 审查；涉及运行行为 / 界面的包在开发版或打包版实际操作。
 
@@ -354,21 +356,21 @@ HTTP 响应中的权限、额度错误不能被通用 SDK 异常类型覆盖。�
 
 **改动文件：** 共 16 个（非测试 11 个、测试 5 个）；不超过 §5.2 非测试文件规模参考。
 
-- `src/main/orchestrator/vendors/model-request-retry.ts`
-- `src/main/orchestrator/vendors/prepared-model-call.ts`
+- `src/main/model/providers/model-request-retry.ts`
+- `src/main/model/providers/prepared-model-call.ts`
 - `src/shared/timeout-types.ts`
-- `src/main/settings/timeout-manager.ts`
-- `src/main/memory-context/main-memory-runtime.ts`
-- `src/main/orchestrator/firefly-agent.ts`
-- `src/main/chat/agui-bridge.ts`
+- `src/main/platform/settings/timeout-manager.ts`
+- `src/main/agent/memory-runtime/main-memory-runtime.ts`
+- `src/main/agent/runtime/firefly-agent.ts`
+- `src/main/features/chat/agui-bridge.ts`
 - `src/renderer/settings/index.html`
 - `src/renderer/settings/timeout/dom.ts`
 - `src/renderer/settings/timeout/panel.ts`
 - `src/renderer/settings/i18n/zh-CN.json`
-- `src/main/orchestrator/vendors/model-request-retry.test.ts`
-- `src/main/orchestrator/vendors/prepared-model-call.test.ts`
-- `src/main/memory-context/main-memory-runtime.test.ts`
-- `src/main/settings/timeout-manager.test.ts`
+- `src/main/model/providers/model-request-retry.test.ts`
+- `src/main/model/providers/prepared-model-call.test.ts`
+- `src/main/agent/memory-runtime/main-memory-runtime.test.ts`
+- `src/main/platform/settings/timeout-manager.test.ts`
 - `src/renderer/settings/timeout/panel.test.ts`
 
 **设计与契约：**
@@ -410,58 +412,58 @@ HTTP 响应中的权限、额度错误不能被通用 SDK 异常类型覆盖。�
 
 - 新增 `vendors/model-request-retry.ts` 及测试。
 - 修改 `prepared-model-call.ts`，替换两套等待逻辑。
-- 修改 `src/shared/timeout-types.ts`、`src/main/settings/timeout-manager.ts`。
-- 修改 `src/main/memory-context/main-memory-runtime.ts`：注入可信运行快照、预算和安全重试回调，保留发送权限校验。
-- 修改 `firefly-agent.ts`、`src/main/chat/agui-bridge.ts`：运行快照及 CUSTOM 事件。
+- 修改 `src/shared/timeout-types.ts`、`src/main/platform/settings/timeout-manager.ts`。
+- 修改 `src/main/agent/memory-runtime/main-memory-runtime.ts`：注入可信运行快照、预算和安全重试回调，保留发送权限校验。
+- 修改 `firefly-agent.ts`、`src/main/features/chat/agui-bridge.ts`：运行快照及 CUSTOM 事件。
 - 修改 `src/renderer/settings/index.html`、`timeout/dom.ts`、`timeout/panel.ts`、`i18n/zh-CN.json`。
 - 修改对应测试。
 
 **任务：**
 
 - [ ] C1 额外次数为 0/1/10
-  - 先写的测试：`src/main/orchestrator/vendors/model-request-retry.test.ts`：额外次数为 0/1/10 → 实际最多发送 1/2/11 次；预算耗尽不多发。 预算耗尽不多发。
+  - 先写的测试：`src/main/model/providers/model-request-retry.test.ts`：额外次数为 0/1/10 → 实际最多发送 1/2/11 次；预算耗尽不多发。 预算耗尽不多发。
   - 实现：新增 model-request-retry.ts 纯策略并改造 prepared-model-call.ts 既有循环，额外次数默认 2、范围 0–10；等待与发送共享剩余预算，不重新消费 PreparedModelCall。
-  - 验证：`npm test -- src/main/orchestrator/vendors/model-request-retry.test.ts src/main/orchestrator/vendors/prepared-model-call.test.ts src/main/memory-context/main-memory-runtime.test.ts src/main/settings/timeout-manager.test.ts src/renderer/settings/timeout/panel.test.ts`
+  - 验证：`npm test -- src/main/model/providers/model-request-retry.test.ts src/main/model/providers/prepared-model-call.test.ts src/main/agent/memory-runtime/main-memory-runtime.test.ts src/main/platform/settings/timeout-manager.test.ts src/renderer/settings/timeout/panel.test.ts`
 
 - [ ] C2 暂时错误后成功
-  - 先写的测试：`src/main/orchestrator/vendors/prepared-model-call.test.ts`：暂时错误后成功 → 成功只结算一次；失败尝试无历史追加、工具执行或重复记账。 无历史追加、工具调用和重复记账。
+  - 先写的测试：`src/main/model/providers/prepared-model-call.test.ts`：暂时错误后成功 → 成功只结算一次；失败尝试无历史追加、工具执行或重复记账。 无历史追加、工具调用和重复记账。
   - 实现：在发送循环内处理暂时故障和一次成功结算，main-memory-runtime.ts 注入预算 / 回调；失败尝试不追加历史、不执行工具、不重复记账。
-  - 验证：`npm test -- src/main/orchestrator/vendors/model-request-retry.test.ts src/main/orchestrator/vendors/prepared-model-call.test.ts src/main/memory-context/main-memory-runtime.test.ts src/main/settings/timeout-manager.test.ts src/renderer/settings/timeout/panel.test.ts`
+  - 验证：`npm test -- src/main/model/providers/model-request-retry.test.ts src/main/model/providers/prepared-model-call.test.ts src/main/agent/memory-runtime/main-memory-runtime.test.ts src/main/platform/settings/timeout-manager.test.ts src/renderer/settings/timeout/panel.test.ts`
 
 - [ ] C3 鉴权、权限、欠费、额度、参数、内容过滤、未知错误
-  - 先写的测试：`src/main/orchestrator/vendors/prepared-model-call.test.ts`：鉴权、权限、欠费、额度、参数、内容过滤、未知错误 → 仅一次发送。 不等待、不再次发送。
+  - 先写的测试：`src/main/model/providers/prepared-model-call.test.ts`：鉴权、权限、欠费、额度、参数、内容过滤、未知错误 → 仅一次发送。 不等待、不再次发送。
   - 实现：仅 RATE_LIMIT、TIMEOUT、NETWORK、OVERLOADED、SERVER_ERROR、UNAVAILABLE 自动重试；QUOTA 即使带建议也不等待账户恢复。
-  - 验证：`npm test -- src/main/orchestrator/vendors/model-request-retry.test.ts src/main/orchestrator/vendors/prepared-model-call.test.ts src/main/memory-context/main-memory-runtime.test.ts src/main/settings/timeout-manager.test.ts src/renderer/settings/timeout/panel.test.ts`
+  - 验证：`npm test -- src/main/model/providers/model-request-retry.test.ts src/main/model/providers/prepared-model-call.test.ts src/main/agent/memory-runtime/main-memory-runtime.test.ts src/main/platform/settings/timeout-manager.test.ts src/renderer/settings/timeout/panel.test.ts`
 
 - [ ] C4 秒数、日期、非法值、过去日期及超过上限的 `Retry-After`
-  - 先写的测试：`src/main/orchestrator/vendors/model-request-retry.test.ts`：秒数、日期、非法值、过去日期及超过上限的 `Retry-After` → 断言确定等待结果和是否停止。 不提前重试、不超预算发送。
+  - 先写的测试：`src/main/model/providers/model-request-retry.test.ts`：秒数、日期、非法值、过去日期及超过上限的 `Retry-After` → 断言确定等待结果和是否停止。 不提前重试、不超预算发送。
   - 实现：合法 Retry-After 优先且无 jitter，接受不超过 5 分钟且不越过运行预算的建议；超限停止，不能截短后提前请求。
-  - 验证：`npm test -- src/main/orchestrator/vendors/model-request-retry.test.ts src/main/orchestrator/vendors/prepared-model-call.test.ts src/main/memory-context/main-memory-runtime.test.ts src/main/settings/timeout-manager.test.ts src/renderer/settings/timeout/panel.test.ts`
+  - 验证：`npm test -- src/main/model/providers/model-request-retry.test.ts src/main/model/providers/prepared-model-call.test.ts src/main/agent/memory-runtime/main-memory-runtime.test.ts src/main/platform/settings/timeout-manager.test.ts src/renderer/settings/timeout/panel.test.ts`
 
 - [ ] C5 jitter 与退避上下限
-  - 先写的测试：`src/main/orchestrator/vendors/model-request-retry.test.ts`：jitter 与退避上下限 → 注入确定随机源、使用假定时器，测试临界点。 假定时器结束后恢复，取消后不发送。
+  - 先写的测试：`src/main/model/providers/model-request-retry.test.ts`：jitter 与退避上下限 → 注入确定随机源、使用假定时器，测试临界点。 假定时器结束后恢复，取消后不发送。
   - 实现：普通退避从 2 秒指数增长，上限 60 秒、50%–100% jitter；替换 prepared-model-call.ts 两套等待逻辑，全部等待可取消。
-  - 验证：`npm test -- src/main/orchestrator/vendors/model-request-retry.test.ts src/main/orchestrator/vendors/prepared-model-call.test.ts src/main/memory-context/main-memory-runtime.test.ts src/main/settings/timeout-manager.test.ts src/renderer/settings/timeout/panel.test.ts`
+  - 验证：`npm test -- src/main/model/providers/model-request-retry.test.ts src/main/model/providers/prepared-model-call.test.ts src/main/agent/memory-runtime/main-memory-runtime.test.ts src/main/platform/settings/timeout-manager.test.ts src/renderer/settings/timeout/panel.test.ts`
 
 - [ ] C6 等待中取消、运行结束、授权撤销或档案变更
-  - 先写的测试：`src/main/orchestrator/vendors/prepared-model-call.test.ts`：等待中取消、运行结束、授权撤销或档案变更 → 无后续网络发送；返回稳定取消或边界错误。 无后续网络发送。
+  - 先写的测试：`src/main/model/providers/prepared-model-call.test.ts`：等待中取消、运行结束、授权撤销或档案变更 → 无后续网络发送；返回稳定取消或边界错误。 无后续网络发送。
   - 实现：prepared-model-call.ts 和 main-memory-runtime.ts 统一检查取消、运行结束、授权撤销和档案变更，返回稳定取消或边界错误，不再发送。
-  - 验证：`npm test -- src/main/orchestrator/vendors/model-request-retry.test.ts src/main/orchestrator/vendors/prepared-model-call.test.ts src/main/memory-context/main-memory-runtime.test.ts src/main/settings/timeout-manager.test.ts src/renderer/settings/timeout/panel.test.ts`
+  - 验证：`npm test -- src/main/model/providers/model-request-retry.test.ts src/main/model/providers/prepared-model-call.test.ts src/main/agent/memory-runtime/main-memory-runtime.test.ts src/main/platform/settings/timeout-manager.test.ts src/renderer/settings/timeout/panel.test.ts`
 
 - [ ] C7 重试前忘记记忆或发送许可失效
-  - 先写的测试：`src/main/memory-context/main-memory-runtime.test.ts`：重试前忘记记忆或发送许可失效 → 再次经过 guard，拒绝后不发送旧请求。 拒绝后不发送旧请求。
+  - 先写的测试：`src/main/agent/memory-runtime/main-memory-runtime.test.ts`：重试前忘记记忆或发送许可失效 → 再次经过 guard，拒绝后不发送旧请求。 拒绝后不发送旧请求。
   - 实现：每次实际发送重新执行 check 和 guardSend，保留原请求字节、鉴权和端点限制；不得重建或重复消费准备好的许可；按 read-only、per-action、full 三档验证边界。
-  - 验证：`npm test -- src/main/orchestrator/vendors/model-request-retry.test.ts src/main/orchestrator/vendors/prepared-model-call.test.ts src/main/memory-context/main-memory-runtime.test.ts src/main/settings/timeout-manager.test.ts src/renderer/settings/timeout/panel.test.ts`
+  - 验证：`npm test -- src/main/model/providers/model-request-retry.test.ts src/main/model/providers/prepared-model-call.test.ts src/main/agent/memory-runtime/main-memory-runtime.test.ts src/main/platform/settings/timeout-manager.test.ts src/renderer/settings/timeout/panel.test.ts`
 
 - [ ] C8 运行中修改设置
-  - 先写的测试：`src/main/memory-context/main-memory-runtime.test.ts`：运行中修改设置 → 当前运行次数不变，新运行使用新快照。 不因切换模型档案改变全局值。
+  - 先写的测试：`src/main/agent/memory-runtime/main-memory-runtime.test.ts`：运行中修改设置 → 当前运行次数不变，新运行使用新快照。 不因切换模型档案改变全局值。
   - 实现：修改 firefly-agent.ts、agui-bridge.ts、main-memory-runtime.ts，注入可信不可变配置快照、预算与安全 firefly.model.retry CUSTOM 回调，不持有可变 getTimeoutSettings() 对象。
-  - 验证：`npm test -- src/main/orchestrator/vendors/model-request-retry.test.ts src/main/orchestrator/vendors/prepared-model-call.test.ts src/main/memory-context/main-memory-runtime.test.ts src/main/settings/timeout-manager.test.ts src/renderer/settings/timeout/panel.test.ts`
+  - 验证：`npm test -- src/main/model/providers/model-request-retry.test.ts src/main/model/providers/prepared-model-call.test.ts src/main/agent/memory-runtime/main-memory-runtime.test.ts src/main/platform/settings/timeout-manager.test.ts src/renderer/settings/timeout/panel.test.ts`
 
 - [ ] C9 设置保存及重启读取
-  - 先写的测试：`src/main/settings/timeout-manager.test.ts`：设置保存及重启读取 → 使用临时目录真实文件；保留 0，非法输入按约定归一，清理目录。 不读写 1.1.x，越界 / 错误路径无目录外写入，临时目录清理。
+  - 先写的测试：`src/main/platform/settings/timeout-manager.test.ts`：设置保存及重启读取 → 使用临时目录真实文件；保留 0，非法输入按约定归一，清理目录。 不读写 1.1.x，越界 / 错误路径无目录外写入，临时目录清理。
   - 实现：修改 timeout-types.ts、timeout-manager.ts、settings/index.html、timeout/dom.ts、timeout/panel.ts、settings/i18n/zh-CN.json；加载 / 保存边界统一归一，保留 0；panel.test.ts 同包覆盖输入、帮助文案、保存及重启读取，补越界路径和错误路径断言且无目录外写入。
-  - 验证：`npm test -- src/main/orchestrator/vendors/model-request-retry.test.ts src/main/orchestrator/vendors/prepared-model-call.test.ts src/main/memory-context/main-memory-runtime.test.ts src/main/settings/timeout-manager.test.ts src/renderer/settings/timeout/panel.test.ts`
+  - 验证：`npm test -- src/main/model/providers/model-request-retry.test.ts src/main/model/providers/prepared-model-call.test.ts src/main/agent/memory-runtime/main-memory-runtime.test.ts src/main/platform/settings/timeout-manager.test.ts src/renderer/settings/timeout/panel.test.ts`
 
 **验收：** C1–C9 全部完成，本包对应 9 条用例全部通过；设计契约、完整安全字段及禁止副作用有断言。执行本包命令与受影响模块检查，PR 记录实际结果和未验证项，CI 通过并按 AGENTS.md 审查；涉及运行行为 / 界面的包在开发版或打包版实际操作。
 
@@ -475,13 +477,13 @@ HTTP 响应中的权限、额度错误不能被通用 SDK 异常类型覆盖。�
 
 **改动文件：** 共 7 个（非测试 3 个、测试 4 个）；不超过 §5.2 非测试文件规模参考。
 
-- `src/main/orchestrator/chat-loop.ts`
-- `src/main/orchestrator/harness/harness-llm.ts`
-- `src/main/orchestrator/harness/firefly-harness.ts`
-- `src/main/orchestrator/chat-loop.test.ts`
-- `src/main/orchestrator/harness/harness-llm.test.ts`
-- `src/main/orchestrator/harness/firefly-harness.test.ts`
-- `src/main/orchestrator/harness/compaction.test.ts`
+- `src/main/agent/runtime/chat-loop.ts`
+- `src/main/agent/loop/agent-loop-llm.ts`
+- `src/main/agent/loop/agent-loop.ts`
+- `src/main/agent/runtime/chat-loop.test.ts`
+- `src/main/agent/loop/agent-loop-llm.test.ts`
+- `src/main/agent/loop/agent-loop.test.ts`
+- `src/main/agent/loop/compaction.test.ts`
 
 **设计与契约：**
 
@@ -495,9 +497,9 @@ HTTP 响应中的权限、额度错误不能被通用 SDK 异常类型覆盖。�
 
 **实施范围（保留原改动清单）：**
 
-- 修改 `src/main/orchestrator/chat-loop.ts`：共享操作预算，限制图片降级触发条件。
-- 修改 `src/main/orchestrator/harness/harness-llm.ts`：流式降级共享预算，摘要使用统一重试策略与超时。
-- 修改 `src/main/orchestrator/harness/firefly-harness.ts`：向摘要传入运行快照、剩余预算和状态回调。
+- 修改 `src/main/agent/runtime/chat-loop.ts`：共享操作预算，限制图片降级触发条件。
+- 修改 `src/main/agent/loop/agent-loop-llm.ts`：流式降级共享预算，摘要使用统一重试策略与超时。
+- 修改 `src/main/agent/loop/agent-loop.ts`：向摘要传入运行快照、剩余预算和状态回调。
 - 修改上述文件对应测试，增加 Chat / Work / Code 集成场景。
 
 不得通过外层重跑整个 Harness 来实现模型重试。
@@ -505,34 +507,34 @@ HTTP 响应中的权限、额度错误不能被通用 SDK 异常类型覆盖。�
 **任务：**
 
 - [ ] D1 流式明确不支持后非流式成功
-  - 先写的测试：`src/main/orchestrator/harness/harness-llm.test.ts`：流式明确不支持后非流式成功 → 降级不消耗额外次数、不重复探测、不重复记账。 不重复探测、不重复记账。
-  - 实现：在 chat-loop.ts、harness-llm.ts 共享操作预算，明确不支持流式才降级；降级后直接非流式，避免反复探测。
-  - 验证：`npm test -- src/main/orchestrator/chat-loop.test.ts src/main/orchestrator/harness`
+  - 先写的测试：`src/main/agent/loop/agent-loop-llm.test.ts`：流式明确不支持后非流式成功 → 降级不消耗额外次数、不重复探测、不重复记账。 不重复探测、不重复记账。
+  - 实现：在 chat-loop.ts、agent-loop-llm.ts 共享操作预算，明确不支持流式才降级；降级后直接非流式，避免反复探测。
+  - 验证：`npm test -- src/main/agent/runtime/chat-loop.test.ts src/main/agent/runtime/harness`
 
 - [ ] D2 已收到文本、推理、工具调用片段或已开始成功响应体后断流
-  - 先写的测试：`src/main/orchestrator/harness/harness-llm.test.ts`：已收到文本、推理、工具调用片段或已开始成功响应体后断流 → 不重放；不执行残缺工具调用。 不重放、不执行残缺工具调用。
+  - 先写的测试：`src/main/agent/loop/agent-loop-llm.test.ts`：已收到文本、推理、工具调用片段或已开始成功响应体后断流 → 不重放；不执行残缺工具调用。 不重放、不执行残缺工具调用。
   - 实现：保持成功响应体开始后不重放，即使尚无文字；不执行残缺工具调用，不通过外层重跑 Harness 重试。
-  - 验证：`npm test -- src/main/orchestrator/chat-loop.test.ts src/main/orchestrator/harness`
+  - 验证：`npm test -- src/main/agent/runtime/chat-loop.test.ts src/main/agent/runtime/harness`
 
 - [ ] D3 Work / Code 已完成工具后下一轮模型失败
-  - 先写的测试：`src/main/orchestrator/harness/firefly-harness.test.ts`：Work / Code 已完成工具后下一轮模型失败 → 工具调用次数保持一次，结果保留。 不重跑工具、不丢失结果。
+  - 先写的测试：`src/main/agent/loop/agent-loop.test.ts`：Work / Code 已完成工具后下一轮模型失败 → 工具调用次数保持一次，结果保留。 不重跑工具、不丢失结果。
   - 实现：Chat 无工具 ChatLoop、有工具 Harness 和 Work / Code 集成场景共用策略；每轮主模型独立预算，已完成工具结果保留，Code 工作区、终端、文件与 Git 状态保留。
-  - 验证：`npm test -- src/main/orchestrator/chat-loop.test.ts src/main/orchestrator/harness`
+  - 验证：`npm test -- src/main/agent/runtime/chat-loop.test.ts src/main/agent/runtime/harness`
 
 - [ ] D4 摘要暂时失败再成功
-  - 先写的测试：`src/main/orchestrator/harness/compaction.test.ts`：摘要暂时失败再成功 → 原历史只在成功摘要后替换。 失败尝试不提前替换历史。
-  - 实现：harness-llm.ts 的摘要使用统一分类、重试和超时；firefly-harness.ts 传入快照、剩余预算、状态回调，摘要成功后才替换历史。
-  - 验证：`npm test -- src/main/orchestrator/chat-loop.test.ts src/main/orchestrator/harness`
+  - 先写的测试：`src/main/agent/loop/compaction.test.ts`：摘要暂时失败再成功 → 原历史只在成功摘要后替换。 失败尝试不提前替换历史。
+  - 实现：agent-loop-llm.ts 的摘要使用统一分类、重试和超时；agent-loop.ts 传入快照、剩余预算、状态回调，摘要成功后才替换历史。
+  - 验证：`npm test -- src/main/agent/runtime/chat-loop.test.ts src/main/agent/runtime/harness`
 
 - [ ] D5 摘要最终失败或取消
-  - 先写的测试：`src/main/orchestrator/harness/compaction.test.ts`：摘要最终失败或取消 → 原历史不被空摘要覆盖，不出现主模型输入区专属错误项。 不显示主模型专属错误项。
+  - 先写的测试：`src/main/agent/loop/compaction.test.ts`：摘要最终失败或取消 → 原历史不被空摘要覆盖，不出现主模型输入区专属错误项。 不显示主模型专属错误项。
   - 实现：摘要操作标记 summary，等待显示“正在重试上下文压缩请求”；失败 / 取消保留原历史和明确压缩失败提示，不显示主模型专属错误项，不绕过记忆授权。
-  - 验证：`npm test -- src/main/orchestrator/chat-loop.test.ts src/main/orchestrator/harness`
+  - 验证：`npm test -- src/main/agent/runtime/chat-loop.test.ts src/main/agent/runtime/harness`
 
 - [ ] D6 图片请求 400 且分类非 `INVALID_REQUEST`
-  - 先写的测试：`src/main/orchestrator/chat-loop.test.ts`：图片请求 400 且分类非 `INVALID_REQUEST` → 不触发图片文字替代。 不触发图片文字替代。
+  - 先写的测试：`src/main/agent/runtime/chat-loop.test.ts`：图片请求 400 且分类非 `INVALID_REQUEST` → 不触发图片文字替代。 不触发图片文字替代。
   - 实现：修改 chat-loop.ts 图片降级条件，400 本身不构成文字替代的充分条件，必须按精确分类判断。
-  - 验证：`npm test -- src/main/orchestrator/chat-loop.test.ts src/main/orchestrator/harness`
+  - 验证：`npm test -- src/main/agent/runtime/chat-loop.test.ts src/main/agent/runtime/harness`
 
 **验收：** D1–D6 全部完成，本包对应 6 条用例全部通过；设计契约、完整安全字段及禁止副作用有断言。执行本包命令与受影响模块检查，PR 记录实际结果和未验证项，CI 通过并按 AGENTS.md 审查；涉及运行行为 / 界面的包在开发版或打包版实际操作。
 
@@ -642,16 +644,16 @@ HTTP 响应中的权限、额度错误不能被通用 SDK 异常类型覆盖。�
 
 ```powershell
 # 施工包 A
-npm test -- src/shared/model-failure.test.ts src/main/orchestrator/vendors/model-error-classifier.test.ts
+npm test -- src/shared/model-failure.test.ts src/main/model/providers/model-error-classifier.test.ts
 
 # 施工包 B
-npm test -- src/main/orchestrator/vendors/prepared-model-call.test.ts src/main/orchestrator/vendors/sdk-stream src/main/orchestrator/firefly-agent.test.ts src/main/chat/agui-bridge.test.ts src/main/chat/agui-chat-failure.integration.test.ts
+npm test -- src/main/model/providers/prepared-model-call.test.ts src/main/model/providers/sdk-stream src/main/agent/runtime/firefly-agent.test.ts src/main/features/chat/agui-bridge.test.ts src/main/features/chat/agui-chat-failure.integration.test.ts
 
 # 施工包 C
-npm test -- src/main/orchestrator/vendors/model-request-retry.test.ts src/main/orchestrator/vendors/prepared-model-call.test.ts src/main/memory-context/main-memory-runtime.test.ts src/main/settings/timeout-manager.test.ts src/renderer/settings/timeout/panel.test.ts
+npm test -- src/main/model/providers/model-request-retry.test.ts src/main/model/providers/prepared-model-call.test.ts src/main/agent/memory-runtime/main-memory-runtime.test.ts src/main/platform/settings/timeout-manager.test.ts src/renderer/settings/timeout/panel.test.ts
 
 # 施工包 D
-npm test -- src/main/orchestrator/chat-loop.test.ts src/main/orchestrator/harness
+npm test -- src/main/agent/runtime/chat-loop.test.ts src/main/agent/runtime/harness
 
 # 施工包 E
 npm test -- src/renderer/react/features/chat/pages/run/AgentRunController.test.ts src/renderer/react/features/chat/pages/ChatPage.test.ts src/renderer/react/features/chat/components/ModelFailureNotice.test.ts src/renderer/react/features/chat/components/ChatComposer.test.ts

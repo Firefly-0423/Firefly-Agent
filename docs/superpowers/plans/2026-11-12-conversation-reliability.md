@@ -2,6 +2,8 @@
 状态：待施工
 规格：无独立规格；沿用本计划已确认的会话可靠性设计。权限约束见 `docs/superpowers/specs/2026-11-12-plugin-sdk-1-2-0.md` §7.2。
 
+> 路径说明（2026-11-13）：主进程已按七层重组（#57、#58），本文的文件路径和符号名已换成新位置（如 `src/main/agent/loop/agent-loop.ts`、`runAgentLoop`）。`文件:行号` 里的行号仍是重组前（`39987fc`）的位置，施工时以符号名为准，并在进度文档记录实际行号。
+
 **目标：** 用户在 Chat、Work、Code 中发送消息后，即使发生重复 IPC、界面刷新、回执丢失或应用崩溃，也能看到已经保存的输入和真实运行结果。同一个请求的重试返回原运行回执；停止、重载和恢复不会悄悄再次请求模型。用户发送“继续”或新的要求时，系统使用已提交历史、待办和安全状态启动新运行。
 
 工具执行保留可核对的开始记录和成功回执。结果未知的外部操作不会因为重启、更换工具调用 ID、编辑消息或重新生成而被自动重复执行。切换模型协议、厂商、模型、端点或凭证后，通用历史保持连续，专有推理数据仅向匹配来源回放。历史压缩保留审计事实，展示更新失败不应让有效会话永久无法继续。
@@ -24,31 +26,31 @@
 
 | 项目 | Firefly 当前证据 | 结论与施工范围 |
 |---|---|---|
-| 三种会话模式 | `src/shared/chat-types.ts` 的 `ConversationMode`；`src/main/chats/chats-store.ts` 的 `validMode` | 按 `chat / work / code` 验收，不扩充模式。 |
-| 会话轨迹、快照和串行追加 | `src/main/orchestrator/conversation-transcript-store.ts` 的 `append`、`checkpoint`、`enqueue`、`loadState` | 已有，不重建第二套轨迹语义；替换持久化边界时保留条目身份、顺序和 Main 守卫。 |
+| 三种会话模式 | `src/shared/chat-types.ts` 的 `ConversationMode`；`src/main/features/sessions/chats-store.ts` 的 `validMode` | 按 `chat / work / code` 验收，不扩充模式。 |
+| 会话轨迹、快照和串行追加 | `src/main/conversation/transcript/conversation-transcript-store.ts` 的 `append`、`checkpoint`、`enqueue`、`loadState` | 已有，不重建第二套轨迹语义；替换持久化边界时保留条目身份、顺序和 Main 守卫。 |
 | 条目幂等 | 同文件 `append`：普通同 `entryId` 记录主要检查 `kind` 后返回；用户次级键使用 `sameSemanticContent`；受控助手有额外校验 | 需要补全普通条目的内容比较。不得把同键不同内容吸收为成功。 |
 | 写入持久性 | 同文件 `append` 的 `write`：普通追加使用 `appendFile`，`sWrite` 才调用 `syncJsonl` | 文件头注释不能证明全部权威写入已同步。接纳、工具开始、结果和终态需要明确提交保证。 |
-| 请求、队列、用户条目和运行接纳 | `src/main/chats/chats-store.ts` 的 `claimPendingMessage` 将队首提升到会话 JSON；`src/main/chats/chats-ipc.ts:500` 起另行处理认领；`src/main/chat/agui-bridge.ts:457` 调用 `prepareTranscriptDispatch`；`harness/adapter/run-preparation.ts` 的 `store.create` 再创建运行 | 当前跨多个提交点，没有同库原子接纳。属于主要施工项。 |
+| 请求、队列、用户条目和运行接纳 | `src/main/features/sessions/chats-store.ts` 的 `claimPendingMessage` 将队首提升到会话 JSON；`src/main/features/sessions/chats-ipc.ts:500` 起另行处理认领；`src/main/features/chat/agui-bridge.ts:457` 调用 `prepareTranscriptDispatch`；`agent/runtime/adapter/run-preparation.ts` 的 `store.create` 再创建运行 | 当前跨多个提交点，没有同库原子接纳。属于主要施工项。 |
 | 残留认领 | `src/renderer/react/features/chat/pages/pending-queue-flow.ts` 的 `resumePendingDispatch` 在未判为已派发时调用 `startClaimedRun` | 确认需要取消恢复自动续派；必须同时保留原输入，不能只删除认领记录。 |
-| 读取与恢复 | `src/main/chats/chats-ipc.ts` 的 `CHATS_GET` 读取并投影，没有盘点所暗示的统一迁移恢复入口；但 `conversation-transcript-store.ts` 的 `loadState` 会截断损坏尾行 | 不新建已经不存在的迁移路径。仍需做到应用层读取不执行修复、恢复、模型或工具调用。 |
-| 正式消息与展示分离 | `src/main/orchestrator/chat-loop.ts:209–210` 提交 canonical assistant；`harness/firefly-harness.ts:119` 提交工具声明；`src/renderer/react/features/chat/pages/run/AgentRunController.ts` 的 `checkpointRun`、`writeCheckpoint` 保存展示 | 已有分层，但展示与正式消息仍存在多处写入。不能照搬不存在的 `presentation_patch` 协议，需基于现有展示保存接口改造。 |
-| 工具声明与结果提交顺序 | `harness/firefly-harness.ts:119`；`harness/tool-round.ts:97`；`transcript-sink.ts` 的 `appendAssistant`、`appendToolResult` | 已有声明先提交、结果挂载声明的能力，保留并补故障测试，不作为新功能重写。 |
-| 同会话互斥、接管、单终态 | `src/main/chat/agui-bridge.ts` 的 `runsByConversation`、`releaseSessionGuardEntry`、接管循环、`RunSettlementGate`；`run-settlement.ts` 的 `trySettle` | 已实现主要机制。保留，不为本主题强制拆完整桥接层。 |
-| 既有竞态测试 | `src/main/chat/agui-bridge.test.ts` 已覆盖同 tick 竞争、迟到取消、接管等待、同步完成、重复终态、终态与渲染保存共同确认 | 从“新增全部守卫和测试”中剔除；只扩展持久化接纳、失败和重启交叉窗口。 |
-| Harness 终态顺序与 signal | `src/main/orchestrator/harness-adapter.ts` 的 `markTerminal → finalizeReview → completePlanRun`；`harness-adapter-characterization.test.ts`；`harness-adapter-cancel.test.ts` | 已有顺序及 signal 身份测试，保留。补异常路径和持久化失败，不重复适配器拆分工程。 |
-| 中断原因 | `conversation-transcript-types.ts:135` 的 interruption 只接受 `user_cancel`；`harness-adapter.ts` 主要在取消时调用 `closeInterruption` | 缺少统一的技术失败、超时、崩溃边界和下一轮提示。 |
-| 当前恢复 | `harness/run-recovery.ts` 的 `prepareHarnessRecovery`；`harness/adapter/run-preparation.ts` 仅在 `resumeFromRunId` 存在时加载恢复 state/cache | 普通新消息与显式恢复尚未统一。`build-options.ts:411` 的未决副作用文字提示不能代替执行层 `initialState`。 |
-| 孤儿工具记录 | `harness/run-recovery.ts` 仅遍历 `declared.values()` 合成结果并推导未决副作用 | 已避免为未声明调用直接补结果；未声明但已开始的危险记录仍需独立安全留痕。 |
-| 运行存储 | `harness/run-store.ts` 的 `HarnessRunSession` 为 schema 1，保存完整 messages/state/cache；`initialize` 按索引识别 running 并转 interrupted | 完整快照和索引仍参与恢复。替代安全事实接通前不能删除这些依赖。 |
-| 工具账本 | `src/main/orchestrator/execution-ledger.ts` 的 `ExecutionLedger` 使用两个 `Map`；`execute` 在外部执行返回后才缓存成功 | 不具备跨重启成功回执，且相同调用并发进入时没有共享在途结果。需要持久化和并发唯一执行者。 |
-| 未决操作守卫与授权 | `harness/tool-dispatcher.ts` 调用 `findBlockingUncertainEffect`；`harness/builtin-tools.ts` 的 `executeConfirmUncertainEffect` 在允许后调用 `resolveUncertainEffect` | 拦截机制已有，保留。当前移除未决项不能证明授权只消费一次，需要持久化授权及原子消费。 |
-| 压缩 | `conversation-transcript-types.ts:139` 定义 `compaction_checkpoint`；`conversation-transcript-store.ts:228` 是物化快照；`conversation-transcript-context.ts` 的 `materializeTranscript` 未处理压缩条目；`harness/compaction.ts` 的 `compressForAgentLoop` 返回内存替换历史 | 类型、快照和运行内压缩不等于会话级压缩及审计归档协议，仍需施工。 |
-| 渠道历史 | `src/main/channels/dispatcher.ts` 在 memory 开启时不读取 prior history，其他路径仍调用 `resolvePriorMessages(context, 16)`；`channels/bootstrap.ts` 的 `run` 分别构造 memory 和普通入口 | 不能宣称全入口已贯通。需统一接纳、会话身份和权威历史，保留现有渠道授权。 |
-| 协议回放 | `vendors/types.ts` 的 `ChatMessage.rawAssistant` 为 `unknown`；`anthropic-adapter.ts` 的 `isReplayableAssistantContent`；`responses-adapter.ts` 的 `replayableOutputItems` | 已有异构形状检查及降级，剔除“完全没有异构回放防护”的施工项；缺少完整来源绑定和版本化副本。 |
-| Responses 降级 | `vendors/responses-adapter.ts` 的 `toWireInput` 为 assistant 文本构造 `input_text` | 静态确认需要修改编码；严格服务端表现尚未复测。 |
-| Responses 流结束 | `vendors/sdk-stream/runtime.ts:168–185` 在缺少 terminal 时仍可 `finalize` 并返回成功 | 纳入终态可靠性：不能把缺终态的部分输出提交为成功历史。 |
-| 原生历史契约 | `src/main/memory-sources/native-history-provider.ts:31`、`:70–72` 固定读取轨迹文件对；`native/src/history_read.rs` 的历史文件访问白名单；`memory-context/conversation-transcript-adapter.ts` 使用读租约 | 数据库存储切换必须同时处理原生读取、快照身份和失效校验，不能只替换 Store。 |
-| 数据目录与 CI | `startup/runtime-profile.ts` 的 production 路径仍为 `Firefly`；`storage/storage-context.ts` 将 dataRoot 绑定 userData；`.github/workflows/test.yml:80–103` 已配置全量测试 | 需明确 1.2.0 新目录。CI 全量测试已有，不重复新增，也不修改阈值。 |
+| 读取与恢复 | `src/main/features/sessions/chats-ipc.ts` 的 `CHATS_GET` 读取并投影，没有盘点所暗示的统一迁移恢复入口；但 `conversation-transcript-store.ts` 的 `loadState` 会截断损坏尾行 | 不新建已经不存在的迁移路径。仍需做到应用层读取不执行修复、恢复、模型或工具调用。 |
+| 正式消息与展示分离 | `src/main/agent/runtime/chat-loop.ts:209–210` 提交 canonical assistant；`agent/loop/agent-loop.ts:119` 提交工具声明；`src/renderer/react/features/chat/pages/run/AgentRunController.ts` 的 `checkpointRun`、`writeCheckpoint` 保存展示 | 已有分层，但展示与正式消息仍存在多处写入。不能照搬不存在的 `presentation_patch` 协议，需基于现有展示保存接口改造。 |
+| 工具声明与结果提交顺序 | `agent/loop/agent-loop.ts:119`；`agent/loop/tool-round.ts:97`；`transcript-sink.ts` 的 `appendAssistant`、`appendToolResult` | 已有声明先提交、结果挂载声明的能力，保留并补故障测试，不作为新功能重写。 |
+| 同会话互斥、接管、单终态 | `src/main/features/chat/agui-bridge.ts` 的 `runsByConversation`、`releaseSessionGuardEntry`、接管循环、`RunSettlementGate`；`run-settlement.ts` 的 `trySettle` | 已实现主要机制。保留，不为本主题强制拆完整桥接层。 |
+| 既有竞态测试 | `src/main/features/chat/agui-bridge.test.ts` 已覆盖同 tick 竞争、迟到取消、接管等待、同步完成、重复终态、终态与渲染保存共同确认 | 从“新增全部守卫和测试”中剔除；只扩展持久化接纳、失败和重启交叉窗口。 |
+| Harness 终态顺序与 signal | `src/main/agent/runtime/agent-loop-adapter.ts` 的 `markTerminal → finalizeReview → completePlanRun`；`agent-loop-adapter-characterization.test.ts`；`agent-loop-adapter-cancel.test.ts` | 已有顺序及 signal 身份测试，保留。补异常路径和持久化失败，不重复适配器拆分工程。 |
+| 中断原因 | `conversation-transcript-types.ts:135` 的 interruption 只接受 `user_cancel`；`agent-loop-adapter.ts` 主要在取消时调用 `closeInterruption` | 缺少统一的技术失败、超时、崩溃边界和下一轮提示。 |
+| 当前恢复 | `agent/loop/run-recovery.ts` 的 `prepareAgentRunRecovery`；`agent/runtime/adapter/run-preparation.ts` 仅在 `resumeFromRunId` 存在时加载恢复 state/cache | 普通新消息与显式恢复尚未统一。`build-options.ts:411` 的未决副作用文字提示不能代替执行层 `initialState`。 |
+| 孤儿工具记录 | `agent/loop/run-recovery.ts` 仅遍历 `declared.values()` 合成结果并推导未决副作用 | 已避免为未声明调用直接补结果；未声明但已开始的危险记录仍需独立安全留痕。 |
+| 运行存储 | `agent/loop/run-store.ts` 的 `AgentRunSession` 为 schema 1，保存完整 messages/state/cache；`initialize` 按索引识别 running 并转 interrupted | 完整快照和索引仍参与恢复。替代安全事实接通前不能删除这些依赖。 |
+| 工具账本 | `src/main/agent/loop/execution-ledger.ts` 的 `ExecutionLedger` 使用两个 `Map`；`execute` 在外部执行返回后才缓存成功 | 不具备跨重启成功回执，且相同调用并发进入时没有共享在途结果。需要持久化和并发唯一执行者。 |
+| 未决操作守卫与授权 | `agent/loop/tool-dispatcher.ts` 调用 `findBlockingUncertainEffect`；`agent/loop/builtin-tools.ts` 的 `executeConfirmUncertainEffect` 在允许后调用 `resolveUncertainEffect` | 拦截机制已有，保留。当前移除未决项不能证明授权只消费一次，需要持久化授权及原子消费。 |
+| 压缩 | `conversation-transcript-types.ts:139` 定义 `compaction_checkpoint`；`conversation-transcript-store.ts:228` 是物化快照；`conversation-transcript-context.ts` 的 `materializeTranscript` 未处理压缩条目；`agent/loop/compaction.ts` 的 `compressForAgentLoop` 返回内存替换历史 | 类型、快照和运行内压缩不等于会话级压缩及审计归档协议，仍需施工。 |
+| 渠道历史 | `src/main/features/channels/dispatcher.ts` 在 memory 开启时不读取 prior history，其他路径仍调用 `resolvePriorMessages(context, 16)`；`features/channels/bootstrap.ts` 的 `run` 分别构造 memory 和普通入口 | 不能宣称全入口已贯通。需统一接纳、会话身份和权威历史，保留现有渠道授权。 |
+| 协议回放 | `model/providers/types.ts` 的 `ChatMessage.rawAssistant` 为 `unknown`；`anthropic-adapter.ts` 的 `isReplayableAssistantContent`；`responses-adapter.ts` 的 `replayableOutputItems` | 已有异构形状检查及降级，剔除“完全没有异构回放防护”的施工项；缺少完整来源绑定和版本化副本。 |
+| Responses 降级 | `model/providers/responses-adapter.ts` 的 `toWireInput` 为 assistant 文本构造 `input_text` | 静态确认需要修改编码；严格服务端表现尚未复测。 |
+| Responses 流结束 | `model/providers/sdk-stream/runtime.ts:168–185` 在缺少 terminal 时仍可 `finalize` 并返回成功 | 纳入终态可靠性：不能把缺终态的部分输出提交为成功历史。 |
+| 原生历史契约 | `src/main/memory/legacy/history/native-history-provider.ts:31`、`:70–72` 固定读取轨迹文件对；`native/src/history_read.rs` 的历史文件访问白名单；`agent/memory-runtime/conversation-transcript-adapter.ts` 使用读租约 | 数据库存储切换必须同时处理原生读取、快照身份和失效校验，不能只替换 Store。 |
+| 数据目录与 CI | `base/identity/runtime-profile.ts` 的 production 路径仍为 `Firefly`；`base/storage/storage-context.ts` 将 dataRoot 绑定 userData；`.github/workflows/test.yml:80–103` 已配置全量测试 | 需明确 1.2.0 新目录。CI 全量测试已有，不重复新增，也不修改阈值。 |
 
 **不改的东西：** 不扩充 Chat/Work/Code 模式，不强制拆桥接层或替换 SDK；保留既有通道、结算门、受控结算、Main actor/guard/held-ticket/lease 语义。附件及大型输出继续用文件引用，记忆库职责独立；不重设计页面，不重复新增 CI 全量测试，不降低阈值，不在本主题修改发布版本号。
 
@@ -70,27 +72,27 @@
 
 ### 新建
 
-- `src/main/chat/conversation-reliability.integration.test.ts`
-- `src/main/chats/conversation-admission.test.ts`
-- `src/main/chats/conversation-admission.ts`
-- `src/main/orchestrator/conversation-compaction.test.ts`
-- `src/main/orchestrator/conversation-compaction.ts`
-- `src/main/orchestrator/harness/conversation-recovery.test.ts`
-- `src/main/orchestrator/harness/conversation-recovery.ts`
-- `src/main/orchestrator/vendors/history-replay.test.ts`
-- `src/main/orchestrator/vendors/history-replay.ts`
-- `src/main/storage/conversation-db-client.test.ts`
-- `src/main/storage/conversation-db-client.ts`
-- `src/main/storage/conversation-db-contracts.test.ts`
-- `src/main/storage/conversation-db-contracts.ts`
-- `src/main/storage/conversation-db-schema.test.ts`
-- `src/main/storage/conversation-db-schema.ts`
-- `src/main/storage/conversation-db-worker.test.ts`
-- `src/main/storage/conversation-db-worker.ts`
-- `src/main/storage/conversation-history-export.test.ts`
-- `src/main/storage/conversation-history-export.ts`
-- `src/main/storage/conversation-repository.test.ts`
-- `src/main/storage/conversation-repository.ts`
+- `src/main/features/chat/conversation-reliability.integration.test.ts`
+- `src/main/features/sessions/conversation-admission.test.ts`
+- `src/main/features/sessions/conversation-admission.ts`
+- `src/main/agent/runtime/conversation-compaction.test.ts`
+- `src/main/agent/runtime/conversation-compaction.ts`
+- `src/main/agent/loop/conversation-recovery.test.ts`
+- `src/main/agent/loop/conversation-recovery.ts`
+- `src/main/model/providers/history-replay.test.ts`
+- `src/main/model/providers/history-replay.ts`
+- `src/main/base/storage/conversation-db-client.test.ts`
+- `src/main/base/storage/conversation-db-client.ts`
+- `src/main/base/storage/conversation-db-contracts.test.ts`
+- `src/main/base/storage/conversation-db-contracts.ts`
+- `src/main/base/storage/conversation-db-schema.test.ts`
+- `src/main/base/storage/conversation-db-schema.ts`
+- `src/main/base/storage/conversation-db-worker.test.ts`
+- `src/main/base/storage/conversation-db-worker.ts`
+- `src/main/base/storage/conversation-history-export.test.ts`
+- `src/main/base/storage/conversation-history-export.ts`
+- `src/main/base/storage/conversation-repository.test.ts`
+- `src/main/base/storage/conversation-repository.ts`
 - `src/shared/conversation-request.ts`
 
 ### 修改
@@ -98,91 +100,91 @@
 - `DEVELOPMENT.md`
 - `README.md`
 - `native/src/history_read.rs`
-- `src/main/application/default-dependencies.test.ts`
-- `src/main/application/default-dependencies.ts`
-- `src/main/application/shutdown.test.ts`
-- `src/main/application/shutdown.ts`
-- `src/main/channels/bootstrap.test.ts`
-- `src/main/channels/bootstrap.ts`
-- `src/main/channels/channel-context.ts`
-- `src/main/channels/dispatcher.test.ts`
-- `src/main/channels/dispatcher.ts`
-- `src/main/chat/agui-bridge.test.ts`
-- `src/main/chat/agui-bridge.ts`
-- `src/main/chats/chats-ipc.test.ts`
-- `src/main/chats/chats-ipc.ts`
-- `src/main/chats/chats-pending-queue.test.ts`
-- `src/main/chats/chats-store.ts`
-- `src/main/chats/pending-adjustment.test.ts`
-- `src/main/chats/pending-adjustment.ts`
-- `src/main/memory-context/conversation-transcript-adapter.test.ts`
-- `src/main/memory-context/conversation-transcript-adapter.ts`
-- `src/main/memory-context/main-default-memory.ts`
-- `src/main/memory-context/main-transcript-provider.ts`
-- `src/main/memory-history/firefly-history-reader.test.ts`
-- `src/main/memory-history/firefly-history-reader.ts`
-- `src/main/memory-history/history-contracts.ts`
-- `src/main/memory-sources/native-history-provider.test.ts`
-- `src/main/memory-sources/native-history-provider.ts`
-- `src/main/orchestrator/build-options.ts`
-- `src/main/orchestrator/chat-loop.ts`
-- `src/main/orchestrator/conversation-transcript-context.test.ts`
-- `src/main/orchestrator/conversation-transcript-context.ts`
-- `src/main/orchestrator/conversation-transcript-coordinator.test.ts`
-- `src/main/orchestrator/conversation-transcript-coordinator.ts`
-- `src/main/orchestrator/conversation-transcript-settlement.test.ts`
-- `src/main/orchestrator/conversation-transcript-store-ephemeral.test.ts`
-- `src/main/orchestrator/conversation-transcript-store.test.ts`
-- `src/main/orchestrator/conversation-transcript-store.ts`
-- `src/main/orchestrator/conversation-transcript-types.test.ts`
-- `src/main/orchestrator/conversation-transcript-types.ts`
-- `src/main/orchestrator/execution-ledger.test.ts`
-- `src/main/orchestrator/execution-ledger.ts`
-- `src/main/orchestrator/firefly-agent.ts`
-- `src/main/orchestrator/harness-adapter-cancel.test.ts`
-- `src/main/orchestrator/harness-adapter-characterization.test.ts`
-- `src/main/orchestrator/harness-adapter.ts`
-- `src/main/orchestrator/harness/adapter/run-preparation.ts`
-- `src/main/orchestrator/harness/builtin-tools.test.ts`
-- `src/main/orchestrator/harness/builtin-tools.ts`
-- `src/main/orchestrator/harness/compaction.test.ts`
-- `src/main/orchestrator/harness/compaction.ts`
-- `src/main/orchestrator/harness/firefly-harness.ts`
-- `src/main/orchestrator/harness/run-recovery.test.ts`
-- `src/main/orchestrator/harness/run-recovery.ts`
-- `src/main/orchestrator/harness/run-store.ts`
-- `src/main/orchestrator/harness/tool-dispatcher.test.ts`
-- `src/main/orchestrator/harness/tool-dispatcher.ts`
-- `src/main/orchestrator/harness/tool-round.test.ts`
-- `src/main/orchestrator/harness/tool-round.ts`
-- `src/main/orchestrator/harness/types.ts`
-- `src/main/orchestrator/harness/uncertain-effect-guard.test.ts`
-- `src/main/orchestrator/harness/uncertain-effect-guard.ts`
-- `src/main/orchestrator/run-settlement.test.ts`
-- `src/main/orchestrator/run-settlement.ts`
-- `src/main/orchestrator/transcript-sink.ts`
-- `src/main/orchestrator/vendors/anthropic-adapter.test.ts`
-- `src/main/orchestrator/vendors/anthropic-adapter.ts`
-- `src/main/orchestrator/vendors/openai-adapter.test.ts`
-- `src/main/orchestrator/vendors/openai-adapter.ts`
-- `src/main/orchestrator/vendors/responses-adapter.test.ts`
-- `src/main/orchestrator/vendors/responses-adapter.ts`
-- `src/main/orchestrator/vendors/sdk-stream/runtime.test.ts`
-- `src/main/orchestrator/vendors/sdk-stream/runtime.ts`
-- `src/main/orchestrator/vendors/types.ts`
-- `src/main/plugin-host/pending-turn-lifecycle.test.ts`
-- `src/main/plugin-host/pending-turn-lifecycle.ts`
-- `src/main/proactive/proactive-model.test.ts`
-- `src/main/proactive/proactive-model.ts`
-- `src/main/proactive/proactive-service.ts`
-- `src/main/proactive/proactive-state-restart.test.ts`
-- `src/main/scheduler/scheduler-runner.test.ts`
-- `src/main/scheduler/scheduler-runner.ts`
-- `src/main/settings/credential-storage.ts`
-- `src/main/startup/runtime-profile-documentation.test.ts`
-- `src/main/startup/runtime-profile.test.ts`
-- `src/main/startup/runtime-profile.ts`
-- `src/main/storage/storage-context.ts`
+- `src/main/app/default-dependencies.test.ts`
+- `src/main/app/default-dependencies.ts`
+- `src/main/base/lifecycle/shutdown.test.ts`
+- `src/main/base/lifecycle/shutdown.ts`
+- `src/main/features/channels/bootstrap.test.ts`
+- `src/main/features/channels/bootstrap.ts`
+- `src/main/features/channels/channel-context.ts`
+- `src/main/features/channels/dispatcher.test.ts`
+- `src/main/features/channels/dispatcher.ts`
+- `src/main/features/chat/agui-bridge.test.ts`
+- `src/main/features/chat/agui-bridge.ts`
+- `src/main/features/sessions/chats-ipc.test.ts`
+- `src/main/features/sessions/chats-ipc.ts`
+- `src/main/features/sessions/chats-pending-queue.test.ts`
+- `src/main/features/sessions/chats-store.ts`
+- `src/main/agent/runtime/pending-adjustment.test.ts`
+- `src/main/agent/runtime/pending-adjustment.ts`
+- `src/main/agent/memory-runtime/conversation-transcript-adapter.test.ts`
+- `src/main/agent/memory-runtime/conversation-transcript-adapter.ts`
+- `src/main/agent/memory-runtime/main-default-memory.ts`
+- `src/main/memory/legacy/history/main-transcript-provider.ts`
+- `src/main/memory/legacy/history/firefly-history-reader.test.ts`
+- `src/main/memory/legacy/history/firefly-history-reader.ts`
+- `src/main/memory/legacy/history/history-contracts.ts`
+- `src/main/memory/legacy/history/native-history-provider.test.ts`
+- `src/main/memory/legacy/history/native-history-provider.ts`
+- `src/main/agent/runtime/build-options.ts`
+- `src/main/agent/runtime/chat-loop.ts`
+- `src/main/agent/loop/conversation-transcript-context.test.ts`
+- `src/main/agent/loop/conversation-transcript-context.ts`
+- `src/main/conversation/transcript/conversation-transcript-coordinator.test.ts`
+- `src/main/conversation/transcript/conversation-transcript-coordinator.ts`
+- `src/main/conversation/transcript/conversation-transcript-settlement.test.ts`
+- `src/main/conversation/transcript/conversation-transcript-store-ephemeral.test.ts`
+- `src/main/conversation/transcript/conversation-transcript-store.test.ts`
+- `src/main/conversation/transcript/conversation-transcript-store.ts`
+- `src/main/conversation/transcript/conversation-transcript-types.test.ts`
+- `src/main/conversation/transcript/conversation-transcript-types.ts`
+- `src/main/agent/loop/execution-ledger.test.ts`
+- `src/main/agent/loop/execution-ledger.ts`
+- `src/main/agent/runtime/firefly-agent.ts`
+- `src/main/agent/runtime/agent-loop-adapter-cancel.test.ts`
+- `src/main/agent/runtime/agent-loop-adapter-characterization.test.ts`
+- `src/main/agent/runtime/agent-loop-adapter.ts`
+- `src/main/agent/runtime/adapter/run-preparation.ts`
+- `src/main/agent/loop/builtin-tools.test.ts`
+- `src/main/agent/loop/builtin-tools.ts`
+- `src/main/agent/loop/compaction.test.ts`
+- `src/main/agent/loop/compaction.ts`
+- `src/main/agent/loop/agent-loop.ts`
+- `src/main/agent/loop/run-recovery.test.ts`
+- `src/main/agent/loop/run-recovery.ts`
+- `src/main/agent/loop/run-store.ts`
+- `src/main/agent/loop/tool-dispatcher.test.ts`
+- `src/main/agent/loop/tool-dispatcher.ts`
+- `src/main/agent/loop/tool-round.test.ts`
+- `src/main/agent/loop/tool-round.ts`
+- `src/main/agent/loop/types.ts`
+- `src/main/agent/loop/uncertain-effect-guard.test.ts`
+- `src/main/agent/loop/uncertain-effect-guard.ts`
+- `src/main/conversation/transcript/run-settlement.test.ts`
+- `src/main/conversation/transcript/run-settlement.ts`
+- `src/main/agent/loop/transcript-sink.ts`
+- `src/main/model/providers/anthropic-adapter.test.ts`
+- `src/main/model/providers/anthropic-adapter.ts`
+- `src/main/model/providers/openai-adapter.test.ts`
+- `src/main/model/providers/openai-adapter.ts`
+- `src/main/model/providers/responses-adapter.test.ts`
+- `src/main/model/providers/responses-adapter.ts`
+- `src/main/model/providers/sdk-stream/runtime.test.ts`
+- `src/main/model/providers/sdk-stream/runtime.ts`
+- `src/main/model/providers/types.ts`
+- `src/main/features/plugins/host/pending-turn-lifecycle.test.ts`
+- `src/main/features/plugins/host/pending-turn-lifecycle.ts`
+- `src/main/features/proactive/proactive-model.test.ts`
+- `src/main/features/proactive/proactive-model.ts`
+- `src/main/features/proactive/proactive-service.ts`
+- `src/main/features/proactive/proactive-state-restart.test.ts`
+- `src/main/features/scheduler/scheduler-runner.test.ts`
+- `src/main/features/scheduler/scheduler-runner.ts`
+- `src/main/platform/settings/credential-storage.ts`
+- `src/main/base/identity/runtime-profile-documentation.test.ts`
+- `src/main/base/identity/runtime-profile.test.ts`
+- `src/main/base/identity/runtime-profile.ts`
+- `src/main/base/storage/storage-context.ts`
 - `src/preload/index.ts`
 - `src/renderer/global.d.ts`
 - `src/renderer/react/features/chat/components/ChatMessageList.test.ts`
@@ -213,51 +215,51 @@
 
 **改动文件：** 2 个非测试文件；另含下列测试。
 
-- 修改 `src/main/startup/runtime-profile.ts`
-- 修改 `src/main/storage/storage-context.ts`
+- 修改 `src/main/base/identity/runtime-profile.ts`
+- 修改 `src/main/base/storage/storage-context.ts`
 
 测试文件（保留/扩展现有文件，不存在的同名测试在本包新建）：
 
-- `src/main/startup/runtime-profile.test.ts`
-- `src/main/startup/runtime-profile-documentation.test.ts`
-- `src/main/chat/agui-bridge.test.ts`
-- `src/main/orchestrator/harness-adapter-characterization.test.ts`
+- `src/main/base/identity/runtime-profile.test.ts`
+- `src/main/base/identity/runtime-profile-documentation.test.ts`
+- `src/main/features/chat/agui-bridge.test.ts`
+- `src/main/agent/runtime/agent-loop-adapter-characterization.test.ts`
 
 #### 实施范围与契约
 
-- 修改 `src/main/startup/runtime-profile.ts`：加入明确的 1.2.0 数据命名空间，保留 production/development/test/smoke 隔离规则。
-- 修改 `src/main/storage/storage-context.ts`：声明会话库及导出根目录，执行现有路径归属检查。
-- 修改 `src/main/startup/runtime-profile.test.ts`、`runtime-profile-documentation.test.ts`：覆盖新目录、旧目录不访问及启动参数。
-- 扩展 `src/main/chat/agui-bridge.test.ts`、`src/main/orchestrator/harness-adapter-characterization.test.ts`：固定现有互斥、终态顺序和副作用边界，不重做已通过设计。
+- 修改 `src/main/base/identity/runtime-profile.ts`：加入明确的 1.2.0 数据命名空间，保留 production/development/test/smoke 隔离规则。
+- 修改 `src/main/base/storage/storage-context.ts`：声明会话库及导出根目录，执行现有路径归属检查。
+- 修改 `src/main/base/identity/runtime-profile.test.ts`、`runtime-profile-documentation.test.ts`：覆盖新目录、旧目录不访问及启动参数。
+- 扩展 `src/main/features/chat/agui-bridge.test.ts`、`src/main/agent/runtime/agent-loop-adapter-characterization.test.ts`：固定现有互斥、终态顺序和副作用边界，不重做已通过设计。
 
 交付：可单独使用的新目录边界及明确的现有行为基线。
 
 **任务：**
 
 - [ ] A1 隔离四类启动命名空间
-  - 先写的测试：`src/main/startup/runtime-profile.test.ts`：生产、开发、测试、smoke 启动 → 返回完整预期路径；旧版目录没有 stat/read/write 调用。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：在 `src/main/startup/runtime-profile.ts` 固定四类 1.2.0 命名空间；在 `src/main/storage/storage-context.ts` 声明会话库、导出根及路径归属检查。
-  - 验证：`npm test -- src/main/startup/runtime-profile.test.ts`
+  - 先写的测试：`src/main/base/identity/runtime-profile.test.ts`：生产、开发、测试、smoke 启动 → 返回完整预期路径；旧版目录没有 stat/read/write 调用。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 实现：在 `src/main/base/identity/runtime-profile.ts` 固定四类 1.2.0 命名空间；在 `src/main/base/storage/storage-context.ts` 声明会话库、导出根及路径归属检查。
+  - 验证：`npm test -- src/main/base/identity/runtime-profile.test.ts`
 
 - [ ] A2 拒绝路径别名与越界
-  - 先写的测试：`src/main/startup/runtime-profile.test.ts`：隔离路径包含 junction、越界或旧目录别名 → 明确拒绝；没有目录创建、数据库打开或设置读取。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：在 `src/main/storage/storage-context.ts` 启动预检拒绝 junction、越界及旧目录别名；拒绝先于创建、打开或读取。
-  - 验证：`npm test -- src/main/startup/runtime-profile.test.ts`
+  - 先写的测试：`src/main/base/identity/runtime-profile.test.ts`：隔离路径包含 junction、越界或旧目录别名 → 明确拒绝；没有目录创建、数据库打开或设置读取。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 实现：在 `src/main/base/storage/storage-context.ts` 启动预检拒绝 junction、越界及旧目录别名；拒绝先于创建、打开或读取。
+  - 验证：`npm test -- src/main/base/identity/runtime-profile.test.ts`
 
 - [ ] A3 保留同会话唯一所有者
-  - 先写的测试：`src/main/chat/agui-bridge.test.ts`：同 tick 两请求、旧运行迟到释放 → 只存在一个所有者；旧释放不删除新运行。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/features/chat/agui-bridge.test.ts`：同 tick 两请求、旧运行迟到释放 → 只存在一个所有者；旧释放不删除新运行。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：扩展 `agui-bridge.test.ts` 的 `runsByConversation`、`releaseSessionGuardEntry` 竞态基线，保留现有守卫，不拆桥接层。
-  - 验证：`npm test -- src/main/chat/agui-bridge.test.ts`
+  - 验证：`npm test -- src/main/features/chat/agui-bridge.test.ts`
 
 - [ ] A4 固定终态持久化失败边界
-  - 先写的测试：`src/main/orchestrator/harness-adapter-characterization.test.ts`：终态持久化失败 → 不 finalize Review、不完成计划、不发送成功事件。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：在 `harness-adapter-characterization.test.ts` 注入 `markTerminal` 失败，固定现有失败边界；D 包负责数据库终态接线及完整异常路径。
-  - 验证：`npm test -- src/main/orchestrator/harness-adapter-characterization.test.ts`
+  - 先写的测试：`src/main/agent/runtime/agent-loop-adapter-characterization.test.ts`：终态持久化失败 → 不 finalize Review、不完成计划、不发送成功事件。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 实现：在 `agent-loop-adapter-characterization.test.ts` 注入 `markTerminal` 失败，固定现有失败边界；D 包负责数据库终态接线及完整异常路径。
+  - 验证：`npm test -- src/main/agent/runtime/agent-loop-adapter-characterization.test.ts`
 
 - [ ] A5 保留重复终态、接管与 signal 基线
-  - 先写的测试：`src/main/chat/agui-bridge.test.ts`：对已有重复终态、接管和 signal 用例保持原断言，不通过删测试获得通过。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/features/chat/agui-bridge.test.ts`：对已有重复终态、接管和 signal 用例保持原断言，不通过删测试获得通过。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：扩展原有 bridge 与 Harness characterization 测试，保留互斥、接管、终态顺序及 signal 身份断言，不删有效测试。
-  - 验证：`npm test -- src/main/chat/agui-bridge.test.ts`
+  - 验证：`npm test -- src/main/features/chat/agui-bridge.test.ts`
 
 **验收：** 本包 5 个任务逐项通过，覆盖本包全部 5 条测试用例及既有有效断言；实施范围与上述契约全部落实。执行下文最近测试及受影响的类型/构建检查，记录命令、结果和未验证项。新后端保持未生产启用。
 
@@ -271,35 +273,35 @@
 
 **改动文件：** 7 个非测试文件；另含下列测试。
 
-- 新建 `src/main/storage/conversation-db-contracts.ts`
-- 新建 `src/main/storage/conversation-db-client.ts`
-- 新建 `src/main/storage/conversation-db-worker.ts`
-- 新建 `src/main/storage/conversation-db-schema.ts`
-- 新建 `src/main/storage/conversation-repository.ts`
-- 修改 `src/main/orchestrator/conversation-transcript-store.ts`
-- 修改 `src/main/orchestrator/conversation-transcript-types.ts`
+- 新建 `src/main/base/storage/conversation-db-contracts.ts`
+- 新建 `src/main/base/storage/conversation-db-client.ts`
+- 新建 `src/main/base/storage/conversation-db-worker.ts`
+- 新建 `src/main/base/storage/conversation-db-schema.ts`
+- 新建 `src/main/base/storage/conversation-repository.ts`
+- 修改 `src/main/conversation/transcript/conversation-transcript-store.ts`
+- 修改 `src/main/conversation/transcript/conversation-transcript-types.ts`
 
 测试文件（保留/扩展现有文件，不存在的同名测试在本包新建）：
 
-- `src/main/storage/conversation-db-client.test.ts`
-- `src/main/storage/conversation-repository.test.ts`
-- `src/main/orchestrator/conversation-transcript-store.test.ts`
-- `src/main/orchestrator/conversation-transcript-store-ephemeral.test.ts`
-- `src/main/orchestrator/conversation-transcript-settlement.test.ts`
-- `src/main/storage/conversation-db-contracts.test.ts`
-- `src/main/storage/conversation-db-worker.test.ts`
-- `src/main/storage/conversation-db-schema.test.ts`
-- `src/main/orchestrator/conversation-transcript-types.test.ts`
+- `src/main/base/storage/conversation-db-client.test.ts`
+- `src/main/base/storage/conversation-repository.test.ts`
+- `src/main/conversation/transcript/conversation-transcript-store.test.ts`
+- `src/main/conversation/transcript/conversation-transcript-store-ephemeral.test.ts`
+- `src/main/conversation/transcript/conversation-transcript-settlement.test.ts`
+- `src/main/base/storage/conversation-db-contracts.test.ts`
+- `src/main/base/storage/conversation-db-worker.test.ts`
+- `src/main/base/storage/conversation-db-schema.test.ts`
+- `src/main/conversation/transcript/conversation-transcript-types.test.ts`
 
 #### 实施范围与契约
 
-- 新增 `src/main/storage/conversation-db-contracts.ts`：后台命令、返回 DTO、结构化错误。
-- 新增 `src/main/storage/conversation-db-client.ts`：Worker 生命周期、在途请求、有界等待、关闭与失败传播。
-- 新增 `src/main/storage/conversation-db-worker.ts`：唯一连接、事务执行与数据库版本检查。
-- 新增 `src/main/storage/conversation-db-schema.ts`：表、索引、约束和新库结构升级。
-- 新增 `src/main/storage/conversation-repository.ts`：轨迹比较、序号、请求及回执事务。
-- 修改 `src/main/orchestrator/conversation-transcript-store.ts`：保留公开语义及 Main guard/lease 接口，增加数据库后端适配，读取不修复数据。
-- 修改 `src/main/orchestrator/conversation-transcript-types.ts`：新增事件与版本化校验。
+- 新增 `src/main/base/storage/conversation-db-contracts.ts`：后台命令、返回 DTO、结构化错误。
+- 新增 `src/main/base/storage/conversation-db-client.ts`：Worker 生命周期、在途请求、有界等待、关闭与失败传播。
+- 新增 `src/main/base/storage/conversation-db-worker.ts`：唯一连接、事务执行与数据库版本检查。
+- 新增 `src/main/base/storage/conversation-db-schema.ts`：表、索引、约束和新库结构升级。
+- 新增 `src/main/base/storage/conversation-repository.ts`：轨迹比较、序号、请求及回执事务。
+- 修改 `src/main/conversation/transcript/conversation-transcript-store.ts`：保留公开语义及 Main guard/lease 接口，增加数据库后端适配，读取不修复数据。
+- 修改 `src/main/conversation/transcript/conversation-transcript-types.ts`：新增事件与版本化校验。
 - 新增上述模块同名测试，扩展现有 transcript store/type/settlement 测试。
 
 交付：未启用生产的完整事务后端；临时会话使用不落磁盘的等价事务实现。
@@ -308,7 +310,7 @@
 
 采用**独立会话数据库、单写入后台线程、领域事务接口**。会话元信息、输入请求、权威轨迹、运行接纳和工具回执放入同一数据库；附件及大型工具输出继续保存文件引用。现有记忆数据库保持自己的职责，不把它与会话库之间的操作宣称为一个事务。
 
-选择理由：继续以多个 JSON/JSONL 文件分别提交，无法直接满足“队列消费、用户事实、运行关联、请求回执同事务”的要求。自行实现跨文件提交日志会增加恢复协议。本方案复用项目已有 `node:sqlite` 和 Worker 使用经验，证据为 `src/main/memory-context/transcript-ledger.ts`、`src/main/memory-core/worker-client.ts`。
+选择理由：继续以多个 JSON/JSONL 文件分别提交，无法直接满足“队列消费、用户事实、运行关联、请求回执同事务”的要求。自行实现跨文件提交日志会增加恢复协议。本方案复用项目已有 `node:sqlite` 和 Worker 使用经验，证据为 `src/main/memory/legacy/history/transcript-ledger.ts`、`src/main/memory/legacy/core/worker-client.ts`。
 
 拟使用 `<StorageContext.dataRoot>/firefly-conversations.sqlite`。设置 WAL、`synchronous=FULL`、外键，写事务显式开始、提交和回滚；事务内不等待模型、外部工具、审批或文件处理。同步 SQLite 调用放在后台线程。依据：[Node.js 24 SQLite 接口](https://nodejs.org/download/release/v24.11.0/docs/api/sqlite.html)、[SQLite 事务规则](https://sqlite.org/lang_transaction.html)、[同步设置](https://sqlite.org/pragma.html#pragma_synchronous)。这些资料不代替 Firefly 所用 Electron 构建产物的运行验收。
 
@@ -353,44 +355,44 @@
 **任务：**
 
 - [ ] B1 实现轨迹顺序与重试幂等
-  - 先写的测试：`src/main/storage/conversation-repository.test.ts`：同条目顺序、并发、关闭重开后重试 → 返回完整相同条目，只增加一次序号。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/base/storage/conversation-repository.test.ts`：同条目顺序、并发、关闭重开后重试 → 返回完整相同条目，只增加一次序号。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：在 `conversation-repository.ts` 与 `conversation-transcript-store.ts` 实现内容等价重试、唯一序号和数据库适配，保留公开语义与 Main guard/lease。
-  - 验证：`npm test -- src/main/storage/conversation-repository.test.ts`
+  - 验证：`npm test -- src/main/base/storage/conversation-repository.test.ts`
 
 - [ ] B2 拒绝同键不同内容
-  - 先写的测试：`src/main/storage/conversation-repository.test.ts`：同键不同正文、附件、工具关联、原始协议内容 → 返回具体冲突码；原记录不变。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/base/storage/conversation-repository.test.ts`：同键不同正文、附件、工具关联、原始协议内容 → 返回具体冲突码；原记录不变。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：在 `conversation-repository.ts` 完整比较正文、附件、工具关联与原始协议内容，返回 `E_TRANSCRIPT_CONTENT_CONFLICT`。
-  - 验证：`npm test -- src/main/storage/conversation-repository.test.ts`
+  - 验证：`npm test -- src/main/base/storage/conversation-repository.test.ts`
 
 - [ ] B3 约束用户修订唯一性
-  - 先写的测试：`src/main/storage/conversation-repository.test.ts`：同用户修订使用不同 entryId → 等价时复用原条目，不等价时拒绝。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/base/storage/conversation-repository.test.ts`：同用户修订使用不同 entryId → 等价时复用原条目，不等价时拒绝。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：在 `conversation-db-schema.ts` 设置用户修订唯一约束，由 repository 比较等价后复用或拒绝。
-  - 验证：`npm test -- src/main/storage/conversation-repository.test.ts`
+  - 验证：`npm test -- src/main/base/storage/conversation-repository.test.ts`
 
 - [ ] B4 实现完整事务及故障回滚
-  - 先写的测试：`src/main/storage/conversation-repository.test.ts`：事务各写入点、提交、回滚故障 → 只出现完整旧状态或完整新状态，不出现半接纳。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/base/storage/conversation-repository.test.ts`：事务各写入点、提交、回滚故障 → 只出现完整旧状态或完整新状态，不出现半接纳。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：在 `conversation-db-worker.ts`、`conversation-db-schema.ts`、`conversation-db-contracts.ts` 实现唯一连接、事务命令、DTO、结构化错误及回滚。
-  - 验证：`npm test -- src/main/storage/conversation-repository.test.ts`
+  - 验证：`npm test -- src/main/base/storage/conversation-repository.test.ts`
 
 - [ ] B5 收敛 Worker 退出和未知提交
-  - 先写的测试：`src/main/storage/conversation-db-client.test.ts`：Worker 在提交前后退出 → 全部在途调用得到结果或明确未知错误，无永久 Promise；未知时不重发。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/base/storage/conversation-db-client.test.ts`：Worker 在提交前后退出 → 全部在途调用得到结果或明确未知错误，无永久 Promise；未知时不重发。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：在 `conversation-db-client.ts` 实现 Worker 生命周期、在途关联、有界等待、关闭及失败传播；未知提交返回 `E_CONVERSATION_COMMIT_UNKNOWN`，不重发。
-  - 验证：`npm test -- src/main/storage/conversation-db-client.test.ts`
+  - 验证：`npm test -- src/main/base/storage/conversation-db-client.test.ts`
 
 - [ ] B6 保护损坏库与未来版本
-  - 先写的测试：`src/main/storage/conversation-repository.test.ts`：数据库损坏或结构版本过新 → 保留原库，拒绝写入，不创建空库替代。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/base/storage/conversation-repository.test.ts`：数据库损坏或结构版本过新 → 保留原库，拒绝写入，不创建空库替代。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：在 `conversation-db-worker.ts` 校验数据库完整性及结构版本；`firefly_schema_versions` 仅升级新库，损坏返回 `E_CONVERSATION_INTEGRITY`。
-  - 验证：`npm test -- src/main/storage/conversation-repository.test.ts`
+  - 验证：`npm test -- src/main/base/storage/conversation-repository.test.ts`
 
 - [ ] B7 实现无副作用读取
-  - 先写的测试：`src/main/orchestrator/conversation-transcript-store.test.ts`：读会话、读轨迹、读回执 → 业务表及导出文件不变，无恢复、模型和工具调用。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/conversation/transcript/conversation-transcript-store.test.ts`：读会话、读轨迹、读回执 → 业务表及导出文件不变，无恢复、模型和工具调用。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：在 `conversation-transcript-store.ts` 的数据库适配中消除读取修复，查询只读已提交状态。
-  - 验证：`npm test -- src/main/orchestrator/conversation-transcript-store.test.ts`
+  - 验证：`npm test -- src/main/conversation/transcript/conversation-transcript-store.test.ts`
 
 - [ ] B8 提供临时会话等价事务
-  - 先写的测试：`src/main/orchestrator/conversation-transcript-store-ephemeral.test.ts`：临时会话完成、失败、删除 → 状态契约相同，磁盘无会话正文、轨迹或导出。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/conversation/transcript/conversation-transcript-store-ephemeral.test.ts`：临时会话完成、失败、删除 → 状态契约相同，磁盘无会话正文、轨迹或导出。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：在 `conversation-transcript-store.ts` 提供不落磁盘的等价事务后端；`conversation-transcript-types.ts` 新增事件及版本化校验，保留受控 settlement。
-  - 验证：`npm test -- src/main/orchestrator/conversation-transcript-store-ephemeral.test.ts`
+  - 验证：`npm test -- src/main/conversation/transcript/conversation-transcript-store-ephemeral.test.ts`
 
 **验收：** 本包 8 个任务逐项通过，覆盖本包全部 8 条测试用例及既有有效断言；实施范围与上述契约全部落实。执行下文最近测试及受影响的类型/构建检查，记录命令、结果和未验证项。新后端保持未生产启用。
 
@@ -404,17 +406,17 @@
 
 **改动文件：** 15 个非测试文件；另含下列测试。
 
-- 新建 `src/main/chats/conversation-admission.ts`
+- 新建 `src/main/features/sessions/conversation-admission.ts`
 - 新建 `src/shared/conversation-request.ts`
 - 修改 `src/shared/chat-types.ts`
 - 修改 `src/shared/run-terminal.ts`
 - 修改 `src/shared/ipc-channels.ts`
 - 修改 `src/preload/index.ts`
-- 修改 `src/main/chats/chats-store.ts`
-- 修改 `src/main/chats/chats-ipc.ts`
-- 修改 `src/main/chat/agui-bridge.ts`
-- 修改 `src/main/orchestrator/conversation-transcript-coordinator.ts`
-- 修改 `src/main/chats/pending-adjustment.ts`
+- 修改 `src/main/features/sessions/chats-store.ts`
+- 修改 `src/main/features/sessions/chats-ipc.ts`
+- 修改 `src/main/features/chat/agui-bridge.ts`
+- 修改 `src/main/conversation/transcript/conversation-transcript-coordinator.ts`
+- 修改 `src/main/agent/runtime/pending-adjustment.ts`
 - 修改 `src/renderer/react/features/chat/pages/chat-page-bridge.ts`
 - 修改 `src/renderer/react/features/chat/pages/pending-queue-flow.ts`
 - 修改 `src/renderer/react/features/chat/pages/run/AgentRunController.ts`
@@ -422,25 +424,25 @@
 
 测试文件（保留/扩展现有文件，不存在的同名测试在本包新建）：
 
-- `src/main/chats/conversation-admission.test.ts`
-- `src/main/chats/chats-pending-queue.test.ts`
-- `src/main/chats/chats-ipc.test.ts`
-- `src/main/chats/pending-adjustment.test.ts`
-- `src/main/chat/agui-bridge.test.ts`
+- `src/main/features/sessions/conversation-admission.test.ts`
+- `src/main/features/sessions/chats-pending-queue.test.ts`
+- `src/main/features/sessions/chats-ipc.test.ts`
+- `src/main/agent/runtime/pending-adjustment.test.ts`
+- `src/main/features/chat/agui-bridge.test.ts`
 - `src/renderer/react/features/chat/pages/pending-queue-flow.test.ts`
 - `src/renderer/react/features/chat/pages/run/AgentRunController.test.ts`
-- `src/main/orchestrator/conversation-transcript-coordinator.test.ts`
+- `src/main/conversation/transcript/conversation-transcript-coordinator.test.ts`
 
 #### 实施范围与契约
 
-- 新增 `src/main/chats/conversation-admission.ts`：`ConversationAdmissionService`，负责接纳、原回执查询及插话事务。
+- 新增 `src/main/features/sessions/conversation-admission.ts`：`ConversationAdmissionService`，负责接纳、原回执查询及插话事务。
 - 新增 `src/shared/conversation-request.ts`：请求身份、接纳回执、错误 DTO。
 - 修改 `src/shared/chat-types.ts`、`src/shared/run-terminal.ts`：请求关联及 ACK 扩展。
 - 修改 `src/shared/ipc-channels.ts`、`src/preload/index.ts`：新增回执查询，透传明确 DTO。
-- 修改 `src/main/chats/chats-store.ts`、`chats-ipc.ts`：队列和展示门面接入新仓储；移除新后端跨文件接纳。
-- 修改 `src/main/chat/agui-bridge.ts`：验证后调用接纳服务；重复请求返回原回执，不构造第二个 Agent。
-- 修改 `src/main/orchestrator/conversation-transcript-coordinator.ts`：编辑、重新生成进入接纳事务；新后端不执行 UI 历史回填。
-- 修改 `src/main/chats/pending-adjustment.ts`：安全点消费与 user 条目同事务。
+- 修改 `src/main/features/sessions/chats-store.ts`、`chats-ipc.ts`：队列和展示门面接入新仓储；移除新后端跨文件接纳。
+- 修改 `src/main/features/chat/agui-bridge.ts`：验证后调用接纳服务；重复请求返回原回执，不构造第二个 Agent。
+- 修改 `src/main/conversation/transcript/conversation-transcript-coordinator.ts`：编辑、重新生成进入接纳事务；新后端不执行 UI 历史回填。
+- 修改 `src/main/agent/runtime/pending-adjustment.ts`：安全点消费与 user 条目同事务。
 - 修改 `src/renderer/react/features/chat/pages/chat-page-bridge.ts`、`pending-queue-flow.ts`、`run/AgentRunController.ts`：稳定请求身份、只查询不续派、复用终态回执。
 - 修改相关 renderer bridge 类型声明（`src/renderer/global.d.ts`）和现有 IPC 契约测试。
 
@@ -490,7 +492,7 @@ Main 记忆来源授权在事务前准备，并在实际提交边界复验。保
 - `IPC.AGUI_RUN`、`IPC.AGUI_CANCEL`、`IPC.AGUI_EVENT`
 - `IPC.AGUI_RUN_PERSISTED`
 - `IPC.CHATS_PENDING_*`
-- `IPC.HARNESS_GET_INTERRUPTED_RUN`
+- `IPC.AGENT_RUN_GET_INTERRUPTED`
 
 拟扩展：
 
@@ -517,19 +519,19 @@ Main 记忆来源授权在事务前准备，并在实际提交边界复验。保
 **任务：**
 
 - [ ] C1 稳定请求身份并复用接纳回执
-  - 先写的测试：`src/main/chats/conversation-admission.test.ts`：相同请求重复发送、并发 IPC、提交后 ACK 丢失 → 同 runId，同 user 修订，只构造一次 Agent。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/features/sessions/conversation-admission.test.ts`：相同请求重复发送、并发 IPC、提交后 ACK 丢失 → 同 runId，同 user 修订，只构造一次 Agent。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：新增 `ConversationAdmissionService` 与 `src/shared/conversation-request.ts`，bridge 验证后同事务接纳，重复回执不构造第二个 Agent。
-  - 验证：`npm test -- src/main/chats/conversation-admission.test.ts`
+  - 验证：`npm test -- src/main/features/sessions/conversation-admission.test.ts`
 
 - [ ] C2 保留冲突输入并允许新请求
-  - 先写的测试：`src/main/chats/conversation-admission.test.ts`：同请求 ID 改正文或锚点 → 当前请求冲突；随后新请求正常接纳，原回执不变。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/features/sessions/conversation-admission.test.ts`：同请求 ID 改正文或锚点 → 当前请求冲突；随后新请求正常接纳，原回执不变。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：在 admission、`chats-store.ts`、`chats-ipc.ts` 保存拒绝记录及原始输入；`E_REQUEST_CONTENT_CONFLICT` 不覆盖原请求、不无限卡队首。
-  - 验证：`npm test -- src/main/chats/conversation-admission.test.ts`
+  - 验证：`npm test -- src/main/features/sessions/conversation-admission.test.ts`
 
 - [ ] C3 冻结原接纳配置身份
-  - 先写的测试：`src/main/chats/conversation-admission.test.ts`：请求已接纳后切换模型设置，再查询原请求 → 返回原冻结身份，不重新构建或执行。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/features/sessions/conversation-admission.test.ts`：请求已接纳后切换模型设置，再查询原请求 → 返回原冻结身份，不重新构建或执行。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：在 `src/shared/chat-types.ts`、`src/shared/run-terminal.ts` 扩展请求关联及 ACK；重试只读冻结配置，不重新读设置改变意图。
-  - 验证：`npm test -- src/main/chats/conversation-admission.test.ts`
+  - 验证：`npm test -- src/main/features/sessions/conversation-admission.test.ts`
 
 - [ ] C4 对账残留认领而不续派
   - 先写的测试：`src/renderer/react/features/chat/pages/pending-queue-flow.test.ts`：认领后未启动即崩溃 → 输入重启后可见，恢复及打开会话均不调用 `agui:run`。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
@@ -543,18 +545,18 @@ Main 记忆来源授权在事务前准备，并在实际提交边界复验。保
 
 - [ ] C6 新请求保留旧意图上下文
   - 先写的测试：`src/renderer/react/features/chat/pages/pending-queue-flow.test.ts`：残留认领后用户发送新消息 → 上下文保留旧意图和新输入，只派发新请求。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：在 admission 与 `src/main/chat/agui-bridge.ts` 合并已保存旧意图和新输入，仅派发新请求；重启遗留队列全部等待用户操作。
+  - 实现：在 admission 与 `src/main/features/chat/agui-bridge.ts` 合并已保存旧意图和新输入，仅派发新请求；重启遗留队列全部等待用户操作。
   - 验证：`npm test -- src/renderer/react/features/chat/pages/pending-queue-flow.test.ts`
 
 - [ ] C7 原子消费插话
-  - 先写的测试：`src/main/chats/pending-adjustment.test.ts`：插话提交窗口撤回、编辑、取消 → 原子得到“已消费”或“仍在队列”；不得有隐藏 user 或丢失队首。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：在 `src/main/chats/pending-adjustment.ts` 的 `createRunAdjustmentPoller` 安全点将消费和 user 提交合为事务，保留撤回、编辑及取消检查。
-  - 验证：`npm test -- src/main/chats/pending-adjustment.test.ts`
+  - 先写的测试：`src/main/agent/runtime/pending-adjustment.test.ts`：插话提交窗口撤回、编辑、取消 → 原子得到“已消费”或“仍在队列”；不得有隐藏 user 或丢失队首。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 实现：在 `src/main/agent/runtime/pending-adjustment.ts` 的 `createRunAdjustmentPoller` 安全点将消费和 user 提交合为事务，保留撤回、编辑及取消检查。
+  - 验证：`npm test -- src/main/agent/runtime/pending-adjustment.test.ts`
 
 - [ ] C8 原子处理编辑与重新生成
-  - 先写的测试：`src/main/orchestrator/conversation-transcript-coordinator.test.ts`：重新生成、连续两次编辑、重复回执 → 最新活动修订正确，旧分支保留审计，重复回执不再次 rewind。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/conversation/transcript/conversation-transcript-coordinator.test.ts`：重新生成、连续两次编辑、重复回执 → 最新活动修订正确，旧分支保留审计，重复回执不再次 rewind。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：在 `conversation-transcript-coordinator.ts` 接入编辑、重新生成事务，新 requestId、新修订或 `keep_user`；新后端不做 UI 历史回填。
-  - 验证：`npm test -- src/main/orchestrator/conversation-transcript-coordinator.test.ts`
+  - 验证：`npm test -- src/main/conversation/transcript/conversation-transcript-coordinator.test.ts`
 
 **验收：** 本包 8 个任务逐项通过，覆盖本包全部 8 条测试用例及既有有效断言；实施范围与上述契约全部落实。执行下文最近测试及受影响的类型/构建检查，记录命令、结果和未验证项。新后端保持未生产启用。
 
@@ -568,36 +570,36 @@ Main 记忆来源授权在事务前准备，并在实际提交边界复验。保
 
 **改动文件：** 11 个非测试文件；另含下列测试。
 
-- 修改 `src/main/orchestrator/harness/run-store.ts`
-- 修改 `src/main/orchestrator/harness-adapter.ts`
-- 修改 `src/main/orchestrator/firefly-agent.ts`
-- 修改 `src/main/orchestrator/transcript-sink.ts`
-- 修改 `src/main/chat/agui-bridge.ts`
-- 修改 `src/main/orchestrator/run-settlement.ts`
+- 修改 `src/main/agent/loop/run-store.ts`
+- 修改 `src/main/agent/runtime/agent-loop-adapter.ts`
+- 修改 `src/main/agent/runtime/firefly-agent.ts`
+- 修改 `src/main/agent/loop/transcript-sink.ts`
+- 修改 `src/main/features/chat/agui-bridge.ts`
+- 修改 `src/main/conversation/transcript/run-settlement.ts`
 - 修改 `src/shared/run-failure.ts`
-- 修改 `src/main/chats/chats-store.ts`
-- 修改 `src/main/chats/chats-ipc.ts`
+- 修改 `src/main/features/sessions/chats-store.ts`
+- 修改 `src/main/features/sessions/chats-ipc.ts`
 - 修改 `src/renderer/react/features/chat/pages/run/AgentRunController.ts`
-- 修改 `src/main/plugin-host/pending-turn-lifecycle.ts`
+- 修改 `src/main/features/plugins/host/pending-turn-lifecycle.ts`
 
 测试文件（保留/扩展现有文件，不存在的同名测试在本包新建）：
 
-- `src/main/chat/agui-bridge.test.ts`
-- `src/main/orchestrator/harness-adapter-characterization.test.ts`
-- `src/main/orchestrator/harness-adapter-cancel.test.ts`
-- `src/main/orchestrator/run-settlement.test.ts`
-- `src/main/plugin-host/pending-turn-lifecycle.test.ts`
+- `src/main/features/chat/agui-bridge.test.ts`
+- `src/main/agent/runtime/agent-loop-adapter-characterization.test.ts`
+- `src/main/agent/runtime/agent-loop-adapter-cancel.test.ts`
+- `src/main/conversation/transcript/run-settlement.test.ts`
+- `src/main/features/plugins/host/pending-turn-lifecycle.test.ts`
 - `src/renderer/react/features/chat/pages/run/AgentRunController.test.ts`
 
 #### 实施范围与契约
 
-- 修改 `src/main/orchestrator/harness/run-store.ts`：接入运行仓储，终态使用条件更新，拒绝第二个不同终态。
-- 修改 `src/main/orchestrator/harness-adapter.ts`、`firefly-agent.ts`、`transcript-sink.ts`：统一成功、失败、超时和取消提交边界。
-- 修改 `src/main/chat/agui-bridge.ts`、`run-settlement.ts`：先确认持久化终态，再发单终态及释放。
+- 修改 `src/main/agent/loop/run-store.ts`：接入运行仓储，终态使用条件更新，拒绝第二个不同终态。
+- 修改 `src/main/agent/runtime/agent-loop-adapter.ts`、`firefly-agent.ts`、`transcript-sink.ts`：统一成功、失败、超时和取消提交边界。
+- 修改 `src/main/features/chat/agui-bridge.ts`、`run-settlement.ts`：先确认持久化终态，再发单终态及释放。
 - 修改 `src/shared/run-failure.ts`：登记新增安全错误码。
-- 修改 `src/main/chats/chats-store.ts`、`chats-ipc.ts`：展示更新拥有独立身份、修订和冲突范围。
+- 修改 `src/main/features/sessions/chats-store.ts`、`chats-ipc.ts`：展示更新拥有独立身份、修订和冲突范围。
 - 修改 `src/renderer/react/features/chat/pages/run/AgentRunController.ts`：权威终态与展示保存分别处理，展示失败结束 loading 并保留正文。
-- 修改 `src/main/plugin-host/pending-turn-lifecycle.ts`：区分执行终态与展示持久化确认，防止重复完成通知。
+- 修改 `src/main/features/plugins/host/pending-turn-lifecycle.ts`：区分执行终态与展示持久化确认，防止重复完成通知。
 
 交付：终态提交、事件、成功副作用和界面保存的可验证顺序。
 
@@ -638,29 +640,29 @@ Main 记忆来源授权在事务前准备，并在实际提交边界复验。保
 **任务：**
 
 - [ ] D1 持久化成功后发布唯一终态
-  - 先写的测试：`src/main/orchestrator/harness-adapter-characterization.test.ts`：成功 → 严格断言“终态提交、成功副作用、sticker、唯一终态”的顺序；Code 不出现 sticker。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：在 `harness/run-store.ts` 条件提交终态；`harness-adapter.ts`、`firefly-agent.ts`、`transcript-sink.ts`、bridge 按既有生命周期次序发布成功。
-  - 验证：`npm test -- src/main/orchestrator/harness-adapter-characterization.test.ts`
+  - 先写的测试：`src/main/agent/runtime/agent-loop-adapter-characterization.test.ts`：成功 → 严格断言“终态提交、成功副作用、sticker、唯一终态”的顺序；Code 不出现 sticker。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 实现：在 `agent/loop/run-store.ts` 条件提交终态；`agent-loop-adapter.ts`、`firefly-agent.ts`、`transcript-sink.ts`、bridge 按既有生命周期次序发布成功。
+  - 验证：`npm test -- src/main/agent/runtime/agent-loop-adapter-characterization.test.ts`
 
 - [ ] D2 统一取消、超时和技术失败
-  - 先写的测试：`src/main/orchestrator/harness-adapter-cancel.test.ts`：cancelled、timeout、runtime_error → 无成功副作用、成功通知或计划审批；清理和释放各一次。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/agent/runtime/agent-loop-adapter-cancel.test.ts`：cancelled、timeout、runtime_error → 无成功副作用、成功通知或计划审批；清理和释放各一次。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：统一成功、失败、超时与取消提交边界；`src/shared/run-failure.ts` 登记有限错误码，AbortController 保持每运行独立。
-  - 验证：`npm test -- src/main/orchestrator/harness-adapter-cancel.test.ts`
+  - 验证：`npm test -- src/main/agent/runtime/agent-loop-adapter-cancel.test.ts`
 
 - [ ] D3 拒绝不同终态及迟到 complete
-  - 先写的测试：`src/main/orchestrator/run-settlement.test.ts`：`success → error`、`error → late success`、重复 complete、同步 complete → 一个真实终态，无幽灵 active run。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/conversation/transcript/run-settlement.test.ts`：`success → error`、`error → late success`、重复 complete、同步 complete → 一个真实终态，无幽灵 active run。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：在 `run-settlement.ts` 与 run-store 拒绝第二个不同终态；会话所有权与结算门各司其职，幂等清理释放。
-  - 验证：`npm test -- src/main/orchestrator/run-settlement.test.ts`
+  - 验证：`npm test -- src/main/conversation/transcript/run-settlement.test.ts`
 
 - [ ] D4 挂起提交时保留所有权
-  - 先写的测试：`src/main/chat/agui-bridge.test.ts`：终态提交挂起时取消、接管 → 不提前接纳替代运行；超时不覆盖旧所有者。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/features/chat/agui-bridge.test.ts`：终态提交挂起时取消、接管 → 不提前接纳替代运行；超时不覆盖旧所有者。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：在 bridge 等待持久化确认后释放占用；提交挂起时取消或接管不能提前接纳新运行或超时覆盖旧所有者。
-  - 验证：`npm test -- src/main/chat/agui-bridge.test.ts`
+  - 验证：`npm test -- src/main/features/chat/agui-bridge.test.ts`
 
 - [ ] D5 分离 Review 失败与提交失败
-  - 先写的测试：`src/main/orchestrator/harness-adapter-characterization.test.ts`：Review 失败 → 已提交终态不变；数据库终态失败 → 不发布成功。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：在 `harness-adapter.ts` 分离 `finalizeReview` 与已提交终态；Review 失败不改终态，数据库失败不发布成功。
-  - 验证：`npm test -- src/main/orchestrator/harness-adapter-characterization.test.ts`
+  - 先写的测试：`src/main/agent/runtime/agent-loop-adapter-characterization.test.ts`：Review 失败 → 已提交终态不变；数据库终态失败 → 不发布成功。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 实现：在 `agent-loop-adapter.ts` 分离 `finalizeReview` 与已提交终态；Review 失败不改终态，数据库失败不发布成功。
+  - 验证：`npm test -- src/main/agent/runtime/agent-loop-adapter-characterization.test.ts`
 
 - [ ] D6 展示失败时保留正文并结束 loading
   - 先写的测试：`src/renderer/react/features/chat/pages/run/AgentRunController.test.ts`：展示冲突、展示存储失败 → 正文与执行终态保持正确，loading 结束，新请求可发送。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
@@ -668,14 +670,14 @@ Main 记忆来源授权在事务前准备，并在实际提交边界复验。保
   - 验证：`npm test -- src/renderer/react/features/chat/pages/run/AgentRunController.test.ts`
 
 - [ ] D7 幂等处理界面 persisted 确认
-  - 先写的测试：`src/main/plugin-host/pending-turn-lifecycle.test.ts`：renderer 在终态前或后报告 persisted → 不提前、不重复发布完成。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：在 `src/main/plugin-host/pending-turn-lifecycle.ts` 区分执行结算与 `AGUI_RUN_PERSISTED`，防止提前或重复完成通知。
-  - 验证：`npm test -- src/main/plugin-host/pending-turn-lifecycle.test.ts`
+  - 先写的测试：`src/main/features/plugins/host/pending-turn-lifecycle.test.ts`：renderer 在终态前或后报告 persisted → 不提前、不重复发布完成。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 实现：在 `src/main/features/plugins/host/pending-turn-lifecycle.ts` 区分执行结算与 `AGUI_RUN_PERSISTED`，防止提前或重复完成通知。
+  - 验证：`npm test -- src/main/features/plugins/host/pending-turn-lifecycle.test.ts`
 
 - [ ] D8 维持受控 Chat durable S 约束
-  - 先写的测试：`src/main/orchestrator/harness-adapter-characterization.test.ts`：受控 Chat 无 durable S 确认 → 明确失败，无成功正文和 sticker。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/agent/runtime/agent-loop-adapter-characterization.test.ts`：受控 Chat 无 durable S 确认 → 明确失败，无成功正文和 sticker。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：数据库承载 `SRunSettlementGate`、`assistant_settlement` 和 Main sink 身份确认；缺终态部分文字只作中断过程，正式正文留空，“继续”开新运行。
-  - 验证：`npm test -- src/main/orchestrator/harness-adapter-characterization.test.ts`
+  - 验证：`npm test -- src/main/agent/runtime/agent-loop-adapter-characterization.test.ts`
 
 **验收：** 本包 8 个任务逐项通过，覆盖本包全部 8 条测试用例及既有有效断言；实施范围与上述契约全部落实。执行下文最近测试及受影响的类型/构建检查，记录命令、结果和未验证项。新后端保持未生产启用。
 
@@ -689,38 +691,38 @@ Main 记忆来源授权在事务前准备，并在实际提交边界复验。保
 
 **改动文件：** 12 个非测试文件；另含下列测试。
 
-- 修改 `src/main/orchestrator/execution-ledger.ts`
-- 修改 `src/main/orchestrator/harness/tool-dispatcher.ts`
-- 修改 `src/main/orchestrator/harness/tool-round.ts`
-- 修改 `src/main/orchestrator/harness/types.ts`
-- 修改 `src/main/orchestrator/harness/builtin-tools.ts`
-- 修改 `src/main/orchestrator/harness/uncertain-effect-guard.ts`
-- 新建 `src/main/orchestrator/harness/conversation-recovery.ts`
-- 修改 `src/main/orchestrator/harness/run-recovery.ts`
-- 修改 `src/main/orchestrator/harness/adapter/run-preparation.ts`
-- 修改 `src/main/orchestrator/build-options.ts`
-- 修改 `src/main/orchestrator/firefly-agent.ts`
-- 修改 `src/main/orchestrator/harness-adapter.ts`
+- 修改 `src/main/agent/loop/execution-ledger.ts`
+- 修改 `src/main/agent/loop/tool-dispatcher.ts`
+- 修改 `src/main/agent/loop/tool-round.ts`
+- 修改 `src/main/agent/loop/types.ts`
+- 修改 `src/main/agent/loop/builtin-tools.ts`
+- 修改 `src/main/agent/loop/uncertain-effect-guard.ts`
+- 新建 `src/main/agent/loop/conversation-recovery.ts`
+- 修改 `src/main/agent/loop/run-recovery.ts`
+- 修改 `src/main/agent/runtime/adapter/run-preparation.ts`
+- 修改 `src/main/agent/runtime/build-options.ts`
+- 修改 `src/main/agent/runtime/firefly-agent.ts`
+- 修改 `src/main/agent/runtime/agent-loop-adapter.ts`
 
 测试文件（保留/扩展现有文件，不存在的同名测试在本包新建）：
 
-- `src/main/orchestrator/execution-ledger.test.ts`
-- `src/main/orchestrator/harness/tool-dispatcher.test.ts`
-- `src/main/orchestrator/harness/tool-round.test.ts`
-- `src/main/orchestrator/harness/run-recovery.test.ts`
-- `src/main/orchestrator/harness/conversation-recovery.test.ts`
-- `src/main/orchestrator/harness/builtin-tools.test.ts`
-- `src/main/orchestrator/harness/uncertain-effect-guard.test.ts`
+- `src/main/agent/loop/execution-ledger.test.ts`
+- `src/main/agent/loop/tool-dispatcher.test.ts`
+- `src/main/agent/loop/tool-round.test.ts`
+- `src/main/agent/loop/run-recovery.test.ts`
+- `src/main/agent/loop/conversation-recovery.test.ts`
+- `src/main/agent/loop/builtin-tools.test.ts`
+- `src/main/agent/loop/uncertain-effect-guard.test.ts`
 
 #### 实施范围与契约
 
-- 修改 `src/main/orchestrator/execution-ledger.ts`：持久化回执与在途执行者合并；保留现有逻辑冲突语义。
-- 修改 `src/main/orchestrator/harness/tool-dispatcher.ts`、`tool-round.ts`、`types.ts`：等待开始事实，结果与回执同事务，正确传播失败。
-- 修改 `src/main/orchestrator/harness/builtin-tools.ts`、`uncertain-effect-guard.ts`：授权记录和原子消费，保留权限检查。
-- 新增 `src/main/orchestrator/harness/conversation-recovery.ts`：按会话对账及下一轮恢复投影。
-- 修改 `harness/run-recovery.ts`、`harness/adapter/run-preparation.ts`：统一普通新消息与显式继续，孤儿安全记录独立处理。
-- 修改 `src/main/orchestrator/build-options.ts`、`firefly-agent.ts`：同时传递恢复提示和执行层安全状态。
-- 修改 `src/main/orchestrator/harness-adapter.ts`：替代恢复事实接通后，停止主运行反复保存完整消息、输出和缓存。
+- 修改 `src/main/agent/loop/execution-ledger.ts`：持久化回执与在途执行者合并；保留现有逻辑冲突语义。
+- 修改 `src/main/agent/loop/tool-dispatcher.ts`、`tool-round.ts`、`types.ts`：等待开始事实，结果与回执同事务，正确传播失败。
+- 修改 `src/main/agent/loop/builtin-tools.ts`、`uncertain-effect-guard.ts`：授权记录和原子消费，保留权限检查。
+- 新增 `src/main/agent/loop/conversation-recovery.ts`：按会话对账及下一轮恢复投影。
+- 修改 `agent/loop/run-recovery.ts`、`agent/runtime/adapter/run-preparation.ts`：统一普通新消息与显式继续，孤儿安全记录独立处理。
+- 修改 `src/main/agent/runtime/build-options.ts`、`firefly-agent.ts`：同时传递恢复提示和执行层安全状态。
+- 修改 `src/main/agent/runtime/agent-loop-adapter.ts`：替代恢复事实接通后，停止主运行反复保存完整消息、输出和缓存。
 - 保留 `TaskSessionStore`、Review 基线、独立工具输出和子任务生命周期，分别验证其读取依赖。
 
 交付：重启不执行；用户新一轮能恢复待办，并在执行层阻止危险重复。
@@ -769,64 +771,64 @@ assistant 整组声明提交
 **任务：**
 
 - [ ] E1 持久化成功回执与唯一执行者
-  - 先写的测试：`src/main/orchestrator/execution-ledger.test.ts`：同逻辑工具调用顺序、并发、跨重启重试 → 外部执行一次，返回相同 canonical 结果；不同实参拒绝。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/agent/loop/execution-ledger.test.ts`：同逻辑工具调用顺序、并发、跨重启重试 → 外部执行一次，返回相同 canonical 结果；不同实参拒绝。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：在 `execution-ledger.ts` 合并持久化回执及在途唯一执行者，保留逻辑冲突语义，成功回执在会话存续期间保留。
-  - 验证：`npm test -- src/main/orchestrator/execution-ledger.test.ts`
+  - 验证：`npm test -- src/main/agent/loop/execution-ledger.test.ts`
 
 - [ ] E2 仅缓存 terminal success
-  - 先写的测试：`src/main/orchestrator/execution-ledger.test.ts`：工具中间输出或失败 → 不成为成功缓存；调用次数和回执状态完整断言。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：在 ledger 与 `harness/types.ts` 只缓存 terminal success；取消等待者不取消另一所有者执行。
-  - 验证：`npm test -- src/main/orchestrator/execution-ledger.test.ts`
+  - 先写的测试：`src/main/agent/loop/execution-ledger.test.ts`：工具中间输出或失败 → 不成为成功缓存；调用次数和回执状态完整断言。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 实现：在 ledger 与 `agent/loop/types.ts` 只缓存 terminal success；取消等待者不取消另一所有者执行。
+  - 验证：`npm test -- src/main/agent/loop/execution-ledger.test.ts`
 
 - [ ] E3 工具开始前提交声明与开始事实
-  - 先写的测试：`src/main/orchestrator/harness/tool-round.test.ts`：assistant 声明或开始事实提交失败 → 工具零调用。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：在 `harness/tool-round.ts`、`tool-dispatcher.ts` 等待 assistant 整组声明与开始事实提交后才执行，正确传播失败。
-  - 验证：`npm test -- src/main/orchestrator/harness/tool-round.test.ts`
+  - 先写的测试：`src/main/agent/loop/tool-round.test.ts`：assistant 声明或开始事实提交失败 → 工具零调用。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 实现：在 `agent/loop/tool-round.ts`、`tool-dispatcher.ts` 等待 assistant 整组声明与开始事实提交后才执行，正确传播失败。
+  - 验证：`npm test -- src/main/agent/loop/tool-round.test.ts`
 
 - [ ] E4 结果提交失败保留 unknown
-  - 先写的测试：`src/main/orchestrator/harness/tool-round.test.ts`：外部操作已发生、结果事务失败 → 不进行下一模型调用，不重复工具；重启保留 unknown。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/agent/loop/tool-round.test.ts`：外部操作已发生、结果事务失败 → 不进行下一模型调用，不重复工具；重启保留 unknown。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：canonical tool_result 与成功回执同事务；外部生效但结果提交失败时禁止下一模型请求，以开始事实保留 unknown。
-  - 验证：`npm test -- src/main/orchestrator/harness/tool-round.test.ts`
+  - 验证：`npm test -- src/main/agent/loop/tool-round.test.ts`
 
 - [ ] E5 闭合已声明工具
-  - 先写的测试：`src/main/orchestrator/harness/conversation-recovery.test.ts`：已声明但未开始 → 仅补 `not_executed`；已开始无结果 → 补 `unknown`。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/agent/loop/conversation-recovery.test.ts`：已声明但未开始 → 仅补 `not_executed`；已开始无结果 → 补 `unknown`。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：新增 `harness/conversation-recovery.ts` 按会话显式对账，按声明/开始事实补 `not_executed` 或 `unknown`；读取不恢复。
-  - 验证：`npm test -- src/main/orchestrator/harness/conversation-recovery.test.ts`
+  - 验证：`npm test -- src/main/agent/loop/conversation-recovery.test.ts`
 
 - [ ] E6 独立保留孤儿危险开始事实
-  - 先写的测试：`src/main/orchestrator/harness/conversation-recovery.test.ts`：未声明但有危险开始记录 → 无孤儿 tool 消息，未决安全集合有对应记录。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：在 conversation-recovery 与 `harness/run-recovery.ts` 将未声明危险开始记录独立放入安全集合，不补孤儿 tool 消息。
-  - 验证：`npm test -- src/main/orchestrator/harness/conversation-recovery.test.ts`
+  - 先写的测试：`src/main/agent/loop/conversation-recovery.test.ts`：未声明但有危险开始记录 → 无孤儿 tool 消息，未决安全集合有对应记录。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 实现：在 conversation-recovery 与 `agent/loop/run-recovery.ts` 将未声明危险开始记录独立放入安全集合，不补孤儿 tool 消息。
+  - 验证：`npm test -- src/main/agent/loop/conversation-recovery.test.ts`
 
 - [ ] E7 参数损坏时保守阻断
-  - 先写的测试：`src/main/orchestrator/harness/uncertain-effect-guard.test.ts`：参数损坏 → 同工具保守阻断；不同工具仍可执行，不泄露原参数。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：在 `harness/uncertain-effect-guard.ts` 保留 `toolCallFingerprint` 类型敏感语义，无参数按工具名保守阻断，不用空指纹伪装精确匹配。
-  - 验证：`npm test -- src/main/orchestrator/harness/uncertain-effect-guard.test.ts`
+  - 先写的测试：`src/main/agent/loop/uncertain-effect-guard.test.ts`：参数损坏 → 同工具保守阻断；不同工具仍可执行，不泄露原参数。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 实现：在 `agent/loop/uncertain-effect-guard.ts` 保留 `toolCallFingerprint` 类型敏感语义，无参数按工具名保守阻断，不用空指纹伪装精确匹配。
+  - 验证：`npm test -- src/main/agent/loop/uncertain-effect-guard.test.ts`
 
 - [ ] E8 原子消费一次授权
-  - 先写的测试：`src/main/orchestrator/harness/builtin-tools.test.ts`：用户允许一次，两个匹配调用并发 → 一个消费成功；另一调用被拒，授权不复活。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：在 `harness/builtin-tools.ts` 持久化一次授权，tool-dispatcher 登记开始时同事务唯一消费，保留原权限检查。
-  - 验证：`npm test -- src/main/orchestrator/harness/builtin-tools.test.ts`
+  - 先写的测试：`src/main/agent/loop/builtin-tools.test.ts`：用户允许一次，两个匹配调用并发 → 一个消费成功；另一调用被拒，授权不复活。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 实现：在 `agent/loop/builtin-tools.ts` 持久化一次授权，tool-dispatcher 登记开始时同事务唯一消费，保留原权限检查。
+  - 验证：`npm test -- src/main/agent/loop/builtin-tools.test.ts`
 
 - [ ] E9 授权后崩溃产生新未决操作
-  - 先写的测试：`src/main/orchestrator/harness/builtin-tools.test.ts`：授权消费后崩溃 → 重启不再次使用授权，产生新的未决操作。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/agent/loop/builtin-tools.test.ts`：授权消费后崩溃 → 重启不再次使用授权，产生新的未决操作。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：已消费授权不复活；授权后再崩溃由恢复阶段生成新未决操作身份。
-  - 验证：`npm test -- src/main/orchestrator/harness/builtin-tools.test.ts`
+  - 验证：`npm test -- src/main/agent/loop/builtin-tools.test.ts`
 
 - [ ] E10 拒绝、超时或取消不消费授权
-  - 先写的测试：`src/main/orchestrator/harness/builtin-tools.test.ts`：用户拒绝、确认超时、signal 取消 → 无授权消费和外部执行。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/agent/loop/builtin-tools.test.ts`：用户拒绝、确认超时、signal 取消 → 无授权消费和外部执行。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：在 builtin-tools 与 tool-dispatcher 消费边界复验拒绝、超时和取消，不因恢复放宽权限。
-  - 验证：`npm test -- src/main/orchestrator/harness/builtin-tools.test.ts`
+  - 验证：`npm test -- src/main/agent/loop/builtin-tools.test.ts`
 
 - [ ] E11 普通新消息与继续共用恢复投影
-  - 先写的测试：`src/main/orchestrator/harness/conversation-recovery.test.ts`：普通新消息和“继续” → 恢复相同待办、安全集合；新 runId、新缓存周期，不恢复旧轮数。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：在 `harness/adapter/run-preparation.ts`、`build-options.ts`、`firefly-agent.ts` 同时传恢复提示及执行层状态；替代事实接通后在 `harness-adapter.ts` 停止反复保存完整 messages/output/cache。分别验证保留的 `TaskSessionStore`、Review 基线、独立工具输出、子任务生命周期读取依赖。
-  - 验证：`npm test -- src/main/orchestrator/harness/conversation-recovery.test.ts`
+  - 先写的测试：`src/main/agent/loop/conversation-recovery.test.ts`：普通新消息和“继续” → 恢复相同待办、安全集合；新 runId、新缓存周期，不恢复旧轮数。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 实现：在 `agent/runtime/adapter/run-preparation.ts`、`build-options.ts`、`firefly-agent.ts` 同时传恢复提示及执行层状态；替代事实接通后在 `agent-loop-adapter.ts` 停止反复保存完整 messages/output/cache。分别验证保留的 `TaskSessionStore`、Review 基线、独立工具输出、子任务生命周期读取依赖。
+  - 验证：`npm test -- src/main/agent/loop/conversation-recovery.test.ts`
 
 - [ ] E12 按活动分支恢复待办并保留副作用
-  - 先写的测试：`src/main/orchestrator/harness/conversation-recovery.test.ts`：编辑或重新生成 → 不恢复废弃分支待办，不移除实际未决副作用。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/agent/loop/conversation-recovery.test.ts`：编辑或重新生成 → 不恢复废弃分支待办，不移除实际未决副作用。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：恢复投影按活动分支恢复待办，安全账本保留实际副作用；新 runId、新缓存周期和新轮数，不恢复旧协程或半截流。
-  - 验证：`npm test -- src/main/orchestrator/harness/conversation-recovery.test.ts`
+  - 验证：`npm test -- src/main/agent/loop/conversation-recovery.test.ts`
 
 **验收：** 本包 12 个任务逐项通过，覆盖本包全部 12 条测试用例及既有有效断言；实施范围与上述契约全部落实。执行下文最近测试及受影响的类型/构建检查，记录命令、结果和未验证项。新后端保持未生产启用。
 
@@ -840,39 +842,39 @@ assistant 整组声明提交
 
 **改动文件：** 13 个非测试文件；另含下列测试。
 
-- 新建 `src/main/orchestrator/conversation-compaction.ts`
-- 修改 `src/main/orchestrator/conversation-transcript-context.ts`
-- 修改 `src/main/orchestrator/conversation-transcript-types.ts`
-- 修改 `src/main/orchestrator/harness/compaction.ts`
-- 修改 `src/main/orchestrator/harness/firefly-harness.ts`
-- 新建 `src/main/storage/conversation-history-export.ts`
-- 修改 `src/main/memory-sources/native-history-provider.ts`
-- 修改 `src/main/memory-context/conversation-transcript-adapter.ts`
-- 修改 `src/main/memory-context/main-transcript-provider.ts`
-- 修改 `src/main/memory-context/main-default-memory.ts`
+- 新建 `src/main/agent/runtime/conversation-compaction.ts`
+- 修改 `src/main/agent/loop/conversation-transcript-context.ts`
+- 修改 `src/main/conversation/transcript/conversation-transcript-types.ts`
+- 修改 `src/main/agent/loop/compaction.ts`
+- 修改 `src/main/agent/loop/agent-loop.ts`
+- 新建 `src/main/base/storage/conversation-history-export.ts`
+- 修改 `src/main/memory/legacy/history/native-history-provider.ts`
+- 修改 `src/main/agent/memory-runtime/conversation-transcript-adapter.ts`
+- 修改 `src/main/memory/legacy/history/main-transcript-provider.ts`
+- 修改 `src/main/agent/memory-runtime/main-default-memory.ts`
 - 修改 `native/src/history_read.rs`
-- 修改 `src/main/memory-history/history-contracts.ts`
-- 修改 `src/main/memory-history/firefly-history-reader.ts`
+- 修改 `src/main/memory/legacy/history/history-contracts.ts`
+- 修改 `src/main/memory/legacy/history/firefly-history-reader.ts`
 
 测试文件（保留/扩展现有文件，不存在的同名测试在本包新建）：
 
-- `src/main/orchestrator/conversation-compaction.test.ts`
-- `src/main/orchestrator/conversation-transcript-context.test.ts`
-- `src/main/orchestrator/harness/compaction.test.ts`
-- `src/main/storage/conversation-history-export.test.ts`
-- `src/main/memory-sources/native-history-provider.test.ts`
-- `src/main/memory-context/conversation-transcript-adapter.test.ts`
+- `src/main/agent/runtime/conversation-compaction.test.ts`
+- `src/main/agent/loop/conversation-transcript-context.test.ts`
+- `src/main/agent/loop/compaction.test.ts`
+- `src/main/base/storage/conversation-history-export.test.ts`
+- `src/main/memory/legacy/history/native-history-provider.test.ts`
+- `src/main/agent/memory-runtime/conversation-transcript-adapter.test.ts`
 - `native/src/history_read.rs` 内的对应测试
-- `src/main/memory-history/firefly-history-reader.test.ts`
+- `src/main/memory/legacy/history/firefly-history-reader.test.ts`
 
 #### 实施范围与契约
 
-- 新增 `src/main/orchestrator/conversation-compaction.ts`：会话级压缩提交及活动视图。
+- 新增 `src/main/agent/runtime/conversation-compaction.ts`：会话级压缩提交及活动视图。
 - 修改 `conversation-transcript-context.ts`、`conversation-transcript-types.ts`：检查点、来源映射、分支及工具配对。
-- 修改 `harness/compaction.ts`、`harness/firefly-harness.ts`：复用安全切点，明确压缩事实提交后才能使用。
-- 新增 `src/main/storage/conversation-history-export.ts`：不可变代际、完整发布及失败保留。
-- 修改 `src/main/memory-sources/native-history-provider.ts`：固定导出代际，保持预算、租约和来源证明。
-- 修改 `src/main/memory-context/conversation-transcript-adapter.ts`、`main-transcript-provider.ts`、`main-default-memory.ts`：接入新头部与失效机制，保留 Main 授权边界。
+- 修改 `agent/loop/compaction.ts`、`agent/loop/agent-loop.ts`：复用安全切点，明确压缩事实提交后才能使用。
+- 新增 `src/main/base/storage/conversation-history-export.ts`：不可变代际、完整发布及失败保留。
+- 修改 `src/main/memory/legacy/history/native-history-provider.ts`：固定导出代际，保持预算、租约和来源证明。
+- 修改 `src/main/agent/memory-runtime/conversation-transcript-adapter.ts`、`main-transcript-provider.ts`、`main-default-memory.ts`：接入新头部与失效机制，保留 Main 授权边界。
 - 修改 `native/src/history_read.rs` 及其契约测试：仅允许受授权导出代际，拒绝路径越界和混合代际。
 - 同步修改实际消费导出结构的历史解析类型和测试，不扩大原生文件白名单。
 
@@ -907,49 +909,49 @@ assistant 整组声明提交
 **任务：**
 
 - [ ] F1 使用完整工具回合安全切点
-  - 先写的测试：`src/main/orchestrator/conversation-compaction.test.ts`：压缩切点在多工具回合内及两侧 → 无孤立调用或结果；完整有序消息列表符合预期。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：新增 `conversation-compaction.ts`，复用 `findSafeCutPointForRetainedTokens`；`harness/compaction.ts`、`harness/firefly-harness.ts` 在压缩事实提交后才用新视图。
-  - 验证：`npm test -- src/main/orchestrator/conversation-compaction.test.ts`
+  - 先写的测试：`src/main/agent/runtime/conversation-compaction.test.ts`：压缩切点在多工具回合内及两侧 → 无孤立调用或结果；完整有序消息列表符合预期。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 实现：新增 `conversation-compaction.ts`，复用 `findSafeCutPointForRetainedTokens`；`agent/loop/compaction.ts`、`agent/loop/agent-loop.ts` 在压缩事实提交后才用新视图。
+  - 验证：`npm test -- src/main/agent/runtime/conversation-compaction.test.ts`
 
 - [ ] F2 摘要失败时保留原历史
-  - 先写的测试：`src/main/orchestrator/conversation-compaction.test.ts`：摘要失败、空摘要、比原文更大 → 原活动历史和审计事实不变。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/agent/runtime/conversation-compaction.test.ts`：摘要失败、空摘要、比原文更大 → 原活动历史和审计事实不变。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：摘要失败、空摘要、无收益或提交失败保留原活动历史；超预算给明确错误，不能静默丢弃中段事实。
-  - 验证：`npm test -- src/main/orchestrator/conversation-compaction.test.ts`
+  - 验证：`npm test -- src/main/agent/runtime/conversation-compaction.test.ts`
 
 - [ ] F3 原子提交版本化压缩检查点
-  - 先写的测试：`src/main/orchestrator/conversation-compaction.test.ts`：压缩提交前后强制退出 → 重启只看到旧边界或完整新边界，无半份检查点。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/agent/runtime/conversation-compaction.test.ts`：压缩提交前后强制退出 → 重启只看到旧边界或完整新边界，无半份检查点。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：在 `conversation-transcript-types.ts` 及压缩模块定义版本化引用并原子提交覆盖区间、来源序号、分支、后缀、摘要及安全引用。
-  - 验证：`npm test -- src/main/orchestrator/conversation-compaction.test.ts`
+  - 验证：`npm test -- src/main/agent/runtime/conversation-compaction.test.ts`
 
 - [ ] F4 压缩不删除幂等事实
-  - 先写的测试：`src/main/orchestrator/conversation-transcript-context.test.ts`：压缩后重试旧请求、用户修订和工具调用 → 返回原事实，不新增运行。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/agent/loop/conversation-transcript-context.test.ts`：压缩后重试旧请求、用户修订和工具调用 → 返回原事实，不新增运行。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：在 `conversation-transcript-context.ts` 物化检查点时保留旧条目、修订、工具回执、原始协议副本，只改变模型活动视图。
-  - 验证：`npm test -- src/main/orchestrator/conversation-transcript-context.test.ts`
+  - 验证：`npm test -- src/main/agent/loop/conversation-transcript-context.test.ts`
 
 - [ ] F5 回退按分支重建活动边界
-  - 先写的测试：`src/main/orchestrator/conversation-transcript-context.test.ts`：回退到压缩覆盖区间 → 使用正确分支或重新构建边界，不混入被替换回答。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/agent/loop/conversation-transcript-context.test.ts`：回退到压缩覆盖区间 → 使用正确分支或重新构建边界，不混入被替换回答。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：在 transcript-context 按活动分支、修订及来源映射重建边界，待办和未决引用不能由摘要替代。
-  - 验证：`npm test -- src/main/orchestrator/conversation-transcript-context.test.ts`
+  - 验证：`npm test -- src/main/agent/loop/conversation-transcript-context.test.ts`
 
 - [ ] F6 完整发布不可变导出代际
-  - 先写的测试：`src/main/storage/conversation-history-export.test.ts`：导出任一写入、校验、发布阶段失败 → 旧代际完整可读，新代际不发布，数据库不丢事实。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：新增 `src/main/storage/conversation-history-export.ts`，完整写入、校验后才发布不可变代际指针；失败不发布半份归档。
-  - 验证：`npm test -- src/main/storage/conversation-history-export.test.ts`
+  - 先写的测试：`src/main/base/storage/conversation-history-export.test.ts`：导出任一写入、校验、发布阶段失败 → 旧代际完整可读，新代际不发布，数据库不丢事实。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 实现：新增 `src/main/base/storage/conversation-history-export.ts`，完整写入、校验后才发布不可变代际指针；失败不发布半份归档。
+  - 验证：`npm test -- src/main/base/storage/conversation-history-export.test.ts`
 
 - [ ] F7 导出覆盖不足时只读降级
-  - 先写的测试：`src/main/memory-sources/native-history-provider.test.ts`：导出落后 → 明确覆盖不足；读取不产生导出写入。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/memory/legacy/history/native-history-provider.test.ts`：导出落后 → 明确覆盖不足；读取不产生导出写入。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：在 `native-history-provider.ts` 固定已发布代际，落后时明确报告覆盖不足；当前会话读库，查询不生成导出。
-  - 验证：`npm test -- src/main/memory-sources/native-history-provider.test.ts`
+  - 验证：`npm test -- src/main/memory/legacy/history/native-history-provider.test.ts`
 
 - [ ] F8 拒绝失效来源与跨边界读取
   - 先写的测试：`native/src/history_read.rs`：混合代际、文件替换、junction 越界、授权撤销、租约过期 → 拒绝读取或提交，无跨会话泄露。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：在 `native/src/history_read.rs`、`src/main/memory-history/history-contracts.ts`、`firefly-history-reader.ts` 校验代际与身份；`conversation-transcript-adapter.ts`、`main-transcript-provider.ts`、`main-default-memory.ts` 接入新头部及失效机制，保留 Main 授权、held-ticket、预算、取消及租约。
+  - 实现：在 `native/src/history_read.rs`、`src/main/memory/legacy/history/history-contracts.ts`、`firefly-history-reader.ts` 校验代际与身份；`conversation-transcript-adapter.ts`、`main-transcript-provider.ts`、`main-default-memory.ts` 接入新头部及失效机制，保留 Main 授权、held-ticket、预算、取消及租约。
   - 验证：`cargo test --locked --manifest-path native/Cargo.toml --features history-read history_read -- --test-threads=1`
 
 - [ ] F9 删除会话后撤销旧凭证
-  - 先写的测试：`src/main/memory-sources/native-history-provider.test.ts`：删除会话后旧凭证再次使用 → 失效，不能从残留导出复活会话。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/memory/legacy/history/native-history-provider.test.ts`：删除会话后旧凭证再次使用 → 失效，不能从残留导出复活会话。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：会话删除、撤权、分支或代际变化时撤销凭证；残留导出不复活已删会话，不扩大原生文件白名单。
-  - 验证：`npm test -- src/main/memory-sources/native-history-provider.test.ts`；`cargo test --locked --manifest-path native/Cargo.toml --features history-read history_read -- --test-threads=1`
+  - 验证：`npm test -- src/main/memory/legacy/history/native-history-provider.test.ts`；`cargo test --locked --manifest-path native/Cargo.toml --features history-read history_read -- --test-threads=1`
 
 **验收：** 本包 9 个任务逐项通过，覆盖本包全部 9 条测试用例及既有有效断言；实施范围与上述契约全部落实。执行下文最近测试及受影响的类型/构建检查，记录命令、结果和未验证项。新后端保持未生产启用。
 
@@ -963,33 +965,33 @@ assistant 整组声明提交
 
 **改动文件：** 9 个非测试文件；另含下列测试。
 
-- 新建 `src/main/orchestrator/vendors/history-replay.ts`
-- 修改 `src/main/orchestrator/vendors/types.ts`
-- 修改 `src/main/orchestrator/vendors/anthropic-adapter.ts`
-- 修改 `src/main/orchestrator/vendors/responses-adapter.ts`
-- 修改 `src/main/orchestrator/vendors/openai-adapter.ts`
-- 修改 `src/main/orchestrator/vendors/sdk-stream/runtime.ts`
-- 修改 `src/main/orchestrator/chat-loop.ts`
-- 修改 `src/main/orchestrator/harness/firefly-harness.ts`
-- 修改 `src/main/settings/credential-storage.ts`
+- 新建 `src/main/model/providers/history-replay.ts`
+- 修改 `src/main/model/providers/types.ts`
+- 修改 `src/main/model/providers/anthropic-adapter.ts`
+- 修改 `src/main/model/providers/responses-adapter.ts`
+- 修改 `src/main/model/providers/openai-adapter.ts`
+- 修改 `src/main/model/providers/sdk-stream/runtime.ts`
+- 修改 `src/main/agent/runtime/chat-loop.ts`
+- 修改 `src/main/agent/loop/agent-loop.ts`
+- 修改 `src/main/platform/settings/credential-storage.ts`
 
 测试文件（保留/扩展现有文件，不存在的同名测试在本包新建）：
 
-- `src/main/orchestrator/vendors/history-replay.test.ts`
-- `src/main/orchestrator/vendors/responses-adapter.test.ts`
-- `src/main/orchestrator/vendors/anthropic-adapter.test.ts`
-- `src/main/orchestrator/vendors/openai-adapter.test.ts`
-- `src/main/orchestrator/vendors/sdk-stream/runtime.test.ts`
-- `src/main/orchestrator/conversation-transcript-context.test.ts`
+- `src/main/model/providers/history-replay.test.ts`
+- `src/main/model/providers/responses-adapter.test.ts`
+- `src/main/model/providers/anthropic-adapter.test.ts`
+- `src/main/model/providers/openai-adapter.test.ts`
+- `src/main/model/providers/sdk-stream/runtime.test.ts`
+- `src/main/agent/loop/conversation-transcript-context.test.ts`
 
 #### 实施范围与契约
 
-- 新增 `src/main/orchestrator/vendors/history-replay.ts`：来源绑定、版本校验及纯投影。
-- 修改 `vendors/types.ts`：`AssistantReplayRecord`。
-- 修改 `vendors/anthropic-adapter.ts`、`responses-adapter.ts`、`openai-adapter.ts`：通过统一投影编码历史。
-- 修改 `vendors/sdk-stream/runtime.ts`：终态缺失失败、稀疏输出完整性检查、保存来源明确的副本。
-- 修改 `src/main/orchestrator/chat-loop.ts`、`harness/firefly-harness.ts`：在 canonical message 提交处保留来源信息。
-- 修改 `src/main/settings/credential-storage.ts` 或新增相邻窄模块：受保护的回放凭证绑定，不增加明文副本。
+- 新增 `src/main/model/providers/history-replay.ts`：来源绑定、版本校验及纯投影。
+- 修改 `model/providers/types.ts`：`AssistantReplayRecord`。
+- 修改 `model/providers/anthropic-adapter.ts`、`responses-adapter.ts`、`openai-adapter.ts`：通过统一投影编码历史。
+- 修改 `model/providers/sdk-stream/runtime.ts`：终态缺失失败、稀疏输出完整性检查、保存来源明确的副本。
+- 修改 `src/main/agent/runtime/chat-loop.ts`、`agent/loop/agent-loop.ts`：在 canonical message 提交处保留来源信息。
+- 修改 `src/main/platform/settings/credential-storage.ts` 或新增相邻窄模块：受保护的回放凭证绑定，不增加明文副本。
 - 扩展对应适配器、流运行时及轨迹重启测试。
 
 交付：跨来源安全投影和缺终态不成功落盘，可独立于数据库启用验收。
@@ -998,7 +1000,7 @@ assistant 整组声明提交
 
 #### 跨来源历史回放
 
-扩展 `vendors/types.ts`，新增版本化 `AssistantReplayRecord`：
+扩展 `model/providers/types.ts`，新增版本化 `AssistantReplayRecord`：
 
 - `version`
 - 协议、厂商、实际请求模型；
@@ -1021,49 +1023,49 @@ assistant 整组声明提交
 **任务：**
 
 - [ ] G1 投影三协议六向历史
-  - 先写的测试：`src/main/orchestrator/vendors/history-replay.test.ts`：三协议六个切换方向，分别含纯文本和工具回合 → 正文不丢、不重复；工具 ID、参数和结果顺序正确。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：新增 `vendors/history-replay.ts` 纯投影，三适配器统一编码；`vendors/types.ts` 定义 `AssistantReplayRecord`。
-  - 验证：`npm test -- src/main/orchestrator/vendors/history-replay.test.ts`
+  - 先写的测试：`src/main/model/providers/history-replay.test.ts`：三协议六个切换方向，分别含纯文本和工具回合 → 正文不丢、不重复；工具 ID、参数和结果顺序正确。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 实现：新增 `vendors/history-replay.ts` 纯投影，三适配器统一编码；`model/providers/types.ts` 定义 `AssistantReplayRecord`。
+  - 验证：`npm test -- src/main/model/providers/history-replay.test.ts`
 
 - [ ] G2 绑定全部回放来源维度
-  - 先写的测试：`src/main/orchestrator/vendors/history-replay.test.ts`：同来源完整匹配 → 有序重放专有内容；单独改变厂商、模型、端点、凭证任一维度 → 专有内容不进入请求。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：在 `src/main/settings/credential-storage.ts` 管理受保护凭证绑定；匹配协议、厂商、实际模型、实际规范化端点及凭证，不跨账号或端点尽力重放。
-  - 验证：`npm test -- src/main/orchestrator/vendors/history-replay.test.ts`
+  - 先写的测试：`src/main/model/providers/history-replay.test.ts`：同来源完整匹配 → 有序重放专有内容；单独改变厂商、模型、端点、凭证任一维度 → 专有内容不进入请求。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 实现：在 `src/main/platform/settings/credential-storage.ts` 管理受保护凭证绑定；匹配协议、厂商、实际模型、实际规范化端点及凭证，不跨账号或端点尽力重放。
+  - 验证：`npm test -- src/main/model/providers/history-replay.test.ts`
 
 - [ ] G3 切回来源复用原始副本
-  - 先写的测试：`src/main/orchestrator/vendors/history-replay.test.ts`：切走再切回、持久化重开 → 原回放副本未被覆盖，可再次匹配。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：在 `chat-loop.ts`、`harness/firefly-harness.ts` canonical 提交点保存来源明确的版本化副本，只投影副本。
-  - 验证：`npm test -- src/main/orchestrator/vendors/history-replay.test.ts`
+  - 先写的测试：`src/main/model/providers/history-replay.test.ts`：切走再切回、持久化重开 → 原回放副本未被覆盖，可再次匹配。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 实现：在 `chat-loop.ts`、`agent/loop/agent-loop.ts` canonical 提交点保存来源明确的版本化副本，只投影副本。
+  - 验证：`npm test -- src/main/model/providers/history-replay.test.ts`
 
 - [ ] G4 损坏或未知来源降级通用历史
-  - 先写的测试：`src/main/orchestrator/vendors/history-replay.test.ts`：来源未知、版本未知、损坏副本 → 仅通用事实；不猜签名，不修改历史原件。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/model/providers/history-replay.test.ts`：来源未知、版本未知、损坏副本 → 仅通用事实；不猜签名，不修改历史原件。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：未知来源、版本或损坏内容仅投影通用正文及工具调用；Anthropic 不构造无有效签名 thinking，不覆盖原件。
-  - 验证：`npm test -- src/main/orchestrator/vendors/history-replay.test.ts`
+  - 验证：`npm test -- src/main/model/providers/history-replay.test.ts`
 
 - [ ] G5 修复 Responses 助手编码
-  - 先写的测试：`src/main/orchestrator/vendors/responses-adapter.test.ts`：Responses 无 rawAssistant 的 assistant 文本 → 请求体合法；不得出现 assistant `input_text` 块。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：在 `vendors/responses-adapter.ts` 使用合法 assistant 消息形状，保留工具声明及 `call_id`，不生成 assistant `input_text`。
-  - 验证：`npm test -- src/main/orchestrator/vendors/responses-adapter.test.ts`
+  - 先写的测试：`src/main/model/providers/responses-adapter.test.ts`：Responses 无 rawAssistant 的 assistant 文本 → 请求体合法；不得出现 assistant `input_text` 块。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 实现：在 `model/providers/responses-adapter.ts` 使用合法 assistant 消息形状，保留工具声明及 `call_id`，不生成 assistant `input_text`。
+  - 验证：`npm test -- src/main/model/providers/responses-adapter.test.ts`
 
 - [ ] G6 保留部分可用项及工具配对
-  - 先写的测试：`src/main/orchestrator/vendors/responses-adapter.test.ts`：有效项混未知项、工具覆盖不足 → 无整轮消失，无重复 function_call。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/model/providers/responses-adapter.test.ts`：有效项混未知项、工具覆盖不足 → 无整轮消失，无重复 function_call。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：在 replay 与适配器逐项降级，覆盖不足用通用事实，无整轮消失或重复 function_call。
-  - 验证：`npm test -- src/main/orchestrator/vendors/responses-adapter.test.ts`
+  - 验证：`npm test -- src/main/model/providers/responses-adapter.test.ts`
 
 - [ ] G7 缺合法流终态时失败结算
-  - 先写的测试：`src/main/orchestrator/vendors/sdk-stream/runtime.test.ts`：流缺终态、终态失败、工具参数未闭合 → 指定错误码，无成功 assistant 提交、无工具派发。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：在 `vendors/sdk-stream/runtime.ts` 拒绝缺终态、失败终态、参数未完成及无法补齐的稀疏终态；缺终态使用 `E_MODEL_STREAM_UNFINISHED`。
-  - 验证：`npm test -- src/main/orchestrator/vendors/sdk-stream/runtime.test.ts`
+  - 先写的测试：`src/main/model/providers/sdk-stream/runtime.test.ts`：流缺终态、终态失败、工具参数未闭合 → 指定错误码，无成功 assistant 提交、无工具派发。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 实现：在 `model/providers/sdk-stream/runtime.ts` 拒绝缺终态、失败终态、参数未完成及无法补齐的稀疏终态；缺终态使用 `E_MODEL_STREAM_UNFINISHED`。
+  - 验证：`npm test -- src/main/model/providers/sdk-stream/runtime.test.ts`
 
 - [ ] G8 合并稀疏终态与增量
-  - 先写的测试：`src/main/orchestrator/vendors/sdk-stream/runtime.test.ts`：稀疏终态与增量合并 → 完整工具列表只提交一次。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/model/providers/sdk-stream/runtime.test.ts`：稀疏终态与增量合并 → 完整工具列表只提交一次。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：在 sdk-stream/runtime 合并稀疏终态及增量，完整性校验后只提交一次完整工具列表。
-  - 验证：`npm test -- src/main/orchestrator/vendors/sdk-stream/runtime.test.ts`
+  - 验证：`npm test -- src/main/model/providers/sdk-stream/runtime.test.ts`
 
 - [ ] G9 阻止诊断及元数据泄密
-  - 先写的测试：`src/main/orchestrator/vendors/history-replay.test.ts`：日志、IPC 错误、导出元数据 → 无明文密钥、专有推理密文或敏感实参泄露。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/model/providers/history-replay.test.ts`：日志、IPC 错误、导出元数据 → 无明文密钥、专有推理密文或敏感实参泄露。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：回放、凭证绑定模块仅输出安全错误码、身份摘要、序号和阶段，不公开明文或普通密钥哈希，不新增敏感参数或结果的通用缓存副本。
-  - 验证：`npm test -- src/main/orchestrator/vendors/history-replay.test.ts`
+  - 验证：`npm test -- src/main/model/providers/history-replay.test.ts`
 
 **验收：** 本包 9 个任务逐项通过，覆盖本包全部 9 条测试用例及既有有效断言；实施范围与上述契约全部落实。执行下文最近测试及受影响的类型/构建检查，记录命令、结果和未验证项。新后端保持未生产启用。
 
@@ -1077,14 +1079,14 @@ assistant 整组声明提交
 
 **改动文件：** 15 个非测试文件；另含下列测试。
 
-- 修改 `src/main/channels/dispatcher.ts`
-- 修改 `src/main/channels/bootstrap.ts`
-- 修改 `src/main/channels/channel-context.ts`
-- 修改 `src/main/scheduler/scheduler-runner.ts`
-- 修改 `src/main/proactive/proactive-model.ts`
-- 修改 `src/main/proactive/proactive-service.ts`
-- 修改 `src/main/application/default-dependencies.ts`
-- 修改 `src/main/application/shutdown.ts`
+- 修改 `src/main/features/channels/dispatcher.ts`
+- 修改 `src/main/features/channels/bootstrap.ts`
+- 修改 `src/main/features/channels/channel-context.ts`
+- 修改 `src/main/features/scheduler/scheduler-runner.ts`
+- 修改 `src/main/features/proactive/proactive-model.ts`
+- 修改 `src/main/features/proactive/proactive-service.ts`
+- 修改 `src/main/app/default-dependencies.ts`
+- 修改 `src/main/base/lifecycle/shutdown.ts`
 - 修改 `src/renderer/react/features/chat/pages/pending-queue-flow.ts`
 - 修改 `src/renderer/react/features/chat/pages/run/AgentRunController.ts`
 - 修改 `src/renderer/react/features/chat/components/ChatMessageList.tsx`
@@ -1095,27 +1097,27 @@ assistant 整组声明提交
 
 测试文件（保留/扩展现有文件，不存在的同名测试在本包新建）：
 
-- `src/main/chat/conversation-reliability.integration.test.ts`
-- `src/main/channels/dispatcher.test.ts`
-- `src/main/channels/bootstrap.test.ts`
-- `src/main/scheduler/scheduler-runner.test.ts`
-- `src/main/proactive/proactive-model.test.ts`
-- `src/main/proactive/proactive-state-restart.test.ts`
-- `src/main/application/default-dependencies.test.ts`
-- `src/main/application/shutdown.test.ts`
+- `src/main/features/chat/conversation-reliability.integration.test.ts`
+- `src/main/features/channels/dispatcher.test.ts`
+- `src/main/features/channels/bootstrap.test.ts`
+- `src/main/features/scheduler/scheduler-runner.test.ts`
+- `src/main/features/proactive/proactive-model.test.ts`
+- `src/main/features/proactive/proactive-state-restart.test.ts`
+- `src/main/app/default-dependencies.test.ts`
+- `src/main/base/lifecycle/shutdown.test.ts`
 - `src/renderer/react/features/chat/pages/pending-queue-flow.test.ts`
 - `src/renderer/react/features/chat/pages/run/AgentRunController.test.ts`
 - `src/renderer/react/features/chat/components/ChatMessageList.test.ts`
 
 #### 实施范围与契约
 
-- 修改 `src/main/channels/dispatcher.ts`、`bootstrap.ts`、`channel-context.ts`：统一权威历史和请求身份，去掉普通渠道的 16 条历史旁路。
-- 修改 `src/main/scheduler/scheduler-runner.ts`：使用任务本次执行身份接纳，保留已批准调度和不补跑语义。
-- 修改 `src/main/proactive/proactive-model.ts`、`proactive-service.ts`：区分内部决策调用与实际会话轮次；只有提交会话的轮次接入接纳。
-- 修改 `src/main/application/default-dependencies.ts`、`shutdown.ts`：数据库启动、对账、全入口注入和关闭次序。
+- 修改 `src/main/features/channels/dispatcher.ts`、`bootstrap.ts`、`channel-context.ts`：统一权威历史和请求身份，去掉普通渠道的 16 条历史旁路。
+- 修改 `src/main/features/scheduler/scheduler-runner.ts`：使用任务本次执行身份接纳，保留已批准调度和不补跑语义。
+- 修改 `src/main/features/proactive/proactive-model.ts`、`proactive-service.ts`：区分内部决策调用与实际会话轮次；只有提交会话的轮次接入接纳。
+- 修改 `src/main/app/default-dependencies.ts`、`shutdown.ts`：数据库启动、对账、全入口注入和关闭次序。
 - 修改 `src/renderer/react/features/chat/pages/pending-queue-flow.ts`、`run/AgentRunController.ts` 及现有消息流组件：三模式提示、继续动作、终态回执恢复。
 - 修改 `src/renderer/react/i18n/zh-CN.json`、`en.json`：新增键及中文文案。
-- 新增 `src/main/chat/conversation-reliability.integration.test.ts`：全入口、三模式、重启与失败矩阵。
+- 新增 `src/main/features/chat/conversation-reliability.integration.test.ts`：全入口、三模式、重启与失败矩阵。
 - 更新 `README.md`、`DEVELOPMENT.md` 的目录和恢复操作说明。
 - 统一启用新后端；排除新目录上的旧 JSON writer、renderer 历史旁路及自动续派入口。
 
@@ -1146,34 +1148,34 @@ assistant 整组声明提交
 **任务：**
 
 - [ ] H1 三模式接纳、重启与新输入贯通
-  - 先写的测试：`src/main/chat/conversation-reliability.integration.test.ts`：Chat/Work/Code 各执行“接纳、取消或故障、重启、新输入” → 历史、终态、待办及未决集合正确；重启零模型调用。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：新增 `src/main/chat/conversation-reliability.integration.test.ts` 覆盖全入口三模式；`default-dependencies.ts` 注入数据库、显式启动对账及恢复投影。
-  - 验证：`npm test -- src/main/chat/conversation-reliability.integration.test.ts`
+  - 先写的测试：`src/main/features/chat/conversation-reliability.integration.test.ts`：Chat/Work/Code 各执行“接纳、取消或故障、重启、新输入” → 历史、终态、待办及未决集合正确；重启零模型调用。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 实现：新增 `src/main/features/chat/conversation-reliability.integration.test.ts` 覆盖全入口三模式；`default-dependencies.ts` 注入数据库、显式启动对账及恢复投影。
+  - 验证：`npm test -- src/main/features/chat/conversation-reliability.integration.test.ts`
 
 - [ ] H2 桌面和渠道共用会话占用
-  - 先写的测试：`src/main/channels/dispatcher.test.ts`：同一绑定会话桌面与渠道并发 → 共用占用约束，无双运行、历史旁路或消息重复。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：在 `channels/dispatcher.ts`、`bootstrap.ts`、`channel-context.ts` 共用接纳、会话身份及权威历史，去掉普通渠道 16 条历史旁路，保留渠道授权。
-  - 验证：`npm test -- src/main/channels/dispatcher.test.ts`
+  - 先写的测试：`src/main/features/channels/dispatcher.test.ts`：同一绑定会话桌面与渠道并发 → 共用占用约束，无双运行、历史旁路或消息重复。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 实现：在 `features/channels/dispatcher.ts`、`bootstrap.ts`、`channel-context.ts` 共用接纳、会话身份及权威历史，去掉普通渠道 16 条历史旁路，保留渠道授权。
+  - 验证：`npm test -- src/main/features/channels/dispatcher.test.ts`
 
 - [ ] H3 按渠道稳定身份幂等接纳
-  - 先写的测试：`src/main/channels/bootstrap.test.ts`：渠道稳定消息 ID 重复送达 → 原回执；没有稳定身份时不使用正文相同作为永久去重依据。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/features/channels/bootstrap.test.ts`：渠道稳定消息 ID 重复送达 → 原回执；没有稳定身份时不使用正文相同作为永久去重依据。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：渠道用稳定消息 ID 映射请求，无稳定身份时不用正文相同永久去重。
-  - 验证：`npm test -- src/main/channels/bootstrap.test.ts`
+  - 验证：`npm test -- src/main/features/channels/bootstrap.test.ts`
 
 - [ ] H4 按调度执行槽复用运行
-  - 先写的测试：`src/main/scheduler/scheduler-runner.test.ts`：调度同执行槽重试 → 原运行；正常新执行槽可执行；重启不额外补跑。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：在 `scheduler/scheduler-runner.ts` 用任务本次执行身份接纳，保留已批准调度及不补跑语义。
-  - 验证：`npm test -- src/main/scheduler/scheduler-runner.test.ts`
+  - 先写的测试：`src/main/features/scheduler/scheduler-runner.test.ts`：调度同执行槽重试 → 原运行；正常新执行槽可执行；重启不额外补跑。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 实现：在 `features/scheduler/scheduler-runner.ts` 用任务本次执行身份接纳，保留已批准调度及不补跑语义。
+  - 验证：`npm test -- src/main/features/scheduler/scheduler-runner.test.ts`
 
 - [ ] H5 主动任务恢复不创建意图
-  - 先写的测试：`src/main/proactive/proactive-model.test.ts`：主动任务恢复与冷却对账 → 不制造新会话意图；正常预授权触发仍有效。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/features/proactive/proactive-model.test.ts`：主动任务恢复与冷却对账 → 不制造新会话意图；正常预授权触发仍有效。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：在 `proactive-model.ts`、`proactive-service.ts` 区分内部决策与会话轮次，仅实际提交会话的轮次接纳。
-  - 验证：`npm test -- src/main/proactive/proactive-model.test.ts`
+  - 验证：`npm test -- src/main/features/proactive/proactive-model.test.ts`
 
 - [ ] H6 按顺序收敛关闭与在途调用
-  - 先写的测试：`src/main/application/shutdown.test.ts`：关闭时存在提交、导出及执行 → 先停止接纳、取消并收敛执行、等待必要提交、关闭数据库；全部在途调用结束。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
-  - 实现：在 `application/shutdown.ts` 停止接纳、取消收敛、等待必要提交、关闭数据库，与 default-dependencies 的 Worker 生命周期配对。
-  - 验证：`npm test -- src/main/application/shutdown.test.ts`
+  - 先写的测试：`src/main/base/lifecycle/shutdown.test.ts`：关闭时存在提交、导出及执行 → 先停止接纳、取消并收敛执行、等待必要提交、关闭数据库；全部在途调用结束。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 实现：在 `base/lifecycle/shutdown.ts` 停止接纳、取消收敛、等待必要提交、关闭数据库，与 default-dependencies 的 Worker 生命周期配对。
+  - 验证：`npm test -- src/main/base/lifecycle/shutdown.test.ts`
 
 - [ ] H7 展示三模式状态与双语提示
   - 先写的测试：`src/renderer/react/features/chat/pages/run/AgentRunController.test.ts`：三模式中文错误和降级提示 → 对应状态可见，无原始异常体；英文资源键不缺失。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
@@ -1181,9 +1183,9 @@ assistant 整组声明提交
   - 验证：`npm test -- src/renderer/react/features/chat/pages/run/AgentRunController.test.ts`
 
 - [ ] H8 统一启用后排除旧 writer 和历史旁路
-  - 先写的测试：`src/main/chat/conversation-reliability.integration.test.ts`：全入口新后端启用后 → 不读取 1.1.x，不调用旧会话 writer，不用 renderer 消息替代权威历史。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
+  - 先写的测试：`src/main/features/chat/conversation-reliability.integration.test.ts`：全入口新后端启用后 → 不读取 1.1.x，不调用旧会话 writer，不用 renderer 消息替代权威历史。（同时断言失败/取消/拒绝不新增依赖该结果的写入、模型或外部工具调用，不泄露敏感内容。）
   - 实现：在 default-dependencies 统一启用新后端，排除旧 JSON writer、renderer 历史旁路与自动续派；更新 README 和 DEVELOPMENT；完成全量真机及构建产物验收，发布版本号由发布/工程主题统一修改。
-  - 验证：`npm test -- src/main/chat/conversation-reliability.integration.test.ts`
+  - 验证：`npm test -- src/main/features/chat/conversation-reliability.integration.test.ts`
 
 **验收：** 本包 8 个任务逐项通过，覆盖本包全部 8 条测试用例及既有有效断言；实施范围与上述契约全部落实。执行下文最近测试及受影响的类型/构建检查，记录命令、结果和未验证项。原生读取、全入口和三模式真机与构建产物全部验收后才能声明完成。
 
@@ -1234,26 +1236,26 @@ assistant 整组声明提交
 
 ```powershell
 # 施工包 A
-npm test -- src/main/startup/runtime-profile.test.ts src/main/startup/runtime-profile-documentation.test.ts src/main/chat/agui-bridge.test.ts src/main/orchestrator/harness-adapter-characterization.test.ts
+npm test -- src/main/base/identity/runtime-profile.test.ts src/main/base/identity/runtime-profile-documentation.test.ts src/main/features/chat/agui-bridge.test.ts src/main/agent/runtime/agent-loop-adapter-characterization.test.ts
 
 # 施工包 B：新增测试文件落地后执行
-npm test -- src/main/storage/conversation-db-client.test.ts src/main/storage/conversation-repository.test.ts src/main/orchestrator/conversation-transcript-store.test.ts src/main/orchestrator/conversation-transcript-store-ephemeral.test.ts src/main/orchestrator/conversation-transcript-settlement.test.ts
+npm test -- src/main/base/storage/conversation-db-client.test.ts src/main/base/storage/conversation-repository.test.ts src/main/conversation/transcript/conversation-transcript-store.test.ts src/main/conversation/transcript/conversation-transcript-store-ephemeral.test.ts src/main/conversation/transcript/conversation-transcript-settlement.test.ts
 
 # 施工包 C
-npm test -- src/main/chats src/renderer/react/features/chat/pages/pending-queue-flow.test.ts src/renderer/react/features/chat/pages/run/AgentRunController.test.ts src/main/chat/agui-bridge.test.ts
+npm test -- src/main/chats src/renderer/react/features/chat/pages/pending-queue-flow.test.ts src/renderer/react/features/chat/pages/run/AgentRunController.test.ts src/main/features/chat/agui-bridge.test.ts
 
 # 施工包 D
-npm test -- src/main/orchestrator/run-settlement.test.ts src/main/orchestrator/harness-adapter-characterization.test.ts src/main/orchestrator/harness-adapter-cancel.test.ts src/main/chat/agui-bridge.test.ts src/main/plugin-host/pending-turn-lifecycle.test.ts
+npm test -- src/main/conversation/transcript/run-settlement.test.ts src/main/agent/runtime/agent-loop-adapter-characterization.test.ts src/main/agent/runtime/agent-loop-adapter-cancel.test.ts src/main/features/chat/agui-bridge.test.ts src/main/features/plugins/host/pending-turn-lifecycle.test.ts
 
 # 施工包 E
-npm test -- src/main/orchestrator/execution-ledger.test.ts src/main/orchestrator/harness
+npm test -- src/main/agent/loop/execution-ledger.test.ts src/main/agent/runtime/harness
 
 # 施工包 F
-npm test -- src/main/orchestrator/conversation-compaction.test.ts src/main/orchestrator/conversation-transcript-context.test.ts src/main/storage/conversation-history-export.test.ts src/main/memory-sources/native-history-provider.test.ts src/main/memory-context/conversation-transcript-adapter.test.ts
+npm test -- src/main/agent/runtime/conversation-compaction.test.ts src/main/agent/loop/conversation-transcript-context.test.ts src/main/base/storage/conversation-history-export.test.ts src/main/memory/legacy/history/native-history-provider.test.ts src/main/agent/memory-runtime/conversation-transcript-adapter.test.ts
 cargo test --locked --manifest-path native/Cargo.toml --features history-read history_read -- --test-threads=1
 
 # 施工包 G
-npm test -- src/main/orchestrator/vendors
+npm test -- src/main/agent/runtime/vendors
 
 # 施工包 H
 npm test -- src/main/chat src/main/chats src/main/channels src/main/scheduler src/main/proactive src/main/application src/renderer/react/features/chat

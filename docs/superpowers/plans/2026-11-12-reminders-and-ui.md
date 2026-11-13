@@ -3,6 +3,8 @@
 状态：待施工
 规格：无独立规格；依据外部参考文档盘点条目与负责人 2026-11-12 的决定（权限档位见 `docs/superpowers/specs/2026-11-12-plugin-sdk-1-2-0.md` §7.2）。
 
+> 路径说明（2026-11-13）：主进程已按七层重组（#57、#58），本文的文件路径和符号名已换成新位置（如 `src/main/agent/loop/agent-loop.ts`、`runAgentLoop`）。`文件:行号` 里的行号仍是重组前（`39987fc`）的位置，施工时以符号名为准，并在进度文档记录实际行号。
+
 **目标：** 让用户离开聊天窗口后仍能感知需要处理的事情，并从提醒直接回到对应会话、审批、选择题、抽查题或定时任务记录。运行中继续输入、排队和停止当前运行保持清晰、可靠；图片无法发送或分析时，由界面明确告知原因，不依赖模型自行解释。保留 Firefly 已有的队列、上下文快照和消息缓存实现，补足跨进程定位、失败反馈、计划阶段纯策略、异步设置定位及运行验收。适用功能覆盖 Chat、Work、Code，按会话真实模式打开，不因提醒改变模式、工作区或权限。
 
 | 功能 | Chat | Work | Code |
@@ -23,7 +25,7 @@
 - 不扩大任何模式的工具可用范围；没有某类交互时，不为验收制造不可见后台运行。
 - **移出施工范围（保留现有实现，只补回归与验收）**：
   - 重做输入入口、替换 `Sender`、重建队列（忙时普通 Enter 入队已在 `ChatComposer.tsx:373` 实现）；等待审批或提问期间首版保留交互面板优先，普通流式运行继续允许排队。
-  - 再次实现手动压缩后广播和快照刷新（已在 `src/main/chats/chats-ipc.ts:178,192,196` 与 `ChatPage.tsx:340,532,959` 实现）；不通过移除记忆运行时保护（`MEMORY_CONTEXT_LEGACY_COMPACTION_UNSUPPORTED`）来实现本主题。
+  - 再次实现手动压缩后广播和快照刷新（已在 `src/main/features/sessions/chats-ipc.ts:178,192,196` 与 `ChatPage.tsx:340,532,959` 实现）；不通过移除记忆运行时保护（`MEMORY_CONTEXT_LEGACY_COMPACTION_UNSUPPORTED`）来实现本主题。
   - 重复增加流式消息缓存或全面替换渲染器（先补三模式测量，发现具体失效链后才做局部修改；虚拟化、分页、渲染器迁移不作为默认施工项）。
 - 保留现有 `CHATS_REACT_SWITCH_SESSION` 字符串契约，避免改变无关调用方；保持现有 Toast 生命周期（点击消隐不等于业务结算，计划与选择分类保持互斥）；定时任务提醒使用现有聊天窗口任务面板 `ScheduledTaskPanel`，不新增独立任务窗口。
 - 不引入新的独立视觉配置系统或视觉服务，不改变工具结果为图片块的协议，不自动转码 BMP/SVG，不扩大文件访问权限。
@@ -38,31 +40,31 @@
 - 已完整读取 `AGENTS.md`，测试和验证按其中“修改与验证”“测试断言写法”执行。
 - 模块边界沿用 `README.md:211` 的职责表：界面与 preload 属桌面界面层；Harness、权限与伙伴执行属 Agent 核心层；图片适配属记忆与模型层；定时任务属入口层。
 - 当前 `package.json` 的版本仍为 `1.1.4`。统一版本号属于发布工作，本主题不单独修改版本。
-- 正式运行配置目前仍将数据放在 `%APPDATA%\Firefly`，未区分 1.2.0；开发配置已经支持独立目录。证据：`src/main/startup/runtime-profile.ts:55`、`:69`，`src/main/storage/storage-context.ts:35`。
+- 正式运行配置目前仍将数据放在 `%APPDATA%\Firefly`，未区分 1.2.0；开发配置已经支持独立目录。证据：`src/main/base/identity/runtime-profile.ts:55`、`:69`，`src/main/base/storage/storage-context.ts:35`。
 - 本次只进行了只读核对，未执行测试、构建、性能脚本或应用启动；这些命令会产生文件，列入后续实施验证。
 
 ### 提醒中心已有生命周期，缺少精确落点
 
 已具备：
 
-- 审批、选择、抽查、计划审批和定时任务事件：`src/main/toast/toast-events.ts` 的 `ToastEventMap`。
-- 可见条目与去重记录分离、结算清退、通知超时、计划与普通选择互斥：`src/main/toast/toast-service.ts` 的 `visible`、`seenKeys`、`planRuns`、`settle`。
-- 独立窗口、不抢焦点展示、显示器回退及高度调整：`src/main/toast/toast-window.ts` 的 `chooseDisplay`、`updateHeight`、`syncVisibility`。
-- 点击只上传 Toast 标识，主进程查找目标：`src/main/toast/toast-service.ts:240`。
+- 审批、选择、抽查、计划审批和定时任务事件：`src/main/platform/interaction/toast-events.ts` 的 `ToastEventMap`。
+- 可见条目与去重记录分离、结算清退、通知超时、计划与普通选择互斥：`src/main/platform/toast/toast-service.ts` 的 `visible`、`seenKeys`、`planRuns`、`settle`。
+- 独立窗口、不抢焦点展示、显示器回退及高度调整：`src/main/platform/toast/toast-window.ts` 的 `chooseDisplay`、`updateHeight`、`syncVisibility`。
+- 点击只上传 Toast 标识，主进程查找目标：`src/main/platform/toast/toast-service.ts:240`。
 
 实际缺口：
 
 - `ToastTarget` 只有会话或聊天窗口目标：`src/shared/toast-types.ts` 的 `ToastTarget`。
-- 审批、选择和抽查通过 `waitingForChat` 仅打开聊天窗口；计划审批仅带 `sessionId`：`src/main/toast/toast-service.ts:139`、`:148`、`:201`，以及 `onPlanReview`。
+- 审批、选择和抽查通过 `waitingForChat` 仅打开聊天窗口；计划审批仅带 `sessionId`：`src/main/platform/toast/toast-service.ts:139`、`:148`、`:201`，以及 `onPlanReview`。
 - 定时任务完成事件已有 `taskId`、`schedulerRunId`，但点击仍打开聊天窗口：`SchedulerFinishedEvent`、`onSchedulerFinished`。
 - 当前产品已有 `ScheduledTaskPanel`，由 `ChatPagePanelHost` 的 `"scheduled"` 分支承载，不需要新增独立任务窗口。证据：`src/renderer/react/features/chat/components/ChatPagePanelHost.tsx:11`。
-- 当前导航只传会话字符串，并在渲染页 ready 后补发：`ReactChatSessionDispatcher`、`src/main/chats/chat-ui-ipc.ts:215`、`src/preload/index.ts:1163`。精确定位需要跨越这条就绪链路。
+- 当前导航只传会话字符串，并在渲染页 ready 后补发：`ReactChatSessionDispatcher`、`src/main/features/sessions/chat-ui-ipc.ts:215`、`src/preload/index.ts:1163`。精确定位需要跨越这条就绪链路。
 
 ### 忙时普通 Enter 入队已经实现
 
 - `ChatComposer.tsx:373` 的 `handleSenderKeyDown` 在忙时截获普通 Enter，先处理入队，再阻止 `Sender` 内置提交；不能仅凭 `loading={modelBusy}` 判断入口不可达。
 - 真实组件测试未替换 `Sender`，已有忙闲 Enter、停止、Shift+Enter、输入法组合输入和队列操作断言。证据：`ChatComposer.sender-integration.test.ts:61`、`:84`、`:98`、`:107`。
-- 页面按当前会话计算忙闲和队列：`ChatPage.tsx:935`、`:938`；主进程已有队列 IPC、认领与持久化逻辑：`src/main/chats/chats-ipc.ts` 的 `CHATS_PENDING_*` 处理器。
+- 页面按当前会话计算忙闲和队列：`ChatPage.tsx:935`、`:938`；主进程已有队列 IPC、认领与持久化逻辑：`src/main/features/sessions/chats-ipc.ts` 的 `CHATS_PENDING_*` 处理器。
 
 **移出施工范围：重做输入入口、替换 `Sender`、重建队列。** 保留三模式组件回归和 Electron 验收。
 
@@ -70,24 +72,24 @@
 
 ### 图片路由已收敛，用户反馈仍不闭合
 
-- 当前路由只有 `direct` 和 `reject`，不是独立视觉模型优先的旧方案：`src/main/orchestrator/image-router.ts` 的 `ImageRoute`、`resolveImageRoute`。
-- Anthropic 直发仅接受 PNG、JPEG、WebP、GIF；其他嵌入格式转换为模型上下文里的文本占位：`src/main/orchestrator/vendors/anthropic-adapter.ts:20`、`:49`。
-- `read_image` 仍接受 BMP、SVG：`src/main/orchestrator/tools/fs-tools.ts:290`、`:305`。
-- 附件拒绝和转述失败主要写入模型上下文，不能据此证明用户界面一定显示原因：`src/main/orchestrator/build-options.ts` 的 `withImageRejectNotice`、`withCaptionedImageAttachments`。
+- 当前路由只有 `direct` 和 `reject`，不是独立视觉模型优先的旧方案：`src/main/model/vision/image-router.ts` 的 `ImageRoute`、`resolveImageRoute`。
+- Anthropic 直发仅接受 PNG、JPEG、WebP、GIF；其他嵌入格式转换为模型上下文里的文本占位：`src/main/model/providers/anthropic-adapter.ts:20`、`:49`。
+- `read_image` 仍接受 BMP、SVG：`src/main/agent/tools/fs-tools.ts:290`、`:305`。
+- 附件拒绝和转述失败主要写入模型上下文，不能据此证明用户界面一定显示原因：`src/main/agent/runtime/build-options.ts` 的 `withImageRejectNotice`、`withCaptionedImageAttachments`。
 - 缺少转述回调的函数分支目前仅记录警告并返回原消息，见 `build-options.ts:170`；但正常构造 `captionFallback` 时已经检查回调是否存在，见 `:406`。**不能把该分支直接认定为正常桌面路径已复现的静默丢图。**
 - Anthropic 转述端点不可用已有显式拒绝：`resolveCaptionVisionConfig`。不需要重新引入独立视觉配置系统。
 
 ### 计划权限优先级已有保护，判断依据仍不够严格
 
-- `prepareToolRuntime` 在完全访问（`full` / `allow_all`）前执行计划限制，审批等待后再次核对，并提供执行前复核：`src/main/orchestrator/harness/adapter/tool-runtime.ts:61`、`:75`、`:79`。
-- 判断仍基于 `risk`；未标风险默认 `"safe"`。调度器的兜底复核也使用同类判断：`src/main/orchestrator/harness/tool-dispatcher.ts` 的 `revalidateToolPermission`。
-- `ToolEffectKind` 与 `resolveEffectKind` 已存在，支持静态声明和参数相关解析：`src/main/orchestrator/tools/registry/tool-registry.ts`。
-- `run_shell` 已声明 `effectKind: "unknown"`，并有计划阶段保护：`src/main/orchestrator/tools/builtin-tools/run-shell-tool.ts`。
-- Harness 控制工具先于普通注册工具权限链分派：`tool-dispatcher.ts` 的 `isHarnessBuiltin` 分支。不能把普通工具的新规则直接覆盖到写计划和用户审批流程。
+- `prepareToolRuntime` 在完全访问（`full` / `allow_all`）前执行计划限制，审批等待后再次核对，并提供执行前复核：`src/main/agent/runtime/adapter/tool-runtime.ts:61`、`:75`、`:79`。
+- 判断仍基于 `risk`；未标风险默认 `"safe"`。调度器的兜底复核也使用同类判断：`src/main/agent/loop/tool-dispatcher.ts` 的 `revalidateToolPermission`。
+- `ToolEffectKind` 与 `resolveEffectKind` 已存在，支持静态声明和参数相关解析：`src/main/tooling/registry/tool-registry.ts`。
+- `run_shell` 已声明 `effectKind: "unknown"`，并有计划阶段保护：`src/main/agent/tools/builtin-tools/run-shell-tool.ts`。
+- Harness 控制工具先于普通注册工具权限链分派：`tool-dispatcher.ts` 的 `isAgentLoopBuiltin` 分支。不能把普通工具的新规则直接覆盖到写计划和用户审批流程。
 
 ### 手动压缩的成功刷新链路已经存在，但有适用边界
 
-- 压缩成功后写入 `currentContextUsage`，并广播给包括发起窗口在内的所有窗口：`src/main/chats/chats-ipc.ts:178`、`:192`、`:196`。
+- 压缩成功后写入 `currentContextUsage`，并广播给包括发起窗口在内的所有窗口：`src/main/features/sessions/chats-ipc.ts:178`、`:192`、`:196`。
 - 页面收到变更后重读会话；`selectSession` 比较会话级与消息级快照时间，更新显示：`ChatPage.tsx:340`、`:532`。
 - 当前概览优先使用会话级快照：`ChatPage.tsx:959`。
 - 由当前记忆运行时拥有的会话会返回 `MEMORY_CONTEXT_LEGACY_COMPACTION_UNSUPPORTED`，不会进入旧压缩链：`chats-ipc.ts:123`。
@@ -128,24 +130,24 @@
 - `src/renderer/react/features/chat/pages/attention-navigation.ts`、`src/renderer/react/features/chat/pages/attention-navigation.test.ts`、`src/renderer/react/features/chat/pages/ChatPage.attention-navigation.test.ts`
 - `src/shared/image-delivery.ts`
 - `src/renderer/react/features/chat/pages/run/image-delivery.test.ts`
-- `src/main/orchestrator/plan-tool-policy.ts`、`src/main/orchestrator/plan-tool-policy.test.ts`、`src/main/orchestrator/harness/tool-dispatcher.plan-policy.test.ts`
+- `src/main/agent/runtime/plan-tool-policy.ts`、`src/main/agent/runtime/plan-tool-policy.test.ts`、`src/main/agent/loop/tool-dispatcher.plan-policy.test.ts`
 - `src/renderer/react/features/chat/pages/ChatPage.context-usage.test.ts`
 - `src/renderer/settings/shared/search-target.ts`、`src/renderer/settings/shared/search-target.test.ts`
 - `src/renderer/settings/shared/search-dialog.ts`、`src/renderer/settings/shared/search-dialog.test.ts`
 
 ### 修改
 
-- `src/main/startup/runtime-profile.ts`、`src/main/startup/runtime-profile.test.ts`、`src/main/startup/identity-preflight.test.ts`、`src/main/storage/storage-context.test.ts`、`README.md`、`README.en.md`
+- `src/main/base/identity/runtime-profile.ts`、`src/main/base/identity/runtime-profile.test.ts`、`src/main/app/identity-preflight.test.ts`、`src/main/base/storage/storage-context.test.ts`、`README.md`、`README.en.md`
 - `src/shared/toast-types.ts`、`src/shared/ipc-channels.ts`、`src/preload/index.ts`、`src/shared/permission-approval.ts`
-- `src/main/permission/permission.ts`
-- `src/main/orchestrator/harness/adapter/tool-runtime.ts`、`src/main/orchestrator/harness/adapter/tool-runtime.test.ts`、`src/main/orchestrator/harness/tool-dispatcher.ts`、`src/main/orchestrator/harness/types.ts`、`src/main/orchestrator/harness/adapter/event-mapper.ts`、`src/main/orchestrator/harness/plan-tools.test.ts`
-- `src/main/orchestrator/tools/builtin-tools/run-shell-plan-boundary.test.ts`、`src/main/orchestrator/tools/fs-tools.ts`（及经核实的内置读取工具 `effectKind` 声明）
-- `src/main/chat/user-choice.ts`、`src/main/chat/agui-bridge.ts`、`src/main/chat/image-caption.test.ts`
-- `src/main/orchestrator/pop-quiz.ts`、`src/main/orchestrator/image-router.ts`、`src/main/orchestrator/image-router.test.ts`、`src/main/orchestrator/build-options.ts`、`src/main/orchestrator/build-options.test.ts`、`src/main/orchestrator/agent-runtime.ts`、`src/main/orchestrator/agent-runtime.test.ts`、`src/main/orchestrator/firefly-agent.ts`、`src/main/orchestrator/vendors/anthropic-adapter.ts`（及现有 Anthropic 适配器测试）
-- `src/main/toast/toast-events.ts`、`src/main/toast/toast-events.test.ts`、`src/main/toast/toast-service.ts`、`src/main/toast/toast-service.test.ts`
-- `src/main/application/window-activation.ts`、`src/main/application/window-activation.test.ts`、`src/main/application/shell-bootstrap.ts`
-- `src/main/windows/window-manager.ts`、`src/main/windows/create-aux-windows.ts`
-- `src/main/chats/react-chat-session-dispatcher.ts`、`src/main/chats/react-chat-session-dispatcher.test.ts`、`src/main/chats/chat-ui-ipc.ts`、`src/main/chats/chat-ui-ipc.test.ts`、`src/main/chats/chats-pending-queue.test.ts`、`src/main/chats/chats-ipc.test.ts`
+- `src/main/platform/permission/permission.ts`
+- `src/main/agent/runtime/adapter/tool-runtime.ts`、`src/main/agent/runtime/adapter/tool-runtime.test.ts`、`src/main/agent/loop/tool-dispatcher.ts`、`src/main/agent/loop/types.ts`、`src/main/agent/runtime/adapter/event-mapper.ts`、`src/main/agent/loop/plan-tools.test.ts`
+- `src/main/agent/tools/builtin-tools/run-shell-plan-boundary.test.ts`、`src/main/agent/tools/fs-tools.ts`（及经核实的内置读取工具 `effectKind` 声明）
+- `src/main/platform/interaction/user-choice.ts`、`src/main/features/chat/agui-bridge.ts`、`src/main/agent/runtime/image-caption.test.ts`
+- `src/main/agent/runtime/pop-quiz.ts`、`src/main/model/vision/image-router.ts`、`src/main/model/vision/image-router.test.ts`、`src/main/agent/runtime/build-options.ts`、`src/main/agent/runtime/build-options.test.ts`、`src/main/agent/runtime/agent-runtime.ts`、`src/main/agent/runtime/agent-runtime.test.ts`、`src/main/agent/runtime/firefly-agent.ts`、`src/main/model/providers/anthropic-adapter.ts`（及现有 Anthropic 适配器测试）
+- `src/main/platform/interaction/toast-events.ts`、`src/main/platform/interaction/toast-events.test.ts`、`src/main/platform/toast/toast-service.ts`、`src/main/platform/toast/toast-service.test.ts`
+- `src/main/platform/windows/window-activation.ts`、`src/main/platform/windows/window-activation.test.ts`、`src/main/app/shell-bootstrap.ts`
+- `src/main/platform/windows/window-manager.ts`、`src/main/platform/windows/create-aux-windows.ts`
+- `src/main/platform/windows/react-chat-session-dispatcher.ts`、`src/main/platform/windows/react-chat-session-dispatcher.test.ts`、`src/main/features/sessions/chat-ui-ipc.ts`、`src/main/features/sessions/chat-ui-ipc.test.ts`、`src/main/features/sessions/chats-pending-queue.test.ts`、`src/main/features/sessions/chats-ipc.test.ts`
 - `src/renderer/react/features/chat/pages/chat-page-bridge.ts`、`src/renderer/react/features/chat/pages/ChatPage.tsx`、`src/renderer/react/features/chat/pages/pending-queue-flow.test.ts`、`src/renderer/react/features/chat/pages/queue-actions.test.ts`、`src/renderer/react/features/chat/pages/run/AgentRunController.ts`
 - `src/renderer/react/features/chat/components/ComposerSlot.tsx`、`src/renderer/react/features/chat/components/InteractionPanel.tsx`、`src/renderer/react/features/chat/components/PlanReviewPanel.tsx`、`src/renderer/react/features/chat/components/ChatPagePanelHost.tsx`、`src/renderer/react/features/chat/components/ScheduledTaskPanel.tsx`、`src/renderer/react/features/chat/components/ScheduledTaskPanel.test.ts`、`src/renderer/react/features/chat/components/scheduled-task-model.ts`、`src/renderer/react/features/chat/components/ChatComposer.sender-integration.test.ts`、`src/renderer/react/features/chat/components/ContextUsageRing.tsx`、`src/renderer/react/features/chat/components/ContextUsageRing.test.ts`、`src/renderer/react/features/chat/components/SlashCommandMenu.tsx`、`src/renderer/react/features/chat/components/SlashCommandMenu.test.ts`、`src/renderer/react/features/chat/components/ChatMessageList.test.ts`（及实际附件展示组件与测试）
 - `src/renderer/react/i18n/zh-CN.json`、`src/renderer/react/i18n/en.json`
@@ -163,22 +165,22 @@
 
 | 文件 | 改动 |
 |---|---|
-| `src/main/startup/runtime-profile.ts` | 正式配置切换新目录 `%APPDATA%\Firefly-1.2.0`，保留隔离和路径归属检查 |
-| `src/main/startup/runtime-profile.test.ts` | 新目录及不访问旧目录测试 |
-| `src/main/startup/identity-preflight.test.ts` | 验证启动预检使用新路径 |
-| `src/main/storage/storage-context.test.ts` | 验证所有存储根归属 |
+| `src/main/base/identity/runtime-profile.ts` | 正式配置切换新目录 `%APPDATA%\Firefly-1.2.0`，保留隔离和路径归属检查 |
+| `src/main/base/identity/runtime-profile.test.ts` | 新目录及不访问旧目录测试 |
+| `src/main/app/identity-preflight.test.ts` | 验证启动预检使用新路径 |
+| `src/main/base/storage/storage-context.test.ts` | 验证所有存储根归属 |
 | `README.md`、`README.en.md` | 同步数据位置说明 |
 
 **任务：**
 
 - [ ] A1 切换正式配置至 `%APPDATA%\Firefly-1.2.0` 并验证与 1.1.x 目录完全隔离
-  - 先写的测试：`src/main/startup/runtime-profile.test.ts`：① 正式配置启动 → 所有路径精确落入新目录 `%APPDATA%\Firefly-1.2.0`；没有旧目录读取、枚举、迁移和回退调用；② 临时 fixture 中放置旧版标记文件 → 新实例不加载它；旧文件字节不变；③ 新根经 junction 越界或与正式数据重叠 → 断言已有稳定路径错误；没有启动业务存储；④ 新目录不可用 → 明确失败；不尝试旧目录。
-  - 实现：修改 `src/main/startup/runtime-profile.ts`，并更新 `README.md`、`README.en.md`。
-  - 验证：`npm test -- src/main/startup/runtime-profile.test.ts`
+  - 先写的测试：`src/main/base/identity/runtime-profile.test.ts`：① 正式配置启动 → 所有路径精确落入新目录 `%APPDATA%\Firefly-1.2.0`；没有旧目录读取、枚举、迁移和回退调用；② 临时 fixture 中放置旧版标记文件 → 新实例不加载它；旧文件字节不变；③ 新根经 junction 越界或与正式数据重叠 → 断言已有稳定路径错误；没有启动业务存储；④ 新目录不可用 → 明确失败；不尝试旧目录。
+  - 实现：修改 `src/main/base/identity/runtime-profile.ts`，并更新 `README.md`、`README.en.md`。
+  - 验证：`npm test -- src/main/base/identity/runtime-profile.test.ts`
 - [ ] A2 验证启动预检与 `StorageContext` 所有存储根归属新目录
-  - 先写的测试：`src/main/startup/identity-preflight.test.ts`、`src/main/storage/storage-context.test.ts`：启动预检与配置、会话、记忆、日志、缓存、Electron `sessionData` 全部落在新目录体系。
+  - 先写的测试：`src/main/app/identity-preflight.test.ts`、`src/main/base/storage/storage-context.test.ts`：启动预检与配置、会话、记忆、日志、缓存、Electron `sessionData` 全部落在新目录体系。
   - 实现：核对并补齐 `identity-preflight.test.ts` 与 `storage-context.test.ts` 的新目录断言。
-  - 验证：`npm test -- src/main/startup/runtime-profile.test.ts src/main/startup/identity-preflight.test.ts src/main/storage/storage-context.test.ts`
+  - 验证：`npm test -- src/main/base/identity/runtime-profile.test.ts src/main/app/identity-preflight.test.ts src/main/base/storage/storage-context.test.ts`
 
 **验收：** 正式配置、启动预检和全部存储根均落入 `%APPDATA%\Firefly-1.2.0`，旧目录零访问。
 **回退：** 数据回退仅在 1.2.0 自身数据范围内进行，不迁移到 1.1.x；应用版本回退不得共用两代目录。
@@ -196,14 +198,14 @@
 | `src/shared/toast-types.ts` | 扩展 `ToastTarget` |
 | 新增 `src/shared/attention-navigation.ts` | 导航请求、目标、错误码 |
 | `src/shared/ipc-channels.ts` | 新导航事件常量 `CHATS_NAVIGATE_ATTENTION` |
-| `src/shared/permission-approval.ts`、`src/main/permission/permission.ts` | 审批携带可信会话归属 |
-| `src/main/orchestrator/harness/adapter/tool-runtime.ts` | 从运行上下文传递审批所属会话 |
-| `src/main/chat/user-choice.ts`、`src/main/chat/agui-bridge.ts` | 选择及计划交互补齐归属 |
-| `src/main/orchestrator/pop-quiz.ts` | 抽查事件补齐会话身份 |
-| `src/main/toast/toast-events.ts`、`src/main/toast/toast-service.ts` | 构造精确目标，保留生命周期及来源校验 |
-| `src/main/application/window-activation.ts`、`src/main/application/shell-bootstrap.ts` | 激活请求携带导航目标 |
-| `src/main/windows/window-manager.ts`、`src/main/windows/create-aux-windows.ts` | 复用聊天窗口并传递目标 |
-| `src/main/toast/toast-events.test.ts`、`src/main/toast/toast-service.test.ts`、`src/main/application/window-activation.test.ts` | 提醒目标与激活测试 |
+| `src/shared/permission-approval.ts`、`src/main/platform/permission/permission.ts` | 审批携带可信会话归属 |
+| `src/main/agent/runtime/adapter/tool-runtime.ts` | 从运行上下文传递审批所属会话 |
+| `src/main/platform/interaction/user-choice.ts`、`src/main/features/chat/agui-bridge.ts` | 选择及计划交互补齐归属 |
+| `src/main/agent/runtime/pop-quiz.ts` | 抽查事件补齐会话身份 |
+| `src/main/platform/interaction/toast-events.ts`、`src/main/platform/toast/toast-service.ts` | 构造精确目标，保留生命周期及来源校验 |
+| `src/main/platform/windows/window-activation.ts`、`src/main/app/shell-bootstrap.ts` | 激活请求携带导航目标 |
+| `src/main/platform/windows/window-manager.ts`、`src/main/platform/windows/create-aux-windows.ts` | 复用聊天窗口并传递目标 |
+| `src/main/platform/interaction/toast-events.test.ts`、`src/main/platform/toast/toast-service.test.ts`、`src/main/platform/windows/window-activation.test.ts` | 提醒目标与激活测试 |
 
 #### 提醒目标与事件归属设计
 
@@ -233,13 +235,13 @@
 **任务：**
 
 - [ ] B1 新增 `attention-navigation.ts` 并扩展 `ToastTarget`，补齐审批、选择、抽查、计划与定时任务的可信归属
-  - 先写的测试：`src/main/toast/toast-events.test.ts`：审批、选择、抽查、计划审批、定时任务五类事件分别输入 → 比较生成的完整事件与 `ToastTarget` 归属字段；缺失归属时只允许安全兜底，不推测为当前可见会话。
-  - 实现：新建 `src/shared/attention-navigation.ts`；修改 `src/shared/toast-types.ts`、`src/shared/ipc-channels.ts`、`src/shared/permission-approval.ts`、`src/main/permission/permission.ts`、`src/main/orchestrator/harness/adapter/tool-runtime.ts`、`src/main/chat/user-choice.ts`、`src/main/chat/agui-bridge.ts`、`src/main/orchestrator/pop-quiz.ts`、`src/main/toast/toast-events.ts`。
-  - 验证：`npm test -- src/main/toast/toast-events.test.ts`
+  - 先写的测试：`src/main/platform/interaction/toast-events.test.ts`：审批、选择、抽查、计划审批、定时任务五类事件分别输入 → 比较生成的完整事件与 `ToastTarget` 归属字段；缺失归属时只允许安全兜底，不推测为当前可见会话。
+  - 实现：新建 `src/shared/attention-navigation.ts`；修改 `src/shared/toast-types.ts`、`src/shared/ipc-channels.ts`、`src/shared/permission-approval.ts`、`src/main/platform/permission/permission.ts`、`src/main/agent/runtime/adapter/tool-runtime.ts`、`src/main/platform/interaction/user-choice.ts`、`src/main/features/chat/agui-bridge.ts`、`src/main/agent/runtime/pop-quiz.ts`、`src/main/platform/interaction/toast-events.ts`。
+  - 验证：`npm test -- src/main/platform/interaction/toast-events.test.ts`
 - [ ] B2 在 `toast-service.ts` 与 `window-activation.ts` 构造精确目标并校验 Toast 来源窗口与生命周期
-  - 先写的测试：`src/main/toast/toast-service.test.ts`、`src/main/application/window-activation.test.ts`：① 五类事件分别输入 → 比较完整 `ToastTarget`；点击只产生一次对应导航，没有批准、作答或任务运行调用；② 关闭、点击、结算与重播交错 → 可见状态和去重状态符合原契约，不重弹、不重复播音；③ 非 Toast 窗口读取或操作 Toast、伪造标识 → 无目标数据泄露，无窗口激活和业务副作用。
-  - 实现：修改 `src/main/toast/toast-service.ts`、`src/main/application/window-activation.ts`、`src/main/application/shell-bootstrap.ts`、`src/main/windows/window-manager.ts`、`src/main/windows/create-aux-windows.ts`。
-  - 验证：`npm test -- src/main/toast src/main/application/window-activation.test.ts`
+  - 先写的测试：`src/main/platform/toast/toast-service.test.ts`、`src/main/platform/windows/window-activation.test.ts`：① 五类事件分别输入 → 比较完整 `ToastTarget`；点击只产生一次对应导航，没有批准、作答或任务运行调用；② 关闭、点击、结算与重播交错 → 可见状态和去重状态符合原契约，不重弹、不重复播音；③ 非 Toast 窗口读取或操作 Toast、伪造标识 → 无目标数据泄露，无窗口激活和业务副作用。
+  - 实现：修改 `src/main/platform/toast/toast-service.ts`、`src/main/platform/windows/window-activation.ts`、`src/main/app/shell-bootstrap.ts`、`src/main/platform/windows/window-manager.ts`、`src/main/platform/windows/create-aux-windows.ts`。
+  - 验证：`npm test -- src/main/toast src/main/platform/windows/window-activation.test.ts`
 
 **验收：** 本包任务 B1–B2 的全部测试通过（3 项场景）；五类提醒点击后精确构造 `AttentionNavigationRequest` 并送达窗口激活层；来源校验、去重与互斥符合契约。
 **回退：** 与施工包 C 成组 revert；恢复原有会话/窗口级激活。
@@ -255,13 +257,13 @@
 | 文件 | 改动 |
 |---|---|
 | `src/preload/index.ts` | 新导航事件订阅 API |
-| `src/main/chats/react-chat-session-dispatcher.ts`、`src/main/chats/chat-ui-ipc.ts` | ready 前缓存、ready 后投递 |
+| `src/main/platform/windows/react-chat-session-dispatcher.ts`、`src/main/features/sessions/chat-ui-ipc.ts` | ready 前缓存、ready 后投递 |
 | `src/renderer/react/features/chat/pages/chat-page-bridge.ts`、`src/renderer/react/features/chat/pages/ChatPage.tsx` | 接收、取消、串联会话与落点选择 |
 | 新增 `src/renderer/react/features/chat/pages/attention-navigation.ts` | 定位状态机，隔离异步竞争 |
 | `components/ComposerSlot.tsx`、`components/InteractionPanel.tsx`、`components/PlanReviewPanel.tsx` | 交互选择、目标标记和焦点入口 |
 | `components/ChatPagePanelHost.tsx`、`components/ScheduledTaskPanel.tsx`、`components/scheduled-task-model.ts` | 任务及运行记录定位，必要时读取更早历史 |
 | `src/renderer/react/i18n/zh-CN.json`、`src/renderer/react/i18n/en.json` | 新导航反馈文案 |
-| `src/main/chats/react-chat-session-dispatcher.test.ts`、`src/main/chats/chat-ui-ipc.test.ts`、新增 `pages/attention-navigation.test.ts`、新增 `pages/ChatPage.attention-navigation.test.ts`、`components/ScheduledTaskPanel.test.ts` | 就绪缓冲与渲染落点测试 |
+| `src/main/platform/windows/react-chat-session-dispatcher.test.ts`、`src/main/features/sessions/chat-ui-ipc.test.ts`、新增 `pages/attention-navigation.test.ts`、新增 `pages/ChatPage.attention-navigation.test.ts`、`components/ScheduledTaskPanel.test.ts` | 就绪缓冲与渲染落点测试 |
 
 #### 渲染端定位流程设计
 
@@ -277,9 +279,9 @@
 **任务：**
 
 - [ ] C1 在 `ReactChatSessionDispatcher`、`chat-ui-ipc.ts` 与 `preload` 实现 ready 前缓存与最后请求合并投递
-  - 先写的测试：`src/main/chats/react-chat-session-dispatcher.test.ts`、`src/main/chats/chat-ui-ipc.test.ts`：聊天窗口未 ready → 暂不发送；ready 后发送最后请求且仅一次；保留 `CHATS_REACT_SWITCH_SESSION` 字符串契约不变。
-  - 实现：修改 `src/main/chats/react-chat-session-dispatcher.ts`、`src/main/chats/chat-ui-ipc.ts`、`src/preload/index.ts`、`src/renderer/react/features/chat/pages/chat-page-bridge.ts`。
-  - 验证：`npm test -- src/main/chats/react-chat-session-dispatcher.test.ts src/main/chats/chat-ui-ipc.test.ts`
+  - 先写的测试：`src/main/platform/windows/react-chat-session-dispatcher.test.ts`、`src/main/features/sessions/chat-ui-ipc.test.ts`：聊天窗口未 ready → 暂不发送；ready 后发送最后请求且仅一次；保留 `CHATS_REACT_SWITCH_SESSION` 字符串契约不变。
+  - 实现：修改 `src/main/platform/windows/react-chat-session-dispatcher.ts`、`src/main/features/sessions/chat-ui-ipc.ts`、`src/preload/index.ts`、`src/renderer/react/features/chat/pages/chat-page-bridge.ts`。
+  - 验证：`npm test -- src/main/platform/windows/react-chat-session-dispatcher.test.ts src/main/features/sessions/chat-ui-ipc.test.ts`
 - [ ] C2 实现渲染端 `attention-navigation.ts` 定位状态机并接入 `ChatPage.tsx`、`ComposerSlot.tsx`、`InteractionPanel.tsx` 与 `PlanReviewPanel.tsx`
   - 先写的测试：`src/renderer/react/features/chat/pages/attention-navigation.test.ts`、`src/renderer/react/features/chat/pages/ChatPage.attention-navigation.test.ts`：① 用户正在其他会话或模式 → 打开真实所属模式及目标；不改变目标会话工作区和权限；② 计划提醒先到、选择卡后到 → 只有计划提醒，卡片到达后定位对应计划交互；③ 同会话存在多个待处理交互 → 选择目标标识对应的交互，不误选第一张卡；④ 点击后交互恰好结算 → 返回 `E_ATTENTION_TARGET_UNAVAILABLE`；不重建卡片、不提交旧答案；⑤ 旧定位请求迟到 → 不覆盖新会话或新落点。
   - 实现：新建 `src/renderer/react/features/chat/pages/attention-navigation.ts`；修改 `src/renderer/react/features/chat/pages/ChatPage.tsx`、`src/renderer/react/features/chat/components/ComposerSlot.tsx`、`src/renderer/react/features/chat/components/InteractionPanel.tsx`、`src/renderer/react/features/chat/components/PlanReviewPanel.tsx`、`src/renderer/react/i18n/zh-CN.json`、`src/renderer/react/i18n/en.json`。
@@ -302,7 +304,7 @@
 - `src/renderer/react/features/chat/components/ChatComposer.sender-integration.test.ts`
 - `src/renderer/react/features/chat/pages/pending-queue-flow.test.ts`
 - `src/renderer/react/features/chat/pages/queue-actions.test.ts`
-- `src/main/chats/chats-pending-queue.test.ts`
+- `src/main/features/sessions/chats-pending-queue.test.ts`
 
 **任务：**
 
@@ -311,9 +313,9 @@
   - 实现：在 `ChatComposer.sender-integration.test.ts` 补齐三模式与停止边界断言。
   - 验证：`npm test -- src/renderer/react/features/chat/components/ChatComposer.sender-integration.test.ts`
 - [ ] D2 补齐跨会话队列隔离、落盘失败保留与重启认领顺序测试
-  - 先写的测试：`src/renderer/react/features/chat/pages/pending-queue-flow.test.ts`、`src/renderer/react/features/chat/pages/queue-actions.test.ts`、`src/main/chats/chats-pending-queue.test.ts`：① A 会话运行、切到 B 输入 → 按 B 的状态处理，A 队列不变；② 入队落盘失败 → 草稿及附件保留，不显示持久接受成功，不启动下一轮；③ 队列认领、页面刷新和重启恢复 → 原有条目顺序及稳定身份不变，未发消息不提前进入模型上下文。
+  - 先写的测试：`src/renderer/react/features/chat/pages/pending-queue-flow.test.ts`、`src/renderer/react/features/chat/pages/queue-actions.test.ts`、`src/main/features/sessions/chats-pending-queue.test.ts`：① A 会话运行、切到 B 输入 → 按 B 的状态处理，A 队列不变；② 入队落盘失败 → 草稿及附件保留，不显示持久接受成功，不启动下一轮；③ 队列认领、页面刷新和重启恢复 → 原有条目顺序及稳定身份不变，未发消息不提前进入模型上下文。
   - 实现：在 `pending-queue-flow.test.ts`、`queue-actions.test.ts`、`chats-pending-queue.test.ts` 补齐跨会话与落盘失败恢复断言。
-  - 验证：`npm test -- src/renderer/react/features/chat/components/ChatComposer.sender-integration.test.ts src/renderer/react/features/chat/pages/pending-queue-flow.test.ts src/renderer/react/features/chat/pages/queue-actions.test.ts src/main/chats/chats-pending-queue.test.ts`
+  - 验证：`npm test -- src/renderer/react/features/chat/components/ChatComposer.sender-integration.test.ts src/renderer/react/features/chat/pages/pending-queue-flow.test.ts src/renderer/react/features/chat/pages/queue-actions.test.ts src/main/features/sessions/chats-pending-queue.test.ts`
 
 **验收：** 本包任务 D1–D2 的全部测试通过（6 项场景）。
 **回退：** revert 新增测试即可，无生产代码变动。
@@ -329,12 +331,12 @@
 | 文件 | 改动 |
 |---|---|
 | 新增 `src/shared/image-delivery.ts` | 失败类型、错误码 |
-| `src/main/orchestrator/image-router.ts` | 集中格式能力判断 |
-| `src/main/orchestrator/build-options.ts` | 逐图失败结果、无回调分支、混合附件处理 |
-| `src/main/orchestrator/agent-runtime.ts`、`src/main/orchestrator/firefly-agent.ts` | 反馈回调接线及运行契约 |
-| `src/main/orchestrator/vendors/anthropic-adapter.ts` | 复用格式规则，保留防御性检查 |
-| `src/main/orchestrator/tools/fs-tools.ts` | 工具格式和不可用错误一致化 |
-| `src/main/chat/agui-bridge.ts` | 发布图片反馈事件 |
+| `src/main/model/vision/image-router.ts` | 集中格式能力判断 |
+| `src/main/agent/runtime/build-options.ts` | 逐图失败结果、无回调分支、混合附件处理 |
+| `src/main/agent/runtime/agent-runtime.ts`、`src/main/agent/runtime/firefly-agent.ts` | 反馈回调接线及运行契约 |
+| `src/main/model/providers/anthropic-adapter.ts` | 复用格式规则，保留防御性检查 |
+| `src/main/agent/tools/fs-tools.ts` | 工具格式和不可用错误一致化 |
+| `src/main/features/chat/agui-bridge.ts` | 发布图片反馈事件 |
 | `src/renderer/react/features/chat/pages/run/AgentRunController.ts` | 按运行和附件身份归并反馈 |
 | 附件展示组件及 `src/renderer/react/features/chat/pages/ChatPage.tsx` | 根据现有附件渲染入口展示失败、重试状态 |
 | `src/renderer/react/i18n/zh-CN.json`、`src/renderer/react/i18n/en.json` | 中文原因、修复建议及对应翻译 |
@@ -357,13 +359,13 @@
 **任务：**
 
 - [ ] E1 新建 `image-delivery.ts` 并在 `image-router.ts`、`anthropic-adapter.ts`、`fs-tools.ts` 与 `build-options.ts` 统一格式判定与逐图失败结果
-  - 先写的测试：`src/main/orchestrator/image-router.test.ts`、`src/main/orchestrator/build-options.test.ts`、现有 Anthropic 适配器测试、`src/main/chat/image-caption.test.ts`：① 表驱动输入协议和格式 → 支持格式保留图片块；不支持格式产生稳定错误和界面反馈，不发送对应图片字节；② 模型不支持图片 → `E_IMAGE_MODEL_UNSUPPORTED`；不调用转述服务；③ 缺回调、回调返回失败、回调抛异常 → 分别得到明确失败结果；不返回成功的空转述；④ 支持与不支持图片混合 → 成功项和失败项逐一对应，顺序稳定，没有误报其他附件失败；⑤ 授权撤销、越界或读取失败 → 保留原安全错误；拒绝后没有文件内容、base64、绝对路径或凭据泄露。
-  - 实现：新建 `src/shared/image-delivery.ts`；修改 `src/main/orchestrator/image-router.ts`、`src/main/orchestrator/build-options.ts`、`src/main/orchestrator/vendors/anthropic-adapter.ts`、`src/main/orchestrator/tools/fs-tools.ts`。
-  - 验证：`npm test -- src/main/orchestrator/image-router.test.ts src/main/orchestrator/build-options.test.ts src/main/chat/image-caption.test.ts src/main/orchestrator/vendors`
+  - 先写的测试：`src/main/model/vision/image-router.test.ts`、`src/main/agent/runtime/build-options.test.ts`、现有 Anthropic 适配器测试、`src/main/agent/runtime/image-caption.test.ts`：① 表驱动输入协议和格式 → 支持格式保留图片块；不支持格式产生稳定错误和界面反馈，不发送对应图片字节；② 模型不支持图片 → `E_IMAGE_MODEL_UNSUPPORTED`；不调用转述服务；③ 缺回调、回调返回失败、回调抛异常 → 分别得到明确失败结果；不返回成功的空转述；④ 支持与不支持图片混合 → 成功项和失败项逐一对应，顺序稳定，没有误报其他附件失败；⑤ 授权撤销、越界或读取失败 → 保留原安全错误；拒绝后没有文件内容、base64、绝对路径或凭据泄露。
+  - 实现：新建 `src/shared/image-delivery.ts`；修改 `src/main/model/vision/image-router.ts`、`src/main/agent/runtime/build-options.ts`、`src/main/model/providers/anthropic-adapter.ts`、`src/main/agent/tools/fs-tools.ts`。
+  - 验证：`npm test -- src/main/model/vision/image-router.test.ts src/main/agent/runtime/build-options.test.ts src/main/agent/runtime/image-caption.test.ts src/main/agent/runtime/vendors`
 - [ ] E2 在 `agent-runtime.ts`、`firefly-agent.ts`、`agui-bridge.ts`、`AgentRunController.ts` 与附件组件打通 `firefly.image.delivery.issue` 展示
-  - 先写的测试：`src/main/orchestrator/agent-runtime.test.ts`、新增 `src/renderer/react/features/chat/pages/run/image-delivery.test.ts`、对应附件组件交互测试：① 模型没有返回解释 → 用户仍看到附件失败文案；仅含不可处理图片时停止无意义的模型调用并保留可重试材料；② 切换会话、取消运行后收到迟到结果 → 不写入其他会话，不复活已取消提示。
-  - 实现：修改 `src/main/orchestrator/agent-runtime.ts`、`src/main/orchestrator/firefly-agent.ts`、`src/main/chat/agui-bridge.ts`、`src/renderer/react/features/chat/pages/run/AgentRunController.ts`、附件展示组件及 `src/renderer/react/features/chat/pages/ChatPage.tsx`、`src/renderer/react/i18n/zh-CN.json`、`src/renderer/react/i18n/en.json`。
-  - 验证：`npm test -- src/main/orchestrator/agent-runtime.test.ts src/renderer/react/features/chat/pages/run/image-delivery.test.ts`；`npm run check:renderer`
+  - 先写的测试：`src/main/agent/runtime/agent-runtime.test.ts`、新增 `src/renderer/react/features/chat/pages/run/image-delivery.test.ts`、对应附件组件交互测试：① 模型没有返回解释 → 用户仍看到附件失败文案；仅含不可处理图片时停止无意义的模型调用并保留可重试材料；② 切换会话、取消运行后收到迟到结果 → 不写入其他会话，不复活已取消提示。
+  - 实现：修改 `src/main/agent/runtime/agent-runtime.ts`、`src/main/agent/runtime/firefly-agent.ts`、`src/main/features/chat/agui-bridge.ts`、`src/renderer/react/features/chat/pages/run/AgentRunController.ts`、附件展示组件及 `src/renderer/react/features/chat/pages/ChatPage.tsx`、`src/renderer/react/i18n/zh-CN.json`、`src/renderer/react/i18n/en.json`。
+  - 验证：`npm test -- src/main/agent/runtime/agent-runtime.test.ts src/renderer/react/features/chat/pages/run/image-delivery.test.ts`；`npm run check:renderer`
 
 **验收：** 本包任务 E1–E2 的全部测试通过（7 项场景）；图片不可发或转述失败时界面直接显示准确中文原因且无敏感数据泄露。
 **回退：** revert 本包提交；退回原有模型上下文占位提示。
@@ -375,10 +377,10 @@
 
 依赖：无
 **改动文件：**
-- 新增 `src/main/orchestrator/plan-tool-policy.ts`、`src/main/orchestrator/plan-tool-policy.test.ts`。
-- 修改 `src/main/orchestrator/harness/adapter/tool-runtime.ts`、`src/main/orchestrator/harness/adapter/tool-runtime.test.ts`、`src/main/orchestrator/harness/tool-dispatcher.ts`、新增 `src/main/orchestrator/harness/tool-dispatcher.plan-policy.test.ts`：共用策略并覆盖执行前复核。
-- 按现有工具结果传播链修改 `src/main/orchestrator/harness/types.ts`、`src/main/orchestrator/harness/adapter/event-mapper.ts`，保留稳定错误码。
-- 扩展 `src/main/orchestrator/harness/plan-tools.test.ts`、`src/main/orchestrator/tools/builtin-tools/run-shell-plan-boundary.test.ts`。
+- 新增 `src/main/agent/runtime/plan-tool-policy.ts`、`src/main/agent/runtime/plan-tool-policy.test.ts`。
+- 修改 `src/main/agent/runtime/adapter/tool-runtime.ts`、`src/main/agent/runtime/adapter/tool-runtime.test.ts`、`src/main/agent/loop/tool-dispatcher.ts`、新增 `src/main/agent/loop/tool-dispatcher.plan-policy.test.ts`：共用策略并覆盖执行前复核。
+- 按现有工具结果传播链修改 `src/main/agent/loop/types.ts`、`src/main/agent/runtime/adapter/event-mapper.ts`，保留稳定错误码。
+- 扩展 `src/main/agent/loop/plan-tools.test.ts`、`src/main/agent/tools/builtin-tools/run-shell-plan-boundary.test.ts`。
 - 用 `git grep -n` 盘点内置工具、MCP、插件注册中的 `effectKind`、`effectResolver`；仅修正已核实的读取声明。声明未知的外部工具保持拒绝，不批量标为 read。
 
 #### 计划阶段只放行明确读取设计
@@ -395,13 +397,13 @@
 **任务：**
 
 - [ ] F1 实现 `plan-tool-policy.ts` 纯策略并核实内置读取工具的 `effectKind` 声明
-  - 先写的测试：`src/main/orchestrator/plan-tool-policy.test.ts`：① 三模式 × 两种计划只读状态（`PLAN_DISCUSSING` / `PLAN_REVIEW`）× 三档权限（`read-only` / `per-action` / `full`）× 各 effect → 仅 `"read"` 进入原权限检查；其他结果为 `E_PLAN_READ_ONLY`、`permission_denied`；② `risk: "safe"` 但 effect 为 `mutation`，或 effect 缺失 → 拒绝；无审批弹窗、execute、写文件或外部调用；③ 参数解析器对不同输入返回不同 effect → 按本次参数判断；解析器异常时拒绝。
-  - 实现：新建 `src/main/orchestrator/plan-tool-policy.ts`；盘点并仅修正已核实的内置读取工具 `effectKind`。
-  - 验证：`npm test -- src/main/orchestrator/plan-tool-policy.test.ts`
+  - 先写的测试：`src/main/agent/runtime/plan-tool-policy.test.ts`：① 三模式 × 两种计划只读状态（`PLAN_DISCUSSING` / `PLAN_REVIEW`）× 三档权限（`read-only` / `per-action` / `full`）× 各 effect → 仅 `"read"` 进入原权限检查；其他结果为 `E_PLAN_READ_ONLY`、`permission_denied`；② `risk: "safe"` 但 effect 为 `mutation`，或 effect 缺失 → 拒绝；无审批弹窗、execute、写文件或外部调用；③ 参数解析器对不同输入返回不同 effect → 按本次参数判断；解析器异常时拒绝。
+  - 实现：新建 `src/main/agent/runtime/plan-tool-policy.ts`；盘点并仅修正已核实的内置读取工具 `effectKind`。
+  - 验证：`npm test -- src/main/agent/runtime/plan-tool-policy.test.ts`
 - [ ] F2 接入 `tool-runtime.ts`、`tool-dispatcher.ts` 与错误传播链，验证等待期进入计划状态、伙伴继承与控制工具边界
-  - 先写的测试：`src/main/orchestrator/harness/adapter/tool-runtime.test.ts`、`src/main/orchestrator/harness/tool-dispatcher.plan-policy.test.ts`、`src/main/orchestrator/harness/plan-tools.test.ts`、`src/main/orchestrator/tools/builtin-tools/run-shell-plan-boundary.test.ts`：① 原权限拒绝读取 → 仍拒绝，不因 effect 为 read 获得权限；② 审批或执行锁等待期间进入计划状态 → 实际执行前拒绝，断言执行次数为零；③ 伙伴报告 Work 模式、父会话处于计划讨论 → 同样拒绝副作用；④ `write_plan`、用户澄清、批准执行完整流程 → 保持原状态流；普通写入不能借用控制工具权限；⑤ 批准后进入 `EXECUTING` → 恢复原权限判断，不自动扩大全局权限。
-  - 实现：修改 `src/main/orchestrator/harness/adapter/tool-runtime.ts`、`src/main/orchestrator/harness/tool-dispatcher.ts`、`src/main/orchestrator/harness/types.ts`、`src/main/orchestrator/harness/adapter/event-mapper.ts`。
-  - 验证：`npm test -- src/main/orchestrator/plan-tool-policy.test.ts src/main/orchestrator/harness/adapter/tool-runtime.test.ts src/main/orchestrator/harness/tool-dispatcher.plan-policy.test.ts src/main/orchestrator/harness/plan-tools.test.ts src/main/orchestrator/tools/builtin-tools/run-shell-plan-boundary.test.ts`
+  - 先写的测试：`src/main/agent/runtime/adapter/tool-runtime.test.ts`、`src/main/agent/loop/tool-dispatcher.plan-policy.test.ts`、`src/main/agent/loop/plan-tools.test.ts`、`src/main/agent/tools/builtin-tools/run-shell-plan-boundary.test.ts`：① 原权限拒绝读取 → 仍拒绝，不因 effect 为 read 获得权限；② 审批或执行锁等待期间进入计划状态 → 实际执行前拒绝，断言执行次数为零；③ 伙伴报告 Work 模式、父会话处于计划讨论 → 同样拒绝副作用；④ `write_plan`、用户澄清、批准执行完整流程 → 保持原状态流；普通写入不能借用控制工具权限；⑤ 批准后进入 `EXECUTING` → 恢复原权限判断，不自动扩大全局权限。
+  - 实现：修改 `src/main/agent/runtime/adapter/tool-runtime.ts`、`src/main/agent/loop/tool-dispatcher.ts`、`src/main/agent/loop/types.ts`、`src/main/agent/runtime/adapter/event-mapper.ts`。
+  - 验证：`npm test -- src/main/agent/runtime/plan-tool-policy.test.ts src/main/agent/runtime/adapter/tool-runtime.test.ts src/main/agent/loop/tool-dispatcher.plan-policy.test.ts src/main/agent/loop/plan-tools.test.ts src/main/agent/tools/builtin-tools/run-shell-plan-boundary.test.ts`
 
 **验收：** 本包任务 F1–F2 的全部测试通过（8 项场景）；计划讨论期间一切非明确 `"read"` 的普通工具均以 `E_PLAN_READ_ONLY` 拒绝且零执行副作用。
 **回退：** revert 本包提交；退回原有基于 `risk` 的计划阶段判断。
@@ -413,7 +415,7 @@
 
 依赖：无
 **改动文件：**
-- `src/main/chats/chats-ipc.test.ts`：补成功快照、广播及拒绝无写入。
+- `src/main/features/sessions/chats-ipc.test.ts`：补成功快照、广播及拒绝无写入。
 - 新增 `src/renderer/react/features/chat/pages/ChatPage.context-usage.test.ts`：验证广播到页面显示。
 - `src/renderer/react/features/chat/components/ContextUsageRing.tsx`、`src/renderer/react/features/chat/components/SlashCommandMenu.tsx`：统一不支持压缩的中文反馈。
 - `src/renderer/react/features/chat/components/ContextUsageRing.test.ts`、`src/renderer/react/features/chat/components/SlashCommandMenu.test.ts` 及 `src/renderer/react/i18n/zh-CN.json`、`src/renderer/react/i18n/en.json`。
@@ -422,13 +424,13 @@
 **任务：**
 
 - [ ] G1 补齐手动压缩成功快照与页面即时刷新回归测试
-  - 先写的测试：`src/main/chats/chats-ipc.test.ts`、`src/renderer/react/features/chat/pages/ChatPage.context-usage.test.ts`：① 支持会话压缩成功 → 精确断言新快照、持久化结果和广播接收者；包含发起窗口；② 页面收到广播 → 无下一轮运行、无切会话操作即可显示新 token、分类和比例；③ 压缩期间用户切到其他会话 → 只更新所属会话缓存，不覆盖当前显示。
+  - 先写的测试：`src/main/features/sessions/chats-ipc.test.ts`、`src/renderer/react/features/chat/pages/ChatPage.context-usage.test.ts`：① 支持会话压缩成功 → 精确断言新快照、持久化结果和广播接收者；包含发起窗口；② 页面收到广播 → 无下一轮运行、无切会话操作即可显示新 token、分类和比例；③ 压缩期间用户切到其他会话 → 只更新所属会话缓存，不覆盖当前显示。
   - 实现：扩充 `chats-ipc.test.ts` 并新建 `ChatPage.context-usage.test.ts`。
-  - 验证：`npm test -- src/main/chats/chats-ipc.test.ts src/renderer/react/features/chat/pages/ChatPage.context-usage.test.ts`
+  - 验证：`npm test -- src/main/features/sessions/chats-ipc.test.ts src/renderer/react/features/chat/pages/ChatPage.context-usage.test.ts`
 - [ ] G2 统一 `ContextUsageRing.tsx` 与 `SlashCommandMenu.tsx` 对 `MEMORY_CONTEXT_LEGACY_COMPACTION_UNSUPPORTED` 及压缩失败的提示
   - 先写的测试：`src/renderer/react/features/chat/components/ContextUsageRing.test.ts`、`src/renderer/react/features/chat/components/SlashCommandMenu.test.ts`：① 记忆运行时拥有会话 → 返回 `MEMORY_CONTEXT_LEGACY_COMPACTION_UNSUPPORTED`，显示“当前会话暂不支持手动压缩”；无摘要模型调用、历史替换、快照写入和成功提示；② 摘要失败、短会话或重复压缩 → 原历史和快照不变，环形图与 `/compact` 错误反馈一致。
   - 实现：修改 `src/renderer/react/features/chat/components/ContextUsageRing.tsx`、`src/renderer/react/features/chat/components/SlashCommandMenu.tsx`、`src/renderer/react/i18n/zh-CN.json`、`src/renderer/react/i18n/en.json`。
-  - 验证：`npm test -- src/main/chats/chats-ipc.test.ts src/renderer/react/features/chat/pages/ChatPage.context-usage.test.ts src/renderer/react/features/chat/components/ContextUsageRing.test.ts src/renderer/react/features/chat/components/SlashCommandMenu.test.ts`
+  - 验证：`npm test -- src/main/features/sessions/chats-ipc.test.ts src/renderer/react/features/chat/pages/ChatPage.context-usage.test.ts src/renderer/react/features/chat/components/ContextUsageRing.test.ts src/renderer/react/features/chat/components/SlashCommandMenu.test.ts`
 
 **验收：** 本包任务 G1–G2 的全部测试通过（5 项场景）。
 **回退：** revert 本包提交。
@@ -519,24 +521,24 @@
 - [ ] 各施工包最近测试全部通过：
   ```powershell
   # 施工包 A
-  npm test -- src/main/startup/runtime-profile.test.ts src/main/startup/identity-preflight.test.ts src/main/storage/storage-context.test.ts
+  npm test -- src/main/base/identity/runtime-profile.test.ts src/main/app/identity-preflight.test.ts src/main/base/storage/storage-context.test.ts
 
   # 施工包 B & C
-  npm test -- src/main/toast src/main/application/window-activation.test.ts src/main/chats/react-chat-session-dispatcher.test.ts src/main/chats/chat-ui-ipc.test.ts
+  npm test -- src/main/toast src/main/platform/windows/window-activation.test.ts src/main/platform/windows/react-chat-session-dispatcher.test.ts src/main/features/sessions/chat-ui-ipc.test.ts
   npm test -- src/renderer/react/features/chat/pages/attention-navigation.test.ts src/renderer/react/features/chat/pages/ChatPage.attention-navigation.test.ts src/renderer/react/features/chat/components/ScheduledTaskPanel.test.ts
 
   # 施工包 D
-  npm test -- src/renderer/react/features/chat/components/ChatComposer.sender-integration.test.ts src/renderer/react/features/chat/pages/pending-queue-flow.test.ts src/renderer/react/features/chat/pages/queue-actions.test.ts src/main/chats/chats-pending-queue.test.ts
+  npm test -- src/renderer/react/features/chat/components/ChatComposer.sender-integration.test.ts src/renderer/react/features/chat/pages/pending-queue-flow.test.ts src/renderer/react/features/chat/pages/queue-actions.test.ts src/main/features/sessions/chats-pending-queue.test.ts
 
   # 施工包 E
-  npm test -- src/main/orchestrator/image-router.test.ts src/main/orchestrator/build-options.test.ts src/main/orchestrator/agent-runtime.test.ts src/main/chat/image-caption.test.ts src/main/orchestrator/vendors
+  npm test -- src/main/model/vision/image-router.test.ts src/main/agent/runtime/build-options.test.ts src/main/agent/runtime/agent-runtime.test.ts src/main/agent/runtime/image-caption.test.ts src/main/agent/runtime/vendors
   npm test -- src/renderer/react/features/chat/pages/run/image-delivery.test.ts
 
   # 施工包 F
-  npm test -- src/main/orchestrator/plan-tool-policy.test.ts src/main/orchestrator/harness/adapter/tool-runtime.test.ts src/main/orchestrator/harness/tool-dispatcher.plan-policy.test.ts src/main/orchestrator/harness/plan-tools.test.ts src/main/orchestrator/tools/builtin-tools/run-shell-plan-boundary.test.ts
+  npm test -- src/main/agent/runtime/plan-tool-policy.test.ts src/main/agent/runtime/adapter/tool-runtime.test.ts src/main/agent/loop/tool-dispatcher.plan-policy.test.ts src/main/agent/loop/plan-tools.test.ts src/main/agent/tools/builtin-tools/run-shell-plan-boundary.test.ts
 
   # 施工包 G
-  npm test -- src/main/chats/chats-ipc.test.ts src/renderer/react/features/chat/pages/ChatPage.context-usage.test.ts src/renderer/react/features/chat/components/ContextUsageRing.test.ts src/renderer/react/features/chat/components/SlashCommandMenu.test.ts
+  npm test -- src/main/features/sessions/chats-ipc.test.ts src/renderer/react/features/chat/pages/ChatPage.context-usage.test.ts src/renderer/react/features/chat/components/ContextUsageRing.test.ts src/renderer/react/features/chat/components/SlashCommandMenu.test.ts
 
   # 施工包 H
   npm test -- src/renderer/react-perf src/renderer/react/features/chat/components/ChatMessageList.test.ts
