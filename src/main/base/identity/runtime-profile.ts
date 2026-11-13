@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { FIREFLY_DATA_DIRECTORY } from "./data-directory";
 
 export type RuntimeProfileKind = "production" | "development" | "test" | "smoke";
 export interface RuntimeProfile {
@@ -52,7 +53,7 @@ export function resolveRuntimeProfile(input: RuntimeProfileInput): RuntimeProfil
   if (!["production", "development", "test", "smoke"].includes(kind)) throw new Error("FIREFLY_RUNTIME_PROFILE_INVALID");
   if (kind === "production") {
     if (isolation !== undefined) throw new Error("FIREFLY_RUNTIME_PRODUCTION_ISOLATION_INVALID");
-    const userData = path.join(input.productionAppData, "Firefly");
+    const userData = path.join(input.productionAppData, FIREFLY_DATA_DIRECTORY);
     return Object.freeze({ kind, applicationName: "Firefly", appData: input.productionAppData, userData, sessionData: userData, logs: path.join(userData, "logs") });
   }
   if (isolation === undefined || isolation.trim() === "") throw new Error("FIREFLY_RUNTIME_ISOLATION_REQUIRED");

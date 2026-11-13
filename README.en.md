@@ -118,7 +118,7 @@ Want a look first? The live demo at [hotarufirefly.online](https://hotarufirefly
 - **Command execution**: the shell tool has total and idle timeouts and cleans up the whole process tree on finish or cancel.
 - **Browser**: approving a site manually gives the agent no rights; private-network targets have their own limits. Under a TUN proxy in fake-ip mode (such as Mihomo), manual browsing first confirms over DoH that the real address is public; agent browsing refuses fake-ip addresses.
 - **Local data**: settings, credentials, history and user Skills never enter Git or the installer. The memory database key is protected by Windows DPAPI, and channel credentials use the system's encrypted storage.
-- **Data location**: production data lives in `%APPDATA%\Firefly` by default; quit the app and back up before touching it by hand.
+- **Data location**: production data lives in `%APPDATA%\Firefly-1.2.0` by default; quit the app and back up before touching it by hand. The `%APPDATA%\Firefly` folder left by 1.1.x is never read or deleted; back it up or remove it yourself if you like.
 - **External services**: depending on the model and actions you choose, conversations, documents, tool results and recordings may go to external services; use only services you trust.
 
 ## 🏗️ Architecture

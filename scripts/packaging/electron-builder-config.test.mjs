@@ -97,7 +97,7 @@ test("the core package excludes retired music components and includes the QQ bri
   assert.doesNotMatch(source, /-\s+models\/\*\*\/\*/);
   assert.doesNotMatch(source, /-\s+from: resources\/components/);
   assert.doesNotMatch(source, /-\s+from: resources\/bin\/mpv/);
-  assert.match(source, /-\s+from: src\/main\/music\/scripts\/qqmusic_gsmtc\.ps1/);
+  assert.match(source, /-\s+from: src\/main\/platform\/music\/scripts\/qqmusic_gsmtc\.ps1/);
   assert.match(source, /artifactName:\s+Firefly-Agent-Setup-\$\{version\}\.\$\{ext\}/);
 });
 
@@ -115,11 +115,17 @@ test("the installer carries upstream and font license notices", () => {
   assert.match(source, /from: node_modules\/@fontsource-variable\/jetbrains-mono\/LICENSE\s+to: licenses\/JetBrainsMono-OFL\.txt/);
 });
 
-test("the assisted installer stores launch preferences under the Firefly userData directory", () => {
-  assert.match(
-    installerInclude,
-    /\$APPDATA\\Firefly\\installer-options\.json/,
-  );
+test("the assisted installer stores launch preferences under the 1.2.0 userData directory", async () => {
+  // 目录名只在 data-directory.ts 定义一次；安装器必须写到同一个目录，否则应用读不到开机自启选项。
+  const constantSource = await readFile(new URL("../../src/main/base/identity/data-directory.ts", import.meta.url), "utf8");
+  const directory = constantSource.match(/FIREFLY_DATA_DIRECTORY = "([^"]+)"/)?.[1];
+  assert.equal(directory, "Firefly-1.2.0");
+  const escaped = directory.replace(/[.]/g, "\\.");
+  assert.match(installerInclude, new RegExp(`CreateDirectory "\\$APPDATA\\\\${escaped}"`));
+  assert.match(installerInclude, new RegExp(`\\$APPDATA\\\\${escaped}\\\\installer-options\\.json`));
+  // 1.2.0 不写 1.1.x 的数据目录。
+  assert.doesNotMatch(installerInclude, /\$APPDATA\\Firefly\\installer-options\.json/);
+  assert.doesNotMatch(installerInclude, /CreateDirectory "\$APPDATA\\Firefly"/);
   assert.doesNotMatch(
     installerInclude,
     /\$APPDATA\\\$\{PRODUCT_FILENAME\}\\installer-options\.json/,

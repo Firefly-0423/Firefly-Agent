@@ -2,7 +2,7 @@
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),Module=require('node:module');
 const {app,dialog,Tray}=require('electron');
 const root=process.env.FIREFLY_MEMORY_ONLINE_DIAGNOSTIC_ROOT,mode=process.env.FIREFLY_STARTUP_CASE;
-const admission=path.join(root,'fake-admission'),source=path.join(process.env.APPDATA,'Firefly','model-settings.json');
+const admission=path.join(root,'fake-admission'),source=path.join(process.env.APPDATA,'Firefly-1.2.0','model-settings.json');
 // Windows known-folder lookup can ignore APPDATA. Set Electron's path explicitly before actual index.
 const environmentRedirectedAppData=path.resolve(app.getPath('appData')).toLowerCase()===path.resolve(process.env.APPDATA).toLowerCase();
 app.setPath('appData',process.env.APPDATA);

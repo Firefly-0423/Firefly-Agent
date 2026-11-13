@@ -3,7 +3,8 @@ import * as path from "node:path";
 
 /** Stable Firefly application and user-data identities. */
 export const FIREFLY_APPLICATION_NAME = "Firefly";
-export const FIREFLY_USER_DATA_DIRECTORY = "Firefly";
+import { FIREFLY_DATA_DIRECTORY } from "./data-directory";
+export const FIREFLY_USER_DATA_DIRECTORY = FIREFLY_DATA_DIRECTORY;
 
 export interface FireflyIdentityApp {
   getPath(name: "appData" | "userData" | "sessionData"): string;

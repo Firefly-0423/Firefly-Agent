@@ -98,8 +98,8 @@ FunctionEnd
   ${If} $FireflyWantsAutostart == ${BST_CHECKED}
     StrCpy $FireflyAutostartJson "true"
   ${EndIf}
-  CreateDirectory "$APPDATA\Firefly"
-  FileOpen $0 "$APPDATA\Firefly\installer-options.json" w
+  CreateDirectory "$APPDATA\Firefly-1.2.0"
+  FileOpen $0 "$APPDATA\Firefly-1.2.0\installer-options.json" w
   FileWrite $0 "{$\"launchAtLogin$\":$FireflyAutostartJson}"
   FileClose $0
 !macroend

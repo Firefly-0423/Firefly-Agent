@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resolveRuntimeProfile, applyElectronPaths, assertRuntimePathsOwned } from "./runtime-profile";
+import { resolveRuntimeProfile, applyElectronPaths, assertRuntimePathsOwned, within } from "./runtime-profile";
 import { createStorageContext, getStorageContext } from "../storage/storage-context";
 
 const roots: string[] = [];
@@ -18,15 +18,23 @@ describe("runtime profile boundary", () => {
     const resolve = resolveRuntimeProfile;
     expect(() => resolve(input(profile))).toThrow("FIREFLY_RUNTIME_ISOLATION_REQUIRED");
   });
-  it("preserves the production physical layout", () => {
+  it("keeps 1.2.0 production data in Firefly-1.2.0 and never inside the 1.1.x Firefly directory", () => {
     const resolve = resolveRuntimeProfile;
     const request = input("production");
     const profile = resolve(request);
-    expect(profile.userData).toBe(path.join(request.productionAppData, "Firefly"));
-    expect(profile.appData).toBe(request.productionAppData);
-    expect(profile.sessionData).toBe(profile.userData);
-    expect(profile.logs).toBe(path.join(profile.userData, "logs"));
-    expect(profile.isolationRoot).toBeUndefined();
+    expect(profile).toEqual({
+      kind: "production",
+      applicationName: "Firefly",
+      appData: request.productionAppData,
+      userData: path.join(request.productionAppData, "Firefly-1.2.0"),
+      sessionData: path.join(request.productionAppData, "Firefly-1.2.0"),
+      logs: path.join(request.productionAppData, "Firefly-1.2.0", "logs"),
+    });
+    // 1.2.0 不读取也不写入 1.1.x 的数据目录。
+    const legacy = path.join(request.productionAppData, "Firefly");
+    for (const key of ["userData", "sessionData", "logs"] as const) {
+      expect(within(legacy, profile[key])).toBe(false);
+    }
   });
   it.each(["development", "test", "smoke"])("resolves all %s Electron roots inside one explicit boundary without writing", (kind) => {
     const resolve = resolveRuntimeProfile;

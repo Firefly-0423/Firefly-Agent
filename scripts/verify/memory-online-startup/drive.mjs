@@ -21,10 +21,10 @@ const initial=snapshot(),runs=[];
 for(const isPackaged of [false,true])for(const mode of ['startup','prepare','success','cancel','duplicate','provider','model','url','transport','key','empty','read-error']){
  const root=path.join(output,(isPackaged?'asar-':'dev-')+mode),sourceRoot=path.join(output,(isPackaged?'asar-':'dev-')+mode+'-source');
  for(const sub of ['temp','cache','logs','initial-userdata','fake-admission'])fs.mkdirSync(path.join(root,sub),{recursive:true});
- fs.mkdirSync(path.join(sourceRoot,'Firefly'),{recursive:true});
+ fs.mkdirSync(path.join(sourceRoot,'Firefly-1.2.0'),{recursive:true});
  const profile={id:'synthetic-profile',provider:'DeepSeek（深度求索）',model:'deepseek-flash',baseUrl:'https://api.deepseek.com',apiKey:'SYNTHETIC-H-KEY'};
  if(mode==='provider')profile.provider='SYNTHETIC-PROVIDER';if(mode==='model')profile.model='SYNTHETIC-MODEL';if(mode==='url')profile.baseUrl='https://synthetic.invalid';if(mode==='transport')profile.explicitTransport='anthropic';if(mode==='key')profile.apiKey='';
- fs.writeFileSync(path.join(sourceRoot,'Firefly/model-settings.json'),mode==='read-error'?'{':JSON.stringify({schemaVersion:2,modelProfiles:mode==='empty'?[]:[profile]}));
+ fs.writeFileSync(path.join(sourceRoot,'Firefly-1.2.0/model-settings.json'),mode==='read-error'?'{':JSON.stringify({schemaVersion:2,modelProfiles:mode==='empty'?[]:[profile]}));
  const now=Date.now();fs.writeFileSync(path.join(root,'fake-admission/arm.json'),JSON.stringify({armed:true,experimentId:'memory-h-deepseek-flash-once-55df896',priorAttempts:0,budgetMicroCny:5000000,inputMicroCnyPerToken:2,outputMicroCnyPerToken:8,priceVerifiedAt:now-1000,expiresAt:now+3600000}));
  const env={...process.env,ELECTRON_RUN_AS_NODE:undefined,TEMP:path.join(root,'temp'),TMP:path.join(root,'temp'),TMPDIR:path.join(root,'temp'),APPDATA:sourceRoot,LOCALAPPDATA:sourceRoot,ELECTRON_LOG_FILE:path.join(root,'logs/electron.log'),CHROME_LOG_FILE:path.join(root,'logs/chromium.log'),FIREFLY_MEMORY_ONLINE_DIAGNOSTIC_ROOT:root,FIREFLY_STARTUP_CASE:mode};
  const exe=isPackaged?path.join(packaged,'FireflyStartupSynthetic.exe'):path.join(cwd,'node_modules/electron/dist/electron.exe');
