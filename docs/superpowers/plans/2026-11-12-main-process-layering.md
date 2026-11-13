@@ -11,7 +11,7 @@
 
 ## 现状
 
-- 挪动前（`e945bf4`）：三端类型检查通过；全量测试 1129 个文件、14465 项通过；IPC 235 个通道无重复、无未用、无缺处理方。
+- 挪动前（`3ef7862`）：三端类型检查通过；全量测试 1129 个文件、14465 项通过；IPC 235 个通道无重复、无未用、无缺处理方。
 - 挪动前 `src/main` 50 个目录中 37 个互相可达；文件级运行时循环 2 个。
 - 挪动后（本计划施工包 A–D）：向上引用 102 处，全部记在存量违规清单里，按层对分布：`memory → agent` 17、`platform → model` 11、`memory → features` 10、`tooling → agent` 10、`conversation → agent` 8、`agent → features` 7、`platform → agent` 7、`platform → knowledge` 7、`model → agent` 4、`platform → features` 4、`platform → tooling` 4、`knowledge → memory` 3，其余 10 处。
 - 分析脚本和原始数据：`output/audit-1.2.0/`（`deps.cjs`、`layers.cjs`、`move2.cjs`、`rules-layers.json`、`gen-known.cjs`、`gen-agents.py`）。
@@ -40,7 +40,7 @@
 
 合并顺序：A → B → C → D → E → F → G → H → I → J → K。A–D 一起作为第一个 PR（只挪不改），之后每包一个 PR。
 
-### 施工包 A：挪走放错位置的通用文件（已完成，`f5ba967`）
+### 施工包 A：挪走放错位置的通用文件（已完成，`f1a1c46`）
 
 - [x] A1 `application/ipc-scope` → `ipc/`；`application/window-activation` → `windows/`；`toast/toast-events`、`chat/user-choice`、`orchestrator/ask-card` → `interaction/`；`chat` 下 4 个文本工具 → `orchestrator/text/`；`chat/image-caption` → `orchestrator/`；`chats/ephemeral-conversations` → `storage/`；`startup/bootstrap-config`、`startup/identity-preflight` → `application/`
   - 验证：三端类型检查；相关 95 个测试文件 880 项通过
