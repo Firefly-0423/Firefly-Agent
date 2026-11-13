@@ -3,10 +3,10 @@ import fs from "node:fs";
 import path from "node:path";
 import {Worker} from "node:worker_threads";
 import {app} from "electron";
-import {resolveRuntimeProfile,applyElectronPaths,canonicalPath,within} from "../../../src/main/startup/runtime-profile";
-import {createStorageContext} from "../../../src/main/storage/storage-context";
-import {MemoryClient} from "../../../src/main/memory-core/worker-client";
-import {createWindowsKeyProtection} from "../../../src/main/memory-core/windows-dpapi";
+import {resolveRuntimeProfile,applyElectronPaths,canonicalPath,within} from "../../../src/main/base/identity/runtime-profile";
+import {createStorageContext} from "../../../src/main/base/storage/storage-context";
+import {MemoryClient} from "../../../src/main/memory/core/worker-client";
+import {createWindowsKeyProtection} from "../../../src/main/memory/core/windows-dpapi";
 const cwd="E:\\Codex\\Firefly_Agent-skills-layout\\output\\task-b-memory-core";
 if(process.cwd()!==cwd)throw new Error("PROBE_CWD_INVALID");
 const argument=(name:string)=>process.argv.find(value=>value.startsWith(name+"="))?.slice(name.length+1);
@@ -31,9 +31,9 @@ const canary="FIREFLY_SYNTHETIC_\u4e2d\u6587_English_\u6df7\u5408_\ud83c\udf40_C
   client=await MemoryClient.open({storage,keyProtection:createWindowsKeyProtection(storage.memory.tempRoot),workerFactory:data=>new Worker(path.join(__dirname,"worker.js"),{workerData:{...data,probeReport:path.join(root,"worker-runtime.json"),probePause:pause,probeRunId:runId},execArgv:[]})});
   if(mode==="jobs"){const {verifyJobs}=await import("./jobs-probe");const checks=await verifyJobs(client,canary);await client.close();client=undefined;report({ok:true,mode,...checks});app.exit(0);return}
   if(mode==="facts"){
-   const {MemoryService}=await import("../../../src/main/memory-core/memory-service");
-   const {createMainMemoryAuthority}=await import("../../../src/main/memory-core/main-access");
-   const sources=new Map<string,import("../../../src/main/memory-core/main-access").VerifiedSource>();
+   const {MemoryService}=await import("../../../src/main/memory/core/memory-service");
+   const {createMainMemoryAuthority}=await import("../../../src/main/memory/core/main-access");
+   const sources=new Map<string,import("../../../src/main/memory/core/main-access").VerifiedSource>();
    const ref={sourceId:"fact-source",revision:1};
    sources.set(ref.sourceId,{...ref,scopeKey:"scope-test",kind:"user",intent:"statement",policyEligibility:{directStatement:true,inferred:false,sensitive:false,conflict:false}});
    const authority=createMainMemoryAuthority({policyVersion:"policy-v1",resolveSource:r=>sources.get(r.sourceId)!}),access=authority.access("scope-test"),service=new MemoryService(client);

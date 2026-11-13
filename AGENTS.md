@@ -6,6 +6,14 @@
 
 当前 Firefly 仓库是唯一产品源码基线，模块职责与主入口见 `README.md` 的目录职责表。后续按模块维护现有实现；原项目的施工文档可以作为设计参考：先核对 Firefly 现状，再按 Firefly 的模块自行实现，不复制原项目代码；原项目不作为默认正确实现，不在运行、构建、测试或打包中读取原项目工作树。当前产品不读取或迁移其他产品的安装数据；保留必要第三方许可与来源记录。工程独立不表示全部代码从零原创。历史施工报告用于追溯，不作为重新开启整仓迁移的计划。
 
+## 主进程分层
+
+`src/main` 分为七层，自下而上：`base`（基础）→ `platform`（平台服务）→ `model` / `tooling` / `conversation`（模型接入、工具契约、会话记录）→ `knowledge` / `memory`（知识、记忆）→ `agent`（智能体运行）→ `features`（功能入口）→ `app`（组合根）。
+
+- 只许引用同层和更低的层，类型引用也一样；层级表在 `src/main/layers.json`，由 `src/main/layering.test.ts` 检查。
+- 每个层目录有自己的 `AGENTS.md`（如 `src/main/agent/AGENTS.md`），写明这一层负责什么、可以引用谁、各模块职责、验证命令和施工文件。改某一层的代码前先读那一层的 `AGENTS.md`。
+- 设计与存量违规的处理顺序见 `docs/design/2026-11-12-main-process-layering.md`。
+
 ## 按需使用 Skills
 
 - 开始工作时使用 `superpowers:using-superpowers` 确认适用技能及其引用文件；不可用时如实说明。

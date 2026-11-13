@@ -1,0 +1,108 @@
+{
+  "description": "src/main 的分层表。allow 列出每一层可以引用的其他层；同层内部引用不受限制。设计见 docs/design/2026-11-12-main-process-layering.md。",
+  "layers": {
+    "base": {
+      "level": 0,
+      "title": "基础",
+      "allow": []
+    },
+    "platform": {
+      "level": 1,
+      "title": "平台服务",
+      "allow": [
+        "base"
+      ]
+    },
+    "model": {
+      "level": 2,
+      "title": "模型接入",
+      "allow": [
+        "base",
+        "platform"
+      ]
+    },
+    "tooling": {
+      "level": 2,
+      "title": "工具契约",
+      "allow": [
+        "base",
+        "platform",
+        "model"
+      ]
+    },
+    "conversation": {
+      "level": 2,
+      "title": "会话记录",
+      "allow": [
+        "base",
+        "platform",
+        "model"
+      ]
+    },
+    "knowledge": {
+      "level": 3,
+      "title": "知识",
+      "allow": [
+        "base",
+        "platform",
+        "model",
+        "tooling",
+        "conversation"
+      ]
+    },
+    "memory": {
+      "level": 3,
+      "title": "记忆",
+      "allow": [
+        "base",
+        "platform",
+        "model",
+        "tooling",
+        "conversation",
+        "knowledge"
+      ]
+    },
+    "agent": {
+      "level": 4,
+      "title": "智能体运行",
+      "allow": [
+        "base",
+        "platform",
+        "model",
+        "tooling",
+        "conversation",
+        "knowledge",
+        "memory"
+      ]
+    },
+    "features": {
+      "level": 5,
+      "title": "功能入口",
+      "allow": [
+        "base",
+        "platform",
+        "model",
+        "tooling",
+        "conversation",
+        "knowledge",
+        "memory",
+        "agent"
+      ]
+    },
+    "app": {
+      "level": 6,
+      "title": "组合根",
+      "allow": [
+        "base",
+        "platform",
+        "model",
+        "tooling",
+        "conversation",
+        "knowledge",
+        "memory",
+        "agent",
+        "features"
+      ]
+    }
+  }
+}

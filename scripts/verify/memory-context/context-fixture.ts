@@ -3,14 +3,14 @@ import os from "node:os";
 import path from "node:path";
 import {randomBytes,randomUUID} from "node:crypto";
 import {afterEach} from "vitest";
-import {openMemoryRepository} from "../../../src/main/memory-core/repository";
-import {createMainSourceRegistry} from "../../../src/main/memory-sources/source-registry";
-import {createMainPolicy} from "../../../src/main/memory-policy/main-policy";
+import {openMemoryRepository} from "../../../src/main/memory/core/repository";
+import {createMainSourceRegistry} from "../../../src/main/memory/sources/source-registry";
+import {createMainPolicy} from "../../../src/main/memory/policy/main-policy";
 import {SyntheticSourceProvider} from "../memory-sources/synthetic-provider";
 const roots:string[]=[],repos:ReturnType<typeof openMemoryRepository>[]=[];
 afterEach(()=>{for(const r of repos.splice(0))r.close();for(const root of roots.splice(0))fs.rmSync(root,{recursive:true,force:true})});
 export async function contextFixture(){
- const {createMainActorAuthority}=await import("../../../src/main/memory-core/main-actor-authority"),{createMainContext}=await import("../../../src/main/memory-context/main-context");
+ const {createMainActorAuthority}=await import("../../../src/main/memory/core/main-actor-authority"),{createMainContext}=await import("../../../src/main/memory/context/main-context");
  const root=fs.mkdtempSync(path.join(os.tmpdir(),"context-s-"));roots.push(root);const key=randomBytes(32),databasePath=path.join(root,"memory.sqlite");
  let now=Date.now(),fault=false,faultKind="summaryCommit",faultAfterRecords=1,faultRecordCount=0,currentKind="";const commands:unknown[]=[];
  const repositoryOptions={databasePath,key,clock:()=>now,fault:(step:string)=>{if(fault&&currentKind===faultKind&&step==="after-record"&&++faultRecordCount>=faultAfterRecords)throw new Error("SUMMARY_INJECTED_FAULT")}};

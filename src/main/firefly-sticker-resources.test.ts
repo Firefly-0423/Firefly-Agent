@@ -2,14 +2,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
-import { AUTO_SEND_STICKER_DESCRIPTIONS, BUILT_IN_STICKER_DESCRIPTIONS, BUILT_IN_STICKER_FILES } from "./stickers/sticker-descriptions";
+import { AUTO_SEND_STICKER_DESCRIPTIONS, BUILT_IN_STICKER_DESCRIPTIONS, BUILT_IN_STICKER_FILES } from "./knowledge/stickers/sticker-descriptions";
 import { BUILT_IN_STICKER_IDS } from "../shared/sticker-types";
 
 const { dataDir } = vi.hoisted(() => ({ dataDir: { value: "" } }));
 vi.mock("electron", () => ({ app: { getPath: () => dataDir.value, getAppPath: () => process.cwd() } }));
-import { deleteUserSticker, getAllStickerConfig, isStickerIdTaken } from "./stickers/sticker-storage";
-import { buildStickerEmbeddingIndex } from "./stickers/sticker-embedder";
-import { resolveStickerImagePath } from "./channels/outgoing-composer";
+import { deleteUserSticker, getAllStickerConfig, isStickerIdTaken } from "./knowledge/stickers/sticker-storage";
+import { buildStickerEmbeddingIndex } from "./knowledge/stickers/sticker-embedder";
+import { resolveStickerImagePath } from "./features/channels/outgoing-composer";
 
 afterEach(() => { if (dataDir.value) fs.rmSync(dataDir.value, { recursive: true, force: true }); });
 

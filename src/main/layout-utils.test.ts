@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 vi.mock("electron", () => ({ screen: {} }));
-import { computePanelLayout } from "./windows/window-layout";
+import { computePanelLayout } from "./platform/windows/window-layout";
 const windows = [{ width: 1280, height: 760 }, { width: 320, height: 760 }, { width: 320, height: 760 }];
 describe("panel visibility across desktop sizes", () => {
     it.each([

@@ -1,4 +1,4 @@
-import type { QqMusicAction, QqMusicControlResult, QqMusicState } from "../../../main/music/qqmusic-service";
+import type { QqMusicAction, QqMusicControlResult, QqMusicState } from "../../../main/platform/music/qqmusic-service";
 
 interface QqMusicApi {
   getStatus(): Promise<QqMusicState>;

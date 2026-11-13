@@ -47,8 +47,8 @@ app.on('session-created',blockSession);app.whenReady().then(()=>blockSession(ses
 const net=require('electron').net;
 for(const method of ['request','fetch'])net[method]=()=>{qa.blocked.push({layer:'electron-net',method});throw Error('QA_ELECTRON_NET_BLOCKED')};
 // Preserve the application's required identity preflight before loading any storage consumer.
-require(${JSON.stringify(path.join(repo,'dist/main/main/startup/identity-preflight.js'))});
-const bg=require(${JSON.stringify(path.join(repo,'dist/main/main/application/background.js'))});
+require(${JSON.stringify(path.join(repo,'dist/main/main/app/identity-preflight.js'))});
+const bg=require(${JSON.stringify(path.join(repo,'dist/main/main/app/background.js'))});
 const realStart=bg.startBackground;
 bg.startBackground=deps=>{
  const guarded={...deps,channels:{...deps.channels,start:async()=>{},stop:async()=>{}},scheduler:{...deps.scheduler,start:()=>{},stop:async()=>{}}};
@@ -56,11 +56,11 @@ bg.startBackground=deps=>{
  const handle=realStart(guarded);handle.settled.then(()=>{qa.ready=true});return handle;
 };
 require(${JSON.stringify(path.join(repo,'dist/main/main/index.js'))});
-qa.getTarget=()=>require(${JSON.stringify(path.join(repo,'dist/main/main/plugin-host/active-chat-target.js'))}).activeChatTargetRegistry.getActive();
+qa.getTarget=()=>require(${JSON.stringify(path.join(repo,'dist/main/main/platform/interaction/active-chat-target.js'))}).activeChatTargetRegistry.getActive();
 // A host-owned synthetic transcript fixture, never an actual command or credential read.
 qa.stageMaskedTool=async()=>{
  const target=qa.getTarget();if(!target)throw Error('QA_TARGET_MISSING');
- const store=require(${JSON.stringify(path.join(repo,'dist/main/main/orchestrator/conversation-transcript-store.js'))}).getConversationTranscriptStore(app.getPath('userData'));
+ const store=require(${JSON.stringify(path.join(repo,'dist/main/main/conversation/transcript/conversation-transcript-store.js'))}).getConversationTranscriptStore(app.getPath('userData'));
  const call={id:'qa-masked-call',name:'run_shell',arguments:JSON.stringify({command:'synthetic_probe_not_executed'})};
  const at=Date.now(),mask='gho_'+'*'.repeat(36);
  await store.append(target.sessionId,{id:'qa-masked-assistant',at,kind:'assistant',runId:'qa-masked-run',payload:{role:'assistant',content:'',toolCalls:[call]}});

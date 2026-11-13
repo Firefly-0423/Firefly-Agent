@@ -12,7 +12,7 @@
     "target": "es2022"
   },
   "include": [
-    "src/main/sim/**/*.ts",
-    "src/main/rag/worldbook.ts"
+    "src/main/features/diagnostics/sim/**/*.ts",
+    "src/main/knowledge/rag/worldbook.ts"
   ]
 }

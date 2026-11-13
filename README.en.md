@@ -210,12 +210,12 @@ flowchart TB
 
 | Layer | Responsible for | Code |
 | --- | --- | --- |
-| ① Entry | Voice input, scheduled tasks, proactive chat, external channels | `src/main/asr/`, `src/main/scheduler/`, `src/main/proactive/`, `src/main/channels/` |
+| ① Entry | Voice input, scheduled tasks, proactive chat, external channels | `src/main/platform/speech/asr/`, `src/main/features/scheduler/`, `src/main/features/proactive/`, `src/main/features/channels/` |
 | ② Desktop interface | Chat interface, Live2D, controlled IPC | `src/renderer/react/`, `src/renderer/live2d/`, `src/preload/index.ts` |
-| ③ Agent core | Main loop, partner child sessions, permissions and approval | `src/main/orchestrator/harness/firefly-harness.ts`, `src/main/orchestrator/persistent-agent-runtime.ts`, `src/main/orchestrator/harness/tool-dispatcher.ts`, `src/main/permission/` |
-| ④ Memory and models | Memory runtime, history search, knowledge RAG, vendor adapters | `src/main/memory-context/`, `src/main/memory-history/`, `src/main/rag/`, `src/main/knowledge/`, `src/main/orchestrator/vendors/` |
-| ⑤ Capabilities and execution | Built-in tools, browser, plugins, Skills, MCP, Code Git, LSP | `src/main/orchestrator/tools/built-in-tools.ts`, `src/main/browser/`, `src/plugins/`, `src/main/plugin-host/`, `src/main/skills/`, `src/main/orchestrator/mcp-manager.ts`, `src/main/code-git/`, `src/main/lsp/` |
-| ⑥ Local foundation | Memory store, native helper | `src/main/memory-core/`, `native/src/app.rs` |
+| ③ Agent core | Main loop, partner child sessions, permissions and approval | `src/main/agent/loop/firefly-harness.ts`, `src/main/agent/runtime/persistent-agent-runtime.ts`, `src/main/agent/loop/tool-dispatcher.ts`, `src/main/platform/permission/` |
+| ④ Memory and models | Memory runtime, history search, knowledge RAG, vendor adapters | `src/main/memory/context/`, `src/main/memory/history/`, `src/main/knowledge/rag/`, `src/main/knowledge/workspace/`, `src/main/model/providers/` |
+| ⑤ Capabilities and execution | Built-in tools, browser, plugins, Skills, MCP, Code Git, LSP | `src/main/agent/tools/built-in-tools.ts`, `src/main/platform/browser/`, `src/plugins/`, `src/main/features/plugins/host/`, `src/main/knowledge/skills/`, `src/main/agent/mcp/mcp-manager.ts`, `src/main/platform/git/`, `src/main/platform/lsp/` |
+| ⑥ Local foundation | Memory store, native helper | `src/main/memory/core/`, `native/src/app.rs` |
 
 ## 🛠️ Run from source
 

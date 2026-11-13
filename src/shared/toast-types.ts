@@ -1,7 +1,7 @@
 // 注意力 Toast 中心的共享契约。
 // 主进程的 ToastService 是 toast 生命周期的唯一权威（创建、去重、抑制、超时、结算清退）；
 // 渲染页只负责显示、动画、音效和上报用户输入。
-// 超时时长、窗口宽度等运行时常量放在 src/main/toast/types.ts，属主进程私有。
+// 超时时长、窗口宽度等运行时常量放在 src/main/platform/toast/types.ts，属主进程私有。
 
 /** 等待操作（agent 挂起等用户）或通知（事情已发生） */
 export type ToastTier = "action-pending" | "notify";

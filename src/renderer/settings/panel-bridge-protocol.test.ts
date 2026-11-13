@@ -4,7 +4,7 @@ import { runInNewContext } from "node:vm";
 import { test, expect } from "vitest";
 import * as protocol from "./panel-bridge-protocol";
 
-const bridgeAsset = () => readFileSync(resolve(__dirname, "../../main/plugin-panel/panel-bridge.js"), "utf8");
+const bridgeAsset = () => readFileSync(resolve(__dirname, "../../main/features/plugins/panel/panel-bridge.js"), "utf8");
 
 test.each(["weather-desk", "quiet-radio"])("plugin %s supplies the host part of its private origin", id => {
   expect(protocol.panelOriginFor(id)).toEqual(`firefly-plugin://${id}`);

@@ -19,7 +19,7 @@
     "src/shared/renderer-base.ts",
     "src/**/*.test.ts",
     "src/**/*.acceptance.ts",
-    "src/main/sim/**"
+    "src/main/features/diagnostics/sim/**"
   ],
   "include": [
     "src/plugins/**/*.ts",

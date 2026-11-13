@@ -30,7 +30,7 @@ Runtime and build dependencies are declared in `package.json` and locked in `pac
 
 Skill metadata uses [Eleventy's gray-matter fork](https://github.com/11ty/gray-matter/tree/v3.0.0), `@11ty/gray-matter@3.0.0`, under the MIT license, `Copyright (c) 2014-present, Jon Schlinkert`. Preserve the complete dependency LICENSE when redistributing it. The runtime YAML engine is `js-yaml@5.4.3`, MIT-licensed, `Copyright (C) 2011-2015 by Vitaly Puzrin`.
 
-The scalar grammar in `src/main/skills/skill-frontmatter.ts` adapts the safe float grammar from [js-yaml 3.15.2](https://github.com/nodeca/js-yaml/blob/3.15.2/lib/js-yaml/type/float.js); its complete [MIT license is retained](vendor/security/skill-frontmatter/js-yaml-LICENSE). Firefly maintains the data-only language allowlist and compatibility adapter, not a new YAML parser. The old unscoped gray-matter dependency is removed from this path. The installed fork still exposes a JavaScript engine; Firefly rejects that language before dispatch and supplies explicit YAML/JSON engines.
+The scalar grammar in `src/main/knowledge/skills/skill-frontmatter.ts` adapts the safe float grammar from [js-yaml 3.15.2](https://github.com/nodeca/js-yaml/blob/3.15.2/lib/js-yaml/type/float.js); its complete [MIT license is retained](vendor/security/skill-frontmatter/js-yaml-LICENSE). Firefly maintains the data-only language allowlist and compatibility adapter, not a new YAML parser. The old unscoped gray-matter dependency is removed from this path. The installed fork still exposes a JavaScript engine; Firefly rejects that language before dispatch and supplies explicit YAML/JSON engines.
 
 ## ZIP parsing and extraction
 
@@ -77,7 +77,7 @@ The icons in `assets/vscode/` are from [vscode-icons](https://github.com/vscode-
 - Where a dependency offers a choice of licenses, this project uses: `jszip` under MIT, `dompurify` under Apache-2.0, `node-forge` under BSD (see above).
 - `pdfkit` includes Adobe core-font metrics files, © 1985-1997 Adobe Systems Incorporated.
 - `pdfjs-dist` (Mozilla PDF.js) is used unmodified under Apache-2.0 to extract text from attached PDF files; its `LICENSE` stays with the package inside the installer. Only its Node build and CMap data are shipped; its optional `@napi-rs/canvas` renderer is excluded from the installer.
-- `src/main/chats/open-in-app.ts` ports detection logic from [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) (MIT, © 2026 DeepSeek).
+- `src/main/features/sessions/open-in-app.ts` ports detection logic from [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) (MIT, © 2026 DeepSeek).
 - The Rust helpers depend on `serde`, `serde_json`, `thiserror`, `uuid` and the `windows` crates, which are published under MIT or Apache-2.0; check `native/Cargo.lock` for the exact versions before redistributing binaries.
 - If the BGE-M3 and bge-reranker models are bundled with an installer, record their licenses and sources there; they are not stored in this repository.
 
