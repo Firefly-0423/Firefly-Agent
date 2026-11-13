@@ -24,7 +24,7 @@ describe("Firefly application identity", () => {
     });
 
     expect(FIREFLY_APPLICATION_NAME).toBe("Firefly");
-    expect(FIREFLY_USER_DATA_DIRECTORY).toBe("Firefly");
+    expect(FIREFLY_USER_DATA_DIRECTORY).toBe("Firefly-1.2.0");
     expect(userDataPath).toBe(path.join(appData, FIREFLY_USER_DATA_DIRECTORY));
     expect(setName).toHaveBeenCalledWith(FIREFLY_APPLICATION_NAME);
     expect(setPath).toHaveBeenCalledWith("userData", userDataPath);
@@ -48,7 +48,7 @@ describe("Firefly application identity", () => {
       setPath,
     }, isolatedRoot);
 
-    expect(userDataPath).toBe(path.join(isolatedRoot, "Firefly"));
+    expect(userDataPath).toBe(path.join(isolatedRoot, "Firefly-1.2.0"));
     expect(setPath.mock.calls).toEqual([
       ["appData", isolatedRoot],
       ["userData", userDataPath],
