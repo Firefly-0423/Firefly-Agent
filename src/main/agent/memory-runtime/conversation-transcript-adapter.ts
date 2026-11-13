@@ -4,12 +4,12 @@ import {materializeTranscript,type TranscriptRunReader} from "../loop/conversati
 import type {ConversationTranscriptStore} from "../../conversation/transcript/conversation-transcript-store";
 import type {TranscriptSnapshot,TranscriptEntry} from "../../conversation/transcript/conversation-transcript-types";
 import {readMainAttachmentProjection,observeMainAttachmentProjection} from "../../memory/context/main-attachment-projection";
-import {maskContextSecrets} from "../../memory/context/source-secret-screen";
+import {maskContextSecrets} from "../../memory/core/source-secret-screen";
 import {canonicalJson} from "../../memory/core/repository-types";
 import {contextFail,type ContextMessage,type ContextUnit} from "../../model/context/context-contracts";
 import type {createMainContext} from "../../memory/context/main-context";
-import {createMainTranscriptProvider,type CanonicalTranscript} from "../../memory/context/main-transcript-provider";
-import {validateUnit} from "../../memory/context/token-budget";
+import {createMainTranscriptProvider,type CanonicalTranscript} from "../../memory/history/main-transcript-provider";
+import {validateUnit} from "../../memory/core/token-budget";
 import {requireRunAdjustmentPermit,type RunAdjustmentPermit} from "../runtime/pending-adjustment";
 import type {RunAdjustmentMessage} from "../loop/types";
 

@@ -3,7 +3,7 @@
 // 摘录永远由调用方对照权威文档重新切出，这里不接受任何来自排序阶段或外部传入的摘录正文。
 import {createHash} from 'node:crypto';
 import {canonicalJson} from '../core/repository-types';
-import {validateUnit} from '../context/token-budget';
+import {validateUnit} from '../core/token-budget';
 import type {HistoryExcerptRef} from './history-contracts';
 
 export const HISTORY_EXCERPT_VERSION='history-excerpt-v1' as const;

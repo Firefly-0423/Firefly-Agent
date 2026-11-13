@@ -8,7 +8,7 @@ import type { IpcScope } from "../../base/ipc/ipc-scope";
 
 const mocks = vi.hoisted(() => ({
   path: "", memory: { getL0: vi.fn(), getL1: vi.fn(), getAllL2: vi.fn(), getReflectionLogs: vi.fn(), updateL0: vi.fn(), updateL1: vi.fn() },
-  open: vi.fn(), exportVault: vi.fn(), syncVault: vi.fn(), loadVault: vi.fn(), saveVault: vi.fn(), unbindVault: vi.fn(), startWatcher: vi.fn(), stopWatcher: vi.fn(),
+  open: vi.fn(), exportVault: vi.fn(), syncVault: vi.fn(), loadVault: vi.fn(), saveVault: vi.fn(), unbindVault: vi.fn(),
   deleteDoc: vi.fn(), stickers: vi.fn(), skills: vi.fn(), mcp: vi.fn(), settingsWindow: null as unknown,
 }));
 vi.mock("electron", () => ({ app: { getAppPath: () => process.cwd() }, dialog: { showOpenDialog: mocks.open } }));
@@ -25,7 +25,6 @@ vi.mock("../../knowledge/skills", () => ({ listSkillsForUi: mocks.skills, setSki
 vi.mock("../../platform/windows/window-state", () => ({ reactChatWindow: null, sidebarWindow: null, get settingsWindow() { return mocks.settingsWindow; }, stickerManagerWindow: null }));
 vi.mock("../legacy/obsidian-exporter", () => ({ exportMemoryToObsidianVault: mocks.exportVault, syncToBoundVault: mocks.syncVault }));
 vi.mock("../legacy/obsidian-vault-config", () => ({ loadObsidianVaultConfig: mocks.loadVault, saveObsidianVaultConfig: mocks.saveVault, unbindVault: mocks.unbindVault }));
-vi.mock("../legacy/obsidian-importer", () => ({ startVaultWatcher: mocks.startWatcher, stopVaultWatcher: mocks.stopWatcher }));
 
 import { registerMemoryUserToolIpc } from "../../features/memory/memory-user-ipc";
 import { loadImportedDocumentPanelData } from "../legacy/panel";
@@ -55,7 +54,7 @@ describe("Main SMH legacy IPC retirement", () => {
       const channels = register(mode).channels();
       expect(channels.filter((name) => /obsidian|save-l[01]|panel-save/i.test(name))).toEqual([]);
     }
-    for (const fn of [...Object.values(mocks.memory), mocks.open, mocks.exportVault, mocks.syncVault, mocks.saveVault, mocks.unbindVault, mocks.startWatcher, mocks.stopWatcher, mocks.loadVault]) expect(fn).not.toHaveBeenCalled();
+    for (const fn of [...Object.values(mocks.memory), mocks.open, mocks.exportVault, mocks.syncVault, mocks.saveVault, mocks.unbindVault, mocks.loadVault]) expect(fn).not.toHaveBeenCalled();
   });
   it("loads only imported document rows from the mixed RAG file without L0/L1/L2 reads", async () => {
     const mixed = [

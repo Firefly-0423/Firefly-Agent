@@ -4,7 +4,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { afterEach, expect, it } from "vitest";
 import { createSmhFixture } from "../context/smh-fixture.test-support";
-import { createMainSourceProvider } from "../sources/main-source-provider";
+import { createMainSourceProvider } from "../core/main-source-provider";
 import { canonicalJson } from "../core/repository-types";
 
 const owned: ReturnType<typeof fixture>[] = [], profile = { id: "synthetic", revision: 1 };

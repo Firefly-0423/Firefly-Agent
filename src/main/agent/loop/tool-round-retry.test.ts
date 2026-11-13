@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
 import { ToolExecutionError, type ToolErrorCategory } from "../../tooling/registry/tool-execution-error";
-import type { HarnessRun } from "./firefly-harness";
-import { DEFAULT_HARNESS_CONFIG, type AgentState } from "./types";
+import type { AgentLoopRun } from "./agent-loop";
+import { DEFAULT_AGENT_LOOP_CONFIG, type AgentState } from "./types";
 import { StreamController } from "./stream-controller";
 import { contentTrustFor, runToolRound } from "./tool-round";
 
@@ -28,11 +28,11 @@ function fixture(
     },
   };
   const run = {
-    input: { tools: [tool] }, config: DEFAULT_HARNESS_CONFIG, state,
+    input: { tools: [tool] }, config: DEFAULT_AGENT_LOOP_CONFIG, state,
     toolDispatchContext: { state, tools: [tool], deferOutputPersistence: true },
     rounds: 0, messages: [], toolOutputs: [], toolCallStartedAt: new Map(),
     streamController: new StreamController(), checkpoint() {},
-  } as unknown as HarnessRun;
+  } as unknown as AgentLoopRun;
   return {
     run, executions: () => executions,
     execute: () => runToolRound(run, [{ id: "call-retry", name: tool.id, arguments: "{}" }]),

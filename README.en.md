@@ -129,7 +129,7 @@ Firefly is an Electron desktop app: the interface lives in the renderer process,
 
 1. **Entry**: you send a message in the chat window, or speak and it becomes text; scheduled tasks, proactive chat and the Feishu / WeChat / QQ channels start conversations too.
 2. **Interface**: the React interface hands the request to the main process over the preload's controlled IPC; the Live2D Firefly changes expression with the work state.
-3. **Main loop**: the Harness main loop decides the next step: reply, call a tool, or hand the task to one of the 12 partners.
+3. **Main loop**: the agent loop decides the next step: reply, call a tool, or hand the task to one of the 12 partners.
 4. **Memory and models**: before every model request, the memory runtime puts context S and fact memory M into the request, then the vendor adapters send it to the model service you configured; history H and knowledge RAG are searched when needed.
 5. **Permissions**: every tool call by Firefly or a partner passes permissions and approval first; the built-in browser also needs your separate authorization.
 6. **Execution**: built-in tools (files, commands, Git, LSP, documents), the built-in browser, plugins, Skills and MCP do the actual work; screenshots, history reads and workspace handles go to the Rust native helper.
@@ -154,7 +154,7 @@ flowchart TB
   end
   subgraph L3["③ Agent core · main process"]
     direction LR
-    harness["Harness main loop"]
+    harness["Agent loop"]
     partners["12 partners"]
     perm{"Permissions and approval"}
     harness --> partners
@@ -212,7 +212,7 @@ flowchart TB
 | --- | --- | --- |
 | ① Entry | Voice input, scheduled tasks, proactive chat, external channels | `src/main/platform/speech/asr/`, `src/main/features/scheduler/`, `src/main/features/proactive/`, `src/main/features/channels/` |
 | ② Desktop interface | Chat interface, Live2D, controlled IPC | `src/renderer/react/`, `src/renderer/live2d/`, `src/preload/index.ts` |
-| ③ Agent core | Main loop, partner child sessions, permissions and approval | `src/main/agent/loop/firefly-harness.ts`, `src/main/agent/runtime/persistent-agent-runtime.ts`, `src/main/agent/loop/tool-dispatcher.ts`, `src/main/platform/permission/` |
+| ③ Agent core | Main loop, partner child sessions, permissions and approval | `src/main/agent/loop/agent-loop.ts`, `src/main/agent/runtime/persistent-agent-runtime.ts`, `src/main/agent/loop/tool-dispatcher.ts`, `src/main/platform/permission/` |
 | ④ Memory and models | Memory runtime, history search, knowledge RAG, vendor adapters | `src/main/memory/context/`, `src/main/memory/history/`, `src/main/knowledge/rag/`, `src/main/knowledge/workspace/`, `src/main/model/providers/` |
 | ⑤ Capabilities and execution | Built-in tools, browser, plugins, Skills, MCP, Code Git, LSP | `src/main/agent/tools/built-in-tools.ts`, `src/main/platform/browser/`, `src/plugins/`, `src/main/features/plugins/host/`, `src/main/knowledge/skills/`, `src/main/agent/mcp/mcp-manager.ts`, `src/main/platform/git/`, `src/main/platform/lsp/` |
 | ⑥ Local foundation | Memory store, native helper | `src/main/memory/core/`, `native/src/app.rs` |
@@ -246,7 +246,7 @@ Scripts are described in [scripts/README.md](./scripts/README.md).
 | Language and build | TypeScript, Vite 7, electron-builder |
 | Interface | React 19, Ant Design 6 / Ant Design X, Tailwind CSS 4; bundled Noto Sans SC and JetBrains Mono variable fonts; d3-force for the memory graph |
 | Live2D | PixiJS 7 + pixi-live2d-display |
-| Agent | In-house Harness loop, AG-UI event protocol, native tool calls |
+| Agent | In-house agent loop, AG-UI event protocol, native tool calls |
 | Tools and code | Tool scheduling and approvals, LSP client, `@ast-grep/napi`, `simple-git`, MCP SDK |
 | Memory and retrieval | SQLite (`node:sqlite`), embeddings, BM25, reranker |
 | Native helpers | Rust: screenshots, history reading and workspace handle access |
@@ -258,22 +258,17 @@ Scripts are described in [scripts/README.md](./scripts/README.md).
 ```
 src/
 ├── cli/                  # Command-line entry (the firefly command, dev launcher)
-├── main/                 # Electron main process, entry index.ts → dist/main/main/index.js
-│   ├── application/      # Startup wiring, dependency injection, IPC scopes and contract scans
-│   ├── startup/          # Runtime profiles and data isolation, identity checks, single instance, splash
-│   ├── orchestrator/     # Agent core: Harness loop, tools, model vendors, sandbox, partner delegation
-│   ├── permission/       # Permission levels, risk checks and approval cards
-│   ├── chat/ chats/      # Chat requests and the AG-UI bridge; conversation storage, dispatch and sidebar layout
-│   ├── memory*/          # Memory: core store, policy, recall, history reading, sources, shadow extraction
-│   ├── rag/ knowledge/   # Knowledge retrieval; Obsidian / study workspace
-│   ├── browser/          # Built-in browser workspace and its authorization boundary
-│   ├── code-git/ lsp/    # Git service for Code mode; language server client
-│   ├── channels/         # External channels (Feishu, WeChat, QQ, QQ Bot)
-│   ├── proactive/        # Proactive chat (time of day, policy, delivery)
-│   ├── scheduler/ tasks/ # Scheduled tasks; tasks and partner sessions
-│   ├── skills/           # Skill installation, review and external sources
-│   ├── plugin-host/ plugin-panel/  # Plugin host and online market; plugin panel protocol
-│   └── ...               # settings / storage / asr / music / windows and more
+├── main/                 # Electron main process, entry index.ts → dist/main/main/index.js; seven layers, each with its own AGENTS.md
+│   ├── base/             # Foundation: storage, logging, app identity and data directory, IPC registration, readiness and shutdown
+│   ├── platform/         # Platform services: settings, permissions and approval, windows, reminders, updates, screenshots, speech, browser, Git, LSP
+│   ├── model/            # Model access: vendor adapters and retries, model profiles, prompt layers, image captions
+│   ├── tooling/          # Tool contracts: registry, tool context, argument validation, execution coordination
+│   ├── conversation/     # Conversation records: record types, storage and settlement; shared channel types
+│   ├── knowledge/        # Knowledge: document retrieval, learning workspace, Skills, social context, stickers
+│   ├── memory/           # Memory: core store, shadow extraction, sources, policy, recall, history, context, database
+│   ├── agent/            # Agent runtime: the agent loop, run entry, built-in tools, MCP, partner delegation
+│   ├── features/         # Feature entries: chat bridge, sessions, external channels, scheduled tasks, proactive chat, plugins, settings IPC
+│   └── app/              # Composition root: creates the modules, injects dependencies, startup and shutdown order
 ├── plugins/              # Plugin system core (manifest validation, loading, lifecycle)
 ├── preload/              # Controlled IPC bridge
 ├── renderer/             # Renderer: React interface, Live2D, the site's live demo, static assets

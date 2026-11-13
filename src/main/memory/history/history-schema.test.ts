@@ -5,7 +5,7 @@ import {createHash} from 'node:crypto';
 import {createRequire} from 'node:module';
 import {DatabaseSync} from 'node:sqlite';
 import {afterEach,it,expect} from 'vitest';
-import {openMemoryRepository} from '../core/repository';
+import {openMemoryRepository} from '../database/repository';
 const roots:string[]=[];afterEach(()=>{for(const r of roots.splice(0))fs.rmSync(r,{recursive:true,force:true})});
 const source=path.join(__dirname,'fixtures/v8-writer'),hash=(file:string)=>createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 function fixture(){const root=fs.mkdtempSync(path.join(os.tmpdir(),'history-v8-'));roots.push(root);const file=path.join(root,'memory.sqlite'),manifest=JSON.parse(fs.readFileSync(path.join(source,'manifest.json'),'utf8'));for(const name of ['memory.sqlite','memory.sqlite.auth','v8-writer.cjs'])expect(hash(path.join(source,name))).toBe(manifest.hashes[name]);for(const suffix of ['','.auth'])fs.copyFileSync(path.join(source,'memory.sqlite'+suffix),file+suffix);return {root,file,key:Buffer.alloc(32,8)}}

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
-import type { HarnessRun } from "./firefly-harness";
-import { DEFAULT_HARNESS_CONFIG, type AgentState } from "./types";
+import type { AgentLoopRun } from "./agent-loop";
+import { DEFAULT_AGENT_LOOP_CONFIG, type AgentState } from "./types";
 import { StreamController } from "./stream-controller";
 import { runToolRound } from "./tool-round";
 
@@ -16,11 +16,11 @@ describe("tool round approval origin", () => {
     const checkPermission = vi.fn(async () => true);
     const controller = new AbortController();
     const run = {
-      input: { tools: [tool], signal: controller.signal }, config: DEFAULT_HARNESS_CONFIG, state,
+      input: { tools: [tool], signal: controller.signal }, config: DEFAULT_AGENT_LOOP_CONFIG, state,
       toolDispatchContext: { state, tools: [tool], deferOutputPersistence: true, checkPermission },
       rounds: 0, messages: [], toolOutputs: [], toolCallStartedAt: new Map(),
       streamController: new StreamController(), checkpoint() {},
-    } as unknown as HarnessRun;
+    } as unknown as AgentLoopRun;
 
     await runToolRound(run, [
       { id: "call-a", name: tool.id, arguments: "{}" },

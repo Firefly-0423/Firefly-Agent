@@ -10,7 +10,7 @@ import {getVendorRuntimeSettings} from "../../model/providers/runtime-settings";
 import type {ChatRequest,VendorConfig} from "../../model/providers/types";
 import type {createMainContext} from "./main-context";
 import {contextFail,type ContextBudget,type PreparedRequest,type TokenCounter} from "../../model/context/context-contracts";
-import {freezeRequest,requestDigest,validateUnit} from "./token-budget";
+import {freezeRequest,requestDigest,validateUnit} from "../core/token-budget";
 
 export interface ResponsesLimitsInput {model:string;limitsSource:string;modelMaxOutputTokens:number;budget:ContextBudget}
 /** A private Main SDK handle. No SDK construction, credential lookup or product registration here. */

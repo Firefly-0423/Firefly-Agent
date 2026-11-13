@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ExecutionLedger } from "../runtime/execution-ledger";
+import { ExecutionLedger } from "./execution-ledger";
 import { ToolExecutionError } from "../../tooling/registry/tool-execution-error";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
 import type { AgentState } from "./types";

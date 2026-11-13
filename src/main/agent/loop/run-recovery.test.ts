@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { prepareHarnessRecovery } from "./run-recovery";
+import { prepareAgentRunRecovery } from "./run-recovery";
 import { materializeTranscript } from "./conversation-transcript-context";
-import type { HarnessRunSession, PersistedToolCall } from "./run-store";
+import type { AgentRunSession, PersistedToolCall } from "./run-store";
 import type { TranscriptEntry } from "../../conversation/transcript/conversation-transcript-types";
 
 const workspace = "D:\\projects\\copper";
-function interrupted(calls: Array<Omit<PersistedToolCall, "updatedAt">> = []): HarnessRunSession {
+function interrupted(calls: Array<Omit<PersistedToolCall, "updatedAt">> = []): AgentRunSession {
   return {
     schemaVersion: 1, conversationId: "dialog-copper", runId: "paused-copper", status: "interrupted",
     messages: [{ role: "assistant", content: "Collecting workspace facts", toolCalls: calls.map(c => ({
@@ -22,7 +22,7 @@ function interrupted(calls: Array<Omit<PersistedToolCall, "updatedAt">> = []): H
 describe("Explicit recovery of an interrupted run", () => {
   it("records unknown external work and a paired result without scheduling a replay", () => {
     const original = interrupted([{ toolCallId: "delivery-copper", toolName: "send_email", sideEffect: "non_idempotent_side_effect", status: "started" }]);
-    const recovered = prepareHarnessRecovery(original, { workspaceRoot: workspace });
+    const recovered = prepareAgentRunRecovery(original, { workspaceRoot: workspace });
     expect(recovered.state.uncertainEffects).toEqual([expect.objectContaining({ toolCallId: "delivery-copper", toolName: "send_email" })]);
     expect(recovered.messages.at(-1)).toEqual({
       role: "tool", toolCallId: "delivery-copper", content: JSON.stringify({
@@ -35,7 +35,7 @@ describe("Explicit recovery of an interrupted run", () => {
   it("marks planned reads as not executed and carries the cache into a fresh recovery epoch", () => {
     const original = interrupted([{ toolCallId: "lookup-copper", toolName: "read_file", sideEffect: "read_only", status: "planned" }]);
     const before = structuredClone(original);
-    const recovered = prepareHarnessRecovery(original, { workspaceRoot: workspace });
+    const recovered = prepareAgentRunRecovery(original, { workspaceRoot: workspace });
     expect(recovered.messages.at(-1)?.content).toContain("not_executed_after_interruption");
     expect(recovered.state.uncertainEffects).toEqual([]);
     expect(recovered.cache).toEqual({ cacheEpoch: 9, epochReason: "recovery" });
@@ -43,14 +43,14 @@ describe("Explicit recovery of an interrupted run", () => {
   });
 
   it("rejects incompatible workspace binding and runs that are no longer interrupted", () => {
-    expect(() => prepareHarnessRecovery(interrupted(), { workspaceRoot: "D:\\projects\\other" })).toThrow("HARNESS_RECOVERY_WORKSPACE_MISMATCH");
-    expect(() => prepareHarnessRecovery({ ...interrupted(), status: "completed" }, { workspaceRoot: workspace })).toThrow("HARNESS_RECOVERY_NOT_INTERRUPTED");
+    expect(() => prepareAgentRunRecovery(interrupted(), { workspaceRoot: "D:\\projects\\other" })).toThrow("AGENT_RUN_RECOVERY_WORKSPACE_MISMATCH");
+    expect(() => prepareAgentRunRecovery({ ...interrupted(), status: "completed" }, { workspaceRoot: workspace })).toThrow("AGENT_RUN_RECOVERY_NOT_INTERRUPTED");
   });
 
   it("states model and removed-tool differences in the recovery context", () => {
     const original = interrupted();
     original.request.enabledToolIds = ["read_file", "legacy_export"];
-    const { recoveryContext } = prepareHarnessRecovery(original, { workspaceRoot: workspace, provider: "claude", model: "replacement-model", enabledToolIds: ["read_file"] });
+    const { recoveryContext } = prepareAgentRunRecovery(original, { workspaceRoot: workspace, provider: "claude", model: "replacement-model", enabledToolIds: ["read_file"] });
     expect(recoveryContext).toContain("模型已变化：原为 custom/previous-model，当前为 claude/replacement-model。");
     expect(recoveryContext).toContain("恢复时不可用的旧工具：legacy_export。不得假装调用成功。");
   });
@@ -66,7 +66,7 @@ describe("Explicit recovery of an interrupted run", () => {
     original.messages[0].toolCalls!.push({ id: "unjournaled", name: "write_file", arguments: "{}" });
     const committed = { role: "tool" as const, toolCallId: "finished-read", content: '{"outcome":"success"}' };
     original.messages.push(committed);
-    const recovered = prepareHarnessRecovery(original, { workspaceRoot: workspace });
+    const recovered = prepareAgentRunRecovery(original, { workspaceRoot: workspace });
     const pairs = recovered.messages.filter(m => m.role === "tool");
     const outcomes = pairs.map(m => [m.toolCallId, JSON.parse(m.content as string).outcome]);
     expect(outcomes).toEqual([

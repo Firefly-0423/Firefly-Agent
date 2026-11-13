@@ -37,7 +37,7 @@ vi.mock("../agent/tools/browser-workspace-executor", () => ({ createBrowserWorks
 vi.mock("../agent/memory-runtime/main-desktop-memory", () => ({ createMainDesktopMemory: vi.fn() }));
 vi.mock("../agent/memory-runtime/desktop-memory-backend", () => ({ openDesktopMemoryBackend: vi.fn(), desktopMemoryAdmissionMode: vi.fn() }));
 vi.mock("../conversation/transcript/conversation-transcript-store", () => ({ getConversationTranscriptStore: vi.fn() }));
-vi.mock("../agent/loop/run-store", () => ({ getHarnessRunStore: vi.fn() }));
+vi.mock("../agent/loop/run-store", () => ({ getAgentRunStore: vi.fn() }));
 vi.mock("../base/identity/gpu-sandbox-acl", () => ({ ensureGpuSandboxAcl: vi.fn() }));
 vi.mock("../base/storage/external-content-migration", () => ({ migrateStagedExternalContent: vi.fn() }));
 vi.mock("../../shared/banner", () => ({ renderBanner: vi.fn() }));
@@ -58,7 +58,7 @@ vi.mock("../agent/tools/built-in-tools", () => ({}));
 vi.mock("../agent/tools/tool-registration", () => ({ registerAllTools: vi.fn() }));
 vi.mock("../platform/lsp/manager", () => ({ LspManager: vi.fn() }));
 vi.mock("../agent/sandbox/sandbox-exec", () => ({ initSandbox: vi.fn() }));
-vi.mock("../agent/runtime/plan-mode", () => ({ enterPlanDiscussing: vi.fn(), exitPlanMode: vi.fn(), getPlanState: vi.fn(), initPlanPaths: vi.fn(), initPlanStateBroadcaster: vi.fn() }));
+vi.mock("../agent/tools/plan-mode", () => ({ enterPlanDiscussing: vi.fn(), exitPlanMode: vi.fn(), getPlanState: vi.fn(), initPlanPaths: vi.fn(), initPlanStateBroadcaster: vi.fn() }));
 vi.mock("../agent/mcp/mcp-manager", () => ({ initMcpManager: vi.fn(), pruneMcpServersByIds: vi.fn() }));
 vi.mock("../agent/mcp/sync-mcp-builtin", () => ({ syncPlaywrightMcp: vi.fn(), REMOVED_BUILTIN_MCP_IDS: vi.fn() }));
 vi.mock("../platform/updater/app-update-ipc", () => ({ registerAppUpdateIpc: vi.fn() }));
@@ -113,7 +113,6 @@ vi.mock("../memory/legacy/panel", () => ({ loadImportedDocumentPanelData: vi.fn(
 vi.mock("../memory/legacy/memory-store", () => ({ memoryStore: vi.fn() }));
 vi.mock("../memory/legacy/obsidian-exporter", () => ({ exportMemoryToObsidianVault: vi.fn(), syncToBoundVault: vi.fn() }));
 vi.mock("../memory/legacy/obsidian-vault-config", () => ({ loadObsidianVaultConfig: () => ({}), saveObsidianVaultConfig: vi.fn(), unbindVault: vi.fn() }));
-vi.mock("../memory/legacy/obsidian-importer", () => ({ startVaultWatcher: vi.fn(), stopVaultWatcher: vi.fn() }));
 vi.mock("../features/sessions/chats-store", () => ({ getSession: vi.fn(), getSessionKind: vi.fn(() => null), listSessions: () => [] }));
 vi.mock("../tooling/registry/tool-registry", () => ({ toolRegistry: { getAll: () => [], register: vi.fn() } }));
 import { createDefaultApplicationDependencies } from "./default-dependencies";

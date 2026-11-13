@@ -3,7 +3,7 @@ import {readMainAttachmentGrant,type MainAttachmentGrant} from "../../memory/con
 import type {MainDesktopMemory} from "../../agent/memory-runtime/main-desktop-memory";
 import * as fs from "fs";
 import { app, IpcMainInvokeEvent, WebContents } from "electron";
-import { getHarnessRunStore } from "../../agent/loop/run-store";
+import { getAgentRunStore } from "../../agent/loop/run-store";
 import { IPC } from "../../../shared/ipc-channels";
 import { createIpcScope, type IpcScope } from "../../base/ipc/ipc-scope";
 import { Subscription } from "rxjs";
@@ -35,7 +35,7 @@ import { isWorkReadScopeCurrent } from "../sessions/work-read-scope";
 import { evaluateWorkFileEvidence } from "../sessions/work-file-evidence";
 import { getConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
 import { createTranscriptSink, type TranscriptSink } from "../../agent/loop/transcript-sink";
-import { controlledSettlement } from "../../agent/loop/controlled-responses";
+import { controlledSettlement } from "../../agent/runtime/controlled-responses";
 import {
   requestUserClarification,
   cancelPendingChoicesForRun,
@@ -44,7 +44,7 @@ import {
 } from "../../platform/interaction/user-choice";
 import { cancelPendingApprovalsForRun, getCurrentLevel } from "../../platform/permission/permission";
 import { cancelPendingQuizzesForRun, takeQuizEvidenceForRun } from "../../agent/runtime/pop-quiz";
-import { approvePlan, getPlanPath, moveToReview, supplementPlan } from "../../agent/runtime/plan-mode";
+import { approvePlan, getPlanPath, moveToReview, supplementPlan } from "../../agent/tools/plan-mode";
 import { buildPlanReviewCard, buildPlanSupplementCard } from "../../agent/loop/plan-tools";
 import type { AskUserAnswer } from "../../../shared/ask-clarification";
 import type { PluginPromptMode, PluginTurnCompletedEvent } from "../../../plugins/types";
@@ -269,9 +269,9 @@ export function registerAgUiIpc(
     });
   }
 
-  routes.handle(IPC.HARNESS_GET_INTERRUPTED_RUN, (_notice, id: unknown) => {
+  routes.handle(IPC.AGENT_RUN_GET_INTERRUPTED, (_notice, id: unknown) => {
     if (typeof id !== "string" || !id) return null;
-    const checkpoint = getHarnessRunStore(app.getPath("userData")).getLatestInterrupted(id);
+    const checkpoint = getAgentRunStore(app.getPath("userData")).getLatestInterrupted(id);
     return checkpoint ? {
       runId: checkpoint.runId,
       rounds: checkpoint.rounds,

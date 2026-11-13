@@ -1,10 +1,10 @@
 import {createHash,randomUUID} from "node:crypto";
-import type {MainDesktopSessionAuthority} from "../context/main-desktop-session-authority";
+import type {MainDesktopSessionAuthority} from "./main-desktop-session-authority";
 import type {SourceIdentity,SourceObservation} from "../core/source-contracts";
 import {parseSourceIdentity,parseSourceTimeZone} from "../core/source-ledger";
 import {parseInternalId} from "../core/command-validation";
 import {canonicalJson} from "../core/repository-types";
-import {createMainSourceProvider,type SourceSnapshot} from "./main-source-provider";
+import {createMainSourceProvider,type SourceSnapshot} from "../core/main-source-provider";
 interface Options {
  authority:MainDesktopSessionAuthority;providerId:string;scopeKey:string;
  readUser:(identity:SourceIdentity)=>{role:string;text:string}|null;

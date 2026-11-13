@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
 import type { TaskTraceRecord } from "../../../shared/task-session";
-import type { HarnessEvent } from "../loop/types";
+import type { AgentLoopEvent } from "../loop/types";
 
 function clipTrace(text: string): string {
   return text.length > 2_000 ? `${text.slice(0, 2_000)}…` : text;
 }
 
 export function projectTaskTraceEvent(
-  observation: HarnessEvent,
+  observation: AgentLoopEvent,
   timestamp = Date.now(),
   newTraceId: () => string = randomUUID,
 ): TaskTraceRecord | undefined {

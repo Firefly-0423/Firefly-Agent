@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {randomBytes,randomUUID} from "node:crypto";
-import {openMemoryRepository} from "../../../src/main/memory/core/repository";
+import {openMemoryRepository} from "../../../src/main/memory/database/repository";
 import {createMainActorAuthority} from "../../../src/main/memory/core/main-actor-authority";
 import {createMainSourceRegistry} from "../../../src/main/memory/sources/source-registry";
 import {createMainPolicy} from "../../../src/main/memory/policy/main-policy";

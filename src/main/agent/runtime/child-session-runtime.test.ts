@@ -8,11 +8,11 @@ import { requireBackgroundMemoryIngress, type BackgroundMemoryHost } from "../me
 import { runChildSession } from "./child-session-runtime";
 import { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
 import { createTranscriptSink } from "../loop/transcript-sink";
-import { HarnessRunStore, type PersistedToolCall } from "../loop/run-store";
-import { prepareHarnessRecovery } from "../loop/run-recovery";
+import { AgentRunStore, type PersistedToolCall } from "../loop/run-store";
+import { prepareAgentRunRecovery } from "../loop/run-recovery";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
 import type { ChatMessage, ChatResponse, ToolCall } from "../../model/providers/types";
-import type { HarnessInput } from "../loop/index";
+import type { AgentLoopInput } from "../loop/index";
 
 // Usage storage belongs to the installed desktop profile; this fixture owns only temporary stores.
 vi.mock("../../base/storage/token-usage-store", () => ({ recordModelCall: () => undefined, recordToolCall: () => undefined, recordUsage: () => undefined, recordRequest: () => undefined }));
@@ -26,10 +26,10 @@ afterEach(() => {
   for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true });
 });
 
-function fixture(options: { failPlannedWrite?: boolean; cancelAfterPlannedWrite?: boolean; reasoningDeltas?: number; failAfterReasoning?: boolean; checkPermission?: HarnessInput["checkPermission"] } = {}) {
+function fixture(options: { failPlannedWrite?: boolean; cancelAfterPlannedWrite?: boolean; reasoningDeltas?: number; failAfterReasoning?: boolean; checkPermission?: AgentLoopInput["checkPermission"] } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "firefly-child-planned-"));
   roots.push(root);
-  const tasks = new TaskSessionStore(root), runs = new HarnessRunStore(root), transcripts = new ConversationTranscriptStore(root);
+  const tasks = new TaskSessionStore(root), runs = new AgentRunStore(root), transcripts = new ConversationTranscriptStore(root);
   const controller = new AbortController();
   const prompt = "Read three synthetic inputs";
   const session = new AgentSessionRegistry(tasks).acquire({ agentId: "fixture-agent", modelProfile: "coding", savedModelProfileId: "fixture-model",
@@ -37,7 +37,7 @@ function fixture(options: { failPlannedWrite?: boolean; cancelAfterPlannedWrite?
   const calls: ToolCall[] = [0, 1, 2].map(index => ({ id: `read-${index}`, name: "synthetic_read", arguments: JSON.stringify({ index }) }));
   const plannedWrites: PersistedToolCall[][] = [];
   const committedWrites: Array<{ messages: ChatMessage[]; toolCalls: PersistedToolCall[] }> = [];
-  const executionSnapshots: NonNullable<ReturnType<HarnessRunStore["get"]>>[] = [];
+  const executionSnapshots: NonNullable<ReturnType<AgentRunStore["get"]>>[] = [];
   const runPath = path.join(root, "firefly-runs", "sessions", `${session.childRunId}.json`);
   const rename = fs.renameSync.bind(fs);
   let plannedWriteFailed = false, leaseReleased = false, memoryClosed = false;
@@ -116,7 +116,7 @@ it("durably saves every child call in one planned snapshot before entering a rea
       expect(snapshot.messages.some(message => message.role === "tool" && message.toolCallId === call.toolCallId)).toBe(true);
     }
   }
-  const saved = new HarnessRunStore(f.root).get(f.session.childRunId)!;
+  const saved = new AgentRunStore(f.root).get(f.session.childRunId)!;
   expect(saved.status).toBe("completed");
   expect(saved.toolCalls.map(call => call.status)).toEqual(["committed", "committed", "committed"]);
   expect(saved.messages.filter(message => message.role === "tool")).toHaveLength(3);
@@ -135,7 +135,7 @@ it("executes no child tool when the complete planned snapshot cannot be atomical
   expect(new TaskSessionStore(f.root).get(f.session.id)?.error).toEqual(result.error);
   expect(f.plannedWrites.map(batch => batch.map(call => call.toolCallId))).toEqual([f.calls.map(call => call.id)]);
   expect(f.executionSnapshots).toHaveLength(0);
-  expect(new HarnessRunStore(f.root).get(f.session.childRunId)?.toolCalls).toEqual([]);
+  expect(new AgentRunStore(f.root).get(f.session.childRunId)?.toolCalls).toEqual([]);
   const entries = (await f.transcripts.read(f.session.id)).entries;
   const results = entries.filter(entry => entry.kind === "tool_result");
   expect(results).toHaveLength(3);
@@ -149,10 +149,10 @@ it("closes all durably planned child calls without execution when cancelled at t
   expect((await f.execute()).status).toBe("cancelled");
   expect(f.plannedWrites.map(batch => batch.map(call => call.toolCallId))).toEqual([f.calls.map(call => call.id)]);
   expect(f.executionSnapshots).toHaveLength(0);
-  const saved = new HarnessRunStore(f.root).get(f.session.childRunId)!;
+  const saved = new AgentRunStore(f.root).get(f.session.childRunId)!;
   expect(saved.status).toBe("cancelled");
   expect(saved.toolCalls.map(call => call.status)).toEqual(["not_executed", "not_executed", "not_executed"]);
-  const recovered = prepareHarnessRecovery({ ...saved, status: "interrupted" }, { workspaceRoot: f.root });
+  const recovered = prepareAgentRunRecovery({ ...saved, status: "interrupted" }, { workspaceRoot: f.root });
   expect(recovered.state.uncertainEffects).toEqual([]);
   for (const call of f.calls) expect(recovered.messages.filter(message => message.toolCallId === call.id)).toHaveLength(1);
   const results = (await f.transcripts.read(f.session.id)).entries.filter(entry => entry.kind === "tool_result");

@@ -1,6 +1,6 @@
 import type { ToolDefinition } from "../../../tooling/registry/tool-registry";
-import { resolveBuiltinExecutable, VerificationRunner } from "../../runtime/verification-runner";
-import { resolveWorkspaceBuildCommand } from "../../runtime/workspace-build-command";
+import { resolveBuiltinExecutable, VerificationRunner } from "../verification-runner";
+import { resolveWorkspaceBuildCommand } from "../workspace-build-command";
 
 const LOG_PREFIX = "[BuiltinTools]";
 type WorkVerificationCommand = {

@@ -129,7 +129,7 @@
 
 1. **入口**：你在聊天窗口发消息，或者语音输入先转成文字；定时任务、主动聊天和飞书 / 微信 / QQ 渠道也会发起对话。
 2. **界面**：React 界面通过 preload 的受控 IPC 把请求交给主进程；Live2D 流萤跟着工作状态变化表情。
-3. **主循环**：Harness 主循环决定下一步：直接回复、调用工具，或者把任务派给 12 位伙伴之一。
+3. **主循环**：Agent Loop 主循环决定下一步：直接回复、调用工具，或者把任务派给 12 位伙伴之一。
 4. **记忆与模型**：每次请求模型前，记忆运行时把上下文 S 和事实记忆 M 装进请求，再经厂商适配层发给你配置的模型服务；需要时检索历史 H 和知识 RAG。
 5. **权限**：流萤和伙伴的每一次工具调用都先经过权限与审批；内置浏览器还要你单独授权。
 6. **执行**：内置工具（文件、命令、Git、LSP、文档）、内置浏览器、插件、Skills 与 MCP 完成实际工作；截图、历史读取和工作区句柄交给 Rust 原生助手。
@@ -154,7 +154,7 @@ flowchart TB
   end
   subgraph L3["③ Agent 核心 · 主进程"]
     direction LR
-    harness["Harness 主循环"]
+    harness["Agent Loop 主循环"]
     partners["12 位伙伴"]
     perm{"权限与审批"}
     harness --> partners
@@ -212,7 +212,7 @@ flowchart TB
 | --- | --- | --- |
 | ① 入口 | 语音输入、定时任务、主动聊天、外部渠道 | `src/main/platform/speech/asr/`、`src/main/features/scheduler/`、`src/main/features/proactive/`、`src/main/features/channels/` |
 | ② 桌面界面 | 聊天界面、Live2D、受控 IPC | `src/renderer/react/`、`src/renderer/live2d/`、`src/preload/index.ts` |
-| ③ Agent 核心 | 主循环、伙伴子会话、权限与审批 | `src/main/agent/loop/firefly-harness.ts`、`src/main/agent/runtime/persistent-agent-runtime.ts`、`src/main/agent/loop/tool-dispatcher.ts`、`src/main/platform/permission/` |
+| ③ Agent 核心 | 主循环、伙伴子会话、权限与审批 | `src/main/agent/loop/agent-loop.ts`、`src/main/agent/runtime/persistent-agent-runtime.ts`、`src/main/agent/loop/tool-dispatcher.ts`、`src/main/platform/permission/` |
 | ④ 记忆与模型 | 记忆运行时、历史检索、知识 RAG、厂商适配 | `src/main/memory/context/`、`src/main/memory/history/`、`src/main/knowledge/rag/`、`src/main/knowledge/workspace/`、`src/main/model/providers/` |
 | ⑤ 能力与执行 | 内置工具、浏览器、插件、Skills、MCP、Code Git、LSP | `src/main/agent/tools/built-in-tools.ts`、`src/main/platform/browser/`、`src/plugins/`、`src/main/features/plugins/host/`、`src/main/knowledge/skills/`、`src/main/agent/mcp/mcp-manager.ts`、`src/main/platform/git/`、`src/main/platform/lsp/` |
 | ⑥ 本机底座 | 记忆库、原生助手 | `src/main/memory/core/`、`native/src/app.rs` |
@@ -246,7 +246,7 @@ npm run dev
 | 语言与构建 | TypeScript、Vite 7、electron-builder |
 | 界面 | React 19、Ant Design 6 / Ant Design X、Tailwind CSS 4；随应用打包 Noto Sans SC 与 JetBrains Mono 可变字体；记忆关系图用 d3-force |
 | Live2D | PixiJS 7 + pixi-live2d-display |
-| Agent | 自研 Harness 主循环、AG-UI 事件协议、原生工具调用 |
+| Agent | 自研 Agent Loop 主循环、AG-UI 事件协议、原生工具调用 |
 | 工具与代码 | 工具调度与审批、LSP 客户端、`@ast-grep/napi`、`simple-git`、MCP SDK |
 | 记忆与检索 | SQLite（`node:sqlite`）、Embedding、BM25、Reranker |
 | 原生助手 | Rust：截图、历史读取与工作区句柄访问 |
@@ -258,22 +258,17 @@ npm run dev
 ```
 src/
 ├── cli/                  # 命令行入口（firefly 命令、开发启动器）
-├── main/                 # Electron 主进程，入口 index.ts → dist/main/main/index.js
-│   ├── application/      # 启动装配、依赖注入、IPC 作用域与契约扫描
-│   ├── startup/          # 运行档案与数据隔离、身份预检、单实例、启动窗口
-│   ├── orchestrator/     # Agent 核心：Harness 主循环、工具、模型厂商适配、沙箱、伙伴委派
-│   ├── permission/       # 权限档位、风险判定与审批卡片
-│   ├── chat/ chats/      # 聊天请求与 AG-UI 桥接；会话存储、派发与侧栏布局
-│   ├── memory*/          # 记忆：核心库、策略、召回、历史读取、来源、影子抽取
-│   ├── rag/ knowledge/   # 知识检索；Obsidian / 学习工作区
-│   ├── browser/          # 内置浏览器工作区与授权边界
-│   ├── code-git/ lsp/    # Code 模式的 Git 服务；语言服务器客户端
-│   ├── channels/         # 外部渠道（飞书、微信、QQ、QQ Bot）
-│   ├── proactive/        # 主动聊天（时段、策略、投递）
-│   ├── scheduler/ tasks/ # 定时任务；任务与伙伴会话
-│   ├── skills/           # Skills 安装、审查与外部来源
-│   ├── plugin-host/ plugin-panel/  # 插件宿主、在线市场；插件面板协议
-│   └── ...               # settings / storage / asr / music / windows 等
+├── main/                 # Electron 主进程，入口 index.ts → dist/main/main/index.js；七层结构，每层有自己的 AGENTS.md
+│   ├── base/             # 基础：存储、日志、应用身份与数据目录、IPC 注册、启动就绪与退出
+│   ├── platform/         # 平台服务：设置、权限与审批、窗口、提醒、更新、截图、语音、浏览器、Git、LSP
+│   ├── model/            # 模型接入：厂商适配与重试、模型档案、提示词分层、图片转述
+│   ├── tooling/          # 工具契约：注册表、工具上下文、参数校验、执行协调
+│   ├── conversation/     # 会话记录：记录的类型、存储与结算；渠道公共类型
+│   ├── knowledge/        # 知识：文档检索、学习工作区、Skills、社交上下文、贴纸
+│   ├── memory/           # 记忆：核心库、影子抽取、来源、策略、召回、历史、上下文、数据库
+│   ├── agent/            # 智能体运行：Agent Loop 主循环、运行入口、内置工具、MCP、伙伴委派
+│   ├── features/         # 功能入口：聊天桥接、会话、外部渠道、定时任务、主动聊天、插件、设置 IPC
+│   └── app/              # 组合根：创建各模块并注入依赖、启动与退出顺序
 ├── plugins/              # 插件系统核心（manifest 校验、加载、生命周期）
 ├── preload/              # 受控 IPC 桥接
 ├── renderer/             # 渲染进程：React 界面、Live2D、网站上的在线演示、静态资源

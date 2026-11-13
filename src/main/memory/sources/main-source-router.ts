@@ -1,7 +1,7 @@
 import {parseInternalId} from "../core/command-validation";
 import type {SourceIdentity,SourceObservation} from "../core/source-contracts";
 import {parseSourceIdentity} from "../core/source-ledger";
-import {createMainSourceProvider,requireMainSourceProvider,type SourceSnapshot} from "./main-source-provider";
+import {createMainSourceProvider,requireMainSourceProvider,type SourceSnapshot} from "../core/main-source-provider";
 
 export interface MainSourceRouteRegistration {
  scopeKey:string;

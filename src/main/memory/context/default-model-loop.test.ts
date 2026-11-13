@@ -23,9 +23,9 @@ vi.mock("../../base/storage/token-usage-store", () => ({ recordModelCall: () => 
 vi.mock("../../platform/settings/timeout-manager", () => ({ getTimeoutSettings: () => ({ chatRequestTimeout: 60000 }) }));
 
 import { runChatLoop } from "../../agent/runtime/chat-loop";
-import { runFireflyHarness } from "../../agent/loop/firefly-harness";
-import { callLLM } from "../../agent/loop/harness-llm";
-import { DEFAULT_HARNESS_CONFIG } from "../../agent/loop/types";
+import { runAgentLoop } from "../../agent/loop/agent-loop";
+import { callLLM } from "../../agent/loop/agent-loop-llm";
+import { DEFAULT_AGENT_LOOP_CONFIG } from "../../agent/loop/types";
 import { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
 import { materializeTranscript } from "../../agent/loop/conversation-transcript-context";
 import { createTranscriptSink, type TranscriptSink } from "../../agent/loop/transcript-sink";
@@ -111,7 +111,7 @@ describe("default memory model rounds", () => {
       inputSchema: { type: "object", properties: { field: { type: "string", description: "字段名" } }, required: ["field"] },
       execute: async args => { executed.push(args); return JSON.stringify({ definition: args.field }); },
     };
-    const result = await runFireflyHarness({
+    const result = await runAgentLoop({
       systemPrompt: "角色", promptLayers: { stablePrefix: "角色", sessionPrefix: "会话规则", mode },
       messages: [{ role: "user", content: "请分两轮检查字段 api_key 和 password 的定义。" }],
       tools: [tool], vendorConfig, transcriptSink: sink, memoryRun: model.run,
@@ -164,7 +164,7 @@ describe("default memory model rounds", () => {
   it.each(["chat", "harness"])("%s stream fallback starts a fresh controlled call", async (mode) => {
     const model = controlledModel([async () => { throw new Error("MEMORY_CONTEXT_STREAM_UNSUPPORTED"); }, response("非流式完成")]);
     if (mode === "chat") await runChatLoop({ ...chatOptions(), memoryRun: model.run });
-    else await callLLM(vendorConfig, { stablePrefix: "角色" }, [{ role: "user", content: "你好" }], [], DEFAULT_HARNESS_CONFIG, undefined, undefined, undefined, model.run);
+    else await callLLM(vendorConfig, { stablePrefix: "角色" }, [{ role: "user", content: "你好" }], [], DEFAULT_AGENT_LOOP_CONFIG, undefined, undefined, undefined, model.run);
     expect(model.requests).toHaveLength(2);
     expect(model.requests[0].request.stream).toBe(true); expect(model.requests[1].request.stream).toBe(false);
     expect({ ...model.requests[0].request, stream: false }).toEqual(model.requests[1].request);
@@ -178,7 +178,7 @@ describe("default memory model rounds", () => {
     }]);
     const operation = mode === "chat"
       ? runChatLoop({ ...chatOptions(), memoryRun: model.run })
-      : callLLM(vendorConfig, { stablePrefix: "角色" }, [{ role: "user", content: "你好" }], [], DEFAULT_HARNESS_CONFIG, undefined, undefined, undefined, model.run);
+      : callLLM(vendorConfig, { stablePrefix: "角色" }, [{ role: "user", content: "你好" }], [], DEFAULT_AGENT_LOOP_CONFIG, undefined, undefined, undefined, model.run);
     await expect(operation).rejects.toThrow("stream not supported");
     expect(model.requests).toHaveLength(1); expect(fetch).not.toHaveBeenCalled(); expect(legacyStream).not.toHaveBeenCalled();
   });
@@ -191,7 +191,7 @@ describe("default memory model rounds", () => {
       throw new Error("MEMORY_CONTEXT_STREAM_UNSUPPORTED");
     }, response("fallback allowed")]);
     if (mode === "chat") await runChatLoop({ ...chatOptions(), memoryRun: model.run });
-    else await callLLM(vendorConfig, { stablePrefix: "角色" }, [{ role: "user", content: "你好" }], [], DEFAULT_HARNESS_CONFIG, undefined, undefined, undefined, model.run);
+    else await callLLM(vendorConfig, { stablePrefix: "角色" }, [{ role: "user", content: "你好" }], [], DEFAULT_AGENT_LOOP_CONFIG, undefined, undefined, undefined, model.run);
     expect(model.requests.map(input => input.request.stream)).toEqual([true, false]);
     expect(legacyStream).not.toHaveBeenCalled(); expect(fetch).not.toHaveBeenCalled();
   });
@@ -210,7 +210,7 @@ describe("default memory model rounds", () => {
     }, response("unexpected replay")]);
     const operation = mode === "chat"
       ? runChatLoop({ ...chatOptions(), memoryRun: model.run })
-      : callLLM(vendorConfig, { stablePrefix: "角色" }, [{ role: "user", content: "你好" }], [], DEFAULT_HARNESS_CONFIG, undefined, undefined, undefined, model.run);
+      : callLLM(vendorConfig, { stablePrefix: "角色" }, [{ role: "user", content: "你好" }], [], DEFAULT_AGENT_LOOP_CONFIG, undefined, undefined, undefined, model.run);
     await expect(operation).rejects.toThrow("MEMORY_CONTEXT_STREAM_UNSUPPORTED");
     expect(model.requests).toHaveLength(1); expect(legacyStream).not.toHaveBeenCalled(); expect(fetch).not.toHaveBeenCalled();
   });
@@ -220,7 +220,7 @@ describe("default memory model rounds", () => {
     const model = controlledModel([async () => { controller.abort(); throw new Error("HTTP 400 stream not supported"); }, response("禁止发送")]);
     const operation = mode === "chat"
       ? runChatLoop({ ...chatOptions(), memoryRun: model.run, signal: controller.signal })
-      : callLLM(vendorConfig, { stablePrefix: "角色" }, [{ role: "user", content: "你好" }], [], DEFAULT_HARNESS_CONFIG, controller.signal, undefined, undefined, model.run);
+      : callLLM(vendorConfig, { stablePrefix: "角色" }, [{ role: "user", content: "你好" }], [], DEFAULT_AGENT_LOOP_CONFIG, controller.signal, undefined, undefined, model.run);
     await expect(operation).rejects.toThrow(/MEMORY_CONTEXT_CANCELLED/);
     expect(fetch).not.toHaveBeenCalled(); expect(legacyStream).not.toHaveBeenCalled();
   });
@@ -232,7 +232,7 @@ describe("default memory model rounds", () => {
     if (mode === "chat") {
       await expect(runChatLoop({ ...chatOptions(), messages, settings: { ...vendorConfig, contextWindowTokens: 1000 }, memoryRun: model.run })).rejects.toThrow("MEMORY_CONTEXT_BUDGET_EXCEEDED");
     } else {
-      const result = await runFireflyHarness({ systemPrompt: "角色", messages, tools: [], vendorConfig, memoryRun: model.run, config: { contextWindowTokens: 1000 } });
+      const result = await runAgentLoop({ systemPrompt: "角色", messages, tools: [], vendorConfig, memoryRun: model.run, config: { contextWindowTokens: 1000 } });
       expect(result.terminateReason).toBe("error"); expect(result.finalAnswer).toContain("MEMORY_CONTEXT_BUDGET_EXCEEDED");
       expect(result.failure).toEqual({code:"MEMORY_CONTEXT_BUDGET_EXCEEDED",source:"context"});
       expect(errorLog).toHaveBeenCalledWith(expect.stringContaining("run failed"), expect.objectContaining({code:"MEMORY_CONTEXT_BUDGET_EXCEEDED",source:"context"}));
@@ -261,7 +261,7 @@ describe("default memory model rounds", () => {
     if (mode === "chat") {
       await expect(runChatLoop({ ...chatOptions(), memoryRun: model.run, transcriptSink: sink })).rejects.toThrow("MEMORY_CONTEXT_CANCELLED");
     } else {
-      const result = await runFireflyHarness({
+      const result = await runAgentLoop({
         systemPrompt: "角色", messages: [{ role: "user", content: "你好" }], tools: [], vendorConfig,
         memoryRun: model.run, transcriptSink: sink,
       });
@@ -293,7 +293,7 @@ describe("default memory model rounds", () => {
     const restored = materializeTranscript(snapshot.entries, { get: () => null });
     const executed: unknown[] = [];
     const model = controlledModel([response("上次读取是否完成还不确定")]);
-    const result = await runFireflyHarness({
+    const result = await runAgentLoop({
       systemPrompt: "角色", messages: restored.messages, vendorConfig, memoryRun: model.run,
       transcriptSink: createTranscriptSink({ store, conversationId: "conversation", runId: "resumed-run" }),
       tools: [{ id: "inspect_fields", name: "inspect_fields", description: "字段定义", enabled: true, effectKind: "read",

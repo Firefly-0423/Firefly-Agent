@@ -2,7 +2,7 @@ import {randomBytes} from "node:crypto";
 import {DatabaseSync} from "node:sqlite";
 import {afterEach,beforeEach,describe,expect,it} from "vitest";
 import type {BoundSourceRef,FactView} from "../../../shared/memory-contracts";
-import {MemoryRepository} from "../core/repository";
+import {MemoryRepository} from "../database/repository";
 import {initializeSchema} from "../core/schema";
 import {RecordCodec} from "../core/record-codec";
 import {Suppression} from "../core/suppression";

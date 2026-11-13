@@ -1,7 +1,7 @@
 import type {BoundSourceRef} from '../../../shared/memory-contracts';
 import type {ContextMessage,SourceDependency,TranscriptDependency} from '../../model/context/context-contracts';
 import type {RecallDependency} from '../recall/recall-contracts';
-import type {HistoryTemporalResult} from './history-temporal';
+import type {HistoryTemporalResult} from '../core/history-temporal';
 export interface HistorySession {providerId:string;sessionId:string}
 export interface HistoryPartition {actorKey:string;sessions:HistorySession[]}
 export interface HistoryVector {identity:string;values:number[]}

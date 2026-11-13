@@ -70,7 +70,7 @@ it("reopened Main rejects old snapshot capabilities",async()=>{
  const f=await contextFixture(),s=await f.source("I prefer English"),snapshot=await f.assemble([s.ref]);f.reopen();const {createMainContext}=await import("./main-context"),fresh=createMainContext(f.options);await expect(fresh.validateForDispatch(f.actor,snapshot)).rejects.toThrow("MEMORY_CONTEXT_SNAPSHOT_DENIED");
 });
 it("canonical transcript provider keeps tool roles and complete pairs without M promotion",async()=>{
- const f=await contextFixture(),{createMainTranscriptProvider}=await import("./main-transcript-provider"),origin=await f.source("I prefer English");
+ const f=await contextFixture(),{createMainTranscriptProvider}=await import("../history/main-transcript-provider"),origin=await f.source("I prefer English");
  const state={incarnation:"turn-v1",revision:1,throughSeq:3,sourceRefs:[origin.ref],unit:{id:"turn",kind:"recent",messages:[{role:"assistant",text:"",toolCallIds:["call"]},{role:"tool",text:"TOOL_BODY_CANARY",toolCallId:"call"}]}};
  const provider=createMainTranscriptProvider({scopeKey:"scope-a",providerId:"canonical",sessionId:"session-a",withLease:async(_id:any,run:any)=>run(async()=>structuredClone(state))});
  const token=await f.context.captureTranscript(f.actor,provider,"turn"),snapshot=await f.context.assemble(f.actor,{sessionId:"session-a",sourceRefs:[],transcriptTokens:[token]});
@@ -79,41 +79,41 @@ it("canonical transcript provider keeps tool roles and complete pairs without M 
 });
 it("canonical transcript JSON capability and cross-scope provider are denied",async()=>{
  const f=await contextFixture();await expect(f.context.captureTranscript(f.actor,{},"turn")).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_DENIED");
- const {createMainTranscriptProvider}=await import("./main-transcript-provider"),provider=createMainTranscriptProvider({scopeKey:"scope-b",providerId:"canonical",sessionId:"session-a",withLease:async()=>{throw new Error("must not read")}});
+ const {createMainTranscriptProvider}=await import("../history/main-transcript-provider"),provider=createMainTranscriptProvider({scopeKey:"scope-b",providerId:"canonical",sessionId:"session-a",withLease:async()=>{throw new Error("must not read")}});
  await expect(f.context.captureTranscript(f.actor,provider,"turn")).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_DENIED");
 });
 it("pending canonical transcript invalidates permit before send",async()=>{
- const f=await contextFixture(),{createMainTranscriptProvider}=await import("./main-transcript-provider"),state={incarnation:"turn-v1",revision:1,throughSeq:1,sourceRefs:[],unit:{id:"turn",kind:"recent",messages:[{role:"user",text:"工具输入"}]}};
+ const f=await contextFixture(),{createMainTranscriptProvider}=await import("../history/main-transcript-provider"),state={incarnation:"turn-v1",revision:1,throughSeq:1,sourceRefs:[],unit:{id:"turn",kind:"recent",messages:[{role:"user",text:"工具输入"}]}};
  const provider=createMainTranscriptProvider({scopeKey:"scope-a",providerId:"canonical",sessionId:"session-a",withLease:async(_id:any,run:any)=>run(async()=>structuredClone(state))});
  const token=await f.context.captureTranscript(f.actor,provider,"turn"),snapshot=await f.context.assemble(f.actor,{sessionId:"session-a",sourceRefs:[],transcriptTokens:[token]}),permit=await f.context.validateForDispatch(f.actor,snapshot);
  await f.context.prepareTranscriptChange(f.actor,token);let sent=0;await expect(f.context.dispatch(f.actor,permit,()=>{sent++;return "bad"})).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_PENDING");expect(sent).toBe(0);
 });
 it("old tool derivation without roots is excluded while unrelated sourced tool context can rebuild",async()=>{
- const f=await contextFixture(),a=await f.active(),origin=await f.source("I prefer English"),{createMainTranscriptProvider}=await import("./main-transcript-provider");let roots:any[]=[];
+ const f=await contextFixture(),a=await f.active(),origin=await f.source("I prefer English"),{createMainTranscriptProvider}=await import("../history/main-transcript-provider");let roots:any[]=[];
  const provider=createMainTranscriptProvider({scopeKey:"scope-a",providerId:"canonical",sessionId:"session-a",withLease:async(id:any,run:any)=>run(async()=>({incarnation:"v1",revision:1,throughSeq:1,sourceRefs:roots,unit:{id,kind:"recent",messages:[{role:"assistant",text:"derived tool context"}]}}))});
  const unknown=await f.context.captureTranscript(f.actor,provider,"unknown");roots=[origin.ref];const known=await f.context.captureTranscript(f.actor,provider,"known");await f.forget(a.factId!);
  const snapshot=await f.context.assemble(f.actor,{sessionId:"session-a",sourceRefs:[],transcriptTokens:[unknown,known]});expect(snapshot.request.body.messages).toHaveLength(1);expect(snapshot.excluded.some(x=>x.reason==="untraceable-derived")).toBe(true);
 });
 it("temporary canonical capture performs no provider read or worker write",async()=>{
- const f=await contextFixture(),{createMainTranscriptProvider}=await import("./main-transcript-provider"),actor=f.actorAuthority.bindActor(f.access,f.provider.adapter,f.identity,{sessionMode:"temporary"});let reads=0;
+ const f=await contextFixture(),{createMainTranscriptProvider}=await import("../history/main-transcript-provider"),actor=f.actorAuthority.bindActor(f.access,f.provider.adapter,f.identity,{sessionMode:"temporary"});let reads=0;
  const provider=createMainTranscriptProvider({scopeKey:"scope-a",providerId:"canonical",sessionId:"session-a",withLease:async()=>{reads++;throw new Error("bad")}}),before=f.writes;
  await expect(f.context.captureTranscript(actor,provider,"turn")).rejects.toThrow("MEMORY_CONTEXT_TEMPORARY_UNSUPPORTED");expect(reads).toBe(0);expect(f.writes).toBe(before);
 });
 it("canonical edit/delete/recreate never validates an old transcript token",async()=>{
- const f=await contextFixture(),{createMainTranscriptProvider}=await import("./main-transcript-provider");let state={incarnation:"v1",revision:1,throughSeq:1,sourceRefs:[],unit:{id:"turn",kind:"recent",messages:[{role:"user",text:"first"}]}};
+ const f=await contextFixture(),{createMainTranscriptProvider}=await import("../history/main-transcript-provider");let state={incarnation:"v1",revision:1,throughSeq:1,sourceRefs:[],unit:{id:"turn",kind:"recent",messages:[{role:"user",text:"first"}]}};
  const provider=createMainTranscriptProvider({scopeKey:"scope-a",providerId:"canonical",sessionId:"session-a",withLease:async(_id:any,run:any)=>run(async()=>structuredClone(state))});
  const old=await f.context.captureTranscript(f.actor,provider,"turn");await f.context.prepareTranscriptChange(f.actor,old);state={...state,revision:2,throughSeq:2,unit:{...state.unit,messages:[{role:"user",text:"edited"}]}};const edited=await f.context.captureTranscript(f.actor,provider,"turn");
  await expect(f.context.assemble(f.actor,{sessionId:"session-a",sourceRefs:[],transcriptTokens:[old]})).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_STALE");
  await f.context.deleteTranscript(f.actor,edited);await expect(f.context.captureTranscript(f.actor,provider,"turn")).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_REUSED");state={...state,incarnation:"v2",revision:1};const fresh=await f.context.captureTranscript(f.actor,provider,"turn");expect((await f.context.assemble(f.actor,{sessionId:"session-a",sourceRefs:[],transcriptTokens:[fresh]})).request.body.messages[0].text).toBe("edited");
 });
 it("pending or forgotten transcript root cannot be hidden by the tool role",async()=>{
- const f=await contextFixture(),a=await f.active(),{createMainTranscriptProvider}=await import("./main-transcript-provider"),s=await f.source("I prefer bash");
+ const f=await contextFixture(),a=await f.active(),{createMainTranscriptProvider}=await import("../history/main-transcript-provider"),s=await f.source("I prefer bash");
  const provider=createMainTranscriptProvider({scopeKey:"scope-a",providerId:"canonical",sessionId:"session-a",withLease:async(_id:any,run:any)=>run(async()=>({incarnation:"v1",revision:1,throughSeq:1,sourceRefs:[s.ref],unit:{id:"turn",kind:"recent",messages:[{role:"assistant",text:"bash paraphrase"}]}}))});
  const token=await f.context.captureTranscript(f.actor,provider,"turn");await f.forget(a.factId!);expect((await f.context.assemble(f.actor,{sessionId:"session-a",sourceRefs:[],transcriptTokens:[token]})).request.body.messages).toEqual([]);
  await f.registry.prepareChange(f.access,f.provider.adapter,s.ref);await expect(f.context.assemble(f.actor,{sessionId:"session-a",sourceRefs:[],transcriptTokens:[token]})).rejects.toThrow("MEMORY_SOURCE_PENDING");
 });
 it("canonical provider rejects incomplete tool pairs and observation mutation",async()=>{
- const f=await contextFixture(),{createMainTranscriptProvider}=await import("./main-transcript-provider");let count=0;
+ const f=await contextFixture(),{createMainTranscriptProvider}=await import("../history/main-transcript-provider");let count=0;
  const incomplete=createMainTranscriptProvider({scopeKey:"scope-a",providerId:"canonical",sessionId:"session-a",withLease:async(_id:any,run:any)=>run(async()=>({incarnation:"v1",revision:1,throughSeq:1,sourceRefs:[],unit:{id:"turn",kind:"recent",messages:[{role:"assistant",text:"",toolCallIds:["call"]}]}}))});
  await expect(f.context.captureTranscript(f.actor,incomplete,"turn")).rejects.toThrow("MEMORY_CONTEXT_TOOL_PAIR_INVALID");
  const changed=createMainTranscriptProvider({scopeKey:"scope-a",providerId:"other",sessionId:"session-a",withLease:async(_id:any,run:any)=>run(async()=>({incarnation:"v1",revision:1,throughSeq:1,sourceRefs:[],unit:{id:"turn",kind:"recent",messages:[{role:"user",text:String(++count)}]}}))});
@@ -208,10 +208,10 @@ it("an explicit recent source remains selected when it was already visited as an
  const f=await contextFixture(),a=await f.source("I prefer concise responses"),b=await f.source("I prefer English"),{createMainContext}=await import("./main-context"),context=createMainContext({...f.options,resolveDerivedRefs:(ref:any)=>ref.sourceId===a.ref.sourceId?[b.ref]:null});expect((await context.assemble(f.actor,{sessionId:"session-a",sourceRefs:[a.ref,b.ref]})).request.body.messages).toHaveLength(2);
 });
 it("canonical tool secret is masked before publishing body or token counting",async()=>{
- const f=await contextFixture(),{createMainTranscriptProvider}=await import("./main-transcript-provider");let counts=0;f.setCountHook(async()=>{counts++});const provider=createMainTranscriptProvider({scopeKey:"scope-a",providerId:"canonical",sessionId:"session-a",withLease:async(_id,run)=>run(async()=>({incarnation:"v1",revision:1,throughSeq:1,sourceRefs:[],unit:{id:"turn",kind:"recent",messages:[{role:"assistant",text:"",toolCallIds:["call"]},{role:"tool",text:"refresh_token=REVIEW_SECRET_CANARY",toolCallId:"call"}]}}))});await f.context.captureTranscript(f.actor,provider,"turn");expect(JSON.stringify(f.commands)).not.toContain("REVIEW_SECRET_CANARY");void counts;
+ const f=await contextFixture(),{createMainTranscriptProvider}=await import("../history/main-transcript-provider");let counts=0;f.setCountHook(async()=>{counts++});const provider=createMainTranscriptProvider({scopeKey:"scope-a",providerId:"canonical",sessionId:"session-a",withLease:async(_id,run)=>run(async()=>({incarnation:"v1",revision:1,throughSeq:1,sourceRefs:[],unit:{id:"turn",kind:"recent",messages:[{role:"assistant",text:"",toolCallIds:["call"]},{role:"tool",text:"refresh_token=REVIEW_SECRET_CANARY",toolCallId:"call"}]}}))});await f.context.captureTranscript(f.actor,provider,"turn");expect(JSON.stringify(f.commands)).not.toContain("REVIEW_SECRET_CANARY");void counts;
 });
 it("a secret canonical root excludes its derived tool unit even at generation zero",async()=>{
- const f=await contextFixture(),secret=await f.source("refresh_token=ROOT_SECRET_CANARY"),{createMainTranscriptProvider}=await import("./main-transcript-provider"),provider=createMainTranscriptProvider({scopeKey:"scope-a",providerId:"canonical",sessionId:"session-a",withLease:async(_id,run)=>run(async()=>({incarnation:"v1",revision:1,throughSeq:1,sourceRefs:[secret.ref],unit:{id:"turn",kind:"recent",messages:[{role:"assistant",text:"derived context"}]}}))}),token=await f.context.captureTranscript(f.actor,provider,"turn");expect((await f.context.assemble(f.actor,{sessionId:"session-a",sourceRefs:[],transcriptTokens:[token]})).request.body.messages).toEqual([]);
+ const f=await contextFixture(),secret=await f.source("refresh_token=ROOT_SECRET_CANARY"),{createMainTranscriptProvider}=await import("../history/main-transcript-provider"),provider=createMainTranscriptProvider({scopeKey:"scope-a",providerId:"canonical",sessionId:"session-a",withLease:async(_id,run)=>run(async()=>({incarnation:"v1",revision:1,throughSeq:1,sourceRefs:[secret.ref],unit:{id:"turn",kind:"recent",messages:[{role:"assistant",text:"derived context"}]}}))}),token=await f.context.captureTranscript(f.actor,provider,"turn");expect((await f.context.assemble(f.actor,{sessionId:"session-a",sourceRefs:[],transcriptTokens:[token]})).request.body.messages).toEqual([]);
 });
 it("protected raw recent turns cannot trim user input while retaining its assistant",async()=>{
  const f=await contextFixture(),user=await f.source("U".repeat(300)),assistant=await f.source("ASSISTANT_REPLY","assistant","model");f.options.budget.maxSTokens=150;await expect(f.assemble([user.ref,assistant.ref])).rejects.toThrow("MEMORY_CONTEXT_RECENT_OVER_BUDGET");
@@ -223,11 +223,11 @@ it("older extractive summaries precede newer recent turns",async()=>{
  const f=await contextFixture(),text="EARLIER_USER",a=await f.source(text),b=await f.source("old omitted ".repeat(100)),lease=await prepareSummary(f,[a.ref,b.ref]),receipt=await f.context.commitSummary(f.actor,lease,{segments:[segment(a.ref,text)]}),recent=await f.source("LATER_USER");expect((await f.context.assemble(f.actor,{sessionId:"session-a",sourceRefs:[recent.ref],summaryIds:[receipt.summaryId!]})).request.body.messages.map((m:any)=>m.text)).toEqual([text,"LATER_USER"]);
 });
 it("mixing raw refs and canonical units without an ordered transcript is refused",async()=>{
- const f=await contextFixture(),recent=await f.source("LATER_USER"),{createMainTranscriptProvider}=await import("./main-transcript-provider"),provider=createMainTranscriptProvider({scopeKey:"scope-a",providerId:"canonical",sessionId:"session-a",withLease:async(_id,run)=>run(async()=>({incarnation:"v1",revision:1,throughSeq:1,sourceRefs:[],unit:{id:"turn",kind:"recent",messages:[{role:"user",text:"EARLIER_USER"}]}}))}),token=await f.context.captureTranscript(f.actor,provider,"turn");await expect(f.context.assemble(f.actor,{sessionId:"session-a",sourceRefs:[recent.ref],transcriptTokens:[token]})).rejects.toThrow("MEMORY_CONTEXT_ORDER_REQUIRED");
+ const f=await contextFixture(),recent=await f.source("LATER_USER"),{createMainTranscriptProvider}=await import("../history/main-transcript-provider"),provider=createMainTranscriptProvider({scopeKey:"scope-a",providerId:"canonical",sessionId:"session-a",withLease:async(_id,run)=>run(async()=>({incarnation:"v1",revision:1,throughSeq:1,sourceRefs:[],unit:{id:"turn",kind:"recent",messages:[{role:"user",text:"EARLIER_USER"}]}}))}),token=await f.context.captureTranscript(f.actor,provider,"turn");await expect(f.context.assemble(f.actor,{sessionId:"session-a",sourceRefs:[recent.ref],transcriptTokens:[token]})).rejects.toThrow("MEMORY_CONTEXT_ORDER_REQUIRED");
 });
 
 it("publishes the canonical dependency while its provider lease is still held",async()=>{
- const f=await contextFixture(),{createMainTranscriptProvider}=await import("./main-transcript-provider");
+ const f=await contextFixture(),{createMainTranscriptProvider}=await import("../history/main-transcript-provider");
  let leased=false;const publicationStates:boolean[]=[];
  const original=f.transport.contextCommand;
  f.transport.contextCommand=async(command:any)=>{
@@ -244,7 +244,7 @@ it("publishes the canonical dependency while its provider lease is still held",a
 });
 
 it("notifies Main of the latest captured capability before releasing its lease",async()=>{
- const f=await contextFixture(),{createMainTranscriptProvider}=await import("./main-transcript-provider");
+ const f=await contextFixture(),{createMainTranscriptProvider}=await import("../history/main-transcript-provider");
  let leased=false,observed:object|undefined;
  const state={incarnation:"notify-v1",revision:1,throughSeq:1,sourceRefs:[],unit:{id:"turn",kind:"recent",messages:[{role:"user",text:"synthetic notification"}]}};
  const provider=createMainTranscriptProvider({scopeKey:"scope-a",providerId:"canonical",sessionId:"session-a",

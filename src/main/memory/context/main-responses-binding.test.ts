@@ -9,7 +9,7 @@ import {afterEach,expect,it,vi} from "vitest";
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 import {createMainResponsesBinding,createMainResponsesLimits,type ResponsesLimitsInput,type ResponsesSdkClient} from "./main-responses-binding";
 import {createMainContext} from "./main-context";
-import {openMemoryRepository} from "../core/repository";
+import {openMemoryRepository} from "../database/repository";
 import {createMainActorAuthority} from "../core/main-actor-authority";
 import {createMainSourceRegistry} from "../sources/source-registry";
 import {createMainPolicy} from "../policy/main-policy";

@@ -227,7 +227,7 @@ describe("stream content and interactions", () => {
     });
     it.each([false, true])("tags post-run plan cards and their timeout dismissal=%s", async (dismiss) => {
         session("plan-session", "code");
-        const plan = await import("../../agent/runtime/plan-mode");
+        const plan = await import("../../agent/tools/plan-mode");
         plan.enterPlanDiscussing("plan-session", wire.root);
         plan.markPlanWritten("plan-session");
         const file = plan.getPlanPath("plan-session");
@@ -600,7 +600,7 @@ describe("history index ownership", () => {
         session("conversation", "chat", [user("input"), { ...answer("output", ""), answersUserMessageId: "input" }]);
         wire.omitTerminal = Boolean(bare);
         wire.terminal = { status, externalEffectsMayContinue: status !== "success" };
-        const { controlledSettlement } = await import("../../agent/loop/controlled-responses");
+        const { controlledSettlement } = await import("../../agent/runtime/controlled-responses");
         wire.run.mockImplementationOnce(options => { if (controlled) {
             const settlement = controlledSettlement(options.transcriptSink), result = status === "success" ? "success" : "interrupted";
             expect(settlement.reserve(result)).toEqual(true);

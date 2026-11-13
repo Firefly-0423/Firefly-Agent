@@ -10,7 +10,7 @@ assert.equal(path.parse(cwd).root.toUpperCase(),"E:\\","E drive required");
 const output=path.join(cwd,"output","memory-b1","electron-"+Date.now()),source=path.join(output,"app-source");
 fs.mkdirSync(source,{recursive:true});
 await build({entryPoints:["scripts/verify/memory-sources/electron-entry.ts"],outfile:path.join(source,"entry.cjs"),bundle:true,platform:"node",target:"node24",format:"cjs",external:["electron"]});
-await build({entryPoints:["src/main/memory/core/worker.ts"],outfile:path.join(source,"worker.cjs"),bundle:true,platform:"node",target:"node24",format:"cjs"});
+await build({entryPoints:["src/main/memory/database/worker.ts"],outfile:path.join(source,"worker.cjs"),bundle:true,platform:"node",target:"node24",format:"cjs"});
 fs.writeFileSync(path.join(source,"package.json"),JSON.stringify({name:"firefly-source-probe",version:"0.0.0",main:"entry.cjs"}));
 const packaged=path.join(output,"win-unpacked");fs.cpSync(path.join(cwd,"node_modules","electron","dist"),packaged,{recursive:true});
 // Electron's development executable name otherwise keeps app.isPackaged false.

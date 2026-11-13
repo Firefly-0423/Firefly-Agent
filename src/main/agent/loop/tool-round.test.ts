@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { HarnessRun } from "./firefly-harness";
+import type { AgentLoopRun } from "./agent-loop";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
 import type { ToolCall } from "../../model/providers/types";
-import { DEFAULT_HARNESS_CONFIG, type AgentState, type HarnessInput } from "./types";
+import { DEFAULT_AGENT_LOOP_CONFIG, type AgentState, type AgentLoopInput } from "./types";
 import { StreamController } from "./stream-controller";
 import { TranscriptWriteError } from "./transcript-sink";
 
@@ -18,19 +18,19 @@ import { dispatchToolCall } from "./tool-dispatcher";
 import { runToolRound } from "./tool-round";
 
 const call = (id: string, name = "fixture", args = "{}"): ToolCall => ({ id, name, arguments: args });
-function fixture(extra: Partial<ToolDefinition> = {}, input: Partial<HarnessInput> = {}) {
+function fixture(extra: Partial<ToolDefinition> = {}, input: Partial<AgentLoopInput> = {}) {
   const state: AgentState = { todoItems: [], uncertainEffects: [] };
   const tool: ToolDefinition = { id: "fixture", name: "Fixture", description: "Synthetic", enabled: true,
     effectKind: "read", inputSchema: { type: "object", properties: {} }, execute: vi.fn(async () => "ok"), ...extra };
   const events = vi.fn(); const lifecycle = vi.fn(); const finished = vi.fn(); const checkpoint = vi.fn();
   const run = {
     input: { tools: [tool], runId: "run", onEvent: events, onToolLifecycle: lifecycle, onToolFinished: finished, ...input },
-    state, config: { ...DEFAULT_HARNESS_CONFIG }, rounds: 2, messages: [], toolOutputs: [], toolCallStartedAt: new Map(),
+    state, config: { ...DEFAULT_AGENT_LOOP_CONFIG }, rounds: 2, messages: [], toolOutputs: [], toolCallStartedAt: new Map(),
     streamController: new StreamController(), checkpoint, currentAssistantEntryId: "assistant-entry",
     clock: { startUserWait: vi.fn(), stopUserWait: vi.fn() },
     toolDispatchContext: { state, tools: [tool], deferOutputPersistence: true },
     askDispatchContext: { state, tools: [tool], deferOutputPersistence: true },
-  } as unknown as HarnessRun;
+  } as unknown as AgentLoopRun;
   return { run, tool, state, events, lifecycle, finished, checkpoint,
     observations: () => run.messages.map(message => JSON.parse(String(message.content))) };
 }
@@ -47,7 +47,7 @@ describe("runToolRound", () => {
   });
   it("persists the result and checkpoint before publishing committed", async () => {
     const f = fixture(); const order: string[] = [];
-    f.run.input.transcriptSink = { appendToolResult: async () => { order.push("persist"); } } as unknown as HarnessInput["transcriptSink"];
+    f.run.input.transcriptSink = { appendToolResult: async () => { order.push("persist"); } } as unknown as AgentLoopInput["transcriptSink"];
     f.checkpoint.mockImplementation(() => order.push("checkpoint"));
     f.lifecycle.mockImplementation(event => order.push(event.status));
     expect(await runToolRound(f.run, [call("a")])).toBe("completed");
@@ -56,7 +56,7 @@ describe("runToolRound", () => {
     expect(f.finished.mock.calls[0][0]).toMatchObject({ toolId: "fixture", toolCallId: "a", runId: "run", status: "success", risk: "safe", durationMs: expect.any(Number) });
   });
   it("uses a planned batch callback and refuses execution if it throws", async () => {
-    const planned = vi.fn<NonNullable<HarnessInput["onToolsPlanned"]>>(() => { throw new Error("planned persistence failed"); });
+    const planned = vi.fn<NonNullable<AgentLoopInput["onToolsPlanned"]>>(() => { throw new Error("planned persistence failed"); });
     const f = fixture({}, { onToolsPlanned: planned });
     await expect(runToolRound(f.run, [call("a"), call("b")])).rejects.toThrow(/^planned persistence failed$/);
     expect(planned.mock.calls[0][0].map((e: { toolCallId: string }) => e.toolCallId)).toEqual(["a", "b"]);
@@ -95,7 +95,7 @@ describe("runToolRound", () => {
   });
   it("halts on an uncertain non-idempotent effect and records it once", async () => {
     const f = fixture({ effectKind: "external_side_effect" });
-    f.run.input.toolContext = { runId: "context-run" } as NonNullable<HarnessInput["toolContext"]>;
+    f.run.input.toolContext = { runId: "context-run" } as NonNullable<AgentLoopInput["toolContext"]>;
     vi.mocked(dispatchToolCall).mockResolvedValueOnce({ outcome: "unknown", tool: "fixture", message: "unknown", toolSideEffect: "non_idempotent_side_effect" });
     await runToolRound(f.run, [call("a"), call("b")]);
     expect(f.state.uncertainEffects).toEqual([{ id: "context-run:a", toolCallId: "a", fingerprint: "fixture()", toolName: "fixture", message: "副作用已发起，但 Runtime 无法确认是否生效" }]);
@@ -124,7 +124,7 @@ describe("runToolRound", () => {
   });
   it.each(["persist", "checkpoint", "missing-assistant"])("fails closed at the %s boundary and preserves non-idempotent effects", async boundary => {
     const f = fixture({ effectKind: "external_side_effect" });
-    f.run.input.transcriptSink = { appendToolResult: async () => { if (boundary === "persist") throw new Error("disk full"); } } as unknown as HarnessInput["transcriptSink"];
+    f.run.input.transcriptSink = { appendToolResult: async () => { if (boundary === "persist") throw new Error("disk full"); } } as unknown as AgentLoopInput["transcriptSink"];
     if (boundary === "checkpoint") f.run.checkpointFailure = "snapshot failed";
     if (boundary === "missing-assistant") f.run.currentAssistantEntryId = undefined;
     const error = await runToolRound(f.run, [call("a")]).catch(e => e);
@@ -137,8 +137,8 @@ describe("runToolRound", () => {
   });
   it.each([true, false])("includes read-file evidence only when the full read is valid (truncated=%s)", async truncated => {
     const f = fixture({ id: "read_file" });
-    const append = vi.fn<NonNullable<HarnessInput["transcriptSink"]>["appendToolResult"]>(async () => {});
-    f.run.input.transcriptSink = { appendToolResult: append } as unknown as HarnessInput["transcriptSink"];
+    const append = vi.fn<NonNullable<AgentLoopInput["transcriptSink"]>["appendToolResult"]>(async () => {});
+    f.run.input.transcriptSink = { appendToolResult: append } as unknown as AgentLoopInput["transcriptSink"];
     const evidence = { path: "a.ts", canonicalPath: "E:/fixture/a.ts", sha256: "hash", startLine: 1, endLine: 2, totalLines: 2 };
     vi.mocked(dispatchToolCall).mockResolvedValueOnce({ outcome: "success", tool: "read_file", message: "read", output: JSON.stringify({ ...evidence, truncated }) });
     await runToolRound(f.run, [call("a", "read_file")]);

@@ -4,7 +4,7 @@ import { parseInternalId } from "../../memory/core/command-validation";
 import { canonicalJson } from "../../memory/core/repository-types";
 import type { SourceIdentity, SourceRole, SourceTrust } from "../../memory/core/source-contracts";
 import type { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
-import { createMainSourceProvider, type SourceSnapshot } from "../../memory/sources/main-source-provider";
+import { createMainSourceProvider, type SourceSnapshot } from "../../memory/core/main-source-provider";
 
 interface Options { providerId: string; store: ConversationTranscriptStore; clock?: () => number; signal?: AbortSignal }
 const denied = (): never => { throw Error("MEMORY_TASK_SOURCE_DENIED"); };

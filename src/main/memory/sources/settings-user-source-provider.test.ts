@@ -62,7 +62,7 @@ it('rechecks the settings grant after a queued mutation observer and before cano
 });
 it('close waits for a leased operation and rejects its late result',async()=>{
  const f=await fixture();await f.source.commitUserEvent(f.source.authorize(f.event),{messageId:'one',text:'I prefer bash'});
- const {requireMainSourceProvider}=await import('./main-source-provider');const provider=requireMainSourceProvider(f.source.token,'scope-a',{providerId:'synthetic',sessionId:'settings-events',messageId:'one'});
+ const {requireMainSourceProvider}=await import('../core/main-source-provider');const provider=requireMainSourceProvider(f.source.token,'scope-a',{providerId:'synthetic',sessionId:'settings-events',messageId:'one'});
  let arrive!:()=>void,release!:()=>void;const arrived=new Promise<void>(resolve=>{arrive=resolve}),held=new Promise<void>(resolve=>{release=resolve});
  const pending=provider.withLease({providerId:'synthetic',sessionId:'settings-events',messageId:'one'},async read=>{await read();arrive();await held;return 'late-result'});
  await arrived;let acknowledged=false;const closing=f.source.close().then(()=>{acknowledged=true});await Promise.resolve();expect(acknowledged).toBe(false);

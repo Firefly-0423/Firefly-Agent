@@ -6,7 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {randomUUID,randomBytes} from "node:crypto";
-import {openMemoryRepository} from "../core/repository";
+import {openMemoryRepository} from "../database/repository";
 import {createSmhFixture} from "./smh-fixture.test-support";
 import {createMainContext} from "./main-context";
 import {createMainResponsesBinding,createMainOpenRouterBoundedLimits,type ResponsesSdkClient} from "./main-responses-binding";

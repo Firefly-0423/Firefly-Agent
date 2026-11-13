@@ -13,7 +13,7 @@ import {toWindows} from './history-windows';
 import {HISTORY_EXCERPT_CONTEXT_WINDOWS,HISTORY_EXCERPT_VERSION,atomicGroups,excerptRef,excerptToolSafe,selectExcerpt,sliceExcerpt,verifyExcerpt,type ExcerptRange} from './history-excerpts';
 import {SourceLedger} from '../core/source-ledger';
 import {Suppression} from '../core/suppression';
-import {validateUnit} from '../context/token-budget';
+import {validateUnit} from '../core/token-budget';
 import {extractMaintenance} from '../policy/maintenance-extractor';
 import {FactRepository} from '../core/fact-repository';
 import {FactSupports} from '../policy/fact-supports';
@@ -22,9 +22,9 @@ import {RecallRepository,parseRecallDependencies} from '../recall/recall-reposit
 import type {RecallDependency} from '../recall/recall-contracts';
 import type {BoundSourceRef} from '../../../shared/memory-contracts';
 import type {SourceDependency} from '../../model/context/context-contracts';
-import {TranscriptLedger} from '../context/transcript-ledger';
+import {TranscriptLedger} from './transcript-ledger';
 import {createHistoryTokenizer,normalizeVector,rankHistory} from './history-ranking';
-import {historyTimeSpan,parseHistoryTemporal,type HistoryTemporalQuery} from './history-temporal';
+import {historyTimeSpan,parseHistoryTemporal,type HistoryTemporalQuery} from '../core/history-temporal';
 import type {HistoryDocument,HistoryMessage,HistorySession,HistoryPartition,HistoryDependency,HistoryExcerptRef,HistoryHitDocument,StoredHistory,HistoryResult,HistorySettings,HistoryVector,ReadonlyHistoryProvenance} from './history-contracts';
 function fail(code='MEMORY_HISTORY_INPUT_INVALID'):never {throw new Error(code)}
 const natural=(v:unknown):number=>{if(!Number.isSafeInteger(v)||(v as number)<0)fail();return v as number};

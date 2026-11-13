@@ -2,18 +2,18 @@ import { getStorageContext } from "../../base/storage/storage-context";
 import { createHash, randomUUID } from "node:crypto";
 import { createBackgroundMemoryIngressIssuer, type BackgroundMemoryPreparedRun } from "../memory-runtime/background-memory-ingress";
 import type { MainMemoryRun } from "../memory-runtime/main-memory-runtime";
-import { getHarnessRunStore, type HarnessRunStore } from "../loop/run-store";
+import { getAgentRunStore, type AgentRunStore } from "../loop/run-store";
 import type { TranscriptSink } from "../loop/transcript-sink";
-import { DEFAULT_HARNESS_CONFIG } from "../loop/types";
+import { DEFAULT_AGENT_LOOP_CONFIG } from "../loop/types";
 import type { TaskSession, TaskDelegationPresentation, TaskTranscriptMessage } from "../../../shared/task-session";
 import type { TaskSessionStore } from "../tasks/task-session-store";
 import type { TaskCharacterLease } from "../tasks/task-character-pool";
 import type { ChildSessionResult, ChildSessionParent, DelegationScope } from "./child-session-types";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
 import type { ToolContext } from "../../tooling/registry/tool-context";
-import type { HarnessConfig, HarnessResult } from "../loop/types";
+import type { AgentLoopConfig, AgentLoopResult } from "../loop/types";
 import type { ChatMessage } from "../../model/providers/types";
-import { runFireflyHarness } from "../loop/firefly-harness";
+import { runAgentLoop } from "../loop/agent-loop";
 import { projectTaskTraceEvent } from "./task-events";
 import { createTaskTraceBuffer } from "./task-trace-buffer";
 import { settleChildExecution } from "./child-run-lifecycle";
@@ -45,12 +45,12 @@ async function runChildSessionInner(input: {
   description: string;
   systemPrompt: string;
   tools: ToolDefinition[];
-  config: Partial<HarnessConfig>;
+  config: Partial<AgentLoopConfig>;
   lease: TaskCharacterLease | null;
   delegationScope?: DelegationScope;
   recoverRunId?: string;
-  runHarness?: typeof runFireflyHarness;
-  runStore?: HarnessRunStore;
+  runLoop?: typeof runAgentLoop;
+  runStore?: AgentRunStore;
   onLifecycle?: (event: TaskDelegationPresentation) => void;
 }): Promise<ChildSessionResult> {
   const { parent, store, session, lease } = input;
@@ -78,7 +78,7 @@ async function runChildSessionInner(input: {
     nickname: lease.nickname, assetFileName: lease.assetFileName,
   } : null;
   let prepared: BackgroundMemoryPreparedRun | undefined, memoryRun: MainMemoryRun | undefined, sink: TranscriptSink | undefined;
-  let runStore: HarnessRunStore | undefined, active = true, executionQuiesced = false;
+  let runStore: AgentRunStore | undefined, active = true, executionQuiesced = false;
   const appendWrites = (writes: TaskWriteEvidence[]): void => {
     const current = store.get(session.id);
     if (!current || current.childRunId !== session.childRunId) return;
@@ -127,24 +127,24 @@ async function runChildSessionInner(input: {
       });
       // A resolved Main host preparation has durably closed this exact prior run.
       if (input.recoverRunId) store.checkpoint(session.id, { recoveryRunId: null });
-      memoryRun = await prepared.openMemoryRun({ settings: { ...parent.vendorConfig, contextWindowTokens: input.config.contextWindowTokens ?? DEFAULT_HARNESS_CONFIG.contextWindowTokens },
+      memoryRun = await prepared.openMemoryRun({ settings: { ...parent.vendorConfig, contextWindowTokens: input.config.contextWindowTokens ?? DEFAULT_AGENT_LOOP_CONFIG.contextWindowTokens },
         messages: [{ role: "user", content: input.prompt }], runId: session.childRunId, conversationId: session.id,
         signal: prepared.signal, transcriptSink: prepared.transcriptSink, toolSystemContent: "", soulSystemBaseContent: input.systemPrompt,
-        timeoutMs: input.config.modelRequestTimeoutMs ?? DEFAULT_HARNESS_CONFIG.modelRequestTimeoutMs });
+        timeoutMs: input.config.modelRequestTimeoutMs ?? DEFAULT_AGENT_LOOP_CONFIG.modelRequestTimeoutMs });
       sink = memoryRun.bindSink(prepared.transcriptSink);
-      runStore = input.runStore ?? getHarnessRunStore(getStorageContext().dataRoot);
+      runStore = input.runStore ?? getAgentRunStore(getStorageContext().dataRoot);
       const fingerprint = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
       runStore.create({ conversationId: session.id, runId: session.childRunId, messages: [{ role: "user", content: input.prompt }],
         state: { todoItems: session.todoItems, uncertainEffects: session.uncertainEffects ?? [] }, request: {
           provider: parent.vendorConfig.provider, model: parent.vendorConfig.model,
-          contextWindowTokens: input.config.contextWindowTokens ?? DEFAULT_HARNESS_CONFIG.contextWindowTokens,
+          contextWindowTokens: input.config.contextWindowTokens ?? DEFAULT_AGENT_LOOP_CONFIG.contextWindowTokens,
           mode: parent.mode, promptFingerprint: fingerprint(input.systemPrompt), toolSchemaFingerprint: fingerprint(input.tools.map(tool => [tool.id, tool.inputSchema])),
           enabledToolIds: input.tools.map(tool => tool.id).sort(), workspaceRoot: parent.resolvedWorkspaceRoot,
         } });
     }
     if (presentation) input.onLifecycle?.({ ...presentation, status: "running" });
     const promptLayers = buildChildPromptLayers(parent, input.systemPrompt);
-    const result = await (input.runHarness ?? runFireflyHarness)({
+    const result = await (input.runLoop ?? runAgentLoop)({
       runId: session.childRunId, systemPrompt: promptLayers.stablePrefix, promptLayers,
       messages: parent.backgroundMemory ? [{ role: "user", content: input.prompt }] : session.messages as ChatMessage[], tools: input.tools, vendorConfig: parent.vendorConfig,
       config: input.config, initialState: { todoItems: session.todoItems, uncertainEffects: session.uncertainEffects ?? [] },
@@ -211,7 +211,7 @@ async function runChildSessionInner(input: {
   }
 }
 
-function taskStatus(result: HarnessResult): { status: "completed" | "cancelled" | "failed"; error?: { code: string; message: string } } {
+function taskStatus(result: AgentLoopResult): { status: "completed" | "cancelled" | "failed"; error?: { code: string; message: string } } {
   const terminal = result.terminal?.status;
   if (terminal === "cancelled" || result.terminateReason === "cancelled") return { status: "cancelled" };
   if (terminal === "timeout" || result.terminateReason === "timeout") {

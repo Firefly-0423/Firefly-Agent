@@ -1,3 +1,5 @@
+import type { MainMemoryRun } from "../loop/run-ports";
+export type { MainMemoryRun };
 import type { MainActorAuthority } from "../../memory/core/main-actor-authority";
 import { canonicalJson } from "../../memory/core/repository-types";
 import { readHistoryEvidence } from "../../memory/history/main-history";
@@ -13,8 +15,8 @@ import type { ChatMessage, ChatRequest, ChatResponse, ChatVendorAdapter, VendorC
 import { contextFail, type ContextBudget, type ContextFact, type ContextTransport, type ContextUnit, type PreparedRequest, type TokenCounter } from "../../model/context/context-contracts";
 import { createMainContext } from "../../memory/context/main-context";
 import type { MemoryRunAuthority, MemoryRunContext, MemoryRunGrant } from "../../memory/context/main-memory-contracts";
-import { maskContextSecrets } from "../../memory/context/source-secret-screen";
-import { requestDigest, selectBudget } from "../../memory/context/token-budget";
+import { maskContextSecrets } from "../../memory/core/source-secret-screen";
+import { requestDigest, selectBudget } from "../../memory/core/token-budget";
 import {factContextMessages as memoryMessages} from "../../memory/context/fact-context-messages";
 
 export interface MainMemoryModelBinding {
@@ -64,11 +66,6 @@ export interface MainMemoryRuntimeOptions {
   onModelExecution?: PreparedModelCallInput["onModelExecution"];
   /** Owner closes its one shared backend after every real operation has settled. */
   close?(): Promise<void>;
-}
-export interface MainMemoryRun {
-  call(input: SdkStreamRunInput): Promise<ChatResponse>;
-  bindSink(sink: TranscriptSink): TranscriptSink;
-  close(): Promise<void>;
 }
 /** Trusted Main observer allocation. No IDs or callbacks are accepted from model/IPC call DTOs. */
 export interface MainMemoryRunOptions {

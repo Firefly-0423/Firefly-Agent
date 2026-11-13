@@ -1,6 +1,6 @@
 import {createHash} from 'node:crypto';
 import {tokenizeJieba} from '../../knowledge/rag/jieba-tokenizer';
-import {parseHistoryTemporal,validateHistoryTimeSpan,type HistoryTemporalQuery,type HistoryTemporalResult,type HistoryTimeSpan} from './history-temporal';
+import {parseHistoryTemporal,validateHistoryTimeSpan,type HistoryTemporalQuery,type HistoryTemporalResult,type HistoryTimeSpan} from '../core/history-temporal';
 export interface HistoryTokenizer {readonly version:string;tokens(text:string):string[];register(words:string[]):void}
 const compare=(a:string,b:string)=>a<b?-1:a>b?1:0;
 // Restrict compatibility folding to non-expanding fullwidth ASCII/space.

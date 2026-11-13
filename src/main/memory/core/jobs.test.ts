@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import {randomBytes} from "node:crypto";
 import {afterEach,it,expect} from "vitest";
-import {openMemoryRepository} from "./repository";
+import {openMemoryRepository} from "../database/repository";
 import {createMainMemoryAuthority,type VerifiedSource} from "./main-access";
 import {MemoryService} from "./memory-service";
 const dirs:string[]=[],repos:any[]=[];

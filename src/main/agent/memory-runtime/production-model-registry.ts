@@ -5,7 +5,7 @@ import { getAdapterForConfig } from "../../model/providers";
 import { resolveTransport } from "../../model/providers/transport-detector";
 import type { VendorConfig } from "../../model/providers/types";
 import { vendorConfigFromSettings } from "../../model/providers/vendor-config";
-import { DEFAULT_HARNESS_CONFIG } from "../loop/types";
+import { DEFAULT_AGENT_LOOP_CONFIG } from "../loop/types";
 import { autoCompactTriggerTokens } from "../../../shared/context-window";
 import type { MainMemoryModelBinding } from "./main-memory-runtime";
 import { resolveMemoryCounter } from "./model-counting";
@@ -35,8 +35,8 @@ export function createProductionModelRegistry(options:Options) {
  function bind(id:string):MainMemoryModelBinding {
   const value=read(id);if(!value)return denied();
   const config=Object.freeze(value.config),transport=resolveTransport(config);
-  const reservedOutputTokens=Math.max(options.reservedOutputTokens??DEFAULT_HARNESS_CONFIG.reservedOutputTokens,transport==="anthropic"?32768:0);
-  const safetyMarginTokens=options.safetyMarginTokens??DEFAULT_HARNESS_CONFIG.safetyMarginTokens;
+  const reservedOutputTokens=Math.max(options.reservedOutputTokens??DEFAULT_AGENT_LOOP_CONFIG.reservedOutputTokens,transport==="anthropic"?32768:0);
+  const safetyMarginTokens=options.safetyMarginTokens??DEFAULT_AGENT_LOOP_CONFIG.safetyMarginTokens;
   if(!Number.isSafeInteger(reservedOutputTokens)||reservedOutputTokens<1||!Number.isSafeInteger(safetyMarginTokens)||safetyMarginTokens<0||reservedOutputTokens+safetyMarginTokens>=value.window)return denied();
   const assertCurrent=()=>{const current=read(id);if(!current||current.fingerprint!==value.fingerprint||current.revision!==value.revision)throw new Error("MEMORY_RUN_PROFILE_CHANGED")};
   // S 超过窗口的 85%（且不超过扣除预留后的可用输入）就进入摘要，不等到顶才压缩。

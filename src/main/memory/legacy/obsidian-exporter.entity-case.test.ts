@@ -38,7 +38,9 @@ describe("Obsidian export links entities regardless of letter case", () => {
 
   // The exporter must be imported before memories are added (module state is reset per test).
   async function exporter() {
-    return (await import("./obsidian-exporter")).exportMemoryToObsidianVault;
+    const { memoryStore } = await import("./memory-store");
+    const { exportMemoryToObsidianVault } = await import("./obsidian-exporter");
+    return (outputDir: string) => exportMemoryToObsidianVault(outputDir, memoryStore);
   }
 
   async function remember(content: string, ragId: string) {

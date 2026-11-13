@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AgentProfile } from "../../../shared/agent-profile";
 import { TaskSessionStore } from "../tasks/task-session-store";
 import { createAgentExecutor } from "./persistent-agent-runtime";
-import type { HarnessInput, HarnessResult } from "../loop/types";
+import type { AgentLoopInput, AgentLoopResult } from "../loop/types";
 import type { ChildSessionParent } from "./child-session-types";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
 import type { SkillEntry } from "../../knowledge/skills/types";
@@ -36,7 +36,7 @@ function setup() {
   };
   return { store: new TaskSessionStore(root), parent, read };
 }
-function complete(input: HarnessInput): Promise<HarnessResult> {
+function complete(input: AgentLoopInput): Promise<AgentLoopResult> {
   const state = { todoItems: [], uncertainEffects: [] };
   input.onCheckpoint?.({ messages: [...input.messages, { role: "assistant", content: "fixture result" }], state,
     toolOutputs: [], rounds: 1, cache: { cacheEpoch: 1, epochReason: "run_start" }, at: 1 });
@@ -49,9 +49,9 @@ describe("persistent specialist runtime", () => {
   it("isolates real dispatched results by persistent owner across workspaces and resumes", async () => {
     const { store, parent, read } = setup();
     const outputs = new FileToolOutputStore(parent.resolvedWorkspaceRoot!);
-    const contexts: NonNullable<HarnessInput["toolContext"]>[] = [];
+    const contexts: NonNullable<AgentLoopInput["toolContext"]>[] = [];
     const refs: string[] = [];
-    const runHarness = async (input: HarnessInput) => {
+    const runLoop = async (input: AgentLoopInput) => {
       contexts.push(input.toolContext!);
       const result = await dispatchToolCall({ id: "owned-read", name: read.id,
         arguments: JSON.stringify({ ownerSessionId: "forged-owner" }) }, {
@@ -62,19 +62,19 @@ describe("persistent specialist runtime", () => {
       return complete(input);
     };
     const firstExecutor = createAgentExecutor({ store, parent: { ...parent, toolOutputStore: outputs },
-      profiles: [profile], modelSettings: models, runHarness });
+      profiles: [profile], modelSettings: models, runLoop });
     const first = await firstExecutor({ agentId: profile.id, prompt: "first" });
     const sibling = { ...profile, id: "second-agent" };
     const second = await createAgentExecutor({ store,
       parent: { ...parent, resolvedWorkspaceRoot: path.join(parent.resolvedWorkspaceRoot!, "other"), toolOutputStore: outputs },
-      profiles: [sibling], modelSettings: models, runHarness })({ agentId: sibling.id, prompt: "second" });
+      profiles: [sibling], modelSettings: models, runLoop })({ agentId: sibling.id, prompt: "second" });
     await firstExecutor({ agentId: profile.id, prompt: "resume" });
     expect(contexts[0].conversationId).toBe(parent.parentConversationId);
     expect(contexts[0].ownerSessionId).toBe(first.sessionId);
     expect(contexts[1].ownerSessionId).toBe(second.sessionId);
     expect(contexts[2].ownerSessionId).toBe(first.sessionId);
     expect(contexts[2].runId).not.toBe(contexts[0].runId);
-    const fetch = (context: NonNullable<HarnessInput["toolContext"]>, resultRef: string, query?: string) =>
+    const fetch = (context: NonNullable<AgentLoopInput["toolContext"]>, resultRef: string, query?: string) =>
       dispatchToolCall({ id: "fetch", name: "read_tool_result", arguments: JSON.stringify({
         result_ref: resultRef, query, ownerSessionId: first.sessionId,
       }) }, { state: { todoItems: [], uncertainEffects: [] }, tools: [], toolContext: context, toolOutputStore: outputs });
@@ -92,11 +92,11 @@ describe("persistent specialist runtime", () => {
     const { store, parent } = setup();
     const controller = new AbortController();
     controller.abort();
-    const runHarness = vi.fn(complete);
+    const runLoop = vi.fn(complete);
     const execute = createAgentExecutor({ parent: { ...parent, signal: controller.signal }, store,
-      profiles: [profile], modelSettings: models, runHarness });
+      profiles: [profile], modelSettings: models, runLoop });
     await expect(execute({ agentId: profile.id, prompt: "fixture" })).rejects.toMatchObject({ name: "AbortError" });
-    expect(runHarness).not.toHaveBeenCalled();
+    expect(runLoop).not.toHaveBeenCalled();
     expect(store.listForParent(parent.parentConversationId)).toEqual([]);
   });
   it("injects only authorized automatic Skill bodies and inherits confirmed read scopes", async () => {
@@ -109,16 +109,16 @@ describe("persistent specialist runtime", () => {
     };
     fs.writeFileSync(skill.bodyPath, "---\nname: fixture-auto\ndescription: fixture\n---\nAuthorized fixture rules");
     skillRegistry.register(skill);
-    const runHarness = vi.fn(complete);
+    const runLoop = vi.fn(complete);
     const scopes = [{ name: "fixture", path: path.join(parent.resolvedWorkspaceRoot!, "public.txt"), sha256: "a".repeat(64), totalLines: 10, endLine: 2, partialAccepted: true }];
     try {
       const execute = createAgentExecutor({ store, parent: { ...parent, workReadScopes: scopes,
         capabilities: { mode: "code", tools: [read], toolIds: new Set([read.id]), skills: [skill], skillIds: new Set([skill.id]) } },
-        profiles: [{ ...profile, allowedSkillIds: [skill.id] }], modelSettings: models, runHarness });
+        profiles: [{ ...profile, allowedSkillIds: [skill.id] }], modelSettings: models, runLoop });
       await execute({ agentId: profile.id, prompt: "fixture" });
-      expect(runHarness.mock.calls[0][0].systemPrompt).toContain("Authorized fixture rules");
-      expect(runHarness.mock.calls[0][0].toolContext?.workReadScopes).toEqual(scopes);
-      expect(runHarness.mock.calls[0][0].allowedBuiltinToolIds).toEqual(new Set(["update_todo", "read_tool_result"]));
+      expect(runLoop.mock.calls[0][0].systemPrompt).toContain("Authorized fixture rules");
+      expect(runLoop.mock.calls[0][0].toolContext?.workReadScopes).toEqual(scopes);
+      expect(runLoop.mock.calls[0][0].allowedBuiltinToolIds).toEqual(new Set(["update_todo", "read_tool_result"]));
     } finally {
       skillRegistry.unregister(skill.id);
     }
@@ -129,65 +129,65 @@ describe("persistent specialist runtime", () => {
     const { store, parent } = setup();
     const saved = { id: "saved-reasoning", provider: "fixture", baseUrl: "http://127.0.0.1:12345", model: "fixture-model", apiKey: "",
       reasoning: { mode: "on", effort: "high" }, reasoningLevels: { efforts: ["low", "high"] } } as const;
-    const runHarness = vi.fn(complete);
-    const execute = createAgentExecutor({ parent, store, profiles: [profile], runHarness,
+    const runLoop = vi.fn(complete);
+    const execute = createAgentExecutor({ parent, store, profiles: [profile], runLoop,
       modelSettings: { modelProfiles: [structuredClone(saved) as never], agentModelProfiles: { coding: saved.id } } });
     await execute({ agentId: profile.id, prompt: "Inspect fixture" });
-    expect(runHarness.mock.calls[0][0].vendorConfig).toStrictEqual(vendorConfigFromSettings(structuredClone(saved) as never));
+    expect(runLoop.mock.calls[0][0].vendorConfig).toStrictEqual(vendorConfigFromSettings(structuredClone(saved) as never));
   });
   it("reuses one private transcript and selected model while inheriting permission boundaries", async () => {
     const { store, parent, read } = setup();
-    const runHarness = vi.fn(complete);
+    const runLoop = vi.fn(complete);
     const lifecycle = vi.fn();
-    const execute = createAgentExecutor({ parent, store, profiles: [profile], modelSettings: models, runHarness, onLifecycle: lifecycle });
+    const execute = createAgentExecutor({ parent, store, profiles: [profile], modelSettings: models, runLoop, onLifecycle: lifecycle });
     const first = await execute({ agentId: profile.id, prompt: "Inspect fixture" });
     const second = await execute({ agentId: profile.id, prompt: "Continue inspection" });
     expect(second.sessionId).toBe(first.sessionId);
     expect(second.agentId).toBe(profile.id);
     expect(store.listForParent(parent.parentConversationId)).toHaveLength(1);
-    expect(runHarness.mock.calls[1][0].messages.map(message => message.content))
+    expect(runLoop.mock.calls[1][0].messages.map(message => message.content))
       .toEqual(["Inspect fixture", "fixture result", "Continue inspection"]);
-    expect(runHarness).toHaveBeenCalledWith(expect.objectContaining({
+    expect(runLoop).toHaveBeenCalledWith(expect.objectContaining({
       tools: [read], vendorConfig: expect.objectContaining({ model: "fixture-model" }),
       config: expect.objectContaining({ contextWindowTokens: 64000 }),
       checkPermission: expect.any(Function), includeInteractiveTools: false,
       toolContext: expect.objectContaining({ allowedSkillIds: new Set() }),
     }));
     // The child asks through the parent's checker (so the parent's decision still binds it) and tags itself.
-    const childCheck = runHarness.mock.calls[0][0].checkPermission!;
+    const childCheck = runLoop.mock.calls[0][0].checkPermission!;
     expect(await childCheck("read_file", { path: "x" }, undefined, { toolCallId: "call-1" })).toBe(false);
     expect(parent.checkPermission).toHaveBeenCalledWith("read_file", { path: "x" }, undefined, expect.objectContaining({
       toolCallId: "call-1", agentId: profile.id, childRunId: expect.any(String),
     }));
-    expect(runHarness.mock.calls[0][0].systemPrompt).not.toContain("parent persona");
-    expect(runHarness.mock.calls[0][0].agentExecutor).toBeUndefined();
+    expect(runLoop.mock.calls[0][0].systemPrompt).not.toContain("parent persona");
+    expect(runLoop.mock.calls[0][0].agentExecutor).toBeUndefined();
     expect(lifecycle.mock.calls.map(([event]) => event.status)).toEqual(["running", "completed", "running", "completed"]);
   });
 
   it("rejects unknown agents and absent model routes before persistence or Harness execution", async () => {
     const { store, parent } = setup();
-    const runHarness = vi.fn(complete);
-    const execute = createAgentExecutor({ parent, store, profiles: [profile], modelSettings: {}, runHarness });
+    const runLoop = vi.fn(complete);
+    const execute = createAgentExecutor({ parent, store, profiles: [profile], modelSettings: {}, runLoop });
     await expect(execute({ agentId: "missing", prompt: "fixture" })).rejects.toThrow("AGENT_NOT_FOUND");
     await expect(execute({ agentId: profile.id, prompt: "fixture" })).rejects.toThrow("AGENT_MODEL_ROUTE_UNCONFIGURED");
-    expect(runHarness).not.toHaveBeenCalled();
+    expect(runLoop).not.toHaveBeenCalled();
     expect(store.listForParent(parent.parentConversationId)).toEqual([]);
   });
 
   it("inherits cancellation and releases the character lease after a cancelled run", async () => {
     const { store, parent } = setup();
     const controller = new AbortController();
-    const cancelled = vi.fn(async (input: HarnessInput): Promise<HarnessResult> => {
+    const cancelled = vi.fn(async (input: AgentLoopInput): Promise<AgentLoopResult> => {
       expect(input.signal?.aborted).toBe(false);
       controller.abort();
       return { finalAnswer: "", finalState: { todoItems: [], uncertainEffects: [] }, terminated: false,
         rounds: 0, terminal: { status: "cancelled", externalEffectsMayContinue: false } };
     });
     const execute = createAgentExecutor({ parent: { ...parent, signal: controller.signal }, store,
-      profiles: [profile], modelSettings: models, runHarness: cancelled });
+      profiles: [profile], modelSettings: models, runLoop: cancelled });
     const first = await execute({ agentId: profile.id, prompt: "fixture" });
     expect(first.status).toBe("cancelled");
-    const next = createAgentExecutor({ parent, store, profiles: [profile], modelSettings: models, runHarness: complete });
+    const next = createAgentExecutor({ parent, store, profiles: [profile], modelSettings: models, runLoop: complete });
     expect((await next({ agentId: profile.id, prompt: "resume fixture" })).status).toBe("completed");
   });
 });
@@ -200,7 +200,7 @@ it("late_settlement_keeps_lease_and_evidence_before_child_terminal", async () =>
   const controller = new AbortController();
   const execute = createAgentExecutor({ parent: { ...parent, executionCoordinator: coordinator, signal: controller.signal }, store,
     profiles: [profile], modelSettings: models, characterPool: { acquire: () => ({ nickname: "fixture", assetFileName: "fixture.png", release: () => { leaseReleased = true; } }) } as any,
-    runHarness: async input => {
+    runLoop: async input => {
       const scope = input.toolContext!.execution?.scope ?? { workspaceId: coordinator.workspaceId, parentRunId: parent.parentRunId, groupId: "group", agentId: profile.id, childRunId: input.runId!, toolCallId: "delegate" };
       void coordinator.runLeaf({ ...scope, toolCallId: "slow-write" }, "exclusive", input.signal, async permit => {
         entered(); await actual;
@@ -228,7 +228,7 @@ it("conflict_returns_failed_child_with_prior_writes_and_preserves_sibling_succes
   const sibling = { ...profile, id: "sibling-agent", nickname: "卡芙卡" };
   let conflictSignal: AbortSignal | undefined;
   const execute = createAgentExecutor({ parent: { ...parent, executionCoordinator: coordinator }, store,
-    profiles: [profile, sibling], modelSettings: models, runHarness: async input => {
+    profiles: [profile, sibling], modelSettings: models, runLoop: async input => {
       const execution = input.toolContext!.execution!, scope = execution.scope;
       if (scope.agentId === sibling.id) return complete(input);
       conflictSignal = input.signal;
@@ -251,9 +251,9 @@ it("conflict_returns_failed_child_with_prior_writes_and_preserves_sibling_succes
 });
 
 it("restart_preserves_unknown_without_replay_before_a_tool_result_checkpoint", async () => {
-  const { HarnessRunStore } = await import("../loop/run-store");
+  const { AgentRunStore } = await import("../loop/run-store");
   const { AgentSessionRegistry } = await import("../tasks/agent-session-registry");
-  const { store, parent } = setup(), root = parent.resolvedWorkspaceRoot!, runStore = new HarnessRunStore(root);
+  const { store, parent } = setup(), root = parent.resolvedWorkspaceRoot!, runStore = new AgentRunStore(root);
   const session = new AgentSessionRegistry(store).acquire({ agentId: profile.id, modelProfile: profile.modelProfile, savedModelProfileId: "saved-code",
     parentConversationId: parent.parentConversationId, parentRunId: "old-parent", mode: "code", resolvedWorkspaceRoot: root, description: "fixture", prompt: "write fixture" });
   const call = { id: "crashed-write", name: "write_file", arguments: JSON.stringify({ path: "unknown.txt", content: "same invocation" }) };
@@ -264,12 +264,12 @@ it("restart_preserves_unknown_without_replay_before_a_tool_result_checkpoint", a
   runStore.create({ conversationId: session.id, runId: session.childRunId, messages, state: { todoItems: [], uncertainEffects: [] },
     request: { provider: "fixture", model: "fixture-model", contextWindowTokens: 64000, mode: "code", promptFingerprint: "fixture", toolSchemaFingerprint: "fixture", workspaceRoot: root } });
   runStore.recordTool(session.childRunId, { toolCallId: call.id, toolName: call.name, sideEffect: "idempotent_mutation", status: "started" });
-  const restartedStore = new TaskSessionStore(root), restartedRunStore = new HarnessRunStore(root);
-  let writes = 0, observed: HarnessInput | undefined;
+  const restartedStore = new TaskSessionStore(root), restartedRunStore = new AgentRunStore(root);
+  let writes = 0, observed: AgentLoopInput | undefined;
   const write: ToolDefinition = { id: "write_file", name: "fixture write", enabled: true, description: "fixture", inputSchema: { type: "object" },
     effectKind: "mutation", risk: "fs-write", execute: async () => { writes++; return "unexpected replay"; } };
   const result = await createAgentExecutor({ parent: { ...parent, parentRunId: "new-parent", tools: [write] }, store: restartedStore, runStore: restartedRunStore,
-    profiles: [{ ...profile, allowedToolIds: [write.id] }], modelSettings: models, runHarness: async input => {
+    profiles: [{ ...profile, allowedToolIds: [write.id] }], modelSettings: models, runLoop: async input => {
       observed = input;
       const dispatched = await dispatchToolCall(call, { tools: input.tools, state: { todoItems: [], uncertainEffects: input.initialState?.uncertainEffects ?? [] }, toolContext: input.toolContext });
       expect(dispatched.outcome).toBe("not_executed"); return complete(input);
@@ -283,9 +283,9 @@ it("restart_preserves_unknown_without_replay_before_a_tool_result_checkpoint", a
 });
 
 it("restart_merges_the_stronger_guard_into_an_existing_legacy_task_effect", async () => {
-  const { HarnessRunStore } = await import("../loop/run-store");
+  const { AgentRunStore } = await import("../loop/run-store");
   const { AgentSessionRegistry } = await import("../tasks/agent-session-registry");
-  const { store, parent } = setup(), root = parent.resolvedWorkspaceRoot!, runs = new HarnessRunStore(root);
+  const { store, parent } = setup(), root = parent.resolvedWorkspaceRoot!, runs = new AgentRunStore(root);
   const session = new AgentSessionRegistry(store).acquire({ agentId: profile.id, modelProfile: profile.modelProfile,
     savedModelProfileId: "saved-code", parentConversationId: parent.parentConversationId, parentRunId: "old-parent",
     mode: "code", resolvedWorkspaceRoot: root, description: "fixture", prompt: "old write" });
@@ -299,8 +299,8 @@ it("restart_merges_the_stronger_guard_into_an_existing_legacy_task_effect", asyn
   let executions = 0;
   const write: ToolDefinition = { id: call.name, name: "write", description: "fixture", enabled: true, inputSchema: { type: "object" },
     effectKind: "mutation", execute: async () => { executions++; return "unexpected replay"; } };
-  const execute = createAgentExecutor({ parent: { ...parent, tools: [write] }, store: new TaskSessionStore(root), runStore: new HarnessRunStore(root),
-    profiles: [{ ...profile, allowedToolIds: [write.id] }], modelSettings: models, runHarness: async input => {
+  const execute = createAgentExecutor({ parent: { ...parent, tools: [write] }, store: new TaskSessionStore(root), runStore: new AgentRunStore(root),
+    profiles: [{ ...profile, allowedToolIds: [write.id] }], modelSettings: models, runLoop: async input => {
       const result = await dispatchToolCall({ ...call, id: "corrected", arguments: '{"path":"new"}' }, { tools: input.tools,
         state: { todoItems: [], uncertainEffects: input.initialState?.uncertainEffects ?? [] }, toolContext: input.toolContext });
       expect(result).toMatchObject({ outcome: "not_executed", category: "runtime_safety" });
@@ -320,7 +320,7 @@ it("quiesces_a_failed_child_before_draining_a_retained_operation_and_releasing_i
   const started = new Promise<void>(resolve => { entered = resolve; }), processClosed = new Promise<void>(resolve => { closeOperation = resolve; });
   const running = createAgentExecutor({ parent: { ...parent, executionCoordinator: coordinator, signal: parentController.signal }, store,
     profiles: [profile], modelSettings: models, characterPool: { acquire: () => ({ nickname: "fixture", assetFileName: "fixture.png", release: () => { leaseReleased = true; } }) },
-    runHarness: async input => {
+    runLoop: async input => {
       const execution = input.toolContext!.execution!;
       input.signal!.addEventListener("abort", () => { childAborted = true; closeOperation(); }, { once: true });
       await coordinator.runLeaf({ ...execution.scope, toolCallId: "background-process" }, "exclusive", input.signal, async permit => { coordinator.retainUntil(permit, processClosed); entered(); });
@@ -337,12 +337,12 @@ it("quiesces_a_failed_child_before_draining_a_retained_operation_and_releasing_i
 });
 
 it("shutdown_during_recovery_preserves_exact_old_target_for_the_next_continuation", async () => {
-  const { HarnessRunStore } = await import("../loop/run-store");
+  const { AgentRunStore } = await import("../loop/run-store");
   const { AgentSessionRegistry } = await import("../tasks/agent-session-registry");
   const { ConversationTranscriptStore } = await import("../../conversation/transcript/conversation-transcript-store");
   const { createTranscriptSink } = await import("../loop/transcript-sink");
   const { requireBackgroundMemoryIngress } = await import("../memory-runtime/background-memory-ingress");
-  const { store, parent } = setup(), root = parent.resolvedWorkspaceRoot!, runs = new HarnessRunStore(root), transcripts = new ConversationTranscriptStore(root);
+  const { store, parent } = setup(), root = parent.resolvedWorkspaceRoot!, runs = new AgentRunStore(root), transcripts = new ConversationTranscriptStore(root);
   const old = new AgentSessionRegistry(store).acquire({ agentId: profile.id, modelProfile: profile.modelProfile, savedModelProfileId: "saved-code", parentConversationId: parent.parentConversationId,
     parentRunId: "old-parent", mode: "code", resolvedWorkspaceRoot: root, description: "fixture", prompt: "old interrupted instruction" });
   const call = { id: "old-write", name: "write_file", arguments: '{"path":"old.txt","content":"same"}' }, messages = [{ role: "user" as const, content: "old interrupted instruction" }, { role: "assistant" as const, content: "", toolCalls: [call] }];
@@ -351,7 +351,7 @@ it("shutdown_during_recovery_preserves_exact_old_target_for_the_next_continuatio
   runs.recordTool(old.childRunId, { toolCallId: call.id, toolName: call.name, sideEffect: "idempotent_mutation", status: "started" });
   await transcripts.append(old.id, { id: old.childRunId + "-instruction", turnId: old.childRunId + "-instruction", revision: 1, kind: "user", payload: { text: "old interrupted instruction" } });
   await createTranscriptSink({ store: transcripts, conversationId: old.id, runId: old.childRunId, assistantTurnId: old.childRunId + "-assistant" }).appendAssistant({ message: messages[1], roundId: "round-1" });
-  const restartedStore = new TaskSessionStore(root), restartedRuns = new HarnessRunStore(root), controller = new AbortController(), targets: string[] = [];
+  const restartedStore = new TaskSessionStore(root), restartedRuns = new AgentRunStore(root), controller = new AbortController(), targets: string[] = [];
   let first = true;
   const host: import("../memory-runtime/background-memory-ingress").BackgroundMemoryHost = { async prepareBackgroundRun(input) {
     const context = requireBackgroundMemoryIngress(input.ingress); targets.push(input.recoverRunId!);
@@ -362,25 +362,25 @@ it("shutdown_during_recovery_preserves_exact_old_target_for_the_next_continuatio
     return { sessionId: context.sessionId, signal: context.signal, transcriptSink: sink, openMemoryRun: async () => ({ call: async () => ({ text: "fixture" }), bindSink: sink => sink, close: async () => undefined }), close: async () => undefined };
   } };
   const firstResult = await createAgentExecutor({ parent: { ...parent, backgroundMemory: host, signal: controller.signal }, store: restartedStore, runStore: restartedRuns,
-    profiles: [profile], modelSettings: models, runHarness: complete })({ agentId: profile.id, prompt: "first continuation" });
+    profiles: [profile], modelSettings: models, runLoop: complete })({ agentId: profile.id, prompt: "first continuation" });
   expect(firstResult.status).toBe("cancelled"); expect(restartedStore.get(old.id)?.recoveryRunId).toBe(old.childRunId);
   const secondResult = await createAgentExecutor({ parent: { ...parent, parentRunId: "new-parent", backgroundMemory: host }, store: restartedStore, runStore: restartedRuns,
-    profiles: [profile], modelSettings: models, runHarness: complete })({ agentId: profile.id, prompt: "next continuation" });
+    profiles: [profile], modelSettings: models, runLoop: complete })({ agentId: profile.id, prompt: "next continuation" });
   expect(targets).toEqual([old.childRunId, old.childRunId]); expect(secondResult.status).toBe("completed"); expect(restartedStore.get(old.id)?.recoveryRunId).toBeUndefined();
   const closed = (await transcripts.read(old.id)).entries.filter(entry => entry.kind === "tool_result" && entry.payload.toolCallId === call.id);
   expect(closed).toHaveLength(1); expect(closed[0].kind === "tool_result" && closed[0].payload.outcome).toBe("unknown");
 });
 
 it("rejects_a_tampered_foreign_pending_recovery_target_before_acquire_or_execution", async () => {
-  const { HarnessRunStore } = await import("../loop/run-store");
+  const { AgentRunStore } = await import("../loop/run-store");
   const { AgentSessionRegistry } = await import("../tasks/agent-session-registry");
-  const { store, parent } = setup(), runs = new HarnessRunStore(parent.resolvedWorkspaceRoot!);
+  const { store, parent } = setup(), runs = new AgentRunStore(parent.resolvedWorkspaceRoot!);
   const session = new AgentSessionRegistry(store).acquire({ agentId: profile.id, modelProfile: profile.modelProfile, savedModelProfileId: "saved-code", parentConversationId: parent.parentConversationId,
     parentRunId: "old-parent", mode: "code", resolvedWorkspaceRoot: parent.resolvedWorkspaceRoot!, description: "fixture", prompt: "fixture" });
   store.checkpoint(session.id, { status: "cancelled", recoveryRunId: "foreign-old-run" });
   runs.create({ conversationId: "foreign-private-session", runId: "foreign-old-run", messages: [{ role: "user", content: "foreign instruction" }],
     request: { provider: "fixture", model: "fixture-model", contextWindowTokens: 64000, promptFingerprint: "fixture", toolSchemaFingerprint: "fixture" } });
-  const before = store.get(session.id), runHarness = vi.fn(complete);
-  await expect(createAgentExecutor({ parent, store, runStore: runs, profiles: [profile], modelSettings: models, runHarness })({ agentId: profile.id, prompt: "Continue" })).rejects.toThrow("AGENT_RECOVERY_EVIDENCE_MISMATCH");
-  expect(store.get(session.id)).toEqual(before); expect(runHarness).not.toHaveBeenCalled();
+  const before = store.get(session.id), runLoop = vi.fn(complete);
+  await expect(createAgentExecutor({ parent, store, runStore: runs, profiles: [profile], modelSettings: models, runLoop })({ agentId: profile.id, prompt: "Continue" })).rejects.toThrow("AGENT_RECOVERY_EVIDENCE_MISMATCH");
+  expect(store.get(session.id)).toEqual(before); expect(runLoop).not.toHaveBeenCalled();
 });

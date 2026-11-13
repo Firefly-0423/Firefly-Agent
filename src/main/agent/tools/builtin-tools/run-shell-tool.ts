@@ -5,7 +5,7 @@ import type { ToolContext } from "../../../tooling/registry/tool-context";
 import { wrapWithSandbox, type SandboxWrapOutcome } from "../../sandbox/sandbox-exec";
 import { getCurrentLevel } from "../../../platform/permission/permission";
 import { policyFor, type AgentFileAccessLevel } from "../../../platform/permission/permission-policy";
-import { isPlanReadOnly } from "../../runtime/plan-mode";
+import { isPlanReadOnly } from "../plan-mode";
 import { ToolExecutionError, type ToolErrorCategory, type ToolEffectState } from "../../../tooling/registry/tool-execution-error";
 import { classifyShellEffect, isCatastrophicCommand, type ShellEffect } from "../shell-execution-policy";
 import { logger, LogTag } from "../../../base/logging/logger";

@@ -19,7 +19,7 @@ afterEach(async () => {
 async function workspace() {
   const { memoryStore: store } = await import("./memory-store");
   const { exportMemoryToObsidianVault } = await import("./obsidian-exporter");
-  return { store, exportVault: () => exportMemoryToObsidianVault(vault),
+  return { store, exportVault: () => exportMemoryToObsidianVault(vault, store),
     add: (content: string, ragId = "vector:garden") => store.addL2Memory({ content, ragId, triggerText: "garden source",
       sourceConversationId: "garden-session", isPinned: false }) };
 }

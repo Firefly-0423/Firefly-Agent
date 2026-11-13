@@ -4,15 +4,15 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { ToolCall, ChatMessage } from "../../model/providers/types";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
-import type { HarnessRun } from "./firefly-harness";
-import { getHarnessBuiltinToolSpecs } from "./builtin-tools";
-import { HarnessRunStore } from "./run-store";
-import { prepareHarnessRecovery } from "./run-recovery";
+import type { AgentLoopRun } from "./agent-loop";
+import { getAgentLoopBuiltinToolSpecs } from "./builtin-tools";
+import { AgentRunStore } from "./run-store";
+import { prepareAgentRunRecovery } from "./run-recovery";
 import { StreamController } from "./stream-controller";
 import { TimeoutClock } from "./timeout-clock";
 import { runToolRound } from "./tool-round";
 import { dispatchToolCall } from "./tool-dispatcher";
-import { DEFAULT_HARNESS_CONFIG, parseToolCallArgs, type AgentState } from "./types";
+import { DEFAULT_AGENT_LOOP_CONFIG, parseToolCallArgs, type AgentState } from "./types";
 
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
@@ -24,7 +24,7 @@ function fixture(calls: ToolCall[], options: {
 } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "firefly-tool-protocol-"));
   roots.push(root);
-  const store = new HarnessRunStore(root);
+  const store = new AgentRunStore(root);
   const state: AgentState = { todoItems: [], uncertainEffects: [{
     id: "old-effect", toolCallId: "old-call", toolName: "synthetic_write", fingerprint: "synthetic_write()", message: "unknown",
   }] };
@@ -43,11 +43,11 @@ function fixture(calls: ToolCall[], options: {
         toolName: event.toolName, sideEffect: event.toolSideEffect, status: event.status }))),
       onToolLifecycle: event => store.recordTool("protocol-run", { toolCallId: event.toolCallId,
         toolName: event.toolName, sideEffect: event.toolSideEffect, status: event.status }),
-    }, config: DEFAULT_HARNESS_CONFIG, state, messages, rounds: 0, toolOutputs: [], toolCallStartedAt: new Map(),
+    }, config: DEFAULT_AGENT_LOOP_CONFIG, state, messages, rounds: 0, toolOutputs: [], toolCallStartedAt: new Map(),
     clock: new TimeoutClock(0, 0), streamController: new StreamController(),
     askDispatchContext: context, toolDispatchContext: { ...context, deferOutputPersistence: true },
     checkpoint() { store.checkpoint("protocol-run", { messages: run.messages, state }); },
-  } as unknown as HarnessRun;
+  } as unknown as AgentLoopRun;
   return { run, store, root, executedArgs, executions: () => executions,
     observation: (id: string) => JSON.parse(String(run.messages.find(message => message.toolCallId === id)?.content)) };
 }
@@ -57,7 +57,7 @@ const answer = (decision: string) => ({ answers: [{ field: "decision", selectedV
 
 describe("confirmation through the real tool round", () => {
   it.each(["allow_repeat", "do_not_repeat"])("persists %s and retains paired results across restart", async decision => {
-    expect(getHarnessBuiltinToolSpecs().some(spec => spec.name === "confirm_uncertain_effect")).toBe(true);
+    expect(getAgentLoopBuiltinToolSpecs().some(spec => spec.name === "confirm_uncertain_effect")).toBe(true);
     const sibling = { id: "sibling", name: "synthetic_read", arguments: "{}" };
     const f = fixture([confirmation(), sibling], { request: async () => answer(decision) });
     expect(await runToolRound(f.run, [confirmation(), sibling])).toBe("completed");
@@ -65,8 +65,8 @@ describe("confirmation through the real tool round", () => {
     expect(JSON.parse(f.observation("confirm").output)).toEqual({ effectId: "old-effect", authorized: decision === "allow_repeat" });
     expect(f.observation("sibling").outcome).toBe("not_executed");
     expect(f.executions()).toBe(0);
-    const restarted = new HarnessRunStore(f.root);
-    const recovered = prepareHarnessRecovery(restarted.get("protocol-run")!, {});
+    const restarted = new AgentRunStore(f.root);
+    const recovered = prepareAgentRunRecovery(restarted.get("protocol-run")!, {});
     expect(recovered.state.uncertainEffects).toHaveLength(decision === "allow_repeat" ? 0 : 1);
     for (const id of ["confirm", "sibling"]) expect(recovered.messages.filter(message => message.toolCallId === id)).toHaveLength(1);
   });
@@ -75,7 +75,7 @@ describe("confirmation through the real tool round", () => {
     const f = fixture([confirmation()], { request: async () => { throw new Error("confirmation timeout"); } });
     await runToolRound(f.run, [confirmation()]);
     expect(f.observation("confirm")).toMatchObject({ outcome: "failure", category: "timeout" });
-    expect(new HarnessRunStore(f.root).get("protocol-run")?.state.uncertainEffects).toHaveLength(1);
+    expect(new AgentRunStore(f.root).get("protocol-run")?.state.uncertainEffects).toHaveLength(1);
   });
 
   it("rejects an unknown effectId without asking the user", async () => {
@@ -86,7 +86,7 @@ describe("confirmation through the real tool round", () => {
   });
 
   it("does not expose confirmation in a noninteractive channel", async () => {
-    expect(getHarnessBuiltinToolSpecs({ includeInteractive: false }).some(spec => spec.name === "confirm_uncertain_effect")).toBe(false);
+    expect(getAgentLoopBuiltinToolSpecs({ includeInteractive: false }).some(spec => spec.name === "confirm_uncertain_effect")).toBe(false);
     const f = fixture([confirmation()], { interactive: false, request: async () => { throw new Error("must not ask"); } });
     await runToolRound(f.run, [confirmation()]);
     expect(f.observation("confirm")).toMatchObject({ outcome: "failure", category: "not_found" });
@@ -108,7 +108,7 @@ describe("confirmation through the real tool round", () => {
     respond(answer("allow_repeat"));
     await new Promise(resolve => setImmediate(resolve));
     expect(f.run.state.uncertainEffects).toHaveLength(1);
-    expect(new HarnessRunStore(f.root).get("protocol-run")?.state.uncertainEffects).toHaveLength(1);
+    expect(new AgentRunStore(f.root).get("protocol-run")?.state.uncertainEffects).toHaveLength(1);
   });
 
   it("does not authorize when cancellation wins before the answer continuation", async () => {
@@ -161,7 +161,7 @@ describe("tool arguments at the protocol boundary", () => {
     const call = { id: "invalid", name: "synthetic_read", arguments: "null" };
     const f = fixture([call]);
     f.run.currentAssistantEntryId = "assistant";
-    f.run.input.transcriptSink = { appendToolResult: async () => { throw new Error("synthetic disk failure"); } } as unknown as NonNullable<HarnessRun["input"]["transcriptSink"]>;
+    f.run.input.transcriptSink = { appendToolResult: async () => { throw new Error("synthetic disk failure"); } } as unknown as NonNullable<AgentLoopRun["input"]["transcriptSink"]>;
     await expect(runToolRound(f.run, [call])).rejects.toThrow();
     expect(f.executions()).toBe(0);
     expect(f.run.state.uncertainEffects).toEqual([{ id: "old-effect", toolCallId: "old-call", toolName: "synthetic_write", fingerprint: "synthetic_write()", message: "unknown" }]);
@@ -175,7 +175,7 @@ describe("legacy interrupted calls with invalid arguments", () => {
     f.store.checkpoint("protocol-run", { state: { todoItems: [], uncertainEffects: [] },
       messages: [...f.run.messages, { role: "tool", toolCallId: call.id, content: '{"outcome":"unknown"}' }] });
     f.store.recordTool("protocol-run", { toolCallId: call.id, toolName: call.name, sideEffect: "non_idempotent_side_effect", status: "unknown" });
-    const recovered = prepareHarnessRecovery(new HarnessRunStore(f.root).get("protocol-run")!, {});
+    const recovered = prepareAgentRunRecovery(new AgentRunStore(f.root).get("protocol-run")!, {});
     expect(recovered.state.uncertainEffects).toEqual([]);
     expect(recovered.messages.filter(message => message.toolCallId === call.id)).toHaveLength(1);
   });
@@ -183,12 +183,12 @@ describe("legacy interrupted calls with invalid arguments", () => {
     const call = { id: "legacy", name: "synthetic_read", arguments: argumentsText };
     const f = fixture([call]);
     f.store.recordTool("protocol-run", { toolCallId: call.id, toolName: call.name, sideEffect: "non_idempotent_side_effect", status: "started" });
-    const recovered = prepareHarnessRecovery(new HarnessRunStore(f.root).get("protocol-run")!, {});
+    const recovered = prepareAgentRunRecovery(new AgentRunStore(f.root).get("protocol-run")!, {});
     expect(recovered.state.uncertainEffects).toContainEqual(expect.objectContaining({ toolCallId: "legacy", toolName: call.name, argumentsUnavailable: true }));
     expect(recovered.messages.filter(message => message.toolCallId === "legacy")).toHaveLength(1);
     expect(JSON.parse(String(recovered.messages.at(-1)?.content)).outcome).toBe("unknown_after_interruption");
     f.store.checkpoint("protocol-run", { state: recovered.state, messages: recovered.messages });
-    const restarted = new HarnessRunStore(f.root).get("protocol-run")!;
+    const restarted = new AgentRunStore(f.root).get("protocol-run")!;
     const result = await dispatchToolCall({ ...call, id: "corrected", arguments: '{"path":"corrected"}' }, { ...f.run.toolDispatchContext, state: restarted.state });
     expect(result).toMatchObject({ outcome: "not_executed", category: "runtime_safety" });
     expect(f.executions()).toBe(0);
@@ -202,7 +202,7 @@ describe("legacy interrupted calls with invalid arguments", () => {
       toolName: call.name, fingerprint: "synthetic_read()", message: "unknown" }] };
     f.store.checkpoint("protocol-run", { state, messages: [...f.run.messages, { role: "tool", toolCallId: call.id, content: '{"outcome":"unknown"}' }] });
     f.store.recordTool("protocol-run", { toolCallId: call.id, toolName: call.name, sideEffect: "non_idempotent_side_effect", status: "unknown" });
-    const recovered = prepareHarnessRecovery(new HarnessRunStore(f.root).get("protocol-run")!, {});
+    const recovered = prepareAgentRunRecovery(new AgentRunStore(f.root).get("protocol-run")!, {});
     expect(recovered.messages.filter(message => message.toolCallId === call.id)).toHaveLength(1);
     const result = await dispatchToolCall({ ...call, id: "corrected", arguments: '{"path":"new"}' }, { ...f.run.toolDispatchContext, state: recovered.state });
     expect(result).toMatchObject({ outcome: "not_executed", category: "runtime_safety" });

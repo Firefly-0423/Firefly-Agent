@@ -1,6 +1,6 @@
 import { findSafeCutPointForRetainedTokens } from "./compaction";
-import type { HarnessRunEvidence, HarnessRunSession } from "./run-store";
-import { DEFAULT_HARNESS_CONFIG, tryParseToolCallArgs, toolCallFingerprint, type UncertainEffect } from "./types";
+import type { AgentRunEvidence, AgentRunSession } from "./run-store";
+import { DEFAULT_AGENT_LOOP_CONFIG, tryParseToolCallArgs, toolCallFingerprint, type UncertainEffect } from "./types";
 import type { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
 import type { TranscriptEntry } from "../../conversation/transcript/conversation-transcript-types";
 import { classifySAssistantSettlement } from "../../conversation/transcript/conversation-transcript-settlement";
@@ -8,11 +8,11 @@ import type { ChatMessage, ToolCall } from "../../model/providers/types";
 import type { ChatMessage as StoredChatMessage } from "../../../shared/chat-types";
 import { autoCompactTriggerTokens } from "../../../shared/context-window";
 
-/** Run evidence for context assembly: identity, status and tool execution only (HarnessRunStore.evidence). */
+/** Run evidence for context assembly: identity, status and tool execution only (AgentRunStore.evidence). */
 export interface TranscriptRunReader {
-  get(runId: string): HarnessRunEvidence | null;
+  get(runId: string): AgentRunEvidence | null;
   /** The whole run, for the rare recovery path that needs its messages. */
-  session?(runId: string): HarnessRunSession | null;
+  session?(runId: string): AgentRunSession | null;
 }
 export interface MaterializedTranscript {
   throughSeq: number;
@@ -59,7 +59,7 @@ function addUncertainEffect(effects: UncertainEffect[], runId: string | undefine
 
 export function materializeTranscript(entries: TranscriptEntry[], reader: TranscriptRunReader, options: { missingRunEvidence?: "unknown" } = {}): MaterializedTranscript {
   // A run with several tool rounds is referenced by several assistant entries; read each run once per pass.
-  const read = new Map<string, HarnessRunEvidence | null>();
+  const read = new Map<string, AgentRunEvidence | null>();
   const runReader: TranscriptRunReader = { get: runId => { if (!read.has(runId)) read.set(runId, reader.get(runId)); return read.get(runId)!; } };
   const view: ActiveNode[] = [];
   const unresolved: UncertainEffect[] = [];
@@ -168,7 +168,7 @@ export async function buildModelContext(input: { store: ConversationTranscriptSt
   return { messages: context.messages.slice(boundary), messageSources: context.messageSources?.slice(boundary), uncertainEffects: context.uncertainEffects, throughSeq: persisted.throughSeq };
 }
 export function resolveTranscriptRetainTokens(contextWindowTokens: number): number {
-  const budget = { reservedOutputTokens: DEFAULT_HARNESS_CONFIG.reservedOutputTokens,
-    safetyMarginTokens: DEFAULT_HARNESS_CONFIG.safetyMarginTokens, threshold: DEFAULT_HARNESS_CONFIG.compactionThreshold };
+  const budget = { reservedOutputTokens: DEFAULT_AGENT_LOOP_CONFIG.reservedOutputTokens,
+    safetyMarginTokens: DEFAULT_AGENT_LOOP_CONFIG.safetyMarginTokens, threshold: DEFAULT_AGENT_LOOP_CONFIG.compactionThreshold };
   return autoCompactTriggerTokens(contextWindowTokens, budget);
 }

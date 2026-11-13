@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { DEFAULT_TIMEOUT_MS_BY_TYPE, VerificationRunner, type VerificationStep } from "./verification-runner";
+import { DEFAULT_TIMEOUT_MS_BY_TYPE, VerificationRunner, type VerificationStep } from "../tools/verification-runner";
 
 const nodeStep = (program: string): VerificationStep => ({
   executable: process.execPath, args: ["-e", program], cwd: process.cwd(), packageRoot: process.cwd(),

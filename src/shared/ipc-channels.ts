@@ -114,7 +114,7 @@ export const IPC = {
   EXTERNAL_SKILLS_LIST: "external-skills:list",
   EXTERNAL_SKILLS_PREPARE: "external-skills:prepare",
   // ---- HARNESS ----
-  HARNESS_GET_INTERRUPTED_RUN: "harness:get-interrupted-run",
+  AGENT_RUN_GET_INTERRUPTED: "agent-run:get-interrupted",
   // ---- LIVE2D ----
   LIVE2D_GET_WORKING: "live2d:get-working",
   LIVE2D_WORKING_CHANGED: "live2d:working-changed",

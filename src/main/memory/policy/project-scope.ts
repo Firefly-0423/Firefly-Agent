@@ -1,6 +1,6 @@
 import {createHash} from "node:crypto";
 import path from "node:path";
-import type {Attribute} from "./extractor";
+import type {Attribute} from "../core/extractor";
 
 /**
  * Project isolation for user facts.

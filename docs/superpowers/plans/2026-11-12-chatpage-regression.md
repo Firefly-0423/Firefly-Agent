@@ -363,7 +363,7 @@ npm test -- src/renderer/react/features/chat/pages/ChatPage.regression.test.ts s
 | `src/renderer/react/features/chat/pages/ChatPage.plan-lifecycle.test.ts` | 补真实批准动作、执行消息次数、补充内容及面板入口断言。保留现有严格完成身份测试。 |
 | `src/renderer/react/features/chat/components/PlanReviewPanel.test.ts` | 补实际按钮防重复提交、失败后可重试及中文状态呈现。 |
 
-**已定结论：** 完整计划交互验收先以 Code 为准；Chat 监听与面板差异单独定产品行为，Work 保持当前不启用。同一批准必须端到端只产生一条执行消息；按钮防重复之外，先核对事件稳定批准身份，若字段不足，具体契约变更仍需确认。现有 dispatchAttemptId 表示派发尝试，不能自动当作事件去重身份。
+**已定结论：** 完整计划交互验收先以 Code 为准；Chat 不进入计划模式（负责人 2026-11-13 决定，见任务 C12），Work 保持当前不启用。同一批准必须端到端只产生一条执行消息；按钮防重复之外，先核对事件稳定批准身份，若字段不足，具体契约变更仍需确认。现有 dispatchAttemptId 表示派发尝试，不能自动当作事件去重身份。
 
 **任务：**
 
@@ -388,7 +388,7 @@ npm test -- src/renderer/react/features/chat/pages/ChatPage.regression.test.ts s
   - 验证：`npm test -- src/renderer/react/features/chat/pages/interaction-events.test.ts`；任务涉及多个测试文件时，再执行本包最近测试命令。
 
 - [ ] C5 已知后台 run 发出审批
-  - 先写的测试：`src/renderer/react/features/chat/pages/ChatPage.regression.test.ts`：已知后台 run 发出审批 → 卡只属于后台会话；切换后可见，前台会话不被更新。未知 run 使用 G1 已定隔离规则；无 run ID 的合法请求另定规则。 同时断言无额外派发、意外写入或跨会话更新。
+  - 先写的测试：`src/renderer/react/features/chat/pages/ChatPage.regression.test.ts`：已知后台 run 发出审批 → 卡只属于后台会话；切换后可见，前台会话不被更新。未知 run 使用 G1 已定隔离规则；无 run ID 的请求按 G2 / G3 处理。 同时断言无额外派发、意外写入或跨会话更新。
   - 实现：补已知后台 owner 切换可见；未知 run 按 G1 已定隔离规则。
   - 验证：`npm test -- src/renderer/react/features/chat/pages/ChatPage.regression.test.ts`；任务涉及多个测试文件时，再执行本包最近测试命令。
 
@@ -399,7 +399,7 @@ npm test -- src/renderer/react/features/chat/pages/ChatPage.regression.test.ts s
 
 - [ ] C7 Code 收到 review、用户批准
   - 先写的测试：`src/renderer/react/features/chat/pages/ChatPage.plan-lifecycle.test.ts`：Code 收到 review、用户批准 → 面板内容及激活标签正确；执行消息准确为中文 i18n 文案，且只入队一次；按钮等待期间不能重复提交。 同时断言无额外派发、意外写入或跨会话更新。
-  - 实现：补真实批准动作、面板入口、中文状态和执行消息次数；核对稳定批准身份，验证同一批准端到端幂等。
+  - 实现：补真实批准动作、面板入口、中文状态和执行消息次数；沿用主进程现有审批 id 作为批准身份（负责人 2026-11-13 决定），按该 id 验证同一批准端到端只产生一条执行消息；核对发现计划审批事件缺 id 时才为它补一个。
   - 验证：`npm test -- src/renderer/react/features/chat/pages/ChatPage.plan-lifecycle.test.ts`；任务涉及多个测试文件时，再执行本包最近测试命令。
 
 - [ ] C8 用户提交计划补充
@@ -429,6 +429,11 @@ npm test -- src/renderer/react/features/chat/pages/ChatPage.regression.test.ts s
 ```powershell
 npm test -- src/renderer/react/features/chat/pages/ChatPage.regression.test.ts src/renderer/react/features/chat/pages/interaction-resolution.test.ts src/renderer/react/features/chat/pages/interaction-events.test.ts src/renderer/react/features/chat/pages/ChatPage.plan-lifecycle.test.ts src/renderer/react/features/chat/components/PlanReviewPanel.test.ts
 ```
+
+- [ ] C12 Chat 不进入计划模式
+  - 先写的测试：`src/renderer/react/features/chat/pages/conversation-run-policy.test.ts`：`shouldListenForDeferredPlanEvents` 对 `chat` 返回 false、对 `code` 返回 true、对 `work` 返回 false（表驱动）；主进程侧 Chat 运行请求进入计划的工具或事件 → 不产生计划审批事件，运行正常结束。
+  - 实现：`conversation-run-policy.ts` 只对 Code 监听延后计划事件；主进程在 Chat 运行里不暴露进入计划的入口。
+  - 验证：`npm test -- src/renderer/react/features/chat/pages src/main/agent/runtime`；`npm run check:renderer`
 
 **验收：** 本包全部任务有对应测试，最近测试通过并记录退出码、归档报告、失败和显式跳过原因；涉及界面或运行行为在开发版或打包版实际操作，在 PR 记录完整链路步骤及结果。
 
@@ -649,11 +654,11 @@ npm test -- src/renderer/react/features/chat/components/DesktopAsrButton.test.ts
 
 **回退：** 按包整体 revert F 的合并提交（施工时记录真实 SHA）；测试与文档可独立回退，不迁移产品数据。若另附已复现生产修复，修复及复现测试同一独立变更；回退不删除失败证据、不削弱已有断言。
 
-### 施工包 G：未知 run 审批归属修复
+### 施工包 G：审批归属修复（未知 run、无 run ID）
 
 依赖：施工包 B
 
-**改动文件：** 共 3 个（测试 2 个，非测试 1 个）。
+**改动文件：** G1 共 3 个（测试 2 个，非测试 1 个）；G2 涉及 `agent/runtime/firefly-agent.ts`、`agent/runtime/adapter/tool-runtime.ts` 及其测试；G3 涉及 `interaction-owner.ts`、`ChatPage.tsx` 的审批投递和 `platform/toast` 的审批提醒及其测试。非测试文件合计不超过 8 个。
 
 | 文件 | 改动 |
 | --- | --- |
@@ -670,7 +675,16 @@ npm test -- src/renderer/react/features/chat/components/DesktopAsrButton.test.ts
   - 实现：在 `interactionOwner(activeRuns, runId, visibleSessionId)` 收紧已携带未知 run 的分支，保持函数签名，经真实页面 deliver 链路验证无误投；无需改公共 IPC 类型。
   - 验证：`npm test -- src/renderer/react/features/chat/pages/interaction-owner.test.ts src/renderer/react/features/chat/pages/ChatPage.regression.test.ts`；`npm run check:renderer`。
 
-**验收：** 先复现原回退行为，再证明未知 run 不误投、已知后台 owner 不变；无 run ID 未决规则不得冒充通过标准。
+- [ ] G2 所有审批请求都带运行 ID
+  - 先写的测试：`src/main/agent/runtime/firefly-agent.test.ts`、`src/main/agent/runtime/adapter/tool-runtime.test.ts`：Chat 工具调用、Work / Code 运行、伙伴子运行各发起一次需要审批的工具调用 → 断言 `requestApproval` 收到的请求都带非空 `runId`，且等于该运行的 ID；缺少运行上下文时不发出审批卡、工具结果为明确的失败码，不执行工具。
+  - 实现：逐条找出调用 `checkPermission` 时 `runId` 可能为空的路径（如 `agent/runtime/firefly-agent.ts` 的 `runId: ctx?.runId`），在运行入口把运行 ID 传到工具上下文；不改审批卡的 IPC 形状。
+  - 验证：`npm test -- src/main/agent/runtime src/main/platform/permission`；`npx tsc -p tsconfig.main.json --noEmit`
+- [ ] G3 仍缺运行 ID 的审批卡走独立提醒
+  - 先写的测试：`src/renderer/react/features/chat/pages/interaction-owner.test.ts`、`src/renderer/react/features/chat/pages/ChatPage.regression.test.ts`：收到不带 `runId` 的审批卡 → 不投到当前会话或任何邻会话；提醒窗口收到一条审批提醒，显示工具名和来源；在提醒里批准或拒绝后按审批 id 结算一次，重复点击不再结算。
+  - 实现：`interactionOwner` 对没有 `runId` 的请求返回“无会话归属”，ChatPage 不渲染这张卡；`platform/toast` 的审批提醒承担展示与批准。
+  - 验证：`npm test -- src/renderer/react/features/chat/pages src/main/platform/toast`；`npm run check:renderer`；真机：在 A 会话发起运行后切到 B 会话，构造无运行 ID 的审批，确认卡只出现在提醒窗口
+
+**验收：** 先复现原回退行为，再证明未知 run 不误投、已知后台 owner 不变；所有审批请求带运行 ID（G2）；仍缺运行 ID 的卡只在提醒窗口出现（G3）。
 
 **回退：** 按包整体 revert G 的合并提交（施工时记录实际 SHA）；不产生或迁移数据。回退恢复误投风险，须保留失败证据并阻止该项发布验收通过。
 
@@ -708,6 +722,7 @@ npm test -- src/renderer/react/features/chat/components/DesktopAsrButton.test.ts
 - [ ] C9：正确身份完成；缺失或错误身份完成 → 只有匹配 thread、run、路径及成功状态的计划完成；其余不改变当前或后台计划。
 - [ ] C10：run 结束后到达 review/supplement，或页面切换 → 按实际持久监听范围处理；不依赖已移除的 run 订阅，不将 A 的计划显示或提交到 B。
 - [ ] C11：批准后模型服务不可用或入队失败 → 对应批准尝试进入失败状态；无假 executing/completed；不覆盖后来批准的尝试。
+- [ ] C12：Chat 不监听计划事件、Chat 运行不产生计划审批事件；Code 仍监听，Work 仍不监听。
 - [ ] D1：冷启动使用三种合法上次模式，或 URL 指向会话 → 实际选中模式、会话、消息和列表一致；迟到初始化不能覆盖后来用户选择。
 - [ ] D2：快速选择 A→B→C，响应逆序返回 → 最终只显示 C 的消息、标题、草稿、附件和工作区；A/B 不能抢回选中状态。
 - [ ] D3：欢迎页暂选模型、工作区后首次发送 → 创建及绑定到正确会话；模型不丢失；绑定失败时不越过失败启动运行。
@@ -729,6 +744,8 @@ npm test -- src/renderer/react/features/chat/components/DesktopAsrButton.test.ts
 - [ ] E11：创建预览后卸载 → 对应 object URL 全部释放，不重复撤销无关资源。
 - [ ] A10：持久化失败需额外验证：写入拒绝时不能假报完成，也不能丢失已确认的旧记录。失败分类以复现结果为准，不提前声称现有实现有缺陷。
 - [ ] G1：已携带未知 run 不误投当前会话；已知 owner 不变，不自动 resolve、不执行受保护操作、不改邻会话。
+- [ ] G2：Chat、Work、Code 与伙伴子运行发起的审批请求都带运行 ID；缺少运行上下文时不发审批卡、不执行工具。
+- [ ] G3：不带运行 ID 的审批卡不投到任何会话，只在提醒窗口出现；按审批 id 只结算一次。
 
 ### 真机验证步骤
 
@@ -861,8 +878,8 @@ Remove-Item Env:FIREFLY_ISOLATION_ROOT
 
 > **负责人决定（2026-11-12）**：本节推荐选项全部采纳；1.2.0 正式数据目录为 `%APPDATA%\Firefly-1.2.0`。
 
-仍真正未决的项（原推荐已明确保留，不重新询问已定结论）：
+负责人 2026-11-13 对剩余三项的决定：
 
-- 无 run ID 的合法审批请求的归属规则；已携带未知 run 不回退当前会话已定，见 G1。
-- 同一批准端到端幂等已定；C7 核对事件是否具有稳定批准身份，若现有字段不足，具体契约变更需确认，不能臆造标识。
-- Chat 事件监听与完整计划面板差异的后续产品行为；本主题先验现有监听，完整计划交互以 Code 为准，Work 不启用已定。扩大 Chat 面板范围另立需求。
+- **无运行 ID 的审批**：主进程补齐所有审批请求的运行 ID（逐条找出不带 `runId` 调用 `checkPermission` 的路径，例如 `agent/runtime/firefly-agent.ts` 中 `runId: ctx?.runId` 在没有运行上下文时为空）；仍缺运行 ID 的审批卡不投到任何会话，改在独立提醒窗口显示来源并由用户批准。已携带但无法归属的运行 ID 不回退当前会话（G1）。
+- **批准身份**：沿用主进程现有的审批 id（`permission.ts` 生成，进程内唯一），在“批准 → 执行消息”链路上按该 id 去重并补测试；只有核对发现计划审批事件确实没有 id 时，才为它补一个，不新增持久化批准身份。
+- **Chat 的计划**：Chat 不进入计划模式。`conversation-run-policy.ts` 的 `shouldListenForDeferredPlanEvents` 不再对 Chat 返回 true，并在主进程保证 Chat 运行不会触发计划流程；完整计划交互只在 Code（Work 维持不启用）。

@@ -152,18 +152,18 @@ describe("Todo checkpoints are local recovery evidence", () => {
     const started = runtime.startSessionTodos(previous, "owner", "new", 30);
     expect(started.owner).toStrictEqual({ runId: "new", todos: [], updatedAt: 30 });
     expect(started.neighbour).toBe(previous.neighbour);
-    expect(runtime.mergeHarnessTodosForSession(started, "owner", "old", [{ id: "old", content: "Review obsolete instructions", status: "pending" }], 40)).toBe(started);
+    expect(runtime.mergeAgentLoopTodosForSession(started, "owner", "old", [{ id: "old", content: "Review obsolete instructions", status: "pending" }], 40)).toBe(started);
   });
   test("accepted Todos keep their order and timestamp without replacing another session", () => {
     const previous: runtime.TodoStateBySession = { neighbour: { runId: "run-b", todos: [{ id: "b-1", content: "Inspect neighbour B", status: "pending" }], updatedAt: 10 } };
     const items = [{ id: "1", content: "Complete the review", status: "completed" }, { id: "2", content: "Trace cancellation", status: "in_progress" }, { id: "3", content: "Discard previous investigation", status: "cancelled" }];
-    const merged = runtime.mergeHarnessTodosForSession(previous, "owner", "run-a", items, 20);
+    const merged = runtime.mergeAgentLoopTodosForSession(previous, "owner", "run-a", items, 20);
     expect(merged.neighbour).toBe(previous.neighbour);
     expect(merged.owner).toStrictEqual({ runId: "run-a", todos: items.slice(0, 2), updatedAt: 20 });
   });
   test("cancelled, empty-id and unsupported Todo records do not enter presentation state", () => {
     const kept = { id: "ok", content: "Retain this valid step", status: "pending" };
-    const result = runtime.mergeHarnessTodosForSession({}, "owner", "run-a", [kept, { id: "cancelled", content: "A cancelled step", status: "cancelled" }, { id: "", content: "Missing identifier", status: "pending" }, { id: "unknown", content: "Unsupported task state", status: "blocked" }], 20);
+    const result = runtime.mergeAgentLoopTodosForSession({}, "owner", "run-a", [kept, { id: "cancelled", content: "A cancelled step", status: "cancelled" }, { id: "", content: "Missing identifier", status: "pending" }, { id: "unknown", content: "Unsupported task state", status: "blocked" }], 20);
     expect(result.owner.todos).toStrictEqual([kept]);
   });
   test("an interrupted task describes Todo progress and tool facts without claiming side effects", () => {

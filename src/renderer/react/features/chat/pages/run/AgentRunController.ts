@@ -19,7 +19,7 @@ import type { AguiApi, AguiEvent, CandidateTextEventValue, ChatStoreApi } from "
 import { normalizeWeatherData, parseSessionRunActiveError, stageForStep, toUiMessages } from "../chat-page-normalizers";
 import { RunEventGate } from "../run-event-gate";
 import { FrameCoalescer, PacedTextReveal, SMOOTH_REVEAL_TICK_MS, SmoothTextRevealQueue } from "../message-reveal";
-import { buildTodoRecoveryContext, mergeHarnessTodosForSession, startSessionTodos, type TodoStateBySession } from "../session-runtime-state";
+import { buildTodoRecoveryContext, mergeAgentLoopTodosForSession, startSessionTodos, type TodoStateBySession } from "../session-runtime-state";
 
 const prefersReducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 type CheckpointPhase = "running" | "waiting_user" | "terminal";
@@ -828,11 +828,11 @@ export class AgentRunController {
         const entries = (event.value as { items?: Array<{ id: string; content: string; status: string }> } | null | undefined)?.items;
         if (!Array.isArray(entries)) break;
         const owner = event.runId ?? this.ports.registries.activeRuns.current[this.request.sessionId]?.runId;
-        const normalized = mergeHarnessTodosForSession({
+        const normalized = mergeAgentLoopTodosForSession({
           [this.request.sessionId]: { runId: owner, todos: this.todos, updatedAt: Date.now() },
         }, this.request.sessionId, owner, entries);
         this.todos = normalized[this.request.sessionId]?.todos ?? this.todos;
-        this.ports.host.updateTodos(this.request.sessionId, (previous) => mergeHarnessTodosForSession(previous, this.request.sessionId, owner, entries));
+        this.ports.host.updateTodos(this.request.sessionId, (previous) => mergeAgentLoopTodosForSession(previous, this.request.sessionId, owner, entries));
         void this.checkpointRun("running", true);
         break;
       }

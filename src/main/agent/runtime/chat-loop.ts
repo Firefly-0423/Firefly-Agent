@@ -2,14 +2,14 @@ import { stripLeakedChatTimeContext } from "../../model/text/chat-time-context";
 import { ChatTimeStreamPrefixFilter } from "../../model/text/chat-time-stream-filter";
 import { recordUsage, recordRequest, recordModelCall } from "../../base/storage/token-usage-store";
 import { AgentRuntimeError } from "../../model/errors/agent-runtime-error";
-import type { AgentLoopSettings, AgentLoopEvent, AgentLoopResult } from "./firefly-agent";
+import type { RunModelSettings, RunEvent, RunResult } from "./firefly-agent";
 import type { ChatMessage, ChatRequest, ChatVendorAdapter, ChatResponse, VendorConfig } from "../../model/providers/types";
 import { vendorConfigFromSettings } from "../../model/providers/vendor-config";
 import { streamChatWithSdk } from "../../model/providers/sdk-stream/runtime";
 import type { UnifiedStreamDelta } from "../../model/providers/sdk-stream/types";
 import { getTimeoutSettings } from "../../platform/settings/timeout-manager";
-import { compressConversation } from "./context-manager";
-import { buildContextUsageSnapshot, promptTokensOf } from "./context-usage";
+import { compressConversation } from "../loop/context-manager";
+import { buildContextUsageSnapshot, promptTokensOf } from "../loop/context-usage";
 import { isExplicitStreamUnsupported } from "../../model/providers/stream-support";
 import { composePromptLayers } from "../../model/prompt/prompt-layers";
 import type { TranscriptSink } from "../loop/transcript-sink";
@@ -22,14 +22,14 @@ export interface ChatLoopOptions {
   fallbackRevealIntervalMs?: number;
   signal?: AbortSignal;
   recordUsage?: (input: number, output: number, calls: number, cachedInput?: number, cacheCreation?: number) => void;
-  onEvent?: (event: AgentLoopEvent) => void;
+  onEvent?: (event: RunEvent) => void;
   imageCaptionFallback?: () => Promise<ChatMessage[]>;
   timeoutMs: number;
   runtimeContext?: string;
   soulSystemBaseContent: string;
   messages: ChatMessage[];
   adapter: ChatVendorAdapter;
-  settings: AgentLoopSettings;
+  settings: RunModelSettings;
   memoryRun?: MainMemoryRun;
 }
 class StreamUnavailableError extends Error {
@@ -59,7 +59,7 @@ function stripToolProtocol(text: string): string {
     .replace(/\[tool_call\][\s\S]*?\[\/tool_call\]/gi, "").replace(/<invoke\b[^>]*>[\s\S]*?<\/invoke>/gi, "").trim();
 }
 
-export async function runChatLoop(options: ChatLoopOptions): Promise<AgentLoopResult> {
+export async function runChatLoop(options: ChatLoopOptions): Promise<RunResult> {
   if (options.memoryRun && options.transcriptSink) options = { ...options, transcriptSink: options.memoryRun.bindSink(options.transcriptSink) };
   const began = Date.now();
   const account = options.recordUsage ?? ((input, output, calls, cachedInput, cacheCreation) => recordUsage(input, output, calls, cachedInput, options.settings.model, cacheCreation));

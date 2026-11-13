@@ -1,6 +1,6 @@
 import {it,expect} from 'vitest';
 import {createHistoryTokenizer,rankHistory} from './history-ranking';
-import {historyTimeSpan} from './history-temporal';
+import {historyTimeSpan} from '../core/history-temporal';
 const doc=(id:string,text:string,start:number|null=null,end=start)=>({id,text,timeSpan:start===null?null:{start,end}});
 const ids=(result:ReturnType<typeof rankHistory>)=>result.items.map(item=>item.id);
 it('normalizes fullwidth identifier spelling only in the search index',()=>{

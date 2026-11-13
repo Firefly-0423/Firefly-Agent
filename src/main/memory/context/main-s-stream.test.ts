@@ -25,7 +25,7 @@ vi.mock("electron",()=>({app:{getPath:()=>{throw Error("PRODUCT_DATA_FORBIDDEN")
 vi.mock("../../platform/settings/timeout-manager",()=>({getTimeoutSettings:()=>({chatRequestTimeout:0})}));
 vi.mock("../../agent/runtime/build-options",()=>({buildAgentRunOptions:vi.fn(async()=>({options:{settings:{provider:"ChatGPT（OpenAI）",baseUrl:"https://api.openai.com/v1",model:"fixture-model",apiKey:""},messages:[],conversationId:"session-a",executionMode:"chat",tools:[],timeoutMs:0,soulSystemBaseContent:"fixed",toolSystemContent:""},latestUserText:"synthetic user"})),onAgentRunFinished:vi.fn()}));
 vi.mock("../../agent/runtime/chat-loop",()=>({runChatLoop:()=>{throw Error("LEGACY_CHAT_FORBIDDEN")}}));
-vi.mock("../../agent/runtime/harness-adapter",()=>({runHarnessWithAdapter:()=>{throw Error("LEGACY_HARNESS_FORBIDDEN")}}));
+vi.mock("../../agent/runtime/agent-loop-adapter",()=>({runAgentLoopWithAdapter:()=>{throw Error("LEGACY_HARNESS_FORBIDDEN")}}));
 afterEach(()=>{vi.restoreAllMocks();vi.unstubAllGlobals();setVendorRuntimeSettingsGetter(()=>({}))});
 const response=(text="hello world")=>({id:"resp-synthetic",status:"completed",output:[{id:"msg-synthetic",type:"message",role:"assistant",status:"completed",content:[{type:"output_text",text,annotations:[]}]}]});
 const normal=()=>{
@@ -318,7 +318,7 @@ it("the next real controlled turn reads the preceding sink-written canonical rep
 });
 
 it.each(["", "bad\nentry", "bad\u0000entry", "bad\u007fentry", "x".repeat(1025)])("provenance rejects malformed event IDs without weakening private memory IDs: %j",async id=>{
- const {parseTranscriptProvenance}=await import("./main-transcript-provider"),{parseInternalId}=await import("../core/command-validation");
+ const {parseTranscriptProvenance}=await import("../history/main-transcript-provider"),{parseInternalId}=await import("../core/command-validation");
  expect(()=>parseTranscriptProvenance([{entryId:id,turnId:"ui:u1",seq:1,occurredAt:1000,role:"user"}])).toThrow("MEMORY_CONTEXT_INPUT_INVALID");
  expect(()=>parseInternalId("run-s:assistant:s-response")).toThrow("MEMORY_INPUT_INVALID");
 });

@@ -2,10 +2,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { runFireflyHarness } from "../loop/firefly-harness";
+import { runAgentLoop } from "../loop/agent-loop";
 import { createBackgroundMemoryIngressIssuer } from "../memory-runtime/background-memory-ingress";
 import { toolRegistry, type ToolDefinition } from "../../tooling/registry/tool-registry";
-import type { HarnessEvent } from "../loop/types";
+import type { AgentLoopEvent } from "../loop/types";
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import { afterAll, afterEach, expect, it, vi } from "vitest";
 // Real SQLite / filesystem integration cases: the 5 s default is too tight on CI runners, so this file allows 30 s. Other files keep the default.
@@ -16,7 +16,7 @@ import { createSmhFixture } from "../../memory/context/smh-fixture.test-support"
 import { createMainDefaultMemory } from "../memory-runtime/main-default-memory";
 import { createActiveChatTargetRegistry } from "../../platform/interaction/active-chat-target";
 import { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
-import { HarnessRunStore } from "../loop/run-store";
+import { AgentRunStore } from "../loop/run-store";
 import { TaskSessionStore } from "../tasks/task-session-store";
 import { createAgentExecutor } from "./persistent-agent-runtime";
 import { scheduleToolCalls } from "../loop/tool-call-scheduler";
@@ -56,7 +56,7 @@ async function fixture(handler: (body: Record<string, unknown>, res: ServerRespo
   });
   await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
   const port = (server.address() as { port: number }).port;
-  const smh = createSmhFixture(root, { clock: Date.now }), transcripts = new ConversationTranscriptStore(root), store = new TaskSessionStore(root), runStore = new HarnessRunStore(root);
+  const smh = createSmhFixture(root, { clock: Date.now }), transcripts = new ConversationTranscriptStore(root), store = new TaskSessionStore(root), runStore = new AgentRunStore(root);
   const model = { id: "synthetic-saved-profile", provider: "OpenRouter", baseUrl: `http://127.0.0.1:${port}/v1`, model: "synthetic-model", apiKey: "synthetic-no-account", explicitTransport: "openai" as const, contextWindowTokens: 128000 };
   const settings = { ...model, modelProfiles: [model], contextWindowTokens: 128000, defaultModelProfileId: model.id, chatRequestTimeoutSec: 5, agentModelProfiles: { coding: model.id } } as ModelSettings;
   const memory = createMainDefaultMemory({ getChatWindow: () => null, targets: createActiveChatTargetRegistry(), getSession: () => null, listSessionIds: () => [],
@@ -193,10 +193,10 @@ it("parent_harness_delegation_bridge_preserves_real_prior_writes_and_failed_chil
     userTurnId: parentRunId + "-instruction", assistantTurnId: parentRunId + "-assistant", instructionText: instruction });
   const memoryRun = await prepared.openMemoryRun({ settings: f.model, runId: parentRunId, conversationId: "synthetic-parent", signal: prepared.signal,
     transcriptSink: prepared.transcriptSink, messages: [{ role: "user", content: instruction }], toolSystemContent: "", soulSystemBaseContent: "Synthetic parent", timeoutMs: 5000 });
-  const events: HarnessEvent[] = [];
+  const events: AgentLoopEvent[] = [];
   const vendorConfig = { provider: f.model.provider, model: f.model.model, baseUrl: f.model.baseUrl, apiKey: f.model.apiKey, explicitTransport: f.model.explicitTransport };
   try {
-    const parent = await runFireflyHarness({ runId: parentRunId, systemPrompt: "Synthetic parent", messages: [{ role: "user", content: instruction }],
+    const parent = await runAgentLoop({ runId: parentRunId, systemPrompt: "Synthetic parent", messages: [{ role: "user", content: instruction }],
       tools: [write], vendorConfig, config: { maxParallelToolCalls: 2, totalTimeoutMs: 5000 }, memoryRun, transcriptSink: memoryRun.bindSink(prepared.transcriptSink),
       signal: prepared.signal, includeInteractiveTools: false, checkPermission: async () => true, agentExecutor: f.execute, agentDefinitions: f.profiles,
       toolContext: { userQuery: instruction, conversationId: "synthetic-parent", runId: parentRunId, resolvedWorkspaceRoot: f.root, mode: "code", permissionMode: "allow_all", fileAccessLevel: "full",

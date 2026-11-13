@@ -13,13 +13,18 @@
 - 不能引用更高的层，类型引用也不行。上层的东西要用时，让上层在启动时传进来（函数或接口），或者把共用类型下沉。
 - 规则由 `src/main/layering.test.ts` 检查，层级表在 `src/main/layers.json`。没有例外清单：出现越层引用测试就失败。
 
+## 层内顺序
+
+`src/main/layers.json` 规定了本层子模块的顺序（低 → 高）：`core` → `shadow` → `sources` → `policy` → `recall` → `history` → `context` → `database` → `legacy`。低的模块不能引用高的模块，同一组内可以互相引用；由 `src/main/layering.test.ts` 检查。
+
 ## 模块
 
 | 目录 | 职责 |
 |---|---|
 | `context/` | 上下文仓库、预算、附件投影、会话权威等记忆侧的上下文能力。把记忆接进一次运行的部分在 `agent/memory-runtime`。 |
-| `core/` | 记忆库核心：仓库、事务、加密、worker。最底层，不引用其他记忆子模块（存量违规见清单）。 |
-| `history/` | 历史（H）库：读取、索引、排序。 |
+| `core/` | 记忆库核心：事务、加密、记录编解码、worker 客户端，以及各子模块共用的小件（预算、敏感信息筛查、来源提供者、时间解析、上下文归属）。最底层，不引用其他记忆子模块。 |
+| `database/` | 记忆数据库的入口：把各子库聚合成一个仓库（`repository.ts`），以及数据库 worker 线程（`worker.ts`，由 `core/worker-client.ts` 按路径启动）。 |
+| `history/` | 历史（H）库：读取、索引、排序；原生历史来源、记录账本。 |
 | `legacy/` | 早期记忆库与 Obsidian 导出；通过 `rag-recall-source.ts` 把自己登记给检索模块。 |
 | `policy/` | 事实与偏好的提取和裁决策略。 |
 | `recall/` | 召回与事实选择。 |

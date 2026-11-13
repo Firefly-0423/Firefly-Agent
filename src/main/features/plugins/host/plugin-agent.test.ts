@@ -20,7 +20,7 @@ function runner(deadline?: AbortSignal) {
     terminated: false, rounds: 2 }));
   const build = vi.fn(async () => runtime());
   const run = createPluginAgentRunner({ pluginId: "garden-bot", pluginSignal: new AbortController().signal,
-    userDataPath: "E:/garden-agent-fixture", agentRuntime: { buildOptions: build } as never, runHarness: harness as never,
+    userDataPath: "E:/garden-agent-fixture", agentRuntime: { buildOptions: build } as never, runLoop: harness as never,
     ...(deadline ? { createDeadline: () => deadline } : {}) });
   return { run, harness, build };
 }

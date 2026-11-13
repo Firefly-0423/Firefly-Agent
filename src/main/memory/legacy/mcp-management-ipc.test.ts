@@ -23,7 +23,6 @@ vi.mock("../../knowledge/skills", () => ({ listSkillsForUi: vi.fn(), setSkillEna
 vi.mock("../../platform/windows/window-state", () => ({ reactChatWindow: null, sidebarWindow: null, get settingsWindow() { return mocks.window; }, stickerManagerWindow: null }));
 vi.mock("./obsidian-exporter", () => ({ exportMemoryToObsidianVault: vi.fn(), syncToBoundVault: vi.fn() }));
 vi.mock("./obsidian-vault-config", () => ({ loadObsidianVaultConfig: vi.fn(), saveObsidianVaultConfig: vi.fn(), unbindVault: vi.fn() }));
-vi.mock("./obsidian-importer", () => ({ startVaultWatcher: vi.fn(), stopVaultWatcher: vi.fn() }));
 
 import { registerMemoryUserToolIpc } from "../../features/memory/memory-user-ipc";
 

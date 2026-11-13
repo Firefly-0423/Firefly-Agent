@@ -3,7 +3,7 @@ import {randomUUID} from "node:crypto";
 import {parseInternalId} from "./command-validation";
 import {parseSourceIdentity} from "./source-ledger";
 import type {SourceIdentity} from "./source-contracts";
-import {requireMainSourceProvider} from "../sources/main-source-provider";
+import {requireMainSourceProvider} from "./main-source-provider";
 export interface MainActorContext {access:object;adapter:object;scopeKey:string;actorKey:string;providerId:string;sessionId:string;sessionMode:"persistent"|"temporary";
  /** Live project binding of this session (a workspace key). Read at each use; undefined means global only. */
  project?:()=>string|undefined}
