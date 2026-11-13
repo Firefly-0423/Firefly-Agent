@@ -48,7 +48,7 @@ it("imports edited exported notes and replaces their vectors", async () => {
   const { store, entry } = await seeded();
   const { exportMemoryToObsidianVault } = await import("./obsidian-exporter");
   const { importL2File } = await import("./obsidian-importer");
-  await exportMemoryToObsidianVault(vault);
+  await exportMemoryToObsidianVault(vault, store);
   const target = join(vault, "记忆", `${entry.id}.md`);
   expect(existsSync(target)).toBe(true);
   writeFileSync(target, note(entry.id, "Plants now grow in the shade"));
@@ -62,7 +62,7 @@ it("imports edited exported notes and replaces their vectors", async () => {
 });
 it("leaves identical exported content untouched", async () => {
   const { store, entry } = await seeded();
-  await (await import("./obsidian-exporter")).exportMemoryToObsidianVault(vault);
+  await (await import("./obsidian-exporter")).exportMemoryToObsidianVault(vault, store);
   const target = join(vault, "记忆", `${entry.id}.md`);
   const original = readFileSync(target, "utf8");
   expect(await (await import("./obsidian-importer")).importL2File(target)).toEqual({ id: entry.id, ok: true, changed: false });

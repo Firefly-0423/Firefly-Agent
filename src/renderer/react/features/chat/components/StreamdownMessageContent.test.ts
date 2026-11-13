@@ -13,7 +13,7 @@ vi.mock("./MermaidBlock", () => ({
     React.createElement("div", { "data-chart": streaming ? "pending" : "ready" }),
 }));
 vi.mock("./SvgCardBlock", () => ({ SvgCardBlock: () => null }));
-import { FileLinkContext, MessageStreamingContext } from "./ChatMessageList";
+import { FileLinkContext, MessageStreamingContext } from "./message-contexts";
 import { StreamdownMessageContent } from "./StreamdownMessageContent";
 
 function display(content: string, streaming = false, workspaceRoot?: string) {

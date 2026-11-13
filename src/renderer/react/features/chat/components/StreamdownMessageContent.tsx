@@ -3,7 +3,7 @@ import { CodeHighlighter } from "@ant-design/x";
 import { createMathPlugin } from "@streamdown/math";
 import { Streamdown, defaultRehypePlugins, type Components, type ControlsConfig } from "streamdown";
 import type { PluggableList } from "unified";
-import { FileLinkContext, MessageStreamingContext } from "./ChatMessageList";
+import { FileLinkContext, MessageStreamingContext } from "./message-contexts";
 import { codeHighlightTheme } from "./code-highlight-theme";
 import { MermaidBlock } from "./MermaidBlock";
 import { SvgCardBlock } from "./SvgCardBlock";

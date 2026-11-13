@@ -142,9 +142,9 @@ class MemoryStoreManager {
     writeMemoryFile(file, doc)
     this.cache = doc
     // 记忆已变更，通知 Obsidian 绑定做防抖同步；从 Obsidian 回流期间跳过，避免互相触发。
-    // 标志是同步读取的（叶子模块）；这里用动态 import 只是为了绕开与 obsidian-exporter 的循环依赖。
+    // 标志是同步读取的（叶子模块）；导出器按需动态加载，并把自己作为读取源传入，导出器不反向引用本文件。
     if (isImportingMemory()) return
-    import("./obsidian-exporter").then(({ notifyMemoryChanged }) => notifyMemoryChanged()).catch(() => {})
+    import("./obsidian-exporter").then(({ notifyMemoryChanged }) => notifyMemoryChanged(this)).catch(() => {})
   }
 
   // ───── L0 / L1 ─────

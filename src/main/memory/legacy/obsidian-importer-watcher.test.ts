@@ -15,7 +15,7 @@ it("observes edits to exported markdown and stops watching when unbound", async 
   try {
     const entry = await store.addL2Memory({ content: "Unedited garden", triggerText: "garden",
       sourceConversationId: "watch-session", isPinned: false });
-    await exportVault(vault);
+    await exportVault(vault, store);
     watcher.startVaultWatcher(vault);
     expect(watcher.isVaultWatcherActive()).toBe(true);
     writeFileSync(join(vault, "记忆", `${entry.id}.md`),
