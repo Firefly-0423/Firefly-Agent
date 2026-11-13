@@ -25,5 +25,5 @@ it("ordinary background producers share the owner and drain proactive generation
 });
 it("ordinary memory capture reads the actual installed Harness run evidence on recovery",()=>{
  // The store is resolved once (like the transcript store beside it); hot reads take only evidence, recovery the whole run.
- expect(application).toContain('runReader:(runs=>({get:(runId:string)=>runs.evidence(runId),session:(runId:string)=>runs.session(runId)}))(getHarnessRunStore(getStorageContext().dataRoot))');
+ expect(application).toContain('runReader:(runs=>({get:(runId:string)=>runs.evidence(runId),session:(runId:string)=>runs.session(runId)}))(getAgentRunStore(getStorageContext().dataRoot))');
 });

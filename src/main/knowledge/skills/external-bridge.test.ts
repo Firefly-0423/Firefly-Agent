@@ -18,7 +18,6 @@ vi.mock("../../platform/settings/settings-facade", () => ({ loadGeneralSettings:
 vi.mock("../../memory/legacy/memory-store", () => ({ memoryStore: vi.fn() }));
 vi.mock("../../memory/legacy/obsidian-exporter", () => ({ exportMemoryToObsidianVault: vi.fn(), syncToBoundVault: vi.fn() }));
 vi.mock("../../memory/legacy/obsidian-vault-config", () => ({ loadObsidianVaultConfig: () => ({}), saveObsidianVaultConfig: vi.fn(), unbindVault: vi.fn() }));
-vi.mock("../../memory/legacy/obsidian-importer", () => ({ startVaultWatcher: vi.fn(), stopVaultWatcher: vi.fn() }));
 import { registerMemoryUserToolIpc } from "../../features/memory/memory-user-ipc";
 afterEach(() => { vi.clearAllMocks(); m.chat = null; });
 it("preload_bridge exposes five DTO-only methods and reuses explicit enabled bridge", async () => {

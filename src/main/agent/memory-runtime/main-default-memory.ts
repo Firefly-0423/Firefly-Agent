@@ -6,7 +6,7 @@ import { parseMemoryAutomationConfigure, type MemoryAutomationSettingsHost } fro
 import { naturalConsentStatement } from "../../memory/policy/natural-job-repository";
 import { objectFields, parseInternalId, positiveRevision, textField } from "../../memory/core/command-validation";
 import { canonicalJson } from "../../memory/core/repository-types";
-import { extractPreference } from "../../memory/policy/extractor";
+import { extractPreference } from "../../memory/core/extractor";
 import { createMainSourceRouter } from "../../memory/sources/main-source-router";
 import { createTaskSourceProvider } from "./task-source-provider";
 import { requireBackgroundMemoryIngress, type BackgroundMemoryIngress, type BackgroundMemoryIngressContext, type BackgroundMemoryHost, type BackgroundMemoryPreparedRun } from "./background-memory-ingress";
@@ -19,7 +19,7 @@ import { bindRunAdjustmentPoller, requireRunAdjustmentPermit } from "../runtime/
 import { createMainActorAuthority } from "../../memory/core/main-actor-authority";
 import { createMainSourceRegistry } from "../../memory/sources/source-registry";
 import { createDesktopUserSourceProvider } from "../../memory/sources/desktop-user-source-provider";
-import { createNativeHistoryProvider } from "../../memory/sources/native-history-provider";
+import { createNativeHistoryProvider } from "../../memory/history/native-history-provider";
 import { createMainPolicy } from "../../memory/policy/main-policy";
 import { createMainRecall } from "../../memory/recall/main-recall";
 import { createMainHistory } from "../../memory/history/main-history";
@@ -34,7 +34,7 @@ import type { FireflyRunOptions } from "../runtime/firefly-agent";
 import { createTranscriptSink, readTranscriptSinkBinding } from "../loop/transcript-sink";
 import type { ModelSettings } from "../../model/config/model-settings";
 import { resolveDefaultModelProfile } from "../../model/config/model-catalog";
-import { createMainDesktopSessionAuthority } from "../../memory/context/main-desktop-session-authority";
+import { createMainDesktopSessionAuthority } from "../../memory/sources/main-desktop-session-authority";
 import { createMemorySessionModes } from "../../memory/context/memory-session-modes";
 import { createMemoryRunAuthority, type MemoryRunGrant } from "../../memory/context/main-memory-contracts";
 import { createMainAttachmentProjectionAuthority, mainAttachmentReferences, type MainAttachmentGrant } from "../../memory/context/main-attachment-projection";
@@ -53,7 +53,7 @@ import {NATURAL_JOB_LIMITS} from "../../memory/policy/natural-automation";
 import type {NaturalModelProfile, MemoryAutomationState} from "../../../shared/memory-automation-contracts";
 import { recordRequest, recordUsage } from "../../base/storage/token-usage-store";
 import { queryScopedHistory } from "../../memory/context/scoped-history-query";
-import { parseHistoryTimeIntent } from "../../memory/history/history-time-intent";
+import { parseHistoryTimeIntent } from "../../memory/core/history-time-intent";
 import { createProductionModelRegistry } from "./production-model-registry";
 import { openProductionMemoryBackend, type ProductionMemoryBackend } from "../../memory/context/production-memory-backend";
 

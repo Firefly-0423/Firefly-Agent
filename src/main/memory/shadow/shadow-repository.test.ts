@@ -4,7 +4,7 @@ import path from 'node:path';
 import {randomBytes,randomUUID} from 'node:crypto';
 import {DatabaseSync} from 'node:sqlite';
 import {afterEach,describe,expect,it} from 'vitest';
-import {openMemoryRepository} from '../core/repository';
+import {openMemoryRepository} from '../database/repository';
 import {MEMORY_SCHEMA_VERSION} from '../core/schema';
 import {RecordCodec} from '../core/record-codec';
 import {shadowDay} from './shadow-repository';

@@ -1,12 +1,12 @@
 import type { PluginAgentEvent, PluginAgentRunOptions, PluginAgentRunResult, PluginTool } from "../../../../plugins/api";
 import type { AgentRuntime } from "../../../agent/runtime/agent-runtime";
-import { runFireflyHarness } from "../../../agent/loop/firefly-harness";
+import { runAgentLoop } from "../../../agent/loop/agent-loop";
 import { vendorConfigFromSettings } from "../../../model/providers/vendor-config";
-import { mapTerminateReasonToTerminal } from "../../../agent/loop/adapter/terminal-mapper";
-import { buildHarnessPromptLayers } from "../../../agent/loop/adapter/prompt-builder";
+import { mapTerminateReasonToTerminal } from "../../../agent/runtime/adapter/terminal-mapper";
+import { buildAgentLoopPromptLayers } from "../../../agent/runtime/adapter/prompt-builder";
 import { FileToolOutputStore } from "../../../agent/loop/tool-output/file-tool-output-store";
-import type { HarnessEvent } from "../../../agent/loop/types";
-import { ExecutionLedgerStore } from "../../../agent/runtime/execution-ledger";
+import type { AgentLoopEvent } from "../../../agent/loop/types";
+import { ExecutionLedgerStore } from "../../../agent/loop/execution-ledger";
 import { buildToolSystemPrompt } from "../../../agent/runtime/system-prompt-builder";
 import type { ToolDefinition } from "../../../tooling/registry/tool-registry";
 import { recordPluginCall } from "../../../base/storage/token-usage-store";
@@ -16,7 +16,7 @@ const goalLedgers = new ExecutionLedgerStore();
 export interface PluginAgentRunnerDeps {
   pluginId: string; pluginSignal: AbortSignal; userDataPath: string;
   agentRuntime: Pick<AgentRuntime, "buildOptions">;
-  runHarness?: typeof runFireflyHarness;
+  runLoop?: typeof runAgentLoop;
   executionLedgers?: Pick<ExecutionLedgerStore, "forScope">;
   createDeadline?: (maxWallMs: number) => AbortSignal;
 }
@@ -81,7 +81,7 @@ function emitEvent(callback: PluginAgentRunOptions["onEvent"], notification: Plu
   catch (failure) { console.warn("[plugin-agent] 插件进度回调失败，已忽略", failure); }
 }
 function progressProjector(callback: PluginAgentRunOptions["onEvent"], names: Map<string, string>) {
-  return (notification: HarnessEvent): void => {
+  return (notification: AgentLoopEvent): void => {
     switch (notification.type) {
       case "round_start": {
         const ordinal = Number(notification.roundId.replace(/^round-/, ""));
@@ -115,7 +115,7 @@ function cancellationState(external: AbortSignal | undefined, plugin: AbortSigna
 }
 
 export function createPluginAgentRunner(deps: PluginAgentRunnerDeps): NonNullable<import("../../../../plugins/api").PluginLlmService["runGoal"]> {
-  const executeHarness = deps.runHarness ?? runFireflyHarness;
+  const executeAgentLoop = deps.runLoop ?? runAgentLoop;
   const ledgerProvider = deps.executionLedgers ?? goalLedgers;
   return async (request) => {
     const identifier = checkedText(request.runId, "runId", 128);
@@ -132,11 +132,11 @@ export function createPluginAgentRunner(deps: PluginAgentRunnerDeps): NonNullabl
       messages: [{ role: "user", content: objective }],
     });
     const toolPrompt = buildToolSystemPrompt("work", goalTools);
-    const layers = buildHarnessPromptLayers({ ...prepared.options, conversationMode: "work", toolSystemContent: toolPrompt, tools: goalTools });
+    const layers = buildAgentLoopPromptLayers({ ...prepared.options, conversationMode: "work", toolSystemContent: toolPrompt, tools: goalTools });
     const callNames = new Map<string, string>();
     console.info("[plugin-agent] 无头任务开始", { label: diagnostic, runId: identifier });
     recordPluginCall(deps.pluginId);
-    const outcome = await runWithUsageAttribution({ feature: "plugin", pluginId: deps.pluginId }, () => executeHarness({
+    const outcome = await runWithUsageAttribution({ feature: "plugin", pluginId: deps.pluginId }, () => executeAgentLoop({
       systemPrompt: layers.stablePrefix, promptLayers: layers, usageParts: layers.usageParts,
       messages: prepared.options.messages, runId: identifier, tools: goalTools,
       vendorConfig: vendorConfigFromSettings(prepared.options.settings),

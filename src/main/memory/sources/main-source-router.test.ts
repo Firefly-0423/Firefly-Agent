@@ -3,13 +3,13 @@ import os from "node:os";
 import path from "node:path";
 import {randomBytes} from "node:crypto";
 import {afterEach,expect,it} from "vitest";
-import {openMemoryRepository} from "../core/repository";
+import {openMemoryRepository} from "../database/repository";
 import {createMainActorAuthority} from "../core/main-actor-authority";
 import type {SourceIdentity,SourceObservation} from "../core/source-contracts";
 import {createMainPolicy} from "../policy/main-policy";
 import {createMainUserFactCoordinator} from "../policy/main-user-fact-coordinator";
 import {SyntheticSourceProvider} from "../../../../scripts/verify/memory-sources/synthetic-provider";
-import {createMainSourceProvider,requireMainSourceProvider,type SourceSnapshot} from "./main-source-provider";
+import {createMainSourceProvider,requireMainSourceProvider,type SourceSnapshot} from "../core/main-source-provider";
 import {createMainSourceRegistry} from "./source-registry";
 import {createMainSourceRouter} from "./main-source-router";
 

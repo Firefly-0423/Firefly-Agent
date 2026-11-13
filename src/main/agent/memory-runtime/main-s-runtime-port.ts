@@ -1,7 +1,7 @@
 import type {ConversationTranscriptStore} from "../../conversation/transcript/conversation-transcript-store";
 import {consumeSResponseStream} from "./s-response-stream";
 import {factContextMessages} from "../../memory/context/fact-context-messages";
-import {controlledSettlement,copyControlledStreamTarget,type ControlledStreamTarget} from "../loop/controlled-responses";
+import {controlledSettlement,copyControlledStreamTarget,type ControlledStreamTarget} from "../runtime/controlled-responses";
 import {classifySAssistantSettlement} from "../../conversation/transcript/conversation-transcript-settlement";
 import type {TranscriptEntry,SAssistantBinding} from "../../conversation/transcript/conversation-transcript-types";
 import type {BoundSourceRef} from "../../../shared/memory-contracts";

@@ -1,5 +1,5 @@
 import fs from "node:fs";import os from "node:os";import path from "node:path";import {randomBytes} from "node:crypto";
-import {DatabaseSync} from "node:sqlite";import {it,expect,afterEach,beforeEach,vi} from "vitest";import {openMemoryRepository} from "./repository";
+import {DatabaseSync} from "node:sqlite";import {it,expect,afterEach,beforeEach,vi} from "vitest";import {openMemoryRepository} from "../database/repository";
 // Real SQLite / filesystem integration cases: the 5 s default is too tight on CI runners, so this file allows 30 s. Other files keep the default.
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 const roots:string[]=[],repos:ReturnType<typeof openMemoryRepository>[]=[];

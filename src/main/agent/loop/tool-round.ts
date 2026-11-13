@@ -1,7 +1,7 @@
 import type { ToolCall, ChatMessage } from "../../model/providers/types";
 import type { ToolCallResult } from "../../tooling/registry/tool-call-types";
 import { TranscriptWriteError } from "./transcript-sink";
-import type { ToolObservation, ToolCallOutcome, SideEffectKind, HarnessToolLifecycleEvent, HarnessToolFinishedEvent } from "./types";
+import type { ToolObservation, ToolCallOutcome, SideEffectKind, AgentLoopToolLifecycleEvent, AgentLoopToolFinishedEvent } from "./types";
 import type { ToolRiskLevel } from "../../platform/permission/permission-policy";
 import { parseToolCallArgs, tryParseToolCallArgs, toolCallFingerprint } from "./types";
 import { dispatchToolCall, persistToolDispatchResult, type ToolDispatchResult } from "./tool-dispatcher";
@@ -13,28 +13,28 @@ import { classifyToolResultError } from "./error-classifier";
 import { decideRetry, getRetryParams, sleepWithJitter } from "./retry-policy";
 import { isToolBreakerTripped, nextToolFailureStreak, toolBreakerMessage } from "./tool-breaker";
 import { isCancellationError, raceWithSignal } from "../../base/utils/abort-utils";
-import type { HarnessRun } from "./firefly-harness";
+import type { AgentLoopRun } from "./agent-loop";
 import { extractTaskResult } from "./task-result-evidence";
 
 export type ToolRoundOutcome = "cancelled" | "completed";
 type FileReadEvidence = { path: string; canonicalPath: string; sha256: string; startLine: number; endLine: number; totalLines: number };
-function toolRiskOf(run: HarnessRun, toolId: string): ToolRiskLevel {
+function toolRiskOf(run: AgentLoopRun, toolId: string): ToolRiskLevel {
   return run.input.tools.find((entry) => entry.id === toolId)?.risk ?? "safe";
 }
-function notifyToolFinished(run: HarnessRun, call: Pick<ToolCall, "id" | "name">,
-  status: HarnessToolFinishedEvent["status"], startedAt?: number): void {
+function notifyToolFinished(run: AgentLoopRun, call: Pick<ToolCall, "id" | "name">,
+  status: AgentLoopToolFinishedEvent["status"], startedAt?: number): void {
   run.input.onToolFinished?.({ toolId: call.name, toolCallId: call.id,
     runId: run.input.runId ?? run.input.toolContext?.runId ?? "", status, risk: toolRiskOf(run, call.name),
     ...(startedAt !== undefined ? { durationMs: Math.max(0, Date.now() - startedAt) } : {}) });
 }
-function resolveCallSideEffect(run: HarnessRun, call: ToolCall): SideEffectKind {
+function resolveCallSideEffect(run: AgentLoopRun, call: ToolCall): SideEffectKind {
   const parsed = tryParseToolCallArgs(call);
   if (parsed === undefined) return "non_idempotent_side_effect";
   return resolveSideEffect(run.input.tools.find((entry) => entry.id === call.name), parsed);
 }
-export async function runToolRound(run: HarnessRun, toolCalls: ToolCall[]): Promise<ToolRoundOutcome> {
+export async function runToolRound(run: AgentLoopRun, toolCalls: ToolCall[]): Promise<ToolRoundOutcome> {
   const host = run.input;
-  const declarations: (HarnessToolLifecycleEvent & { status: "planned" })[] = toolCalls.map((call) => {
+  const declarations: (AgentLoopToolLifecycleEvent & { status: "planned" })[] = toolCalls.map((call) => {
     let effect: SideEffectKind = "non_idempotent_side_effect";
     try { effect = resolveSideEffect(host.tools.find((entry) => entry.id === call.name), parseToolCallArgs(call)); }
     catch { /* 参数或分类器不可用时采用保守类别。 */ }
@@ -76,11 +76,11 @@ export async function runToolRound(run: HarnessRun, toolCalls: ToolCall[]): Prom
   }
   return scheduled.cancelled || host.signal?.aborted ? "cancelled" : "completed";
 }
-function requireAssistantEntryId(run: HarnessRun): string {
+function requireAssistantEntryId(run: AgentLoopRun): string {
   if (!run.currentAssistantEntryId) throw new Error("TRANSCRIPT_ASSISTANT_ENTRY_MISSING");
   return run.currentAssistantEntryId;
 }
-function preserveUncertainEffectIfNeeded(run: HarnessRun, call: ToolCall, toolSideEffect?: SideEffectKind): void {
+function preserveUncertainEffectIfNeeded(run: AgentLoopRun, call: ToolCall, toolSideEffect?: SideEffectKind): void {
   if (toolSideEffect !== "non_idempotent_side_effect") return;
   const id = `${run.input.runId ?? run.input.toolContext?.runId ?? "unknown-run"}:${call.id}`;
   if (run.state.uncertainEffects.some((entry) => entry.id === id)) return;
@@ -88,7 +88,7 @@ function preserveUncertainEffectIfNeeded(run: HarnessRun, call: ToolCall, toolSi
   run.state.uncertainEffects.push({ id, toolCallId: call.id, fingerprint: toolCallFingerprint(call.name, parsed ?? {}),
     ...(parsed === undefined ? { argumentsUnavailable: true as const } : {}), toolName: call.name, message: "工具已执行，但结果持久化失败，效果状态未知" });
 }
-async function commitToolResultMessage(run: HarnessRun, input: {
+async function commitToolResultMessage(run: AgentLoopRun, input: {
   call: ToolCall; message: ChatMessage; outcome: ToolCallOutcome; fullRef?: string; fileRead?: FileReadEvidence;
   roundId: string; toolSideEffect?: SideEffectKind;
 }): Promise<void> {
@@ -103,7 +103,7 @@ async function commitToolResultMessage(run: HarnessRun, input: {
     throw new TranscriptWriteError("tool_result", cause);
   }
 }
-async function runAskUserRound(run: HarnessRun, askCalls: ToolCall[], otherCalls: ToolCall[]): Promise<void> {
+async function runAskUserRound(run: AgentLoopRun, askCalls: ToolCall[], otherCalls: ToolCall[]): Promise<void> {
   const host = run.input;
   const selected = askCalls[0];
   for (const call of askCalls.slice(1)) {
@@ -137,7 +137,7 @@ async function runAskUserRound(run: HarnessRun, askCalls: ToolCall[], otherCalls
     status: observed.outcome === "unknown" ? "unknown" : observed.outcome === "not_executed" ? "not_executed" : "committed" });
   notifyToolFinished(run, selected, observed.outcome, began);
 }
-async function executeToolCallWithRetry(run: HarnessRun, execution: ToolCallExecution): Promise<ToolDispatchResult> {
+async function executeToolCallWithRetry(run: AgentLoopRun, execution: ToolCallExecution): Promise<ToolDispatchResult> {
   const invocation = execution.call;
   if (tryParseToolCallArgs(invocation) === undefined) return dispatchToolCall(invocation, run.toolDispatchContext);
   const failures = run.state.toolFailureStreaks?.[invocation.name];
@@ -191,7 +191,7 @@ function readFileEvidence(call: ToolCall, result: ToolDispatchResult): FileReadE
   } catch { return undefined; }
   return undefined;
 }
-async function commitToolResult(run: HarnessRun, call: ToolCall, result: ToolDispatchResult): Promise<ToolScheduleCommitDecision> {
+async function commitToolResult(run: AgentLoopRun, call: ToolCall, result: ToolDispatchResult): Promise<ToolScheduleCommitDecision> {
   const host = run.input;
   const effect = result.toolSideEffect ?? resolveCallSideEffect(run, call);
   const counters = (run.state.toolFailureStreaks ??= {});

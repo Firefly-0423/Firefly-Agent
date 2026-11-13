@@ -2,10 +2,10 @@ import {createHash} from "node:crypto";
 import type {TypedUserFact,FactTime} from "../../../shared/memory-contracts";
 import {parseFactTemporal,type TemporalSource} from "./fact-temporal";
 import {canonicalJson} from "../core/repository-types";
-import {assertContextSecretFree} from "../context/source-secret-screen";
+import {assertContextSecretFree} from "../core/source-secret-screen";
 import {validateShadowResponse} from "../shadow/shadow-validate";
 import {SHADOW_LIMITS,type ShadowAttribute} from "../shadow/shadow-contracts";
-import {extractPreference,type Attribute} from "./extractor";
+import {extractPreference,type Attribute} from "../core/extractor";
 import {policySubjectKey} from "./fact-identity";
 
 export const NATURAL_VERSION="user-fact-v2";

@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {randomBytes} from 'node:crypto';
 import {afterEach,describe,expect,it} from 'vitest';
-import {openMemoryRepository} from '../core/repository';
+import {openMemoryRepository} from '../database/repository';
 import type {ShadowModel,ShadowSendResult} from './shadow-model-call';
 import {createShadowService,type ShadowTask} from './shadow-service';
 

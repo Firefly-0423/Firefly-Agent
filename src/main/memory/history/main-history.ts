@@ -17,7 +17,7 @@ import {historyTranscriptDigest} from './history-transcript-digest';
 import {parseHistoryDocument} from './history-repository';
 import {verifyExcerptSlice} from './history-excerpts';
 import {normalizeVector} from './history-ranking';
-import {parseHistoryTemporal,type HistoryTemporalQuery} from './history-temporal';
+import {parseHistoryTemporal,type HistoryTemporalQuery} from '../core/history-temporal';
 import {DEFAULT_HISTORY_SETTINGS,type HistoryTransport,type HistoryDocument,type HistoryPartition,type HistoryDependency,type HistoryResult,type HistorySettings,type HistoryBudgetStats} from './history-contracts';
 export interface HistoryResponseBinding {actorToken:object;bootId:string;providerId:string;sessionId:string;snapshotId:string;requestDigest:string;runId:string;assistantTurnId:string;assistantEntryId:string;userTurnId:string;userRevision:number;throughSeq:number;contentDigest:string}
 export interface HistoryResponseSelection {locator:string;digest:string;ref:TranscriptDependency}

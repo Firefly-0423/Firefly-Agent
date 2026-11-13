@@ -5,7 +5,7 @@ import os from 'node:os';
 import assert from 'node:assert/strict';
 import {randomUUID,createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
-import {openMemoryRepository} from '../../../src/main/memory/core/repository';
+import {openMemoryRepository} from '../../../src/main/memory/database/repository';
 import {DEFAULT_HISTORY_SETTINGS} from '../../../src/main/memory/history/history-contracts';
 import {scoreHits} from './quality-metrics';
 const workspace=process.cwd(),temp=process.env.TEMP??'',out=path.join(workspace,'output/memory-h-quality-next');

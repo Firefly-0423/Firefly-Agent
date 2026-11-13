@@ -3,7 +3,7 @@ import * as os from "os";
 import * as path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildPlanReviewCard, buildPlanSupplementCard, executeEnterPlanMode, executeWritePlan, ENTER_PLAN_MODE_TOOL_ID, WRITE_PLAN_TOOL_ID } from "./plan-tools";
-import { approvePlan, enterPlanDiscussing, getPlanPath, getPlanState, hasPlanWrittenThisRun, initPlanPaths, markPlanWritten, moveToReview, resetPlanSessionsForTest } from "../runtime/plan-mode";
+import { approvePlan, enterPlanDiscussing, getPlanPath, getPlanState, hasPlanWrittenThisRun, initPlanPaths, markPlanWritten, moveToReview, resetPlanSessionsForTest } from "../tools/plan-mode";
 
 let directory: string;
 const manuscript = "# Workspace audit\n\n- [ ] Inventory exports\n- [ ] Verify contracts\n\n## Recovery\nRetain the last verified artifact.";

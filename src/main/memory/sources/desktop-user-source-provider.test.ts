@@ -2,7 +2,7 @@ import {EventEmitter} from "node:events";
 import {expect,it} from "vitest";
 import {contextFixture} from "../../../../scripts/verify/memory-context/context-fixture";
 import {createActiveChatTargetRegistry} from "../../platform/interaction/active-chat-target";
-import {createMainDesktopSessionAuthority} from "../context/main-desktop-session-authority";
+import {createMainDesktopSessionAuthority} from "./main-desktop-session-authority";
 import {createDesktopUserSourceProvider} from "./desktop-user-source-provider";
 
 async function fixture(timeZone=()=>"UTC"){
@@ -27,7 +27,7 @@ it.each(['edit','delete','role'])('invalidates %s rather than promoting altered 
 it('isolates its private provider and rejects cross-session receipt use',async()=>{const f=await fixture();expect(()=>f.source.prepareUserCommit(f.grant,'session-b','u1')).toThrow('MEMORY_DESKTOP_SESSION_DENIED');const next=f.make();const ticket=f.source.prepareUserCommit(f.grant,'session-a','u1');f.users.set('u1',{role:'user',text:'I prefer bash'});expect(()=>next.finishUserCommit(ticket)).toThrow('MEMORY_USER_SOURCE_DENIED');f.source.finishUserCommit(ticket);expect(()=>f.source.finishUserCommit(ticket)).toThrow('MEMORY_USER_SOURCE_DENIED');f.authority.dispose()});
 
 it('holds direct source bytes stable until the source lease finishes',async()=>{
- const f=await fixture();f.commit();const {requireMainSourceProvider}=await import('./main-source-provider');const provider=requireMainSourceProvider(f.source.token,'scope-a',f.id);
+ const f=await fixture();f.commit();const {requireMainSourceProvider}=await import('../core/main-source-provider');const provider=requireMainSourceProvider(f.source.token,'scope-a',f.id);
  let entered!:()=>void,release!:()=>void;const ready=new Promise<void>(r=>entered=r),held=new Promise<void>(r=>release=r);
  const reading=provider.withLease(f.id,async read=>{const first=await read();entered();await held;expect(await read()).toEqual(first)});
  await ready;let changed=false;const mutation=f.source.mutate(()=>{changed=true;f.users.set('u1',{role:'user',text:'changed'})});await Promise.resolve();expect(changed).toBe(false);release();await reading;await mutation;expect(changed).toBe(true);f.authority.dispose();

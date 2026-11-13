@@ -21,7 +21,7 @@ export function resolveChannelAgentPolicy(toolSandbox: ChannelToolSandbox, conte
 }
 
 export function enforceChannelAgentPolicy(options: FireflyRunOptions, policy: ChannelAgentPolicy): void {
-  options.harnessInteractiveTools = policy.includeInteractiveTools;
+  options.interactiveTools = policy.includeInteractiveTools;
   options.permissionMode = policy.permissionMode;
   if (!policy.exposeTools) {
     options.tools = [];

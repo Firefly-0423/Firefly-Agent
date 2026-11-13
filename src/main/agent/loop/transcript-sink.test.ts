@@ -16,7 +16,7 @@ import { classifySAssistantSettlement } from "../../conversation/transcript/conv
 import { SRunSettlementGate } from "../../conversation/transcript/run-settlement";
 import { createTranscriptSink, requireTranscriptSinkBinding, wrapTranscriptSink } from "./transcript-sink";
 import type { TranscriptAppendGuard } from "../../conversation/transcript/conversation-transcript-store";
-import type { HarnessRunSession, PersistedToolCall } from "./run-store";
+import type { AgentRunSession, PersistedToolCall } from "./run-store";
 import type { ToolCallOutcome } from "./types";
 import type { ChatMessage, ProviderCapability } from "../../model/providers/types";
 import { AnthropicAdapter } from "../../model/providers/anthropic-adapter";
@@ -35,7 +35,7 @@ function makeStore(): ConversationTranscriptStore {
   return new ConversationTranscriptStore(root);
 }
 
-function makeRunSession(toolCalls: PersistedToolCall[]): HarnessRunSession {
+function makeRunSession(toolCalls: PersistedToolCall[]): AgentRunSession {
   const request = {
     provider: "fake", model: "fake-model", contextWindowTokens: 100_000,
     promptFingerprint: "p", toolSchemaFingerprint: "t",

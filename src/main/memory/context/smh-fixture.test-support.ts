@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import {randomBytes,randomUUID} from "node:crypto";
-import {openMemoryRepository} from "../core/repository";
+import {openMemoryRepository} from "../database/repository";
 import {createMainActorAuthority} from "../core/main-actor-authority";
 import {canonicalJson} from "../core/repository-types";
-import {createMainSourceProvider,type SourceSnapshot} from "../sources/main-source-provider";
+import {createMainSourceProvider,type SourceSnapshot} from "../core/main-source-provider";
 import {createMainSourceRegistry} from "../sources/source-registry";
 import type {SourceIdentity,SourceRole,SourceTrust} from "../core/source-contracts";
 import {createMainPolicy} from "../policy/main-policy";

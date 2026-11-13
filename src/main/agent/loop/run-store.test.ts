@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { HarnessRunStore } from "./run-store";
+import { AgentRunStore } from "./run-store";
 import type { AgentState } from "./types";
 import type { ChatMessage } from "../../model/providers/types";
 
@@ -10,7 +10,7 @@ const disposals: Array<() => void> = [];
 function storage() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "run-ledger-"));
   let timestamp = 730;
-  const store = new HarnessRunStore(root, { now: () => timestamp });
+  const store = new AgentRunStore(root, { now: () => timestamp });
   const create = () => store.create({
     runId: "audit-bronze", conversationId: "dialog-bronze", messages: [{ role: "user", content: "Inventory contracts" }],
     request: { provider: "custom", model: "fixture-model", mode: "work", contextWindowTokens: 64000, promptFingerprint: "prompt-bronze", toolSchemaFingerprint: "tools-bronze" },
@@ -51,11 +51,11 @@ describe("loaded-run cache and evidence reads", () => {
   it("evidence for more runs than the session cache holds is still served without re-reading run files", () => {
     // A long conversation references dozens of runs; reading them in a cycle must not thrash back to disk.
     const { root } = storage();
-    const writer = new HarnessRunStore(root);
+    const writer = new AgentRunStore(root);
     const ids = Array.from({ length: 40 }, (_, index) => `cycle-${index}`);
     for (const runId of ids) writer.create({ runId, conversationId: "dialog-cycle", messages: [{ role: "user", content: runId }],
       request: { provider: "custom", model: "fixture-model", contextWindowTokens: 64000, promptFingerprint: "p", toolSchemaFingerprint: "t" } });
-    const reader = new HarnessRunStore(root);
+    const reader = new AgentRunStore(root);
     for (const runId of ids) expect(reader.evidence(runId)?.runId).toBe(runId);
     const read = vi.spyOn(fs, "readFileSync");
     for (let pass = 0; pass < 3; pass++) for (const runId of ids) reader.evidence(runId);
@@ -76,7 +76,7 @@ describe("loaded-run cache and evidence reads", () => {
   it("a new store instance reads what the previous one wrote, and deletion is not served from memory", () => {
     const { root, store } = storage();
     store.checkpoint("audit-bronze", { rounds: 3 });
-    expect(new HarnessRunStore(root).get("audit-bronze")?.rounds).toBe(3);
+    expect(new AgentRunStore(root).get("audit-bronze")?.rounds).toBe(3);
     store.deleteConversation("dialog-bronze");
     expect(store.get("audit-bronze")).toBeNull();
     expect(store.evidence("audit-bronze")).toBeNull();
@@ -138,14 +138,14 @@ describe("Durable main-run ledger", () => {
 
   it("interrupts a running record on restart and locates it by conversation", () => {
     const { root } = storage();
-    const reopened = new HarnessRunStore(root);
+    const reopened = new AgentRunStore(root);
     expect(reopened.get("audit-bronze")).toMatchObject({ runId: "audit-bronze", status: "interrupted" });
     expect(reopened.getLatestInterrupted("dialog-bronze")?.runId).toEqual("audit-bronze");
   });
 
   it("rejects a live duplicate but permits replacement of a terminal record", () => {
     const { store, create } = storage();
-    expect(create).toThrow("HARNESS_RUN_EXISTS");
+    expect(create).toThrow("AGENT_RUN_EXISTS");
     store.markTerminal("audit-bronze", "completed");
     expect(create()).toMatchObject({ runId: "audit-bronze", status: "running", rounds: 0 });
   });
@@ -195,10 +195,10 @@ describe("Durable main-run ledger", () => {
     const stale = index();
     stale[0].status = "running";
     fs.writeFileSync(location("index.json"), JSON.stringify(stale));
-    new HarnessRunStore(root);
+    new AgentRunStore(root);
     expect(index()).toEqual([expect.objectContaining({ runId: "audit-bronze", status: "completed" })]);
     fs.rmSync(location("sessions/audit-bronze.json"));
-    new HarnessRunStore(root);
+    new AgentRunStore(root);
     expect(index()).toEqual([]);
   });
 
@@ -208,7 +208,7 @@ describe("Durable main-run ledger", () => {
     store.recordTool("audit-bronze", readCall("scan-east", "committed"));
     store.checkpoint("audit-bronze", { rounds: 1 });
     store.markTerminal("audit-bronze", "completed");
-    const metric = log.mock.calls.map(args => args.join(" ")).find(line => line.includes("HarnessRunStore"));
+    const metric = log.mock.calls.map(args => args.join(" ")).find(line => line.includes("AgentRunStore"));
     expect(metric).toBeDefined();
     expect(metric).toMatch(/audit-bronze/);
     expect(metric).toMatch(/completed/);

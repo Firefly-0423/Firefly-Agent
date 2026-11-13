@@ -12,7 +12,7 @@ import type { ChatRequest, ChatMessage, ChatResponse, ChatVendorAdapter } from "
 import { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
 import { materializeTranscript } from "../loop/conversation-transcript-context";
 import { createTranscriptSink, type TranscriptSink } from "../loop/transcript-sink";
-import { runFireflyHarness } from "../loop/firefly-harness";
+import { runAgentLoop } from "../loop/agent-loop";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
 
 const completed = (text = "Calendar ready", thinking?: string): ChatResponse => ({ text, ...(thinking ? { thinking } : {}), assistantMessage: { role: "assistant", content: text, ...(thinking ? { thinking } : {}) }, toolCalls: [], finishReason: "stop", raw: {}, usage: { input: 28, output: 9 } });
@@ -151,7 +151,7 @@ describe("Canonical history across chat and tool-enabled rounds", () => {
     expect(canonical.messages).toEqual([{ role: "user", content: "Open my calendar" }, expect.objectContaining({ role: "assistant", content: "Calendar opened", thinking: "Calendar reasoning" })]);
     harnessModel.mockResolvedValueOnce(completed("Tuesday appointments found"));
     const tool: ToolDefinition = { id: "calendar_probe", name: "calendar_probe", description: "Calendar test capability", enabled: true, inputSchema: { type: "object", properties: {} }, execute: async () => "Calendar probe complete" };
-    const result = await runFireflyHarness({ systemPrompt: "Calendar assistant rules", messages: [...canonical.messages, { role: "user", content: "Find Tuesday appointments" }], tools: [tool], vendorConfig: { provider: "Calendar", baseUrl: "https://calendar.invalid", model: "calendar-model", apiKey: "calendar-key" } as any, transcriptSink: createTranscriptSink({ store, conversationId, runId: "calendar-work" }) });
+    const result = await runAgentLoop({ systemPrompt: "Calendar assistant rules", messages: [...canonical.messages, { role: "user", content: "Find Tuesday appointments" }], tools: [tool], vendorConfig: { provider: "Calendar", baseUrl: "https://calendar.invalid", model: "calendar-model", apiKey: "calendar-key" } as any, transcriptSink: createTranscriptSink({ store, conversationId, runId: "calendar-work" }) });
     expect(result.finalAnswer).toEqual("Tuesday appointments found");
     expect(harnessModel.mock.calls[0][0].request.messages).toEqual(expect.arrayContaining([expect.objectContaining({ role: "user", content: "Open my calendar" }), expect.objectContaining({ role: "assistant", content: "Calendar opened" }), expect.objectContaining({ role: "user", content: "Find Tuesday appointments" })]));
     expect((await store.read(conversationId)).entries.filter(({ kind }) => kind === "assistant")).toHaveLength(2);

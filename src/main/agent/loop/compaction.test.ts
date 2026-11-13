@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { estimateMessageTokens } from "../runtime/context-manager";
+import { estimateMessageTokens } from "./context-manager";
 import type { ChatMessage } from "../../model/providers/types";
 import { buildCompactionCheckpoint, computeTokenBudget, compressForAgentLoop, findSafeCutPointForRetainedTokens, isCompactionCheckpointMessage, isToolPairSafeBoundary } from "./compaction";
 

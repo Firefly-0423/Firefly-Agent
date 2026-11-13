@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { buildAgentRunOptions, buildChannelSystem, onAgentRunFinished, type BuildOptionsDeps, type OnRunFinishedDeps } from "./build-options";
-import { enterPlanDiscussing, markPlanWritten, moveToReview, approvePlan, resetPlanSessionsForTest } from "./plan-mode";
+import { enterPlanDiscussing, markPlanWritten, moveToReview, approvePlan, resetPlanSessionsForTest } from "../tools/plan-mode";
 import type { SocialAtom } from "../../knowledge/social/types";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
 import * as promptLoader from "../../base/prompts/prompt-loader";

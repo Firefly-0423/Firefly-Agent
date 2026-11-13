@@ -5,7 +5,7 @@ import * as path from "path";
 import type { AgentFileAccessLevel } from "../../../platform/permission/permission-policy";
 import {
   approvePlan, enterPlanDiscussing, markPlanWritten, moveToReview, resetPlanSessionsForTest,
-} from "../../runtime/plan-mode";
+} from "../plan-mode";
 
 const mocks = vi.hoisted(() => ({
   level: "full" as AgentFileAccessLevel,

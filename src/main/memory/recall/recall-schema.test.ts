@@ -4,7 +4,7 @@ import path from "node:path";
 import {createHash} from "node:crypto";
 import {afterEach,it,expect} from "vitest";
 import {DatabaseSync} from "node:sqlite";
-import {openMemoryRepository} from "../core/repository";
+import {openMemoryRepository} from "../database/repository";
 const roots:string[]=[];afterEach(()=>{for(const root of roots.splice(0))fs.rmSync(root,{recursive:true,force:true})});
 function fixture(){const root=fs.mkdtempSync(path.join(os.tmpdir(),"recall-v7-"));roots.push(root);const file=path.join(root,"memory.sqlite"),source=path.join(__dirname,"fixtures/v7-writer/memory.sqlite");expect(createHash("sha256").update(fs.readFileSync(source)).digest("hex")).toBe("abe66d5aabccf0dcba143f8184b5ae41a029de9dbcabea889bfd3d17ff818434");fs.copyFileSync(source,file);fs.copyFileSync(source+".auth",file+".auth");return {root,file,key:Buffer.alloc(32,7)}}
 const bytes=(root:string)=>fs.readdirSync(root).sort().map(name=>({name,bytes:fs.readFileSync(path.join(root,name))}));

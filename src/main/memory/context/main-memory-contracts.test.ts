@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { createMainActorAuthority } from "../core/main-actor-authority";
 import { createMainMemoryAuthority } from "../core/main-access";
-import { createMainSourceProvider } from "../sources/main-source-provider";
+import { createMainSourceProvider } from "../core/main-source-provider";
 import { createMemorySessionModes } from "./memory-session-modes";
 import * as contracts from "./main-memory-contracts";
 

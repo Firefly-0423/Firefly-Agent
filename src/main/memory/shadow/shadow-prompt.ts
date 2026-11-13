@@ -1,6 +1,6 @@
 // 构造影子抽取请求。发出去的只有用户这一条原话，以及（可选的）紧邻的上一条助手回复。
-import {extractPreference} from '../policy/extractor';
-import {assertContextSecretFree} from '../context/source-secret-screen';
+import {extractPreference} from '../core/extractor';
+import {assertContextSecretFree} from '../core/source-secret-screen';
 import {SHADOW_ATTRIBUTES,SHADOW_LIMITS,type ShadowTurn} from './shadow-contracts';
 
 export const SHADOW_PROMPT_VERSION='m-shadow-prompt-v1';

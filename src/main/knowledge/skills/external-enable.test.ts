@@ -28,7 +28,6 @@ vi.mock("../../platform/settings/settings-facade", () => ({ loadGeneralSettings:
 vi.mock("../../platform/windows/window-state", () => ({ get reactChatWindow() { return ports.chat; }, sidebarWindow: null, settingsWindow: null, stickerManagerWindow: null }));
 vi.mock("../../memory/legacy/obsidian-exporter", () => ({ exportMemoryToObsidianVault: vi.fn(), syncToBoundVault: vi.fn() }));
 vi.mock("../../memory/legacy/obsidian-vault-config", () => ({ loadObsidianVaultConfig: vi.fn(), saveObsidianVaultConfig: vi.fn(), unbindVault: vi.fn() }));
-vi.mock("../../memory/legacy/obsidian-importer", () => ({ startVaultWatcher: vi.fn(), stopVaultWatcher: vi.fn() }));
 import { initSkills, rescanSkills, setSkillEnabled, skillRegistry } from "./index";
 import { registerMemoryUserToolIpc } from "../../features/memory/memory-user-ipc";
 const roots: string[] = [];

@@ -1,4 +1,4 @@
-import {assertContextSecretFree,maskContextSecrets} from "./source-secret-screen";
+import {assertContextSecretFree,maskContextSecrets} from "../core/source-secret-screen";
 import {readHistoryEvidence,validateHistoryEvidence,claimHistoryResponseEvidence,type HistoryResponseBinding,type HistoryResponseEvidence} from "../history/main-history";
 import {createHash,randomUUID} from "node:crypto";
 import {canonicalJson} from "../core/repository-types";
@@ -11,8 +11,8 @@ import {extractMaintenance} from "../policy/maintenance-extractor";
 import {claimSubjectKeys} from "../policy/policy-repository";
 import {resolveProject} from "../policy/project-scope";
 import {ContextError,contextFail,CONTEXT_CLAIM_WINDOW_MS,type ContextBudget,type TokenCounter,type ContextUnit,type PreparedRequest,type BudgetResult,type ContextTransport,type SourceDependency,type FactDependency,type TranscriptDependency,type StoredSummary,type SummaryReceipt,type SummaryCounting,type SummarySegment} from "../../model/context/context-contracts";
-import {selectBudget,requestDigest,freezeRequest,countPrepared,countPreparedForAdmission} from "./token-budget";
-import {parseCanonicalTranscript,requireMainTranscriptProvider,type TranscriptEventSource} from "./main-transcript-provider";
+import {selectBudget,requestDigest,freezeRequest,countPrepared,countPreparedForAdmission} from "../core/token-budget";
+import {parseCanonicalTranscript,requireMainTranscriptProvider,type TranscriptEventSource} from "../history/main-transcript-provider";
 import type {TranscriptEntry} from "../../conversation/transcript/conversation-transcript-types";
 import type {ContextFact} from "../../model/context/context-contracts";
 

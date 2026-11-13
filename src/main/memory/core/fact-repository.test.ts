@@ -4,7 +4,7 @@ import path from "node:path";
 import {randomBytes,createHash} from "node:crypto";
 import {DatabaseSync} from "node:sqlite";
 import {afterEach,it,expect} from "vitest";
-import {openMemoryRepository} from "./repository";
+import {openMemoryRepository} from "../database/repository";
 import {createMainMemoryAuthority,type VerifiedSource} from "./main-access";
 import {MemoryService} from "./memory-service";
 import type {SourceRef,FactDraft} from "../../../shared/memory-contracts";

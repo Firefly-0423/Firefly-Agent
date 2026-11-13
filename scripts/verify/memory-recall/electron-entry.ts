@@ -40,7 +40,7 @@ async function migrateAndRollback(){
  if(mode==="rollback"){
   // Exact v7 writer from the retained pre-v8 bundle, never a current writer with
   // dropped tables/reset PRAGMA. Roll back into a new owned root from full backup.
-  const old=require(path.join(__dirname,"v7-writer.cjs")) as typeof import("../../../src/main/memory/core/repository");const snapshot=bytes(folder),testKey=Buffer.alloc(32,7);
+  const old=require(path.join(__dirname,"v7-writer.cjs")) as typeof import("../../../src/main/memory/database/repository");const snapshot=bytes(folder),testKey=Buffer.alloc(32,7);
   assert.throws(()=>{const opened=old.openMemoryRepository({databasePath:file,key:testKey});opened.close()},/MEMORY_SCHEMA_UNSUPPORTED/);assert.deepEqual(bytes(folder),snapshot);
   const restored=path.join(ownedRoot,"restored-v7");fs.mkdirSync(restored);for(const suffix of ["",".auth"])fs.copyFileSync(path.join(backup,"memory.sqlite"+suffix),path.join(restored,"memory.sqlite"+suffix));assert.equal(hash(path.join(restored,"memory.sqlite")),"abe66d5aabccf0dcba143f8184b5ae41a029de9dbcabea889bfd3d17ff818434");
   const repo=old.openMemoryRepository({databasePath:path.join(restored,"memory.sqlite"),key:testKey});assert.deepEqual(repo.readRows("sources","scope-a")[0].payload,{text:"ACTUAL_V7_SYNTHETIC_RECORD"});repo.close();testKey.fill(0);db=new DatabaseSync(path.join(restored,"memory.sqlite"));assert.equal(db.prepare("PRAGMA user_version").get()?.user_version,7);db.close();

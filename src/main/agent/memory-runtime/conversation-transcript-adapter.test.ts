@@ -7,7 +7,7 @@ import type {PendingChatMessage} from "../../../shared/chat-types";
 import os from "node:os";
 import {randomBytes} from "node:crypto";
 import {afterEach} from "vitest";
-import {openMemoryRepository} from "../../memory/core/repository";
+import {openMemoryRepository} from "../../memory/database/repository";
 import {createMainSourceRegistry} from "../../memory/sources/source-registry";
 import {createMainPolicy} from "../../memory/policy/main-policy";
 import {createMainActorAuthority} from "../../memory/core/main-actor-authority";

@@ -16,13 +16,14 @@ import type {ContextFact,FactSupportDependency,BoundedEstimates} from "../../mod
 import type {BoundSourceRef,FactView} from "../../../shared/memory-contracts";
 import {contextFail,CONTEXT_CLAIM_WINDOW_MS,type SourceDependency,type FactDependency,type TranscriptDependency,type TokenCounter,type StoredSummary,type SummarySegment,type SummaryReceipt,type SummaryCounting} from "../../model/context/context-contracts";
 import {canonicalJson} from "../core/repository-types";
-import {TranscriptLedger} from "./transcript-ledger";
+import {TranscriptLedger} from "../history/transcript-ledger";
 import {RecallRepository,parseRecallDependencies} from "../recall/recall-repository";
 import type {RecallDependency} from "../recall/recall-contracts";
 import {HistoryRepository,parseHistoryDependencies,isResponseNativeHistoryDocument} from "../history/history-repository";
 import type {HistoryDependency} from "../history/history-contracts";
 
-export interface ContextOwner {actorKey:string;providerId:string;sessionId:string;bootId:string}
+import type {ContextOwner} from "../core/context-owner";
+export type {ContextOwner};
 export interface StoredSnapshot extends ContextOwner {
  factQuery?:FactQueryBinding;
  id:string;generation:number;sourceDeps:SourceDependency[];requiredSources:string[];factRefs:FactDependency[];recallDeps:RecallDependency[];transcriptRefs:TranscriptDependency[];requiredTranscripts:string[];requiredSummaries:string[];

@@ -24,32 +24,32 @@ export type ToolObservation = {
 };
 export type UncertainEffect = import("../../../shared/task-session").TaskUncertainEffect;
 export type AgentState = { toolFailureStreaks?: Record<string, number>; uncertainEffects: UncertainEffect[]; todoItems: TodoItem[] };
-export type HarnessCacheEpochReason =
+export type AgentLoopCacheEpochReason =
   | "prompt_version_changed" | "tool_catalog_changed" | "model_changed" | "recovery" | "compaction" | "run_start";
-export type HarnessCacheState = { epochReason: HarnessCacheEpochReason; cacheEpoch: number };
-export type HarnessCacheDiagnostic = {
+export type AgentLoopCacheState = { epochReason: AgentLoopCacheEpochReason; cacheEpoch: number };
+export type AgentLoopCacheDiagnostic = {
   messageCount: number; messagePrefixFingerprint: string; toolSchemaFingerprint: string; stablePromptFingerprint: string;
   round: number; cacheEpoch: number; runId?: string;
 };
-export const INITIAL_HARNESS_CACHE_STATE: HarnessCacheState = { cacheEpoch: 1, epochReason: "run_start" };
-export type HarnessConfig = {
+export const INITIAL_AGENT_LOOP_CACHE_STATE: AgentLoopCacheState = { cacheEpoch: 1, epochReason: "run_start" };
+export type AgentLoopConfig = {
   compactionRetainRatio: number; compactionThreshold: number; safetyMarginTokens: number; reservedOutputTokens: number;
   contextWindowTokens: number; userWaitTimeoutMs: number; modelRequestTimeoutMs: number; totalTimeoutMs: number;
   maxRounds: number; maxParallelToolCalls: number;
 };
 export { DEFAULT_MAX_TOOL_ROUNDS, DEFAULT_RUN_TIMEOUT_MS };
-export const DEFAULT_HARNESS_MODEL_REQUEST_TIMEOUT_MS = 10 * 60 * 1000;
-export const DEFAULT_HARNESS_CONFIG: HarnessConfig = {
+export const DEFAULT_AGENT_LOOP_MODEL_REQUEST_TIMEOUT_MS = 10 * 60 * 1000;
+export const DEFAULT_AGENT_LOOP_CONFIG: AgentLoopConfig = {
   maxParallelToolCalls: 4, maxRounds: DEFAULT_MAX_TOOL_ROUNDS, totalTimeoutMs: DEFAULT_RUN_TIMEOUT_MS,
-  modelRequestTimeoutMs: DEFAULT_HARNESS_MODEL_REQUEST_TIMEOUT_MS, userWaitTimeoutMs: 120_000,
+  modelRequestTimeoutMs: DEFAULT_AGENT_LOOP_MODEL_REQUEST_TIMEOUT_MS, userWaitTimeoutMs: 120_000,
   contextWindowTokens: DEFAULT_CONTEXT_WINDOW_TOKENS, reservedOutputTokens: 8_192, safetyMarginTokens: 512,
   compactionThreshold: AUTO_COMPACT_THRESHOLD, compactionRetainRatio: 0.16,
 };
-export type HarnessEvent =
+export type AgentLoopEvent =
   | { message: string; type: "error" }
   | { message: string; type: "runtime_feedback" }
   | { planPath: string; type: "plan_written" }
-  | { state: import("../runtime/plan-mode").PlanStateName; type: "plan_mode_changed" }
+  | { state: import("../tools/plan-mode").PlanStateName; type: "plan_mode_changed" }
   | { card: unknown; type: "ask_user" }
   | { snapshot: ContextUsageSnapshot; type: "context_usage" }
   | { items: TodoItem[]; type: "todo_update" }
@@ -64,58 +64,58 @@ export type HarnessEvent =
   | { delta: string; roundId: string; type: "candidate_text_delta" }
   | { roundId: string; type: "round_end" }
   | { roundId: string; type: "round_start" };
-export type HarnessToolLifecycleEvent = {
+export type AgentLoopToolLifecycleEvent = {
   status: "planned" | "started" | "committed" | "unknown" | "not_executed";
   toolSideEffect: SideEffectKind; toolName: string; toolCallId: string;
 };
-export type HarnessToolFinishedEvent = {
+export type AgentLoopToolFinishedEvent = {
   durationMs?: number; risk: ToolRiskLevel; status: ToolCallOutcome; runId: string; toolCallId: string; toolId: string;
 };
-export type HarnessCompactionLifecycleEvent = {
-  cache?: HarnessCacheState; messageCountAfter?: number; messageCountBefore: number; status: "started" | "committed";
+export type AgentLoopCompactionLifecycleEvent = {
+  cache?: AgentLoopCacheState; messageCountAfter?: number; messageCountBefore: number; status: "started" | "committed";
 };
-export type HarnessCheckpoint = {
-  at: number; cache: HarnessCacheState; rounds: number; toolOutputs: ToolOutputRef[]; state: AgentState; messages: ChatMessage[];
+export type AgentLoopCheckpoint = {
+  at: number; cache: AgentLoopCacheState; rounds: number; toolOutputs: ToolOutputRef[]; state: AgentState; messages: ChatMessage[];
 };
 export type RunAdjustmentMessage = { rawContent: string; id: string };
-export type HarnessToolSpec = ToolSpec & { harnessBuiltin?: boolean };
-export type HarnessInput = {
+export type AgentLoopToolSpec = ToolSpec & { harnessBuiltin?: boolean };
+export type AgentLoopInput = {
   allowedBuiltinToolIds?: ReadonlySet<string>;
   agentDefinitions?: readonly { description: string; nickname: string; id: string }[];
-  agentExecutor?: (request: import("../runtime/persistent-agent-runtime").AgentExecuteRequest, scope?: import("../runtime/child-session-types").DelegationScope) => Promise<import("../runtime/persistent-agent-runtime").AgentExecuteResult>;
+  agentExecutor?: (request: import("./run-ports").AgentExecuteRequest, scope?: import("./run-ports").DelegationScope) => Promise<import("./run-ports").AgentExecuteResult>;
   transcriptSink?: import("./transcript-sink").TranscriptSink;
   toolOutputStore?: ToolOutputStore;
-  executionLedger?: import("../runtime/execution-ledger").ExecutionLedger;
+  executionLedger?: import("./execution-ledger").ExecutionLedger;
   checkPermission?: (toolId: string, args: Record<string, unknown>, signal?: AbortSignal, origin?: ApprovalOrigin) => Promise<boolean>;
   toolContext?: import("../../tooling/registry/tool-context").ToolContext;
-  planState?: import("../runtime/plan-mode").PlanStateName;
+  planState?: import("../tools/plan-mode").PlanStateName;
   includeInteractiveTools?: boolean;
   requestUserClarification?: (card: unknown) => Promise<unknown>;
   pollRunAdjustments?: () => Promise<RunAdjustmentMessage[]> | undefined;
-  onCacheDiagnostic?: (diagnostic: HarnessCacheDiagnostic) => void;
-  onCompactionLifecycle?: (event: HarnessCompactionLifecycleEvent) => void;
-  onToolFinished?: (event: HarnessToolFinishedEvent) => void;
-  onToolLifecycle?: (event: HarnessToolLifecycleEvent) => void;
-  onToolsPlanned?: (events: readonly (HarnessToolLifecycleEvent & { status: "planned" })[]) => void;
+  onCacheDiagnostic?: (diagnostic: AgentLoopCacheDiagnostic) => void;
+  onCompactionLifecycle?: (event: AgentLoopCompactionLifecycleEvent) => void;
+  onToolFinished?: (event: AgentLoopToolFinishedEvent) => void;
+  onToolLifecycle?: (event: AgentLoopToolLifecycleEvent) => void;
+  onToolsPlanned?: (events: readonly (AgentLoopToolLifecycleEvent & { status: "planned" })[]) => void;
   // 回调收到活引用，必须在返回前同步保存快照。
-  onCheckpoint?: (checkpoint: HarnessCheckpoint) => void;
-  onEvent?: (event: HarnessEvent) => void;
+  onCheckpoint?: (checkpoint: AgentLoopCheckpoint) => void;
+  onEvent?: (event: AgentLoopEvent) => void;
   quiesceExecution?: () => void;
   signal?: AbortSignal;
-  config?: Partial<HarnessConfig>;
+  config?: Partial<AgentLoopConfig>;
   vendorConfig: import("../../model/providers/types").VendorConfig;
   tools: ToolDefinition[];
   initialState?: AgentState;
-  initialCache?: HarnessCacheState;
+  initialCache?: AgentLoopCacheState;
   initialInternalContext?: { content: string; kind: "run_start" | "recovery" };
   runId?: string;
   messages: ChatMessage[];
   usageParts?: { skillLayerContent?: string; toolLayerContent: string; personaContent: string };
   promptLayers?: import("../../model/prompt/prompt-layers").PromptLayers;
   systemPrompt: string;
-  memoryRun?: import("../memory-runtime/main-memory-runtime").MainMemoryRun;
+  memoryRun?: import("./run-ports").MainMemoryRun;
 };
-export type HarnessResult = {
+export type AgentLoopResult = {
   rounds: number; terminal?: FireflyRunTerminalResult;
   terminateReason?: "max_rounds" | "timeout" | "cancelled" | "error";
   terminated: boolean; finalState: AgentState; finalAnswer: string;

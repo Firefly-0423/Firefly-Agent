@@ -1,4 +1,4 @@
-import {extractPreference,type Attribute,type Extraction} from "./extractor";
+import {extractPreference,type Attribute,type Extraction} from "../core/extractor";
 
 export type ContextKey="default"|"work"|"personal";
 export interface MaintenanceClaim {

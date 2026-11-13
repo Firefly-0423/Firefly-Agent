@@ -7,7 +7,7 @@ import { createSmhFixture } from "../context/smh-fixture.test-support";
 import type { ShadowModel } from "../shadow/shadow-model-call";
 import * as runnerModule from "./natural-extraction-runner";
 import {projectKeyForWorkspaceRoot} from "./project-scope";
-import {createMainSourceProvider} from "../sources/main-source-provider";
+import {createMainSourceProvider} from "../core/main-source-provider";
 import {canonicalJson} from "../core/repository-types";
 
 const owned: ReturnType<typeof createSmhFixture>[] = [], profile = { id: "synthetic", revision: 1 }, text = "I always prefer English for our chats";

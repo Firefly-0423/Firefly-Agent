@@ -5,7 +5,7 @@ import {createMainMemoryAuthority,requireMainAccess,type VerifiedSource} from ".
 import {canonicalJson} from "../core/repository-types";
 import type {SourceIdentity,SourceHead,SourceLedgerTransport} from "../core/source-contracts";
 import {parseSourceIdentity,parseSourceObservation} from "../core/source-ledger";
-import {requireMainSourceProvider,type SourceSnapshot} from "./main-source-provider";
+import {requireMainSourceProvider,type SourceSnapshot} from "../core/main-source-provider";
 
 function identityOf(ref:BoundSourceRef):SourceIdentity {
  return parseSourceIdentity({providerId:ref.binding.providerId,sessionId:ref.binding.sessionId,messageId:ref.binding.messageId});

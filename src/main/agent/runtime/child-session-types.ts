@@ -1,9 +1,11 @@
+import type { DelegationScope } from "../loop/run-ports";
+export type { DelegationScope };
 import type { TaskWriteEvidence, ModelExecutionEvent } from "../../../shared/agent-execution-evidence";
 import type { RunExecutionCoordinator } from "../../tooling/execution/execution-coordinator";
 import type { ModelExecutionRecorder } from "../loop/model-execution-evidence";
 
 import type { TaskSessionStatus } from "../../../shared/task-session";
-import type { HarnessInput } from "../loop/types";
+import type { AgentLoopInput } from "../loop/types";
 import type { ToolDefinition } from "../../tooling/registry/tool-registry";
 import type { VendorConfig } from "../../model/providers/types";
 import type { RunCapabilities } from "./run-capabilities";
@@ -18,7 +20,6 @@ export interface ChildSessionResult {
   error?: { code: string; message: string };
 }
 
-export interface DelegationScope { groupId: string; toolCallId: string }
 
 interface ParentRunContext {
   parentConversationId: string;
@@ -33,7 +34,7 @@ interface ParentAccessContext {
   capabilities?: RunCapabilities;
   resolvedWorkspaceRoot?: string;
   signal?: AbortSignal;
-  checkPermission?: HarnessInput["checkPermission"];
+  checkPermission?: AgentLoopInput["checkPermission"];
   includeInteractiveTools?: boolean;
   permissionMode?: import("./firefly-agent").FireflyRunOptions["permissionMode"];
   fileAccessLevel?: import("../../platform/permission/permission-policy").AgentFileAccessLevel;

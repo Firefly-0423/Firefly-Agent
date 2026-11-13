@@ -1,4 +1,4 @@
-import { estimateMessageTokens, estimateTokens } from "../runtime/context-manager";
+import { estimateMessageTokens, estimateTokens } from "./context-manager";
 import { autoCompactTriggerTokens, AUTO_COMPACT_THRESHOLD } from "../../../shared/context-window";
 import type { ChatMessage } from "../../model/providers/types";
 

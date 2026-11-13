@@ -117,7 +117,7 @@ vi.mock("../agent/memory-runtime/desktop-memory-backend", () => ({
   desktopMemoryAdmissionMode: vi.fn(() => m.admissionMode),
 }));
 vi.mock("../conversation/transcript/conversation-transcript-store", () => ({ getConversationTranscriptStore: vi.fn(() => m.transcriptStore) }));
-vi.mock("../agent/loop/run-store", () => ({ getHarnessRunStore: vi.fn(() => ({ get: vi.fn() })) }));
+vi.mock("../agent/loop/run-store", () => ({ getAgentRunStore: vi.fn(() => ({ get: vi.fn() })) }));
 vi.mock("../memory/legacy/memory-store", () => ({
   memoryStore: { getAllL2: vi.fn(() => []), markL2SyncStatus: vi.fn() },
 }));
@@ -301,7 +301,7 @@ vi.mock("../../plugins/prompts", () => ({ pluginPromptRegistry: { build: vi.fn()
 vi.mock("../agent/runtime/live2d-work-signal", () => ({ setLive2dWorkSignalSender: vi.fn() }));
 vi.mock("../platform/lsp/manager", () => ({ LspManager: class {} }));
 vi.mock("../agent/sandbox/sandbox-exec", () => ({ initSandbox: vi.fn() }));
-vi.mock("../agent/runtime/plan-mode", () => ({
+vi.mock("../agent/tools/plan-mode", () => ({
   enterPlanDiscussing: vi.fn(),
   exitPlanMode: vi.fn(),
   getPlanState: vi.fn(() => "NORMAL"),

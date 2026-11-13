@@ -34,7 +34,7 @@ import type { RunCapabilities } from "./run-capabilities";
 import { buildStickerEmbeddingQuery } from "../../knowledge/stickers/sticker-query";
 import { stickerMoodGuard } from "../../knowledge/stickers/sticker-mood";
 import type { StickerEmbeddingEntry } from "../../knowledge/stickers/sticker-embedder";
-import { isPlanReadOnly, getPlanState } from "./plan-mode";
+import { isPlanReadOnly, getPlanState } from "../tools/plan-mode";
 import { policyFor } from "../../platform/permission/permission-policy";
 import { resolveTranscriptRetainTokens, type MaterializedTranscript } from "../loop/conversation-transcript-context";
 import { DEFAULT_CONTEXT_WINDOW_TOKENS } from "../../../shared/context-window";

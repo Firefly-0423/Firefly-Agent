@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({ spawn: vi.fn(), wrap: vi.fn(), level: vi.fn(),
 vi.mock("child_process", () => ({ spawn: mocks.spawn }));
 vi.mock("../../sandbox/sandbox-exec", () => ({ wrapWithSandbox: mocks.wrap }));
 vi.mock("../../../platform/permission/permission", () => ({ getCurrentLevel: mocks.level }));
-vi.mock("../../runtime/plan-mode", () => ({ isPlanReadOnly: mocks.readOnly }));
+vi.mock("../plan-mode", () => ({ isPlanReadOnly: mocks.readOnly }));
 vi.mock("../shell-runtime", () => ({ resolveShellExecutable: mocks.resolve, buildDirectShellInvocation: mocks.direct }));
 vi.mock("./shell-job-manager", () => ({ killTree: mocks.kill, startShellJob: mocks.background }));
 vi.mock("../../../base/logging/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn() }, LogTag: { BuiltinTools: "tools" } }));

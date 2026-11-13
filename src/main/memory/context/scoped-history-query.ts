@@ -1,4 +1,4 @@
-import type {HistoryTemporalResult} from "../history/history-temporal";
+import type {HistoryTemporalResult} from "../core/history-temporal";
 /** What the history index reported for a query: `ok`, or a budget that cut the result short. */
 export type HistoryRetrievalStatus="ok"|"index-budget-exhausted"|"excerpt-budget-exhausted";
 export interface ScopedHistoryCoverage {

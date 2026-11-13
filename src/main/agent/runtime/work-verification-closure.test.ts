@@ -6,7 +6,7 @@ vi.mock("../../index", () => ({ sendToLive2DWindow: vi.fn() }));
 vi.mock("electron", () => ({ app: { getPath: () => process.env.TEMP ?? process.cwd() }, ipcMain: { handle: vi.fn() }, BrowserWindow: { getAllWindows: () => [] } }));
 import { toolRegistry } from "../../tooling/registry/tool-registry";
 import { setCurrentLevel } from "../../platform/permission/permission";
-import { VerificationRunner, type VerificationResult } from "./verification-runner";
+import { VerificationRunner, type VerificationResult } from "../tools/verification-runner";
 import "../tools/built-in-tools";
 
 let workspace: string;
