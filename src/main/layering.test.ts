@@ -9,9 +9,19 @@ import { describe, expect, it } from "vitest";
  * 不要为了过测试放宽 layers.json。
  */
 const mainRoot = __dirname;
+/**
+ * internal（可选）：层内模块（层目录下的一级子目录）的顺序，从低到高分组。
+ * 同组模块之间可以互相引用；低组不能引用高组；没列出的模块不受层内顺序约束。
+ */
+type LayerRule = { level: number; allow: string[]; internal?: string[][] };
 const layers = (JSON.parse(fs.readFileSync(path.join(mainRoot, "layers.json"), "utf8")) as {
-  layers: Record<string, { level: number; allow: string[] }>;
+  layers: Record<string, LayerRule>;
 }).layers;
+/** 层内模块所在的组号；不在 internal 里的模块返回 undefined。 */
+function internalRank(layer: string, module: string): number | undefined {
+  const index = layers[layer]?.internal?.findIndex((group) => group.includes(module));
+  return index === undefined || index < 0 ? undefined : index;
+}
 
 const codeExtensions = [".ts", ".tsx", ".js", ".cjs", ".mjs"];
 const isTestFile = (file: string) =>
@@ -53,6 +63,11 @@ function collectViolations(): string[] {
       const to = relative(target);
       const toLayer = layerOf(to);
       if (toLayer !== fromLayer && !allowed.allow.includes(toLayer)) found.add(`${from} -> ${to}`);
+      if (toLayer === fromLayer) {
+        const [, fromModule] = from.split("/"), [, toModule] = to.split("/");
+        const fromRank = internalRank(fromLayer, fromModule), toRank = internalRank(fromLayer, toModule);
+        if (fromRank !== undefined && toRank !== undefined && fromRank < toRank) found.add(`${from} -> ${to} (层内顺序)`);
+      }
     };
     const visit = (node: ts.Node): void => {
       if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
@@ -78,5 +93,17 @@ describe("src/main layering", () => {
   it("assigns every directory under src/main to a layer", () => {
     const directories = fs.readdirSync(mainRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name);
     expect(directories.filter((name) => !(name in layers))).toEqual([]);
+  });
+
+  it("lists only existing modules, each once, in a layer's internal order", () => {
+    const problems: string[] = [];
+    for (const [layer, rule] of Object.entries(layers)) {
+      const listed = (rule.internal ?? []).flat();
+      for (const module of listed) {
+        if (!fs.existsSync(path.join(mainRoot, layer, module))) problems.push(`${layer}/${module} 不存在`);
+        if (listed.indexOf(module) !== listed.lastIndexOf(module)) problems.push(`${layer}/${module} 重复`);
+      }
+    }
+    expect([...new Set(problems)]).toEqual([]);
   });
 });
