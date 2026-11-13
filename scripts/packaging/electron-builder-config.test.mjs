@@ -97,7 +97,7 @@ test("the core package excludes retired music components and includes the QQ bri
   assert.doesNotMatch(source, /-\s+models\/\*\*\/\*/);
   assert.doesNotMatch(source, /-\s+from: resources\/components/);
   assert.doesNotMatch(source, /-\s+from: resources\/bin\/mpv/);
-  assert.match(source, /-\s+from: src\/main\/music\/scripts\/qqmusic_gsmtc\.ps1/);
+  assert.match(source, /-\s+from: src\/main\/platform\/music\/scripts\/qqmusic_gsmtc\.ps1/);
   assert.match(source, /artifactName:\s+Firefly-Agent-Setup-\$\{version\}\.\$\{ext\}/);
 });
 
@@ -250,4 +250,29 @@ test("installer file selection excludes both simulator outputs while retaining p
   await copyFiles([new FileMatcher(input, destination, value => value, config.files)], undefined, false);
   for (const file of retained) assert.equal(await readFile(path.join(destination, file), "utf8"), file);
   for (const file of omitted) await assert.rejects(access(path.join(destination, file)), { code: "ENOENT" });
+});
+
+
+test("disclaimers copy as two offline resources without other documentation", async context => {
+  const config = YAML.parse(source);
+  const entries = [...config.extraResources, ...config.extraFiles].filter(entry => entry.from === "docs" || entry.from.startsWith("docs/"));
+  assert.deepEqual(entries, [
+    { from: "docs/disclaimer.zh-CN.md", to: "docs/disclaimer.zh-CN.md" },
+    { from: "docs/disclaimer.en.md", to: "docs/disclaimer.en.md" },
+  ]);
+  const destination = await mkdtemp(path.join(os.tmpdir(), "firefly-disclaimers-"));
+  context.after(() => rm(destination, { recursive: true, force: true }));
+  const root = fileURLToPath(new URL("../../", import.meta.url));
+  for (const entry of entries) {
+    await copyFiles([new FileMatcher(path.join(root, entry.from), path.join(destination, entry.to), value => value)], undefined, false);
+    assert.deepEqual(await readFile(path.join(destination, entry.to)), await readFile(path.join(root, entry.from)));
+  }
+  assert.deepEqual((await readdir(path.join(destination, "docs"))).sort(), ["disclaimer.en.md", "disclaimer.zh-CN.md"]);
+  const input = await mkdtemp(path.join(os.tmpdir(), "firefly-docs-input-"));
+  context.after(() => rm(input, { recursive: true, force: true }));
+  await mkdir(path.join(input, "docs/user-guide"), { recursive: true });
+  await writeFile(path.join(input, "docs/user-guide/index.md"), "unrelated guide");
+  const application = path.join(destination, "application");
+  await copyFiles([new FileMatcher(input, application, value => value, config.files)], undefined, false);
+  await assert.rejects(access(path.join(application, "docs/user-guide/index.md")), { code: "ENOENT" });
 });

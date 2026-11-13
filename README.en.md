@@ -22,6 +22,8 @@
   <a href="https://github.com/Firefly-0423/Firefly-Agent/releases/latest"><b>Download for Windows</b></a> · <a href="https://hotarufirefly.online">Website and live demo</a> · <a href="#-features">Features</a> · <a href="#-security-and-privacy">Security</a> · <a href="#-run-from-source">Run from source</a> · <a href="https://github.com/Firefly-0423/Firefly-Agent/issues">Issues</a>
 </p>
 
+Read the [English disclaimer](./docs/disclaimer.en.md) before use. The [user guide](./docs/user-guide/index.md) covers channel setup in Chinese.
+
 ---
 
 ## ✨ At a glance
