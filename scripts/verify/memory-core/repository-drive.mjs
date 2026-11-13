@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import {spawn} from "node:child_process";
 import {build} from "esbuild";
 import {createPackage} from "@electron/asar";
-const cwd="E:\\Codex\\Firefly_Agent-skills-layout\\output\\task-b-memory-core";
+const cwd=path.resolve(import.meta.dirname,"..","..","..");
 assert.equal(process.cwd(),cwd);
 const output=path.join(cwd,"output","memory-core","repository-integration-"+new Date().toISOString().replace(/[:.]/g,"-"));
 fs.mkdirSync(output,{recursive:true});
