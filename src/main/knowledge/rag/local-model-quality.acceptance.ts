@@ -7,7 +7,7 @@ if(!modelRoot||!evidence||![modelRoot,evidence].every(p=>path.isAbsolute(p)&&/^E
 // Transformers.js uses the production Node dynamic-import host, which Vitest's VM does not provide.
 const driver=String.raw`
 const path=require('node:path'),fs=require('node:fs');
-const base=path.join(process.cwd(),'dist','main','main','rag');
+const base=path.join(process.cwd(),'dist','main','main','knowledge','rag');
 const {createLocalEmbeddingProvider}=require(path.join(base,'embedding.js'));
 const {createStandardReranker}=require(path.join(base,'reranker.js'));
 globalThis.fetch=()=>{throw Error('MODEL_REMOTE_FETCH_FORBIDDEN')};
