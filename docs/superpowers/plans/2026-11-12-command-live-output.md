@@ -3,6 +3,8 @@
 状态：待施工
 规格：无独立规格；依据外部参考文档盘点条目与负责人 2026-11-12 的决定（权限档位见 `docs/superpowers/specs/2026-11-12-plugin-sdk-1-2-0.md` §7.2）。
 
+> 路径说明（2026-11-13）：主进程已按七层重组（#57、#58），本文的文件路径和符号名已换成新位置（如 `src/main/agent/loop/agent-loop.ts`、`runAgentLoop`）。`文件:行号` 里的行号仍是重组前（`39987fc`）的位置，施工时以符号名为准，并在进度文档记录实际行号。
+
 **目标：** 在适用模式中执行前台 `run_shell` 时，用户无需等待命令结束，就能在对应工具卡片中看到命令和持续增加的输出。命令结束、失败、取消或超时后，保留已有输出、真实状态和必要的错误信息；重新打开会话后，可以查看、复制最近保存的输出。输出面板最多保存最近 64,000 个 Unicode 码点，明确提示可见窗口截断和底层捕获截断。Windows 输出在结束时按现有编码判定重新解码，替换实时预览。
 
 | 模式 | 计划表现 |
@@ -12,7 +14,7 @@
 | Code | 与 Work 使用相同输出能力；聊天工具卡片和右侧运行结果采用同一输出组件。 |
 | 后台命令 | 继续使用 `run_in_background`、`shell_job`；不把后台日志接入本面板。 |
 
-**架构：** 实现完全放在 Firefly 自己的执行、事件、会话和界面模块中。新增 `src/shared/command-output.ts` 统一主进程、渲染端和持久化边界（64,000 个 Unicode 码点有界尾窗）。在 `ToolContext` 增加可选 `onCommandOutput`，由 `harness/tool-dispatcher.ts` 在单次前台 `run_shell` 调用中注入真实 `call.id` 与递增 `sequence`。`run-shell-tool.ts` 对 stdout/stderr 分别使用增量 UTF-8 解码器、按每 100 毫秒批处理发布 `command_output` 事件（映射为 AG-UI `CUSTOM firefly.command.output`），结束时按每流完整捕获字节确定编码（先严格 UTF-8，失败尝试 GBK，再宽松回退）并发送最终 `replace`。渲染端 `AgentRunController.ts` 校验归属后更新 `ToolExecutionRecord.commandOutput`，以“首次变脏后最多 350 毫秒写入一次”的有界检查点经 `chats-store.ts` 落盘。Work / Code 的伙伴前台命令由 `child-session-runtime.ts` 按 `(childRunId, toolCallId)` 收集有界记录，经 Main 窄回调发送 `firefly.task.command_output` 归属到父委派卡片，并随 `TaskSession` 与 `ToolTaskResult` 保存。聊天卡片与右侧运行结果共用 `CommandOutputPanel.tsx`。
+**架构：** 实现完全放在 Firefly 自己的执行、事件、会话和界面模块中。新增 `src/shared/command-output.ts` 统一主进程、渲染端和持久化边界（64,000 个 Unicode 码点有界尾窗）。在 `ToolContext` 增加可选 `onCommandOutput`，由 `agent/loop/tool-dispatcher.ts` 在单次前台 `run_shell` 调用中注入真实 `call.id` 与递增 `sequence`。`run-shell-tool.ts` 对 stdout/stderr 分别使用增量 UTF-8 解码器、按每 100 毫秒批处理发布 `command_output` 事件（映射为 AG-UI `CUSTOM firefly.command.output`），结束时按每流完整捕获字节确定编码（先严格 UTF-8，失败尝试 GBK，再宽松回退）并发送最终 `replace`。渲染端 `AgentRunController.ts` 校验归属后更新 `ToolExecutionRecord.commandOutput`，以“首次变脏后最多 350 毫秒写入一次”的有界检查点经 `chats-store.ts` 落盘。Work / Code 的伙伴前台命令由 `child-session-runtime.ts` 按 `(childRunId, toolCallId)` 收集有界记录，经 Main 窄回调发送 `firefly.task.command_output` 归属到父委派卡片，并随 `TaskSession` 与 `ToolTaskResult` 保存。聊天卡片与右侧运行结果共用 `CommandOutputPanel.tsx`。
 
 **不改的东西：**
 - 本计划不包含交互式终端、PTY、终端输入或终端标签页。
@@ -39,27 +41,27 @@
 
 | 项目 | 当前实现及证据 | 施工结论 |
 |---|---|---|
-| 命令捕获 | `src/main/orchestrator/tools/builtin-tools/run-shell-tool.ts` 的 `executePlan`、`capture`、`buildResult` 收集 stdout/stderr，完成后返回结果。 | 复用捕获入口，新增观察回调。 |
+| 命令捕获 | `src/main/agent/tools/builtin-tools/run-shell-tool.ts` 的 `executePlan`、`capture`、`buildResult` 收集 stdout/stderr，完成后返回结果。 | 复用捕获入口，新增观察回调。 |
 | 编码处理 | 同文件 `decodeShellOutput` 先严格 UTF-8，失败后尝试 GBK，再宽松回退。 | 保留判定规则，补实时增量解码和结束校正。 |
 | 捕获边界 | 同文件 `SHELL_CAPTURE_LIMIT_PER_STREAM` 为每流 2 MiB；`captureTruncated` 已进入结果。 | 不重新实现捕获限额，不扩大最终结果。 |
 | 超时、取消与清理 | 同文件 `resolveTimeoutPolicy`、`terminate`、`retainShellCompletion` 已处理超时、进程树终止和实际完成保留。 | 保留契约，补观察事件收尾。 |
-| 模式范围 | 同文件 `runShellTool.modes` 为 `code`、`work`；`src/main/orchestrator/tools/registry/tool-registry.ts:107` 按模式过滤工具。 | Chat 不新增执行能力。 |
+| 模式范围 | 同文件 `runShellTool.modes` 为 `code`、`work`；`src/main/tooling/registry/tool-registry.ts:107` 按模式过滤工具。 | Chat 不新增执行能力。 |
 | 后台执行 | `executeRunShell` 的后台分支调用 `startShellJob`，返回 `jobId`、`logFile`。 | 从实时面板接入范围排除。 |
-| 单次调用上下文 | `src/main/orchestrator/tools/registry/tool-context.ts` 的 `createToolInvocationContext` 隔离调用上下文；`harness/tool-dispatcher.ts:135–142` 创建上下文并发布开始事件。 | 在这里绑定真实 `call.id`，不得从命令参数取身份。 |
-| 事件链 | `harness/types.ts:55–56` 有工具开始、结束事件；`harness/adapter/event-mapper.ts` 的 `sendHarnessEventAsAgui` 已映射 AG-UI。 | 复用链路，新增命令输出事件。 |
+| 单次调用上下文 | `src/main/tooling/registry/tool-context.ts` 的 `createToolInvocationContext` 隔离调用上下文；`agent/loop/tool-dispatcher.ts:135–142` 创建上下文并发布开始事件。 | 在这里绑定真实 `call.id`，不得从命令参数取身份。 |
+| 事件链 | `agent/loop/types.ts:55–56` 有工具开始、结束事件；`agent/runtime/adapter/event-mapper.ts` 的 `sendAgentLoopEventAsAgui` 已映射 AG-UI。 | 复用链路，新增命令输出事件。 |
 | IPC | `src/shared/ipc-channels.ts:17–20` 已有 `agui:run`、`agui:event`、取消和保存确认；`src/preload/index.ts:213–224` 已转发事件并提供解除监听。 | 不新增 IPC 通道。 |
 | 输出链缺失 | 本次 `git grep -n -E 'tool_output\|onShellOutput\|terminalOutput\|CommandTerminal' -- src` 无匹配；相关源码中也未发现命令增量事件处理。 | 实时输出链仍需施工。 |
 | 工具记录 | `src/shared/chat-types.ts:24` 的 `ToolExecutionRecord` 有参数、结果、状态，没有命令输出快照。 | 新增可选字段。 |
-| 结果预览 | `harness/tool-round.ts` 的结束事件把预览限制为 200 字符；`AgentRunController.ts:689–696` 又把收到的结果限制为 4,000 字符。 | 不能用现有 `result` 充当命令日志。 |
-| 保存入口 | `AgentRunController.ts` 的 `buildCheckpoint` 将工具记录交给 `store.upsert`；`src/main/chats/chats-store.ts` 的 `upsertMessage`、`writeJson` 保存聊天消息。 | 在聊天存储边界限制新字段，不按旧盘点修改 transcript 校验。 |
+| 结果预览 | `agent/loop/tool-round.ts` 的结束事件把预览限制为 200 字符；`AgentRunController.ts:689–696` 又把收到的结果限制为 4,000 字符。 | 不能用现有 `result` 充当命令日志。 |
+| 保存入口 | `AgentRunController.ts` 的 `buildCheckpoint` 将工具记录交给 `store.upsert`；`src/main/features/sessions/chats-store.ts` 的 `upsertMessage`、`writeJson` 保存聊天消息。 | 在聊天存储边界限制新字段，不按旧盘点修改 transcript 校验。 |
 | 检查点时机 | `AgentRunController.ts` 的 `checkpointRun` 每次重新设置 350 毫秒定时器。 | 持续输出可能一直推迟保存，需为命令输出补最大等待边界。 |
 | 工具卡片 | `ChatMessageList.tsx` 的 `toolChainItem` 只有 `result` 或 `changes` 时才生成内容区。 | 运行中无最终结果也必须能显示面板。 |
 | 右侧结果 | `workspace/WorkspaceRunResults.tsx` 的 `ToolFold` 用 `<pre>` 展示 `tool.result`。 | Work / Code 右侧同步复用命令面板。 |
 | 伙伴输出 | `child-session-runtime.ts` 的 `onEvent` 目前只投影为任务轨迹；`task-events.ts` 的 `tool_start`、`tool_end` 不保存命令输出。 | 伙伴命令不能直接复用父工具 ID，需独立接入。 |
 | 子任务结果校验 | `src/shared/task-result-evidence.ts` 的 `normalizeToolTaskResult` 白名单返回结果字段。 | 新增伙伴输出字段时必须同步更新校验。 |
-| 取消后的事件 | `src/main/orchestrator/harness-adapter.ts:44` 在 `signal.aborted` 后停止转发 Harness 事件。 | 直接新增事件会丢失取消后的校正，需要限定范围的收尾通路。 |
+| 取消后的事件 | `src/main/agent/runtime/agent-loop-adapter.ts:44` 在 `signal.aborted` 后停止转发 Harness 事件。 | 直接新增事件会丢失取消后的校正，需要限定范围的收尾通路。 |
 | 复制与 ANSI | `components/CopyButton.tsx` 已有 `copyTextToClipboard`；本次搜索未找到可复用的 ANSI 输出展示组件，`package.json` 未声明相关直接依赖。 | 复用复制能力，ANSI 单独封装。 |
-| 数据隔离 | `src/main/startup/runtime-profile.ts` 的 `resolveRuntimeProfile` 已提供开发、测试和 smoke 隔离，但 production 仍使用 `%APPDATA%\Firefly`。 | 1.2.0 正式目录隔离尚未满足，列为上线前置步骤。 |
+| 数据隔离 | `src/main/base/identity/runtime-profile.ts` 的 `resolveRuntimeProfile` 已提供开发、测试和 smoke 隔离，但 production 仍使用 `%APPDATA%\Firefly`。 | 1.2.0 正式目录隔离尚未满足，列为上线前置步骤。 |
 
 仓库现有计划目录中，本次关键词检索未发现本功能的专门施工计划；本轮没有运行测试或构建，不能声称当前基线已经通过这些检查。
 
@@ -76,24 +78,24 @@
 ### 新建
 
 - `src/shared/command-output.ts`、`src/shared/command-output.test.ts`
-- `src/main/orchestrator/tools/builtin-tools/command-output-capture.ts`、`src/main/orchestrator/tools/builtin-tools/command-output-capture.test.ts`
-- `src/main/orchestrator/harness/tool-dispatcher-command-output.test.ts`
+- `src/main/agent/tools/builtin-tools/command-output-capture.ts`、`src/main/agent/tools/builtin-tools/command-output-capture.test.ts`
+- `src/main/agent/loop/tool-dispatcher-command-output.test.ts`
 - `src/renderer/react/features/chat/components/CommandOutputPanel.tsx`、`src/renderer/react/features/chat/components/CommandOutputPanel.css`、`src/renderer/react/features/chat/components/CommandOutputPanel.test.tsx`
 - `src/renderer/react/features/chat/components/command-output-presentation.ts`、`src/renderer/react/features/chat/components/command-output-presentation.test.ts`
-- `src/main/orchestrator/command-output.integration.test.ts`
+- `src/main/agent/runtime/command-output.integration.test.ts`
 
 ### 修改
 
-- `src/main/startup/runtime-profile.ts`、`src/main/startup/runtime-profile.test.ts`、`src/main/startup/runtime-profile-documentation.test.ts`、`README.md`
+- `src/main/base/identity/runtime-profile.ts`、`src/main/base/identity/runtime-profile.test.ts`、`src/main/base/identity/runtime-profile-documentation.test.ts`、`README.md`
 - `src/shared/chat-types.ts`、`src/shared/task-session.ts`、`src/shared/task-result-evidence.ts`、`src/shared/task-result-evidence.test.ts`
-- `src/main/orchestrator/tools/registry/tool-context.ts`
-- `src/main/orchestrator/tools/builtin-tools/run-shell-tool.ts`、`src/main/orchestrator/tools/builtin-tools/run-shell-outcomes.test.ts`、`src/main/orchestrator/tools/builtin-tools/run-shell-capture-limit.test.ts`
-- `src/main/orchestrator/harness/tool-dispatcher.ts`、`src/main/orchestrator/harness/types.ts`、`src/main/orchestrator/harness/adapter/event-mapper.ts`、`src/main/orchestrator/harness/adapter/event-mapper.test.ts`、`src/main/orchestrator/harness/adapter/tool-runtime.ts`、`src/main/orchestrator/harness/builtin-tools.ts`
-- `src/main/orchestrator/harness-adapter.ts`、`src/main/orchestrator/harness-adapter.test.ts`
-- `src/main/orchestrator/child-session-types.ts`、`src/main/orchestrator/child-session-runtime.ts`、`src/main/orchestrator/persistent-agent-runtime.ts`、`src/main/orchestrator/persistent-agent-runtime.test.ts`
-- `src/main/chats/chats-store.ts`、`src/main/chats/chats-store.test.ts`
-- `src/main/chat/agui-bridge.test.ts`
-- `src/main/tasks/task-session-store.ts`、`src/main/tasks/task-session-store.test.ts`、`src/main/tasks/task-session-runtime-store.test.ts`
+- `src/main/tooling/registry/tool-context.ts`
+- `src/main/agent/tools/builtin-tools/run-shell-tool.ts`、`src/main/agent/tools/builtin-tools/run-shell-outcomes.test.ts`、`src/main/agent/tools/builtin-tools/run-shell-capture-limit.test.ts`
+- `src/main/agent/loop/tool-dispatcher.ts`、`src/main/agent/loop/types.ts`、`src/main/agent/runtime/adapter/event-mapper.ts`、`src/main/agent/runtime/adapter/event-mapper.test.ts`、`src/main/agent/runtime/adapter/tool-runtime.ts`、`src/main/agent/loop/builtin-tools.ts`
+- `src/main/agent/runtime/agent-loop-adapter.ts`、`src/main/agent/runtime/agent-loop-adapter.test.ts`
+- `src/main/agent/runtime/child-session-types.ts`、`src/main/agent/runtime/child-session-runtime.ts`、`src/main/agent/runtime/persistent-agent-runtime.ts`、`src/main/agent/runtime/persistent-agent-runtime.test.ts`
+- `src/main/features/sessions/chats-store.ts`、`src/main/features/sessions/chats-store.test.ts`
+- `src/main/features/chat/agui-bridge.test.ts`
+- `src/main/agent/tasks/task-session-store.ts`、`src/main/agent/tasks/task-session-store.test.ts`、`src/main/agent/tasks/task-session-runtime-store.test.ts`
 - `src/renderer/react/features/chat/pages/run/AgentRunController.ts`、`src/renderer/react/features/chat/pages/run/AgentRunController.test.ts`
 - `src/renderer/react/features/chat/pages/run-event-gate.test.ts`
 - `src/renderer/react/features/chat/components/ChatMessageList.tsx` 及相关测试
@@ -109,21 +111,21 @@
 
 依赖：无（若同版本其他工作已完成此项，核对实际提交和测试后从本功能范围删除，禁止重复改造存储体系）
 **改动文件：**
-- `src/main/startup/runtime-profile.ts`：production 使用独立于 1.1.x 的数据目录 `%APPDATA%\Firefly-1.2.0`。
-- `src/main/startup/runtime-profile.test.ts`：覆盖新正式目录、隔离和无旧目录访问。
-- `src/main/startup/runtime-profile-documentation.test.ts`：保持开发启动隔离契约。
+- `src/main/base/identity/runtime-profile.ts`：production 使用独立于 1.1.x 的数据目录 `%APPDATA%\Firefly-1.2.0`。
+- `src/main/base/identity/runtime-profile.test.ts`：覆盖新正式目录、隔离和无旧目录访问。
+- `src/main/base/identity/runtime-profile-documentation.test.ts`：保持开发启动隔离契约。
 - `README.md`：更新正式数据位置及新版本不迁移说明。
 
 **任务：**
 
 - [ ] A1 切换 `runtime-profile.ts` 的 production 正式目录至 `%APPDATA%\Firefly-1.2.0` 并验证与 1.1.x 隔离
-  - 先写的测试：`src/main/startup/runtime-profile.test.ts`：① 新正式安装 → 完整路径对象指向新目录 `%APPDATA%\Firefly-1.2.0`；旧目录存在时也不访问旧设置、历史或数据库；② 新目录为空、旧目录含哨兵文件 → 新配置独立建立；旧哨兵内容和目录保持不变；③ 隔离根越界或与正式目录重叠 → 断言已有稳定错误码；Electron 路径应用和目录写入均未发生。
-  - 实现：修改 `src/main/startup/runtime-profile.ts` 将 production 解析到 `%APPDATA%\Firefly-1.2.0`。
-  - 验证：`npm test -- src/main/startup/runtime-profile.test.ts`
+  - 先写的测试：`src/main/base/identity/runtime-profile.test.ts`：① 新正式安装 → 完整路径对象指向新目录 `%APPDATA%\Firefly-1.2.0`；旧目录存在时也不访问旧设置、历史或数据库；② 新目录为空、旧目录含哨兵文件 → 新配置独立建立；旧哨兵内容和目录保持不变；③ 隔离根越界或与正式目录重叠 → 断言已有稳定错误码；Electron 路径应用和目录写入均未发生。
+  - 实现：修改 `src/main/base/identity/runtime-profile.ts` 将 production 解析到 `%APPDATA%\Firefly-1.2.0`。
+  - 验证：`npm test -- src/main/base/identity/runtime-profile.test.ts`
 - [ ] A2 同步开发启动隔离文档测试与 `README.md` 正式数据位置说明
-  - 先写的测试：`src/main/startup/runtime-profile-documentation.test.ts`：核对文档与 `resolveRuntimeProfile` 新正式路径及开发启动隔离契约一致。
-  - 实现：修改 `src/main/startup/runtime-profile-documentation.test.ts` 与 `README.md`。
-  - 验证：`npm test -- src/main/startup/runtime-profile.test.ts src/main/startup/runtime-profile-documentation.test.ts`
+  - 先写的测试：`src/main/base/identity/runtime-profile-documentation.test.ts`：核对文档与 `resolveRuntimeProfile` 新正式路径及开发启动隔离契约一致。
+  - 实现：修改 `src/main/base/identity/runtime-profile-documentation.test.ts` 与 `README.md`。
+  - 验证：`npm test -- src/main/base/identity/runtime-profile.test.ts src/main/base/identity/runtime-profile-documentation.test.ts`
 
 **验收：** 新正式目录独立建立且不读取或修改 1.1.x 数据；越界或重叠隔离根被拒绝且无写入发生。
 **回退：** 若本包独立合入可 revert，但 1.2.0 不通过改回旧目录 `%APPDATA%\Firefly` 实现回退。
@@ -194,14 +196,14 @@ type CommandOutputUpdate = {
 ### 施工包 C：前台执行输出、解码、事件链与取消收尾
 
 依赖：施工包 B
-**改动文件（均位于 `src/main/orchestrator/`）：**
-- 修改 `tools/registry/tool-context.ts`：可选观察回调及单次调用字段。
+**改动文件（均位于 `src/main/agent/runtime/`）：**
+- 修改 `tooling/registry/tool-context.ts`：可选观察回调及单次调用字段。
 - 新增 `tools/builtin-tools/command-output-capture.ts`、`tools/builtin-tools/command-output-capture.test.ts`：批处理、流解码和结束重建。
-- 修改 `tools/builtin-tools/run-shell-tool.ts`：接入前台捕获和终止收尾。
-- 修改 `harness/tool-dispatcher.ts`：绑定调用 ID、序号和前台条件。
-- 修改 `harness/types.ts`、`harness/adapter/event-mapper.ts`：事件类型和映射。
-- 修改 `harness-adapter.ts`：限定取消后的命令输出收尾。
-- 新增 `harness/tool-dispatcher-command-output.test.ts`；扩展 `tools/builtin-tools/run-shell-outcomes.test.ts`、`tools/builtin-tools/run-shell-capture-limit.test.ts`、`harness/adapter/event-mapper.test.ts`、`harness-adapter.test.ts`。
+- 修改 `agent/tools/builtin-tools/run-shell-tool.ts`：接入前台捕获和终止收尾。
+- 修改 `agent/loop/tool-dispatcher.ts`：绑定调用 ID、序号和前台条件。
+- 修改 `agent/loop/types.ts`、`agent/runtime/adapter/event-mapper.ts`：事件类型和映射。
+- 修改 `agent-loop-adapter.ts`：限定取消后的命令输出收尾。
+- 新增 `harness/tool-dispatcher-command-output.test.ts`；扩展 `agent/tools/builtin-tools/run-shell-outcomes.test.ts`、`agent/tools/builtin-tools/run-shell-capture-limit.test.ts`、`agent/runtime/adapter/event-mapper.test.ts`、`agent-loop-adapter.test.ts`。
 
 #### 执行、解码与事件链设计
 
@@ -232,17 +234,17 @@ value = { toolCallId, sequence, update }
 **任务：**
 
 - [ ] C1 实现 `command-output-capture.ts` 双流增量 UTF-8 解码、100ms 批处理、洪流有界尾窗与结束 GBK/UTF-8 重解码
-  - 先写的测试：`src/main/orchestrator/tools/builtin-tools/command-output-capture.test.ts`：① UTF-8 中文和 emoji 跨块、两流交错 → 比较完整事件序列；最终替换与重新解码结果一致；② GBK 跨块 → 最终替换纠正预览；stdout/stderr 使用各自编码判定；③ 小块持续输出（假定时器） → 99 毫秒不提前刷新，100 毫秒按契约刷新；结束不等待下一周期；④ 输出洪流 → 单次文本和缓冲有界；捕获上限两侧行为正确，stderr 不被 stdout 洪流挤掉。
-  - 实现：新建 `src/main/orchestrator/tools/builtin-tools/command-output-capture.ts`，实现双流增量解码、100ms 节流刷新、有界顺序记录与结束重解码替换。
-  - 验证：`npm test -- src/main/orchestrator/tools/builtin-tools/command-output-capture.test.ts`
+  - 先写的测试：`src/main/agent/tools/builtin-tools/command-output-capture.test.ts`：① UTF-8 中文和 emoji 跨块、两流交错 → 比较完整事件序列；最终替换与重新解码结果一致；② GBK 跨块 → 最终替换纠正预览；stdout/stderr 使用各自编码判定；③ 小块持续输出（假定时器） → 99 毫秒不提前刷新，100 毫秒按契约刷新；结束不等待下一周期；④ 输出洪流 → 单次文本和缓冲有界；捕获上限两侧行为正确，stderr 不被 stdout 洪流挤掉。
+  - 实现：新建 `src/main/agent/tools/builtin-tools/command-output-capture.ts`，实现双流增量解码、100ms 节流刷新、有界顺序记录与结束重解码替换。
+  - 验证：`npm test -- src/main/agent/tools/builtin-tools/command-output-capture.test.ts`
 - [ ] C2 扩展 `tool-context.ts` 并将 `run-shell-tool.ts` 前台分支接入输出捕获与终止收尾
-  - 先写的测试：`src/main/orchestrator/tools/builtin-tools/run-shell-outcomes.test.ts`、`src/main/orchestrator/tools/builtin-tools/run-shell-capture-limit.test.ts`：① 非零退出、spawn 错误、超时、取消 → 保留部分输出并收尾一次；原有 `E_SHELL_EXIT`、`E_SHELL_SPAWN`、`E_TOOL_TIMEOUT`、`E_ABORTED` 等结果契约不变；② 审批拒绝、计划只读、沙箱拒绝 → 无 spawn、无原始输出事件、无输出日志文件；③ 后台执行 → 仍调用后台管理器，不发布前台输出事件；④ 回调抛错 → 工具结果、捕获和进程清理不变；收尾后无计时器继续发事件；⑤ 无回调 → 最终 JSON 与现有契约相同，不新增结果字段或改变属性顺序。
-  - 实现：修改 `src/main/orchestrator/tools/registry/tool-context.ts` 与 `src/main/orchestrator/tools/builtin-tools/run-shell-tool.ts`。
-  - 验证：`npm test -- src/main/orchestrator/tools/builtin-tools/run-shell`
-- [ ] C3 在 `tool-dispatcher.ts`、`types.ts`、`event-mapper.ts` 与 `harness-adapter.ts` 绑定调用身份、映射 AG-UI 事件并实现取消后有界收尾
-  - 先写的测试：`src/main/orchestrator/harness/tool-dispatcher-command-output.test.ts`、`src/main/orchestrator/harness/adapter/event-mapper.test.ts`、`src/main/orchestrator/harness-adapter.test.ts`：① 两个调用交错 → 每个事件 ID、序号和正文正确，不串到另一调用；② `command_output` 映射为 `CUSTOM firefly.command.output`；③ 取消先于进程关闭 → 只允许该调用的最终输出收尾；终态之后不再发布增量，也不恢复其他事件。
-  - 实现：修改 `src/main/orchestrator/harness/tool-dispatcher.ts`、`src/main/orchestrator/harness/types.ts`、`src/main/orchestrator/harness/adapter/event-mapper.ts`、`src/main/orchestrator/harness-adapter.ts`。
-  - 验证：`npm test -- src/main/orchestrator/tools/builtin-tools/command-output-capture.test.ts src/main/orchestrator/harness/tool-dispatcher-command-output.test.ts src/main/orchestrator/harness/adapter/event-mapper.test.ts src/main/orchestrator/harness-adapter.test.ts`
+  - 先写的测试：`src/main/agent/tools/builtin-tools/run-shell-outcomes.test.ts`、`src/main/agent/tools/builtin-tools/run-shell-capture-limit.test.ts`：① 非零退出、spawn 错误、超时、取消 → 保留部分输出并收尾一次；原有 `E_SHELL_EXIT`、`E_SHELL_SPAWN`、`E_TOOL_TIMEOUT`、`E_ABORTED` 等结果契约不变；② 审批拒绝、计划只读、沙箱拒绝 → 无 spawn、无原始输出事件、无输出日志文件；③ 后台执行 → 仍调用后台管理器，不发布前台输出事件；④ 回调抛错 → 工具结果、捕获和进程清理不变；收尾后无计时器继续发事件；⑤ 无回调 → 最终 JSON 与现有契约相同，不新增结果字段或改变属性顺序。
+  - 实现：修改 `src/main/tooling/registry/tool-context.ts` 与 `src/main/agent/tools/builtin-tools/run-shell-tool.ts`。
+  - 验证：`npm test -- src/main/agent/tools/builtin-tools/run-shell`
+- [ ] C3 在 `tool-dispatcher.ts`、`types.ts`、`event-mapper.ts` 与 `agent-loop-adapter.ts` 绑定调用身份、映射 AG-UI 事件并实现取消后有界收尾
+  - 先写的测试：`src/main/agent/loop/tool-dispatcher-command-output.test.ts`、`src/main/agent/runtime/adapter/event-mapper.test.ts`、`src/main/agent/runtime/agent-loop-adapter.test.ts`：① 两个调用交错 → 每个事件 ID、序号和正文正确，不串到另一调用；② `command_output` 映射为 `CUSTOM firefly.command.output`；③ 取消先于进程关闭 → 只允许该调用的最终输出收尾；终态之后不再发布增量，也不恢复其他事件。
+  - 实现：修改 `src/main/agent/loop/tool-dispatcher.ts`、`src/main/agent/loop/types.ts`、`src/main/agent/runtime/adapter/event-mapper.ts`、`src/main/agent/runtime/agent-loop-adapter.ts`。
+  - 验证：`npm test -- src/main/agent/tools/builtin-tools/command-output-capture.test.ts src/main/agent/loop/tool-dispatcher-command-output.test.ts src/main/agent/runtime/adapter/event-mapper.test.ts src/main/agent/runtime/agent-loop-adapter.test.ts`
 
 **验收：** 本包任务 C1–C3 的全部测试通过（11 项场景）；前台 `run_shell` 实时发出有界输出事件且在结束/取消/超时/异常时唯一收尾；原有结果 JSON 与错误码零回归。
 **回退：** revert 本包提交；停止接入观察回调即可回到原结果展示。
@@ -256,9 +258,9 @@ value = { toolCallId, sequence, update }
 **改动文件：**
 - 修改 `src/renderer/react/features/chat/pages/run/AgentRunController.ts`：严格归属校验、应用更新、保留终态输出和有界保存时机。
 - 修改 `src/renderer/react/features/chat/pages/run/AgentRunController.test.ts`：事件、保存、取消和会话隔离。
-- 修改 `src/main/chats/chats-store.ts`、`src/main/chats/chats-store.test.ts`：新增字段读写边界及重开恢复。
+- 修改 `src/main/features/sessions/chats-store.ts`、`src/main/features/sessions/chats-store.test.ts`：新增字段读写边界及重开恢复。
 - 扩展 `src/renderer/react/features/chat/pages/run-event-gate.test.ts`：新事件的运行隔离。
-- 按实际需要扩展 `src/main/chat/agui-bridge.test.ts`，验证传输和窗口销毁行为。
+- 按实际需要扩展 `src/main/features/chat/agui-bridge.test.ts`，验证传输和窗口销毁行为。
 - 不为本功能修改 `conversation-transcript-types.ts` 或 `conversation-transcript-store.ts`。
 
 #### 状态与保存设计
@@ -283,13 +285,13 @@ value = { toolCallId, sequence, update }
 **任务：**
 
 - [ ] D1 在 `AgentRunController.ts`、`RunEventGate` 与 `agui-bridge` 实现归属校验、序号过滤与终态输出保留
-  - 先写的测试：`src/renderer/react/features/chat/pages/run/AgentRunController.test.ts`、`src/renderer/react/features/chat/pages/run-event-gate.test.ts`、`src/main/chat/agui-bridge.test.ts`：① 当前运行、正确命令 ID → 更新完整目标记录；其他记录和助手正文不变；② 错误线程、旧运行、陌生调用、非命令工具、重复序号、畸形载荷 → 不更新、不创建记录、不触发保存；③ 最终工具结果到达 → 更新原状态和 `result`，保留校正后的输出；④ 取消、超时、恢复中断记录 → 已有输出仍可见，不显示持续运行光标，不虚构成功。
+  - 先写的测试：`src/renderer/react/features/chat/pages/run/AgentRunController.test.ts`、`src/renderer/react/features/chat/pages/run-event-gate.test.ts`、`src/main/features/chat/agui-bridge.test.ts`：① 当前运行、正确命令 ID → 更新完整目标记录；其他记录和助手正文不变；② 错误线程、旧运行、陌生调用、非命令工具、重复序号、畸形载荷 → 不更新、不创建记录、不触发保存；③ 最终工具结果到达 → 更新原状态和 `result`，保留校正后的输出；④ 取消、超时、恢复中断记录 → 已有输出仍可见，不显示持续运行光标，不虚构成功。
   - 实现：修改 `src/renderer/react/features/chat/pages/run/AgentRunController.ts`，扩展 `run-event-gate.test.ts` 与 `agui-bridge.test.ts`。
-  - 验证：`npm test -- src/renderer/react/features/chat/pages/run/AgentRunController.test.ts src/renderer/react/features/chat/pages/run-event-gate.test.ts src/main/chat/agui-bridge.test.ts`
+  - 验证：`npm test -- src/renderer/react/features/chat/pages/run/AgentRunController.test.ts src/renderer/react/features/chat/pages/run-event-gate.test.ts src/main/features/chat/agui-bridge.test.ts`
 - [ ] D2 实现首次变脏 350ms 最大等待检查点与 `chats-store.ts` 全入口读写规范化
-  - 先写的测试：`src/renderer/react/features/chat/pages/run/AgentRunController.test.ts`、`src/main/chats/chats-store.test.ts`：① 每 100 毫秒持续输出超过一秒（假定时器） → 首次变脏后 350 毫秒内发生保存，不被持续事件推迟；保存的是当时不可变快照；② 保存拒绝或延迟 → 不将命令标为失败、不触发重跑，后续保存队列仍能工作；③ 完成后重新初始化存储并读取 → 输出、状态和截断标记完整往返；④ 会话删除、临时会话 → 不产生独立残留命令日志；临时会话维持不落盘契约。
-  - 实现：修改 `src/renderer/react/features/chat/pages/run/AgentRunController.ts` 的 `checkpointRun` 与 `src/main/chats/chats-store.ts` 的 `appendMessage`、`upsertMessage`、`replaceMessages`、`replaceMessagesTail` 及初始消息入口。
-  - 验证：`npm test -- src/renderer/react/features/chat/pages/run/AgentRunController.test.ts src/main/chats/chats-store.test.ts`
+  - 先写的测试：`src/renderer/react/features/chat/pages/run/AgentRunController.test.ts`、`src/main/features/sessions/chats-store.test.ts`：① 每 100 毫秒持续输出超过一秒（假定时器） → 首次变脏后 350 毫秒内发生保存，不被持续事件推迟；保存的是当时不可变快照；② 保存拒绝或延迟 → 不将命令标为失败、不触发重跑，后续保存队列仍能工作；③ 完成后重新初始化存储并读取 → 输出、状态和截断标记完整往返；④ 会话删除、临时会话 → 不产生独立残留命令日志；临时会话维持不落盘契约。
+  - 实现：修改 `src/renderer/react/features/chat/pages/run/AgentRunController.ts` 的 `checkpointRun` 与 `src/main/features/sessions/chats-store.ts` 的 `appendMessage`、`upsertMessage`、`replaceMessages`、`replaceMessagesTail` 及初始消息入口。
+  - 验证：`npm test -- src/renderer/react/features/chat/pages/run/AgentRunController.test.ts src/main/features/sessions/chats-store.test.ts`
 
 **验收：** 本包任务 D1–D2 的全部测试通过（8 项场景）；持续输出期间按 350ms 上界可靠落盘；重开会话完整恢复命令输出快照；畸形字段安全降级不损坏会话。
 **回退：** revert 本包提交；新数据目录中的可选 `commandOutput` 字段可保留，不自动删除数据。
@@ -354,12 +356,12 @@ value = { toolCallId, sequence, update }
 依赖：施工包 C、施工包 D、施工包 E
 **改动文件：**
 - 修改 `src/shared/command-output.ts`、`src/shared/task-session.ts`、`src/shared/chat-types.ts`、`src/shared/task-result-evidence.ts`、`src/shared/task-result-evidence.test.ts`：伙伴命令展示契约和规范化。
-- 修改 `src/main/orchestrator/child-session-types.ts`、`src/main/orchestrator/child-session-runtime.ts`：窄观察回调、身份绑定、保存和收尾。
-- 修改 `src/main/orchestrator/persistent-agent-runtime.ts`、`src/main/orchestrator/persistent-agent-runtime.test.ts`：透传观察能力和最终命令记录。
-- 修改 `src/main/orchestrator/harness/adapter/tool-runtime.ts`、`src/main/orchestrator/harness/builtin-tools.ts`、`src/main/orchestrator/harness/adapter/event-mapper.ts`：传递并发布伙伴展示信息。
-- 修改 `src/main/tasks/task-session-store.ts`、`src/main/tasks/task-session-store.test.ts`、`src/main/tasks/task-session-runtime-store.test.ts`：命令记录检查点、读取校验与续跑隔离。
+- 修改 `src/main/agent/runtime/child-session-types.ts`、`src/main/agent/runtime/child-session-runtime.ts`：窄观察回调、身份绑定、保存和收尾。
+- 修改 `src/main/agent/runtime/persistent-agent-runtime.ts`、`src/main/agent/runtime/persistent-agent-runtime.test.ts`：透传观察能力和最终命令记录。
+- 修改 `src/main/agent/runtime/adapter/tool-runtime.ts`、`src/main/agent/loop/builtin-tools.ts`、`src/main/agent/runtime/adapter/event-mapper.ts`：传递并发布伙伴展示信息。
+- 修改 `src/main/agent/tasks/task-session-store.ts`、`src/main/agent/tasks/task-session-store.test.ts`、`src/main/agent/tasks/task-session-runtime-store.test.ts`：命令记录检查点、读取校验与续跑隔离。
 - 修改 `src/renderer/react/features/chat/pages/run/AgentRunController.ts`、`src/renderer/react/features/chat/components/ChatMessageList.tsx`、`src/renderer/react/features/chat/workspace/WorkspaceRunResults.tsx`：更新对应委派卡片及重开展示。
-- 新增 `src/main/orchestrator/command-output.integration.test.ts`：命令输出整链集成测试。
+- 新增 `src/main/agent/runtime/command-output.integration.test.ts`：命令输出整链集成测试。
 
 #### 伙伴命令设计
 
@@ -376,17 +378,17 @@ Work / Code 的伙伴前台命令纳入范围，但不把子任务通用事件�
 **任务：**
 
 - [ ] F1 扩展 `TaskSession`、`ToolTaskResult`、`normalizeToolTaskResult` 与 `task-session-store.ts` 持久化及续跑隔离
-  - 先写的测试：`src/shared/task-result-evidence.test.ts`、`src/main/tasks/task-session-store.test.ts`、`src/main/tasks/task-session-runtime-store.test.ts`：① 同一任务续跑产生新子运行 → 新旧记录按 `childRunId` 分离，迟到事件不能污染新运行；② 伙伴取消、超时和存储重开 → 保存有界部分输出及正确终态。
-  - 实现：修改 `src/shared/command-output.ts`、`src/shared/task-session.ts`、`src/shared/chat-types.ts`、`src/shared/task-result-evidence.ts`、`src/main/tasks/task-session-store.ts`。
-  - 验证：`npm test -- src/shared/task-result-evidence.test.ts src/main/tasks/task-session-store.test.ts src/main/tasks/task-session-runtime-store.test.ts`
+  - 先写的测试：`src/shared/task-result-evidence.test.ts`、`src/main/agent/tasks/task-session-store.test.ts`、`src/main/agent/tasks/task-session-runtime-store.test.ts`：① 同一任务续跑产生新子运行 → 新旧记录按 `childRunId` 分离，迟到事件不能污染新运行；② 伙伴取消、超时和存储重开 → 保存有界部分输出及正确终态。
+  - 实现：修改 `src/shared/command-output.ts`、`src/shared/task-session.ts`、`src/shared/chat-types.ts`、`src/shared/task-result-evidence.ts`、`src/main/agent/tasks/task-session-store.ts`。
+  - 验证：`npm test -- src/shared/task-result-evidence.test.ts src/main/agent/tasks/task-session-store.test.ts src/main/agent/tasks/task-session-runtime-store.test.ts`
 - [ ] F2 在 `child-session-runtime.ts`、`persistent-agent-runtime.ts` 与委派工具链透传 `firefly.task.command_output` 并验证隐私隔离
-  - 先写的测试：`src/main/orchestrator/persistent-agent-runtime.test.ts`：① 两个伙伴使用相同 `toolCallId` → 按不同 `childRunId` 隔离，父卡片与另一伙伴不变；② 输出正文与私有提示词使用不同哨兵 → 只出现允许的命令输出；父消息、模型输入和通用日志中没有私有哨兵。
-  - 实现：修改 `src/main/orchestrator/child-session-types.ts`、`src/main/orchestrator/child-session-runtime.ts`、`src/main/orchestrator/persistent-agent-runtime.ts`、`src/main/orchestrator/harness/adapter/tool-runtime.ts`、`src/main/orchestrator/harness/builtin-tools.ts`、`src/main/orchestrator/harness/adapter/event-mapper.ts`。
-  - 验证：`npm test -- src/main/orchestrator/persistent-agent-runtime.test.ts`
+  - 先写的测试：`src/main/agent/runtime/persistent-agent-runtime.test.ts`：① 两个伙伴使用相同 `toolCallId` → 按不同 `childRunId` 隔离，父卡片与另一伙伴不变；② 输出正文与私有提示词使用不同哨兵 → 只出现允许的命令输出；父消息、模型输入和通用日志中没有私有哨兵。
+  - 实现：修改 `src/main/agent/runtime/child-session-types.ts`、`src/main/agent/runtime/child-session-runtime.ts`、`src/main/agent/runtime/persistent-agent-runtime.ts`、`src/main/agent/runtime/adapter/tool-runtime.ts`、`src/main/agent/loop/builtin-tools.ts`、`src/main/agent/runtime/adapter/event-mapper.ts`。
+  - 验证：`npm test -- src/main/agent/runtime/persistent-agent-runtime.test.ts`
 - [ ] F3 在 `AgentRunController.ts` 与界面委派卡片接入伙伴命令展示，并完成 `command-output.integration.test.ts` 整链回归
-  - 先写的测试：`src/renderer/react/features/chat/pages/run/AgentRunController.test.ts`、`src/main/orchestrator/command-output.integration.test.ts`：① 最终委派结果到达 → 校正实时记录，不抹除命令输出；② 伪造父运行、委派调用或任务身份 → 不展示、不保存，不泄露其他任务内容；③ 假进程→工具→Harness→AG-UI→控制器→存储重开 → 命令未结束时已可见；结束后输出完成校正并可恢复。
-  - 实现：修改 `src/renderer/react/features/chat/pages/run/AgentRunController.ts`、`src/renderer/react/features/chat/components/ChatMessageList.tsx`、`src/renderer/react/features/chat/workspace/WorkspaceRunResults.tsx`；新建 `src/main/orchestrator/command-output.integration.test.ts`。
-  - 验证：`npm test -- src/main/orchestrator/persistent-agent-runtime.test.ts src/main/tasks/task-session-store.test.ts src/shared/task-result-evidence.test.ts src/main/orchestrator/command-output.integration.test.ts`
+  - 先写的测试：`src/renderer/react/features/chat/pages/run/AgentRunController.test.ts`、`src/main/agent/runtime/command-output.integration.test.ts`：① 最终委派结果到达 → 校正实时记录，不抹除命令输出；② 伪造父运行、委派调用或任务身份 → 不展示、不保存，不泄露其他任务内容；③ 假进程→工具→Harness→AG-UI→控制器→存储重开 → 命令未结束时已可见；结束后输出完成校正并可恢复。
+  - 实现：修改 `src/renderer/react/features/chat/pages/run/AgentRunController.ts`、`src/renderer/react/features/chat/components/ChatMessageList.tsx`、`src/renderer/react/features/chat/workspace/WorkspaceRunResults.tsx`；新建 `src/main/agent/runtime/command-output.integration.test.ts`。
+  - 验证：`npm test -- src/main/agent/runtime/persistent-agent-runtime.test.ts src/main/agent/tasks/task-session-store.test.ts src/shared/task-result-evidence.test.ts src/main/agent/runtime/command-output.integration.test.ts`
 
 **验收：** 本包任务 F1–F3 的全部测试通过（7 项场景）；并行伙伴命令按真实身份严格隔离，子任务私有轨迹零泄露；整链集成测试通过。
 **回退：** revert 本包提交；主流程命令实时输出保留，伙伴委派退回原展示方式。
@@ -398,22 +400,22 @@ Work / Code 的伙伴前台命令纳入范围，但不把子任务通用事件�
 
 - [ ] 各施工包最近测试全部通过：
   ```powershell
-  npm test -- src/main/startup/runtime-profile.test.ts src/main/startup/runtime-profile-documentation.test.ts
+  npm test -- src/main/base/identity/runtime-profile.test.ts src/main/base/identity/runtime-profile-documentation.test.ts
 
   npm test -- src/shared/command-output.test.ts
 
-  npm test -- src/main/orchestrator/tools/builtin-tools/command-output-capture.test.ts src/main/orchestrator/harness/tool-dispatcher-command-output.test.ts src/main/orchestrator/harness/adapter/event-mapper.test.ts
+  npm test -- src/main/agent/tools/builtin-tools/command-output-capture.test.ts src/main/agent/loop/tool-dispatcher-command-output.test.ts src/main/agent/runtime/adapter/event-mapper.test.ts
 
-  npm test -- src/renderer/react/features/chat/pages/run/AgentRunController.test.ts src/main/chats/chats-store.test.ts
+  npm test -- src/renderer/react/features/chat/pages/run/AgentRunController.test.ts src/main/features/sessions/chats-store.test.ts
 
   npm test -- src/renderer/react/features/chat/components/CommandOutputPanel.test.tsx src/renderer/react/features/chat/workspace/WorkspaceRunResults.test.ts
 
-  npm test -- src/main/orchestrator/persistent-agent-runtime.test.ts src/main/tasks/task-session-store.test.ts src/shared/task-result-evidence.test.ts src/main/orchestrator/command-output.integration.test.ts
+  npm test -- src/main/agent/runtime/persistent-agent-runtime.test.ts src/main/agent/tasks/task-session-store.test.ts src/shared/task-result-evidence.test.ts src/main/agent/runtime/command-output.integration.test.ts
   ```
 - [ ] 相关模块测试全部通过：
   ```powershell
-  npm test -- src/main/orchestrator/tools/builtin-tools/run-shell
-  npm test -- src/main/orchestrator/harness
+  npm test -- src/main/agent/tools/builtin-tools/run-shell
+  npm test -- src/main/agent/runtime/harness
   npm test -- src/main/chats src/main/tasks
   npm test -- src/renderer/react/features/chat
   ```

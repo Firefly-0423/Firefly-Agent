@@ -3,12 +3,14 @@
 状态：待施工
 规格：无独立规格；依据 `output/cyrene-inventory.md` 的盘点条目与负责人 2026-11-12 的决定。
 
+> 路径说明（2026-11-13）：主进程已按七层重组（#57、#58），本文的文件路径和符号名已换成新位置（如 `src/main/agent/loop/agent-loop.ts`、`runAgentLoop`）。`文件:行号` 里的行号仍是重组前（`39987fc`）的位置，施工时以符号名为准，并在进度文档记录实际行号。
+
 **目标：** 为用户提供中英文免责声明和三份渠道接入指南，准确解释 Firefly 的许可、角色素材来源、数据去向、AI 输出风险、工具授权及渠道限制。用户能够按照 Firefly 的中文界面完成配置，识别“连接成功但消息被拒”“工具关闭”“被动回复额度耗尽”等不同情况，并知道如何安全排障。为维护者建立可追溯的生产依赖风险登记和测试入口清单，补齐默认 Vitest 集合以外的 CI 测试覆盖。
 
 **架构：** 全部以仓库文档实现，README 链接入口，不增加首次启动同意弹窗、持久化同意记录、IPC 或错误码。免责声明随安装包离线附带。渠道指南按现有适配器的实际行为编写；文档与实现不符时先纠正文档，实际缺陷单独立包修复。依赖风险用 Markdown 登记表维护。CI 在现有 `test.yml` 上补入 Node 脚本测试和有运行前提的独立验收入口，并让开发分支的 push 也触发。
 
 **不改的东西：**
-- 渠道适配器、渠道 IPC（`IPC.CHANNELS_GET_CONFIG`、`CHANNELS_SAVE_CONFIG`、`CHANNELS_GET_STATUS`、`CHANNELS_SENDER_RESOLVE`、`CHANNELS_QQ_TEST_CONNECTION`、`CHANNELS_QQBOT_TEST_CONNECTION`，`src/main/channels/init.ts:71-109`）和 `ChannelStatus`；不新造产品错误码。
+- 渠道适配器、渠道 IPC（`IPC.CHANNELS_GET_CONFIG`、`CHANNELS_SAVE_CONFIG`、`CHANNELS_GET_STATUS`、`CHANNELS_SENDER_RESOLVE`、`CHANNELS_QQ_TEST_CONNECTION`、`CHANNELS_QQBOT_TEST_CONNECTION`，`src/main/features/channels/init.ts:71-109`）和 `ChannelStatus`；不新造产品错误码。
 - `LICENSE`、`MODEL_LICENSE.md`、`THIRD_PARTY_NOTICES.md` 的许可内容。
 - 默认 Vitest 的 include、超时、worker 设置，生产依赖审计的非阻断策略；不降低断言、不放宽阈值、不删用例。
 - 不升级依赖、不改锁文件、不运行自动修复；不新增漏洞扫描器或检查工具。
@@ -18,22 +20,22 @@
 ### 文档与产品边界
 
 - `AGENTS.md` 的“修改与验证”和“测试断言写法”十二条适用于本计划全部施工包。
-- README 已说明模块职责：渠道位于 `src/main/channels/`，界面位于 `src/renderer/`，共享契约位于 `src/shared/`，启动隔离位于 `src/main/startup/`。证据：`README.md` 的“各层代码位置”“项目结构”。
+- README 已说明模块职责：渠道位于 `src/main/features/channels/`，界面位于 `src/renderer/`，共享契约位于 `src/shared/`，启动隔离位于 `src/main/base/identity/`。证据：`README.md` 的“各层代码位置”“项目结构”。
 - README 已有安全、权限、本地数据和外部服务说明；代码使用 MIT 许可，角色素材另有说明。证据：`README.md:115` 起、“许可证与角色素材”章节、`LICENSE:1`。这些内容保留并链接完整条款，不重新编写许可。
 - `git ls-files '*disclaimer*' 'docs/user-guide/*'` 无输出：缺少独立免责声明与渠道指南。
-- 默认正式数据目录仍是 `%APPDATA%\Firefly`，尚未按版本隔离。证据：`src/main/startup/runtime-profile.ts:55-56`、`README.md`“数据位置”。1.2.0 定为 `%APPDATA%\Firefly-1.2.0`，由启动隔离施工落实；新文档在它落地前不能声称已使用新目录。
+- 默认正式数据目录仍是 `%APPDATA%\Firefly`，尚未按版本隔离。证据：`src/main/base/identity/runtime-profile.ts:55-56`、`README.md`“数据位置”。1.2.0 定为 `%APPDATA%\Firefly-1.2.0`，由启动隔离施工落实；新文档在它落地前不能声称已使用新目录。
 
 ### 渠道实现
 
 | 项目 | 当前实现与证据 | 本计划处理 |
 |---|---|---|
-| 飞书 | 官方 SDK；只接受 `p2p`；调用 `admitSender`；支持多种媒体发送。`src/main/channels/adapters/feishu/index.ts:4,14,71,124,128` | 写指南；删除“无白名单”的旧假设 |
-| 飞书默认准入 | `allowAnyPrivate: false`，`allowedSenderIds: []`。`src/main/channels/settings-store.ts:37` | 说明首次消息可能等待批准 |
-| NapCat | 反向 WebSocket；私聊和群聊白名单；`groupRequireMention` 控制是否必须 @。`src/main/channels/adapters/qq/napcat-adapter.ts:31-36` | 写指南；不把默认必须 @ 写成不可配置规则 |
-| 官方 QQ 机器人 | 使用 openid 白名单，私聊可配置放行全部；接受多类群事件。`src/main/channels/adapters/qqbot/qqbot-adapter.ts:15-16,38-49` | 写明 openid 与 QQ 号不同，不笼统承诺群聊只接收 @ |
-| 官方 QQ 出站 | 当前仅文本；本地实现私聊 60 分钟/4 次、群聊 5 分钟/5 次。`src/main/channels/adapters/qqbot/qqbot-adapter.ts:11-14,142-167` | 分开说明本地限制与平台发布时规则 |
-| 官方 QQ 失败返回 | 明确返回“没有可引用的入站消息”“被动回复窗口已过”“回复次数已达上限”。`src/main/channels/adapters/qqbot/qqbot-adapter.ts:145-149` | 指南按这些返回解释排障 |
-| 渠道工具策略 | QQ、QQ Bot 群聊强制 Chat；其他适用场景关闭工具为 Chat，开启工具为 Work，`allow_all`，不提供交互工具。`src/main/channels/agent-policy.ts:12-33` | 文档明确远程执行权限风险；1.2.0 收紧后同步更新（见全局约束） |
+| 飞书 | 官方 SDK；只接受 `p2p`；调用 `admitSender`；支持多种媒体发送。`src/main/features/channels/adapters/feishu/index.ts:4,14,71,124,128` | 写指南；删除“无白名单”的旧假设 |
+| 飞书默认准入 | `allowAnyPrivate: false`，`allowedSenderIds: []`。`src/main/features/channels/settings-store.ts:37` | 说明首次消息可能等待批准 |
+| NapCat | 反向 WebSocket；私聊和群聊白名单；`groupRequireMention` 控制是否必须 @。`src/main/features/channels/adapters/qq/napcat-adapter.ts:31-36` | 写指南；不把默认必须 @ 写成不可配置规则 |
+| 官方 QQ 机器人 | 使用 openid 白名单，私聊可配置放行全部；接受多类群事件。`src/main/features/channels/adapters/qqbot/qqbot-adapter.ts:15-16,38-49` | 写明 openid 与 QQ 号不同，不笼统承诺群聊只接收 @ |
+| 官方 QQ 出站 | 当前仅文本；本地实现私聊 60 分钟/4 次、群聊 5 分钟/5 次。`src/main/features/channels/adapters/qqbot/qqbot-adapter.ts:11-14,142-167` | 分开说明本地限制与平台发布时规则 |
+| 官方 QQ 失败返回 | 明确返回“没有可引用的入站消息”“被动回复窗口已过”“回复次数已达上限”。`src/main/features/channels/adapters/qqbot/qqbot-adapter.ts:145-149` | 指南按这些返回解释排障 |
+| 渠道工具策略 | QQ、QQ Bot 群聊强制 Chat；其他适用场景关闭工具为 Chat，开启工具为 Work，`allow_all`，不提供交互工具。`src/main/features/channels/agent-policy.ts:12-33` | 文档明确远程执行权限风险；1.2.0 收紧后同步更新（见全局约束） |
 | 中文入口 | “连接手机”“保存并启动监听”“保存并连接”等已存在。`src/renderer/settings/i18n/zh-CN.json:30,661,676,694,697` | 直接使用现有中文文案 |
 
 现有渠道功能不列入重新实现范围。
@@ -99,7 +101,7 @@
     | 渠道 Work | 私聊开启工具后使用 Work；按当前实现工具直接执行，不能沿用桌面审批预期（1.2.0 收紧后改为只放行读取） |
     | 渠道 Code | 渠道策略不选择 Code；桌面切到 Code 或绑定上下文不等于远程获得 Code 权限 |
 
-    依据：`README.md` 的三种模式章节、`src/main/channels/agent-policy.ts`、中文 i18n 的 `toolPermissionAllDesc`、`contextHint`。
+    依据：`README.md` 的三种模式章节、`src/main/features/channels/agent-policy.ts`、中文 i18n 的 `toolPermissionAllDesc`、`contextHint`。
   - 验证：人工通读；`git diff --check`
 - [ ] A2 写英文免责声明 `docs/disclaimer.en.md`
   - 先写的测试：无自动化测试；人工逐条对照 A1。
@@ -139,25 +141,25 @@
 **任务：**
 
 - [ ] B1 核对并补齐飞书准入与收发的测试
-  - 先写的测试：`src/main/channels/adapters/feishu/sender-gate.test.ts`：未批准发送者 → 不进入消息处理、不下载媒体、不调用模型；批准后按既有契约处理。`src/main/channels/adapters/feishu/index.test.ts`：文本及受支持媒体 → 核对实际发送参数与结果；发送失败不得返回成功。
+  - 先写的测试：`src/main/features/channels/adapters/feishu/sender-gate.test.ts`：未批准发送者 → 不进入消息处理、不下载媒体、不调用模型；批准后按既有契约处理。`src/main/features/channels/adapters/feishu/index.test.ts`：文本及受支持媒体 → 核对实际发送参数与结果；发送失败不得返回成功。
   - 实现：不改适配器；只补缺失的用例。
-  - 验证：`npm test -- src/main/channels/adapters/feishu`
+  - 验证：`npm test -- src/main/features/channels/adapters/feishu`
 - [ ] B2 写飞书指南 `docs/user-guide/feishu.md`
   - 先写的测试：B1。
   - 实现：长连接、机器人能力、事件订阅、权限与发布；陌生发送者批准流程（默认 `allowAnyPrivate: false`、`allowedSenderIds: []`）。未经准入的消息不能描述成连接失败。
   - 验证：真机验收第 2、3 步（飞书部分）
 - [ ] B3 核对并补齐 NapCat 准入与监听鉴权的测试
-  - 先写的测试：`src/main/channels/adapters/qq/napcat-adapter.test.ts`：白名单内外 × 要求 @ 开关 × 消息含 / 不含 @ → 表驱动断言准入结果；拒绝不得进入后续处理。`src/main/channels/adapters/qq/onebot-listen-auth.test.ts`：本机与非本机监听、Token 缺失 / 错误 → 断言现有错误及连接拒绝，且没有消息分发。
+  - 先写的测试：`src/main/features/channels/adapters/qq/napcat-adapter.test.ts`：白名单内外 × 要求 @ 开关 × 消息含 / 不含 @ → 表驱动断言准入结果；拒绝不得进入后续处理。`src/main/features/channels/adapters/qq/onebot-listen-auth.test.ts`：本机与非本机监听、Token 缺失 / 错误 → 断言现有错误及连接拒绝，且没有消息分发。
   - 实现：不改适配器；只补缺失的用例。
-  - 验证：`npm test -- src/main/channels/adapters/qq`
+  - 验证：`npm test -- src/main/features/channels/adapters/qq`
 - [ ] B4 写 NapCat 指南 `docs/user-guide/napcat-onebot.md`
   - 先写的测试：B3。
   - 实现：Firefly 监听、NapCat 作为客户端连接；使用页面实际显示的 URL；区分本机、WSL、自定义监听与 Token 要求；白名单和 `groupRequireMention`。
   - 验证：真机验收第 2、3 步（NapCat 部分）
 - [ ] B5 核对并补齐官方 QQ 与渠道策略的测试，写官方 QQ 指南 `docs/user-guide/qqbot-official.md`
-  - 先写的测试：`src/main/channels/adapters/qqbot/qqbot-adapter.test.ts`：openid 准入、无入站消息、窗口边界及两侧（假定时器）、次数上限前后 → 断言完整结果；拒绝发送时 API 调用次数为零。`src/main/channels/agent-policy.test.ts`：三类渠道私聊、QQ 两类群聊、工具开关 → 比较完整策略对象；群聊不得暴露工具或转成 Work / Code。`src/main/channels/bootstrap.test.ts`：渠道消息进入运行时 → 核对实际模式、工具策略和生命周期；被拒绝的消息不得创建运行。
+  - 先写的测试：`src/main/features/channels/adapters/qqbot/qqbot-adapter.test.ts`：openid 准入、无入站消息、窗口边界及两侧（假定时器）、次数上限前后 → 断言完整结果；拒绝发送时 API 调用次数为零。`src/main/features/channels/agent-policy.test.ts`：三类渠道私聊、QQ 两类群聊、工具开关 → 比较完整策略对象；群聊不得暴露工具或转成 Work / Code。`src/main/features/channels/bootstrap.test.ts`：渠道消息进入运行时 → 核对实际模式、工具策略和生命周期；被拒绝的消息不得创建运行。
   - 实现：指南写 AppID / AppSecret、沙箱测试用户、openid 获取、白名单和“放行所有单聊”；仅文本出站、被动回复窗口与次数（本地限制：私聊 60 分钟 / 4 次、群聊 5 分钟 / 5 次）、主动投递限制；按适配器的三种失败返回解释排障。
-  - 验证：`npm test -- src/main/channels/adapters/qqbot`；`npm test -- src/main/channels/agent-policy.test.ts src/main/channels/bootstrap.test.ts`；真机验收第 2、3 步（官方 QQ 部分）
+  - 验证：`npm test -- src/main/features/channels/adapters/qqbot`；`npm test -- src/main/features/channels/agent-policy.test.ts src/main/features/channels/bootstrap.test.ts`；真机验收第 2、3 步（官方 QQ 部分）
 - [ ] B6 渠道 Work 收紧合并后更新三份指南和免责声明的渠道 Work 一行（跟进 PR）
   - 先写的测试：沿用 B5 的 `agent-policy.test.ts`（由渠道施工计划改为只放行 `fs-read` 后的完整策略对象）。
   - 实现：把“工具直接执行”改为“只放行读取类工具，写入、命令等不可用；审批不能在外部平台完成”。

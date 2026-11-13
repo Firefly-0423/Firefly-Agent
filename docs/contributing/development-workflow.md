@@ -142,8 +142,8 @@ Issue（问题或需求）
 
 | 模块 | 代码位置 | 先讨论 | 可直接 PR |
 |---|---|---|---|
-| 运行循环 | `src/main/agent/loop/`、`firefly-agent.ts`、`chat-loop.ts`、`src/main/features/chat/agui-bridge.ts` | 运行终态与结算、取消 / 超时 / 错误的区分、重试策略、事件顺序、适配层接口 | 不改语义的修复、日志 |
-| 记忆 | `src/main/memory*/` | 判定与冲突策略、存储结构、注入逻辑 | 导入导出修复、记忆管理界面 |
+| 运行循环 | `src/main/agent/loop/`、`src/main/agent/runtime/`（`firefly-agent.ts`、`chat-loop.ts`）、`src/main/features/chat/agui-bridge.ts` | 运行终态与结算、取消 / 超时 / 错误的区分、重试策略、事件顺序、适配层接口 | 不改语义的修复、日志 |
+| 记忆 | `src/main/memory/`、`src/main/agent/memory-runtime/` | 判定与冲突策略、存储结构、注入逻辑 | 导入导出修复、记忆管理界面 |
 | 插件 | `src/plugins/`、`src/main/features/plugins/host/`、`plugin-sdk/` | 清单字段、能力与权限、生命周期、隔离与安全边界 | 示例插件、SDK 文档、不改契约的修复 |
 | 工具 | `src/main/agent/tools/` | 新增内置工具（尤其写文件、执行命令、联网）、各模式的工具暴露、参数和返回格式、写入防护 | 工具说明文案、不改行为的修复 |
 | 上下文 | `build-options.ts`、`context-manager.ts`、`prompt-layers.ts`、`src/main/base/runtime-policy/` | 提示词分层、压缩与裁剪、Token 预算、各来源的注入顺序 | 上下文查看界面、注入格式修复 |

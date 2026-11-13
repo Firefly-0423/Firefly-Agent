@@ -3,6 +3,8 @@
 状态：待施工
 规格：无独立规格；依据外部参考文档盘点条目与负责人 2026-11-12 的决定（权限档位与渠道模式见 `docs/superpowers/specs/2026-11-12-plugin-sdk-1-2-0.md` §7.2、§7.4）。
 
+> 路径说明（2026-11-13）：主进程已按七层重组（#57、#58），本文的文件路径和符号名已换成新位置（如 `src/main/agent/loop/agent-loop.ts`、`runAgentLoop`）。`文件:行号` 里的行号仍是重组前（`39987fc`）的位置，施工时以符号名为准，并在进度文档记录实际行号。
+
 **目标：** 让用户在 Chat、Work、Code 中获得一致、可解释的图片处理行为：使用正确的模型档案，根据供应商、模型输入能力和实际传输协议决定能否发送图片；不能处理时明确说明原因，避免界面判断、后台调用和工具读取各用一套配置。让外部渠道和主动聊天具备可验收的完整链路：渠道消息能够使用默认档案生成并回复，失败结果可以定位到具体阶段（`profile` / `attachments` / `agent` / `delivery`）；主动聊天能够区分未产生候选、策略拦截、模型沉默、生成失败、投递失败、落库成功和提醒失败（`candidate → policy → model → delivery → persistence → notification`）。提供 Firefly 专用的飞书、NapCat、官方 QQ 机器人指南。
 
 | 场景 | Chat | Work | Code |
@@ -14,15 +16,15 @@
 | 主动聊天 | 写入专用 Chat 会话 | 空闲时可产生 Chat 提醒；不插入 Work 会话 | 空闲时可产生 Chat 提醒；不插入 Code 会话 |
 | 正在运行或审批 | 保留已有 busy、取消保护 | 同左 | 同左 |
 
-**架构：** 采用“统一档案选择、统一图片路由、沿用现有渠道与主动服务、补诊断和提醒”的增量方案。在 `src/main/settings/model-settings.ts` 增加严格的 `resolveRunModelSelection(settings, { boundProfileId?, pendingProfileId? })`，一次请求只捕获一份选择结果快照并贯穿发送策略判断、附件处理、Agent 请求与直发失败转述。在 `src/main/orchestrator/vendors/image-transport-policy.ts` 与 `image-router.ts` 将模型能力、端点协议能力（18 个内置组合 + 3 个自定义协议）和序列化三者分离，并将 `vision-captioner.ts` 改为复用现有 OpenAI、Anthropic、Responses 适配器。渠道在 `LogEntry` 增加可选脱敏 `diagnostic`（同一入站请求共用 `attemptId`）。主动聊天新增 `proactive-diagnostics.ts` 与内部受控 IPC（`proactive:diagnose`、`proactive:diagnostics:get`，仅非 production 可调用），通过现有文件 sink 保留最近 100 次安全摘要，并在本地落库成功后通过新增 `ToastKind: "proactive-message"` 与焦点/会话感知刷新保证可见性。
+**架构：** 采用“统一档案选择、统一图片路由、沿用现有渠道与主动服务、补诊断和提醒”的增量方案。在 `src/main/model/config/model-settings.ts` 增加严格的 `resolveRunModelSelection(settings, { boundProfileId?, pendingProfileId? })`，一次请求只捕获一份选择结果快照并贯穿发送策略判断、附件处理、Agent 请求与直发失败转述。在 `src/main/model/providers/image-transport-policy.ts` 与 `image-router.ts` 将模型能力、端点协议能力（18 个内置组合 + 3 个自定义协议）和序列化三者分离，并将 `vision-captioner.ts` 改为复用现有 OpenAI、Anthropic、Responses 适配器。渠道在 `LogEntry` 增加可选脱敏 `diagnostic`（同一入站请求共用 `attemptId`）。主动聊天新增 `proactive-diagnostics.ts` 与内部受控 IPC（`proactive:diagnose`、`proactive:diagnostics:get`，仅非 production 可调用），通过现有文件 sink 保留最近 100 次安全摘要，并在本地落库成功后通过新增 `ToastKind: "proactive-message"` 与焦点/会话感知刷新保证可见性。
 
 **不改的东西：**
 - 仅沿用 Firefly 当前模块和接口，不复制外部参考文档中的实现。
 - 不新增依赖、检查工具或 CI 阈值，不将历史验证记录当作当前通过证明。
 - **已完成且移出重新实现范围的能力（仅补测试或复用）**：
-  - Anthropic 图片转换（`src/main/orchestrator/vendors/anthropic-adapter.ts:35,97` 的 `toAnthropicContent`）与 Responses 图片转换（`responses-adapter.ts:33` 的 `toUserContentBlocks`）已完成，原则上只补测试，只有测试证明存在缺陷时才修改对应适配器。
-  - 模型输入能力统一入口 `src/main/orchestrator/vendors/multimodal.ts::resolveInputModalities` 与不传档案 ID 时的通用 `resolveModelSettingsProfile`（`model-settings.ts:283–307`）回退语义保持不变；新入口显式采用严格选择。
-  - 渠道失败日志与终态回复（`channels/dispatcher.ts::processIncoming`、`terminalReply`、`channels/message-log.ts::LogEntry`、`channels:log:get`、`channels:log:clear`）已存在，不新增第二套渠道日志或重复实现失败回复。
+  - Anthropic 图片转换（`src/main/model/providers/anthropic-adapter.ts:35,97` 的 `toAnthropicContent`）与 Responses 图片转换（`responses-adapter.ts:33` 的 `toUserContentBlocks`）已完成，原则上只补测试，只有测试证明存在缺陷时才修改对应适配器。
+  - 模型输入能力统一入口 `src/main/model/providers/multimodal.ts::resolveInputModalities` 与不传档案 ID 时的通用 `resolveModelSettingsProfile`（`model-settings.ts:283–307`）回退语义保持不变；新入口显式采用严格选择。
+  - 渠道失败日志与终态回复（`features/channels/dispatcher.ts::processIncoming`、`terminalReply`、`features/channels/message-log.ts::LogEntry`、`channels:log:get`、`channels:log:clear`）已存在，不新增第二套渠道日志或重复实现失败回复。
   - 主动聊天现有策略（两小时全局间隔、十二小时后续间隔、75 分门槛、两次未回复上限，见 `proactive-policy.ts:9,10,12,48`）、冷却、评分、天气场景、返回事件检测与用户时区生成（`proactive-lifecycle.ts:115`、`proactive-trigger.ts:302`）保持当前行为，不重新开启历史调参。
   - 保留 `captionImage` 的字符串接口供现有工具使用；不新增独立视觉模型配置。
   - 本主题不扩展 QQ 群、渠道 Code 和主动投递目标。
@@ -49,24 +51,24 @@
 ### 图片转换和能力解析已有实现
 
 1. **Anthropic 图片转换已完成，移出新增功能范围。**
-   `src/main/orchestrator/vendors/anthropic-adapter.ts:35` 的 `toAnthropicContent` 已将图片转换为 `source.type="base64"` 或 `"url"`，对不支持的嵌入式 MIME 降级为文本；用户消息在该文件 `:97` 调用转换。现有测试覆盖 PNG、远程 URL、JPEG、WEBP、GIF 和不支持的 MIME，见 `anthropic-adapter.test.ts:139`—`:147`。
+   `src/main/model/providers/anthropic-adapter.ts:35` 的 `toAnthropicContent` 已将图片转换为 `source.type="base64"` 或 `"url"`，对不支持的嵌入式 MIME 降级为文本；用户消息在该文件 `:97` 调用转换。现有测试覆盖 PNG、远程 URL、JPEG、WEBP、GIF 和不支持的 MIME，见 `anthropic-adapter.test.ts:139`—`:147`。
 2. **模型输入能力已有统一入口。**
-   `src/main/orchestrator/vendors/multimodal.ts::resolveInputModalities` 根据档案声明、内置目录、未知保守回退判断图片能力；`src/main/settings/model-settings.ts:283` 的 `resolveModelSettingsProfile` 将结果展开为 `multimodal`。目录位于 `vendors/model-modalities.catalog.ts:22`。
+   `src/main/model/providers/multimodal.ts::resolveInputModalities` 根据档案声明、内置目录、未知保守回退判断图片能力；`src/main/model/config/model-settings.ts:283` 的 `resolveModelSettingsProfile` 将结果展开为 `multimodal`。目录位于 `model/providers/model-modalities.catalog.ts:22`。
 3. **当前直发路由只检查 `multimodal`。**
-   `src/main/orchestrator/image-router.ts:36`—`:43` 没有检查供应商端点与传输组合。`vendors/capabilities.ts::PROVIDER_CAPABILITIES` 已列出供应商支持的协议，但该字段不能单独证明图片能力。缺口是组合覆盖及端点能力判定，不能据此宣称所有组合可用。
+   `src/main/model/vision/image-router.ts:36`—`:43` 没有检查供应商端点与传输组合。`model/providers/capabilities.ts::PROVIDER_CAPABILITIES` 已列出供应商支持的协议，但该字段不能单独证明图片能力。缺口是组合覆盖及端点能力判定，不能据此宣称所有组合可用。
 4. **传输选择已有统一函数。**
-   `vendors/transport-detector.ts::resolveTransport` 优先使用 `explicitTransport`，否则使用供应商默认协议；`vendors/index.ts::getAdapterForConfig` 按实际协议创建适配器。Responses 图片转换已在 `responses-adapter.ts:33` 的 `toUserContentBlocks` 中实现。
+   `model/providers/transport-detector.ts::resolveTransport` 优先使用 `explicitTransport`，否则使用供应商默认协议；`model/providers/index.ts::getAdapterForConfig` 按实际协议创建适配器。Responses 图片转换已在 `responses-adapter.ts:33` 的 `toUserContentBlocks` 中实现。
 
 ### 默认档案解析已完成，入口之间仍有不一致
 
 1. **不传档案 ID 时解析默认档案已经完成。**
    `model-settings.ts:283`—`:307` 已实现默认档案展开，没有默认 ID 时由 `model-catalog.ts::resolveDefaultModelProfile` 选择首个档案。`model-settings.test.ts:57` 起已有显式、默认、回退和不存在 ID 的测试，不再安排重做。
 2. **渠道主链路已经调用默认解析。**
-   `channels/bootstrap.ts:104` 使用 `resolveModelSettingsProfile(saved)` 判断图片能力；Agent 构建通过 `orchestrator/agent-runtime.ts:165` 展开档案。启用记忆入口时还会传入默认档案 ID，并保留 `MEMORY_RUN_PROFILE_DENIED` 等拒绝条件，见 `bootstrap.ts::run`。
+   `features/channels/bootstrap.ts:104` 使用 `resolveModelSettingsProfile(saved)` 判断图片能力；Agent 构建通过 `agent/runtime/agent-runtime.ts:165` 展开档案。启用记忆入口时还会传入默认档案 ID，并保留 `MEMORY_RUN_PROFILE_DENIED` 等拒绝条件，见 `bootstrap.ts::run`。
 3. **图片发送策略存在静态不一致。**
-   `chats/chat-ui-ipc.ts:184` 起的 `CHAT_GET_IMAGE_SEND_STRATEGY` 先读取原始设置，仅在会话绑定档案时展开；未绑定时没有按注释所述展开默认档案。相邻 `CHAT_CAPTION_IMAGE` 在 `:173` 则明确使用默认档案。两者可能对同一图片给出不同判断。
+   `features/sessions/chat-ui-ipc.ts:184` 起的 `CHAT_GET_IMAGE_SEND_STRATEGY` 先读取原始设置，仅在会话绑定档案时展开；未绑定时没有按注释所述展开默认档案。相邻 `CHAT_CAPTION_IMAGE` 在 `:173` 则明确使用默认档案。两者可能对同一图片给出不同判断。
 4. **直发失败转述也可能换用另一份档案。**
-   `orchestrator/agent-runtime.ts:193` 起的 `captionImageForFallback` 重新读取默认档案，没有使用产生本次请求的档案快照。
+   `agent/runtime/agent-runtime.ts:193` 起的 `captionImageForFallback` 重新读取默认档案，没有使用产生本次请求的档案快照。
 5. **转述配置与实际传输不一致。**
    `image-router.ts:64` 仅排除显式 Anthropic，允许 Responses；但 `vision-captioner.ts::buildChatCompletionsUrl` 固定拼接 `/chat/completions`，`VisionConfig` 也不包含供应商和协议。未显式填写协议的 Anthropic 默认档案同样不能靠该判断可靠识别。
 
@@ -74,25 +76,25 @@
 
 ### 渠道失败日志和终态回复已有实现
 
-- `channels/dispatcher.ts::processIncoming` 已记录 `incoming`、Agent 异常和发送失败；`terminalReply` 已区分成功、超时、取消、运行失败以及部分输出。
-- `channels/message-log.ts::LogEntry` 已有 `dir: "incoming" | "outgoing" | "error"`，日志位于当前 `userData/channels/log.jsonl`。
+- `features/channels/dispatcher.ts::processIncoming` 已记录 `incoming`、Agent 异常和发送失败；`terminalReply` 已区分成功、超时、取消、运行失败以及部分输出。
+- `features/channels/message-log.ts::LogEntry` 已有 `dir: "incoming" | "outgoing" | "error"`，日志位于当前 `userData/channels/log.jsonl`。
 - 现有 `channels:log:get`、`channels:log:clear` 可用于查看和清理日志，见 `shared/ipc-channels.ts:38`、`:39`。
 
 因此，不新增第二套渠道日志或重复实现失败回复；补充档案到发送回执的集成测试、阶段关联信息和错误脱敏。当前异常分支直接记录 `Error.message`，证据见 `dispatcher.ts::processIncoming`，不能假定异常内容天然适合写盘或展示。
 
 ### 主动聊天已有策略、阶段事件和取消保护
 
-- 启动接线已存在，见 `application/background.ts:206`。
+- 启动接线已存在，见 `app/background.ts:206`。
 - 服务已有 `candidate_blocked`、`model_silent`、`commit_blocked`、`commit_cancelled`、`message_committed` 等事件，见 `proactive-service.ts::createProactiveChatService`。
 - 触发器已有内部 `evaluateNow`，见 `proactive-trigger.ts:53`、`:395`，但返回 `Promise<void>`，尚不能作为阶段化诊断结果。
 - 本地时间已按用户时区生成，见 `proactive-lifecycle.ts:115`、`proactive-trigger.ts:302`；不将外部参考文档中的时区疑点直接认定为当前缺陷。
 - 当前策略包含两小时全局间隔、十二小时后续间隔、75 分门槛和两次未回复上限，见 `proactive-policy.ts:9`、`:10`、`:12`、`:48`。
 - 本地投递已写入专用会话并广播变化，见 `proactive-lifecycle.ts:183`—`:199`；当前没有在该路径发布主动消息提醒事件。
-- 阶段事件仍通过 `console.log` 输出，见 `proactive-lifecycle.ts:335`、`proactive-trigger.ts:280`。文件日志使用独立的 logger sink，默认级别为 `warn`，见 `logging/logger.ts::resolveDefaultLevel`、`initializeMainFileLogging`。不能保证这些阶段事件在打包版落盘。
+- 阶段事件仍通过 `console.log` 输出，见 `proactive-lifecycle.ts:335`、`proactive-trigger.ts:280`。文件日志使用独立的 logger sink，默认级别为 `warn`，见 `base/logging/logger.ts::resolveDefaultLevel`、`initializeMainFileLogging`。不能保证这些阶段事件在打包版落盘。
 
 ### 提醒设施已有，无须另建通知系统
 
-`toast/toast-service.ts::createToastService` 已支持通知档、去重、音效合并、点击激活和自动消失；共享 `ToastTarget` 已支持指定会话，见 `shared/toast-types.ts`。当前 `ToastKind` 没有主动消息类型。
+`platform/toast/toast-service.ts::createToastService` 已支持通知档、去重、音效合并、点击激活和自动消失；共享 `ToastTarget` 已支持指定会话，见 `shared/toast-types.ts`。当前 `ToastKind` 没有主动消息类型。
 
 聊天页收到会话变化后主要刷新当前模式列表，见 `ChatPage.tsx:337` 起的 `store.onChanged(refresh)`。仅有落库和列表广播，尚不足以证明关闭窗口、查看其他会话、正在查看主动会话三种状态下均能看到消息。
 
@@ -102,15 +104,15 @@
 
 | 渠道 | 已有实现和必须反映的差异 |
 |---|---|
-| 飞书 | `adapters/feishu/index.ts::rebuildChannel` 已使用 WebSocket，仅处理 `p2p`，且在下载媒体前调用 `admitSender`。`settings-store.ts:37` 默认关闭任意私聊放行，不能写成“没有白名单”。 |
+| 飞书 | `features/channels/adapters/feishu/index.ts::rebuildChannel` 已使用 WebSocket，仅处理 `p2p`，且在下载媒体前调用 `admitSender`。`settings-store.ts:37` 默认关闭任意私聊放行，不能写成“没有白名单”。 |
 | NapCat | `napcat-adapter.ts:31` 的 `isQqEventAllowed` 检查私聊、群白名单；群是否要求 @ 取决于 `groupRequireMention`。监听路径见 `onebot-reverse-ws.ts:10`，非回环无 Token 会拒绝，见 `:105`。 |
 | 官方 QQ 机器人 | `qqbot-adapter.ts:15` 按 openid 放行；被动回复窗口和次数由 `REPLY_WINDOW_MS`、`REPLY_SEQ_LIMIT` 限制；出站能力当前仅文本。入站下载有 8 MiB 限制，见 `:223`。平台规则需要发布前重新核对。 |
 
-外部渠道目前按 `channels/agent-policy.ts:12` 选择 Chat 或 Work；QQ、QQ Bot 群聊强制 Chat 且不暴露工具，没有独立 Code 渠道执行入口。
+外部渠道目前按 `features/channels/agent-policy.ts:12` 选择 Chat 或 Work；QQ、QQ Bot 群聊强制 Chat 且不暴露工具，没有独立 Code 渠道执行入口。
 
 ### 新数据目录尚未满足
 
-`startup/runtime-profile.ts:55` 的 production 路径仍为 `%APPDATA%\Firefly`，与 `README.md:121`、`DEVELOPMENT.md:27` 一致。源码开发启动器也有既有默认隔离根，见 `scripts/dev/launch-electron.mjs::DEFAULT_ISOLATION`。因此，新目录必须作为本主题运行验收的前置条件；不能直接启动当前 production 档案进行测试。
+`base/identity/runtime-profile.ts:55` 的 production 路径仍为 `%APPDATA%\Firefly`，与 `README.md:121`、`DEVELOPMENT.md:27` 一致。源码开发启动器也有既有默认隔离根，见 `scripts/dev/launch-electron.mjs::DEFAULT_ISOLATION`。因此，新目录必须作为本主题运行验收的前置条件；不能直接启动当前 production 档案进行测试。
 
 ## 全局约束
 
@@ -127,16 +129,16 @@
 
 | 文件 | 用途 | 施工包 |
 |---|---|---|
-| `src/main/orchestrator/vendors/image-transport-policy.ts` | 18 个内置组合 + 3 个自定义协议的端点图片能力判定 | C |
-| `src/main/orchestrator/vendors/image-transport-policy.test.ts` | 组合矩阵表驱动测试 | C |
+| `src/main/model/providers/image-transport-policy.ts` | 18 个内置组合 + 3 个自定义协议的端点图片能力判定 | C |
+| `src/main/model/providers/image-transport-policy.test.ts` | 组合矩阵表驱动测试 | C |
 | `docs/qa/1.2.0-image-channel-matrix.md` | 组合矩阵与真实服务验证记录 | C、G |
 | `src/shared/channel-diagnostics.ts` | 渠道诊断固定字段契约 | D |
-| `src/main/channels/default-profile-flow.test.ts` | 默认档案到发送回执的集成测试 | D |
+| `src/main/features/channels/default-profile-flow.test.ts` | 默认档案到发送回执的集成测试 | D |
 | `src/shared/proactive-diagnostics.ts` | 主动聊天阶段诊断结果契约 | E |
-| `src/main/proactive/proactive-diagnostics.ts` | 阶段摘要与最近 100 次文件持久化 | E |
-| `src/main/proactive/proactive-diagnostics.test.ts` | 阶段摘要测试 | E |
-| `src/main/proactive/proactive-diagnostics-ipc.ts` | 内部受控诊断 IPC | E |
-| `src/main/proactive/proactive-diagnostics-ipc.test.ts` | IPC 门禁测试 | E |
+| `src/main/features/proactive/proactive-diagnostics.ts` | 阶段摘要与最近 100 次文件持久化 | E |
+| `src/main/features/proactive/proactive-diagnostics.test.ts` | 阶段摘要测试 | E |
+| `src/main/features/proactive/proactive-diagnostics-ipc.ts` | 内部受控诊断 IPC | E |
+| `src/main/features/proactive/proactive-diagnostics-ipc.test.ts` | IPC 门禁测试 | E |
 | `src/renderer/react/features/chat/pages/proactive-visibility.test.ts` | 三种窗口/会话状态可见性测试 | F |
 | `docs/user-guide/feishu.md` | 飞书接入指南（若文档与工程计划已创建则核对合并补充） | G |
 | `docs/user-guide/napcat-onebot.md` | NapCat 接入指南（同上） | G |
@@ -146,39 +148,39 @@
 
 | 文件 | 施工包 |
 |---|---|
-| `src/main/startup/runtime-profile.ts`、`src/main/startup/runtime-profile.test.ts` | A |
-| `src/main/startup/runtime-profile-documentation.test.ts` | A |
+| `src/main/base/identity/runtime-profile.ts`、`src/main/base/identity/runtime-profile.test.ts` | A |
+| `src/main/base/identity/runtime-profile-documentation.test.ts` | A |
 | `scripts/dev/launch-electron.mjs`、`scripts/dev/launch-electron.test.mjs` | A |
 | `README.md`、`DEVELOPMENT.md`（若版本基础主题已完成此项，只核对提交及验收记录，不重复修改；`README.md` 在 G 中补渠道指南链接） | A、G |
-| `src/main/settings/model-settings.ts`、`src/main/settings/model-settings.test.ts`、`src/main/settings/model-settings.vision.test.ts` | B |
-| `src/main/chats/chat-ui-ipc.ts`、`src/main/chats/chat-ui-ipc.test.ts` | B |
+| `src/main/model/config/model-settings.ts`、`src/main/model/config/model-settings.test.ts`、`src/main/model/config/model-settings.vision.test.ts` | B |
+| `src/main/features/sessions/chat-ui-ipc.ts`、`src/main/features/sessions/chat-ui-ipc.test.ts` | B |
 | `src/preload/index.ts` | B、E |
 | `src/shared/ipc-channels.ts` | E |
 | `src/shared/toast-types.ts` | F |
 | `src/renderer/react/features/chat/hooks/useComposerAttachments.ts`、`useComposerAttachments.test.ts` | B |
-| `src/main/orchestrator/build-options.ts`、`src/main/orchestrator/build-options.test.ts` | B、C |
-| `src/main/orchestrator/agent-runtime.ts`、`src/main/orchestrator/agent-runtime.test.ts` | B |
-| `src/main/orchestrator/image-router.ts`、`src/main/orchestrator/image-router.test.ts` | C |
-| `src/main/orchestrator/vision-captioner.ts`、`src/main/orchestrator/vision-captioner.test.ts` | C |
-| `src/main/orchestrator/vendors/*-adapter.test.ts`（三个现有适配器测试）、`src/main/orchestrator/vendors/sdk-stream/provider-contracts.test.ts` | C |
-| `src/main/chat/image-caption.ts` | C |
-| `src/main/orchestrator/tools/fs-tools.ts`、`src/main/orchestrator/tools/fs-tools.test.ts` | C |
-| `src/main/orchestrator/tools/builtin-tools/read-image-url-tool.ts`、`read-image-url-tool.test.ts` | C |
-| `src/main/channels/bootstrap.ts`、`src/main/channels/bootstrap.test.ts` | B、D |
-| `src/main/channels/message-log.ts`、`src/main/channels/message-log.test.ts` | D |
-| `src/main/channels/dispatcher.ts`、`src/main/channels/dispatcher.test.ts` | D |
-| `src/main/channels/terminal-delivery.test.ts`、`src/main/channels/agent-policy.test.ts` | D |
+| `src/main/agent/runtime/build-options.ts`、`src/main/agent/runtime/build-options.test.ts` | B、C |
+| `src/main/agent/runtime/agent-runtime.ts`、`src/main/agent/runtime/agent-runtime.test.ts` | B |
+| `src/main/model/vision/image-router.ts`、`src/main/model/vision/image-router.test.ts` | C |
+| `src/main/model/vision/vision-captioner.ts`、`src/main/model/vision/vision-captioner.test.ts` | C |
+| `src/main/model/providers/*-adapter.test.ts`（三个现有适配器测试）、`src/main/model/providers/sdk-stream/provider-contracts.test.ts` | C |
+| `src/main/agent/runtime/image-caption.ts` | C |
+| `src/main/agent/tools/fs-tools.ts`、`src/main/agent/tools/fs-tools.test.ts` | C |
+| `src/main/agent/tools/builtin-tools/read-image-url-tool.ts`、`read-image-url-tool.test.ts` | C |
+| `src/main/features/channels/bootstrap.ts`、`src/main/features/channels/bootstrap.test.ts` | B、D |
+| `src/main/features/channels/message-log.ts`、`src/main/features/channels/message-log.test.ts` | D |
+| `src/main/features/channels/dispatcher.ts`、`src/main/features/channels/dispatcher.test.ts` | D |
+| `src/main/features/channels/terminal-delivery.test.ts`、`src/main/features/channels/agent-policy.test.ts` | D |
 | `src/renderer/settings/channels/panel.ts`、`src/renderer/settings/channels/view-model.ts`、`view-model.test.ts` | D |
 | `src/renderer/settings/shared/types.ts` | D、E |
 | `src/renderer/settings/settings.ts`、`src/renderer/settings/index.html` | E |
-| `src/main/proactive/proactive-trigger.ts`、`src/main/proactive/proactive-trigger.test.ts` | E |
-| `src/main/proactive/proactive-service.ts`、`src/main/proactive/proactive-service.test.ts` | E |
-| `src/main/proactive/proactive-lifecycle.ts`、`src/main/proactive/proactive-lifecycle.test.ts` | E、F |
-| `src/main/proactive/proactive-shutdown-delivery.test.ts` | E |
-| `src/main/application/default-dependencies.ts`、`src/main/application/default-dependencies.test.ts` | E、F |
-| `src/main/application/ipc-contract.test.ts` | E |
-| `src/main/toast/toast-events.ts`、`src/main/toast/toast-events.test.ts` | F |
-| `src/main/toast/toast-service.ts`、`src/main/toast/toast-service.test.ts` | F |
+| `src/main/features/proactive/proactive-trigger.ts`、`src/main/features/proactive/proactive-trigger.test.ts` | E |
+| `src/main/features/proactive/proactive-service.ts`、`src/main/features/proactive/proactive-service.test.ts` | E |
+| `src/main/features/proactive/proactive-lifecycle.ts`、`src/main/features/proactive/proactive-lifecycle.test.ts` | E、F |
+| `src/main/features/proactive/proactive-shutdown-delivery.test.ts` | E |
+| `src/main/app/default-dependencies.ts`、`src/main/app/default-dependencies.test.ts` | E、F |
+| `src/main/app/ipc-contract.test.ts` | E |
+| `src/main/platform/interaction/toast-events.ts`、`src/main/platform/interaction/toast-events.test.ts` | F |
+| `src/main/platform/toast/toast-service.ts`、`src/main/platform/toast/toast-service.test.ts` | F |
 | `src/renderer/toast/toast.ts`、`src/renderer/toast/toast.test.ts` | F |
 | `src/renderer/react/features/chat/pages/ChatPage.tsx` | F |
 | `src/renderer/settings/i18n/zh-CN.json` | B、D、E |
@@ -192,25 +194,25 @@
 ### 施工包 A：建立 1.2.0 数据隔离前置条件
 
 依赖：无（若版本基础主题已完成此项，本包只核对提交及验收记录，不重复修改）
-**改动文件：** `src/main/startup/runtime-profile.ts`、`src/main/startup/runtime-profile.test.ts`、`src/main/startup/runtime-profile-documentation.test.ts`、`scripts/dev/launch-electron.mjs`、`scripts/dev/launch-electron.test.mjs`、`README.md`、`DEVELOPMENT.md`（非测试文件 4 个）
+**改动文件：** `src/main/base/identity/runtime-profile.ts`、`src/main/base/identity/runtime-profile.test.ts`、`src/main/base/identity/runtime-profile-documentation.test.ts`、`scripts/dev/launch-electron.mjs`、`scripts/dev/launch-electron.test.mjs`、`README.md`、`DEVELOPMENT.md`（非测试文件 4 个）
 
 **任务：**
 
 - [ ] A1 将 production 数据根切换至 `%APPDATA%\Firefly-1.2.0`，不读取、不迁移旧目录
-  - 先写的测试：`src/main/startup/runtime-profile.test.ts`、`src/main/startup/runtime-profile-documentation.test.ts`：新目录不存在、临时根中存在模拟旧目录 `%APPDATA%\Firefly` → 返回新根 `%APPDATA%\Firefly-1.2.0`，启动后配置为空；旧目录没有读取、复制或写入。
-  - 实现：修改 `src/main/startup/runtime-profile.ts` 将 production 解析到 `%APPDATA%\Firefly-1.2.0`，保持路径预检和隔离保护；更新 `README.md`、`DEVELOPMENT.md` 中的数据目录说明。
+  - 先写的测试：`src/main/base/identity/runtime-profile.test.ts`、`src/main/base/identity/runtime-profile-documentation.test.ts`：新目录不存在、临时根中存在模拟旧目录 `%APPDATA%\Firefly` → 返回新根 `%APPDATA%\Firefly-1.2.0`，启动后配置为空；旧目录没有读取、复制或写入。
+  - 实现：修改 `src/main/base/identity/runtime-profile.ts` 将 production 解析到 `%APPDATA%\Firefly-1.2.0`，保持路径预检和隔离保护；更新 `README.md`、`DEVELOPMENT.md` 中的数据目录说明。
   - 验证：`npm test -- src/main/startup`
 - [ ] A2 隔离开发启动器默认根，保证不同运行档案互不混用
-  - 先写的测试：`src/main/startup/runtime-profile.test.ts`、`scripts/dev/launch-electron.test.mjs`：同时启动不同运行档案（development / test / smoke / production） → `userData`、session、日志路径互不混用，开发默认隔离根与旧开发数据分离。
+  - 先写的测试：`src/main/base/identity/runtime-profile.test.ts`、`scripts/dev/launch-electron.test.mjs`：同时启动不同运行档案（development / test / smoke / production） → `userData`、session、日志路径互不混用，开发默认隔离根与旧开发数据分离。
   - 实现：修改 `scripts/dev/launch-electron.mjs` 的 `DEFAULT_ISOLATION`，使默认开发隔离根与旧开发数据分离。
   - 验证：`node --test scripts/dev/launch-electron.test.mjs`；`npm test -- src/main/startup`
 - [ ] A3 保持隔离根越界、重叠与 junction 逃逸的拒绝行为
-  - 先写的测试：`src/main/startup/runtime-profile.test.ts`：隔离根越界、与正式数据根重叠、junction 逃逸 → 断言现有稳定错误码；路径应用及设置加载均未执行。
-  - 实现：仅在测试证明新根破坏既有预检时修改 `src/main/startup/runtime-profile.ts` 的路径预检；不放宽任何拒绝条件。
+  - 先写的测试：`src/main/base/identity/runtime-profile.test.ts`：隔离根越界、与正式数据根重叠、junction 逃逸 → 断言现有稳定错误码；路径应用及设置加载均未执行。
+  - 实现：仅在测试证明新根破坏既有预检时修改 `src/main/base/identity/runtime-profile.ts` 的路径预检；不放宽任何拒绝条件。
   - 验证：`npm test -- src/main/startup`
 - [ ] A4 重启同一 1.2.0 档案只读取自身新数据
-  - 先写的测试：`src/main/startup/runtime-profile.test.ts`：重启同一 1.2.0 档案 → 读取自身新数据，不访问模拟旧目录（以临时目录 + 访问记录替身断言旧目录访问次数为 0）。该用例预期立即通过，作为回归锁定。
-  - 实现：无额外实现；若失败，修正 `src/main/startup/runtime-profile.ts` 的根解析使其幂等。
+  - 先写的测试：`src/main/base/identity/runtime-profile.test.ts`：重启同一 1.2.0 档案 → 读取自身新数据，不访问模拟旧目录（以临时目录 + 访问记录替身断言旧目录访问次数为 0）。该用例预期立即通过，作为回归锁定。
+  - 实现：无额外实现；若失败，修正 `src/main/base/identity/runtime-profile.ts` 的根解析使其幂等。
   - 验证：`npm test -- src/main/startup`
 
 **验收：** 正式档案与开发启动器默认路径均与 1.1.x 隔离；路径越界与重叠拒绝测试通过。
@@ -222,11 +224,11 @@
 ### 施工包 B：统一图片入口的档案选择与请求快照
 
 依赖：施工包 A
-**改动文件：** `src/main/settings/model-settings.ts`、`src/main/settings/model-settings.test.ts`、`src/main/settings/model-settings.vision.test.ts`、`src/main/chats/chat-ui-ipc.ts`、`src/main/chats/chat-ui-ipc.test.ts`、`src/preload/index.ts`、`src/renderer/react/features/chat/hooks/useComposerAttachments.ts`、`src/renderer/react/features/chat/hooks/useComposerAttachments.test.ts`、`src/main/orchestrator/build-options.ts`、`src/main/orchestrator/build-options.test.ts`、`src/main/orchestrator/agent-runtime.ts`、`src/main/orchestrator/agent-runtime.test.ts`、`src/main/channels/bootstrap.ts`、`src/main/channels/bootstrap.test.ts`、`src/renderer/settings/i18n/zh-CN.json`、`src/renderer/react/i18n/zh-CN.json`（非测试文件 9 个）
+**改动文件：** `src/main/model/config/model-settings.ts`、`src/main/model/config/model-settings.test.ts`、`src/main/model/config/model-settings.vision.test.ts`、`src/main/features/sessions/chat-ui-ipc.ts`、`src/main/features/sessions/chat-ui-ipc.test.ts`、`src/preload/index.ts`、`src/renderer/react/features/chat/hooks/useComposerAttachments.ts`、`src/renderer/react/features/chat/hooks/useComposerAttachments.test.ts`、`src/main/agent/runtime/build-options.ts`、`src/main/agent/runtime/build-options.test.ts`、`src/main/agent/runtime/agent-runtime.ts`、`src/main/agent/runtime/agent-runtime.test.ts`、`src/main/features/channels/bootstrap.ts`、`src/main/features/channels/bootstrap.test.ts`、`src/renderer/settings/i18n/zh-CN.json`、`src/renderer/react/i18n/zh-CN.json`（非测试文件 9 个）
 
 本包落地的设计契约：
 
-- 在 `src/main/settings/model-settings.ts` 增加统一严格选择函数：
+- 在 `src/main/model/config/model-settings.ts` 增加统一严格选择函数：
   `resolveRunModelSelection(settings, { boundProfileId?, pendingProfileId? })`
   结果为成功的 `{ profileId, settings }`，或稳定错误码：
   1. 桌面图片：会话绑定档案（`boundProfileId`） → 欢迎页暂选档案（`pendingProfileId`） → 默认档案。
@@ -246,33 +248,33 @@
 **任务：**
 
 - [ ] B1 新增 `resolveRunModelSelection`，默认档案完整时不使用顶层镜像字段
-  - 先写的测试：`src/main/settings/model-settings.test.ts`、`src/main/settings/model-settings.vision.test.ts`：顶层镜像字段为空、默认档案完整 → 发送策略、转述和渠道请求全部使用默认档案的完整配置（完整对象比较），不使用顶层镜像地址或凭据。
-  - 实现：修改 `src/main/settings/model-settings.ts` 新增 `resolveRunModelSelection(settings, { boundProfileId?, pendingProfileId? })`，返回 `{ profileId, settings }` 或稳定错误码；不改动 `resolveModelSettingsProfile`。
-  - 验证：`npm test -- src/main/settings/model-settings`
+  - 先写的测试：`src/main/model/config/model-settings.test.ts`、`src/main/model/config/model-settings.vision.test.ts`：顶层镜像字段为空、默认档案完整 → 发送策略、转述和渠道请求全部使用默认档案的完整配置（完整对象比较），不使用顶层镜像地址或凭据。
+  - 实现：修改 `src/main/model/config/model-settings.ts` 新增 `resolveRunModelSelection(settings, { boundProfileId?, pendingProfileId? })`，返回 `{ profileId, settings }` 或稳定错误码；不改动 `resolveModelSettingsProfile`。
+  - 验证：`npm test -- src/main/platform/settings/model-settings`
 - [ ] B2 按“会话绑定 → 欢迎页暂选 → 默认”优先级选择档案，三模式共用表驱动
-  - 先写的测试：`src/main/settings/model-settings.test.ts`、`src/main/chats/chat-ui-ipc.test.ts`：会话绑定 A、欢迎页暂选 B、默认 C → 按 `A → B → C` 优先级分别选中；Chat / Work / Code 三个模式使用相同表驱动用例。
+  - 先写的测试：`src/main/model/config/model-settings.test.ts`、`src/main/features/sessions/chat-ui-ipc.test.ts`：会话绑定 A、欢迎页暂选 B、默认 C → 按 `A → B → C` 优先级分别选中；Chat / Work / Code 三个模式使用相同表驱动用例。
   - 实现：在 `resolveRunModelSelection` 中实现优先级；渠道、主动聊天以及现有默认档案视觉工具只走默认档案分支。
-  - 验证：`npm test -- src/main/settings/model-settings src/main/chats/chat-ui-ipc`
+  - 验证：`npm test -- src/main/platform/settings/model-settings src/main/features/sessions/chat-ui-ipc`
 - [ ] B3 显式档案已删除时返回 `MODEL_PROFILE_NOT_FOUND`，不换供应商
-  - 先写的测试：`src/main/settings/model-settings.test.ts`、`src/main/orchestrator/agent-runtime.test.ts`：显式指定的档案已删除 → 返回 `MODEL_PROFILE_NOT_FOUND`；模型调用、转述、附件读取及成功消息写入均未发生（替身调用次数为 0）。
+  - 先写的测试：`src/main/model/config/model-settings.test.ts`、`src/main/agent/runtime/agent-runtime.test.ts`：显式指定的档案已删除 → 返回 `MODEL_PROFILE_NOT_FOUND`；模型调用、转述、附件读取及成功消息写入均未发生（替身调用次数为 0）。
   - 实现：`resolveRunModelSelection` 对显式但不存在的 ID 直接返回错误码；`agent-runtime.ts` 收到错误码时在附件处理前终止。
-  - 验证：`npm test -- src/main/settings/model-settings src/main/orchestrator/agent-runtime`
+  - 验证：`npm test -- src/main/platform/settings/model-settings src/main/agent/runtime/agent-runtime`
 - [ ] B4 完全没有档案时返回 `MODEL_PROFILE_REQUIRED`，不发请求、不自动建档
-  - 先写的测试：`src/main/settings/model-settings.test.ts`、`src/main/channels/bootstrap.test.ts`：没有任何档案 → 返回 `MODEL_PROFILE_REQUIRED`；不发网络请求、不保存自动生成的档案（设置存储写入次数为 0）。
-  - 实现：`resolveRunModelSelection` 无档案分支返回 `MODEL_PROFILE_REQUIRED`；`src/main/channels/bootstrap.ts` 改用严格选择并把错误码交给渠道 `profile` 阶段。
-  - 验证：`npm test -- src/main/settings/model-settings src/main/channels/bootstrap`
+  - 先写的测试：`src/main/model/config/model-settings.test.ts`、`src/main/features/channels/bootstrap.test.ts`：没有任何档案 → 返回 `MODEL_PROFILE_REQUIRED`；不发网络请求、不保存自动生成的档案（设置存储写入次数为 0）。
+  - 实现：`resolveRunModelSelection` 无档案分支返回 `MODEL_PROFILE_REQUIRED`；`src/main/features/channels/bootstrap.ts` 改用严格选择并把错误码交给渠道 `profile` 阶段。
+  - 验证：`npm test -- src/main/platform/settings/model-settings src/main/features/channels/bootstrap`
 - [ ] B5 一次请求只捕获一份档案快照，直发失败转述沿用该快照
-  - 先写的测试：`src/main/orchestrator/agent-runtime.test.ts`、`src/main/orchestrator/build-options.test.ts`：请求开始后默认档案变化 → 当前请求及 `captionImageForFallback` 直发失败处理仍使用请求开始时的原快照；下一请求使用新默认档案。
-  - 实现：修改 `src/main/orchestrator/build-options.ts`、`src/main/orchestrator/agent-runtime.ts`，将选择结果作为请求级 `ModelSettingsLite` 快照传入，`captionImageForFallback`（`agent-runtime.ts:193`）接收本次 `ModelSettingsLite` 快照而不再重新读取默认档案。
-  - 验证：`npm test -- src/main/orchestrator/agent-runtime src/main/orchestrator/build-options`
+  - 先写的测试：`src/main/agent/runtime/agent-runtime.test.ts`、`src/main/agent/runtime/build-options.test.ts`：请求开始后默认档案变化 → 当前请求及 `captionImageForFallback` 直发失败处理仍使用请求开始时的原快照；下一请求使用新默认档案。
+  - 实现：修改 `src/main/agent/runtime/build-options.ts`、`src/main/agent/runtime/agent-runtime.ts`，将选择结果作为请求级 `ModelSettingsLite` 快照传入，`captionImageForFallback`（`agent-runtime.ts:193`）接收本次 `ModelSettingsLite` 快照而不再重新读取默认档案。
+  - 验证：`npm test -- src/main/agent/runtime/agent-runtime src/main/agent/runtime/build-options`
 - [ ] B6 统一 `chat-ui-ipc.ts` 两个图片入口，渲染端处理 `reject` 分支并展示中文原因
-  - 先写的测试：`src/main/chats/chat-ui-ipc.test.ts`、`src/renderer/react/features/chat/hooks/useComposerAttachments.test.ts`：`CHAT_GET_IMAGE_SEND_STRATEGY` 与 `CHAT_CAPTION_IMAGE` 传入相同 `{ sessionId?, modelProfileId? }` 时得出完全一致的档案与策略；UI 收到 `reject` → 展示对应中文原因；不调用 `captionImage`，也不发送图片。
-  - 实现：修改 `src/main/chats/chat-ui-ipc.ts`（`:173`、`:184` 两处统一走 `resolveRunModelSelection`）、`src/preload/index.ts`、`src/renderer/react/features/chat/hooks/useComposerAttachments.ts`，并在两个 `zh-CN.json` 补齐上列文案。
-  - 验证：`npm test -- src/main/chats/chat-ui-ipc src/renderer/react/features/chat/hooks/useComposerAttachments`；`npm run build:main`；`npm run build:preload`；`npm run check:renderer`
+  - 先写的测试：`src/main/features/sessions/chat-ui-ipc.test.ts`、`src/renderer/react/features/chat/hooks/useComposerAttachments.test.ts`：`CHAT_GET_IMAGE_SEND_STRATEGY` 与 `CHAT_CAPTION_IMAGE` 传入相同 `{ sessionId?, modelProfileId? }` 时得出完全一致的档案与策略；UI 收到 `reject` → 展示对应中文原因；不调用 `captionImage`，也不发送图片。
+  - 实现：修改 `src/main/features/sessions/chat-ui-ipc.ts`（`:173`、`:184` 两处统一走 `resolveRunModelSelection`）、`src/preload/index.ts`、`src/renderer/react/features/chat/hooks/useComposerAttachments.ts`，并在两个 `zh-CN.json` 补齐上列文案。
+  - 验证：`npm test -- src/main/features/sessions/chat-ui-ipc src/renderer/react/features/chat/hooks/useComposerAttachments`；`npm run build:main`；`npm run build:preload`；`npm run check:renderer`
 - [ ] B7 保留记忆入口拒绝，统一档案选择不绕过 ingress 或附件 grant
-  - 先写的测试：`src/main/channels/bootstrap.test.ts`：保留现有记忆入口拒绝测试（如 `MEMORY_RUN_PROFILE_DENIED`） → 不因统一档案选择绕过 ingress 或附件 grant；拒绝时模型与附件读取调用次数为 0。
-  - 实现：`src/main/channels/bootstrap.ts::run` 在调用严格选择前后保持现有拒绝条件顺序。
-  - 验证：`npm test -- src/main/channels/bootstrap`
+  - 先写的测试：`src/main/features/channels/bootstrap.test.ts`：保留现有记忆入口拒绝测试（如 `MEMORY_RUN_PROFILE_DENIED`） → 不因统一档案选择绕过 ingress 或附件 grant；拒绝时模型与附件读取调用次数为 0。
+  - 实现：`src/main/features/channels/bootstrap.ts::run` 在调用严格选择前后保持现有拒绝条件顺序。
+  - 验证：`npm test -- src/main/features/channels/bootstrap`
 
 **验收：** 界面图片策略、转述回退与渠道入站对同一会话/默认配置始终选中同一份模型档案快照；删除档案或无档案时明确失败且无越权请求。
 **回退：** revert 本包提交；退回原有 `resolveModelSettingsProfile` 调用方式。
@@ -283,11 +285,11 @@
 ### 施工包 C：落实图片组合矩阵及三协议一致转述
 
 依赖：施工包 B
-**改动文件：** `src/main/orchestrator/vendors/image-transport-policy.ts`、`src/main/orchestrator/vendors/image-transport-policy.test.ts`、`src/main/orchestrator/image-router.ts`、`src/main/orchestrator/image-router.test.ts`、`src/main/orchestrator/vision-captioner.ts`、`src/main/orchestrator/vision-captioner.test.ts`、`src/main/chat/image-caption.ts`、`src/main/orchestrator/tools/fs-tools.ts`、`src/main/orchestrator/tools/fs-tools.test.ts`、`src/main/orchestrator/tools/builtin-tools/read-image-url-tool.ts`、`src/main/orchestrator/tools/builtin-tools/read-image-url-tool.test.ts`、`src/main/orchestrator/build-options.ts`、`src/main/orchestrator/build-options.test.ts`、三个现有 `src/main/orchestrator/vendors/*-adapter.test.ts`、`src/main/orchestrator/vendors/sdk-stream/provider-contracts.test.ts`、`docs/qa/1.2.0-image-channel-matrix.md`（非测试文件 8 个）
+**改动文件：** `src/main/model/providers/image-transport-policy.ts`、`src/main/model/providers/image-transport-policy.test.ts`、`src/main/model/vision/image-router.ts`、`src/main/model/vision/image-router.test.ts`、`src/main/model/vision/vision-captioner.ts`、`src/main/model/vision/vision-captioner.test.ts`、`src/main/agent/runtime/image-caption.ts`、`src/main/agent/tools/fs-tools.ts`、`src/main/agent/tools/fs-tools.test.ts`、`src/main/agent/tools/builtin-tools/read-image-url-tool.ts`、`src/main/agent/tools/builtin-tools/read-image-url-tool.test.ts`、`src/main/agent/runtime/build-options.ts`、`src/main/agent/runtime/build-options.test.ts`、三个现有 `src/main/model/providers/*-adapter.test.ts`、`src/main/model/providers/sdk-stream/provider-contracts.test.ts`、`docs/qa/1.2.0-image-channel-matrix.md`（非测试文件 8 个）
 
 本包落地的设计契约：
 
-- 新增 `src/main/orchestrator/vendors/image-transport-policy.ts`，保存有官方资料依据的端点限制及判定函数（不复制一份模型模态目录），覆盖当前 `PROVIDER_CAPABILITIES` 的全部 18 个声明组合以及自定义端点的 3 个协议：
+- 新增 `src/main/model/providers/image-transport-policy.ts`，保存有官方资料依据的端点限制及判定函数（不复制一份模型模态目录），覆盖当前 `PROVIDER_CAPABILITIES` 的全部 18 个声明组合以及自定义端点的 3 个协议：
   - `minimax`：Anthropic、OpenAI、Responses
   - `deepseek`：OpenAI、Anthropic、Responses
   - `glm`：OpenAI、Anthropic
@@ -312,49 +314,49 @@
 **任务：**
 
 - [ ] C1 新建 `image-transport-policy.ts`，18 个内置组合与 3 个自定义协议表驱动判定，并建立矩阵文档
-  - 先写的测试：`src/main/orchestrator/vendors/image-transport-policy.test.ts`、`src/main/orchestrator/image-router.test.ts`：18 个内置组合及 3 个自定义协议表驱动 → 表中直接列明声明来源、确认状态和预期完整路由结果（完整对象比较）。
-  - 实现：新建 `src/main/orchestrator/vendors/image-transport-policy.ts`（每行记录模型样例或匹配范围、能力来源、协议、预期 wire 结构、官方依据及真实服务验证状态，不把“适配器能生成请求”标成“服务已验证可用”）；新建 `docs/qa/1.2.0-image-channel-matrix.md`；修改 `src/main/orchestrator/image-router.ts` 让 `resolveImageRoute` 输入包含 `provider`、`model`、实际 `Transport`、解析后的输入模态及声明来源，拒绝结果增加稳定 `code` 并保留现有 `reason`。
-  - 验证：`npm test -- src/main/orchestrator/vendors/image-transport-policy src/main/orchestrator/image-router`
+  - 先写的测试：`src/main/model/providers/image-transport-policy.test.ts`、`src/main/model/vision/image-router.test.ts`：18 个内置组合及 3 个自定义协议表驱动 → 表中直接列明声明来源、确认状态和预期完整路由结果（完整对象比较）。
+  - 实现：新建 `src/main/model/providers/image-transport-policy.ts`（每行记录模型样例或匹配范围、能力来源、协议、预期 wire 结构、官方依据及真实服务验证状态，不把“适配器能生成请求”标成“服务已验证可用”）；新建 `docs/qa/1.2.0-image-channel-matrix.md`；修改 `src/main/model/vision/image-router.ts` 让 `resolveImageRoute` 输入包含 `provider`、`model`、实际 `Transport`、解析后的输入模态及声明来源，拒绝结果增加稳定 `code` 并保留现有 `reason`。
+  - 验证：`npm test -- src/main/model/providers/image-transport-policy src/main/agent/runtime/image-router`
 - [ ] C2 纯文本模型声明优先于目录推断，返回 `IMAGE_MODEL_UNSUPPORTED`
-  - 先写的测试：`src/main/orchestrator/image-router.test.ts`：用户声明纯文本、目录识别为图片模型 → 返回 `IMAGE_MODEL_UNSUPPORTED`；不读取图片、不调用模型。
+  - 先写的测试：`src/main/model/vision/image-router.test.ts`：用户声明纯文本、目录识别为图片模型 → 返回 `IMAGE_MODEL_UNSUPPORTED`；不读取图片、不调用模型。
   - 实现：`image-router.ts` 继续使用 `resolveInputModalities` 并保留用户声明优先级，先判模型能力再判端点能力。
-  - 验证：`npm test -- src/main/orchestrator/image-router`
+  - 验证：`npm test -- src/main/agent/runtime/image-router`
 - [ ] C3 已确认禁图的端点组合返回 `IMAGE_TRANSPORT_UNSUPPORTED`，用户声明不能覆盖
-  - 先写的测试：`src/main/orchestrator/vendors/image-transport-policy.test.ts`：已确认禁图的端点组合 → 返回 `IMAGE_TRANSPORT_UNSUPPORTED`；用户模态声明不能覆盖端点禁止。
+  - 先写的测试：`src/main/model/providers/image-transport-policy.test.ts`：已确认禁图的端点组合 → 返回 `IMAGE_TRANSPORT_UNSUPPORTED`；用户模态声明不能覆盖端点禁止。
   - 实现：`image-transport-policy.ts` 的“已确认不支持”分支先于用户声明判定。
-  - 验证：`npm test -- src/main/orchestrator/vendors/image-transport-policy`
+  - 验证：`npm test -- src/main/model/providers/image-transport-policy`
 - [ ] C4 未确认组合：用户明确声明允许试发，仅目录推断返回 `IMAGE_TRANSPORT_UNVERIFIED`
-  - 先写的测试：`src/main/orchestrator/vendors/image-transport-policy.test.ts`、`src/main/orchestrator/image-router.test.ts`：未确认组合 → 用户明确声明图片时允许试发（失败如实返回）；仅目录推断时返回 `IMAGE_TRANSPORT_UNVERIFIED`；自定义端点不根据 URL 猜测供应商。
+  - 先写的测试：`src/main/model/providers/image-transport-policy.test.ts`、`src/main/model/vision/image-router.test.ts`：未确认组合 → 用户明确声明图片时允许试发（失败如实返回）；仅目录推断时返回 `IMAGE_TRANSPORT_UNVERIFIED`；自定义端点不根据 URL 猜测供应商。
   - 实现：按负责人批准的默认行为实现未确认分支。
-  - 验证：`npm test -- src/main/orchestrator/vendors/image-transport-policy src/main/orchestrator/image-router`
+  - 验证：`npm test -- src/main/model/providers/image-transport-policy src/main/agent/runtime/image-router`
 - [ ] C5 三协议图片请求块契约（PNG、JPEG、WEBP、GIF、远程 HTTPS）
-  - 先写的测试：三个现有 `src/main/orchestrator/vendors/*-adapter.test.ts`、`src/main/orchestrator/vendors/sdk-stream/provider-contracts.test.ts`：PNG、JPEG、WEBP、GIF、远程 HTTPS 图 → 比较 OpenAI、Anthropic、Responses 三个协议的完整请求块、顺序、URL、鉴权方式；经 SDK 工厂取得的请求同样符合契约。该用例预期立即通过，作为回归锁定。
+  - 先写的测试：三个现有 `src/main/model/providers/*-adapter.test.ts`、`src/main/model/providers/sdk-stream/provider-contracts.test.ts`：PNG、JPEG、WEBP、GIF、远程 HTTPS 图 → 比较 OpenAI、Anthropic、Responses 三个协议的完整请求块、顺序、URL、鉴权方式；经 SDK 工厂取得的请求同样符合契约。该用例预期立即通过，作为回归锁定。
   - 实现：原则上只补测试；只有测试证明 `anthropic-adapter.ts::toAnthropicContent` 或 `responses-adapter.ts::toUserContentBlocks` 存在缺陷时才修改对应适配器。
-  - 验证：`npm test -- src/main/orchestrator/vendors`
+  - 验证：`npm test -- src/main/agent/runtime/vendors`
 - [ ] C6 不支持的 MIME、畸形 data URL、非法 URL 明确拒绝或按既有约定降级
-  - 先写的测试：三个现有 `src/main/orchestrator/vendors/*-adapter.test.ts`、`src/main/orchestrator/image-router.test.ts`：不支持的 MIME、畸形 data URL、非法 URL → 明确拒绝或按既有约定降级；不将畸形内容作为有效图片发出。
+  - 先写的测试：三个现有 `src/main/model/providers/*-adapter.test.ts`、`src/main/model/vision/image-router.test.ts`：不支持的 MIME、畸形 data URL、非法 URL → 明确拒绝或按既有约定降级；不将畸形内容作为有效图片发出。
   - 实现：在 `image-router.ts` 入口校验，适配器保持既有降级约定。
-  - 验证：`npm test -- src/main/orchestrator/vendors src/main/orchestrator/image-router`
+  - 验证：`npm test -- src/main/agent/runtime/vendors src/main/agent/runtime/image-router`
 - [ ] C7 `vision-captioner.ts` 改为复用三协议适配器，Responses/Anthropic 不再调用 `/chat/completions`
-  - 先写的测试：`src/main/orchestrator/vision-captioner.test.ts`：OpenAI、Anthropic、Responses 三个协议分别执行转述 → 请求走对应协议端点并解析对应响应结构；Responses 和 Anthropic 绝不调用 `/chat/completions`。
-  - 实现：修改 `src/main/orchestrator/vision-captioner.ts` 使用 `getAdapterForConfig`、`buildRequest`、`parseResponse`，删除固定拼接的 `buildChatCompletionsUrl` 路径；`resolveCaptionVisionConfig` 返回的 `CaptionVisionConfig` 携带 `provider` 与 `transport`；沿用非流式调用、视觉超时和输出预算。
-  - 验证：`npm test -- src/main/orchestrator/vision-captioner`
+  - 先写的测试：`src/main/model/vision/vision-captioner.test.ts`：OpenAI、Anthropic、Responses 三个协议分别执行转述 → 请求走对应协议端点并解析对应响应结构；Responses 和 Anthropic 绝不调用 `/chat/completions`。
+  - 实现：修改 `src/main/model/vision/vision-captioner.ts` 使用 `getAdapterForConfig`、`buildRequest`、`parseResponse`，删除固定拼接的 `buildChatCompletionsUrl` 路径；`resolveCaptionVisionConfig` 返回的 `CaptionVisionConfig` 携带 `provider` 与 `transport`；沿用非流式调用、视觉超时和输出预算。
+  - 验证：`npm test -- src/main/agent/runtime/vision-captioner`
 - [ ] C8 转述 HTTP 失败、无有效内容、超时、取消返回稳定失败码
-  - 先写的测试：`src/main/orchestrator/vision-captioner.test.ts`：HTTP 失败、无有效内容、超时、取消 → 返回稳定失败码；无成功 caption、无成功消息写入；取消后不继续请求。
-  - 实现：`vision-captioner.ts` 内部增加结构化结果；`src/main/chat/image-caption.ts::captionImageSafe` 返回错误码；保留 `captionImage` 字符串接口。
-  - 验证：`npm test -- src/main/orchestrator/vision-captioner`
+  - 先写的测试：`src/main/model/vision/vision-captioner.test.ts`：HTTP 失败、无有效内容、超时、取消 → 返回稳定失败码；无成功 caption、无成功消息写入；取消后不继续请求。
+  - 实现：`vision-captioner.ts` 内部增加结构化结果；`src/main/agent/runtime/image-caption.ts::captionImageSafe` 返回错误码；保留 `captionImage` 字符串接口。
+  - 验证：`npm test -- src/main/agent/runtime/vision-captioner`
 - [ ] C9 模型或路由明确拒绝图片后不重复发送、不递归转述
-  - 先写的测试：`src/main/orchestrator/build-options.test.ts`、`src/main/orchestrator/vision-captioner.test.ts`：模型明确拒绝图片 → 不对同一端点重复发送图片，不进行递归转述重试（端点调用次数精确为 1）。
-  - 实现：修改 `src/main/orchestrator/build-options.ts` 的回退分支，拒绝码命中时直接收口。
-  - 验证：`npm test -- src/main/orchestrator/build-options src/main/orchestrator/vision-captioner`
+  - 先写的测试：`src/main/agent/runtime/build-options.test.ts`、`src/main/model/vision/vision-captioner.test.ts`：模型明确拒绝图片 → 不对同一端点重复发送图片，不进行递归转述重试（端点调用次数精确为 1）。
+  - 实现：修改 `src/main/agent/runtime/build-options.ts` 的回退分支，拒绝码命中时直接收口。
+  - 验证：`npm test -- src/main/agent/runtime/build-options src/main/agent/runtime/vision-captioner`
 - [ ] C10 `read_image`、`read_image_url` 保持现有本地路径与 URL 安全边界
-  - 先写的测试：`src/main/orchestrator/tools/fs-tools.test.ts`、`src/main/orchestrator/tools/builtin-tools/read-image-url-tool.test.ts`：越界本地路径、被拒 URL → 保持现有边界；不读取越界内容、不发网络请求。
-  - 实现：修改 `src/main/orchestrator/tools/fs-tools.ts`、`src/main/orchestrator/tools/builtin-tools/read-image-url-tool.ts` 改用默认档案严格选择获取视觉配置，不新增工具权限。
-  - 验证：`npm test -- src/main/orchestrator/tools/fs-tools src/main/orchestrator/tools/builtin-tools/read-image-url-tool`
+  - 先写的测试：`src/main/agent/tools/fs-tools.test.ts`、`src/main/agent/tools/builtin-tools/read-image-url-tool.test.ts`：越界本地路径、被拒 URL → 保持现有边界；不读取越界内容、不发网络请求。
+  - 实现：修改 `src/main/agent/tools/fs-tools.ts`、`src/main/agent/tools/builtin-tools/read-image-url-tool.ts` 改用默认档案严格选择获取视觉配置，不新增工具权限。
+  - 验证：`npm test -- src/main/agent/tools/fs-tools src/main/agent/tools/builtin-tools/read-image-url-tool`
 - [ ] C11 转述错误日志与 UI 不含密钥、base64 或服务回显
-  - 先写的测试：`src/main/orchestrator/vision-captioner.test.ts`、`src/main/orchestrator/build-options.test.ts`：日志含模拟密钥、base64 或服务回显 → 断言日志和 UI 均不包含这些敏感值。
+  - 先写的测试：`src/main/model/vision/vision-captioner.test.ts`、`src/main/agent/runtime/build-options.test.ts`：日志含模拟密钥、base64 或服务回显 → 断言日志和 UI 均不包含这些敏感值。
   - 实现：`vision-captioner.ts` 与 `image-caption.ts` 在写日志与返回 UI 前统一脱敏，只保留错误码与 `httpStatus`。
-  - 验证：`npm test -- src/main/orchestrator/vision-captioner src/main/orchestrator/build-options`
+  - 验证：`npm test -- src/main/agent/runtime/vision-captioner src/main/agent/runtime/build-options`
 
 **验收：** 18 个供应商协议组合与 3 个自定义协议判定全部通过；三协议转述均走各自正确 wire 端点；拒绝后零重复发送、零敏感信息泄露。
 **回退：** 可独立 revert 组合策略调整，但不能恢复 Responses/Anthropic 被错误硬编码发送到 `/chat/completions` 的缺陷。
@@ -365,11 +367,11 @@
 ### 施工包 D：渠道完整链路及可排查失败结果
 
 依赖：施工包 B、施工包 C
-**改动文件：** `src/shared/channel-diagnostics.ts`、`src/main/channels/message-log.ts`、`src/main/channels/message-log.test.ts`、`src/main/channels/dispatcher.ts`、`src/main/channels/dispatcher.test.ts`、`src/main/channels/bootstrap.ts`、`src/main/channels/terminal-delivery.test.ts`、`src/main/channels/agent-policy.test.ts`、`src/main/channels/default-profile-flow.test.ts`、`src/renderer/settings/channels/panel.ts`、`src/renderer/settings/channels/view-model.ts`、`src/renderer/settings/channels/view-model.test.ts`、`src/renderer/settings/shared/types.ts`、`src/renderer/settings/i18n/zh-CN.json`（非测试文件 8 个）
+**改动文件：** `src/shared/channel-diagnostics.ts`、`src/main/features/channels/message-log.ts`、`src/main/features/channels/message-log.test.ts`、`src/main/features/channels/dispatcher.ts`、`src/main/features/channels/dispatcher.test.ts`、`src/main/features/channels/bootstrap.ts`、`src/main/features/channels/terminal-delivery.test.ts`、`src/main/features/channels/agent-policy.test.ts`、`src/main/features/channels/default-profile-flow.test.ts`、`src/renderer/settings/channels/panel.ts`、`src/renderer/settings/channels/view-model.ts`、`src/renderer/settings/channels/view-model.test.ts`、`src/renderer/settings/shared/types.ts`、`src/renderer/settings/i18n/zh-CN.json`（非测试文件 8 个）
 
 本包落地的设计契约：
 
-- 沿用 `LogEntry`（`src/main/channels/message-log.ts`）和现有日志 IPC（`channels:log:get`、`channels:log:clear`），在 `src/shared/channel-diagnostics.ts` 定义并在 `LogEntry` 增加可选 `diagnostic`：
+- 沿用 `LogEntry`（`src/main/features/channels/message-log.ts`）和现有日志 IPC（`channels:log:get`、`channels:log:clear`），在 `src/shared/channel-diagnostics.ts` 定义并在 `LogEntry` 增加可选 `diagnostic`：
   - `attemptId`（同一个入站请求贯穿始终使用同一 `attemptId`）
   - `stage`：`"profile" | "attachments" | "agent" | "delivery"`
   - `code`
@@ -381,34 +383,34 @@
 
 **任务：**
 
-> 本包 D1—D7 的集成用例统一写入新增 `src/main/channels/default-profile-flow.test.ts`：使用真实档案解析、bootstrap、dispatcher、日志和发送回执，网络及模型使用可预测替身，避免完全 mock 掉要验证的链路。
+> 本包 D1—D7 的集成用例统一写入新增 `src/main/features/channels/default-profile-flow.test.ts`：使用真实档案解析、bootstrap、dispatcher、日志和发送回执，网络及模型使用可预测替身，避免完全 mock 掉要验证的链路。
 
 - [ ] D1 新建 `channel-diagnostics.ts` 并打通默认档案到发送回执的成功链路
-  - 先写的测试：`src/main/channels/default-profile-flow.test.ts`、`src/main/channels/message-log.test.ts`：各渠道入站文字且默认档案有效 → 一次生成、一次发送，参数及回执正确，完整历史和日志结果符合契约；同一入站请求的日志共用一个 `attemptId`。
-  - 实现：新建 `src/shared/channel-diagnostics.ts`；修改 `src/main/channels/message-log.ts` 在 `LogEntry` 增加可选 `diagnostic`；修改 `src/main/channels/bootstrap.ts` 生成 `attemptId` 并贯穿。
-  - 验证：`npm test -- src/main/channels/default-profile-flow src/main/channels/message-log`
+  - 先写的测试：`src/main/features/channels/default-profile-flow.test.ts`、`src/main/features/channels/message-log.test.ts`：各渠道入站文字且默认档案有效 → 一次生成、一次发送，参数及回执正确，完整历史和日志结果符合契约；同一入站请求的日志共用一个 `attemptId`。
+  - 实现：新建 `src/shared/channel-diagnostics.ts`；修改 `src/main/features/channels/message-log.ts` 在 `LogEntry` 增加可选 `diagnostic`；修改 `src/main/features/channels/bootstrap.ts` 生成 `attemptId` 并贯穿。
+  - 验证：`npm test -- src/main/features/channels/default-profile-flow src/main/features/channels/message-log`
 - [ ] D2 模型配置缺失定位到 `profile` 阶段，只提示一次
-  - 先写的测试：`src/main/channels/default-profile-flow.test.ts`、`src/main/channels/dispatcher.test.ts`：模型配置缺失 → 定位于 `profile` 阶段失败；不调用模型；失败提示只有一次；不追加成功 assistant 历史。
-  - 实现：`src/main/channels/bootstrap.ts` 将 `MODEL_PROFILE_REQUIRED` / `MODEL_PROFILE_NOT_FOUND` 映射为 `stage: "profile"` 诊断，复用现有终态回复。
-  - 验证：`npm test -- src/main/channels/default-profile-flow src/main/channels/dispatcher`
+  - 先写的测试：`src/main/features/channels/default-profile-flow.test.ts`、`src/main/features/channels/dispatcher.test.ts`：模型配置缺失 → 定位于 `profile` 阶段失败；不调用模型；失败提示只有一次；不追加成功 assistant 历史。
+  - 实现：`src/main/features/channels/bootstrap.ts` 将 `MODEL_PROFILE_REQUIRED` / `MODEL_PROFILE_NOT_FOUND` 映射为 `stage: "profile"` 诊断，复用现有终态回复。
+  - 验证：`npm test -- src/main/features/channels/default-profile-flow src/main/features/channels/dispatcher`
 - [ ] D3 模型抛错、超时、取消返回对应终态，不写成功历史
-  - 先写的测试：`src/main/channels/terminal-delivery.test.ts`、`src/main/channels/dispatcher.test.ts`：模型抛错、超时、取消 → 返回对应终态（沿用 `terminalReply`）；不展示成功贴纸，不写成功历史；诊断 `stage: "agent"`。
-  - 实现：`src/main/channels/dispatcher.ts::processIncoming` 在 Agent 异常分支写入 `agent` 阶段诊断，不重复实现失败回复。
-  - 验证：`npm test -- src/main/channels/terminal-delivery src/main/channels/dispatcher`
+  - 先写的测试：`src/main/features/channels/terminal-delivery.test.ts`、`src/main/features/channels/dispatcher.test.ts`：模型抛错、超时、取消 → 返回对应终态（沿用 `terminalReply`）；不展示成功贴纸，不写成功历史；诊断 `stage: "agent"`。
+  - 实现：`src/main/features/channels/dispatcher.ts::processIncoming` 在 Agent 异常分支写入 `agent` 阶段诊断，不重复实现失败回复。
+  - 验证：`npm test -- src/main/features/channels/terminal-delivery src/main/features/channels/dispatcher`
 - [ ] D4 发送回执失败记录 `delivery` 阶段及同一 `attemptId`，不广播成功出站
-  - 先写的测试：`src/main/channels/default-profile-flow.test.ts`、`src/main/channels/dispatcher.test.ts`：发送回执失败 → 记录 `delivery` 阶段失败及同一 `attemptId`；不广播成功出站镜像，不追加成功 assistant 历史。
+  - 先写的测试：`src/main/features/channels/default-profile-flow.test.ts`、`src/main/features/channels/dispatcher.test.ts`：发送回执失败 → 记录 `delivery` 阶段失败及同一 `attemptId`；不广播成功出站镜像，不追加成功 assistant 历史。
   - 实现：`dispatcher.ts` 发送失败分支写 `delivery` 诊断，成功镜像广播移到回执成功之后。
-  - 验证：`npm test -- src/main/channels/default-profile-flow src/main/channels/dispatcher`
+  - 验证：`npm test -- src/main/features/channels/default-profile-flow src/main/features/channels/dispatcher`
 - [ ] D5 异常先归一化、脱敏再写日志与控制台
-  - 先写的测试：`src/main/channels/dispatcher.test.ts`、`src/main/channels/message-log.test.ts`：错误消息包含模拟密钥、URL 查询参数 → 日志、控制台和 UI 不出现敏感值；`diagnostic` 只含固定字段。
+  - 先写的测试：`src/main/features/channels/dispatcher.test.ts`、`src/main/features/channels/message-log.test.ts`：错误消息包含模拟密钥、URL 查询参数 → 日志、控制台和 UI 不出现敏感值；`diagnostic` 只含固定字段。
   - 实现：`dispatcher.ts::processIncoming` 不再直接记录 `Error.message`，改为归一化为稳定 `code` 与可选 `httpStatus` 后写入。
-  - 验证：`npm test -- src/main/channels/dispatcher src/main/channels/message-log`
+  - 验证：`npm test -- src/main/features/channels/dispatcher src/main/features/channels/message-log`
 - [ ] D6 QQ、QQ Bot 群聊开启渠道工具时仍强制 Chat 且工具为空
-  - 先写的测试：`src/main/channels/agent-policy.test.ts`、`src/main/channels/default-profile-flow.test.ts`：QQ、QQ Bot 群聊且开启渠道工具 → 仍强制为 Chat、工具为空、不调用命令或工作区写入；私聊开启 Work 时只暴露 `fs-read` 风险工具（1.2.0 规格 §7.4）。该用例预期立即通过，作为回归锁定。
-  - 实现：仅补测试；只有测试证明 `channels/agent-policy.ts:12` 与 §7.4 不一致时才修改（需同步 SDK 计划，不在本包扩权）。
-  - 验证：`npm test -- src/main/channels/agent-policy src/main/channels/default-profile-flow`
+  - 先写的测试：`src/main/features/channels/agent-policy.test.ts`、`src/main/features/channels/default-profile-flow.test.ts`：QQ、QQ Bot 群聊且开启渠道工具 → 仍强制为 Chat、工具为空、不调用命令或工作区写入；私聊开启 Work 时只暴露 `fs-read` 风险工具（1.2.0 规格 §7.4）。该用例预期立即通过，作为回归锁定。
+  - 实现：仅补测试；只有测试证明 `features/channels/agent-policy.ts:12` 与 §7.4 不一致时才修改（需同步 SDK 计划，不在本包扩权）。
+  - 验证：`npm test -- src/main/features/channels/agent-policy src/main/features/channels/default-profile-flow`
 - [ ] D7 日志写盘失败时按实际发送结果结算
-  - 先写的测试：`src/main/channels/message-log.test.ts`、`src/main/channels/default-profile-flow.test.ts`：日志写盘失败 → 消息链路按实际发送结果结算，不误记为生成成功或重复发送（发送次数精确为 1）。
+  - 先写的测试：`src/main/features/channels/message-log.test.ts`、`src/main/features/channels/default-profile-flow.test.ts`：日志写盘失败 → 消息链路按实际发送结果结算，不误记为生成成功或重复发送（发送次数精确为 1）。
   - 实现：`message-log.ts` 写盘异常只上报，不向调用方抛出影响发送流程。
   - 验证：`npm test -- src/main/channels`
 - [ ] D8 在设置页渠道面板展示诊断编号、阶段和中文失败原因（依据原设计 3.5）
@@ -425,7 +427,7 @@
 ### 施工包 E：主动聊天阶段诊断和内部受控入口
 
 依赖：施工包 A、施工包 B
-**改动文件：** `src/shared/proactive-diagnostics.ts`、`src/main/proactive/proactive-diagnostics.ts`、`src/main/proactive/proactive-diagnostics.test.ts`、`src/main/proactive/proactive-diagnostics-ipc.ts`、`src/main/proactive/proactive-diagnostics-ipc.test.ts`、`src/main/proactive/proactive-trigger.ts`、`src/main/proactive/proactive-trigger.test.ts`、`src/main/proactive/proactive-service.ts`、`src/main/proactive/proactive-service.test.ts`、`src/main/proactive/proactive-lifecycle.ts`、`src/main/proactive/proactive-lifecycle.test.ts`、`src/main/proactive/proactive-shutdown-delivery.test.ts`、`src/main/application/default-dependencies.ts`、`src/main/application/ipc-contract.test.ts`、`src/shared/ipc-channels.ts`、`src/preload/index.ts`、`src/renderer/settings/shared/types.ts`、`src/renderer/settings/settings.ts`、`src/renderer/settings/index.html`、`src/renderer/settings/i18n/zh-CN.json`（非测试文件 13 个）
+**改动文件：** `src/shared/proactive-diagnostics.ts`、`src/main/features/proactive/proactive-diagnostics.ts`、`src/main/features/proactive/proactive-diagnostics.test.ts`、`src/main/features/proactive/proactive-diagnostics-ipc.ts`、`src/main/features/proactive/proactive-diagnostics-ipc.test.ts`、`src/main/features/proactive/proactive-trigger.ts`、`src/main/features/proactive/proactive-trigger.test.ts`、`src/main/features/proactive/proactive-service.ts`、`src/main/features/proactive/proactive-service.test.ts`、`src/main/features/proactive/proactive-lifecycle.ts`、`src/main/features/proactive/proactive-lifecycle.test.ts`、`src/main/features/proactive/proactive-shutdown-delivery.test.ts`、`src/main/app/default-dependencies.ts`、`src/main/app/ipc-contract.test.ts`、`src/shared/ipc-channels.ts`、`src/preload/index.ts`、`src/renderer/settings/shared/types.ts`、`src/renderer/settings/settings.ts`、`src/renderer/settings/index.html`、`src/renderer/settings/i18n/zh-CN.json`（非测试文件 13 个）
 
 本包落地的设计契约：
 
@@ -437,7 +439,7 @@
   - 默认仅 `development`、`test`、`smoke` 运行档案可调用；`production` 返回 `PROACTIVE_DIAGNOSTICS_DISABLED`（校验实际发送窗口、请求结构和运行档案，不只隐藏按钮）。
   - `preview`：只采集和计算，不调用模型、不投递、不改变状态或触发器边沿。
   - `run`：复用真实 `evaluateNow` 和服务链路，不绕过开关、busy、冷却、未回复上限、epoch 或投递检查；与定时扫描共享并发保护，禁止并行重复生成。
-- 阶段摘要接入现有文件 sink（`src/main/proactive/proactive-diagnostics.ts`），在默认 `warn` 日志级别下也能落盘，保留最近 100 次诊断摘要；写盘失败不改变消息提交结果，界面提示“诊断记录未写入”。
+- 阶段摘要接入现有文件 sink（`src/main/features/proactive/proactive-diagnostics.ts`），在默认 `warn` 日志级别下也能落盘，保留最近 100 次诊断摘要；写盘失败不改变消息提交结果，界面提示“诊断记录未写入”。
 - 诊断摘要上限 100 条；成功摘要也必须在默认日志级别下落盘，不通过提高全局日志级别实现。
 - 内部设置页显示“检查主动聊天”（`preview`）与“执行一次真实检查”（`run`）两个按钮，后者说明会使用模型且可能发送消息；没有候选、被策略拦截、模型沉默均为可解释结果，不统一显示为错误。
 - 策略、冷却、评分、天气场景和返回事件检测均保持当前行为。
@@ -445,44 +447,44 @@
 **任务：**
 
 - [ ] E1 新建 `proactive-diagnostics` 契约，`preview` 只采集计算、零副作用
-  - 先写的测试：`src/main/proactive/proactive-diagnostics.test.ts`、`src/main/proactive/proactive-trigger.test.ts`：`preview` 模式 → 返回完整候选及策略结果；模型调用、投递、状态保存和触发边沿更新次数均为 0。
-  - 实现：新建 `src/shared/proactive-diagnostics.ts`（`ProactiveDiagnosticResult`、`ProactiveDiagnosticStage`、错误码）与 `src/main/proactive/proactive-diagnostics.ts`；修改 `src/main/proactive/proactive-trigger.ts` 让 `evaluateNow` 支持 `preview` 并返回阶段化结果而非 `Promise<void>`。
-  - 验证：`npm test -- src/main/proactive/proactive-diagnostics src/main/proactive/proactive-trigger`
+  - 先写的测试：`src/main/features/proactive/proactive-diagnostics.test.ts`、`src/main/features/proactive/proactive-trigger.test.ts`：`preview` 模式 → 返回完整候选及策略结果；模型调用、投递、状态保存和触发边沿更新次数均为 0。
+  - 实现：新建 `src/shared/proactive-diagnostics.ts`（`ProactiveDiagnosticResult`、`ProactiveDiagnosticStage`、错误码）与 `src/main/features/proactive/proactive-diagnostics.ts`；修改 `src/main/features/proactive/proactive-trigger.ts` 让 `evaluateNow` 支持 `preview` 并返回阶段化结果而非 `Promise<void>`。
+  - 验证：`npm test -- src/main/features/proactive/proactive-diagnostics src/main/features/proactive/proactive-trigger`
 - [ ] E2 没有候选时 `candidate` 阶段结束，后续全部 `not_run`
-  - 先写的测试：`src/main/proactive/proactive-diagnostics.test.ts`、`src/main/proactive/proactive-service.test.ts`：没有候选 → `candidate` 阶段明确结束，后续阶段全部为 `not_run`（完整阶段数组比较）。
-  - 实现：`src/main/proactive/proactive-service.ts` 将 `candidate_blocked` 事件映射为阶段结果。
-  - 验证：`npm test -- src/main/proactive/proactive-diagnostics src/main/proactive/proactive-service`
+  - 先写的测试：`src/main/features/proactive/proactive-diagnostics.test.ts`、`src/main/features/proactive/proactive-service.test.ts`：没有候选 → `candidate` 阶段明确结束，后续阶段全部为 `not_run`（完整阶段数组比较）。
+  - 实现：`src/main/features/proactive/proactive-service.ts` 将 `candidate_blocked` 事件映射为阶段结果。
+  - 验证：`npm test -- src/main/features/proactive/proactive-diagnostics src/main/features/proactive/proactive-service`
 - [ ] E3 开关、锁屏、忙、退避、冷却、未回复上限精确报告拦截原因
-  - 先写的测试：`src/main/proactive/proactive-service.test.ts`、`src/main/proactive/proactive-trigger.test.ts`：开关关闭、屏幕锁定、普通会话忙、退避、冷却、未回复上限 → 精确断言 `policy` 阶段拦截原因；不调用模型或投递。
+  - 先写的测试：`src/main/features/proactive/proactive-service.test.ts`、`src/main/features/proactive/proactive-trigger.test.ts`：开关关闭、屏幕锁定、普通会话忙、退避、冷却、未回复上限 → 精确断言 `policy` 阶段拦截原因；不调用模型或投递。
   - 实现：`proactive-service.ts` 在策略拦截处写入 `blocked` 状态与原因码，不改变策略本身。
-  - 验证：`npm test -- src/main/proactive/proactive-service src/main/proactive/proactive-trigger`
+  - 验证：`npm test -- src/main/features/proactive/proactive-service src/main/features/proactive/proactive-trigger`
 - [ ] E4 模型选择沉默记为 `silent`，不写消息、不发送、不提醒
-  - 先写的测试：`src/main/proactive/proactive-service.test.ts`：模型选择沉默 → 状态为 `silent`，不写消息、不发送、不提醒；仅保留当前已有沉默状态更新契约。
+  - 先写的测试：`src/main/features/proactive/proactive-service.test.ts`：模型选择沉默 → 状态为 `silent`，不写消息、不发送、不提醒；仅保留当前已有沉默状态更新契约。
   - 实现：`proactive-service.ts` 将 `model_silent` 映射为 `model` 阶段 `silent`。
-  - 验证：`npm test -- src/main/proactive/proactive-service`
+  - 验证：`npm test -- src/main/features/proactive/proactive-service`
 - [ ] E5 模型失败、输出无效、超时阶段准确，不启用已下线预设文案
-  - 先写的测试：`src/main/proactive/proactive-service.test.ts`、`src/main/proactive/proactive-lifecycle.test.ts`：模型失败、输出无效、超时 → `model` 阶段 `failed`；不启用已下线的预设文案，不伪装提交成功。
+  - 先写的测试：`src/main/features/proactive/proactive-service.test.ts`、`src/main/features/proactive/proactive-lifecycle.test.ts`：模型失败、输出无效、超时 → `model` 阶段 `failed`；不启用已下线的预设文案，不伪装提交成功。
   - 实现：`proactive-service.ts`、`proactive-lifecycle.ts` 的失败分支写入阶段结果。
-  - 验证：`npm test -- src/main/proactive/proactive-service src/main/proactive/proactive-lifecycle`
+  - 验证：`npm test -- src/main/features/proactive/proactive-service src/main/features/proactive/proactive-lifecycle`
 - [ ] E6 生成后发生用户活动、锁屏或关闭时 epoch／取消保护生效
-  - 先写的测试：`src/main/proactive/proactive-lifecycle.test.ts`、`src/main/proactive/proactive-shutdown-delivery.test.ts`：用户活动、锁屏或关闭发生在生成后 → epoch／取消保护生效，不进入后续投递；阶段记为 `cancelled`（对应 `commit_cancelled`）。
+  - 先写的测试：`src/main/features/proactive/proactive-lifecycle.test.ts`、`src/main/features/proactive/proactive-shutdown-delivery.test.ts`：用户活动、锁屏或关闭发生在生成后 → epoch／取消保护生效，不进入后续投递；阶段记为 `cancelled`（对应 `commit_cancelled`）。
   - 实现：`proactive-lifecycle.ts` 在 `commit_blocked` / `commit_cancelled` 处写入阶段结果。
-  - 验证：`npm test -- src/main/proactive/proactive-lifecycle src/main/proactive/proactive-shutdown-delivery`
+  - 验证：`npm test -- src/main/features/proactive/proactive-lifecycle src/main/features/proactive/proactive-shutdown-delivery`
 - [ ] E7 定时扫描与真实检查 `run` 共享并发保护
-  - 先写的测试：`src/main/proactive/proactive-trigger.test.ts`：定时扫描与真实检查 `run` 并发 → 仅一个执行生成，另一个返回 busy，不重复发送。
+  - 先写的测试：`src/main/features/proactive/proactive-trigger.test.ts`：定时扫描与真实检查 `run` 并发 → 仅一个执行生成，另一个返回 busy，不重复发送。
   - 实现：`proactive-trigger.ts` 让 `run` 复用 `evaluateNow` 的同一并发锁，不绕过开关、busy、冷却、未回复上限、epoch 或投递检查。
-  - 验证：`npm test -- src/main/proactive/proactive-trigger`
+  - 验证：`npm test -- src/main/features/proactive/proactive-trigger`
 - [ ] E8 production 或未授权发送方调用诊断 IPC 返回 `PROACTIVE_DIAGNOSTICS_DISABLED`
-  - 先写的测试：`src/main/proactive/proactive-diagnostics-ipc.test.ts`、`src/main/application/ipc-contract.test.ts`：production 运行档案或未授权发送窗口调用 `proactive:diagnose` / `proactive:diagnostics:get` → 返回稳定拒绝码 `PROACTIVE_DIAGNOSTICS_DISABLED`；不采集诊断、不访问模型、不写消息；非 production 授权窗口调用 → 正常返回阶段结果。
-  - 实现：新建 `src/main/proactive/proactive-diagnostics-ipc.ts`（校验实际发送窗口、请求结构和运行档案）；修改 `src/main/application/default-dependencies.ts`、`src/shared/ipc-channels.ts`、`src/preload/index.ts`、`src/renderer/settings/shared/types.ts`、`src/renderer/settings/settings.ts`、`src/renderer/settings/index.html`、`src/renderer/settings/i18n/zh-CN.json`（两个内部按钮及说明文案）。
-  - 验证：`npm test -- src/main/proactive/proactive-diagnostics-ipc src/main/application/ipc-contract src/main/application/default-dependencies`；`npm run build:main`；`npm run build:preload`；`npm run check:renderer`
+  - 先写的测试：`src/main/features/proactive/proactive-diagnostics-ipc.test.ts`、`src/main/app/ipc-contract.test.ts`：production 运行档案或未授权发送窗口调用 `proactive:diagnose` / `proactive:diagnostics:get` → 返回稳定拒绝码 `PROACTIVE_DIAGNOSTICS_DISABLED`；不采集诊断、不访问模型、不写消息；非 production 授权窗口调用 → 正常返回阶段结果。
+  - 实现：新建 `src/main/features/proactive/proactive-diagnostics-ipc.ts`（校验实际发送窗口、请求结构和运行档案）；修改 `src/main/app/default-dependencies.ts`、`src/shared/ipc-channels.ts`、`src/preload/index.ts`、`src/renderer/settings/shared/types.ts`、`src/renderer/settings/settings.ts`、`src/renderer/settings/index.html`、`src/renderer/settings/i18n/zh-CN.json`（两个内部按钮及说明文案）。
+  - 验证：`npm test -- src/main/features/proactive/proactive-diagnostics-ipc src/main/app/ipc-contract src/main/app/default-dependencies`；`npm run build:main`；`npm run build:preload`；`npm run check:renderer`
 - [ ] E9 十二小时、两小时、评分 75 等既有临界点两侧结论不变
-  - 先写的测试：`src/main/proactive/proactive-trigger.test.ts`、`src/main/proactive/proactive-service.test.ts`（假定时器并在 `afterEach` 恢复）：十二小时、两小时、评分 75、两次未回复等既有临界点两侧 → 保留当前测试结论，不改变策略（`proactive-policy.ts:9,10,12,48`）。该用例预期立即通过，作为回归锁定。
+  - 先写的测试：`src/main/features/proactive/proactive-trigger.test.ts`、`src/main/features/proactive/proactive-service.test.ts`（假定时器并在 `afterEach` 恢复）：十二小时、两小时、评分 75、两次未回复等既有临界点两侧 → 保留当前测试结论，不改变策略（`proactive-policy.ts:9,10,12,48`）。该用例预期立即通过，作为回归锁定。
   - 实现：无；本任务只锁定回归。
   - 验证：`npm test -- src/main/proactive`
 - [ ] E10 默认日志级别下摘要落盘、重载可查、超出 100 条只保留最近记录
-  - 先写的测试：`src/main/proactive/proactive-diagnostics.test.ts`：默认日志级别下产生摘要 → 独立临时目录文件中可读到完整安全摘要（不含提示词、记忆正文、模型原始回复），重载后可查询，超出 100 条只保留最近 100 条；写盘失败时附带“诊断记录未写入”标记且不回滚已提交消息。
-  - 实现：`src/main/proactive/proactive-diagnostics.ts` 接入 `logging/logger.ts` 现有文件 sink，不提高全局级别。
+  - 先写的测试：`src/main/features/proactive/proactive-diagnostics.test.ts`：默认日志级别下产生摘要 → 独立临时目录文件中可读到完整安全摘要（不含提示词、记忆正文、模型原始回复），重载后可查询，超出 100 条只保留最近 100 条；写盘失败时附带“诊断记录未写入”标记且不回滚已提交消息。
+  - 实现：`src/main/features/proactive/proactive-diagnostics.ts` 接入 `base/logging/logger.ts` 现有文件 sink，不提高全局级别。
   - 验证：`npm test -- src/main/proactive`
 
 **验收：** 主动聊天六阶段状态在文件摘要与内部诊断界面中完整可查；`preview` 零副作用；`production` 严格拒绝诊断 IPC 调用；并发保护与既有冷却策略零回归。
@@ -494,13 +496,13 @@
 ### 施工包 F：主动消息提醒与三窗口状态可见性
 
 依赖：施工包 E
-**改动文件：** `src/shared/toast-types.ts`、`src/main/toast/toast-events.ts`、`src/main/toast/toast-events.test.ts`、`src/main/toast/toast-service.ts`、`src/main/toast/toast-service.test.ts`、`src/main/proactive/proactive-lifecycle.ts`、`src/main/proactive/proactive-lifecycle.test.ts`、`src/main/application/default-dependencies.ts`、`src/main/application/default-dependencies.test.ts`、`src/renderer/react/features/chat/pages/ChatPage.tsx`、`src/renderer/react/features/chat/pages/proactive-visibility.test.ts`、`src/renderer/toast/toast.ts`、`src/renderer/toast/toast.test.ts`、`src/renderer/react/i18n/zh-CN.json`（非测试文件 8 个）
+**改动文件：** `src/shared/toast-types.ts`、`src/main/platform/interaction/toast-events.ts`、`src/main/platform/interaction/toast-events.test.ts`、`src/main/platform/toast/toast-service.ts`、`src/main/platform/toast/toast-service.test.ts`、`src/main/features/proactive/proactive-lifecycle.ts`、`src/main/features/proactive/proactive-lifecycle.test.ts`、`src/main/app/default-dependencies.ts`、`src/main/app/default-dependencies.test.ts`、`src/renderer/react/features/chat/pages/ChatPage.tsx`、`src/renderer/react/features/chat/pages/proactive-visibility.test.ts`、`src/renderer/toast/toast.ts`、`src/renderer/toast/toast.test.ts`、`src/renderer/react/i18n/zh-CN.json`（非测试文件 8 个）
 
 本包落地的设计契约：
 
 - 扩展现有 Toast：
   - 新增 `ToastKind: "proactive-message"`（`src/shared/toast-types.ts`）。
-  - 新增 `ProactiveMessageCommittedEvent`（`src/main/toast/toast-events.ts`），只携带 `sessionId`、`messageId`、时间，仅在本地消息成功落库后由 `proactive-lifecycle.ts` 发布。
+  - 新增 `ProactiveMessageCommittedEvent`（`src/main/platform/interaction/toast-events.ts`），只携带 `sessionId`、`messageId`、时间，仅在本地消息成功落库后由 `proactive-lifecycle.ts` 发布。
   - `messageId` 作为去重业务 ID，目标为已有 `ToastTarget` 的指定会话。
   - 默认文案“流萤发来了一条主动消息”，不展示私密正文；音效沿用现有开关；点击后通过现有窗口激活代理打开专用 Chat 会话。
 - 三种窗口/会话状态表现：
@@ -514,35 +516,35 @@
 **任务：**
 
 - [ ] F1 新增 `ToastKind: "proactive-message"` 与 `ProactiveMessageCommittedEvent`，仅在本地落库成功后发布一次
-  - 先写的测试：`src/main/proactive/proactive-lifecycle.test.ts`、`src/main/toast/toast-events.test.ts`：本地落库成功 → 发布一次带确切 `messageId` 的 `ProactiveMessageCommittedEvent`（只含 `sessionId`、`messageId`、时间）；会话广播与 Toast 提醒引用同一 `sessionId`。
-  - 实现：修改 `src/shared/toast-types.ts`、`src/main/toast/toast-events.ts`；在 `src/main/proactive/proactive-lifecycle.ts:183`—`:199` 落库与广播之后发布事件。
-  - 验证：`npm test -- src/main/proactive/proactive-lifecycle src/main/toast/toast-events`
+  - 先写的测试：`src/main/features/proactive/proactive-lifecycle.test.ts`、`src/main/platform/interaction/toast-events.test.ts`：本地落库成功 → 发布一次带确切 `messageId` 的 `ProactiveMessageCommittedEvent`（只含 `sessionId`、`messageId`、时间）；会话广播与 Toast 提醒引用同一 `sessionId`。
+  - 实现：修改 `src/shared/toast-types.ts`、`src/main/platform/interaction/toast-events.ts`；在 `src/main/features/proactive/proactive-lifecycle.ts:183`—`:199` 落库与广播之后发布事件。
+  - 验证：`npm test -- src/main/features/proactive/proactive-lifecycle src/main/platform/toast/toast-events`
 - [ ] F2 落库失败或提交已取消不发布 Toast
-  - 先写的测试：`src/main/proactive/proactive-lifecycle.test.ts`：落库失败或提交已取消 → 不发布 Toast，不标记完整提交。
+  - 先写的测试：`src/main/features/proactive/proactive-lifecycle.test.ts`：落库失败或提交已取消 → 不发布 Toast，不标记完整提交。
   - 实现：`proactive-lifecycle.ts` 发布点只放在落库成功分支。
-  - 验证：`npm test -- src/main/proactive/proactive-lifecycle`
+  - 验证：`npm test -- src/main/features/proactive/proactive-lifecycle`
 - [ ] F3 同一 `messageId` 重复到达只展示一次、不重复播放提示音
-  - 先写的测试：`src/main/toast/toast-service.test.ts`：同一 `messageId` 事件重复到达 → 只展示一次，不重复播放提示音。
-  - 实现：`src/main/toast/toast-service.ts` 以 `messageId` 作为去重业务 ID，复用现有去重与音效合并。
-  - 验证：`npm test -- src/main/toast/toast-service`
+  - 先写的测试：`src/main/platform/toast/toast-service.test.ts`：同一 `messageId` 事件重复到达 → 只展示一次，不重复播放提示音。
+  - 实现：`src/main/platform/toast/toast-service.ts` 以 `messageId` 作为去重业务 ID，复用现有去重与音效合并。
+  - 验证：`npm test -- src/main/platform/toast/toast-service`
 - [ ] F4 聊天窗口关闭或隐藏时点击 Toast 打开指定主动会话
-  - 先写的测试：`src/main/toast/toast-service.test.ts`、`src/main/application/default-dependencies.test.ts`、`src/renderer/toast/toast.test.ts`：关闭窗口 → 显示 Toast，点击后请求打开指定主动会话（`ToastTarget` 指向专用 Chat 会话），默认文案为“流萤发来了一条主动消息”且不含正文。
-  - 实现：`toast-service.ts` 构造目标；`src/main/application/default-dependencies.ts` 接线现有窗口激活代理；`src/renderer/toast/toast.ts` 渲染新类型；`src/renderer/react/i18n/zh-CN.json` 补文案。
-  - 验证：`npm test -- src/main/toast src/main/application/default-dependencies.test.ts src/renderer/toast`
+  - 先写的测试：`src/main/platform/toast/toast-service.test.ts`、`src/main/app/default-dependencies.test.ts`、`src/renderer/toast/toast.test.ts`：关闭窗口 → 显示 Toast，点击后请求打开指定主动会话（`ToastTarget` 指向专用 Chat 会话），默认文案为“流萤发来了一条主动消息”且不含正文。
+  - 实现：`toast-service.ts` 构造目标；`src/main/app/default-dependencies.ts` 接线现有窗口激活代理；`src/renderer/toast/toast.ts` 渲染新类型；`src/renderer/react/i18n/zh-CN.json` 补文案。
+  - 验证：`npm test -- src/main/toast src/main/app/default-dependencies.test.ts src/renderer/toast`
 - [ ] F5 正在查看其他 Chat／Work／Code 会话时显示提醒但不切换、不动草稿
   - 先写的测试：`src/renderer/react/features/chat/pages/proactive-visibility.test.ts`：当前为另一 Chat／Work／Code 会话时主动消息落库 → 显示提醒，当前会话、运行视图和输入草稿保持不变；只有用户点击提醒后才切换到主动会话。
   - 实现：修改 `src/renderer/react/features/chat/pages/ChatPage.tsx`（`:337` 的 `store.onChanged(refresh)`）只刷新列表，不切换当前会话。
   - 验证：`npm test -- src/renderer/react/features/chat/pages/proactive-visibility.test.ts`；`npm run check:renderer`
 - [ ] F6 当前主动会话聚焦时刷新可见并抑制 Toast
-  - 先写的测试：`src/renderer/react/features/chat/pages/proactive-visibility.test.ts`、`src/main/toast/toast-service.test.ts`：当前正在查看主动会话且窗口聚焦 → 收到变更广播后立即刷新，新主动消息实际可见；`toast-service` 抑制重复 Toast。
+  - 先写的测试：`src/renderer/react/features/chat/pages/proactive-visibility.test.ts`、`src/main/platform/toast/toast-service.test.ts`：当前正在查看主动会话且窗口聚焦 → 收到变更广播后立即刷新，新主动消息实际可见；`toast-service` 抑制重复 Toast。
   - 实现：`ChatPage.tsx` 对主动会话做焦点/会话感知刷新；`toast-service.ts` 读取焦点会话状态决定是否抑制。
-  - 验证：`npm test -- src/renderer/react/features/chat/pages/proactive-visibility.test.ts src/main/toast/toast-service`
+  - 验证：`npm test -- src/renderer/react/features/chat/pages/proactive-visibility.test.ts src/main/platform/toast/toast-service`
 - [ ] F7 Toast 创建失败只记 `notification` 阶段失败，不重生成、不重投递
-  - 先写的测试：`src/main/proactive/proactive-lifecycle.test.ts`、`src/main/toast/toast-service.test.ts`：Toast 创建或展示抛错 → 消息仍只保存一次，诊断 `notification` 阶段记为 `failed`；不重新生成或重复投递。
+  - 先写的测试：`src/main/features/proactive/proactive-lifecycle.test.ts`、`src/main/platform/toast/toast-service.test.ts`：Toast 创建或展示抛错 → 消息仍只保存一次，诊断 `notification` 阶段记为 `failed`；不重新生成或重复投递。
   - 实现：`proactive-lifecycle.ts` 捕获提醒异常并写入阶段结果，与 `persistence` 分开记录。
-  - 验证：`npm test -- src/main/proactive/proactive-lifecycle src/main/toast/toast-service`
+  - 验证：`npm test -- src/main/features/proactive/proactive-lifecycle src/main/platform/toast/toast-service`
 - [ ] F8 用户关闭 Toast、超时、应用退出时正确清理
-  - 先写的测试：`src/main/toast/toast-service.test.ts`、`src/renderer/toast/toast.test.ts`（假定时器）：用户关闭 Toast、超时、应用退出 → 正确清理计时器和订阅，不删除会话消息。
+  - 先写的测试：`src/main/platform/toast/toast-service.test.ts`、`src/renderer/toast/toast.test.ts`（假定时器）：用户关闭 Toast、超时、应用退出 → 正确清理计时器和订阅，不删除会话消息。
   - 实现：`toast-service.ts` 与 `src/renderer/toast/toast.ts` 在三种结束路径统一释放计时器与订阅。
   - 验证：`npm test -- src/main/toast src/renderer/toast`
 
@@ -569,21 +571,21 @@
 **任务：**
 
 - [ ] G1 飞书未批准发送者不下载媒体、不进入 Agent
-  - 先写的测试：复用并按需补充 `src/main/channels/adapters/feishu/` 下发送者测试：飞书未批准发送者 → 不下载媒体、不进入 Agent（`admitSender` 先于媒体下载）。该用例预期立即通过，作为回归锁定。
+  - 先写的测试：复用并按需补充 `src/main/features/channels/adapters/feishu/` 下发送者测试：飞书未批准发送者 → 不下载媒体、不进入 Agent（`admitSender` 先于媒体下载）。该用例预期立即通过，作为回归锁定。
   - 实现：只补缺失的边界测试断言，不改动已符合要求的适配器实现。
-  - 验证：`npm test -- src/main/channels/adapters/feishu`
+  - 验证：`npm test -- src/main/features/channels/adapters/feishu`
 - [ ] G2 NapCat 群要求 @ 开启／关闭时分别拒绝／允许非 @ 消息，白名单始终有效
-  - 先写的测试：复用并按需补充 `src/main/channels/adapters/qq/` 下 `isQqEventAllowed` 测试：群要求 @ 开启／关闭 → 分别验证非 @ 消息拒绝／允许；白名单始终有效。该用例预期立即通过，作为回归锁定。
+  - 先写的测试：复用并按需补充 `src/main/features/channels/adapters/qq/` 下 `isQqEventAllowed` 测试：群要求 @ 开启／关闭 → 分别验证非 @ 消息拒绝／允许；白名单始终有效。该用例预期立即通过，作为回归锁定。
   - 实现：只补测试断言。
-  - 验证：`npm test -- src/main/channels/adapters/qq`
+  - 验证：`npm test -- src/main/features/channels/adapters/qq`
 - [ ] G3 NapCat 非回环监听缺 Token 拒绝启动，Token 错误握手不进入消息处理
   - 先写的测试：复用并按需补充 `onebot-reverse-ws` 相关测试：非回环监听缺 Token → 拒绝启动；Token 错误握手不进入消息处理。该用例预期立即通过，作为回归锁定。
   - 实现：只补测试断言。
-  - 验证：`npm test -- src/main/channels/adapters/qq`
+  - 验证：`npm test -- src/main/features/channels/adapters/qq`
 - [ ] G4 QQ Bot 不在 openid 白名单不回复，超窗及超次数不调用发送 API
-  - 先写的测试：复用并按需补充 `src/main/channels/adapters/qqbot/` 被动回复测试：不在 openid 白名单 → 不生成回复；超窗（`REPLY_WINDOW_MS`）及超次数（`REPLY_SEQ_LIMIT`）不调用发送 API。该用例预期立即通过，作为回归锁定。
+  - 先写的测试：复用并按需补充 `src/main/features/channels/adapters/qqbot/` 被动回复测试：不在 openid 白名单 → 不生成回复；超窗（`REPLY_WINDOW_MS`）及超次数（`REPLY_SEQ_LIMIT`）不调用发送 API。该用例预期立即通过，作为回归锁定。
   - 实现：只补测试断言。
-  - 验证：`npm test -- src/main/channels/adapters/qqbot`
+  - 验证：`npm test -- src/main/features/channels/adapters/qqbot`
 - [ ] G5 媒体大小、分片、缓存时间边界取当前常量在临界点及两侧断言
   - 先写的测试：NapCat 媒体（`onebot-media.ts` 常量）与 QQ Bot 入站 8 MiB 限制（`qqbot-adapter.ts:223`）：媒体大小、分片、缓存时间边界 → 取当前常量，在临界点及两侧断言。该用例预期立即通过，作为回归锁定。
   - 实现：只补测试断言；不调整常量。
@@ -608,16 +610,16 @@
   node --test scripts/dev/launch-electron.test.mjs
 
   # 施工包 B
-  npm test -- src/main/settings/model-settings src/main/chats/chat-ui-ipc src/main/orchestrator/agent-runtime src/main/orchestrator/build-options src/main/channels/bootstrap src/renderer/react/features/chat/hooks/useComposerAttachments
+  npm test -- src/main/platform/settings/model-settings src/main/features/sessions/chat-ui-ipc src/main/agent/runtime/agent-runtime src/main/agent/runtime/build-options src/main/features/channels/bootstrap src/renderer/react/features/chat/hooks/useComposerAttachments
 
   # 施工包 C
-  npm test -- src/main/orchestrator/image-router src/main/orchestrator/vision-captioner src/main/orchestrator/vendors src/main/orchestrator/tools/fs-tools src/main/orchestrator/tools/builtin-tools/read-image-url-tool src/main/orchestrator/build-options
+  npm test -- src/main/agent/runtime/image-router src/main/agent/runtime/vision-captioner src/main/agent/runtime/vendors src/main/agent/tools/fs-tools src/main/agent/tools/builtin-tools/read-image-url-tool src/main/agent/runtime/build-options
 
   # 施工包 D & G
   npm test -- src/main/channels src/renderer/settings/channels
 
   # 施工包 E
-  npm test -- src/main/proactive src/main/application/ipc-contract src/main/application/default-dependencies
+  npm test -- src/main/proactive src/main/app/ipc-contract src/main/app/default-dependencies
 
   # 施工包 F
   npm test -- src/main/toast src/main/proactive src/renderer/toast src/renderer/react/features/chat/pages
