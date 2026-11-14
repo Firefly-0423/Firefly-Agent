@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { IPC } from "../shared/ipc-channels";
 
@@ -46,6 +48,19 @@ function emit(channel: string, ...args: unknown[]): void {
   for (const listener of [...(fixture.listeners.get(channel) ?? [])]) {
     listener({}, ...args);
   }
+}
+
+function collectTsFiles(dir: string): string[] {
+  const files: string[] = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...collectTsFiles(fullPath));
+    } else if (entry.name.endsWith(".ts")) {
+      files.push(fullPath);
+    }
+  }
+  return files.sort();
 }
 
 interface SubscriptionCase {
@@ -137,4 +152,24 @@ describe("preload listener removal", () => {
       expect(listenerB).toHaveBeenCalledTimes(2);
     },
   );
+
+  it("uses removeListener instead of ipcRenderer.off across all preload sources", () => {
+    const repoRoot = path.resolve(__dirname, "../..");
+    const preloadRoot = path.join(repoRoot, "src/preload");
+    const files = collectTsFiles(preloadRoot);
+    expect(files.length).toBeGreaterThan(0);
+
+    const matches: string[] = [];
+    for (const file of files) {
+      const rel = path.relative(repoRoot, file).split(path.sep).join("/");
+      const lines = fs.readFileSync(file, "utf8").split(/\r?\n/);
+      lines.forEach((lineText, index) => {
+        for (const _hit of lineText.matchAll(/ipcRenderer\.off\(/g)) {
+          matches.push(`${rel}:${index + 1}: ${lineText.trim()}`);
+        }
+      });
+    }
+
+    expect(matches).toEqual([]);
+  });
 });
