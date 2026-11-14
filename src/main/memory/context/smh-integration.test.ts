@@ -80,12 +80,12 @@ it("cross-session M selection is included in the exact counted request and S dur
 it("forget while the exact request is counted blocks the sole sender",async()=>{
  const f=await fixture(),fact=(await f.policy.recall(f.actor))[0];let changed=false;
  f.setCountHook(async()=>{if(changed)return;changed=true;await f.policy.act(f.actor,await f.policy.event(f.actor,{kind:"forget",nonce:"forget-sm",factId:fact.factId,revision:fact.revision}))});
- await expect(f.port.run(f.input)).rejects.toThrow();expect(f.sends).toHaveLength(0);
+ await expect(f.port.run(f.input)).rejects.toThrow("MEMORY_CONTEXT_STALE");expect(f.sends).toHaveLength(0);
 });
 it("archiving selected M during the response cannot cross the success guard",async()=>{
  const f=await fixture(),fact=(await f.policy.recall(f.actor))[0];
  let archived=false;f.onStream(async()=>{await f.recall.apply(f.actor,await f.recall.preview(f.actor,[{factId:fact.factId,revision:fact.revision}],"archive"));archived=true});
- await expect(f.port.run(f.input)).rejects.toThrow();expect(archived).toBe(true);expect(f.sends).toHaveLength(1);expect((await f.store.read("session-a")).entries.some(e=>e.kind==="assistant")).toBe(false);
+ await expect(f.port.run(f.input)).rejects.toThrow("MEMORY_CONTEXT_STREAM_FAILED");expect(archived).toBe(true);expect(f.sends).toHaveLength(1);expect((await f.store.read("session-a")).entries.some(e=>e.kind==="assistant")).toBe(false);
 });
 it("external edits to a historical support during counting are reread without widening current-session ingress",async()=>{
  const f=await fixture();let edited=false;
@@ -96,7 +96,7 @@ it("archived M queued during pending S append produces interrupted audit and no 
  const f=await fixture(),fact=(await f.policy.recall(f.actor))[0];
  let started!:()=>void,release!:()=>void;const start=new Promise<void>(r=>{started=r}),wait=new Promise<void>(r=>{release=r}),append=fs.promises.appendFile.bind(fs.promises);
  vi.spyOn(fs.promises,"appendFile").mockImplementation(async(...args:any[])=>{if(String(args[1]).includes('"kind":"assistant"')){started();await wait}return (append as any)(...args)});
- const run=f.port.run(f.input),failed=expect(run).rejects.toThrow();await start;
+ const run=f.port.run(f.input),failed=expect(run).rejects.toThrow("MEMORY_CONTEXT_STREAM_FAILED");await start;
  const archive=f.recall.preview(f.actor,[{factId:fact.factId,revision:fact.revision}],"archive").then(preview=>f.recall.apply(f.actor,preview));release();await Promise.all([archive,failed]);
  const raw=(await f.store.read("session-a")).entries;expect(classifySAssistantSettlement(raw,raw.find(e=>e.kind==="assistant")!.id)).toBe("interrupted");
  expect(f.events.some((event:any)=>event.type==="text_message_end")).toBe(false);
@@ -132,12 +132,12 @@ it("an external H source edit during counting blocks claim and sender",async()=>
 });
 it("removing selected H during the response prevents a successful assistant write",async()=>{
  const f=await fixture({history:"source"});f.onStream(async()=>{await f.history.remove(f.actorB,{documentId:"history-source",revision:1})});
- await expect(f.port.run(f.input)).rejects.toThrow();expect(f.sends).toHaveLength(1);expect((await f.store.read("session-a")).entries.some(e=>e.kind==="assistant")).toBe(false);
+ await expect(f.port.run(f.input)).rejects.toThrow("MEMORY_CONTEXT_STREAM_FAILED");expect(f.sends).toHaveLength(1);expect((await f.store.read("session-a")).entries.some(e=>e.kind==="assistant")).toBe(false);
 });
 it("the single controlled mutation fanout invalidates H before pending S can settle success",async()=>{
  const f=await fixture({history:"tool"});let fanout=0;
  f.beforeMutation(async()=>{if(fanout++===0)await f.history.prepareTranscriptChange(f.actorB,f.historyCapture!.transcriptToken)});
- await expect(f.port.run(f.input)).rejects.toThrow();expect(fanout).toBeGreaterThan(0);
+ await expect(f.port.run(f.input)).rejects.toThrow("MEMORY_CONTEXT_STREAM_FAILED");expect(fanout).toBeGreaterThan(0);
  expect(f.observerRegistration).toHaveBeenCalledTimes(1);
  const raw=(await f.store.read("session-a")).entries;expect(raw.some(e=>e.kind==="assistant_settlement"&&e.payload.result==="success")).toBe(false);expect(f.events.some((e:any)=>e.type==="text_message_end")).toBe(false);
 });
@@ -146,13 +146,13 @@ it("external synthetic H transcript digest changes invalidate old opaque evidenc
  f.setHistoryDocument({id:"history-tools",incarnation:"synthetic-history",revision:2,origin:"canonical",vector:null,sourceDeps:[{sourceRef:f.historySource!.ref,subjectKeys:null,derivedRefs:null}],messages:[{id:"history-user",role:"user",text:"replaced terminal quartz history",occurredAt:null,timeZone:null,sourceRef:f.historySource!.ref}]});
  await expect(validateHistoryEvidence(f.actorAuthority,f.actor,evidence)).rejects.toThrow("MEMORY_HISTORY_STALE");
  f.setHistoryQuery(async()=>[evidence]);
- await expect(f.port.run(f.input)).rejects.toThrow();expect(f.sends).toHaveLength(0);
+ await expect(f.port.run(f.input)).rejects.toThrow("MEMORY_HISTORY_STALE");expect(f.sends).toHaveLength(0);
 });
 it("H removal queued during pending S append preserves raw text as interrupted audit",async()=>{
  const f=await fixture({history:"source"});let started!:()=>void,release!:()=>void;
  const start=new Promise<void>(r=>{started=r}),wait=new Promise<void>(r=>{release=r}),append=fs.promises.appendFile.bind(fs.promises);
  vi.spyOn(fs.promises,"appendFile").mockImplementation(async(...args:any[])=>{if(String(args[1]).includes('"kind":"assistant"')){started();await wait}return (append as any)(...args)});
- const run=f.port.run(f.input),failed=expect(run).rejects.toThrow();await start;
+ const run=f.port.run(f.input),failed=expect(run).rejects.toThrow("MEMORY_CONTEXT_STREAM_FAILED");await start;
  const removal=f.history.remove(f.actorB,{documentId:"history-source",revision:1});release();await Promise.all([removal,failed]);
  const raw=(await f.store.read("session-a")).entries,assistant=raw.find(e=>e.kind==="assistant")!;expect(assistant.payload.content).toBe("ok");expect(classifySAssistantSettlement(raw,assistant.id)).toBe("interrupted");
  expect(f.events.some((e:any)=>e.type==="text_message_end")).toBe(false);
@@ -162,7 +162,7 @@ it("forget blocks selected H derived from the same fact source and cannot revive
  await f.history.captureSource(f.actorB,f.prior.ref,{documentId:"m-root-history",incarnation:"synthetic-history",revision:1});
  const old=(await f.history.query(f.actor,{query:"PowerShell",scope})).evidence;f.setHistoryQuery(async()=>[old]);let forgotten=false;
  f.setCountHook(async()=>{if(forgotten)return;forgotten=true;await f.policy.act(f.actor,await f.policy.event(f.actor,{kind:"forget",nonce:"forget-smh",factId:fact.factId,revision:fact.revision}))});
- await expect(f.port.run(f.input)).rejects.toThrow();expect(f.sends).toHaveLength(0);expect((await f.history.query(f.actor,{query:"PowerShell",scope})).hits).toEqual([]);expect(await f.policy.recall(f.actor)).toEqual([]);
+ await expect(f.port.run(f.input)).rejects.toThrow("MEMORY_CONTEXT_STALE");expect(f.sends).toHaveLength(0);expect((await f.history.query(f.actor,{query:"PowerShell",scope})).hits).toEqual([]);expect(await f.policy.recall(f.actor)).toEqual([]);
 });
 it("supplied-byte S pending text remains diagnostic and never enters H evidence or M",async()=>{
  const f=await fixture({history:"source"}),a=f.actorAuthority.requireActor(f.actorB),entries=[
@@ -198,7 +198,7 @@ it("native H joins S and M through one observer and coverage never invokes legac
  await store.append('session-a',{id:'native-next',kind:'user',turnId:'native-next',revision:1,payload:{text:'harbor next'},at:2000});
  const nextSource=await f.source('harbor next',{messageId:'native-next',occurredAt:2000});
  await f.context.recordHistoryUser(f.actor,nextSource.ref,(await store.read('session-a')).entries.at(-1)!);
- await expect(validateHistoryEvidence(f.actorAuthority,f.actor,query.result.evidence)).rejects.toThrow();expect(await native.query({query:'harbor'})).toMatchObject({reason:'not-acquired'});
+ await expect(validateHistoryEvidence(f.actorAuthority,f.actor,query.result.evidence)).rejects.toThrow("MEMORY_HISTORY_STALE");expect(await native.query({query:'harbor'})).toMatchObject({reason:'not-acquired'});
  await store.checkpoint('session-a');await native.capture();fs.unlinkSync(path.join(storage.dataRoot,'transcripts','session-a','snapshot.json'));
  const legacy=await import('../../agent/tools/history-tools'),rag=await import('../../knowledge/rag/index'),{toolRegistry}=await import('../../tooling/registry/tool-registry');
  legacy.registerRecallHistoryTool();const recallTool=vi.mocked(toolRegistry.register).mock.calls.at(-1)![0];
