@@ -56,8 +56,20 @@ it("copies legacy context once, preserves its source and never replaces a destin
 });
 
 it("treats absent, empty and identical migration keys as harmless", () => {
+  const historyDir = join(location.directory, "channels", "history");
   migrateHistory("no-source", "no-destination");
   expect(loadRecentHistory("no-destination", 16)).toStrictEqual([]);
-  expect(() => migrateHistory("same-room", "same-room")).not.toThrow();
-  expect(() => migrateHistory("", "unused-room")).not.toThrow();
+  expect(fs.existsSync(historyDir)).toBe(false);
+
+  appendHistory("same-room", "user", "Stay intact");
+  const before = loadRecentHistory("same-room", 16);
+  const filesBefore = fs.readdirSync(historyDir);
+
+  migrateHistory("same-room", "same-room");
+  migrateHistory("", "unused-room");
+  migrateHistory("same-room", "");
+
+  expect(loadRecentHistory("same-room", 16)).toStrictEqual(before);
+  expect(loadRecentHistory("unused-room", 16)).toStrictEqual([]);
+  expect(fs.readdirSync(historyDir)).toStrictEqual(filesBefore);
 });
