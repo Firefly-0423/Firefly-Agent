@@ -58,7 +58,11 @@ describe("Runtime completion notifications", () => {
 
   it.each(["runtime_error", "cancelled", "timeout"] as const)("does not announce a completed turn for %s", async (status) => {
     const publish = vi.fn(async () => {});
-    await createAgentRuntime(dependencies({ publishPluginHostEvent: publish })).onRunFinished({ ...result, terminal: { status, reason: "Calendar interrupted", externalEffectsMayContinue: true } }, "Read my calendar", context);
+    const failedResult = { ...result, terminal: { status, reason: "Calendar interrupted", externalEffectsMayContinue: true } };
+    effects.finish.mockResolvedValueOnce({ sticker: "calendar-sticker" });
+    await expect(createAgentRuntime(dependencies({ publishPluginHostEvent: publish })).onRunFinished(failedResult, "Read my calendar", context))
+      .resolves.toEqual({ sticker: "calendar-sticker" });
+    expect(effects.finish).toHaveBeenCalledWith(failedResult, "Read my calendar", expect.any(Object), undefined, "calendar-session");
     expect(publish).not.toHaveBeenCalled();
   });
 
