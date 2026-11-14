@@ -30,7 +30,7 @@ it.each(["schema","key-version"])("rejects altered auth %s before touching live 
 it("rejects cross-record ciphertext substitution rather than returning the other plaintext",()=>{
  const f=fixture(),db=new DatabaseSync(f.databasePath);
  try{const payload=db.prepare("SELECT payload FROM sources WHERE id='source-a'").get()!.payload;db.prepare("UPDATE sources SET payload=? WHERE id='source-b'").run(payload)}finally{db.close()}
- expect(()=>f.repo.readRows("sources","scope-a")).toThrow();
+ expect(()=>f.repo.readRows("sources","scope-a")).toThrow("MEMORY_AUTH_FAILED");
 });
 // Publication uses the production Windows-only directory rename contract.
 it.runIf(process.platform==="win32").each(["auth-write","auth-fsync","directory-publish"])("does not publish a partial backup after %s failure",async kind=>{
