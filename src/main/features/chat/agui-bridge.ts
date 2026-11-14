@@ -183,7 +183,7 @@ function startPlanReviewFlow(params: {
   // 审批在终态之后独立运行，卡片仍沿用该轮身份。
   void (async () => {
     if (!moveToReview(conversation)) return;
-    console.log("[AgUiBridge][Plan] run finished with write_plan, entering PLAN_REVIEW");
+    logger.info(LogTag.AgUiBridge, "plan: run finished with write_plan, entering PLAN_REVIEW");
     const documentPath = getPlanPath(conversation);
     let documentText = "";
     try {
@@ -203,7 +203,7 @@ function startPlanReviewFlow(params: {
     ) as AskUserAnswer;
     const selected = reviewReply.answers.find((field) => field.field === "plan_decision");
     if (selected?.selectedValues?.includes("approve") && approvePlan(conversation)) {
-      console.log("[AgUiBridge][Plan] plan approved, entering EXECUTING");
+      logger.info(LogTag.AgUiBridge, "plan: plan approved, entering EXECUTING");
       deliver({
         type: "CUSTOM", name: "firefly.plan.approved",
         value: { planPath: documentPath, sessionId: conversation },
@@ -214,17 +214,17 @@ function startPlanReviewFlow(params: {
     }
     supplementPlan(conversation);
     if (!selected?.selectedValues?.includes("supplement")) return;
-    console.log("[AgUiBridge][Plan] user wants to supplement, asking for details");
+    logger.info(LogTag.AgUiBridge, "plan: user wants to supplement, asking for details");
     const detailsReply = await requestUserClarification(
       buildPlanSupplementCard(), sendPlanCard, sendPlanDismiss,
       { runId: execution, revision: 2 },
     ) as AskUserAnswer;
     const details = detailsReply.answers.find((field) => field.field === "plan_supplement")?.customText?.trim();
     if (!details) {
-      console.log("[AgUiBridge][Plan] supplement card timed out / empty, waiting for user message");
+      logger.info(LogTag.AgUiBridge, "plan: supplement card timed out / empty, waiting for user message");
       return;
     }
-    console.log("[AgUiBridge][Plan] supplement submitted, back to PLAN_DISCUSSING with user text");
+    logger.info(LogTag.AgUiBridge, "plan: supplement submitted, back to PLAN_DISCUSSING with user text");
     deliver({
       type: "CUSTOM", name: "firefly.plan.supplement",
       value: { sessionId: conversation, text: details },
@@ -238,6 +238,7 @@ function startPlanReviewFlow(params: {
 }
 
 import { fireflyEnvironment } from "../../../shared/firefly-environment";
+import { logger, LogTag } from "../../base/logging/logger";
 
 export function registerAgUiIpc(
   buildOptions: BuildOptionsFn,

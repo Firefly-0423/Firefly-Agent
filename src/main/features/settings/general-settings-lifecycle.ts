@@ -14,6 +14,7 @@ import { loadModelSettings, getPublicModelConfig } from "../../model/config/mode
 import type { GeneralSettings } from "../../platform/settings/general-settings";
 import type { UiIcon } from "../../../shared/ui-icon";
 import { syncLaunchAtLogin } from "../../platform/settings/launch-at-login";
+import { logger, LogTag } from "../../base/logging/logger";
 
 export interface GeneralSettingsLifecycleDependencies {
   get windowManager(): WindowManager | null;
@@ -78,7 +79,7 @@ export async function syncVolcanoSearchMcp(settings: GeneralSettings): Promise<{
   if (selected) {
     const verdict = validateSearchApiKey(settings.searchMinimaxKey, "MiniMax API Key");
     const { length, trimmed, hasNonAscii, hasControlChars } = verdict.diagnostics;
-    console.log(`[Firefly] MiniMax Key 校验: length=${length} trimmed=${trimmed} nonAscii=${hasNonAscii} controlChars=${hasControlChars}`);
+    logger.info(LogTag.Firefly, `MiniMax Key 校验: length=${length} trimmed=${trimmed} nonAscii=${hasNonAscii} controlChars=${hasControlChars}`);
     if (!verdict.valid) {
       console.error(`[Firefly] MiniMax Key 校验失败: ${verdict.error}`);
       if (installed) {
@@ -90,14 +91,14 @@ export async function syncVolcanoSearchMcp(settings: GeneralSettings): Promise<{
 
   // 情形一：选用且未注册 -> 注册
   if (selected && !installed) {
-    console.log("[Firefly] 注册 MiniMax 搜索 MCP Server...");
+    logger.info(LogTag.Firefly, "注册 MiniMax 搜索 MCP Server...");
     try {
       const reply = await addMcpServer(minimaxRegistration(settings.searchMinimaxKey));
       if (!reply.ok) {
         console.error("[Firefly] MiniMax 搜索 MCP 注册失败:", reply.error);
         return { mcpSyncResult: `register_failed: ${reply.error}` };
       }
-      console.log("[Firefly] MiniMax 搜索 MCP 注册成功，工具:", reply.toolIds?.join(", "));
+      logger.info(LogTag.Firefly, "MiniMax 搜索 MCP 注册成功，工具:", reply.toolIds?.join(", "));
       return { mcpSyncResult: `registered: ${reply.toolIds?.join(", ") ?? "none"}` };
     } catch (err) {
       console.error("[Firefly] MiniMax 搜索 MCP 注册异常:", err);
@@ -107,7 +108,7 @@ export async function syncVolcanoSearchMcp(settings: GeneralSettings): Promise<{
 
   // 情形二：未选用但已注册 -> 移除
   if (!selected && installed) {
-    console.log("[Firefly] 移除 MiniMax 搜索 MCP Server...");
+    logger.info(LogTag.Firefly, "移除 MiniMax 搜索 MCP Server...");
     try {
       await removeMcpServer(MINIMAX_MCP_ID);
       return { mcpSyncResult: "removed" };
@@ -119,7 +120,7 @@ export async function syncVolcanoSearchMcp(settings: GeneralSettings): Promise<{
 
   // 情形三：选用且已注册 -> 以新密钥重注册
   if (selected && installed) {
-    console.log("[Firefly] MiniMax 搜索 key 变化，重新注册 MCP Server...");
+    logger.info(LogTag.Firefly, "MiniMax 搜索 key 变化，重新注册 MCP Server...");
     try {
       await removeMcpServer(MINIMAX_MCP_ID);
       const outcome = await addMcpServer(minimaxRegistration(settings.searchMinimaxKey));
