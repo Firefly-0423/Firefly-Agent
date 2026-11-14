@@ -135,7 +135,7 @@ it("save/apply faults roll back the journal and Core candidate atomically; bad c
 });
 
 it("denies actor/profile/source changes, bad normalized saved spans and result size without reviving a job", async () => {
-  const f = fixture(), q = await queued(f); expect(() => f.op("get", { jobId: q.job.id }, randomUUID(), "actor-b")).toThrow();
+  const f = fixture(), q = await queued(f); expect(() => f.op("get", { jobId: q.job.id }, randomUUID(), "actor-b")).toThrow("MEMORY_DATA_INVALID"); expect(f.op("get", { jobId: q.job.id }).phase).toBe(q.job.phase);
   const d = dispatch(f, q); expect(save(f, q, d.token, { ok: true, text: "x".repeat(32769), usage: { input: 100, output: 20 } })).toMatchObject({ phase: "blocked", reason: "limits" });
   const other = await queued(f); expect(f.op("dispatch", { jobId: other.job.id, profile: { id: "synthetic", revision: 2 }, token: randomUUID(), limits: { requestBytes: 1000, outputTokens: 800 } })).toMatchObject({ phase: "blocked", reason: "profile-changed" });
   const bad = await queued(f), b = dispatch(f, bad); save(f, bad, b.token); const row = f.repo.readRows("jobs", "scope-a").find(r => r.id === bad.job.id)!, payload = row.payload as any;

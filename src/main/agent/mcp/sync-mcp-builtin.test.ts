@@ -44,11 +44,17 @@ it("continues migration after removal failure", async () => {
   await syncPlaywrightMcp({ playwrightMcpEnabled: true });
   expect(manager.addMcpServer).toHaveBeenCalledOnce();
 });
-it.each([{ ok: false, error: "offline" }, new Error("offline")])("contains registration failures", async (result) => {
+it.each([
+  { name: "a failed result", result: { ok: false, error: "offline" }, message: "Playwright MCP 注册失败:", reason: "failed" },
+  { name: "a thrown error", result: new Error("offline ETIMEDOUT"), message: "Playwright MCP 注册异常:", reason: "timeout" },
+])("contains registration failures from $name and logs only a fixed reason", async ({ result, message, reason }) => {
   if (result instanceof Error) manager.addMcpServer.mockRejectedValue(result);
   else manager.addMcpServer.mockResolvedValue(result);
   await expect(syncPlaywrightMcp({ playwrightMcpEnabled: true })).resolves.toBeUndefined();
-  expect(console.error).toHaveBeenCalled();
+  expect(console.error).toHaveBeenCalledTimes(1);
+  expect(console.error).toHaveBeenCalledWith("[Firefly]", message, reason);
+  expect(manager.addMcpServer).toHaveBeenCalledOnce();
+  expect(manager.removeMcpServer).not.toHaveBeenCalled();
 });
 it.each([false, true])("removes a disabled server, containing removal failure=%s", async (fail) => {
   manager.listMcpServerConfigs.mockReturnValue([buildPlaywrightMcpConfig()]);

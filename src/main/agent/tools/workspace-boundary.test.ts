@@ -181,7 +181,7 @@ describe("native tools enforce the session workspace boundary", () => {
   });
 
   it("rejects traversal for both write_file and str_replace", async () => {
-    await expect(run("write_file", { path: "../project-other/secret.txt", content: "updated" }, context("scoped"))).rejects.toThrow();
+    await expect(run("write_file", { path: "../project-other/secret.txt", content: "updated" }, context("scoped"))).rejects.toMatchObject({ code: "E_PATH_NOT_ABSOLUTE", category: "invalid_arguments", effectState: "not_applied" });
     await expect(replace(path.join(root, "..", "project-other", "secret.txt"), context("scoped")))
       .rejects.toMatchObject({ category: "permission_denied" });
     expect(fs.readFileSync(path.join(outside, "secret.txt"), "utf8")).toBe("original");

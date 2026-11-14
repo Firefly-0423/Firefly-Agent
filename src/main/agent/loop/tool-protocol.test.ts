@@ -12,7 +12,7 @@ import { StreamController } from "./stream-controller";
 import { TimeoutClock } from "./timeout-clock";
 import { runToolRound } from "./tool-round";
 import { dispatchToolCall } from "./tool-dispatcher";
-import { DEFAULT_AGENT_LOOP_CONFIG, parseToolCallArgs, type AgentState } from "./types";
+import { DEFAULT_AGENT_LOOP_CONFIG, parseToolCallArgs, ToolCallArgumentsError, type AgentState } from "./types";
 
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
@@ -127,7 +127,7 @@ describe("confirmation through the real tool round", () => {
 const invalidArguments = ["{", "null", "[]", '[{"path":"a"}]', '"text"', "1", "true"];
 describe("tool arguments at the protocol boundary", () => {
   it.each(invalidArguments)("rejects %s at the parser", argumentsText => {
-    expect(() => parseToolCallArgs({ id: "invalid", name: "synthetic_read", arguments: argumentsText })).toThrow();
+    expect(() => parseToolCallArgs({ id: "invalid", name: "synthetic_read", arguments: argumentsText })).toThrow(ToolCallArgumentsError);
   });
 
   it.each(invalidArguments)("pairs %s with invalid_arguments without entering the tool body", async argumentsText => {
@@ -162,7 +162,7 @@ describe("tool arguments at the protocol boundary", () => {
     const f = fixture([call]);
     f.run.currentAssistantEntryId = "assistant";
     f.run.input.transcriptSink = { appendToolResult: async () => { throw new Error("synthetic disk failure"); } } as unknown as NonNullable<AgentLoopRun["input"]["transcriptSink"]>;
-    await expect(runToolRound(f.run, [call])).rejects.toThrow();
+    await expect(runToolRound(f.run, [call])).rejects.toThrow("synthetic disk failure");
     expect(f.executions()).toBe(0);
     expect(f.run.state.uncertainEffects).toEqual([{ id: "old-effect", toolCallId: "old-call", toolName: "synthetic_write", fingerprint: "synthetic_write()", message: "unknown" }]);
   });

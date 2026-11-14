@@ -71,7 +71,7 @@ describe("MCP server enable and disable", () => {
     const f = await fixture([server("a", { enabled: false })]);
     fs.chmodSync(f.storage.files.mcp, 0o444);
     const write = vi.spyOn(fs, "renameSync").mockImplementation(() => { throw new Error("ATOMIC_JSON_WRITE_FAILED"); });
-    await expect(f.manager.setMcpServerEnabled("a", true)).rejects.toThrow();
+    await expect(f.manager.setMcpServerEnabled("a", true)).rejects.toThrow("ATOMIC_JSON_WRITE_FAILED");
     write.mockRestore();
     expect(adapter.disconnect).toHaveBeenCalledWith("a");
     expect(connectedIds.has("a")).toBe(false);

@@ -15,7 +15,7 @@ describe("memory payload authentication",()=>{
  });
  it.each([12,25,42])("rejects envelope tampering at %i",offset=>{
   const blob=sealPayload(key,meta,Buffer.from("payload"));blob[offset]^=1;
-  expect(()=>openPayload(key,meta,blob)).toThrow();
+  expect(()=>openPayload(key,meta,blob)).toThrow("MEMORY_AUTH_FAILED");
  });
  it("rejects truncation, unknown format, bad key and malformed metadata",()=>{
   const blob=sealPayload(key,meta,Buffer.from("payload"));
