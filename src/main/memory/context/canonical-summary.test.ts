@@ -25,10 +25,14 @@ async function fixture(){
  const assemble=(transcriptTokens:object[],summaryIds:string[]=[])=>f.context.assemble(f.actor,{sessionId:"session-a",sourceRefs:[],transcriptTokens,summaryIds});
  return {...f,store,user,adapter,turns,prepare,input,commit,assemble};
 }
+function summaryCount(f:{databasePath:string}){
+ const db=new DatabaseSync(f.databasePath,{readOnly:true});
+ try{return (db.prepare("SELECT COUNT(*) AS n FROM context_records WHERE kind='summary'").get() as {n:number}).n}finally{db.close()}
+}
 it("extracts full canonical turns including tool calls and results, with all omitted dependencies",async()=>{
  const f=await fixture(),lease=await f.prepare(),input=await f.input(lease);
  expect(input.map(u=>u.messages.map(m=>m.role))).toEqual([["user","assistant","tool"],["user"]]);
- const receipt=await f.commit(lease);expect(receipt.status).toBe("committed");
+ const receipt=await f.commit(lease);expect(receipt.status).toBe("committed");expect(summaryCount(f)).toBe(1);
  const snapshot=await f.assemble([], [receipt.summaryId!]);
  expect(snapshot.request.body.messages).toEqual(input[0].messages);
  expect(snapshot.request.body.messages[1]).toMatchObject({toolCalls:[{id:"call",name:"read_file",arguments:'{"path":"fixture.txt"}'}]});
@@ -51,18 +55,20 @@ it("continues the old summary before new complete recent turns without duplicati
 });
 it("reports no benefit for a full canonical extraction and refuses partial or unordered proposals",async()=>{
  const f=await fixture(),lease=await f.prepare(),input=await f.input(lease);
- await expect(f.context.commitSummary(f.actor,lease,{segments:[{transcriptRef:input[0].transcriptRef,span:{start:1,end:2}}]})).rejects.toThrow();
+ await expect(f.context.commitSummary(f.actor,lease,{segments:[{transcriptRef:input[0].transcriptRef,span:{start:1,end:2}}]})).rejects.toThrow("MEMORY_INPUT_INVALID");
  await expect(f.commit(lease,[1,0])).rejects.toThrow("MEMORY_CONTEXT_SUMMARY_ORDER_INVALID");
+ expect(summaryCount(f)).toBe(0);
  expect(await f.commit(lease,[0,1])).toEqual({status:"no-benefit",summaryId:null});
 });
-it.each(["append","edit","regenerate","delete","forget"] as const)("%s during exact summary counting prevents commit",async kind=>{
+it.each([["append","MEMORY_CONTEXT_TRANSCRIPT_STALE"],["edit","MEMORY_CONTEXT_TRANSCRIPT_STALE"],["regenerate","MEMORY_CONTEXT_TRANSCRIPT_STALE"],["delete","MEMORY_CONTEXT_INPUT_INVALID"],["forget","MEMORY_CONTEXT_STALE"]] as const)("%s during exact summary counting prevents commit with %s",async(kind,code)=>{
  const f=await fixture(),active=kind==="forget"?await f.active():null,lease=await f.prepare();let changed=false;
  f.setCountHook(async()=>{if(changed)return;changed=true;
   if(kind==="append")await f.user("u3","late user");
   else if(kind==="delete")await f.store.deleteConversation("session-a");
   else if(kind==="forget")await f.forget(active!.factId!);
   else await f.store.append("session-a",{id:"rewind",at:2000,kind:"turn_rewind",...(kind==="edit"?{turnId:"u1",revision:2}:{}),payload:{anchorUserTurnId:"u1",disposition:kind==="edit"?"replace_user":"keep_user",reason:kind==="edit"?"edit":"regenerate",...(kind==="edit"?{replacementUser:{text:"edited"}}:{})}});
- });await expect(f.commit(lease)).rejects.toThrow();
+ });await expect(f.commit(lease)).rejects.toThrow(code);
+ expect(summaryCount(f)).toBe(0);
 });
 it("a summary stays unavailable when its omitted input is edited after continuation",async()=>{
  const f=await fixture(),receipt=await f.commit(await f.prepare());
@@ -76,7 +82,7 @@ it("reopen cannot revive an old canonical snapshot or a retired summary",async()
  await f.adapter.close();
  const next=createConversationTranscriptAdapter({enabled:true,store:f.store,context:f.context,actorAuthority:f.actorAuthority,actorToken:f.actor})!;
  const fresh=await next.captureTurns();
- await expect(f.context.validateForDispatch(f.actor,snapshot)).rejects.toThrow();
+ await expect(f.context.validateForDispatch(f.actor,snapshot)).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_STALE");
  expect((await f.assemble(fresh,[receipt.summaryId!])).excluded).toContainEqual(expect.objectContaining({sourceId:receipt.summaryId}));
 });
 it("forget and recapture keep unknown historical tool derivations unavailable",async()=>{
@@ -95,7 +101,7 @@ it("regeneration produces a fresh shorter complete turn without rolling back its
  await f.store.append("session-a",{id:"regenerate",at:2000,kind:"turn_rewind",payload:{anchorUserTurnId:"u1",disposition:"keep_user",reason:"regenerate"}});
  const fresh=await f.adapter.captureTurns();
  expect((await f.assemble(fresh)).request.body.messages).toEqual([{role:"user",text:"first user 🌱"}]);
- await expect(f.context.validateForDispatch(f.actor,old)).rejects.toThrow();
+ await expect(f.context.validateForDispatch(f.actor,old)).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_STALE");
 });
 it("an observed post-forget new turn keeps its event epoch while old derived turns remain denied",async()=>{
  const f=await fixture(),active=await f.active();await f.forget(active.factId!);await f.user("u3","new post-forget user");
@@ -107,12 +113,12 @@ it("an observed post-forget new turn keeps its event epoch while old derived tur
 it("append then recapture cannot revive a permit bound to the older session view",async()=>{
  const f=await fixture(),snapshot=await f.assemble([f.turns[0]]),permit=await f.context.validateForDispatch(f.actor,snapshot);
  await f.user("u3","new turn");await f.adapter.captureTurns();let sends=0;
- await expect(f.context.dispatch(f.actor,permit,()=>{sends++})).rejects.toThrow();expect(sends).toBe(0);
+ await expect(f.context.dispatch(f.actor,permit,()=>{sends++})).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_STALE");expect(sends).toBe(0);
 });
 it("mutating an omitted summary dependency during dispatch counting prevents the sender",async()=>{
  const f=await fixture(),receipt=await f.commit(await f.prepare()),snapshot=await f.assemble([], [receipt.summaryId!]),permit=await f.context.validateForDispatch(f.actor,snapshot);let changed=false,sends=0;
  f.setCountHook(async()=>{if(changed)return;changed=true;await f.store.append("session-a",{id:"edit-u2",at:2000,kind:"turn_rewind",turnId:"u2",revision:2,payload:{anchorUserTurnId:"u2",disposition:"replace_user",reason:"edit",replacementUser:{text:"count race"}}})});
- await expect(f.context.dispatch(f.actor,permit,()=>{sends++})).rejects.toThrow();expect(sends).toBe(0);
+ await expect(f.context.dispatch(f.actor,permit,()=>{sends++})).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_PENDING");expect(sends).toBe(0);
 });
 
 it("a failed multi-head invalidation rolls back every head and can be retried",async()=>{
@@ -124,7 +130,7 @@ it("a failed multi-head invalidation rolls back every head and can be retried",a
  f.setFault(false);
  for(const snapshot of snapshots)expect(await f.context.validateForDispatch(f.actor,snapshot)).toBeTypeOf("object");
  await f.user("u3","retried mutation");
- for(const snapshot of snapshots)await expect(f.context.validateForDispatch(f.actor,snapshot)).rejects.toThrow();
+ for(const snapshot of snapshots)await expect(f.context.validateForDispatch(f.actor,snapshot)).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_PENDING");
 });
 it("empty canonical capture cannot mint an unguarded session snapshot",async()=>{
  const f=await fixture();await f.store.deleteConversation("session-a");
