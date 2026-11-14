@@ -5,8 +5,8 @@
 
 ## 1. 当前状态
 
-- 分支：`feat/coupling-r3`
-- 进行到：施工包 R3 完成
+- 分支：`feat/coupling-r6`（基于 `feat/coupling-r3`）
+- 进行到：施工包 R6 完成
 
 ## 2. 已完成项
 
@@ -19,6 +19,7 @@
 | R2.3 测试辅助文件不进安装包（计划外） | 核对时发现 `*.test-support.ts` 会被 `tsc -p tsconfig.main.json` 编进 `dist/main`，再随 `dist/**/*` 进安装包（`ipc-contract-scanner` 还引用开发依赖 `typescript`）。先在 `process-boundary.test.ts` 断言 `tsconfig.main.json` 排除 `src/**/*.test-support.ts`（失败），再加排除 | 重新 `npm run build:main` 后 `dist/main` 里没有测试辅助文件 |
 | R3.1 空 catch | 4 处补了注释，说明为什么可以忽略：`s-response-stream.ts`、`windows-shell-job.ts` 内嵌 C# 代码、两个诊断入口的 `fail()` | 相关 54 个文件 1047 项通过 |
 | R3.2 `as any` | 生产代码里的 18 处全部换成具体类型，`git grep "as any"`（不含测试和验收脚本）结果为 0。`agent-runtime.ts` 8 处改用 `Parameters<typeof 函数>[n]` 收窄；`run-verification-tool.ts` 用 `VerificationType`；`rag/index.ts` 复用已有的 `rawEntries()`；`sticker-storage.ts` 用 `readonly string[]`；`obsidian-tools.ts` 用 `ObsidianEditRequest`；`openrouter-bounded.ts` 用响应形状接口加 `never` 返回的 `uncertain()`（判定条件未动）；`l2-dmae-manager.ts` 把 `toDmaeEntry` 的参数收窄到它真正读取的字段；`rag/panel.ts` 改用已有的 `window.settings` 类型并补上缺的 `getRerankerStatus`；`parse.ts` 改用 `Number.isNaN(Number(input))` 和 `unknown`。新增测试：agent-runtime 适配层 4 项、run_verification 步骤类型断言、嵌入模型切换 2 项、obsidian_edit 2 项、OpenRouter 用量 11 项、RAG 面板 5 项、`parsePositiveIntOrThrow` 12 项。每个文件单独一个提交 | 相关 217 个文件 2516 项通过；main / preload / renderer 类型检查通过 |
+| R6 一次性诊断只在开发版可用 | `startup-entry.ts` 新增 `diagnosticSwitchesAllowed(isPackaged)`，`dispatchMainEntry` 接收是否允许诊断：不允许时两个诊断参数都忽略，按正常启动处理，并回调 `ignored`。`index.ts` 传入 `!app.isPackaged`，被忽略时记一条 warn。`default-dependencies.ts` 只在允许时才启用 online-once 探针入口。两个验证脚本去掉打包模式用例。按设计分 4 个代码提交，每个单独通过 | 入口测试 9 项（新增 4 项：判定本身，安装版带 online-once、openrouter-once、两者同时都走正常启动并回调，安装版不带参数时不回调）；`default-dependencies` 新增开发版和安装版两项，安装版那项先失败、实现后通过 |
 
 ## 3. 验证记录
 
@@ -31,9 +32,13 @@
 | R3：`npx vitest run src/main/agent/runtime src/main/agent/tools/builtin-tools src/main/knowledge/rag src/main/knowledge/stickers src/main/knowledge/workspace/obsidian src/main/memory/context src/main/memory/legacy src/renderer/settings src/main/layering.test.ts src/shared/process-boundary.test.ts`（带 `FIREFLY_TEST_BASH`） | 217 个文件、2516 项通过 | 2026-11-14 |
 | R3：三端类型检查、`git grep -n "as any" -- 'src/*.ts' 'src/*.tsx' ':!*.test.*' ':!*.acceptance.*'` | 类型检查通过；grep 无结果 | 2026-11-14 |
 
+| R6：`npx vitest run src/main/base/identity src/main/app/default-dependencies.test.ts src/main/app/external-skills-wiring.test.ts src/main/layering.test.ts`，读入口文件的 3 个测试，`electron-builder-config.test.mjs` | 全部通过 | 2026-11-15 |
+| R6：`tsc -p tsconfig.main.json --noEmit`；两个验证脚本 `node --check` | 通过 | 2026-11-15 |
 ## 4. 偏离计划
 
 - R1.1 的检查同时覆盖 preload，多发现 `preload/music.ts` 一处，一并修掉。
 - R1.2 计划写的是"逐个看，要么移逻辑要么挪测试"，实际 3 个都是跨进程一致性测试，保留原样。
 - R2 计划外加了 R2.3：测试辅助文件原来会进安装包，一并排除。
 - R3.2 发现一处原来被 `as any` 盖住的类型不一致：`deriveState` 返回首字母大写的 `DmaeState`（`Active` / `Dormant` / `Archived`），而 `L2DmaeState.state` 声明为小写。`l2-dmae-manager.ts` 的 `buildEntries` 里那处值没有被使用，已通过收窄 `toDmaeEntry` 的参数去掉 `as any`，运行结果不变；但 `updateL2DmaeState` 那处的 `as L2DmaeState["state"]` 会把大写值写进持久化数据，按"只改类型"没有处理，留给负责人决定是改类型还是改写入值。
+- R6 是计划外新增：R3 核对时发现，负责人当天决定。写死的历史目录 `E:\Codex\2026-10-01\task\...` 这次没动，诊断代码现在只在开发版能走到。
+- R3 核对中发现、但没有修：`knowledge/rag/worldbook.ts` 的 `deriveState` 返回首字母大写的 `"Active"`，`l2-dmae-manager.ts:176` 把它写进声明为小写的 `L2DmaeState.state`（默认值是小写 `"archived"`），持久化数据大小写混杂。目前没有代码读这个字段。这是行为修复，按约定与重构分开提交，等负责人决定。
