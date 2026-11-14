@@ -1,4 +1,7 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ChannelDispatcher, makeSessionId, type DispatcherDeps } from "./dispatcher";
 import { createChannelContext, type CreateChannelContextOptions, type ChannelContext } from "./channel-context";
 import { createOutgoingComposer } from "./outgoing-composer";
@@ -6,20 +9,35 @@ import { createChannelDeliveryService } from "./delivery-service";
 import { createChannelRateLimiter } from "./rate-limiter";
 import { createKeyedQueue } from "./keyed-queue";
 import { appendHistory, migrateHistory } from "./history-log";
-import { appendLog, reloadLogFromDisk } from "./message-log";
+import { appendLog, clearLog, getRecentLog, reloadLogFromDisk } from "./message-log";
 import type { IncomingMessage, ChannelCapability, OutgoingMessage } from "../../conversation/channels/channel-types";
 import type { ChannelsSettings } from "./settings-store";
 import { ChannelManager } from "./manager";
 import { createChannelMemoryAccountIdentity, type ChannelAdapter } from "../../conversation/channels/channel-adapter-base";
 import { requireChannelMemoryIngress } from "../../agent/memory-runtime/channel-memory-ingress";
 
+const mocks = vi.hoisted(() => ({ userData: "" }));
 vi.mock("electron", () => ({
-  app: { getPath: () => process.env.TEMP, getAppPath: () => process.cwd(), getName: () => "Contract host" },
+  app: { getPath: () => mocks.userData, getAppPath: () => process.cwd(), getName: () => "Contract host" },
   safeStorage: { isEncryptionAvailable: () => false },
 }));
 vi.mock("./history-log", () => ({ appendHistory: vi.fn(), migrateHistory: vi.fn() }));
-vi.mock("./message-log", () => ({ appendLog: vi.fn(), reloadLogFromDisk: vi.fn() }));
-beforeEach(() => vi.clearAllMocks());
+vi.mock("./message-log", async () => {
+  const actual = await vi.importActual<typeof import("./message-log")>("./message-log");
+  return { ...actual, appendLog: vi.fn(actual.appendLog) };
+});
+
+let tempRoot = "";
+beforeEach(() => {
+  tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "firefly-dispatcher-"));
+  mocks.userData = tempRoot;
+  clearLog();
+  vi.clearAllMocks();
+});
+afterEach(() => {
+  clearLog();
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
 
 function incoming(extra: Partial<IncomingMessage> = {}): IncomingMessage {
   return { channel: "qq", chatType: "private", senderId: "speaker-14", senderName: "Mira", chatId: "review-room",
@@ -50,8 +68,39 @@ function latch() {
 async function microtasks() { for (let turn = 0; turn < 24; turn++) await Promise.resolve(); }
 
 it("constructs without reading persisted message logs", () => {
+  const unreadableDir = path.join(tempRoot, "unreadable");
+  const seededDir = path.join(tempRoot, "seeded");
+  const emptyDir = path.join(tempRoot, "empty");
+  fs.mkdirSync(path.join(unreadableDir, "channels", "log.jsonl"), { recursive: true });
+  fs.mkdirSync(path.join(seededDir, "channels"), { recursive: true });
+  fs.mkdirSync(emptyDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(seededDir, "channels", "log.jsonl"),
+    JSON.stringify({
+      at: "2026-01-01T00:00:00.000Z",
+      dir: "incoming",
+      channel: "qq",
+      senderId: "speaker-1",
+      chatId: "chat-1",
+      text: "persisted-before-construct",
+    }) + "\n",
+    "utf8",
+  );
+
+  mocks.userData = unreadableDir;
   harness();
-  expect(reloadLogFromDisk).not.toHaveBeenCalled();
+  expect(getRecentLog()).toEqual([]);
+
+  mocks.userData = seededDir;
+  harness();
+  // Point away from seededDir so getRecentLog() cannot fall back to disk and only observes in-memory state.
+  mocks.userData = emptyDir;
+  expect(getRecentLog()).toEqual([]);
+
+  mocks.userData = seededDir;
+  reloadLogFromDisk();
+  mocks.userData = emptyDir;
+  expect(getRecentLog().map((item) => item.text)).toEqual(["persisted-before-construct"]);
 });
 
 it("uses the unbound channel session and its recent history", async () => {
