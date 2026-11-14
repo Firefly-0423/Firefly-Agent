@@ -238,15 +238,29 @@ describe("sendText", () => {
   });
 
   it("accepts an empty successful response body", async () => {
-    const client = new QqBotApiClient(
-      { appId: "app", clientSecret: "secret" },
-      fetchMock(
-        json({ access_token: "token-1", expires_in: 7200 }),
-        new Response("", { status: 200 }),
-      ),
+    const fetchFn = fetchMock(
+      json({ access_token: "token-1", expires_in: 7200 }),
+      new Response("", { status: 200 }),
     );
+    const client = new QqBotApiClient({ appId: "app", clientSecret: "secret" }, fetchFn);
+
     await expect(
       client.sendText({ openid: "u", chatType: "private" }, "x", { msgId: "m", msgSeq: 1 }),
     ).resolves.toBeUndefined();
+
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+    const [url, init] = calls(fetchFn)[1];
+    expect(url).toBe(`${API_BASE}/v2/users/u/messages`);
+    expect(init?.method).toBe("POST");
+    expect(init?.headers).toMatchObject({
+      "Content-Type": "application/json",
+      Authorization: "QQBot token-1",
+    });
+    expect(JSON.parse(String(init?.body))).toEqual({
+      msg_type: 0,
+      content: "x",
+      msg_id: "m",
+      msg_seq: 1,
+    });
   });
 });
