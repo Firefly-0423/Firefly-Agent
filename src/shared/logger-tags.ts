@@ -28,6 +28,7 @@ const TAGS = [
   "Call",
   "ASR",
   "Memory",
+  "Proactive",
 ] as const;
 
 type TagName = (typeof TAGS)[number];
