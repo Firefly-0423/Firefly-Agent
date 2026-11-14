@@ -5,8 +5,8 @@
 
 ## 1. 当前状态
 
-- 分支：`feat/coupling-r6`（基于 `feat/coupling-r3`）
-- 进行到：施工包 R6 完成
+- 分支：`fix/dmae-state-case`（基于 `feat/coupling-r6`）
+- 进行到：R6 完成；激活状态大小写修复完成
 
 ## 2. 已完成项
 
@@ -41,4 +41,4 @@
 - R2 计划外加了 R2.3：测试辅助文件原来会进安装包，一并排除。
 - R3.2 发现一处原来被 `as any` 盖住的类型不一致：`deriveState` 返回首字母大写的 `DmaeState`（`Active` / `Dormant` / `Archived`），而 `L2DmaeState.state` 声明为小写。`l2-dmae-manager.ts` 的 `buildEntries` 里那处值没有被使用，已通过收窄 `toDmaeEntry` 的参数去掉 `as any`，运行结果不变；但 `updateL2DmaeState` 那处的 `as L2DmaeState["state"]` 会把大写值写进持久化数据，按"只改类型"没有处理，留给负责人决定是改类型还是改写入值。
 - R6 是计划外新增：R3 核对时发现，负责人当天决定。写死的历史目录 `E:\Codex\2026-10-01\task\...` 这次没动，诊断代码现在只在开发版能走到。
-- R3 核对中发现、但没有修：`knowledge/rag/worldbook.ts` 的 `deriveState` 返回首字母大写的 `"Active"`，`l2-dmae-manager.ts:176` 把它写进声明为小写的 `L2DmaeState.state`（默认值是小写 `"archived"`），持久化数据大小写混杂。目前没有代码读这个字段。这是行为修复，按约定与重构分开提交，等负责人决定。
+- R3 核对中发现、负责人决定修（默认小写，首字母大写的映射为小写）：`knowledge/rag/worldbook.ts` 的 `deriveState` 返回首字母大写的 `"Active"`，`l2-dmae-manager.ts` 同步时把它写进声明为小写的 `L2DmaeState.state`。分支 `fix/dmae-state-case` 上分两个行为修复提交：写入时用类型化的映射表转成小写，去掉了掩盖问题的类型断言；读入 `memory.json` 时把已存的首字母大写值映射为小写，下次保存即落盘。两处都附了测试，修复前失败、修复后通过；`src/main/memory/legacy` 283 项通过。
