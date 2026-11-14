@@ -24,6 +24,8 @@ function sourceState(root:string):unknown[]{if(!fs.existsSync(root))return [];re
 it.each(['valid','missing-snapshot','missing-session','broken-tail','broken-snapshot','cancel','timeout','refused'])('whole %s capture/query makes zero source write attempts through actual readonly barrier',async kind=>{
  const f=recallFixture();fixtures.push(f);const store=new ConversationTranscriptStore(storage.dataRoot),sourceRoot=path.join(storage.dataRoot,'transcripts'),session=path.join(sourceRoot,'session-a');
  await store.append('session-a',{id:'u',kind:'user',turnId:'turn',revision:1,payload:{text:'harbor coffee'},at:1000});await store.checkpoint('session-a');
+ // Native user messages count only with a bound origin; bind it the way native-history-provider.test.ts does, before any source-write guard is installed.
+ for(const entry of (await store.read('session-a')).entries){if(entry.kind!=='user')continue;const id={providerId:'synthetic',sessionId:'session-a',messageId:entry.turnId!};f.provider.write(id,{text:(entry.payload as {text:string}).text,role:'user',trust:'direct-user-event',occurredAt:entry.at});const sourceRef=await f.registry.capture(f.access,f.provider.adapter,id);f.repo.contextCommand({kind:'historyUserOrigin',scopeKey:'scope-a',commandId:crypto.randomUUID(),body:{...f.owner,sourceRef,entry}})}
  if(kind==='missing-snapshot')fs.unlinkSync(path.join(session,'snapshot.json'));
  if(kind==='missing-session')fs.rmSync(session,{recursive:true});
  if(kind==='broken-tail')fs.appendFileSync(path.join(session,'transcript.jsonl'),'BROKEN');
