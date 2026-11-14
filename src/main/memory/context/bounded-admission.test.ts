@@ -40,7 +40,7 @@ it("Worker stores only labeled estimates and rejects substitution into exact sna
 it("bounded retains one-use permits and final pending-source denial",async()=>{
  const f=fixture(),s=await f.source("synthetic user"),snapshot=await f.assemble([s.ref]),permit=await f.context.validateForDispatch(f.actor,snapshot);let sends=0;
  expect(await f.context.dispatch(f.actor,permit,()=>{sends++;return "synthetic"})).toMatchObject({status:"sent"});await expect(f.context.dispatch(f.actor,permit,()=>{sends++;return "unexpected"})).rejects.toThrow("MEMORY_CONTEXT_PERMIT_USED");expect(sends).toBe(1);
- const next=await f.assemble([s.ref]),blocked=await f.context.validateForDispatch(f.actor,next);await f.registry.prepareChange(f.access,f.adapter,s.ref);await expect(f.context.dispatch(f.actor,blocked,()=>{sends++;return "unexpected"})).rejects.toThrow();expect(sends).toBe(1);
+ const next=await f.assemble([s.ref]),blocked=await f.context.validateForDispatch(f.actor,next);await f.registry.prepareChange(f.access,f.adapter,s.ref);await expect(f.context.dispatch(f.actor,blocked,()=>{sends++;return "unexpected"})).rejects.toThrow("MEMORY_SOURCE_PENDING");expect(sends).toBe(1);
 });
 it("bounded summaries reject before opening an exact-benefit lease",async()=>{
  const f=fixture(),s=await f.source("synthetic user");await expect(f.context.prepareSummary(f.actor,{sessionId:"session-a",inputRefs:[s.ref],leaseMs:5000})).rejects.toThrow("MEMORY_CONTEXT_BOUNDED_SUMMARY_UNSUPPORTED");expect(f.commands.some((c:any)=>c.kind==="summaryLease")).toBe(false);
