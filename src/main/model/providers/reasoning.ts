@@ -1,5 +1,6 @@
 import { resolveEffectiveReasoning, type ReasoningCapability, type ReasoningPreference } from "../../../shared/reasoning";
 import { getVendorRuntimeSettings } from "./runtime-settings";
+import { logger, LogTag } from "../../base/logging/logger";
 
 export type ApplyReasoningContext = { model: string; providerId: string; hasTools: boolean };
 
@@ -80,7 +81,7 @@ export function applyReasoningPreference(body: Record<string, unknown>, preferen
   const before = `${preference.mode}/${preference.effort ?? "-"}`;
   const after = `${normalized.mode}/${normalized.effort ?? "-"}`;
   if (before !== after) {
-    console.log(`[reasoning] provider=${context.providerId} model=${context.model} requested=${before} effective=${after}`);
+    logger.info(LogTag.Runtime, `reasoning provider=${context.providerId} model=${context.model} requested=${before} effective=${after}`);
   }
   if (capability.control === "none" || capability.control === "dynamic") return wire;
   if (capability.control === "fixed-on") {

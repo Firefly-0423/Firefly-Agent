@@ -1,3 +1,4 @@
+import { logger, LogTag } from "../../base/logging/logger";
 // 每个任务的失败单独交还调用者，后面的任务仍按入队顺序运行。
 let completed: Promise<unknown> = Promise.resolve();
 const backoffMs = 5_000;
@@ -17,10 +18,10 @@ async function executeQueued<T>(
   title: string, invoke: () => Promise<T>, verbose: boolean, retryAllowed: boolean,
 ): Promise<T> {
   const began = Date.now();
-  if (verbose) console.log(queueTag, "开始执行:", title);
+  if (verbose) logger.info(LogTag.Runtime, "llm queue:", "开始执行:", title);
   try {
     const value = await invoke();
-    if (verbose) console.log(queueTag, "完成:", title, `耗时=${Date.now() - began}ms`);
+    if (verbose) logger.info(LogTag.Runtime, "llm queue:", "完成:", title, `耗时=${Date.now() - began}ms`);
     return value;
   } catch (failure) {
     if (!retryAllowed || !canRetry(failure)) {
@@ -31,7 +32,7 @@ async function executeQueued<T>(
     await new Promise((done) => setTimeout(done, backoffMs));
     try {
       const recovered = await invoke();
-      if (verbose) console.log(queueTag, "重试成功:", title, `总耗时=${Date.now() - began}ms`);
+      if (verbose) logger.info(LogTag.Runtime, "llm queue:", "重试成功:", title, `总耗时=${Date.now() - began}ms`);
       return recovered;
     } catch (lastFailure) {
       if (verbose) console.error(queueTag, "重试仍失败，放弃:", title, describeFailure(lastFailure));

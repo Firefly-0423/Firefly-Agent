@@ -1,4 +1,6 @@
 import { resolveTimeoutPolicy } from "../../base/runtime-policy";
+import { logger, LogTag } from "../../base/logging/logger";
+import { urlForLog } from "../../base/logging/url-for-log";
 
 export interface VisionConfig { model: string; apiKey: string; baseUrl: string }
 export type VisionImage = { base64: string; mime: string } | { url: string };
@@ -24,7 +26,7 @@ export async function captionImage(image: VisionImage, userQuery: string, config
     stream: false,
   };
   const endpoint = buildChatCompletionsUrl(config.baseUrl);
-  console.log("[Vision] 调用视觉模型:", config.model, "url=" + endpoint, "query.len=" + userQuery.length);
+  logger.info(LogTag.Runtime, "vision: 调用视觉模型:", config.model, "url=" + urlForLog(endpoint), "query.len=" + userQuery.length);
   const beganAt = Date.now();
   const cancellation = new AbortController();
   const deadline = setTimeout(() => cancellation.abort(), captionDeadlineMs);
@@ -45,7 +47,7 @@ export async function captionImage(image: VisionImage, userQuery: string, config
       console.error("[Vision] 视觉模型未返回有效内容");
       return "[错误·运行时] 视觉模型未返回有效内容";
     }
-    console.log("[Vision] 完成，耗时=" + (Date.now() - beganAt) + "ms，返回长度=" + caption.length);
+    logger.info(LogTag.Runtime, "vision: 完成，耗时=" + (Date.now() - beganAt) + "ms，返回长度=" + caption.length);
     return caption;
   } catch (failure) {
     if (failure instanceof Error && failure.name === "AbortError") {
