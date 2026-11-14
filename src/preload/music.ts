@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { IPC } from "../shared/ipc-channels";
-import type { QqMusicAction } from "../main/platform/music/qqmusic-service";
+import type { QqMusicAction } from "../shared/qqmusic-types";
 
 export function exposeMusicApi(): void {
   contextBridge.exposeInMainWorld("music", {
