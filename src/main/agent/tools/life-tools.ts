@@ -32,7 +32,7 @@ async function recordExpense(args: ToolArguments): Promise<string> {
   const entry: ExpenseRecord = { ts: Date.now(), amount: value, category: String(args.category || "其他"), note: String(args.note || "") };
   ledger.push(entry);
   saveExpenses(ledger);
-  console.log("[LifeTools]", "记账:", entry);
+  logger.info(LogTag.LifeTools, "记账: 已记录一条");
   return `[record_expense] 已记录：${value} 元 / ${entry.category} / ${entry.note}`;
 }
 async function queryExpense(args: ToolArguments): Promise<string> {
@@ -258,7 +258,7 @@ async function replaceObservedFile(args: ToolArguments, context: ToolContext | u
     replacements.push({ old_string: before, new_string: after });
   }
   const original = lease ? lease.before.bytes!.toString("utf8") : fs.readFileSync(target, "utf8");
-  console.log("[LifeTools]", "str_replace:", target, "edits=" + replacements.length);
+  logger.info(LogTag.LifeTools, "str_replace:", path.basename(target), "edits=" + replacements.length);
   const outcome = applyStrReplaceEdits(original, replacements);
   if (!outcome.ok) return JSON.stringify({ success: false, errorCode: outcome.errorCode, error: outcome.error, retryable: false, diagnostic: outcome.diagnostic });
   let after: WorkspaceSnapshot | undefined = lease?.before;
@@ -280,7 +280,7 @@ async function replaceObservedFile(args: ToolArguments, context: ToolContext | u
   });
   if (!lease) assertWorkspacePathFallback(target, "write", context, "unknown");
   const bytes = lease ? after!.size : fs.statSync(target).size;
-  console.log("[LifeTools]", "str_replace:", target, "size=" + bytes,
+  logger.info(LogTag.LifeTools, "str_replace:", path.basename(target), "size=" + bytes,
     outcome.eolNormalized ? "eolNormalized=true" : "", outcome.whitespaceNormalized ? "whitespaceNormalized=true" : "");
   const fileChanges = outcome.segments.map(segment => ({ file: target, kind: "modified" as const,
     insertions: countLines(segment.afterLines.join("\n")), deletions: countLines(segment.beforeLines.join("\n")),

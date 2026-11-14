@@ -7,6 +7,7 @@ import type { ToolContext } from "../../tooling/registry/tool-context";
 import type { ToolDiffLine, ToolFileChange } from "../../../shared/chat-types";
 import { buildFullFileDiff, finalizeFileChanges } from "../../tooling/registry/tool-evidence";
 import { reviewTrackerFor } from "../review/review-tracker-access";
+import { logger, LogTag } from "../../base/logging/logger";
 
 const LOG_PREFIX = "[ApplyPatch]";
 interface UpdateChunkLine { type: "context" | "removal" | "addition"; content: string; }
@@ -213,9 +214,9 @@ async function executeApplyPatch(args: Record<string, unknown>, ctx?: ToolContex
   const parsed = parsePatch(input);
   if (parsed.errors.length) return JSON.stringify({ success: false, applied: [], errors: parsed.errors });
   if (!parsed.hunks.length) return JSON.stringify({ success: false, applied: [], errors: ["patch 不包含任何操作"] });
-  console.log(LOG_PREFIX, `解析到 ${parsed.hunks.length} 个 hunk`);
+  logger.info(LogTag.BuiltinTools, `解析到 ${parsed.hunks.length} 个 hunk`);
   const response = applyPatchHunks(parsed.hunks, root, ctx);
-  if (response.success) console.log(LOG_PREFIX, `成功: ${response.applied.length} 个操作`);
+  if (response.success) logger.info(LogTag.BuiltinTools, `成功: ${response.applied.length} 个操作`);
   else console.warn(LOG_PREFIX, `失败: ${response.errors.length} 个错误`);
   return JSON.stringify(response);
 }
@@ -229,5 +230,5 @@ export function registerApplyPatchTool(): void {
     inputSchema: { type: "object", properties: { patch: { type: "string", description: "完整的补丁文本，以 *** Begin Patch 开头，*** End Patch 结尾", }, }, required: ["patch"], },
     execute: executeApplyPatch,
   });
-  console.log(LOG_PREFIX, "已注册：apply_patch");
+  logger.info(LogTag.BuiltinTools, "已注册：apply_patch");
 }

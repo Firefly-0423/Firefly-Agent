@@ -3,6 +3,8 @@ import type { ToolContext } from "../../../tooling/registry/tool-context";
 import type { ToolDefinition } from "../../../tooling/registry/tool-registry";
 import { TtlResultCache } from "./ttl-result-cache";
 import { readResponseBytes, withPublicResponse } from "../network-guard";
+import { logger, LogTag } from "../../../base/logging/logger";
+import { urlForLog } from "../../../base/logging/url-for-log";
 
 const LOG_PREFIX = "[BuiltinTools]";
 const FETCH_TIMEOUT_MS = 20_000;
@@ -109,7 +111,7 @@ async function executeFetchUrl(input: Record<string, unknown>, context?: ToolCon
   const address = String(input.url || "").trim();
   if (!/^https?:\/\//i.test(address)) return "[错误] url 必须以 http:// 或 https:// 开头";
   const markdown = input.format === "markdown" || input.format === undefined;
-  console.log(LOG_PREFIX, "fetch_url:", address, "format=" + (markdown ? "markdown" : "raw"));
+  logger.info(LogTag.BuiltinTools, "fetch_url:", urlForLog(address), "format=" + (markdown ? "markdown" : "raw"));
   const identity = address + "|" + (markdown ? "markdown" : "raw");
   const cached = fetchCache.get(identity);
   if (cached) {
@@ -119,10 +121,10 @@ async function executeFetchUrl(input: Record<string, unknown>, context?: ToolCon
   if (markdown) {
     const repository = matchGithubRepoUrl(address);
     if (repository) {
-      console.log(LOG_PREFIX, "fetch_url: GitHub 仓库主页，走官方 API:", address);
+      logger.info(LogTag.BuiltinTools, "fetch_url: GitHub 仓库主页，走官方 API:", urlForLog(address));
       const summary = await fetchGithubRepoSummary(repository, address, context);
       if (summary !== null) { fetchCache.set(identity, summary); return summary; }
-      console.log(LOG_PREFIX, "fetch_url: GitHub API 不可用，回退普通抓取:", address);
+      logger.info(LogTag.BuiltinTools, "fetch_url: GitHub API 不可用，回退普通抓取:", urlForLog(address));
     }
   }
   const deadline = new AbortController();

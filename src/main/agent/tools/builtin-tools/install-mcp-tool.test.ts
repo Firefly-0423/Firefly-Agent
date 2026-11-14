@@ -9,6 +9,7 @@ vi.mock("../../mcp/mcp-manager", () => ({ addMcpServer: mocks.addMcpServer }));
 vi.mock("../../../platform/interaction/user-choice", () => ({ requestUserChoice: mocks.requestUserChoice }));
 
 import { installMcpServerTool } from "./install-mcp-tool";
+import { logger } from "../../../base/logging/logger";
 
 const args = { id: "demo", name: "demo", command: "node", args: ["server.js"], env: { API_TOKEN: "secret-value" }, cwd: "E:\\work" };
 
@@ -84,7 +85,7 @@ describe("install_mcp_server confirmation", () => {
   });
 
   it("does not log command arguments that can contain credentials", async () => {
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const log = vi.spyOn(logger, "info").mockImplementation(() => {});
     try {
       await installMcpServerTool.execute({ ...args, args: ["--token", "synthetic-private-credential"] });
       expect(JSON.stringify(log.mock.calls)).not.toContain("synthetic-private-credential");
