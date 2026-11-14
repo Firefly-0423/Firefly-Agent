@@ -194,7 +194,7 @@
 
 ## 施工包
 
-每个施工包 = 一个 PR。建议合并顺序：A → B → G → C → D → E → F。D、E 满足各自依赖后可独立安排；共享页面组合测试的冲突需核对。F 的正式包验收另依赖启动与存储主题落实新数据目录。
+每个施工包 = 一个 PR。建议合并顺序：A → B → G → C → D → E → F（2026-11-15 补充施工包 H 后，见“拆分 ChatPage 前的保护集”）。D、E 满足各自依赖后可独立安排；共享页面组合测试的冲突需核对。F 的正式包验收另依赖启动与存储主题落实新数据目录。
 
 文件数按每包明确列出的唯一文件计，测试另列；各包均 ≤15 个非测试文件。若复现修复使包超过 15 个非测试文件或上千行，优先拆包；确实不能拆时写明跨模块契约原因并附完整链路验证。版本号、纯格式化或无关重构不得混入。
 
@@ -691,6 +691,36 @@ npm test -- src/renderer/react/features/chat/components/DesktopAsrButton.test.ts
 
 **回退：** 按包整体 revert G 的合并提交（施工时记录实际 SHA）；不产生或迁移数据。回退恢复误投风险，须保留失败证据并阻止该项发布验收通过。
 
+### 施工包 H：拆分前的检查器与导航接线（2026-11-15 补充）
+
+依赖：施工包 A（共用 `ChatPage.regression.test.ts` 的页面挂载夹具）
+
+**背景：** 拆 `ChatPage.tsx` 时会把检查器标签回调（`openDiffTab`、`openResultDiff`、`openFileTab`、`openDelegationRef`、`togglePanel`、`closeInspectorTab`）和导航动作（`navActionsRef` 及各 `nav*` 回调、`useNavigationHistory` 的 `go`）搬进新文件。检查器的布局与生命周期已有 `ChatPage.inspector-integration.test.ts`、`ChatPageInspector.*.test.ts` 覆盖；`collectWorkspaceOutputs`、`summarizeOutputFiles`、`sessionsNeedingInput`、`useNavigationHistory` 有各自的单元测试。缺的是页面这一层“谁接到谁”的断言，A–G 没有覆盖。
+
+**改动文件：** 只改测试：`src/renderer/react/features/chat/pages/ChatPage.regression.test.ts`（与 A 共用夹具）；必要时扩展 `ChatPage.test.ts` 已有的 `surface` 替身（它在每次渲染时记录 `ChatPageNavigation` 收到的 props）。不改生产代码。
+
+**任务：**
+
+- [ ] H1 差异标签
+  - 先写的测试：Code 会话有一次带文件变更的运行。经页面实际渲染的入口打开同一 `runId` + 文件路径两次，断言只有一个 `diff:` 标签、它是活动标签、检查器可见；会话绑定了工作区时同时出现文件树标签，未绑定时不出现；另一个会话的运行产出不打开差异（`openResultDiff` 的会话检查）；同一产出再次打开时替换标签内容而不是追加。
+  - 验证：`npm test -- src/renderer/react/features/chat/pages/ChatPage.regression.test.ts`；`npm run check:renderer`。
+- [ ] H2 文件预览标签
+  - 先写的测试：同一路径先后带行号 10、20 打开，断言只有一个 `file:` 标签、定位更新为 20 且触发了新的滚动序号；`withTree: false` 打开时不出现文件树标签，默认打开且已绑定工作区时出现。
+  - 验证：同 H1。
+- [ ] H3 标签顺序、关闭与面板开关
+  - 先写的测试：依次打开任务、文件树、产出、文件、差异、计划、浏览器标签，断言顺序固定为“任务 → 文件树 → 产出 → 文件 → 差异 → 结果 → 改动 → 计划 → 浏览器”；关闭活动标签后活动标签落到左侧相邻项，没有左侧时落到右侧，全部关闭时为空；标题行开关在面板已打开且可见时关闭它，浏览器经自身清理路径关闭（关闭请求计数加一），其余直接关闭；收起后再展开保留原标签。
+  - 验证：同 H1。
+- [ ] H4 委派任务与侧栏状态
+  - 先写的测试：任务行触发 `openDelegation(taskId)`：当前会话里能找到该任务（按 `tasks` 或工具的 `taskResult.sessionId`）时打开对应结果标签并聚焦任务，重复触发时聚焦序号递增；找不到时什么都不打开。侧栏收到的待处理会话与运行中会话列表随交互卡、计划审阅和运行开始与结束而变化，切换会话后不残留。
+  - 验证：同 H1。
+- [ ] H5 导航动作与引用稳定
+  - 先写的测试：经 `surface.navigation` 调用新建任务、项目任务、临时会话、切换模式、选择会话、导出（失败与取消两种）、前进和后退，断言各自调用了正确的 `chatStore` 方法、参数和次数，失败只出一次错误提示，取消不提示；切换模式会作废进行中的会话选择（旧选择返回后不覆盖新模式）。另断言：流式输出期间多次重渲染，`surface.navigation` 上的回调引用保持同一个（`toBe`），确保拆分后 `ChatPageNavigation` 的 `React.memo` 仍然命中。
+  - 验证：同 H1。
+
+**验收：** H1–H5 在拆分前的 `ChatPage.tsx` 上通过；每条至少做一次反向验证（例如去掉同 id 去重、改变标签顺序、把导航回调换成每次渲染新建的函数），确认测试失败后还原。
+
+**回退：** 只有测试，整体 revert 即可。
+
 ## 验收清单（全量）
 
 ### 自动化逐项验收
@@ -845,6 +875,23 @@ Remove-Item Env:FIREFLY_ISOLATION_ROOT
 
 开发档案验收不能替代正式包的新数据目录验收；正式包验收必须等待已定 `%APPDATA%\Firefly-1.2.0` 目录契约在启动与存储主题落地。
 
+## 拆分 ChatPage 前的保护集（2026-11-15 补充）
+
+拆分本身另立计划（见 `docs/superpowers/plans/2026-11-15-coupling-audit-followup.md`），开工条件是下表“拆分前必须完成”的施工包全部合并。对照按 `ChatPage.tsx` 现有的职责块划分（`a96f254`）：
+
+| 职责块 | 主要符号 | 保护它的施工包 | 拆分前必须完成 |
+| --- | --- | --- | --- |
+| 运行、取消与终态 | `runModel`、`cancelCurrentRun`、`activeRunsBySession`、AG-UI 订阅 | A、B1–B4 | 是 |
+| 待发队列与发送 | `sendMessage`、`queueCurrentDraft`、`queueActions` | B5–B10 | 是 |
+| 交互卡与计划 | `setInteractionForSession`、`submitInteraction`、`answerInteraction`、延后计划事件 | C | 是 |
+| 会话选择与管理 | `selectSession`、`openSessionById`、`refreshSessions`、`ensureSession`、`createNewTask`、`sessionActions` | D | 是 |
+| 检查器标签与导航 | `openDiffTab`、`openFileTab`、`closeInspectorTab`、`navActionsRef`、`useNavigationHistory` | H | 是 |
+| 输入框、附件、听写 | `ChatComposer`、`useComposerAttachments`、`desktop-asr-controller` | E | 否：主要在组件和 hook 里，拆分不移动它们；E9（切会话）在拆分前完成更好 |
+| 审批归属修复 | `interaction-owner.ts`、主进程 `checkPermission` | G | 否：是产品修复，与拆分无关；但 G 改的页面行为要在拆分前或拆分后整体完成，不能夹在拆分提交中间 |
+| 真机回归 | — | F | 否：拆分的每个 PR 合入前按 F 的相关步骤做真机检查 |
+
+建议顺序因此调整为：A → B → G → C → D → H →（拆分）→ E → F。E、F 也可以与拆分并行，但不要和拆分改同一文件。
+
 ## 回滚方案
 
 | 风险 | 控制与回退 |
@@ -886,3 +933,7 @@ Remove-Item Env:FIREFLY_ISOLATION_ROOT
 - **无运行 ID 的审批**：主进程补齐所有审批请求的运行 ID（逐条找出不带 `runId` 调用 `checkPermission` 的路径，例如 `agent/runtime/firefly-agent.ts` 中 `runId: ctx?.runId` 在没有运行上下文时为空）；仍缺运行 ID 的审批卡不投到任何会话，改在独立提醒窗口显示来源并由用户批准。已携带但无法归属的运行 ID 不回退当前会话（G1）。
 - **批准身份**：沿用主进程现有的审批 id（`permission.ts` 生成，进程内唯一），在“批准 → 执行消息”链路上按该 id 去重并补测试；只有核对发现计划审批事件确实没有 id 时，才为它补一个，不新增持久化批准身份。
 - **Chat 的计划**：Chat 不进入计划模式。`conversation-run-policy.ts` 的 `shouldListenForDeferredPlanEvents` 不再对 Chat 返回 true，并在主进程保证 Chat 运行不会触发计划流程；完整计划交互只在 Code（Work 维持不启用）。
+
+2026-11-15 新增、待负责人确认：
+
+- 是否加入施工包 H（拆分前的检查器与导航接线，只补测试），以及“拆分 ChatPage 前的保护集”一节的开工条件和顺序。
