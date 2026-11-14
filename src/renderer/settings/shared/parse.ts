@@ -1,8 +1,8 @@
 // 仅解析设置字段支持的数字与命令格式。
-export function parsePositiveIntOrThrow(input: string, th: any) {
+export function parsePositiveIntOrThrow(input: string, th: unknown) {
   const decimalOnly = /^[0-9]+$/.test(input);
   if (!decimalOnly) throw th;
-  if (isNaN(input as any)) throw th;
+  if (Number.isNaN(Number(input))) throw th;
 
   const integer = parseInt(input);
   if (Number.isNaN(integer) || integer <= 0) throw th;
