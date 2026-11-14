@@ -1,15 +1,15 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import { IPC } from "../shared/ipc-channels";
-import type { ExternalSkillsApi } from "../shared/external-skills";
 import type { UiFont } from "../shared/ui-font";
 import type { QqListenAuthRequirement } from "../shared/qq-listen";
 import type { ApprovalRequest, ApprovalSettledPayload } from "../shared/permission-approval";
-import type { ReasoningPreference } from "../shared/reasoning";
 import { createAguiApi, createChatStoreApi } from "./agui";
 import { createFireflyAppearanceApi, createFireflyFontApi, createFireflyThemeApi, createStickerManagerApi } from "./appearance";
 import { createManualBrowserApi, createManualBrowserWorkspaceApi } from "./browser";
 import { createChatApi, createChoiceApi, createDesktopAsrApi } from "./chat-media";
 import { createLive2dWorkApi } from "./live2d-work-api";
+import { createSettingsCoreMethods } from "./settings/core";
+import { createSettingsExtensionMethods } from "./settings/extensions";
 import { createMemoryAutomationApi, createMemoryPanelApi, createUserApi } from "./memory-user";
 import { createModelConfigApi, createTokenUsageApi } from "./model-config";
 import { exposeMusicApi } from "./music";
@@ -31,7 +31,6 @@ contextBridge.exposeInMainWorld("toast", createToastApi(ipcRenderer));
 contextBridge.exposeInMainWorld("fireflyTheme", createFireflyThemeApi(ipcRenderer));
 contextBridge.exposeInMainWorld("fireflyFont", createFireflyFontApi(ipcRenderer));
 contextBridge.exposeInMainWorld("fireflyAppearance", createFireflyAppearanceApi(ipcRenderer));
-type WireTransport = "openai" | "anthropic" | "responses";
 type WechatLoginResult = {
     ok: boolean;
     botId?: string;
@@ -47,191 +46,8 @@ type PlanStateChange = {
     state: string;
 };
 const settingsApi = {
-    minimize: () => {
-        return ipcRenderer.send(IPC.SETTINGS_MINIMIZE);
-    },
-    close: () => {
-        return ipcRenderer.send(IPC.SETTINGS_CLOSE);
-    },
-    getConfig: () => {
-        return ipcRenderer.invoke(IPC.SETTINGS_GET_CONFIG);
-    },
-    saveConfig: (settings: unknown) => {
-        return ipcRenderer.invoke(IPC.SETTINGS_SAVE_CONFIG, settings);
-    },
-    listModelProfiles: () => {
-        return ipcRenderer.invoke(IPC.SETTINGS_MODEL_PROFILES_LIST);
-    },
-    getAgentRouting: () => {
-        return ipcRenderer.invoke(IPC.SETTINGS_AGENT_ROUTING_GET);
-    },
-    updateAgentRouting: (request: unknown) => {
-        return ipcRenderer.invoke(IPC.SETTINGS_AGENT_ROUTING_UPDATE, request);
-    },
-    saveModelProfile: (modelProfile: unknown) => {
-        return ipcRenderer.invoke(IPC.SETTINGS_MODEL_PROFILE_SAVE, modelProfile);
-    },
-    deleteModelProfile: (entityId: string) => {
-        return ipcRenderer.invoke(IPC.SETTINGS_MODEL_PROFILE_DELETE, entityId);
-    },
-    setDefaultModelProfile: (entityId: string) => {
-        return ipcRenderer.invoke(IPC.SETTINGS_MODEL_PROFILE_SET_DEFAULT, entityId);
-    },
-    fetchModels: (request: {
-        provider: string;
-        baseUrl: string;
-        apiKey: string;
-        explicitTransport?: WireTransport;
-    }) => {
-        return ipcRenderer.invoke(IPC.SETTINGS_FETCH_MODELS, request);
-    },
-    resolveInputModalities: (request: {
-        provider: string;
-        model: string;
-        inputModalities?: Array<"text" | "image">;
-        inputModalitiesSource?: "vendor-api" | "user";
-    }) => {
-        return ipcRenderer.invoke(IPC.SETTINGS_RESOLVE_INPUT_MODALITIES, request);
-    },
-    testConnection: (settings: {
-        provider: string;
-        baseUrl: string;
-        model: string;
-        apiKey: string;
-        explicitTransport?: WireTransport;
-        reasoning?: ReasoningPreference;
-    }) => {
-        return ipcRenderer.invoke(IPC.SETTINGS_TEST_CONNECTION, settings);
-    },
-    onSwitchSection: (receive: (section: string) => void) => {
-        const forwardEvent = (_ipcEvent: unknown, section: string) => {
-            return receive(section);
-        };
-        ipcRenderer.on(IPC.SETTINGS_SWITCH_SECTION, forwardEvent);
-        return () => {
-            return ipcRenderer.removeListener(IPC.SETTINGS_SWITCH_SECTION, forwardEvent);
-        };
-    },
-    getGeneral: () => {
-        return ipcRenderer.invoke(IPC.SETTINGS_GET_GENERAL);
-    },
-    saveGeneral: (settings: unknown) => {
-        return ipcRenderer.invoke(IPC.SETTINGS_SAVE_GENERAL, settings);
-    },
-    getTimeoutSettings: () => {
-        return ipcRenderer.invoke(IPC.SETTINGS_GET_TIMEOUT_SETTINGS);
-    },
-    saveTimeoutSettings: (settings: unknown) => {
-        return ipcRenderer.invoke(IPC.SETTINGS_SAVE_TIMEOUT_SETTINGS, settings);
-    },
-    pickUiFont: () => {
-        return ipcRenderer.invoke(IPC.SETTINGS_PICK_UI_FONT) as Promise<string | null>;
-    },
-    importUiFont: (sourcePath: string) => {
-        return ipcRenderer.invoke(IPC.SETTINGS_IMPORT_UI_FONT, sourcePath) as Promise<UiFont>;
-    },
-    resetUiFont: () => {
-        return ipcRenderer.invoke(IPC.SETTINGS_RESET_UI_FONT) as Promise<UiFont>;
-    },
-    setPetAlwaysOnTop: (settingValue: boolean) => {
-        return ipcRenderer.send(IPC.SETTINGS_SET_PET_ALWAYS_ON_TOP, settingValue);
-    },
-    setPetVisible: (settingValue: boolean) => {
-        return ipcRenderer.send(IPC.SETTINGS_SET_PET_VISIBLE, settingValue);
-    },
-    setPetZoom: (settingValue: number) => {
-        return ipcRenderer.send(IPC.SETTINGS_SET_PET_ZOOM, settingValue);
-    },
-    openStickerManager: () => {
-        return ipcRenderer.invoke(IPC.SETTINGS_OPEN_STICKER_MANAGER);
-    },
-    stickerPickFile: () => {
-        return ipcRenderer.invoke(IPC.STICKERS_PICK_FILE);
-    },
-    stickerAdd: (message: {
-        sourcePath: string;
-        id: string;
-        description: string;
-        phrases: string[];
-    }) => {
-        return ipcRenderer.invoke(IPC.STICKERS_ADD, message);
-    },
-    embeddingSetModel: (model: string) => {
-        return ipcRenderer.invoke(IPC.EMBEDDING_SET_MODEL, model);
-    },
-    rerankerSetMode: (conversationMode: string) => {
-        return ipcRenderer.invoke(IPC.RERANKER_SET_MODE, conversationMode);
-    },
-    getRerankerStatus: (): Promise<{
-        light: boolean;
-        standard: boolean;
-    }> => {
-        return ipcRenderer.invoke(IPC.RERANKER_GET_STATUS);
-    },
-    getToolCatalog: () => {
-        return ipcRenderer.invoke(IPC.TOOL_GET_CATALOG);
-    },
-    getToolModeOverrides: () => {
-        return ipcRenderer.invoke(IPC.TOOL_GET_MODE_OVERRIDES);
-    },
-    setToolModeOverride: (toolId: string, conversationMode: string, active: boolean) => {
-        return ipcRenderer.invoke(IPC.TOOL_SET_MODE_OVERRIDE, { toolId, mode: conversationMode, enabled: active });
-    },
-    externalSkills: {
-        list: (sourceId, refresh = false) => {
-            return ipcRenderer.invoke(IPC.EXTERNAL_SKILLS_LIST, { sourceId, refresh });
-        },
-        detail: (sourceId, entityId, selection) => {
-            return ipcRenderer.invoke(IPC.EXTERNAL_SKILLS_DETAIL, {
-                sourceId,
-                id: entityId,
-                ...(selection === undefined ? {} : { selection }),
-            });
-        },
-        prepare: (sourceId, entityId, selection) => {
-            return ipcRenderer.invoke(IPC.EXTERNAL_SKILLS_PREPARE, {
-                sourceId,
-                id: entityId,
-                ...(selection === undefined ? {} : { selection }),
-            });
-        },
-        commit: (token) => {
-            return ipcRenderer.invoke(IPC.EXTERNAL_SKILLS_COMMIT, { token });
-        },
-        cancel: () => {
-            return ipcRenderer.invoke(IPC.EXTERNAL_SKILLS_CANCEL, {});
-        },
-    } satisfies ExternalSkillsApi,
-    setSkillEnabled: (entityId: string, active: boolean) => {
-        return ipcRenderer.invoke(IPC.SKILL_SET_ENABLED, { id: entityId, enabled: active });
-    },
-    getSkillCatalog: () => {
-        return ipcRenderer.invoke(IPC.SKILL_GET_CATALOG);
-    },
-    rescanSkills: () => {
-        return ipcRenderer.invoke(IPC.SKILL_RESCAN);
-    },
-    translateSkillDescriptions: () => {
-        return ipcRenderer.invoke(IPC.SKILL_TRANSLATE_DESCRIPTIONS);
-    },
-    getSkillModeOverrides: () => {
-        return ipcRenderer.invoke(IPC.SKILL_GET_MODE_OVERRIDES);
-    },
-    setSkillModeOverride: (skillId: string, conversationMode: string, active: boolean) => {
-        return ipcRenderer.invoke(IPC.SKILL_SET_MODE_OVERRIDE, { skillId, mode: conversationMode, enabled: active });
-    },
-    addMcpServer: (settings: unknown) => {
-        return ipcRenderer.invoke(IPC.MCP_ADD_SERVER, settings);
-    },
-    removeMcpServer: (serverId: string) => {
-        return ipcRenderer.invoke(IPC.MCP_REMOVE_SERVER, serverId);
-    },
-    listMcpServers: () => {
-        return ipcRenderer.invoke(IPC.MCP_LIST_SERVERS);
-    },
-    setMcpServerEnabled: (serverId: string, active: boolean) => {
-        return ipcRenderer.invoke(IPC.MCP_SET_ENABLED, { id: serverId, enabled: active });
-    },
+    ...createSettingsCoreMethods(ipcRenderer),
+    ...createSettingsExtensionMethods(ipcRenderer),
     channelsGetConfig: () => {
         return ipcRenderer.invoke(IPC.CHANNELS_GET_CONFIG);
     },
