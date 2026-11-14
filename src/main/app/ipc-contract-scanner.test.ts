@@ -6,7 +6,7 @@ import {
   collectReachableFiles,
   findIpcChannelUses,
   type IpcChannelUse,
-} from "./ipc-contract-scanner";
+} from "./ipc-contract-scanner.test-support";
 
 describe("findIpcChannelUses", () => {
   it("classifies renderer, main and outbound call sites", () => {
