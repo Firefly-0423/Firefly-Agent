@@ -18,6 +18,7 @@ import { runToolRound, type ToolRoundOutcome } from "./tool-round";
 import { publicRunFailure, type RunFailure, type RunFailureSource } from "../../../shared/run-failure";
 import { ContextError } from "../../model/context/context-contracts";
 import { buildStableSystemPrefix, type PromptLayers } from "../../model/prompt/prompt-layers";
+import { logger, LogTag } from "../../base/logging/logger";
 
 const logTag = "[AgentLoop]";
 export type AgentLoopRun = {
@@ -209,7 +210,7 @@ function compactIfNeeded(run: AgentLoopRun, promptLayers: PromptLayers): Promise
 async function runCompaction(run: AgentLoopRun, roundSystemPrompt: string, budget: TokenBudget): Promise<void> {
   const host = run.input;
   const limits = run.config;
-  console.log(`${logTag} mid-loop compaction triggered (estimated=${budget.estimatedInput} budget=${budget.usableInputBudget})`);
+  logger.info(LogTag.Runtime, `mid-loop compaction triggered (estimated=${budget.estimatedInput} budget=${budget.usableInputBudget})`);
   const before = run.messages.length;
   host.onCompactionLifecycle?.({ status: "started", messageCountBefore: before });
   const replacement = await compressForAgentLoop({ messages: run.messages,

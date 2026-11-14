@@ -3,6 +3,7 @@ import path from "node:path";
 import os from "node:os";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AgentRunStore } from "./run-store";
+import { logger } from "../../base/logging/logger";
 import type { AgentState } from "./types";
 import type { ChatMessage } from "../../model/providers/types";
 
@@ -204,11 +205,11 @@ describe("Durable main-run ledger", () => {
 
   it("reports run identity and terminal status in write metrics", () => {
     const { store } = storage();
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const log = vi.spyOn(logger, "info").mockImplementation(() => {});
     store.recordTool("audit-bronze", readCall("scan-east", "committed"));
     store.checkpoint("audit-bronze", { rounds: 1 });
     store.markTerminal("audit-bronze", "completed");
-    const metric = log.mock.calls.map(args => args.join(" ")).find(line => line.includes("AgentRunStore"));
+    const metric = log.mock.calls.map(args => args.join(" ")).find(line => line.includes("terminal="));
     expect(metric).toBeDefined();
     expect(metric).toMatch(/audit-bronze/);
     expect(metric).toMatch(/completed/);

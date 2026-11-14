@@ -5,6 +5,7 @@ import { ephemeralConversations } from "../../base/storage/ephemeral-conversatio
 import type { ChatMessage } from "../../model/providers/types";
 import { INITIAL_AGENT_LOOP_CACHE_STATE, type SideEffectKind, type AgentLoopCacheState, type AgentState } from "./types";
 import type { ToolOutputRef } from "./tool-output/tool-output-store";
+import { logger, LogTag } from "../../base/logging/logger";
 
 export type AgentRunStatus = "failed" | "cancelled" | "completed" | "interrupted" | "running";
 export type PersistedToolCallStatus = "not_executed" | "unknown" | "committed" | "started" | "planned";
@@ -159,7 +160,7 @@ export class AgentRunStore {
     current.updatedAt = current.completedAt;
     this.persist(current, "now");
     this.journal(current, `run_${status}`);
-    console.log(`[AgentRunStore] run=${runId} terminal=${status} diskWrites=${this.writes} diskBytes=${this.characters} checkpoints=${this.checkpoints}`);
+    logger.info(LogTag.Runtime, `run store: run=${runId} terminal=${status} diskWrites=${this.writes} diskBytes=${this.characters} checkpoints=${this.checkpoints}`);
     return copy(current);
   }
   deleteConversation(conversationId: string): void {
