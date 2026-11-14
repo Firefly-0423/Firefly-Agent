@@ -4,6 +4,7 @@ import type { StructuredOutputRequest, VendorConfig } from "../../../model/provi
 import { createVisibleStreamFilter, stripThinkBlocks } from "../../../model/text/chat-stream-utils";
 import { recordUsage, recordRequest } from "../../../base/storage/token-usage-store";
 import { appendApiLog } from "../../../model/text/chat-api-utils";
+import { logger, LogTag } from "../../../base/logging/logger";
 type ChatMessage = {
     role: "system" | "user" | "assistant";
     content: string;
@@ -62,7 +63,7 @@ export function createLlmClient(): LlmClient {
         const beganAt = Date.now();
         const duration = (): number => Date.now() - beganAt;
         if (traceTiming) {
-            console.log(`[TIMING] ${requestLabel} START timeout=${deadlineMs}ms msgLen=${transcript.length} sysLen=${firstMessageSize(transcript)}`);
+            logger.debug(LogTag.Runtime, `${requestLabel} START timeout=${deadlineMs}ms msgLen=${transcript.length} sysLen=${firstMessageSize(transcript)}`);
         }
         const vendor = connectionSettings(profile);
         try {
@@ -125,7 +126,7 @@ export function createLlmClient(): LlmClient {
                 consumeText(tail);
             const answer = stripThinkBlocks(rawReply);
             if (traceTiming)
-                console.log(`[TIMING] ${requestLabel} OK in ${duration()}ms resultLen=${answer.length}`);
+                logger.info(LogTag.Runtime, `${requestLabel} OK in ${duration()}ms resultLen=${answer.length}`);
             appendApiLog(requestLabel, transcript, rawReply, answer);
             return answer;
         }
@@ -133,11 +134,11 @@ export function createLlmClient(): LlmClient {
             const timedOut = failure instanceof Error && failure.name === "AbortError";
             if (timedOut) {
                 if (traceTiming)
-                    console.log(`[TIMING] ${requestLabel} TIMEOUT at ${duration()}ms`);
+                    logger.info(LogTag.Runtime, `${requestLabel} TIMEOUT at ${duration()}ms`);
                 throw new Error("模型请求超时，请稍后重试。");
             }
             if (traceTiming) {
-                console.log(`[TIMING] ${requestLabel} ERROR at ${duration()}ms: ${failure instanceof Error ? failure.message : failure}`);
+                logger.info(LogTag.Runtime, `${requestLabel} ERROR at ${duration()}ms: ${failure instanceof Error ? failure.message : failure}`);
             }
             throw failure;
         }
@@ -172,7 +173,7 @@ export function createLlmClient(): LlmClient {
         parentSignal?.addEventListener("abort", abortFromParent, { once: true });
         const deadline = setTimeout(() => cancellation.abort(), deadlineMs);
         const beganAt = Date.now();
-        console.log(`[TIMING] ${requestLabel} START (non-stream) timeout=${deadlineMs}ms msgLen=${transcript.length} sysLen=${firstMessageSize(transcript)}`);
+        logger.debug(LogTag.Runtime, `${requestLabel} START (non-stream) timeout=${deadlineMs}ms msgLen=${transcript.length} sysLen=${firstMessageSize(transcript)}`);
         try {
             const request = protocol.buildRequest(payload, vendor);
             const reply = await fetch(request.url, {
@@ -190,17 +191,17 @@ export function createLlmClient(): LlmClient {
             if (decoded.usage) {
                 recordUsage(decoded.usage.input, decoded.usage.output, 1, decoded.usage.cachedInput, profile.model, decoded.usage.cacheCreation);
             }
-            console.log(`[TIMING] ${requestLabel} OK in ${Date.now() - beganAt}ms resultLen=${decoded.text.length}`);
+            logger.info(LogTag.Runtime, `${requestLabel} OK in ${Date.now() - beganAt}ms resultLen=${decoded.text.length}`);
             const { text, thinking, finishReason, refusal, structuredValue } = decoded;
             return { text, thinking, finishReason, refusal, structuredValue };
         }
         catch (failure) {
             const durationMs = Date.now() - beganAt;
             if (failure instanceof Error && failure.name === "AbortError") {
-                console.log(`[TIMING] ${requestLabel} TIMEOUT at ${durationMs}ms`);
+                logger.info(LogTag.Runtime, `${requestLabel} TIMEOUT at ${durationMs}ms`);
             }
             else {
-                console.log(`[TIMING] ${requestLabel} ERROR at ${durationMs}ms: ${failure}`);
+                logger.info(LogTag.Runtime, `${requestLabel} ERROR at ${durationMs}ms: ${failure}`);
             }
             throw failure;
         }

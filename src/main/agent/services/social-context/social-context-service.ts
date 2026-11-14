@@ -10,6 +10,7 @@ import { buildSocialExtractionPrompt, SOCIAL_EXTRACTION_SCHEMA } from "../../../
 import { createSocialContextScheduler } from "../../../knowledge/social/scheduler";
 import { createSocialAtomStore } from "../../../knowledge/social/store";
 import type { LlmClient } from "../llm/llm-client";
+import { logger, LogTag } from "../../../base/logging/logger";
 
 type AtomStore = ReturnType<typeof createSocialAtomStore>;
 type ContextScheduler = ReturnType<typeof createSocialContextScheduler>;
@@ -109,8 +110,8 @@ export function createSocialContextService(deps: SocialContextServiceDeps): Soci
       return reply.text;
     },
     recordMetric: ({ outcome, acceptedCount, rejectedCount, attempts, repairCount }) => {
-      console.log(
-        `[ChatSocialContext] outcome=${outcome} accepted=${acceptedCount} rejected=${rejectedCount} attempts=${attempts} repairs=${repairCount}`,
+      logger.info(
+        LogTag.Runtime, `chat social context outcome=${outcome} accepted=${acceptedCount} rejected=${rejectedCount} attempts=${attempts} repairs=${repairCount}`,
       );
     },
   });
