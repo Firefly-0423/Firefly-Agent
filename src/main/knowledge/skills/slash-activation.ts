@@ -2,6 +2,7 @@
 // 三模适配：传入 mode 与 overrides 后，只激活当前会话模式允许的 skill。
 import { parseSlashCommand, skillRegistry } from "./index";
 import type { SkillMode, SkillModeOverrides } from "./types";
+import { logger, LogTag } from "../../base/logging/logger";
 
 type ChatTurn = { role: string; content: string };
 type SkillRecord = ReturnType<typeof skillRegistry.getById>;
@@ -42,7 +43,7 @@ export function resolveSlashActivation<T extends ChatTurn>(messages: T[], mode?:
   if (skill && skill.enabled && skillRegistry.isAvailable(id) && visibleInMode(skill, mode, overrides)) {
     const text = skillRegistry.getBody(id);
     if (text === null) return "";
-    console.log("[Firefly] /命令激活 skill:", id);
+    logger.info(LogTag.Skills, "/命令激活 skill:", id);
     return `\n\n---\n\n[已激活 skill: ${id}]\n${text}`;
   }
 
