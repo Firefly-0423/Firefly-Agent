@@ -90,7 +90,7 @@ describe("real PDF output protection", () => {
     vi.spyOn(fs, "existsSync").mockImplementation(file => windowsFonts.test(String(file)) ? String(file) === msyh : exists(file));
     const read = fs.readFileSync;
     vi.spyOn(fs, "readFileSync").mockImplementation(((file: any, ...args: any[]) => String(file) === msyh ? Buffer.from("invalid TTC") : (read as any)(file, ...args)) as any);
-    await expect(execute()).rejects.toThrow();
+    await expect(execute()).rejects.toThrow("FIREFLY_PDF_FONT_UNAVAILABLE");
     expect(fs.readFileSync(target())).toEqual(oldBytes);
     expect(streams).toHaveLength(0);
     expect(documents.every(doc => doc.destroyed)).toBe(true);
@@ -134,7 +134,7 @@ describe("real PDF output protection", () => {
     noSystemFonts();
     const create = vi.mocked(fs.createWriteStream).getMockImplementation()!;
     vi.mocked(fs.createWriteStream).mockImplementation((file, options) => create(path.dirname(String(file)), options));
-    await expect(execute()).rejects.toThrow();
+    await expect(execute()).rejects.toMatchObject({ code: "EEXIST" });
     expect(fs.readFileSync(target())).toEqual(oldBytes);
     expect(streams.every(stream => stream.closed)).toBe(true);
     expect(documents.every(doc => doc.destroyed)).toBe(true);
@@ -157,7 +157,7 @@ describe("real PDF output protection", () => {
       fs.writeFileSync(collision, "other-owner");
       return create(file, options);
     });
-    await expect(execute()).rejects.toThrow();
+    await expect(execute()).rejects.toMatchObject({ code: "EEXIST" });
     expect(fs.readFileSync(target())).toEqual(oldBytes);
     expect(fs.readFileSync(collision, "utf8")).toBe("other-owner");
     expect(streams.every(stream => stream.closed)).toBe(true);
