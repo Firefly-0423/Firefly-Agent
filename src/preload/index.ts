@@ -1,12 +1,8 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import { IPC } from "../shared/ipc-channels";
-import { MANUAL_BROWSER_WORKSPACE_IPC, type ManualBrowserWorkspaceApi } from "../shared/manual-browser";
 import { SIDEBAR_LAYOUT_IPC, type SidebarMutation } from "../shared/sidebar-layout";
 import type { ExternalSkillsApi } from "../shared/external-skills";
-import type { MemoryPanelAction, MemoryPanelOutcome, MemoryPanelSourceAudit, MemoryPanelState, } from "../shared/memory-panel-contracts";
-import type { MemoryAutomationPanelApi } from "../shared/memory-automation-contracts";
 import type { UiFont } from "../shared/ui-font";
-import type { BrowserAvailabilityApi } from "../shared/browser-availability";
 import type { QqListenAuthRequirement } from "../shared/qq-listen";
 import type { ApprovalRequest, ApprovalSettledPayload } from "../shared/permission-approval";
 import type { ReasoningPreference } from "../shared/reasoning";
@@ -16,8 +12,10 @@ import type { WorkspaceListResult, WorkspaceReadResult, WorkspaceSaveResult } fr
 import type { OpenInAppListResult, OpenInAppOpenResult } from "../shared/open-in-app-types";
 import type { ConversationMode } from "../shared/chat-types";
 import { createFireflyAppearanceApi, createFireflyFontApi, createFireflyThemeApi, createStickerManagerApi } from "./appearance";
+import { createManualBrowserApi, createManualBrowserWorkspaceApi } from "./browser";
 import { createChatApi, createChoiceApi, createDesktopAsrApi } from "./chat-media";
 import { createLive2dWorkApi } from "./live2d-work-api";
+import { createMemoryAutomationApi, createMemoryPanelApi, createUserApi } from "./memory-user";
 import { createModelConfigApi, createTokenUsageApi } from "./model-config";
 import { exposeMusicApi } from "./music";
 import { createFireflyApi } from "./pet";
@@ -486,169 +484,11 @@ contextBridge.exposeInMainWorld("pluginPanel", createPluginPanelApi(ipcRenderer)
 contextBridge.exposeInMainWorld("fireflyScheduler", createSchedulerApi(ipcRenderer));
 contextBridge.exposeInMainWorld("stickerManager", createStickerManagerApi(ipcRenderer));
 contextBridge.exposeInMainWorld("modelConfig", createModelConfigApi(ipcRenderer));
-const withTab = (tabId: string | undefined) => {
-    return (tabId === undefined ? {} : { tabId });
-};
-const manualBrowser: BrowserAvailabilityApi = {
-    getPermission: () => {
-        return ipcRenderer.invoke(IPC.BROWSER_PERMISSION, { kind: "get" });
-    },
-    requestPermission: (scope) => {
-        return ipcRenderer.invoke(IPC.BROWSER_PERMISSION, { kind: "request", scope });
-    },
-    revokePermission: (conversationId) => {
-        return ipcRenderer.invoke(IPC.BROWSER_PERMISSION, {
-            kind: "revoke",
-            ...(conversationId === undefined ? {} : { conversationId }),
-        });
-    },
-    getAvailability: () => {
-        return ipcRenderer.invoke(IPC.BROWSER_AVAILABILITY);
-    },
-    execute: (command) => {
-        return ipcRenderer.invoke(IPC.BROWSER_COMMAND, command);
-    },
-    onChanged: (receive) => {
-        const forwardEvent = (_ipcEvent: Electron.IpcRendererEvent, page: import("../shared/manual-browser").BrowserPageDto) => {
-            return receive(page);
-        };
-        ipcRenderer.on(IPC.BROWSER_CHANGED, forwardEvent);
-        return () => {
-            return ipcRenderer.removeListener(IPC.BROWSER_CHANGED, forwardEvent);
-        };
-    },
-};
-contextBridge.exposeInMainWorld("manualBrowser", manualBrowser);
-const browserWorkspaceCommand = (message: object) => {
-    return ipcRenderer.invoke(MANUAL_BROWSER_WORKSPACE_IPC.command, message);
-};
-const manualBrowserWorkspace: ManualBrowserWorkspaceApi = {
-    getAvailability: () => {
-        return ipcRenderer.invoke(MANUAL_BROWSER_WORKSPACE_IPC.availability);
-    },
-    getPermission: (tabId) => {
-        return ipcRenderer.invoke(MANUAL_BROWSER_WORKSPACE_IPC.permission, { kind: "get", ...withTab(tabId) });
-    },
-    requestPermission: (scope, tabId) => {
-        return ipcRenderer.invoke(MANUAL_BROWSER_WORKSPACE_IPC.permission, { kind: "request", scope, ...withTab(tabId) });
-    },
-    revokePermission: (workspaceId, tabId) => {
-        return ipcRenderer.invoke(MANUAL_BROWSER_WORKSPACE_IPC.permission, { kind: "revoke", workspaceId, ...withTab(tabId) });
-    },
-    getTabs: () => {
-        return browserWorkspaceCommand({ kind: "tabs" });
-    },
-    newTab: () => {
-        return browserWorkspaceCommand({ kind: "new-tab" });
-    },
-    selectTab: (tabId) => {
-        return browserWorkspaceCommand({ kind: "select-tab", tabId });
-    },
-    closeTab: (tabId) => {
-        return browserWorkspaceCommand({ kind: "close-tab", tabId });
-    },
-    execute: (command, tabId) => {
-        return browserWorkspaceCommand({ ...command, ...withTab(tabId) });
-    },
-    onChanged: (receive) => {
-        const forwardEvent = (_ipcEvent: Electron.IpcRendererEvent, page: import("../shared/manual-browser").BrowserWorkspacePageDto) => {
-            return receive(page);
-        };
-        ipcRenderer.on(MANUAL_BROWSER_WORKSPACE_IPC.changed, forwardEvent);
-        return () => {
-            return ipcRenderer.removeListener(MANUAL_BROWSER_WORKSPACE_IPC.changed, forwardEvent);
-        };
-    },
-    tool: (request, tabId) => {
-        return browserWorkspaceCommand({ kind: "tool", request, ...withTab(tabId) });
-    },
-    onToolsChanged: (receive) => {
-        const forwardEvent = (_ipcEvent: Electron.IpcRendererEvent, change: import("../shared/browser-tools").BrowserToolsChange) => {
-            return receive(change);
-        };
-        ipcRenderer.on(MANUAL_BROWSER_WORKSPACE_IPC.toolsChanged, forwardEvent);
-        return () => {
-            return ipcRenderer.removeListener(MANUAL_BROWSER_WORKSPACE_IPC.toolsChanged, forwardEvent);
-        };
-    },
-};
-contextBridge.exposeInMainWorld("manualBrowserWorkspace", manualBrowserWorkspace);
-const userApi = {
-    getProfile: () => {
-        return ipcRenderer.invoke(IPC.USER_GET_PROFILE);
-    },
-    saveProfile: (modelProfile: unknown) => {
-        return ipcRenderer.invoke(IPC.USER_SAVE_PROFILE, modelProfile);
-    },
-    onProfileChanged: (receive: (modelProfile: unknown) => void) => {
-        const forwardEvent = (_ipcEvent: Electron.IpcRendererEvent, modelProfile: unknown) => {
-            return receive(modelProfile);
-        };
-        ipcRenderer.on(IPC.USER_PROFILE_CHANGED, forwardEvent);
-        return () => {
-            return ipcRenderer.removeListener(IPC.USER_PROFILE_CHANGED, forwardEvent);
-        };
-    },
-    uploadAvatar: () => {
-        return ipcRenderer.invoke(IPC.USER_UPLOAD_AVATAR);
-    },
-    getAvatar: () => {
-        return ipcRenderer.invoke(IPC.USER_GET_AVATAR);
-    },
-    onAvatarChanged: (receive: () => void) => {
-        const forwardEvent = (_ipcEvent: Electron.IpcRendererEvent) => {
-            return receive();
-        };
-        ipcRenderer.on(IPC.USER_AVATAR_CHANGED, forwardEvent);
-        return () => {
-            return ipcRenderer.removeListener(IPC.USER_AVATAR_CHANGED, forwardEvent);
-        };
-    },
-};
-const memoryPanelApi = {
-    getState: (): Promise<MemoryPanelState> => {
-        return ipcRenderer.invoke(IPC.MEMORY_PANEL_GET_STATE);
-    },
-    applyAction: (action: MemoryPanelAction): Promise<MemoryPanelOutcome> => {
-        return ipcRenderer.invoke(IPC.MEMORY_PANEL_APPLY_ACTION, action);
-    },
-    auditSource: (factId: string): Promise<MemoryPanelSourceAudit> => {
-        return ipcRenderer.invoke(IPC.MEMORY_PANEL_AUDIT_SOURCE, factId);
-    },
-    getData: () => {
-        return ipcRenderer.invoke(IPC.MEMORY_PANEL_GET_DATA);
-    },
-    deleteImportedDoc: (importId: string, fileName?: string) => {
-        return ipcRenderer.invoke(IPC.MEMORY_PANEL_DELETE_IMPORTED_DOC, { importId, fileName });
-    },
-    shadowState: () => {
-        return ipcRenderer.invoke(IPC.MEMORY_SHADOW_STATE);
-    },
-    shadowConfigure: (request: {
-        enabled: boolean;
-        dailyCap: number;
-        expectedRevision: number;
-    }) => {
-        return ipcRenderer.invoke(IPC.MEMORY_SHADOW_CONFIGURE, request);
-    },
-    shadowExport: () => {
-        return ipcRenderer.invoke(IPC.MEMORY_SHADOW_EXPORT);
-    },
-    shadowClear: () => {
-        return ipcRenderer.invoke(IPC.MEMORY_SHADOW_CLEAR);
-    },
-};
-contextBridge.exposeInMainWorld("user", userApi);
-contextBridge.exposeInMainWorld("memoryPanel", memoryPanelApi);
-const memoryAutomationApi: MemoryAutomationPanelApi = {
-    state: () => {
-        return ipcRenderer.invoke(IPC.MEMORY_AUTOMATION_STATE);
-    },
-    configure: (request) => {
-        return ipcRenderer.invoke(IPC.MEMORY_AUTOMATION_CONFIGURE, request);
-    },
-};
-contextBridge.exposeInMainWorld("memoryAutomation", memoryAutomationApi);
+contextBridge.exposeInMainWorld("manualBrowser", createManualBrowserApi(ipcRenderer));
+contextBridge.exposeInMainWorld("manualBrowserWorkspace", createManualBrowserWorkspaceApi(ipcRenderer));
+contextBridge.exposeInMainWorld("user", createUserApi(ipcRenderer));
+contextBridge.exposeInMainWorld("memoryPanel", createMemoryPanelApi(ipcRenderer));
+contextBridge.exposeInMainWorld("memoryAutomation", createMemoryAutomationApi(ipcRenderer));
 contextBridge.exposeInMainWorld("live2dWork", createLive2dWorkApi(ipcRenderer));
 const chatStoreApi = {
     sidebarLayout: {
