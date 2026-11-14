@@ -174,7 +174,9 @@ it.each([false, true])("accepts only other-session H partitions (include current
 
 it("invalidates the synchronous capture fence before a mutation observer first awaits", async () => {
   const f = await fixture(), sources = await f.capture.capture(f.request, f.controller.signal);
-  expect(() => sources.assertCurrent()).not.toThrow();
+  expect(sources.assertCurrent()).toBeUndefined();
+  expect(sources.currentTranscript?.user).toEqual({ turnId: "u1", revision: 1 });
+  expect(sources.transcriptTokens).toHaveLength(1);
   let arrive!: () => void, release!: () => void;
   const arrived = new Promise<void>(resolve => { arrive = resolve; }), held = new Promise<void>(resolve => { release = resolve; });
   const generation = f.context.transcriptGeneration.bind(f.context);
