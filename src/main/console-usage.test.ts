@@ -8,13 +8,14 @@ import { describe, expect, it } from "vitest";
  * 要用 base/logging/logger 的 logger 加 LogTag，这样输出才会进主日志文件并受日志级别控制。
  * console.warn / console.error 暂不限制。
  *
- * 例外只有 features/diagnostics/**：诊断与模拟工具，输出本来就是给终端看的。
+ * 例外只有 features/diagnostics/** 和音乐烟测入口 features/music/music-smoke-entry.ts：
+ * 诊断、模拟和烟测工具，输出本来就是给终端看的。
  * 不要为了过测试往例外里加别的目录；改用 logger。
  */
 const mainRoot = __dirname;
 const codeExtensions = [".ts", ".tsx", ".js", ".cjs", ".mjs"];
 const bannedMethods = new Set(["log", "info", "debug"]);
-const exemptPrefixes = ["features/diagnostics/"];
+const exemptPrefixes = ["features/diagnostics/", "features/music/music-smoke-entry.ts"];
 
 const isTestFile = (file: string) =>
   /\.(test|acceptance)\.[a-z]+$/.test(file) || /\.test-support\./.test(file) || /[\/](fixtures|testing|test-utils|test-support)[\/]/.test(file);
