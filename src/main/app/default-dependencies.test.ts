@@ -151,7 +151,7 @@ vi.mock("../platform/windows/app-icon", () => ({ getAppIconPath: vi.fn(() => "ap
 vi.mock("../base/identity/env", () => ({ isDev: false }));
 vi.mock("../base/logging/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-  LogTag: { Runtime: "runtime", RAG: "rag", Skills: "skills", Reranker: "reranker" },
+  LogTag: { Runtime: "runtime", RAG: "rag", Skills: "skills", Reranker: "reranker", MCP: "mcp" },
 }));
 vi.mock("../../shared/banner", () => ({ renderBanner: () => "BANNER" }));
 vi.mock("../../shared/ipc-channels", () => ({
@@ -666,14 +666,14 @@ describe("core phase", () => {
 describe("background phase", () => {
   it("prunes removed built-in MCP servers and logs the removals", async () => {
     const { pruneMcpServersByIds } = await import("../agent/mcp/mcp-manager");
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const { logger } = await import("../base/logging/logger");
     const deps = createDeps();
     await deps.startShell();
     await deps.startCore(m.shellResult);
     await deps.startBackground(m.coreResult);
     await m.backgroundDeps.pruneRemovedMcp();
     expect(pruneMcpServersByIds).toHaveBeenCalledWith(["removed-a"]);
-    expect(log).toHaveBeenCalledWith("[Firefly] 已清理遗留的已下架内置 MCP:", "removed-a");
+    expect(logger.info).toHaveBeenCalledWith("mcp", "已清理遗留的已下架内置 MCP:", "removed-a");
   });
 
   it("syncs and restores MCP configuration", async () => {

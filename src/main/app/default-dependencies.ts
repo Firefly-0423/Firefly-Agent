@@ -326,7 +326,7 @@ function buildBackgroundDeps(
       // 一次性清掉已下架的内置 MCP（如托管版 Firecrawl）
       const removedIds = await pruneMcpServersByIds([...REMOVED_BUILTIN_MCP_IDS]);
       if (removedIds.length) {
-        console.log("[Firefly] 已清理遗留的已下架内置 MCP:", removedIds.join(", "));
+        logger.info(LogTag.MCP, "已清理遗留的已下架内置 MCP:", removedIds.join(", "));
       }
     },
     // Playwright 内置 MCP 默认关闭，由设置项控制

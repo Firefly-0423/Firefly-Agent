@@ -29,6 +29,7 @@ import type { SchedulerSubsystem } from "../features/scheduler/bootstrap";
 import type { GeneralSettings } from "../platform/settings/general-settings";
 import type { WindowManager } from "../platform/windows/window-manager";
 import type { PluginManager } from "../../plugins/manager";
+import { logger, LogTag } from "../base/logging/logger";
 
 export interface CoreServices {
   update: AppUpdateService;
@@ -90,7 +91,7 @@ async function timed<T>(name: string, work: () => T | Promise<T>): Promise<T> {
     return await work();
   } finally {
     const ended = performance.now();
-    console.log(`[StartupTiming] core/${name} ${Math.round(ended - began)}ms (at ${Math.round(ended)}ms)`);
+    logger.info(LogTag.Electron, `startup timing: core/${name} ${Math.round(ended - began)}ms (at ${Math.round(ended)}ms)`);
   }
 }
 
@@ -205,12 +206,12 @@ export async function startCore(deps: CoreDependencies): Promise<CoreResult> {
     minimumDurationMs: deps.minimumSplashMs,
   });
   // 窗口已可见：此后才结束的后台任务都属于“窗口出现后仍在运行”
-  console.log(`[StartupTiming] core/windows-revealed (at ${Math.round(performance.now())}ms)`);
+  logger.info(LogTag.Electron, `startup timing: core/windows-revealed (at ${Math.round(performance.now())}ms)`);
   deps.markStartupWindowsReady();
 
   // 主窗口可以激活了：处理启动期间排队的请求
   await activation.markReady();
-  console.log(`[StartupTiming] core/startCore-total ${Math.round(performance.now())}ms`);
+  logger.info(LogTag.Electron, `startup timing: core/startCore-total ${Math.round(performance.now())}ms`);
 
   return { runtime, services, channels, plugins, scheduler };
 }
