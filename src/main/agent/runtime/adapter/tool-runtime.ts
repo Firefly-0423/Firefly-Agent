@@ -17,6 +17,7 @@ import { sendTaskLifecycleAsAgui } from "./event-mapper";
 import type { PreparedAgentLoopRun } from "./run-preparation";
 import { getWorkspaceExecutionCoordinator } from "../../../tooling/execution/execution-coordinator";
 import type { FireflyRunOptions } from "../firefly-agent";
+import { logger, LogTag } from "../../../base/logging/logger";
 
 /**
  * 为一次 Harness run 构造工具运行时（tool runtime）。
@@ -62,7 +63,7 @@ export function prepareToolRuntime(input: ToolRuntimeInput): PreparedToolRuntime
       && (risk === "shell" || policyFor("read-only", risk) !== "allow");
     // 计划限制先于显式免审批授权，并使用父会话实时状态，覆盖会话中途进入计划模式。
     if (blockedByPlan()) {
-      console.log(`[AgentLoopAdapter] [Plan] read-only enforcement blocked tool=${toolId} risk=${risk}`);
+      logger.info(LogTag.Runtime, `plan: read-only enforcement blocked tool=${toolId} risk=${risk}`);
       return false;
     }
     if (policyFor(fileAccessLevel, risk) === "deny") return false;

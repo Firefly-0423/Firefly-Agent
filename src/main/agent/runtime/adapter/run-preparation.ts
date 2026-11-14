@@ -10,6 +10,7 @@ import { getAgentRunStore, type AgentRunRequestSnapshot } from "../../loop/run-s
 import { materializeAgentLoopStartTranscript, buildAgentLoopPromptLayers } from "./prompt-builder";
 import { preparePlanRunContext } from "./plan-lifecycle";
 import { app } from "electron";
+import { logger, LogTag } from "../../../base/logging/logger";
 
 const restrictedGitIds = new Set([
   "git_status", "git_init", "git_commit", "git_switch_branch", "git_push", "git_revert",
@@ -73,7 +74,7 @@ export async function prepareAgentLoopRun(
   );
   const conversationId = config.conversationId ?? "default";
   const { planState: plannedState, planContextBlock: approvedContext } = await preparePlanRunContext({ mode: config.conversationMode, threadId: conversationId });
-  console.log(`[AgentLoopAdapter] starting harness run, mode=${config.conversationMode ?? "work"}${plannedState ? ` plan=${plannedState}` : ""}`);
+  logger.info(LogTag.Runtime, `starting harness run, mode=${config.conversationMode ?? "work"}${plannedState ? ` plan=${plannedState}` : ""}`);
   const vendor: VendorConfig = vendorConfigFromSettings(config.settings);
   const available = [...(config.capabilities?.tools ?? config.tools ?? toolRegistry.getEnabledTools())];
   const store = getAgentRunStore(app.getPath("userData"));
