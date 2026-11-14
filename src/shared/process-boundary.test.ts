@@ -52,6 +52,13 @@ function mainImports(processDir: string): string[] {
   return violations;
 }
 
+describe("test-only files stay out of the build", () => {
+  it("tsconfig.main.json excludes every kind of test file from dist/main", () => {
+    const config = JSON.parse(fs.readFileSync(path.join(srcRoot, "..", "tsconfig.main.json"), "utf8")) as { exclude: string[] };
+    expect(config.exclude).toEqual(expect.arrayContaining(["src/**/*.test.ts", "src/**/*.acceptance.ts", "src/**/*.test-support.ts"]));
+  });
+});
+
 describe("process boundary", () => {
   it.each(["renderer", "preload"])("%s production code imports neither src/main nor test-only files", (processDir) => {
     expect(mainImports(processDir)).toEqual([]);
