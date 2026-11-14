@@ -1,4 +1,5 @@
 import { fireflyEnvironment } from "../../../shared/firefly-environment";
+import { logger, LogTag } from "../../../shared/logger";
 
 export function debugLogsEnabled(): boolean {
   const flag = fireflyEnvironment(process.env, "FIREFLY_DEBUG_LOGS");
@@ -7,7 +8,7 @@ export function debugLogsEnabled(): boolean {
 
 export function debugLog(...args: unknown[]): void {
   if (!debugLogsEnabled()) return;
-  console.log(...args);
+  logger.info(LogTag.Runtime, ...args);
 }
 
 export function debugWarn(...args: unknown[]): void {
@@ -16,7 +17,7 @@ export function debugWarn(...args: unknown[]): void {
 }
 
 export function flowLog(message: string): void {
-  console.log("[AgentFlow] " + message);
+  logger.info(LogTag.Runtime, message);
 }
 
 export function summarizeArgumentKeys(args: Record<string, unknown>): string {
