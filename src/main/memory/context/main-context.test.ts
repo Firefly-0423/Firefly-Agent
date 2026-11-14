@@ -35,12 +35,12 @@ it("related never-extracted and untracked assistant sources cannot reenter after
 it("editing historical locator cannot reset its first event generation",async()=>{
  const f=await contextFixture(),a=await f.active(),old=await f.source("I prefer bash");await f.forget(a.factId!);await f.registry.prepareChange(f.access,f.provider.adapter,old.ref);f.provider.write(old.id,{text:"我默认用 Bash",role:"user",trust:"direct-user-event"});const ref=await f.registry.reconcile(f.access,f.provider.adapter,old.id);expect((await f.assemble([ref])).request.body.messages).toEqual([]);
 });
-it.each(["pending","edited","deleted","recreated"])("%s source invalidates prepared dispatch",async kind=>{
+it.each([["pending","MEMORY_SOURCE_PENDING"],["edited","MEMORY_SOURCE_STALE"],["deleted","MEMORY_SOURCE_DELETED"],["recreated","MEMORY_SOURCE_STALE"]])("%s source invalidates prepared dispatch with %s",async(kind,code)=>{
  const f=await contextFixture(),s=await f.source("I prefer English"),snapshot=await f.assemble([s.ref]),permit=await f.context.validateForDispatch(f.actor,snapshot);
  await f.registry.prepareChange(f.access,f.provider.adapter,s.ref);
  if(kind==="edited"){f.provider.write(s.id,{text:"I prefer Chinese",role:"user",trust:"direct-user-event"});await f.registry.reconcile(f.access,f.provider.adapter,s.id)}
- if(kind==="deleted"||kind==="recreated"){f.provider.remove(s.id);await expect(f.registry.reconcile(f.access,f.provider.adapter,s.id)).rejects.toThrow();if(kind==="recreated"){f.provider.write(s.id,{text:"I prefer English",role:"user",trust:"direct-user-event"});await f.registry.capture(f.access,f.provider.adapter,s.id)}}
- let sent=0;await expect(f.context.dispatch(f.actor,permit,()=>{sent++;return "bad"})).rejects.toThrow();expect(sent).toBe(0);
+ if(kind==="deleted"||kind==="recreated"){f.provider.remove(s.id);await expect(f.registry.reconcile(f.access,f.provider.adapter,s.id)).rejects.toThrow("MEMORY_SOURCE_DELETED");if(kind==="recreated"){f.provider.write(s.id,{text:"I prefer English",role:"user",trust:"direct-user-event"});await f.registry.capture(f.access,f.provider.adapter,s.id)}}
+ let sent=0;await expect(f.context.dispatch(f.actor,permit,()=>{sent++;return "bad"})).rejects.toThrow(code);expect(sent).toBe(0);
 });
 it("source edit during asynchronous token count prevents snapshot commit",async()=>{
  const f=await contextFixture(),s=await f.source("I prefer English");let release!:()=>void,started!:()=>void;const gate=new Promise<void>(r=>release=r),ready=new Promise<void>(r=>started=r);f.setCountHook(async()=>{started();await gate});const p=f.assemble([s.ref]);await ready;await f.registry.prepareChange(f.access,f.provider.adapter,s.ref);release();await expect(p).rejects.toThrow("MEMORY_SOURCE_PENDING");
@@ -143,7 +143,7 @@ it.each(["pending","edited","deleted","recreated"])("summary loses all availabil
  const f=await contextFixture(),text="I prefer English",a=await f.source(text),b=await f.source("SECOND INPUT ".repeat(100)),lease=await prepareSummary(f,[a.ref,b.ref]),receipt=await f.context.commitSummary(f.actor,lease,{segments:[segment(a.ref,text)]});
  await f.registry.prepareChange(f.access,f.provider.adapter,b.ref);
  if(kind==="edited"){f.provider.write(b.id,{text:"changed",role:"user",trust:"direct-user-event"});await f.registry.reconcile(f.access,f.provider.adapter,b.id)}
- if(kind==="deleted"||kind==="recreated"){f.provider.remove(b.id);await expect(f.registry.reconcile(f.access,f.provider.adapter,b.id)).rejects.toThrow();if(kind==="recreated"){f.provider.write(b.id,{text:"SECOND INPUT ".repeat(100),role:"user",trust:"direct-user-event"});await f.registry.capture(f.access,f.provider.adapter,b.id)}}
+ if(kind==="deleted"||kind==="recreated"){f.provider.remove(b.id);await expect(f.registry.reconcile(f.access,f.provider.adapter,b.id)).rejects.toThrow("MEMORY_SOURCE_DELETED");if(kind==="recreated"){f.provider.write(b.id,{text:"SECOND INPUT ".repeat(100),role:"user",trust:"direct-user-event"});await f.registry.capture(f.access,f.provider.adapter,b.id)}}
  expect((await withSummary(f,receipt.summaryId!)).request.body.messages).toEqual([]);
 });
 it("forget invalidates old summary permit while precise unrelated summary sources can rebuild",async()=>{
@@ -181,7 +181,7 @@ it("summary fault rolls back rows and receipt; exact retry and reopen replay one
  const f=await contextFixture(),text="I prefer English",a=await f.source(text),b=await f.source("other ".repeat(100)),lease=await prepareSummary(f,[a.ref,b.ref]),proposal={segments:[segment(a.ref,text)]};f.setFault(true);await expect(f.context.commitSummary(f.actor,lease,proposal)).rejects.toThrow("SUMMARY_INJECTED_FAULT");f.setFault(false);const receipt=await f.context.commitSummary(f.actor,lease,proposal);f.reopen();expect(await f.context.commitSummary(f.actor,lease,proposal)).toEqual(receipt);const {DatabaseSync}=await import("node:sqlite"),db=new DatabaseSync(f.databasePath,{readOnly:true});try{expect(db.prepare("SELECT count(*) n FROM context_records WHERE kind='summary'").get()?.n).toBe(1)}finally{db.close()}
 });
 it("completed receipt is diagnostic and cannot make deleted source summary available",async()=>{
- const f=await contextFixture(),text="I prefer English",a=await f.source(text),b=await f.source("other ".repeat(100)),lease=await prepareSummary(f,[a.ref,b.ref]),proposal={segments:[segment(a.ref,text)]},receipt=await f.context.commitSummary(f.actor,lease,proposal);await f.registry.prepareChange(f.access,f.provider.adapter,a.ref);f.provider.remove(a.id);await expect(f.registry.reconcile(f.access,f.provider.adapter,a.id)).rejects.toThrow();expect(await f.context.commitSummary(f.actor,lease,proposal)).toEqual(receipt);expect((await withSummary(f,receipt.summaryId!)).request.body.messages).toEqual([]);
+ const f=await contextFixture(),text="I prefer English",a=await f.source(text),b=await f.source("other ".repeat(100)),lease=await prepareSummary(f,[a.ref,b.ref]),proposal={segments:[segment(a.ref,text)]},receipt=await f.context.commitSummary(f.actor,lease,proposal);await f.registry.prepareChange(f.access,f.provider.adapter,a.ref);f.provider.remove(a.id);await expect(f.registry.reconcile(f.access,f.provider.adapter,a.id)).rejects.toThrow("MEMORY_SOURCE_DELETED");expect(await f.context.commitSummary(f.actor,lease,proposal)).toEqual(receipt);expect((await withSummary(f,receipt.summaryId!)).request.body.messages).toEqual([]);
 });
 it("no-benefit summary consumes lease without adding summary or M",async()=>{
  const f=await contextFixture(),text="I prefer English",a=await f.source(text),lease=await prepareSummary(f,[a.ref]),receipt=await f.context.commitSummary(f.actor,lease,{segments:[segment(a.ref,text)]});expect(receipt).toEqual({status:"no-benefit",summaryId:null});expect(await f.policy.recall(f.actor)).toEqual([]);
@@ -262,7 +262,7 @@ it("response validation requires claimed dispatch and never restores a one-use p
  await f.context.dispatch(f.actor,permit,send);await f.context.validateResponse(f.actor,snapshot);
  await expect(f.context.dispatch(f.actor,permit,send)).rejects.toThrow("MEMORY_CONTEXT_PERMIT_USED");expect(send).toHaveBeenCalledTimes(1);
  await f.registry.prepareChange(f.access,f.provider.adapter,source.ref);
- await expect(f.context.validateResponse(f.actor,snapshot)).rejects.toThrow();
+ await expect(f.context.validateResponse(f.actor,snapshot)).rejects.toThrow("MEMORY_SOURCE_PENDING");
 });
 it("run-scoped source authorization rejects cross-session M support before source I/O",async()=>{
  const f=await contextFixture(),active=await f.active(),{createMainContext}=await import("./main-context");
