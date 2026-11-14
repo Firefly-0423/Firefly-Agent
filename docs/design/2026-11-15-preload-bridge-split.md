@@ -1,6 +1,6 @@
 # `src/preload/index.ts` 拆分设计文档
 
-- 状态：设计待负责人确认
+- 状态：设计已由负责人确认（2026-11-15）
 - 日期：2026-11-15
 - 依据提交：`a96f254`
 - 负责人：`hotaru`
@@ -247,3 +247,9 @@
 1. **聊天与 Agent 主流程（`chat`、`agui`、`chatStore`、`choice`、`fireflyAppearance`）**：新建/切换/重命名会话并持久化，拖拽文件进输入框成功触发 `ingestDroppedFiles`，发送对话收到流式事件与工具审批/PopQuiz 卡片、提交选择正常，截图插入正常，修改字号/排版实时同步无报错，切换工作区与 Code 模式查看 Git 状态/提交正常。
 2. **桌宠、Live2D、侧栏与提醒窗（`firefly`、`live2dWork`、`sidebar`、`toast`、`appUpdate`）**：桌宠窗口拖动/穿透/缩放联动正常且任务执行时切换工作中状态，侧栏置顶/打开设置页指定分类正常，系统通知弹窗点击与关闭正常。
 3. **设置中心与扩展窗口（`settings`、`plugins`、`fireflyScheduler`、`stickerManager`、`manualBrowser*`、`memoryPanel`、`music`）**：打开设置页全部板块读写与保存生效、外部技能浏览与安装正常、微信扫码/渠道日志推送实时刷新、贴纸管理器独立小窗开关贴纸生效、受控浏览器多标签页打开与权限撤回隔离生效、记忆导入与审计正常、QQ 音乐状态控制正常。
+
+## 负责人决定（hotaru，2026-11-15）
+
+1. 新拆出的模块统一写成 `create*Api(ipcRenderer)` 工厂函数，由 `index.ts` 集中调用 `contextBridge.exposeInMainWorld`；`music.ts` 保持自暴露，因为现有测试直接 mock 它。
+2. 不做通用的事件监听封装，各模块保留字面写法 `ipcRenderer.<op>(IPC.<KEY>)`，契约扫描器才能认出通道。
+3. `off` / `removeListener` 统一成一种写法，在拆分之前先单独做一个修复 PR。拆分时按统一后的写法搬移。
