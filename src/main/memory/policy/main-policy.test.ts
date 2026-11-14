@@ -193,7 +193,7 @@ it("stale reconciliation cannot reopen forgotten support state",async()=>{
  f.setHook(async c=>{if(c.kind==="reconcileSupports"){started();await gate}});const late=f.policy.reconcileSupports(f.actor);await ready;await f.policy.act(f.actor,await f.event("forget",{factId:a.result.factId,revision:1}));release();await expect(late).rejects.toThrow("MEMORY_POLICY_SUPPRESSED");expect(await f.policy.recall(f.actor)).toEqual([]);
 });
 it("deleted/recreated same locator never validates old support and audit is scoped",async()=>{
- const f=fixture(),a=await f.input("I prefer bash");await f.registry.prepareChange(f.access,f.provider.adapter,a.s.ref);f.provider.remove(a.s.id);await expect(f.registry.reconcile(f.access,f.provider.adapter,a.s.id)).rejects.toThrow();f.provider.write(a.s.id,{text:"I prefer bash",role:"user",trust:"direct-user-event"});await f.registry.capture(f.access,f.provider.adapter,a.s.id);
+ const f=fixture(),a=await f.input("I prefer bash");await f.registry.prepareChange(f.access,f.provider.adapter,a.s.ref);f.provider.remove(a.s.id);await expect(f.registry.reconcile(f.access,f.provider.adapter,a.s.id)).rejects.toThrow("MEMORY_SOURCE_DELETED");f.provider.write(a.s.id,{text:"I prefer bash",role:"user",trust:"direct-user-event"});await f.registry.capture(f.access,f.provider.adapter,a.s.id);
  expect(await f.policy.recall(f.actor)).toEqual([]);await expect(f.policy.audit({},a.result.factId!)).rejects.toThrow("MEMORY_ACTOR_DENIED");expect((await f.policy.audit(f.actor,a.result.factId!)).supports[0].validity).toBe("stale");
 });
 it("confirmation edited after Main event issuance fails commit atomically",async()=>{

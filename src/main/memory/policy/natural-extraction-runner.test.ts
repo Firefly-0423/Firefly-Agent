@@ -90,9 +90,13 @@ it.each([{ requestBytes: 16385, outputTokens: 800 }, { requestBytes: 1000, outpu
   expect(m.send).not.toHaveBeenCalled(); expect(f.repo.readRows("jobs", "scope-a")).toEqual([]); await r.close();
 });
 
-it.each(["temporary", "project", "profile"])("denies %s before persistent queue/send", async kind => {
+it.each([
+  ["temporary", "MEMORY_POLICY_TEMPORARY_UNSUPPORTED"],
+  ["project", "MEMORY_POLICY_NATURAL_SCOPE_DENIED"],
+  ["profile", "MEMORY_RUN_PROFILE_CHANGED"],
+])("denies %s before persistent queue/send", async (kind, expectedCode) => {
   const f = fixture(), s = await f.source(text), actor = kind === "temporary" ? f.actorAuthority.bindActor(f.access, f.adapter, f.identity, { sessionMode: "temporary" }) : kind === "project" ? f.actorAuthority.bindActor(f.access, f.adapter, f.identity, { project: () => projectKeyForWorkspaceRoot("E:/synthetic-project") }) : f.actor;
-  const m = model({ failed: kind === "profile" }), r = runner(f); await expect(r.run(actor, s.ref, m.value)).rejects.toThrow(); expect(m.send).not.toHaveBeenCalled(); expect(f.repo.readRows("jobs", "scope-a")).toEqual([]); await r.close();
+  const m = model({ failed: kind === "profile" }), r = runner(f); await expect(r.run(actor, s.ref, m.value)).rejects.toThrow(expectedCode); expect(m.send).not.toHaveBeenCalled(); expect(f.repo.readRows("jobs", "scope-a")).toEqual([]); await r.close();
 });
 
 it("source mutation during fake send blocks late output and close drains its real pending call", async () => {

@@ -53,15 +53,23 @@ it("reads default-off controls without creating a job, then changes consent only
   expect(f.op("state", {}, randomUUID(), "actor-b").config).toEqual({ revision: 0, language: false, responseStyle: false });
 });
 
-it.each([{ role: "assistant" }, { trust: "history" }, { occurredAt: 1700000000001 }])("rejects non-authoritative or future source before persistent extraction: %j", async patch => {
+it.each([
+  [{ role: "assistant" }, "MEMORY_USER_SOURCE_DENIED"],
+  [{ trust: "history" }, "MEMORY_USER_SOURCE_DENIED"],
+  [{ occurredAt: 1700000000001 }, "MEMORY_POLICY_FUTURE"],
+])("rejects non-authoritative or future source before persistent extraction: %j", async (patch, expectedCode) => {
   const f = fixture(), s = await f.source(text, "session-a", patch as Partial<SourceSnapshot>);
-  expect(() => f.op("enqueue", { sourceRef: s.ref, sourceText: text, profile })).toThrow(); expect(f.repo.readRows("jobs", "scope-a")).toEqual([]);
+  expect(() => f.op("enqueue", { sourceRef: s.ref, sourceText: text, profile })).toThrow(expectedCode); expect(f.repo.readRows("jobs", "scope-a")).toEqual([]);
 });
 
 it("rejects forged source text, unbound refs, extra authorization fields and oversized source before enqueue", async () => {
   const f = fixture(), s = await f.source(text);
-  for (const body of [{ sourceRef: s.ref, sourceText: text + " forged", profile }, { sourceRef: { sourceId: s.ref.sourceId, revision: s.ref.revision }, sourceText: text, profile }, { sourceRef: s.ref, sourceText: text, profile, autoAdd: true }]) expect(() => f.op("enqueue", body)).toThrow();
-  const long = await f.source("x".repeat(4001)); expect(() => f.op("enqueue", { sourceRef: long.ref, sourceText: long.text, profile })).toThrow(); expect(f.repo.readRows("jobs", "scope-a")).toEqual([]);
+  for (const [body, expectedCode] of [
+    [{ sourceRef: s.ref, sourceText: text + " forged", profile }, "MEMORY_SOURCE_STALE"],
+    [{ sourceRef: { sourceId: s.ref.sourceId, revision: s.ref.revision }, sourceText: text, profile }, "MEMORY_SOURCE_INVALID"],
+    [{ sourceRef: s.ref, sourceText: text, profile, autoAdd: true }, "MEMORY_INPUT_INVALID"],
+  ] as const) expect(() => f.op("enqueue", body)).toThrow(expectedCode);
+  const long = await f.source("x".repeat(4001)); expect(() => f.op("enqueue", { sourceRef: long.ref, sourceText: long.text, profile })).toThrow("MEMORY_INPUT_INVALID"); expect(f.repo.readRows("jobs", "scope-a")).toEqual([]);
 });
 
 it("captures one source/consent/profile binding, saves only normalized fields, applies locally once and denies the legacy lease API", async () => {
@@ -105,7 +113,7 @@ it.each(["timeout", "network", "cancelled"])("keeps ambiguous %s result unknown 
 });
 
 it.each([{ requestBytes: 16385, outputTokens: 800 }, { requestBytes: 1000, outputTokens: 801 }, { requestBytes: 0, outputTokens: 800 }, { requestBytes: 1, outputTokens: NaN }])("rejects unproved request bounds before reserving: %j", async limits => {
-  const f = fixture(), q = await queued(f); expect(() => dispatch(f, q, limits)).toThrow(); expect(f.op("state").budget.requests).toBe(0); expect(f.op("get", { jobId: q.job.id }).phase).toBe("unsent");
+  const f = fixture(), q = await queued(f); expect(() => dispatch(f, q, limits)).toThrow("MEMORY_INPUT_INVALID"); expect(f.op("state").budget.requests).toBe(0); expect(f.op("get", { jobId: q.job.id }).phase).toBe("unsent");
 });
 
 it("enforces20 daily requests, UTC reset, budget reservation and clock rollback without refund", async () => {
@@ -131,7 +139,7 @@ it("enforces backlog100 and total1000, then prunes after7days without allowing e
 it("save/apply faults roll back the journal and Core candidate atomically; bad ciphertext never becomes a default", async () => {
   const f = fixture(), q = await queued(f), d = dispatch(f, q); f.fault("before-receipt"); expect(() => save(f, q, d.token)).toThrow("SYNTHETIC_FAULT"); f.fault(); expect(f.op("get", { jobId: q.job.id }).phase).toBe("result-unknown"); save(f, q, d.token);
   f.fault("after-record"); expect(() => f.op("apply", { jobId: q.job.id, profile, sourceText: q.text })).toThrow("SYNTHETIC_FAULT"); f.fault(); expect(f.op("get", { jobId: q.job.id }).phase).toBe("result-saved"); expect(f.repo.readRows("candidates", "scope-a")).toEqual([]);
-  f.db.prepare("UPDATE jobs SET payload=? WHERE id=?").run(Buffer.from("corrupt"), q.job.id); expect(() => f.op("get", { jobId: q.job.id })).toThrow(); expect(() => f.op("state")).toThrow();
+  f.db.prepare("UPDATE jobs SET payload=? WHERE id=?").run(Buffer.from("corrupt"), q.job.id); expect(() => f.op("get", { jobId: q.job.id })).toThrow("MEMORY_DATA_INVALID"); expect(() => f.op("state")).toThrow("MEMORY_DATA_INVALID");
 });
 
 it("denies actor/profile/source changes, bad normalized saved spans and result size without reviving a job", async () => {
@@ -140,7 +148,7 @@ it("denies actor/profile/source changes, bad normalized saved spans and result s
   const other = await queued(f); expect(f.op("dispatch", { jobId: other.job.id, profile: { id: "synthetic", revision: 2 }, token: randomUUID(), limits: { requestBytes: 1000, outputTokens: 800 } })).toMatchObject({ phase: "blocked", reason: "profile-changed" });
   const bad = await queued(f), b = dispatch(f, bad); save(f, bad, b.token); const row = f.repo.readRows("jobs", "scope-a").find(r => r.id === bad.job.id)!, payload = row.payload as any;
   payload.result[0].span.end = bad.text.length + 1; f.db.prepare("UPDATE jobs SET payload=? WHERE id=?").run(new RecordCodec(f.key).seal("jobs", "scope-a", bad.job.id, payload), bad.job.id);
-  expect(() => f.op("apply", { jobId: bad.job.id, profile, sourceText: bad.text })).toThrow(); expect(f.repo.readRows("candidates", "scope-a")).toEqual([]);
+  expect(() => f.op("apply", { jobId: bad.job.id, profile, sourceText: bad.text })).toThrow("MEMORY_DATA_INVALID"); expect(f.repo.readRows("candidates", "scope-a")).toEqual([]);
 });
 
 it.each(["save", "apply"])("blocks source edits before %s and retains no normalized result or candidate", async step => {

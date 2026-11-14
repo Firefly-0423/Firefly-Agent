@@ -49,10 +49,10 @@ it("natural statement is confirmed, reopened, selected into another session, cor
  const corrected=await f.source("请叫我小林");
  await f.policy.act(f.actor,await f.policy.event(f.actor,{kind:"correct",nonce:randomUUID(),factId:active.factId,revision:1,sourceRef:corrected.ref}));
  const updated=await select(f);expect(updated.snapshot.request.body.facts).toEqual(["用户称呼：小林"]);expect(updated.refs[0].revision).toBe(2);
- await expect(f.context.validateForDispatch(recalled.actor,recalled.snapshot)).rejects.toThrow();
+ await expect(f.context.validateForDispatch(recalled.actor,recalled.snapshot)).rejects.toThrow("MEMORY_CONTEXT_FACT_STALE");
  await f.policy.act(f.actor,await f.policy.event(f.actor,{kind:"forget",nonce:randomUUID(),factId:active.factId,revision:2}));
  expect((await select(f)).snapshot.request.body.facts).toEqual([]);
- await expect(f.context.assemble(updated.actor,{sessionId:"session-b",sourceRefs:[updated.q.ref],factRefs:[{factId:active.factId!,revision:2}]})).rejects.toThrow();
+ await expect(f.context.assemble(updated.actor,{sessionId:"session-b",sourceRefs:[updated.q.ref],factRefs:[{factId:active.factId!,revision:2}]})).rejects.toThrow("MEMORY_CONTEXT_FACT_STALE");
  const replay=await f.registry.capture(f.access,f.adapter,s.id);
  expect((await extract(f,replay,model(response(text)))).items.every(i=>i.status==="suppressed")).toBe(true);
 });
@@ -193,7 +193,7 @@ it("natural preference correction is synchronous, keeps negation and rejects the
  await f.policy.act(f.actor,await f.policy.event(f.actor,{kind:"correct",nonce:randomUUID(),factId:a.factId,revision:1,sourceRef:change.ref}));
  const updated=await select(f,"session-b","我喜欢什么主题");expect(updated.snapshot.request.body.facts).toEqual(["用户喜好（否定）：深色主题"]);
  expect((await f.policy.recall(f.actor))[0].typed).toMatchObject({polarity:"negative",value:"深色主题"});
- await expect(f.context.validateForDispatch(old.actor,old.snapshot)).rejects.toThrow();
+ await expect(f.context.validateForDispatch(old.actor,old.snapshot)).rejects.toThrow("MEMORY_CONTEXT_FACT_STALE");
  await expect(f.policy.act(f.actor,await f.policy.event(f.actor,{kind:"forget",nonce:randomUUID(),factId:a.factId,revision:1}))).rejects.toThrow("MEMORY_REVISION_CONFLICT");
  await f.policy.act(f.actor,await f.policy.event(f.actor,{kind:"forget",nonce:randomUUID(),factId:a.factId,revision:2}));expect((await select(f,"session-b","我喜欢什么主题")).refs).toEqual([]);
 });
@@ -227,7 +227,7 @@ it.each([
  expect(current.refs).toMatchObject([{factId:a.factId,revision:2}]);
  expect(current.snapshot.request.body.facts.join(" ")).toContain(expected);
  expect(current.snapshot.request.body.facts.join(" ").toLowerCase()).not.toContain(initial.toLowerCase());
- await expect(f.context.validateForDispatch(old.actor,old.snapshot)).rejects.toThrow();
+ await expect(f.context.validateForDispatch(old.actor,old.snapshot)).rejects.toThrow("MEMORY_CONTEXT_FACT_STALE");
  const lateSource=await f.source(`I use ${initial}`),late=await f.policy.event(f.actor,{kind:"correct",nonce:randomUUID(),factId:a.factId,revision:2,sourceRef:lateSource.ref});
  await f.policy.act(f.actor,await f.policy.event(f.actor,{kind:"forget",nonce:randomUUID(),factId:a.factId,revision:2}));
  await expect(f.policy.act(f.actor,late)).rejects.toThrow("MEMORY_POLICY_SUPPRESSED");
@@ -296,15 +296,15 @@ it("current conflict and a deleted candidate source are rechecked at confirmatio
 
 it("source mutation while a fake model runs prevents candidate writes",async()=>{
  const f=fixture(),text="我平时用 Vim",s=await f.source(text);
- await expect(extract(f,s.ref,model(response(text,{attribute:"tool",value:"Vim"}),async()=>{await f.registry.prepareChange(f.access,f.adapter,s.ref)}))).rejects.toThrow();
+ await expect(extract(f,s.ref,model(response(text,{attribute:"tool",value:"Vim"}),async()=>{await f.registry.prepareChange(f.access,f.adapter,s.ref)}))).rejects.toThrow("MEMORY_SOURCE_PENDING");
  expect(f.repo.readRows("evidence","scope-a")).toEqual([]);expect(f.repo.readRows("candidates","scope-a")).toEqual([]);
 });
 
 it("a stale nominated revision and late correction cannot revive a forgotten fact",async()=>{
  const f=fixture(),text="我喜欢深色主题",s=await f.source(text),c=(await extract(f,s.ref,model(response(text,{attribute:"preference",value:"深色主题"})))).items[0],a=await confirm(f,c.candidateId!,1);
- const change=await f.source("我喜欢浅色主题"),event=await f.policy.event(f.actor,{kind:"correct",nonce:randomUUID(),factId:a.factId,revision:1,sourceRef:change.ref}),old=await select(f,"session-b","我喜欢什么主题");
+ const change=await f.source("我是喜欢浅色主题"),event=await f.policy.event(f.actor,{kind:"correct",nonce:randomUUID(),factId:a.factId,revision:1,sourceRef:change.ref}),old=await select(f,"session-b","我喜欢什么主题");
  await f.policy.act(f.actor,await f.policy.event(f.actor,{kind:"forget",nonce:randomUUID(),factId:a.factId,revision:1}));
- await expect(f.policy.act(f.actor,event)).rejects.toThrow("MEMORY_POLICY_SUPPRESSED");await expect(f.context.validateForDispatch(old.actor,old.snapshot)).rejects.toThrow();
+ await expect(f.policy.act(f.actor,event)).rejects.toThrow("MEMORY_POLICY_SUPPRESSED");await expect(f.context.validateForDispatch(old.actor,old.snapshot)).rejects.toThrow("MEMORY_CONTEXT_STALE");
  expect((await select(f,"session-b","我喜欢什么主题")).refs).toEqual([]);
 });
 
