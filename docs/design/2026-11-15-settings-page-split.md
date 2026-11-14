@@ -1,6 +1,6 @@
 # `settings.ts` 拆分设计文档
 
-- 状态：设计待负责人确认
+- 状态：设计已由负责人确认（2026-11-15）
 - 日期：2026-11-15
 - 依据提交：`a96f254`
 - 负责人：`hotaru`
@@ -234,3 +234,15 @@
 1. **壳层与导航（PR 2）**：最小化/关闭窗口按钮生效；点击全部左侧导航及使用上下箭头、`Home`/`End` 键切换分类，右侧内容区滚顶且标题与提示文案匹配；搜索设置项能跳转并高亮目标行；点击 QQ 音乐入口正确进入 `music` 面板，切出后停止轮询；测试 Scheduler 定时任务按钮与 Memory 导入文档删除弹窗确认/取消。
 2. **外观与通用（PR 3）**：中英文语言切换立即生效且刷新状态；打开/关闭桌面提示音与开机自启；调整字号、行高、段距滑块、配色控件、选择/导入/重置字体、切换主题与图标，重启设置页后全部保持还原；切换 `proactiveDelivery` 在渠道停用时禁用对应按钮；保存 Firefly 贴纸参数与向量维度后持久化。
 3. **API 与超时（PR 4）**：新增、编辑、复制保护（修改后切 tab / 点关闭触发丢弃确认）、删除模型档案；点击“获取模型列表”可搜可选并自动同步输入模态；点击“测试连接”可正确带上超时校验并展示结果；打开 Work-Flow 适配指南弹窗可查看与关闭；重启设置窗口默认回显当前激活档案。
+
+## 负责人决定（hotaru，2026-11-15）
+
+1. 新拆出的面板统一导出 `init*()` / `hydrate*()`，由入口按顺序调用；已经拆出去的面板保持不动。
+2. Firefly 面板放在 `preferences/firefly-panel.ts`，和现有的 `preferences/dom.ts`、`preferences/sticker-send-status.ts` 放在一起。
+3. API 部分按本文第 3 节拆成 4 个文件：`api/endpoint-view.ts`、`api/fetch-models-controller.ts`、`api/profile-draft.ts`、`api/panel.ts`。
+4. 顺带发现的小问题，等拆分完成后单独提一个修复 PR，不混进搬移提交：
+   - `NAV_LABELS` 只在模块加载时求值一次，切换语言后导航标题不刷新；
+   - `MIMO_ICON_URL` 没有引用；
+   - `fetchModelsBtn` 里直接用了全局标识符 `settings.fetchModels`。
+
+   因此 C12 搬移时保留原写法 `settings.fetchModels`，改成 `window.settings!.fetchModels` 留到这个修复 PR；C3 也不删除 `MIMO_ICON_URL`，删除放进同一个修复 PR。
