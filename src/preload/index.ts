@@ -7,10 +7,8 @@ import type { MemoryPanelAction, MemoryPanelOutcome, MemoryPanelSourceAudit, Mem
 import type { MemoryAutomationPanelApi } from "../shared/memory-automation-contracts";
 import type { UiFont } from "../shared/ui-font";
 import type { BrowserAvailabilityApi } from "../shared/browser-availability";
-import type { ModelConnectionSnapshot } from "../shared/model-connection-types";
 import type { QqListenAuthRequirement } from "../shared/qq-listen";
 import type { ApprovalRequest, ApprovalSettledPayload } from "../shared/permission-approval";
-import type { PluginPanelApi } from "../shared/plugin-management";
 import type { ReasoningPreference } from "../shared/reasoning";
 import type { AguiRunAck } from "../shared/run-terminal";
 import type { ReviewSnapshot, ReviewRestoreOutcome } from "../shared/review-types";
@@ -20,12 +18,14 @@ import type { ConversationMode } from "../shared/chat-types";
 import { createFireflyAppearanceApi, createFireflyFontApi, createFireflyThemeApi, createStickerManagerApi } from "./appearance";
 import { createChatApi, createChoiceApi, createDesktopAsrApi } from "./chat-media";
 import { createLive2dWorkApi } from "./live2d-work-api";
+import { createModelConfigApi, createTokenUsageApi } from "./model-config";
 import { exposeMusicApi } from "./music";
 import { createFireflyApi } from "./pet";
+import { createPluginPanelApi, createPluginsApi } from "./plugins";
+import { createSchedulerApi, createSchedulerEventsApi } from "./scheduler";
 import { createAppUpdateApi, createSidebarApi, createToastApi } from "./window-shell";
 const pageTargetKey = crypto.randomUUID();
 type ChatModeName = "chat" | "work" | "code";
-type PluginOverview = import("../shared/plugin-management").PluginOverview;
 contextBridge.exposeInMainWorld("desktopAsr", createDesktopAsrApi(ipcRenderer));
 contextBridge.exposeInMainWorld("firefly", createFireflyApi(ipcRenderer));
 contextBridge.exposeInMainWorld("appUpdate", createAppUpdateApi(ipcRenderer));
@@ -89,23 +89,7 @@ const aguiApi = {
     },
 };
 contextBridge.exposeInMainWorld("agui", aguiApi);
-const schedulerEventsApi = {
-    onEvent: (receive: (eventData: unknown) => void) => {
-        const forwardEvent = (_ipcEvent: unknown, eventData: unknown) => {
-            try {
-                receive(eventData);
-            }
-            catch (listenerFailure) {
-                console.error("[Preload] scheduler listener抛错:", listenerFailure);
-            }
-        };
-        ipcRenderer.on(IPC.SCHEDULER_EVENT, forwardEvent);
-        return () => {
-            return ipcRenderer.removeListener(IPC.SCHEDULER_EVENT, forwardEvent);
-        };
-    },
-};
-contextBridge.exposeInMainWorld("schedulerEvents", schedulerEventsApi);
+contextBridge.exposeInMainWorld("schedulerEvents", createSchedulerEventsApi(ipcRenderer));
 contextBridge.exposeInMainWorld("choice", createChoiceApi(ipcRenderer));
 contextBridge.exposeInMainWorld("sidebar", createSidebarApi(ipcRenderer));
 contextBridge.exposeInMainWorld("toast", createToastApi(ipcRenderer));
@@ -497,106 +481,11 @@ const settingsApi = {
     },
 };
 contextBridge.exposeInMainWorld("settings", settingsApi);
-const pluginsApi = {
-    onChanged: (receive: (overview: PluginOverview) => void) => {
-        const forwardEvent = (_ipcEvent: Electron.IpcRendererEvent, overview: PluginOverview) => {
-            return receive(overview);
-        };
-        ipcRenderer.on(IPC.PLUGINS_CHANGED, forwardEvent);
-        return () => {
-            return ipcRenderer.removeListener(IPC.PLUGINS_CHANGED, forwardEvent);
-        };
-    },
-    list: () => {
-        return ipcRenderer.invoke(IPC.PLUGINS_LIST);
-    },
-    setEnabled: (entityId: string, active: boolean) => {
-        return ipcRenderer.invoke(IPC.PLUGINS_SET_ENABLED, entityId, active);
-    },
-    open: (entityId: string) => {
-        return ipcRenderer.invoke(IPC.PLUGINS_OPEN, entityId);
-    },
-    rescan: () => {
-        return ipcRenderer.invoke(IPC.PLUGINS_RESCAN);
-    },
-    importZip: () => {
-        return ipcRenderer.invoke(IPC.PLUGINS_IMPORT_ZIP);
-    },
-    uninstall: (entityId: string) => {
-        return ipcRenderer.invoke(IPC.PLUGINS_UNINSTALL, entityId);
-    },
-    marketList: (preferred?: string) => {
-        return ipcRenderer.invoke(IPC.PLUGINS_MARKET_LIST, preferred);
-    },
-    marketInstall: (entityId: string) => {
-        return ipcRenderer.invoke(IPC.PLUGINS_MARKET_INSTALL, entityId);
-    },
-};
-contextBridge.exposeInMainWorld("plugins", pluginsApi);
-const pluginPanelApi: PluginPanelApi = {
-    invoke: (pluginId, channelName, values) => {
-        return ipcRenderer.invoke(IPC.PLUGINS_PANEL_INVOKE, pluginId, channelName, values);
-    },
-};
-contextBridge.exposeInMainWorld("pluginPanel", pluginPanelApi);
-const schedulerApi = {
-    list: () => {
-        return ipcRenderer.invoke(IPC.SCHEDULER_LIST);
-    },
-    add: (request: unknown) => {
-        return ipcRenderer.invoke(IPC.SCHEDULER_ADD, request);
-    },
-    update: (entityId: string, patch: unknown) => {
-        return ipcRenderer.invoke(IPC.SCHEDULER_UPDATE, entityId, patch);
-    },
-    delete: (entityId: string) => {
-        return ipcRenderer.invoke(IPC.SCHEDULER_DELETE, entityId);
-    },
-    toggle: (entityId: string, active: boolean) => {
-        return ipcRenderer.invoke(IPC.SCHEDULER_TOGGLE, entityId, active);
-    },
-    fireNow: (entityId: string) => {
-        return ipcRenderer.invoke(IPC.SCHEDULER_FIRE_NOW, entityId);
-    },
-    getHistory: (taskId: string, limit?: number) => {
-        return ipcRenderer.invoke(IPC.SCHEDULER_GET_HISTORY, taskId, limit);
-    },
-    getTools: () => {
-        return ipcRenderer.invoke(IPC.SCHEDULER_GET_TOOLS);
-    },
-};
-contextBridge.exposeInMainWorld("fireflyScheduler", schedulerApi);
+contextBridge.exposeInMainWorld("plugins", createPluginsApi(ipcRenderer));
+contextBridge.exposeInMainWorld("pluginPanel", createPluginPanelApi(ipcRenderer));
+contextBridge.exposeInMainWorld("fireflyScheduler", createSchedulerApi(ipcRenderer));
 contextBridge.exposeInMainWorld("stickerManager", createStickerManagerApi(ipcRenderer));
-const modelConfigApi = {
-    getConnectionSnapshot: (): Promise<ModelConnectionSnapshot> => {
-        return ipcRenderer.invoke(IPC.MODEL_CONNECTION_GET);
-    },
-    onConnectionChanged: (receive: (snapshot: ModelConnectionSnapshot) => void) => {
-        const forwardEvent = (_ipcEvent: Electron.IpcRendererEvent, snapshot: ModelConnectionSnapshot) => {
-            return receive(snapshot);
-        };
-        ipcRenderer.on(IPC.MODEL_CONNECTION_CHANGED, forwardEvent);
-        return () => {
-            return ipcRenderer.removeListener(IPC.MODEL_CONNECTION_CHANGED, forwardEvent);
-        };
-    },
-    get: () => {
-        return ipcRenderer.invoke(IPC.MODEL_CONFIG_GET);
-    },
-    getModelInstallStatus: () => {
-        return ipcRenderer.invoke(IPC.MODEL_GET_INSTALL_STATUS);
-    },
-    onChanged: (receive: (settings: unknown) => void) => {
-        const forwardEvent = (_ipcEvent: Electron.IpcRendererEvent, settings: unknown) => {
-            return receive(settings);
-        };
-        ipcRenderer.on(IPC.MODEL_CONFIG_CHANGED, forwardEvent);
-        return () => {
-            return ipcRenderer.removeListener(IPC.MODEL_CONFIG_CHANGED, forwardEvent);
-        };
-    },
-};
-contextBridge.exposeInMainWorld("modelConfig", modelConfigApi);
+contextBridge.exposeInMainWorld("modelConfig", createModelConfigApi(ipcRenderer));
 const withTab = (tabId: string | undefined) => {
     return (tabId === undefined ? {} : { tabId });
 };
@@ -966,19 +855,5 @@ const codeGitApi = {
     },
 };
 contextBridge.exposeInMainWorld("codeGit", codeGitApi);
-const tokenUsageApi = {
-    get: (days: number) => {
-        return ipcRenderer.invoke(IPC.TOKEN_USAGE_GET, days);
-    },
-    clear: () => {
-        return ipcRenderer.invoke(IPC.TOKEN_USAGE_CLEAR) as Promise<void>;
-    },
-    history: (days: number) => {
-        return ipcRenderer.invoke(IPC.TOKEN_USAGE_HISTORY, days);
-    },
-    sessionStats: (conversationKey: string) => {
-        return ipcRenderer.invoke(IPC.TOKEN_USAGE_SESSION_STATS, conversationKey);
-    },
-};
-contextBridge.exposeInMainWorld("tokenUsage", tokenUsageApi);
+contextBridge.exposeInMainWorld("tokenUsage", createTokenUsageApi(ipcRenderer));
 exposeMusicApi();
