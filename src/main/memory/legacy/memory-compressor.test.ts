@@ -232,13 +232,59 @@ describe("reflection updates", () => {
   it("swallows structured-output errors and still runs compression", async () => {
     mocks.invokeStructured.mockRejectedValue(new Error("model unavailable"));
     installGroup(groupOf(["a", "b", "c"]));
-    await expect(runMemoryCompression()).resolves.toBeUndefined();
-    expect(mocks.store.getAllL2).toHaveBeenCalled();
+    await runMemoryCompression();
+    expect(mocks.store.upsertL0Field).not.toHaveBeenCalled();
+    expect(mocks.store.replaceL1Field).not.toHaveBeenCalled();
+    expect(mocks.commit).toHaveBeenCalledWith(
+      {
+        sources: [
+          { id: "a", ragId: "rag-a", status: "active" },
+          { id: "b", ragId: "rag-b", status: "active" },
+          { id: "c", ragId: "rag-c", status: "active" },
+        ],
+        sourceConversationId: "conv-1",
+        triggerText: "触发 a",
+        content: "合并后的总结内容",
+      },
+      expect.any(Object),
+    );
+    expect(mocks.store.appendReflectionLog).toHaveBeenCalledWith({
+      type: "compression",
+      summary: "压缩 3 条记忆为一条总结",
+      details: expect.stringContaining("总结：合并后的总结内容"),
+    });
   });
 
-  it("swallows non-Error structured-output rejections", async () => {
-    mocks.invokeStructured.mockRejectedValue("plain failure");
-    await expect(runMemoryCompression()).resolves.toBeUndefined();
+  it("swallows non-Error structured-output rejections and still runs compression", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      mocks.invokeStructured.mockRejectedValue("plain failure");
+      installGroup(groupOf(["a", "b", "c"]));
+      await runMemoryCompression();
+      expect(warn).toHaveBeenCalledWith("[PMRS/Recap] 执行失败:", "plain failure");
+      expect(mocks.store.upsertL0Field).not.toHaveBeenCalled();
+      expect(mocks.store.replaceL1Field).not.toHaveBeenCalled();
+      expect(mocks.commit).toHaveBeenCalledWith(
+        {
+          sources: [
+            { id: "a", ragId: "rag-a", status: "active" },
+            { id: "b", ragId: "rag-b", status: "active" },
+            { id: "c", ragId: "rag-c", status: "active" },
+          ],
+          sourceConversationId: "conv-1",
+          triggerText: "触发 a",
+          content: "合并后的总结内容",
+        },
+        expect.any(Object),
+      );
+      expect(mocks.store.appendReflectionLog).toHaveBeenCalledWith({
+        type: "compression",
+        summary: "压缩 3 条记忆为一条总结",
+        details: expect.stringContaining("总结：合并后的总结内容"),
+      });
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
 
@@ -251,7 +297,10 @@ describe("fragment compression eligibility", () => {
       l2("d", { ragId: undefined }),
     ]);
     await runMemoryCompression();
-    expect(mocks.getEntriesBySource).not.toHaveBeenCalled();
+    expect(mocks.commit).not.toHaveBeenCalled();
+    expect(mocks.store.appendReflectionLog).not.toHaveBeenCalled();
+    expect(mocks.store.archiveL2Batch).not.toHaveBeenCalled();
+    expect(mocks.store.addL2Memory).not.toHaveBeenCalled();
     expect(mocks.invokeLlm).not.toHaveBeenCalled();
   });
 
@@ -265,6 +314,8 @@ describe("fragment compression eligibility", () => {
     mocks.cosineSimilarity.mockImplementation((left: number[], right: number[]) => left[0] === right[0] ? 0.9 : 0.1);
     await runMemoryCompression();
     expect(mocks.commit).not.toHaveBeenCalled();
+    expect(mocks.store.appendReflectionLog).not.toHaveBeenCalled();
+    expect(mocks.invokeLlm).not.toHaveBeenCalled();
   });
 
   it("ignores eligible memories that have no RAG entry", async () => {
@@ -272,14 +323,17 @@ describe("fragment compression eligibility", () => {
     mocks.getEntriesBySource.mockReturnValue([ragEntry("a", [1, 0]), ragEntry("b", [1, 0])]);
     await runMemoryCompression();
     expect(mocks.commit).not.toHaveBeenCalled();
+    expect(mocks.store.appendReflectionLog).not.toHaveBeenCalled();
+    expect(mocks.invokeLlm).not.toHaveBeenCalled();
   });
 
   it("does not compress when no entry reaches the similarity threshold", async () => {
     installGroup(groupOf(["a", "b", "c"]));
     mocks.cosineSimilarity.mockReturnValue(0.849);
     await runMemoryCompression();
-    expect(mocks.invokeLlm).not.toHaveBeenCalled();
     expect(mocks.commit).not.toHaveBeenCalled();
+    expect(mocks.store.appendReflectionLog).not.toHaveBeenCalled();
+    expect(mocks.invokeLlm).not.toHaveBeenCalled();
   });
 });
 
@@ -357,9 +411,30 @@ describe("fragment compression commit", () => {
   });
 
   it("swallows commit failures without recording a compression log", async () => {
-    installGroup(groupOf(["a", "b", "c"]));
-    mocks.commit.mockRejectedValue(new Error("transaction rolled back"));
-    await expect(runMemoryCompression()).resolves.toBeUndefined();
-    expect(mocks.store.appendReflectionLog).not.toHaveBeenCalled();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      installGroup(groupOf(["a", "b", "c"]));
+      mocks.commit.mockRejectedValue(new Error("transaction rolled back"));
+      await runMemoryCompression();
+      expect(mocks.commit).toHaveBeenCalledWith(
+        {
+          sources: [
+            { id: "a", ragId: "rag-a", status: "active" },
+            { id: "b", ragId: "rag-b", status: "active" },
+            { id: "c", ragId: "rag-c", status: "active" },
+          ],
+          sourceConversationId: "conv-1",
+          triggerText: "触发 a",
+          content: "合并后的总结内容",
+        },
+        expect.any(Object),
+      );
+      expect(warn).toHaveBeenCalledWith("[PMRS/Compressor] 组压缩失败:", expect.objectContaining({ message: "transaction rolled back" }));
+      expect(mocks.store.appendReflectionLog).not.toHaveBeenCalled();
+      expect(mocks.store.archiveL2Batch).not.toHaveBeenCalled();
+      expect(mocks.store.addL2Memory).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
