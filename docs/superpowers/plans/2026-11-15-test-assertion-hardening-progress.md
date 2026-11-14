@@ -77,7 +77,7 @@ T2 反向验证方式：对每个断言用到的产品错误码（37 个 `MEMORY
 | T2：`tsc -p tsconfig.main.json --noEmit`（该配置排除 `*.test.ts`，不检查测试文件类型） | 通过 | 2026-11-15 |
 | T2：`git grep -n "toThrow()" -- src/main/memory/context` | 只剩 `source-secret-mask.test.ts` 的 8 处 `.not.toThrow()`，已记入排除表 | 2026-11-15 |
 | T3 范围：`npx vitest run src/main/memory`，设置了 `FIREFLY_TEST_BASH` 和 `FIREFLY_HISTORY_PRESENCE_TEST_HELPER` | 143 个文件：142 通过、1 跳过；2679 项：2674 通过、5 跳过（非 Windows 平台用例）；10 个提交逐个单独检出复核，结果相同 | 2026-11-14 |
-| T3：`npm run test:memory-history-zero-write`（需要 `FF_HISTORY_TEST_ROOT`、`FF_HISTORY_HELPER`、`FF_HISTORY_RELEASE_HELPER`） | 12 项：11 通过、1 失败（`whole valid capture/query`）；T2 基点上结果相同，不是本次引入 | 2026-11-14 |
+| T3：`npm run test:memory-history-zero-write`（需要 `FF_HISTORY_TEST_ROOT`、`FF_HISTORY_HELPER`、`FF_HISTORY_RELEASE_HELPER`） | 12 项全部通过（修复夹具前 `whole valid capture/query` 失败，T2 基点上同样失败，见第 6 节） | 2026-11-14 |
 | T3：`git grep -n "toThrow()"` 8 个目标子目录 | 只剩排除表里的 `.not.toThrow()` 与 `storage-safety` 3 处 | 2026-11-14 |
 
 ## 6. 偏离计划
@@ -91,5 +91,5 @@ T2 反向验证方式：对每个断言用到的产品错误码（37 个 `MEMORY
 - T2：没做反向验证的项：`phase3-review-regressions.test.ts:18` 的 4001 字符断言（要改产品的长度处理，没找到单一可改的点）；`summaryCount()` 与 `denies()` 的“不变”断言（需要让产品在拒绝路径写入，改动过大）；`SUMMARY_INJECTED_FAULT`、`TypeError` 两处（来自测试替身 / 引擎）。`summaryCount()` 用首个用例提交后数量为 1 做了对照，`denies()` 断言了拒绝前记录非空。
 - T2：`response-history-union` 里 `MEMORY_CONTEXT_RESPONSE_PROGRESS_DENIED` 在探测输出里被截断，已用测试通过确认完整码。
 - T3：`native-history-zero-write.acceptance.ts` 只能用 `npm run test:memory-history-zero-write` 单独跑，不在 CI 里。
-- T3：零写入验收里 `whole valid capture/query` 一条在 T2 基点上就失败，本次没有处理，单独记下待查。
+- T3：零写入验收里 `whole valid capture/query` 一条在 T2 基点上就失败。原因是夹具过时：产品要求原生用户消息有已登记的来源，夹具直接写对话记录、没有登记，结果是 `coverage-insufficient`（`MEMORY_HISTORY_ORIGIN_UNPROVEN`）。已按 `native-history-provider.test.ts` 的 `bindUsers()` 写法在安装写入监视之前登记来源，12 项全部通过。
 - T3：不带原生辅助程序时，`native-history-presence-process.test.ts` 的 5 项会失败；设置 `FIREFLY_HISTORY_PRESENCE_TEST_HELPER` 指向构建好的 `firefly-history-presence.exe` 后通过。这是环境要求，与本次改动无关。
