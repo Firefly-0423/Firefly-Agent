@@ -15,7 +15,9 @@ function fixture(){const f=createSmhFixture(fs.mkdtempSync(path.join(os.tmpdir()
 const raw=(quote:string)=>JSON.stringify({facts:[{subject:'user',attribute:'language',value:'English',polarity:'positive',status:'asserted',quote,reason:'direct statement'}]});
 it('ordinary 4001-character user message still assembles',async()=>{
  const f=fixture(),q=await f.source('a'.repeat(4001),source);
- await expect(f.context.assemble(f.actor,{sessionId:'session-a',sourceRefs:[q.ref],currentUserSourceRef:q.ref,factRefs:[]})).resolves.toBeDefined();
+ const snapshot=await f.context.assemble(f.actor,{sessionId:'session-a',sourceRefs:[q.ref],currentUserSourceRef:q.ref,factRefs:[]});
+ expect(snapshot.request.body.messages).toEqual([{role:'user',text:'a'.repeat(4001)}]);
+ expect(snapshot.excluded).toEqual([]);
 });
 it('single-quoted historical question grants no temporal authority',()=>{
  expect(parseFactTimeQuery("'What language did I prefer yesterday?'",source)).toBeUndefined();
@@ -41,10 +43,10 @@ it.each(['before-query','after-query','after-permit'])('corrected temporal asser
  if(timing==='before-query')await applyCorrection();
  const h=await f.history.query(f.actor,{query:'English'});
  const q=await f.source('What language did I prefer on 2026-01-01?',source);
- if(timing==='after-query'){await applyCorrection();await expect(f.context.assemble(f.actor,{sessionId:'session-a',sourceRefs:[q.ref],currentUserSourceRef:q.ref,factRefs:[],historyTokens:[h.evidence]})).rejects.toThrow();return}
+ if(timing==='after-query'){await applyCorrection();await expect(f.context.assemble(f.actor,{sessionId:'session-a',sourceRefs:[q.ref],currentUserSourceRef:q.ref,factRefs:[],historyTokens:[h.evidence]})).rejects.toThrow("MEMORY_HISTORY_STALE");return}
  const snap=await f.context.assemble(f.actor,{sessionId:'session-a',sourceRefs:[q.ref],currentUserSourceRef:q.ref,factRefs:[],historyTokens:[h.evidence]});
  const permit=await f.context.validateForDispatch(f.actor,snap);let wire='';
- if(timing==='after-permit'){await applyCorrection();await expect(f.context.dispatch(f.actor,permit,()=>{throw Error('MUST_NOT_SEND')})).rejects.toThrow();return}
+ if(timing==='after-permit'){await applyCorrection();await expect(f.context.dispatch(f.actor,permit,()=>{throw Error('MUST_NOT_SEND')})).rejects.toThrow("MEMORY_HISTORY_STALE");return}
  await f.context.dispatch(f.actor,permit,request=>{wire=JSON.stringify(request.body);return 'fake'});
  expect(wire).not.toContain(text);
 });
