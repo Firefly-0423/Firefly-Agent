@@ -16,6 +16,7 @@ import type { CompressionTransactionDeps } from "./memory-compression-transactio
 import { invokeMemoryLlm, invokeMemoryStructuredOutput, getDefaultMaxOutputTokens } from "./memory-llm-client";
 import { parseMemoryReflectionResult, validateMemoryReflectionBusiness } from "./memory-schemas";
 import type { MemoryReflectionItem } from "./memory-schemas";
+import { logger, LogTag } from "../../base/logging/logger";
 
 const SIMILARITY_THRESHOLD = 0.85;
 const MIN_GROUP_SIZE = 3;
@@ -96,13 +97,13 @@ async function compressMemories(): Promise<number> {
   const candidates = all.filter((m) => m.status === "active" && !m.isSummary && m.ragId);
 
   if (candidates.length < MIN_GROUP_SIZE) {
-    console.log("[PMRS/Compressor] 活跃 L2 条目不足，跳过压缩");
+    logger.info(LogTag.Memory, "compressor: 活跃 L2 条目不足，跳过压缩");
     return 0;
   }
 
   const clusters = clusterBySimilarity(candidates);
   if (clusters.length === 0) {
-    console.log("[PMRS/Compressor] 无需压缩的组");
+    logger.info(LogTag.Memory, "compressor: 无需压缩的组");
     return 0;
   }
 
@@ -138,7 +139,7 @@ async function compressMemories(): Promise<number> {
       });
 
       compressed += cluster.length;
-      console.log(`[PMRS/Compressor] 压缩了 ${cluster.length} 条 → "${summary.slice(0, 40)}"`);
+      logger.info(LogTag.Memory, `compressor: 压缩了 ${cluster.length} 条 → 总结长度 ${summary.length}`);
     } catch (err) {
       console.warn("[PMRS/Compressor] 组压缩失败:", err);
     }
@@ -207,7 +208,7 @@ async function runReflection(): Promise<void> {
     const l1 = await memoryStore.getL1();
 
     if (l0.isPinned) {
-      console.log("[PMRS/Recap] L0 已锁定，跳过更新建议");
+      logger.info(LogTag.Memory, "recap: L0 已锁定，跳过更新建议");
     }
 
     const userPrompt = buildReflectionPrompt(describeProfile(l0, l1));
@@ -221,7 +222,7 @@ async function runReflection(): Promise<void> {
     });
 
     if (items.length === 0) {
-      console.log("[PMRS/Recap] 无 L0/L1 更新建议");
+      logger.info(LogTag.Memory, "recap: 无 L0/L1 更新建议");
       return;
     }
 
@@ -239,7 +240,7 @@ async function runReflection(): Promise<void> {
           summary: `L0.${item.field} 更新为 "${preview}"（置信度 ${item.confidence.toFixed(2)}）`,
         });
         applied++;
-        console.log(`[PMRS/Recap] L0.${item.field} 更新: "${preview}"`);
+        logger.info(LogTag.Memory, `recap: L0.${item.field} 更新，内容长度 ${item.content.length}`);
       } else if (item.layer === "L1") {
         const target = resolveL1Field(item.field, item.content);
         await memoryStore.replaceL1Field(target, item.content.trim());
@@ -248,11 +249,11 @@ async function runReflection(): Promise<void> {
           summary: `L1.${target} 更新为 "${preview}"（置信度 ${item.confidence.toFixed(2)}）`,
         });
         applied++;
-        console.log(`[PMRS/Recap] L1.${target} 更新: "${preview}"`);
+        logger.info(LogTag.Memory, `recap: L1.${target} 更新，内容长度 ${item.content.length}`);
       }
     }
 
-    console.log(`[PMRS/Recap] 完成，更新了 ${applied} 个字段`);
+    logger.info(LogTag.Memory, `recap: 完成，更新了 ${applied} 个字段`);
   } catch (err) {
     console.warn("[PMRS/Recap] 执行失败:", err);
   }
@@ -260,7 +261,7 @@ async function runReflection(): Promise<void> {
 
 /** 先回顾再压缩，由调度器在每 20 轮时调用 */
 export const runMemoryCompression = async (): Promise<void> => {
-  console.log("[PMRS/Compressor] 达到 20 轮，触发回顾 + 片段压缩");
+  logger.info(LogTag.Memory, "compressor: 达到 20 轮，触发回顾 + 片段压缩");
   await runReflection();
   await compressMemories();
 };
