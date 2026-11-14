@@ -43,7 +43,7 @@ it('same document locator in two authorized sessions cannot collide in candidate
 });
 it('pending/edit/delete/recreate source binding prevents stale index revival',async()=>{
  const f=fixture(),d=await document(f);put(f,d);const hit=query(f).hits[0],ref=d.sourceDeps[0].sourceRef;
- await f.registry.prepareChange(f.access,f.provider.adapter,ref);expect(query(f).hits).toEqual([]);expect(()=>f.command('validate',{dependencies:[hit.dependency]})).toThrow();
+ await f.registry.prepareChange(f.access,f.provider.adapter,ref);expect(query(f).hits).toEqual([]);expect(()=>f.command('validate',{dependencies:[hit.dependency]})).toThrow('MEMORY_SOURCE_PENDING');
  const id={providerId:ref.binding.providerId,sessionId:ref.binding.sessionId,messageId:ref.binding.messageId};f.provider.remove(id);await expect(f.registry.reconcile(f.access,f.provider.adapter,id)).rejects.toThrow('MEMORY_SOURCE_DELETED');f.provider.write(id,{text:d.messages[0].text,role:'user',trust:'direct-user-event'});await f.registry.capture(f.access,f.provider.adapter,id);expect(query(f).hits).toEqual([]);
 });
 it('forget invalidates immutable dependencies and old source/derived history',async()=>{
@@ -78,8 +78,9 @@ it('malformed/foreign dependencies and changed index settings cannot be claimed'
 });
 
 it('a fresh query is required after a ranking/tokenizer protocol version change',async()=>{
- const f=fixture();put(f,await document(f));const dep=query(f).hits[0].dependency;
- expect(()=>f.command('validate',{dependencies:[dep]})).not.toThrow();
+ const f=fixture(),d=await document(f);put(f,d);const dep=query(f).hits[0].dependency;
+ const validated=f.command('validate',{dependencies:[dep]});
+ expect(validated.documents).toMatchObject([{id:d.id,incarnation:d.incarnation,revision:1,digest:dep.digest,origin:d.origin,messages:d.messages}]);
  expect(()=>f.command('validate',{dependencies:[{...dep,rankingVersion:'history-ranking-v2'}]})).toThrow('MEMORY_HISTORY_STALE');
  expect(()=>f.command('validate',{dependencies:[{...dep,rankingVersion:'history-ranking-v1'}]})).toThrow('MEMORY_HISTORY_STALE');
  expect(()=>f.command('validate',{dependencies:[{...dep,tokenizerVersion:dep.tokenizerVersion.replace('-v2-','-v1-')}]})).toThrow('MEMORY_HISTORY_STALE');
@@ -88,8 +89,8 @@ it('a fresh query is required after a ranking/tokenizer protocol version change'
 it('Main unbound structure mode cannot authorize Worker put; current head binds the exact body',async()=>{
  const f=fixture(),{parseHistoryDocument}=await import('./history-repository'),{historyTranscriptDigest}=await import('./history-transcript-digest');
  const d={id:'native',incarnation:'native-inc',revision:1,origin:'canonical',sourceDeps:[],messages:[{id:'u',role:'user',text:'cat native',occurredAt:null,timeZone:null}],vector:null};
- expect(()=>parseHistoryDocument(d)).toThrow();expect(parseHistoryDocument(d,{allowUnboundTranscript:true})).toEqual(d);
- expect(()=>put(f,d)).toThrow();
+ expect(()=>parseHistoryDocument(d)).toThrow('MEMORY_HISTORY_INPUT_INVALID');expect(parseHistoryDocument(d,{allowUnboundTranscript:true})).toEqual(d);
+ expect(()=>put(f,d)).toThrow('MEMORY_HISTORY_INPUT_INVALID');expect(query(f).hits).toEqual([]);
  const context=(kind:string,body:any)=>f.transport.contextCommand({kind,scopeKey:'scope-a',commandId:randomUUID(),body:{...f.owner,...body}});
  await context('transcriptReserve',{headId:'head-native',operationId:'op-native',generation:0,expectedRef:null});
  const ref=await context('transcriptPublish',{headId:'head-native',operationId:'op-native',generation:0,incarnation:d.incarnation,contentRevision:1,throughSeq:1,digest:historyTranscriptDigest(d as any),sourceRefs:[]});
@@ -104,10 +105,10 @@ it('settings from before windowing and recency still work and mean both are off;
  const f=fixture(),d=await document(f);put(f,d);
  const {windowTurns,recencyAlpha,recencyHalfLifeDays,...legacy}=DEFAULT_HISTORY_SETTINGS;void windowTurns;void recencyAlpha;void recencyHalfLifeDays;
  const old=query(f,{settings:{...legacy,version:'history-settings-v1'}});expect(old.hits).toHaveLength(1);expect(old.hits[0].document.id).toBe(d.id);
- expect(()=>query(f,{settings:{...DEFAULT_HISTORY_SETTINGS,windowTurns:99}})).toThrow();
- expect(()=>query(f,{settings:{...DEFAULT_HISTORY_SETTINGS,windowTurns:1.5}})).toThrow();
- expect(()=>query(f,{settings:{...DEFAULT_HISTORY_SETTINGS,recencyAlpha:2}})).toThrow();
- expect(()=>query(f,{settings:{...DEFAULT_HISTORY_SETTINGS,recencyHalfLifeDays:0}})).toThrow();
+ expect(()=>query(f,{settings:{...DEFAULT_HISTORY_SETTINGS,windowTurns:99}})).toThrow('MEMORY_HISTORY_INPUT_INVALID');
+ expect(()=>query(f,{settings:{...DEFAULT_HISTORY_SETTINGS,windowTurns:1.5}})).toThrow('MEMORY_HISTORY_INPUT_INVALID');
+ expect(()=>query(f,{settings:{...DEFAULT_HISTORY_SETTINGS,recencyAlpha:2}})).toThrow('MEMORY_HISTORY_INPUT_INVALID');
+ expect(()=>query(f,{settings:{...DEFAULT_HISTORY_SETTINGS,recencyHalfLifeDays:0}})).toThrow('MEMORY_HISTORY_INPUT_INVALID');
 });
 it('the default settings window a long conversation and still return the whole document',async()=>{
  const f=fixture(),turn=(i:number,text:string)=>({id:'m'+i,role:i%2?'assistant':'user',text,occurredAt:null,timeZone:null});
@@ -203,7 +204,11 @@ it('a tool call and all of its results always travel together: a window that cut
  const f=fixture();put(f,toolDoc(300,5,4));const r=query(f,{query:NEEDLE_QUERY}),e=excerptOf(r),shown=r.hits[0].document.messages;
  expect(e.start).toBe(5);expect(e.end).toBeGreaterThanOrEqual(8);expect(shown.map((m:any)=>m.id)).toEqual(expect.arrayContaining(['m5','m6','m7']));
  for(const m of shown.filter((x:any)=>x.role==='tool'))expect(shown.some((c:any)=>c.toolCallIds?.includes(m.toolCallId))).toBe(true);
- expect(()=>f.command('validate',{dependencies:[r.hits[0].dependency]})).not.toThrow();
+ const validated=f.command('validate',{dependencies:[r.hits[0].dependency]});
+ expect(validated.documents).toHaveLength(1);
+ expect(validated.documents[0]).toMatchObject({id:'tools',digest:r.hits[0].dependency.digest});
+ expect(validated.documents[0].messages).toHaveLength(14);
+ expect(validated.documents[0].messages.slice(e.start,e.end)).toEqual(shown);
 });
 it('when the tool group the best window needs does not fit, nothing is returned for the document instead of an orphaned result',async()=>{
  const f=fixture();put(f,toolDoc(2900));const r=query(f,{query:NEEDLE_QUERY});
@@ -221,10 +226,18 @@ it('a dependency with an excerpt validates against the authoritative document an
  // an excerpt made for one document cannot be replayed on another document of identical shape
  const twin=deps.find((d:any)=>d.documentId==='twin');expect(twin).toBeDefined();expect(()=>f.command('validate',{dependencies:[{...twin,excerpt:dep.excerpt}]})).toThrow('MEMORY_HISTORY_STALE');
 });
-it('malformed excerpt references are rejected on parse, never coerced',async()=>{
+it.each([
+ ['null',()=>null,'MEMORY_INPUT_INVALID'],
+ ['string',()=>'x','MEMORY_INPUT_INVALID'],
+ ['array',()=>[],'MEMORY_INPUT_INVALID'],
+ ['extra field',(dep:any)=>({...dep.excerpt,extra:1}),'MEMORY_INPUT_INVALID'],
+ ['non-integer string start',(dep:any)=>({...dep.excerpt,start:'6'}),'MEMORY_HISTORY_INPUT_INVALID'],
+ ['fractional end',(dep:any)=>({...dep.excerpt,end:1.5}),'MEMORY_HISTORY_INPUT_INVALID'],
+ ['unknown version',(dep:any)=>({...dep.excerpt,version:'v0'}),'MEMORY_HISTORY_INPUT_INVALID'],
+ ['missing digest and version',()=>({start:6,end:12,total:20}),'MEMORY_INPUT_INVALID'],
+])('malformed excerpt references are rejected on parse, never coerced: %s',async(_label,makeExcerpt,expectedCode)=>{
  const f=fixture();put(f,imp('big',longMessages(20,9)));const dep=query(f,{query:NEEDLE_QUERY}).hits[0].dependency;
- for(const excerpt of [null,'x',[],{...dep.excerpt,extra:1},{...dep.excerpt,start:'6'},{...dep.excerpt,end:1.5},{...dep.excerpt,version:'v0'},{start:6,end:12,total:20}])
-  expect(()=>f.command('validate',{dependencies:[{...dep,excerpt}]})).toThrow();
+ expect(()=>f.command('validate',{dependencies:[{...dep,excerpt:makeExcerpt(dep)}]})).toThrow(expectedCode);
 });
 it('a deleted document produces no excerpt and its old excerpt dependency stops validating',async()=>{
  const f=fixture();put(f,imp('big',longMessages(20,9)));const dep=query(f,{query:NEEDLE_QUERY}).hits[0].dependency;
