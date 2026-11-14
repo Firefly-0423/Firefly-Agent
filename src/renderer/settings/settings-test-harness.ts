@@ -123,8 +123,8 @@ export async function mountSettingsPage(options: MountSettingsOptions = {}): Pro
   let currentGeneral = createDefaultGeneralSettings(options.general);
   let currentConfig = createDefaultModelSettings(options.config);
   let currentTimeouts: TimeoutSettings = { ...DEFAULT_TIMEOUT_SETTINGS, ...options.timeouts };
-  let channelsStatusListener: ((status: unknown) => void) | null = null;
-  let switchSectionListener: ((section: string) => void) | null = null;
+  const channelsStatusListeners = new Set<(status: unknown) => void>();
+  const switchSectionListeners = new Set<(section: string) => void>();
 
   const baseSettings: SettingsApi = {
     minimize: vi.fn(),
@@ -145,9 +145,9 @@ export async function mountSettingsPage(options: MountSettingsOptions = {}): Pro
       return { ...currentTimeouts };
     }),
     onSwitchSection: vi.fn((callback: (section: string) => void) => {
-      switchSectionListener = callback;
+      switchSectionListeners.add(callback);
       return () => {
-        if (switchSectionListener === callback) switchSectionListener = null;
+        switchSectionListeners.delete(callback);
       };
     }),
     pickUiFont: vi.fn(async () => null),
@@ -190,9 +190,9 @@ export async function mountSettingsPage(options: MountSettingsOptions = {}): Pro
     channelsWechatLoginStart: vi.fn(async () => ({ ok: false })),
     channelsGetStatus: vi.fn(async () => ({})),
     onChannelsStatusChanged: vi.fn((callback: (status: unknown) => void) => {
-      channelsStatusListener = callback;
+      channelsStatusListeners.add(callback);
       return () => {
-        if (channelsStatusListener === callback) channelsStatusListener = null;
+        channelsStatusListeners.delete(callback);
       };
     }),
     ...options.settings,
@@ -239,10 +239,10 @@ export async function mountSettingsPage(options: MountSettingsOptions = {}): Pro
   return {
     settings: baseSettings,
     emitChannelsStatusChanged: (status: unknown) => {
-      channelsStatusListener?.(status);
+      for (const listener of channelsStatusListeners) listener(status);
     },
     emitSwitchSection: (section: string) => {
-      switchSectionListener?.(section);
+      for (const listener of switchSectionListeners) listener(section);
     },
   };
 }
