@@ -105,7 +105,7 @@ async function executePlanTrip(args: Record<string, unknown>): Promise<string> {
   const coordinates = await Promise.all([geocode(start, key), geocode(end, key)]);
   if (!coordinates[0]) return `[错误] 无法解析起点「${start}」的位置，请尝试更具体的名称`;
   if (!coordinates[1]) return `[错误] 无法解析终点「${end}」的位置，请尝试更具体的名称`;
-  console.log("[TravelTools]", `规划路线：「${start}」→「${end}」, 方式=${travelMode}`);
+  logger.info(LogTag.TravelTools, `规划路线: 起终点已解析, 方式=${travelMode}`);
   if (["驾车", "开车"].includes(travelMode)) return planDriving(coordinates[0], coordinates[1], key);
   if (["步行", "走路"].includes(travelMode)) return planWalking(coordinates[0], coordinates[1], key);
   if (["骑行", "骑车", "自行车"].includes(travelMode)) return planCycling(coordinates[0], coordinates[1], key);

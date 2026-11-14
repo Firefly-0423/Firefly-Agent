@@ -23,3 +23,17 @@ it("splits at the 1500-codepoint boundary without corrupting astral characters",
   expect([...chunks[0]].length).toEqual(1500);
   expect(chunks.join("")).toEqual(text);
 });
+
+
+// The settings store currently pins requireMention to true. False exercises the filter's supported branch only.
+it.each([
+  [false, false, false, false], [false, false, true, false],
+  [false, true, false, false], [false, true, true, false],
+  [true, false, false, true], [true, false, true, true],
+  [true, true, false, false], [true, true, true, true],
+])("group approved=%s requireMention=%s mentioned=%s admits=%s", (approved, requireMention, mentioned, expected) => {
+  const config = { ...policy, groupRequireMention: requireMention } as QqChannelConfig;
+  const event = { user_id: "31415", message_type: "group", group_id: approved ? "27182" : "unknown-group",
+    message: mentioned ? [{ type: "at", data: { qq: "16180" } }] : [] };
+  expect(isQqEventAllowed(event, config, "16180")).toEqual(expected);
+});

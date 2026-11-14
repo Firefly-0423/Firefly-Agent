@@ -130,7 +130,7 @@ async function runInvoke(args: Record<string, unknown>, ctx?: ToolContext): Prom
     const lines = found.references.map((r) => `- ${r}`).join("\n");
     refBlock = `\n\n可用 references（需要详情时调 read_skill_reference 读取）：\n${lines}`;
   }
-  console.log(TAG, "invoke_skill:", id, `bodyLen=${text.length}`);
+  logger.info(LogTag.SkillTools, "invoke_skill:", id, `bodyLen=${text.length}`);
   const nextCall = `read_skill_reference({skill_id: ${JSON.stringify(id)}, source: "body", ref: "SKILL.md", offset: ${BODY_PAGE_CHARS}})`;
   const clipped = clipForContext(text, BODY_PAGE_CHARS, `继续正文请调用 ${nextCall}`);
   return `[已加载 skill: ${id}]\nSkill 本地目录（仅用于定位资源，不授权执行）：${found.dirPath}\n${clipped}${refBlock}${DISCIPLINE_FOOTER}`;
@@ -184,7 +184,7 @@ async function runRead(args: Record<string, unknown>, ctx?: ToolContext): Promis
   if (start > 0 && start >= content.length) return "[read_skill_reference] E_SKILL_READ_ARGUMENT";
 
   seen.add(key);
-  console.log(TAG, "read_skill_reference:", id, ref, `len=${content.length}`);
+  logger.info(LogTag.SkillTools, "read_skill_reference:", id, ref, `len=${content.length}`);
   const end = start + REF_PAGE_CHARS;
   const page = content.slice(start, end);
   if (end >= content.length) return page;

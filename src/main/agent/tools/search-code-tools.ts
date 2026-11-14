@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { toolRegistry } from "../../tooling/registry/tool-registry";
 import type { ToolContext } from "../../tooling/registry/tool-context";
+import { logger, LogTag } from "../../base/logging/logger";
 
 const LOG_PREFIX = "[SearchText]";
 const MAX_MATCHES = 100;
@@ -124,7 +125,7 @@ async function executeSearchCode(args: Record<string, unknown>, ctx?: ToolContex
     })();
     const response = await Promise.race([pending, timeout]);
     if (timer) clearTimeout(timer);
-    console.log(LOG_PREFIX, `搜索完成: query="${needle}" mode=${mode} matches=${response.returnedMatches}/${response.totalMatches} truncated=${response.truncated}`);
+    logger.info(LogTag.BuiltinTools, `搜索完成: queryLen=${needle.length} mode=${mode} matches=${response.returnedMatches}/${response.totalMatches} truncated=${response.truncated}`);
     return JSON.stringify(response);
   } catch (failure) {
     if (timer) clearTimeout(timer);
@@ -144,7 +145,7 @@ export function registerSearchCodeTool(): void {
     needsContext: true,     inputSchema: { type: "object", properties: { query: { type: "string", description: "搜索文本" }, paths: { type: "array", description: "搜索路径（相对于工作区根目录，默认 '.'）", items: { type: "string" } }, fileGlobs: { type: "array", description: "文件过滤 glob（如 '*.ts', 'src/**/*.js'）", items: { type: "string" } }, mode: { type: "string", enum: ["literal", "regex"], description: "搜索模式：literal（默认）或 regex" }, maxMatches: { type: "number", description: "最多返回匹配数（默认 20，上限 100）" }, contextLines: { type: "number", description: "上下文行数（默认 2，上限 5）" }, caseSensitive: { type: "boolean", description: "是否区分大小写（默认 false）" }, }, required: ["query"], },
     execute: executeSearchCode,
   });
-  console.log(LOG_PREFIX, "已注册：search_code (deprecated)");
+  logger.info(LogTag.BuiltinTools, "已注册：search_code (deprecated)");
 }
 export function registerSearchTextTool(): void {
   toolRegistry.register({
@@ -156,5 +157,5 @@ export function registerSearchTextTool(): void {
     needsContext: true,     inputSchema: { type: "object", properties: { query: { type: "string", description: "要搜索的文本" }, mode: { type: "string", enum: ["literal", "regex"], description: "搜索模式：literal（默认，字面匹配）或 regex（正则表达式）" }, paths: { type: "array", description: "搜索路径（相对于工作区根目录，默认 '.'）", items: { type: "string" } }, fileGlobs: { type: "array", description: "文件过滤 glob（如 '*.ts' 会自动扩展为 '**/*.ts' 覆盖子目录）", items: { type: "string" } }, maxMatches: { type: "number", description: "最多返回匹配数（默认 20，上限 100）" }, contextLines: { type: "number", description: "上下文行数（默认 2，上限 5）" }, caseSensitive: { type: "boolean", description: "是否区分大小写（默认 false）" }, }, required: ["query"], },
     execute: executeSearchCode,
   });
-  console.log(LOG_PREFIX, "已注册：search_text");
+  logger.info(LogTag.BuiltinTools, "已注册：search_text");
 }

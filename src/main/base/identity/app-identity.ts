@@ -4,6 +4,7 @@ import * as path from "node:path";
 /** Stable Firefly application and user-data identities. */
 export const FIREFLY_APPLICATION_NAME = "Firefly";
 import { FIREFLY_DATA_DIRECTORY } from "./data-directory";
+import { logger, LogTag } from "../../../shared/logger";
 export const FIREFLY_USER_DATA_DIRECTORY = FIREFLY_DATA_DIRECTORY;
 
 export interface FireflyIdentityApp {
@@ -57,7 +58,7 @@ export function configureFireflyApplicationIdentity(app: FireflyIdentityApp, iso
     if (paths.appData !== isolatedRoot) throw new Error("FIREFLY_ISOLATED_APPDATA_FAILED");
     if (paths.userData !== userDataPath) throw new Error("FIREFLY_ISOLATED_USER_DATA_FAILED");
     if (paths.sessionData !== userDataPath) throw new Error("FIREFLY_ISOLATED_SESSION_DATA_FAILED");
-    console.info("[Firefly isolated paths]", paths);
+    logger.info(LogTag.Firefly, "isolated paths", { appData: path.basename(paths.appData), userData: path.basename(paths.userData), sessionData: path.basename(paths.sessionData) });
   }
   return userDataPath;
 }

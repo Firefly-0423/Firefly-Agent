@@ -27,6 +27,14 @@ describe("L2 working-memory activation", () => {
         expect((await manager.getActiveL2ForPrompt(records)).map(item => item.id)).toEqual(["rank-one", "rank-two"]);
         expect(states.get("rank-one")!.intrinsicValue).toEqual(36);
     });
+    it("persists the derived activation state in the stored lowercase form", async () => {
+        const manager = new L2DmaeManager();
+        const records = [record("recalled", "计划参加摄影课程"), record("idle", "计划整理书架")];
+        await manager.updateActivation(records, "本轮消息", "", ["recalled"], 0);
+        expect(states.get("recalled")!.state).toBe("active");
+        expect(states.get("idle")!.state).toBe("archived");
+        for (const stored of states.values()) expect(["active", "dormant", "archived"]).toContain(stored.state);
+    });
     it("activates matching keywords even when no vector recall occurs", async () => {
         const manager = new L2DmaeManager();
         const memory = record("keyword-record", "喜欢海边骑行");

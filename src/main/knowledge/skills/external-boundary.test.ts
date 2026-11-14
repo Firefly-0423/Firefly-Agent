@@ -47,7 +47,8 @@ const unchangedBoundaries = {
   // Reimplemented from observable behavior with identical allow/ask/deny decisions; verified by the policyFor decision-table
   // test (permission-policy.matrix.test.ts) and the approval contract tests (permission.contract.test.ts, permission.test.ts).
   // The only difference is stricter: an unrecognised session level now denies instead of yielding no decision.
-  "src/main/platform/permission/permission.ts": "6c449f2eefaef84458a611b7aca91f8d5be3418e04aa75395ad7578435beb29d",
+  // Logging (2026-11-15): console.log calls became logger.info; no decision logic changed.
+  "src/main/platform/permission/permission.ts": "714dbb984fac8fa7e622c1b80a1ce4fcd0ca8cc79b41283d2e621f8b95599b9b",
   "src/main/platform/permission/bootstrap.ts": "765b21f85aa5f048ebed87c0fb0cf53c7fa3059f34dc3451521d4a58fc523ce1",
 } as const;
 it.each(Object.entries(unchangedBoundaries))("no_execution_or_permission_expansion: %s exactly matches approved boundary preimage", (file, expected) => { expect(hash(file)).toBe(expected); });

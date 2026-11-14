@@ -57,6 +57,7 @@ vi.mock("../../../knowledge/social/store", () => ({
 
 import { SOCIAL_EXTRACTION_SCHEMA } from "../../../knowledge/social/extractor";
 import { createSocialContextService } from "./social-context-service";
+import { logger, LogTag } from "../../../base/logging/logger";
 
 const chatNonStream = vi.fn();
 
@@ -265,7 +266,7 @@ describe("createSocialContextService", () => {
   });
 
   it("records a sanitized one-line metric", () => {
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const log = vi.spyOn(logger, "info").mockImplementation(() => {});
     service();
     state.schedulerDeps!.recordMetric?.({
       outcome: "failure",
@@ -275,7 +276,8 @@ describe("createSocialContextService", () => {
       repairCount: 2,
     });
     expect(log).toHaveBeenCalledWith(
-      "[ChatSocialContext] outcome=failure accepted=1 rejected=2 attempts=3 repairs=2",
+      LogTag.Runtime,
+      "chat social context outcome=failure accepted=1 rejected=2 attempts=3 repairs=2",
     );
   });
 });

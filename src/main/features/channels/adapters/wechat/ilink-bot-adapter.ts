@@ -62,7 +62,7 @@ export class ILinkBotAdapter implements ChannelAdapter {
     if (cancellation.signal.aborted) return;
     if (!account) {
       this.status = { enabled: true, phase: "config_missing", message: "未登录，请先扫码" };
-      console.log(LOG_PREFIX, "No credentials, please run /wechat login"); return;
+      logger.info(LogTag.Wechat, "No credentials, please run /wechat login"); return;
     }
     this.currentCredentials = account; this.client = new ILinkClient(account); this.isLoggedIn = true;
     this.activePolling = this.#pollLoop(this.client, cancellation.signal, `wechat:${account.ilinkBotId}`);
@@ -70,7 +70,7 @@ export class ILinkBotAdapter implements ChannelAdapter {
     logger.info(LogTag.Wechat, `Connected as botId=${account.ilinkBotId}`);
   }
   async stop(): Promise<void> {
-    this.accountAuthority.revoke(); console.log(LOG_PREFIX, "Stopping..."); this.pollCancellation?.abort();
+    this.accountAuthority.revoke(); logger.info(LogTag.Wechat, "Stopping..."); this.pollCancellation?.abort();
     const polling = this.activePolling;
     this.activePolling = null; this.pollCancellation = null; this.client = null; this.isLoggedIn = false;
     this.status = { enabled: false, phase: "offline" };
@@ -152,12 +152,12 @@ export class ILinkBotAdapter implements ChannelAdapter {
   getMemoryAccountIdentity(): ChannelMemoryAccountIdentity | null { return this.accountAuthority.read(); }
   getStatus(): ChannelStatus { return this.status; }
   async login(qrcode: string): Promise<Credentials> {
-    console.log(LOG_PREFIX, "Waiting for QR scan...");
+    logger.info(LogTag.Wechat, "Waiting for QR scan...");
     while (true) {
       let response: Awaited<ReturnType<typeof pollQrStatus>>;
       try { response = await pollQrStatus(qrcode); }
       catch (failure) { if ((failure as Error).name === "AbortError") throw new Error("login aborted"); continue; }
-      console.log(LOG_PREFIX, "QR status:", response.status);
+      logger.info(LogTag.Wechat, "QR status:", response.status);
       if (response.status === "confirmed") {
         if (!response.bot_token || !response.ilink_bot_id) throw new Error("confirmed but missing bot_token or ilink_bot_id");
         const account: Credentials = { botToken: response.bot_token, ilinkBotId: response.ilink_bot_id,
@@ -206,7 +206,7 @@ export class ILinkBotAdapter implements ChannelAdapter {
       this.recentEvents.set(identifier, instant + 5 * 60_000);
       if (this.recentEvents.size > 2_048) this.recentEvents.delete(this.recentEvents.keys().next().value!);
     }
-    console.log(LOG_PREFIX, `inbound from=${message.fromUserId} text=${(message.content ?? "").slice(0, 80)}`);
+    logger.info(LogTag.Wechat, `inbound from=${message.fromUserId.slice(0, 6)}… textLen=${(message.content ?? "").length}`);
     this.replyContextByTarget.set(message.fromUserId, message.contextToken);
     const descriptors = describeInboundWechatMedia(message.items);
     const recognized = await this.#maybeTranscribeInboundVoice(message, descriptors, signal);

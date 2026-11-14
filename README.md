@@ -22,6 +22,8 @@
   <a href="https://github.com/Firefly-0423/Firefly-Agent/releases/latest"><b>下载 Windows 版</b></a> · <a href="https://hotarufirefly.online">官网与在线演示</a> · <a href="#-功能">功能</a> · <a href="#-安全与隐私">安全与隐私</a> · <a href="#-从源码运行">从源码运行</a> · <a href="https://github.com/Firefly-0423/Firefly-Agent/issues">问题反馈</a>
 </p>
 
+使用前请阅读[中文免责声明](./docs/disclaimer.zh-CN.md)，渠道配置见[用户指南](./docs/user-guide/index.md)。
+
 ---
 
 ## ✨ 速览
