@@ -33,7 +33,7 @@ it("removing and recreating a session produces a different immutable binding", (
 });
 it("rejects invalid IDs and modes without creating a binding", () => {
   const r = registry();
-  for (const id of ["", " ", "x".repeat(513)]) expect(() => r.bind(id, "persistent")).toThrow();
+  for (const id of ["", " ", "x".repeat(513)]) expect(() => r.bind(id, "persistent")).toThrow("MEMORY_INPUT_INVALID");
   expect(() => r.bind("session-a", "unknown" as never)).toThrow("MEMORY_SESSION_MODE_DENIED");
   expect(() => r.require("session-a")).toThrow("MEMORY_SESSION_MODE_DENIED");
 });

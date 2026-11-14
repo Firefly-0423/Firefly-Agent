@@ -40,7 +40,7 @@ it("production estimates retain single-use sends and source-change rejection", a
  await expect(f.context.dispatch(f.actor, permit, () => { sends++; })).rejects.toThrow("MEMORY_CONTEXT_PERMIT_USED");
  const next = await f.context.validateForDispatch(f.actor, await assemble());
  await f.registry.prepareChange(f.access, f.adapter, s.ref);
- await expect(f.context.dispatch(f.actor, next, () => { sends++; })).rejects.toThrow(); expect(sends).toBe(1);
+ await expect(f.context.dispatch(f.actor, next, () => { sends++; })).rejects.toThrow("MEMORY_SOURCE_PENDING"); expect(sends).toBe(1);
 });
 it("rejects unsupported production estimator versions instead of accepting arbitrary estimate claims", async () => {
  const f = fixture("openai"), s = await f.source("Synthetic user statement");

@@ -68,13 +68,13 @@ it("is disabled by default before touching any configuration, limits or SDK depe
 it("requires a Main-issued limits capability rather than JSON or a clone",()=>{
  const f=fixture();expect(()=>createMainResponsesBinding({...f.options,limits:limits()})).toThrow("MEMORY_CONTEXT_COUNTER_UNSUPPORTED");
 });
-it.each(["unknown-window","missing-output","excess-output","no-evidence","fixed-overflow"])("refuses invalid caller-provisioned limits: %s",kind=>{
+it.each([["unknown-window","MEMORY_CONTEXT_COUNTER_UNSUPPORTED"],["missing-output","MEMORY_CONTEXT_COUNTER_UNSUPPORTED"],["excess-output","MEMORY_CONTEXT_COUNTER_UNSUPPORTED"],["no-evidence","MEMORY_CONTEXT_COUNTER_UNSUPPORTED"],["fixed-overflow","MEMORY_CONTEXT_COUNTER_UNSUPPORTED"]])("refuses invalid caller-provisioned limits: %s -> %s",(kind,code)=>{
  const input=limits();if(kind==="unknown-window")delete (input.budget as any).maxContextTokens;
  if(kind==="missing-output")delete (input.budget as any).reservedOutputTokens;
  if(kind==="excess-output")input.budget.reservedOutputTokens=513;
  if(kind==="no-evidence")input.limitsSource="";
  if(kind==="fixed-overflow")input.budget.maxContextTokens=130;
- expect(()=>createMainResponsesLimits(input)).toThrow();
+ expect(()=>createMainResponsesLimits(input)).toThrow(code);
 });
 it.each(["https://api.deepseek.com","http://api.openai.com/v1","https://api.openai.com/v1?route=other","https://user@api.openai.com/v1"])("refuses an unverified endpoint before any SDK call: %s",baseUrl=>{
  const f=fixture();f.setConfig({...f.config,baseUrl});expect(()=>createMainResponsesBinding(f.options)).toThrow("MEMORY_CONTEXT_COUNTER_UNSUPPORTED");expect(f.counted).toHaveLength(0);expect(f.sent).toHaveLength(0);
@@ -106,7 +106,7 @@ it.each(["unknown-extra","trusted-override","missing-cap","wrong-cap","rich-cont
  if(kind==="wrong-cap")f.request.maxTokens=129;
  if(kind==="rich-content")f.request.messages[1].content=[{type:"image_url",image_url:{url:"synthetic-only"}}];
  if(kind==="unknown-request")(f.request as any).unverifiedExtension="canary";
- expect(()=>f.binding.prepare(f.request)).toThrow();expect(f.counted).toHaveLength(0);expect(f.sent).toHaveLength(0);
+ expect(()=>f.binding.prepare(f.request)).toThrow("MEMORY_CONTEXT_COUNTER_UNSUPPORTED");expect(f.counted).toHaveLength(0);expect(f.sent).toHaveLength(0);
 });
 it("refuses a modified or unissued prepared body before SDK counting",async()=>{
  const f=fixture(),prepared=f.binding.prepare(f.request),changed=structuredClone(prepared);changed.body.instructions="tampered";
@@ -116,10 +116,10 @@ it("refuses configuration drift across an asynchronous count",async()=>{
  const f=fixture(),prepared=f.binding.prepare(f.request);f.setCountHook(async()=>{f.bump()});
  await expect(f.binding.counter.count(prepared)).rejects.toThrow("MEMORY_CONTEXT_REQUEST_CHANGED");expect(f.sent).toHaveLength(0);
 });
-it.each(["error","negative","nan","overflow"])("a %s count cannot invoke any sender or ordinary fallback",async kind=>{
+it.each([["error","MEMORY_CONTEXT_COUNT_FAILED"],["negative","MEMORY_CONTEXT_COUNT_FAILED"],["nan","MEMORY_CONTEXT_COUNT_FAILED"],["overflow","MEMORY_CONTEXT_FIXED_OVER_BUDGET"]])("a %s count is refused with %s and cannot invoke any sender or ordinary fallback",async(kind,code)=>{
  const f=fixture();if(kind==="error")f.setCountHook(async()=>{throw Error("SYNTHETIC_COUNT_FAILURE")});
  if(kind==="negative")f.setCount(-1);if(kind==="nan")f.setCount(NaN);if(kind==="overflow")f.setCount(50000);
- const ctx=await contextFixture(f);await expect(ctx.assemble()).rejects.toThrow();expect(f.sent).toHaveLength(0);
+ const ctx=await contextFixture(f);await expect(ctx.assemble()).rejects.toThrow(code);expect(f.sent).toHaveLength(0);
 });
 it("dispatches the same frozen wire body through the existing one-use Main permit",async()=>{
  const f=fixture(),ctx=await contextFixture(f),snapshot=await ctx.assemble(),permit=await ctx.context.validateForDispatch(ctx.actor,snapshot);
@@ -131,7 +131,7 @@ it("dispatches the same frozen wire body through the existing one-use Main permi
 it("a tool-schema change after assembly prevents sending an old permit",async()=>{
  const f=fixture(),ctx=await contextFixture(f),snapshot=await ctx.assemble(),permit=await ctx.context.validateForDispatch(ctx.actor,snapshot);
  f.request.tools=[{name:"new_tool",description:"changed",parameters:{type:"object"}}];
- await expect(f.binding.dispatch(ctx.context,ctx.actor,permit)).rejects.toThrow();expect(f.sent).toHaveLength(0);
+ await expect(f.binding.dispatch(ctx.context,ctx.actor,permit)).rejects.toThrow("MEMORY_CONTEXT_REQUEST_CHANGED");expect(f.sent).toHaveLength(0);
 });
 it("an SDK invocation failure is result-unknown and is never automatically retried",async()=>{
  const f=fixture(),ctx=await contextFixture(f),snapshot=await ctx.assemble(),permit=await ctx.context.validateForDispatch(ctx.actor,snapshot);f.failSend();
@@ -156,13 +156,13 @@ it.each(["endpoint","model","revision","runtime"])("configuration drift blocks a
  if(kind==="model")f.setConfig({...f.config,model:"other-fixture"});
  if(kind==="revision")f.bump();
  if(kind==="runtime")setVendorRuntimeSettingsGetter(()=>({disableMaxToken:true}));
- await expect(f.binding.dispatch(ctx.context,ctx.actor,permit)).rejects.toThrow();expect(f.sent).toHaveLength(0);
+ await expect(f.binding.dispatch(ctx.context,ctx.actor,permit)).rejects.toThrow("MEMORY_CONTEXT_REQUEST_CHANGED");expect(f.sent).toHaveLength(0);
 });
 it.each(["counter","sender"])("refuses a missing SDK %s capability before use",kind=>{
  const f=fixture();if(kind==="counter")(f.client.responses as any).inputTokens=undefined;else (f.client.responses as any).create=undefined;
  expect(()=>createMainResponsesBinding(f.options)).toThrow("MEMORY_CONTEXT_COUNTER_UNSUPPORTED");expect(f.counted).toHaveLength(0);expect(f.sent).toHaveLength(0);
 });
-it.each(["rawAssistant","unknown-message","unknown-tool","incomplete-tool","unknown-config","output-disabled"])("refuses unproven nested framing: %s",kind=>{
+it.each([["rawAssistant","MEMORY_CONTEXT_COUNTER_UNSUPPORTED"],["unknown-message","MEMORY_CONTEXT_COUNTER_UNSUPPORTED"],["unknown-tool","MEMORY_CONTEXT_COUNTER_UNSUPPORTED"],["incomplete-tool","MEMORY_CONTEXT_TOOL_PAIR_INVALID"],["unknown-config","MEMORY_CONTEXT_REQUEST_CHANGED"],["output-disabled","MEMORY_CONTEXT_REQUEST_CHANGED"]])("refuses unproven nested framing: %s with %s",(kind,code)=>{
  const f=fixture();
  if(kind==="rawAssistant")f.request.messages.push({role:"assistant",content:"x",rawAssistant:[]});
  if(kind==="unknown-message")(f.request.messages[1] as any).unverified="x";
@@ -170,7 +170,7 @@ it.each(["rawAssistant","unknown-message","unknown-tool","incomplete-tool","unkn
  if(kind==="incomplete-tool")f.request.messages.push({role:"assistant",content:"",toolCalls:[{id:"t",name:"t",arguments:"{}"}]});
  if(kind==="unknown-config")(f.config as any).unverified="x";
  if(kind==="output-disabled")setVendorRuntimeSettingsGetter(()=>({disableMaxToken:true}));
- expect(()=>f.binding.prepare(f.request)).toThrow();expect(f.counted).toHaveLength(0);expect(f.sent).toHaveLength(0);
+ expect(()=>f.binding.prepare(f.request)).toThrow(code);expect(f.counted).toHaveLength(0);expect(f.sent).toHaveLength(0);
 });
 it("rejects malformed count receipts without leaking provider errors or prompt text",async()=>{
  const f=fixture(),prepared=f.binding.prepare(f.request);
@@ -192,11 +192,11 @@ it("refuses top-level frozen frames with mutable nested input",async()=>{
 });
 it("refuses accessor input without invoking the accessor",()=>{
  const f=fixture();let touched=false;Object.defineProperty(f.request.messages[1],"content",{enumerable:true,get(){touched=true;throw Error("SYNTHETIC_DATA_READER")}});
- expect(()=>f.binding.prepare(f.request)).toThrow();expect(touched).toBe(false);
+ expect(()=>f.binding.prepare(f.request)).toThrow("MEMORY_CONTEXT_COUNTER_UNSUPPORTED");expect(touched).toBe(false);
 });
 it("refuses a misplaced tool-result anchor rather than silently dropping it",()=>{
  const f=fixture();f.request.messages[1].toolCallId="ignored-anchor";
- expect(()=>f.binding.prepare(f.request)).toThrow();expect(f.counted).toHaveLength(0);expect(f.sent).toHaveLength(0);
+ expect(()=>f.binding.prepare(f.request)).toThrow("MEMORY_CONTEXT_COUNTER_UNSUPPORTED");expect(f.counted).toHaveLength(0);expect(f.sent).toHaveLength(0);
 });
 it.each(["responses","inputTokens"])("refuses foreign SDK resource ownership before invocation: %s",kind=>{
  const f=fixture(),foreign={baseURL:"https://foreign.invalid/v1",maxRetries:0};
@@ -251,7 +251,7 @@ it.each(["nested-getter","toJSON-getter","toJSON-function","nested-toJSON","arra
  if(kind==="nested-toJSON")Object.defineProperty(schema.properties.item,"toJSON",{value:()=>{touched++;return {type:"string"}}});
  if(kind==="array-getter"){schema.required=["item"];Object.defineProperty(schema.required,"0",{enumerable:true,get(){touched++;return "item"}})}
  f.request.tools=[{name:"lookup",description:"synthetic lookup",parameters:schema}];
- expect(()=>f.binding.prepare(f.request)).toThrow();expect(touched).toBe(0);expect(f.counted).toHaveLength(0);expect(f.sent).toHaveLength(0);
+ expect(()=>f.binding.prepare(f.request)).toThrow("MEMORY_CONTEXT_COUNTER_UNSUPPORTED");expect(touched).toBe(0);expect(f.counted).toHaveLength(0);expect(f.sent).toHaveLength(0);
 });
 it("serializer consumes only the validated detached data copy",()=>{
  const f=fixture(),schema={type:"object",properties:{item:{type:"string"}}};f.request.tools=[{name:"lookup",description:"synthetic lookup",parameters:schema}];
@@ -293,9 +293,9 @@ it.each(["request","message","tool","schema","array","mandatory","output"])("und
  if(kind==="array")(f.request.messages as any)[1]=undefined;
  if(kind==="mandatory")(f.request as any).model=undefined;
  if(kind==="output")f.request.maxTokens=undefined;
- expect(()=>f.binding.prepare(f.request)).toThrow();expect(f.counted).toHaveLength(0);expect(f.sent).toHaveLength(0);
+ expect(()=>f.binding.prepare(f.request)).toThrow("MEMORY_CONTEXT_COUNTER_UNSUPPORTED");expect(f.counted).toHaveLength(0);expect(f.sent).toHaveLength(0);
 });
 it("an optional getter returning undefined is rejected without invoking it",()=>{
  const f=fixture();let touched=false;Object.defineProperty(f.request,"tools",{enumerable:true,get(){touched=true;return undefined}});
- expect(()=>f.binding.prepare(f.request)).toThrow();expect(touched).toBe(false);expect(f.counted).toHaveLength(0);
+ expect(()=>f.binding.prepare(f.request)).toThrow("MEMORY_CONTEXT_COUNTER_UNSUPPORTED");expect(touched).toBe(false);expect(f.counted).toHaveLength(0);
 });
