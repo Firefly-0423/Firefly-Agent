@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanupSettingsPage, flushMicrotasks, mountSettingsPage } from "./settings-test-harness";
+import { cleanupSettingsPage, flushMicrotasks, mountSettingsPage } from "./settings-harness.test-support";
 
 function byId<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);

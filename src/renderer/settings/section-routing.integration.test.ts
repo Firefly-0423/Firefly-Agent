@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { QqMusicState } from "../../shared/qqmusic-types";
 import { SPECIALIST_AGENTS, type AgentRoutingView } from "../../shared/specialist-agents";
 import type { UsageHistoryView } from "../../shared/usage-history";
-import { cleanupSettingsPage, flushMicrotasks, mountSettingsPage } from "./settings-test-harness";
+import { cleanupSettingsPage, flushMicrotasks, mountSettingsPage } from "./settings-harness.test-support";
 
 function byId<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);

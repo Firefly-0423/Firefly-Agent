@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MODEL_PRESETS } from "./api/presets";
 import type { FetchedModel } from "./shared/types";
-import { cleanupSettingsPage, flushMicrotasks, mountSettingsPage } from "./settings-test-harness";
+import { cleanupSettingsPage, flushMicrotasks, mountSettingsPage } from "./settings-harness.test-support";
 
 type FetchModelsResponse = { ok: true; models: FetchedModel[] } | { ok: false; error: string };
 

@@ -8,7 +8,7 @@ import {
   UI_FONT_SIZE_MAX,
   UI_FONT_SIZE_MIN,
 } from "../../shared/chat-appearance";
-import { cleanupSettingsPage, flushMicrotasks, mountSettingsPage } from "./settings-test-harness";
+import { cleanupSettingsPage, flushMicrotasks, mountSettingsPage } from "./settings-harness.test-support";
 
 function byId<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
