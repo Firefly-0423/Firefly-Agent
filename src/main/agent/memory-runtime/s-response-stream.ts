@@ -57,5 +57,6 @@ export async function consumeSResponseStream(input:{stream:unknown;target:Contro
   input.target.onEvent({type:"text_message_end",messageId:input.target.assistantTurnId});input.target.onEvent({type:"step_finished",stepName:"chat"});
   return {reply:text,toolResults:[],completionReason:"no_tool",terminal:{status:"success",externalEffectsMayContinue:false}};
  }catch(error){stream.controller?.abort();if(error instanceof Error&&/^MEMORY_CONTEXT_[A-Z_]+$/.test(error.message))throw error;return contextFail("MEMORY_CONTEXT_STREAM_FAILED")}
+ // 提前结束时尽力关闭上游流；结果已在上面定下，关闭失败不改变结果，所以忽略。
  finally{if(!eof){try{void Promise.resolve(iterator.return?.()).catch(()=>{})}catch{}}}
 }

@@ -1,5 +1,5 @@
 import type { ToolDefinition } from "../../../tooling/registry/tool-registry";
-import { resolveBuiltinExecutable, VerificationRunner } from "../verification-runner";
+import { resolveBuiltinExecutable, VerificationRunner, type VerificationType } from "../verification-runner";
 import { resolveWorkspaceBuildCommand } from "../workspace-build-command";
 
 const LOG_PREFIX = "[BuiltinTools]";
@@ -88,7 +88,7 @@ async function executeVerification(input: Record<string, unknown>): Promise<stri
   const runner = new VerificationRunner();
   try {
     const outcome = await runner.runStep({
-      id: `run_verification_${kind}`, type: kind as any,
+      id: `run_verification_${kind}`, type: kind as VerificationType, // `selected` 存在即说明 kind 是 commands 的键（typecheck/test/lint/build）
       packageRoot: directory || process.cwd(), cwd: directory || process.cwd(),
       configPath: selected.configPath, trust: selected.trust, executable: selected.cmd,
       args: selected.args, source: selected.source,
