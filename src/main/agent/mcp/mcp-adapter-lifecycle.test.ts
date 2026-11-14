@@ -44,7 +44,7 @@ vi.mock("@modelcontextprotocol/sdk/client/sse.js", () => ({
   },
 }));
 vi.mock("../../knowledge/rag/index", () => ({ searchMemory: vi.fn() }));
-vi.mock("../../base/logging/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn() }, LogTag: { MCP: "mcp" } }));
+vi.mock("../../base/logging/logger", () => ({ logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn() }, LogTag: { MCP: "mcp" } }));
 vi.mock("../../base/storage/storage-context", () => ({ getStorageContext: () => ({ files: { mcp: "synthetic" } }) }));
 vi.mock("../../base/storage/atomic-json-store", () => ({
   AtomicJsonStore: class {
