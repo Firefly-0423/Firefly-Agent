@@ -58,7 +58,7 @@ it("requires opaque child and router capabilities and validates child scope with
   expect(()=>mount(f,desktop,sourceToken)).toThrow("MEMORY_SOURCE_PROVIDER_DENIED");
  }
  expect(()=>f.router.register({scopeKey:"scope-b",anchorIdentity:desktop,sourceToken:f.a.adapter})).toThrow("MEMORY_SOURCE_PROVIDER_DENIED");
- expect(()=>mount(f,{...desktop,providerId:"wrong-provider"})).toThrow();
+ expect(()=>mount(f,{...desktop,providerId:"wrong-provider"})).toThrow("MEMORY_SOURCE_ROUTER_DENIED");
  mount(f); // Registration authorizes the anchor; it never reads or invents a source receipt.
  await expect(f.registry.capture(f.access,JSON.parse(JSON.stringify(f.router.token)),desktop)).rejects.toThrow("MEMORY_SOURCE_PROVIDER_DENIED");
  await expect(f.registry.capture(f.access,f.router.token,desktop)).rejects.toThrow("SYNTHETIC_READ_FAILED");

@@ -12,7 +12,7 @@ function setup(){const c=child(),controller=new AbortController(),factory=create
 it('holds a validated snapshot until released acknowledgement and exact child close',async()=>{
  const f=setup(),endpoint=await f.pending;const read=endpoint.read(['session','snapshot.json'],2);
  f.emit({type:'snapshot',version:1,identity,rawLength:2,bytesHex:'6162'});expect((await read).bytes).toEqual(new Uint8Array([97,98]));endpoint.assertLive();
- const disposed=endpoint.dispose('release');f.emit({type:'released',version:1});f.c.emit('close',0,null);await disposed;await endpoint.dispose('release');expect(f.c.kills).toBe(0);expect(()=>endpoint.assertLive()).toThrow();
+ const disposed=endpoint.dispose('release');f.emit({type:'released',version:1});f.c.emit('close',0,null);await disposed;await endpoint.dispose('release');expect(f.c.kills).toBe(0);expect(()=>endpoint.assertLive()).toThrow('MEMORY_HISTORY_NATIVE_PROTOCOL_INVALID');
 });
 it.each([
  {type:'ready',version:1,rootIdentity:identity,extra:true},
@@ -40,8 +40,15 @@ it('invalid protocol during release is an error acknowledgement, not successful 
 });
 
 it('consumes stdin pipe errors and fails the exact child acquisition without an uncaught event',async()=>{
- const f=setup(),endpoint=await f.pending,read=endpoint.read(['session','snapshot.json'],2);
- expect(()=>f.c.stdin.emit('error',Object.assign(Error('broken pipe'),{code:'EPIPE'}))).not.toThrow();await expect(read).rejects.toThrow('MEMORY_HISTORY_NATIVE_PROTOCOL_INVALID');await endpoint.dispose('cancel');expect(f.c.kills).toBe(1);
+ const f=setup(),endpoint=await f.pending,read=endpoint.read(['session','snapshot.json'],2),writeSpy=vi.spyOn(f.c.stdin,'write');
+ expect(f.c.stdin.emit('error',Object.assign(Error('broken pipe'),{code:'EPIPE'}))).toBe(true);
+ await expect(read).rejects.toThrow('MEMORY_HISTORY_NATIVE_PROTOCOL_INVALID');
+ expect(()=>endpoint.assertLive()).toThrow('MEMORY_HISTORY_NATIVE_PROTOCOL_INVALID');
+ await endpoint.dispose('cancel');
+ expect(writeSpy).not.toHaveBeenCalled();
+ expect(f.c.kills).toBe(1);
+ expect(f.c.stdin.listenerCount('error')).toBe(0);
+ expect(f.c.stderr.listenerCount('error')).toBe(0);
 });
 
 it('cleanup timeout keeps disposal pending until exact child closure is confirmed',async()=>{
@@ -59,7 +66,8 @@ it('failed readiness retains cleanup until the exact child closes',async()=>{
 it('send-time expiry waits for close and keeps stdio error consumers installed',async()=>{
  vi.useFakeTimers({toFake:['setTimeout','clearTimeout']});const f=setup(),endpoint=await f.pending;f.c.kill=()=>{f.c.kills++;return true};const expired=performance.now()+2000;vi.spyOn(performance,'now').mockReturnValue(expired);let settled=false;
  const disposed=endpoint.dispose('release').catch(error=>{settled=true;throw error}),failed=expect(disposed).rejects.toThrow('MEMORY_HISTORY_NATIVE_TIMEOUT');
- try{await vi.advanceTimersByTimeAsync(2);expect(settled).toBe(false);expect(()=>f.c.stdin.emit('error',Error('EPIPE'))).not.toThrow();expect(()=>f.c.stderr.emit('error',Error('late pipe'))).not.toThrow()}finally{f.c.emit('close',null,'SIGTERM');await failed;vi.restoreAllMocks();vi.useRealTimers()}
+ try{await vi.advanceTimersByTimeAsync(2);expect(settled).toBe(false);expect(f.c.stdin.emit('error',Error('EPIPE'))).toBe(true);expect(f.c.stderr.emit('error',Error('late pipe'))).toBe(true)}finally{f.c.emit('close',null,'SIGTERM');await failed;vi.restoreAllMocks();vi.useRealTimers()}
+ expect(f.c.stdin.listenerCount('error')).toBe(0);expect(f.c.stderr.listenerCount('error')).toBe(0);
 });
 
 it('valid ready followed by a protocol fault in the same chunk cannot return a failed endpoint',async()=>{
