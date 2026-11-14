@@ -57,8 +57,10 @@ it('a missing original time makes the complete turn unproved without text-date i
  expect(historyTimeSpan([{occurredAt:3000},{occurredAt:1000}])).toEqual({start:1000,end:3000});
 });
 it('compatibility folding is nonexpanding at the accepted document length bound',()=>{
- const t=createHistoryTokenizer();expect(()=>t.tokens('Ａ'.repeat(65536))).not.toThrow();
+ const t=createHistoryTokenizer();
+ for(const n of [65535,65536,65537,65536+127])expect(t.tokens('Ａ'.repeat(n))).toEqual(['a'.repeat(n)]);
  t.register(['ＦＯＯ']);expect(t.tokens('ＦＯＯ')).toEqual(['foo']);
+ expect(()=>t.tokens('Ａ'.repeat(65536+128))).toThrow('MEMORY_HISTORY_INPUT_INVALID');
  expect(()=>t.tokens('A'.repeat(65536+128))).toThrow('MEMORY_HISTORY_INPUT_INVALID');
 });
 
