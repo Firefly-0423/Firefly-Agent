@@ -4,7 +4,7 @@ import { FeishuAdapter } from "./index";
 import { pendingSenders } from "../../sender-gate";
 
 const fixture = vi.hoisted(() => ({
-  createChannel: vi.fn(),
+  createChannel: vi.fn(), download: vi.fn(),
   settings: { enabled: true, appId: "app-a", appSecret: "synthetic", allowAnyPrivate: false, allowedSenderIds: [] as string[] },
 }));
 vi.mock("@larksuiteoapi/node-sdk", () => ({ createLarkChannel: fixture.createChannel, Domain: { Feishu: "feishu" }, LoggerLevel: { warn: 1 } }));
@@ -13,6 +13,7 @@ vi.mock("electron", () => ({ app: { getPath: () => "/synthetic/feishu-gate" } })
 vi.mock("../../../../base/logging/logger", () => ({ logger: { info() {}, warn() {}, error() {} }, LogTag: {} }));
 
 class Channel extends EventEmitter {
+  rawClient = { im: { v1: { messageResource: { get: fixture.download } } } };
   async connect() {}
   async disconnect() {}
   getConnectionStatus() { return { state: "connected" }; }
@@ -36,6 +37,7 @@ const message = (senderId: string, senderName?: string) => ({
 
 beforeEach(() => {
   pendingSenders.clear();
+  fixture.download.mockClear();
   Object.assign(fixture.settings, { allowAnyPrivate: false, allowedSenderIds: [] });
   fixture.createChannel.mockImplementation(() => { channel = new Channel(); return channel; });
 });
@@ -69,4 +71,13 @@ describe("Feishu sender gate", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(delivered).toEqual(["ou_anyone"]);
   });
+});
+
+
+it("rejects an unapproved media sender before downloading or dispatching", async () => {
+  const { delivered } = await connected();
+  channel.emit("message", { ...message("ou_unapproved"), rawContentType: "image", resources: [{ fileKey: "test-image", type: "image" }] });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(delivered).toStrictEqual([]);
+  expect(fixture.download).not.toHaveBeenCalled();
 });

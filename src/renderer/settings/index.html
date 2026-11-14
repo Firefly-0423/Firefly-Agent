@@ -2581,7 +2581,7 @@
                       <span class="tool-permission-option__title"><span
                             data-i18n="panel.channels.toolPermissionAll">全部开启</span></span>
                       <span class="tool-permission-option__desc"><span
-                            data-i18n="panel.channels.toolPermissionAllDesc">使用现有执行循环，所有工具直接执行，没有任何审批，也不受聊天框里的权限档位限制。任何能给机器人发消息的人都能让它读写这台电脑上的文件、运行命令；只在确定只有你自己会使用这个渠道时开启。</span></span>
+                            data-i18n="panel.channels.toolPermissionAllDesc">已准入的私聊开启后使用 Work，工具直接执行，可读写文件、运行命令；渠道无法交互审批。QQ 和官方 QQ 群聊始终禁用工具。请仅对可信身份开启。</span></span>
                     </div>
                   </label>
                 </div>
@@ -2710,7 +2710,7 @@
                     href="https://open.feishu.cn/app" rel="noopener" target="_blank"><span
                       data-i18n="panel.channels.feishuHintLink">飞书开放平台</span></a>
                 <span
-                    data-i18n="panel.channels.feishuHint4">创建自建应用 → 开启"机器人"能力 → 填入下方 App ID/Secret → 启用即可。</span>
+                    data-i18n="panel.channels.feishuHint4">创建自建应用并开启机器人能力，配置消息事件、所需权限与版本发布，再填入 App ID/Secret 连接；首次陌生发送者需批准。</span>
               </p>
 
               <div class="form-row">
@@ -2774,7 +2774,7 @@
                 <span
                     data-i18n="panel.channels.qqHint1">Firefly 在 Windows 监听反向 WebSocket，NapCat 作为 WebSocket Client 连接。</span>
                 <span
-                    data-i18n="panel.channels.qqHint2">群聊仅响应白名单群中的 @；群聊共享个人记忆但强制禁用工具，请只添加可信群。</span>
+                    data-i18n="panel.channels.qqHint2">群聊仅响应白名单群中的 @，并强制禁用工具；记忆按账号、发送者、群和线程隔离。请只添加可信群。</span>
               </p>
               <div class="form-row">
                 <label
@@ -2836,7 +2836,7 @@
                 <label
                     class="form-label"
                     for="channels-qq-token"><span
-                      data-i18n="panel.channels.qqToken">Access Token（可选）</span></label>
+                      data-i18n="panel.channels.qqToken">Access Token（非回环监听必填）</span></label>
                 <div class="form-input-with-action">
                   <input
                       id="channels-qq-token" class="form-input form-input--wide"
@@ -2905,11 +2905,11 @@
             <div class="channels-card__body">
               <p class="channels-card__hint">
                 <span
-                    data-i18n="panel.channels.qqBotHint1">在 q.qq.com 创建机器人后填入 AppID / AppSecret。官方协议零封号风险，但仅支持被动回复</span>
+                    data-i18n="panel.channels.qqBotHint1">在 q.qq.com 创建机器人后填入 AppID / AppSecret。请遵守平台账号与内容规则。</span>
                 <span
-                    data-i18n="panel.channels.qqBotHint2">（单聊 60 分钟内 4 条、群聊 5 分钟内 5 条，无主动消息）；群聊仅响应白名单群中的 @。</span>
+                    data-i18n="panel.channels.qqBotHint2">当前仅文本被动回复，本地限制为单聊 60 分钟内 4 次、群聊 5 分钟内 5 次；群消息按 openid 白名单准入，实际事件受平台权限影响，群聊强制禁用工具。</span>
                 <span
-                    data-i18n="panel.channels.qqBotHint3">新机器人默认沙箱模式，需先在开放平台添加测试用户。</span>
+                    data-i18n="panel.channels.qqBotHint3">请根据开放平台当前环境配置测试用户、群和权限，发布前核对平台规则。</span>
               </p>
               <div class="form-row">
                 <label

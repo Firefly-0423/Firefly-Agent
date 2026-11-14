@@ -38,3 +38,19 @@ MinGit 和插件归档仍使用共享的 `src/shared/zip-extraction.ts` 安全�
 - `packaging/prepare-mpv.mjs`、`verify/mpv-helper.mjs`：可选音频辅助准备与人工检查，不恢复网易云播放器，也不进入默认打包。
 - `perf/chat-renderer-recording.mjs`：性能录像处理 helper，由性能 runner 和对应 Node 回归使用；默认指标写入已忽略的 `output/perf/`。
 - `install-bge-reranker.ps1`：需显式决定的模型下载，不自动安装或修改用户配置。
+
+## 生产依赖风险维护
+
+依赖或锁文件变更、出现新公告、发版前和例外到期时，运行 `npm audit --omit=dev --json`，按实际包运行 `npm explain <包名> --json`，记录命令退出码、采集日期、提交和锁文件 SHA-256。审计失败时明确登记“采集失败”。
+
+入包判断需核对 electron-builder 的 files、asarUnpack、extraResources，以及 dist、分发目录和实际 ASAR。未知保持“待核实”。临时例外由 hotaru 审核并指定到期日，到期重新复核，续期需重新采集并说明缓解与证据。
+
+- [生产依赖风险登记与当前实例](../docs/security/dependency-risk-register.md)
+
+## 测试集合与 CI 归属
+
+默认集合用 `npm test`，本机 Node 26 设 `NODE_OPTIONS=--no-experimental-webstorage`，全量还需 `FIREFLY_TEST_BASH` 指向 Git Bash。脚本全集用 `node --test "scripts/**/*.test.mjs"`，包含现有 26 文件和 eval / marketplace，用专用命令 `npm run test:eval`、`npm run test:plugin-marketplace` 可本地选跑。SDK 示例用 `npm run check:plugin-sdk` 后执行 `npm run test:plugin-examples`，复用 plugin-sdk.yml。
+
+`npm run test:memory-history-zero-write` 为独立验收，需要 Windows 本地 NTFS、独立根、相同 TEMP/TMP、debug 与 release history-read helper，缺前提须报告失败或未执行。完整环境命令、Rust 未覆盖项、触发范围与证据见覆盖清单。
+
+- [测试入口与覆盖清单](../docs/engineering/test-coverage-map.md)

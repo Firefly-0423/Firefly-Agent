@@ -83,3 +83,21 @@ it.each([true, false])("validates and cleans up transcoder output (valid=%s)", a
     expect(fs.existsSync(output)).toEqual(false);
   }
 });
+
+
+it("sends text and image payloads in order and reports complete success", async () => {
+  const image = join(directory, "chart.png");
+  expect(await adapter.send({ channel: "feishu", targetId: "oc_review", parts: [
+    { kind: "text", text: "Review update" }, { kind: "image", filePath: image },
+  ] })).toStrictEqual({ ok: true });
+  expect(sdk.send.mock.calls).toStrictEqual([
+    ["oc_review", { text: "Review update" }], ["oc_review", { image: { source: image } }],
+  ]);
+});
+
+it("reports a rejected SDK send as a failure", async () => {
+  sdk.send.mockRejectedValueOnce(new Error("synthetic send failure"));
+  expect(await adapter.send({ channel: "feishu", targetId: "oc_review", parts: [{ kind: "text", text: "Review" }] }))
+    .toStrictEqual({ ok: false, error: "synthetic send failure" });
+  expect(sdk.send.mock.calls).toStrictEqual([["oc_review", { text: "Review" }]]);
+});

@@ -7,7 +7,7 @@ import {spawn} from 'node:child_process';
 import {build} from 'esbuild';
 import {createPackage} from '@electron/asar';
 const cwd=process.cwd();
-assert.equal(cwd,'E:\\Codex\\Firefly_Agent-skills-layout\\output\\task-b-memory-core');
+assert.equal(cwd,path.resolve(import.meta.dirname,'..','..','..'));
 const output=path.join(cwd,'output','memory-core','key-integration');
 assert.ok(!fs.existsSync(output),'preserve prior integration evidence; choose a new run directory explicitly');
 fs.mkdirSync(output,{recursive:true});

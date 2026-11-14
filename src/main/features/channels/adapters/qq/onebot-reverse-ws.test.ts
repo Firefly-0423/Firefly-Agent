@@ -12,9 +12,10 @@ afterEach(async () => {
 });
 async function listen(options: Partial<OneBotReverseWsOptions> = {}) {
   const onClientConnected = vi.fn();
-  const server = new OneBotReverseWsServer({ listenMode: "loopback", port: 0, onEvent: vi.fn(), onClientConnected, ...options });
+  const onEvent = vi.fn();
+  const server = new OneBotReverseWsServer({ listenMode: "loopback", port: 0, onEvent, onClientConnected, ...options });
   listeners.push(server);
-  return { server, info: await server.start(), onClientConnected };
+  return { server, info: await server.start(), onClientConnected, onEvent };
 }
 function connect(url: string, id: string, authorization?: string) {
   const socket = new WebSocket(url, { headers: { "X-Self-ID": id, ...(authorization ? { Authorization: authorization } : {}) } });
@@ -79,9 +80,12 @@ async function denied(url: string, authorization?: string) {
 }
 
 it("requires a matching Authorization bearer token and rejects query-only credentials", async () => {
-  const { info, onClientConnected } = await listen({ accessToken: "reverse-contract-token" });
+  const { info, onClientConnected, onEvent } = await listen({ accessToken: "reverse-contract-token" });
+  expect(await denied(info.url)).toEqual(401);
   expect(await denied(info.url, "Bearer incorrect-token")).toEqual(401);
   expect(await denied(info.url + "?access_token=reverse-contract-token")).toEqual(401);
+  expect(onEvent).not.toHaveBeenCalled();
+  expect(onClientConnected).not.toHaveBeenCalled();
   await once(connect(info.url, "31415", "Bearer reverse-contract-token"), "open");
   expect(onClientConnected).toHaveBeenCalledTimes(1);
 });

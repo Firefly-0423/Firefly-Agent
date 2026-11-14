@@ -47,6 +47,10 @@ extraFiles:
   - from: skills
     to: skills
 extraResources:
+  - from: docs/disclaimer.zh-CN.md
+    to: docs/disclaimer.zh-CN.md
+  - from: docs/disclaimer.en.md
+    to: docs/disclaimer.en.md
   - from: native/target/release/firefly-history-read.exe
     to: bin/firefly-history-read.exe
   - from: native/target/release/firefly-history-presence.exe
