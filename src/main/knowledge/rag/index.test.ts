@@ -5,16 +5,17 @@ import { tmpdir } from "node:os";
 import type { EmbeddingProvider } from "./embedding";
 const profile = vi.hoisted(() => ({ root: "" }));
 vi.mock("electron", () => ({ app: { getPath: () => profile.root, getAppPath: () => profile.root } }));
+const target = vi.hoisted(() => ({ next: null as EmbeddingProvider | null }));
 const provider: EmbeddingProvider = { name: "garden-vectors", dims: 2,
   embed: async text => text.includes("shade") ? [0, 1] : [1, 0],
   embedBatch: async texts => texts.map(text => text.includes("shade") ? [0, 1] : [1, 0]) };
-vi.mock("./embedding", async original => ({ ...await original<typeof import("./embedding")>(), getEmbeddingProvider: () => provider }));
+vi.mock("./embedding", async original => ({ ...await original<typeof import("./embedding")>(), getEmbeddingProvider: () => target.next ?? provider }));
 import * as rag from "./index";
 beforeEach(async () => {
   profile.root = mkdtempSync(join(tmpdir(), "ff-rag-api-"));
   await rag.initRAG();
 });
-afterEach(async () => { await rag.flushRAGStore(); rag.resetRAG(); rmSync(profile.root, { recursive: true, force: true }); });
+afterEach(async () => { target.next = null; await rag.flushRAGStore(); rag.resetRAG(); rmSync(profile.root, { recursive: true, force: true }); });
 it("makes user vectors writable once initialized", () => {
   expect(rag.isUserMemoryVectorStoreReady()).toBe(true);
 });
@@ -56,4 +57,15 @@ it("returns only recallable memories whose current vector mapping is consistent"
   const results = await rag.searchMemoryEntries("garden", "user_memory", 5);
   expect(results.map(item => item.id)).toEqual([vectorIds[0]]);
   expect(results.some(item => item.id === vectorIds[1])).toBe(false);
+});
+it.each([
+  { name: "a different vector size clears the stored entries", dims: 3, cleared: 2, remaining: 0 },
+  { name: "the same vector size keeps the stored entries", dims: 2, cleared: 0, remaining: 2 },
+])("switching the embedding model: $name", async ({ dims, cleared, remaining }) => {
+  await rag.addMemory("shade plants", "garden-fixture");
+  await rag.addMemory("sunny plants", "garden-fixture");
+  expect(rag.getEntriesBySource("garden-fixture")).toHaveLength(2);
+  target.next = { ...provider, name: "next-vectors", dims };
+  expect(await rag.switchEmbeddingModel("bgem3")).toEqual({ ok: true, clearedEntries: cleared });
+  expect(rag.getEntriesBySource("garden-fixture")).toHaveLength(remaining);
 });
