@@ -371,6 +371,7 @@ vi.mock("../features/chat/agui-bridge", () => ({
 }));
 
 import { createDefaultApplicationDependencies } from "./default-dependencies";
+import { createMainProbeEntry } from "../features/diagnostics/memory-online-once/main-entry";
 
 function createDeps() {
   return createDefaultApplicationDependencies();
@@ -463,6 +464,20 @@ describe("composition root", () => {
     m.modelChangedCb();
     expect(m.defaultMemory.refreshModels).toHaveBeenCalledTimes(1);
     expect(deps).toBeDefined();
+  });
+
+  it.each([
+    { build: "development", isPackaged: false, enabled: true },
+    { build: "installed", isPackaged: true, enabled: false },
+  ])("enables the online-once probe entry for the switch only in a $build build", ({ isPackaged, enabled }) => {
+    m.app.commandLine.hasSwitch.mockImplementation((name: string) => name === "firefly-memory-online-once");
+    m.app.isPackaged = isPackaged;
+    try {
+      createDeps();
+      expect(vi.mocked(createMainProbeEntry).mock.calls.at(-1)?.[0]).toBe(enabled);
+    } finally {
+      m.app.isPackaged = false;
+    }
   });
 
   it("uses the controlled memory backend when the explicit switch is present", () => {

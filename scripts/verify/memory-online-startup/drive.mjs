@@ -18,7 +18,8 @@ async function until(check){for(let i=0;i<300;i++){if(check())return;await pause
 const actualAdmission='E:\\Codex\\2026-10-01\\task\\memory-online-once-admission-55df896';
 const snapshot=()=>['arm.json','boot.json','spent.json','ledger.json'].map(f=>fs.existsSync(path.join(actualAdmission,f)));
 const initial=snapshot(),runs=[];
-for(const isPackaged of [false,true])for(const mode of ['startup','prepare','success','cancel','duplicate','provider','model','url','transport','key','empty','read-error']){
+// 安装版（含这里自己打包的合成程序）会忽略一次性诊断参数，只剩开发模式用例；见 src/main/base/identity/startup-entry.ts。
+for(const isPackaged of [false])for(const mode of ['startup','prepare','success','cancel','duplicate','provider','model','url','transport','key','empty','read-error']){
  const root=path.join(output,(isPackaged?'asar-':'dev-')+mode),sourceRoot=path.join(output,(isPackaged?'asar-':'dev-')+mode+'-source');
  for(const sub of ['temp','cache','logs','initial-userdata','fake-admission'])fs.mkdirSync(path.join(root,sub),{recursive:true});
  fs.mkdirSync(path.join(sourceRoot,'Firefly-1.2.0'),{recursive:true});

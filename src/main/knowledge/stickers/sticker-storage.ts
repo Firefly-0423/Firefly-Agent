@@ -21,7 +21,7 @@ const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp"]);
 
 const owns = (table: object, key: string): boolean => Object.prototype.hasOwnProperty.call(table, key);
 
-const isBuiltInId = (id: string): boolean => BUILT_IN_STICKER_IDS.includes(id as any);
+const isBuiltInId = (id: string): boolean => (BUILT_IN_STICKER_IDS as readonly string[]).includes(id);
 
 export function getStickersDir(): string {
   return path.join(app.getPath("userData"), "stickers");

@@ -18,6 +18,7 @@ export async function startDiagnosticMain():Promise<void> {
  let root:string|undefined,lastState:Record<string,unknown>={},duplicates=0,menuReady=false;
  const quit=()=>{app.quit();};
  const persist=()=>{if(root)fs.writeFileSync(path.join(root,"readiness.json"),JSON.stringify({pid:process.pid,isReady:app.isReady(),menuReady,duplicateCount:duplicates,...lastState,admission:{armed:fs.existsSync(path.join(ADMISSION_ROOT,"arm.json")),bootBound:fs.existsSync(path.join(ADMISSION_ROOT,"boot.json")),spent:fs.existsSync(path.join(ADMISSION_ROOT,"spent.json")),ledger:fs.existsSync(path.join(ADMISSION_ROOT,"ledger.json"))}}));};
+ // 退出路径：写状态、清理托盘失败都不能挡住退出。
  const fail=()=>{try{lastState={phase:"startup-refused"};persist();}catch{}try{controller?.cancel();tray?.destroy();}catch{}app.exit(1);};
  process.stdout.on("error",()=>{});process.stderr.on("error",()=>{});
  process.once("uncaughtException",fail);process.once("unhandledRejection",fail);

@@ -19,6 +19,7 @@
     "src/shared/renderer-base.ts",
     "src/**/*.test.ts",
     "src/**/*.acceptance.ts",
+    "src/**/*.test-support.ts",
     "src/main/features/diagnostics/sim/**"
   ],
   "include": [
