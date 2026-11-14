@@ -15,6 +15,7 @@ export async function startOpenRouterDiagnosticMain():Promise<void>{
  let tray:Tray|undefined,controller:ReturnType<typeof createController>|undefined,root:string|undefined,lastState:Record<string,unknown>={},duplicates=0;
  let startupRunner:ReturnType<typeof createProbeRunner>|undefined,resolveSelectedProfile:((id:string)=>SessionProfile|undefined)|undefined;
  const persist=()=>{if(root)fs.writeFileSync(path.join(root,"readiness.json"),JSON.stringify({pid:process.pid,isReady:app.isReady(),menuReady:!!tray,duplicateCount:duplicates,...lastState,admission:{armed:fs.existsSync(path.join(ADMISSION_ROOT,"arm.json")),bootBound:fs.existsSync(path.join(ADMISSION_ROOT,"boot.json")),spent:fs.existsSync(path.join(ADMISSION_ROOT,"spent.json")),ledger:fs.existsSync(path.join(ADMISSION_ROOT,"ledger.json"))}}));};
+ // 退出路径：清理失败不能挡住退出。
  const fail=()=>{try{controller?.cancel();startupRunner?.cancel();tray?.destroy();}catch{}app.exit(1);};
  process.stdout.on("error",()=>{});process.stderr.on("error",()=>{});process.once("uncaughtException",fail);process.once("unhandledRejection",fail);
  try{

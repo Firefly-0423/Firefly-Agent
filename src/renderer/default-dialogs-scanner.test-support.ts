@@ -1,3 +1,4 @@
+/** 只供测试使用：默认对话框回归测试的源码扫描工具，生产代码不得引用（进程边界检查会报错）。 */
 import ts from "typescript";
 import path from "node:path";
 

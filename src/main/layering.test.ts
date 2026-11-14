@@ -59,8 +59,10 @@ function collectViolations(): string[] {
     const source = ts.createSourceFile(file, fs.readFileSync(file, "utf8"), ts.ScriptTarget.ES2022, true);
     const check = (specifier: string) => {
       const target = resolve(file, specifier);
-      if (!target || isTestFile(target)) return;
+      if (!target) return;
       const to = relative(target);
+      // 测试辅助文件（*.test-support.* 等）只给测试用，生产代码引用它会把测试工具打进安装包。
+      if (isTestFile(target)) { found.add(`${from} -> ${to} (引用测试文件)`); return; }
       const toLayer = layerOf(to);
       if (toLayer !== fromLayer && !allowed.allow.includes(toLayer)) found.add(`${from} -> ${to}`);
       if (toLayer === fromLayer) {

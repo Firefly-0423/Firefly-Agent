@@ -99,6 +99,7 @@ public static class FireflyShellJob {
       startup.Input = input; startup.Output = output; startup.Error = error;
       startup.Attributes = attributes;
       Thread control = new Thread(() => {
+        // 父进程关闭控制管道时会抛 IOException，这和读到结尾一样，都表示该结束作业了。
         try { while (Console.In.Read() >= 0) {} } catch (System.IO.IOException) {}
         lock (gate) { stopped = true; TerminateJobObject(job, 1); }
       });

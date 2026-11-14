@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "vitest";
-import { findDefaultDialogCalls } from "./default-dialogs-scanner";
+import { findDefaultDialogCalls } from "./default-dialogs-scanner.test-support";
 
 test.each(["ts", "js", "tsx", "jsx"])("finds global dialog calls in %s with source locations", (extension) => {
   const filename = "dialog-example." + extension;
