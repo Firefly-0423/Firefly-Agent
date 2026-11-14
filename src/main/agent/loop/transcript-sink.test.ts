@@ -103,8 +103,8 @@ describe("S canonical append and durable settlement", () => {
   it("writes one marked reply and one exact success marker without changing original text or event identity", async () => { const { store, sink } = await setup(); const id = await sink.appendSAssistant({ message: { role: "assistant", content: "synthetic complete reply" }, binding }); const original = (await store.read("c1")).entries.at(-1)!; const settle = { binding: { ...binding, assistantEntryId: id }, result: "success", safeReason: "completed" }; await sink.settleSAssistant(settle); await sink.settleSAssistant(settle); const rows = (await store.read("c1")).entries; expect(rows.filter(e => e.kind === "assistant")).toEqual([original]); expect(original).toMatchObject({ runId: "s-run", turnId: "s-a", roundId: "s-response", sSettlement: { version: 1, userTurnId: "s-u", userRevision: 1 }, payload: { role: "assistant", content: "synthetic complete reply" } }); expect(rows.filter(e => e.kind === "assistant_settlement")).toHaveLength(1); expect(rows.at(-1)?.payload).toEqual(settle); });
   it.each(["runId", "assistantTurnId", "userTurnId", "userRevision"])("rejects wrong %s before assistant write", async (key) => { const { store, sink } = await setup(), before = await store.read("c1"); await expect(sink.appendSAssistant({ message: { role: "assistant", content: "synthetic complete" }, binding: { ...binding, [key]: key === "userRevision" ? 2 : "other" } })).rejects.toThrow("TRANSCRIPT_S_BINDING_INVALID"); expect(await store.read("c1")).toEqual(before); });
   it("rejects tools or partial/empty messages without canonical append", async () => {
-    const { store, sink } = await setup(); for (const message of [{ role: "assistant", content: "" }, { role: "user", content: "fake" }, { role: "assistant", content: "tool", toolCalls: [{ id: "t", name: "noop", arguments: "{}" }] }])
-      await expect(sink.appendSAssistant({ message, binding })).rejects.toThrow(); expect((await store.read("c1")).entries).toHaveLength(1);
+    const { store, sink } = await setup(), before = await store.read("c1"); for (const message of [{ role: "assistant", content: "" }, { role: "user", content: "fake" }, { role: "assistant", content: "tool", toolCalls: [{ id: "t", name: "noop", arguments: "{}" }] }])
+      await expect(sink.appendSAssistant({ message, binding })).rejects.toThrow("TRANSCRIPT_S_BINDING_INVALID"); expect(await store.read("c1")).toEqual(before);
   });
   it("refuses a conflicting terminal result and preserves the successful marker", async () => { const { store, sink } = await setup(), id = await sink.appendSAssistant({ message: { role: "assistant", content: "complete" }, binding }); await sink.settleSAssistant({ binding: { ...binding, assistantEntryId: id }, result: "success", safeReason: "completed" }); await expect(sink.settleSAssistant({ binding: { ...binding, assistantEntryId: id }, result: "interrupted", safeReason: "user_cancel" })).rejects.toThrow("TRANSCRIPT_S_SETTLEMENT_CONFLICT"); expect((await store.read("c1")).entries.filter(e => e.kind === "assistant_settlement")).toHaveLength(1); });
   it("cannot success-settle after external user append, but can preserve an interrupted original reply", async () => { const { store, sink } = await setup(), id = await sink.appendSAssistant({ message: { role: "assistant", content: "complete" }, binding }); await store.append("c1", { id: "other-u", kind: "user", turnId: "other-u", revision: 1, payload: { text: "later user" } }); await expect(sink.settleSAssistant({ binding: { ...binding, assistantEntryId: id }, result: "success", safeReason: "completed" })).rejects.toThrow("TRANSCRIPT_S_BINDING_INVALID"); await sink.settleSAssistant({ binding: { ...binding, assistantEntryId: id }, result: "interrupted", safeReason: "source_changed" }); expect((await store.read("c1")).entries.at(-1)).toMatchObject({ kind: "assistant_settlement", payload: { result: "interrupted" } }); });
@@ -406,7 +406,21 @@ describe("Main-owned TranscriptSink facade", () => {
     expect(raw[1].input).toEqual({ q: "x" });
     expect(message.toolCalls?.[0].arguments).toBe('{"q":"x"}');
     // 第二轮请求会复用同一份 rawAssistant；严格拷贝仍须通过，这正是 #52 的判据。
-    expect(() => copyResponseJson({ messages: [{ role: "user", content: "q" }, message] }, true)).not.toThrow();
+    const copied = copyResponseJson({ messages: [{ role: "user", content: "q" }, message] }, true);
+    expect(copied).toEqual({
+      messages: [
+        { role: "user", content: "q" },
+        {
+          role: "assistant",
+          content: "checking",
+          toolCalls: [{ id: "call-2", name: "lookup", arguments: '{"q":"x"}' }],
+          rawAssistant: [
+            { type: "text", text: "checking" },
+            { type: "tool_use", id: "call-2", name: "lookup", input: { q: "x" } },
+          ],
+        },
+      ],
+    });
   });
 
   it("keeps the lifecycle pending until an unawaited real append settles", async () => {
