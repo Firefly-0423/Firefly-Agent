@@ -10,7 +10,8 @@ import { describe, expect, it } from "vitest";
 const srcRoot = path.resolve(__dirname, "..");
 const mainRoot = path.join(srcRoot, "main");
 const codeExtensions = [".ts", ".tsx", ".js", ".cjs", ".mjs"];
-const isTestFile = (file: string) => /\.(test|acceptance)\.[a-z]+$/.test(file) || /[\\/](fixtures|testing|test-utils|test-support)[\\/]/.test(file);
+const isTestFile = (file: string) =>
+  /\.(test|acceptance)\.[a-z]+$/.test(file) || /\.test-support\./.test(file) || /[\\/](fixtures|testing|test-utils|test-support)[\\/]/.test(file);
 
 function listFiles(dir: string, out: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -42,16 +43,17 @@ function mainImports(processDir: string): string[] {
     for (const specifier of specifiers(file)) {
       if (!specifier.startsWith(".")) continue;
       const target = path.resolve(path.dirname(file), specifier);
-      if (target === mainRoot || target.startsWith(mainRoot + path.sep)) {
-        violations.push(`${path.relative(srcRoot, file).split(path.sep).join("/")} -> ${specifier}`);
-      }
+      const from = path.relative(srcRoot, file).split(path.sep).join("/");
+      if (target === mainRoot || target.startsWith(mainRoot + path.sep)) violations.push(`${from} -> ${specifier}`);
+      // 测试辅助文件（*.test-support.* 等）只给测试用，生产代码引用它会把测试工具打进安装包。
+      else if (isTestFile(target) || isTestFile(target + ".ts") || isTestFile(target + ".tsx")) violations.push(`${from} -> ${specifier} (引用测试文件)`);
     }
   }
   return violations;
 }
 
 describe("process boundary", () => {
-  it.each(["renderer", "preload"])("%s production code does not import src/main", (processDir) => {
+  it.each(["renderer", "preload"])("%s production code imports neither src/main nor test-only files", (processDir) => {
     expect(mainImports(processDir)).toEqual([]);
   });
 });
