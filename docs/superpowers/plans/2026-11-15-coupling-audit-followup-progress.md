@@ -50,5 +50,5 @@
 - R3 核对中发现、负责人决定修（默认小写，首字母大写的映射为小写）：`knowledge/rag/worldbook.ts` 的 `deriveState` 返回首字母大写的 `"Active"`，`l2-dmae-manager.ts` 同步时把它写进声明为小写的 `L2DmaeState.state`。分支 `fix/dmae-state-case` 上分两个行为修复提交：写入时用类型化的映射表转成小写，去掉了掩盖问题的类型断言；读入 `memory.json` 时把已存的首字母大写值映射为小写，下次保存即落盘。两处都附了测试，修复前失败、修复后通过；`src/main/memory/legacy` 283 项通过。
 - R4：`platform/permission/permission.ts` 被 `knowledge/skills/external-boundary.test.ts` 固定了内容哈希。这次只把 6 处 `console.log` 换成 `logger.info`，没动判定逻辑，哈希随平台目录的提交一起更新，并在测试里注明原因，请负责人确认。
 - R4：`base/logging/agent-log.ts` 的 `debugLog` 仍受 `FIREFLY_DEBUG_LOGS=1` 控制，打开后以 info 级别输出；安装版默认 warn，要同时设 `FIREFLY_LOG_LEVEL=info` 才能看到。
-- R4：`features/music/music-smoke-entry.ts` 是烟测入口，不在 `features/diagnostics/**` 下，按规则也迁到了 `logger`。
+- R4：`features/music/music-smoke-entry.ts` 是烟测入口，负责人 2026-11-14 确认和诊断目录一样保留 `console.log`，已加入日志检查的例外。
 
