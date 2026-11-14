@@ -45,7 +45,7 @@ it("rejects forged grants, actor objects and source-provider substitutions", () 
 it("requires registered session mode, matching actor session and a saved model profile", () => {
   const f = fixture();
   expect(() => f.authority.issue({ ...f.input, identity: { ...f.input.identity, sessionMode: "temporary" } })).toThrow("MEMORY_RUN_IDENTITY_DENIED");
-  expect(() => f.authority.issue({ ...f.input, identity: { ...f.input.identity, sessionId: "session-b" } })).toThrow();
+  expect(() => f.authority.issue({ ...f.input, identity: { ...f.input.identity, sessionId: "session-b" } })).toThrow("MEMORY_SESSION_MODE_DENIED");
   expect(() => f.authority.issue({ ...f.input, identity: { ...f.input.identity, modelProfileId: "missing" } })).toThrow("MEMORY_RUN_PROFILE_DENIED");
   f.modes.remove("session-a"); expect(() => f.authority.issue(f.input)).toThrow("MEMORY_SESSION_MODE_DENIED");
 });
@@ -57,14 +57,14 @@ it("checks every read actor and prevents persistent read grants in a temporary s
   expect(() => t.authority.issue({ ...t.input, readActorTokens: [t.main.token] })).toThrow("MEMORY_RUN_READ_DENIED");
 });
 it("revokes grants after cancellation, explicit close, profile changes and session recreation", () => {
-  for (const change of ["cancel", "close", "profile", "session", "entry"] as const) {
+  for (const [change, code] of [["cancel", "MEMORY_RUN_CANCELLED"], ["close", "MEMORY_RUN_DENIED"], ["profile", "MEMORY_RUN_PROFILE_CHANGED"], ["session", "MEMORY_RUN_SESSION_CHANGED"], ["entry", "MEMORY_RUN_ENTRY_CHANGED"]] as const) {
     const f = fixture(), grant = f.authority.issue(f.input);
     if (change === "cancel") f.controller.abort();
     if (change === "close") f.authority.revoke(grant);
     if (change === "profile") f.changeProfile();
     if (change === "entry") f.changeEntry();
     if (change === "session") { f.modes.remove("session-a"); f.modes.bind("session-a", "persistent"); }
-    expect(() => f.authority.require(grant)).toThrow();
+    expect(() => f.authority.require(grant)).toThrow(code);
     expect(f.reads()).toBe(0);
   }
 });
@@ -107,12 +107,12 @@ it("exposes the resolved profile revision and never trusts a caller-supplied rev
   expect(context.profileRevision).toBe(3);
   expect(context.identity.modelProfileId).toBe("secondary");
   expect(Object.isFrozen(context)).toBe(true);
-  expect(() => Object.defineProperty(context, "profileRevision", { value: 999 })).toThrow();
+  expect(() => Object.defineProperty(context, "profileRevision", { value: 999 })).toThrow(TypeError);
   expect(f.authority.require(grant).profileRevision).toBe(3);
   expect(() => f.authority.issue({
     ...f.input,
     identity: { ...f.input.identity, profileRevision: 999 },
-  })).toThrow();
+  })).toThrow("MEMORY_INPUT_INVALID");
 });
 
 it("retains the issued profile revision while drift revokes the grant and a new grant captures the new version", () => {
