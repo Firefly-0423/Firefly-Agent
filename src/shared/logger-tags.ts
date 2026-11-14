@@ -27,6 +27,7 @@ const TAGS = [
   "AgUiBridge",
   "Call",
   "ASR",
+  "Memory",
 ] as const;
 
 type TagName = (typeof TAGS)[number];
