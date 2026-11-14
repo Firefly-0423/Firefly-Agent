@@ -5,12 +5,19 @@
 
 本文是交接入口。每完成一个任务就更新下面各节；换会话或换人时先读这里，再读施工计划。
 
+## 0. 开工前复核（2026-11-15，基线 `a96f254`）
+
+- 计划里的 214 个路径与符号逐个核对：除计划本来要新建的 `ChatPage.regression.test.ts`、`use-last-turn-actions.test.ts`、`conversation-run-policy.test.ts`、`docs/qa/1.2.0-chatpage-regression-{checklist,results}.md` 外全部存在。三个提交号是基线记录，不是代码符号。
+- 行号仍按重组前（`39987fc`）记录，施工时按符号定位。
+- 计划写成后 chat 渲染目录的改动：删除了未被引用的 `workspace/OfflineBrowserTab`、`WorkspaceSourcesPanel`、`browser-workspace-reducer`，计划没有引用它们；其余是小改动，不影响任务。
+- 负责人 2026-11-13 的决定都还没有实现：`shouldListenForDeferredPlanEvents` 仍对 `chat` 返回 true，`ChatPage.test.ts` 的表驱动用例也把它钉成 true（C12 施工时要一并改）；G1–G3 未动。
+- 拆分缺口：检查器标签回调和导航动作在页面层没有测试，A–G 也没覆盖。已在计划里补“施工包 H”和“拆分 ChatPage 前的保护集”，待负责人确认。
 ## 1. 当前状态
 
 - 分支：`dev/firefly-1.2.0`（尚未建施工分支）
 - 进行到：未开工
 - 工作区：—
-- 建议顺序：A → B → G → C → D → E → F；完整依赖及正式包前置条件见计划。
+- 建议顺序：A → B → G → C → D → E → F；完整依赖及正式包前置条件见计划。2026-11-15 补充施工包 H，拆分前建议 A → B → G → C → D → H（待负责人确认）。
 
 ## 2. 已完成项
 
@@ -101,6 +108,14 @@
 - [ ] G1 已携带未知 run 的审批不误投可见会话
 - [ ] G2 所有审批请求都带运行 ID
 - [ ] G3 仍缺运行 ID 的审批卡走独立提醒
+
+### 施工包 H：拆分前的检查器与导航接线（待负责人确认）
+
+- [ ] H1 差异标签
+- [ ] H2 文件预览标签
+- [ ] H3 标签顺序、关闭与面板开关
+- [ ] H4 委派任务与侧栏状态
+- [ ] H5 导航动作与引用稳定
 
 ## 4. 验证记录
 
