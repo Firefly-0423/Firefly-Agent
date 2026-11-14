@@ -120,9 +120,12 @@ describe("Cancellation at asynchronous run boundaries", () => {
     controller.abort();
     cancelled(await job.running, job.events);
     expect(actual).not.toHaveBeenCalled();
+    const eventsAtCancel = [...job.events];
     permission.release(true);
     await Promise.resolve(); await Promise.resolve();
     expect(actual).not.toHaveBeenCalled();
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(job.events).toEqual(eventsAtCancel);
     expect(network.stream).toHaveBeenCalledTimes(1);
   });
 

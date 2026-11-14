@@ -19,7 +19,7 @@ it('same source identity with a different digest is quarantined, never last-impo
  const f=fixture(),p=await f.migration.preview(f.actor,exported());await f.migration.apply(f.actor,f.migration.authorizeApply(f.actor,p.ticket));const changed=exported();changed.records[0].messages[0].text='cat conflicting secret';const conflict=await f.migration.preview(f.actor,changed);expect(conflict.report.conflicts).toBe(1);expect(await f.migration.apply(f.actor,f.migration.authorizeApply(f.actor,conflict.ticket))).toMatchObject({quarantined:1});expect(f.query().hits[0].document.messages[0].text).toBe('cat imported history');
 });
 it.each(['actorKey','confirmation','provenance'])('export self-declared %s cannot establish actor identity or M support',async key=>{
- const f=fixture();await expect(f.migration.preview(f.actor,{...exported(),[key]:'forged-direct-user'})).rejects.toThrow();
+ const f=fixture();await expect(f.migration.preview(f.actor,{...exported(),[key]:'forged-direct-user'})).rejects.toThrow('MEMORY_INPUT_INVALID');expect(f.query().hits).toEqual([]);
 });
 it('preview binds an immutable digest and retains original event time, not import time',async()=>{
  const f=fixture(),data=exported(),p=await f.migration.preview(f.actor,data);data.records[0].messages[0].text='forged later text';await f.migration.apply(f.actor,f.migration.authorizeApply(f.actor,p.ticket));expect(f.query().hits[0].document.messages[0]).toMatchObject({text:'cat imported history',occurredAt:1000,timeZone:'Asia/Shanghai'});

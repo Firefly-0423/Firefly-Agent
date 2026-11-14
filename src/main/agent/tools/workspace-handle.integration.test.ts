@@ -11,6 +11,7 @@ beforeEach(() => { root = fs.mkdtempSync(path.join(os.tmpdir(), "workspace-nativ
 afterEach(() => { fs.rmSync(root, { recursive: true, force: true }); });
 const context = (write = false): ToolContext => ({ userQuery: "real helper", resolvedWorkspaceRoot: root, fileAccessLevel: write ? "scoped" : "project-read-only" });
 const windows = it.runIf(process.platform === "win32");
+function renameFailure(action: () => void): unknown { try { action(); } catch (error) { return error; } return undefined; }
 windows("the packaged-contract release helper returns binary bytes, canonical names, stat and handle listing", async () => {
   const b = createWorkspaceHandleBridge();
   const file = path.join(root, "MiXeD.bin"), bytes = Buffer.from([0, 255, 10, 13, 128]); fs.writeFileSync(file, bytes);
@@ -30,7 +31,8 @@ windows("a real helper creates only at commit, then replaces and appends through
   });
   await b.withWrite(file, context(true), false, async lease => {
     expect(lease!.before.bytes!.toString()).toBe("original");
-    expect(() => fs.renameSync(file, file + ".moved")).toThrow();
+    // 句柄持有期间不共享删除权限，Windows 拒绝改名；改名目标不应出现。
+    expect(renameFailure(() => fs.renameSync(file, file + ".moved"))).toMatchObject({ code: "EBUSY" }); expect(fs.existsSync(file + ".moved")).toBe(false);
     const after = await lease!.commit(Buffer.from("new"), "replace"); expect(after.identity).toEqual(lease!.before.identity);
   });
   await b.withWrite(file, context(true), false, async lease => { await lease!.commit(Buffer.from(" tail"), "append"); });

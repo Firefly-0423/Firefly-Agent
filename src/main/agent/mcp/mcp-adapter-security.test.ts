@@ -58,10 +58,16 @@ describe("MCP diagnostic boundaries", () => {
     expect(logs()).not.toContain("Choose an existing project");
   });
 
-  it("does not log raw connection failures", async () => {
-    sdk.connect.mockRejectedValue(new Error(`Authorization Bearer ${secret}`));
-    await expect(tool()).rejects.toThrow();
+  it("does not log raw connection failures and registers nothing", async () => {
+    // 连接失败时适配器原样抛出底层错误（没有稳定错误码）；分类由 mcp-manager 负责。
+    const failure = new Error(`Authorization Bearer ${secret}`);
+    sdk.connect.mockRejectedValue(failure);
+    await expect(tool()).rejects.toBe(failure);
     expect(logs()).not.toContain(secret);
+    expect(sdk.listTools).not.toHaveBeenCalled();
+    expect(sdk.callTool).not.toHaveBeenCalled();
+    expect(toolRegistry.getById("security-check")).toBeUndefined();
+    expect(getMcpServerStates()).toEqual([]);
   });
 
   it("removes configured environment values from tool-level error text", async () => {
