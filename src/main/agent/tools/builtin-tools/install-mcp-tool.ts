@@ -4,6 +4,7 @@ import { addMcpServer } from "../../mcp/mcp-manager";
 import { createAbortError } from "../../../base/utils/abort-utils";
 import { classifyMcpFailure, MCP_FAILURE_REASONS } from "../../mcp/mcp-failure";
 import { requestUserChoice, type ChoiceOption } from "../../../platform/interaction/user-choice";
+import { logger, LogTag } from "../../../base/logging/logger";
 
 const LOG_PREFIX = "[BuiltinTools]";
 
@@ -29,7 +30,7 @@ async function executeInstallMcp(input: Record<string, unknown>, context?: ToolC
   const answer = await requestUserChoice(confirmation, choices, "cancel", { runId: context?.runId, signal: context?.signal });
   if (context?.signal?.aborted) throw createAbortError();
   if (answer !== "install") return "[install_mcp_server] 用户取消安装";
-  console.log(LOG_PREFIX, "install_mcp_server:", identity);
+  logger.info(LogTag.BuiltinTools, "install_mcp_server:", identity);
   try {
     const connection = await addMcpServer({ id: identity, name: label, transport: "stdio", command: executable, args: argv, env: environment, cwd: directory });
     if (!connection.ok) {

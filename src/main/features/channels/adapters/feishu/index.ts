@@ -40,7 +40,7 @@ async function downloadLarkResource(connection: LarkChannel, messageId: string, 
       fs.writeFileSync(filename, Buffer.concat(buffers));
     }
     const metadata = fs.statSync(filename);
-    console.log(LOG, `已下载飞书资源 → ${filename} (${metadata.size} bytes, kind=${kind})`);
+    logger.info(LogTag.Feishu, `已下载飞书资源 → ${path.basename(filename)} (${metadata.size} bytes, kind=${kind})`);
     return filename;
   } catch (failure) {
     console.warn(LOG, `下载飞书资源失败: messageId=${messageId} fileKey=${fileKey} err=`, failure instanceof Error ? failure.message : failure);
@@ -81,7 +81,7 @@ async function sendLark(connection: LarkChannel, targetId: string, fragment: Out
       if (fragment.mime === "audio/ogg" || path.extname(fragment.filePath).toLowerCase() === ".opus") payload = { audio: { source: fragment.filePath } } as SendInput;
       else {
         const measured = await getAudioDurationMs(fragment.filePath);
-        console.log("[Feishu audio] send file:", fragment.filePath, "duration:", measured, "mime:", fragment.mime);
+        logger.info(LogTag.Feishu, "audio send file:", path.basename(fragment.filePath), "duration:", measured, "mime:", fragment.mime);
         if (!measured) throw new Error(`无法解析音频时长: ${fragment.filePath}`);
         payload = { audio: { source: fragment.filePath, duration: measured } } as SendInput;
       }
@@ -121,7 +121,7 @@ export class FeishuAdapter implements ChannelAdapter {
     const connection = createLarkChannel({ appId: identifier, appSecret: config.appSecret, domain: Domain.Feishu, loggerLevel: LoggerLevel.warn, transport: "websocket" });
     connection.on("message" as EventName, async (message: NormalizedMessage) => {
       if (this.channel !== connection) return;
-      if (message.chatType !== "p2p") { console.log(LOG, `忽略 ${message.chatType} 消息 (私聊优先)`); return; }
+      if (message.chatType !== "p2p") { logger.info(LogTag.Feishu, `忽略 ${message.chatType} 消息 (私聊优先)`); return; }
       let rules: ReturnType<typeof loadChannelsSettings>["feishu"] | null = null;
       try { rules = loadChannelsSettings().feishu; }
       catch (failure) { console.warn(LOG, "读取发送者白名单失败，按拒绝处理:", failure); }
@@ -139,12 +139,12 @@ export class FeishuAdapter implements ChannelAdapter {
     });
     connection.on("reconnecting" as EventName, () => {
       if (this.channel !== connection) return;
-      this.accountAuthority.revoke(); console.log(LOG, "reconnecting…");
+      this.accountAuthority.revoke(); logger.info(LogTag.Feishu, "reconnecting…");
       this.connectionStatus = { enabled: true, phase: "starting", message: "重新连接中" };
     });
     connection.on("reconnected" as EventName, () => {
       if (this.channel !== connection) return;
-      this.accountAuthority.authenticate(`feishu:${identifier}`); console.log(LOG, "reconnected");
+      this.accountAuthority.authenticate(`feishu:${identifier}`); logger.info(LogTag.Feishu, "reconnected");
       this.connectionStatus = { enabled: true, phase: "running", message: "已连接" };
     });
     this.channel = connection;
@@ -202,13 +202,13 @@ export class FeishuAdapter implements ChannelAdapter {
   async send(msg: OutgoingMessage): Promise<{ ok: boolean; error?: string }> {
     if (!this.channel) { console.warn(LOG, "send 失败: 长连接未建立"); return { ok: false, error: "飞书长连接未建立" }; }
     if (!msg.parts || msg.parts.length === 0) return { ok: false, error: "没有可发送的内容" };
-    console.log(LOG, `send: targetId=${msg.targetId} parts=${msg.parts.length}`);
+    logger.info(LogTag.Feishu, `send: targetId=${msg.targetId.slice(0, 6)}… parts=${msg.parts.length}`);
     let diagnostic: string | undefined;
     let delivered = false;
     for (const fragment of msg.parts) {
       try {
         const receipt = await sendLark(this.channel, msg.targetId, fragment);
-        console.log(LOG, `send ok: messageId=${receipt?.messageId ?? "?"}`);
+        logger.info(LogTag.Feishu, `send ok: messageId=${receipt?.messageId ?? "?"}`);
         delivered = true;
       } catch (failure) {
         diagnostic = failure instanceof Error ? failure.message : String(failure);

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { testVendorConnection } from "./test-connection";
+import { logger } from "../../base/logging/logger";
 import type { ChatVendorAdapter, VendorConfig } from "./types";
 
 describe("Connection checks through the runtime adapter", () => {
@@ -13,7 +14,7 @@ describe("Connection checks through the runtime adapter", () => {
   });
 
   it("logs neither user configuration nor upstream error and sample text", async () => {
-    const logging = vi.spyOn(console, "log").mockImplementation(() => {});
+    const logging = vi.spyOn(logger, "info").mockImplementation(() => {});
     try {
       const selected: VendorConfig = { provider: "credential-canary", model: "credential-canary", baseUrl: "https://credential-canary.invalid", apiKey: "credential-canary" };
       const resolver = () => ({ transport: "openai", testConnection: async () => ({ ok: false, latency: 12, error: "credential-canary upstream-private", sample: "sensitive-sample" }) }) as unknown as ChatVendorAdapter;

@@ -47,7 +47,7 @@ function writeLevelFile(level: AgentFileAccessLevel): void {
 
 export function setCurrentLevel(level: AgentFileAccessLevel): void {
   if (activeLevel === level) return;
-  console.log(TAG, "切换档位:", activeLevel, "→", level);
+  logger.info(LogTag.Permission, "切换档位:", activeLevel, "→", level);
   activeLevel = level;
   writeLevelFile(level);
 }
@@ -57,7 +57,7 @@ export function initPermissionFromDisk(): void {
   try {
     const source = levelFilePath();
     if (!fs.existsSync(source)) {
-      console.log(TAG, "没有已保存的档位，沿用默认 read-only");
+      logger.info(LogTag.Permission, "没有已保存的档位，沿用默认 read-only");
       return;
     }
     const saved = JSON.parse(fs.readFileSync(source, "utf8")) as { level?: unknown } | null;
@@ -126,7 +126,7 @@ export function requestApproval(request: Omit<ApprovalRequest, "id">, signal?: A
     requestSeq += 1;
     const id = `approve-${requestSeq}-${Date.now()}`;
     const card: ApprovalRequest = { id, ...request };
-    console.log(TAG, "下发审批请求:", id, request.toolId);
+    logger.info(LogTag.Permission, "下发审批请求:", id, request.toolId);
 
     // 应用正在退出、没有窗口可问时，直接视为拒绝
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -160,7 +160,7 @@ export function cancelPendingApprovalsForRun(runId: string): void {
   const owned = [...waiters.entries()].filter(([, w]) => w.runId === runId);
   for (const [id] of owned) {
     closeWaiter(id, "cancelled", rejectAsCancelled);
-    console.log(TAG, "已取消未决审批:", id, "runId=", runId);
+    logger.info(LogTag.Permission, "已取消未决审批:", id, "runId=", runId);
   }
 }
 
@@ -184,7 +184,7 @@ export function registerPermissionIpc(ipcOption?: IpcScope): void {
       console.warn(TAG, "收到未知审批的回传:", answer?.id);
       return { ok: false };
     }
-    console.log(TAG, "审批回传:", answer.id, answer.allowed ? "同意" : "拒绝");
+    logger.info(LogTag.Permission, "审批回传:", answer.id, answer.allowed ? "同意" : "拒绝");
     closeWaiter(answer.id, "answered", (w) => w.grant(Boolean(answer.allowed)));
     return { ok: true };
   });
@@ -233,7 +233,7 @@ export async function checkPermission(input: PermissionCheckInput): Promise<Perm
   if (signal?.aborted) throw createAbortError();
   const global = activeLevel;
   const verdict = stricter(policyFor(global, risk), policyFor(input.level ?? global, risk));
-  console.log(TAG, "checkPermission:", input.toolId, "risk=" + risk, "level=" + global, "→", verdict);
+  logger.info(LogTag.Permission, "checkPermission:", input.toolId, "risk=" + risk, "level=" + global, "→", verdict);
 
   if (verdict === "allow") return { allowed: true };
   if (verdict === "deny") {

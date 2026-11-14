@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { enqueueLLMTask } from "./llm-queue";
+import { logger } from "../../base/logging/logger";
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 describe("background model task options", () => {
     it("resolves without terminal output when logging is disabled", async () => {
-        const printed = vi.spyOn(console, "log").mockImplementation(() => undefined);
+        const printed = vi.spyOn(logger, "info").mockImplementation(() => undefined);
         expect(await enqueueLLMTask("quiet-index-refresh", async () => 23, { log: false })).toEqual(23);
         expect(printed).not.toHaveBeenCalled();
     });

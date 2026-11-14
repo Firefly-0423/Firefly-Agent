@@ -1,3 +1,4 @@
+/** 只供测试使用：firefly-history-reader.test.ts 用它检查读取结果放进索引后查得到什么。生产的历史查询走 history-repository.ts。 */
 import {historyMessageChars} from './history-message';
 import {canonicalJson} from '../core/repository-types';
 import {rankHistory} from './history-ranking';

@@ -1,3 +1,4 @@
+/** 只供测试使用：IPC 契约测试的源码扫描工具，生产代码不得引用（分层检查会报错）。 */
 import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
@@ -10,7 +11,7 @@ import ts from "typescript";
  *   - 字符串里恰好出现的通道名
  *   - 以形参传入的通道（如 `webContents.send(channel, payload)`），无法静态求值
  *
- * 与 `src/renderer/default-dialogs-scanner.ts` 沿用同一约定：
+ * 与 `src/renderer/default-dialogs-scanner.test-support.ts` 沿用同一约定：
  * 输入 (file, source)，返回带文件名和行号的命中列表，无副作用。
  */
 

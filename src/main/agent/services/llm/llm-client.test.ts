@@ -20,6 +20,7 @@ vi.mock("../../../base/storage/token-usage-store", () => ({ recordRequest: vi.fn
 vi.mock("../../../model/text/chat-api-utils", () => ({ appendApiLog: vi.fn() }));
 
 import { createLlmClient } from "./llm-client";
+import { logger } from "../../../base/logging/logger";
 import { recordRequest, recordUsage } from "../../../base/storage/token-usage-store";
 import { appendApiLog } from "../../../model/text/chat-api-utils";
 import type { ModelSettings } from "../../../model/config/model-settings";
@@ -141,10 +142,12 @@ describe("createLlmClient.stream", () => {
   });
 
   it("suppresses timing logs when logTiming is false", async () => {
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const log = vi.spyOn(logger, "info").mockImplementation(() => {});
+    const debug = vi.spyOn(logger, "debug").mockImplementation(() => {});
     mocks.events = [{ chunk: { done: true } }];
     await createLlmClient().stream(settings, messages, undefined, 5_000, "unit", () => {}, false);
     expect(log).not.toHaveBeenCalled();
+    expect(debug).not.toHaveBeenCalled();
   });
 });
 

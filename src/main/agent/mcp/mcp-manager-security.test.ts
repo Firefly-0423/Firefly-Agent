@@ -9,7 +9,7 @@ vi.mock("../../base/storage/atomic-json-store", () => ({ AtomicJsonStore: class 
   read() { return fixture.configs; }
   write(configs: unknown[]) { fixture.configs = configs; }
 } }));
-vi.mock("../../base/logging/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn() }, LogTag: { MCP: "mcp" } }));
+vi.mock("../../base/logging/logger", () => ({ logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn() }, LogTag: { MCP: "mcp" } }));
 
 import { addMcpServer, initMcpManager, setMcpServerEnabled } from "./mcp-manager";
 

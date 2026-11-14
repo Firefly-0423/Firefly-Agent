@@ -3,6 +3,7 @@
 
 import { getZonedDateParts } from "./proactive-clock";
 import type { ProactiveCandidate, ProactiveRuntimeSnapshot, ProactiveState } from "./proactive-types";
+import { logger, LogTag } from "../../base/logging/logger";
 
 export { getZonedDateParts } from "./proactive-clock";
 
@@ -277,7 +278,7 @@ export function createProactiveTrigger(deps: ProactiveTriggerDependencies): Proa
   let activeStart: number | null = null;
 
   const emit = (event: string, detail?: unknown): void => {
-    console.log(`${LOG_TAG} ${event}`, detail ?? "");
+    logger.info(LogTag.Proactive, event, ...(detail === undefined ? [] : [detail]));
   };
 
   const randomJitter = (): number => Math.floor(Math.random() * JITTER_CEILING_MS);

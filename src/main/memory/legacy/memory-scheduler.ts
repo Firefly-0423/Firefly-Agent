@@ -8,6 +8,7 @@ import { runResolverQueueOnce } from "./memory-resolver"
 import { memoryStore } from "./memory-store"
 import type { MemoryJudgeResult } from "./memory-schemas"
 import type { L1Profile, MemoryCandidate, MemoryJudgeTurn } from "./memory-types"
+import { logger, LogTag } from "../../base/logging/logger"
 
 const MEMORY_JUDGE_INTERVAL = 6
 const MEMORY_JUDGE_CONTEXT_TURNS = 8
@@ -95,7 +96,7 @@ export class MemoryScheduler {
     }
 
     if (due(COMPRESSION_INTERVAL)) {
-      console.log("[PMRS/Scheduler] 达到 20 轮，触发回顾 + 片段压缩")
+      logger.info(LogTag.Memory, "scheduler: 达到 20 轮，触发回顾 + 片段压缩")
       await this.deps.runReflectionAndCompression()
     }
 

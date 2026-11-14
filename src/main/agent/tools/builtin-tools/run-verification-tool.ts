@@ -1,6 +1,8 @@
+import * as path from "path";
 import type { ToolDefinition } from "../../../tooling/registry/tool-registry";
-import { resolveBuiltinExecutable, VerificationRunner } from "../verification-runner";
+import { resolveBuiltinExecutable, VerificationRunner, type VerificationType } from "../verification-runner";
 import { resolveWorkspaceBuildCommand } from "../workspace-build-command";
+import { logger, LogTag } from "../../../base/logging/logger";
 
 const LOG_PREFIX = "[BuiltinTools]";
 type WorkVerificationCommand = {
@@ -84,18 +86,18 @@ async function executeVerification(input: Record<string, unknown>): Promise<stri
   const argv = [...(display?.args ?? []), ...selected.args];
   const started = Date.now();
   const invocation = `${executable} ${argv.join(" ")}`;
-  console.log(LOG_PREFIX, "run_verification:", kind, invocation, directory ? "cwd=" + directory : "");
+  logger.info(LogTag.BuiltinTools, "run_verification:", kind, `executable=${path.basename(executable)} args=${argv.length}`, directory ? "cwd=" + path.basename(directory) : "");
   const runner = new VerificationRunner();
   try {
     const outcome = await runner.runStep({
-      id: `run_verification_${kind}`, type: kind as any,
+      id: `run_verification_${kind}`, type: kind as VerificationType, // `selected` 存在即说明 kind 是 commands 的键（typecheck/test/lint/build）
       packageRoot: directory || process.cwd(), cwd: directory || process.cwd(),
       configPath: selected.configPath, trust: selected.trust, executable: selected.cmd,
       args: selected.args, source: selected.source,
     }, { permissionLevel: (await import("../../../platform/permission/permission")).getCurrentLevel(), signal: undefined });
     const elapsed = Date.now() - started;
     const passed = outcome.passed;
-    console.log(LOG_PREFIX, "run_verification 完成:", kind, "exitCode=" + outcome.exitCode, "passed=" + passed,
+    logger.info(LogTag.BuiltinTools, "run_verification 完成:", kind, "exitCode=" + outcome.exitCode, "passed=" + passed,
       "durationMs=" + elapsed, "stdoutLen=" + outcome.stdout.length, "stderrLen=" + outcome.stderr.length);
     const code = outcome.errorCode;
     const approval = code === "VERIFICATION_APPROVAL_REQUIRED";

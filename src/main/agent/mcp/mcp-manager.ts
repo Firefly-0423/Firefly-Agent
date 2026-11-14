@@ -101,14 +101,14 @@ async function initMcpManagerNow(signal?: AbortSignal): Promise<void> {
 
   for (const config of configs) {
     if (config.enabled === false) continue;
-    if (signal?.aborted) { console.log(LOG_PREFIX, "restore aborted, remaining servers skipped:", config.name); break; }
+    if (signal?.aborted) { logger.info(LogTag.MCP, "restore aborted, remaining servers skipped:", config.name); break; }
     try {
       await connectMcpServer(config);
       lastFailures.delete(config.id); connected += 1;
       // 建立连接之后再看一次中止信号：若已进入退出流程，就立即断开这条迟到的连接
       if (signal?.aborted) {
         try { await disconnectMcpServer(config.id); } catch { /* 忽略断开失败 */ }
-        console.log(LOG_PREFIX, "late connection disconnected after abort:", config.name);
+        logger.info(LogTag.MCP, "late connection disconnected after abort:", config.name);
       }
     } catch (err) {
       failed++;
@@ -117,7 +117,7 @@ async function initMcpManagerNow(signal?: AbortSignal): Promise<void> {
     }
   }
 
-  console.log(LOG_PREFIX, "初始化完成: " + connected + " 个成功, " + failed + " 个失败");
+  logger.info(LogTag.MCP, "初始化完成: " + connected + " 个成功, " + failed + " 个失败");
 }
 
 /**
@@ -143,7 +143,7 @@ async function addMcpServerNow(config: McpServerConfig): Promise<{
   error?: string;
   reason?: McpFailureReason;
 }> {
-  console.log(LOG_PREFIX, "添加 MCP server:", config.name);
+  logger.info(LogTag.MCP, "添加 MCP server:", config.name);
 
   // 同 id 已存在则直接拒绝
   const configs = loadConfigs();
@@ -177,7 +177,7 @@ export function removeMcpServer(serverId: string): Promise<{ ok: boolean; error?
   return queueManagerOperation(() => removeMcpServerNow(serverId));
 }
 async function removeMcpServerNow(serverId: string): Promise<{ ok: boolean; error?: string }> {
-  console.log(LOG_PREFIX, `移除 MCP server: ${serverId}`);
+  logger.info(LogTag.MCP, `移除 MCP server: ${serverId}`);
 
   await disconnectMcpServer(serverId);
 

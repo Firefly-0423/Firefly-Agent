@@ -11,6 +11,7 @@ import { sendAgentLoopEventAsAgui } from "./adapter/event-mapper";
 import { completePlanRun } from "./adapter/plan-lifecycle";
 import { prepareAgentLoopRun } from "./adapter/run-preparation";
 import { prepareToolRuntime } from "./adapter/tool-runtime";
+import { logger, LogTag } from "../../base/logging/logger";
 export { mapTerminateReasonToTerminal } from "./adapter/terminal-mapper";
 export { buildAgentLoopPromptLayers, buildAgentLoopSystemPrompt, materializeAgentLoopStartTranscript } from "./adapter/prompt-builder";
 export { sendAgentLoopEventAsAgui, sendTaskLifecycleAsAgui } from "./adapter/event-mapper";
@@ -83,7 +84,7 @@ export async function runAgentLoopWithAdapter(options: FireflyRunOptions, signal
   } catch (failure) { console.error("[AgentLoopAdapter] finalizeReview failed:", failure); }
   completePlanRun({ mode: options.conversationMode, threadId: thread, runId: run, runStatus: status, planState: plan, signal, send: sendBaseEvent });
   const toolResults: ToolCallResult[] = [];
-  console.log(`[AgentLoopAdapter] harness run complete, rounds=${completed.rounds} terminated=${completed.terminated} terminal=${terminal.status}`);
+  logger.info(LogTag.Runtime, `harness run complete, rounds=${completed.rounds} terminated=${completed.terminated} terminal=${terminal.status}`);
   try { await options.transcriptSink?.checkpoint(); }
   catch (failure) { console.error("[ConversationTranscriptStore] snapshot checkpoint failed:", failure); }
   return { reply: completed.finalAnswer, toolResults, completionReason, terminal, totalUsage: undefined };

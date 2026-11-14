@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { perf } from "./perf-trace";
+import { logger } from "../../../shared/logger";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -9,7 +10,7 @@ afterEach(() => {
 describe("perf trace visibility", () => {
   it("keeps overlapping async turns and retained callbacks in their own scope", async () => {
     vi.stubEnv("FIREFLY_DEBUG_LOGS", "1");
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const log = vi.spyOn(logger, "info").mockImplementation(() => {});
     let release!: () => void;
     const gate = new Promise<void>(resolve => { release = resolve; });
     const a = perf.withTurn(async trace => {
@@ -46,7 +47,7 @@ describe("perf trace visibility", () => {
 
   it("restores nested scopes and records failed async phases without swallowing errors", async () => {
     vi.stubEnv("FIREFLY_DEBUG_LOGS", "1");
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const log = vi.spyOn(logger, "info").mockImplementation(() => {});
     const failure = new Error("cancelled fixture");
     await perf.withTurn(async outer => {
       outer.beginTurn("outer");
@@ -69,7 +70,7 @@ describe("perf trace visibility", () => {
 
   it("does not put a previous turn's late phase into the next summary", () => {
     vi.stubEnv("FIREFLY_DEBUG_LOGS", "1");
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const log = vi.spyOn(logger, "info").mockImplementation(() => {});
     vi.spyOn(console, "warn").mockImplementation(() => {});
     perf.beginTurn("A");
     const late = perf.begin("phase-A");
@@ -82,7 +83,7 @@ describe("perf trace visibility", () => {
 
   it("records a phase only once when end is repeated", () => {
     vi.stubEnv("FIREFLY_DEBUG_LOGS", "1");
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const log = vi.spyOn(logger, "info").mockImplementation(() => {});
     perf.beginTurn("once");
     const timer = perf.begin("single-phase");
     timer.end();
@@ -98,7 +99,7 @@ describe("perf trace visibility", () => {
     { debug: "1", visible: true },
   ])("reports timing only when debug is enabled ($debug)", ({ debug, visible }) => {
     vi.stubEnv("FIREFLY_DEBUG_LOGS", debug);
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const log = vi.spyOn(logger, "info").mockImplementation(() => {});
     perf.beginTurn("visibility-case");
     perf.mark("sample");
     perf.dump();

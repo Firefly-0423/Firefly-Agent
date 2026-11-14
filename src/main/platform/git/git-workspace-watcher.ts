@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import chokidar, { type ChokidarOptions } from "chokidar";
+import { logger, LogTag } from "../../base/logging/logger";
 
 type WatchListener = (value?: unknown, evidence?: NativeEventEvidence) => void;
 
@@ -308,7 +309,7 @@ function resolveDiagnosticsSink(explicit: DiagnosticsSink | undefined): Diagnost
   if (process.env.FIREFLY_VITEST_DIAGNOSTICS !== "1") return undefined;
   return {
     phase: () => "runtime",
-    record: (evidence) => console.info("[watch-evidence]", evidence),
+    record: (evidence) => logger.debug(LogTag.Runtime, "watch-evidence", evidence),
   };
 }
 
