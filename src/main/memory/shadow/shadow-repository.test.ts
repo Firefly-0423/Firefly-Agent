@@ -183,12 +183,12 @@ describe('shadow store',()=>{
  });
 
  it.each([
-  ['a cap of zero',{kind:'configure',body:{enabled:true,dailyCap:0,expectedRevision:0}}],
-  ['an unknown counter',{kind:'tally',body:{counters:{'skip:whatever':1}}}],
-  ['an unknown stop reason',{kind:'stop',body:{reason:'tired'}}],
-  ['an unknown command',{kind:'drop-table',body:{}}],
- ])('rejects malformed input: %s',(_label,{kind,body})=>{
-  const f=fixture();expect(()=>f.shadow(kind,body)).toThrow();
+  ['a cap of zero',{kind:'configure',body:{enabled:true,dailyCap:0,expectedRevision:0}},'MEMORY_SHADOW_INPUT_INVALID'],
+  ['an unknown counter',{kind:'tally',body:{counters:{'skip:whatever':1}}},'MEMORY_INPUT_INVALID'],
+  ['an unknown stop reason',{kind:'stop',body:{reason:'tired'}},'MEMORY_SHADOW_INPUT_INVALID'],
+  ['an unknown command',{kind:'drop-table',body:{}},'MEMORY_SHADOW_INPUT_INVALID'],
+ ])('rejects malformed input: %s',(_label,{kind,body},expectedCode)=>{
+  const f=fixture();expect(()=>f.shadow(kind,body)).toThrow(expectedCode);
  });
 
  it('keeps actors apart',()=>{

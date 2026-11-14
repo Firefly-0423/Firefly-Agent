@@ -177,7 +177,7 @@ it("validates a streamed claimed context through the real Worker without reusing
  const snapshot=await context.assemble(actor,{sessionId:identity.sessionId,sourceRefs:[ref]});await expect(context.validateResponse(actor,snapshot)).rejects.toThrow("MEMORY_CONTEXT_RESPONSE_UNSENT");
  const permit=await context.validateForDispatch(actor,snapshot),send=vi.fn(()=>"synthetic handle");await context.dispatch(actor,permit,send);await context.validateResponse(actor,snapshot);
  await expect(context.dispatch(actor,permit,send)).rejects.toThrow("MEMORY_CONTEXT_PERMIT_USED");expect(send).toHaveBeenCalledTimes(1);
- await registry.prepareChange(access,provider.adapter,ref);await expect(context.validateResponse(actor,snapshot)).rejects.toThrow();
+ await registry.prepareChange(access,provider.adapter,ref);await expect(context.validateResponse(actor,snapshot)).rejects.toThrow("MEMORY_SOURCE_PENDING");
 });
 
 });

@@ -31,9 +31,9 @@ it("replays identical commands and refuses changed payload or scope",()=>{
 });
 it("enforces source foreign keys and record uniqueness within a scope",()=>{
  const f=fixture(),repo=openMemoryRepository(f);repos.push(repo);
- expect(()=>repo.writeBatch({commandId:"missing-source",scopeKey:"scope-a",records:[{table:"evidence",id:"evidence-1",sourceId:"missing",revision:1,payload:{text:"evidence"}}]})).toThrow();
+ expect(()=>repo.writeBatch({commandId:"missing-source",scopeKey:"scope-a",records:[{table:"evidence",id:"evidence-1",sourceId:"missing",revision:1,payload:{text:"evidence"}}]})).toThrow("FOREIGN KEY constraint failed");
  expect(repo.readRows("evidence","scope-a")).toEqual([]);
- repo.writeBatch(batch);expect(()=>repo.writeBatch({...batch,commandId:"duplicate-source"})).toThrow();
+ repo.writeBatch(batch);expect(()=>repo.writeBatch({...batch,commandId:"duplicate-source"})).toThrow("UNIQUE constraint failed: sources.id, sources.scope_key");
 });
 it("rejects a future SQLite schema before changing the stored schema",()=>{
  const f=fixture(),repo=openMemoryRepository(f);repo.close();
@@ -103,7 +103,7 @@ it.runIf(process.platform==="win32")("preserves a raced backup destination and l
   fs.mkdirSync(to as string);fs.writeFileSync(path.join(to as string,"sentinel"),"race");
   return rename(from,to);
  });
- try{await expect(repo.backup("race-id")).rejects.toThrow();
+ try{await expect(repo.backup("race-id")).rejects.toThrow("EPERM: operation not permitted, rename");
   expect(fs.readFileSync(path.join(path.dirname(f.databasePath),"backups","race-id","sentinel"),"utf8")).toBe("race");
  }finally{spy.mockRestore()}
 });
