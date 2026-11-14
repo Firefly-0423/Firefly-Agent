@@ -1,14 +1,10 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import { IPC } from "../shared/ipc-channels";
-import type { ScreenshotInsertPayload } from "../shared/ipc-channels";
 import { MANUAL_BROWSER_WORKSPACE_IPC, type ManualBrowserWorkspaceApi } from "../shared/manual-browser";
 import { SIDEBAR_LAYOUT_IPC, type SidebarMutation } from "../shared/sidebar-layout";
 import type { ExternalSkillsApi } from "../shared/external-skills";
-import type { DesktopAsrApi } from "../shared/desktop-asr";
 import type { MemoryPanelAction, MemoryPanelOutcome, MemoryPanelSourceAudit, MemoryPanelState, } from "../shared/memory-panel-contracts";
 import type { MemoryAutomationPanelApi } from "../shared/memory-automation-contracts";
-import type { UiColors } from "../shared/ui-colors";
-import type { UiTheme } from "../shared/ui-theme";
 import type { UiFont } from "../shared/ui-font";
 import type { BrowserAvailabilityApi } from "../shared/browser-availability";
 import type { ModelConnectionSnapshot } from "../shared/model-connection-types";
@@ -20,8 +16,9 @@ import type { AguiRunAck } from "../shared/run-terminal";
 import type { ReviewSnapshot, ReviewRestoreOutcome } from "../shared/review-types";
 import type { WorkspaceListResult, WorkspaceReadResult, WorkspaceSaveResult } from "../shared/workspace-files-types";
 import type { OpenInAppListResult, OpenInAppOpenResult } from "../shared/open-in-app-types";
-import { normalizeChatDisplay, type ChatDisplaySettings } from "../shared/chat-appearance";
 import type { ConversationMode } from "../shared/chat-types";
+import { createFireflyAppearanceApi, createFireflyFontApi, createFireflyThemeApi, createStickerManagerApi } from "./appearance";
+import { createChatApi, createChoiceApi, createDesktopAsrApi } from "./chat-media";
 import { createLive2dWorkApi } from "./live2d-work-api";
 import { exposeMusicApi } from "./music";
 import { createFireflyApi } from "./pet";
@@ -29,106 +26,10 @@ import { createAppUpdateApi, createSidebarApi, createToastApi } from "./window-s
 const pageTargetKey = crypto.randomUUID();
 type ChatModeName = "chat" | "work" | "code";
 type PluginOverview = import("../shared/plugin-management").PluginOverview;
-const desktopAsrApi: DesktopAsrApi = {
-    start: (entityId) => {
-        return ipcRenderer.invoke(IPC.DESKTOP_ASR_START, entityId);
-    },
-    frame: (entityId, pcm) => {
-        return ipcRenderer.invoke(IPC.DESKTOP_ASR_FRAME, entityId, pcm);
-    },
-    stop: (entityId) => {
-        return ipcRenderer.invoke(IPC.DESKTOP_ASR_STOP, entityId);
-    },
-    cancel: (entityId) => {
-        return ipcRenderer.invoke(IPC.DESKTOP_ASR_CANCEL, entityId);
-    },
-};
-contextBridge.exposeInMainWorld("desktopAsr", desktopAsrApi);
-const chatApi = {
-    minimize: () => {
-        return ipcRenderer.send(IPC.CHAT_MINIMIZE);
-    },
-    close: () => {
-        return ipcRenderer.send(IPC.CHAT_CLOSE);
-    },
-    toggleMaximize: () => {
-        return ipcRenderer.send(IPC.CHAT_TOGGLE_MAXIMIZE);
-    },
-    isMaximized: () => {
-        return ipcRenderer.invoke(IPC.CHAT_IS_MAXIMIZED);
-    },
-    startWindowDrag: () => {
-        return ipcRenderer.send(IPC.CHAT_WINDOW_DRAG_START);
-    },
-    endWindowDrag: () => {
-        return ipcRenderer.send(IPC.CHAT_WINDOW_DRAG_END);
-    },
-    getEnabledStickers: () => {
-        return ipcRenderer.invoke(IPC.STICKERS_GET_ENABLED);
-    },
-    ingestDroppedFiles: async (selectedFiles: File[]): Promise<unknown[]> => {
-        const fileDescriptions: Array<{
-            path: string;
-            mime: string;
-        }> = [];
-        for (const selectedFile of selectedFiles) {
-            try {
-                const absolutePath = webUtils.getPathForFile(selectedFile);
-                if (absolutePath)
-                    fileDescriptions.push({ path: absolutePath, mime: selectedFile.type });
-            }
-            catch {
-            }
-        }
-        if (fileDescriptions.length === 0)
-            return [];
-        return ipcRenderer.invoke(IPC.CHAT_INGEST_FILES, fileDescriptions);
-    },
-    captionImage: (filePath: string, hasAnnotations = false) => {
-        return ipcRenderer.invoke(IPC.CHAT_CAPTION_IMAGE, { filePath, hasAnnotations });
-    },
-    getImagePreview: (filePath: string) => {
-        return ipcRenderer.invoke(IPC.CHAT_GET_IMAGE_PREVIEW, { filePath });
-    },
-    getImageSendStrategy: (conversationKey?: string) => {
-        return ipcRenderer.invoke(IPC.CHAT_GET_IMAGE_SEND_STRATEGY, conversationKey ? { sessionId: conversationKey } : undefined);
-    },
-    getGeneralSettings: () => {
-        return ipcRenderer.invoke(IPC.SETTINGS_GET_GENERAL);
-    },
-    getReasoningState: (message?: {
-        sessionId?: string;
-    }) => {
-        return ipcRenderer.invoke(IPC.CHAT_GET_REASONING_STATE, message);
-    },
-    setReasoning: (message: {
-        sessionId?: string;
-        providerKey: string;
-        preference: unknown;
-    }) => {
-        return ipcRenderer.invoke(IPC.CHAT_SET_REASONING, message);
-    },
-    startScreenshot: () => {
-        return ipcRenderer.invoke(IPC.SCREENSHOT_START);
-    },
-    onScreenshotInsert: (receive: (eventData: ScreenshotInsertPayload) => void) => {
-        const forwardEvent = (_ipcEvent: unknown, eventData: ScreenshotInsertPayload) => {
-            return receive(eventData);
-        };
-        ipcRenderer.on(IPC.SCREENSHOT_INSERT, forwardEvent);
-        return () => {
-            return ipcRenderer.removeListener(IPC.SCREENSHOT_INSERT, forwardEvent);
-        };
-    },
-    saveScreenshotTemp: (base64: string, mime: string) => {
-        return ipcRenderer.invoke(IPC.SCREENSHOT_SAVE_TEMP, base64, mime) as Promise<{
-            filePath: string;
-        }>;
-    },
-};
+contextBridge.exposeInMainWorld("desktopAsr", createDesktopAsrApi(ipcRenderer));
 contextBridge.exposeInMainWorld("firefly", createFireflyApi(ipcRenderer));
 contextBridge.exposeInMainWorld("appUpdate", createAppUpdateApi(ipcRenderer));
-contextBridge.exposeInMainWorld("chat", chatApi);
+contextBridge.exposeInMainWorld("chat", createChatApi(ipcRenderer, webUtils));
 const aguiApi = {
     run: (request: {
         messages: unknown[];
@@ -205,71 +106,12 @@ const schedulerEventsApi = {
     },
 };
 contextBridge.exposeInMainWorld("schedulerEvents", schedulerEventsApi);
-const choiceApi = {
-    resolve: (entityId: string, settingValue: unknown) => {
-        return ipcRenderer.invoke(IPC.CHOICE_RESOLVE, typeof settingValue === "string" ? { id: entityId, value: settingValue } : { id: entityId, answer: settingValue });
-    },
-};
-contextBridge.exposeInMainWorld("choice", choiceApi);
+contextBridge.exposeInMainWorld("choice", createChoiceApi(ipcRenderer));
 contextBridge.exposeInMainWorld("sidebar", createSidebarApi(ipcRenderer));
 contextBridge.exposeInMainWorld("toast", createToastApi(ipcRenderer));
-const fireflyThemeApi = {
-    getColors: () => {
-        return ipcRenderer.invoke(IPC.UI_COLORS_GET) as Promise<UiColors>;
-    },
-    onColorsChanged: (receive: (colors: UiColors) => void) => {
-        const forwardEvent = (_ipcEvent: unknown, colors: UiColors) => {
-            return receive(colors);
-        };
-        ipcRenderer.on(IPC.UI_COLORS_CHANGED, forwardEvent);
-        return () => {
-            return ipcRenderer.removeListener(IPC.UI_COLORS_CHANGED, forwardEvent);
-        };
-    },
-    get: () => {
-        return ipcRenderer.invoke(IPC.UI_THEME_GET) as Promise<UiTheme>;
-    },
-    onChanged: (receive: (theme: UiTheme) => void) => {
-        const forwardEvent = (_ipcEvent: unknown, theme: UiTheme) => {
-            return receive(theme);
-        };
-        ipcRenderer.on(IPC.UI_THEME_CHANGED, forwardEvent);
-        return () => {
-            return ipcRenderer.removeListener(IPC.UI_THEME_CHANGED, forwardEvent);
-        };
-    },
-};
-contextBridge.exposeInMainWorld("fireflyTheme", fireflyThemeApi);
-const fireflyFontApi = {
-    get: () => {
-        return ipcRenderer.invoke(IPC.UI_FONT_GET) as Promise<UiFont>;
-    },
-    onChanged: (receive: (font: UiFont) => void) => {
-        const forwardEvent = (_ipcEvent: unknown, font: UiFont) => {
-            return receive(font);
-        };
-        ipcRenderer.on(IPC.UI_FONT_CHANGED, forwardEvent);
-        return () => {
-            return ipcRenderer.removeListener(IPC.UI_FONT_CHANGED, forwardEvent);
-        };
-    },
-};
-contextBridge.exposeInMainWorld("fireflyFont", fireflyFontApi);
-const fireflyAppearanceApi = {
-    get: async () => {
-        return normalizeChatDisplay(await ipcRenderer.invoke(IPC.SETTINGS_GET_GENERAL));
-    },
-    onChanged: (receive: (settings: ChatDisplaySettings) => void) => {
-        const forwardEvent = (_ipcEvent: Electron.IpcRendererEvent, message: unknown) => {
-            receive(normalizeChatDisplay(message));
-        };
-        ipcRenderer.on(IPC.CHAT_TYPOGRAPHY_CHANGED, forwardEvent);
-        return () => {
-            ipcRenderer.removeListener(IPC.CHAT_TYPOGRAPHY_CHANGED, forwardEvent);
-        };
-    },
-};
-contextBridge.exposeInMainWorld("fireflyAppearance", fireflyAppearanceApi);
+contextBridge.exposeInMainWorld("fireflyTheme", createFireflyThemeApi(ipcRenderer));
+contextBridge.exposeInMainWorld("fireflyFont", createFireflyFontApi(ipcRenderer));
+contextBridge.exposeInMainWorld("fireflyAppearance", createFireflyAppearanceApi(ipcRenderer));
 type WireTransport = "openai" | "anthropic" | "responses";
 type WechatLoginResult = {
     ok: boolean;
@@ -724,21 +566,7 @@ const schedulerApi = {
     },
 };
 contextBridge.exposeInMainWorld("fireflyScheduler", schedulerApi);
-const stickerManagerApi = {
-    minimize: () => {
-        return ipcRenderer.send(IPC.STICKERS_MINIMIZE);
-    },
-    close: () => {
-        return ipcRenderer.send(IPC.STICKERS_CLOSE);
-    },
-    getConfig: () => {
-        return ipcRenderer.invoke(IPC.STICKERS_GET_CONFIG);
-    },
-    setEnabled: (entityId: string, active: boolean) => {
-        return ipcRenderer.invoke(IPC.STICKERS_SET_ENABLED, { id: entityId, enabled: active });
-    },
-};
-contextBridge.exposeInMainWorld("stickerManager", stickerManagerApi);
+contextBridge.exposeInMainWorld("stickerManager", createStickerManagerApi(ipcRenderer));
 const modelConfigApi = {
     getConnectionSnapshot: (): Promise<ModelConnectionSnapshot> => {
         return ipcRenderer.invoke(IPC.MODEL_CONNECTION_GET);
