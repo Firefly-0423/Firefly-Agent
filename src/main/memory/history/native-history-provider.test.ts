@@ -34,7 +34,7 @@ it('quarantines unknown legacy native and old cached documents even without an M
  const db=new DatabaseSync(f.databasePath);try{db.exec('DELETE FROM history_origins')}finally{db.close()}
  const id={providerId:'synthetic',sessionId:'session-a',messageId:'turn'},ref=await f.registry.capture(f.access,f.provider.adapter,id);await f.registry.prepareChange(f.access,f.provider.adapter,ref);f.provider.remove(id);await expect(f.registry.reconcile(f.access,f.provider.adapter,id)).rejects.toThrow('MEMORY_SOURCE_DELETED');
  expect(await f.policy.recall(f.actor)).toEqual([]);expect(await f.native.capture()).toMatchObject({status:'coverage-insufficient',reason:'partial-source'});expect(await f.native.query({query:'harbor'})).toMatchObject({status:'coverage-insufficient'});
- if(old.status==='queried')expect(()=>readHistoryEvidence(f.authority,f.actor,old.result.evidence)).toThrow();
+ if(old.status==='queried')expect(()=>readHistoryEvidence(f.authority,f.actor,old.result.evidence)).toThrow('MEMORY_HISTORY_STALE');
 });
 it('merges more than 129 consecutive proven messages into bounded safe runs around unknown history',async()=>{
  const f=await fixture(),owner={actorKey:'actor-a',providerId:'synthetic',sessionId:'session-a'},root=historyOriginEvent((await f.store.read('session-a')).entries[0]);
@@ -72,10 +72,10 @@ it.each(['snapshot.json','transcript.jsonl'])('missing %s remains explicit cover
 it('authorized root pin rejects a second helper before its leaf read',async()=>{const f=await fixture({rootMismatch:true});await expect(f.native.capture()).rejects.toThrow('MEMORY_HISTORY_NATIVE_ROOT_CHANGED');expect(f.reads).toBe(1);expect(f.held).toBe(0)});
 it('successful capture followed by external snapshot deletion revokes old synchronous evidence and reports coverage',async()=>{
  const f=await fixture();await f.native.capture();const q=await f.native.query({query:'harbor'});if(q.status!=='queried')throw Error('expected queried');fs.unlinkSync(path.join(storage.dataRoot,'transcripts','session-a','snapshot.json'));
- await expect(f.history.query(f.actor,{query:'harbor'})).rejects.toThrow('MEMORY_HISTORY_COVERAGE_INSUFFICIENT');expect(await f.native.query({query:'harbor'})).toMatchObject({status:'coverage-insufficient',reason:'snapshot-missing'});expect(()=>readHistoryEvidence(f.authority,f.actor,q.result.evidence)).toThrow();
+ await expect(f.history.query(f.actor,{query:'harbor'})).rejects.toThrow('MEMORY_HISTORY_COVERAGE_INSUFFICIENT');expect(await f.native.query({query:'harbor'})).toMatchObject({status:'coverage-insufficient',reason:'snapshot-missing'});expect(()=>readHistoryEvidence(f.authority,f.actor,q.result.evidence)).toThrow('MEMORY_HISTORY_STALE');
 });
 it('invalidates on mutation, close and forget without restoring authority from identical files',async()=>{
- const f=await fixture();await f.native.capture();const q=await f.native.query({query:'harbor'});if(q.status!=='queried')throw Error('expected queried');await f.native.beforeMutation('append');expect(()=>readHistoryEvidence(f.authority,f.actor,q.result.evidence)).toThrow();expect(await f.native.query({query:'harbor'})).toMatchObject({reason:'not-acquired'});
+ const f=await fixture();await f.native.capture();const q=await f.native.query({query:'harbor'});if(q.status!=='queried')throw Error('expected queried');await f.native.beforeMutation('append');expect(()=>readHistoryEvidence(f.authority,f.actor,q.result.evidence)).toThrow('MEMORY_HISTORY_STALE');expect(await f.native.query({query:'harbor'})).toMatchObject({reason:'not-acquired'});
  await f.native.capture();const fact=await f.active();await f.native.invalidate('forget');await f.policy.act(f.actor,await f.policy.event(f.actor,{kind:'forget',nonce:crypto.randomUUID(),factId:fact.factId,revision:1}));const reads=f.reads,puts=f.commands.filter(c=>c.kind==='put').length;
  expect(await f.native.capture()).toMatchObject({status:'captured',coverage:'complete'});
  expect(await f.native.query({query:'harbor'})).toMatchObject({status:'queried'});
@@ -86,7 +86,7 @@ it('partial tail and per-session record budget cannot yield partial publication'
  const f=await fixture();fs.appendFileSync(path.join(storage.dataRoot,'transcripts','session-a','transcript.jsonl'),'BROKEN');expect(await f.native.capture()).toMatchObject({reason:'partial-source'});expect(f.commands.some(c=>c.kind==='put')).toBe(false);
 });
 it('a later record failure invalidates the first head before capture acknowledgement',async()=>{
- const f=await fixture({failPut:2});await f.store.append('session-a',{id:'u2',kind:'user',turnId:'turn2',revision:1,payload:{text:'harbor tea'},at:2000});await f.store.checkpoint('session-a');await f.bindUsers();await expect(f.native.capture()).rejects.toThrow('injected put');expect(await f.native.query({query:'harbor'})).toMatchObject({reason:'not-acquired'});expect(f.held).toBe(0);await expect(f.history.query(f.actor,{query:'harbor'})).rejects.toThrow();
+ const f=await fixture({failPut:2});await f.store.append('session-a',{id:'u2',kind:'user',turnId:'turn2',revision:1,payload:{text:'harbor tea'},at:2000});await f.store.checkpoint('session-a');await f.bindUsers();await expect(f.native.capture()).rejects.toThrow('injected put');expect(await f.native.query({query:'harbor'})).toMatchObject({reason:'not-acquired'});expect(f.held).toBe(0);await expect(f.history.query(f.actor,{query:'harbor'})).rejects.toThrow('MEMORY_HISTORY_STALE');
 });
 it('forged actor and temporary actors reject before endpoint acquisition',async()=>{const f=await fixture();expect(()=>createNativeHistoryProvider({actorAuthority:f.authority,actorToken:{},store:f.store,history:f.history,endpointFactory:async()=>{throw Error('read forbidden')},deadlineMs:1000})).toThrow('MEMORY_ACTOR_DENIED');const temporary=f.authority.bindActor(f.access,f.provider.adapter,f.identity,{sessionMode:'temporary'});expect(()=>createNativeHistoryProvider({actorAuthority:f.authority,actorToken:temporary,store:f.store,history:f.history,endpointFactory:async()=>{throw Error('read forbidden')},deadlineMs:1000})).toThrow('MEMORY_HISTORY_TEMPORARY_DENIED')});
 
@@ -103,7 +103,7 @@ it('generic native faults on refresh propagate and synchronously revoke the old 
  const f=await fixture();await f.native.capture();const q=await f.native.query({query:'harbor'});if(q.status!=='queried')throw Error('expected queried');
  // Test-owned source bytes become corrupt without invoking the observer.
  fs.writeFileSync(path.join(storage.dataRoot,'transcripts','session-a','snapshot.json'),'BROKEN');
- await expect(f.native.query({query:'harbor'})).rejects.toThrow('MEMORY_HISTORY_CORRUPT');expect(()=>readHistoryEvidence(f.authority,f.actor,q.result.evidence)).toThrow();expect(await f.native.query({query:'harbor'})).toMatchObject({reason:'not-acquired'});
+ await expect(f.native.query({query:'harbor'})).rejects.toThrow('MEMORY_HISTORY_CORRUPT');expect(()=>readHistoryEvidence(f.authority,f.actor,q.result.evidence)).toThrow('MEMORY_HISTORY_STALE');expect(await f.native.query({query:'harbor'})).toMatchObject({reason:'not-acquired'});
 });
 
 it('readonly barrier retains the queue until both endpoints finish disposal',async()=>{
@@ -164,7 +164,7 @@ it('failed endpoint disposal waits for the other endpoint before releasing the s
 });
 it('fresh capture excludes removed user turns while keeping old evidence revoked',async()=>{
  const f=await fixture();await f.store.append('session-a',{id:'u2',kind:'user',turnId:'turn2',revision:1,payload:{text:'harbor tea'}});await f.store.checkpoint('session-a');await f.native.capture();const old=await f.native.query({query:'harbor'});if(old.status!=='queried')throw Error('expected queried');
- await f.native.beforeMutation('rewind');await f.store.append('session-a',{id:'rewind',kind:'turn_rewind',payload:{anchorUserTurnId:'turn',disposition:'keep_user',reason:'delete'}});await f.store.checkpoint('session-a');await f.native.capture();const current=await f.native.query({query:'harbor'});expect(current.status).toBe('queried');if(current.status==='queried')expect(current.result.hits).toHaveLength(1);expect(()=>readHistoryEvidence(f.authority,f.actor,old.result.evidence)).toThrow();
+ await f.native.beforeMutation('rewind');await f.store.append('session-a',{id:'rewind',kind:'turn_rewind',payload:{anchorUserTurnId:'turn',disposition:'keep_user',reason:'delete'}});await f.store.checkpoint('session-a');await f.native.capture();const current=await f.native.query({query:'harbor'});expect(current.status).toBe('queried');if(current.status==='queried')expect(current.result.hits).toHaveLength(1);expect(()=>readHistoryEvidence(f.authority,f.actor,old.result.evidence)).toThrow('MEMORY_HISTORY_STALE');
 });
 it('rewinding a completed turn keeps physical publication progress monotonic',async()=>{
  const f=await fixture();await f.store.append('session-a',{id:'assistant',kind:'assistant',payload:{role:'assistant',content:'harbor reply'}});await f.store.checkpoint('session-a');await f.native.capture();
@@ -240,7 +240,7 @@ it('invalidation propagates cleanup failures from an endpoint returned after rev
 it('one late cleanup failure cannot acknowledge invalidation while another operation is pending',async()=>{
  const f=await fixture();let starts=0,entered=0,ready!:()=>void;const both=new Promise<void>(r=>ready=r);const releases:Array<()=>void>=[];
  const native=createNativeHistoryProvider({actorAuthority:f.authority,actorToken:f.actor,store:{withReadonlyBarrier:(_id,run)=>run()},history:f.history,deadlineMs:1000,endpointFactory:async()=>{const endpoint=await f.endpointFactory();if(++starts<=2)return endpoint;const ordinal=++entered;await new Promise<void>(r=>{releases.push(r);if(entered===2)ready()});return {...endpoint,async dispose(){await endpoint.dispose();if(ordinal===1)throw Error('first cleanup fault')}}}});
- await native.capture();const first=native.query({query:'harbor'}),second=native.query({query:'harbor'}),firstFailed=expect(first).rejects.toThrow('first cleanup fault'),secondFailed=expect(second).rejects.toThrow();await both;let acknowledged=false;const invalidated=native.invalidate('root-change').finally(()=>{acknowledged=true}),cleanupFailed=expect(invalidated).rejects.toThrow('first cleanup fault');
+ await native.capture();const first=native.query({query:'harbor'}),second=native.query({query:'harbor'}),firstFailed=expect(first).rejects.toThrow('first cleanup fault'),secondFailed=expect(second).rejects.toThrow('MEMORY_HISTORY_CANCELLED');await both;let acknowledged=false;const invalidated=native.invalidate('root-change').finally(()=>{acknowledged=true}),cleanupFailed=expect(invalidated).rejects.toThrow('first cleanup fault');
  releases[0]();try{await firstFailed;await new Promise<void>(setImmediate);expect(acknowledged).toBe(false)}finally{releases[1]();await secondFailed;await cleanupFailed;await native.close()}
 });
 
@@ -249,7 +249,7 @@ it('invalidation still waits exact live operation cleanup when captured-head cle
  const started=new Promise<void>(r=>entered=r),hold=new Promise<void>(r=>release=r);
  const history={...f.history,prepareTranscriptChange:async(...args:Parameters<typeof f.history.prepareTranscriptChange>)=>{if(failHeads)throw Error('HEAD_CLEANUP_FAILED');return f.history.prepareTranscriptChange(...args)}};
  const native=createNativeHistoryProvider({actorAuthority:f.authority,actorToken:f.actor,store:f.store,history,deadlineMs:1000,endpointFactory:async()=>{const endpoint=await f.endpointFactory();if(++starts===3){entered();await hold}return endpoint}});
- await native.capture();const query=native.query({query:'harbor'}),queryFailed=expect(query).rejects.toThrow();await started;
+ await native.capture();const query=native.query({query:'harbor'}),queryFailed=expect(query).rejects.toThrow('HEAD_CLEANUP_FAILED');await started;
  failHeads=true;let acknowledged=false;const invalidation=native.invalidate('root-change').catch(error=>{acknowledged=true;return error.message});
  try{await new Promise<void>(setImmediate);expect(acknowledged).toBe(false)}
  finally{release();await queryFailed;expect(await invalidation).toBe('HEAD_CLEANUP_FAILED');failHeads=false;await native.close()}

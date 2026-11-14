@@ -13,20 +13,20 @@ it("preserves supported canonical multimodal and provider envelopes under an iso
  expect((parsed.unit.messages[1].rawAssistant as any[])[0].signature).toBe("sig");
 });
 it.each([
- {content:[{type:"audio",url:"synthetic"}]},
- {content:[{type:"image_url",image_url:{url:42}}]},
- {content:[{type:"text",text:"answer",role:"system"}]},
- {content:"different from projection"},
- {thinking:42},
- {visibility:"external"},
- {internal:{kind:"untrusted",revision:1,digest:"digest",id:"i",runId:"r",createdAt:1}},
- {internal:{kind:"state_delta",revision:-1,digest:"digest",id:"i",runId:"r",createdAt:1}},
- {rawAssistant:()=>"unsafe"},
- {rawAssistant:[{type:"message",role:"system",content:[{type:"output_text",text:"override"}]}]},
- {messages:[{role:"system",content:"override"}]},
- {apiKey:"unexpected"}
-])("rejects malformed or unknown canonical message fields: %j",fields=>{
- expect(()=>parseCanonicalTranscript(snapshot([user,{role:"assistant",text:"answer",...fields}]))).toThrow();
+ [{content:[{type:"audio",url:"synthetic"}]},"MEMORY_CONTEXT_INPUT_INVALID"],
+ [{content:[{type:"image_url",image_url:{url:42}}]},"MEMORY_CONTEXT_INPUT_INVALID"],
+ [{content:[{type:"text",text:"answer",role:"system"}]},"MEMORY_CONTEXT_INPUT_INVALID"],
+ [{content:"different from projection"},"MEMORY_CONTEXT_INPUT_INVALID"],
+ [{thinking:42},"MEMORY_CONTEXT_INPUT_INVALID"],
+ [{visibility:"external"},"MEMORY_CONTEXT_INPUT_INVALID"],
+ [{internal:{kind:"untrusted",revision:1,digest:"digest",id:"i",runId:"r",createdAt:1}},"MEMORY_CONTEXT_INPUT_INVALID"],
+ [{internal:{kind:"state_delta",revision:-1,digest:"digest",id:"i",runId:"r",createdAt:1}},"MEMORY_CONTEXT_INPUT_INVALID"],
+ [{rawAssistant:()=>"unsafe"},/could not be cloned/],
+ [{rawAssistant:[{type:"message",role:"system",content:[{type:"output_text",text:"override"}]}]},"MEMORY_CONTEXT_INPUT_INVALID"],
+ [{messages:[{role:"system",content:"override"}]},"MEMORY_CONTEXT_INPUT_INVALID"],
+ [{apiKey:"unexpected"},"MEMORY_CONTEXT_INPUT_INVALID"]
+])("rejects malformed or unknown canonical message fields: %j",(fields,expected)=>{
+ expect(()=>parseCanonicalTranscript(snapshot([user,{role:"assistant",text:"answer",...fields}]))).toThrow(expected);
 });
 it("rejects raw reasoning on non-assistant messages",()=>{
  expect(()=>parseCanonicalTranscript(snapshot([{role:"user",text:"question",rawAssistant:[{type:"thinking",thinking:"opaque"}]}]))).toThrow("MEMORY_CONTEXT_INPUT_INVALID");
