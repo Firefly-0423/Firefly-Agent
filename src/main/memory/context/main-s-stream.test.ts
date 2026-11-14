@@ -123,14 +123,14 @@ it.each(["failed","error","incomplete","duplicate-terminal","post-terminal-delta
  await expect(f.runtime.runSContext(f.input)).rejects.toThrow(kind==="failed"||kind==="error"?"MEMORY_CONTEXT_STREAM_SERVER_ERROR":kind==="incomplete"?"MEMORY_CONTEXT_STREAM_INCOMPLETE":kind==="transport"?"MEMORY_CONTEXT_STREAM_FAILED":["tool","reasoning","refusal","citation"].includes(kind)?"MEMORY_CONTEXT_STREAM_OUTPUT_UNSUPPORTED":"MEMORY_CONTEXT_STREAM_INVALID");expect(await f.assistants()).toHaveLength(0);expect(f.sent).toHaveLength(1);
  expect(f.display.some(e=>e.type==="text_message_end")).toBe(false);
 });
-it.each(["cancel","session-switch","append","edit","regenerate","delete","forget","configuration"])("%s while streaming blocks canonical writeback",async kind=>{
+it.each([["cancel","MEMORY_CONTEXT_CANCELLED"],["session-switch","MEMORY_CONTEXT_RUN_STALE"],["append","MEMORY_CONTEXT_TRANSCRIPT_PENDING"],["edit","MEMORY_CONTEXT_TRANSCRIPT_PENDING"],["regenerate","MEMORY_CONTEXT_TRANSCRIPT_PENDING"],["delete","MEMORY_CONTEXT_TRANSCRIPT_PENDING"],["forget","MEMORY_CONTEXT_STALE"],["configuration","MEMORY_CONTEXT_REQUEST_CHANGED"]])("%s while streaming blocks canonical writeback with %s",async (kind,code)=>{
  const f=await fixture(),abort=new AbortController(),fact=kind==="forget"?await f.active("I prefer bash"):undefined;
  f.setHook(async i=>{if(i!==5)return;if(kind==="cancel")abort.abort();if(kind==="session-switch")f.switchRun();if(kind==="configuration")f.drift();
   if(kind==="append")await f.store.append("session-a",{id:"u2",at:1003,kind:"user",turnId:"u2",revision:1,payload:{text:"new"}});
   if(kind==="edit"||kind==="regenerate")await f.store.append("session-a",{id:"rw",at:1003,kind:"turn_rewind",...(kind==="edit"?{turnId:"u1",revision:2}:{}),payload:{anchorUserTurnId:"u1",disposition:kind==="edit"?"replace_user":"keep_user",reason:kind,...(kind==="edit"?{replacementUser:{text:"edited"}}:{})}} as any);
   if(kind==="delete")await f.store.deleteConversation("session-a");if(fact)await f.forget(fact.factId!);
  });
- await expect(f.runtime.runSContext({...f.input,signal:abort.signal})).rejects.toThrow();expect(await f.assistants()).toHaveLength(0);expect(f.sent).toHaveLength(1);expect(f.display.some(e=>e.type==="text_message_end")).toBe(false);
+ await expect(f.runtime.runSContext({...f.input,signal:abort.signal})).rejects.toThrow(code);expect(await f.assistants()).toHaveLength(0);expect(f.sent).toHaveLength(1);expect(f.display.some(e=>e.type==="text_message_end")).toBe(false);
  expect((await f.store.read("other-session")).entries).toEqual([]);
 });
 it("abort of an idle stream settles without awaiting another provider event",async()=>{
@@ -138,18 +138,18 @@ it("abort of an idle stream settles without awaiting another provider event",asy
  f.setHook(async i=>{if(i===5){started();await wait}});const run=f.runtime.runSContext({...f.input,signal:abort.signal});const failed=expect(run).rejects.toThrow("MEMORY_CONTEXT_CANCELLED");await start;abort.abort();await failed;
  expect(f.stream.controller.signal.aborted).toBe(true);expect(await f.assistants()).toHaveLength(0);release();await Promise.resolve();expect(f.sent).toHaveLength(1);
 });
-it.each(["wrong-session","wrong-turn","foreign-sink","tools","reused-run"])("rejects %s before a new SDK request",async kind=>{
+it.each([["wrong-session","MEMORY_ACTOR_DENIED"],["wrong-turn","MEMORY_CONTEXT_STREAM_TURN_STALE"],["foreign-sink","MEMORY_CONTEXT_STREAM_SINK_DENIED"],["tools","MEMORY_CONTEXT_STREAM_TOOLS_UNSUPPORTED"],["reused-run","MEMORY_CONTEXT_STREAM_RUN_REUSED"]])("rejects %s before a new SDK request with %s",async (kind,code)=>{
  const f=await fixture();if(kind==="wrong-session")f.target.conversationId="other-session";if(kind==="wrong-turn")f.target.userTurnId="wrong";
  if(kind==="foreign-sink")f.target.sink=createTranscriptSink({store:f.store,conversationId:"other-session",runId:"run-s",assistantTurnId:"assistant-s"});
  if(kind==="tools")(f.request as any).tools=[{name:"lookup",description:"synthetic",parameters:{}}];
  if(kind==="reused-run"){await f.runtime.runSContext(f.input);f.sent.length=0;}
- await expect(f.runtime.runSContext(f.input)).rejects.toThrow();expect(f.sent).toHaveLength(0);
+ await expect(f.runtime.runSContext(f.input)).rejects.toThrow(code);expect(f.sent).toHaveLength(0);
 });
-it.each(["abort","new-turn","forget"])("%s while final append is queued cannot persist the old reply",async kind=>{
+it.each([["abort","MEMORY_CONTEXT_CANCELLED"],["new-turn","MEMORY_CONTEXT_TRANSCRIPT_STALE"],["forget","MEMORY_CONTEXT_STALE"]])("%s while final append is queued cannot persist the old reply with %s",async (kind,code)=>{
  const f=await fixture(),abort=new AbortController(),fact=kind==="forget"?await f.active("I prefer bash"):undefined;
  let release!:()=>void,started!:()=>void;const wait=new Promise<void>(r=>{release=r}),start=new Promise<void>(r=>{started=r});const original=f.store.append.bind(f.store);
  vi.spyOn(f.store,"append").mockImplementation(async(...args:any[])=>{if(args[1].kind==="assistant"){started();await wait}return (original as any)(...args)});
- const run=f.runtime.runSContext({...f.input,signal:abort.signal}),failed=expect(run).rejects.toThrow();await start;
+ const run=f.runtime.runSContext({...f.input,signal:abort.signal}),failed=expect(run).rejects.toThrow(code);await start;
  if(kind==="abort")abort.abort();if(kind==="new-turn")await original("session-a",{id:"u2",at:1003,kind:"user",turnId:"u2",revision:1,payload:{text:"new"}});if(fact)await f.forget(fact.factId!);release();await failed;
  expect(await f.assistants()).toHaveLength(0);expect(f.sent).toHaveLength(1);expect(f.display.some(e=>e.type==="text_message_end")).toBe(false);
 });
@@ -165,19 +165,19 @@ it("rejects a same-ID sink owned by a different canonical store before count/sen
  await expect(f.runtime.runSContext(f.input)).rejects.toThrow("MEMORY_CONTEXT_STREAM_SINK_DENIED");
  expect(f.counted).toHaveLength(0);expect(f.sent).toHaveLength(0);expect((await other.read("session-a")).entries.filter(e=>e.kind==="assistant")).toHaveLength(0);
 });
-it.each(["initial","count","claim"])("run takeover at %s prevents SDK send",async stage=>{
+it.each([["initial","MEMORY_CONTEXT_RUN_STALE"],["count","MEMORY_CONTEXT_SEND_UNKNOWN"],["claim","MEMORY_CONTEXT_SEND_UNKNOWN"]])("run takeover at %s prevents SDK send with %s",async (stage,code)=>{
  const f=await fixture();
  if(stage==="initial")f.switchRun();if(stage==="count")f.setCountHook(async()=>{f.switchRun()});
  if(stage==="claim"){const command=f.transport.contextCommand.bind(f.transport);vi.spyOn(f.transport,"contextCommand").mockImplementation(async(c:any)=>{const result=await command(c);if(c.kind==="claim")f.switchRun();return result})}
- await expect(f.runtime.runSContext(f.input)).rejects.toThrow();expect(f.sent).toHaveLength(0);
+ await expect(f.runtime.runSContext(f.input)).rejects.toThrow(code);expect(f.sent).toHaveLength(0);
  if(stage==="initial")expect(f.counted).toHaveLength(0);
  expect(await f.assistants()).toHaveLength(0);
 });
-it.each(["abort","takeover","configuration"])("%s after append dispatch cannot emit fake success or move durable reply",async kind=>{
+it.each([["abort","MEMORY_CONTEXT_CANCELLED"],["takeover","MEMORY_CONTEXT_RUN_STALE"],["configuration","MEMORY_CONTEXT_REQUEST_CHANGED"]])("%s after append dispatch cannot emit fake success or move durable reply with %s",async (kind,code)=>{
  const f=await fixture(),abort=new AbortController();let started!:()=>void,release!:()=>void;
  const start=new Promise<void>(r=>{started=r}),wait=new Promise<void>(r=>{release=r}),append=fs.promises.appendFile.bind(fs.promises);
  vi.spyOn(fs.promises,"appendFile").mockImplementation(async(...args:any[])=>{if(String(args[1]).includes('"kind":"assistant"')){started();await wait}return (append as any)(...args)});
- const run=f.runtime.runSContext({...f.input,signal:abort.signal}),failed=expect(run).rejects.toThrow();await start;
+ const run=f.runtime.runSContext({...f.input,signal:abort.signal}),failed=expect(run).rejects.toThrow(code);await start;
  if(kind==="abort")abort.abort();if(kind==="takeover")f.switchRun();if(kind==="configuration")f.drift();release();await failed;
  expect(await f.assistants()).toEqual([expect.objectContaining({turnId:"assistant-s",runId:"run-s",payload:{role:"assistant",content:"hello world"}})]);
  expect((await f.store.read("other-session")).entries).toEqual([]);expect(f.display.some(e=>e.type==="text_message_end")).toBe(false);expect(f.sent).toHaveLength(1);
@@ -199,11 +199,11 @@ it("completion waits for stream EOF before canonical append",async()=>{
 });
 
 const lifecycle=normal;
-it.each(["append","forget"] as const)("external %s queued during pending append cannot be mistaken for own response progress",async kind=>{
+it.each([["append","MEMORY_CONTEXT_TRANSCRIPT_STALE"],["forget","MEMORY_CONTEXT_STALE"]] as const)("external %s queued during pending append cannot be mistaken for own response progress with %s",async (kind,code)=>{
  const f=await fixture(),fact=kind==="forget"?await f.active("I prefer bash"):undefined;
  let started!:()=>void,release!:()=>void;const start=new Promise<void>(r=>{started=r}),wait=new Promise<void>(r=>{release=r}),append=fs.promises.appendFile.bind(fs.promises);
  vi.spyOn(fs.promises,"appendFile").mockImplementation(async(...args:any[])=>{if(String(args[1]).includes('"kind":"assistant"')){started();await wait}return (append as any)(...args)});
- const run=f.runtime.runSContext(f.input),failed=expect(run).rejects.toThrow();await start;
+ const run=f.runtime.runSContext(f.input),failed=expect(run).rejects.toThrow(code);await start;
  const changed=kind==="append"?f.store.append("session-a",{kind:"user",id:"u2",turnId:"u2",revision:1,at:1004,payload:{text:"external new user"}}):f.forget(fact!.factId!);
  release();await changed;await failed;const raw=(await f.store.read("session-a")).entries;
  expect(classifySAssistantSettlement(raw,raw.find(e=>e.kind==="assistant")!.id)).toBe("interrupted");
