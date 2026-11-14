@@ -21,69 +21,14 @@ import type { ReviewSnapshot, ReviewRestoreOutcome } from "../shared/review-type
 import type { WorkspaceListResult, WorkspaceReadResult, WorkspaceSaveResult } from "../shared/workspace-files-types";
 import type { OpenInAppListResult, OpenInAppOpenResult } from "../shared/open-in-app-types";
 import { normalizeChatDisplay, type ChatDisplaySettings } from "../shared/chat-appearance";
-import type { AppUpdateApi, AppUpdateState } from "../shared/app-update";
 import type { ConversationMode } from "../shared/chat-types";
-import type { ToastItem, ToastPushPayload } from "../shared/toast-types";
 import { createLive2dWorkApi } from "./live2d-work-api";
 import { exposeMusicApi } from "./music";
+import { createFireflyApi } from "./pet";
+import { createAppUpdateApi, createSidebarApi, createToastApi } from "./window-shell";
 const pageTargetKey = crypto.randomUUID();
 type ChatModeName = "chat" | "work" | "code";
 type PluginOverview = import("../shared/plugin-management").PluginOverview;
-const fireflyApi = {
-    minimize: () => {
-        return ipcRenderer.send(IPC.WINDOW_MINIMIZE);
-    },
-    setInteractive: (interactive: boolean) => {
-        return ipcRenderer.invoke(IPC.WINDOW_SET_INTERACTIVE, interactive);
-    },
-    moveTo: (x: number, y: number) => {
-        return ipcRenderer.send(IPC.WINDOW_MOVE_TO, x, y);
-    },
-    setDragging: (isDragging: boolean) => {
-        return ipcRenderer.send(IPC.WINDOW_SET_DRAGGING, isDragging);
-    },
-    getCursorPosition: () => {
-        return ipcRenderer.invoke(IPC.WINDOW_GET_CURSOR_POSITION);
-    },
-    onPetZoom: (receive: (zoom: number) => void) => {
-        const forwardEvent = (_ipcEvent: unknown, zoom: number) => {
-            return receive(zoom);
-        };
-        ipcRenderer.on(IPC.PET_ZOOM, forwardEvent);
-        return () => {
-            return ipcRenderer.removeListener(IPC.PET_ZOOM, forwardEvent);
-        };
-    },
-    onPetVisibilityChanged: (receive: (visible: boolean) => void) => {
-        const forwardEvent = (_ipcEvent: unknown, visible: boolean) => {
-            return receive(visible);
-        };
-        ipcRenderer.on(IPC.PET_VISIBILITY_CHANGED, forwardEvent);
-        return () => {
-            return ipcRenderer.removeListener(IPC.PET_VISIBILITY_CHANGED, forwardEvent);
-        };
-    },
-};
-const appUpdateApi: AppUpdateApi = {
-    getState: () => {
-        return ipcRenderer.invoke(IPC.APP_UPDATE_GET_STATE);
-    },
-    download: () => {
-        return ipcRenderer.invoke(IPC.APP_UPDATE_DOWNLOAD);
-    },
-    install: () => {
-        return ipcRenderer.invoke(IPC.APP_UPDATE_INSTALL);
-    },
-    onStateChanged: (receive: (snapshot: AppUpdateState) => void) => {
-        const forwardEvent = (_ipcEvent: unknown, snapshot: AppUpdateState) => {
-            return receive(snapshot);
-        };
-        ipcRenderer.on(IPC.APP_UPDATE_STATE, forwardEvent);
-        return () => {
-            return ipcRenderer.removeListener(IPC.APP_UPDATE_STATE, forwardEvent);
-        };
-    },
-};
 const desktopAsrApi: DesktopAsrApi = {
     start: (entityId) => {
         return ipcRenderer.invoke(IPC.DESKTOP_ASR_START, entityId);
@@ -181,8 +126,8 @@ const chatApi = {
         }>;
     },
 };
-contextBridge.exposeInMainWorld("firefly", fireflyApi);
-contextBridge.exposeInMainWorld("appUpdate", appUpdateApi);
+contextBridge.exposeInMainWorld("firefly", createFireflyApi(ipcRenderer));
+contextBridge.exposeInMainWorld("appUpdate", createAppUpdateApi(ipcRenderer));
 contextBridge.exposeInMainWorld("chat", chatApi);
 const aguiApi = {
     run: (request: {
@@ -266,54 +211,8 @@ const choiceApi = {
     },
 };
 contextBridge.exposeInMainWorld("choice", choiceApi);
-const sidebarApi = {
-    minimize: () => {
-        return ipcRenderer.send(IPC.SIDEBAR_MINIMIZE);
-    },
-    close: () => {
-        return ipcRenderer.send(IPC.SIDEBAR_CLOSE);
-    },
-    toggleAlwaysOnTop: () => {
-        return ipcRenderer.invoke(IPC.SIDEBAR_TOGGLE_ALWAYS_ON_TOP);
-    },
-    openSettings: (section?: string) => {
-        return ipcRenderer.send(IPC.SIDEBAR_OPEN_SETTINGS, section);
-    },
-};
-contextBridge.exposeInMainWorld("sidebar", sidebarApi);
-const toastApi: import("../shared/toast-types").ToastRendererApi = {
-    getAll: () => {
-        return ipcRenderer.invoke(IPC.TOAST_GET_ALL) as Promise<ToastItem[]>;
-    },
-    clicked: (entityId: string) => {
-        return ipcRenderer.send(IPC.TOAST_CLICKED, entityId);
-    },
-    dismissed: (entityId: string) => {
-        return ipcRenderer.send(IPC.TOAST_DISMISSED, entityId);
-    },
-    reportHeight: (height: number) => {
-        return ipcRenderer.send(IPC.TOAST_RESIZE, height);
-    },
-    onPush: (receive: (message: ToastPushPayload) => void) => {
-        const forwardEvent = (_ipcEvent: unknown, message: ToastPushPayload) => {
-            return receive(message);
-        };
-        ipcRenderer.on(IPC.TOAST_PUSH, forwardEvent);
-        return () => {
-            return ipcRenderer.removeListener(IPC.TOAST_PUSH, forwardEvent);
-        };
-    },
-    onRemove: (receive: (entityId: string) => void) => {
-        const forwardEvent = (_ipcEvent: unknown, entityId: string) => {
-            return receive(entityId);
-        };
-        ipcRenderer.on(IPC.TOAST_REMOVE, forwardEvent);
-        return () => {
-            return ipcRenderer.removeListener(IPC.TOAST_REMOVE, forwardEvent);
-        };
-    },
-};
-contextBridge.exposeInMainWorld("toast", toastApi);
+contextBridge.exposeInMainWorld("sidebar", createSidebarApi(ipcRenderer));
+contextBridge.exposeInMainWorld("toast", createToastApi(ipcRenderer));
 const fireflyThemeApi = {
     getColors: () => {
         return ipcRenderer.invoke(IPC.UI_COLORS_GET) as Promise<UiColors>;
