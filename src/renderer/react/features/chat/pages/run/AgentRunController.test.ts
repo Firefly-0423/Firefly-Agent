@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import type { ChatSession } from "../../../../../../shared/chat-types";
+import type { ChatSession, ToolFileChange } from "../../../../../../shared/chat-types";
 import type { FireflyTerminalStatus } from "../../../../../../shared/run-terminal";
 import type { AguiApi, AguiEvent, ChatStoreApi } from "../chat-page-bridge";
 import type { TodoStateBySession } from "../session-runtime-state";
@@ -452,7 +452,7 @@ describe("ChatPage package A: run and persistence baseline", () => {
 
   test.each(["work", "code"] as const)("A2 %s: a tool round stays process evidence and the answer is saved once", async mode => {
     const s = runScenario({ input: { targetMode: mode } }); await s.ready(); s.round();
-    const changes = [{ path: "notes/summary.md", kind: "modify", additions: 2, deletions: 1 }];
+    const changes: ToolFileChange[] = [{ file: "notes/summary.md", kind: "modified", insertions: 2, deletions: 1 }];
     s.send({ type: "TOOL_CALL_START", runId: "run-1", toolCallId: "edit-call", toolCallName: "edit_file" });
     s.send({ type: "TOOL_CALL_ARGS", runId: "run-1", toolCallId: "edit-call", delta: "{\"path\":\"notes/summary.md\"}" });
     s.send({ type: "TOOL_CALL_RESULT", runId: "run-1", toolCallId: "edit-call", status: "success", content: "Updated notes/summary.md", changes } as AguiEvent);
