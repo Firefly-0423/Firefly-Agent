@@ -101,5 +101,6 @@ T2 反向验证方式：对每个断言用到的产品错误码（37 个 `MEMORY
 - T2：`response-history-union` 里 `MEMORY_CONTEXT_RESPONSE_PROGRESS_DENIED` 在探测输出里被截断，已用测试通过确认完整码。
 - T3：`native-history-zero-write.acceptance.ts` 用 `npm run test:memory-history-zero-write` 单独跑；`84d1d96` 起 CI 也会跑它。
 - T3 代码审查后（2026-11-15）：8 个目标子目录的 346 处断言改用 `exactly()`；legacy 记忆库读取失败的消息是"错误码 + 给用户看的提示"，这两处改为整条消息精确比较。测试替身、SQLite、errno 的消息没有稳定产品码，保持原样（已在第 4 节）。压缩器"候选不足"用例恢复 `getEntriesBySource` 未调用的断言（反向验证：在数量检查之前读向量库会失败）。
+- T4 代码审查后（2026-11-15）：`dispatcher.test.ts` 原来在构造之后切到空目录，构造函数若同步调用 `getRecentLog()` 读盘再丢弃结果仍能通过；改为记录 `readFileSync` 的路径，断言构造期间没有读 `log.jsonl`，并用显式 `reloadLogFromDisk()` 做对照。反向验证：构造函数里调用 `getRecentLog()`，新测试失败、旧测试通过。channels 的 T4 断言里没有字面错误码，`exactly()` 替换为 0 处。
 - T3：零写入验收里 `whole valid capture/query` 一条在 T2 基点上失败：夹具直接写对话记录、没有登记用户来源，结果是 `coverage-insufficient`（`MEMORY_HISTORY_ORIGIN_UNPROVEN`）。dev 上的 `84d1d96` 已经按 `native-history-provider.test.ts` 的 `bindUsers()` 写法修好；T2 是在它之前分出来的，所以本分支合入 dev 后采用该修复，12 项全部通过。
 - T3：不带原生辅助程序时，`native-history-presence-process.test.ts` 的 5 项会失败；设置 `FIREFLY_HISTORY_PRESENCE_TEST_HELPER` 指向构建好的 `firefly-history-presence.exe` 后通过。这是环境要求，与本次改动无关。
