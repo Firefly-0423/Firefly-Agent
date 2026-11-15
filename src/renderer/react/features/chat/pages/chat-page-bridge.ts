@@ -69,6 +69,8 @@ export type AguiEvent = {
   type?: string;
   errorSource?: import("../../../../../shared/run-failure").RunFailureSource;
   code?: string;
+  /** RUN_FINISHED carries the shared terminal result (status, reason, externalEffectsMayContinue). */
+  result?: import("../../../../../shared/run-terminal").FireflyRunTerminalResult;
 };
 export type CandidateTextEventValue =
   | { roundId: string; action: "discard" }

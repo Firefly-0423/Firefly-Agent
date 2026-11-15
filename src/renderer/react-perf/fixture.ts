@@ -1,14 +1,13 @@
 import type { ChatMessage, ChatSession, ChatSessionMeta, ReasoningBlock, RunActivityRecord, ToolExecutionRecord } from "../../shared/chat-types";
 import type { AguiEvent } from "../react/features/chat/pages/chat-page-bridge";
+import type { FireflyTerminalStatus } from "../../shared/run-terminal";
 export type PerfDataset = "plain" | "markdown" | "mixed";
 export interface PerfFixtureOptions { seed: number; count: number; dataset: PerfDataset; }
 export interface StreamingScriptOptions { durationMs: number; seed: number; dataset: PerfDataset; }
 export interface ScriptedEvent { event: AguiEvent; atMs: number; }
 export interface StreamingScript { streamLength: number; deltaCount: number; events: ScriptedEvent[]; }
-type TerminalAguiEvent = AguiEvent & { result?: { status?: string } };
-export function runFinishedEvent(runId: string, status: string): AguiEvent {
-  const terminal: TerminalAguiEvent = { type: "RUN_FINISHED", runId, result: { status } };
-  return terminal;
+export function runFinishedEvent(runId: string, status: FireflyTerminalStatus): AguiEvent {
+  return { type: "RUN_FINISHED", runId, result: { status, externalEffectsMayContinue: status !== "success" } };
 }
 export function mulberry32(seed: number): () => number {
   let state = seed >>> 0;

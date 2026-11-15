@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { ChatSession } from "../../../../../../shared/chat-types";
+import type { FireflyTerminalStatus } from "../../../../../../shared/run-terminal";
 import type { AguiApi, AguiEvent, ChatStoreApi } from "../chat-page-bridge";
 import type { TodoStateBySession } from "../session-runtime-state";
 import { AgentRunController, type AgentRunHost, type AgentRunInput, type AgentRunRegistries } from "./AgentRunController";
@@ -8,6 +9,7 @@ import { t } from "../../../../i18n";
 type Acknowledgement = { success: boolean; runId: string; error?: string };
 const nextTurn = () => new Promise<void>(resolve => setTimeout(resolve, 0));
 const successfulAck = (runId = "run-1"): Acknowledgement => ({ success: true, runId });
+const terminalResult = (status: FireflyTerminalStatus) => ({ status, externalEffectsMayContinue: status !== "success" });
 function inputFor(overrides: Partial<AgentRunInput> = {}): AgentRunInput {
   const sessionId = overrides.sessionId ?? "session-1";
   return { targetMode: "chat", sessionId, userMessageId: "user-1", assistantId: "assistant-1", attachments: [], session: { id: sessionId, messages: [{ id: "user-1", role: "user", content: "Review the public document", at: 1 }] } as ChatSession, ...overrides };
@@ -51,7 +53,7 @@ function runScenario(options: { ack?: Acknowledgement; acknowledge?: () => Promi
       for (const delta of deltas) send({ type: "TEXT_MESSAGE_CONTENT", runId, delta });
       send({ type: "TEXT_MESSAGE_END", runId, messageId: "answer-stream" });
     },
-    async finish(status = "success") { send({ type: "RUN_FINISHED", runId, result: { status } }); await completed; },
+    async finish(status: FireflyTerminalStatus = "success") { send({ type: "RUN_FINISHED", runId, result: terminalResult(status) }); await completed; },
     async fail(message = "transport disconnected", extra: Record<string, unknown> = {}) { send({ type: "RUN_ERROR", runId, message, ...extra } as AguiEvent); await completed; },
     patches: () => host.patchMessage.mock.calls.map(args => args[2]),
     saved: () => disk.upsert.mock.calls.map(args => args[1] as any),
@@ -214,7 +216,7 @@ describe("Formal answer commitment and failure reporting", () => {
     s.expectPatch({ content: "", processMessages: [expect.objectContaining({ content: "A preview without a final answer", interrupted: true })] });
     expect(s.lastSaved().content).toEqual("");
   });
-  test.each(["cancelled", "timeout"])("%s leaves unclassified preview as interrupted process text", async status => {
+  test.each(["cancelled", "timeout"] as const)("%s leaves unclassified preview as interrupted process text", async status => {
     const animation = frames(); const s = runScenario(); await s.ready(); s.round(); s.candidate("A partially completed review"); animation.tick(); await s.finish(status);
     s.expectPatch({ content: "", transientText: undefined, responseStarted: false, processMessages: [expect.objectContaining({ content: "A partially completed review", interrupted: true })] });
     expect(s.lastSaved().content).toEqual("");
@@ -305,7 +307,7 @@ describe("Session conflicts preserve the legitimate owner", () => {
     expect(refs.activeRuns.current["session-1"]).toMatchObject({ assistantId: "assistant-1", runId: "run-1" });
     expect(host.setModeBusy).not.toHaveBeenCalledWith("chat", false);
     first.send({ type: "RUN_STARTED", runId: "run-1" }); first.text("First review finished");
-    first.send({ type: "RUN_FINISHED", runId: "run-1", result: { status: "success" } });
+    first.send({ type: "RUN_FINISHED", runId: "run-1", result: terminalResult("success") });
     first.send({ type: "TEXT_MESSAGE_CONTENT", runId: "run-1", delta: "late ignored content" }); await first.completed;
     expect(refs.activeRuns.current["session-1"]).toBeUndefined();
     expect(host.setModeBusy).toHaveBeenLastCalledWith("chat", false);
@@ -560,7 +562,7 @@ describe("ChatPage package A: run and persistence baseline", () => {
     s.send({ type: "TOOL_CALL_START", runId: "run-1", toolCallId: "lookup-call", toolCallName: "read_file" });
     s.send({ type: "TOOL_CALL_RESULT", runId: "run-1", toolCallId: "lookup-call", status: "success", content: "lookup result" });
     s.text("Final checked answer.");
-    s.send({ type: "RUN_FINISHED", runId: "run-1", result: { status: "success" } });
+    s.send({ type: "RUN_FINISHED", runId: "run-1", result: terminalResult("success") });
     let settled = false; void s.completed.then(() => { settled = true; });
     for (let turn = 0; turn < 5; turn++) await nextTurn();
     expect(holding).toEqual(false);
@@ -601,7 +603,7 @@ describe("ChatPage package A: run and persistence baseline", () => {
       return { id: "session-1" };
     });
     const s = runScenario({ disk }); await s.ready(); s.text("An answer that cannot be saved.");
-    s.send({ type: "RUN_FINISHED", runId: "run-1", result: { status: "success" } });
+    s.send({ type: "RUN_FINISHED", runId: "run-1", result: terminalResult("success") });
     await expect(s.completed).rejects.toThrow("CHAT_HISTORY_WRITE_FAILED synthetic");
     expect(s.bridge.reportRunPersisted).not.toHaveBeenCalled();
     expect(s.refs.activeRuns.current).toEqual({});
