@@ -287,4 +287,22 @@ describe("ChatPage package B: recovery, takeover and the pending queue", () => {
     expect(texts("#attachments li")).toEqual([]);
   });
 
+  test("B9: typing and attaching while the enqueue is pending survives the earlier send", async () => {
+    sessions = { "session-a": session("session-a", "code"), "session-b": session("session-b", "code") };
+    await mount("code");
+    nextFiles.push(new File(["a"], "first.txt", { type: "text/plain" })); await click("#attach"); await flush();
+    await type("send the first one");
+    let release!: () => void;
+    enqueueReplies = [new Promise<void>(resolve => { release = resolve; })];
+    await click("#send"); await flush();
+    expect(texts("#draft")).toEqual(["send the first one"]);
+    await type("a follow-up thought");
+    nextFiles.push(new File(["b"], "second.txt", { type: "text/plain" })); await click("#attach"); await flush();
+    await act(async () => { release(); }); await flush();
+    expect(queues["session-a"] ?? []).toEqual([]);
+    expect(runCalls).toHaveLength(1);
+    expect(sessions["session-a"].messages[0]).toMatchObject({ role: "user", content: "send the first one" });
+    expect(texts("#draft")).toEqual(["a follow-up thought"]);
+    expect(texts("#attachments li")).toEqual(["second.txt"]);
+  });
 });
