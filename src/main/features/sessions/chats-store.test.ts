@@ -95,6 +95,40 @@ describe("terminal snapshots on disk (ChatPage A7/A10)", () => {
         expect(store.getSession(sessionId)?.messages).toStrictEqual(expected);
         expectControlUnchanged(store, controlBytes);
     });
+
+    it("rejects an update blocked by a staging directory and reloads the confirmed terminal message with both disk files unchanged", async () => {
+        let { store, controlBytes } = await arrangeSessions();
+        const confirmed = snapshot("terminal", "已确认的完整回答", "success");
+        store.upsertMessage(sessionId, confirmed);
+        const sessionBytes = fs.readFileSync(sessionPath(sessionId), "utf8");
+        const indexBytes = fs.readFileSync(indexPath(), "utf8");
+        const stagingPath = `${sessionPath(sessionId)}.tmp`;
+        fs.mkdirSync(stagingPath);
+        vi.setSystemTime(Date.now() + 1000);
+        const unconfirmed = snapshot("running", "不能落盘的新版本（半截输出）");
+
+        let failure: unknown;
+        try {
+            store.upsertMessage(sessionId, unconfirmed);
+        } catch (error) {
+            failure = error;
+        }
+
+        // Keep disk comparisons observable even when a mutation stops rejecting the write.
+        expect.soft(failure).toBeInstanceOf(Error);
+        expect.soft(fs.readFileSync(sessionPath(sessionId), "utf8")).toBe(sessionBytes);
+        expect.soft(fs.readFileSync(indexPath(), "utf8")).toBe(indexBytes);
+        expect(store.getSession(sessionId)?.messages).toStrictEqual([confirmed]);
+
+        fs.rmdirSync(stagingPath);
+        vi.resetModules();
+        store = await ready();
+
+        expect(store.getSession(sessionId)?.messages).toStrictEqual([confirmed]);
+        expect(fs.readFileSync(sessionPath(sessionId), "utf8")).toBe(sessionBytes);
+        expect(fs.readFileSync(indexPath(), "utf8")).toBe(indexBytes);
+        expectControlUnchanged(store, controlBytes);
+    });
 });
 
 describe("session metadata and content", () => {
