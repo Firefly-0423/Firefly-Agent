@@ -8,9 +8,10 @@ import {createMainTranscriptProvider} from '../history/main-transcript-provider'
 import { exactly } from "../../../shared/testing/error-code.test-support";
 function records(f:{databasePath:string}){
  const db=new DatabaseSync(f.databasePath,{readOnly:true});
- try{return {context:db.prepare('SELECT id,payload FROM context_records ORDER BY id').all().map(r=>({...r})),history:db.prepare('SELECT id,payload FROM history_records ORDER BY id').all().map(r=>({...r}))}}finally{db.close()}
+ try{return {context:db.prepare('SELECT * FROM context_records ORDER BY id,scope_key').all().map(r=>({...r})),history:db.prepare('SELECT * FROM history_records ORDER BY id,scope_key').all().map(r=>({...r}))}}finally{db.close()}
 }
-// A denied response check is read-only: every stored context and history record must be byte-identical afterwards.
+// A denied response check is read-only: every column of every stored context and history record must be identical afterwards
+// (a changed revision or partition_index would hide a record from later reads even with the same payload).
 async function denies(f:{databasePath:string},run:()=>Promise<unknown>,code:string){
  const before=records(f);
  expect(before.context.length).toBeGreaterThan(0);
