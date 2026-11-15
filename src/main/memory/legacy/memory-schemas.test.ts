@@ -12,7 +12,7 @@ describe("judge response envelopes", () => {
     it("retains named entities and aliases in order while rejecting unknown types", () => {
         const entities = [{ name: "Lina", type: "person", aliases: ["Lin"] }, { name: "Kyoto", type: "place" }];
         expect(parseMemoryJudgeResult({ candidates: [], entities }).entities).toEqual(entities);
-        expect(() => parseMemoryJudgeResult({ candidates: [], entities: [{ name: "Example", type: "not-a-type" }] })).toThrow();
+        expect(() => parseMemoryJudgeResult({ candidates: [], entities: [{ name: "Example", type: "not-a-type" }] })).toThrow(/entity type must be one of.*got "not-a-type"/);
     });
 });
 describe("L2 optional text fields", () => {

@@ -26,7 +26,7 @@ function bindEmbeddingCards(): void {
       button.classList.add("is-active");
       localStorage.setItem(storageKey, model);
       try {
-        const switched = await (window as any).settings?.embeddingSetModel?.(model);
+        const switched = await window.settings?.embeddingSetModel?.(model);
         if (switched?.ok) {
           console.log("[settings] embedding switched to", model, "cleared:", switched.clearedEntries);
           if (switched.clearedEntries && switched.clearedEntries > 0) {
@@ -59,7 +59,7 @@ function bindRerankerCards(): void {
       button.classList.add("is-active");
       localStorage.setItem(storageKey, mode);
       try {
-        await (window as any).settings?.rerankerSetMode?.(mode);
+        await window.settings?.rerankerSetMode?.(mode);
       } catch (failure) {
         restoreSelection(buttons, previous, storageKey, "[data-reranker]");
         console.warn("[Reranker] set mode failed:", failure);
@@ -71,7 +71,7 @@ function bindRerankerCards(): void {
 async function loadRerankerStatus(): Promise<void> {
   const label = document.getElementById("reranker-standard-status");
   try {
-    const installed = await (window as any).settings?.getRerankerStatus?.();
+    const installed = await window.settings?.getRerankerStatus?.();
     if (!installed) return;
     if (label) label.textContent = installed.standard ? "已下载 · 约 279MB" : "未下载 · 可选";
   } catch (failure) {

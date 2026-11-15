@@ -335,7 +335,7 @@ it("normalized_rate_diagnostics reject raw secrets and malformed date/numeric he
 describe("api_budget_scope", () => {
   it("only REST requests consult the API cooldown hook; raw files and the Git protocol do not", async () => {
     const { createExternalFetcher } = await implementation();
-    const { gitRepository } = await import("./testing/git-fixtures");
+    const { gitRepository } = await import("./testing/git-fixtures.test-support");
     const bytes = Buffer.from("synthetic instruction"), repo = gitRepository(new Map([["skills/text/SKILL.md", bytes]]));
     let budgetChecks = 0;
     const mock = injected((url, init) => {
@@ -353,7 +353,7 @@ describe("api_budget_scope", () => {
   });
   it("rejects a Git tree path the shared validator refuses", async () => {
     const { createExternalFetcher } = await implementation();
-    const { gitRepository } = await import("./testing/git-fixtures");
+    const { gitRepository } = await import("./testing/git-fixtures.test-support");
     const repo = gitRepository(new Map([["skills/con/SKILL.md", Buffer.from("x")]]));
     const mock = injected((_url, init) => new Response(new Uint8Array(Buffer.from(init.body as Uint8Array).toString().includes("command=ls-refs") ? repo.lsRefs : repo.fetch)));
     await expect(createExternalFetcher(mock.fetch).git.readTree("openai", repo.commit, signal())).rejects.toMatchObject({ code: "PATH_INVALID" });

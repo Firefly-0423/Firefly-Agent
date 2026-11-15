@@ -22,6 +22,7 @@ import { createMemorySettingsIpc } from "../../memory/policy/memory-settings-ipc
 import { createMemoryAutomationSettingsIpc } from "../../memory/policy/memory-automation-settings-ipc";
 import { createMemoryAutomationPanel } from "../../../renderer/settings/memory/automation-panel";
 import type { MemoryPanelAction, MemoryPanelOutcome } from "../../../shared/memory-panel-contracts";
+import { exactly } from "../../../shared/testing/error-code.test-support";
 
 const isolation = fs.mkdtempSync(path.join(os.tmpdir(), "default-memory-owner-"));
 const storage = initializeStorageContext(resolveRuntimeProfile({ argv: ["--firefly-profile=test", "--firefly-isolation-root=" + isolation], env: {}, isPackaged: false, productionAppData: path.join(os.tmpdir(), "synthetic-production-unopened") }));
@@ -93,8 +94,8 @@ async function fixture(mode: "chat" | "work" | "code" = "chat", options: { witho
 
 it("rejects forged desktop authority before opening storage or writing metadata", async () => {
   const f = await fixture(); let writes = 0;
-  await expect(f.memory.appendUser({ ...f.event, senderFrame: {} }, "session-a", { id: "u", role: "user", content: "x" }, () => { writes++; })).rejects.toThrow("MEMORY_DESKTOP_SESSION_DENIED");
-  await expect(f.memory.openRun(f.input())).rejects.toThrow("MEMORY_DESKTOP_SESSION_DENIED");
+  await expect(f.memory.appendUser({ ...f.event, senderFrame: {} }, "session-a", { id: "u", role: "user", content: "x" }, () => { writes++; })).rejects.toThrow(exactly("MEMORY_DESKTOP_SESSION_DENIED"));
+  await expect(f.memory.openRun(f.input())).rejects.toThrow(exactly("MEMORY_DESKTOP_SESSION_DENIED"));
   expect(writes).toBe(0); expect(f.opened).toBe(0);
 });
 
@@ -116,10 +117,10 @@ it.each(["chat", "work", "code"] as const)("runs ordinary %s through real SQLite
 it("rejects cloned or mismatched canonical sinks and missing saved profiles", async () => {
   const f = await fixture(); await f.user(); f.memory.authorizeRun(f.event, "session-a");
   const input = f.input();
-  await expect(f.memory.openRun({ ...input, transcriptSink: { ...input.transcriptSink! } })).rejects.toThrow("MEMORY_CONTEXT_STREAM_SINK_DENIED");
-  await expect(f.memory.openRun({ ...input, runId: "forged-run" })).rejects.toThrow("MEMORY_CONTEXT_STREAM_SINK_DENIED");
+  await expect(f.memory.openRun({ ...input, transcriptSink: { ...input.transcriptSink! } })).rejects.toThrow(exactly("MEMORY_CONTEXT_STREAM_SINK_DENIED"));
+  await expect(f.memory.openRun({ ...input, runId: "forged-run" })).rejects.toThrow(exactly("MEMORY_CONTEXT_STREAM_SINK_DENIED"));
   f.sessions.get("session-a").modelProfileId = "not-saved";
-  await expect(f.memory.openRun(input)).rejects.toThrow("MEMORY_RUN_PROFILE_DENIED"); expect(f.sent).toHaveLength(0);
+  await expect(f.memory.openRun(input)).rejects.toThrow(exactly("MEMORY_RUN_PROFILE_DENIED")); expect(f.sent).toHaveLength(0);
 });
 
 async function primeHistory(f:Awaited<ReturnType<typeof fixture>>,id='session-a'){
@@ -155,7 +156,7 @@ it.each(["snapshot", "helper"])("reports missing %s with a counted coverage noti
 
 it("denies invalid attachment references before metadata commit", async () => {
   const f = await fixture(); let committed = false;
-  await expect(f.memory.appendUser(f.event, "session-a", { id: "u", role: "user", content: "file", attachments: [{ id: "file" }] } as any, () => { committed = true; })).rejects.toThrow("MEMORY_ATTACHMENT_DENIED");
+  await expect(f.memory.appendUser(f.event, "session-a", { id: "u", role: "user", content: "file", attachments: [{ id: "file" }] } as any, () => { committed = true; })).rejects.toThrow(exactly("MEMORY_ATTACHMENT_DENIED"));
   expect(committed).toBe(false); expect(f.opened).toBe(0);
 });
 
@@ -169,11 +170,11 @@ it("navigation and admission release revoke runs without accepting a replacement
   const f = await fixture(); await f.user(); const admission = f.memory.authorizeRun(f.event, "session-a");
   const run = await f.memory.openRun(f.input()); f.targets.clearActive(f.sender as any); f.memory.refresh();
   expect(admission.signal.aborted).toBe(true);
-  await expect(run.call(f.call())).rejects.toThrow("MEMORY_CONTEXT_CANCELLED");
-  await expect(f.memory.openRun({ ...f.input(), signal: new AbortController().signal })).rejects.toThrow("MEMORY_DESKTOP_SESSION_DENIED");
+  await expect(run.call(f.call())).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED"));
+  await expect(f.memory.openRun({ ...f.input(), signal: new AbortController().signal })).rejects.toThrow(exactly("MEMORY_DESKTOP_SESSION_DENIED"));
   expect(f.sent).toHaveLength(0); await run.close(); admission.release();
   f.select(); const second = f.memory.authorizeRun(f.event, "session-a"); const next = await f.memory.openRun(f.input("session-a", "run-next"));
-  second.release(); await expect(next.call(f.call())).rejects.toThrow("MEMORY_CONTEXT_CANCELLED"); await next.close();
+  second.release(); await expect(next.call(f.call())).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED")); await next.close();
 });
 
 it.each(["edit", "delete"])("%s invalidates the previous source and run before metadata mutation", async mutation => {
@@ -186,14 +187,14 @@ it.each(["edit", "delete"])("%s invalidates the previous source and run before m
     if (mutation === "edit") f.sessions.get("session-a").messages[0].content = "changed";
     else f.sessions.get("session-a").messages = [];
   });
-  expect(committed).toBe(true); await expect(run.call(f.call())).rejects.toThrow("MEMORY_CONTEXT_CANCELLED");
+  expect(committed).toBe(true); await expect(run.call(f.call())).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED"));
   expect(f.sent).toHaveLength(0);
 });
 
 it("fails closed while a second run would contend for the canonical session observer", async () => {
   const f = await fixture(); await f.user(); f.memory.authorizeRun(f.event, "session-a");
   const first = await f.memory.openRun(f.input());
-  await expect(f.memory.openRun(f.input("session-a", "run-b"))).rejects.toThrow("MEMORY_CONTEXT_RUN_ACTIVE");
+  await expect(f.memory.openRun(f.input("session-a", "run-b"))).rejects.toThrow(exactly("MEMORY_CONTEXT_RUN_ACTIVE"));
   await first.close(); const next = await f.memory.openRun(f.input("session-a", "run-c")); await next.close();
 });
 
@@ -211,11 +212,11 @@ it("waits for the actual pending provider settlement before closing the backend"
   const started = new Promise<void>(resolve => { arrived = resolve; });
   const pending = new Promise<Response>(resolve => { finish = resolve; });
   f.respond(async () => { arrived(); return pending; });
-  const call = run.call(f.call()); const rejection = expect(call).rejects.toThrow("MEMORY_CONTEXT_CANCELLED");
+  const call = run.call(f.call()); const rejection = expect(call).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED"));
   await started; let acknowledged = false;
   const closing = f.memory.close().then(() => { acknowledged = true; });
   await new Promise<void>(setImmediate); expect(f.closed).toBe(0); expect(acknowledged).toBe(false);
-  await expect(sink.appendAssistant({ message: { role: "assistant", content: "late" } })).rejects.toThrow("MEMORY_CONTEXT_CANCELLED");
+  await expect(sink.appendAssistant({ message: { role: "assistant", content: "late" } })).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED"));
   finish(Response.json({ choices: [{ message: { role: "assistant", content: "late" }, finish_reason: "stop" }] }));
   await rejection; await closing; expect(f.closed).toBe(1);
   expect((await f.store.read("session-a")).entries.map(entry => entry.kind)).toEqual(["user"]);
@@ -357,7 +358,7 @@ it.each(['work','code'] as const)('admits a genuine %s adjustment with committed
 it.each(['false','throw'] as const)('retains the pending adjustment after history %s without rolling back its canonical user',async failure=>{
  const f=await fixture('work');await f.user('session-a','baseline question');f.memory.authorizeRun(f.event,'session-a');
  const a=await adjustment(f,{failure}),input={...f.input(),pollRunAdjustments:a.poller},run=await f.memory.openRun(input);await completeToolRound(f,run,input);
- await expect(a.poller()).rejects.toThrow();expect(a.queue).toHaveLength(1);
+ await expect(a.poller()).rejects.toMatchObject({ message: failure==='false'?'PENDING_ADJUST_COMMIT_FAILED:adjust-user:write-failed':'synthetic-adjust-write-failure' });expect(a.queue).toHaveLength(1);
  expect(f.sessions.get('session-a').messages.some((message:any)=>message.id==='adjust-user')).toBe(false);
  expect((await f.store.read('session-a')).entries.filter(entry=>entry.kind==='user'&&entry.turnId==='adjust-user')).toHaveLength(1);
  a.recover();await expect(a.poller()).resolves.toEqual([{id:'adjust-user',rawContent:'I prefer fish'}]);
@@ -383,7 +384,7 @@ it('keeps written metadata and refuses to reuse its source admission when the ca
  const f=await fixture(),message={id:'written-user',role:'user' as const,content:'I prefer bash'};
  await expect(f.memory.appendUser(f.event,'session-a',message,()=>{f.sessions.get('session-a').messages.push(message);throw Error('after-write-failure')})).rejects.toThrow('after-write-failure');
  expect(f.sessions.get('session-a').messages).toEqual([message]);
- await expect(f.memory.appendUser(f.event,'session-a',message,()=>true)).rejects.toThrow('MEMORY_USER_SOURCE_DENIED');
+ await expect(f.memory.appendUser(f.event,'session-a',message,()=>true)).rejects.toThrow(exactly("MEMORY_USER_SOURCE_DENIED"));
  expect(f.commands.filter(command=>command.kind==='finish')).toHaveLength(0);
 });
 it('a closed memory run never lets its enrolled poller fall back to unguarded queue consumption',async()=>{
@@ -410,8 +411,8 @@ async function candidate(f:Awaited<ReturnType<typeof fixture>>,text='I prefer En
 }
 it('settings host refuses a foreign window before opening backend resources',async()=>{
  const f=await fixture();
- await expect(f.memory.settingsHost.getState(f.event)).rejects.toThrow('MEMORY_SETTINGS_FORBIDDEN');
- await expect(f.memory.settingsHost.applyAction(f.event,{kind:'forget',id:'fact',expectedRevision:1})).rejects.toThrow('MEMORY_SETTINGS_FORBIDDEN');
+ await expect(f.memory.settingsHost.getState(f.event)).rejects.toThrow(exactly("MEMORY_SETTINGS_FORBIDDEN"));
+ await expect(f.memory.settingsHost.applyAction(f.event,{kind:'forget',id:'fact',expectedRevision:1})).rejects.toThrow(exactly("MEMORY_SETTINGS_FORBIDDEN"));
  expect(f.opened).toBe(0);
 });
 it('settings host refuses reference-only content before persisting a confirmation event',async()=>{
@@ -419,13 +420,13 @@ it('settings host refuses reference-only content before persisting a confirmatio
  const state=await f.memory.settingsHost.getState(f.settingsEvent),item=state.candidates[0];
  expect(item).toMatchObject({reviewState:'reference-only',assertion:'',occurredAt:1000});
  const count=(await f.store.read('memory-settings-user-events-v1')).throughSeq;
- await expect(f.memory.settingsHost.applyAction(f.settingsEvent,{kind:'confirm',id:c.outcome.candidateId!,expectedRevision:1,contentHash:item.contentHash})).rejects.toThrow('MEMORY_POLICY_UNRESOLVED');
+ await expect(f.memory.settingsHost.applyAction(f.settingsEvent,{kind:'confirm',id:c.outcome.candidateId!,expectedRevision:1,contentHash:item.contentHash})).rejects.toThrow(exactly("MEMORY_POLICY_UNRESOLVED"));
  expect((await f.store.read('memory-settings-user-events-v1')).throughSeq).toBe(count);
  expect((await f.memory.settingsHost.getState(f.settingsEvent)).facts).toEqual([]);
 });
 it.each([undefined,'0'.repeat(64)])('settings host requires the matching displayed content hash before persisting a ready confirmation: %s',async contentHash=>{
  const f=await fixture(),c=await candidate(f),count=(await f.store.read('memory-settings-user-events-v1')).throughSeq;
- await expect(f.memory.settingsHost.applyAction(f.settingsEvent,{kind:'confirm',id:c.outcome.candidateId!,expectedRevision:1,contentHash})).rejects.toThrow('MEMORY_CONFIRMATION_STALE');
+ await expect(f.memory.settingsHost.applyAction(f.settingsEvent,{kind:'confirm',id:c.outcome.candidateId!,expectedRevision:1,contentHash})).rejects.toThrow(exactly("MEMORY_CONFIRMATION_STALE"));
  expect((await f.store.read('memory-settings-user-events-v1')).throughSeq).toBe(count);
 });
 it.each(['', ' \n\t'])('settings host rejects blank ready projections without writing an event: %j',async assertion=>{
@@ -436,7 +437,7 @@ it.each(['', ' \n\t'])('settings host rejects blank ready projections without wr
   return (command as any).kind==='candidates'?(result as any[]).map(item=>({...item,reviewState:'ready',assertion})):result;
  };
  const count=(await f.store.read('memory-settings-user-events-v1')).throughSeq;
- await expect(f.memory.settingsHost.applyAction(f.settingsEvent,{kind:'confirm',id:c.outcome.candidateId!,expectedRevision:1,contentHash:c.contentHash})).rejects.toThrow('MEMORY_POLICY_UNRESOLVED');
+ await expect(f.memory.settingsHost.applyAction(f.settingsEvent,{kind:'confirm',id:c.outcome.candidateId!,expectedRevision:1,contentHash:c.contentHash})).rejects.toThrow(exactly("MEMORY_POLICY_UNRESOLVED"));
  expect((await f.store.read('memory-settings-user-events-v1')).throughSeq).toBe(count);
 });
 it('settings confirmation creates an independent canonical direct-user support and reuses the single backend',async()=>{
@@ -461,7 +462,7 @@ it('settings correction and forget update real policy revisions; stale submissio
  const corrected=await f.memory.settingsHost.applyAction(f.settingsEvent,{kind:'correct',id:confirmed.factId!,expectedRevision:confirmed.factRevision!,text:'I prefer Chinese'});
  expect(corrected).toMatchObject({status:'active',factRevision:2});
  const count=(await f.store.read('memory-settings-user-events-v1')).throughSeq;
- await expect(f.memory.settingsHost.applyAction(f.settingsEvent,{kind:'correct',id:confirmed.factId!,expectedRevision:1,text:'I prefer English'})).rejects.toThrow('MEMORY_REVISION_CONFLICT');
+ await expect(f.memory.settingsHost.applyAction(f.settingsEvent,{kind:'correct',id:confirmed.factId!,expectedRevision:1,text:'I prefer English'})).rejects.toThrow(exactly("MEMORY_REVISION_CONFLICT"));
  expect((await f.store.read('memory-settings-user-events-v1')).throughSeq).toBe(count);
  const state=await f.memory.settingsHost.getState(f.settingsEvent);expect(state.facts[0]).toMatchObject({assertion:'I prefer Chinese',revision:2});
  expect(await f.memory.settingsHost.applyAction(f.settingsEvent,{kind:'forget',id:confirmed.factId!,expectedRevision:2})).toMatchObject({status:'forgotten'});
@@ -495,8 +496,8 @@ it.each(['session-a','session-b'])('keeps authorized S and remaining M usable in
 });
 it('settings reject retains historical source data and cannot accept injected actors or source references',async()=>{
  const f=await fixture(),c=await candidate(f);
- await expect(f.memory.settingsHost.applyAction(f.settingsEvent,{kind:'confirm',id:c.outcome.candidateId!,expectedRevision:1,sourceRef:c.ref} as any)).rejects.toThrow('MEMORY_INPUT_INVALID');
- await expect(f.memory.settingsHost.applyAction(f.settingsEvent,{kind:'confirm',id:c.outcome.candidateId!,expectedRevision:2})).rejects.toThrow('MEMORY_REVISION_CONFLICT');
+ await expect(f.memory.settingsHost.applyAction(f.settingsEvent,{kind:'confirm',id:c.outcome.candidateId!,expectedRevision:1,sourceRef:c.ref} as any)).rejects.toThrow(exactly("MEMORY_INPUT_INVALID"));
+ await expect(f.memory.settingsHost.applyAction(f.settingsEvent,{kind:'confirm',id:c.outcome.candidateId!,expectedRevision:2})).rejects.toThrow(exactly("MEMORY_REVISION_CONFLICT"));
  expect((await f.store.read('memory-settings-user-events-v1')).entries).toEqual([]);
  expect(await f.memory.settingsHost.applyAction(f.settingsEvent,{kind:'reject',id:c.outcome.candidateId!,expectedRevision:1})).toMatchObject({status:'rejected'});
  expect((await f.memory.settingsHost.getState(f.settingsEvent)).candidates).toEqual([]);
@@ -505,7 +506,7 @@ it('settings reject retains historical source data and cannot accept injected ac
 it('does not retain a failed settings submission or its correction text as a permanent idempotency key',async()=>{
  const f=await fixture(),c=await candidate(f),action={kind:'confirm' as const,id:c.outcome.candidateId!,expectedRevision:1,contentHash:c.contentHash};
  const pending=f.memory.settingsHost.applyAction(f.settingsEvent,action);f.settingsWindow.isDestroyed=()=>true;
- await expect(pending).rejects.toThrow('MEMORY_SETTINGS_FORBIDDEN');f.settingsWindow.isDestroyed=()=>false;
+ await expect(pending).rejects.toThrow(exactly("MEMORY_SETTINGS_FORBIDDEN"));f.settingsWindow.isDestroyed=()=>false;
  await expect(f.memory.settingsHost.applyAction(f.settingsEvent,action)).resolves.toMatchObject({status:'active'});
 });
 
@@ -572,8 +573,8 @@ async function preparedChannel(f:Awaited<ReturnType<typeof fixture>>,event:Await
 it('channel host requires a genuine matching ingress before opening shared storage',async()=>{
  const f=await fixture(),account=await channelAccount(),event=await account.receive();
  const input={ingress:{...event.cap},message:event.message,userText:event.message.text,modelProfileId:'luna',runId:'channel-run',userTurnId:'channel-user',assistantTurnId:'channel-assistant'};
- await expect(f.memory.channelHost.prepareRun(input as any)).rejects.toThrow('MEMORY_CHANNEL_INGRESS_DENIED');
- await expect(f.memory.channelHost.prepareRun({...input,ingress:event.cap,message:{...event.message}} as any)).rejects.toThrow('MEMORY_CHANNEL_INGRESS_DENIED');
+ await expect(f.memory.channelHost.prepareRun(input as any)).rejects.toThrow(exactly("MEMORY_CHANNEL_INGRESS_DENIED"));
+ await expect(f.memory.channelHost.prepareRun({...input,ingress:event.cap,message:{...event.message}} as any)).rejects.toThrow(exactly("MEMORY_CHANNEL_INGRESS_DENIED"));
  expect(f.opened).toBe(0);expect(f.sent).toHaveLength(0);
 });
 it('shares desktop/settings/channel resources while real account, sender and group tuples retain separate M scopes',async()=>{
@@ -652,8 +653,8 @@ it('attachment authority rejects unproven historical metadata and foreign window
  f.sessions.get('session-a').messages.push({id:'legacy-file',role:'user',content:'legacy',attachments:[attachment]});
  await f.store.append('session-a',{id:'legacy-file',kind:'user',turnId:'legacy-file',revision:1,payload:{text:'legacy',attachments:[attachment]}});
  f.memory.authorizeRun(f.event,'session-a');
- await expect(f.memory.prepareAttachmentGrant({...f.event,senderFrame:{}},'session-a',{userTurnId:'legacy-file'})).rejects.toThrow('MEMORY_DESKTOP_SESSION_DENIED');
- await expect(f.memory.prepareAttachmentGrant(f.event,'session-a',{userTurnId:'legacy-file'})).rejects.toThrow('MEMORY_ATTACHMENT_DENIED');
+ await expect(f.memory.prepareAttachmentGrant({...f.event,senderFrame:{}},'session-a',{userTurnId:'legacy-file'})).rejects.toThrow(exactly("MEMORY_DESKTOP_SESSION_DENIED"));
+ await expect(f.memory.prepareAttachmentGrant(f.event,'session-a',{userTurnId:'legacy-file'})).rejects.toThrow(exactly("MEMORY_ATTACHMENT_DENIED"));
  expect(f.sent).toHaveLength(0);
 });
 it.each(['metadata','canonical','cancel'] as const)('revokes %s-changed attachment grants before any materializer read',async change=>{
@@ -669,7 +670,7 @@ it.each(['metadata','canonical','cancel'] as const)('revokes %s-changed attachme
 it('attachment grants revalidate complete stored metadata after asynchronous materialization',async()=>{
  const f=await fixture(),{message}=await attachmentUser(f);f.memory.authorizeRun(f.event,'session-a');
  const grant=await f.memory.prepareAttachmentGrant(f.event,'session-a',{userTurnId:'attachment-user'}),{prepareMainAttachmentProjection}=await import('../../memory/context/main-attachment-projection');
- await expect(prepareMainAttachmentProjection(grant!,async()=>{message.attachments[0].filePath='/synthetic/changed.png';return [{type:'text',text:'late body'}]})).rejects.toThrow('MEMORY_ATTACHMENT_DENIED');
+ await expect(prepareMainAttachmentProjection(grant!,async()=>{message.attachments[0].filePath='/synthetic/changed.png';return [{type:'text',text:'late body'}]})).rejects.toThrow(exactly("MEMORY_ATTACHMENT_DENIED"));
  expect(f.sent).toHaveLength(0);
 });
 it('authorized attachment edits issue a fresh revision grant while preserving the original files',async()=>{
@@ -684,7 +685,14 @@ it('authorized attachment edits issue a fresh revision grant while preserving th
 });
 it('the attachment bridge method returns undefined for an authenticated plain-text turn',async()=>{
  const f=await fixture();await f.user();f.memory.authorizeRun(f.event,'session-a');
- await expect(f.memory.prepareAttachmentGrant(f.event,'session-a',{userTurnId:'u1'})).resolves.toBeUndefined();
+ const commandsBefore=f.commands.length,reads=vi.spyOn(f.store,'read'),before=await f.store.read('session-a');
+ reads.mockClear();
+ try{
+  await expect(f.memory.prepareAttachmentGrant(f.event,'session-a',{userTurnId:'u1'})).resolves.toBeUndefined();
+  expect(f.commands.slice(commandsBefore)).toEqual([]);
+  expect(reads).not.toHaveBeenCalled();
+  expect(await f.store.read('session-a')).toEqual(before);
+ }finally{reads.mockRestore();}
 });
 
 it('owner shutdown retains attachment materialization until the actual operation settles',async()=>{
@@ -721,18 +729,18 @@ it.each(['scheduler','proactive','child'] as const)('background %s uses the shar
 it('background source proofs and exact instruction text are required before any canonical write',async()=>{
  const f=await fixture(),event=await backgroundIngress('scheduler');
  const input={ingress:event.ingress,instructionText:event.instructionText,modelProfileId:'luna',runId:'bg-run',userTurnId:'bg-user',assistantTurnId:'bg-assistant'};
- await expect(f.memory.prepareBackgroundRun({...input,ingress:{...event.ingress}} as any)).rejects.toThrow('MEMORY_BACKGROUND_INGRESS_DENIED');
- await expect(f.memory.prepareBackgroundRun({...input,instructionText:'forged task'})).rejects.toThrow('MEMORY_BACKGROUND_INGRESS_DENIED');
+ await expect(f.memory.prepareBackgroundRun({...input,ingress:{...event.ingress}} as any)).rejects.toThrow(exactly("MEMORY_BACKGROUND_INGRESS_DENIED"));
+ await expect(f.memory.prepareBackgroundRun({...input,instructionText:'forged task'})).rejects.toThrow(exactly("MEMORY_BACKGROUND_INGRESS_DENIED"));
  expect(f.opened).toBe(0);expect((await f.store.read(event.sessionId)).entries).toEqual([]);
 });
 it('a child can inherit only a genuine live parent run capability, and parent cancellation revokes the child',async()=>{
  const f=await fixture();await f.user('session-a','parent authorized historical note');await f.store.checkpoint('session-a');await primeHistory(f);f.memory.authorizeRun(f.event,'session-a');
  const parent=await f.memory.openRun(f.input()),event=await backgroundIngress('child','scoped-child','Read the authorized parent context');
- await expect(preparedBackground(f,event,'forged-child',{...parent})).rejects.toThrow('MEMORY_RUN_READ_DENIED');
+ await expect(preparedBackground(f,event,'forged-child',{...parent})).rejects.toThrow(exactly("MEMORY_RUN_READ_DENIED"));
  const child=await preparedBackground(f,event,'real-child',parent);await child.run.call(f.call());
  expect(f.sent[0]).toContain('parent authorized historical note');expect(f.sent[0]).toContain(event.instructionText);
  await parent.close();expect(child.prepared.signal.aborted).toBe(true);
- await expect(child.run.call(f.call())).rejects.toThrow('MEMORY_CONTEXT_CANCELLED');
+ await expect(child.run.call(f.call())).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED"));
  expect(f.sent).toHaveLength(1);await child.prepared.close();
 });
 it('children of one parent share one history capture, so siblings running together both read the parent context',async()=>{
@@ -746,13 +754,13 @@ it('children of one parent share one history capture, so siblings running togeth
 });
 it('background producer cancellation prevents late dispatch and preserves its canonical instruction',async()=>{
  const f=await fixture(),event=await backgroundIngress('proactive'),p=await preparedBackground(f,event);event.controller.abort();
- await expect(p.run.call(f.call())).rejects.toThrow('MEMORY_CONTEXT_CANCELLED');expect(f.sent).toHaveLength(0);
+ await expect(p.run.call(f.call())).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED"));expect(f.sent).toHaveLength(0);
  expect((await f.store.read(event.sessionId)).entries).toHaveLength(1);await p.prepared.close();
 });
 it('background DTO session labels cannot seize the desktop or settings source routes',async()=>{
  const f=await fixture();
  for(const sessionId of ['session-a','memory-settings-user-events-v1']){
-  const event=await backgroundIngress('child',sessionId);await expect(preparedBackground(f,event)).rejects.toThrow('MEMORY_ACTOR_DENIED');
+  const event=await backgroundIngress('child',sessionId);await expect(preparedBackground(f,event)).rejects.toThrow(exactly("MEMORY_ACTOR_DENIED"));
  }
  expect(f.opened).toBe(0);
 });
@@ -763,7 +771,7 @@ it('matching tampered stored and canonical attachment references do not replace 
  const file=path.join(storage.dataRoot,'transcripts','session-a','transcript.jsonl');
  const entries=fs.readFileSync(file,'utf8').trim().split('\n').map(line=>JSON.parse(line));entries[0].payload.attachments[0].filePath=message.attachments[0].filePath;
  fs.writeFileSync(file,entries.map(entry=>JSON.stringify(entry)).join('\n')+'\n');
- await expect(f.memory.prepareAttachmentGrant(f.event,'session-a',{userTurnId:'attachment-user'})).rejects.toThrow('MEMORY_ATTACHMENT_DENIED');
+ await expect(f.memory.prepareAttachmentGrant(f.event,'session-a',{userTurnId:'attachment-user'})).rejects.toThrow(exactly("MEMORY_ATTACHMENT_DENIED"));
  expect(f.sent).toHaveLength(0);
 });
 it('restart cannot infer attachment permission from a restored direct-text receipt alone',async()=>{
@@ -771,7 +779,7 @@ it('restart cannot infer attachment permission from a restored direct-text recei
  const {createMainDefaultMemory}=await import('./main-default-memory');let reopened=0;
  const next=createMainDefaultMemory({getChatWindow:()=>({webContents:f.sender,isDestroyed:()=>false}) as any,targets:f.targets,getSession:id=>f.sessions.get(id),listSessionIds:()=>[...f.sessions.keys()],store:f.store,settings:()=>f.settings,
   openBackend:async()=>{reopened++;return {transport:{...f.transport,recallCommand:async command=>f.repo.recallCommand(command),historyCommand:async command=>f.repo.historyCommand(command)},endpointFactory:async()=>{throw Error('UNEXPECTED_NATIVE')},close:async()=>{}}}});
- try{next.authorizeRun(f.event,'session-a');await expect(next.prepareAttachmentGrant(f.event,'session-a',{userTurnId:'attachment-user'})).rejects.toThrow('MEMORY_ATTACHMENT_DENIED');expect(reopened).toBe(0)}finally{await next.close()}
+ try{next.authorizeRun(f.event,'session-a');await expect(next.prepareAttachmentGrant(f.event,'session-a',{userTurnId:'attachment-user'})).rejects.toThrow(exactly("MEMORY_ATTACHMENT_DENIED"));expect(reopened).toBe(0)}finally{await next.close()}
 });
 
 it('a desktop attachment round can close and continue in plain text without rereading or reviving the old grant',async()=>{
@@ -900,7 +908,7 @@ it('retries after completed old closure and failed new instruction without appen
  const afterFailure=(await f.store.read(old.sessionId)).entries;
  expect(afterFailure.filter(entry=>entry.kind==='interruption'&&entry.runId===old.runId)).toHaveLength(1);
  expect(afterFailure.filter(entry=>entry.kind==='tool_result')).toHaveLength(3);spy.mockClear();
- await expect(f.memory.prepareBackgroundRun({...old.request,runId:'consumed-proof-retry',userTurnId:'consumed-proof-instruction',assistantTurnId:'consumed-proof-assistant'})).rejects.toThrow('MEMORY_TASK_SOURCE_DENIED');
+ await expect(f.memory.prepareBackgroundRun({...old.request,runId:'consumed-proof-retry',userTurnId:'consumed-proof-instruction',assistantTurnId:'consumed-proof-assistant'})).rejects.toThrow(exactly("MEMORY_TASK_SOURCE_DENIED"));
  const next=await backgroundIngress('child',old.sessionId,old.request.instructionText);
  const prepared=await f.memory.prepareBackgroundRun({...old.request,ingress:next.ingress,runId:'marker-retry-new-run',userTurnId:'marker-retry-new-run-instruction',assistantTurnId:'marker-retry-new-run-assistant'});
  expect(spy.mock.calls.filter(([,draft])=>draft.kind==='interruption'&&draft.runId===old.runId)).toHaveLength(0);
@@ -1144,20 +1152,20 @@ it("editing or deleting a temporary chat message touches no memory storage", asy
 
 it("the temporary mode is immutable for a session and attachments are refused", async () => {
   const f = await fixture(); const id = await temporarySession(f);
-  await expect(f.memory.appendUser(f.event, id, { id: "u9", role: "user", content: "see file", attachments: [{ kind: "document", name: "a.txt", filePath: "C:\\a.txt", status: "pending" }] } as any, () => true)).rejects.toThrow("MEMORY_TEMPORARY_ATTACHMENT_UNSUPPORTED");
+  await expect(f.memory.appendUser(f.event, id, { id: "u9", role: "user", content: "see file", attachments: [{ kind: "document", name: "a.txt", filePath: "C:\\a.txt", status: "pending" }] } as any, () => true)).rejects.toThrow(exactly("MEMORY_TEMPORARY_ATTACHMENT_UNSUPPORTED"));
   f.memory.authorizeRun(f.event, id);
   f.sessions.get(id).messages.push({ id: "injected-file", role: "user", content: "file", attachments: [{ kind: "document", name: "a.txt", filePath: "C:\\a.txt", status: "pending" }] } as any);
-  await expect(f.memory.prepareAttachmentGrant(f.event, id, { userTurnId: "injected-file" })).rejects.toThrow("MEMORY_ATTACHMENT_DENIED");
+  await expect(f.memory.prepareAttachmentGrant(f.event, id, { userTurnId: "injected-file" })).rejects.toThrow(exactly("MEMORY_ATTACHMENT_DENIED"));
   expect(f.commands).toEqual([]);
   delete f.sessions.get(id).temporary;
-  await expect(f.memory.openRun(f.input(id, "run-x"))).rejects.toThrow("MEMORY_SESSION_MODE_DENIED");
+  await expect(f.memory.openRun(f.input(id, "run-x"))).rejects.toThrow(exactly("MEMORY_SESSION_MODE_DENIED"));
   expect(f.sent).toHaveLength(0);
 });
 
 it("a temporary session must be a Chat session", async () => {
   const f = await fixture("work");
   f.sessions.set("bad", { id: "bad", mode: "work", temporary: true, messages: [], modelProfileId: "luna" }); f.select("bad");
-  await expect(f.memory.appendUser(f.event, "bad", { id: "u1", role: "user", content: "x" }, () => true)).rejects.toThrow("MEMORY_DESKTOP_SESSION_DENIED");
+  await expect(f.memory.appendUser(f.event, "bad", { id: "u1", role: "user", content: "x" }, () => true)).rejects.toThrow(exactly("MEMORY_DESKTOP_SESSION_DENIED"));
 });
 
 it("a temporary chat bound to a workspace still reads and writes no project or global facts", async () => {
@@ -1235,11 +1243,11 @@ const MEMORY_MARKER = "User-stated memory with source and time metadata";
 
 it("automation settings require the current settings frame and strict CAS before recording consent", async () => {
   const f = await fixture(); expect(f.memory.automationHost).toBeDefined();
-  await expect(f.memory.automationHost.state(f.event)).rejects.toThrow("MEMORY_SETTINGS_FORBIDDEN"); expect(f.opened).toBe(0);
+  await expect(f.memory.automationHost.state(f.event)).rejects.toThrow(exactly("MEMORY_SETTINGS_FORBIDDEN")); expect(f.opened).toBe(0);
   const initial = await f.memory.automationHost.state(f.settingsEvent); expect(initial.config).toEqual({ revision: 0, language: false, responseStyle: false });
-  await expect(f.memory.automationHost.configure(f.settingsEvent, { expectedRevision: 0, language: true, responseStyle: false, scope: "invented" } as any)).rejects.toThrow("MEMORY_INPUT_INVALID");
+  await expect(f.memory.automationHost.configure(f.settingsEvent, { expectedRevision: 0, language: true, responseStyle: false, scope: "invented" } as any)).rejects.toThrow(exactly("MEMORY_INPUT_INVALID"));
   const updated = await f.memory.automationHost.configure(f.settingsEvent, { expectedRevision: 0, language: true, responseStyle: false }); expect(updated.config).toEqual({ revision: 1, language: true, responseStyle: false });
-  await expect(f.memory.automationHost.configure(f.settingsEvent, { expectedRevision: 0, language: false, responseStyle: true })).rejects.toThrow("MEMORY_REVISION_CONFLICT");
+  await expect(f.memory.automationHost.configure(f.settingsEvent, { expectedRevision: 0, language: false, responseStyle: true })).rejects.toThrow(exactly("MEMORY_REVISION_CONFLICT"));
   await f.restart(); expect((await f.memory.automationHost.state(f.settingsEvent)).config).toEqual(updated.config);
 });
 
@@ -1250,7 +1258,7 @@ it("a settings frame revoked during consent preflight cannot write a new consent
   const original = f.repo.policyCommand.bind(f.repo);
   vi.spyOn(f.repo, "policyCommand").mockImplementation(((command: any) => { if (command.kind === "naturalJob" && command.body.operation === "state") { arrived(); return gate.then(() => original(command)); } return original(command); }) as any);
   const saving = f.memory.automationHost.configure(f.settingsEvent, { expectedRevision: 0, language: true, responseStyle: false }); await started;
-  f.settingsWindow.webContents.mainFrame = {}; release(); await expect(saving).rejects.toThrow("MEMORY_SETTINGS_FORBIDDEN");
+  f.settingsWindow.webContents.mainFrame = {}; release(); await expect(saving).rejects.toThrow(exactly("MEMORY_SETTINGS_FORBIDDEN"));
   expect((original({ kind: "naturalJob", scopeKey: SHADOW_SCOPE, body: { actorKey: SHADOW_ACTOR, operation: "state" } }) as any).config.revision).toBe(0);
 });
 

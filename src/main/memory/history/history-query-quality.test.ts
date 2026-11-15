@@ -1,6 +1,7 @@
 import {it,expect} from 'vitest';
 import {createHistoryTokenizer,rankHistory} from './history-ranking';
 import {historyTimeSpan} from '../core/history-temporal';
+import { exactly } from "../../../shared/testing/error-code.test-support";
 const doc=(id:string,text:string,start:number|null=null,end=start)=>({id,text,timeSpan:start===null?null:{start,end}});
 const ids=(result:ReturnType<typeof rankHistory>)=>result.items.map(item=>item.id);
 it('normalizes fullwidth identifier spelling only in the search index',()=>{
@@ -46,10 +47,10 @@ it('exact lexical duplicates at a different known event time preserve distinct h
  expect(ids(rankHistory(docs,'harbor port'))).toEqual(['a','c']);
 });
 it.each([{kind:'range',from:2,to:1},{kind:'latest',actorKey:'other'},{kind:'range',from:NaN,to:3},{kind:'unknown'}])('rejects malformed temporal request %j',temporal=>{
- expect(()=>rankHistory([doc('a','harbor port')],'harbor port',{temporal} as any)).toThrow('MEMORY_HISTORY_INPUT_INVALID');
+ expect(()=>rankHistory([doc('a','harbor port')],'harbor port',{temporal} as any)).toThrow(exactly("MEMORY_HISTORY_INPUT_INVALID"));
 });
 it('does not silently change a vector query into a lexical temporal query',()=>{
- expect(()=>rankHistory([{...doc('a','harbor port',1000),vector:[1,0]}],'harbor port',{queryVector:[1,0],temporal:{kind:'latest'}} as any)).toThrow('MEMORY_HISTORY_TEMPORAL_VECTOR_UNSUPPORTED');
+ expect(()=>rankHistory([{...doc('a','harbor port',1000),vector:[1,0]}],'harbor port',{queryVector:[1,0],temporal:{kind:'latest'}} as any)).toThrow(exactly("MEMORY_HISTORY_TEMPORAL_VECTOR_UNSUPPORTED"));
 });
 
 it('a missing original time makes the complete turn unproved without text-date inference',()=>{
@@ -57,9 +58,11 @@ it('a missing original time makes the complete turn unproved without text-date i
  expect(historyTimeSpan([{occurredAt:3000},{occurredAt:1000}])).toEqual({start:1000,end:3000});
 });
 it('compatibility folding is nonexpanding at the accepted document length bound',()=>{
- const t=createHistoryTokenizer();expect(()=>t.tokens('Ａ'.repeat(65536))).not.toThrow();
+ const t=createHistoryTokenizer();
+ for(const n of [65535,65536,65537,65536+127])expect(t.tokens('Ａ'.repeat(n))).toEqual(['a'.repeat(n)]);
  t.register(['ＦＯＯ']);expect(t.tokens('ＦＯＯ')).toEqual(['foo']);
- expect(()=>t.tokens('A'.repeat(65536+128))).toThrow('MEMORY_HISTORY_INPUT_INVALID');
+ expect(()=>t.tokens('Ａ'.repeat(65536+128))).toThrow(exactly("MEMORY_HISTORY_INPUT_INVALID"));
+ expect(()=>t.tokens('A'.repeat(65536+128))).toThrow(exactly("MEMORY_HISTORY_INPUT_INVALID"));
 });
 
 it.each([

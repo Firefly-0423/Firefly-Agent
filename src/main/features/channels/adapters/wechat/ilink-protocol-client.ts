@@ -27,6 +27,12 @@ export type ILinkClientOptions = { wechatUin?: string };
 export type QrCodeResp = { qrcode_img_content: string; qrcode: string };
 export type QrStatusResp = { ilink_user_id?: string; baseurl?: string; ilink_bot_id?: string; bot_token?: string; status: "init" | "scanned" | "confirmed" | "expired" | string };
 
+/** iLink 的 from_user_id 必须是非空字符串；缺失、空白或类型不对的都算没有发送者。 */
+function hasSenderId(wire: WireMessage): boolean {
+  const sender: unknown = wire.from_user_id;
+  return typeof sender === "string" && sender.trim() !== "";
+}
+
 function randomWechatUin(): string {
   const integer = (Math.random() * 0xffffffff) >>> 0;
   return Buffer.from(String(integer), "utf8").toString("base64");
@@ -58,7 +64,10 @@ export class ILinkClient {
       const payload = received as GetUpdatesResponse;
       if (payload.ret === -14) throw new SessionExpiredError("iLink session expired (ret=-14)");
       if (payload.ret !== undefined && payload.ret !== 0) throw new Error(`iLink getupdates failed: ret=${payload.ret} ${payload.errmsg ?? ""}`);
-      const inbound = (payload.msgs ?? []).filter((wire) => wire.message_type === 1);
+      const incoming = (payload.msgs ?? []).filter((wire) => wire.message_type === 1);
+      // 没有可用发送者 ID 的消息既过不了发送者门控也无法回复，在这里逐条丢弃，不让它影响同批其他消息。
+      const inbound = incoming.filter((wire) => hasSenderId(wire));
+      if (inbound.length < incoming.length) console.warn("[iLink]", `dropped ${incoming.length - inbound.length} inbound message(s) without a sender id`);
       return { messages: inbound.map((wire) => this.#wireToMessage(wire)), buf: payload.get_updates_buf ?? "" };
     } finally {
       signal?.removeEventListener("abort", forwardCancellation);

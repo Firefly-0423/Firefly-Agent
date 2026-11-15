@@ -21,12 +21,12 @@ const fixture = vi.hoisted(() => {
     listeners.get(channel)?.delete(listener);
   };
 
-  const off = vi.fn(removeFromChannel);
   const removeListener = vi.fn(removeFromChannel);
 
-  return { exposed, listeners, invoke, send, on, off, removeListener };
+  return { exposed, listeners, invoke, send, on, removeListener };
 });
 
+// Only removeListener is provided, so a call site that goes back to ipcRenderer.off fails these tests at runtime.
 vi.mock("electron", () => ({
   contextBridge: {
     exposeInMainWorld: (name: string, value: Record<string, any>) => {
@@ -37,7 +37,6 @@ vi.mock("electron", () => ({
     invoke: fixture.invoke,
     send: fixture.send,
     on: fixture.on,
-    off: fixture.off,
     removeListener: fixture.removeListener,
   },
   webFrame: {},
@@ -117,7 +116,6 @@ describe("preload listener removal", () => {
     fixture.invoke.mockReset();
     fixture.send.mockReset();
     fixture.on.mockClear();
-    fixture.off.mockClear();
     fixture.removeListener.mockClear();
     await import("../preload/index");
   });

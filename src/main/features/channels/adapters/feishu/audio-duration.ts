@@ -1,6 +1,8 @@
 import * as fs from "fs";
 import { spawn } from "child_process";
 import { fireflyEnvironment } from "../../../../../shared/firefly-environment";
+import { logger, LogTag } from "../../../../base/logging/logger";
+import { basename } from "path";
 
 function estimateByFileSize(filename: string): number | undefined {
   try {
@@ -83,10 +85,10 @@ export async function getAudioDurationMs(filePath: string): Promise<number | und
   }
   const measured = parseMp3Duration(filePath);
   if (measured) {
-    console.log("[FeishuAudioDuration]", `mp3 header 解析: ${measured}ms`);
+    logger.info(LogTag.Feishu, `mp3 header 解析: ${measured}ms`);
     return measured;
   }
-  console.log("[FeishuAudioDuration]", `mp3 header 解析失败（可能不是 mp3）: ${filePath}`);
+  logger.info(LogTag.Feishu, `mp3 header 解析失败（可能不是 mp3）: ${basename(filePath)}`);
   const estimated = estimateByFileSize(filePath);
   if (estimated) {
     console.warn("[FeishuAudioDuration]", `估算时长: ${estimated}ms (建议安装 ffprobe 提高精度)`);

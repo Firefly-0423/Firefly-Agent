@@ -3,7 +3,7 @@ import os from "node:os";
 import { join, relative, sep } from "node:path";
 import { describe, it, expect } from "vitest";
 import { IPC } from "../../shared/ipc-channels";
-import { collectReachableFiles, findIpcChannelUses, type IpcChannelUse, type IpcChannelUseKind } from "./ipc-contract-scanner";
+import { collectReachableFiles, findIpcChannelUses, type IpcChannelUse, type IpcChannelUseKind } from "./ipc-contract-scanner.test-support";
 const root = process.cwd();
 const portable = (file: string) => relative(root, file).split(sep).join("/");
 function collectProductionSourceFiles(folder: string): string[] {

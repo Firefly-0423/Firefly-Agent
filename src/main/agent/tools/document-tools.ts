@@ -9,6 +9,7 @@ import { findSkillPath } from "../../base/storage/external-content-paths";
 import { reviewTrackerFor } from "../review/review-tracker-access";
 import { randomUUID } from "node:crypto";
 import { finished, pipeline } from "node:stream/promises";
+import { logger, LogTag } from "../../base/logging/logger";
 
 type Arguments = Record<string, unknown>;
 type Theme = { name: string; headerFill: string; headerFont: string; headerBorder: string; zebraFill: string; borderColor: string };
@@ -64,7 +65,7 @@ function loadStylesDir(skillId: string): StyleCacheEntry {
       try { collected[identifier] = JSON.parse(fs.readFileSync(path.join(directory, filename), "utf8")); }
       catch { /* 单个样式失败不影响其他文件。 */ }
     }
-    console.log(docLog, `已加载 ${skillId} 样式:`, Object.keys(collected).join(", ") || "(无)");
+    logger.info(LogTag.BuiltinTools, `已加载 ${skillId} 样式:`, Object.keys(collected).join(", ") || "(无)");
   } catch { /* 目录读取失败时保留已收集的样式。 */ }
   styleCatalogs.set(skillId, collected);
   return collected;
@@ -106,7 +107,7 @@ function themeReader(): (style?: string) => Theme {
             zebraFill: String(source.zebraFill || fallback.zebraFill), borderColor: String(source.borderColor || fallback.borderColor) });
         } catch { /* 读取下一份样式。 */ }
       }
-      console.log(docLog, "已加载样式:", Array.from(catalog.keys()).join(", ") || "(无)");
+      logger.info(LogTag.BuiltinTools, "已加载样式:", Array.from(catalog.keys()).join(", ") || "(无)");
     } catch { /* 使用默认主题。 */ }
   }
   return function getTheme(style?: string): Theme {
@@ -220,7 +221,7 @@ async function wordDocument(args: Arguments, context?: ToolContext): Promise<str
   const bodyInk = toHexColor(selected?.bodyColor ?? "FF333333");
   const leading = selected?.lineSpacing ?? 360;
   const headingInk = toHexColor(selected?.headingColor ?? "FF1F4E79");
-  console.log(docLog, "Word 主题:", selected?.name ?? "默认商务", "style=" + identifier);
+  logger.info(LogTag.BuiltinTools, "Word 主题:", selected?.name ?? "默认商务", "style=" + identifier);
   const { Document, Packer, Paragraph, HeadingLevel, TextRun } = await import("docx");
   const document = new Document({ styles: { default: { document: { run: { font: bodyTypeface, size: bodyPoints, color: bodyInk }, paragraph: { spacing: { line: leading } } } } },
     sections: [{ children: [new Paragraph({ text: String(args.title || ""), heading: HeadingLevel.HEADING_1,
@@ -234,7 +235,7 @@ async function wordDocument(args: Arguments, context?: ToolContext): Promise<str
     captureBaseline(context, destination);
     fs.writeFileSync(destination, bytes);
   });
-  console.log(docLog, "Word 已生成:", destination);
+  logger.info(LogTag.BuiltinTools, "Word 已生成:", path.basename(destination));
   return `[write_word] 已生成：${destination}`;
 }
 async function pdfDocument(args: Arguments, context?: ToolContext): Promise<string> {
@@ -295,7 +296,7 @@ async function pdfDocument(args: Arguments, context?: ToolContext): Promise<stri
     document.destroy();
     throw failure;
   }
-  console.log(docLog, "PDF 已生成:", destination);
+  logger.info(LogTag.BuiltinTools, "PDF 已生成:", path.basename(destination));
   return `[write_pdf] 已生成：${destination}`;
 }
 export function registerDocumentTools(): void {
@@ -312,10 +313,10 @@ export function registerDocumentTools(): void {
     const preset = getTheme(args.style ? String(args.style) : undefined);
     const overrides = args.colors as ThemeColors | undefined;
     const appearance = mergeTheme(preset, overrides);
-    console.log(docLog, "Excel 主题:", appearance.name, "style=" + (args.style || "default"), overrides ? "+自定义颜色" : "");
+    logger.info(LogTag.BuiltinTools, "Excel 主题:", appearance.name, "style=" + (args.style || "default"), overrides ? "+自定义颜色" : "");
     fillWorkbook(book, sheets, appearance);
     await writeWorkbook(book, destination, context);
-    console.log(docLog, "Excel 已生成（默认美观样式）:", destination);
+    logger.info(LogTag.BuiltinTools, "Excel 已生成（默认美观样式）:", path.basename(destination));
     return `[write_excel] 已生成：${destination}`;
   };
   const HANDLER_write_word = wordDocument;

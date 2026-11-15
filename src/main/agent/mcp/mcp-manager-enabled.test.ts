@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { exactly } from "../../../shared/testing/error-code.test-support";
 
 const adapter = vi.hoisted(() => ({ connect: vi.fn(), disconnect: vi.fn(), states: vi.fn() }));
 vi.mock("./mcp-adapter", () => ({ connectMcpServer: adapter.connect, disconnectMcpServer: adapter.disconnect, getMcpServerStates: adapter.states }));
@@ -71,7 +72,7 @@ describe("MCP server enable and disable", () => {
     const f = await fixture([server("a", { enabled: false })]);
     fs.chmodSync(f.storage.files.mcp, 0o444);
     const write = vi.spyOn(fs, "renameSync").mockImplementation(() => { throw new Error("ATOMIC_JSON_WRITE_FAILED"); });
-    await expect(f.manager.setMcpServerEnabled("a", true)).rejects.toThrow("ATOMIC_JSON_WRITE_FAILED");
+    await expect(f.manager.setMcpServerEnabled("a", true)).rejects.toThrow(exactly("ATOMIC_JSON_WRITE_FAILED"));
     write.mockRestore();
     expect(adapter.disconnect).toHaveBeenCalledWith("a");
     expect(connectedIds.has("a")).toBe(false);

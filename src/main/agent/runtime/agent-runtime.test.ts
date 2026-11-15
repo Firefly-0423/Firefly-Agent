@@ -8,6 +8,7 @@ import type { PluginRuntime } from "../../../plugins/context";
 import type { ScheduledTask } from "../../platform/schedule/schedule-types";
 import { createAgentRuntime, type AgentRuntimeDeps } from "./agent-runtime";
 import * as builders from "./build-options";
+import { exactly } from "../../../shared/testing/error-code.test-support";
 
 const effects = vi.hoisted(() => ({ finish: vi.fn(), legacy: vi.fn(), worldbook: vi.fn(), write: vi.fn(), root: "" }));
 vi.mock("electron", () => ({ app: { getPath: () => effects.root } }));
@@ -58,7 +59,11 @@ describe("Runtime completion notifications", () => {
 
   it.each(["runtime_error", "cancelled", "timeout"] as const)("does not announce a completed turn for %s", async (status) => {
     const publish = vi.fn(async () => {});
-    await createAgentRuntime(dependencies({ publishPluginHostEvent: publish })).onRunFinished({ ...result, terminal: { status, reason: "Calendar interrupted", externalEffectsMayContinue: true } }, "Read my calendar", context);
+    const failedResult = { ...result, terminal: { status, reason: "Calendar interrupted", externalEffectsMayContinue: true } };
+    effects.finish.mockResolvedValueOnce({ sticker: "calendar-sticker" });
+    await expect(createAgentRuntime(dependencies({ publishPluginHostEvent: publish })).onRunFinished(failedResult, "Read my calendar", context))
+      .resolves.toEqual({ sticker: "calendar-sticker" });
+    expect(effects.finish).toHaveBeenCalledWith(failedResult, "Read my calendar", expect.any(Object), undefined, "calendar-session");
     expect(publish).not.toHaveBeenCalled();
   });
 
@@ -87,6 +92,17 @@ describe("Runtime completion notifications", () => {
   });
 });
 
+describe("Run-finish dependency assembly", () => {
+  it("hands the sticker matcher the embedding provider and index untouched, and reports no match for an empty index", async () => {
+    const embed = vi.fn(async () => [0, 1]), provider = { name: "calendar-vectors", dims: 2, embed };
+    await createAgentRuntime(dependencies({ getEmbeddingProvider: () => provider, getStickerEmbeddingIndex: () => [] } as never)).onRunFinished(result, "Read my calendar", context);
+    const supplied = effects.finish.mock.calls[0][2] as builders.OnRunFinishedDeps;
+    expect(supplied.getEmbeddingProvider()).toBe(provider);
+    await expect(supplied.matchSticker("Tuesday is available", supplied.getEmbeddingProvider(), supplied.stickerEmbeddingIndex, 0.55)).resolves.toBeNull();
+    expect(embed).not.toHaveBeenCalled();
+  });
+});
+
 describe("Options dependency assembly", () => {
   async function capture(deps: AgentRuntimeDeps) {
     let observed!: builders.BuildOptionsDeps;
@@ -101,6 +117,34 @@ describe("Options dependency assembly", () => {
     const event = { toolId: "write_file", toolCallId: "calendar-call", runId: "calendar-run", status: "success", risk: "fs-write", durationMs: 28 } as const;
     withObserver.built.options.onToolFinished!(event); expect(publish).toHaveBeenCalledWith(event);
     expect((await createAgentRuntime(dependencies()).buildOptions({} as never)).options.onToolFinished).toBeUndefined();
+  });
+  it("passes skill entries and history through to the real prompt builders, reading bodies from the skill registry", async () => {
+    const getBody = vi.fn((id: string) => id === "calendar-skill" ? "Plan Tuesday.\n## Soul 回复策略\nSpeak warmly." : null);
+    const deps = dependencies({ skillRegistry: { getEnabled: vi.fn(() => []), getEnabledForMode: vi.fn(() => []), getBody } as never }), { observed } = await capture(deps);
+    const entries = [{ id: "calendar-skill", description: "Read the calendar", enabled: true, manifest: { autoInject: true } }, { id: "off-skill", description: "Disabled", enabled: false }];
+    expect(observed.buildSkillCatalog(entries)).toContain("- calendar-skill: Read the calendar [自动注入：无需再次调用 invoke_skill]");
+    expect(observed.buildSkillCatalog(entries)).not.toContain("off-skill");
+    expect(observed.buildAutoInjectedSkillContext(entries)).toContain("### calendar-skill\nPlan Tuesday.");
+    expect(observed.buildAutoInjectedSoulContext!(entries)).toContain("### calendar-skill\nSpeak warmly.");
+    expect(observed.buildAutoInjectedSoulContext!(entries)).not.toContain("Plan Tuesday.");
+    expect(getBody.mock.calls.map(([id]) => id)).toEqual(["calendar-skill", "calendar-skill", "calendar-skill"]);
+    expect(observed.buildSkillCatalog([])).toBe("");
+  });
+  it("routes always-on context to the legacy or worldbook builder with the same query and history", async () => {
+    const history = [{ role: "user", content: "Tuesday?" }];
+    const legacy = await capture(dependencies());
+    await expect(legacy.observed.buildAlwaysOnContext("Tuesday?", history)).resolves.toBe("[CALENDAR_LEGACY]");
+    expect(effects.legacy).toHaveBeenCalledWith("Tuesday?", history); expect(effects.worldbook).not.toHaveBeenCalled();
+    effects.legacy.mockClear();
+    const worldbook = await capture(dependencies({ defaultMemory: true } as never));
+    await expect(worldbook.observed.buildAlwaysOnContext("Tuesday?", history)).resolves.toBe("[CALENDAR_WORLDBOOK]");
+    expect(effects.worldbook).toHaveBeenCalledWith("Tuesday?", history); expect(effects.legacy).not.toHaveBeenCalled();
+  });
+  it("normalizes history and resolves slash activation through the real helpers", async () => {
+    const { observed } = await capture(dependencies());
+    expect(observed.normalizeChatMessages("not a list" as never)).toEqual([]);
+    expect(observed.normalizeChatMessages([{ role: "user", content: "Tuesday?" }, { role: "bogus", content: "kept as assistant" }]).map((message) => message.role)).toEqual(["user", "assistant"]);
+    expect(observed.resolveSlashActivation([{ role: "assistant", content: "No user turn yet" }], "chat")).toBe("");
   });
   it("connects tool registries, workspace bindings, plugin prompts, social retrieval and image fallback", async () => {
     const deps = dependencies(), { observed } = await capture(deps);
@@ -151,7 +195,7 @@ describe("Scheduled run assembly", () => {
     expect(options).toHaveProperty("modelProfileId", "calendar-profile"); expect(options.backgroundMemory?.prepareBackgroundRun).toBeTypeOf("function");
     expect(prepareBackgroundRun).not.toHaveBeenCalled();
     const deps = dependencies({ defaultMemory: { openRun: vi.fn() }, loadModelSettings: () => ({ ...savedSettings(), modelProfiles: [] }) as any });
-    await expect(createAgentRuntime(deps).buildSchedulerOptions(task())).rejects.toThrow("MEMORY_RUN_PROFILE_DENIED");
+    await expect(createAgentRuntime(deps).buildSchedulerOptions(task())).rejects.toThrow(exactly("MEMORY_RUN_PROFILE_DENIED"));
   });
 });
 
@@ -161,7 +205,7 @@ describe("Controlled Main S provisioning and session ownership", () => {
     const runtime = createAgentRuntime(dependencies({ sContext: { createPort } }));
     const unreadable = new Proxy({}, { get() { throw Error("Calendar request read forbidden"); } });
     expect(createPort).not.toHaveBeenCalled();
-    await expect(runtime.runSContext(unreadable as any)).rejects.toThrow("MEMORY_CONTEXT_RUNTIME_DISABLED");
+    await expect(runtime.runSContext(unreadable as any)).rejects.toThrow(exactly("MEMORY_CONTEXT_RUNTIME_DISABLED"));
     expect(createPort).not.toHaveBeenCalled();
   });
   it("shares lazy provisioning and snapshots input before delivering it to the Main port", async () => {
@@ -175,13 +219,13 @@ describe("Controlled Main S provisioning and session ownership", () => {
   });
   it("does no provisioning for a pre-aborted run and no sending after provisioning aborts", async () => {
     const pre = new AbortController(); pre.abort(); const noProvision = vi.fn();
-    await expect(createAgentRuntime(dependencies({ sContext: { enabled: true, createPort: noProvision } })).runSContext({ signal: pre.signal } as any)).rejects.toThrow("MEMORY_CONTEXT_CANCELLED");
+    await expect(createAgentRuntime(dependencies({ sContext: { enabled: true, createPort: noProvision } })).runSContext({ signal: pre.signal } as any)).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED"));
     expect(noProvision).not.toHaveBeenCalled();
     const abort = new AbortController(), run = vi.fn(), createPort = vi.fn(async () => { abort.abort(); return { run }; });
     const runtime = createAgentRuntime(dependencies({ sContext: { enabled: true, createPort } }));
-    await expect(runtime.runSContext({ request: sRequest, signal: abort.signal })).rejects.toThrow("MEMORY_CONTEXT_CANCELLED");
+    await expect(runtime.runSContext({ request: sRequest, signal: abort.signal })).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED"));
     expect(run).not.toHaveBeenCalled(); expect(createPort).toHaveBeenCalledTimes(1);
-    await expect(runtime.runSContext({ signal: abort.signal } as any)).rejects.toThrow("MEMORY_CONTEXT_CANCELLED");
+    await expect(runtime.runSContext({ signal: abort.signal } as any)).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED"));
     expect(createPort).toHaveBeenCalledTimes(1);
   });
   it("retains a provisioning failure without retrying or touching legacy model dependencies", async () => {
@@ -203,8 +247,8 @@ describe("Controlled Main S provisioning and session ownership", () => {
   it("prepares the exact session before dispatch and rejects missing or accessor session IDs", async () => {
     const provisioned: string[] = [];
     const runtime = createAgentRuntime(dependencies({ sContext: { enabled: true, streamRequest: () => sRequest, createPort: async (scope) => { provisioned.push(scope?.conversationId ?? "unbound"); return { run: async () => ({ status: "sent" as const, requestDigest: "calendar-digest", result: null }) }; } } }));
-    await expect(runtime.buildOptions.prepareTranscript!({ mode: "chat", messages: [] } as any)).rejects.toThrow("MEMORY_CONTEXT_STREAM_TARGET_INVALID");
-    await expect(runtime.buildOptions.prepareTranscript!(Object.defineProperty({ mode: "chat", messages: [] }, "sessionId", { get() { throw Error("Calendar accessor forbidden"); } }) as any)).rejects.toThrow("MEMORY_CONTEXT_STREAM_TARGET_INVALID");
+    await expect(runtime.buildOptions.prepareTranscript!({ mode: "chat", messages: [] } as any)).rejects.toThrow(exactly("MEMORY_CONTEXT_STREAM_TARGET_INVALID"));
+    await expect(runtime.buildOptions.prepareTranscript!(Object.defineProperty({ mode: "chat", messages: [] }, "sessionId", { get() { throw Error("Calendar accessor forbidden"); } }) as any)).rejects.toThrow(exactly("MEMORY_CONTEXT_STREAM_TARGET_INVALID"));
     expect(provisioned).toEqual([]);
     await runtime.buildOptions.prepareTranscript!({ sessionId: "calendar-blue", mode: "chat", messages: [] });
     await runtime.runSContext({ request: sRequest, stream: sTarget("calendar-blue") });

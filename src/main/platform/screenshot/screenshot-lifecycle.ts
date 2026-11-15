@@ -11,6 +11,7 @@ import { ElectronScreenshotHelperClient } from "./helper-client";
 import { resolveScreenshotHelperPath } from "./helper-path";
 import { createScreenshotService, validateScreenshotInsert } from "./screenshot-service";
 import type { ScreenshotInsertData, ScreenshotService } from "./screenshot-service";
+import { logger, LogTag } from "../../base/logging/logger";
 
 export type { ScreenshotService };
 
@@ -94,7 +95,7 @@ export function initializeScreenshotService(
 
   // 启动时即建目录，并打印实际输出路径，便于排查路径类错误。
   void ensureOutputDirectory(outputDirectory);
-  console.log("[Screenshot] helper output-dir =", outputDirectory);
+  logger.info(LogTag.Runtime, "screenshot: helper output-dir =", path.basename(outputDirectory));
 
   const service = createScreenshotService({
     client: helperClient,

@@ -3,6 +3,8 @@ import * as fs from "fs";
 import type { ToolContext } from "../../../tooling/registry/tool-context";
 import type { ToolDefinition } from "../../../tooling/registry/tool-registry";
 import { readResponseBytes, withPublicResponse } from "../network-guard";
+import { logger, LogTag } from "../../../base/logging/logger";
+import { urlForLog } from "../../../base/logging/url-for-log";
 
 const DOWNLOAD_IDLE_TIMEOUT_MS = 30_000;
 const DOWNLOAD_MAX_BYTES = 64 * 1024 * 1024;
@@ -72,7 +74,7 @@ async function executeDownloadFile(input: Record<string, unknown>, context?: Too
   const destination = resolveOutputPath(name, context?.resolvedWorkspaceRoot);
   if (!destination) return "[错误] 路径不合法（禁止目录穿越或绝对路径）: " + name;
   if (DANGEROUS_EXTS.has(path.extname(destination).toLowerCase())) return "[错误] 禁止下载可执行/脚本文件: " + path.extname(destination);
-  console.log(LOG_PREFIX, "download_file:", address, "->", destination);
+  logger.info(LogTag.BuiltinTools, "download_file:", urlForLog(address), "->", path.basename(destination));
   const deadline = new AbortController();
   const idle = setTimeout(() => deadline.abort(), DOWNLOAD_IDLE_TIMEOUT_MS);
   const cancellation = context?.signal ? AbortSignal.any([context.signal, deadline.signal]) : deadline.signal;
@@ -112,7 +114,7 @@ async function executeDownloadFile(input: Record<string, unknown>, context?: Too
       // Source: https://nodejs.org/docs/latest-v24.x/api/fs.html#file-system-flags
       fs.writeFileSync(target, contents, { flag: "wx" });
       const humanSize = bytes >= 1024 * 1024 ? (bytes / 1024 / 1024).toFixed(1) + " MiB" : Math.round(bytes / 1024) + " KiB";
-      console.log(LOG_PREFIX, "已下载:", target, `(${bytes} bytes)`);
+      logger.info(LogTag.BuiltinTools, "已下载:", path.basename(target), `(${bytes} bytes)`);
       return `[download_file] 已保存：${target}（${humanSize}）`;
     });
   } catch (failure) {

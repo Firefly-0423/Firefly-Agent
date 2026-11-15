@@ -9,6 +9,7 @@ import { createMainContext } from "./main-context";
 import { resolveMemoryCounter } from "../../agent/memory-runtime/model-counting";
 import { RecordCodec } from "../core/record-codec";
 import type { ContextUnit, PreparedRequest } from "../../model/context/context-contracts";
+import { exactly } from "../../../shared/testing/error-code.test-support";
 const fixtures: ReturnType<typeof createSmhFixture>[] = [];
 afterEach(() => { for (const f of fixtures.splice(0)) { f.close(); fs.rmSync(f.root, { recursive: true, force: true }); } });
 function fixture(transport: "openai" | "responses" | "anthropic") {
@@ -37,17 +38,17 @@ it("production estimates retain single-use sends and source-change rejection", a
  const assemble = () => f.context.assemble(f.actor, { sessionId: "session-a", sourceRefs: [s.ref] });
  const permit = await f.context.validateForDispatch(f.actor, await assemble()); let sends = 0;
  await f.context.dispatch(f.actor, permit, () => { sends++; return "synthetic-result"; });
- await expect(f.context.dispatch(f.actor, permit, () => { sends++; })).rejects.toThrow("MEMORY_CONTEXT_PERMIT_USED");
+ await expect(f.context.dispatch(f.actor, permit, () => { sends++; })).rejects.toThrow(exactly("MEMORY_CONTEXT_PERMIT_USED"));
  const next = await f.context.validateForDispatch(f.actor, await assemble());
  await f.registry.prepareChange(f.access, f.adapter, s.ref);
- await expect(f.context.dispatch(f.actor, next, () => { sends++; })).rejects.toThrow(); expect(sends).toBe(1);
+ await expect(f.context.dispatch(f.actor, next, () => { sends++; })).rejects.toThrow(exactly("MEMORY_SOURCE_PENDING")); expect(sends).toBe(1);
 });
 it("rejects unsupported production estimator versions instead of accepting arbitrary estimate claims", async () => {
  const f = fixture("openai"), s = await f.source("Synthetic user statement");
  await f.context.assemble(f.actor, { sessionId: "session-a", sourceRefs: [s.ref] });
  const command = structuredClone(f.commands.find((c: any) => c.kind === "snapshot")) as any;
  command.commandId = randomUUID(); command.body.snapshotId = randomUUID(); command.body.counterIdentity.framingVersion = "unreviewed-estimator";
- expect(() => f.repo.contextCommand(command)).toThrow("MEMORY_CONTEXT_COUNTER_UNSUPPORTED");
+ expect(() => f.repo.contextCommand(command)).toThrow(exactly("MEMORY_CONTEXT_COUNTER_UNSUPPORTED"));
 });
 it("does not admit an unknown production estimator under the legacy OpenRouter exception", async () => {
  const f = fixture("responses"), s = await f.source("Synthetic user statement");
@@ -56,5 +57,5 @@ it("does not admit an unknown production estimator under the legacy OpenRouter e
  command.commandId = randomUUID(); command.body.snapshotId = randomUUID();
  Object.assign(command.body.counterIdentity, { providerId: "openrouter", model: "openai/gpt-6-luna", framingVersion: "firefly-prepared-estimate-v99:responses:1:0123456789abcdef" });
  command.body.estimates.selectionInputLimit = 10000;
- expect(() => f.repo.contextCommand(command)).toThrow("MEMORY_CONTEXT_COUNTER_UNSUPPORTED");
+ expect(() => f.repo.contextCommand(command)).toThrow(exactly("MEMORY_CONTEXT_COUNTER_UNSUPPORTED"));
 });

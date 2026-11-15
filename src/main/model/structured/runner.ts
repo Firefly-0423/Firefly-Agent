@@ -5,6 +5,7 @@ import { normalizeFinishReason } from "./finish-reason";
 import { extractJsonCandidates } from "./json-candidates";
 import { getTimeoutSettings } from "../../platform/settings/timeout-manager";
 import { resolveModelRequestTimeoutMs, resolveTotalBudgetMs } from "../config/model-timeout";
+import { logger, LogTag } from "../../base/logging/logger";
 
 export type StructuredGenerationResponse = {
   structuredValue?: unknown;
@@ -69,7 +70,7 @@ export async function runStructuredOutput<T, TRequest>(
   selected = { ...selected };
   selected.perAttemptTimeoutMs = requestLimit;
   selected.totalBudgetMs = overallLimit;
-  console.log(`[StructuredOutput] stage=${input.stage} perAttempt=${requestLimit}ms totalBudget=${overallLimit}ms maxAttempts=${selected.maxAttempts}`);
+  logger.info(LogTag.Runtime, `structured output stage=${input.stage} perAttempt=${requestLimit}ms totalBudget=${overallLimit}ms maxAttempts=${selected.maxAttempts}`);
   if (settings.profileMinimumRemainingBudgetMs !== -1) {
     selected.minimumRemainingBudgetMs = settings.profileMinimumRemainingBudgetMs;
   }

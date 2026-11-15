@@ -8,6 +8,7 @@ import {parseFactTimeQuery} from '../policy/fact-temporal';
 import {validateNaturalResponse} from '../policy/natural-protocol';
 import {createMainHistoryProvider} from '../history/main-history';
 import {historyOriginEvent} from '../history/history-origins';
+import { exactly } from "../../../shared/testing/error-code.test-support";
 const now=Date.parse('2026-03-09T12:00:00Z'), source={occurredAt:now,timeZone:'UTC'};
 const owned:ReturnType<typeof createSmhFixture>[]=[];
 afterEach(()=>{for(const f of owned.splice(0)){f.close();fs.rmSync(f.root,{recursive:true,force:true})}});
@@ -15,7 +16,9 @@ function fixture(){const f=createSmhFixture(fs.mkdtempSync(path.join(os.tmpdir()
 const raw=(quote:string)=>JSON.stringify({facts:[{subject:'user',attribute:'language',value:'English',polarity:'positive',status:'asserted',quote,reason:'direct statement'}]});
 it('ordinary 4001-character user message still assembles',async()=>{
  const f=fixture(),q=await f.source('a'.repeat(4001),source);
- await expect(f.context.assemble(f.actor,{sessionId:'session-a',sourceRefs:[q.ref],currentUserSourceRef:q.ref,factRefs:[]})).resolves.toBeDefined();
+ const snapshot=await f.context.assemble(f.actor,{sessionId:'session-a',sourceRefs:[q.ref],currentUserSourceRef:q.ref,factRefs:[]});
+ expect(snapshot.request.body.messages).toEqual([{role:'user',text:'a'.repeat(4001)}]);
+ expect(snapshot.excluded).toEqual([]);
 });
 it('single-quoted historical question grants no temporal authority',()=>{
  expect(parseFactTimeQuery("'What language did I prefer yesterday?'",source)).toBeUndefined();
@@ -41,10 +44,10 @@ it.each(['before-query','after-query','after-permit'])('corrected temporal asser
  if(timing==='before-query')await applyCorrection();
  const h=await f.history.query(f.actor,{query:'English'});
  const q=await f.source('What language did I prefer on 2026-01-01?',source);
- if(timing==='after-query'){await applyCorrection();await expect(f.context.assemble(f.actor,{sessionId:'session-a',sourceRefs:[q.ref],currentUserSourceRef:q.ref,factRefs:[],historyTokens:[h.evidence]})).rejects.toThrow();return}
+ if(timing==='after-query'){await applyCorrection();await expect(f.context.assemble(f.actor,{sessionId:'session-a',sourceRefs:[q.ref],currentUserSourceRef:q.ref,factRefs:[],historyTokens:[h.evidence]})).rejects.toThrow(exactly("MEMORY_HISTORY_STALE"));return}
  const snap=await f.context.assemble(f.actor,{sessionId:'session-a',sourceRefs:[q.ref],currentUserSourceRef:q.ref,factRefs:[],historyTokens:[h.evidence]});
  const permit=await f.context.validateForDispatch(f.actor,snap);let wire='';
- if(timing==='after-permit'){await applyCorrection();await expect(f.context.dispatch(f.actor,permit,()=>{throw Error('MUST_NOT_SEND')})).rejects.toThrow();return}
+ if(timing==='after-permit'){await applyCorrection();await expect(f.context.dispatch(f.actor,permit,()=>{throw Error('MUST_NOT_SEND')})).rejects.toThrow(exactly("MEMORY_HISTORY_STALE"));return}
  await f.context.dispatch(f.actor,permit,request=>{wire=JSON.stringify(request.body);return 'fake'});
  expect(wire).not.toContain(text);
 });
@@ -60,7 +63,7 @@ it.each(['correct','source-edit'])('unlinked assistant echo cannot revive a fact
  const provider=createMainHistoryProvider(f.actorAuthority,actor,{withLease:async(_locator,run)=>run(async()=>structuredClone(doc))});
  // An unproved assistant is denied even before a correction: parser provenance
  // cannot manufacture a dependency closure or seed an old cache.
- await expect(f.history.captureTranscript(actor,provider,'echo')).rejects.toThrow('MEMORY_HISTORY_STALE');
+ await expect(f.history.captureTranscript(actor,provider,'echo')).rejects.toThrow(exactly("MEMORY_HISTORY_STALE"));
  if(mode==='correct'){
   const edit=await f.source('Chinese',source);await f.policy.act(f.actor,await f.policy.event(f.actor,{kind:'correct',nonce:randomUUID(),factId:active.factId,revision:1,sourceRef:edit.ref}));
  }else{
