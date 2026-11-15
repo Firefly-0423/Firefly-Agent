@@ -468,4 +468,58 @@ describe("ChatPage package A: run and persistence baseline", () => {
     expectOwnSessionOnly(s);
   });
 
+  test("A3: cancelling after partial output keeps the process, drops the answer and ignores late text", async () => {
+    const refs = registries(); const host = observer(); const disk = memory();
+    const s = runScenario({ refs, host, disk, input: { targetMode: "work" } });
+    const other = runScenario({ refs, host, disk, ack: successfulAck("run-2"), input: { targetMode: "work", sessionId: "session-2", userMessageId: "user-2", assistantId: "assistant-2" } });
+    await nextTurn(); s.send({ type: "RUN_STARTED", runId: "run-1" }); other.send({ type: "RUN_STARTED", runId: "run-2" });
+    reason(s, "reason-a3", "Compare the two files.");
+    s.send({ type: "TOOL_CALL_START", runId: "run-1", toolCallId: "read-call", toolCallName: "read_file" });
+    s.send({ type: "TOOL_CALL_RESULT", runId: "run-1", toolCallId: "read-call", status: "success", content: "first file" });
+    s.send({ type: "TEXT_MESSAGE_START", runId: "run-1", messageId: "answer-stream" });
+    s.send({ type: "TEXT_MESSAGE_CONTENT", runId: "run-1", delta: "The files differ in" });
+    await s.finish("cancelled");
+    const patchCount = host.patchMessage.mock.calls.length; const saveCount = disk.upsert.mock.calls.length;
+    s.send({ type: "TEXT_MESSAGE_CONTENT", runId: "run-1", delta: " three places." });
+    expect(host.patchMessage.mock.calls.length).toEqual(patchCount);
+    expect(disk.upsert.mock.calls.length).toEqual(saveCount);
+    const saved = disk.upsert.mock.calls.filter(([sessionId]) => sessionId === "session-1").at(-1)![1] as any;
+    expect(saved.content).toEqual("");
+    expect(saved.reasoning).toEqual("Compare the two files.");
+    expect(saved.toolExecutions).toEqual([expect.objectContaining({ id: "read-call", status: "success", result: "first file" })]);
+    expect(saved.runSnapshot).toMatchObject({ runId: "run-1", status: "terminal", terminalStatus: "cancelled" });
+    expect(s.bridge.reportRunPersisted.mock.calls).toEqual([[{ runId: "run-1", finalMessageId: "assistant-1" }]]);
+    expect(refs.activeRuns.current["session-2"]).toMatchObject({ runId: "run-2", assistantId: "assistant-2" });
+    expect(host.patchMessage).not.toHaveBeenCalledWith("session-2", expect.anything(), expect.objectContaining({ content: expect.stringContaining("files differ") }));
+    expect(host.setModeBusy).toHaveBeenLastCalledWith("work", true);
+    other.text("Second session answer."); await other.finish();
+    expect(other.lastSaved()).toMatchObject({ content: "Second session answer.", runSnapshot: { runId: "run-2", terminalStatus: "success" } });
+  });
+
+  test("A4: a cancel requested before the acknowledgement cancels only the assigned run", async () => {
+    const refs = registries(); const host = observer(); const disk = memory();
+    const other = runScenario({ refs, host, disk, ack: successfulAck("run-2"), input: { sessionId: "session-2", userMessageId: "user-2", assistantId: "assistant-2" } });
+    await other.ready();
+    const ack = deferred<Acknowledgement>();
+    const s = runScenario({ refs, host, disk, acknowledge: () => ack.promise }); await nextTurn();
+    expect(s.bridge.run).toHaveBeenCalledTimes(1);
+    expect(refs.activeRuns.current["session-1"]).toEqual({ assistantId: "assistant-1", mode: "chat" });
+    refs.cancelRequestedSessions.current.add("session-1");
+    expect(s.bridge.cancel).not.toHaveBeenCalled();
+    ack.resolve(successfulAck("run-1")); await nextTurn();
+    expect(s.bridge.cancel.mock.calls).toEqual([["run-1"]]);
+    expect(other.bridge.cancel).not.toHaveBeenCalled();
+    expect(refs.cancelRequestedSessions.current.has("session-1")).toEqual(false);
+    s.send({ type: "RUN_STARTED", runId: "run-1" }); await s.finish("cancelled");
+    expect(s.lastSaved().runSnapshot).toMatchObject({ runId: "run-1", status: "terminal", terminalStatus: "cancelled" });
+    expect(refs.activeRuns.current).toEqual({ "session-2": { assistantId: "assistant-2", mode: "chat", runId: "run-2" } });
+    expect(refs.checkpointTriggers.current["session-1"]).toBeUndefined();
+    expect(host.setModeBusy).toHaveBeenLastCalledWith("chat", true);
+    expect(host.onRunFinished.mock.calls).toEqual([[{ mode: "chat", sessionId: "session-1", queuePaused: false }]]);
+    await other.finish();
+    expect(refs.activeRuns.current).toEqual({});
+    expect(host.setModeBusy).toHaveBeenLastCalledWith("chat", false);
+    expect(refs.eventUnsubscribers.current.size).toEqual(0);
+  });
+
 });
