@@ -4,7 +4,7 @@ import type { ExternalSkill, ExternalSkillFile, ExternalSkillSourceId } from "..
 import type { ExternalSkillReview } from "./external-types";
 import { EXTERNAL_SOURCES, externalSkillId, reviewPolicyFor } from "./external-policy";
 import { evaluateExternalSkill, isExternalSkillReview } from "./external-review";
-import { createExternalFixture } from "./testing/external-fixtures";
+import { createExternalFixture } from "./testing/external-fixtures.test-support";
 
 const hash = (value: string | Buffer) => createHash("sha256").update(value).digest("hex");
 const gitHash = (value: Buffer) => createHash("sha1").update(`blob ${value.length}\0`).update(value).digest("hex");
