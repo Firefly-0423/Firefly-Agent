@@ -13,6 +13,7 @@ import {resolveRuntimeProfile} from "../../base/identity/runtime-profile";
 import {createStorageContext} from "../../base/storage/storage-context";
 import {sealPayload,openPayload} from "../core/payload-codec";
 import {MemoryClient} from "../core/worker-client";
+import { exactly } from "../../../shared/testing/error-code.test-support";
 // Both real and fake Workers acquire the real Windows protected-key publication lease.
 describe.runIf(process.platform==="win32")("Windows protected-key and writer lease integration",()=>{
 const dirs:string[]=[],scopes:ReturnType<typeof clientScope>[]=[];
@@ -62,21 +63,21 @@ it("round-trips managed sources through a real worker and preserves pending acro
  await registry.prepareChange(access,provider.adapter,ref);await client.close();
  provider.write(identity,{text:"changed 中文 worker 😀",role:"user",trust:"direct-user-event"});
  const reopened=await openClient(f),next=createMainSourceRegistry(reopened),nextAccess=next.authority.access("scope-a");
- await expect(next.capture(nextAccess,provider.adapter,identity)).rejects.toThrow("MEMORY_SOURCE_PENDING");
+ await expect(next.capture(nextAccess,provider.adapter,identity)).rejects.toThrow(exactly("MEMORY_SOURCE_PENDING"));
  const fresh=await next.reconcile(nextAccess,provider.adapter,identity);
  expect(await next.readEvidence(nextAccess,provider.adapter,fresh)).toBe("changed 中文 worker 😀");
- await expect(reopened.jobCommand({kind:"claim",scopeKey:"scope-a",commandId:"source-worker-claim",body:{jobId:"source-worker-job",leaseMs:60000}})).rejects.toThrow("MEMORY_SOURCE_STALE");
+ await expect(reopened.jobCommand({kind:"claim",scopeKey:"scope-a",commandId:"source-worker-claim",body:{jobId:"source-worker-job",leaseMs:60000}})).rejects.toThrow(exactly("MEMORY_SOURCE_STALE"));
 });
 it("owns the profile for its whole lifetime independently of the publication lease",async()=>{
  const f=fixture(),first=await openClient(f);
- await expect(openClient(f)).rejects.toThrow("MEMORY_OPEN_BUSY");
+ await expect(openClient(f)).rejects.toThrow(exactly("MEMORY_OPEN_BUSY"));
  expect(await first.readRows("sources","scope-a")).toEqual([]);
  await first.close();const second=await openClient(f);expect(await second.readRows("sources","scope-a")).toEqual([]);
 });
 it("drains already queued commits and rejects commands after shutdown begins",async()=>{
  const client=await openClient(fixture());
  const saved=client.writeBatch(batch),closing=client.close();
- await expect(client.writeBatch({...batch,commandId:"after-close"})).rejects.toThrow("MEMORY_CLIENT_CLOSED");
+ await expect(client.writeBatch({...batch,commandId:"after-close"})).rejects.toThrow(exactly("MEMORY_CLIENT_CLOSED"));
  expect(await saved).toEqual({inserted:1});await closing;
 });
 function fakeWorker(){
@@ -104,7 +105,7 @@ it("closes the worker immediately on writer lease loss rather than waiting for a
  const client=await openClient({...f,writerLeaseFactory:async()=>lease,workerFactory:()=>{worker=fakeWorker();return worker}});
  const pending=client.readRows("sources","scope-a").catch((e:Error)=>e.message);lose();
  expect(await pending).toBe("MEMORY_WRITER_LOCK_LOST");await client.closed;expect(worker.terminate).toHaveBeenCalledOnce();expect(lease.release).toHaveBeenCalledOnce();
- await expect(client.readRows("sources","scope-a")).rejects.toThrow("MEMORY_CLIENT_CLOSED");
+ await expect(client.readRows("sources","scope-a")).rejects.toThrow(exactly("MEMORY_CLIENT_CLOSED"));
 });
 
 it("reports a nonzero worker exit even after the shutdown acknowledgement",async()=>{
@@ -112,7 +113,7 @@ it("reports a nonzero worker exit even after the shutdown acknowledgement",async
  const client=await openClient({...f,workerFactory:()=>{
   worker=fakeWorker();worker.postMessage.mockImplementation((message:any)=>queueMicrotask(()=>{worker.emit("message",{id:message.id,ok:true,result:null});worker.emit("exit",7)}));return worker;
  }});
- await expect(client.close()).rejects.toThrow("MEMORY_WORKER_FAILED");await client.closed;verifiedSyntheticCleanupFailures.add(client);
+ await expect(client.close()).rejects.toThrow(exactly("MEMORY_WORKER_FAILED"));await client.closed;verifiedSyntheticCleanupFailures.add(client);
 });
 it("allows shutdown to drain a full command queue without leaking ownership",async()=>{
  const f=fixture();let worker:any;const queued:any[]=[];
@@ -133,7 +134,7 @@ it("retains writer ownership when termination fails until a real exit is observe
  const client=await openClient({...f,writerLeaseFactory:async()=>lease,workerFactory:()=>{worker=fakeWorker();worker.terminate.mockRejectedValue(new Error("NATIVE_TERMINATION_FAILED"));return worker}});
  const pending=client.readRows("sources","scope-a").catch((e:Error)=>e.message);worker.emit("error",new Error("failure"));
  expect(await pending).toBe("MEMORY_WORKER_FAILED");
- try{await expect(client.closed).rejects.toThrow("MEMORY_WORKER_CLEANUP_FAILED");expect(lease.release).not.toHaveBeenCalled()}
+ try{await expect(client.closed).rejects.toThrow(exactly("MEMORY_WORKER_CLEANUP_FAILED"));expect(lease.release).not.toHaveBeenCalled()}
  finally{worker.emit("exit",1);await releaseObserved}
  expect(lease.release).toHaveBeenCalledOnce();verifiedSyntheticCleanupFailures.add(client);
 });
@@ -143,7 +144,7 @@ it("reports failed ownership cleanup rather than claiming shutdown completed",as
  const client=await openClient({...f,writerLeaseFactory:async()=>lease,workerFactory:()=>{
   worker=fakeWorker();worker.postMessage.mockImplementation((message:any)=>queueMicrotask(()=>{worker.emit("message",{id:message.id,ok:true,result:null});worker.emit("exit",0)}));return worker;
  }});
- await expect(client.close()).rejects.toThrow("MEMORY_OWNERSHIP_CLEANUP_FAILED");expect(lease.release).toHaveBeenCalledOnce();verifiedSyntheticCleanupFailures.add(client);
+ await expect(client.close()).rejects.toThrow(exactly("MEMORY_OWNERSHIP_CLEANUP_FAILED"));expect(lease.release).toHaveBeenCalledOnce();verifiedSyntheticCleanupFailures.add(client);
 });
 
 it("executes trusted fact commands on the worker and preserves Main scope boundaries",async()=>{
@@ -161,7 +162,7 @@ it("executes trusted fact commands on the worker and preserves Main scope bounda
  const active=await service.activateCandidate(access,token,{commandId:"worker-activate",candidateId:"trusted-candidate"});
  expect((await service.current(access))[0]).toMatchObject({factId:active.id,assertion:"中文 English 🌱",activationReason:"policyAccepted"});
  expect(await service.current(authority.access("scope-b"))).toEqual([]);
- await expect(service.current(JSON.parse(JSON.stringify(access)))).rejects.toThrow("MEMORY_ACCESS_DENIED");
+ await expect(service.current(JSON.parse(JSON.stringify(access)))).rejects.toThrow(exactly("MEMORY_ACCESS_DENIED"));
  expect(await service.history(access,active.id)).toHaveLength(1);
 });
 
@@ -174,10 +175,10 @@ it("validates a streamed claimed context through the real Worker without reusing
  const actor=authority.bindActor(access,provider.adapter,identity),ref=await registry.capture(access,provider.adapter,identity),requestIdentity={providerId:"synthetic",model:"synthetic",transport:"synthetic",framingVersion:"v1"};
  const prepare=(units:any[])=>({...requestIdentity,inputTypes:["text"],body:{messages:units.flatMap(u=>u.messages)}});
  const context=createMainContext({registry,transport:client,actorAuthority:authority,prepare,prepareS:prepare,counter:{capability:{...requestIdentity,mode:"exact",inputTypes:["text"]},count:async()=>40},budget:{maxContextTokens:20000,reservedOutputTokens:64,safetyMarginTokens:16,maxSTokens:4000,minRecentCompleteTurns:1}});
- const snapshot=await context.assemble(actor,{sessionId:identity.sessionId,sourceRefs:[ref]});await expect(context.validateResponse(actor,snapshot)).rejects.toThrow("MEMORY_CONTEXT_RESPONSE_UNSENT");
+ const snapshot=await context.assemble(actor,{sessionId:identity.sessionId,sourceRefs:[ref]});await expect(context.validateResponse(actor,snapshot)).rejects.toThrow(exactly("MEMORY_CONTEXT_RESPONSE_UNSENT"));
  const permit=await context.validateForDispatch(actor,snapshot),send=vi.fn(()=>"synthetic handle");await context.dispatch(actor,permit,send);await context.validateResponse(actor,snapshot);
- await expect(context.dispatch(actor,permit,send)).rejects.toThrow("MEMORY_CONTEXT_PERMIT_USED");expect(send).toHaveBeenCalledTimes(1);
- await registry.prepareChange(access,provider.adapter,ref);await expect(context.validateResponse(actor,snapshot)).rejects.toThrow();
+ await expect(context.dispatch(actor,permit,send)).rejects.toThrow(exactly("MEMORY_CONTEXT_PERMIT_USED"));expect(send).toHaveBeenCalledTimes(1);
+ await registry.prepareChange(access,provider.adapter,ref);await expect(context.validateResponse(actor,snapshot)).rejects.toThrow(exactly("MEMORY_SOURCE_PENDING"));
 });
 
 });
