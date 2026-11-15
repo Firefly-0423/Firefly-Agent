@@ -16,7 +16,16 @@ import { ChannelManager } from "./manager";
 import { createChannelMemoryAccountIdentity, type ChannelAdapter } from "../../conversation/channels/channel-adapter-base";
 import { requireChannelMemoryIngress } from "../../agent/memory-runtime/channel-memory-ingress";
 
-const mocks = vi.hoisted(() => ({ userData: "" }));
+const mocks = vi.hoisted(() => ({ userData: "", fileReads: [] as string[] }));
+// message-log reads through "fs"; record every readFileSync path so construction-time disk reads are observable.
+vi.mock("fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("fs")>();
+  const readFileSync = ((file: Parameters<typeof actual.readFileSync>[0], ...rest: unknown[]) => {
+    mocks.fileReads.push(String(file));
+    return (actual.readFileSync as (...args: unknown[]) => unknown)(file, ...rest);
+  }) as typeof actual.readFileSync;
+  return { ...actual, default: { ...actual, readFileSync }, readFileSync };
+});
 vi.mock("electron", () => ({
   app: { getPath: () => mocks.userData, getAppPath: () => process.cwd(), getName: () => "Contract host" },
   safeStorage: { isEncryptionAvailable: () => false },
@@ -92,13 +101,17 @@ it("constructs without reading persisted message logs", () => {
   expect(getRecentLog()).toEqual([]);
 
   mocks.userData = seededDir;
+  mocks.fileReads.length = 0;
   harness();
+  expect(mocks.fileReads.filter((file) => path.basename(file) === "log.jsonl")).toEqual([]);
   // Point away from seededDir so getRecentLog() cannot fall back to disk and only observes in-memory state.
   mocks.userData = emptyDir;
   expect(getRecentLog()).toEqual([]);
 
   mocks.userData = seededDir;
   reloadLogFromDisk();
+  // Control: the recorder does see message-log's reads.
+  expect(mocks.fileReads).toContain(path.join(seededDir, "channels", "log.jsonl"));
   mocks.userData = emptyDir;
   expect(getRecentLog().map((item) => item.text)).toEqual(["persisted-before-construct"]);
 });

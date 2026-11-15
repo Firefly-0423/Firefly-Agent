@@ -14,7 +14,7 @@ import type { WebContents } from "electron";
 import { IPC } from "../../../shared/ipc-channels";
 import { registerExternalSkillsIpc } from "./external-ipc";
 import { createExternalSkillService } from "./external-service";
-import { isolatedStorageContext } from "./testing/external-fixtures";
+import { isolatedStorageContext } from "./testing/external-fixtures.test-support";
 import { EXTERNAL_LIMITS, EXTERNAL_SOURCES } from "./external-policy";
 import { EXTERNAL_SKILL_REVIEWS } from "./external-reviews";
 import { MARKET_REGISTRY_URLS, MARKET_ZIP_URL_PREFIXES } from "../../features/plugins/host/plugin-marketplace";

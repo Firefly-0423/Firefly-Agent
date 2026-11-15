@@ -206,7 +206,7 @@ export class ILinkBotAdapter implements ChannelAdapter {
       this.recentEvents.set(identifier, instant + 5 * 60_000);
       if (this.recentEvents.size > 2_048) this.recentEvents.delete(this.recentEvents.keys().next().value!);
     }
-    logger.info(LogTag.Wechat, `inbound from=${message.fromUserId.slice(0, 6)}… textLen=${(message.content ?? "").length}`);
+    logger.info(LogTag.Wechat, `inbound from=${String(message.fromUserId ?? "").slice(0, 6)}… textLen=${(message.content ?? "").length}`);
     this.replyContextByTarget.set(message.fromUserId, message.contextToken);
     const descriptors = describeInboundWechatMedia(message.items);
     const recognized = await this.#maybeTranscribeInboundVoice(message, descriptors, signal);

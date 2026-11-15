@@ -7,6 +7,7 @@ import {createMainContext} from '../context/main-context';
 import {HistoryOrigins} from './history-origins';
 import {RecordCodec} from '../core/record-codec';
 import {initializeSchema} from '../core/schema';
+import { exactly } from "../../../shared/testing/error-code.test-support";
 const fixtures:ReturnType<typeof recallFixture>[]=[];
 const hash=(v:unknown)=>createHash('sha256').update(canonicalJson(v)).digest('hex');
 function fixture(){const f=recallFixture();fixtures.push(f);return f}
@@ -49,7 +50,7 @@ it('freezes a claimed source-only response closure and rejects its echo after fo
  const snapshot=await context.assemble(f.actor,{sessionId:'session-a',sourceRefs:[a.ref]});
  const entry={id:'answer-1',seq:2,at:101,kind:'assistant',turnId:'answer-turn',payload:{role:'assistant',content:'echo English'}};
  const command=()=>f.repo.contextCommand({kind:'historyResponseOrigin',scopeKey:'scope-a',commandId:randomUUID(),body:{...f.owner,bootId,snapshotId:snapshot.snapshotId,entry}});
- expect(command).toThrow('MEMORY_CONTEXT_RESPONSE_UNSENT');const permit=await context.validateForDispatch(f.actor,snapshot);await context.dispatch(f.actor,permit,()=> 'ok');expect(command()).toEqual({recorded:true});
+ expect(command).toThrow(exactly("MEMORY_CONTEXT_RESPONSE_UNSENT"));const permit=await context.validateForDispatch(f.actor,snapshot);await context.dispatch(f.actor,permit,()=> 'ok');expect(command()).toEqual({recorded:true});
  const event={originalId:entry.id,seq:2,turnId:entry.turnId,revision:null,originalRole:'assistant',digest:hash(entry)};
  const status=()=>f.repo.historyCommand({kind:'originStatus',scopeKey:'scope-a',body:{actorKey:'actor-a',providerId:'synthetic',sessionId:'session-a',event}});
  expect(status()).toEqual({valid:true});f.reopen();expect(status()).toEqual({valid:true});

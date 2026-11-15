@@ -10,10 +10,14 @@ const allStrings = (values: unknown[]): boolean => values.every((v) => typeof v 
 
 const CAPITALIZED_DMAE_STATE: Record<string, "active" | "dormant" | "archived"> = { Active: "active", Dormant: "dormant", Archived: "archived" }
 
-/** 早先写入的激活状态用的是引擎的首字母大写名（Active 等），读入时统一成小写；原地修改，下次保存即落盘。 */
+/**
+ * 早先写入的激活状态用的是引擎的首字母大写名（Active 等），读入时统一成小写；原地修改，下次保存即落盘。
+ * 只改对象条目里这三个已知旧名，其他条目原样保留：一条坏条目不能让整个记忆库读取失败。
+ */
 export function normalizeL2DmaeStateNames(store: MemoryStore): void {
   for (const entry of store.l2DmaeStates ?? []) {
-    const lower = CAPITALIZED_DMAE_STATE[entry.state as string]
+    if (!isPlainObject(entry) || typeof entry.state !== "string") continue
+    const lower = Object.hasOwn(CAPITALIZED_DMAE_STATE, entry.state) ? CAPITALIZED_DMAE_STATE[entry.state] : undefined
     if (lower) entry.state = lower
   }
 }

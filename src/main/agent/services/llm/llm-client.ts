@@ -53,6 +53,8 @@ function httpFailure(problem: { error?: { message?: string } }, response: Respon
     return new Error(problem.error?.message || `模型请求失败：HTTP ${response.status}`);
 }
 const firstMessageSize = (transcript: ChatMessage[]): number => transcript[0]?.content?.length ?? 0;
+/** 日志只记错误类型：服务端的错误文本可能回显请求内容或凭据，不能写进日志文件。 */
+const failureKind = (failure: unknown): string => failure instanceof Error ? failure.name : typeof failure;
 export function createLlmClient(): LlmClient {
     async function stream(
         profile: ModelSettings, transcript: ChatMessage[], samplingTemperature: number | undefined,
@@ -138,7 +140,7 @@ export function createLlmClient(): LlmClient {
                 throw new Error("模型请求超时，请稍后重试。");
             }
             if (traceTiming) {
-                logger.info(LogTag.Runtime, `${requestLabel} ERROR at ${duration()}ms: ${failure instanceof Error ? failure.message : failure}`);
+                logger.info(LogTag.Runtime, `${requestLabel} ERROR at ${duration()}ms (${failureKind(failure)})`);
             }
             throw failure;
         }
@@ -201,7 +203,7 @@ export function createLlmClient(): LlmClient {
                 logger.info(LogTag.Runtime, `${requestLabel} TIMEOUT at ${durationMs}ms`);
             }
             else {
-                logger.info(LogTag.Runtime, `${requestLabel} ERROR at ${durationMs}ms: ${failure}`);
+                logger.info(LogTag.Runtime, `${requestLabel} ERROR at ${durationMs}ms (${failureKind(failure)})`);
             }
             throw failure;
         }

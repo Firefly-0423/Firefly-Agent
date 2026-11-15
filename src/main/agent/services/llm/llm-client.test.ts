@@ -65,6 +65,11 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+function loggedText(): string {
+  return [logger.debug, logger.info, logger.warn, logger.error]
+    .flatMap(fn => vi.mocked(fn).mock.calls).map(call => call.map(String).join(" ")).join(" | ");
+}
+
 describe("createLlmClient.stream", () => {
   it("streams text, flushes the visible filter and returns think-stripped text", async () => {
     mocks.events = [
@@ -115,6 +120,14 @@ describe("createLlmClient.stream", () => {
     await expect(createLlmClient().stream(settings, messages, undefined, 5_000, "unit", () => {}))
       .rejects.toThrow("bad key");
     expect(recordRequest).not.toHaveBeenCalled();
+  });
+
+  it("keeps the provider's error text out of the log", async () => {
+    for (const level of ["debug", "info", "warn", "error"] as const) vi.spyOn(logger, level).mockImplementation(() => {});
+    vi.mocked(fetch).mockResolvedValueOnce(response({ ok: false, status: 401, json: async () => ({ error: { message: "echoed sk-SYNTHETIC-SECRET" } }) }));
+    await expect(createLlmClient().stream(settings, messages, undefined, 5_000, "unit", () => {})).rejects.toThrow("echoed sk-SYNTHETIC-SECRET");
+    expect(loggedText()).toMatch(/unit ERROR at \d+ms/);
+    expect(loggedText()).not.toContain("SYNTHETIC-SECRET");
   });
 
   it("falls back to the HTTP status when the error body is unreadable", async () => {
@@ -242,6 +255,14 @@ describe("createLlmClient.chatNonStream", () => {
       .rejects.toThrow("rate limited");
     expect(recordRequest).not.toHaveBeenCalled();
     expect(info).toHaveBeenCalledWith(LogTag.Runtime, expect.stringMatching(/^unit ERROR at \d+ms/));
+  });
+
+  it("keeps the provider's error text out of the log", async () => {
+    for (const level of ["debug", "info", "warn", "error"] as const) vi.spyOn(logger, level).mockImplementation(() => {});
+    vi.mocked(fetch).mockResolvedValueOnce(response({ ok: false, status: 429, json: async () => ({ error: { message: "echoed sk-SYNTHETIC-SECRET" } }) }));
+    await expect(createLlmClient().chatNonStream(settings, messages, undefined, 5_000, "unit")).rejects.toThrow("echoed sk-SYNTHETIC-SECRET");
+    expect(loggedText()).toMatch(/unit ERROR at \d+ms/);
+    expect(loggedText()).not.toContain("SYNTHETIC-SECRET");
   });
 
   it("falls back to the HTTP status when the error body is unreadable", async () => {

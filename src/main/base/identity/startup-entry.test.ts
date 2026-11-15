@@ -26,12 +26,13 @@ describe("diagnostic switches in installed builds", () => {
     { name: "openrouter-once", diagnostic: false, openrouter: true },
     { name: "both switches", diagnostic: true, openrouter: true },
   ])("starts normally and reports the ignored switch when an installed build gets $name", ({ diagnostic, openrouter }) => {
-    const ordinary = vi.fn(), diagnosticPath = vi.fn(), openrouterPath = vi.fn(), ignored = vi.fn();
+    const calls: string[] = [];
+    const ordinary = vi.fn(() => { calls.push("ordinary"); }), diagnosticPath = vi.fn(), openrouterPath = vi.fn(), ignored = vi.fn(() => { calls.push("ignored"); });
     dispatchMainEntry(diagnostic, { ordinary, diagnostic: diagnosticPath, openrouter: openrouterPath, ignored }, openrouter, false);
-    expect(ordinary).toHaveBeenCalledOnce();
     expect(diagnosticPath).not.toHaveBeenCalled();
     expect(openrouterPath).not.toHaveBeenCalled();
-    expect(ignored).toHaveBeenCalledOnce();
+    // 正常入口先装好文件日志，告警才会写进 main.log，而不是只到 stderr。
+    expect(calls).toEqual(["ordinary", "ignored"]);
   });
 
   it("does not report anything when an installed build starts without switches", () => {

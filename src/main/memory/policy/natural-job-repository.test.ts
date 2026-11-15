@@ -11,6 +11,7 @@ import { RecordCodec } from "../core/record-codec";
 import { createMainSourceProvider, type SourceSnapshot } from "../core/main-source-provider";
 import { createMainSourceRegistry } from "../sources/source-registry";
 import type { BoundSourceRef } from "../../../shared/memory-contracts";
+import { exactly } from "../../../shared/testing/error-code.test-support";
 
 const SETTINGS = "memory-settings-user-events-v1", profile = { id: "synthetic", revision: 1 };
 const owned: Array<() => void> = [];
@@ -47,9 +48,9 @@ function save(f: ReturnType<typeof fixture>, q: Awaited<ReturnType<typeof queued
 it("reads default-off controls without creating a job, then changes consent only from an exact settings source and CAS", async () => {
   const f = fixture(); expect(f.op("state")).toMatchObject({ config: { revision: 0, language: false, responseStyle: false }, budget: { requests: 0, units: 0, closed: false } }); expect(f.repo.readRows("jobs", "scope-a")).toEqual([]);
   const sourceText = "Natural memory consent revision 0; language=true; responseStyle=false", chat = await f.source(sourceText);
-  expect(() => f.op("configure", { expectedRevision: 0, language: true, responseStyle: false, sourceRef: chat.ref, sourceText })).toThrow("MEMORY_NATURAL_CONSENT_DENIED");
+  expect(() => f.op("configure", { expectedRevision: 0, language: true, responseStyle: false, sourceRef: chat.ref, sourceText })).toThrow(exactly("MEMORY_NATURAL_CONSENT_DENIED"));
   expect(await f.consent()).toMatchObject({ config: { revision: 1, language: true, responseStyle: false } });
-  await expect(f.consent(false, true, 0)).rejects.toThrow("MEMORY_REVISION_CONFLICT");
+  await expect(f.consent(false, true, 0)).rejects.toThrow(exactly("MEMORY_REVISION_CONFLICT"));
   expect(f.op("state", {}, randomUUID(), "actor-b").config).toEqual({ revision: 0, language: false, responseStyle: false });
 });
 
@@ -59,7 +60,7 @@ it.each([
   [{ occurredAt: 1700000000001 }, "MEMORY_POLICY_FUTURE"],
 ])("rejects non-authoritative or future source before persistent extraction: %j", async (patch, expectedCode) => {
   const f = fixture(), s = await f.source(text, "session-a", patch as Partial<SourceSnapshot>);
-  expect(() => f.op("enqueue", { sourceRef: s.ref, sourceText: text, profile })).toThrow(expectedCode); expect(f.repo.readRows("jobs", "scope-a")).toEqual([]);
+  expect(() => f.op("enqueue", { sourceRef: s.ref, sourceText: text, profile })).toThrow(exactly(expectedCode)); expect(f.repo.readRows("jobs", "scope-a")).toEqual([]);
 });
 
 it("rejects forged source text, unbound refs, extra authorization fields and oversized source before enqueue", async () => {
@@ -68,16 +69,16 @@ it("rejects forged source text, unbound refs, extra authorization fields and ove
     [{ sourceRef: s.ref, sourceText: text + " forged", profile }, "MEMORY_SOURCE_STALE"],
     [{ sourceRef: { sourceId: s.ref.sourceId, revision: s.ref.revision }, sourceText: text, profile }, "MEMORY_SOURCE_INVALID"],
     [{ sourceRef: s.ref, sourceText: text, profile, autoAdd: true }, "MEMORY_INPUT_INVALID"],
-  ] as const) expect(() => f.op("enqueue", body)).toThrow(expectedCode);
-  const long = await f.source("x".repeat(4001)); expect(() => f.op("enqueue", { sourceRef: long.ref, sourceText: long.text, profile })).toThrow("MEMORY_INPUT_INVALID"); expect(f.repo.readRows("jobs", "scope-a")).toEqual([]);
+  ] as const) expect(() => f.op("enqueue", body)).toThrow(exactly(expectedCode));
+  const long = await f.source("x".repeat(4001)); expect(() => f.op("enqueue", { sourceRef: long.ref, sourceText: long.text, profile })).toThrow(exactly("MEMORY_INPUT_INVALID")); expect(f.repo.readRows("jobs", "scope-a")).toEqual([]);
 });
 
 it("captures one source/consent/profile binding, saves only normalized fields, applies locally once and denies the legacy lease API", async () => {
   const f = fixture(); await f.consent(false, false); const q = await queued(f), again = f.op("enqueue", { sourceRef: q.ref, sourceText: q.text, profile: { id: "other-profile", revision: 2 } });
   expect(again.id).toBe(q.job.id); expect(q.job).toMatchObject({ phase: "unsent", profile });
-  expect(() => f.repo.jobCommand({ kind: "claim", scopeKey: "scope-a", commandId: randomUUID(), body: { jobId: q.job.id, leaseMs: 100 } })).toThrow("MEMORY_DATA_INVALID");
+  expect(() => f.repo.jobCommand({ kind: "claim", scopeKey: "scope-a", commandId: randomUUID(), body: { jobId: q.job.id, leaseMs: 100 } })).toThrow(exactly("MEMORY_DATA_INVALID"));
   const d = dispatch(f, q); expect(d.result.phase).toBe("result-unknown"); expect(f.op("state").budget).toMatchObject({ requests: 1, units: 2824 });
-  expect(() => dispatch(f, q)).toThrow("MEMORY_NATURAL_JOB_STATE");
+  expect(() => dispatch(f, q)).toThrow(exactly("MEMORY_NATURAL_JOB_STATE"));
   expect(save(f, q, d.token)).toMatchObject({ phase: "result-saved" });
   const stored = f.repo.readRows("jobs", "scope-a").find(row => row.id === q.job.id)!.payload as any;
   expect(stored).toMatchObject({ protocol: "natural-extraction-v1", phase: "result-saved", binding: { consent: { revision: 1, language: false, responseStyle: false }, profile } });
@@ -95,7 +96,7 @@ it.each(["unsent", "result-unknown", "result-saved", "applied"] as const)("reope
   if (phase !== "unsent") { const d = dispatch(f, q); if (phase !== "result-unknown") { save(f, q, d.token); if (phase === "applied") f.op("apply", { jobId: q.job.id, profile, sourceText: q.text }); } }
   const key = Buffer.from(f.key), entries = f.entries, time = f.time; f.close(); f = fixture({ file: path.join(root, "memory.sqlite"), key, entries, time }); key.fill(0);
   expect(f.op("get", { jobId: q.job.id }).phase).toBe(phase);
-  if (phase === "result-unknown") { f.time.now += 60001; expect(() => dispatch(f, q)).toThrow("MEMORY_NATURAL_JOB_STATE"); expect(f.op("state").budget.requests).toBe(1); }
+  if (phase === "result-unknown") { f.time.now += 60001; expect(() => dispatch(f, q)).toThrow(exactly("MEMORY_NATURAL_JOB_STATE")); expect(f.op("state").budget.requests).toBe(1); }
   if (phase === "result-saved") { expect(f.op("apply", { jobId: q.job.id, profile, sourceText: q.text }).phase).toBe("applied"); expect(f.op("state").budget.requests).toBe(1); }
 });
 
@@ -109,18 +110,18 @@ it.each(["quota", "rate-limit"])("closes the day on %s without refunding a reser
   const f = fixture(), q = await queued(f), d = dispatch(f, q); expect(save(f, q, d.token, { ok: false, kind })).toMatchObject({ phase: "blocked", reason: "provider" }); expect(f.op("state").budget).toMatchObject({ requests: 1, units: 2824, closed: true });
 });
 it.each(["timeout", "network", "cancelled"])("keeps ambiguous %s result unknown and never reclaims it", async kind => {
-  const f = fixture(), q = await queued(f), d = dispatch(f, q); expect(save(f, q, d.token, { ok: false, kind }).phase).toBe("result-unknown"); f.time.now += 60001; expect(() => dispatch(f, q)).toThrow("MEMORY_NATURAL_JOB_STATE"); expect(f.op("state").budget.requests).toBe(1);
+  const f = fixture(), q = await queued(f), d = dispatch(f, q); expect(save(f, q, d.token, { ok: false, kind }).phase).toBe("result-unknown"); f.time.now += 60001; expect(() => dispatch(f, q)).toThrow(exactly("MEMORY_NATURAL_JOB_STATE")); expect(f.op("state").budget.requests).toBe(1);
 });
 
 it.each([{ requestBytes: 16385, outputTokens: 800 }, { requestBytes: 1000, outputTokens: 801 }, { requestBytes: 0, outputTokens: 800 }, { requestBytes: 1, outputTokens: NaN }])("rejects unproved request bounds before reserving: %j", async limits => {
-  const f = fixture(), q = await queued(f); expect(() => dispatch(f, q, limits)).toThrow("MEMORY_INPUT_INVALID"); expect(f.op("state").budget.requests).toBe(0); expect(f.op("get", { jobId: q.job.id }).phase).toBe("unsent");
+  const f = fixture(), q = await queued(f); expect(() => dispatch(f, q, limits)).toThrow(exactly("MEMORY_INPUT_INVALID")); expect(f.op("state").budget.requests).toBe(0); expect(f.op("get", { jobId: q.job.id }).phase).toBe("unsent");
 });
 
 it("enforces20 daily requests, UTC reset, budget reservation and clock rollback without refund", async () => {
   const f = fixture(); for (let i = 0; i < 20; i++) expect(dispatch(f, await queued(f)).result.phase).toBe("result-unknown");
   expect(dispatch(f, await queued(f)).result).toMatchObject({ phase: "blocked", reason: "budget" }); expect(f.op("state").budget.requests).toBe(20);
   f.time.now += 86400000; const next = await queued(f); expect(dispatch(f, next).result.phase).toBe("result-unknown"); expect(f.op("state").budget.requests).toBe(1);
-  const rollback = await queued(f); f.time.now -= 86400000; expect(() => dispatch(f, rollback)).toThrow("MEMORY_NATURAL_CLOCK_INVALID");
+  const rollback = await queued(f); f.time.now -= 86400000; expect(() => dispatch(f, rollback)).toThrow(exactly("MEMORY_NATURAL_CLOCK_INVALID"));
   const b = fixture(); for (let i = 0; i < 5; i++) dispatch(b, await queued(b), { requestBytes: 16000, outputTokens: 800 });
   expect(dispatch(b, await queued(b), { requestBytes: 16000, outputTokens: 800 }).result).toMatchObject({ phase: "blocked", reason: "budget" }); expect(b.op("state").budget.units).toBe(89120);
 });
@@ -128,27 +129,27 @@ it("enforces20 daily requests, UTC reset, budget reservation and clock rollback 
 it("enforces backlog100 and total1000, then prunes after7days without allowing expired input to enqueue again", async () => {
   const f = fixture(); let first: Awaited<ReturnType<typeof queued>> | undefined;
   for (let i = 0; i < 100; i++) { const q = await queued(f); first ??= q; }
-  await expect(queued(f)).rejects.toThrow("MEMORY_NATURAL_QUEUE_FULL");
+  await expect(queued(f)).rejects.toThrow(exactly("MEMORY_NATURAL_QUEUE_FULL"));
   for (const q of f.op("list").jobs) f.op("block", { jobId: q.id, reason: "cancelled" });
   for (let i = 100; i < 1000; i++) { const q = await queued(f); f.op("block", { jobId: q.job.id, reason: "cancelled" }); }
-  await expect(queued(f)).rejects.toThrow("MEMORY_NATURAL_QUEUE_FULL"); f.time.now += 7 * 86400000 + 1; const fresh = await queued(f);
+  await expect(queued(f)).rejects.toThrow(exactly("MEMORY_NATURAL_QUEUE_FULL")); f.time.now += 7 * 86400000 + 1; const fresh = await queued(f);
   expect(f.repo.readRows("jobs", "scope-a").filter(row => (row.payload as any).kind === "extraction")).toHaveLength(1);
-  expect(f.op("enqueue", { sourceRef: first!.ref, sourceText: first!.text, profile }).id).toBe(first!.job.id); expect(() => f.op("get", { jobId: first!.job.id })).toThrow("MEMORY_NATURAL_JOB_NOT_FOUND"); expect(f.op("get", { jobId: fresh.job.id }).phase).toBe("unsent");
+  expect(f.op("enqueue", { sourceRef: first!.ref, sourceText: first!.text, profile }).id).toBe(first!.job.id); expect(() => f.op("get", { jobId: first!.job.id })).toThrow(exactly("MEMORY_NATURAL_JOB_NOT_FOUND")); expect(f.op("get", { jobId: fresh.job.id }).phase).toBe("unsent");
 });
 
 it("save/apply faults roll back the journal and Core candidate atomically; bad ciphertext never becomes a default", async () => {
-  const f = fixture(), q = await queued(f), d = dispatch(f, q); f.fault("before-receipt"); expect(() => save(f, q, d.token)).toThrow("SYNTHETIC_FAULT"); f.fault(); expect(f.op("get", { jobId: q.job.id }).phase).toBe("result-unknown"); save(f, q, d.token);
-  f.fault("after-record"); expect(() => f.op("apply", { jobId: q.job.id, profile, sourceText: q.text })).toThrow("SYNTHETIC_FAULT"); f.fault(); expect(f.op("get", { jobId: q.job.id }).phase).toBe("result-saved"); expect(f.repo.readRows("candidates", "scope-a")).toEqual([]);
-  f.db.prepare("UPDATE jobs SET payload=? WHERE id=?").run(Buffer.from("corrupt"), q.job.id); expect(() => f.op("get", { jobId: q.job.id })).toThrow("MEMORY_DATA_INVALID"); expect(() => f.op("state")).toThrow("MEMORY_DATA_INVALID");
+  const f = fixture(), q = await queued(f), d = dispatch(f, q); f.fault("before-receipt"); expect(() => save(f, q, d.token)).toThrow(exactly("SYNTHETIC_FAULT")); f.fault(); expect(f.op("get", { jobId: q.job.id }).phase).toBe("result-unknown"); save(f, q, d.token);
+  f.fault("after-record"); expect(() => f.op("apply", { jobId: q.job.id, profile, sourceText: q.text })).toThrow(exactly("SYNTHETIC_FAULT")); f.fault(); expect(f.op("get", { jobId: q.job.id }).phase).toBe("result-saved"); expect(f.repo.readRows("candidates", "scope-a")).toEqual([]);
+  f.db.prepare("UPDATE jobs SET payload=? WHERE id=?").run(Buffer.from("corrupt"), q.job.id); expect(() => f.op("get", { jobId: q.job.id })).toThrow(exactly("MEMORY_DATA_INVALID")); expect(() => f.op("state")).toThrow(exactly("MEMORY_DATA_INVALID"));
 });
 
 it("denies actor/profile/source changes, bad normalized saved spans and result size without reviving a job", async () => {
-  const f = fixture(), q = await queued(f); expect(() => f.op("get", { jobId: q.job.id }, randomUUID(), "actor-b")).toThrow("MEMORY_DATA_INVALID"); expect(f.op("get", { jobId: q.job.id }).phase).toBe(q.job.phase);
+  const f = fixture(), q = await queued(f); expect(() => f.op("get", { jobId: q.job.id }, randomUUID(), "actor-b")).toThrow(exactly("MEMORY_DATA_INVALID")); expect(f.op("get", { jobId: q.job.id }).phase).toBe(q.job.phase);
   const d = dispatch(f, q); expect(save(f, q, d.token, { ok: true, text: "x".repeat(32769), usage: { input: 100, output: 20 } })).toMatchObject({ phase: "blocked", reason: "limits" });
   const other = await queued(f); expect(f.op("dispatch", { jobId: other.job.id, profile: { id: "synthetic", revision: 2 }, token: randomUUID(), limits: { requestBytes: 1000, outputTokens: 800 } })).toMatchObject({ phase: "blocked", reason: "profile-changed" });
   const bad = await queued(f), b = dispatch(f, bad); save(f, bad, b.token); const row = f.repo.readRows("jobs", "scope-a").find(r => r.id === bad.job.id)!, payload = row.payload as any;
   payload.result[0].span.end = bad.text.length + 1; f.db.prepare("UPDATE jobs SET payload=? WHERE id=?").run(new RecordCodec(f.key).seal("jobs", "scope-a", bad.job.id, payload), bad.job.id);
-  expect(() => f.op("apply", { jobId: bad.job.id, profile, sourceText: bad.text })).toThrow("MEMORY_DATA_INVALID"); expect(f.repo.readRows("candidates", "scope-a")).toEqual([]);
+  expect(() => f.op("apply", { jobId: bad.job.id, profile, sourceText: bad.text })).toThrow(exactly("MEMORY_DATA_INVALID")); expect(f.repo.readRows("candidates", "scope-a")).toEqual([]);
 });
 
 it.each(["save", "apply"])("blocks source edits before %s and retains no normalized result or candidate", async step => {
@@ -169,7 +170,7 @@ it("keeps model authority fields outside stored results and enforces the5-propos
 
 it("never recreates a lost/corrupt budget while extraction jobs exist", async () => {
   const f = fixture(), q = await queued(f); f.db.prepare("DELETE FROM jobs WHERE state='complete'").run();
-  expect(() => dispatch(f, q)).toThrow("MEMORY_DATA_INVALID"); expect(() => f.op("state")).toThrow("MEMORY_DATA_INVALID");
+  expect(() => dispatch(f, q)).toThrow(exactly("MEMORY_DATA_INVALID")); expect(() => f.op("state")).toThrow(exactly("MEMORY_DATA_INVALID"));
 });
 
 it("does not reset unknown work if a damaged enqueue receipt is missing", async () => {
@@ -177,7 +178,7 @@ it("does not reset unknown work if a damaged enqueue receipt is missing", async 
   f.db.prepare("DELETE FROM command_receipts WHERE command_id LIKE 'natural-enqueue-%'").run();
   const replay = f.op("enqueue", { sourceRef: q.ref, sourceText: q.text, profile });
   expect(replay).toMatchObject({ id: q.job.id, phase: "result-unknown" });
-  expect(() => dispatch(f, q)).toThrow("MEMORY_NATURAL_JOB_STATE"); expect(f.op("state").budget.requests).toBe(1);
+  expect(() => dispatch(f, q)).toThrow(exactly("MEMORY_NATURAL_JOB_STATE")); expect(f.op("state").budget.requests).toBe(1);
 });
 
 it("assigns durable profile revisions across reopen without persisting the host credential", () => {
@@ -200,7 +201,7 @@ it("accepts a model profile that declares reasoning levels, and a level change i
   expect(f.op("profile", { profileId: "levels", definition })).toEqual({ id: "levels", revision: 1 });
   expect(f.op("profile", { profileId: "levels", definition: { ...definition, reasoningLevels: { efforts: ["low", "high"], allowOff: true } } })).toEqual({ id: "levels", revision: 2 });
   for (const reasoningLevels of [{ efforts: "high" }, { efforts: [1] }, { efforts: ["high"], allowOff: "yes" }, { efforts: ["high"], extra: true }, []]) {
-    expect(() => f.op("profile", { profileId: "levels", definition: { ...definition, reasoningLevels } })).toThrow("MEMORY_INPUT_INVALID");
+    expect(() => f.op("profile", { profileId: "levels", definition: { ...definition, reasoningLevels } })).toThrow(exactly("MEMORY_INPUT_INVALID"));
   }
 });
 

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { EXTERNAL_LIMITS, EXTERNAL_SOURCES, externalSkillId } from "./external-policy";
 import type { ExternalSkillSourceId } from "../../../shared/external-skills";
 import type { ExternalFetcher } from "./external-fetch";
-import { isRawFileUrl, rawFile } from "./testing/external-fixtures";
+import { isRawFileUrl, rawFile } from "./testing/external-fixtures.test-support";
 const sourceModules = import.meta.glob<typeof import("./external-sources")>("./external-sources.ts");
 const fetchModules = import.meta.glob<typeof import("./external-fetch")>("./external-fetch.ts");
 async function implementation() {

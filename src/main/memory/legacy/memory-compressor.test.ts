@@ -297,6 +297,8 @@ describe("fragment compression eligibility", () => {
       l2("d", { ragId: undefined }),
     ]);
     await runMemoryCompression();
+    // Too few candidates must stop before the vector store is scanned at all.
+    expect(mocks.getEntriesBySource).not.toHaveBeenCalled();
     expect(mocks.commit).not.toHaveBeenCalled();
     expect(mocks.store.appendReflectionLog).not.toHaveBeenCalled();
     expect(mocks.store.archiveL2Batch).not.toHaveBeenCalled();
