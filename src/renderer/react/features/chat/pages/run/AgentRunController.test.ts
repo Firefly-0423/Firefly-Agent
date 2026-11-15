@@ -573,6 +573,27 @@ describe("ChatPage package A: run and persistence baseline", () => {
     expect(s.bridge.reportRunPersisted.mock.calls).toEqual([[{ runId: "run-1", finalMessageId: "assistant-1" }]]);
   });
 
+  test("A9: context usage stays with its session, keeps the terminal value and a new run clears compression", async () => {
+    const refs = registries(); const host = observer(); const disk = memory();
+    const s = runScenario({ refs, host, disk }); await s.ready();
+    s.custom("firefly.compressingContext", true);
+    expect(host.setCompressingContext).toHaveBeenLastCalledWith("session-1", true);
+    s.custom("firefly.context.usage", usage("preRequest", 1200));
+    s.send({ type: "CUSTOM", runId: "run-foreign", name: "firefly.context.usage", value: usage("preRequest", 9999, "run-foreign") });
+    s.custom("firefly.context.usage", usage("terminal", 1800));
+    s.custom("firefly.context.usage", { phase: "terminal", totalTokens: -1 });
+    await s.finish();
+    expect(host.updateContextUsage.mock.calls).toEqual([["session-1", usage("preRequest", 1200)], ["session-1", usage("terminal", 1800)]]);
+    expect(s.lastSaved().contextUsage).toEqual(usage("terminal", 1800));
+    expect(s.patches().some(patch => patch.contextUsage?.totalTokens === 9999)).toEqual(false);
+    const next = runScenario({ refs, host, disk, ack: successfulAck("run-2"), input: { userMessageId: "user-2", assistantId: "assistant-2" } });
+    host.setCompressingContext.mockClear(); await next.ready();
+    expect(host.setCompressingContext.mock.calls).toEqual([["session-1", false]]);
+    await next.finish();
+    expect(next.lastSaved().contextUsage).toBeUndefined();
+    expect(host.updateContextUsage).toHaveBeenCalledTimes(2);
+  });
+
   test("A10: a terminal checkpoint that cannot be written is never reported as persisted", async () => {
     const disk = memory();
     disk.upsert.mockImplementation(async (_sessionId: string, message: any) => {
