@@ -59,8 +59,7 @@ describe("ILinkClient", () => {
     expect(result.buf).toBe("cursor-2");
     expect(result.messages.map((message) => [message.msgId, message.fromUserId])).toEqual([["1", "first@im.wechat"], ["6", "last@im.wechat"]]);
     // Only the count is logged; no ids or message text.
-    expect(warn).toHaveBeenCalledTimes(1);
-    expect(warn.mock.calls[0].join(" ")).toMatch(/dropped 4 inbound message\(s\) without a sender id/);
+    expect(warn.mock.calls).toEqual([["[iLink]", "dropped 4 inbound message(s) without a sender id"]]);
   });
 
   it.each([[-14, "iLink session expired (ret=-14)"], [2, "iLink getupdates failed: ret=2 denied"], [3, "iLink getupdates failed: ret=3 "]])(
