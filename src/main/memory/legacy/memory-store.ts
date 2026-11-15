@@ -2,7 +2,7 @@ import { ConflictLog, L0Profile, L1Profile, L2DmaeState, L2Memory, L2SyncStatus,
 import { appendMemoryTrace, type MemoryTraceEvent } from "./memory-trace"
 import { isImportingMemory } from "./obsidian-sync-flag"
 import { memoryFileExists, readMemoryFile, resolveMemoryPath, writeMemoryFile } from "./memory-store-io"
-import { extractMemoryKeywords, createDefaultMemoryStore, boundMemorySnippet, isCurrentMemoryStore, CURRENT_MEMORY_SCHEMA_VERSION } from "./memory-store-defaults"
+import { extractMemoryKeywords, createDefaultMemoryStore, boundMemorySnippet, isCurrentMemoryStore, normalizeL2DmaeStateNames, CURRENT_MEMORY_SCHEMA_VERSION } from "./memory-store-defaults"
 
 const QUOTE_SNIPPET_MAX = 300
 const REFLECTION_LOG_CAP = 50
@@ -123,6 +123,7 @@ class MemoryStoreManager {
     try {
       const onDisk = readMemoryFile(file)
       if (!isCurrentMemoryStore(onDisk)) throw new Error("Unsupported memory format")
+      normalizeL2DmaeStateNames(onDisk)
       this.cache = onDisk
     } catch {
       this.readFailed = true

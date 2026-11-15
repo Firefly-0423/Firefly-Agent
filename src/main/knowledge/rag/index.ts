@@ -133,7 +133,7 @@ export async function switchEmbeddingModel(modelKey: string): Promise<{ ok: bool
     // 已有向量维度与新模型不一致时需要清库重建
     let clearedEntries = 0;
     const existing = store
-      ? ((store as any).entries as Array<{ embedding: number[]; source: string }> | undefined)
+      ? rawEntries()
       : undefined;
     if (store && existing && existing.length > 0) {
       const oldDims = existing[0].embedding.length;
@@ -144,7 +144,7 @@ export async function switchEmbeddingModel(modelKey: string): Promise<{ ok: bool
         clearedEntries = existing.length;
         // 内存与磁盘一并清空（同时取消防抖中的写入），避免旧维度向量被写回
         store.clearForRebuild();
-        console.log("[RAG] dimension mismatch (" + oldDims + " → " + newDims + "), cleared " + clearedEntries + " entries");
+        logger.info(LogTag.RAG, "dimension mismatch (" + oldDims + " → " + newDims + "), cleared " + clearedEntries + " entries");
         // 旧索引元数据作废，下次写入会重新生成
         const metaFile = join(getDataDir(), "memory-store-meta.json");
         if (fs.existsSync(metaFile)) fs.unlinkSync(metaFile);
@@ -154,7 +154,7 @@ export async function switchEmbeddingModel(modelKey: string): Promise<{ ok: bool
     provider = next;
     if (store) retriever = new HybridRetriever(store, provider);
 
-    console.log("[RAG] switched embedding model to", modelKey, "dims:", newDims, "cleared:", clearedEntries);
+    logger.info(LogTag.RAG, "switched embedding model to", modelKey, "dims:", newDims, "cleared:", clearedEntries);
     return { ok: true, clearedEntries };
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);

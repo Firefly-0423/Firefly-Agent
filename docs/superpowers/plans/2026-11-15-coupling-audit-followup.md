@@ -114,9 +114,48 @@
   - `default-dependencies.ts` 是组合根，引用多是正常的。拆分目标是按层分组装配，而不是减少引用。
   - `AgentRunController.ts`、`git-service.ts` 暂不列入，先看前 5 个文件的拆分效果。
 
+### 施工包 R6：一次性诊断模式只在开发版可用
+
+依赖：无。2026-11-15 R3 核对时发现，负责人当天决定"从正式入口移除，改成只在开发版可用"。
+
+**现状：**
+- `--firefly-memory-online-once`、`--firefly-memory-openrouter-once` 两个启动参数会在 `src/main/index.ts` 里把启动分流到 `features/diagnostics/memory-online-once`、`memory-openrouter-once`。
+- `--firefly-memory-online-once` 还会在正常启动路径 `app/default-dependencies.ts` 里创建 `createMainProbeEntry`。
+- 两套诊断是 2026-10 一美元预算实验留下的，写死了 `E:\Codex\2026-10-01\task\...` 目录（`runner.ts` 的 `ADMISSION_ROOT`、`diagnostic-main.ts` 的 `BASE`），这些目录在本机已经不存在。
+- 安装版带上这两个参数时也会进入诊断模式。
+
+**设计：**
+- 判定只有一处：`base/identity/startup-entry.ts` 新增 `diagnosticSwitchesAllowed(isPackaged)`，安装版返回 false。
+- `dispatchMainEntry` 增加"是否允许诊断"参数。不允许时，两个诊断参数一律忽略，按正常启动处理；两个参数同时出现也不再报冲突。`index.ts` 传 `!app.isPackaged`。
+- `default-dependencies.ts` 只在允许时才把诊断开关传给 `createMainProbeEntry`，安装版传 false，不会创建诊断入口。
+- 验证脚本 `scripts/verify/memory-online-startup/drive.mjs` 和 `memory-openrouter-once/drive.mjs` 的"打包模式"用例，用自己打包的合成程序驱动诊断模式。打包程序属于安装版，诊断会被忽略，所以删掉这两个脚本的打包模式用例，只保留开发模式用例，并在脚本里写明原因。
+- 写死的历史目录这次不改。诊断代码只在开发版能走到，是否整体删除另议。
+
+**关键路径：**
+- 开发版带参数：行为不变。
+- 安装版带参数：正常启动，记一条 warn 日志，说明参数已被忽略，不进入诊断、不读写历史目录。
+- 不带参数：两边都不变。
+
+**提交顺序（每个提交单独通过）：**
+1. `startup-entry` 加判定和参数，附测试：安装版带任一参数都走正常启动；开发版行为不变。
+2. `index.ts` 传入 `!app.isPackaged`。
+3. `default-dependencies.ts` 按同一判定传开关，附测试：安装版带参数也不会启用诊断入口。
+4. 两个验证脚本删掉打包模式用例。
+5. 进度文档。
+
+**风险与回退：**
+- 改动只在启动分流，不碰数据。
+- 如果有人依赖在安装版里跑诊断，revert 提交 1–3 即可恢复。
+- 提交 4 的脚本改动可以单独回退。
+
+**验证：**
+- `npm test -- src/main/base/identity src/main/app/default-dependencies.test.ts src/main/features/diagnostics`
+- 三端类型检查
+- 开发版正常启动一次
+
 ## 验收清单
 
-- [ ] R1–R4 各自合并，验证通过
+- [ ] R1–R4、R6 各自合并，验证通过
 - [ ] R5 的 5 份设计经负责人确认
 - [ ] 全量 `npm test`、三端类型检查、`npm run build` 通过
 - [ ] 开发版启动正常，`main.log` 记录完整

@@ -42,8 +42,9 @@ it.each(['valid','missing-snapshot','missing-session','broken-tail','broken-snap
  });
  const guards=[vi.spyOn(store,'withReadLease'),vi.spyOn(store,'read'),vi.spyOn(store,'checkpoint')];
  try{
+  const expectedRejection:Record<string,string>={'broken-snapshot':'MEMORY_HISTORY_CORRUPT',cancel:'MEMORY_HISTORY_CANCELLED',timeout:'MEMORY_HISTORY_NATIVE_TIMEOUT',refused:'history-native-open-failed','missing-session':'history-native-open-failed'};
   const controller=new AbortController();if(kind==='cancel')controller.abort();
-  if(['broken-snapshot','cancel','timeout','refused','missing-session'].includes(kind))await expect(native.capture(controller.signal)).rejects.toThrow();
+  if(kind in expectedRejection)await expect(native.capture(controller.signal)).rejects.toThrow(expectedRejection[kind]);
   else {
    const capture=await native.capture(controller.signal);
    if(kind==='valid'){expect(capture).toMatchObject({status:'captured',captured:1});const query=await native.query({query:'harbor'});expect(query.status).toBe('queried')}

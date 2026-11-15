@@ -5,6 +5,7 @@ import { ACCESS_LEVEL_LABEL, getCurrentLevel } from "../../platform/permission/p
 import { resolveChatContextTimezone } from "../../model/text/chat-time-context";
 import { getDateLocale } from "../../base/identity/locale-context";
 import { resolveUserAddress } from "../../../shared/user-address";
+import { logger, LogTag } from "../../base/logging/logger";
 
 export interface ModelInfo { multimodal?: boolean; model: string; provider: string }
 export interface UserInfoContext { gender?: string; timezone?: string; defaultCity?: string; birthday?: string; callPreference?: string; nickname?: string }
@@ -90,6 +91,6 @@ export function buildEnvironmentContext(modelInfo?: ModelInfo, userInfo?: UserIn
   }
   sections.push("当用户提到「桌面 / 文档 / 下载」却没给绝对路径时，使用上面这些真实路径拼接，再交给文件类工具；不要写 `~/Desktop` 或硬编码盘符。");
   const context = sections.join("\n");
-  console.log("[Env]", `level=${access}`, `desktop=${desktopPath || "?"}`, `mcp=${serverSummary.startsWith("未连接") ? "none" : "active"}`, `vision=${vision}`);
+  logger.info(LogTag.Runtime, "env:", `level=${access}`, `desktop=${desktopPath ? "resolved" : "?"}`, `mcp=${serverSummary.startsWith("未连接") ? "none" : "active"}`, `vision=${vision}`);
   return context;
 }

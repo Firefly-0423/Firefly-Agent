@@ -78,10 +78,13 @@ describe("appendLog", () => {
   });
 
   it("still records in memory when the disk write fails", () => {
-    mocks.userData = path.join(root, "blocked");
-    fs.writeFileSync(mocks.userData, "not a directory", "utf8");
-    expect(() => appendLog(entry("memory-only"))).not.toThrow();
+    const blockingFile = path.join(root, "blocked");
+    mocks.userData = blockingFile;
+    fs.writeFileSync(blockingFile, "not a directory", "utf8");
+    appendLog(entry("memory-only"));
     expect(getRecentLog().map((item) => item.text)).toEqual(["memory-only"]);
+    expect(fs.statSync(blockingFile).isFile()).toBe(true);
+    expect(fs.readFileSync(blockingFile, "utf8")).toBe("not a directory");
   });
 });
 
@@ -118,8 +121,12 @@ describe("clearLog and reloadLogFromDisk", () => {
   });
 
   it("tolerates clearing an already-missing log", () => {
-    expect(() => clearLog()).not.toThrow();
-    expect(() => clearLog()).not.toThrow();
+    expect(fs.existsSync(logPath())).toBe(false);
+    clearLog();
+    clearLog();
+    expect(getRecentLog()).toEqual([]);
+    expect(fs.existsSync(logPath())).toBe(false);
+    expect(fs.readdirSync(root)).toEqual([]);
   });
 
   it("reloads at most the newest 200 entries from disk", () => {
@@ -136,10 +143,20 @@ describe("clearLog and reloadLogFromDisk", () => {
   });
 
   it("ignores a missing file and corrupt lines", () => {
-    expect(() => reloadLogFromDisk()).not.toThrow();
+    reloadLogFromDisk();
+    expect(getRecentLog()).toEqual([]);
+    expect(fs.existsSync(logPath())).toBe(false);
+
     fs.mkdirSync(path.dirname(logPath()), { recursive: true });
-    fs.writeFileSync(logPath(), "{broken\n" + JSON.stringify({ at: "x", ...entry("ok") }) + "\n", "utf8");
+    fs.writeFileSync(logPath(), "{broken-json\n", "utf8");
+    reloadLogFromDisk();
+    expect(getRecentLog()).toEqual([]);
+    expect(fs.readFileSync(logPath(), "utf8")).toBe("{broken-json\n");
+
+    const mixedContent = "{broken\n" + JSON.stringify({ at: "x", ...entry("ok") }) + "\n";
+    fs.writeFileSync(logPath(), mixedContent, "utf8");
     reloadLogFromDisk();
     expect(getRecentLog().map((item) => item.text)).toEqual(["ok"]);
+    expect(fs.readFileSync(logPath(), "utf8")).toBe(mixedContent);
   });
 });

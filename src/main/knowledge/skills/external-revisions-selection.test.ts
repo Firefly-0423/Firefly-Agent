@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { createExternalFixture } from "./testing/external-fixtures";
+import { createExternalFixture } from "./testing/external-fixtures.test-support";
 import { externalSkillId } from "./external-policy";
 import { reviewedExternalSkill } from "./external-revisions";
 

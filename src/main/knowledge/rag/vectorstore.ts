@@ -1,6 +1,7 @@
 import * as path from "path";
 import * as fs from "fs";
 import { type EmbeddingIndexMetadata, type EmbeddingProvider, getEmbeddingProvider } from "./embedding";
+import { logger, LogTag } from "../../base/logging/logger";
 
 export type { EmbeddingIndexMetadata };
 
@@ -190,7 +191,7 @@ export class JsonVectorStore {
       }
       this.metadata = this.describeIndex(engine, width);
       this.persistMetadata();
-      console.log("[RAG] migrated index metadata (inferred from existing vectors):", this.metadata);
+      logger.info(LogTag.RAG, "migrated index metadata (inferred from existing vectors):", this.metadata);
     }
   }
 
@@ -198,7 +199,7 @@ export class JsonVectorStore {
     if (!this.metadata) {
       this.metadata = this.describeIndex(engine, width);
       this.persistMetadata();
-      console.log("[RAG] created index metadata:", this.metadata);
+      logger.info(LogTag.RAG, "created index metadata:", this.metadata);
     }
   }
 

@@ -11,6 +11,7 @@ import { buildToolSystemPrompt } from "../../../agent/runtime/system-prompt-buil
 import type { ToolDefinition } from "../../../tooling/registry/tool-registry";
 import { recordPluginCall } from "../../../base/storage/token-usage-store";
 import { runWithUsageAttribution } from "../../../base/storage/usage-attribution";
+import { logger, LogTag } from "../../../base/logging/logger";
 
 const goalLedgers = new ExecutionLedgerStore();
 export interface PluginAgentRunnerDeps {
@@ -134,7 +135,7 @@ export function createPluginAgentRunner(deps: PluginAgentRunnerDeps): NonNullabl
     const toolPrompt = buildToolSystemPrompt("work", goalTools);
     const layers = buildAgentLoopPromptLayers({ ...prepared.options, conversationMode: "work", toolSystemContent: toolPrompt, tools: goalTools });
     const callNames = new Map<string, string>();
-    console.info("[plugin-agent] 无头任务开始", { label: diagnostic, runId: identifier });
+    logger.info(LogTag.Runtime, "plugin-agent 无头任务开始", { label: diagnostic, runId: identifier });
     recordPluginCall(deps.pluginId);
     const outcome = await runWithUsageAttribution({ feature: "plugin", pluginId: deps.pluginId }, () => executeAgentLoop({
       systemPrompt: layers.stablePrefix, promptLayers: layers, usageParts: layers.usageParts,
@@ -152,7 +153,7 @@ export function createPluginAgentRunner(deps: PluginAgentRunnerDeps): NonNullabl
     const completion = cancellation.origin() === "deadline"
       ? { status: "timeout" as const, reason: "timeout", externalEffectsMayContinue: true }
       : outcome.terminal ?? mapTerminateReasonToTerminal(outcome.terminateReason, outcome.finalState.uncertainEffects.length > 0, outcome.failure);
-    console.info("[plugin-agent] 无头任务结束", { label: diagnostic, runId: identifier, status: completion.status });
+    logger.info(LogTag.Runtime, "plugin-agent 无头任务结束", { label: diagnostic, runId: identifier, status: completion.status });
     return { text: outcome.finalAnswer, terminal: completion, rounds: outcome.rounds } as PluginAgentRunResult;
   };
 }

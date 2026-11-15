@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { createPluginAgentRunner } from "./plugin-agent";
+import { logger, LogTag } from "../../../base/logging/logger";
 import type { PluginTool } from "../../../../plugins/api";
 
 afterEach(() => vi.restoreAllMocks());
@@ -58,11 +59,11 @@ it("prioritizes an elapsed deadline over the harness cancellation terminal", asy
   expect(result.terminal).toEqual({ status: "timeout", reason: "timeout", externalEffectsMayContinue: true });
 });
 it("propagates a normalized purpose label into tool metadata and both lifecycle logs", async () => {
-  const log = vi.spyOn(console, "info").mockImplementation(() => {});
+  const log = vi.spyOn(logger, "info").mockImplementation(() => {});
   const h = runner();
   await h.run({ runId: "garden:label", goal: "Water the seedlings", tools: [action()], purpose: "morning watering" });
   const label = "plugin:garden-bot:morning-watering";
   expect(h.harness.mock.calls[0][0].toolContext.metadata).toEqual({ pluginAgentDiagnosticLabel: label });
-  expect(log).toHaveBeenCalledWith("[plugin-agent] 无头任务开始", expect.objectContaining({ label }));
-  expect(log).toHaveBeenCalledWith("[plugin-agent] 无头任务结束", expect.objectContaining({ label, status: "success" }));
+  expect(log).toHaveBeenCalledWith(LogTag.Runtime, "plugin-agent 无头任务开始", expect.objectContaining({ label }));
+  expect(log).toHaveBeenCalledWith(LogTag.Runtime, "plugin-agent 无头任务结束", expect.objectContaining({ label, status: "success" }));
 });

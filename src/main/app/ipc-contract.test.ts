@@ -1,19 +1,25 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import { join, relative, sep } from "node:path";
 import { describe, it, expect } from "vitest";
 import { IPC } from "../../shared/ipc-channels";
-import { collectReachableFiles, findIpcChannelUses, type IpcChannelUse, type IpcChannelUseKind } from "./ipc-contract-scanner";
+import { collectReachableFiles, findIpcChannelUses, type IpcChannelUse, type IpcChannelUseKind } from "./ipc-contract-scanner.test-support";
 const root = process.cwd();
 const portable = (file: string) => relative(root, file).split(sep).join("/");
-function scan(folder: string): IpcChannelUse[] {
+function collectProductionSourceFiles(folder: string): string[] {
     return readdirSync(folder, { withFileTypes: true }).flatMap(entry => {
         const file = join(folder, entry.name);
         if (entry.isDirectory())
-            return scan(file);
+            return collectProductionSourceFiles(file);
         if (!/\.tsx?$/.test(entry.name) || /\.(test|spec|d)\.tsx?$/.test(entry.name))
             return [];
-        return findIpcChannelUses(portable(file), readFileSync(file, "utf8"));
+        return [file];
     });
+}
+function scan(folder: string): IpcChannelUse[] {
+    return collectProductionSourceFiles(folder).flatMap(file =>
+        findIpcChannelUses(portable(file), readFileSync(file, "utf8")),
+    );
 }
 const preload = scan(join(root, "src/preload"));
 const main = ["src/main", "src/plugins"].flatMap(folder => scan(join(root, folder)));
@@ -43,10 +49,35 @@ describe("IPC production wiring", () => {
     });
     it("does not expose retired Moments or Call entry points", () => {
         expect(Object.values(IPC).filter(channel => channel.startsWith("moments:") || channel.startsWith("call:") || channel === "sidebar:open-call")).toEqual([]);
-        const bridge = readFileSync(join(root, "src/preload/index.ts"), "utf8");
-        expect(bridge).not.toContain('exposeInMainWorld("moments"');
-        expect(bridge).not.toContain('exposeInMainWorld("call"');
-        expect(bridge).not.toContain("openCall:");
+        const preloadDir = join(root, "src/preload");
+        expect(existsSync(join(preloadDir, "index.ts"))).toBe(true);
+        const preloadFiles = collectProductionSourceFiles(preloadDir).map(portable).sort();
+        expect(preloadFiles).toContain("src/preload/index.ts");
+        for (const file of preloadFiles) {
+            const bridge = readFileSync(join(root, file), "utf8");
+            expect(bridge, file).not.toMatch(/exposeInMainWorld\s*\(\s*["']moments["']/);
+            expect(bridge, file).not.toMatch(/exposeInMainWorld\s*\(\s*["']call["']/);
+            expect(bridge, file).not.toContain("openCall:");
+        }
+    });
+    it("recursively collects nested preload source files while excluding test and declaration files", () => {
+        const tempDir = mkdtempSync(join(os.tmpdir(), "ipc-contract-preload-"));
+        try {
+            mkdirSync(join(tempDir, "settings"), { recursive: true });
+            writeFileSync(join(tempDir, "index.ts"), "export {};", "utf8");
+            writeFileSync(join(tempDir, "settings/core.ts"), "export {};", "utf8");
+            writeFileSync(join(tempDir, "settings/core.test.ts"), "export {};", "utf8");
+            writeFileSync(join(tempDir, "settings/core.spec.ts"), "export {};", "utf8");
+            writeFileSync(join(tempDir, "settings/types.d.ts"), "export {};", "utf8");
+            writeFileSync(join(tempDir, "settings/notes.md"), "ignored", "utf8");
+
+            const collected = collectProductionSourceFiles(tempDir)
+                .map(file => relative(tempDir, file).split(sep).join("/"))
+                .sort();
+            expect(collected).toEqual(["index.ts", "settings/core.ts"]);
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
     });
 });
 describe("IPC expression recognition", () => {

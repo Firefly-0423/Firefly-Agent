@@ -131,7 +131,7 @@ import { createDefaultApplicationDependencies } from "../../app/default-dependen
 import { IPC } from "../../../shared/ipc-channels";
 import type { ExternalResult, ExternalSkillSourceId } from "../../../shared/external-skills";
 import type { SettingsApi } from "../../../renderer/settings/shared/types";
-import { isolatedStorageContext, createExternalFixture, isRawFileUrl, rawFile } from "./testing/external-fixtures";
+import { isolatedStorageContext, createExternalFixture, isRawFileUrl, rawFile } from "./testing/external-fixtures.test-support";
 import { applyElectronPaths, within } from "../../base/identity/runtime-profile";
 import { createStorageContext } from "../../base/storage/storage-context";
 import * as skills from "./index";

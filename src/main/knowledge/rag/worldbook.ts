@@ -305,9 +305,9 @@ export class DmaeManager<T extends DmaeEntry> {
     }
 
     if (this.debug && trace.length > 0) {
-      console.log(`[DMAE] update: ${trace.length} entries changed`);
+      logger.info(LogTag.Worldbook, `DMAE update: ${trace.length} entries changed`);
       trace.slice(0, 12).forEach((t) => {
-        console.log(`  ${t.id}: ${t.aOld.toFixed(1)} → ${t.aNew.toFixed(1)}  (${t.reason})`);
+        logger.info(LogTag.Worldbook, `  ${t.id}: ${t.aOld.toFixed(1)} → ${t.aNew.toFixed(1)}  (${t.reason})`);
       });
     }
 
@@ -516,7 +516,7 @@ export class WorldbookManager {
     }
 
     if (this.dmae.getDebug() && this.lastCascadeEntries.length > 0) {
-      console.log(`[Worldbook/Cascade] ${this.lastCascadeEntries.length} entries one-shot injected: ${this.lastCascadeEntries.map((e) => e.id).join(", ")}`);
+      logger.info(LogTag.Worldbook, `cascade: ${this.lastCascadeEntries.length} entries one-shot injected: ${this.lastCascadeEntries.map((e) => e.id).join(", ")}`);
     }
   }
 
@@ -544,7 +544,7 @@ export class WorldbookManager {
       .slice(0, WorldbookManager.MAX_ACTIVE);
 
     if (this.dmae.getDebug() && active.length > 0) {
-      console.log(`[Worldbook/DMAE] active entries injected: ${active.length} (threshold=${threshold})`);
+      logger.info(LogTag.Worldbook, `DMAE: active entries injected: ${active.length} (threshold=${threshold})`);
     }
     // 带上标题，让模型知道这段设定说的是谁；标题由 id（wb_<文件>_<标题>）还原
     return active.map((e) => {
