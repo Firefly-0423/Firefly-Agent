@@ -314,6 +314,11 @@ describe("queue consumption after run settlement (ChatPage B6/B7)", () => {
 
     h.disk.get.mockImplementation(async (id: string) => syncSessionView(id));
     h.disk.pendingList.mockImplementation(async (id: string) => (queues.has(id) ? [...(queues.get(id) ?? [])] : null));
+    h.disk.pendingEnqueue.mockImplementation(async (id: string, entry) => {
+      const next = [...(queues.get(id) ?? []), { ...entry, enqueuedAt: Date.now() }];
+      queues.set(id, next);
+      return { ok: true, queue: [...next] };
+    });
     h.disk.pendingCompleteDispatch.mockImplementation(async (id: string, messageId: string) => {
       const active = dispatches.get(id);
       if (active?.messageId !== messageId) return { ok: true, cleared: false };
@@ -485,4 +490,158 @@ describe("queue consumption after run settlement (ChatPage B6/B7)", () => {
       expect(h.disk.pendingClaim.mock.calls.some(([sid]) => sid === "session-b")).toBe(false);
     },
   );
+
+  test("preserves authoritative claim and queue recovery entry when dispatch is refused, then recovers once", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-15T14:10:00Z"));
+    const gate = latch<void>();
+    const h = setupTwoSessions(async (input) => {
+      if (input.userMessageId === "a-1" && h.ports.startRun.mock.calls.length === 1) {
+        await gate.waiting;
+      }
+    });
+
+    h.sessions.set("session-a", session({ id: "session-a", mode: "chat", messages: [] }));
+    h.sessions.set("session-b", session({ id: "session-b", mode: "work", messages: [turn("b-init")] }));
+    h.queues.set("session-a", [queued("a-1"), queued("a-2")]);
+    h.queues.set("session-b", [queued("b-1")]);
+
+    const firstAttempt = h.flow.consume("chat", "session-a");
+    for (let i = 0; i < 6; i++) await Promise.resolve();
+
+    expect(h.disk.pendingClaim.mock.calls).toEqual([["session-a"]]);
+    expect(h.ports.startRun).toHaveBeenCalledTimes(1);
+    expect(h.appendedUserIdsFor("session-a")).toEqual(["a-1"]);
+    h.rendered.add("session-a/a-1");
+
+    // Simulate concurrent consume/enqueue while run a-1 is still in flight, then run refusal -> queuePaused: true
+    await h.flow.consume("chat", "session-a");
+    h.blocked.add("session-a");
+    expect(await h.flow.enqueue("session-a", "chat", { id: "a-3", rawContent: "request a-3", visibleContent: "request a-3" })).toBe(true);
+    h.blocked.delete("session-a");
+    h.flow.handleRunFinished({ mode: "chat", sessionId: "session-a", queuePaused: true });
+
+    gate.release();
+    await firstAttempt;
+    await flushTimersAndMicrotasks();
+
+    expect(h.disk.pendingClaim.mock.calls).toEqual([["session-a"]]);
+    expect(h.disk.pendingCompleteDispatch).not.toHaveBeenCalled();
+    expect(h.ports.startRun).toHaveBeenCalledTimes(1);
+    expect(h.appendedUserIdsFor("session-a")).toEqual(["a-1"]);
+    expect(h.dispatches.get("session-a")).toMatchObject({ messageId: "a-1" });
+    expect(h.ports.replaceProjection.mock.calls.at(-1)).toEqual([
+      "session-a",
+      [expect.objectContaining({ id: "a-2" }), expect.objectContaining({ id: "a-3" })],
+    ]);
+    expect(h.disk.get.mock.calls.some(([sid]) => sid === "session-b")).toBe(false);
+
+    // Explicit recovery trigger while pendingDispatch a-1 is still unresolved re-dispatches a-1 once without re-claiming or duplicating user message
+    await h.flow.consume("chat", "session-a");
+    expect(h.disk.pendingClaim.mock.calls).toEqual([["session-a"]]);
+    expect(h.ports.startRun).toHaveBeenCalledTimes(2);
+    expect(h.ports.startRun.mock.calls[1][0]).toMatchObject({
+      sessionId: "session-a",
+      userMessageId: "a-1",
+      claimedPendingMessageId: "a-1",
+    });
+    expect(h.appendedUserIdsFor("session-a")).toEqual(["a-1"]);
+    expect(h.ports.replaceProjection.mock.calls.at(-1)).toEqual([
+      "session-a",
+      [expect.objectContaining({ id: "a-2" }), expect.objectContaining({ id: "a-3" })],
+    ]);
+
+    // After a-1 settles, a normal finish signal claims a-2 exactly once
+    h.dispatches.delete("session-a");
+    const sessA = h.sessions.get("session-a")!;
+    sessA.messages = [
+      ...sessA.messages,
+      {
+        id: "a-1-reply",
+        role: "model",
+        content: "Recovered answer",
+        at: Date.now(),
+        answersUserMessageId: "a-1",
+        runSnapshot: { status: "terminal", terminalStatus: "success", updatedAt: Date.now() },
+      },
+    ];
+    h.flow.handleRunFinished({ mode: "chat", sessionId: "session-a", queuePaused: false });
+    await flushTimersAndMicrotasks();
+
+    expect(h.disk.pendingClaim.mock.calls).toEqual([["session-a"], ["session-a"]]);
+    expect(h.ports.startRun).toHaveBeenCalledTimes(3);
+    expect(h.ports.startRun.mock.calls[2][0]).toMatchObject({
+      sessionId: "session-a",
+      userMessageId: "a-2",
+      claimedPendingMessageId: "a-2",
+    });
+    expect(h.appendedUserIdsFor("session-a")).toEqual(["a-1", "a-2"]);
+    expect(h.ports.replaceProjection.mock.calls.at(-1)).toEqual([
+      "session-a",
+      [expect.objectContaining({ id: "a-3" })],
+    ]);
+    expect(h.disk.pendingClaim.mock.calls.some(([sid]) => sid === "session-b")).toBe(false);
+  });
+
+  test("pauses queue consumption on queuePaused: true while preserving projection, then claims once when resumed", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-15T14:15:00Z"));
+    const h = setupTwoSessions();
+
+    h.sessions.set(
+      "session-a",
+      session({
+        id: "session-a",
+        mode: "work",
+        messages: [
+          turn("a-1"),
+          {
+            id: "a-1-reply",
+            role: "model",
+            content: "Initial settled answer",
+            at: Date.now(),
+            answersUserMessageId: "a-1",
+            runSnapshot: { status: "terminal", terminalStatus: "success", updatedAt: Date.now() },
+          },
+        ],
+      }),
+    );
+    h.sessions.set("session-b", session({ id: "session-b", mode: "chat", messages: [] }));
+    h.queues.set("session-a", [queued("a-2"), queued("a-3")]);
+    h.queues.set("session-b", [queued("b-1")]);
+
+    // Paused finish: refreshes session list and syncs remaining queue projection without claiming or dispatching
+    h.flow.handleRunFinished({ mode: "work", sessionId: "session-a", queuePaused: true });
+    await flushTimersAndMicrotasks();
+
+    expect(h.ports.refreshSessions).toHaveBeenCalledWith("work");
+    expect(h.disk.pendingList.mock.calls).toEqual([["session-a"]]);
+    expect(h.ports.replaceProjection.mock.calls).toEqual([
+      ["session-a", [expect.objectContaining({ id: "a-2" }), expect.objectContaining({ id: "a-3" })]],
+    ]);
+    expect(h.disk.get).not.toHaveBeenCalled();
+    expect(h.disk.pendingClaim).not.toHaveBeenCalled();
+    expect(h.ports.startRun).not.toHaveBeenCalled();
+    expect(h.ports.appendMessages).not.toHaveBeenCalled();
+
+    // Subsequent unpaused finish: claims a-2 exactly once, leaves a-3 in queue projection, never touches session-b
+    h.flow.handleRunFinished({ mode: "work", sessionId: "session-a", queuePaused: false });
+    await flushTimersAndMicrotasks();
+
+    expect(h.disk.pendingClaim.mock.calls).toEqual([["session-a"]]);
+    expect(h.ports.startRun).toHaveBeenCalledTimes(1);
+    expect(h.ports.startRun.mock.calls[0][0]).toMatchObject({
+      targetMode: "work",
+      sessionId: "session-a",
+      userMessageId: "a-2",
+      claimedPendingMessageId: "a-2",
+    });
+    expect(h.appendedUserIdsFor("session-a")).toEqual(["a-2"]);
+    expect(h.ports.replaceProjection.mock.calls.at(-1)).toEqual([
+      "session-a",
+      [expect.objectContaining({ id: "a-3" })],
+    ]);
+    expect(h.disk.get.mock.calls.some(([sid]) => sid === "session-b")).toBe(false);
+    expect(h.disk.pendingClaim.mock.calls.some(([sid]) => sid === "session-b")).toBe(false);
+  });
 });
