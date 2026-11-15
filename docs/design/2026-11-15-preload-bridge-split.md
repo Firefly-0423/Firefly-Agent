@@ -23,7 +23,7 @@
 | **桌面更新与窗口壳层** | `appUpdate`（L67–86，暴露于 L185）<br>`sidebar`（L269–283）<br>`toast`（L284–316） | `appUpdate`：`invoke` `APP_UPDATE_GET_STATE/DOWNLOAD/INSTALL`，`on` `APP_UPDATE_STATE`<br>`sidebar`：`send` `SIDEBAR_MINIMIZE/CLOSE/OPEN_SETTINGS`，`invoke` `SIDEBAR_TOGGLE_ALWAYS_ON_TOP`<br>`toast`：`invoke` `TOAST_GET_ALL`，`send` `TOAST_CLICKED/DISMISSED/RESIZE`，`on` `TOAST_PUSH/REMOVE` | `appUpdate` 用 `off`<br>`toast` 用 `removeListener` |
 | **聊天窗口、媒体与语音** | `desktopAsr`（L87–101）<br>`chat`（L102–186）<br>`choice`（L263–268） | `desktopAsr`：`invoke` `DESKTOP_ASR_START/FRAME/STOP/CANCEL`<br>`chat`：`send` `CHAT_MINIMIZE/CLOSE/TOGGLE_MAXIMIZE/WINDOW_DRAG_START/END`，`invoke` `CHAT_IS_MAXIMIZED`, `STICKERS_GET_ENABLED`, `CHAT_INGEST_FILES`, `CHAT_CAPTION_IMAGE`, `CHAT_GET_IMAGE_PREVIEW`, `CHAT_GET_IMAGE_SEND_STRATEGY`, `SETTINGS_GET_GENERAL`, `CHAT_GET_REASONING_STATE`, `CHAT_SET_REASONING`, `SCREENSHOT_START/SAVE_TEMP`，`on` `SCREENSHOT_INSERT`<br>`choice`：`invoke` `CHOICE_RESOLVE` | `chat.onScreenshotInsert` 用 `removeListener`<br>`chat.ingestDroppedFiles`（L124–141）经 `webUtils.getPathForFile` 把 `File[]` 过滤转换为 `{ path, mime }[]`，全空不发 IPC<br>`choice.resolve`（L264–266）按字符串区分 `{ id, value }` 与 `{ id, answer }` |
 | **Agent 运行与事件流** | `agui`（L187–245） | `invoke`: `AGUI_RUN`, `AGUI_CANCEL`, `AGENT_RUN_GET_INTERRUPTED`<br>`send`: `AGUI_RUN_PERSISTED`<br>`on`: `AGUI_EVENT` | 用 `ipcRenderer.off`；`onEvent`（L214–221）内部 `try/catch` 捕获回调异常防止崩溃 |
-| **会话存储与侧栏布局** | `chatStore`（L1037–1172） | `invoke`: `SIDEBAR_LAYOUT_IPC.get/mutate`, `CHATS_LIST/GET/EXPORT_WORK_MARKDOWN/CREATE/APPEND/UPSERT/REPLACE_TAIL/COMPACT/RENAME/DELETE/PENDING_*/SET_PINNED/SET_MODEL_PROFILE/OPEN_WORKSPACE/SET_ACTIVE_SESSION/SET_WORKSPACE/PICK_WORKSPACE_FOLDER/OPEN_IN_REACT_WINDOW`<br>`send`: `CHATS_REACT_READY`<br>`on`: `SIDEBAR_LAYOUT_IPC.changed`, `CHATS_CHANGED`, `CHATS_REACT_SWITCH_SESSION` | 三组 `on*` 均用 `removeListener`<br>`setActiveSession`（L1138–1140）注入模块级 `pageTargetKey` 为 `rendererTargetId`；`pendingEdit`（L1112–1124）仅在 `userSticker !== undefined` 时附带该键 |
+| **会话存储与侧栏布局** | `chatStore`（L1037–1172） | `invoke`: `SIDEBAR_LAYOUT_IPC.get/mutate`, `CHATS_LIST/GET/EXPORT_WORK_MARKDOWN/CREATE/APPEND/UPSERT/REPLACE_TAIL/COMPACT/RENAME/DELETE/PENDING_*/SET_PINNED/SET_MODEL_PROFILE/OPEN_WORKSPACE/SET_ACTIVE_SESSION/SET_WORKSPACE/PICK_WORKSPACE_FOLDER/OPEN_IN_REACT_WINDOW`<br>`send`: `CHATS_REACT_READY`<br>`on`: `SIDEBAR_LAYOUT_IPC.changed`, `CHATS_CHANGED`, `CHATS_REACT_SWITCH_SESSION` | 三组 `on*` 均用 `removeListener`<br>`setActiveSession`（L1138–1140）注入模块级 `pageTargetKey` 为 `rendererTargetId`；`pendingEdit`（L1112–1124）仅在 `userSticker !== undefined` 时附带 `userSticker` 字段（不带 `rendererTargetId`，它只由 `setActiveSession` 发送） |
 | **外观主题、字体与贴纸窗口** | `fireflyTheme`（L317–343）<br>`fireflyFont`（L344–358）<br>`fireflyAppearance`（L359–373）<br>`stickerManager`（L828–842） | `fireflyTheme`：`invoke` `UI_COLORS_GET`, `UI_THEME_GET`，`on` `UI_COLORS_CHANGED`, `UI_THEME_CHANGED`<br>`fireflyFont`：`invoke` `UI_FONT_GET`，`on` `UI_FONT_CHANGED`<br>`fireflyAppearance`：`invoke` `SETTINGS_GET_GENERAL`，`on` `CHAT_TYPOGRAPHY_CHANGED`<br>`stickerManager`：`send` `STICKERS_MINIMIZE/CLOSE`，`invoke` `STICKERS_GET_CONFIG/SET_ENABLED` | `fireflyTheme.onColorsChanged` 用 `removeListener`，`fireflyTheme.onChanged`、`fireflyFont.onChanged`、`fireflyAppearance.onChanged` 用 `off`<br>`fireflyAppearance` 的 `get`/`onChanged` 均通过 `normalizeChatDisplay(...)` 做字段归一化（L361、L365） |
 | **设置中心主桥（超级对象）** | `settings`（L374–758，暴露于 L758） | 混合了 6 类能力（约 67 个顶层方法 + 1 个嵌套 `externalSkills`）：<br>1. 窗体与路由（L390–395, L446–454）：`send` `SETTINGS_MINIMIZE/CLOSE`，`on` `SETTINGS_SWITCH_SECTION`（`off`）<br>2. 配置/档案/模型/字体/桌宠/向量（L396–519）：`invoke` `SETTINGS_*` / `STICKERS_*` / `EMBEDDING_*` / `RERANKER_*` / `TOOL_*` 与 `send` `SETTINGS_SET_PET_*`<br>3. `externalSkills` DTO 网关 & 内置技能（L520–562）：`invoke` `EXTERNAL_SKILLS_*`, `SKILL_*`<br>4. MCP & 外部渠道（L563–662）：`invoke` `MCP_*` / `CHANNELS_*`，`on` `CHANNELS_INSTALL_PROGRESS`, `CHANNELS_STATUS_CHANGED`, `CHANNELS_WECHAT_QRCODE`, `CHANNELS_WECHAT_LOGIN_DONE`（均用 `off`）<br>5. 权限/Plan/PopQuiz 运行时交互（L663–750）：`invoke` `PERMISSION_*`/`PLAN_*`/`POP_QUIZ_*`，`on` `PLAN_STATE_CHANGED`, `PERMISSION_APPROVAL_REQUEST/SETTLED`, `POP_QUIZ_REQUEST/SETTLED`（均用 `removeListener`）<br>6. 快捷键捕获（L751–756）：`invoke` `SCREENSHOT_HOTKEY_CAPTURE_START/END` | 渠道和 `onSwitchSection` 用 `off`；`PLAN_STATE_CHANGED`、`PERMISSION_*`、`POP_QUIZ_*` 用 `removeListener`<br>`externalSkills`（L520–544）显式裁剪入参对象为 `{ sourceId, id, selection? }` / `{ token }` / `{}`，满足 `ExternalSkillsApi` 契约 |
 | **插件与定时任务** | `plugins`（L759–794）<br>`pluginPanel`（L795–800）<br>`fireflyScheduler`（L801–827）<br>`schedulerEvents`（L246–262） | `plugins`：`invoke` `PLUGINS_LIST/SET_ENABLED/OPEN/RESCAN/IMPORT_ZIP/UNINSTALL/MARKET_*`，`on` `PLUGINS_CHANGED`<br>`pluginPanel`：`invoke` `PLUGINS_PANEL_INVOKE`<br>`fireflyScheduler`：`invoke` `SCHEDULER_LIST/ADD/UPDATE/DELETE/TOGGLE/FIRE_NOW/GET_HISTORY/GET_TOOLS`<br>`schedulerEvents`：`on` `SCHEDULER_EVENT` | `plugins.onChanged` 与 `schedulerEvents.onEvent` 用 `off`；`schedulerEvents.onEvent`（L248–255）包有 `try/catch` |
@@ -134,7 +134,7 @@
    - `live2dWork`（`live2d-work-api.ts`）：保持非 boolean 转 `false` 与异常兜底。
 3. **事件监听注册与注销行为不丢、不混改**：
    - `index.ts` 中全部 34 处（加上 `live2dWork` 共 35 处）事件监听方法均保留“构造局部 `forwardEvent` 剥去 `_ipcEvent` 参数 + 注册该 `forwardEvent` + 返回卸载同一 `forwardEvent` 的 `() => void`”。
-   - 保持各自原本使用的注销 API（`off` 或 `removeListener`）不变；特别是 `manualBrowser*`、`modelConfig`、`toast`、`chatStore`、`codeGit`、`live2dWork` 以及 `settings` 下的计划/审批/PopQuiz 当前全部使用 `removeListener`，拆分搬移中不得擅自替换为 `off`（部分主进程测试 mock 未定义 `off`），统一梳理应留作独立回归提交。
+   - 注销写法在拆分之前由独立修复 PR 统一为 `removeListener`（负责人决定第 3 条）；拆分 PR 按统一后的写法原样搬移，不再出现 `ipcRenderer.off(`，由 `preload-listener-removal.test.ts` 的静态检查守住。
    - `agui.onEvent` 与 `schedulerEvents.onEvent` 保留回调内 `try/catch` + `console.error` 异常隔离。
 
 ### 4.2 自动化暴露面与通道双比对机制
@@ -142,7 +142,7 @@
 1. **静态全量通道 & 禁用词扫描扩展**：
    - 已有 `src/main/app/ipc-contract.test.ts:18` 已经对 `src/preload` 做递归扫描，确保拆分后每条 `invoke` / `send` / `listen` 依然与主进程一一配对；
    - 需把 `ipc-contract.test.ts:46-49` 与 `src/main/structure-cleanup.test.ts:25` 从仅读 `src/preload/index.ts` 扩展为递归遍历 `src/preload/**/*.ts`（排除测试文件），确保退役关键词检查覆盖全部新拆出的文件。
-2. **运行时暴露键集合与通道快照守卫（`src/preload/exposure-surface.test.ts`）**：
+2. **运行时暴露键集合与通道快照守卫（`src/main/preload-exposure-surface.test.ts` 等）**：vitest 的 `include` 不收集 `src/preload/**/*.test.ts`，所以这些测试放在 `src/main/preload-*.test.ts`（与现有 `preload-live2d-work-api.test.ts` 同处），并确认新用例实际执行。
    - 拆代码前，先在基线 `a96f254` 导入原 `src/preload/index.ts`，记录 **31 个 `window.*` 对象**、每个对象的排序键名列表（含嵌套命名空间 `externalSkills` 与 `sidebarLayout`）以及逐方法调用命中的精确 `IPC` 通道名与方式（`invoke` / `send` / `on`）作为锁定契约表；
    - 拆分过程中每完成一次迁移，直接针对实际运行后的 `index.ts` 比对完整快照对象与通道表：多 1 个键、少 1 个键或任一方法改了通道字符串，测试立即失败。
 
@@ -173,7 +173,7 @@
 
 1. **T1 暴露面完整键集合与禁止面不变量测试**（规则 2、10）：
    - `Object.keys(exposed).sort()` 必须完全等于 31 个全局名列表；每个暴露对象及嵌套对象 `settings.externalSkills`、`chatStore.sidebarLayout` 的排序方法名数组与锁定基线全等；不存在 `grant`、`moments`、`call`、`LEGACY_WINDOW_API_NAMES`。
-2. **T2 未覆盖域表驱动“方法 → 通道 → 参数”映射测试**（规则 2、5、7）：
+2. **T2 全部对外方法的表驱动“方法 → 通道 → 参数”映射测试**（规则 2、5、7）：契约表覆盖全部非监听方法（含 `chat`、`agui`、`chatStore`），并断言“表 + `chat.ingestDroppedFiles` + 全部 `on*`”恰好等于实际暴露的可调用方法集合；否则互换 `agui.run` 与 `agui.cancel` 的通道这类回归会漏掉。原清单如下（作为分组参考）：
    - 对 `desktopAsr`、`firefly`、`appUpdate`、`choice`、`sidebar`、`toast`、`plugins`、`pluginPanel`、`fireflyScheduler`、`stickerManager`、`user`、`memoryAutomation`、`review`、`workspaceFiles`、`openInApp`、`codeGit`、`tokenUsage`、`music` 及 `settings`（配置/档案/模型/字体/宠物/工具/技能/MCP/渠道/权限/Plan/PopQuiz/截图热键）的每个方法建立表驱动用例，断言只调用 1 次目标 `ipcRenderer.invoke` 或 `send`，且通道常量名与透传/封装参数体完整匹配。
 3. **T3 参数裁剪、归一化与安全过滤边界测试**（规则 2、4、10）：
    - **`chat.ingestDroppedFiles`**：`File[]` 中某项 `webUtils.getPathForFile` 抛异常时不中断、被跳过；全空或全异常时 `ipcRenderer.invoke` 调用次数为 `0`（负向断言）；正常数组仅向 `IPC.CHAT_INGEST_FILES` 传入 `[{ path, mime }]`。
@@ -182,7 +182,7 @@
    - **`chatStore` 状态键与可选字段**：同一 `index.ts` 导入期内连续两次调用 `chatStore.setActiveSession("s1", "work")`，断言第 1 次生成的 UUID `rendererTargetId` 与第 2 次严格相等且为合法 UUID，传入 `null` 时向通道传 `null`；调用 `pendingEdit` 不传 `userSticker` 时传入载荷 `Object.keys` 不包含 `"userSticker"`。
    - **`agui.onEvent` / `schedulerEvents.onEvent`**：回调抛出异常时错误被记录且不向外抛出打断后续投递。
 4. **T4 全部 34 处 `index.ts` 事件监听的载荷解包与精确注销测试**（规则 4、5、7）：
-   - fake `ipcRenderer` 同时提供 `on`、`off`、`removeListener` 并追踪各通道 listener 集合；触发事件 `(_ipcEvent, payload)` 时断言回调只接收 `payload` 且不泄漏 `_ipcEvent`；调用返回的 `unsubscribe()` 后，同通道存在其他存活监听时仅精准移除自己、再 emit 同通道事件原回调不再被调用（调用次数停留在 `1`）。
+   - fake `ipcRenderer` 同时提供 `on`、`off`、`removeListener` 并追踪各通道 listener 集合；触发事件 `(_ipcEvent, payload)` 时按各接口逐项声明回调应收到的参数并断言不泄漏 `_ipcEvent`：大多数接收 `payload`，`user.onAvatarChanged` 和两处 `chatStore` 监听是无参回调，`fireflyAppearance.onChanged` 收到的是 `normalizeChatDisplay(...)` 归一化后的值；调用返回的 `unsubscribe()` 后，同通道存在其他存活监听时仅精准移除自己、再 emit 同通道事件原回调不再被调用（调用次数停留在 `1`）。
 5. **T5 静态扫盘范围扩展**（配合 PR 1 收口）：
    - 将 `src/main/app/ipc-contract.test.ts:46` 与 `src/main/structure-cleanup.test.ts:25` 更新为递归读取 `src/preload/` 下全部非测试 `.ts` 文件进行禁词/退役接口校验。
 
@@ -194,9 +194,9 @@
 
 | PR | 目标 | Commit 顺序 | 说明与纪律要求 |
 | --- | --- | --- | --- |
-| **PR 1** | **建立暴露面锁定与补全保护测试** | **C1**：新增 `src/preload/exposure-surface.test.ts`（覆盖 T1 全量键集合与 T2 表驱动通道映射）<br>**C2**：补充输入过滤、归一化与全量 `on*` 注销单测（T3–T4）<br>**C3**：扩展 `ipc-contract.test.ts:46` 与 `structure-cleanup.test.ts:25` 为扫描整个 `src/preload/`（T5） | 纯测试补齐与防线加固，不改任何 `src/preload/*.ts` 生产代码 |
-| **PR 2** | **搬移 `settings` 之外的全部外围域** | **C4**：抽出 `src/preload/window-shell.ts` 与 `src/preload/pet.ts`<br>**C5**：抽出 `src/preload/chat-media.ts` 与 `src/preload/appearance.ts`<br>**C6**：抽出 `src/preload/plugins.ts`、`src/preload/scheduler.ts` 与 `src/preload/model-config.ts`<br>**C7**：抽出 `src/preload/browser.ts` 与 `src/preload/memory-user.ts`<br>**C8**：抽出 `src/preload/agui.ts` 与 `src/preload/workspace.ts` | 纯搬移，保持每处 `off` / `removeListener` 原本写法与参数校验完全不变，同时让既有 `ipc-contract.test.ts` 保持 0 缺口 |
-| **PR 3** | **拆解 `settingsApi` 并收敛 `index.ts`** | **C9**：建立 `src/preload/settings/core.ts` 与 `src/preload/settings/extensions.ts`<br>**C10**：建立 `src/preload/settings/channels.ts`、`approvals.ts` 与 `settings/index.ts`，将 `src/preload/index.ts` 收敛为纯装配入口 | 完成后 `index.ts` 只剩依赖注入与 `contextBridge.exposeInMainWorld` 调用；可另开后续独立 PR 再评估统一 `off`/`removeListener` 及整理渲染侧散落的 `Window` 类型声明，不混入本系列 PR |
+| **PR 1** | **建立暴露面锁定与补全保护测试** | **C1**：新增 `src/main/preload-exposure-surface.test.ts`（覆盖 T1 全量键集合与 T2 表驱动通道映射）<br>**C2**：补充输入过滤、归一化与全量 `on*` 注销单测（T3–T4）<br>**C3**：扩展 `ipc-contract.test.ts:46` 与 `structure-cleanup.test.ts:25` 为扫描整个 `src/preload/`（T5） | 纯测试补齐与防线加固，不改任何 `src/preload/*.ts` 生产代码 |
+| **PR 2** | **搬移 `settings` 之外的全部外围域** | **C4**：抽出 `src/preload/window-shell.ts` 与 `src/preload/pet.ts`<br>**C5**：抽出 `src/preload/chat-media.ts` 与 `src/preload/appearance.ts`<br>**C6**：抽出 `src/preload/plugins.ts`、`src/preload/scheduler.ts` 与 `src/preload/model-config.ts`<br>**C7**：抽出 `src/preload/browser.ts` 与 `src/preload/memory-user.ts`<br>**C8**：抽出 `src/preload/agui.ts` 与 `src/preload/workspace.ts` | 纯搬移，按统一后的 `removeListener` 写法搬移，保持每处注销与参数校验完全不变，同时让既有 `ipc-contract.test.ts` 保持 0 缺口 |
+| **PR 3** | **拆解 `settingsApi` 并收敛 `index.ts`** | **C9**：建立 `src/preload/settings/core.ts` 与 `src/preload/settings/extensions.ts`<br>**C10**：建立 `src/preload/settings/channels.ts`、`approvals.ts` 与 `settings/index.ts`，将 `src/preload/index.ts` 收敛为纯装配入口 | 完成后 `index.ts` 只剩依赖注入与 `contextBridge.exposeInMainWorld` 调用；整理渲染侧散落的 `Window` 类型声明可另开后续 PR，不混入本系列（注销写法的统一已在拆分前完成） |
 
 ---
 
@@ -209,7 +209,7 @@
    - *规避*：坚持零动态通道传参，所有调用保留直接字面写法 `ipcRenderer.<method>(IPC.<KEY>, ...)` 与 `MANUAL_BROWSER_WORKSPACE_IPC.*` / `SIDEBAR_LAYOUT_IPC.*`（注意：`ipc-contract-scanner` 只识别 `IPC.*` 标识符，既有的 `MANUAL_BROWSER_WORKSPACE_IPC` 与 `SIDEBAR_LAYOUT_IPC` 原样保持即可）。
 2. **既有测试 `electron` mock 缺少 `off` 方法导致运行时报错**：
    - *风险*：`preload-browser-workspace.test.ts`、`preload-model-connection.test.ts`、`external-bridge.test.ts` 的 `electron` mock 仅定义了 `ipcRenderer.removeListener`，未定义 `ipcRenderer.off`。若搬移过程中顺手把原有的 `removeListener` 改成 `off`，一旦测试调用注销函数会直接 `TypeError: ipcRenderer.off is not a function`。
-   - *规避*：PR 2 与 PR 3 严格遵循“原来写 `off` 的保留 `off`，原来写 `removeListener` 的保留 `removeListener`”；新增测试 mock 同时提供 `off` 与 `removeListener`。
+   - *规避*：注销写法已在拆分前统一为 `removeListener`，PR 2 与 PR 3 原样搬移；PR 1 的测试 mock 同时提供 `off` 与 `removeListener`，只断言投递结果，所以在统一前后都成立。
 3. **误引用 `src/renderer/*` 或 `src/main/*` 导致编译/边界测试失败**：
    - *风险*：`settingsApi` 类型原本声明在 `src/renderer/settings/shared/types.ts`，若新模块 `import type { SettingsApi }`，虽不一定打包进运行时但会破坏进程分层原则且超出 `tsconfig.preload.json` 的 `include` 范围（仅 `src/preload/**/*.ts` 与 `src/shared/**/*.ts`）。
    - *规避*：新 `src/preload/**` 文件只准引用 `../shared/*` 与 `electron`，不引用 `src/renderer` 或 `src/main`，每次提交必跑 `npm run build:preload` 与 `process-boundary.test.ts`。
@@ -235,7 +235,7 @@
 1. **Preload 编译检查（每次提交必跑）**：
    - `npm run build:preload`（执行 `tsc -p tsconfig.preload.json`）
 2. **Preload 契约、暴露面与关联单测（每次提交必跑）**：
-   - `$env:NODE_OPTIONS='--no-experimental-webstorage'; npx vitest run src/preload src/main/app/ipc-contract.test.ts src/shared/process-boundary.test.ts src/main/structure-cleanup.test.ts src/main/preload-live2d-work-api.test.ts src/main/platform/windows/preload-browser-workspace.test.ts src/main/platform/windows/preload-model-connection.test.ts src/main/knowledge/skills/external-bridge.test.ts src/main/memory/policy/memory-settings-ipc.test.ts`
+   - `$env:NODE_OPTIONS='--no-experimental-webstorage'; npx vitest run src/main/preload-exposure-surface.test.ts src/main/preload-channel-mapping.test.ts src/main/preload-parameter-guards.test.ts src/main/preload-event-listeners.test.ts src/main/preload-listener-removal.test.ts src/main/app/ipc-contract.test.ts src/shared/process-boundary.test.ts src/main/structure-cleanup.test.ts src/main/preload-live2d-work-api.test.ts src/main/platform/windows/preload-browser-workspace.test.ts src/main/platform/windows/preload-model-connection.test.ts src/main/knowledge/skills/external-bridge.test.ts src/main/memory/policy/memory-settings-ipc.test.ts`
 3. **三端编译与全仓构建（每个 PR 合入前必跑）**：
    - `npm run check:renderer`（`tsc -p tsconfig.renderer.json`）
    - `npm run build`（含 `check:storage-boundary`、`build:clean`、`build:main`、`build:preload`、`build:cli`、`build:renderer`）

@@ -57,6 +57,14 @@ describe("WeChat sender gate", () => {
     expect(pendingSenders.list("wechat")).toEqual([]);
   });
 
+  it("does not throw on a message without a sender id, so the rest of the batch still arrives", async () => {
+    rules.current = { enabled: true, allowAnyPrivate: true, allowedSenderIds: [] };
+    const { delivered, push } = setup();
+    await expect(push(inbound({ msgId: "m-missing", fromUserId: undefined as never }))).resolves.toBeUndefined();
+    await push(inbound({ msgId: "m-next", fromUserId: "next@im.wechat" }));
+    expect(delivered.at(-1)).toBe("next@im.wechat");
+  });
+
   it("dispatches everyone when allow-all is on", async () => {
     rules.current = { enabled: true, allowAnyPrivate: true, allowedSenderIds: [] };
     const { delivered, push } = setup();

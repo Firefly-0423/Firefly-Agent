@@ -48,6 +48,20 @@ describe("ILinkClient", () => {
     ] });
   });
 
+  it("drops messages without a usable sender id and keeps the rest of the batch in order", async () => {
+    const base = { to_user_id: "bot", message_type: 1, context_token: "ctx", item_list: [{ type: 1 as const, text_item: { text: "hi" } }] };
+    const first = { ...base, message_id: 1, from_user_id: "first@im.wechat" };
+    const last = { ...base, message_id: 6, from_user_id: "last@im.wechat" };
+    const unusable = [{ ...base, message_id: 2 }, { ...base, message_id: 3, from_user_id: "" }, { ...base, message_id: 4, from_user_id: "   " }, { ...base, message_id: 5, from_user_id: 42 }];
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    respond({ ret: 0, msgs: [first, ...unusable, last], get_updates_buf: "cursor-2" });
+    const result = await client().getUpdates();
+    expect(result.buf).toBe("cursor-2");
+    expect(result.messages.map((message) => [message.msgId, message.fromUserId])).toEqual([["1", "first@im.wechat"], ["6", "last@im.wechat"]]);
+    // Only the count is logged; no ids or message text.
+    expect(warn.mock.calls).toEqual([["[iLink]", "dropped 4 inbound message(s) without a sender id"]]);
+  });
+
   it.each([[-14, "iLink session expired (ret=-14)"], [2, "iLink getupdates failed: ret=2 denied"], [3, "iLink getupdates failed: ret=3 "]])(
     "rejects polling error ret=%s", async (ret, message) => {
       respond({ ret, ...(ret === 2 ? { errmsg: "denied" } : {}) });

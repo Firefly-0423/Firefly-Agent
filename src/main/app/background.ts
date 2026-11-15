@@ -16,6 +16,7 @@ import type { ShutdownCoordinator } from "../base/lifecycle/shutdown";
 import type { CoreResult } from "./core-bootstrap";
 import type { ChannelsSubsystem } from "../features/channels/bootstrap";
 import type { SchedulerSubsystem } from "../features/scheduler/bootstrap";
+import { logger, LogTag } from "../base/logging/logger";
 
 /** MCP 恢复屏障的最长等待；超时后 channels 与 scheduler 照常启动，MCP 标记为降级。 */
 export const MCP_RESTORE_BARRIER_TIMEOUT_MS = 30_000;
@@ -134,7 +135,7 @@ export function startBackground(deps: BackgroundDependencies): BackgroundHandle 
   // 启动耗时埋点，便于排查启动性能
   const reportTiming = (label: string, startedAt: number): void => {
     const now = performance.now();
-    console.log(`[StartupTiming] ${label} ${Math.round(now - startedAt)}ms (at ${Math.round(now)}ms)`);
+    logger.info(LogTag.Electron, `startup timing: ${label} ${Math.round(now - startedAt)}ms (at ${Math.round(now)}ms)`);
   };
 
   // 跑单个任务：出错时登记降级（若正在退出则只写日志），并让组内后续任务继续

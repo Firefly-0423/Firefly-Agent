@@ -25,6 +25,7 @@ import { createHash } from "node:crypto";
 import { getWorkspaceExecutionCoordinator } from "../../tooling/execution/execution-coordinator";
 import type { ToolContext } from "../../tooling/registry/tool-context";
 import { registerDocumentTools } from "./document-tools";
+import { exactly } from "../../../shared/testing/error-code.test-support";
 registerDocumentTools();
 
 const oldBytes = Buffer.from("%PDF-original\0synthetic");
@@ -90,7 +91,7 @@ describe("real PDF output protection", () => {
     vi.spyOn(fs, "existsSync").mockImplementation(file => windowsFonts.test(String(file)) ? String(file) === msyh : exists(file));
     const read = fs.readFileSync;
     vi.spyOn(fs, "readFileSync").mockImplementation(((file: any, ...args: any[]) => String(file) === msyh ? Buffer.from("invalid TTC") : (read as any)(file, ...args)) as any);
-    await expect(execute()).rejects.toThrow();
+    await expect(execute()).rejects.toThrow(exactly("FIREFLY_PDF_FONT_UNAVAILABLE"));
     expect(fs.readFileSync(target())).toEqual(oldBytes);
     expect(streams).toHaveLength(0);
     expect(documents.every(doc => doc.destroyed)).toBe(true);
@@ -99,7 +100,7 @@ describe("real PDF output protection", () => {
   it("preserves old bytes and closes resources after a render failure", async () => {
     noSystemFonts();
     vi.spyOn(PDF.prototype, "text").mockImplementation(() => { throw new Error("PDF_RENDER_FAILED"); });
-    await expect(execute()).rejects.toThrow("PDF_RENDER_FAILED");
+    await expect(execute()).rejects.toThrow(exactly("PDF_RENDER_FAILED"));
     expect(fs.readFileSync(target())).toEqual(oldBytes);
     expect(streams.every(stream => stream.closed)).toBe(true);
     expect(documents.every(doc => doc.destroyed)).toBe(true);
@@ -108,7 +109,7 @@ describe("real PDF output protection", () => {
   it.runIf(process.platform === "win32")("preserves old bytes after a real TTC is selected and rendering fails", async () => {
     expect(fs.existsSync(msyh)).toBe(true);
     vi.spyOn(PDF.prototype, "text").mockImplementation(() => { throw new Error("PDF_TTC_RENDER_FAILED"); });
-    await expect(execute()).rejects.toThrow("PDF_TTC_RENDER_FAILED");
+    await expect(execute()).rejects.toThrow(exactly("PDF_TTC_RENDER_FAILED"));
     expect(fs.readFileSync(target())).toEqual(oldBytes);
     expect(streams.every(stream => stream.closed)).toBe(true);
     expect(documents.every(doc => doc.destroyed)).toBe(true);
@@ -125,7 +126,7 @@ describe("real PDF output protection", () => {
       }
       return text.apply(this, args as any);
     });
-    await expect(execute()).rejects.toThrow("PDF_DOCUMENT_FAILED");
+    await expect(execute()).rejects.toThrow(exactly("PDF_DOCUMENT_FAILED"));
     expect(fs.readFileSync(target())).toEqual(oldBytes);
     expect(streams.every(stream => stream.closed)).toBe(true);
     expect(temporaryFiles()).toEqual([]);
@@ -134,7 +135,7 @@ describe("real PDF output protection", () => {
     noSystemFonts();
     const create = vi.mocked(fs.createWriteStream).getMockImplementation()!;
     vi.mocked(fs.createWriteStream).mockImplementation((file, options) => create(path.dirname(String(file)), options));
-    await expect(execute()).rejects.toThrow();
+    await expect(execute()).rejects.toMatchObject({ code: "EEXIST" });
     expect(fs.readFileSync(target())).toEqual(oldBytes);
     expect(streams.every(stream => stream.closed)).toBe(true);
     expect(documents.every(doc => doc.destroyed)).toBe(true);
@@ -143,7 +144,7 @@ describe("real PDF output protection", () => {
   it("preserves the target and removes completed temporary output when replacement fails", async () => {
     noSystemFonts();
     vi.spyOn(fs, "renameSync").mockImplementation(() => { throw Object.assign(new Error("PDF_REPLACE_FAILED"), { code: "EPERM" }); });
-    await expect(execute()).rejects.toThrow("PDF_REPLACE_FAILED");
+    await expect(execute()).rejects.toThrow(exactly("PDF_REPLACE_FAILED"));
     expect(fs.readFileSync(target())).toEqual(oldBytes);
     expect(streams.every(stream => stream.closed)).toBe(true);
     expect(temporaryFiles()).toEqual([]);
@@ -157,7 +158,7 @@ describe("real PDF output protection", () => {
       fs.writeFileSync(collision, "other-owner");
       return create(file, options);
     });
-    await expect(execute()).rejects.toThrow();
+    await expect(execute()).rejects.toMatchObject({ code: "EEXIST" });
     expect(fs.readFileSync(target())).toEqual(oldBytes);
     expect(fs.readFileSync(collision, "utf8")).toBe("other-owner");
     expect(streams.every(stream => stream.closed)).toBe(true);
@@ -206,7 +207,7 @@ describe("PDF write batch lifetime and actual output evidence", () => {
     noSystemFonts();
     const coordinator = getWorkspaceExecutionCoordinator(root);
     vi.spyOn(PDF.prototype, "text").mockImplementation(() => { throw new Error("PDF_RENDER_FAILED"); });
-    await expect(coordinator.runLeaf(scope(coordinator, "failed-pdf"), "exclusive", undefined, async (permit) => execute({ coordinator, scope: scope(coordinator, "failed-pdf"), permit }))).rejects.toThrow("PDF_RENDER_FAILED");
+    await expect(coordinator.runLeaf(scope(coordinator, "failed-pdf"), "exclusive", undefined, async (permit) => execute({ coordinator, scope: scope(coordinator, "failed-pdf"), permit }))).rejects.toThrow(exactly("PDF_RENDER_FAILED"));
     const writes = coordinator.getWriteEvidence();
     expect(writes.find(item => item.path === target())?.state).toBe("not_applied");
     expect(fs.readFileSync(target())).toEqual(oldBytes);

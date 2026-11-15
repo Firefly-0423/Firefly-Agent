@@ -18,7 +18,8 @@
   },
   "exclude": [
     "src/shared/renderer-base.ts",
-    "src/**/*.test.ts"
+    "src/**/*.test.ts",
+    "src/**/*.test-support.ts"
   ],
   "include": [
     "src/preload/**/*.ts",

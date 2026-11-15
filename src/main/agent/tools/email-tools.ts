@@ -122,7 +122,7 @@ async function executeSendEmail(args: Record<string, unknown>, ctx?: ToolContext
       from: sender, to: recipients.join(", "), cc: copyHeader, subject: headline, text: plain, html: markup,
       attachments: attachments.map(item => ({ filename: item.filename, content: item.content })),
     });
-    console.log("[EmailTools]", "已发送：", receipt.messageId);
+    logger.info(LogTag.EmailTools, "已发送：", receipt.messageId);
     return `[send_email] 已发送：${recipients.join(", ")} 主题：${headline}`;
   } catch (failure) {
     const detail = failure instanceof Error ? failure.message : String(failure);

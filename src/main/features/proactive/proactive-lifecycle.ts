@@ -29,6 +29,7 @@ import { loadProactiveState, saveProactiveState } from "./proactive-state-store"
 import { createProactiveTrigger, type ProactiveTriggerController } from "./proactive-trigger";
 import { runProactiveModel, type ProactiveModelResult } from "./proactive-model";
 import type { ProactiveCandidate, ProactiveRuntimeSnapshot } from "./proactive-types";
+import { logger, LogTag } from "../../base/logging/logger";
 
 export type ProactiveLifecycleOptions = {
   loadGeneralSettings: () => GeneralSettings;
@@ -332,7 +333,7 @@ export function createProactiveLifecycle(options: ProactiveLifecycleOptions): Pr
         return target === "local" || canStartProactiveChannelDelivery(target, channelManager);
       },
       commitMessage: commitChosen,
-      log: (event, detail) => console.log(`[Proactive] ${event}`, detail ?? ""),
+      log: (event, detail) => logger.info(LogTag.Proactive, event, ...(detail === undefined ? [] : [detail])),
     });
 
     setChannelsConversationLifecycle(proactiveConversationLifecycle);

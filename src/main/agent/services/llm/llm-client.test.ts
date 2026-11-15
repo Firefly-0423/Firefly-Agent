@@ -20,6 +20,7 @@ vi.mock("../../../base/storage/token-usage-store", () => ({ recordRequest: vi.fn
 vi.mock("../../../model/text/chat-api-utils", () => ({ appendApiLog: vi.fn() }));
 
 import { createLlmClient } from "./llm-client";
+import { logger, LogTag } from "../../../base/logging/logger";
 import { recordRequest, recordUsage } from "../../../base/storage/token-usage-store";
 import { appendApiLog } from "../../../model/text/chat-api-utils";
 import type { ModelSettings } from "../../../model/config/model-settings";
@@ -63,6 +64,11 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
+
+function loggedText(): string {
+  return [logger.debug, logger.info, logger.warn, logger.error]
+    .flatMap(fn => vi.mocked(fn).mock.calls).map(call => call.map(String).join(" ")).join(" | ");
+}
 
 describe("createLlmClient.stream", () => {
   it("streams text, flushes the visible filter and returns think-stripped text", async () => {
@@ -116,6 +122,14 @@ describe("createLlmClient.stream", () => {
     expect(recordRequest).not.toHaveBeenCalled();
   });
 
+  it("keeps the provider's error text out of the log", async () => {
+    for (const level of ["debug", "info", "warn", "error"] as const) vi.spyOn(logger, level).mockImplementation(() => {});
+    vi.mocked(fetch).mockResolvedValueOnce(response({ ok: false, status: 401, json: async () => ({ error: { message: "echoed sk-SYNTHETIC-SECRET" } }) }));
+    await expect(createLlmClient().stream(settings, messages, undefined, 5_000, "unit", () => {})).rejects.toThrow("echoed sk-SYNTHETIC-SECRET");
+    expect(loggedText()).toMatch(/unit ERROR at \d+ms/);
+    expect(loggedText()).not.toContain("SYNTHETIC-SECRET");
+  });
+
   it("falls back to the HTTP status when the error body is unreadable", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(response({ ok: false, status: 503, json: async () => { throw new Error("not json"); } }));
     await expect(createLlmClient().stream(settings, messages, undefined, 5_000, "unit", () => {}))
@@ -129,22 +143,39 @@ describe("createLlmClient.stream", () => {
   });
 
   it("translates an abort into the timeout message", async () => {
+    const info = vi.spyOn(logger, "info").mockImplementation(() => {});
+    vi.spyOn(logger, "debug").mockImplementation(() => {});
     vi.mocked(fetch).mockRejectedValueOnce(Object.assign(new Error("aborted"), { name: "AbortError" }));
     await expect(createLlmClient().stream(settings, messages, undefined, 5_000, "unit", () => {}))
       .rejects.toThrow("模型请求超时，请稍后重试。");
+    expect(info).toHaveBeenCalledWith(LogTag.Runtime, expect.stringMatching(/^unit TIMEOUT at \d+ms/));
   });
 
   it("rethrows non-abort failures unchanged", async () => {
+    const info = vi.spyOn(logger, "info").mockImplementation(() => {});
+    vi.spyOn(logger, "debug").mockImplementation(() => {});
     vi.mocked(fetch).mockRejectedValueOnce("network down");
     await expect(createLlmClient().stream(settings, messages, undefined, 5_000, "unit", () => {}))
       .rejects.toBe("network down");
+    expect(info).toHaveBeenCalledWith(LogTag.Runtime, expect.stringMatching(/^unit ERROR at \d+ms/));
   });
 
-  it("suppresses timing logs when logTiming is false", async () => {
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+  it("emits timing log prefixes when enabled and suppresses them when logTiming is false", async () => {
+    const log = vi.spyOn(logger, "info").mockImplementation(() => {});
+    const debug = vi.spyOn(logger, "debug").mockImplementation(() => {});
+    mocks.events = [{ chunk: { deltaText: "hi" } }, { chunk: { done: true } }];
+    await createLlmClient().stream(settings, messages, undefined, 5_000, "unit", () => {});
+    expect(debug).toHaveBeenCalledTimes(1);
+    expect(debug).toHaveBeenCalledWith(LogTag.Runtime, expect.stringMatching(/^unit START /));
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(log).toHaveBeenCalledWith(LogTag.Runtime, expect.stringMatching(/^unit OK in \d+ms/));
+
+    log.mockClear();
+    debug.mockClear();
     mocks.events = [{ chunk: { done: true } }];
     await createLlmClient().stream(settings, messages, undefined, 5_000, "unit", () => {}, false);
     expect(log).not.toHaveBeenCalled();
+    expect(debug).not.toHaveBeenCalled();
   });
 });
 
@@ -159,6 +190,8 @@ describe("createLlmClient.chat", () => {
 
 describe("createLlmClient.chatNonStream", () => {
   it("returns the parsed response and records usage and request counts", async () => {
+    const info = vi.spyOn(logger, "info").mockImplementation(() => {});
+    const debug = vi.spyOn(logger, "debug").mockImplementation(() => {});
     mocks.adapter.parseResponse.mockReturnValueOnce({
       text: "non-stream answer",
       thinking: "thinking",
@@ -199,6 +232,8 @@ describe("createLlmClient.chatNonStream", () => {
       expect.objectContaining({ reasoning: "high" }),
     );
     expect(vi.mocked(fetch).mock.calls[0][0]).toBe("https://example.test/chat");
+    expect(debug).toHaveBeenCalledWith(LogTag.Runtime, expect.stringMatching(/^unit START \(non-stream\) /));
+    expect(info).toHaveBeenCalledWith(LogTag.Runtime, expect.stringMatching(/^unit OK in \d+ms/));
   });
 
   it("keeps temperature when provided and drops optional request sections when absent", async () => {
@@ -213,10 +248,21 @@ describe("createLlmClient.chatNonStream", () => {
   });
 
   it("surfaces provider errors without recording a request", async () => {
+    const info = vi.spyOn(logger, "info").mockImplementation(() => {});
+    vi.spyOn(logger, "debug").mockImplementation(() => {});
     vi.mocked(fetch).mockResolvedValueOnce(response({ ok: false, status: 429, json: async () => ({ error: { message: "rate limited" } }) }));
     await expect(createLlmClient().chatNonStream(settings, messages, undefined, 5_000, "unit"))
       .rejects.toThrow("rate limited");
     expect(recordRequest).not.toHaveBeenCalled();
+    expect(info).toHaveBeenCalledWith(LogTag.Runtime, expect.stringMatching(/^unit ERROR at \d+ms/));
+  });
+
+  it("keeps the provider's error text out of the log", async () => {
+    for (const level of ["debug", "info", "warn", "error"] as const) vi.spyOn(logger, level).mockImplementation(() => {});
+    vi.mocked(fetch).mockResolvedValueOnce(response({ ok: false, status: 429, json: async () => ({ error: { message: "echoed sk-SYNTHETIC-SECRET" } }) }));
+    await expect(createLlmClient().chatNonStream(settings, messages, undefined, 5_000, "unit")).rejects.toThrow("echoed sk-SYNTHETIC-SECRET");
+    expect(loggedText()).toMatch(/unit ERROR at \d+ms/);
+    expect(loggedText()).not.toContain("SYNTHETIC-SECRET");
   });
 
   it("falls back to the HTTP status when the error body is unreadable", async () => {
@@ -226,6 +272,8 @@ describe("createLlmClient.chatNonStream", () => {
   });
 
   it("propagates an external abort signal to fetch and rethrows the abort error", async () => {
+    const info = vi.spyOn(logger, "info").mockImplementation(() => {});
+    vi.spyOn(logger, "debug").mockImplementation(() => {});
     vi.mocked(fetch).mockImplementationOnce((_url, init) => new Promise((_resolve, reject) => {
       init?.signal?.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })), { once: true });
     }) as Promise<Response>);
@@ -233,5 +281,6 @@ describe("createLlmClient.chatNonStream", () => {
     const pending = createLlmClient().chatNonStream(settings, messages, undefined, 5_000, "unit", undefined, undefined, controller.signal);
     controller.abort();
     await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+    expect(info).toHaveBeenCalledWith(LogTag.Runtime, expect.stringMatching(/^unit TIMEOUT at \d+ms/));
   });
 });

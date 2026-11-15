@@ -183,9 +183,18 @@ describe("Sandbox shutdown cleanup", () => {
     await sandbox.initSandbox(); await sandbox.wrapWithSandbox("echo calendar", workspace());
     await sandbox.resetSandbox(); expect(host.reset).toHaveBeenCalledTimes(1);
   });
-  it("absorbs reset errors during shutdown", async () => {
+  it("absorbs reset errors during shutdown and keeps subsequent wrapping usable", async () => {
+    const next = workspace();
     await sandbox.initSandbox(); await sandbox.wrapWithSandbox("echo calendar", workspace());
     host.reset.mockRejectedValueOnce(Error("Calendar sandbox cleanup failed"));
     await expect(sandbox.resetSandbox()).resolves.toBeUndefined();
+    expect(sandbox.isSandboxReady()).toBe(true);
+    host.level = "scoped";
+    expect(await sandbox.wrapWithSandbox("echo reinit", next)).toEqual({ ok: true, ...wrapped });
+    expect(host.reset).toHaveBeenCalledTimes(2);
+    expect(host.initialize).toHaveBeenCalledTimes(2);
+    expect(host.initialize).toHaveBeenLastCalledWith(expect.objectContaining({
+      filesystem: expect.objectContaining({ allowWrite: [next] }),
+    }));
   });
 });

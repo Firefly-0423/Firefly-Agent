@@ -3,6 +3,7 @@ import type { ToolContext } from "../../../tooling/registry/tool-context";
 import { getDateLocale, getWeatherLanguage } from "../../../base/identity/locale-context";
 import { currentUserTimezone } from "./timezone";
 import { TtlResultCache } from "./ttl-result-cache";
+import { logger, LogTag } from "../../../base/logging/logger";
 
 export interface WeatherCardData {
   source: "open-meteo" | "amap";
@@ -169,7 +170,7 @@ async function executeWeather(args: Record<string, unknown>, context?: ToolConte
   const argumentCity = String(args.city ?? "").trim();
   const profileCity = (readSetting(configuration.city) ?? "").trim();
   const selectedBy: "arg" | "default" | "none" = argumentCity ? "arg" : profileCity ? "default" : "none";
-  console.log(`[Weather] city resolution: argsCity=${argumentCity || "(empty)"} defaultCity=${profileCity || "(empty)"} final=${municipality || "(empty)"} source=${selectedBy}`);
+  logger.info(LogTag.BuiltinTools, `weather city resolution: argsCity=${argumentCity ? "set" : "(empty)"} defaultCity=${profileCity ? "set" : "(empty)"} final=${municipality ? "set" : "(empty)"} source=${selectedBy}`);
   if (!municipality) return "[提示] 没有指定城市，也没设置默认城市。请告诉用户：在 设置 → 我的信息 填默认城市，或直接说出要查的城市名。";
   switch (provider) {
     case "open-meteo": return omFetchWeather(municipality, context);

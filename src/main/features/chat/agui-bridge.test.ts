@@ -168,7 +168,8 @@ describe("run identity and terminal presentation", () => {
     });
     it("separates overlapping completion timings until the callbacks actually finish", async () => {
         vi.stubEnv("FIREFLY_DEBUG_LOGS", "1");
-        const log = vi.spyOn(console, "log").mockImplementation(() => undefined), gates = [deferred(), deferred()];
+        const { logger } = await import("../../base/logging/logger");
+        const log = vi.spyOn(logger, "info").mockImplementation(() => undefined), gates = [deferred(), deferred()];
         let next = 0;
         const { perf } = await import("../../base/logging/perf-trace");
         const effects = vi.fn(async (_result, text) => { await perf.track(`finish-${text}`, () => gates[text === "north" ? 0 : 1].promise); return { sticker: null }; });

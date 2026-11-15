@@ -4,6 +4,7 @@ import { entityGraph } from "../../memory/legacy/entity-graph";
 import { recordRecentMemoryInjection } from "../../memory/legacy/recent-injected-memory";
 import { l2DmaeManager } from "../../memory/legacy/l2-dmae-manager";
 import { toolRegistry } from "../../tooling/registry/tool-registry";
+import { logger, LogTag } from "../../base/logging/logger";
 export { ToolCallResult } from "../../tooling/registry/tool-call-types";
 export { scheduleMemoryWrite } from "./context-builder";
 export { buildToneInjection } from "./tone-injector";
@@ -93,6 +94,6 @@ export async function buildAlwaysOnContext(userInput: string, recentMessages: Ar
     }
   } catch (failure) { console.warn("[Orchestrator] memory load failed:", failure); }
   const enabled = toolRegistry.getEnabledTools();
-  console.log("[Orchestrator] Always-on context built, enabled tools: " + enabled.map((entry) => entry.id).join(", "));
+  logger.info(LogTag.Runtime, "Always-on context built, enabled tools: " + enabled.map((entry) => entry.id).join(", "));
   return sections.join("\n\n");
 }

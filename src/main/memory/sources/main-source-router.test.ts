@@ -12,6 +12,7 @@ import {SyntheticSourceProvider} from "../../../../scripts/verify/memory-sources
 import {createMainSourceProvider,requireMainSourceProvider,type SourceSnapshot} from "../core/main-source-provider";
 import {createMainSourceRegistry} from "./source-registry";
 import {createMainSourceRouter} from "./main-source-router";
+import { exactly } from "../../../shared/testing/error-code.test-support";
 
 const providerId="synthetic",scopeKey="scope-a";
 const desktop:SourceIdentity={providerId,sessionId:"desktop-session",messageId:"desktop-message"};
@@ -55,13 +56,13 @@ it("routes two real sources through one registry and actor authority, including 
 it("requires opaque child and router capabilities and validates child scope without probing source text",async()=>{
  const f=fixture();f.a.failReads=true;
  for(const sourceToken of [{},JSON.parse(JSON.stringify(f.a.adapter)),{providerId,sessionId:desktop.sessionId,entry:"desktop"}]){
-  expect(()=>mount(f,desktop,sourceToken)).toThrow("MEMORY_SOURCE_PROVIDER_DENIED");
+  expect(()=>mount(f,desktop,sourceToken)).toThrow(exactly("MEMORY_SOURCE_PROVIDER_DENIED"));
  }
- expect(()=>f.router.register({scopeKey:"scope-b",anchorIdentity:desktop,sourceToken:f.a.adapter})).toThrow("MEMORY_SOURCE_PROVIDER_DENIED");
- expect(()=>mount(f,{...desktop,providerId:"wrong-provider"})).toThrow();
+ expect(()=>f.router.register({scopeKey:"scope-b",anchorIdentity:desktop,sourceToken:f.a.adapter})).toThrow(exactly("MEMORY_SOURCE_PROVIDER_DENIED"));
+ expect(()=>mount(f,{...desktop,providerId:"wrong-provider"})).toThrow(exactly("MEMORY_SOURCE_ROUTER_DENIED"));
  mount(f); // Registration authorizes the anchor; it never reads or invents a source receipt.
- await expect(f.registry.capture(f.access,JSON.parse(JSON.stringify(f.router.token)),desktop)).rejects.toThrow("MEMORY_SOURCE_PROVIDER_DENIED");
- await expect(f.registry.capture(f.access,f.router.token,desktop)).rejects.toThrow("SYNTHETIC_READ_FAILED");
+ await expect(f.registry.capture(f.access,JSON.parse(JSON.stringify(f.router.token)),desktop)).rejects.toThrow(exactly("MEMORY_SOURCE_PROVIDER_DENIED"));
+ await expect(f.registry.capture(f.access,f.router.token,desktop)).rejects.toThrow(exactly("SYNTHETIC_READ_FAILED"));
 });
 
 it("copies the route identity and cannot expand a child's own per-message authorization",async()=>{
@@ -70,10 +71,10 @@ it("copies the route identity and cannot expand a child's own per-message author
   withLease:async(id,run)=>run(async()=>{reads++;return snapshot(id)})});
  mount(f,anchor,token);anchor.sessionId=settings.sessionId;anchor.messageId="forged";
  const ref=await f.registry.capture(f.access,f.router.token,desktop);expect(ref.binding.sessionId).toBe(desktop.sessionId);
- await expect(f.registry.capture(f.access,f.router.token,{...desktop,messageId:"not-authorized"})).rejects.toThrow("MEMORY_SOURCE_PROVIDER_DENIED");
- await expect(f.registry.capture(f.access,f.router.token,settings)).rejects.toThrow("MEMORY_SOURCE_PROVIDER_DENIED");
+ await expect(f.registry.capture(f.access,f.router.token,{...desktop,messageId:"not-authorized"})).rejects.toThrow(exactly("MEMORY_SOURCE_PROVIDER_DENIED"));
+ await expect(f.registry.capture(f.access,f.router.token,settings)).rejects.toThrow(exactly("MEMORY_SOURCE_PROVIDER_DENIED"));
  allowed=false;const before=reads;
- await expect(f.registry.readEvidence(f.access,f.router.token,ref)).rejects.toThrow("MEMORY_SOURCE_PROVIDER_DENIED");
+ await expect(f.registry.readEvidence(f.access,f.router.token,ref)).rejects.toThrow(exactly("MEMORY_SOURCE_PROVIDER_DENIED"));
  expect(reads).toBe(before);
 });
 
@@ -81,21 +82,21 @@ it("pins sessions to one scope for the router lifetime and never changes routes 
  const f=fixture(),route=mount(f),scopeB=new SyntheticSourceProvider(path.join(f.root,"other-scope.json"),"scope-b");
  scopeB.write(desktop,{text:"other scope secret",role:"user",trust:"direct-user-event"});
  const allowed=requireMainSourceProvider(f.router.token,scopeKey,desktop);
- expect(()=>f.router.register({scopeKey:"scope-b",anchorIdentity:desktop,sourceToken:scopeB.adapter})).toThrow("MEMORY_SOURCE_ROUTE_CONFLICT");
- expect(()=>requireMainSourceProvider(f.router.token,"scope-b",desktop)).toThrow("MEMORY_SOURCE_PROVIDER_DENIED");
+ expect(()=>f.router.register({scopeKey:"scope-b",anchorIdentity:desktop,sourceToken:scopeB.adapter})).toThrow(exactly("MEMORY_SOURCE_ROUTE_CONFLICT"));
+ expect(()=>requireMainSourceProvider(f.router.token,"scope-b",desktop)).toThrow(exactly("MEMORY_SOURCE_PROVIDER_DENIED"));
  expect(await allowed.withLease(desktop,async read=>(await read()).text)).toBe("我默认用 PowerShell");
  await f.router.unregister(route);
- expect(()=>f.router.register({scopeKey:"scope-b",anchorIdentity:desktop,sourceToken:scopeB.adapter})).toThrow("MEMORY_SOURCE_ROUTE_CONFLICT");
+ expect(()=>f.router.register({scopeKey:"scope-b",anchorIdentity:desktop,sourceToken:scopeB.adapter})).toThrow(exactly("MEMORY_SOURCE_ROUTE_CONFLICT"));
  mount(f);expect(await f.registry.capture(f.access,f.router.token,desktop)).toHaveProperty("sourceId");
 });
 
 it("rejects duplicate mounts and cloned or foreign route tokens; an old token cannot remove a remount",async()=>{
  const f=fixture(),route=mount(f);
- expect(()=>mount(f)).toThrow("MEMORY_SOURCE_ROUTE_CONFLICT");
- expect(()=>mount(f,desktop,f.b.adapter)).toThrow("MEMORY_SOURCE_ROUTE_CONFLICT");
- await expect(f.router.unregister(JSON.parse(JSON.stringify(route)))).rejects.toThrow("MEMORY_SOURCE_ROUTER_DENIED");
+ expect(()=>mount(f)).toThrow(exactly("MEMORY_SOURCE_ROUTE_CONFLICT"));
+ expect(()=>mount(f,desktop,f.b.adapter)).toThrow(exactly("MEMORY_SOURCE_ROUTE_CONFLICT"));
+ await expect(f.router.unregister(JSON.parse(JSON.stringify(route)))).rejects.toThrow(exactly("MEMORY_SOURCE_ROUTER_DENIED"));
  const other=createMainSourceRouter({providerId}),foreign=other.register({scopeKey,anchorIdentity:desktop,sourceToken:f.a.adapter});
- await expect(f.router.unregister(foreign)).rejects.toThrow("MEMORY_SOURCE_ROUTER_DENIED");await other.close();
+ await expect(f.router.unregister(foreign)).rejects.toThrow(exactly("MEMORY_SOURCE_ROUTER_DENIED"));await other.close();
  await f.router.unregister(route);mount(f);
  await f.router.unregister(route);
  expect(await f.registry.capture(f.access,f.router.token,desktop)).toHaveProperty("sourceId");
@@ -110,8 +111,8 @@ it("revokes pending reads immediately on lifetime abort and waits for the real c
  const route=mount(f,desktop,token,lifetime.signal);
  const capturing=f.registry.capture(f.access,f.router.token,desktop);const result=capturing.catch(error=>error);
  await entered.promise;lifetime.abort();let drained=false;const draining=f.router.unregister(route).then(()=>{drained=true});
- expect(()=>requireMainSourceProvider(f.router.token,scopeKey,desktop)).toThrow("MEMORY_SOURCE_PROVIDER_DENIED");
- expect(()=>mount(f,desktop,token)).toThrow("MEMORY_SOURCE_ROUTE_CONFLICT");
+ expect(()=>requireMainSourceProvider(f.router.token,scopeKey,desktop)).toThrow(exactly("MEMORY_SOURCE_PROVIDER_DENIED"));
+ expect(()=>mount(f,desktop,token)).toThrow(exactly("MEMORY_SOURCE_ROUTE_CONFLICT"));
  readDone.resolve();await new Promise(resolve=>setImmediate(resolve));expect(drained).toBe(false);expect(cleaned).toBe(false);
  cleanup.resolve();expect(await result).toMatchObject({message:"MEMORY_SOURCE_ROUTER_DENIED"});await draining;
  expect(cleaned).toBe(true);expect(reads).toBe(1);
@@ -132,9 +133,9 @@ it("checks child authorization before and after every read, including revoked as
 it("does not let a retained read closure escape its lease or revive after a same-scope remount",async()=>{
  const f=fixture(),route=mount(f),provider=requireMainSourceProvider(f.router.token,scopeKey,desktop);let retained!:(()=>Promise<SourceSnapshot>);
  await provider.withLease(desktop,async read=>{retained=read;expect((await read()).text).toBe("我默认用 PowerShell")});
- await expect(retained()).rejects.toThrow("MEMORY_SOURCE_ROUTER_DENIED");
+ await expect(retained()).rejects.toThrow(exactly("MEMORY_SOURCE_ROUTER_DENIED"));
  await f.router.unregister(route);mount(f);
- await expect(retained()).rejects.toThrow("MEMORY_SOURCE_ROUTER_DENIED");
+ await expect(retained()).rejects.toThrow(exactly("MEMORY_SOURCE_ROUTER_DENIED"));
  expect(await f.registry.capture(f.access,f.router.token,desktop)).toHaveProperty("sourceId");
 });
 
@@ -147,7 +148,7 @@ it("rejects a late operation callback after the child lease has already settled"
  });
  mount(f,desktop,token);const provider=requireMainSourceProvider(f.router.token,scopeKey,desktop);
  await provider.withLease(desktop,async read=>{invoked++;return read()});
- await expect(late()).rejects.toThrow("MEMORY_SOURCE_ROUTER_DENIED");expect(invoked).toBe(0);
+ await expect(late()).rejects.toThrow(exactly("MEMORY_SOURCE_ROUTER_DENIED"));expect(invoked).toBe(0);
 });
 
 it("revalidates after a child queue wait and does not hold the shared authority queue while draining",async()=>{
@@ -167,15 +168,15 @@ it("close revokes every route synchronously and waits for success and failure cl
  mount(f,desktop,token);mount(f,settings,f.b.adapter);
  const provider=requireMainSourceProvider(f.router.token,scopeKey,desktop),operation=provider.withLease(desktop,async read=>read()),result=operation.catch(error=>error);
  await entered.promise;let closed=false;const closing=f.router.close().then(()=>{closed=true});
- expect(()=>requireMainSourceProvider(f.router.token,scopeKey,settings)).toThrow("MEMORY_SOURCE_PROVIDER_DENIED");
- expect(()=>mount(f)).toThrow("MEMORY_SOURCE_ROUTER_DENIED");
+ expect(()=>requireMainSourceProvider(f.router.token,scopeKey,settings)).toThrow(exactly("MEMORY_SOURCE_PROVIDER_DENIED"));
+ expect(()=>mount(f)).toThrow(exactly("MEMORY_SOURCE_ROUTER_DENIED"));
  await Promise.resolve();expect(closed).toBe(false);finish.resolve();expect(await result).toMatchObject({message:"SYNTHETIC_FAILURE"});
  await closing;expect(cleaned).toBe(true);await f.router.close();
 });
 
 it("rejects already-aborted registrations and forwards authenticated previous observations unchanged",async()=>{
  const f=fixture(),lifetime=new AbortController();lifetime.abort();
- expect(()=>mount(f,desktop,f.a.adapter,lifetime.signal)).toThrow("MEMORY_SOURCE_ROUTER_DENIED");
+ expect(()=>mount(f,desktop,f.a.adapter,lifetime.signal)).toThrow(exactly("MEMORY_SOURCE_ROUTER_DENIED"));
  let previous:Readonly<SourceObservation>|undefined;
  const token=createMainSourceProvider({providerId,authorize:scope=>scope===scopeKey,withLease:async(id,run,prior)=>{previous=prior;return run(async()=>snapshot(id))}});
  mount(f,desktop,token);const ref=await f.registry.capture(f.access,f.router.token,desktop);expect(previous).toBeUndefined();

@@ -49,11 +49,19 @@ describe("canonical workspace validation", () => {
     expect(fs.readdirSync(outside)).toEqual([]);
   });
 
-  it("allows canonical internal ancestors and a canonical workspace alias", async () => {
+  it("allows canonical internal ancestors and a canonical workspace alias while rejecting outside targets", async () => {
     const actual = await vi.importActual<typeof import("fs")>("fs");
     vi.mocked(fs.realpathSync).mockImplementation((file) => actual.realpathSync(file === alias ? root : file));
-    expect(() => assertWorkspaceBoundary(path.join(alias, "new", "file.txt"), "write", ctx)).not.toThrow();
-    expect(() => assertWorkspaceBoundary(path.join(root, "new.txt"), "write", { ...ctx, resolvedWorkspaceRoot: alias })).not.toThrow();
+    expect(assertWorkspaceBoundary(path.join(alias, "new", "file.txt"), "write", ctx)).toBeUndefined();
+    expect(assertWorkspaceBoundary(path.join(root, "new.txt"), "write", { ...ctx, resolvedWorkspaceRoot: alias })).toBeUndefined();
+    expect(vi.mocked(fs.realpathSync)).toHaveBeenCalledWith(alias);
+    expect(vi.mocked(fs.realpathSync)).toHaveBeenCalledWith(root);
+    const outsideTarget = path.join(outside, "secret.txt");
+    expect(() => assertWorkspaceBoundary(outsideTarget, "write", ctx))
+      .toThrowError(expect.objectContaining({ code: "E_WORKSPACE_BOUNDARY", category: "permission_denied" }));
+    expect(() => assertWorkspaceBoundary(outsideTarget, "write", { ...ctx, resolvedWorkspaceRoot: alias }))
+      .toThrowError(expect.objectContaining({ code: "E_WORKSPACE_BOUNDARY", category: "permission_denied" }));
+    expect(actual.existsSync(outsideTarget)).toBe(false);
   });
 
   it("never falls back past an existing ancestor whose realpath fails (including dangling links)", async () => {

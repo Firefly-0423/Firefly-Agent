@@ -213,5 +213,6 @@ describe('shadow service',()=>{
   expect(()=>service.submit(taskFor(ref,fakeModel().model))).not.toThrow();
   await service.idle();
   expect(errors).toHaveLength(1);
+  expect((errors[0] as Error).message).toBe('MEMORY_TRANSACTION_FAILED');
  });
 });

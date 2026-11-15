@@ -2,6 +2,7 @@ import { toolRegistry, type ToolDefinition } from "../../../tooling/registry/too
 import { openKnowledgeWorkspace } from "../knowledge-workspace";
 import { openNote } from "./obsidian-open";
 import * as path from "path";
+import type { ObsidianEditRequest } from "./obsidian-workspace-service";
 
 // Schemas and model-facing prose are immutable contracts, separate from execution.
 function specifications(): Array<Omit<ToolDefinition, "execute">> { return [
@@ -262,7 +263,7 @@ const editNote: Executor = async (args, context) => {
   const operation = String(args.operation);
   const outcome = await workspace.edit({ operation, path: String(args.path), content: String(args.content ?? ""),
     headingPath: headingsOption(args.headingPath), expectedContentHash: stringOption(args.expectedContentHash),
-    includeChildren: args.includeChildren === true ? true : undefined } as any);
+    includeChildren: args.includeChildren === true ? true : undefined } as ObsidianEditRequest); // 工具参数来自模型，operation 与各操作的必填字段由 workspace.edit 在运行时校验
   return `操作成功 [${outcome.operation}]\n` + `文件: ${outcome.path}\n`
     + `写入: ${outcome.bytesWritten} 字节\n` + `contentHash: ${outcome.newContentHash}`;
 };

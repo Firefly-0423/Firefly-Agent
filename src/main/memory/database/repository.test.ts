@@ -6,6 +6,7 @@ import {DatabaseSync} from "node:sqlite";
 import {afterEach,it,expect,vi} from "vitest";
 import {openMemoryRepository} from "./repository";
 import {canonicalJson} from "../core/repository-types";
+import { exactly } from "../../../shared/testing/error-code.test-support";
 const dirs:string[]=[];const repos:any[]=[];
 afterEach(()=>{for(const repo of repos.splice(0))repo.close();for(const dir of dirs.splice(0))fs.rmSync(dir,{recursive:true,force:true})});
 function fixture(){const root=fs.mkdtempSync(path.join(os.tmpdir(),"memory-repo-"));dirs.push(root);return{databasePath:path.join(root,"memory.sqlite"),key:randomBytes(32)}}
@@ -26,34 +27,34 @@ it("rolls back both records and receipts on an injected transaction failure",()=
 });
 it("replays identical commands and refuses changed payload or scope",()=>{
  const f=fixture(),repo=openMemoryRepository(f);repos.push(repo);expect(repo.writeBatch(batch)).toEqual(repo.writeBatch(batch));
- expect(()=>repo.writeBatch({...batch,records:[{...source,payload:{text:"changed"}}]})).toThrow("MEMORY_COMMAND_CONFLICT");
- expect(()=>repo.writeBatch({...batch,scopeKey:"scope-b"})).toThrow("MEMORY_COMMAND_CONFLICT");expect(repo.readRows("sources","scope-a")).toHaveLength(1);
+ expect(()=>repo.writeBatch({...batch,records:[{...source,payload:{text:"changed"}}]})).toThrow(exactly("MEMORY_COMMAND_CONFLICT"));
+ expect(()=>repo.writeBatch({...batch,scopeKey:"scope-b"})).toThrow(exactly("MEMORY_COMMAND_CONFLICT"));expect(repo.readRows("sources","scope-a")).toHaveLength(1);
 });
 it("enforces source foreign keys and record uniqueness within a scope",()=>{
  const f=fixture(),repo=openMemoryRepository(f);repos.push(repo);
- expect(()=>repo.writeBatch({commandId:"missing-source",scopeKey:"scope-a",records:[{table:"evidence",id:"evidence-1",sourceId:"missing",revision:1,payload:{text:"evidence"}}]})).toThrow();
+ expect(()=>repo.writeBatch({commandId:"missing-source",scopeKey:"scope-a",records:[{table:"evidence",id:"evidence-1",sourceId:"missing",revision:1,payload:{text:"evidence"}}]})).toThrow("FOREIGN KEY constraint failed");
  expect(repo.readRows("evidence","scope-a")).toEqual([]);
- repo.writeBatch(batch);expect(()=>repo.writeBatch({...batch,commandId:"duplicate-source"})).toThrow();
+ repo.writeBatch(batch);expect(()=>repo.writeBatch({...batch,commandId:"duplicate-source"})).toThrow("UNIQUE constraint failed: sources.id, sources.scope_key");
 });
 it("rejects a future SQLite schema before changing the stored schema",()=>{
  const f=fixture(),repo=openMemoryRepository(f);repo.close();
  const db=new DatabaseSync(f.databasePath);db.exec("PRAGMA user_version=99");db.close();
- expect(()=>openMemoryRepository(f)).toThrow("MEMORY_SCHEMA_UNSUPPORTED");
+ expect(()=>openMemoryRepository(f)).toThrow(exactly("MEMORY_SCHEMA_UNSUPPORTED"));
  const check=new DatabaseSync(f.databasePath,{readOnly:true});try{expect(check.prepare("PRAGMA user_version").get()?.user_version).toBe(99)}finally{check.close()}
 });
 it("authenticates wrong keys before opening a database with live WAL",()=>{
  const f=fixture(),repo=openMemoryRepository(f);repos.push(repo);repo.writeBatch(batch);
  expect(fs.statSync(f.databasePath+"-wal").size).toBeGreaterThan(0);
  const before=snapshot(path.dirname(f.databasePath));
- expect(()=>openMemoryRepository({...f,key:randomBytes(32)})).toThrow("MEMORY_AUTH_FAILED");
+ expect(()=>openMemoryRepository({...f,key:randomBytes(32)})).toThrow(exactly("MEMORY_AUTH_FAILED"));
  expect(snapshot(path.dirname(f.databasePath))).toEqual(before);
 });
 it("rejects missing or damaged auth without changing DB/WAL/SHM",()=>{
  const f=fixture(),repo=openMemoryRepository(f);repos.push(repo);repo.writeBatch(batch);
  const auth=f.databasePath+".auth",valid=fs.readFileSync(auth);fs.unlinkSync(auth);let before=snapshot(path.dirname(auth));
- expect(()=>openMemoryRepository(f)).toThrow("MEMORY_AUTH_UNAVAILABLE");expect(snapshot(path.dirname(auth))).toEqual(before);
+ expect(()=>openMemoryRepository(f)).toThrow(exactly("MEMORY_AUTH_UNAVAILABLE"));expect(snapshot(path.dirname(auth))).toEqual(before);
  fs.writeFileSync(auth,Buffer.from("damaged"));before=snapshot(path.dirname(auth));
- expect(()=>openMemoryRepository(f)).toThrow("MEMORY_AUTH_INVALID");expect(snapshot(path.dirname(auth))).toEqual(before);fs.writeFileSync(auth,valid);
+ expect(()=>openMemoryRepository(f)).toThrow(exactly("MEMORY_AUTH_INVALID"));expect(snapshot(path.dirname(auth))).toEqual(before);fs.writeFileSync(auth,valid);
 });
 it.runIf(process.platform==="win32")("produces a consistent SQLite backup that can be reopened with the same auth",async()=>{
  const f=fixture(),repo=openMemoryRepository(f);repos.push(repo);repo.writeBatch(batch);
@@ -63,13 +64,13 @@ it.runIf(process.platform==="win32")("produces a consistent SQLite backup that c
 
 it("rejects sparse payloads before writing records or receipts",()=>{
  const f=fixture(),repo=openMemoryRepository(f);repos.push(repo);
- expect(()=>repo.writeBatch({...batch,records:[{...source,payload:Array(2)}]})).toThrow("MEMORY_INPUT_INVALID");
+ expect(()=>repo.writeBatch({...batch,records:[{...source,payload:Array(2)}]})).toThrow(exactly("MEMORY_INPUT_INVALID"));
  expect(repo.readRows("sources","scope-a")).toEqual([]);
  const db=new DatabaseSync(f.databasePath,{readOnly:true});try{expect(db.prepare("SELECT count(*) AS n FROM command_receipts").get()?.n).toBe(0)}finally{db.close()}
 });
 it("does not equate a one-hole payload with an empty array on command replay",()=>{
  const f=fixture(),repo=openMemoryRepository(f);repos.push(repo);repo.writeBatch({...batch,records:[{...source,payload:[]}]});
- expect(()=>repo.writeBatch({...batch,records:[{...source,payload:Array(1)}]})).toThrow("MEMORY_INPUT_INVALID");
+ expect(()=>repo.writeBatch({...batch,records:[{...source,payload:Array(1)}]})).toThrow(exactly("MEMORY_INPUT_INVALID"));
 });
 it("stores a keyed receipt digest instead of a publicly enumerable plaintext hash",()=>{
  const f=fixture(),repo=openMemoryRepository(f);repos.push(repo);repo.writeBatch(batch);
@@ -83,18 +84,18 @@ it("stores a keyed receipt digest instead of a publicly enumerable plaintext has
 it("rejects arbitrary backup paths before platform-specific publication",async()=>{
  const f=fixture(),repo=openMemoryRepository(f);repos.push(repo);repo.writeBatch(batch);
  const external=path.join(path.dirname(f.databasePath),"uncontrolled.sqlite");
- await expect(repo.backup(external)).rejects.toThrow("MEMORY_BACKUP_INVALID");expect(fs.existsSync(external)).toBe(false);
+ await expect(repo.backup(external)).rejects.toThrow(exactly("MEMORY_BACKUP_INVALID"));expect(fs.existsSync(external)).toBe(false);
 });
 it.runIf(process.platform==="win32")("preserves existing backup directories",async()=>{
  const f=fixture(),repo=openMemoryRepository(f);repos.push(repo);repo.writeBatch(batch);
  const existing=path.join(path.dirname(f.databasePath),"backups","owned-id");fs.mkdirSync(existing,{recursive:true});fs.writeFileSync(path.join(existing,"sentinel"),"keep");
- await expect(repo.backup("owned-id")).rejects.toThrow("MEMORY_BACKUP_EXISTS");expect(fs.readFileSync(path.join(existing,"sentinel"),"utf8")).toBe("keep");
+ await expect(repo.backup("owned-id")).rejects.toThrow(exactly("MEMORY_BACKUP_EXISTS"));expect(fs.readFileSync(path.join(existing,"sentinel"),"utf8")).toBe("keep");
 });
 it.runIf(process.platform==="win32")("rejects a backup root junction without writing through it",async()=>{
  const f=fixture(),repo=openMemoryRepository(f);repos.push(repo);repo.writeBatch(batch);
  const elsewhere=fs.mkdtempSync(path.join(os.tmpdir(),"memory-backup-elsewhere-"));dirs.push(elsewhere);
  fs.symlinkSync(elsewhere,path.join(path.dirname(f.databasePath),"backups"),"junction");
- await expect(repo.backup("junction-attempt")).rejects.toThrow("MEMORY_BACKUP_INVALID");expect(fs.readdirSync(elsewhere)).toEqual([]);
+ await expect(repo.backup("junction-attempt")).rejects.toThrow(exactly("MEMORY_BACKUP_INVALID"));expect(fs.readdirSync(elsewhere)).toEqual([]);
 });
 it.runIf(process.platform==="win32")("preserves a raced backup destination and leaves no published partial backup",async()=>{
  const f=fixture(),repo=openMemoryRepository(f);repos.push(repo);repo.writeBatch(batch);
@@ -103,7 +104,7 @@ it.runIf(process.platform==="win32")("preserves a raced backup destination and l
   fs.mkdirSync(to as string);fs.writeFileSync(path.join(to as string,"sentinel"),"race");
   return rename(from,to);
  });
- try{await expect(repo.backup("race-id")).rejects.toThrow();
+ try{await expect(repo.backup("race-id")).rejects.toThrow("EPERM: operation not permitted, rename");
   expect(fs.readFileSync(path.join(path.dirname(f.databasePath),"backups","race-id","sentinel"),"utf8")).toBe("race");
  }finally{spy.mockRestore()}
 });
@@ -111,6 +112,6 @@ it.runIf(process.platform==="win32")("preserves a raced backup destination and l
 it.runIf(process.platform!=="win32")("rejects backup publication on non-Windows without creating files or changing live storage",async()=>{
  const f=fixture(),repo=openMemoryRepository(f);repos.push(repo);repo.writeBatch(batch);
  const before=snapshot(path.dirname(f.databasePath));
- await expect(repo.backup("native-backup")).rejects.toThrow("MEMORY_WINDOWS_REQUIRED");
+ await expect(repo.backup("native-backup")).rejects.toThrow(exactly("MEMORY_WINDOWS_REQUIRED"));
  expect(snapshot(path.dirname(f.databasePath))).toEqual(before);
 });
