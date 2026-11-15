@@ -21,6 +21,7 @@
 | R3.1 空 catch | 4 处补了注释，说明为什么可以忽略：`s-response-stream.ts`、`windows-shell-job.ts` 内嵌 C# 代码、两个诊断入口的 `fail()` | 相关 54 个文件 1047 项通过 |
 | R3.2 `as any` | 生产代码里的 18 处全部换成具体类型，`git grep "as any"`（不含测试和验收脚本）结果为 0。`agent-runtime.ts` 8 处改用 `Parameters<typeof 函数>[n]` 收窄；`run-verification-tool.ts` 用 `VerificationType`；`rag/index.ts` 复用已有的 `rawEntries()`；`sticker-storage.ts` 用 `readonly string[]`；`obsidian-tools.ts` 用 `ObsidianEditRequest`；`openrouter-bounded.ts` 用响应形状接口加 `never` 返回的 `uncertain()`（判定条件未动）；`l2-dmae-manager.ts` 把 `toDmaeEntry` 的参数收窄到它真正读取的字段；`rag/panel.ts` 改用已有的 `window.settings` 类型并补上缺的 `getRerankerStatus`；`parse.ts` 改用 `Number.isNaN(Number(input))` 和 `unknown`。新增测试：agent-runtime 适配层 4 项、run_verification 步骤类型断言、嵌入模型切换 2 项、obsidian_edit 2 项、OpenRouter 用量 11 项、RAG 面板 5 项、`parsePositiveIntOrThrow` 12 项。每个文件单独一个提交 | 相关 217 个文件 2516 项通过；main / preload / renderer 类型检查通过 |
 | R6 一次性诊断只在开发版可用 | `startup-entry.ts` 新增 `diagnosticSwitchesAllowed(isPackaged)`，`dispatchMainEntry` 接收是否允许诊断：不允许时两个诊断参数都忽略，按正常启动处理，并回调 `ignored`。`index.ts` 传入 `!app.isPackaged`，被忽略时记一条 warn。`default-dependencies.ts` 只在允许时才启用 online-once 探针入口。两个验证脚本去掉打包模式用例。按设计分 4 个代码提交，每个单独通过 | 入口测试 9 项（新增 4 项：判定本身，安装版带 online-once、openrouter-once、两者同时都走正常启动并回调，安装版不带参数时不回调）；`default-dependencies` 新增开发版和安装版两项，安装版那项先失败、实现后通过 |
+| R6 代码审查后修复（2026-11-15） | ① 安装版忽略诊断参数的告警原来在正常入口装好文件日志之前发出，只到 stderr：改为先走正常入口再告警，测试断言调用顺序。② 分层检查只解析 `src/main` 内的导入目标，主进程引用 renderer 的测试辅助文件会被跳过：对 `src/main` 外的目标也按磁盘解析，是测试文件就报违例。③ 两个只跑开发用例的验证脚本删掉了用不到的打包步骤 | 顺序断言在修复前失败 3 项；反向验证：`normal-main.ts` 引用 `renderer/default-dialogs-scanner.test-support` 时分层检查报出 `(引用测试文件)`。`memory-online-startup` 验证脚本在修改前后都在第一个开发用例 `startup` 退出码 1（进程没有任何输出），不是本次引入，单独记为待查 |
 
 ## 3. 验证记录
 
@@ -32,9 +33,9 @@
 | R2：三端类型检查、`npm run build:main` | 通过 | 2026-11-15 |
 | R3：`npx vitest run src/main/agent/runtime src/main/agent/tools/builtin-tools src/main/knowledge/rag src/main/knowledge/stickers src/main/knowledge/workspace/obsidian src/main/memory/context src/main/memory/legacy src/renderer/settings src/main/layering.test.ts src/shared/process-boundary.test.ts`（带 `FIREFLY_TEST_BASH`） | 217 个文件、2516 项通过 | 2026-11-14 |
 | R3：三端类型检查、`git grep -n "as any" -- 'src/*.ts' 'src/*.tsx' ':!*.test.*' ':!*.acceptance.*'` | 类型检查通过；grep 无结果 | 2026-11-14 |
-
 | R6：`npx vitest run src/main/base/identity src/main/app/default-dependencies.test.ts src/main/app/external-skills-wiring.test.ts src/main/layering.test.ts`，读入口文件的 3 个测试，`electron-builder-config.test.mjs` | 全部通过 | 2026-11-15 |
 | R6：`tsc -p tsconfig.main.json --noEmit`；两个验证脚本 `node --check` | 通过 | 2026-11-15 |
+
 ## 4. 偏离计划
 
 - R1.1 的检查同时覆盖 preload，多发现 `preload/music.ts` 一处，一并修掉。
