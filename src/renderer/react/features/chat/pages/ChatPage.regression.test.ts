@@ -203,4 +203,38 @@ describe("ChatPage package B: recovery, takeover and the pending queue", () => {
     expect(page.agui!.getInterruptedRun).not.toHaveBeenCalled();
     expect(runCalls).toEqual([]);
   });
+  test("B2: a send that meets an old run shows one restart card, queues further sends and takes over once", async () => {
+    sessions = { "session-a": session("session-a", "code"), "session-b": session("session-b", "code") };
+    acks = [{ success: false, error: "SESSION_RUN_ACTIVE:run-before-refresh" }];
+    await mount("code");
+    const restartCards = () => [...host.querySelectorAll("button")].filter(button => button.textContent === t("workspaceNotices.takeoverAndRestart"));
+    await type("first question"); await click("#send"); await flush();
+    const first = runCalls[0].userTurnId;
+    expect(runCalls).toHaveLength(1);
+    expect(restartCards()).toHaveLength(1);
+    expect(dispatching["session-a"]).toEqual(first);
+    // A second send while the conflict stands only queues: the retained claim blocks a new dispatch.
+    await type("second question"); await click("#send"); await flush();
+    expect(runCalls).toHaveLength(1);
+    expect(restartCards()).toHaveLength(1);
+    expect((await claims()).slice(2)).toEqual([["session-a", "already-dispatching"]]);
+    expect(texts("#queue li")).toEqual(["second questionx"]);
+    await act(async () => { restartCards()[0].click(); }); await flush();
+    expect(runCalls.map(call => [call.userTurnId, call.takeoverFromRunId])).toEqual([[first, undefined], [first, "run-before-refresh"]]);
+    expect(restartCards()).toHaveLength(0);
+    expect(dispatching["session-a"]).toBeUndefined();
+    finishRun("run-2"); await flush();
+    // The queued second message is consumed once, after the takeover run has settled.
+    expect(runCalls).toHaveLength(3);
+    expect((await claims()).slice(3)).toEqual([["session-a", `claimed ${runCalls[2].userTurnId}`]]);
+    expect(sessions["session-a"].messages.map(item => [item.role, item.content || item.runSnapshot?.terminalStatus])).toEqual([
+      ["user", "first question"], ["model", "success"], ["user", "second question"], ["model", undefined],
+    ]);
+    expect(sessions["session-b"].messages).toEqual([]);
+    expect(page.agui!.cancel).not.toHaveBeenCalled();
+    // Recovery notices hide while a run is active, so the card is checked again once every run has settled.
+    finishRun("run-3"); await flush();
+    expect(restartCards()).toHaveLength(0);
+  });
+
 });
