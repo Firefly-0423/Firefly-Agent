@@ -36,7 +36,7 @@ describe("run_verification in a Rust workspace", () => {
     const cwd = workspace({ "Cargo.toml": '[package]\nname = "demo"\nversion = "0.1.0"\n' });
     const result = await run(kind, cwd);
     expect(result).toMatchObject({ passed: true, verificationType: kind });
-    expect(runner.steps).toEqual([expect.objectContaining({ executable: "cargo", args, trust: "workspace_script", cwd })]);
+    expect(runner.steps).toEqual([expect.objectContaining({ executable: "cargo", args, trust: "workspace_script", cwd, type: kind, id: `run_verification_${kind}` })]);
   });
 });
 

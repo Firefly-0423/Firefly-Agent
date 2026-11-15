@@ -10,6 +10,7 @@ vi.mock("../../knowledge/rag/index", () => ({ searchMemory: vi.fn() }));
 
 import { connectMcpServer, disconnectMcpServer, getMcpServerStates } from "./mcp-adapter";
 import { toolRegistry } from "../../tooling/registry/tool-registry";
+import { logger } from "../../base/logging/logger";
 
 const secret = "synthetic-private-credential";
 async function tool() {
@@ -17,11 +18,12 @@ async function tool() {
   return toolRegistry.getById("security-check")!;
 }
 function logs() {
-  return [console.log, console.warn, console.error].flatMap(fn => vi.mocked(fn).mock.calls).flat().join(" ");
+  return [logger.info, logger.debug, console.warn, console.error].flatMap(fn => vi.mocked(fn).mock.calls).flat().join(" ");
 }
 beforeEach(() => {
   vi.resetAllMocks();
-  for (const method of ["log", "warn", "error"] as const) vi.spyOn(console, method).mockImplementation(() => {});
+  for (const method of ["warn", "error"] as const) vi.spyOn(console, method).mockImplementation(() => {});
+  for (const method of ["info", "debug"] as const) vi.spyOn(logger, method).mockImplementation(() => {});
   sdk.listTools.mockResolvedValue({ tools: [{ name: "check", inputSchema: { type: "object", properties: {} } }] });
   sdk.callTool.mockResolvedValue({ content: [{ type: "text", text: secret }] });
 });

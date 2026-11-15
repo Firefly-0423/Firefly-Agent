@@ -28,6 +28,7 @@ import { createChannelDeliveryService } from "./delivery-service";
 import { createOutgoingComposer, type OutgoingComposer, } from "./outgoing-composer";
 import { channelManager } from "./manager";
 import { initializeChannels, startChannels, shutdownChannels, } from "./init";
+import { logger, LogTag } from "../../base/logging/logger";
 
 export interface ChannelsLifecycleAdapter {
   shutdown(): Promise<void>;
@@ -87,7 +88,7 @@ export function createChannelsSubsystem(deps: ChannelsSubsystemDeps, lifecycle?:
     const policy = resolveChannelAgentPolicy(sandbox, { channel: message.channel, chatType: message.chatType });
     const registeredTools = toolRegistry.getEnabledTools();
     const permittedTools = policy.exposeTools ? registeredTools : [];
-    console.log("[Channels] bot run:", `msg.channel=${message.channel} sandbox=${sandbox} tools=${permittedTools.length}/${registeredTools.length} priorMsgs=${prior?.length ?? 0}`);
+    logger.info(LogTag.Channels, "bot run:", `msg.channel=${message.channel} sandbox=${sandbox} tools=${permittedTools.length}/${registeredTools.length} priorMsgs=${prior?.length ?? 0}`);
     const history = (deps.memory ? [] : prior ?? []).filter((entry) => typeof entry.content === "string" && entry.content.trim().length > 0)
       .map((entry) => ({ role: entry.role as "user" | "assistant" | "system", content: entry.content }));
     const saved = loadModelSettings();

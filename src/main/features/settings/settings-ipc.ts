@@ -36,6 +36,7 @@ import { isFromHostDocument } from "../plugins/host/plugin-management-ipc-guard"
 import { getTimeoutSettings, saveTimeoutSettings } from "../../platform/settings/timeout-manager";
 import type { syncVolcanoSearchMcp } from "./general-settings-lifecycle";
 import type { syncPlaywrightMcp } from "../../agent/mcp/sync-mcp-builtin";
+import { logger, LogTag } from "../../base/logging/logger";
 
 export interface SettingsIpcDependencies {
   /** 每次经由 getter 实时读取，注册时可能尚为 null。 */
@@ -382,7 +383,7 @@ export function registerSettingsIpc(deps: SettingsIpcDependencies): () => void {
 
   // ---- 向量模型与重排序 ----
   ipc.handle(IPC.EMBEDDING_SET_MODEL, async (_event, modelKey: string) => {
-    console.log("[Firefly] embedding model switch requested:", modelKey);
+    logger.info(LogTag.Firefly, "embedding model switch requested:", modelKey);
     try {
       const outcome = await switchEmbeddingModel(modelKey);
       if (outcome.ok) {
@@ -403,7 +404,7 @@ export function registerSettingsIpc(deps: SettingsIpcDependencies): () => void {
   ipc.handle(IPC.RERANKER_SET_MODE, async (_event, mode: "standard" | "none") => {
     saveModelSettings({ ...getModelSettings(), rerankerMode: mode });
     await initReranker(mode);
-    console.log("[Firefly] reranker mode switched to", mode);
+    logger.info(LogTag.Firefly, "reranker mode switched to", mode);
     return true;
   });
   ipc.handle(IPC.RERANKER_GET_STATUS, () => getRerankerInstallStatus());

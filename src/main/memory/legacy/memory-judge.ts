@@ -2,6 +2,7 @@ import { MemoryCandidate, L0_FIELD_DESCRIPTIONS, MemoryJudgeTurn } from "./memor
 import { invokeMemoryStructuredOutput, getDefaultMaxOutputTokens } from "./memory-llm-client"
 import { loadMemoryModelConfig } from "./memory-llm-shared"
 import { parseMemoryJudgeResult, validateMemoryJudgeBusiness, MemoryJudgeResult } from "./memory-schemas"
+import { logger, LogTag } from "../../base/logging/logger"
 
 // 模型自己写出这些绝对化措辞、而用户原话里没有时，视为过度概括
 const ABSOLUTE_TERMS = ["只", "永远", "从不", "一定", "完全", "绝对", "以后都", "不再"]
@@ -24,7 +25,7 @@ function keepAcceptableCandidates(candidates: MemoryCandidate[]): MemoryCandidat
   })
 }
 
-const NOTHING_LOG = "[PMRS/Judge] 本轮无值得记录的信息"
+const NOTHING_LOG = "judge: 本轮无值得记录的信息"
 
 function listL0Fields(): string {
   return Object.entries(L0_FIELD_DESCRIPTIONS)
@@ -80,21 +81,21 @@ function buildUserPrompt(turns: MemoryJudgeTurn[], conversationId: string): stri
 }
 
 function describeCandidate(c: MemoryCandidate): string {
-  const text = (c.summary ?? c.content).slice(0, 20)
+  const size = (c.summary ?? c.content).length
   const tag = c.layer === "L0" && c.field ? `${c.layer}.${c.field}` : c.layer
-  return `${tag}("${text}", ${c.confidence.toFixed(2)})`
+  return `${tag}(len=${size}, ${c.confidence.toFixed(2)})`
 }
 
 export class MemoryJudge {
   async judgeRecentTurns(turns: MemoryJudgeTurn[], conversationId: string): Promise<MemoryJudgeResult> {
-    console.log(`[PMRS/Judge] 分析最近 ${turns.length} 轮对话...`)
+    logger.info(LogTag.Memory, `judge: 分析最近 ${turns.length} 轮对话...`)
     const nothing = (): MemoryJudgeResult => ({ candidates: [], entities: [] })
 
     try {
       const config = loadMemoryModelConfig()
       if (!config.apiKey) {
         console.error("[PMRS/Judge] LLM 调用失败: missing api key")
-        console.log(NOTHING_LOG)
+        logger.info(LogTag.Memory, NOTHING_LOG)
         return nothing()
       }
 
@@ -114,12 +115,12 @@ export class MemoryJudge {
         c.sourceConversationId = conversationId
       })
 
-      console.log(`[PMRS/Judge] 提取候选: ${accepted.length} 条（过滤后），实体: ${result.entities.length} 个`)
-      console.log(`[PMRS/Judge] 候选详情: ${accepted.map(describeCandidate).join(" ")}`)
+      logger.info(LogTag.Memory, `judge: 提取候选: ${accepted.length} 条（过滤后），实体: ${result.entities.length} 个`)
+      logger.info(LogTag.Memory, `judge: 候选详情: ${accepted.map(describeCandidate).join(" ")}`)
       return { candidates: accepted, entities: result.entities }
     } catch (error) {
       console.error("[PMRS/Judge] LLM 调用失败:", error)
-      console.log(NOTHING_LOG)
+      logger.info(LogTag.Memory, NOTHING_LOG)
       return nothing()
     }
   }

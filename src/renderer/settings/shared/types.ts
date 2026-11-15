@@ -175,6 +175,7 @@ export type SettingsApi = {
   stickerAdd?: (payload: { sourcePath: string; id: string; description: string; phrases: string[] }) => Promise<unknown>;
   embeddingSetModel?: (model: string) => Promise<{ ok: boolean; clearedEntries?: number; error?: string }>;
   rerankerSetMode?: (mode: string) => Promise<boolean>;
+  getRerankerStatus?: () => Promise<{ light: boolean; standard: boolean }>;
 
   // 工具、技能和 MCP。
   externalSkills?: ExternalSkillsApi;

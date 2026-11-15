@@ -9,7 +9,9 @@ export const OPENROUTER_BASE="https://openrouter.ai/api/v1",OPENROUTER_MODEL="op
 export const OPENROUTER_RESERVATION_NANODOLLARS=415284000;
 const CEILING=1000000000,SCOPE="desktop-openrouter-budget-v1",ID="openrouter-luna-usd1-v1";
 const OWNER={actorKey:"desktop-local-user-v1",providerId:"openrouter-api-v1",sessionId:"openrouter-luna-budget-v1"};
-const unproven=()=>contextFail("MEMORY_CONTEXT_COST_UNPROVEN"),uncertain=()=>contextFail("MEMORY_CONTEXT_COST_UNCERTAIN");
+const unproven=()=>contextFail("MEMORY_CONTEXT_COST_UNPROVEN");
+// Declared as a function with an explicit `never` return so callers narrow after `if(...)uncertain();`.
+function uncertain():never{return contextFail("MEMORY_CONTEXT_COST_UNCERTAIN")}
 function object(value:unknown):Record<string,any>{if(!value||typeof value!=="object"||Array.isArray(value))unproven();return value as Record<string,any>}
 function amount(value:unknown,fail:()=>never):number{if(typeof value!=="number"||!Number.isFinite(value)||value<0||!Number.isSafeInteger(Math.ceil(value*1e9)))fail();return Math.ceil((value as number)*1e9)}
 /** Reviewed public metadata, 2026-10-05. Drift requires review, never an inferred cheap fallback.
@@ -33,10 +35,12 @@ export function validateOpenRouterPreflight(metadata:unknown,credit:unknown):num
  return OPENROUTER_RESERVATION_NANODOLLARS;
 }
 /** Authoritative post-use accounting only. This never proves pre-send token fit. */
+/** Shape the checks below describe; every field is proven by them before use. Numeric fields are verified with Number.isSafeInteger. */
+interface UsageResponse{object?:unknown;status?:unknown;id?:unknown;model?:unknown;provider?:unknown;output?:unknown;usage?:{input_tokens:number;output_tokens:number;total_tokens:number;server_tool_use_details?:unknown;server_tool_cost?:unknown;cost?:unknown;cost_details?:{server_tool_cost?:unknown}|null}|null}
 export function openRouterUsageCost(value:unknown,outputCap:number):number{
- const r=value as any,u=r?.usage;
+ const r=value as UsageResponse|null|undefined,u=r?.usage;
  if(!r||r.object!=="response"||r.status!=="completed"||typeof r.id!=="string"||!r.id||r.model!==OPENROUTER_MODEL||(r.provider!==undefined&&r.provider!=="OpenAI")||!u||!Number.isSafeInteger(u.input_tokens)||u.input_tokens<0||u.input_tokens>922000||!Number.isSafeInteger(u.output_tokens)||u.output_tokens<0||u.output_tokens>outputCap||!Number.isSafeInteger(u.total_tokens)||u.total_tokens!==u.input_tokens+u.output_tokens)uncertain();
- if(!Array.isArray(r.output)||r.output.some((item:any)=>!["message","reasoning"].includes(item?.type))||u.server_tool_use_details!=null||u.server_tool_cost!==undefined&&u.server_tool_cost!==0||u.cost_details?.server_tool_cost!==undefined&&u.cost_details.server_tool_cost!==0)uncertain();
+ if(!Array.isArray(r.output)||r.output.some((item:unknown)=>!["message","reasoning"].includes((item as {type?:string}|null|undefined)?.type as string))||u.server_tool_use_details!=null||u.server_tool_cost!==undefined&&u.server_tool_cost!==0||u.cost_details?.server_tool_cost!==undefined&&u.cost_details.server_tool_cost!==0)uncertain();
  const cost=amount(u.cost,uncertain);if(cost>OPENROUTER_RESERVATION_NANODOLLARS)uncertain();return cost;
 }
 interface ExpenseLedger extends ContextOwner {id:string;spentNanodollars:number;pending:null|{id:string;bootId:string;reservedAt:number}}

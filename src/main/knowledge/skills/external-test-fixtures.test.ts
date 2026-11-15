@@ -4,11 +4,11 @@ import { createHash } from "node:crypto";
 import { afterEach, expect, it } from "vitest";
 import { within } from "../../base/identity/runtime-profile";
 
-const modules = import.meta.glob<typeof import("./testing/external-fixtures")>("./testing/external-fixtures.ts");
+const modules = import.meta.glob<typeof import("./testing/external-fixtures.test-support")>("./testing/external-fixtures.test-support.ts");
 const cleanup: (() => void)[] = [];
 afterEach(() => cleanup.splice(0).reverse().forEach(dispose => dispose()));
 async function fixtures() {
-  const load = modules["./testing/external-fixtures.ts"];
+  const load = modules["./testing/external-fixtures.test-support.ts"];
   expect(load, "External tests must provide a fully isolated storage and synthetic network fixture").toBeTypeOf("function");
   return load();
 }

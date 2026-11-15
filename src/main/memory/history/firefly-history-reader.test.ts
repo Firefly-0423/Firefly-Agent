@@ -5,7 +5,7 @@ import {createHash} from 'node:crypto';
 import {afterEach,it,expect,vi} from 'vitest';
 import {readFireflyHistory,parseFireflyHistoryBytes,validateReadonlyHistoryScope} from './firefly-history-reader';
 import type {ReadonlyHistoryScope} from './history-contracts';
-import {createHistoryIndexBuilder} from './history-index-builder';
+import {createHistoryIndexBuilder} from './history-index-builder.test-support';
 const roots:string[]=[];
 afterEach(()=>{for(const r of roots.splice(0))fs.rmSync(r,{recursive:true,force:true})});
 function fixture(){const root=fs.mkdtempSync(path.join(os.tmpdir(),'h-native-'));roots.push(root);return {root,scope:{root,actorKey:'actor-a',scopeKey:'scope-a',sessions:[{providerId:'synthetic',sessionId:'session-a'}]}}}
