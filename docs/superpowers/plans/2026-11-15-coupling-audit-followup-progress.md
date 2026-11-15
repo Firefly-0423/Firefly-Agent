@@ -17,6 +17,7 @@
 | R2.1 `history-index-builder.ts` | 生产的历史查询走 `history-repository.ts`，这个构建器只剩 `firefly-history-reader.test.ts` 在用，拿它检查读取结果进索引后，密钥、中断回复等查不到（9 处断言，有价值）。改名为 `history-index-builder.test-support.ts`，文件开头写明只供测试使用 | 读取测试通过 |
 | R2.2 两个扫描器 | `ipc-contract-scanner.ts`、`default-dialogs-scanner.ts` 改名为 `*.test-support.ts`，文件开头写明只供测试使用。分层检查原来会跳过对测试辅助文件的引用，生产代码引用了也不报；现在 `layering.test.ts` 和 `process-boundary.test.ts` 都把"生产代码引用测试文件"算作违例 | 反向验证：在主进程和渲染进程各临时加一条引用，两条检查都报出 `(引用测试文件)` |
 | R2.3 测试辅助文件不进安装包（计划外） | 核对时发现 `*.test-support.ts` 会被 `tsc -p tsconfig.main.json` 编进 `dist/main`，再随 `dist/**/*` 进安装包（`ipc-contract-scanner` 还引用开发依赖 `typescript`）。先在 `process-boundary.test.ts` 断言 `tsconfig.main.json` 排除 `src/**/*.test-support.ts`（失败），再加排除 | 重新 `npm run build:main` 后 `dist/main` 里没有测试辅助文件 |
+| R2.4 代码审查后修复（2026-11-15） | ① `knowledge/skills/testing/` 下两个夹具没有 `.test-support.ts` 后缀，仍会进安装包：改名。② R2.3 的检查只看 `exclude` 字符串：改为按 tsc 实际解析出的编译清单（`tsconfig.main.json`、`tsconfig.preload.json`）断言没有测试文件。③ 进程边界检查只看直接导入：改为从 renderer、preload 的生产文件出发沿相对导入一路追踪，经过 `src/shared` 也继续 | 反向验证：恢复旧夹具名、在 `src/shared` 里导入 `src/main`、在共享模块里引用测试辅助文件，都会失败；`npm run build:main` 后 `dist` 里没有 `testing/` 或测试辅助文件 |
 
 ## 3. 验证记录
 
