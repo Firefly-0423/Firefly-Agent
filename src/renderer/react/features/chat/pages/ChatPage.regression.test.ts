@@ -263,4 +263,28 @@ describe("ChatPage package B: recovery, takeover and the pending queue", () => {
     expect(runCalls.every(call => call.sessionId === "session-a")).toEqual(true);
   });
 
+  test.each([
+    ["a store refusal", "error"],
+    ["a transport error", new Error("ipc channel closed")],
+  ] as const)("B8: after %s the draft and attachment stay, nothing runs, and the retry keeps one stable entry", async (_label, failure) => {
+    sessions = { "session-a": session("session-a", "work"), "session-b": session("session-b", "work") };
+    await mount("work");
+    nextFiles.push(new File(["notes"], "brief.txt", { type: "text/plain" })); await click("#attach"); await flush();
+    await type("summarise the brief");
+    enqueueReplies = [failure];
+    await click("#send"); await flush();
+    expect(texts("#draft")).toEqual(["summarise the brief"]);
+    expect(texts("#attachments li")).toEqual(["brief.txt"]);
+    expect(runCalls).toEqual([]);
+    expect(queues["session-a"] ?? []).toEqual([]);
+    expect(sessions["session-a"].messages).toEqual([]);
+    await click("#send"); await flush();
+    const attempts = (page.chatStore!.pendingEnqueue as unknown as { mock: { calls: Array<[string, { id: string }]> } }).mock.calls;
+    expect(attempts.map(([sessionId, entry]) => [sessionId, entry.id])).toEqual([["session-a", attempts[0][1].id], ["session-a", attempts[0][1].id]]);
+    expect(runCalls.map(call => call.userTurnId)).toEqual([attempts[0][1].id]);
+    expect(sessions["session-a"].messages.filter(item => item.role === "user").map(item => item.id)).toEqual([attempts[0][1].id]);
+    expect(texts("#draft")).toEqual([""]);
+    expect(texts("#attachments li")).toEqual([]);
+  });
+
 });
