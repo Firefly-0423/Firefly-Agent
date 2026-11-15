@@ -133,7 +133,7 @@ export async function switchEmbeddingModel(modelKey: string): Promise<{ ok: bool
     // 已有向量维度与新模型不一致时需要清库重建
     let clearedEntries = 0;
     const existing = store
-      ? ((store as any).entries as Array<{ embedding: number[]; source: string }> | undefined)
+      ? rawEntries()
       : undefined;
     if (store && existing && existing.length > 0) {
       const oldDims = existing[0].embedding.length;

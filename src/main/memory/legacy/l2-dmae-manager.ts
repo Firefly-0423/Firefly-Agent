@@ -45,7 +45,8 @@ const toEngineState = (s: EngineState): EngineState => ({
   recentUserHits: s.recentUserHits,
 })
 
-function toDmaeEntry(l2: L2Memory, state: L2DmaeState): L2DmaeEntry {
+// 只读取 intrinsicValue；state 字段此处不用（deriveState 返回首字母大写的 DmaeState，与 L2DmaeState 的小写字面量不同）。
+function toDmaeEntry(l2: L2Memory, state: Pick<L2DmaeState, "intrinsicValue">): L2DmaeEntry {
   return {
     l2,
     enabled: l2.status !== "archived",
@@ -124,7 +125,7 @@ export class L2DmaeManager {
         ...current,
         l2Id: l2.id,
         intrinsicValue: this.intrinsicValues.get(l2.id) ?? 0,
-        state: deriveState(current.activation, threshold) as any,
+        state: deriveState(current.activation, threshold),
       }
       return toDmaeEntry(l2, merged)
     })
