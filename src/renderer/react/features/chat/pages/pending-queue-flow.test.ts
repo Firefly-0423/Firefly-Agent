@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
 import type { ChatMessage, ChatSession, PendingChatMessage } from "../../../../../shared/chat-types";
 import type { ComposerAttachment } from "../components/ChatComposer";
+import type { ChatMessageItem } from "../components/ChatMessageList";
 import type { PendingClaimResult, ChatStoreApi } from "./chat-page-bridge";
 import { createPendingQueueFlow, type PendingQueueFlowHost } from "./pending-queue-flow";
 
