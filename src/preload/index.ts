@@ -51,7 +51,7 @@ const fireflyApi = {
         };
         ipcRenderer.on(IPC.PET_ZOOM, forwardEvent);
         return () => {
-            return ipcRenderer.off(IPC.PET_ZOOM, forwardEvent);
+            return ipcRenderer.removeListener(IPC.PET_ZOOM, forwardEvent);
         };
     },
     onPetVisibilityChanged: (receive: (visible: boolean) => void) => {
@@ -60,7 +60,7 @@ const fireflyApi = {
         };
         ipcRenderer.on(IPC.PET_VISIBILITY_CHANGED, forwardEvent);
         return () => {
-            return ipcRenderer.off(IPC.PET_VISIBILITY_CHANGED, forwardEvent);
+            return ipcRenderer.removeListener(IPC.PET_VISIBILITY_CHANGED, forwardEvent);
         };
     },
 };
@@ -80,7 +80,7 @@ const appUpdateApi: AppUpdateApi = {
         };
         ipcRenderer.on(IPC.APP_UPDATE_STATE, forwardEvent);
         return () => {
-            return ipcRenderer.off(IPC.APP_UPDATE_STATE, forwardEvent);
+            return ipcRenderer.removeListener(IPC.APP_UPDATE_STATE, forwardEvent);
         };
     },
 };
@@ -221,7 +221,7 @@ const aguiApi = {
         };
         ipcRenderer.on(IPC.AGUI_EVENT, forwardEvent);
         return () => {
-            return ipcRenderer.off(IPC.AGUI_EVENT, forwardEvent);
+            return ipcRenderer.removeListener(IPC.AGUI_EVENT, forwardEvent);
         };
     },
     cancel: (runId?: string) => {
@@ -255,7 +255,7 @@ const schedulerEventsApi = {
         };
         ipcRenderer.on(IPC.SCHEDULER_EVENT, forwardEvent);
         return () => {
-            return ipcRenderer.off(IPC.SCHEDULER_EVENT, forwardEvent);
+            return ipcRenderer.removeListener(IPC.SCHEDULER_EVENT, forwardEvent);
         };
     },
 };
@@ -336,7 +336,7 @@ const fireflyThemeApi = {
         };
         ipcRenderer.on(IPC.UI_THEME_CHANGED, forwardEvent);
         return () => {
-            return ipcRenderer.off(IPC.UI_THEME_CHANGED, forwardEvent);
+            return ipcRenderer.removeListener(IPC.UI_THEME_CHANGED, forwardEvent);
         };
     },
 };
@@ -351,7 +351,7 @@ const fireflyFontApi = {
         };
         ipcRenderer.on(IPC.UI_FONT_CHANGED, forwardEvent);
         return () => {
-            return ipcRenderer.off(IPC.UI_FONT_CHANGED, forwardEvent);
+            return ipcRenderer.removeListener(IPC.UI_FONT_CHANGED, forwardEvent);
         };
     },
 };
@@ -366,7 +366,7 @@ const fireflyAppearanceApi = {
         };
         ipcRenderer.on(IPC.CHAT_TYPOGRAPHY_CHANGED, forwardEvent);
         return () => {
-            ipcRenderer.off(IPC.CHAT_TYPOGRAPHY_CHANGED, forwardEvent);
+            ipcRenderer.removeListener(IPC.CHAT_TYPOGRAPHY_CHANGED, forwardEvent);
         };
     },
 };
@@ -449,7 +449,7 @@ const settingsApi = {
         };
         ipcRenderer.on(IPC.SETTINGS_SWITCH_SECTION, forwardEvent);
         return () => {
-            return ipcRenderer.off(IPC.SETTINGS_SWITCH_SECTION, forwardEvent);
+            return ipcRenderer.removeListener(IPC.SETTINGS_SWITCH_SECTION, forwardEvent);
         };
     },
     getGeneral: () => {
@@ -630,7 +630,7 @@ const settingsApi = {
         };
         ipcRenderer.on(IPC.CHANNELS_INSTALL_PROGRESS, forwardEvent);
         return () => {
-            return ipcRenderer.off(IPC.CHANNELS_INSTALL_PROGRESS, forwardEvent);
+            return ipcRenderer.removeListener(IPC.CHANNELS_INSTALL_PROGRESS, forwardEvent);
         };
     },
     onChannelsStatusChanged: (receive: (status: unknown) => void) => {
@@ -639,7 +639,7 @@ const settingsApi = {
         };
         ipcRenderer.on(IPC.CHANNELS_STATUS_CHANGED, forwardEvent);
         return () => {
-            return ipcRenderer.off(IPC.CHANNELS_STATUS_CHANGED, forwardEvent);
+            return ipcRenderer.removeListener(IPC.CHANNELS_STATUS_CHANGED, forwardEvent);
         };
     },
     onChannelsWechatQrcode: (receive: (dataUrl: string) => void) => {
@@ -648,7 +648,7 @@ const settingsApi = {
         };
         ipcRenderer.on(IPC.CHANNELS_WECHAT_QRCODE, forwardEvent);
         return () => {
-            return ipcRenderer.off(IPC.CHANNELS_WECHAT_QRCODE, forwardEvent);
+            return ipcRenderer.removeListener(IPC.CHANNELS_WECHAT_QRCODE, forwardEvent);
         };
     },
     onChannelsWechatLoginDone: (receive: (message: WechatLoginResult) => void) => {
@@ -657,7 +657,7 @@ const settingsApi = {
         };
         ipcRenderer.on(IPC.CHANNELS_WECHAT_LOGIN_DONE, forwardEvent);
         return () => {
-            return ipcRenderer.off(IPC.CHANNELS_WECHAT_LOGIN_DONE, forwardEvent);
+            return ipcRenderer.removeListener(IPC.CHANNELS_WECHAT_LOGIN_DONE, forwardEvent);
         };
     },
     getPermissionLevel: () => {
@@ -763,7 +763,7 @@ const pluginsApi = {
         };
         ipcRenderer.on(IPC.PLUGINS_CHANGED, forwardEvent);
         return () => {
-            return ipcRenderer.off(IPC.PLUGINS_CHANGED, forwardEvent);
+            return ipcRenderer.removeListener(IPC.PLUGINS_CHANGED, forwardEvent);
         };
     },
     list: () => {
@@ -970,7 +970,7 @@ const userApi = {
         };
         ipcRenderer.on(IPC.USER_PROFILE_CHANGED, forwardEvent);
         return () => {
-            return ipcRenderer.off(IPC.USER_PROFILE_CHANGED, forwardEvent);
+            return ipcRenderer.removeListener(IPC.USER_PROFILE_CHANGED, forwardEvent);
         };
     },
     uploadAvatar: () => {
@@ -985,7 +985,7 @@ const userApi = {
         };
         ipcRenderer.on(IPC.USER_AVATAR_CHANGED, forwardEvent);
         return () => {
-            return ipcRenderer.off(IPC.USER_AVATAR_CHANGED, forwardEvent);
+            return ipcRenderer.removeListener(IPC.USER_AVATAR_CHANGED, forwardEvent);
         };
     },
 };
