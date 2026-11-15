@@ -7,6 +7,7 @@ import { createMemoryEntriesPanel } from "./entries-panel";
 import { createShadowPanel } from "./shadow-panel";
 import { createMemoryAutomationPanel } from "./automation-panel";
 import type { MemoryAutomationPanelApi } from "../../../shared/memory-automation-contracts";
+import { showConfirm } from "../shared/modal";
 
 let entries: ReturnType<typeof createMemoryEntriesPanel> | null = null;
 let entriesRoot: HTMLElement | null = null;
@@ -127,4 +128,31 @@ export async function loadMemoryPanel(): Promise<void> {
     automation = createMemoryAutomationPanel(consentRoot, (window as Window & { memoryAutomation?: MemoryAutomationPanelApi }).memoryAutomation);
   }
   await Promise.all([entries?.load(), loadImportedDocs(), shadow?.load(), automation?.load()]);
+}
+
+async function removeImportedDocument(event: Event): Promise<void> {
+  const origin = event.target as HTMLElement | null;
+  const trigger = origin?.closest<HTMLElement>(".memory-record__delete");
+  if (!trigger) return;
+  const importId = trigger.dataset.importId || "";
+  const fileName = trigger.dataset.fileName || t("settings.importDoc.unnamed");
+  const approved = await showConfirm({
+    title: t("settings.importDoc.deleteTitle"),
+    message: t("settings.importDoc.deleteMessage", { fileName }),
+    confirmText: t("settings.importDoc.deleteConfirm"),
+    cancelText: t("settings.modal.cancel"),
+    dangerous: true,
+  });
+  if (!approved) return;
+  try {
+    const response = await window.memoryPanel?.deleteImportedDoc(importId, fileName);
+    if (response?.ok) await loadMemoryPanel();
+  } catch (failure) {
+    console.error("[settings] delete imported doc failed", failure);
+  }
+}
+
+/** Binds delete delegation on the imported documents list. */
+export function initMemoryPanel(): void {
+  document.getElementById("memory-imported-list")?.addEventListener("click", event => void removeImportedDocument(event));
 }

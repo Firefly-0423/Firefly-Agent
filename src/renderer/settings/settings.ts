@@ -19,9 +19,6 @@ import { CUSTOM_ENDPOINT_PROVIDERS, getCustomEndpointMode, getCustomEndpointPres
 import { channelsState } from "./channels/state";
 import { mountPluginPanels } from "./plugin-panels";
 import { channelsWechatEnabledEl, channelsFeishuEnabledEl, channelsWechatStatusEl, channelsFeishuStatusEl, channelsRateUserEl, channelsRateChannelEl, channelsStickerEl, channelsMirrorEl, channelsToolSandboxOffEl, channelsToolSandboxAllEl, channelsFeishuAppIdEl, channelsFeishuAppSecretEl, channelsFeishuAppSecretRevealBtn, channelsFeishuSaveBtn, channelsWechatLoginBtn, channelsWechatRestartBtn, channelsWechatFeedbackEl, channelsFeishuFeedbackEl, channelsLogListEl, channelsLogRefreshBtn, channelsLogClearBtn } from "./channels/dom";
-import { memoryImportedList } from "./memory/dom";
-import { schedulerState } from "./scheduler/state";
-import { schedulerNewBtn, schedulerEmpty, schedulerList, schedulerEditor, schedulerEditorTitle, schedulerEditorClose, schedulerTitleInput, schedulerPromptInput, schedulerEnabledInput, schedulerKindInput, schedulerOnceRunAtInput, schedulerTimeOfDayInput, schedulerDayOfWeekInput, schedulerIntervalEveryInput, schedulerIntervalUnitInput, schedulerToolLimitInput, schedulerToolPicker, schedulerToolEmptyHint, schedulerSaveStatus, schedulerCancelBtn, schedulerSaveBtn } from "./scheduler/dom";
 import { modalState } from "./shared/modal-state";
 import { formatDateTime, escapeHtml } from "./shared/format";
 import { parsePositiveIntOrThrow, parseCommandLine } from "./shared/parse";
@@ -52,8 +49,9 @@ import { showConfirm, showHtmlModal, showInputModal } from "./shared/modal";
 import { setSaveStatus, setFireflySaveStatus, setPreferencesSaveStatus, setAppearanceSaveStatus, setRuntimeSaveStatus } from "./shared/save-status";
 import { renderEmptyState, renderInfoList } from "./shared/render";
 import { shallowEqual, safeGet } from "./shared/utils";
-import { loadMemoryPanel } from "./memory/panel";
-import { setSchedulerStatus, renderSchedulerTools, renderSchedulerList, openSchedulerEditor, closeSchedulerEditor, updateSchedulerConditionalFields, collectSchedule, collectAllowedToolIds, saveSchedulerTask, toggleSchedulerTask, fireSchedulerTask, deleteSchedulerTask, toggleSchedulerHistory } from "./scheduler/panel";
+import { initMemoryPanel, loadMemoryPanel } from "./memory/panel";
+import { initSchedulerPanel } from "./scheduler/panel";
+import { initMusicShortcut } from "./music/panel";
 import { loadChannelsPanel } from "./channels/panel";
 import { renderProactiveDeliveryAvailability } from "./channels/panel";
 import "./email/panel";
@@ -1135,15 +1133,9 @@ const sectionRouter = createSectionRouter();
   }
 }
 
-const schedulerClicks: [HTMLButtonElement | null, () => void][] = [
-  [schedulerNewBtn, () => void openSchedulerEditor()],
-  [schedulerEditorClose, closeSchedulerEditor],
-  [schedulerCancelBtn, closeSchedulerEditor],
-  [schedulerSaveBtn, () => void saveSchedulerTask()],
-];
-schedulerClicks.forEach(([button, act]) => button?.addEventListener("click", act));
-[schedulerKindInput, schedulerToolLimitInput].forEach(input => input?.addEventListener("change", updateSchedulerConditionalFields));
-updateSchedulerConditionalFields();
+initSchedulerPanel();
+initMemoryPanel();
+initMusicShortcut(() => sectionRouter.switchSection("music"));
 
 // 启动请求按原来的顺序发出，面板切换仍可独立刷新。
 void loadConfig();
@@ -1153,36 +1145,7 @@ void mountPluginPanels();
 window.settings?.onChannelsStatusChanged(status => renderProactiveDeliveryAvailability(status as Record<string, { phase?: string }>));
 void loadChannelsPanel();
 sectionRouter.openInitialSection();
-
-async function removeImportedDocument(event: Event): Promise<void> {
-  const origin = event.target as HTMLElement | null;
-  const trigger = origin?.closest<HTMLElement>(".memory-record__delete");
-  if (!trigger) return;
-  const importId = trigger.dataset.importId || "";
-  const fileName = trigger.dataset.fileName || t("settings.importDoc.unnamed");
-  const approved = await showConfirm({
-    title: t("settings.importDoc.deleteTitle"),
-    message: t("settings.importDoc.deleteMessage", { fileName }),
-    confirmText: t("settings.importDoc.deleteConfirm"),
-    cancelText: t("settings.modal.cancel"),
-    dangerous: true,
-  });
-  if (!approved) return;
-  try {
-    const response = await window.memoryPanel?.deleteImportedDoc(importId, fileName);
-    if (response?.ok) await loadMemoryPanel();
-  } catch (failure) {
-    console.error("[settings] delete imported doc failed", failure);
-  }
-}
-memoryImportedList?.addEventListener("click", event => void removeImportedDocument(event));
-
 void loadMemoryPanel();
-
-// ── 音乐工具路由 ──────────────────────────────────────────────
-document.getElementById("music-platform-qq")?.addEventListener("click", () => {
-  sectionRouter.switchSection("music");
-});
 
 // ── 厂商与 API 协议用下拉框选（DSH 的做法）；卡片留在页面里继续承担状态和监听，下拉框只是它们的前台。
 if (presetCards) attachCardSelect(presetCards, ".preset-card", {

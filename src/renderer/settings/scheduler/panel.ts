@@ -297,3 +297,16 @@ export async function toggleSchedulerHistory(taskId: string, card: Element): Pro
   }
   history.classList.remove("is-hidden");
 }
+
+/** Binds the static scheduler editor buttons and conditional field listeners. */
+export function initSchedulerPanel(): void {
+  const schedulerClicks: [HTMLButtonElement | null, () => void][] = [
+    [controls.schedulerNewBtn, () => void openSchedulerEditor()],
+    [controls.schedulerEditorClose, closeSchedulerEditor],
+    [controls.schedulerCancelBtn, closeSchedulerEditor],
+    [controls.schedulerSaveBtn, () => void saveSchedulerTask()],
+  ];
+  schedulerClicks.forEach(([button, act]) => button?.addEventListener("click", act));
+  [controls.schedulerKindInput, controls.schedulerToolLimitInput].forEach(input => input?.addEventListener("change", updateSchedulerConditionalFields));
+  updateSchedulerConditionalFields();
+}

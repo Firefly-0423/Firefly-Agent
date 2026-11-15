@@ -100,6 +100,7 @@ describe("Firefly character assets", () => {
       "src/renderer/settings/shared/preview-bridge.ts",
       "src/renderer/settings/shared/option-group.ts",
       "src/renderer/settings/shared/section-router.ts",
+      "src/renderer/settings/music/panel.ts",
       "src/renderer/toast/toast.ts",
     ];
     for (const file of activeFiles) {
