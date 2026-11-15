@@ -12,7 +12,9 @@ import { inspectPreparedProfiles } from "./preparation-diagnostics";
 import { createDiagnosticController } from "./diagnostic-controller";
 import { createMainProbeEntry } from "./main-entry";
 import { ADMISSION_ROOT } from "./runner";
-const BASE="E:\\Codex\\2026-10-01\\task\\firefly-memory-next-stage\\output\\memory-online-startup";
+const DEFAULT_BASE="E:\\Codex\\2026-10-01\\task\\firefly-memory-next-stage\\output\\memory-online-startup";
+/** 诊断输出只能写在这个根目录下。验证脚本用 FIREFLY_MEMORY_ONLINE_DIAGNOSTIC_BASE 指向自己的输出目录；没设置时用原来的目录。 */
+const diagnosticBase=():string=>process.env.FIREFLY_MEMORY_ONLINE_DIAGNOSTIC_BASE||DEFAULT_BASE;
 export async function startDiagnosticMain():Promise<void> {
  let tray:Tray|undefined,controller:ReturnType<typeof createDiagnosticController>|undefined;
  let root:string|undefined,lastState:Record<string,unknown>={},duplicates=0,menuReady=false;
@@ -25,9 +27,9 @@ export async function startDiagnosticMain():Promise<void> {
  try {
   const productionAppData=getFireflyApplicationDataPath(app);
   const source=resolveRuntimeProfile({argv:["--firefly-profile=production"],env:{},isPackaged:app.isPackaged,productionAppData});
-  const requested=process.env.FIREFLY_MEMORY_ONLINE_DIAGNOSTIC_ROOT??path.join(BASE,"live-runtime");
-  const base=canonicalPath(BASE),resolved=canonicalPath(requested);
-  if(!path.isAbsolute(requested)||!within(base,resolved)||resolved===base)throw new Error("DIAGNOSTIC_ROOT_REFUSED");
+  const requested=process.env.FIREFLY_MEMORY_ONLINE_DIAGNOSTIC_ROOT??path.join(diagnosticBase(),"live-runtime");
+  const base=canonicalPath(diagnosticBase()),resolved=canonicalPath(requested);
+  if(!path.isAbsolute(diagnosticBase())||!path.isAbsolute(requested)||!within(base,resolved)||resolved===base)throw new Error("DIAGNOSTIC_ROOT_REFUSED");
   fs.mkdirSync(resolved,{recursive:true});root=resolved;
   const profile=resolveRuntimeProfile({argv:["--firefly-profile=smoke",`--firefly-isolation-root=${root}`],env:{},isPackaged:app.isPackaged,productionAppData});
   applyElectronPaths(app,profile);initializeStorageContext(profile);
@@ -50,5 +52,8 @@ export async function startDiagnosticMain():Promise<void> {
   controller.install();persist();
   const choice=await dialog.showMessageBox({type:"info",title:"记忆 H 受限测试入口",message:"测试版本已就绪",detail:"启动不读取现有配置、不发送请求。准备配置后，请从系统托盘手动选择一次性在线测试；总预算不超过 ¥5。",buttons:["准备现有配置（不发送）","关闭"],defaultId:1,cancelId:1,noLink:true});
   if(choice.response===0)await controller.prepare();
- } catch {fail();}
+ } catch(error) {
+  // 只输出错误码，不输出配置或路径；否则失败时进程什么都不留就退出。
+  console.error("[memory-online-once] startup refused:",error instanceof Error?error.message:String(error));fail();
+ }
 }

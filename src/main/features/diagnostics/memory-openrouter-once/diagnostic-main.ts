@@ -10,7 +10,9 @@ import { createController } from "./controller";
 import { createConfigurationWindow } from "./configuration-window";
 import { createProbeRunner,ADMISSION_ROOT } from "./runner";
 import type { SessionProfile } from "./session-profile";
-const BASE="E:/Codex/2026-10-01/task/firefly-memory-next-stage/output/openrouter-usd1";
+const DEFAULT_BASE="E:/Codex/2026-10-01/task/firefly-memory-next-stage/output/openrouter-usd1";
+/** 诊断输出只能写在这个根目录下。验证脚本用 FIREFLY_OPENROUTER_DIAGNOSTIC_BASE 指向自己的输出目录；没设置时用原来的目录。 */
+const diagnosticBase=():string=>process.env.FIREFLY_OPENROUTER_DIAGNOSTIC_BASE||DEFAULT_BASE;
 export async function startOpenRouterDiagnosticMain():Promise<void>{
  let tray:Tray|undefined,controller:ReturnType<typeof createController>|undefined,root:string|undefined,lastState:Record<string,unknown>={},duplicates=0;
  let startupRunner:ReturnType<typeof createProbeRunner>|undefined,resolveSelectedProfile:((id:string)=>SessionProfile|undefined)|undefined;
@@ -20,8 +22,8 @@ export async function startOpenRouterDiagnosticMain():Promise<void>{
  process.stdout.on("error",()=>{});process.stderr.on("error",()=>{});process.once("uncaughtException",fail);process.once("unhandledRejection",fail);
  try{
   const productionAppData=getFireflyApplicationDataPath(app);
-  const requested=process.env.FIREFLY_OPENROUTER_DIAGNOSTIC_ROOT??path.join(BASE,"live-runtime");const base=canonicalPath(BASE),resolved=canonicalPath(requested);
-  if(!path.isAbsolute(requested)||!within(base,resolved)||resolved===base)throw new Error("DIAGNOSTIC_ROOT_REFUSED");fs.mkdirSync(resolved,{recursive:true});root=resolved;
+  const requested=process.env.FIREFLY_OPENROUTER_DIAGNOSTIC_ROOT??path.join(diagnosticBase(),"live-runtime");const base=canonicalPath(diagnosticBase()),resolved=canonicalPath(requested);
+  if(!path.isAbsolute(diagnosticBase())||!path.isAbsolute(requested)||!within(base,resolved)||resolved===base)throw new Error("DIAGNOSTIC_ROOT_REFUSED");fs.mkdirSync(resolved,{recursive:true});root=resolved;
   const profile=resolveRuntimeProfile({argv:["--firefly-profile=smoke",`--firefly-isolation-root=${root}`],env:{},isPackaged:app.isPackaged,productionAppData});applyElectronPaths(app,profile);initializeStorageContext(profile);
   if(!app.requestSingleInstanceLock()){fs.writeFileSync(path.join(root,`secondary-${process.pid}.json`),JSON.stringify({secondary:true,pid:process.pid}));app.exit(0);return;}
   // Bind one non-secret permission before displaying the form. The resolver stays empty until native confirmation.
@@ -33,5 +35,8 @@ export async function startOpenRouterDiagnosticMain():Promise<void>{
   await app.whenReady();tray=new Tray(loadTrayIcon());tray.setToolTip("OpenRouter H：USD 1 受限测试");const form=createConfigurationWindow();
   controller=createController({openForm:form.open,closeForm:form.close,createRunner:resolveProfile=>{resolveSelectedProfile=resolveProfile;return startupRunner!;},show:options=>dialog.showMessageBox(options),setMenu:items=>{if(tray&&!tray.isDestroyed())tray.setContextMenu(Menu.buildFromTemplate(items));},writeState:s=>{lastState=s;persist();},quit:()=>app.quit()});
   controller.install();controller.configure();
- }catch{fail();}
+ }catch(error){
+  // 只输出错误码，不输出配置或路径；否则失败时进程什么都不留就退出。
+  console.error("[memory-openrouter-once] startup refused:",error instanceof Error?error.message:String(error));fail();
+ }
 }
