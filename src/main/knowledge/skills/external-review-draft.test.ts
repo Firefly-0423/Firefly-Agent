@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { contentDigest, draftReview } from "../../../../scripts/security/external-skill-review-draft.mjs";
 import { digestExternalFiles, evaluateExternalSkill, isExternalSkillReview } from "./external-review";
 import { externalSkillId } from "./external-policy";
-import { createExternalFixture } from "./testing/external-fixtures";
+import { createExternalFixture } from "./testing/external-fixtures.test-support";
 
 const gitHash = bytes => createHash("sha1").update(`blob ${bytes.length}\0`).update(bytes).digest("hex");
 const root = "skills/synthetic-notes";

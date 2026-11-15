@@ -45,4 +45,24 @@ describe("persisted L2 activation state", () => {
         const disk = JSON.parse(readFileSync(join(profile.directory, "memory.json"), "utf8"));
         expect(disk.l2DmaeStates.map((s: { state: string }) => s.state)).toEqual(["active", "dormant", "archived", "active"]);
     });
+    it("keeps the store readable and writable when an activation entry is malformed", async () => {
+        const { createDefaultMemoryStore } = await import("./memory-store-defaults");
+        const stored = createDefaultMemoryStore();
+        const base = { activation: 0, intrinsicValue: 0, userSilence: 0, modelSilence: 0, recentUserHits: [] };
+        const memory = await (async () => { const { memoryStore } = await import("./memory-store"); return memoryStore.addL2Memory({ content: "清晨阅读", triggerText: "阅读", sourceConversationId: "s", isPinned: false }); })();
+        const saved = JSON.parse(readFileSync(join(profile.directory, "memory.json"), "utf8"));
+        stored.l2 = saved.l2;
+        stored.l2DmaeStates = [null, "stray", { ...base, l2Id: "odd-state", state: 7 }, { ...base, l2Id: "was-active", state: "Active" }] as never;
+        writeFileSync(join(profile.directory, "memory.json"), JSON.stringify(stored));
+        vi.resetModules();
+        const { memoryStore } = await import("./memory-store");
+        expect((await memoryStore.getAllL2()).map(m => m.id)).toEqual([memory.id]);
+        // 只改已知的三个旧状态名；其他条目原样保留，不丢数据，也不让整个文件读取失败。
+        expect(await memoryStore.getAllL2DmaeStates()).toEqual([null, "stray", { ...base, l2Id: "odd-state", state: 7 }, { ...base, l2Id: "was-active", state: "active" }]);
+        await memoryStore.appendReflectionLog({ type: "compression", summary: "写入检查", details: "" });
+        const disk = JSON.parse(readFileSync(join(profile.directory, "memory.json"), "utf8"));
+        expect(disk.l2.map((m: { id: string }) => m.id)).toEqual([memory.id]);
+        expect(disk.l2DmaeStates.at(-1)).toMatchObject({ l2Id: "was-active", state: "active" });
+        expect(disk.reflectionLogs.at(-1)).toMatchObject({ summary: "写入检查" });
+    });
 });
