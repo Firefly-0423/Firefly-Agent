@@ -357,7 +357,7 @@ it.each(['work','code'] as const)('admits a genuine %s adjustment with committed
 it.each(['false','throw'] as const)('retains the pending adjustment after history %s without rolling back its canonical user',async failure=>{
  const f=await fixture('work');await f.user('session-a','baseline question');f.memory.authorizeRun(f.event,'session-a');
  const a=await adjustment(f,{failure}),input={...f.input(),pollRunAdjustments:a.poller},run=await f.memory.openRun(input);await completeToolRound(f,run,input);
- await expect(a.poller()).rejects.toThrow();expect(a.queue).toHaveLength(1);
+ await expect(a.poller()).rejects.toMatchObject({ message: failure==='false'?'PENDING_ADJUST_COMMIT_FAILED:adjust-user:write-failed':'synthetic-adjust-write-failure' });expect(a.queue).toHaveLength(1);
  expect(f.sessions.get('session-a').messages.some((message:any)=>message.id==='adjust-user')).toBe(false);
  expect((await f.store.read('session-a')).entries.filter(entry=>entry.kind==='user'&&entry.turnId==='adjust-user')).toHaveLength(1);
  a.recover();await expect(a.poller()).resolves.toEqual([{id:'adjust-user',rawContent:'I prefer fish'}]);
@@ -684,7 +684,14 @@ it('authorized attachment edits issue a fresh revision grant while preserving th
 });
 it('the attachment bridge method returns undefined for an authenticated plain-text turn',async()=>{
  const f=await fixture();await f.user();f.memory.authorizeRun(f.event,'session-a');
- await expect(f.memory.prepareAttachmentGrant(f.event,'session-a',{userTurnId:'u1'})).resolves.toBeUndefined();
+ const commandsBefore=f.commands.length,reads=vi.spyOn(f.store,'read'),before=await f.store.read('session-a');
+ reads.mockClear();
+ try{
+  await expect(f.memory.prepareAttachmentGrant(f.event,'session-a',{userTurnId:'u1'})).resolves.toBeUndefined();
+  expect(f.commands.slice(commandsBefore)).toEqual([]);
+  expect(reads).not.toHaveBeenCalled();
+  expect(await f.store.read('session-a')).toEqual(before);
+ }finally{reads.mockRestore();}
 });
 
 it('owner shutdown retains attachment materialization until the actual operation settles',async()=>{
