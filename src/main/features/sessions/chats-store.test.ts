@@ -2,6 +2,7 @@ import fs from "fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ChatMessage } from "../../../shared/chat-types";
 const profile = vi.hoisted(() => ({ root: "" }));
 vi.mock("electron", () => ({ app: { getPath: () => profile.root }, shell: { openPath: vi.fn() } }));
 beforeEach(() => { vi.resetModules(); profile.root = fs.mkdtempSync(join(tmpdir(), "session-contract-")); });
@@ -10,6 +11,92 @@ const indexPath = () => join(profile.root, "firefly-chats", "index.json");
 function index(text: string) { fs.mkdirSync(join(profile.root, "firefly-chats", "sessions"), { recursive: true }); fs.writeFileSync(indexPath(), text); }
 const message = (id: string, content: string, role: "user" | "model" = "user") => ({ id, content, role, at: 17 });
 async function ready() { const store = await import("./chats-store"); store.initialize(); return store; }
+describe("terminal snapshots on disk (ChatPage A7/A10)", () => {
+    const controlId = "00000000-0000-4000-8000-000000000001";
+    const sessionId = "00000000-0000-4000-8000-000000000002";
+    const sessionsPath = () => join(profile.root, "firefly-chats", "sessions");
+    const sessionPath = (id: string) => join(sessionsPath(), `${id}.json`);
+    const controlMessage = message("control-message", "对照正文\n必须逐字节保留", "model");
+
+    beforeEach(async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-11-15T08:00:00.000Z"));
+        const actual = await vi.importActual<typeof import("crypto")>("crypto");
+        vi.doMock("crypto", () => ({
+            ...actual,
+            randomUUID: vi.fn().mockReturnValueOnce(controlId).mockReturnValueOnce(sessionId),
+        }));
+    });
+    afterEach(() => { vi.useRealTimers(); vi.doUnmock("crypto"); });
+
+    function snapshot(status: NonNullable<ChatMessage["runSnapshot"]>["status"],
+        content: string, terminalStatus?: NonNullable<ChatMessage["runSnapshot"]>["terminalStatus"]): ChatMessage {
+        return {
+            id: "assistant-message", role: "model", at: Date.now(), content,
+            reasoning: "先核对输入，再整理结果。\n保留推理文本。",
+            processMessages: [{ id: "process-message", content: "已读取输入", afterToolCount: 1, seq: 2 }],
+            toolExecutions: [{ id: "tool-execution", name: "read_file", argsText: '{"path":"input.txt"}',
+                status: "success", result: "输入内容", seq: 1 }],
+            runSnapshot: { runId: "run-snapshot", status, updatedAt: Date.now(),
+                ...(terminalStatus === undefined ? {} : { terminalStatus }) },
+        };
+    }
+
+    async function arrangeSessions() {
+        const store = await ready();
+        const control = store.createSession({ mode: "chat", initialMessages: [controlMessage] });
+        const controlBytes = fs.readFileSync(sessionPath(control.id), "utf8");
+        const session = store.createSession({ mode: "chat" });
+        expect([control.id, session.id]).toStrictEqual([controlId, sessionId]);
+        return { store, controlBytes };
+    }
+
+    function expectControlUnchanged(store: Awaited<ReturnType<typeof ready>>, controlBytes: string) {
+        expect(store.getSession(controlId)?.messages).toStrictEqual([controlMessage]);
+        expect(fs.readFileSync(sessionPath(controlId), "utf8")).toBe(controlBytes);
+        expect(fs.readdirSync(sessionsPath()).sort()).toStrictEqual([
+            `${controlId}.json`, `${sessionId}.json`,
+        ]);
+    }
+
+    it.each([
+        { terminalStatus: "success", content: "完整回答\n全部完成。" },
+        { terminalStatus: "cancelled", content: "取消前的部分输出……" },
+        { terminalStatus: "timeout", content: "超时前已保存的输出。" },
+        { terminalStatus: "runtime_error", content: "运行出错前的部分输出……" },
+    ] as const)("preserves the complete $terminalStatus message after saving and reloading without changing other sessions", async ({ terminalStatus, content }) => {
+        let { store, controlBytes } = await arrangeSessions();
+        store.upsertMessage(sessionId, snapshot("running", "尚未完成"));
+        const expected = snapshot("terminal", content, terminalStatus);
+        store.upsertMessage(sessionId, expected);
+
+        vi.resetModules();
+        store = await ready();
+
+        const messages = store.getSession(sessionId)?.messages;
+        expect(messages).toStrictEqual([expected]);
+        expect(messages?.[0].runSnapshot?.status).toBe("terminal");
+        expect(messages?.[0].runSnapshot?.terminalStatus).toBe(terminalStatus);
+        expectControlUnchanged(store, controlBytes);
+    });
+
+    it("preserves running and waiting_user checkpoints verbatim after reloading without changing other sessions", async () => {
+        let { store, controlBytes } = await arrangeSessions();
+        const expected: ChatMessage[] = [
+            snapshot("running", "运行中的部分输出"),
+            { ...snapshot("waiting_user", "等待用户确认"), id: "waiting-assistant-message",
+                runSnapshot: { runId: "waiting-run", status: "waiting_user", updatedAt: Date.now() } },
+        ];
+        for (const item of expected) store.upsertMessage(sessionId, item);
+
+        vi.resetModules();
+        store = await ready();
+
+        expect(store.getSession(sessionId)?.messages).toStrictEqual(expected);
+        expectControlUnchanged(store, controlBytes);
+    });
+});
+
 describe("session metadata and content", () => {
     it("does not repair invalid persisted modes or allow writes over unreadable history", async () => {
         const bytes = JSON.stringify([{ id: "retired-session", title: "Retired", createdAt: 5, updatedAt: 7, messageCount: 0, identityId: null, mode: "learn" }]);
