@@ -14,6 +14,7 @@ import type { MainMemoryRunLifecycle } from "./main-memory-runtime";
 import { createDefaultRunCapture } from "./default-run-capture";
 import {createMainAttachmentProjectionAuthority,prepareMainAttachmentProjection} from "../../memory/context/main-attachment-projection";
 import { bindRunAdjustmentPoller, createRunAdjustmentPoller } from "../runtime/pending-adjustment";
+import { exactly } from "../../../shared/testing/error-code.test-support";
 
 async function fixture(options: { attachmentBody?: string; facts?: boolean; userText?: string; historyTexts?: string[]; maxSTokens?: number; summary?: { protectedRecentTurns: number; leaseMs?: number }; beforeMutation?: NonNullable<Parameters<typeof import("./default-run-capture").createDefaultRunCapture>[0]>["beforeMutation"] } = {}) {
   const { createDefaultRunCapture } = await import("./default-run-capture");
@@ -85,15 +86,15 @@ it('persists the actual current user and guarded response origins for native his
 
 it("denies a canonical write before a successful model response", async () => {
   const f = await fixture();
-  await expect(f.sink.appendAssistant({ message: { role: "assistant", content: "unsent" } })).rejects.toThrow("MEMORY_CONTEXT_RESPONSE_UNSENT");
+  await expect(f.sink.appendAssistant({ message: { role: "assistant", content: "unsent" } })).rejects.toThrow(exactly("MEMORY_CONTEXT_RESPONSE_UNSENT"));
   expect((await f.store.read("session-a")).throughSeq).toBe(1);
 });
 
 it("rejects forged or mismatched sink bindings", async () => {
   const f = await fixture();
-  expect(() => f.capture.bindSink!({ ...f.original }, f.lifecycle)).toThrow("MEMORY_CONTEXT_STREAM_SINK_DENIED");
-  expect(() => f.capture.bindSink!(createTranscriptSink({ ...f.target, runId: "other-run" }), f.lifecycle)).toThrow("MEMORY_CONTEXT_STREAM_SINK_DENIED");
-  expect(() => f.capture.bindSink!(createTranscriptSink({ ...f.target, store: new ConversationTranscriptStore(path.join(f.root, "other")) }), f.lifecycle)).toThrow("MEMORY_CONTEXT_STREAM_SINK_DENIED");
+  expect(() => f.capture.bindSink!({ ...f.original }, f.lifecycle)).toThrow(exactly("MEMORY_CONTEXT_STREAM_SINK_DENIED"));
+  expect(() => f.capture.bindSink!(createTranscriptSink({ ...f.target, runId: "other-run" }), f.lifecycle)).toThrow(exactly("MEMORY_CONTEXT_STREAM_SINK_DENIED"));
+  expect(() => f.capture.bindSink!(createTranscriptSink({ ...f.target, store: new ConversationTranscriptStore(path.join(f.root, "other")) }), f.lifecycle)).toThrow(exactly("MEMORY_CONTEXT_STREAM_SINK_DENIED"));
 });
 
 it.each(["edit", "insert"])("rejects %s before response observers can reserve or write", async kind => {
@@ -102,7 +103,7 @@ it.each(["edit", "insert"])("rejects %s before response observers can reserve or
     ? { id: "edit", at: 1001, kind: "turn_rewind", turnId: "u1", revision: 2, payload: { anchorUserTurnId: "u1", disposition: "replace_user", reason: "edit", replacementUser: { text: "changed" } } }
     : { id: "u2", at: 1001, kind: "user", turnId: "u2", revision: 1, payload: { text: "new" } });
   const reserves = f.commands.filter((command: any) => command.kind === "transcriptReserveBatch").length;
-  await expect(f.sink.appendAssistant({ message: { role: "assistant", content: "stale" } })).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_STALE");
+  await expect(f.sink.appendAssistant({ message: { role: "assistant", content: "stale" } })).rejects.toThrow(exactly("MEMORY_CONTEXT_TRANSCRIPT_STALE"));
   expect(f.commands.filter((command: any) => command.kind === "transcriptReserveBatch")).toHaveLength(reserves);
   expect((await f.store.read("session-a")).entries.some(entry => entry.kind === "assistant")).toBe(false);
 });
@@ -112,15 +113,15 @@ it("preserves both validation and commit guards supplied by the caller", async (
   let checked = 0, committed = 0;
   await f.sink.appendAssistant({ message: { role: "assistant", content: "guarded" }, guard: { throughSeq: 1, validate: async () => { checked++; }, commit: write => { committed++; return write(); } } });
   expect(checked).toBe(1); expect(committed).toBe(1);
-  await expect(f.sink.appendAssistant({ message: { role: "assistant", content: "duplicate response" } })).rejects.toThrow("MEMORY_CONTEXT_RESPONSE_PROGRESS_DENIED");
+  await expect(f.sink.appendAssistant({ message: { role: "assistant", content: "duplicate response" } })).rejects.toThrow(exactly("MEMORY_CONTEXT_RESPONSE_PROGRESS_DENIED"));
 });
 
 it("allows deterministic cancellation closure but rejects late successful response writes", async () => {
   const f = await fixture(); await f.response();
   const assistantEntryId = await f.sink.appendAssistant({ message: { role: "assistant", content: "checking", toolCalls: [{ id: "t1", name: "lookup", arguments: "{}" }] } });
   f.controller.abort();
-  await expect(f.sink.appendToolResult({ assistantEntryId, message: { role: "tool", toolCallId: "t1", content: "late success" }, outcome: "success" })).rejects.toThrow("MEMORY_CONTEXT_CANCELLED");
-  await expect(f.sink.appendAssistant({ message: { role: "assistant", content: "late response" } })).rejects.toThrow("MEMORY_CONTEXT_CANCELLED");
+  await expect(f.sink.appendToolResult({ assistantEntryId, message: { role: "tool", toolCallId: "t1", content: "late success" }, outcome: "success" })).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED"));
+  await expect(f.sink.appendAssistant({ message: { role: "assistant", content: "late response" } })).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED"));
   await f.sink.closeInterruption({ reason: "user_cancel", runSession: { conversationId: "session-a", runId: "run-a", toolCalls: [{ toolCallId: "t1", toolName: "lookup", status: "started" }] } as any });
   await f.sink.checkpoint();
   const entries = (await f.store.read("session-a")).entries;
@@ -147,7 +148,7 @@ it("fans out the canonical mutation ticket before writing and rejects a failed n
     throw Error("MEMORY_HISTORY_NATIVE_INVALIDATION_FAILED");
   } });
   await f.response();
-  await expect(f.sink.appendAssistant({ message: { role: "assistant", content: "must not persist" }, roundId: "r1" })).rejects.toThrow("MEMORY_HISTORY_NATIVE_INVALIDATION_FAILED");
+  await expect(f.sink.appendAssistant({ message: { role: "assistant", content: "must not persist" }, roundId: "r1" })).rejects.toThrow(exactly("MEMORY_HISTORY_NATIVE_INVALIDATION_FAILED"));
   expect(observed).toEqual([{ kind: "append", entryId: "run-a:assistant:r1", ticket: expect.any(Object), throughSeq: 1 }]);
   expect((await f.store.read("session-a")).throughSeq).toBe(1);
 });
@@ -167,7 +168,7 @@ it.each([false, true])("accepts only other-session H partitions (include current
   const capture = createDefaultRunCapture({ ...f.captureOptions, history: { query: async () => [result.evidence] } });
   try {
     const operation = capture.capture(f.request, f.controller.signal);
-    if (includeCurrent) await expect(operation).rejects.toThrow("MEMORY_CONTEXT_HISTORY_CURRENT_SESSION_DENIED");
+    if (includeCurrent) await expect(operation).rejects.toThrow(exactly("MEMORY_CONTEXT_HISTORY_CURRENT_SESSION_DENIED"));
     else expect((await operation).historyTokens).toEqual([result.evidence]);
   } finally { await capture.close!(); }
 });
@@ -184,7 +185,7 @@ it("invalidates the synchronous capture fence before a mutation observer first a
   const mutation = f.store.append("session-a", { id: "early-edit", at: 2000, kind: "turn_rewind", turnId: "u1", revision: 2,
     payload: { anchorUserTurnId: "u1", disposition: "replace_user", reason: "edit", replacementUser: { text: "changed" } } });
   await arrived;
-  try { expect(() => sources.assertCurrent()).toThrow("MEMORY_CONTEXT_TRANSCRIPT_STALE"); }
+  try { expect(() => sources.assertCurrent()).toThrow(exactly("MEMORY_CONTEXT_TRANSCRIPT_STALE")); }
   finally { release(); await mutation; spy.mockRestore(); }
 });
 
@@ -215,7 +216,7 @@ it("rejects a poller adjustment while canonical tool results are pending", async
   const f = await fixture(), a = adjustment(f); await f.response();
   await f.sink.appendAssistant({ message: { role: "assistant", content: "checking", toolCalls: [{ id: "t1", name: "lookup", arguments: "{}" }] }, roundId: "r1" });
   try {
-    await expect(a.poller()).rejects.toThrow("MEMORY_CONTEXT_TOOL_PAIR_INVALID");
+    await expect(a.poller()).rejects.toThrow(exactly("MEMORY_CONTEXT_TOOL_PAIR_INVALID"));
     expect(a.queue).toHaveLength(1);
     expect((await f.store.read("session-a")).entries.filter(entry => entry.kind === "user")).toHaveLength(1);
   } finally { a.release(); }
@@ -287,7 +288,7 @@ it("invalidated summaries are discarded and never reused after suppression chang
 });
 it("summary configuration cannot include the active user turn or create an invalid lease",async()=>{
  const f=await fixture();await f.capture.close!();
- for(const summary of [{protectedRecentTurns:0},{protectedRecentTurns:1,leaseMs:0},{protectedRecentTurns:1.5}])expect(()=>createDefaultRunCapture({...f.captureOptions,summary})).toThrow("MEMORY_CONTEXT_INPUT_INVALID");
+ for(const summary of [{protectedRecentTurns:0},{protectedRecentTurns:1,leaseMs:0},{protectedRecentTurns:1.5}])expect(()=>createDefaultRunCapture({...f.captureOptions,summary})).toThrow(exactly("MEMORY_CONTEXT_INPUT_INVALID"));
 });
 
 it("optional summarization does not block a fresh allowed capture after older sources are suppressed",async()=>{
@@ -305,13 +306,13 @@ it("optional summarization does not block a fresh allowed capture after older so
 it.each(["MEMORY_ACTOR_DENIED","MEMORY_RUN_READ_DENIED","UNKNOWN_SUMMARY_FAILURE"])("does not downgrade %s to an optional summary miss",async code=>{
  const f=await fixture({historyTexts:["old discard ".repeat(500),"retained historical user"],maxSTokens:1500,summary:{protectedRecentTurns:1}}),command=f.transport.contextCommand;
  f.transport.contextCommand=async input=>{if(input.kind==="summaryLease")throw Error(code);return command(input)};
- await expect(f.response()).rejects.toThrow(code);
+ await expect(f.response()).rejects.toThrow(exactly(code));
  expect(f.commands.filter((c:any)=>c.kind==="snapshot"||c.kind==="claim"||c.kind==="summaryCommit")).toHaveLength(0);
 });
 it("cancellation during automatic summary counting still rejects the complete capture",async()=>{
  const f=await fixture({historyTexts:["old discard ".repeat(500),"retained historical user"],maxSTokens:1500,summary:{protectedRecentTurns:1}});
  f.setCountHook(async()=>{f.controller.abort()});
- await expect(f.response()).rejects.toThrow("MEMORY_CONTEXT_CANCELLED");
+ await expect(f.response()).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED"));
  expect(f.commands.filter((c:any)=>c.kind==="snapshot"||c.kind==="claim"||c.kind==="summaryCommit")).toHaveLength(0);
 });
 

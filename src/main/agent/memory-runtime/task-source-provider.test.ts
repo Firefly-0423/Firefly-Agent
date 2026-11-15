@@ -5,6 +5,7 @@ import { ConversationTranscriptStore } from "../../conversation/transcript/conve
 import { createMainUserFactCoordinator } from "../../memory/policy/main-user-fact-coordinator";
 import { requireMainSourceProvider } from "../../memory/core/main-source-provider";
 import { createTaskSourceProvider } from "./task-source-provider";
+import { exactly } from "../../../shared/testing/error-code.test-support";
 
 async function fixture(entry: "scheduler" | "child" | "proactive") {
   const f = await contextFixture(), store = new ConversationTranscriptStore(f.root), source = {};
@@ -24,17 +25,17 @@ it.each(["scheduler", "child", "proactive"] as const)("%s commits an explicit no
   expect(f.registry.resolveVerifiedSource(ref)).toMatchObject({ sourceTrust: entry === "child" ? "model" : "system", kind: entry === "child" ? "assistant" : "system" });
   expect((await f.store.read("task-session")).entries).toMatchObject([{ kind: "user", payload: { text: "I prefer PowerShell" } }]);
   const coordinator = createMainUserFactCoordinator({ actorAuthority: f.actorAuthority, registry: f.registry, policy: f.policy });
-  await expect(coordinator.onCommittedUserSource(f.actor, ref)).rejects.toThrow("MEMORY_USER_SOURCE_DENIED");
+  await expect(coordinator.onCommittedUserSource(f.actor, ref)).rejects.toThrow(exactly("MEMORY_USER_SOURCE_DENIED"));
   expect(await f.policy.recall(f.actor)).toEqual([]);
 });
 it("requires proof and exact text, pins scope, and never infers trust from historical wire role", async () => {
   const f = await fixture("scheduler");
-  expect(() => f.provider.attach({} as never, "scope-a")).toThrow("MEMORY_BACKGROUND_INGRESS_DENIED");
-  expect(() => f.provider.attach(f.ingress, "desktop-owner")).toThrow("MEMORY_TASK_SOURCE_DENIED");
-  await expect(f.provider.commitInstruction(f.ingress, { messageId: "instruction-1", instructionText: "changed", scopeKey: "scope-a" })).rejects.toThrow("MEMORY_TASK_SOURCE_DENIED");
+  expect(() => f.provider.attach({} as never, "scope-a")).toThrow(exactly("MEMORY_BACKGROUND_INGRESS_DENIED"));
+  expect(() => f.provider.attach(f.ingress, "desktop-owner")).toThrow(exactly("MEMORY_TASK_SOURCE_DENIED"));
+  await expect(f.provider.commitInstruction(f.ingress, { messageId: "instruction-1", instructionText: "changed", scopeKey: "scope-a" })).rejects.toThrow(exactly("MEMORY_TASK_SOURCE_DENIED"));
   await f.store.append("task-session", { id: "legacy", kind: "user", turnId: "instruction-1", revision: 1, payload: { text: "I prefer PowerShell" } });
-  await expect(f.registry.capture(f.access, f.provider.token, f.identity)).rejects.toThrow("MEMORY_TASK_SOURCE_DENIED");
-  await expect(f.commit()).rejects.toThrow("MEMORY_TASK_SOURCE_DENIED");
+  await expect(f.registry.capture(f.access, f.provider.token, f.identity)).rejects.toThrow(exactly("MEMORY_TASK_SOURCE_DENIED"));
+  await expect(f.commit()).rejects.toThrow(exactly("MEMORY_TASK_SOURCE_DENIED"));
 });
 it("restores only encrypted source heads and rejects reuse and revoked producers", async () => {
   const f = await fixture("child"); await f.commit();
@@ -43,9 +44,9 @@ it("restores only encrypted source heads and rejects reuse and revoked producers
   expect(await f.registry.readEvidence(f.access, restored.token, ref)).toBe("I prefer PowerShell");
   const before = await f.store.read("task-session");
   const commandsBefore = f.commands.length;
-  await expect(f.commit()).rejects.toThrow("MEMORY_TASK_SOURCE_DENIED");
+  await expect(f.commit()).rejects.toThrow(exactly("MEMORY_TASK_SOURCE_DENIED"));
   f.controller.abort();
-  await expect(f.registry.readEvidence(f.access, restored.token, ref)).rejects.toThrow("MEMORY_SOURCE_PROVIDER_DENIED");
+  await expect(f.registry.readEvidence(f.access, restored.token, ref)).rejects.toThrow(exactly("MEMORY_SOURCE_PROVIDER_DENIED"));
   expect(await f.store.read("task-session")).toEqual(before);
   expect(f.commands).toHaveLength(commandsBefore);
 });
@@ -70,7 +71,7 @@ it.each([
   const closing = stop === "close" ? f.provider.close().then(() => { drained = true; }) : undefined;
   await Promise.resolve(); expect(drained).toBe(false);
   release();
-  await expect(pending).rejects.toThrow("MEMORY_TASK_SOURCE_DENIED");
+  await expect(pending).rejects.toThrow(exactly("MEMORY_TASK_SOURCE_DENIED"));
   await closing;
   expect((await f.store.read("task-session")).entries).toEqual([]);
   expect(f.commands).toHaveLength(commandCount);
@@ -84,6 +85,6 @@ it("revokes an already-open source lease when the captured owner lifetime aborts
   const provider = requireMainSourceProvider(f.provider.token, "scope-a", f.identity);
   const pending = provider.withLease(f.identity, async read => { await read(); entered(); await held; return "must not escape"; });
   await ready; f.ownerController.abort(); release();
-  await expect(pending).rejects.toThrow("MEMORY_TASK_SOURCE_DENIED");
+  await expect(pending).rejects.toThrow(exactly("MEMORY_TASK_SOURCE_DENIED"));
   await f.provider.close();
 });

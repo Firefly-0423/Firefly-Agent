@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { PendingChatMessage, PendingChatAttachment } from "../../../shared/chat-types";
 vi.mock("electron", () => ({ app: { getPath: () => "" }, shell: { openPath: vi.fn() } }));
 import { createRunAdjustmentPoller, bindRunAdjustmentPoller, requireRunAdjustmentPermit, type PendingAdjustmentStore, type TranscriptUserWritePort } from "./pending-adjustment";
+import { exactly } from "../../../shared/testing/error-code.test-support";
 const item = (id: string, run = "current-run", attachments?: PendingChatAttachment[]): PendingChatMessage => ({ id, rawContent: `Instruction ${id}`, visibleContent: `Instruction ${id}`, enqueuedAt: 8, ...(run ? { adjustRunId: run } : {}), ...(attachments ? { attachments } : {}) });
 function environment(entries: PendingChatMessage[] = []) {
     let queue = entries;
@@ -83,8 +84,8 @@ describe("adjustment history and transcript commits", () => {
 });
 describe("Main-owned adjustment authority", () => {
     it("rejects forged producers and forged tickets", () => {
-        expect(() => bindRunAdjustmentPoller(() => undefined, binding, vi.fn())).toThrow("MEMORY_CONTEXT_ADJUSTMENT_DENIED");
-        expect(() => requireRunAdjustmentPermit({}, binding)).toThrow("MEMORY_CONTEXT_ADJUSTMENT_DENIED");
+        expect(() => bindRunAdjustmentPoller(() => undefined, binding, vi.fn())).toThrow(exactly("MEMORY_CONTEXT_ADJUSTMENT_DENIED"));
+        expect(() => requireRunAdjustmentPermit({}, binding)).toThrow(exactly("MEMORY_CONTEXT_ADJUSTMENT_DENIED"));
     });
     it("binds unchanged queue bytes to one session, run and single-use commit", async () => {
         const f = environment([item("admitted")]);
@@ -93,28 +94,28 @@ describe("Main-owned adjustment authority", () => {
             ticket = permit;
             expect(requireRunAdjustmentPermit(permit, binding)).toEqual({ turnId: "admitted", revision: 1, text: "Instruction admitted" });
             for (const changed of [{ ...binding, sessionId: "other-session" }, { ...binding, runId: "other-run" }])
-                expect(() => requireRunAdjustmentPermit(permit, changed)).toThrow("MEMORY_CONTEXT_ADJUSTMENT_DENIED");
+                expect(() => requireRunAdjustmentPermit(permit, changed)).toThrow(exactly("MEMORY_CONTEXT_ADJUSTMENT_DENIED"));
             expect(f.commitPendingAdjust).not.toHaveBeenCalled();
             const result = commit();
-            expect(() => commit()).toThrow("MEMORY_CONTEXT_ADJUSTMENT_DENIED");
+            expect(() => commit()).toThrow(exactly("MEMORY_CONTEXT_ADJUSTMENT_DENIED"));
             return result;
         });
         expect(await f.poll()).toEqual([{ id: "admitted", rawContent: "Instruction admitted" }]);
         expect(f.appendUser).not.toHaveBeenCalled();
         expect(f.queue()).toEqual([]);
-        expect(() => requireRunAdjustmentPermit(ticket, binding)).toThrow("MEMORY_CONTEXT_ADJUSTMENT_DENIED");
+        expect(() => requireRunAdjustmentPermit(ticket, binding)).toThrow(exactly("MEMORY_CONTEXT_ADJUSTMENT_DENIED"));
     });
     it("retains data on stale boundaries or failed commits and succeeds after retry", async () => {
         const f = environment([item("boundary-item")]);
         let stale = true;
         bindRunAdjustmentPoller(f.poll, binding, async (_permit, commit) => { if (stale)
             throw new Error("MEMORY_CONTEXT_TRANSCRIPT_STALE"); return commit(); });
-        await expect(f.poll()).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_STALE");
+        await expect(f.poll()).rejects.toThrow(exactly("MEMORY_CONTEXT_TRANSCRIPT_STALE"));
         expect(f.queue()).toHaveLength(1);
         expect(f.commitPendingAdjust).not.toHaveBeenCalled();
         stale = false;
         f.failCommit(true);
-        await expect(f.poll()).rejects.toThrow("PENDING_ADJUST_COMMIT_FAILED");
+        await expect(f.poll()).rejects.toThrow(/^PENDING_ADJUST_COMMIT_FAILED:/);
         expect(f.queue()).toHaveLength(1);
         f.failCommit(false);
         expect(await f.poll()).toHaveLength(1);
@@ -123,7 +124,7 @@ describe("Main-owned adjustment authority", () => {
     it("refuses content mutated after admission", async () => {
         const f = environment([item("mutating")]);
         bindRunAdjustmentPoller(f.poll, binding, async (_permit, commit) => { f.queue()[0].rawContent = "Modified after approval"; return commit(); });
-        await expect(f.poll()).rejects.toThrow("MEMORY_CONTEXT_ADJUSTMENT_STALE");
+        await expect(f.poll()).rejects.toThrow(exactly("MEMORY_CONTEXT_ADJUSTMENT_STALE"));
         expect(f.queue()).toHaveLength(1);
         expect(f.commitPendingAdjust).not.toHaveBeenCalled();
     });
@@ -143,10 +144,10 @@ describe("Main-owned adjustment authority", () => {
     it("never falls back to legacy commits after its Main binding is released", async () => {
         const f = environment([item("released")]);
         bindRunAdjustmentPoller(f.poll, binding, async (_permit, commit) => commit())();
-        await expect(f.poll()).rejects.toThrow("MEMORY_CONTEXT_ADJUSTMENT_DENIED");
+        await expect(f.poll()).rejects.toThrow(exactly("MEMORY_CONTEXT_ADJUSTMENT_DENIED"));
         expect(f.queue()).toHaveLength(1);
         expect(f.commitPendingAdjust).not.toHaveBeenCalled();
         expect(f.appendUser).not.toHaveBeenCalled();
-        expect(() => bindRunAdjustmentPoller(f.poll, binding, async (_permit, commit) => commit())).toThrow("MEMORY_CONTEXT_ADJUSTMENT_DENIED");
+        expect(() => bindRunAdjustmentPoller(f.poll, binding, async (_permit, commit) => commit())).toThrow(exactly("MEMORY_CONTEXT_ADJUSTMENT_DENIED"));
     });
 });

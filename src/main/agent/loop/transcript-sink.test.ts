@@ -21,6 +21,7 @@ import type { ToolCallOutcome } from "./types";
 import type { ChatMessage, ProviderCapability } from "../../model/providers/types";
 import { AnthropicAdapter } from "../../model/providers/anthropic-adapter";
 import { copyResponseJson } from "../../model/providers/response-request-snapshot";
+import { exactly } from "../../../shared/testing/error-code.test-support";
 
 const roots: string[] = [];
 
@@ -101,13 +102,13 @@ describe("S canonical append and durable settlement", () => {
   const binding = { runId: "s-run", assistantTurnId: "s-a", userTurnId: "s-u", userRevision: 1 };
   async function setup() { const store = makeStore(); await store.append("c1", { id: "s-user-entry", kind: "user", turnId: "s-u", revision: 1, at: 10, payload: { text: "synthetic user" } }); const sink = createTranscriptSink({ store, conversationId: "c1", runId: binding.runId, assistantTurnId: binding.assistantTurnId }) as any; expect(sink.appendSAssistant).toBeTypeOf("function"); expect(sink.settleSAssistant).toBeTypeOf("function"); return { store, sink }; }
   it("writes one marked reply and one exact success marker without changing original text or event identity", async () => { const { store, sink } = await setup(); const id = await sink.appendSAssistant({ message: { role: "assistant", content: "synthetic complete reply" }, binding }); const original = (await store.read("c1")).entries.at(-1)!; const settle = { binding: { ...binding, assistantEntryId: id }, result: "success", safeReason: "completed" }; await sink.settleSAssistant(settle); await sink.settleSAssistant(settle); const rows = (await store.read("c1")).entries; expect(rows.filter(e => e.kind === "assistant")).toEqual([original]); expect(original).toMatchObject({ runId: "s-run", turnId: "s-a", roundId: "s-response", sSettlement: { version: 1, userTurnId: "s-u", userRevision: 1 }, payload: { role: "assistant", content: "synthetic complete reply" } }); expect(rows.filter(e => e.kind === "assistant_settlement")).toHaveLength(1); expect(rows.at(-1)?.payload).toEqual(settle); });
-  it.each(["runId", "assistantTurnId", "userTurnId", "userRevision"])("rejects wrong %s before assistant write", async (key) => { const { store, sink } = await setup(), before = await store.read("c1"); await expect(sink.appendSAssistant({ message: { role: "assistant", content: "synthetic complete" }, binding: { ...binding, [key]: key === "userRevision" ? 2 : "other" } })).rejects.toThrow("TRANSCRIPT_S_BINDING_INVALID"); expect(await store.read("c1")).toEqual(before); });
+  it.each(["runId", "assistantTurnId", "userTurnId", "userRevision"])("rejects wrong %s before assistant write", async (key) => { const { store, sink } = await setup(), before = await store.read("c1"); await expect(sink.appendSAssistant({ message: { role: "assistant", content: "synthetic complete" }, binding: { ...binding, [key]: key === "userRevision" ? 2 : "other" } })).rejects.toThrow(exactly("TRANSCRIPT_S_BINDING_INVALID")); expect(await store.read("c1")).toEqual(before); });
   it("rejects tools or partial/empty messages without canonical append", async () => {
     const { store, sink } = await setup(), before = await store.read("c1"); for (const message of [{ role: "assistant", content: "" }, { role: "user", content: "fake" }, { role: "assistant", content: "tool", toolCalls: [{ id: "t", name: "noop", arguments: "{}" }] }])
-      await expect(sink.appendSAssistant({ message, binding })).rejects.toThrow("TRANSCRIPT_S_BINDING_INVALID"); expect(await store.read("c1")).toEqual(before);
+      await expect(sink.appendSAssistant({ message, binding })).rejects.toThrow(exactly("TRANSCRIPT_S_BINDING_INVALID")); expect(await store.read("c1")).toEqual(before);
   });
-  it("refuses a conflicting terminal result and preserves the successful marker", async () => { const { store, sink } = await setup(), id = await sink.appendSAssistant({ message: { role: "assistant", content: "complete" }, binding }); await sink.settleSAssistant({ binding: { ...binding, assistantEntryId: id }, result: "success", safeReason: "completed" }); await expect(sink.settleSAssistant({ binding: { ...binding, assistantEntryId: id }, result: "interrupted", safeReason: "user_cancel" })).rejects.toThrow("TRANSCRIPT_S_SETTLEMENT_CONFLICT"); expect((await store.read("c1")).entries.filter(e => e.kind === "assistant_settlement")).toHaveLength(1); });
-  it("cannot success-settle after external user append, but can preserve an interrupted original reply", async () => { const { store, sink } = await setup(), id = await sink.appendSAssistant({ message: { role: "assistant", content: "complete" }, binding }); await store.append("c1", { id: "other-u", kind: "user", turnId: "other-u", revision: 1, payload: { text: "later user" } }); await expect(sink.settleSAssistant({ binding: { ...binding, assistantEntryId: id }, result: "success", safeReason: "completed" })).rejects.toThrow("TRANSCRIPT_S_BINDING_INVALID"); await sink.settleSAssistant({ binding: { ...binding, assistantEntryId: id }, result: "interrupted", safeReason: "source_changed" }); expect((await store.read("c1")).entries.at(-1)).toMatchObject({ kind: "assistant_settlement", payload: { result: "interrupted" } }); });
+  it("refuses a conflicting terminal result and preserves the successful marker", async () => { const { store, sink } = await setup(), id = await sink.appendSAssistant({ message: { role: "assistant", content: "complete" }, binding }); await sink.settleSAssistant({ binding: { ...binding, assistantEntryId: id }, result: "success", safeReason: "completed" }); await expect(sink.settleSAssistant({ binding: { ...binding, assistantEntryId: id }, result: "interrupted", safeReason: "user_cancel" })).rejects.toThrow(exactly("TRANSCRIPT_S_SETTLEMENT_CONFLICT")); expect((await store.read("c1")).entries.filter(e => e.kind === "assistant_settlement")).toHaveLength(1); });
+  it("cannot success-settle after external user append, but can preserve an interrupted original reply", async () => { const { store, sink } = await setup(), id = await sink.appendSAssistant({ message: { role: "assistant", content: "complete" }, binding }); await store.append("c1", { id: "other-u", kind: "user", turnId: "other-u", revision: 1, payload: { text: "later user" } }); await expect(sink.settleSAssistant({ binding: { ...binding, assistantEntryId: id }, result: "success", safeReason: "completed" })).rejects.toThrow(exactly("TRANSCRIPT_S_BINDING_INVALID")); await sink.settleSAssistant({ binding: { ...binding, assistantEntryId: id }, result: "interrupted", safeReason: "source_changed" }); expect((await store.read("c1")).entries.at(-1)).toMatchObject({ kind: "assistant_settlement", payload: { result: "interrupted" } }); });
   it("snapshots caller binding and text before queued append can run", async () => { const { store, sink } = await setup(); let release!: () => void, entered!: () => void; const entry = new Promise<void>(r => entered = r), hold = new Promise<void>(r => release = r); const lease = store.withReadLease("c1", async () => { entered(); await hold; }); await entry; const b = { ...binding }, message = { role: "assistant", content: "original text" }; const pending = sink.appendSAssistant({ message, binding: b }); b.userTurnId = "mutated"; message.content = "mutated"; release(); await lease; const id = await pending; expect((await store.read("c1")).entries.find(e => e.id === id)).toMatchObject({ sSettlement: { userTurnId: "s-u" }, payload: { content: "original text" } }); });
   async function reply() {
     const { store, sink } = await setup();
@@ -135,7 +136,7 @@ describe("S canonical append and durable settlement", () => {
         await original(args[0], '{"seq":3,"id":"synthetic-broken"', "utf8");
       throw Error("synthetic_io_unknown");
     });
-    await expect(sink.settleSAssistant(settlement)).rejects.toThrow("TRANSCRIPT_S_SETTLEMENT_UNKNOWN");
+    await expect(sink.settleSAssistant(settlement)).rejects.toThrow(exactly("TRANSCRIPT_S_SETTLEMENT_UNKNOWN"));
     expect(append).toHaveBeenCalledTimes(1);
     const entries = (await store.read("c1")).entries;
     expect(classifySAssistantSettlement(entries, id)).toBe("pending");
@@ -150,7 +151,7 @@ describe("S canonical append and durable settlement", () => {
       throw Error("synthetic_ack_loss");
     });
     vi.spyOn(store, "confirmSAssistantSettlement").mockRejectedValueOnce(Error("synthetic_unreadable"));
-    await expect(sink.settleSAssistant(settlement)).rejects.toThrow("TRANSCRIPT_S_SETTLEMENT_UNKNOWN");
+    await expect(sink.settleSAssistant(settlement)).rejects.toThrow(exactly("TRANSCRIPT_S_SETTLEMENT_UNKNOWN"));
     expect(append).toHaveBeenCalledTimes(1);
   });
   it("does not recover a mismatched result from the same marker ID", async () => {
@@ -162,7 +163,7 @@ describe("S canonical append and durable settlement", () => {
       await original(args[0], JSON.stringify(forged) + "\n", "utf8");
       throw Error("synthetic_ack_loss");
     });
-    await expect(sink.settleSAssistant(settlement)).rejects.toThrow("TRANSCRIPT_S_SETTLEMENT_UNKNOWN");
+    await expect(sink.settleSAssistant(settlement)).rejects.toThrow(exactly("TRANSCRIPT_S_SETTLEMENT_UNKNOWN"));
     expect(classifySAssistantSettlement((await store.read("c1")).entries, id)).toBe("interrupted");
   });
   it("refuses invalidation failure before dispatch and does not wrap it as unknown", async () => {
@@ -253,7 +254,7 @@ describe("S canonical append and durable settlement", () => {
     const { store, sink } = await setup(), getter = vi.fn(() => binding.userTurnId);
     const supplied = { ...binding };
     Object.defineProperty(supplied, "userTurnId", { get: getter });
-    await expect(sink.appendSAssistant({ message: { role: "assistant", content: "complete" }, binding: supplied })).rejects.toThrow("TRANSCRIPT_S_BINDING_INVALID");
+    await expect(sink.appendSAssistant({ message: { role: "assistant", content: "complete" }, binding: supplied })).rejects.toThrow(exactly("TRANSCRIPT_S_BINDING_INVALID"));
     expect(getter).not.toHaveBeenCalled();
     expect((await store.read("c1")).entries).toHaveLength(1);
   });
@@ -279,7 +280,7 @@ describe("S canonical append and durable settlement", () => {
       const handle=await original(...args);
       vi.spyOn(handle,"sync").mockRejectedValue(Error("synthetic_sync_failure"));return handle;
     });
-    await expect(sink.settleSAssistant(settlement)).rejects.toThrow("TRANSCRIPT_S_SETTLEMENT_UNKNOWN");
+    await expect(sink.settleSAssistant(settlement)).rejects.toThrow(exactly("TRANSCRIPT_S_SETTLEMENT_UNKNOWN"));
     expect(append).not.toHaveBeenCalled();
   });
 });
@@ -314,15 +315,15 @@ describe("Main-owned TranscriptSink facade", () => {
   it("rejects tool-result stale throughSeq and preserves both call arguments and receipts", async () => {
     const { store, sink, result } = await fixture(), before = await store.read("c1");
     const validate = vi.fn(), commit = vi.fn();
-    await expect(sink.appendToolResult({ ...result, guard: { throughSeq: 0, validate, commit } })).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_STALE");
+    await expect(sink.appendToolResult({ ...result, guard: { throughSeq: 0, validate, commit } })).rejects.toThrow(exactly("MEMORY_CONTEXT_TRANSCRIPT_STALE"));
     expect(validate).not.toHaveBeenCalled(); expect(commit).not.toHaveBeenCalled(); expect(await store.read("c1")).toEqual(before);
   });
 
   it("rejects forged sinks without evaluating hooks or registering their identity", async () => {
     const { sink, store } = await fixture(), run = vi.fn();
     const forged = { ...sink };
-    expect(() => wrapTranscriptSink(forged, { run })).toThrow("MEMORY_CONTEXT_STREAM_SINK_DENIED");
-    expect(() => requireTranscriptSinkBinding(forged, target, store)).toThrow("MEMORY_CONTEXT_STREAM_SINK_DENIED");
+    expect(() => wrapTranscriptSink(forged, { run })).toThrow(exactly("MEMORY_CONTEXT_STREAM_SINK_DENIED"));
+    expect(() => requireTranscriptSinkBinding(forged, target, store)).toThrow(exactly("MEMORY_CONTEXT_STREAM_SINK_DENIED"));
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -331,9 +332,9 @@ describe("Main-owned TranscriptSink facade", () => {
     const facade = wrapTranscriptSink(wrapTranscriptSink(sink, {}), {});
     expect(Object.isFrozen(facade)).toBe(true);
     expect(() => requireTranscriptSinkBinding(facade, target, store)).not.toThrow();
-    expect(() => requireTranscriptSinkBinding(facade, { ...target, runId: "forged-run" }, store)).toThrow("MEMORY_CONTEXT_STREAM_SINK_DENIED");
-    expect(() => requireTranscriptSinkBinding(facade, target, makeStore())).toThrow("MEMORY_CONTEXT_STREAM_SINK_DENIED");
-    expect(() => wrapTranscriptSink({ ...facade }, {})).toThrow("MEMORY_CONTEXT_STREAM_SINK_DENIED");
+    expect(() => requireTranscriptSinkBinding(facade, { ...target, runId: "forged-run" }, store)).toThrow(exactly("MEMORY_CONTEXT_STREAM_SINK_DENIED"));
+    expect(() => requireTranscriptSinkBinding(facade, target, makeStore())).toThrow(exactly("MEMORY_CONTEXT_STREAM_SINK_DENIED"));
+    expect(() => wrapTranscriptSink({ ...facade }, {})).toThrow(exactly("MEMORY_CONTEXT_STREAM_SINK_DENIED"));
   });
 
   it("composes both guards inside the same real store ticket and tracks the real operation", async () => {
@@ -351,21 +352,21 @@ describe("Main-owned TranscriptSink facade", () => {
   it("rejects conflicting guard receipts rather than replacing the caller guard", async () => {
     const { sink, store, result } = await fixture(), before = await store.read("c1"), append = vi.spyOn(fs.promises, "appendFile");
     const facade = wrapTranscriptSink(sink, { guard: () => guard(2, [], "new") });
-    await expect(facade.appendToolResult({ ...result, guard: guard(1, [], "old") })).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_STALE");
+    await expect(facade.appendToolResult({ ...result, guard: guard(1, [], "old") })).rejects.toThrow(exactly("MEMORY_CONTEXT_TRANSCRIPT_STALE"));
     expect(append).not.toHaveBeenCalled(); expect(await store.read("c1")).toEqual(before);
   });
 
   it("cannot claim a successful wrapper operation without invoking the real sink", async () => {
     const { sink, store, result } = await fixture(), before = await store.read("c1");
     const facade = wrapTranscriptSink(sink, { run: async () => undefined as never });
-    await expect(facade.appendToolResult(result)).rejects.toThrow("MEMORY_CONTEXT_STREAM_SINK_OPERATION_DENIED");
+    await expect(facade.appendToolResult(result)).rejects.toThrow(exactly("MEMORY_CONTEXT_STREAM_SINK_OPERATION_DENIED"));
     expect(await store.read("c1")).toEqual(before);
   });
 
   it("preserves an explicit lifecycle rejection without invoking persistence", async () => {
     const { sink, store, result } = await fixture(), before = await store.read("c1");
     const facade = wrapTranscriptSink(sink, { run: async () => { throw Error("MEMORY_CONTEXT_RUN_CLOSED"); } });
-    await expect(facade.appendToolResult(result)).rejects.toThrow("MEMORY_CONTEXT_RUN_CLOSED");
+    await expect(facade.appendToolResult(result)).rejects.toThrow(exactly("MEMORY_CONTEXT_RUN_CLOSED"));
     expect(await store.read("c1")).toEqual(before);
   });
 
@@ -375,7 +376,7 @@ describe("Main-owned TranscriptSink facade", () => {
       if (method !== "closeInterruption" && method !== "checkpoint") throw Error("MEMORY_CONTEXT_CANCELLED");
       return operation();
     } });
-    await expect(facade.appendToolResult(result)).rejects.toThrow("MEMORY_CONTEXT_CANCELLED");
+    await expect(facade.appendToolResult(result)).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED"));
     await facade.closeInterruption({ reason: "user_cancel", runSession: makeRunSession([
       { toolCallId: "call-1", toolName: "lookup", sideEffect: "read_only", status: "started", updatedAt: 0 },
     ]) });
@@ -446,7 +447,7 @@ describe("TranscriptSink facade ownership edges", () => {
       const result = await operation(); await operation().catch(() => undefined); return result;
     } });
     const append = vi.spyOn(fs.promises, "appendFile");
-    await expect(facade.appendAssistant({ message: { role: "assistant", content: "once" } })).rejects.toThrow("MEMORY_CONTEXT_STREAM_SINK_OPERATION_DENIED");
+    await expect(facade.appendAssistant({ message: { role: "assistant", content: "once" } })).rejects.toThrow(exactly("MEMORY_CONTEXT_STREAM_SINK_OPERATION_DENIED"));
     expect(append).toHaveBeenCalledTimes(1); expect((await store.read("c1")).entries).toHaveLength(1);
   });
 
@@ -478,7 +479,7 @@ describe("TranscriptSink facade ownership edges", () => {
     const facade = wrapTranscriptSink(sink, { guard: () => ({ throughSeq: 0, validate: async () => {}, commit }) });
     await expect(facade.appendAssistant({ message: { role: "assistant", content: "forbidden fake success" }, guard: {
       throughSeq: 0, validate: async () => {}, commit: async () => ({ id: "fake" } as never),
-    } })).rejects.toThrow("MEMORY_CONTEXT_STREAM_SINK_OPERATION_DENIED");
+    } })).rejects.toThrow(exactly("MEMORY_CONTEXT_STREAM_SINK_OPERATION_DENIED"));
     expect(commit).not.toHaveBeenCalled(); expect((await store.read("c1")).entries).toHaveLength(0);
   });
 });
@@ -526,8 +527,8 @@ it("reads immutable identity only from a genuine sink and matching canonical sto
  const {readTranscriptSinkBinding}=await import("./transcript-sink"),store=makeStore();
  const sink=createTranscriptSink({store,conversationId:"session-a",runId:"run-a",assistantTurnId:"assistant-a"});
  const identity=readTranscriptSinkBinding(sink,store);expect(identity).toEqual({conversationId:"session-a",runId:"run-a",assistantTurnId:"assistant-a"});expect(Object.isFrozen(identity)).toBe(true);
- expect(()=>readTranscriptSinkBinding({...sink},store)).toThrow("MEMORY_CONTEXT_STREAM_SINK_DENIED");
- expect(()=>readTranscriptSinkBinding(sink,makeStore())).toThrow("MEMORY_CONTEXT_STREAM_SINK_DENIED");
+ expect(()=>readTranscriptSinkBinding({...sink},store)).toThrow(exactly("MEMORY_CONTEXT_STREAM_SINK_DENIED"));
+ expect(()=>readTranscriptSinkBinding(sink,makeStore())).toThrow(exactly("MEMORY_CONTEXT_STREAM_SINK_DENIED"));
 });
 
 it("closes canonical declared calls that crashed before planned persistence without inventing starts", async () => {
@@ -564,9 +565,9 @@ it("refuses missing or foreign run evidence and committed calls with missing can
   const store = makeStore(), sink = createTranscriptSink({ store, conversationId: "c1", runId: "run-1" });
   await sink.appendAssistant({ message: { role: "assistant", content: "", toolCalls: [{ id: "unresolved", name: "write_file", arguments: "{}" }] }, roundId: "round-1" });
   const before = await store.read("c1");
-  await expect(sink.closeInterruption({ reason: "user_cancel", runSession: null })).rejects.toThrow("TRANSCRIPT_RUN_EVIDENCE_MISSING");
-  await expect(sink.closeInterruption({ reason: "user_cancel", runSession: { ...makeRunSession([]), conversationId: "foreign" } })).rejects.toThrow("TRANSCRIPT_RUN_EVIDENCE_MISMATCH");
-  await expect(sink.closeInterruption({ reason: "user_cancel", runSession: makeRunSession([{ toolCallId: "unresolved", toolName: "write_file", sideEffect: "idempotent_mutation", status: "committed", updatedAt: 1 }]) })).rejects.toThrow("TRANSCRIPT_TOOL_RESULT_MISSING");
+  await expect(sink.closeInterruption({ reason: "user_cancel", runSession: null })).rejects.toThrow(exactly("TRANSCRIPT_RUN_EVIDENCE_MISSING"));
+  await expect(sink.closeInterruption({ reason: "user_cancel", runSession: { ...makeRunSession([]), conversationId: "foreign" } })).rejects.toThrow(exactly("TRANSCRIPT_RUN_EVIDENCE_MISMATCH"));
+  await expect(sink.closeInterruption({ reason: "user_cancel", runSession: makeRunSession([{ toolCallId: "unresolved", toolName: "write_file", sideEffect: "idempotent_mutation", status: "committed", updatedAt: 1 }]) })).rejects.toThrow(exactly("TRANSCRIPT_TOOL_RESULT_MISSING"));
   expect(await store.read("c1")).toEqual(before);
 });
 
@@ -586,7 +587,7 @@ it("refuses a mismatched existing interruption marker without overwriting it", a
   const store = makeStore(), sink = createTranscriptSink({ store, conversationId: "c1", runId: "run-1" });
   await store.append("c1", { id: "run-1:interruption:user_cancel", kind: "interruption", runId: "foreign-run", payload: { reason: "user_cancel" } });
   const before = await store.read("c1"), append = vi.spyOn(store, "append");
-  await expect(sink.closeInterruption({ reason: "user_cancel", runSession: makeRunSession([]), assertCurrent: () => undefined })).rejects.toThrow("TRANSCRIPT_IDEMPOTENCY_CONFLICT");
+  await expect(sink.closeInterruption({ reason: "user_cancel", runSession: makeRunSession([]), assertCurrent: () => undefined })).rejects.toThrow(exactly("TRANSCRIPT_IDEMPOTENCY_CONFLICT"));
   expect(await store.read("c1")).toEqual(before); expect(append).not.toHaveBeenCalled();
 });
 

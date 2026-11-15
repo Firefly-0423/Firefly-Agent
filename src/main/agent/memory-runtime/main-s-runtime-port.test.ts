@@ -6,6 +6,7 @@ import {createConversationTranscriptAdapter} from "./conversation-transcript-ada
 import {createMainResponsesBinding,createMainResponsesLimits,type ResponsesSdkClient} from "../../memory/context/main-responses-binding";
 import {setVendorRuntimeSettingsGetter} from "../../model/providers/runtime-settings";
 import type {ChatRequest} from "../../model/providers/types";
+import { exactly } from "../../../shared/testing/error-code.test-support";
 
 vi.mock("electron",()=>({app:{getPath:()=>{throw Error("PRODUCT_DATA_READ_FORBIDDEN")}}}));
 
@@ -53,7 +54,7 @@ it.each(["stream","raw-user","wrong-cap","accessor"])("refuses unsupported %s be
  const f=await fixture();if(kind==="stream")f.request.stream=true;if(kind==="raw-user")f.request.messages.push({role:"user",content:"untrusted"});if(kind==="wrong-cap")f.request.maxTokens=129;
  if(kind==="accessor")Object.defineProperty(f.request,"tools",{get:()=>{throw Error("GETTER_FORBIDDEN")},enumerable:true});
  const expectedCode=kind==="stream"?"MEMORY_CONTEXT_STREAM_UNSUPPORTED":kind==="raw-user"?"MEMORY_CONTEXT_ORDER_REQUIRED":"MEMORY_CONTEXT_COUNTER_UNSUPPORTED";
- await expect(f.port.run({request:f.request})).rejects.toThrow(expectedCode);expect(f.captures).toBe(0);expect(f.counts).toHaveLength(0);expect(f.sends).toHaveLength(0);
+ await expect(f.port.run({request:f.request})).rejects.toThrow(exactly(expectedCode));expect(f.captures).toBe(0);expect(f.counts).toHaveLength(0);expect(f.sends).toHaveLength(0);
 });
 it("detaches schema and system inputs before asynchronous source/count work",async()=>{
  const f=await fixture();f.setHook(async()=>{f.request.messages[0].content="mutated";f.request.tools![0].parameters={type:"string"};f.request.stream=true});
@@ -61,7 +62,7 @@ it("detaches schema and system inputs before asynchronous source/count work",asy
 });
 it.each(["before","count","claim"])("abort at %s never invokes sender",async phase=>{
  const f=await fixture(),abort=new AbortController();if(phase==="before")abort.abort();if(phase==="count")f.setHook(async()=>{abort.abort();throw Error("SDK_ABORT")});if(phase==="claim")f.onClaim(()=>abort.abort());
- await expect(f.port.run({request:f.request,signal:abort.signal})).rejects.toThrow("MEMORY_CONTEXT_CANCELLED");expect(f.sends).toHaveLength(0);
+ await expect(f.port.run({request:f.request,signal:abort.signal})).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED"));expect(f.sends).toHaveLength(0);
  if(phase==="before"){expect(f.captures).toBe(0);expect(f.counts).toHaveLength(0)}else expect(f.counts.every(c=>c.options.signal===abort.signal)).toBe(true);
 });
 it("passes cancellation through to the sole SDK send",async()=>{
@@ -70,7 +71,7 @@ it("passes cancellation through to the sole SDK send",async()=>{
 it.each(["append","configuration","count-error"])("%s during counting blocks sender without fallback",async kind=>{
  const f=await fixture();let changed=false;f.setHook(async()=>{if(changed)return;changed=true;if(kind==="append")await f.store.append("session-a",{id:"u2",at:1003,kind:"user",turnId:"u2",revision:1,payload:{text:"new synthetic"}});if(kind==="configuration")f.drift();if(kind==="count-error")throw Error("SYNTHETIC_COUNT_FAILURE")});
  const expectedCode=kind==="append"?"MEMORY_CONTEXT_TRANSCRIPT_PENDING":"MEMORY_CONTEXT_COUNT_FAILED";
- await expect(f.port.run({request:f.request})).rejects.toThrow(expectedCode);expect(f.sends).toHaveLength(0);
+ await expect(f.port.run({request:f.request})).rejects.toThrow(exactly(expectedCode));expect(f.sends).toHaveLength(0);
 });
 it("serializes concurrent runs so frozen configuration cannot bleed across counts",async()=>{
  const f=await fixture();await Promise.all([f.port.run({request:f.request}),f.port.run({request:{...f.request,messages:[{role:"system",content:"second fixed"}]}})]);
@@ -91,19 +92,19 @@ it("actual AgentRuntime reaches canonical Main counts/permit and direct SDK send
 });
 it.each([1,3,5])("append during complete request count phase %s cannot send a stale snapshot",async phase=>{
  const f=await fixture();let full=0;f.setHook(async()=>{if(f.counts.at(-1)!.body.instructions&&++full===phase)await f.store.append("session-a",{id:"u2",at:1003,kind:"user",turnId:"u2",revision:1,payload:{text:"new synthetic"}})});
- await expect(f.port.run({request:f.request})).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_PENDING");expect(full).toBeGreaterThanOrEqual(phase);if(phase===5)expect(f.commands.some((c:any)=>c.kind==="permit")).toBe(true);expect(f.sends).toHaveLength(0);
+ await expect(f.port.run({request:f.request})).rejects.toThrow(exactly("MEMORY_CONTEXT_TRANSCRIPT_PENDING"));expect(full).toBeGreaterThanOrEqual(phase);if(phase===5)expect(f.commands.some((c:any)=>c.kind==="permit")).toBe(true);expect(f.sends).toHaveLength(0);
 });
 it("forget during counting cannot revive old canonical derived content",async()=>{
  const f=await fixture(),fact=await f.active("I prefer bash");await f.store.append("session-a",{id:"a1",at:1001,kind:"assistant",payload:{role:"assistant",content:"old synthetic derivation"}});
  let changed=false;f.setHook(async()=>{if(changed)return;changed=true;await f.forget(fact.factId!)});
- await expect(f.port.run({request:f.request})).rejects.toThrow("MEMORY_CONTEXT_STALE");expect(f.sends).toHaveLength(0);
+ await expect(f.port.run({request:f.request})).rejects.toThrow(exactly("MEMORY_CONTEXT_STALE"));expect(f.sends).toHaveLength(0);
 });
 it("an aborted queued run does not capture or send and leaves the next run usable",async()=>{
  const f=await fixture(),abort=new AbortController();let release!:()=>void,started!:()=>void;
  const waiting=new Promise<void>(r=>{release=r}),start=new Promise<void>(r=>{started=r});let held=false;
  f.setHook(async()=>{if(held)return;held=true;started();await waiting});
  const first=f.port.run({request:f.request});await start;
- const queued=f.port.run({request:f.request,signal:abort.signal});const caught=expect(queued).rejects.toThrow("MEMORY_CONTEXT_CANCELLED");abort.abort();release();
+ const queued=f.port.run({request:f.request,signal:abort.signal});const caught=expect(queued).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED"));abort.abort();release();
  await first;await caught;expect(f.captures).toBe(1);expect(f.sends).toHaveLength(1);
  f.setHook(undefined);await f.port.run({request:f.request});expect(f.sends).toHaveLength(2);
 });
@@ -114,16 +115,16 @@ it.each(["edit","regenerate","delete"])("%s during counting invalidates the cano
  f.setHook(async()=>{if(changed)return;changed=true;if(kind==="delete")await f.store.deleteConversation("session-a");else await f.store.append("session-a",kind==="edit"
  ?{id:"rewind",at:1001,kind:"turn_rewind",turnId:"u1",revision:2,payload:{anchorUserTurnId:"u1",disposition:"replace_user",reason:"edit",replacementUser:{text:"edited"}}}
  :{id:"rewind",at:1001,kind:"turn_rewind",payload:{anchorUserTurnId:"u1",disposition:"keep_user",reason:"regenerate"}})});
- await expect(f.port.run({request:f.request})).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_PENDING");expect(f.sends).toHaveLength(0);
+ await expect(f.port.run({request:f.request})).rejects.toThrow(exactly("MEMORY_CONTEXT_TRANSCRIPT_PENDING"));expect(f.sends).toHaveLength(0);
 });
 it("rejects a temporary actor before provisioning any transcript port",async()=>{
  const f=await fixture(),{createMainSRuntimePort}=await import("./main-s-runtime-port");
  const actor=f.actorAuthority.bindActor(f.access,f.provider.adapter,f.identity,{sessionMode:"temporary"}),createTranscript=vi.fn();
- const before=f.writes;expect(()=>createMainSRuntimePort({enabled:true,actorAuthority:f.actorAuthority,actorToken:actor,createTranscript} as any)).toThrow("MEMORY_CONTEXT_TEMPORARY_UNSUPPORTED");
+ const before=f.writes;expect(()=>createMainSRuntimePort({enabled:true,actorAuthority:f.actorAuthority,actorToken:actor,createTranscript} as any)).toThrow(exactly("MEMORY_CONTEXT_TEMPORARY_UNSUPPORTED"));
  expect(createTranscript).not.toHaveBeenCalled();expect(f.writes).toBe(before);
 });
 
-it("refuses empty canonical captures before any model count or sender",async()=>{const f=await fixture();f.emptyCapture();await expect(f.port.run({request:f.request})).rejects.toThrow("MEMORY_CONTEXT_RECENT_INCOMPLETE");expect(f.counts).toHaveLength(0);expect(f.sends).toHaveLength(0)});
+it("refuses empty canonical captures before any model count or sender",async()=>{const f=await fixture();f.emptyCapture();await expect(f.port.run({request:f.request})).rejects.toThrow(exactly("MEMORY_CONTEXT_RECENT_INCOMPLETE"));expect(f.counts).toHaveLength(0);expect(f.sends).toHaveLength(0)});
 
 it("abort from the last configuration check cannot invoke SDK create",async()=>{const f=await fixture(),abort=new AbortController();f.onConfiguration(()=>{if(f.commands.some((c:any)=>c.kind==="claim"))abort.abort()});await expect(f.port.run({request:f.request,signal:abort.signal})).resolves.toMatchObject({status:"result-unknown"});expect(f.sends).toHaveLength(0)});
 
@@ -145,7 +146,7 @@ it("AgentRuntime fixes the original signal while a delayed factory is pending",a
  const pending=new Promise<typeof f.port>(resolve=>{release=resolve}),start=new Promise<void>(resolve=>{started=resolve});
  const original=new AbortController(),replacement=new AbortController(),createPort=vi.fn(()=>{started();return pending});
  const runtime=createAgentRuntime({sContext:{enabled:true,createPort}} as any);
- const input={request:f.request,signal:original.signal},run=runtime.runSContext(input);const rejected=expect(run).rejects.toThrow("MEMORY_CONTEXT_CANCELLED");await start;
+ const input={request:f.request,signal:original.signal},run=runtime.runSContext(input);const rejected=expect(run).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED"));await start;
  input.signal=replacement.signal;original.abort();release(f.port);await rejected;
  expect(f.captures).toBe(0);expect(f.counts).toHaveLength(0);expect(f.sends).toHaveLength(0);
 });
@@ -157,6 +158,6 @@ it.each(["request-getter","signal-getter","message-getter","schema-getter","sche
  if(kind==="schema-getter")Object.defineProperty(f.request.tools![0].parameters,"type",{enumerable:true,get:()=>{touched++;return "object"}});
  if(kind==="schema-toJSON")Object.defineProperty(f.request.tools![0].parameters,"toJSON",{value:()=>{touched++;return {type:"object"}}});
  const runtime=createAgentRuntime({sContext:{enabled:true,createPort}} as any);
- await expect(runtime.runSContext(input)).rejects.toThrow("MEMORY_CONTEXT_COUNTER_UNSUPPORTED");
+ await expect(runtime.runSContext(input)).rejects.toThrow(exactly("MEMORY_CONTEXT_COUNTER_UNSUPPORTED"));
  expect(touched).toBe(0);expect(createPort).not.toHaveBeenCalled();expect(f.captures).toBe(0);expect(f.counts).toHaveLength(0);expect(f.sends).toHaveLength(0);
 });
