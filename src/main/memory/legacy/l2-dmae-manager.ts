@@ -1,4 +1,4 @@
-import { DmaeEntry, DmaeManager, DmaeParams, DefaultRewardStrategy, deriveState, QuadraticResistanceDecay } from "../../knowledge/rag/worldbook"
+import { DmaeEntry, DmaeManager, DmaeParams, DefaultRewardStrategy, deriveState, QuadraticResistanceDecay, type DmaeState } from "../../knowledge/rag/worldbook"
 import { L2Memory, L2DmaeState } from "./memory-types"
 import { memoryStore } from "./memory-store"
 
@@ -37,6 +37,9 @@ type EngineState = {
   modelSilence: number
   recentUserHits: number[]
 }
+
+/** 引擎的状态名首字母大写，memory.json 里统一存小写。 */
+const STORED_DMAE_STATE: Record<DmaeState, L2DmaeState["state"]> = { Active: "active", Dormant: "dormant", Archived: "archived" }
 
 const toEngineState = (s: EngineState): EngineState => ({
   activation: s.activation,
@@ -174,7 +177,7 @@ export class L2DmaeManager {
         userSilence: live.userSilence,
         modelSilence: live.modelSilence,
         recentUserHits: live.recentUserHits,
-        state: deriveState(live.activation, threshold) as L2DmaeState["state"],
+        state: STORED_DMAE_STATE[deriveState(live.activation, threshold)],
       })
     }
   }
