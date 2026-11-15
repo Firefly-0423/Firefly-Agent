@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { extractPack, parseHeadRef, readPack, treeFromPack, treesOnlyFetchRequest, LS_REFS_REQUEST, type GitPackFailure } from "./external-git-pack";
-import { band, commitObject, delta, fetchResponse, gitId, gitRepository, lsRefsResponse, pack, treeObject } from "./testing/git-fixtures";
+import { band, commitObject, delta, fetchResponse, gitId, gitRepository, lsRefsResponse, pack, treeObject } from "./testing/git-fixtures.test-support";
 import { pktLine, PKT_FLUSH } from "./external-git-pack";
 
 const fail = (code: GitPackFailure): never => { throw Object.assign(new Error(code), { code }); };

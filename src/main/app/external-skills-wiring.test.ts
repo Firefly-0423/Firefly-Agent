@@ -117,7 +117,7 @@ vi.mock("../features/sessions/chats-store", () => ({ getSession: vi.fn(), getSes
 vi.mock("../tooling/registry/tool-registry", () => ({ toolRegistry: { getAll: () => [], register: vi.fn() } }));
 import { createDefaultApplicationDependencies } from "./default-dependencies";
 import { IPC } from "../../shared/ipc-channels";
-import { isolatedStorageContext, createExternalFixture, rawFile } from "../knowledge/skills/testing/external-fixtures";
+import { isolatedStorageContext, createExternalFixture, rawFile } from "../knowledge/skills/testing/external-fixtures.test-support";
 import { applyElectronPaths } from "../base/identity/runtime-profile";
 import * as skills from "../knowledge/skills";
 import * as install from "../knowledge/skills/external-install";

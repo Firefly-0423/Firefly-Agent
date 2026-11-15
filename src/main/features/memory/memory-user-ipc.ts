@@ -24,6 +24,7 @@ import { loadImportedDocumentPanelData, loadMemoryPanelData } from "../../memory
 import type { WindowManager } from "../../platform/windows/window-manager";
 import { stickerManagerWindow, settingsWindow, sidebarWindow, reactChatWindow } from "../../platform/windows/window-state";
 import type { EmbeddingIndexService } from "../../agent/services/embedding/embedding-index-service";
+import { logger, LogTag } from "../../base/logging/logger";
 
 export type MemoryUserToolIpcDependencies = {
   /** 传入共享 scope 以便退出时统一注销；缺省时使用独立 scope。 */
@@ -74,7 +75,7 @@ export function registerMemoryUserToolIpc(deps: MemoryUserToolIpcDependencies): 
   // ───── 处理函数（注册顺序见下方） ─────
 
   const openStickerManager = async () => {
-    console.log("[stickers] open sticker manager requested");
+    logger.info(LogTag.Firefly, "stickers: open sticker manager requested");
     return deps.windowManager?.createStickerManagerWindow();
   };
 
@@ -172,7 +173,7 @@ export function registerMemoryUserToolIpc(deps: MemoryUserToolIpcDependencies): 
     const mode = p.mode as ConversationMode;
     const enabled = p.enabled !== false;
     saveGeneralSettings({ toolModeOverrides: withModeOverride(loadGeneralSettings().toolModeOverrides, p.toolId, mode, enabled) });
-    console.log(`[Tool] override ${p.toolId}@${mode}=${enabled}`);
+    logger.info(LogTag.Firefly, `tool override ${p.toolId}@${mode}=${enabled}`);
     return { ok: true };
   };
 
@@ -242,7 +243,7 @@ export function registerMemoryUserToolIpc(deps: MemoryUserToolIpcDependencies): 
     const mode = p.mode as SkillMode;
     const enabled = p.enabled !== false;
     saveGeneralSettings({ skillModeOverrides: withModeOverride(loadGeneralSettings().skillModeOverrides, p.skillId, mode, enabled) });
-    console.log(`[Skill] override ${p.skillId}@${mode}=${enabled}`);
+    logger.info(LogTag.Firefly, `skill override ${p.skillId}@${mode}=${enabled}`);
     return { ok: true };
   };
 

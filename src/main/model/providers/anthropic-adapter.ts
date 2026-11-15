@@ -9,6 +9,7 @@ import { getTimeoutSettings } from "../../platform/settings/timeout-manager";
 import { resolveAutomaticToolChoicePolicy, resolveToolChoicePolicy } from "./tool-choice-policy";
 import { getVendorRuntimeSettings } from "./runtime-settings";
 import { resolveApiEndpoint } from "../../../shared/api-endpoint";
+import { logger, LogTag } from "../../base/logging/logger";
 
 type ContentBlock = { [key: string]: unknown; type: string };
 type TokenCounts = { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number };
@@ -54,8 +55,8 @@ function toAnthropicContent(content: ChatMessageContent): string | ContentBlock[
       converted.push({ type: "text", text: `[图片格式 ${parts[1]} 暂不支持直发，已跳过]` });
     }
   }
-  if (embedded + remote + skipped > 0) console.log(
-    `[image-send] anthropic wire: image 块 ${embedded} base64 / ${remote} url`
+  if (embedded + remote + skipped > 0) logger.info(LogTag.Runtime,
+    `image-send anthropic wire: image 块 ${embedded} base64 / ${remote} url`
     + (skipped > 0 ? ` / ${skipped} 个 MIME 不在白名单已降级文本` : ""));
   return converted.length > 0 ? converted : "";
 }

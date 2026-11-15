@@ -8,6 +8,20 @@ const isPlainObject = (v: unknown): v is Record<string, unknown> =>
 
 const allStrings = (values: unknown[]): boolean => values.every((v) => typeof v === "string")
 
+const CAPITALIZED_DMAE_STATE: Record<string, "active" | "dormant" | "archived"> = { Active: "active", Dormant: "dormant", Archived: "archived" }
+
+/**
+ * 早先写入的激活状态用的是引擎的首字母大写名（Active 等），读入时统一成小写；原地修改，下次保存即落盘。
+ * 只改对象条目里这三个已知旧名，其他条目原样保留：一条坏条目不能让整个记忆库读取失败。
+ */
+export function normalizeL2DmaeStateNames(store: MemoryStore): void {
+  for (const entry of store.l2DmaeStates ?? []) {
+    if (!isPlainObject(entry) || typeof entry.state !== "string") continue
+    const lower = Object.hasOwn(CAPITALIZED_DMAE_STATE, entry.state) ? CAPITALIZED_DMAE_STATE[entry.state] : undefined
+    if (lower) entry.state = lower
+  }
+}
+
 /** 判断读出的 JSON 是否为当前 schema 的记忆库（只做结构层面的检查） */
 export function isCurrentMemoryStore(value: unknown): value is MemoryStore {
   if (!isPlainObject(value)) return false

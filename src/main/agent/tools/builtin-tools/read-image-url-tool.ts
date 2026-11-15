@@ -1,6 +1,8 @@
 import type { ToolContext } from "../../../tooling/registry/tool-context";
 import type { ToolDefinition } from "../../../tooling/registry/tool-registry";
 import { TtlResultCache } from "./ttl-result-cache";
+import { logger, LogTag } from "../../../base/logging/logger";
+import { urlForLog } from "../../../base/logging/url-for-log";
 
 const CAPTION_CACHE_TTL_MS = 30 * 60_000;
 const captionCache = new TtlResultCache<string>(CAPTION_CACHE_TTL_MS);
@@ -27,7 +29,7 @@ async function executeReadImageUrl(input: Record<string, unknown>, context?: Too
   }
   const vision = await loadCaptionVisionConfigLazy();
   if (!vision.ok) return "[错误·配置] " + vision.error;
-  console.log(LOG_PREFIX, "read_image_url:", address);
+  logger.info(LogTag.BuiltinTools, "read_image_url:", urlForLog(address));
   const captioner = await import("../../../model/vision/vision-captioner");
   const description = await captioner.captionImage({ url: address }, question, vision.config);
   if (!description.startsWith("[错误")) captionCache.set(identity, description);

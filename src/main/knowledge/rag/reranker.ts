@@ -4,6 +4,7 @@ import {withLocalModelLoad} from "./embedding";
 import {createHash} from "node:crypto";
 import {createReadStream} from "node:fs";
 import { getProjectModelBaseDir } from "./model-status";
+import { logger, LogTag } from "../../base/logging/logger";
 
 // ── 类型 ──
 type RerankedDoc = { text: string; score: number };
@@ -72,7 +73,7 @@ export async function createStandardReranker(): Promise<RerankerProvider> {
       const ranked = documents.map((text, i): RerankedDoc => ({ text, score: scores[i] }));
       ranked.sort((a, b) => b.score - a.score);
 
-      console.log(`[Reranker] standard: ${documents.length} docs reranked in ${Date.now() - startedAt}ms`);
+      logger.info(LogTag.Reranker, `standard: ${documents.length} docs reranked in ${Date.now() - startedAt}ms`);
       return ranked;
     },
   };
@@ -95,7 +96,7 @@ export async function initReranker(mode: "standard" | "none"): Promise<void> {
 
   if (mode === "none") {
     rerankerState.provider = null;
-    console.log("[Reranker] disabled");
+    logger.info(LogTag.Reranker, "disabled");
     return;
   }
 
@@ -107,10 +108,10 @@ export async function initReranker(mode: "standard" | "none"): Promise<void> {
     return;
   }
 
-  console.log("[Reranker] initializing standard mode (bge-reranker-base)...");
+  logger.info(LogTag.Reranker, "initializing standard mode (bge-reranker-base)...");
   const provider = await createStandardReranker();
   rerankerState.provider = provider;
-  console.log(`[Reranker] standard mode ready: ${provider.name}`);
+  logger.info(LogTag.Reranker, `standard mode ready: ${provider.name}`);
 }
 
 export function getReranker(): RerankerProvider | null {

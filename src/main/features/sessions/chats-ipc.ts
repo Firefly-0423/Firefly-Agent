@@ -41,6 +41,7 @@ import { buildContextUsageSnapshot } from "../../agent/loop/context-usage";
 import type { LlmClient } from "../../agent/services/llm/llm-client";
 import { enqueueLLMTask } from "../../model/queue/llm-queue";
 import { createConversationTitleService, type ConversationTitleService } from "./conversation-title-service";
+import { logger, LogTag } from "../../base/logging/logger";
 
 function broadcastChanged(skip?: WebContents | null): void {
   BrowserWindow.getAllWindows().forEach((win) => {
@@ -617,7 +618,7 @@ export function registerChatsIpc(ipcOption?: IpcScope, options: ChatsIpcOptions 
       if (!chatsStore.setWorkspaceBinding(payload.sessionId, binding)) {
         return { ok: false, error: "session not found" };
       }
-      console.log("[Workspace] 绑定成功:", "sessionId=" + payload.sessionId.slice(0, 8) + "...", "workspaceRoot=" + resolved);
+      logger.info(LogTag.Firefly, "workspace 绑定成功:", "sessionId=" + payload.sessionId.slice(0, 8) + "...", "workspace=" + path.basename(resolved));
       return { ok: true, binding };
     } catch (err) {
       return { ok: false, error: errorText(err) };
