@@ -9,6 +9,7 @@ import * as runnerModule from "./natural-extraction-runner";
 import {projectKeyForWorkspaceRoot} from "./project-scope";
 import {createMainSourceProvider} from "../core/main-source-provider";
 import {canonicalJson} from "../core/repository-types";
+import { exactly } from "../../../shared/testing/error-code.test-support";
 
 const owned: ReturnType<typeof createSmhFixture>[] = [], profile = { id: "synthetic", revision: 1 }, text = "I always prefer English for our chats";
 afterEach(() => { for (const f of owned.splice(0)) { f.close(); fs.rmSync(f.root, { recursive: true, force: true }); } });
@@ -45,7 +46,7 @@ it.each(["enqueue", "dispatch", "save", "apply"] as const)("rechecks live projec
     vi.spyOn(f.transport, "policyCommand").mockImplementation(async command => { const value = await read(command); const c = command as any; if (c.kind === "naturalJob" && c.body.operation === "get") project = projectKeyForWorkspaceRoot("E:/synthetic-project"); return value; });
   }
   const body = operation === "enqueue" ? { sourceRef: source.ref, profile } : { jobId: job.id, profile, ...(operation === "dispatch" ? { token, limits: { requestBytes: 1000, outputTokens: 800 } } : operation === "save" ? { token, sourceText: text, result: { ok: true, text: raw, usage: { input: 50, output: 10 } } } : { sourceText: text }) };
-  await expect(f.policy.naturalCommand(actor, operation, body)).rejects.toThrow("MEMORY_POLICY_NATURAL_SCOPE_DENIED");
+  await expect(f.policy.naturalCommand(actor, operation, body)).rejects.toThrow(exactly("MEMORY_POLICY_NATURAL_SCOPE_DENIED"));
   expect(project).toBeDefined(); expect(f.repo.current("scope-a")).toEqual([]); expect(op(f, "state").budget.requests).toBe(before.budget.requests);
   if (job) expect(op(f, "get", { jobId: job.id }).phase).toBe(phase); else expect(op(f, "lookup", { sourceRef: source.ref })).toBeNull();
 });
@@ -96,7 +97,7 @@ it.each([
   ["profile", "MEMORY_RUN_PROFILE_CHANGED"],
 ])("denies %s before persistent queue/send", async (kind, expectedCode) => {
   const f = fixture(), s = await f.source(text), actor = kind === "temporary" ? f.actorAuthority.bindActor(f.access, f.adapter, f.identity, { sessionMode: "temporary" }) : kind === "project" ? f.actorAuthority.bindActor(f.access, f.adapter, f.identity, { project: () => projectKeyForWorkspaceRoot("E:/synthetic-project") }) : f.actor;
-  const m = model({ failed: kind === "profile" }), r = runner(f); await expect(r.run(actor, s.ref, m.value)).rejects.toThrow(expectedCode); expect(m.send).not.toHaveBeenCalled(); expect(f.repo.readRows("jobs", "scope-a")).toEqual([]); await r.close();
+  const m = model({ failed: kind === "profile" }), r = runner(f); await expect(r.run(actor, s.ref, m.value)).rejects.toThrow(exactly(expectedCode)); expect(m.send).not.toHaveBeenCalled(); expect(f.repo.readRows("jobs", "scope-a")).toEqual([]); await r.close();
 });
 
 it("source mutation during fake send blocks late output and close drains its real pending call", async () => {

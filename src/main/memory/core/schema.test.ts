@@ -8,6 +8,7 @@ import {ensureDatabaseAuth} from "./database-auth";
 import {openMemoryRepository} from "../database/repository";
 import {MEMORY_SCHEMA_VERSION} from "./schema";
 import {ENTITY_TABLES} from "./repository-types";
+import { exactly } from "../../../shared/testing/error-code.test-support";
 it("upgrades a schema-equivalent v6 fixture to the current schema",()=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),"memory-context-v6-")),databasePath=path.join(root,"memory.sqlite"),key=randomBytes(32);
  try{let repo=openMemoryRepository({databasePath,key});repo.writeBatch({commandId:"v6",scopeKey:"scope-a",records:[{table:"sources",id:"v6-source",revision:1,payload:{text:"V6_RECORD_CANARY"}}]});repo.close();let db=new DatabaseSync(databasePath);const payload=db.prepare("SELECT payload FROM sources WHERE id='v6-source'").get()?.payload;db.exec("DROP TABLE IF EXISTS history_origins; DROP TABLE IF EXISTS shadow_records; DROP TABLE IF EXISTS history_records; DROP TABLE IF EXISTS recall_records; DROP TABLE IF EXISTS context_records; PRAGMA user_version=6");db.close();repo=openMemoryRepository({databasePath,key});repo.close();db=new DatabaseSync(databasePath);try{expect(db.prepare("PRAGMA user_version").get()?.user_version).toBe(MEMORY_SCHEMA_VERSION);expect(db.prepare("SELECT name FROM sqlite_master WHERE name='context_records'").get()?.name).toBe("context_records");expect(db.prepare("SELECT payload FROM sources WHERE id='v6-source'").get()?.payload).toEqual(payload)}finally{db.close()}}
@@ -42,7 +43,7 @@ it("rejects mismatched v1 database identity before any schema migration or file 
   for(const table of ENTITY_TABLES)db.exec("CREATE TABLE "+table+" (id TEXT,scope_key TEXT,revision INTEGER,source_id TEXT,parent_id TEXT,state TEXT,payload BLOB)");
   db.exec("CREATE TABLE command_receipts(command_id TEXT,scope_key TEXT,request_digest BLOB,result BLOB); PRAGMA user_version=1");db.close();
   const snapshot=()=>fs.readdirSync(root).sort().map(name=>({name,bytes:fs.readFileSync(path.join(root,name)),mtime:fs.statSync(path.join(root,name)).mtimeMs}));
-  const before=snapshot();expect(()=>openMemoryRepository({databasePath,key})).toThrow("MEMORY_DATABASE_AUTH_MISMATCH");expect(snapshot()).toEqual(before);
+  const before=snapshot();expect(()=>openMemoryRepository({databasePath,key})).toThrow(exactly("MEMORY_DATABASE_AUTH_MISMATCH"));expect(snapshot()).toEqual(before);
   const check=new DatabaseSync(databasePath,{readOnly:true});
   try{expect(check.prepare("PRAGMA user_version").get()?.user_version).toBe(1);expect(check.prepare("SELECT name FROM pragma_table_info('current_facts') WHERE name='subject_index'").get()).toBeUndefined()}finally{check.close()}
  }finally{key.fill(0);fs.rmSync(root,{recursive:true,force:true})}
@@ -64,6 +65,6 @@ it.each(["mismatched-key-version","migrate-empty-v1","refuse-nonempty-facts"])("
   const snapshot=()=>fs.readdirSync(root).sort().map(name=>({name,bytes:fs.readFileSync(path.join(root,name)),mtime:fs.statSync(path.join(root,name)).mtimeMs}));
   const before=snapshot();
   if(kind==="migrate-empty-v1"){const repository=openMemoryRepository({databasePath,key});repository.close();const check=new DatabaseSync(databasePath,{readOnly:true});try{expect(check.prepare("PRAGMA user_version").get()?.user_version).toBe(MEMORY_SCHEMA_VERSION)}finally{check.close()}}
-  else{expect(()=>openMemoryRepository({databasePath,key})).toThrow(kind==="mismatched-key-version"?"MEMORY_DATABASE_AUTH_MISMATCH":"MEMORY_SCHEMA_UNSUPPORTED");expect(snapshot()).toEqual(before)}
+  else{expect(()=>openMemoryRepository({databasePath,key})).toThrow(exactly(kind==="mismatched-key-version"?"MEMORY_DATABASE_AUTH_MISMATCH":"MEMORY_SCHEMA_UNSUPPORTED"));expect(snapshot()).toEqual(before)}
  }finally{key.fill(0);fs.rmSync(root,{recursive:true,force:true})}
 });
