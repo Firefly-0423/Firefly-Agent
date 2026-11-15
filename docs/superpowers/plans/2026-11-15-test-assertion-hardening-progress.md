@@ -83,7 +83,7 @@ T2 反向验证方式：对每个断言用到的产品错误码（37 个 `MEMORY
 | T2：`tsc -p tsconfig.main.json --noEmit`（该配置排除 `*.test.ts`，不检查测试文件类型） | 通过 | 2026-11-15 |
 | T2：`git grep -n "toThrow()" -- src/main/memory/context` | 只剩 `source-secret-mask.test.ts` 的 8 处 `.not.toThrow()`，已记入排除表 | 2026-11-15 |
 | T3 范围：`npx vitest run src/main/memory`，设置了 `FIREFLY_TEST_BASH` 和 `FIREFLY_HISTORY_PRESENCE_TEST_HELPER` | 143 个文件：142 通过、1 跳过；2679 项：2674 通过、5 跳过（非 Windows 平台用例）；10 个提交逐个单独检出复核，结果相同 | 2026-11-14 |
-| T3：`npm run test:memory-history-zero-write`（需要 `FF_HISTORY_TEST_ROOT`、`FF_HISTORY_HELPER`、`FF_HISTORY_RELEASE_HELPER`） | 12 项：11 通过、1 失败（`whole valid capture/query`）；T2 基点上结果相同，不是本次引入 | 2026-11-14 |
+| T3：`npm run test:memory-history-zero-write`（需要 `FF_HISTORY_TEST_ROOT`、`FF_HISTORY_HELPER`、`FF_HISTORY_RELEASE_HELPER`） | 合入 dev 后 12 项全部通过（T2 基点上 `whole valid capture/query` 失败，见第 6 节） | 2026-11-14 |
 | T3：`git grep -n "toThrow()"` 8 个目标子目录 | 只剩排除表里的 `.not.toThrow()` 与 `storage-safety` 3 处 | 2026-11-14 |
 | T4 范围：`npx vitest run src/main/features/channels` | 54 个文件、429 项全部通过；5 个提交逐个单独检出复核，结果相同 | 2026-11-14 |
 | T4：`git grep -n "toThrow()" -- src/main/features/channels` | 0 处 | 2026-11-14 |
@@ -93,11 +93,13 @@ T2 反向验证方式：对每个断言用到的产品错误码（37 个 `MEMORY
 - T1.2 的 `write_file` 越界：审查报告建议断言 `permission_denied`，实际是相对路径先被路径形状检查拒绝（`E_PATH_NOT_ABSOLUTE`）。按产品的真实行为断言。
 - 有 5 条没做反向验证，原因已写在表里：错误来自测试替身、平台行为，或者需要大改实现才能改坏。
 - 工作区边界测试需要 Windows helper：本工作区复制了 `firefly-docs-eng` 构建的 `native/target/release/*.exe`，两边的 native 源码一致。
-- T2：`toThrow("码")` 是子串匹配，产品把码改成带后缀的更长字符串时断言仍会通过；这里沿用 T1 的写法，没有改成精确匹配。
+- T2：`toThrow("码")` 是子串匹配，产品把码改成带后缀的更长字符串时断言仍会通过。代码审查后（2026-11-15）负责人决定改成精确匹配：新增 `src/shared/testing/error-code.test-support.ts` 的 `exactly(code)`（返回 `^码$`），T2 的 200 处断言改用它，生命周期表原来只按 `MEMORY_CONTEXT_STREAM_` 前缀匹配，改为实际的 `MEMORY_CONTEXT_STREAM_INVALID`。反向验证：把 `main-responses-binding.ts` 的计数器码改成 `..._FALLBACK` 后 47 项失败，子串写法下 96 项全过。T3、T4 随后照此替换；T1 已合并，另行补。
+- T2：`denies()` 原来只比较 `id` 和 `payload`，改为两张表的完整行，按主键 `(id, scope_key)` 排序（代码审查发现）。反向验证：在前后快照之间改一条历史记录的 `partition_index`，21 项失败。
 - T2：计划要求 `response-history-union` 补“没有生成响应、没有写入”。这个 fixture 里响应校验是纯读取，没有“生成响应”的可观察接口，所以只补了“记录库逐字节不变”（`denies()`）。`f.writes` 计的是命令条数，包含只读命令，不能当写入信号。
 - T2：`canonical-summary` 里计划写的 `f.summaries()` 不存在，改为直接读 SQLite 的摘要记录数（`summaryCount()`）。
 - T2：没做反向验证的项：`phase3-review-regressions.test.ts:18` 的 4001 字符断言（要改产品的长度处理，没找到单一可改的点）；`summaryCount()` 与 `denies()` 的“不变”断言（需要让产品在拒绝路径写入，改动过大）；`SUMMARY_INJECTED_FAULT`、`TypeError` 两处（来自测试替身 / 引擎）。`summaryCount()` 用首个用例提交后数量为 1 做了对照，`denies()` 断言了拒绝前记录非空。
 - T2：`response-history-union` 里 `MEMORY_CONTEXT_RESPONSE_PROGRESS_DENIED` 在探测输出里被截断，已用测试通过确认完整码。
-- T3：`native-history-zero-write.acceptance.ts` 只能用 `npm run test:memory-history-zero-write` 单独跑，不在 CI 里。
-- T3：零写入验收里 `whole valid capture/query` 一条在 T2 基点上就失败，本次没有处理，单独记下待查。
+- T3：`native-history-zero-write.acceptance.ts` 用 `npm run test:memory-history-zero-write` 单独跑；`84d1d96` 起 CI 也会跑它。
+- T3 代码审查后（2026-11-15）：8 个目标子目录的 346 处断言改用 `exactly()`；legacy 记忆库读取失败的消息是"错误码 + 给用户看的提示"，这两处改为整条消息精确比较。测试替身、SQLite、errno 的消息没有稳定产品码，保持原样（已在第 4 节）。压缩器"候选不足"用例恢复 `getEntriesBySource` 未调用的断言（反向验证：在数量检查之前读向量库会失败）。
+- T3：零写入验收里 `whole valid capture/query` 一条在 T2 基点上失败：夹具直接写对话记录、没有登记用户来源，结果是 `coverage-insufficient`（`MEMORY_HISTORY_ORIGIN_UNPROVEN`）。dev 上的 `84d1d96` 已经按 `native-history-provider.test.ts` 的 `bindUsers()` 写法修好；T2 是在它之前分出来的，所以本分支合入 dev 后采用该修复，12 项全部通过。
 - T3：不带原生辅助程序时，`native-history-presence-process.test.ts` 的 5 项会失败；设置 `FIREFLY_HISTORY_PRESENCE_TEST_HELPER` 指向构建好的 `firefly-history-presence.exe` 后通过。这是环境要求，与本次改动无关。

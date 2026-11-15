@@ -2,9 +2,9 @@ name: Test
 
 on:
   push:
-    branches: [main, firefly-demo]
+    branches: [main, firefly-demo, "dev/**"]
   pull_request:
-    branches: [main, firefly-demo]
+    branches: [main, firefly-demo, "dev/**"]
 
 permissions:
   contents: read
@@ -72,6 +72,32 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked --manifest-path native/Cargo.toml --features workspace-handle --lib workspace_access -- --test-threads=1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Run Node script tests
+        shell: pwsh
+        run: |
+          $evidence = Join-Path $env:RUNNER_TEMP 'firefly-vitest-diagnostics'
+          New-Item -ItemType Directory -Force -Path $evidence | Out-Null
+          node --test "scripts/**/*.test.mjs" 2>&1 | Tee-Object -FilePath (Join-Path $evidence 'node-tests.log')
+          exit $LASTEXITCODE
+
+      # 独立验收同时需要 debug 取消屏障 helper 与 release 对照，缺前提时由测试明确失败。
+      - name: Run native memory history zero-write acceptance
+        shell: pwsh
+        run: |
+          cargo build --locked --manifest-path native/Cargo.toml --features history-read --bin firefly-history-read
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $root = Join-Path $env:RUNNER_TEMP 'firefly-history-zero-write'
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          $env:FF_HISTORY_TEST_ROOT = (Resolve-Path -LiteralPath $root).Path
+          $env:TEMP = $env:FF_HISTORY_TEST_ROOT
+          $env:TMP = $env:FF_HISTORY_TEST_ROOT
+          $env:FF_HISTORY_HELPER = (Resolve-Path -LiteralPath 'native/target/debug/firefly-history-read.exe').Path
+          $env:FF_HISTORY_RELEASE_HELPER = (Resolve-Path -LiteralPath 'native/target/release/firefly-history-read.exe').Path
+          $evidence = Join-Path $env:RUNNER_TEMP 'firefly-vitest-diagnostics'
+          New-Item -ItemType Directory -Force -Path $evidence | Out-Null
+          npm run test:memory-history-zero-write 2>&1 | Tee-Object -FilePath (Join-Path $evidence 'zero-write.log')
+          exit $LASTEXITCODE
 
       # 插件清单契约检查：源码类型与 manifest.schema.json 保持一致
       - name: Check plugin schema contract

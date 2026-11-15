@@ -1,4 +1,5 @@
 import {installCheckpoint} from "./checkpoint-hook";
+import {isProbeWorkspace} from "./probe-root";
 import fs from "node:fs";
 import path from "node:path";
 import {Worker} from "node:worker_threads";
@@ -7,8 +8,8 @@ import {resolveRuntimeProfile,applyElectronPaths,canonicalPath,within} from "../
 import {createStorageContext} from "../../../src/main/base/storage/storage-context";
 import {MemoryClient} from "../../../src/main/memory/core/worker-client";
 import {createWindowsKeyProtection} from "../../../src/main/memory/core/windows-dpapi";
-const cwd="E:\\Codex\\Firefly_Agent-skills-layout\\output\\task-b-memory-core";
-if(process.cwd()!==cwd)throw new Error("PROBE_CWD_INVALID");
+const cwd=process.cwd();
+if(!isProbeWorkspace(cwd))throw new Error("PROBE_CWD_INVALID");
 const argument=(name:string)=>process.argv.find(value=>value.startsWith(name+"="))?.slice(name.length+1);
 const root=argument("--probe-root"),mode=argument("--probe-mode")??"basic";
 if(!root||!within(path.join(cwd,"output","memory-core"),canonicalPath(root)))throw new Error("PROBE_ROOT_INVALID");

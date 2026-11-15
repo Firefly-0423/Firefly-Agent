@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {createHash} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import {spawn} from 'node:child_process';
 import {afterEach,afterAll,it,expect,vi} from 'vitest';
 import {recallFixture} from '../../../../scripts/verify/memory-recall/recall-fixture';
@@ -24,6 +24,8 @@ function sourceState(root:string):unknown[]{if(!fs.existsSync(root))return [];re
 it.each(['valid','missing-snapshot','missing-session','broken-tail','broken-snapshot','cancel','timeout','refused'])('whole %s capture/query makes zero source write attempts through actual readonly barrier',async kind=>{
  const f=recallFixture();fixtures.push(f);const store=new ConversationTranscriptStore(storage.dataRoot),sourceRoot=path.join(storage.dataRoot,'transcripts'),session=path.join(sourceRoot,'session-a');
  await store.append('session-a',{id:'u',kind:'user',turnId:'turn',revision:1,payload:{text:'harbor coffee'},at:1000});await store.checkpoint('session-a');
+ // 产品只采集来源已登记的用户消息（未登记会判 partial-source）；这里按真实流程登记，与 native-history-provider.test.ts 的 bindUsers 相同。
+ for(const entry of (await store.read('session-a')).entries){if(entry.kind!=='user')continue;const id={providerId:'synthetic',sessionId:'session-a',messageId:entry.turnId!};f.provider.write(id,{text:entry.payload.text,role:'user',trust:'direct-user-event',occurredAt:entry.at});const sourceRef=await f.registry.capture(f.access,f.provider.adapter,id);f.repo.contextCommand({kind:'historyUserOrigin',scopeKey:'scope-a',commandId:randomUUID(),body:{...f.owner,sourceRef,entry}})}
  if(kind==='missing-snapshot')fs.unlinkSync(path.join(session,'snapshot.json'));
  if(kind==='missing-session')fs.rmSync(session,{recursive:true});
  if(kind==='broken-tail')fs.appendFileSync(path.join(session,'transcript.jsonl'),'BROKEN');

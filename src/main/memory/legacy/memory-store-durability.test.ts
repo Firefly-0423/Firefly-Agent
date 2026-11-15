@@ -2,6 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDefaultMemoryStore } from "./memory-store-defaults";
+import { exactly } from "../../../shared/testing/error-code.test-support";
+
+/** 读取失败时的完整消息：错误码加给用户看的提示，整条精确比较。 */
+const READ_FAILED = "MEMORY_STORE_READ_FAILED: 记忆读取失败，原文件已保留";
 
 const electron = vi.hoisted(() => ({ root: "" }));
 const exporter = vi.hoisted(() => ({ notifyMemoryChanged: vi.fn() }));
@@ -65,7 +69,7 @@ describe("production PMRS persistence durability", () => {
         if ((failure === "primary-replace" && to === f.file) || (failure === "backup-replace" && to === `${f.file}.bak`)) throw diskError();
         rename(from, to);
       });
-      await expect(f.memoryStore.upsertL0Field("preferredName", "unsaved generation")).rejects.toThrow("ATOMIC_JSON_WRITE_FAILED");
+      await expect(f.memoryStore.upsertL0Field("preferredName", "unsaved generation")).rejects.toThrow(exactly("ATOMIC_JSON_WRITE_FAILED"));
       writeSpy.mockRestore(); renameSpy.mockRestore();
       expect(fs.readFileSync(f.file, "utf8")).toBe(f.currentBytes);
       const backup = failure === "primary-replace" ? f.currentBytes : f.previousBytes;
@@ -91,8 +95,8 @@ describe("production PMRS persistence durability", () => {
       await f.memoryStore.upsertL0Field("preferredName", "saved generation");
       fs.writeFileSync(f.file, damaged);
       const cold = await coldStore();
-      await expect(cold.load()).rejects.toThrow("MEMORY_STORE_READ_FAILED");
-      await expect(cold.save(f.current)).rejects.toThrow("MEMORY_STORE_READ_FAILED");
+      await expect(cold.load()).rejects.toMatchObject({ message: READ_FAILED });
+      await expect(cold.save(f.current)).rejects.toMatchObject({ message: READ_FAILED });
       expect(fs.readFileSync(f.file, "utf8")).toBe(damaged);
       expect(fs.readFileSync(`${f.file}.bak`, "utf8")).toBe(f.currentBytes);
       // Recovery is explicit, from the retained schema-2 bytes; no auto overwrite.
@@ -103,13 +107,13 @@ describe("production PMRS persistence durability", () => {
   it("refuses to overwrite source corruption introduced after the manager cached a valid store", async () => {
     const f = await fixture();
     fs.writeFileSync(f.file, "{externally damaged");
-    await expect(f.memoryStore.upsertL0Field("preferredName", "must not overwrite")).rejects.toThrow("ATOMIC_JSON_EXISTING_INVALID");
+    await expect(f.memoryStore.upsertL0Field("preferredName", "must not overwrite")).rejects.toThrow(exactly("ATOMIC_JSON_EXISTING_INVALID"));
     expect(fs.readFileSync(f.file, "utf8")).toBe("{externally damaged");
     expect(fs.readFileSync(`${f.file}.bak`, "utf8")).toBe(f.previousBytes);
   });
   it("does not write an invalid new store over a valid current generation", async () => {
     const f = await fixture();
-    await expect(f.memoryStore.save({ ...f.current, schemaVersion: 1 })).rejects.toThrow("ATOMIC_JSON_SHAPE_INVALID");
+    await expect(f.memoryStore.save({ ...f.current, schemaVersion: 1 })).rejects.toThrow(exactly("ATOMIC_JSON_SHAPE_INVALID"));
     expect(await (await coldStore()).load()).toEqual(f.current);
     expect(fs.readFileSync(`${f.file}.bak`, "utf8")).toBe(f.previousBytes);
   });

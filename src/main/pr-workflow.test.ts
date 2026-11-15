@@ -3,12 +3,17 @@ import fs from "node:fs";
 import { it as test } from "vitest";
 import YAML from "yaml";
 
-for (const [file, runner] of [["test.yml", "windows-latest"], ["plugin-sdk.yml", "ubuntu-latest"]]) {
-  // The repo keeps two long-lived branches: every PR lands on firefly-demo, which the owner then merges into main.
-  test(`${file} covers main and firefly-demo with the existing safe triggers and permissions`, () => {
+// The repo keeps two long-lived branches: every PR lands on firefly-demo, which the owner then merges into main.
+// Version integration branches (dev/firefly-1.2.0 and later) also run the full Test workflow on push and on PRs into them.
+const workflowBranches: Array<[string, string, string[]]> = [
+  ["test.yml", "windows-latest", ["main", "firefly-demo", "dev/**"]],
+  ["plugin-sdk.yml", "ubuntu-latest", ["main", "firefly-demo"]],
+];
+for (const [file, runner, branches] of workflowBranches) {
+  test(`${file} runs on ${branches.join(", ")} with the existing safe triggers and permissions`, () => {
     const workflow = YAML.parse(fs.readFileSync(`.github/workflows/${file}`, "utf8"));
-    assert.deepEqual(workflow.on.pull_request.branches, ["main", "firefly-demo"]);
-    assert.deepEqual(workflow.on.push.branches, ["main", "firefly-demo"]);
+    assert.deepEqual(workflow.on.pull_request.branches, branches);
+    assert.deepEqual(workflow.on.push.branches, branches);
     assert.deepEqual(Object.keys(workflow.on).sort(), ["pull_request", "push"]);
     assert.deepEqual(workflow.permissions, { contents: "read" });
     assert.equal(Object.values(workflow.jobs)[0]["runs-on"], runner);

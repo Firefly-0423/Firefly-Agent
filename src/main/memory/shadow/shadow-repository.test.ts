@@ -9,6 +9,7 @@ import {MEMORY_SCHEMA_VERSION} from '../core/schema';
 import {RecordCodec} from '../core/record-codec';
 import {shadowDay} from './shadow-repository';
 import {SHADOW_STORE_LIMITS} from './shadow-store-contracts';
+import { exactly } from "../../../shared/testing/error-code.test-support";
 
 const SCOPE='scope-a',ACTOR='actor-a',PROMPT='m-shadow-prompt-v1',CANARY='ShadowCanaryEditor';
 const roots:string[]=[],repositories:ReturnType<typeof openMemoryRepository>[]=[];
@@ -92,7 +93,7 @@ describe('shadow store',()=>{
 
  it('rejects a candidate whose evidence points at another message',()=>{
   const f=fixture(),ref=f.publish(),other=f.publish();f.enable();
-  expect(()=>extract(f,ref,[candidate(other)])).toThrow('MEMORY_SHADOW_SOURCE_MISMATCH');
+  expect(()=>extract(f,ref,[candidate(other)])).toThrow(exactly("MEMORY_SHADOW_SOURCE_MISMATCH"));
  });
 
  it('reserves each source revision and prompt version only once',()=>{
@@ -179,7 +180,7 @@ describe('shadow store',()=>{
 
  it('rejects a stale configure revision',()=>{
   const f=fixture();f.enable();
-  expect(()=>f.shadow('configure',{enabled:true,dailyCap:10,expectedRevision:0})).toThrow('MEMORY_REVISION_CONFLICT');
+  expect(()=>f.shadow('configure',{enabled:true,dailyCap:10,expectedRevision:0})).toThrow(exactly("MEMORY_REVISION_CONFLICT"));
  });
 
  it.each([
@@ -188,7 +189,7 @@ describe('shadow store',()=>{
   ['an unknown stop reason',{kind:'stop',body:{reason:'tired'}},'MEMORY_SHADOW_INPUT_INVALID'],
   ['an unknown command',{kind:'drop-table',body:{}},'MEMORY_SHADOW_INPUT_INVALID'],
  ])('rejects malformed input: %s',(_label,{kind,body},expectedCode)=>{
-  const f=fixture();expect(()=>f.shadow(kind,body)).toThrow(expectedCode);
+  const f=fixture();expect(()=>f.shadow(kind,body)).toThrow(exactly(expectedCode));
  });
 
  it('keeps actors apart',()=>{

@@ -1,5 +1,6 @@
 import fs from "node:fs";import os from "node:os";import path from "node:path";import {randomBytes} from "node:crypto";
 import {DatabaseSync} from "node:sqlite";import {it,expect,afterEach,beforeEach,vi} from "vitest";import {openMemoryRepository} from "../database/repository";
+import { exactly } from "../../../shared/testing/error-code.test-support";
 // Real SQLite / filesystem integration cases: the 5 s default is too tight on CI runners, so this file allows 30 s. Other files keep the default.
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 const roots:string[]=[],repos:ReturnType<typeof openMemoryRepository>[]=[];
@@ -25,12 +26,12 @@ it("round trips actual Chinese, English and mixed Unicode without replacement ch
 });
 it.each(["schema","key-version"])("rejects altered auth %s before touching live DB/WAL/SHM",kind=>{
  const f=fixture(),auth=f.databasePath+".auth",bytes=fs.readFileSync(auth);bytes.writeUInt32LE(99,kind==="schema"?4:8);fs.writeFileSync(auth,bytes);
- const before=snapshot(f.root);expect(()=>openMemoryRepository({databasePath:f.databasePath,key:f.key})).toThrow("MEMORY_SCHEMA_UNSUPPORTED");expect(snapshot(f.root)).toEqual(before);
+ const before=snapshot(f.root);expect(()=>openMemoryRepository({databasePath:f.databasePath,key:f.key})).toThrow(exactly("MEMORY_SCHEMA_UNSUPPORTED"));expect(snapshot(f.root)).toEqual(before);
 });
 it("rejects cross-record ciphertext substitution rather than returning the other plaintext",()=>{
  const f=fixture(),db=new DatabaseSync(f.databasePath);
  try{const payload=db.prepare("SELECT payload FROM sources WHERE id='source-a'").get()!.payload;db.prepare("UPDATE sources SET payload=? WHERE id='source-b'").run(payload)}finally{db.close()}
- expect(()=>f.repo.readRows("sources","scope-a")).toThrow("MEMORY_AUTH_FAILED");
+ expect(()=>f.repo.readRows("sources","scope-a")).toThrow(exactly("MEMORY_AUTH_FAILED"));
 });
 // Publication uses the production Windows-only directory rename contract.
 it.runIf(process.platform==="win32").each(["auth-write","auth-fsync","directory-publish"])("does not publish a partial backup after %s failure",async kind=>{
@@ -44,7 +45,7 @@ it.runIf(process.platform==="win32").each(["auth-write","auth-fsync","directory-
 });
 it("rejects a future schema with a live WAL while permitting only its SQLite read-mark",()=>{
  const f=fixture(),db=new DatabaseSync(f.databasePath);db.exec("PRAGMA user_version=99");db.close();
- const before=snapshot(f.root);expect(()=>openMemoryRepository({databasePath:f.databasePath,key:f.key})).toThrow("MEMORY_SCHEMA_UNSUPPORTED");expectReadMarkOnly(before,snapshot(f.root));
+ const before=snapshot(f.root);expect(()=>openMemoryRepository({databasePath:f.databasePath,key:f.key})).toThrow(exactly("MEMORY_SCHEMA_UNSUPPORTED"));expectReadMarkOnly(before,snapshot(f.root));
 });
 
 /** Windows SQLite wal-index read-mark[1], bytes 104..107; every other byte stays fixed.

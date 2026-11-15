@@ -1,6 +1,8 @@
 import { execFile } from "node:child_process";
+import type { QqMusicAction, QqMusicControlResult, QqMusicState } from "../../../shared/qqmusic-types";
 
-export type QqMusicAction = "play" | "pause" | "toggle" | "next" | "previous";
+export type { QqMusicAction, QqMusicControlResult, QqMusicState };
+
 type ScriptAction = "get-state" | "play" | "pause" | "toggle" | "next" | "prev";
 
 export interface QqMusicRawResult {
@@ -19,30 +21,6 @@ export interface QqMusicRawResult {
   canNext?: boolean;
   canPrev?: boolean;
   error?: string;
-}
-
-export interface QqMusicState {
-  available: boolean;
-  errorCode?: string;
-  title?: string;
-  artist?: string;
-  albumTitle?: string;
-  playbackStatus?: string;
-  position?: number;
-  duration?: number;
-  canPlay?: boolean;
-  canPause?: boolean;
-  canNext?: boolean;
-  canPrev?: boolean;
-}
-
-export interface QqMusicControlResult {
-  action: QqMusicAction;
-  target: "QQMusic";
-  commandSubmission: "accepted" | "rejected" | "not_submitted" | "unknown";
-  playerStateObservation: "changed" | "unchanged" | "failed" | "not_observed";
-  errorCode?: string;
-  observedState?: QqMusicState;
 }
 
 export type QqMusicExecutor = (action: ScriptAction, signal?: AbortSignal) => Promise<QqMusicRawResult>;

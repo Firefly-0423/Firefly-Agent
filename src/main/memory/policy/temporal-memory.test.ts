@@ -5,6 +5,7 @@ import {randomUUID} from "node:crypto";
 import {afterEach,expect,it} from "vitest";
 import {createSmhFixture} from "../context/smh-fixture.test-support";
 import type {ShadowModel} from "../shadow/shadow-model-call";
+import { exactly } from "../../../shared/testing/error-code.test-support";
 const now=Date.parse("2026-03-09T12:00:00Z"),owned:ReturnType<typeof createSmhFixture>[]=[];
 afterEach(()=>{for(const f of owned.splice(0)){f.close();fs.rmSync(f.root,{recursive:true,force:true})}});
 function fixture(){const f=createSmhFixture(fs.mkdtempSync(path.join(os.tmpdir(),"temporal-memory-")),{clock:()=>now,includeFactSupportMetadata:true});owned.push(f);return f}
@@ -28,7 +29,7 @@ it("serializes overlapping confirmations and prevents forgotten periods from ret
  const results=await Promise.allSettled([confirm(f,a),confirm(f,b)]);expect(results.filter(x=>x.status==="fulfilled")).toHaveLength(1);expect(results.filter(x=>x.status==="rejected")).toHaveLength(1);
  const fact=f.repo.current("scope-a")[0];
  await f.policy.act(f.actor,await f.policy.event(f.actor,{kind:"forget",nonce:randomUUID(),factId:fact.factId,revision:fact.revision}));
- expect(await f.policy.recall(f.actor)).toEqual([]);await expect(confirm(f,results[0].status==="fulfilled"?b:a)).rejects.toThrow('MEMORY_POLICY_SUPPRESSED');
+ expect(await f.policy.recall(f.actor)).toEqual([]);await expect(confirm(f,results[0].status==="fulfilled"?b:a)).rejects.toThrow(exactly("MEMORY_POLICY_SUPPRESSED"));
 });
 
 it('binds candidate time to confirmation and preserves it when revising the selected value',async()=>{
@@ -37,7 +38,7 @@ it('binds candidate time to confirmation and preserves it when revising the sele
  expect(pending).toMatchObject({time:{validFrom:Date.parse('2026-01-01Z'),validTo:Date.parse('2026-01-02Z'),referenceTime:now}});
  const proof=await f.source('Confirm this exact candidate',{occurredAt:now,timeZone:'UTC'}),old=await f.policy.event(f.actor,{kind:'confirm',nonce:randomUUID(),candidateId:c.candidateId,revision:c.candidateRevision,sourceRef:proof.ref});
  const edit=await f.source('Chinese',{occurredAt:now,timeZone:'UTC'}),next=await f.policy.act(f.actor,await f.policy.event(f.actor,{kind:'revise',nonce:randomUUID(),candidateId:c.candidateId,revision:c.candidateRevision,sourceRef:edit.ref}));
- await expect(f.policy.act(f.actor,old)).rejects.toThrow('MEMORY_REVISION_CONFLICT');
+ await expect(f.policy.act(f.actor,old)).rejects.toThrow(exactly("MEMORY_REVISION_CONFLICT"));
  const changed=(await f.policy.candidates(f.actor,{limit:100})).items[0];expect(changed.time).toEqual(pending.time);expect(changed.contentHash).not.toBe(pending.contentHash);
  await confirm(f,next);expect(f.repo.current('scope-a')[0].time).toEqual(pending.time);
 });
@@ -67,10 +68,10 @@ it('reopens a confirmed past fact and selects it into a new historical request, 
  expect((await f.context.dispatch(actor,permit,request=>{sent.push(JSON.stringify(request.body));return 'fake';})).status).toBe('sent');expect(sent).toHaveLength(1);
  const stale=await select('What language did I prefer on 2026-01-01?'),stalePermit=await f.context.validateForDispatch(actor,stale.snapshot),edit=await f.source('Chinese',{occurredAt:now,timeZone:'UTC'});
  await f.policy.act(f.actor,await f.policy.event(f.actor,{kind:'correct',nonce:randomUUID(),factId:active.factId,revision:1,sourceRef:edit.ref}));
- await expect(f.context.dispatch(actor,stalePermit,()=>{sent.push('WRONG');})).rejects.toThrow('MEMORY_CONTEXT_FACT_STALE');expect(sent).toHaveLength(1);
+ await expect(f.context.dispatch(actor,stalePermit,()=>{sent.push('WRONG');})).rejects.toThrow(exactly("MEMORY_CONTEXT_FACT_STALE"));expect(sent).toHaveLength(1);
  const corrected=await select('What language did I prefer on 2026-01-01?');expect(corrected.snapshot.request.body.facts).toEqual(['用户回复语言：zh']);const forgottenPermit=await f.context.validateForDispatch(actor,corrected.snapshot);
  await f.policy.act(f.actor,await f.policy.event(f.actor,{kind:'forget',nonce:randomUUID(),factId:active.factId,revision:2}));
- await expect(f.context.dispatch(actor,forgottenPermit,()=>{sent.push('WRONG');})).rejects.toThrow('MEMORY_CONTEXT_STALE');expect(sent).toHaveLength(1);expect((await select('What language did I prefer on 2026-01-01?')).refs).toEqual([]);
+ await expect(f.context.dispatch(actor,forgottenPermit,()=>{sent.push('WRONG');})).rejects.toThrow(exactly("MEMORY_CONTEXT_STALE"));expect(sent).toHaveLength(1);expect((await select('What language did I prefer on 2026-01-01?')).refs).toEqual([]);
 });
 
 it('does not answer a historical question using undated facts or a missing source timezone',async()=>{
@@ -80,15 +81,15 @@ it('does not answer a historical question using undated facts or a missing sourc
 });
 it('rejects forged query text, other-session sources and model-role temporal authority',async()=>{
  const f=fixture(),q=await f.source('What language do I prefer?',{occurredAt:now,timeZone:'UTC'});
- await expect(f.recall.rank(f.actor,{sourceRef:q.ref,text:'What language did I prefer yesterday?'})).rejects.toThrow('MEMORY_FACT_QUERY_DENIED');
- for(const opts of [{sessionId:'session-b'},{role:'assistant' as const}]){const s=await f.source('What language did I prefer yesterday?',{...opts,occurredAt:now,timeZone:'UTC'});await expect(f.recall.rank(f.actor,{sourceRef:s.ref,text:'What language did I prefer yesterday?'})).rejects.toThrow('MEMORY_FACT_QUERY_DENIED');}
+ await expect(f.recall.rank(f.actor,{sourceRef:q.ref,text:'What language did I prefer yesterday?'})).rejects.toThrow(exactly("MEMORY_FACT_QUERY_DENIED"));
+ for(const opts of [{sessionId:'session-b'},{role:'assistant' as const}]){const s=await f.source('What language did I prefer yesterday?',{...opts,occurredAt:now,timeZone:'UTC'});await expect(f.recall.rank(f.actor,{sourceRef:s.ref,text:'What language did I prefer yesterday?'})).rejects.toThrow(exactly("MEMORY_FACT_QUERY_DENIED"));}
 });
 it('invalidates historical context when the original assertion source changes',async()=>{
  const f=fixture(),c=await candidate(f,'2026-01-01, I prefer English'),a=await confirm(f,c),fact=f.repo.current('scope-a')[0],q=await f.source('What language did I prefer on 2026-01-01?',{occurredAt:now,timeZone:'UTC'});
  const snapshot=await f.context.assemble(f.actor,{sessionId:'session-a',sourceRefs:[q.ref],currentUserSourceRef:q.ref,factRefs:[{factId:a.factId!,revision:1}]}),permit=await f.context.validateForDispatch(f.actor,snapshot);
  const binding=fact.sourceRef.binding!;
  f.write({providerId:binding.providerId,sessionId:binding.sessionId,messageId:binding.messageId},{text:'Deleted original assertion',role:'user',trust:'direct-user-event',occurredAt:now,timeZone:'UTC'});
- let calls=0;await expect(f.context.dispatch(f.actor,permit,()=>{calls++})).rejects.toThrow('MEMORY_SOURCE_STALE');expect(calls).toBe(0);
+ let calls=0;await expect(f.context.dispatch(f.actor,permit,()=>{calls++})).rejects.toThrow(exactly("MEMORY_SOURCE_STALE"));expect(calls).toBe(0);
 });
 
 it('lists historical and future confirmed records for management without granting current recall',async()=>{
