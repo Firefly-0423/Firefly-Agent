@@ -41,9 +41,13 @@ it("restores only encrypted source heads and rejects reuse and revoked producers
   const ref = await f.registry.capture(f.access, f.provider.token, f.identity);
   const restored = createTaskSourceProvider({ providerId: "synthetic", store: f.store }); restored.attach(f.ingress, "scope-a");
   expect(await f.registry.readEvidence(f.access, restored.token, ref)).toBe("I prefer PowerShell");
+  const before = await f.store.read("task-session");
+  const commandsBefore = f.commands.length;
   await expect(f.commit()).rejects.toThrow("MEMORY_TASK_SOURCE_DENIED");
   f.controller.abort();
-  await expect(f.registry.readEvidence(f.access, restored.token, ref)).rejects.toThrow();
+  await expect(f.registry.readEvidence(f.access, restored.token, ref)).rejects.toThrow("MEMORY_SOURCE_PROVIDER_DENIED");
+  expect(await f.store.read("task-session")).toEqual(before);
+  expect(f.commands).toHaveLength(commandsBefore);
 });
 
 it.each([
