@@ -103,6 +103,7 @@ import { createWindowManager } from "../platform/windows/window-manager";
 import { createTray } from "../platform/windows/tray";
 import { ADMISSION_ROOT } from "../features/diagnostics/memory-online-once/runner";
 import { createMainProbeEntry } from "../features/diagnostics/memory-online-once/main-entry";
+import { diagnosticSwitchesAllowed } from "../base/identity/startup-entry";
 import { createSplashWindow } from "../base/identity/create-splash-window";
 import { revealStartupWindows } from "../base/identity/startup-window-reveal";
 import { bootstrapMusicService } from "../features/music/bootstrap";
@@ -381,7 +382,8 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
 
   // 仅限显式的诊断启动。开关只启用界面，不会创建或重置额度；
   // 启动期绑定只触碰固定的 E: 盘非密钥准入文件，Profile 查询只读缓存。
-  const memoryOnlineEntry = createMainProbeEntry(hasSwitch("firefly-memory-online-once"), {
+  // 安装版忽略一次性诊断参数，与 src/main/index.ts 的入口分流使用同一判定。
+  const memoryOnlineEntry = createMainProbeEntry(hasSwitch("firefly-memory-online-once") && diagnosticSwitchesAllowed(app.isPackaged), {
     root: ADMISSION_ROOT,
     resolveProfile: getCachedSavedModelProfile,
     listProfileIds: listCachedSavedModelProfileIds,
