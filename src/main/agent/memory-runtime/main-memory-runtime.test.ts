@@ -137,7 +137,10 @@ it.each([
     onDelta: () => { if (terminal === "cancel") controller.abort(new DOMException(sentinel, "AbortError")); },
   });
   if (terminal === "success") await expect(result).resolves.toMatchObject({ text: sentinel });
-  else await expect(result).rejects.toThrow();
+  else {
+    const expectedCode = terminal === "cancel" ? "MEMORY_CONTEXT_CANCELLED" : mode === "persistent" ? "MEMORY_CONTEXT_SEND_UNKNOWN" : "MEMORY_CONTEXT_RUN_FAILED";
+    await expect(result).rejects.toThrow(expectedCode);
+  }
   await Promise.all(diagnosticIO.pending);
   const files = fs.existsSync(dumpRoot) ? fs.readdirSync(dumpRoot, { recursive: true }).map(String).filter(file => file.endsWith(".json")) : [];
   const payloads = files.map(file => fs.readFileSync(path.join(dumpRoot, file), "utf8")).filter(text => text.includes(sentinel)).map(text => JSON.parse(text));
