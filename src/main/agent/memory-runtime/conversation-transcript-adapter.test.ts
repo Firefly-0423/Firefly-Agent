@@ -122,8 +122,8 @@ it.each(["append","edit","regenerate","delete"] as const)("%s invalidates an old
  else await f.store.append("session-a",kind==="edit"
   ?{id:"rewind",at:1001,kind:"turn_rewind",turnId:"u1",revision:2,payload:{anchorUserTurnId:"u1",disposition:"replace_user",reason:"edit",replacementUser:{text:"edited"}}}
   :{id:"rewind",at:1001,kind:"turn_rewind",payload:{anchorUserTurnId:"u1",disposition:"keep_user",reason:"regenerate"}});
- await expect(f.context.validateForDispatch(f.actor,snapshot)).rejects.toThrow();
- let sent=0;await expect(f.context.dispatch(f.actor,permit,()=>{sent++;return "bad"})).rejects.toThrow();
+ await expect(f.context.validateForDispatch(f.actor,snapshot)).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_PENDING");
+ let sent=0;await expect(f.context.dispatch(f.actor,permit,()=>{sent++;return "bad"})).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_PENDING");
  expect(sent).toBe(0);
  if(kind!=="delete"){
   const fresh=await f.assemble();
@@ -136,20 +136,26 @@ it("recreation cannot revive a pre-deletion capability",async()=>{
  await f.store.deleteConversation("session-a");await f.store.append("session-a",user());
  const fresh=await f.assemble();
  expect(fresh.requestDigest).toBe(old.requestDigest);
- await expect(f.context.validateForDispatch(f.actor,old)).rejects.toThrow();
+ const before=await f.store.read("session-a");
+ await expect(f.context.validateForDispatch(f.actor,old)).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_STALE");
+ expect(await f.store.read("session-a")).toEqual(before);
  expect(await f.context.validateForDispatch(f.actor,fresh)).toBeTypeOf("object");
 });
 it("invalidates the latest dependency recaptured by permit validation",async()=>{
  const f=await fixture(),snapshot=await f.assemble();
  await f.context.validateForDispatch(f.actor,snapshot);
  await f.store.append("session-a",user("u2","changed after recount"));
- await expect(f.context.validateForDispatch(f.actor,snapshot)).rejects.toThrow();
+ const before=await f.store.read("session-a");
+ await expect(f.context.validateForDispatch(f.actor,snapshot)).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_PENDING");
+ expect(await f.store.read("session-a")).toEqual(before);
 });
 it("disposal revokes captured dependencies before releasing its observer",async()=>{
  const f=await fixture(),snapshot=await f.assemble();
  await f.adapter.close();
  await expect(f.capture()).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_ADAPTER_CLOSED");
- await expect(f.context.validateForDispatch(f.actor,snapshot)).rejects.toThrow();
+ const before=await f.store.read("session-a");
+ await expect(f.context.validateForDispatch(f.actor,snapshot)).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_PENDING");
+ expect(await f.store.read("session-a")).toEqual(before);
  await f.store.append("session-a",user("u2","ordinary store remains usable"));
 });
 it("tool argument secrets are masked before they can enter an S snapshot",async()=>{
@@ -214,7 +220,7 @@ it("invalidates every published turn and view after recapture and a mutation",as
  for(const turn of turns)snapshots.push(await f.context.assemble(f.actor,{sessionId:"session-a",sourceRefs:[],transcriptTokens:[turn]}));
  const permits=[];for(const snapshot of snapshots)permits.push(await f.context.validateForDispatch(f.actor,snapshot));
  await f.adapter.captureTurns();await f.store.append("session-a",user("u3","third"));
- let sends=0;for(const permit of permits)await expect(f.context.dispatch(f.actor,permit,()=>{sends++})).rejects.toThrow();
+ let sends=0;for(const permit of permits)await expect(f.context.dispatch(f.actor,permit,()=>{sends++})).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_PENDING");
  expect(sends).toBe(0);
 });
 it("selects the latest complete turn with an exact budget instead of retaining the entire conversation",async()=>{
@@ -382,8 +388,8 @@ it("retires only projected S versions for caption fallback while canonical user 
  await f.store.append("session-a",{...user("image-user","human image question"),payload:{text:"human image question",attachments}});
  const raw=JSON.stringify(await f.store.read("session-a")),current=await f.adapter.captureRun("image-run"),first=await f.assemble(),oldPermit=await f.context.validateForDispatch(f.actor,first);
  await reprepareMainAttachmentProjection(grant,async()=>[{type:"text",text:"authorized caption"}]);
- expect(current.assertCurrent).toThrow();const next=await f.adapter.captureRunRound("image-run");expect(next).toMatchObject({userRevision:1,userText:"human image question"});
- let sends=0;await expect(f.context.dispatch(f.actor,oldPermit,()=>{sends++;return "old image"})).rejects.toThrow();expect(sends).toBe(0);
+ expect(current.assertCurrent).toThrow("MEMORY_CONTEXT_TRANSCRIPT_STALE");const next=await f.adapter.captureRunRound("image-run");expect(next).toMatchObject({userRevision:1,userText:"human image question"});
+ let sends=0;await expect(f.context.dispatch(f.actor,oldPermit,()=>{sends++;return "old image"})).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_PENDING");expect(sends).toBe(0);
  const fresh=await f.assemble();expect(JSON.stringify(fresh.request.body)).toContain("authorized caption");expect(JSON.stringify(fresh.request.body)).not.toContain("data:image");expect(fresh.snapshotId).not.toBe(first.snapshotId);
  expect(JSON.stringify(await f.store.read("session-a"))).toBe(raw);
  // A subsequent genuine edit advances physical user provenance, without confusing it with projection versions.
