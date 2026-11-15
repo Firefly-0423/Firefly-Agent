@@ -1,12 +1,15 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import type { ChatSession } from "../../../../../../shared/chat-types";
+import type { ChatSession, ToolFileChange } from "../../../../../../shared/chat-types";
+import type { FireflyTerminalStatus } from "../../../../../../shared/run-terminal";
 import type { AguiApi, AguiEvent, ChatStoreApi } from "../chat-page-bridge";
 import type { TodoStateBySession } from "../session-runtime-state";
 import { AgentRunController, type AgentRunHost, type AgentRunInput, type AgentRunRegistries } from "./AgentRunController";
+import { t } from "../../../../i18n";
 
 type Acknowledgement = { success: boolean; runId: string; error?: string };
 const nextTurn = () => new Promise<void>(resolve => setTimeout(resolve, 0));
 const successfulAck = (runId = "run-1"): Acknowledgement => ({ success: true, runId });
+const terminalResult = (status: FireflyTerminalStatus) => ({ status, externalEffectsMayContinue: status !== "success" });
 function inputFor(overrides: Partial<AgentRunInput> = {}): AgentRunInput {
   const sessionId = overrides.sessionId ?? "session-1";
   return { targetMode: "chat", sessionId, userMessageId: "user-1", assistantId: "assistant-1", attachments: [], session: { id: sessionId, messages: [{ id: "user-1", role: "user", content: "Review the public document", at: 1 }] } as ChatSession, ...overrides };
@@ -28,10 +31,10 @@ function observer() {
 }
 type Observer = ReturnType<typeof observer>;
 type Memory = ReturnType<typeof memory>;
-function runScenario(options: { ack?: Acknowledgement; input?: Partial<AgentRunInput>; host?: Observer; disk?: Memory; refs?: AgentRunRegistries; unavailable?: boolean } = {}) {
+function runScenario(options: { ack?: Acknowledgement; acknowledge?: () => Promise<Acknowledgement>; input?: Partial<AgentRunInput>; host?: Observer; disk?: Memory; refs?: AgentRunRegistries; unavailable?: boolean } = {}) {
   const callbacks = new Set<(event: AguiEvent) => void>();
   const bridge = {
-    run: vi.fn<AguiApi["run"]>(async () => options.ack ?? successfulAck()), cancel: vi.fn(async () => {}), reportRunPersisted: vi.fn(),
+    run: vi.fn<AguiApi["run"]>(async () => options.acknowledge ? options.acknowledge() : options.ack ?? successfulAck()), cancel: vi.fn(async () => {}), reportRunPersisted: vi.fn(),
     onEvent: vi.fn((callback: (event: AguiEvent) => void) => { callbacks.add(callback); return () => { callbacks.delete(callback); }; }),
   } satisfies AguiApi;
   const disk = options.disk ?? memory(); const host = options.host ?? observer(); const refs = options.refs ?? registries();
@@ -50,7 +53,7 @@ function runScenario(options: { ack?: Acknowledgement; input?: Partial<AgentRunI
       for (const delta of deltas) send({ type: "TEXT_MESSAGE_CONTENT", runId, delta });
       send({ type: "TEXT_MESSAGE_END", runId, messageId: "answer-stream" });
     },
-    async finish(status = "success") { send({ type: "RUN_FINISHED", runId, result: { status } }); await completed; },
+    async finish(status: FireflyTerminalStatus = "success") { send({ type: "RUN_FINISHED", runId, result: terminalResult(status) }); await completed; },
     async fail(message = "transport disconnected", extra: Record<string, unknown> = {}) { send({ type: "RUN_ERROR", runId, message, ...extra } as AguiEvent); await completed; },
     patches: () => host.patchMessage.mock.calls.map(args => args[2]),
     saved: () => disk.upsert.mock.calls.map(args => args[1] as any),
@@ -213,7 +216,7 @@ describe("Formal answer commitment and failure reporting", () => {
     s.expectPatch({ content: "", processMessages: [expect.objectContaining({ content: "A preview without a final answer", interrupted: true })] });
     expect(s.lastSaved().content).toEqual("");
   });
-  test.each(["cancelled", "timeout"])("%s leaves unclassified preview as interrupted process text", async status => {
+  test.each(["cancelled", "timeout"] as const)("%s leaves unclassified preview as interrupted process text", async status => {
     const animation = frames(); const s = runScenario(); await s.ready(); s.round(); s.candidate("A partially completed review"); animation.tick(); await s.finish(status);
     s.expectPatch({ content: "", transientText: undefined, responseStarted: false, processMessages: [expect.objectContaining({ content: "A partially completed review", interrupted: true })] });
     expect(s.lastSaved().content).toEqual("");
@@ -304,7 +307,7 @@ describe("Session conflicts preserve the legitimate owner", () => {
     expect(refs.activeRuns.current["session-1"]).toMatchObject({ assistantId: "assistant-1", runId: "run-1" });
     expect(host.setModeBusy).not.toHaveBeenCalledWith("chat", false);
     first.send({ type: "RUN_STARTED", runId: "run-1" }); first.text("First review finished");
-    first.send({ type: "RUN_FINISHED", runId: "run-1", result: { status: "success" } });
+    first.send({ type: "RUN_FINISHED", runId: "run-1", result: terminalResult("success") });
     first.send({ type: "TEXT_MESSAGE_CONTENT", runId: "run-1", delta: "late ignored content" }); await first.completed;
     expect(refs.activeRuns.current["session-1"]).toBeUndefined();
     expect(host.setModeBusy).toHaveBeenLastCalledWith("chat", false);
@@ -400,5 +403,216 @@ describe("Delegated result evidence survives owning checkpoints", () => {
     s.send({ type: "TOOL_CALL_START", runId: "run-1", toolCallId: "delegation-first", toolCallName: "delegate_agent" });
     s.send({ type: "TOOL_CALL_RESULT", runId: "run-1", toolCallId: "delegation-first", status: "failed", taskResult: { agentId: "document-reviewer", sessionId: "child-review", status: "cancelled", text: "r".repeat(64001), writes } });
     await s.finish("cancelled"); expect(s.lastSaved().toolExecutions[0].taskResult).toMatchObject({ writes, text: "r".repeat(64000), truncated: true });
+  });
+});
+
+// ChatPage regression package A (docs/superpowers/plans/2026-11-12-chatpage-regression.md).
+const MODES = ["chat", "work", "code"] as const;
+function deferred<T>() {
+  let resolve!: (value: T) => void; let reject!: (failure: unknown) => void;
+  const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail; });
+  return { promise, resolve, reject };
+}
+/** Every patch and checkpoint in a scenario stays with its own session and assistant message. */
+function expectOwnSessionOnly(s: ReturnType<typeof runScenario>) {
+  expect(new Set(s.host.patchMessage.mock.calls.map(([sessionId, messageId]) => `${sessionId}/${messageId}`))).toEqual(new Set([`${s.request.sessionId}/${s.request.assistantId}`]));
+  expect(new Set(s.disk.upsert.mock.calls.map(([sessionId]) => sessionId))).toEqual(new Set([s.request.sessionId]));
+  expect(s.disk.append).not.toHaveBeenCalled();
+}
+function reason(s: ReturnType<typeof runScenario>, id: string, delta: string, runId = "run-1") {
+  s.send({ type: "REASONING_MESSAGE_START", runId, messageId: id });
+  s.send({ type: "REASONING_MESSAGE_CONTENT", runId, messageId: id, delta });
+  s.send({ type: "REASONING_MESSAGE_END", runId, messageId: id });
+}
+function usage(phase: "preRequest" | "terminal", totalTokens: number, runId = "run-1") {
+  return { phase, totalTokens, contextWindowTokens: 128000, messageCount: 3, updatedAt: 500 + totalTokens, runId, categories: [{ key: "conversation", tokens: totalTokens }] };
+}
+
+describe("ChatPage package A: run and persistence baseline", () => {
+  test.each(MODES)("A1 %s: reasoning, answer and success settle once with the right anchors", async mode => {
+    const s = runScenario({ input: { targetMode: mode } }); await s.ready();
+    reason(s, "reason-a1", "Check the public document first.");
+    s.text("The document", " is consistent."); await s.finish();
+    const patches = s.patches();
+    const firstReasoning = patches.findIndex(patch => patch.reasoning === "Check the public document first.");
+    const firstAnswer = patches.findIndex(patch => typeof patch.content === "string" && patch.content.length > 0);
+    expect(firstReasoning).toBeGreaterThanOrEqual(0);
+    expect(firstReasoning).toBeLessThan(firstAnswer);
+    expect(patches.at(-1)).toMatchObject({ content: "The document is consistent.", loading: false, waitingForFirstEvent: false, streaming: false, reasoningStreaming: false, responseStarted: true, runStage: { kind: "completed" } });
+    const saved = s.lastSaved();
+    expect(saved).toMatchObject({ id: "assistant-1", role: "model", content: "The document is consistent.", reasoning: "Check the public document first.", answersUserMessageId: "user-1" });
+    expect(saved.runSnapshot).toMatchObject({ runId: "run-1", status: "terminal", terminalStatus: "success" });
+    expect(s.saved().slice(0, -1).map(record => record.runSnapshot.status)).toEqual(s.saved().slice(0, -1).map(() => "running"));
+    expect(s.bridge.reportRunPersisted.mock.calls).toEqual([[{ runId: "run-1", finalMessageId: "assistant-1" }]]);
+    expect(s.bridge.run).toHaveBeenCalledTimes(1);
+    expect(s.bridge.cancel).not.toHaveBeenCalled();
+    expect(s.host.onRunFinished.mock.calls).toEqual([[{ mode, sessionId: "session-1", queuePaused: false }]]);
+    expectOwnSessionOnly(s);
+  });
+
+  test.each(["work", "code"] as const)("A2 %s: a tool round stays process evidence and the answer is saved once", async mode => {
+    const s = runScenario({ input: { targetMode: mode } }); await s.ready(); s.round();
+    const changes: ToolFileChange[] = [{ file: "notes/summary.md", kind: "modified", insertions: 2, deletions: 1 }];
+    s.send({ type: "TOOL_CALL_START", runId: "run-1", toolCallId: "edit-call", toolCallName: "edit_file" });
+    s.send({ type: "TOOL_CALL_ARGS", runId: "run-1", toolCallId: "edit-call", delta: "{\"path\":\"notes/summary.md\"}" });
+    s.send({ type: "TOOL_CALL_RESULT", runId: "run-1", toolCallId: "edit-call", status: "success", content: "Updated notes/summary.md", changes } as AguiEvent);
+    s.send({ type: "TOOL_CALL_END", runId: "run-1", toolCallId: "edit-call" });
+    s.round("round-0", "end"); s.round("round-1");
+    s.text("The summary is updated."); await s.finish();
+    const saved = s.lastSaved();
+    expect(saved.toolExecutions).toEqual([expect.objectContaining({ id: "edit-call", name: "edit_file", status: "success", result: "Updated notes/summary.md", argsText: "{\"path\":\"notes/summary.md\"}", changes, roundId: "round-0" })]);
+    expect(saved.content).toEqual("The summary is updated.");
+    expect(saved.runSnapshot).toMatchObject({ status: "terminal", terminalStatus: "success" });
+    expect(JSON.stringify(saved.processMessages ?? [])).not.toContain("The summary is updated.");
+    expect(saved.content).not.toContain("Updated notes/summary.md");
+    expect(s.saved().filter(record => record.runSnapshot.status === "terminal")).toHaveLength(1);
+    expect(s.patches().some(patch => patch.runStage?.kind === "executing" && patch.runStage.detail === "edit_file")).toEqual(true);
+    expect(s.bridge.reportRunPersisted).toHaveBeenCalledTimes(1);
+    expectOwnSessionOnly(s);
+  });
+
+  test("A3: cancelling after partial output keeps the process, drops the answer and ignores late text", async () => {
+    const refs = registries(); const host = observer(); const disk = memory();
+    const s = runScenario({ refs, host, disk, input: { targetMode: "work" } });
+    const other = runScenario({ refs, host, disk, ack: successfulAck("run-2"), input: { targetMode: "work", sessionId: "session-2", userMessageId: "user-2", assistantId: "assistant-2" } });
+    await nextTurn(); s.send({ type: "RUN_STARTED", runId: "run-1" }); other.send({ type: "RUN_STARTED", runId: "run-2" });
+    reason(s, "reason-a3", "Compare the two files.");
+    s.send({ type: "TOOL_CALL_START", runId: "run-1", toolCallId: "read-call", toolCallName: "read_file" });
+    s.send({ type: "TOOL_CALL_RESULT", runId: "run-1", toolCallId: "read-call", status: "success", content: "first file" });
+    s.send({ type: "TEXT_MESSAGE_START", runId: "run-1", messageId: "answer-stream" });
+    s.send({ type: "TEXT_MESSAGE_CONTENT", runId: "run-1", delta: "The files differ in" });
+    await s.finish("cancelled");
+    const patchCount = host.patchMessage.mock.calls.length; const saveCount = disk.upsert.mock.calls.length;
+    s.send({ type: "TEXT_MESSAGE_CONTENT", runId: "run-1", delta: " three places." });
+    expect(host.patchMessage.mock.calls.length).toEqual(patchCount);
+    expect(disk.upsert.mock.calls.length).toEqual(saveCount);
+    const saved = disk.upsert.mock.calls.filter(([sessionId]) => sessionId === "session-1").at(-1)![1] as any;
+    expect(saved.content).toEqual("");
+    expect(saved.reasoning).toEqual("Compare the two files.");
+    expect(saved.toolExecutions).toEqual([expect.objectContaining({ id: "read-call", status: "success", result: "first file" })]);
+    expect(saved.runSnapshot).toMatchObject({ runId: "run-1", status: "terminal", terminalStatus: "cancelled" });
+    expect(s.bridge.reportRunPersisted.mock.calls).toEqual([[{ runId: "run-1", finalMessageId: "assistant-1" }]]);
+    expect(refs.activeRuns.current["session-2"]).toMatchObject({ runId: "run-2", assistantId: "assistant-2" });
+    expect(host.patchMessage).not.toHaveBeenCalledWith("session-2", expect.anything(), expect.objectContaining({ content: expect.stringContaining("files differ") }));
+    expect(host.setModeBusy).toHaveBeenLastCalledWith("work", true);
+    other.text("Second session answer."); await other.finish();
+    expect(other.lastSaved()).toMatchObject({ content: "Second session answer.", runSnapshot: { runId: "run-2", terminalStatus: "success" } });
+  });
+
+  test("A4: a cancel requested before the acknowledgement cancels only the assigned run", async () => {
+    const refs = registries(); const host = observer(); const disk = memory();
+    const other = runScenario({ refs, host, disk, ack: successfulAck("run-2"), input: { sessionId: "session-2", userMessageId: "user-2", assistantId: "assistant-2" } });
+    await other.ready();
+    const ack = deferred<Acknowledgement>();
+    const s = runScenario({ refs, host, disk, acknowledge: () => ack.promise }); await nextTurn();
+    expect(s.bridge.run).toHaveBeenCalledTimes(1);
+    expect(refs.activeRuns.current["session-1"]).toEqual({ assistantId: "assistant-1", mode: "chat" });
+    refs.cancelRequestedSessions.current.add("session-1");
+    expect(s.bridge.cancel).not.toHaveBeenCalled();
+    ack.resolve(successfulAck("run-1")); await nextTurn();
+    expect(s.bridge.cancel.mock.calls).toEqual([["run-1"]]);
+    expect(other.bridge.cancel).not.toHaveBeenCalled();
+    expect(refs.cancelRequestedSessions.current.has("session-1")).toEqual(false);
+    s.send({ type: "RUN_STARTED", runId: "run-1" }); await s.finish("cancelled");
+    expect(s.lastSaved().runSnapshot).toMatchObject({ runId: "run-1", status: "terminal", terminalStatus: "cancelled" });
+    expect(refs.activeRuns.current).toEqual({ "session-2": { assistantId: "assistant-2", mode: "chat", runId: "run-2" } });
+    expect(refs.checkpointTriggers.current["session-1"]).toBeUndefined();
+    expect(host.setModeBusy).toHaveBeenLastCalledWith("chat", true);
+    expect(host.onRunFinished.mock.calls).toEqual([[{ mode: "chat", sessionId: "session-1", queuePaused: false }]]);
+    await other.finish();
+    expect(refs.activeRuns.current).toEqual({});
+    expect(host.setModeBusy).toHaveBeenLastCalledWith("chat", false);
+    expect(refs.eventUnsubscribers.current.size).toEqual(0);
+  });
+
+  test.each([
+    ["E_MODEL_CONNECTION_LOST", "model", "chatPage.errorNetworkInterrupted"],
+    ["E_MODEL_REQUEST_TIMEOUT", "model", "chatPage.errorModelTimedOut"],
+    ["E_HARNESS_FAILURE", "runtime", "chatPage.errorRuntimeFailedWith"],
+  ] as const)("A5 %s: the public notice is exact and the private message never reaches the page or disk", async (code, errorSource, key) => {
+    const secret = "upstream said: Authorization Bearer SYNTHETIC-PRIVATE-TOKEN";
+    const s = runScenario({ input: { targetMode: "code" } }); await s.ready();
+    reason(s, "reason-a5", "Run the checks.");
+    await s.fail(secret, { code, errorSource });
+    const notice = key === "chatPage.errorRuntimeFailedWith" ? t(key, { message: code }) : t(key, { code });
+    const saved = s.lastSaved();
+    expect(saved.runSnapshot).toMatchObject({ runId: "run-1", status: "terminal", terminalStatus: "runtime_error" });
+    expect(saved.content).toEqual("");
+    expect(saved.reasoning).toEqual("Run the checks.");
+    expect(saved.processMessages.map((record: any) => record.content)).toEqual([notice]);
+    expect(s.patches().at(-1)).toMatchObject({ content: "", runStage: { kind: "failed" }, loading: false, streaming: false, responseStarted: false });
+    for (const evidence of [JSON.stringify(s.disk.upsert.mock.calls), JSON.stringify(s.host.patchMessage.mock.calls)]) {
+      expect(evidence).not.toContain("SYNTHETIC-PRIVATE-TOKEN");
+      expect(evidence).not.toContain("upstream said");
+    }
+    expect(s.bridge.reportRunPersisted).toHaveBeenCalledTimes(1);
+    expectOwnSessionOnly(s);
+  });
+
+  test("A6: a delayed running checkpoint cannot overwrite the terminal record or release persistence early", async () => {
+    // Hold the checkpoint a tool result triggers: the controller does not await it, so only the save chain keeps
+    // the later terminal write behind it. "stored" applies writes in the order they resolve, like a disk would.
+    const disk = memory(); const stored = new Map<string, any>(); const held = deferred<void>(); let holding = true;
+    disk.upsert.mockImplementation(async (_sessionId: string, message: any) => {
+      if (holding && message.runSnapshot.status === "running" && message.toolExecutions.some((tool: any) => tool.status === "success")) { holding = false; await held.promise; }
+      stored.set(message.id, structuredClone(message));
+      return { id: "session-1" };
+    });
+    const s = runScenario({ disk }); await s.ready();
+    s.send({ type: "TOOL_CALL_START", runId: "run-1", toolCallId: "lookup-call", toolCallName: "read_file" });
+    s.send({ type: "TOOL_CALL_RESULT", runId: "run-1", toolCallId: "lookup-call", status: "success", content: "lookup result" });
+    s.text("Final checked answer.");
+    s.send({ type: "RUN_FINISHED", runId: "run-1", result: terminalResult("success") });
+    let settled = false; void s.completed.then(() => { settled = true; });
+    for (let turn = 0; turn < 5; turn++) await nextTurn();
+    expect(holding).toEqual(false);
+    expect(settled).toEqual(false);
+    expect(s.bridge.reportRunPersisted).not.toHaveBeenCalled();
+    expect(stored.get("assistant-1")?.runSnapshot.status).not.toEqual("terminal");
+    held.resolve(); await s.completed;
+    expect(stored.get("assistant-1")).toMatchObject({ content: "Final checked answer.", runSnapshot: { runId: "run-1", status: "terminal", terminalStatus: "success" } });
+    expect((disk.upsert.mock.calls.at(-1)![1] as any).runSnapshot.status).toEqual("terminal");
+    expect(s.bridge.reportRunPersisted.mock.calls).toEqual([[{ runId: "run-1", finalMessageId: "assistant-1" }]]);
+  });
+
+  test("A9: context usage stays with its session, keeps the terminal value and a new run clears compression", async () => {
+    const refs = registries(); const host = observer(); const disk = memory();
+    const s = runScenario({ refs, host, disk }); await s.ready();
+    s.custom("firefly.compressingContext", true);
+    expect(host.setCompressingContext).toHaveBeenLastCalledWith("session-1", true);
+    s.custom("firefly.context.usage", usage("preRequest", 1200));
+    s.send({ type: "CUSTOM", runId: "run-foreign", name: "firefly.context.usage", value: usage("preRequest", 9999, "run-foreign") });
+    s.custom("firefly.context.usage", usage("terminal", 1800));
+    s.custom("firefly.context.usage", { phase: "terminal", totalTokens: -1 });
+    await s.finish();
+    expect(host.updateContextUsage.mock.calls).toEqual([["session-1", usage("preRequest", 1200)], ["session-1", usage("terminal", 1800)]]);
+    expect(s.lastSaved().contextUsage).toEqual(usage("terminal", 1800));
+    expect(s.patches().some(patch => patch.contextUsage?.totalTokens === 9999)).toEqual(false);
+    const next = runScenario({ refs, host, disk, ack: successfulAck("run-2"), input: { userMessageId: "user-2", assistantId: "assistant-2" } });
+    host.setCompressingContext.mockClear(); await next.ready();
+    expect(host.setCompressingContext.mock.calls).toEqual([["session-1", false]]);
+    await next.finish();
+    expect(next.lastSaved().contextUsage).toBeUndefined();
+    expect(host.updateContextUsage).toHaveBeenCalledTimes(2);
+  });
+
+  // A10 covers only a write that keeps failing. A single failure followed by success, and a write that returns
+  // null, still lose or misreport the answer; they are tracked as a separate fix (see the progress doc).
+  test("A10: a terminal checkpoint that keeps failing to write is never reported as persisted", async () => {
+    const disk = memory();
+    disk.upsert.mockImplementation(async (_sessionId: string, message: any) => {
+      if (message.runSnapshot.status === "terminal") throw new Error("CHAT_HISTORY_WRITE_FAILED synthetic");
+      return { id: "session-1" };
+    });
+    const s = runScenario({ disk }); await s.ready(); s.text("An answer that cannot be saved.");
+    s.send({ type: "RUN_FINISHED", runId: "run-1", result: terminalResult("success") });
+    await expect(s.completed).rejects.toThrow("CHAT_HISTORY_WRITE_FAILED synthetic");
+    expect(s.bridge.reportRunPersisted).not.toHaveBeenCalled();
+    expect(s.refs.activeRuns.current).toEqual({});
+    expect(s.host.setModeBusy).toHaveBeenLastCalledWith("chat", false);
+    expect(s.host.onRunFinished.mock.calls).toEqual([[{ mode: "chat", sessionId: "session-1", queuePaused: false }]]);
+    expect(s.bridge.run).toHaveBeenCalledTimes(1);
+    expect(s.bridge.cancel).not.toHaveBeenCalled();
+    expectOwnSessionOnly(s);
   });
 });

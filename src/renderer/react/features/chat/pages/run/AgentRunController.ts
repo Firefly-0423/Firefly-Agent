@@ -724,7 +724,7 @@ export class AgentRunController {
       case "RUN_FINISHED": {
         this.ensureWorkReadReport();
         this.ended = true;
-        const terminal = (event as { result?: { status?: string } }).result;
+        const terminal = event.result;
         this.finishStatus = terminal?.status;
         if (this.finishStatus !== "success") this.failPlan(this.finishStatus === "cancelled" ? "cancelled" : "failed");
         if (this.finishStatus !== "success") { this.cancelPublicReveal(); this.abortCandidateReveal(); }
