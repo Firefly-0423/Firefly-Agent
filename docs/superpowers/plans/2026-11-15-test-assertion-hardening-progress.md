@@ -5,8 +5,8 @@
 
 ## 1. 当前状态
 
-- 分支：`feat/test-assertions-t3`（基于 `feat/test-assertions-t2`）
-- 进行到：施工包 T3 完成（T1、T2 记录保留在下表）
+- 分支：`feat/test-assertions-t4`（基于 `feat/test-assertions-t3`）
+- 进行到：施工包 T4 完成（T1–T3 记录保留在下表）
 
 ## 2. 已完成项
 
@@ -38,8 +38,14 @@
 | T3.2 legacy 其余 | `memory-schemas`、`memory-store-durability` | 同上 | 同上 |
 | T3.3 policy | `temporal-memory.test.ts`（B12 及另外 4 处：`MEMORY_POLICY_SUPPRESSED` / `MEMORY_REVISION_CONFLICT` / `MEMORY_CONTEXT_FACT_STALE` / `MEMORY_CONTEXT_STALE` / `MEMORY_SOURCE_STALE`）；`natural-job-repository`（`[输入, 码]` 表：`MEMORY_USER_SOURCE_DENIED` / `MEMORY_POLICY_FUTURE` / `MEMORY_SOURCE_STALE` / `MEMORY_SOURCE_INVALID` / `MEMORY_INPUT_INVALID` / `MEMORY_DATA_INVALID`）；`main-policy`、`natural-extraction-runner`、`natural-memory` | 改坏错误码 → 失败；`natural-extraction-runner` 的 profile 用例通过改坏 `model.assertCurrent()` 验证 | 同上 |
 | T3.3 core、recall、database、shadow | `core/schema`、`core/source-ledger`、`core/storage-safety`、`recall/recall-schema`、`database/repository`、`database/worker`（`MEMORY_SOURCE_PENDING`）、`shadow/shadow-repository`、`shadow/shadow-service`（错误消息 `MEMORY_TRANSACTION_FAILED`） | 改坏错误码、DDL 与外键约束 → 失败；`worker.test.ts` 改坏后重新构建了 Worker 产物 | 同上 |
+| T4.1 qqbot | `qqbot-api-client.test.ts`：A5 空响应体的发送断言 fetch 共 2 次，第 2 次的地址 `/v2/users/u/messages`、`POST`、`Authorization: QQBot token-1`，以及请求体 `msg_id`、`msg_seq` | 去掉空响应保护、改坏 `msg_id` → 失败 | channels 54 个文件、429 项通过 |
+| T4.2 消息日志 | `message-log.test.ts`：A7、A8 与 `:83` 去掉 `.not.toThrow()`，改为断言 `getRecentLog()`、日志文件与目录的实际状态，损坏的文件原样保留 | 去掉 `readRecords` / `appendLog` / `reloadLogFromDisk` 的 `try/catch` → 3 项失败 | 同上 |
+| T4.2 历史日志 | `history-log.test.ts`：A9 先写入一条历史，再做空键与同键迁移，`toStrictEqual` 比较迁移前后的历史与目录文件列表 | 注释 `migrateHistory` 的提前返回 → 目录多出文件，失败 | 同上 |
+| T4.2 分发器 | `dispatcher.test.ts`：D1 用真实临时目录代替 `reloadLogFromDisk` 的 mock；构造后 `getRecentLog()` 为空，显式 `reloadLogFromDisk()` 后才读到磁盘里的记录。`getRecentLog()` 在内存为空时会回退读盘，所以读之前先把路径指向空目录 | 在构造函数里调用 `reloadLogFromDisk()` → 失败 | 同上 |
+| T4.3 飞书音频时长 | `audio-duration.test.ts`：A20–A22 断言精确毫秒数，并在 500ms 下限两侧取样：1024 字节 → 无时长，1025 / 2000 / 7991 → 500，8009 → 501，24000 → 1500；MPEG 120 帧 → 3135、1 帧 → 26。8008 字节算出 500.49999999999994，所以进位边界用 7991 / 8009 | 改 `16000`、`500`、`1152` 三个常数 → 3 / 4 项失败 | 同上 |
+| T4.4 其余 | channels 中 6 处 `.not.toThrow()` 都在上面的 `message-log`、`history-log` 里改掉了；改完后 `git grep -n "toThrow()" -- src/main/features/channels` 为 0 | — | 同上 |
 
-T3 由 Gemini 施工，我逐个提交单独检出复核（见第 5 节）。反向验证方式与 T2 相同：临时改坏产品里对应的错误码或校验，确认失败后用 `git checkout` 还原。
+T3、T4 由 Gemini 施工，我逐个提交单独检出复核（见第 5 节）。反向验证方式与 T2 相同：临时改坏产品里对应的错误码或校验，确认失败后用 `git checkout` 还原。
 
 T2 反向验证方式：对每个断言用到的产品错误码（37 个 `MEMORY_*`），临时把产品源码里该码字符串改成另一个值（`M` 改为 `N`），跑 `src/main/memory/context`，确认改过的文件里出现失败，然后用 `git checkout` 还原。37 个码全部在对应的被改测试文件里引起了失败；结束后 `git status` 确认没有产品文件改动。
 
@@ -79,6 +85,8 @@ T2 反向验证方式：对每个断言用到的产品错误码（37 个 `MEMORY
 | T3 范围：`npx vitest run src/main/memory`，设置了 `FIREFLY_TEST_BASH` 和 `FIREFLY_HISTORY_PRESENCE_TEST_HELPER` | 143 个文件：142 通过、1 跳过；2679 项：2674 通过、5 跳过（非 Windows 平台用例）；10 个提交逐个单独检出复核，结果相同 | 2026-11-14 |
 | T3：`npm run test:memory-history-zero-write`（需要 `FF_HISTORY_TEST_ROOT`、`FF_HISTORY_HELPER`、`FF_HISTORY_RELEASE_HELPER`） | 合入 dev 后 12 项全部通过（T2 基点上 `whole valid capture/query` 失败，见第 6 节） | 2026-11-14 |
 | T3：`git grep -n "toThrow()"` 8 个目标子目录 | 只剩排除表里的 `.not.toThrow()` 与 `storage-safety` 3 处 | 2026-11-14 |
+| T4 范围：`npx vitest run src/main/features/channels` | 54 个文件、429 项全部通过；5 个提交逐个单独检出复核，结果相同 | 2026-11-14 |
+| T4：`git grep -n "toThrow()" -- src/main/features/channels` | 0 处 | 2026-11-14 |
 
 ## 6. 偏离计划
 
@@ -93,5 +101,6 @@ T2 反向验证方式：对每个断言用到的产品错误码（37 个 `MEMORY
 - T2：`response-history-union` 里 `MEMORY_CONTEXT_RESPONSE_PROGRESS_DENIED` 在探测输出里被截断，已用测试通过确认完整码。
 - T3：`native-history-zero-write.acceptance.ts` 用 `npm run test:memory-history-zero-write` 单独跑；`84d1d96` 起 CI 也会跑它。
 - T3 代码审查后（2026-11-15）：8 个目标子目录的 346 处断言改用 `exactly()`；legacy 记忆库读取失败的消息是"错误码 + 给用户看的提示"，这两处改为整条消息精确比较。测试替身、SQLite、errno 的消息没有稳定产品码，保持原样（已在第 4 节）。压缩器"候选不足"用例恢复 `getEntriesBySource` 未调用的断言（反向验证：在数量检查之前读向量库会失败）。
+- T4 代码审查后（2026-11-15）：`dispatcher.test.ts` 原来在构造之后切到空目录，构造函数若同步调用 `getRecentLog()` 读盘再丢弃结果仍能通过；改为记录 `readFileSync` 的路径，断言构造期间没有读 `log.jsonl`，并用显式 `reloadLogFromDisk()` 做对照。反向验证：构造函数里调用 `getRecentLog()`，新测试失败、旧测试通过。channels 的 T4 断言里没有字面错误码，`exactly()` 替换为 0 处。
 - T3：零写入验收里 `whole valid capture/query` 一条在 T2 基点上失败：夹具直接写对话记录、没有登记用户来源，结果是 `coverage-insufficient`（`MEMORY_HISTORY_ORIGIN_UNPROVEN`）。dev 上的 `84d1d96` 已经按 `native-history-provider.test.ts` 的 `bindUsers()` 写法修好；T2 是在它之前分出来的，所以本分支合入 dev 后采用该修复，12 项全部通过。
 - T3：不带原生辅助程序时，`native-history-presence-process.test.ts` 的 5 项会失败；设置 `FIREFLY_HISTORY_PRESENCE_TEST_HELPER` 指向构建好的 `firefly-history-presence.exe` 后通过。这是环境要求，与本次改动无关。
