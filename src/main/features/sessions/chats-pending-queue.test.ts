@@ -453,6 +453,27 @@ describe("claim recovery combinations (ChatPage B10)", () => {
         expect([sessionA.id, sessionB.id]).toStrictEqual([sessionAId, sessionBId]);
         return { store, aId: sessionA.id, bId: sessionB.id };
     }
+    function expectSingleAlphaClaim(
+        store: Awaited<typeof import("./chats-store")>,
+        aId: string,
+        claimedAt: number,
+        expectedBeta: NonNullable<ReturnType<typeof store.getPendingMessages>>[number],
+    ) {
+        const expectedMessages = [
+            { id: "existing", role: "user", content: "Existing conversation", at: baseTime },
+            { id: "alpha", role: "user", content: "Queued instruction alpha", at: claimedAt },
+        ];
+        const sessionA = store.getSession(aId)!;
+        expect.soft(sessionA.messages).toStrictEqual(expectedMessages);
+        expect.soft(sessionA.messages.filter(item => item.id === "alpha")).toHaveLength(1);
+        expect.soft(sessionA.pendingDispatch).toStrictEqual({ messageId: "alpha", claimedAt });
+        expect.soft(sessionA.pendingMessages).toStrictEqual([expectedBeta]);
+        const diskA = JSON.parse(fs.readFileSync(sessionPath(aId), "utf8"));
+        expect.soft(diskA.messages).toStrictEqual(expectedMessages);
+        expect.soft(diskA.messages.filter((item: { id: string }) => item.id === "alpha")).toHaveLength(1);
+        expect.soft(diskA.pendingDispatch).toStrictEqual({ messageId: "alpha", claimedAt });
+        expect.soft(diskA.pendingMessages).toStrictEqual([expectedBeta]);
+    }
     it("recovers an incomplete claim after restart without duplicating the user message or advancing the queue", async () => {
         let { store, aId, bId } = await arrangeSessionPair();
         const expectedBeta = store.getPendingMessages(aId)![1];
@@ -468,22 +489,45 @@ describe("claim recovery combinations (ChatPage B10)", () => {
         store.initialize();
         const secondClaim = store.claimPendingMessage(aId);
         expect.soft(secondClaim).toEqual({ ok: false, error: "already-dispatching" });
-        const reloadedA = store.getSession(aId)!;
-        const expectedMessages = [
-            { id: "existing", role: "user", content: "Existing conversation", at: baseTime },
-            { id: "alpha", role: "user", content: "Queued instruction alpha", at: claimedAt },
-        ];
-        expect.soft(reloadedA.messages).toStrictEqual(expectedMessages);
-        expect.soft(reloadedA.messages.filter(item => item.id === "alpha")).toHaveLength(1);
-        expect.soft(reloadedA.pendingDispatch).toStrictEqual({ messageId: "alpha", claimedAt });
-        expect.soft(reloadedA.pendingMessages).toStrictEqual([expectedBeta]);
-        const diskA = JSON.parse(fs.readFileSync(sessionPath(aId), "utf8"));
-        expect.soft(diskA.messages).toStrictEqual(expectedMessages);
-        expect.soft(diskA.messages.filter((item: { id: string }) => item.id === "alpha")).toHaveLength(1);
-        expect.soft(diskA.pendingDispatch).toStrictEqual({ messageId: "alpha", claimedAt });
-        expect.soft(diskA.pendingMessages).toStrictEqual([expectedBeta]);
+        expectSingleAlphaClaim(store, aId, claimedAt, expectedBeta);
         expect.soft(fs.readFileSync(sessionPath(bId), "utf8")).toBe(neighbourBytes);
         expect.soft(fs.readFileSync(indexPath(), "utf8")).toBe(indexAfterFirstClaim);
+        expect.soft(ids(store.getPendingMessages(bId))).toEqual(["neighbour-queued"]);
+        expect.soft(fs.readdirSync(sessionsDir()).sort()).toStrictEqual([`${aId}.json`, `${bId}.json`]);
+    });
+    it("preserves session bytes when a staging directory blocks claim and claims once after obstacle removal", async () => {
+        const { store, aId, bId } = await arrangeSessionPair();
+        const [expectedAlpha, expectedBeta] = store.getPendingMessages(aId)!;
+        const sessionABytes = fs.readFileSync(sessionPath(aId), "utf8");
+        const indexBytes = fs.readFileSync(indexPath(), "utf8");
+        const neighbourBytes = fs.readFileSync(sessionPath(bId), "utf8");
+        const stagingPath = `${sessionPath(aId)}.tmp`;
+        fs.mkdirSync(stagingPath);
+        vi.setSystemTime(baseTime + 1000);
+        const failedClaim = store.claimPendingMessage(aId);
+        expect.soft(failedClaim).toEqual({ ok: false, error: "write-failed" });
+        expect.soft(fs.readFileSync(sessionPath(aId), "utf8")).toBe(sessionABytes);
+        expect.soft(fs.readFileSync(indexPath(), "utf8")).toBe(indexBytes);
+        expect.soft(fs.readFileSync(sessionPath(bId), "utf8")).toBe(neighbourBytes);
+        const afterFailureA = store.getSession(aId)!;
+        expect.soft(afterFailureA.messages).toStrictEqual([{ id: "existing", role: "user", content: "Existing conversation", at: baseTime }]);
+        expect.soft(afterFailureA.pendingMessages).toStrictEqual([expectedAlpha, expectedBeta]);
+        expect.soft(afterFailureA.pendingDispatch).toBeUndefined();
+        expect.soft(store.listSessions().find(item => item.id === aId)?.messageCount).toBe(1);
+        fs.rmdirSync(stagingPath);
+        vi.setSystemTime(baseTime + 1500);
+        const claimedAt = Date.now();
+        const recoveredClaim = store.claimPendingMessage(aId);
+        expect(recoveredClaim).toMatchObject({
+            ok: true,
+            claimed: true,
+            visibleContent: "Queued instruction alpha",
+            userMessage: { id: "alpha", role: "user", content: "Queued instruction alpha", at: claimedAt },
+            remainingQueue: [expectedBeta],
+        });
+        expect.soft(store.claimPendingMessage(aId)).toEqual({ ok: false, error: "already-dispatching" });
+        expectSingleAlphaClaim(store, aId, claimedAt, expectedBeta);
+        expect.soft(fs.readFileSync(sessionPath(bId), "utf8")).toBe(neighbourBytes);
         expect.soft(ids(store.getPendingMessages(bId))).toEqual(["neighbour-queued"]);
         expect.soft(fs.readdirSync(sessionsDir()).sort()).toStrictEqual([`${aId}.json`, `${bId}.json`]);
     });
