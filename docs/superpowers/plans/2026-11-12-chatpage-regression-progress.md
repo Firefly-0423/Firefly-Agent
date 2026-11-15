@@ -166,7 +166,7 @@
   - 仍失败就把正文留在界面，过程里加一条提示（`chatPage.terminalSaveFailed`，中英文都加了）。
   - 修复只在测试替身里验证，真机没有制造写入失败。
 - **计划外的类型修正**：渲染端 `AguiEvent` 没有声明 `RUN_FINISHED.result`，控制器和 `react-perf/fixture.ts` 各自用类型断言读取。改为用共享的 `FireflyRunTerminalResult` 声明，去掉两处断言，行为不变。同时把 A2 测试里的 `changes` 改成真实的 `ToolFileChange` 形状（原来输入和期望用的是同一个错误对象）。
-- **B4 发现：接管超时不释放旧持有者**（Codex 记录，产品未改）。旧 run 永不结算时，接管在 10000ms 得到 `SESSION_RUN_TAKEOVER_STUCK`，旧 run 的 signal 已中止、`isActiveConversationRun()` 为 false，但会话守卫仍登记旧 run ID，`hasActiveConversationRun()` 仍为 true，直到旧 run 真正结算。计划写的“无悬空 busy”如果要求这种情况也自动恢复空闲，现有守卫不满足，需负责人决定。
+- **B4：接管超时保留旧持有者（负责人 2026-11-15 决定保留）**。旧 run 已请求取消、尚未确认结算时，接管等两次 5 秒后返回 `SESSION_RUN_TAKEOVER_STUCK`，不启动替代 run；守卫仍登记旧 run，`hasActiveConversationRun()` 为 true，直到旧 run 真正结算。旧 run 进入终态提交后，取消请求可能不会触发 abort（`conversation/transcript/run-settlement.ts` 的 `requestCancel`），这时强制放锁会让新 run 在旧 run 仍可能落盘时进入同一会话，也与会话可靠性计划“超时不覆盖旧所有者”冲突，所以**不改会话互斥规则**。B4 测试补上：超时后只有一次模型调用、没有额外写入、旧 run 迟到结算后可以重新提交；强制放锁会让 2 项失败。“无悬空 busy”拆成两条：Main 侧即上述行为（已验收）；界面侧（接管超时后结束等待、提示“旧任务尚未停止，未启动新任务”、暂停自动派发、接管按钮不一直转圈）另开 PR，不在 B 包内。
 - **B2 的两层清卡**：控制器在 run 被接受时调用 `clearTakeover`，页面点“终止并重开”时也会先清掉卡片，所以只去掉其中一层，测试不会失败。`clearTakeover` 单独起作用的场景是冲突以别的方式解除（例如后来的一次发送被接受），B 包没有覆盖。
 - **B1、B2 的启动认领**：页面打开时会做一次恢复认领（队列为空时返回空），测试按完整的认领序列断言，不把它当成多余调用。
 - **测试文件类型检查**：B 包四个测试文件用 TypeScript API 单独检查，发现 G11 用了 `ChatMessageItem` 却没导入（vitest 不报），已补。已有的 `ChatPage.plan-lifecycle.test.ts` 有 11 条同类诊断（`window.agui` / `window.chatStore` 没有全局类型），不是本次引入；新的 `ChatPage.regression.test.ts` 用带类型的 `page` 引用避开。
