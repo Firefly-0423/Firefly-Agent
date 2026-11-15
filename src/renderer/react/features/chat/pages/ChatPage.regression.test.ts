@@ -237,4 +237,30 @@ describe("ChatPage package B: recovery, takeover and the pending queue", () => {
     expect(restartCards()).toHaveLength(0);
   });
 
+  test("B5: while a run is busy, two sends queue in order and removing one touches only that id", async () => {
+    sessions = { "session-a": session("session-a", "work"), "session-b": session("session-b", "work") };
+    queues["session-b"] = [{ id: "b-waiting", rawContent: "Neighbour task", visibleContent: "Neighbour task", enqueuedAt: 1 }];
+    await mount("work");
+    await type("start the review"); await click("#send"); await flush();
+    expect(runCalls).toHaveLength(1);
+    await type("then check the tests"); await click("#send"); await flush();
+    expect(texts("#draft")).toEqual([""]);
+    await type("and update the notes"); await click("#send"); await flush();
+    const [second, third] = queues["session-a"].map(item => item.id);
+    expect(queues["session-a"].map(item => item.rawContent)).toEqual(["then check the tests", "and update the notes"]);
+    expect(texts("#queue li")).toEqual(["then check the testsx", "and update the notesx"]);
+    await click(`[data-remove="${second}"]`); await flush();
+    expect(page.chatStore!.pendingRemove).toHaveBeenCalledTimes(1);
+    expect(page.chatStore!.pendingRemove).toHaveBeenCalledWith("session-a", second);
+    expect(queues["session-a"].map(item => item.id)).toEqual([third]);
+    expect(texts("#queue li")).toEqual(["and update the notesx"]);
+    // Queued text never enters the formal history before it is claimed.
+    expect(sessions["session-a"].messages.map(item => item.content).filter(Boolean)).toEqual(["start the review"]);
+    expect(queues["session-b"].map(item => item.id)).toEqual(["b-waiting"]);
+    finishRun("run-1"); await flush();
+    expect(runCalls.map(call => call.userTurnId)).toEqual([runCalls[0].userTurnId, third]);
+    expect(sessions["session-a"].messages.some(item => item.id === second)).toEqual(false);
+    expect(runCalls.every(call => call.sessionId === "session-a")).toEqual(true);
+  });
+
 });
