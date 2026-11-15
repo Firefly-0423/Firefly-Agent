@@ -28,10 +28,10 @@ function observer() {
 }
 type Observer = ReturnType<typeof observer>;
 type Memory = ReturnType<typeof memory>;
-function runScenario(options: { ack?: Acknowledgement; input?: Partial<AgentRunInput>; host?: Observer; disk?: Memory; refs?: AgentRunRegistries; unavailable?: boolean } = {}) {
+function runScenario(options: { ack?: Acknowledgement; acknowledge?: () => Promise<Acknowledgement>; input?: Partial<AgentRunInput>; host?: Observer; disk?: Memory; refs?: AgentRunRegistries; unavailable?: boolean } = {}) {
   const callbacks = new Set<(event: AguiEvent) => void>();
   const bridge = {
-    run: vi.fn<AguiApi["run"]>(async () => options.ack ?? successfulAck()), cancel: vi.fn(async () => {}), reportRunPersisted: vi.fn(),
+    run: vi.fn<AguiApi["run"]>(async () => options.acknowledge ? options.acknowledge() : options.ack ?? successfulAck()), cancel: vi.fn(async () => {}), reportRunPersisted: vi.fn(),
     onEvent: vi.fn((callback: (event: AguiEvent) => void) => { callbacks.add(callback); return () => { callbacks.delete(callback); }; }),
   } satisfies AguiApi;
   const disk = options.disk ?? memory(); const host = options.host ?? observer(); const refs = options.refs ?? registries();
@@ -401,4 +401,71 @@ describe("Delegated result evidence survives owning checkpoints", () => {
     s.send({ type: "TOOL_CALL_RESULT", runId: "run-1", toolCallId: "delegation-first", status: "failed", taskResult: { agentId: "document-reviewer", sessionId: "child-review", status: "cancelled", text: "r".repeat(64001), writes } });
     await s.finish("cancelled"); expect(s.lastSaved().toolExecutions[0].taskResult).toMatchObject({ writes, text: "r".repeat(64000), truncated: true });
   });
+});
+
+// ChatPage regression package A (docs/superpowers/plans/2026-11-12-chatpage-regression.md).
+const MODES = ["chat", "work", "code"] as const;
+function deferred<T>() {
+  let resolve!: (value: T) => void; let reject!: (failure: unknown) => void;
+  const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail; });
+  return { promise, resolve, reject };
+}
+/** Every patch and checkpoint in a scenario stays with its own session and assistant message. */
+function expectOwnSessionOnly(s: ReturnType<typeof runScenario>) {
+  expect(new Set(s.host.patchMessage.mock.calls.map(([sessionId, messageId]) => `${sessionId}/${messageId}`))).toEqual(new Set([`${s.request.sessionId}/${s.request.assistantId}`]));
+  expect(new Set(s.disk.upsert.mock.calls.map(([sessionId]) => sessionId))).toEqual(new Set([s.request.sessionId]));
+  expect(s.disk.append).not.toHaveBeenCalled();
+}
+function reason(s: ReturnType<typeof runScenario>, id: string, delta: string, runId = "run-1") {
+  s.send({ type: "REASONING_MESSAGE_START", runId, messageId: id });
+  s.send({ type: "REASONING_MESSAGE_CONTENT", runId, messageId: id, delta });
+  s.send({ type: "REASONING_MESSAGE_END", runId, messageId: id });
+}
+function usage(phase: "preRequest" | "terminal", totalTokens: number, runId = "run-1") {
+  return { phase, totalTokens, contextWindowTokens: 128000, messageCount: 3, updatedAt: 500 + totalTokens, runId, categories: [{ key: "conversation", tokens: totalTokens }] };
+}
+
+describe("ChatPage package A: run and persistence baseline", () => {
+  test.each(MODES)("A1 %s: reasoning, answer and success settle once with the right anchors", async mode => {
+    const s = runScenario({ input: { targetMode: mode } }); await s.ready();
+    reason(s, "reason-a1", "Check the public document first.");
+    s.text("The document", " is consistent."); await s.finish();
+    const patches = s.patches();
+    const firstReasoning = patches.findIndex(patch => patch.reasoning === "Check the public document first.");
+    const firstAnswer = patches.findIndex(patch => typeof patch.content === "string" && patch.content.length > 0);
+    expect(firstReasoning).toBeGreaterThanOrEqual(0);
+    expect(firstReasoning).toBeLessThan(firstAnswer);
+    expect(patches.at(-1)).toMatchObject({ content: "The document is consistent.", loading: false, waitingForFirstEvent: false, streaming: false, reasoningStreaming: false, responseStarted: true, runStage: { kind: "completed" } });
+    const saved = s.lastSaved();
+    expect(saved).toMatchObject({ id: "assistant-1", role: "model", content: "The document is consistent.", reasoning: "Check the public document first.", answersUserMessageId: "user-1" });
+    expect(saved.runSnapshot).toMatchObject({ runId: "run-1", status: "terminal", terminalStatus: "success" });
+    expect(s.saved().slice(0, -1).map(record => record.runSnapshot.status)).toEqual(s.saved().slice(0, -1).map(() => "running"));
+    expect(s.bridge.reportRunPersisted.mock.calls).toEqual([[{ runId: "run-1", finalMessageId: "assistant-1" }]]);
+    expect(s.bridge.run).toHaveBeenCalledTimes(1);
+    expect(s.bridge.cancel).not.toHaveBeenCalled();
+    expect(s.host.onRunFinished.mock.calls).toEqual([[{ mode, sessionId: "session-1", queuePaused: false }]]);
+    expectOwnSessionOnly(s);
+  });
+
+  test.each(["work", "code"] as const)("A2 %s: a tool round stays process evidence and the answer is saved once", async mode => {
+    const s = runScenario({ input: { targetMode: mode } }); await s.ready(); s.round();
+    const changes = [{ path: "notes/summary.md", kind: "modify", additions: 2, deletions: 1 }];
+    s.send({ type: "TOOL_CALL_START", runId: "run-1", toolCallId: "edit-call", toolCallName: "edit_file" });
+    s.send({ type: "TOOL_CALL_ARGS", runId: "run-1", toolCallId: "edit-call", delta: "{\"path\":\"notes/summary.md\"}" });
+    s.send({ type: "TOOL_CALL_RESULT", runId: "run-1", toolCallId: "edit-call", status: "success", content: "Updated notes/summary.md", changes } as AguiEvent);
+    s.send({ type: "TOOL_CALL_END", runId: "run-1", toolCallId: "edit-call" });
+    s.round("round-0", "end"); s.round("round-1");
+    s.text("The summary is updated."); await s.finish();
+    const saved = s.lastSaved();
+    expect(saved.toolExecutions).toEqual([expect.objectContaining({ id: "edit-call", name: "edit_file", status: "success", result: "Updated notes/summary.md", argsText: "{\"path\":\"notes/summary.md\"}", changes, roundId: "round-0" })]);
+    expect(saved.content).toEqual("The summary is updated.");
+    expect(saved.runSnapshot).toMatchObject({ status: "terminal", terminalStatus: "success" });
+    expect(JSON.stringify(saved.processMessages ?? [])).not.toContain("The summary is updated.");
+    expect(saved.content).not.toContain("Updated notes/summary.md");
+    expect(s.saved().filter(record => record.runSnapshot.status === "terminal")).toHaveLength(1);
+    expect(s.patches().some(patch => patch.runStage?.kind === "executing" && patch.runStage.detail === "edit_file")).toEqual(true);
+    expect(s.bridge.reportRunPersisted).toHaveBeenCalledTimes(1);
+    expectOwnSessionOnly(s);
+  });
+
 });
