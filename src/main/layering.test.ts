@@ -49,6 +49,12 @@ function collectViolations(): string[] {
     const candidates = [base, ...codeExtensions.map((ext) => base + ext), ...codeExtensions.map((ext) => path.join(base, "index" + ext))];
     return candidates.find((candidate) => present.has(candidate));
   };
+  const resolveOnDisk = (from: string, specifier: string): string | undefined => {
+    if (!specifier.startsWith(".")) return undefined;
+    const base = path.normalize(path.resolve(path.dirname(from), specifier));
+    const candidates = [base, ...codeExtensions.map((ext) => base + ext), ...codeExtensions.map((ext) => path.join(base, "index" + ext))];
+    return candidates.find((candidate) => fs.existsSync(candidate) && fs.statSync(candidate).isFile());
+  };
   const found = new Set<string>();
   for (const file of all) {
     if (isTestFile(file)) continue;
@@ -59,7 +65,12 @@ function collectViolations(): string[] {
     const source = ts.createSourceFile(file, fs.readFileSync(file, "utf8"), ts.ScriptTarget.ES2022, true);
     const check = (specifier: string) => {
       const target = resolve(file, specifier);
-      if (!target) return;
+      if (!target) {
+        // src/main 之外的目标不参与分层，但引用那里的测试辅助文件同样会把它编进安装包。
+        const outside = resolveOnDisk(file, specifier);
+        if (outside && isTestFile(outside)) found.add(`${from} -> ${relative(outside)} (引用测试文件)`);
+        return;
+      }
       const to = relative(target);
       // 测试辅助文件（*.test-support.* 等）只给测试用，生产代码引用它会把测试工具打进安装包。
       if (isTestFile(target)) { found.add(`${from} -> ${to} (引用测试文件)`); return; }
