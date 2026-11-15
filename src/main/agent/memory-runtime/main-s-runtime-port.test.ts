@@ -52,7 +52,8 @@ it("sends canonical complete turns directly with frozen stream/tools/output and 
 it.each(["stream","raw-user","wrong-cap","accessor"])("refuses unsupported %s before capture/count/send",async kind=>{
  const f=await fixture();if(kind==="stream")f.request.stream=true;if(kind==="raw-user")f.request.messages.push({role:"user",content:"untrusted"});if(kind==="wrong-cap")f.request.maxTokens=129;
  if(kind==="accessor")Object.defineProperty(f.request,"tools",{get:()=>{throw Error("GETTER_FORBIDDEN")},enumerable:true});
- await expect(f.port.run({request:f.request})).rejects.toThrow();expect(f.captures).toBe(0);expect(f.counts).toHaveLength(0);expect(f.sends).toHaveLength(0);
+ const expectedCode=kind==="stream"?"MEMORY_CONTEXT_STREAM_UNSUPPORTED":kind==="raw-user"?"MEMORY_CONTEXT_ORDER_REQUIRED":"MEMORY_CONTEXT_COUNTER_UNSUPPORTED";
+ await expect(f.port.run({request:f.request})).rejects.toThrow(expectedCode);expect(f.captures).toBe(0);expect(f.counts).toHaveLength(0);expect(f.sends).toHaveLength(0);
 });
 it("detaches schema and system inputs before asynchronous source/count work",async()=>{
  const f=await fixture();f.setHook(async()=>{f.request.messages[0].content="mutated";f.request.tools![0].parameters={type:"string"};f.request.stream=true});
@@ -68,7 +69,8 @@ it("passes cancellation through to the sole SDK send",async()=>{
 });
 it.each(["append","configuration","count-error"])("%s during counting blocks sender without fallback",async kind=>{
  const f=await fixture();let changed=false;f.setHook(async()=>{if(changed)return;changed=true;if(kind==="append")await f.store.append("session-a",{id:"u2",at:1003,kind:"user",turnId:"u2",revision:1,payload:{text:"new synthetic"}});if(kind==="configuration")f.drift();if(kind==="count-error")throw Error("SYNTHETIC_COUNT_FAILURE")});
- await expect(f.port.run({request:f.request})).rejects.toThrow();expect(f.sends).toHaveLength(0);
+ const expectedCode=kind==="append"?"MEMORY_CONTEXT_TRANSCRIPT_PENDING":"MEMORY_CONTEXT_COUNT_FAILED";
+ await expect(f.port.run({request:f.request})).rejects.toThrow(expectedCode);expect(f.sends).toHaveLength(0);
 });
 it("serializes concurrent runs so frozen configuration cannot bleed across counts",async()=>{
  const f=await fixture();await Promise.all([f.port.run({request:f.request}),f.port.run({request:{...f.request,messages:[{role:"system",content:"second fixed"}]}})]);
@@ -89,12 +91,12 @@ it("actual AgentRuntime reaches canonical Main counts/permit and direct SDK send
 });
 it.each([1,3,5])("append during complete request count phase %s cannot send a stale snapshot",async phase=>{
  const f=await fixture();let full=0;f.setHook(async()=>{if(f.counts.at(-1)!.body.instructions&&++full===phase)await f.store.append("session-a",{id:"u2",at:1003,kind:"user",turnId:"u2",revision:1,payload:{text:"new synthetic"}})});
- await expect(f.port.run({request:f.request})).rejects.toThrow();expect(full).toBeGreaterThanOrEqual(phase);if(phase===5)expect(f.commands.some((c:any)=>c.kind==="permit")).toBe(true);expect(f.sends).toHaveLength(0);
+ await expect(f.port.run({request:f.request})).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_PENDING");expect(full).toBeGreaterThanOrEqual(phase);if(phase===5)expect(f.commands.some((c:any)=>c.kind==="permit")).toBe(true);expect(f.sends).toHaveLength(0);
 });
 it("forget during counting cannot revive old canonical derived content",async()=>{
  const f=await fixture(),fact=await f.active("I prefer bash");await f.store.append("session-a",{id:"a1",at:1001,kind:"assistant",payload:{role:"assistant",content:"old synthetic derivation"}});
  let changed=false;f.setHook(async()=>{if(changed)return;changed=true;await f.forget(fact.factId!)});
- await expect(f.port.run({request:f.request})).rejects.toThrow();expect(f.sends).toHaveLength(0);
+ await expect(f.port.run({request:f.request})).rejects.toThrow("MEMORY_CONTEXT_STALE");expect(f.sends).toHaveLength(0);
 });
 it("an aborted queued run does not capture or send and leaves the next run usable",async()=>{
  const f=await fixture(),abort=new AbortController();let release!:()=>void,started!:()=>void;
@@ -112,7 +114,7 @@ it.each(["edit","regenerate","delete"])("%s during counting invalidates the cano
  f.setHook(async()=>{if(changed)return;changed=true;if(kind==="delete")await f.store.deleteConversation("session-a");else await f.store.append("session-a",kind==="edit"
  ?{id:"rewind",at:1001,kind:"turn_rewind",turnId:"u1",revision:2,payload:{anchorUserTurnId:"u1",disposition:"replace_user",reason:"edit",replacementUser:{text:"edited"}}}
  :{id:"rewind",at:1001,kind:"turn_rewind",payload:{anchorUserTurnId:"u1",disposition:"keep_user",reason:"regenerate"}})});
- await expect(f.port.run({request:f.request})).rejects.toThrow();expect(f.sends).toHaveLength(0);
+ await expect(f.port.run({request:f.request})).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_PENDING");expect(f.sends).toHaveLength(0);
 });
 it("rejects a temporary actor before provisioning any transcript port",async()=>{
  const f=await fixture(),{createMainSRuntimePort}=await import("./main-s-runtime-port");
