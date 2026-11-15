@@ -126,21 +126,53 @@ describe("元数据由宿主决定", () => {
 describe("失败隔离", () => {
   test("异步发布失败只产生告警，调用不抛出也不产生未处理拒绝", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const { publisher } = harness(async () => {
-      throw new Error("bus down");
+    let rejectFirst = true;
+    const { publisher, sent } = harness(async () => {
+      if (rejectFirst) {
+        rejectFirst = false;
+        throw new Error("bus down");
+      }
     });
-    expect(() =>
-      publisher.publishToolFinished({
-        runId: "r",
-        toolId: "t",
-        toolCallId: "c",
-        status: "unknown",
-        risk: "safe",
-      }),
-    ).not.toThrow();
+    const ret = publisher.publishToolFinished({
+      runId: "r",
+      toolId: "t",
+      toolCallId: "c",
+      status: "unknown",
+      risk: "safe",
+    });
+    expect(ret).toBeUndefined();
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0][0])).toContain("tool:finished");
+    expect(sent.map((item) => item.name)).toEqual(["tool:finished"]);
+
+    publisher.publishSchedulerFinished({ taskId: "t", schedulerRunId: "r", status: "success" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(sent).toEqual([
+      {
+        name: "tool:finished",
+        body: {
+          runId: "r",
+          toolId: "t",
+          toolCallId: "c",
+          status: "unknown",
+          risk: "safe",
+          eventId: "evt-1",
+          timestamp: "2030-01-02T03:04:05.000Z",
+        },
+      },
+      {
+        name: "scheduler:finished",
+        body: {
+          taskId: "t",
+          schedulerRunId: "r",
+          status: "success",
+          eventId: "evt-2",
+          timestamp: "2030-01-02T03:04:05.000Z",
+        },
+      },
+    ]);
   });
 
   test("发布是即发即忘：不等待监听器完成就返回", () => {

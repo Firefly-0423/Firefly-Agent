@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { buildEnvironmentContext as environment } from "./environment";
 
 describe("Model-visible desktop environment", () => {
@@ -31,8 +31,18 @@ describe("Model-visible desktop environment", () => {
   });
 
   it.each([undefined, "", "invalid/region", "Foo/Bar"])("falls back safely for missing or invalid timezone %s", (timezone) => {
-    expect(() => environment(undefined, timezone === undefined ? undefined : { timezone })).not.toThrow();
-    expect(environment(undefined, timezone === undefined ? undefined : { timezone })).toMatch(/时区 Asia\/Shanghai/);
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-11-14T12:34:00Z"));
+      const actual = environment(undefined, timezone === undefined ? undefined : { timezone });
+      const expected = environment(undefined, timezone === undefined ? undefined : { timezone: "Asia/Shanghai" });
+      expect(actual).toBe(expected);
+      expect(actual).toMatch(/- 当前时间：2026-11-14 [周星期]\S? 20:34（时区 Asia\/Shanghai）/);
+      if (timezone === undefined) expect(actual).not.toContain("## 用户信息");
+      else expect(actual).toContain("## 用户信息");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("shows generic permission rules without advertising tool IDs or permission buckets", () => {

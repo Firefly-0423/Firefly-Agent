@@ -16,6 +16,7 @@ import { resolveMemoryCounter } from "./model-counting";
 import { createSmhFixture } from "../../memory/context/smh-fixture.test-support";
 import { createMainMemoryRuntime, type MainMemoryCapture, type MainMemoryModelBinding } from "./main-memory-runtime";
 import { createDefaultRunCapture } from "./default-run-capture";
+import { exactly } from "../../../shared/testing/error-code.test-support";
 
 // Real prompt-dump I/O stays in a test-owned home even with diagnostics enabled.
 const diagnosticIO = vi.hoisted(() => {
@@ -137,7 +138,10 @@ it.each([
     onDelta: () => { if (terminal === "cancel") controller.abort(new DOMException(sentinel, "AbortError")); },
   });
   if (terminal === "success") await expect(result).resolves.toMatchObject({ text: sentinel });
-  else await expect(result).rejects.toThrow();
+  else {
+    const expectedCode = terminal === "cancel" ? "MEMORY_CONTEXT_CANCELLED" : mode === "persistent" ? "MEMORY_CONTEXT_SEND_UNKNOWN" : "MEMORY_CONTEXT_RUN_FAILED";
+    await expect(result).rejects.toThrow(exactly(expectedCode));
+  }
   await Promise.all(diagnosticIO.pending);
   const files = fs.existsSync(dumpRoot) ? fs.readdirSync(dumpRoot, { recursive: true }).map(String).filter(file => file.endsWith(".json")) : [];
   const payloads = files.map(file => fs.readFileSync(path.join(dumpRoot, file), "utf8")).filter(text => text.includes(sentinel)).map(text => JSON.parse(text));
@@ -152,7 +156,7 @@ it.each([
 
 it("rejects forged grants before captures, counting, or persistent commands", async () => {
   const f = await fixture(), before = f.commands.length;
-  await expect(f.runtime.openRun({} as never)).rejects.toThrow("MEMORY_RUN_DENIED");
+  await expect(f.runtime.openRun({} as never)).rejects.toThrow(exactly("MEMORY_RUN_DENIED"));
   expect(f.captures()).toBe(0); expect(f.counted).toEqual([]); expect(f.sent).toEqual([]); expect(f.commands).toHaveLength(before);
 });
 
@@ -190,14 +194,14 @@ it("quiesces immediately but drains the actual started provider operation before
   const f = await fixture(), started = deferred(), release = deferred<Response>(); f.onFetch(async () => { started.resolve(); return release.promise; });
   const run = await f.runtime.openRun(f.grant()), call = run.call(f.input()); const rejected = expect(call).rejects.toThrow(/MEMORY_CONTEXT_(CANCELLED|SEND_UNKNOWN)/); await started.promise;
   f.runtime.quiesce(); const closing = f.runtime.close();
-  await expect(f.runtime.openRun(f.grant("session-b", "late"))).rejects.toThrow("MEMORY_CONTEXT_RUNTIME_CLOSED");
+  await expect(f.runtime.openRun(f.grant("session-b", "late"))).rejects.toThrow(exactly("MEMORY_CONTEXT_RUNTIME_CLOSED"));
   expect(f.closes()).toBe(0); release.resolve(Response.json({ choices: [{ message: { role: "assistant", content: "late" }, finish_reason: "stop" }] }));
   await rejected; await closing; expect(f.closes()).toBe(1);
 });
 
 it("temporary runs fail closed before any persistent M, H, or context command", async () => {
   const f = await fixture("temporary"), before = f.commands.length;
-  await expect(f.runtime.openRun(f.grant())).rejects.toThrow("MEMORY_CONTEXT_TEMPORARY_UNSUPPORTED");
+  await expect(f.runtime.openRun(f.grant())).rejects.toThrow(exactly("MEMORY_CONTEXT_TEMPORARY_UNSUPPORTED"));
   expect(f.commands).toHaveLength(before); expect(f.captures()).toBe(0); expect(f.sent).toEqual([]);
 });
 
@@ -226,7 +230,7 @@ it("uses trusted ephemeral S without any persistent M, H, or context command", a
 it("invalidates a changed ephemeral capture after counting and sends nothing", async () => {
   const f = await fixture("temporary", true), before = f.commands.length, run = await f.runtime.openRun(f.grant());
   f.onCount(async () => { f.mutateTemporary(); });
-  await expect(run.call(f.input())).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_STALE");
+  await expect(run.call(f.input())).rejects.toThrow(exactly("MEMORY_CONTEXT_TRANSCRIPT_STALE"));
   expect(f.sent).toEqual([]); expect(f.commands).toHaveLength(before);
 });
 
@@ -237,7 +241,7 @@ it("denies ungranted cross-session M supports before reading the source", async 
   expect(fact.factId).toBeTruthy();
   f.overrideCapture(capture => ({ ...capture, capture: async (...args) => ({ ...await capture.capture(...args), factRefs: [{ factId: fact.factId!, revision: 1 }] }) }));
   const run = await f.runtime.openRun(f.grant()), readsBefore = f.reads;
-  await expect(run.call(f.input())).rejects.toThrow("MEMORY_RUN_READ_DENIED");
+  await expect(run.call(f.input())).rejects.toThrow(exactly("MEMORY_RUN_READ_DENIED"));
   expect(f.reads).toBe(readsBefore); expect(f.sent).toEqual([]);
 });
 
@@ -268,7 +272,7 @@ it("includes genuine H as quoted original-role evidence and denies foreign read 
   expect(history.hits).toHaveLength(1);
   f.overrideCapture(capture => ({ ...capture, capture: async (...args) => ({ ...await capture.capture(...args), historyTokens: [history.evidence] }) }));
   const denied = await f.runtime.openRun(f.grant());
-  await expect(denied.call(f.input())).rejects.toThrow("MEMORY_RUN_READ_DENIED"); expect(f.sent).toEqual([]);
+  await expect(denied.call(f.input())).rejects.toThrow(exactly("MEMORY_RUN_READ_DENIED")); expect(f.sent).toEqual([]);
   await denied.close();
   const allowed = await f.runtime.openRun(f.grant("session-a", "with-history", [f.sibling]));
   await allowed.call(f.input());
@@ -297,7 +301,7 @@ it("does not turn system task prompts or model statements into direct-user M", a
 
 it("rejects a stale resolved binding revision even if the binding callback claims current", async () => {
   const f = await fixture(); (f.binding as { revision: number }).revision = 2;
-  await expect(f.runtime.openRun(f.grant())).rejects.toThrow("MEMORY_RUN_PROFILE_CHANGED");
+  await expect(f.runtime.openRun(f.grant())).rejects.toThrow(exactly("MEMORY_RUN_PROFILE_CHANGED"));
   expect(f.captures()).toBe(0); expect(f.sent).toEqual([]);
 });
 
@@ -310,7 +314,7 @@ it("does not send after uncertain admission and drains its started final validat
     return original(command);
   };
   const run = await f.runtime.openRun(f.grant()), pending = run.call(f.input());
-  await expect(pending).rejects.toThrow("MEMORY_CONTEXT_SEND_UNKNOWN"); await started.promise;
+  await expect(pending).rejects.toThrow(exactly("MEMORY_CONTEXT_SEND_UNKNOWN")); await started.promise;
   const closing = f.runtime.close(); expect(f.closes()).toBe(0);
   release.resolve();
   await closing; expect(f.closes()).toBe(1); expect(f.sent).toHaveLength(0);
@@ -321,7 +325,7 @@ it("keeps close errors secret-free", async () => {
   const run = await f.runtime.openRun(f.grant()); await run.call(f.input());
   await expect(run.close()).rejects.toThrow(/^MEMORY_CONTEXT_CLOSE_FAILED$/);
   // The same settled close remains explicit; no unhandled cleanup rejection.
-  await expect(f.runtime.close()).rejects.toThrow("MEMORY_CONTEXT_CLOSE_FAILED");
+  await expect(f.runtime.close()).rejects.toThrow(exactly("MEMORY_CONTEXT_CLOSE_FAILED"));
   cleanup.pop();
 });
 
@@ -344,7 +348,7 @@ it("cancels and drains a started trusted response hook before closing", async ()
   const f = await fixture(), started = deferred(), release = deferred();
   f.overrideCapture(capture => ({ ...capture, onResponse: async () => { started.resolve(); await release.promise; } }));
   const run = await f.runtime.openRun(f.grant()), call = run.call(f.input());
-  const rejected = expect(call).rejects.toThrow("MEMORY_CONTEXT_CANCELLED"); await started.promise;
+  const rejected = expect(call).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED")); await started.promise;
   const closing = f.runtime.close(); expect(f.closes()).toBe(0); release.resolve();
   await rejected; await closing; expect(f.closes()).toBe(1); expect(f.sent).toHaveLength(1);
 });
@@ -383,7 +387,7 @@ it("rejects mutation of a genuine trusted prompt before capture", async () => {
   const f = await fixture(), run = await f.runtime.openRun(f.grant()), input = f.input();
   const composed = composePromptLayers({ stablePrefix: "rules", runtimeContext: "trusted" }, []); composed.messages.at(-1)!.content = "tampered";
   input.request.messages = composed.messages as typeof input.request.messages;
-  await expect(run.call(input)).rejects.toThrow("MEMORY_CONTEXT_PROMPT_CHANGED"); expect(f.captures()).toBe(0); expect(f.sent).toEqual([]);
+  await expect(run.call(input)).rejects.toThrow(exactly("MEMORY_CONTEXT_PROMPT_CHANGED")); expect(f.captures()).toBe(0); expect(f.sent).toEqual([]);
 });
 
 it("binds one real sink once and accepts its own guarded facade idempotently", async () => {
@@ -394,9 +398,9 @@ it("binds one real sink once and accepts its own guarded facade idempotently", a
   } }));
   const run = await f.runtime.openRun(f.grant()), sink = createTranscriptSink({ store: f.store, conversationId: "session-a", runId: "run-a", assistantTurnId: "assistant-a" });
   const facade = run.bindSink(sink); expect(facade).not.toBe(sink); expect(run.bindSink(sink)).toBe(facade); expect(run.bindSink(facade)).toBe(facade); expect(bindings).toBe(1);
-  expect(() => run.bindSink({ ...sink })).toThrow("MEMORY_CONTEXT_STREAM_SINK_DENIED");
+  expect(() => run.bindSink({ ...sink })).toThrow(exactly("MEMORY_CONTEXT_STREAM_SINK_DENIED"));
   const foreign = createTranscriptSink({ store: f.store, conversationId: "session-b", runId: "run-b", assistantTurnId: "assistant-b" });
-  expect(() => run.bindSink(foreign)).toThrow("MEMORY_CONTEXT_STREAM_SINK_DENIED");
+  expect(() => run.bindSink(foreign)).toThrow(exactly("MEMORY_CONTEXT_STREAM_SINK_DENIED"));
 });
 
 it("returns only a stable explicit streaming rejection code and permits a fresh counted fallback", async () => {
@@ -428,7 +432,7 @@ it("masks actual credentials in ephemeral S so they are never persisted or sent"
 it("rejects wire output bounds above the approved profile reserve without changing settings", async () => {
   const f = await fixture(), run = await f.runtime.openRun(f.grant()), input = f.input(), before = JSON.stringify(f.config);
   Object.assign(input.request, { maxTokens: f.binding.budget.reservedOutputTokens + 1 });
-  await expect(run.call(input)).rejects.toThrow("MEMORY_CONTEXT_OUTPUT_RESERVE_INVALID"); expect(f.sent).toEqual([]);
+  await expect(run.call(input)).rejects.toThrow(exactly("MEMORY_CONTEXT_OUTPUT_RESERVE_INVALID")); expect(f.sent).toEqual([]);
   expect(JSON.stringify(f.config)).toBe(before);
 });
 
@@ -439,7 +443,7 @@ it("stops emitting ephemeral stream content as soon as its captured view changes
     { choices: [{ delta: { content: "second" }, finish_reason: null }] },
     { choices: [{ delta: {}, finish_reason: "stop" }] },
   ].map(event => `data: ${JSON.stringify(event)}\n\n`).join(""), { headers: { "content-type": "text/event-stream" } }));
-  await expect(run.call({ ...input, onDelta: delta => { if (delta.type === "text_delta") { deltas.push(delta.delta); f.mutateTemporary(); } } })).rejects.toThrow("MEMORY_CONTEXT_TRANSCRIPT_STALE");
+  await expect(run.call({ ...input, onDelta: delta => { if (delta.type === "text_delta") { deltas.push(delta.delta); f.mutateTemporary(); } } })).rejects.toThrow(exactly("MEMORY_CONTEXT_TRANSCRIPT_STALE"));
   expect(deltas).toEqual(["first"]);
 });
 
@@ -501,14 +505,14 @@ it("permits only deterministic closure after the real default round's caller sig
   f.onFetch(async () => Response.json({ choices: [{ message: { role: "assistant", content: "checking", tool_calls: [{ id: "t1", type: "function", function: { name: "lookup", arguments: "{}" } }] }, finish_reason: "tool_calls" }] }));
   const response = await run.call({ ...f.input(), signal: controller.signal });
   const assistantEntryId = await sink.appendAssistant({ message: response.assistantMessage, roundId: "r1" }); controller.abort();
-  await expect(sink.appendToolResult({ assistantEntryId, message: { role: "tool", toolCallId: "t1", content: "late success" }, outcome: "success", roundId: "r1" })).rejects.toThrow("MEMORY_CONTEXT_CANCELLED");
+  await expect(sink.appendToolResult({ assistantEntryId, message: { role: "tool", toolCallId: "t1", content: "late success" }, outcome: "success", roundId: "r1" })).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED"));
   const closure = { reason: "user_cancel" as const, runSession: { conversationId: "session-a", runId: "run-a", toolCalls: [{ toolCallId: "t1", toolName: "lookup", status: "started" }] } as any };
   await sink.closeInterruption(closure); await sink.closeInterruption(closure); await sink.checkpoint();
   const entries = (await f.store.read("session-a")).entries;
   expect(entries.map(entry => entry.kind)).toEqual(["user", "assistant", "tool_result", "interruption"]);
   expect(entries.filter(entry => entry.kind === "tool_result").map(entry => entry.payload.outcome)).toEqual(["unknown"]);
   expect(JSON.stringify(entries)).not.toContain("late success"); expect(f.sent).toHaveLength(1);
-  await expect(run.call(f.input())).rejects.toThrow("MEMORY_CONTEXT_CANCELLED"); expect(f.sent).toHaveLength(1);
+  await expect(run.call(f.input())).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED")); expect(f.sent).toHaveLength(1);
 });
 
 it("rejects a canonical edit during SDK wire verification before the real provider fetch", async () => {
@@ -597,7 +601,7 @@ it.each([[500,"image inputs are not supported",true],[400,"invalid image encodin
  if(hasImage){const cap=authority.issue({sessionId:"session-a",userTurnId:"u1",userRevision:1,userText:"canonical question 中文",attachments,assertCurrent(){}});await prepareMainAttachmentProjection(cap,async()=>[{type:"image_url",image_url:{url:"data:image/png;base64,c3ludGhldGlj"}}]);}
  const f=await fixture("persistent",false,hasImage?{attachmentProjection:authority.token,attachments}:{}),run=await f.runtime.openRun(f.grant()),input=f.input();
  input.request.messages.push({role:"user",content:[{type:"image_url",image_url:{url:"data:image/png;base64,c3ludGhldGlj"}}]} as any);
- f.onFetch(async()=>Response.json({error:{message}},{status}));await expect(run.call(input)).rejects.toThrow("MEMORY_CONTEXT_SEND_UNKNOWN");expect(f.sent).toHaveLength(1);
+ f.onFetch(async()=>Response.json({error:{message}},{status}));await expect(run.call(input)).rejects.toThrow(exactly("MEMORY_CONTEXT_SEND_UNKNOWN"));expect(f.sent).toHaveLength(1);
 });
 
 it.each([400,422])("completes the real Chat image-to-caption path after HTTP %s with fresh counted wire bodies",async status=>{

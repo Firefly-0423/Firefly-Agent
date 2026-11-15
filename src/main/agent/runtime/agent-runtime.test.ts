@@ -8,6 +8,7 @@ import type { PluginRuntime } from "../../../plugins/context";
 import type { ScheduledTask } from "../../platform/schedule/schedule-types";
 import { createAgentRuntime, type AgentRuntimeDeps } from "./agent-runtime";
 import * as builders from "./build-options";
+import { exactly } from "../../../shared/testing/error-code.test-support";
 
 const effects = vi.hoisted(() => ({ finish: vi.fn(), legacy: vi.fn(), worldbook: vi.fn(), write: vi.fn(), root: "" }));
 vi.mock("electron", () => ({ app: { getPath: () => effects.root } }));
@@ -58,7 +59,11 @@ describe("Runtime completion notifications", () => {
 
   it.each(["runtime_error", "cancelled", "timeout"] as const)("does not announce a completed turn for %s", async (status) => {
     const publish = vi.fn(async () => {});
-    await createAgentRuntime(dependencies({ publishPluginHostEvent: publish })).onRunFinished({ ...result, terminal: { status, reason: "Calendar interrupted", externalEffectsMayContinue: true } }, "Read my calendar", context);
+    const failedResult = { ...result, terminal: { status, reason: "Calendar interrupted", externalEffectsMayContinue: true } };
+    effects.finish.mockResolvedValueOnce({ sticker: "calendar-sticker" });
+    await expect(createAgentRuntime(dependencies({ publishPluginHostEvent: publish })).onRunFinished(failedResult, "Read my calendar", context))
+      .resolves.toEqual({ sticker: "calendar-sticker" });
+    expect(effects.finish).toHaveBeenCalledWith(failedResult, "Read my calendar", expect.any(Object), undefined, "calendar-session");
     expect(publish).not.toHaveBeenCalled();
   });
 
@@ -190,7 +195,7 @@ describe("Scheduled run assembly", () => {
     expect(options).toHaveProperty("modelProfileId", "calendar-profile"); expect(options.backgroundMemory?.prepareBackgroundRun).toBeTypeOf("function");
     expect(prepareBackgroundRun).not.toHaveBeenCalled();
     const deps = dependencies({ defaultMemory: { openRun: vi.fn() }, loadModelSettings: () => ({ ...savedSettings(), modelProfiles: [] }) as any });
-    await expect(createAgentRuntime(deps).buildSchedulerOptions(task())).rejects.toThrow("MEMORY_RUN_PROFILE_DENIED");
+    await expect(createAgentRuntime(deps).buildSchedulerOptions(task())).rejects.toThrow(exactly("MEMORY_RUN_PROFILE_DENIED"));
   });
 });
 
@@ -200,7 +205,7 @@ describe("Controlled Main S provisioning and session ownership", () => {
     const runtime = createAgentRuntime(dependencies({ sContext: { createPort } }));
     const unreadable = new Proxy({}, { get() { throw Error("Calendar request read forbidden"); } });
     expect(createPort).not.toHaveBeenCalled();
-    await expect(runtime.runSContext(unreadable as any)).rejects.toThrow("MEMORY_CONTEXT_RUNTIME_DISABLED");
+    await expect(runtime.runSContext(unreadable as any)).rejects.toThrow(exactly("MEMORY_CONTEXT_RUNTIME_DISABLED"));
     expect(createPort).not.toHaveBeenCalled();
   });
   it("shares lazy provisioning and snapshots input before delivering it to the Main port", async () => {
@@ -214,13 +219,13 @@ describe("Controlled Main S provisioning and session ownership", () => {
   });
   it("does no provisioning for a pre-aborted run and no sending after provisioning aborts", async () => {
     const pre = new AbortController(); pre.abort(); const noProvision = vi.fn();
-    await expect(createAgentRuntime(dependencies({ sContext: { enabled: true, createPort: noProvision } })).runSContext({ signal: pre.signal } as any)).rejects.toThrow("MEMORY_CONTEXT_CANCELLED");
+    await expect(createAgentRuntime(dependencies({ sContext: { enabled: true, createPort: noProvision } })).runSContext({ signal: pre.signal } as any)).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED"));
     expect(noProvision).not.toHaveBeenCalled();
     const abort = new AbortController(), run = vi.fn(), createPort = vi.fn(async () => { abort.abort(); return { run }; });
     const runtime = createAgentRuntime(dependencies({ sContext: { enabled: true, createPort } }));
-    await expect(runtime.runSContext({ request: sRequest, signal: abort.signal })).rejects.toThrow("MEMORY_CONTEXT_CANCELLED");
+    await expect(runtime.runSContext({ request: sRequest, signal: abort.signal })).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED"));
     expect(run).not.toHaveBeenCalled(); expect(createPort).toHaveBeenCalledTimes(1);
-    await expect(runtime.runSContext({ signal: abort.signal } as any)).rejects.toThrow("MEMORY_CONTEXT_CANCELLED");
+    await expect(runtime.runSContext({ signal: abort.signal } as any)).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED"));
     expect(createPort).toHaveBeenCalledTimes(1);
   });
   it("retains a provisioning failure without retrying or touching legacy model dependencies", async () => {
@@ -242,8 +247,8 @@ describe("Controlled Main S provisioning and session ownership", () => {
   it("prepares the exact session before dispatch and rejects missing or accessor session IDs", async () => {
     const provisioned: string[] = [];
     const runtime = createAgentRuntime(dependencies({ sContext: { enabled: true, streamRequest: () => sRequest, createPort: async (scope) => { provisioned.push(scope?.conversationId ?? "unbound"); return { run: async () => ({ status: "sent" as const, requestDigest: "calendar-digest", result: null }) }; } } }));
-    await expect(runtime.buildOptions.prepareTranscript!({ mode: "chat", messages: [] } as any)).rejects.toThrow("MEMORY_CONTEXT_STREAM_TARGET_INVALID");
-    await expect(runtime.buildOptions.prepareTranscript!(Object.defineProperty({ mode: "chat", messages: [] }, "sessionId", { get() { throw Error("Calendar accessor forbidden"); } }) as any)).rejects.toThrow("MEMORY_CONTEXT_STREAM_TARGET_INVALID");
+    await expect(runtime.buildOptions.prepareTranscript!({ mode: "chat", messages: [] } as any)).rejects.toThrow(exactly("MEMORY_CONTEXT_STREAM_TARGET_INVALID"));
+    await expect(runtime.buildOptions.prepareTranscript!(Object.defineProperty({ mode: "chat", messages: [] }, "sessionId", { get() { throw Error("Calendar accessor forbidden"); } }) as any)).rejects.toThrow(exactly("MEMORY_CONTEXT_STREAM_TARGET_INVALID"));
     expect(provisioned).toEqual([]);
     await runtime.buildOptions.prepareTranscript!({ sessionId: "calendar-blue", mode: "chat", messages: [] });
     await runtime.runSContext({ request: sRequest, stream: sTarget("calendar-blue") });
