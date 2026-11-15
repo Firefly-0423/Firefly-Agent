@@ -4,6 +4,7 @@ import { createMainMemoryAuthority } from "../core/main-access";
 import { createMainSourceProvider } from "../core/main-source-provider";
 import { createMemorySessionModes } from "./memory-session-modes";
 import * as contracts from "./main-memory-contracts";
+import { exactly } from "../../../shared/testing/error-code.test-support";
 
 function fixture(mode: "persistent" | "temporary" = "persistent") {
   const access = createMainMemoryAuthority({ policyVersion: "test-v1", resolveSource: () => null }).access("scope-a");
@@ -38,23 +39,23 @@ it("accepts a saved non-default profile without reading source bodies or changin
 });
 it("rejects forged grants, actor objects and source-provider substitutions", () => {
   const f = fixture(), grant = f.authority.issue(f.input);
-  expect(() => f.authority.require(JSON.parse(JSON.stringify(grant)))).toThrow("MEMORY_RUN_DENIED");
-  expect(() => f.authority.issue({ ...f.input, actorToken: {} })).toThrow("MEMORY_ACTOR_DENIED");
-  expect(() => f.authority.issue({ ...f.input, sourceProvider: f.sibling.source })).toThrow("MEMORY_RUN_SOURCE_DENIED");
+  expect(() => f.authority.require(JSON.parse(JSON.stringify(grant)))).toThrow(exactly("MEMORY_RUN_DENIED"));
+  expect(() => f.authority.issue({ ...f.input, actorToken: {} })).toThrow(exactly("MEMORY_ACTOR_DENIED"));
+  expect(() => f.authority.issue({ ...f.input, sourceProvider: f.sibling.source })).toThrow(exactly("MEMORY_RUN_SOURCE_DENIED"));
 });
 it("requires registered session mode, matching actor session and a saved model profile", () => {
   const f = fixture();
-  expect(() => f.authority.issue({ ...f.input, identity: { ...f.input.identity, sessionMode: "temporary" } })).toThrow("MEMORY_RUN_IDENTITY_DENIED");
-  expect(() => f.authority.issue({ ...f.input, identity: { ...f.input.identity, sessionId: "session-b" } })).toThrow("MEMORY_SESSION_MODE_DENIED");
-  expect(() => f.authority.issue({ ...f.input, identity: { ...f.input.identity, modelProfileId: "missing" } })).toThrow("MEMORY_RUN_PROFILE_DENIED");
-  f.modes.remove("session-a"); expect(() => f.authority.issue(f.input)).toThrow("MEMORY_SESSION_MODE_DENIED");
+  expect(() => f.authority.issue({ ...f.input, identity: { ...f.input.identity, sessionMode: "temporary" } })).toThrow(exactly("MEMORY_RUN_IDENTITY_DENIED"));
+  expect(() => f.authority.issue({ ...f.input, identity: { ...f.input.identity, sessionId: "session-b" } })).toThrow(exactly("MEMORY_SESSION_MODE_DENIED"));
+  expect(() => f.authority.issue({ ...f.input, identity: { ...f.input.identity, modelProfileId: "missing" } })).toThrow(exactly("MEMORY_RUN_PROFILE_DENIED"));
+  f.modes.remove("session-a"); expect(() => f.authority.issue(f.input)).toThrow(exactly("MEMORY_SESSION_MODE_DENIED"));
 });
 it("checks every read actor and prevents persistent read grants in a temporary session", () => {
   const f = fixture();
-  expect(() => f.authority.issue({ ...f.input, readActorTokens: [f.foreign.token] })).toThrow("MEMORY_RUN_READ_DENIED");
+  expect(() => f.authority.issue({ ...f.input, readActorTokens: [f.foreign.token] })).toThrow(exactly("MEMORY_RUN_READ_DENIED"));
   const t = fixture("temporary");
   expect(t.authority.require(t.authority.issue(t.input)).readActorTokens).toHaveLength(0);
-  expect(() => t.authority.issue({ ...t.input, readActorTokens: [t.main.token] })).toThrow("MEMORY_RUN_READ_DENIED");
+  expect(() => t.authority.issue({ ...t.input, readActorTokens: [t.main.token] })).toThrow(exactly("MEMORY_RUN_READ_DENIED"));
 });
 it("revokes grants after cancellation, explicit close, profile changes and session recreation", () => {
   for (const [change, code] of [["cancel", "MEMORY_RUN_CANCELLED"], ["close", "MEMORY_RUN_DENIED"], ["profile", "MEMORY_RUN_PROFILE_CHANGED"], ["session", "MEMORY_RUN_SESSION_CHANGED"], ["entry", "MEMORY_RUN_ENTRY_CHANGED"]] as const) {
@@ -64,16 +65,16 @@ it("revokes grants after cancellation, explicit close, profile changes and sessi
     if (change === "profile") f.changeProfile();
     if (change === "entry") f.changeEntry();
     if (change === "session") { f.modes.remove("session-a"); f.modes.bind("session-a", "persistent"); }
-    expect(() => f.authority.require(grant)).toThrow(code);
+    expect(() => f.authority.require(grant)).toThrow(exactly(code));
     expect(f.reads()).toBe(0);
   }
 });
 it("requires a host account identity for channel runs and rejects reconnect/account drift", () => {
   const f = fixture(), input = { ...f.input, identity: { ...f.input.identity, entry: "channel" } };
-  expect(() => f.authority.issue(input)).toThrow("MEMORY_RUN_ACCOUNT_DENIED");
+  expect(() => f.authority.issue(input)).toThrow(exactly("MEMORY_RUN_ACCOUNT_DENIED"));
   f.setAccount("wechat:account-a"); const grant = f.authority.issue(input);
   expect(f.authority.require(grant).accountKey).toBe("wechat:account-a");
-  f.setAccount("wechat:account-b"); expect(() => f.authority.require(grant)).toThrow("MEMORY_RUN_ENTRY_CHANGED");
+  f.setAccount("wechat:account-b"); expect(() => f.authority.require(grant)).toThrow(exactly("MEMORY_RUN_ENTRY_CHANGED"));
 });
 it("copies identity and read scope so caller mutations cannot expand an issued grant", () => {
   const f = fixture(), grant = f.authority.issue(f.input);
@@ -93,7 +94,7 @@ it("entry revocation and explicit close synchronously abort the live run signal"
 });
 it("a detected profile invalidation aborts ongoing work as well as denying reuse", () => {
  const f = fixture(), grant = f.authority.issue(f.input), signal = f.authority.require(grant).signal;
- f.changeProfile(); expect(() => f.authority.require(grant)).toThrow("MEMORY_RUN_PROFILE_CHANGED");
+ f.changeProfile(); expect(() => f.authority.require(grant)).toThrow(exactly("MEMORY_RUN_PROFILE_CHANGED"));
  expect(signal.aborted).toBe(true);
 });
 
@@ -112,7 +113,7 @@ it("exposes the resolved profile revision and never trusts a caller-supplied rev
   expect(() => f.authority.issue({
     ...f.input,
     identity: { ...f.input.identity, profileRevision: 999 },
-  })).toThrow("MEMORY_INPUT_INVALID");
+  })).toThrow(exactly("MEMORY_INPUT_INVALID"));
 });
 
 it("retains the issued profile revision while drift revokes the grant and a new grant captures the new version", () => {
@@ -122,9 +123,9 @@ it("retains the issued profile revision while drift revokes the grant and a new 
   expect(context.profileRevision).toBe(1);
 
   f.changeProfile();
-  expect(() => f.authority.require(grant)).toThrow("MEMORY_RUN_PROFILE_CHANGED");
+  expect(() => f.authority.require(grant)).toThrow(exactly("MEMORY_RUN_PROFILE_CHANGED"));
   expect(context.signal.aborted).toBe(true);
   expect(context.profileRevision).toBe(1);
-  expect(() => f.authority.require(grant)).toThrow("MEMORY_RUN_DENIED");
+  expect(() => f.authority.require(grant)).toThrow(exactly("MEMORY_RUN_DENIED"));
   expect(f.authority.require(f.authority.issue(f.input)).profileRevision).toBe(2);
 });

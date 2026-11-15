@@ -85,7 +85,8 @@ T2 反向验证方式：对每个断言用到的产品错误码（37 个 `MEMORY
 - T1.2 的 `write_file` 越界：审查报告建议断言 `permission_denied`，实际是相对路径先被路径形状检查拒绝（`E_PATH_NOT_ABSOLUTE`）。按产品的真实行为断言。
 - 有 5 条没做反向验证，原因已写在表里：错误来自测试替身、平台行为，或者需要大改实现才能改坏。
 - 工作区边界测试需要 Windows helper：本工作区复制了 `firefly-docs-eng` 构建的 `native/target/release/*.exe`，两边的 native 源码一致。
-- T2：`toThrow("码")` 是子串匹配，产品把码改成带后缀的更长字符串时断言仍会通过；这里沿用 T1 的写法，没有改成精确匹配。
+- T2：`toThrow("码")` 是子串匹配，产品把码改成带后缀的更长字符串时断言仍会通过。代码审查后（2026-11-15）负责人决定改成精确匹配：新增 `src/shared/testing/error-code.test-support.ts` 的 `exactly(code)`（返回 `^码$`），T2 的 200 处断言改用它，生命周期表原来只按 `MEMORY_CONTEXT_STREAM_` 前缀匹配，改为实际的 `MEMORY_CONTEXT_STREAM_INVALID`。反向验证：把 `main-responses-binding.ts` 的计数器码改成 `..._FALLBACK` 后 47 项失败，子串写法下 96 项全过。T3、T4 随后照此替换；T1 已合并，另行补。
+- T2：`denies()` 原来只比较 `id` 和 `payload`，改为两张表的完整行，按主键 `(id, scope_key)` 排序（代码审查发现）。反向验证：在前后快照之间改一条历史记录的 `partition_index`，21 项失败。
 - T2：计划要求 `response-history-union` 补“没有生成响应、没有写入”。这个 fixture 里响应校验是纯读取，没有“生成响应”的可观察接口，所以只补了“记录库逐字节不变”（`denies()`）。`f.writes` 计的是命令条数，包含只读命令，不能当写入信号。
 - T2：`canonical-summary` 里计划写的 `f.summaries()` 不存在，改为直接读 SQLite 的摘要记录数（`summaryCount()`）。
 - T2：没做反向验证的项：`phase3-review-regressions.test.ts:18` 的 4001 字符断言（要改产品的长度处理，没找到单一可改的点）；`summaryCount()` 与 `denies()` 的“不变”断言（需要让产品在拒绝路径写入，改动过大）；`SUMMARY_INJECTED_FAULT`、`TypeError` 两处（来自测试替身 / 引擎）。`summaryCount()` 用首个用例提交后数量为 1 做了对照，`denies()` 断言了拒绝前记录非空。
