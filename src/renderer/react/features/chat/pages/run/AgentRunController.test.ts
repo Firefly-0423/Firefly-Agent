@@ -3,6 +3,7 @@ import type { ChatSession } from "../../../../../../shared/chat-types";
 import type { AguiApi, AguiEvent, ChatStoreApi } from "../chat-page-bridge";
 import type { TodoStateBySession } from "../session-runtime-state";
 import { AgentRunController, type AgentRunHost, type AgentRunInput, type AgentRunRegistries } from "./AgentRunController";
+import { t } from "../../../../i18n";
 
 type Acknowledgement = { success: boolean; runId: string; error?: string };
 const nextTurn = () => new Promise<void>(resolve => setTimeout(resolve, 0));
@@ -522,4 +523,71 @@ describe("ChatPage package A: run and persistence baseline", () => {
     expect(refs.eventUnsubscribers.current.size).toEqual(0);
   });
 
+  test.each([
+    ["E_MODEL_CONNECTION_LOST", "model", "chatPage.errorNetworkInterrupted"],
+    ["E_MODEL_REQUEST_TIMEOUT", "model", "chatPage.errorModelTimedOut"],
+    ["E_HARNESS_FAILURE", "runtime", "chatPage.errorRuntimeFailedWith"],
+  ] as const)("A5 %s: the public notice is exact and the private message never reaches the page or disk", async (code, errorSource, key) => {
+    const secret = "upstream said: Authorization Bearer SYNTHETIC-PRIVATE-TOKEN";
+    const s = runScenario({ input: { targetMode: "code" } }); await s.ready();
+    reason(s, "reason-a5", "Run the checks.");
+    await s.fail(secret, { code, errorSource });
+    const notice = key === "chatPage.errorRuntimeFailedWith" ? t(key, { message: code }) : t(key, { code });
+    const saved = s.lastSaved();
+    expect(saved.runSnapshot).toMatchObject({ runId: "run-1", status: "terminal", terminalStatus: "runtime_error" });
+    expect(saved.content).toEqual("");
+    expect(saved.reasoning).toEqual("Run the checks.");
+    expect(saved.processMessages.map((record: any) => record.content)).toEqual([notice]);
+    expect(s.patches().at(-1)).toMatchObject({ content: "", runStage: { kind: "failed" }, loading: false, streaming: false, responseStarted: false });
+    for (const evidence of [JSON.stringify(s.disk.upsert.mock.calls), JSON.stringify(s.host.patchMessage.mock.calls)]) {
+      expect(evidence).not.toContain("SYNTHETIC-PRIVATE-TOKEN");
+      expect(evidence).not.toContain("upstream said");
+    }
+    expect(s.bridge.reportRunPersisted).toHaveBeenCalledTimes(1);
+    expectOwnSessionOnly(s);
+  });
+
+  test("A6: a delayed running checkpoint cannot overwrite the terminal record or release persistence early", async () => {
+    // Hold the checkpoint a tool result triggers: the controller does not await it, so only the save chain keeps
+    // the later terminal write behind it. "stored" applies writes in the order they resolve, like a disk would.
+    const disk = memory(); const stored = new Map<string, any>(); const held = deferred<void>(); let holding = true;
+    disk.upsert.mockImplementation(async (_sessionId: string, message: any) => {
+      if (holding && message.runSnapshot.status === "running" && message.toolExecutions.some((tool: any) => tool.status === "success")) { holding = false; await held.promise; }
+      stored.set(message.id, structuredClone(message));
+      return { id: "session-1" };
+    });
+    const s = runScenario({ disk }); await s.ready();
+    s.send({ type: "TOOL_CALL_START", runId: "run-1", toolCallId: "lookup-call", toolCallName: "read_file" });
+    s.send({ type: "TOOL_CALL_RESULT", runId: "run-1", toolCallId: "lookup-call", status: "success", content: "lookup result" });
+    s.text("Final checked answer.");
+    s.send({ type: "RUN_FINISHED", runId: "run-1", result: { status: "success" } });
+    let settled = false; void s.completed.then(() => { settled = true; });
+    for (let turn = 0; turn < 5; turn++) await nextTurn();
+    expect(holding).toEqual(false);
+    expect(settled).toEqual(false);
+    expect(s.bridge.reportRunPersisted).not.toHaveBeenCalled();
+    expect(stored.get("assistant-1")?.runSnapshot.status).not.toEqual("terminal");
+    held.resolve(); await s.completed;
+    expect(stored.get("assistant-1")).toMatchObject({ content: "Final checked answer.", runSnapshot: { runId: "run-1", status: "terminal", terminalStatus: "success" } });
+    expect((disk.upsert.mock.calls.at(-1)![1] as any).runSnapshot.status).toEqual("terminal");
+    expect(s.bridge.reportRunPersisted.mock.calls).toEqual([[{ runId: "run-1", finalMessageId: "assistant-1" }]]);
+  });
+
+  test("A10: a terminal checkpoint that cannot be written is never reported as persisted", async () => {
+    const disk = memory();
+    disk.upsert.mockImplementation(async (_sessionId: string, message: any) => {
+      if (message.runSnapshot.status === "terminal") throw new Error("CHAT_HISTORY_WRITE_FAILED synthetic");
+      return { id: "session-1" };
+    });
+    const s = runScenario({ disk }); await s.ready(); s.text("An answer that cannot be saved.");
+    s.send({ type: "RUN_FINISHED", runId: "run-1", result: { status: "success" } });
+    await expect(s.completed).rejects.toThrow("CHAT_HISTORY_WRITE_FAILED synthetic");
+    expect(s.bridge.reportRunPersisted).not.toHaveBeenCalled();
+    expect(s.refs.activeRuns.current).toEqual({});
+    expect(s.host.setModeBusy).toHaveBeenLastCalledWith("chat", false);
+    expect(s.host.onRunFinished.mock.calls).toEqual([[{ mode: "chat", sessionId: "session-1", queuePaused: false }]]);
+    expect(s.bridge.run).toHaveBeenCalledTimes(1);
+    expect(s.bridge.cancel).not.toHaveBeenCalled();
+    expectOwnSessionOnly(s);
+  });
 });
