@@ -8,8 +8,8 @@ import { externalSkillId, EXTERNAL_LIMITS, EXTERNAL_SOURCES, EXTERNAL_REVIEW_POL
 import { digestExternalFiles } from "./external-review";
 import { ExternalSkillStateStore, ExternalStorageError } from "./external-state";
 import * as install from "./external-install";
-import { isolatedStorageContext, createExternalFixture, isRawFileUrl, rawFile, rawFileUrl } from "./testing/external-fixtures";
-import { gitRepository } from "./testing/git-fixtures";
+import { isolatedStorageContext, createExternalFixture, isRawFileUrl, rawFile, rawFileUrl } from "./testing/external-fixtures.test-support";
+import { gitRepository } from "./testing/git-fixtures.test-support";
 
 const modules = import.meta.glob<typeof import("./external-service")>("./external-service.ts");
 const owner: ExternalOwner = { webContentsId: 1, frameProcessId: 2, frameRoutingId: 3, generation: 0 };
