@@ -7,17 +7,17 @@
 
 ## 0. 开工前复核（2026-11-15，基线 `a96f254`）
 
-- 计划里的 214 个路径与符号逐个核对：除计划本来要新建的 `ChatPage.regression.test.ts`、`use-last-turn-actions.test.ts`、`conversation-run-policy.test.ts`、`docs/qa/1.2.0-chatpage-regression-{checklist,results}.md` 外全部存在。三个提交号是基线记录，不是代码符号。
+- 计划里的文件路径与符号逐个核对（214 项）：除计划本来要新建的 `ChatPage.regression.test.ts`、`use-last-turn-actions.test.ts`、`conversation-run-policy.test.ts`、`docs/qa/1.2.0-chatpage-regression-{checklist,results}.md` 外全部存在。三个提交号是基线记录，不是代码符号。第一次核对只查了带扩展名的文件路径，漏掉了验证命令里的目录：`src/main/chat`、`src/main/chats`、`src/main/asr` 在重组后已不存在，已改为 `src/main/features/chat`、`src/main/features/sessions`、`src/main/platform/speech/asr`（代码审查发现）。
 - 行号仍按重组前（`39987fc`）记录，施工时按符号定位。
 - 计划写成后 chat 渲染目录的改动：删除了未被引用的 `workspace/OfflineBrowserTab`、`WorkspaceSourcesPanel`、`browser-workspace-reducer`，计划没有引用它们；其余是小改动，不影响任务。
 - 负责人 2026-11-13 的决定都还没有实现：`shouldListenForDeferredPlanEvents` 仍对 `chat` 返回 true，`ChatPage.test.ts` 的表驱动用例也把它钉成 true（C12 施工时要一并改）；G1–G3 未动。
-- 拆分缺口：检查器标签回调和导航动作在页面层没有测试，A–G 也没覆盖。已在计划里补“施工包 H”和“拆分 ChatPage 前的保护集”，待负责人确认。
+- 拆分缺口：检查器标签回调和导航动作在页面层没有测试，A–G 也没覆盖。已在计划里补“施工包 H”（依赖 B）和“拆分 ChatPage 前的保护集”（开工条件 A、B、G、C、D、H），待负责人确认。
 ## 1. 当前状态
 
 - 分支：`dev/firefly-1.2.0`（尚未建施工分支）
 - 进行到：未开工
 - 工作区：—
-- 建议顺序：A → B → G → C → D → E → F；完整依赖及正式包前置条件见计划。2026-11-15 补充施工包 H，拆分前建议 A → B → G → C → D → H（待负责人确认）。
+- 建议顺序：A → B → G → C → D → E → F；完整依赖及正式包前置条件见计划。2026-11-15 补充施工包 H，拆分前须完成 A → B → G → C → D → H（待负责人确认）。
 
 ## 2. 已完成项
 

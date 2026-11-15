@@ -693,11 +693,11 @@ npm test -- src/renderer/react/features/chat/components/DesktopAsrButton.test.ts
 
 ### 施工包 H：拆分前的检查器与导航接线（2026-11-15 补充）
 
-依赖：施工包 A（共用 `ChatPage.regression.test.ts` 的页面挂载夹具）
+依赖：施工包 B（`ChatPage.regression.test.ts` 的页面挂载夹具由 B 交付，H 复用它）
 
 **背景：** 拆 `ChatPage.tsx` 时会把检查器标签回调（`openDiffTab`、`openResultDiff`、`openFileTab`、`openDelegationRef`、`togglePanel`、`closeInspectorTab`）和导航动作（`navActionsRef` 及各 `nav*` 回调、`useNavigationHistory` 的 `go`）搬进新文件。检查器的布局与生命周期已有 `ChatPage.inspector-integration.test.ts`、`ChatPageInspector.*.test.ts` 覆盖；`collectWorkspaceOutputs`、`summarizeOutputFiles`、`sessionsNeedingInput`、`useNavigationHistory` 有各自的单元测试。缺的是页面这一层“谁接到谁”的断言，A–G 没有覆盖。
 
-**改动文件：** 只改测试：`src/renderer/react/features/chat/pages/ChatPage.regression.test.ts`（与 A 共用夹具）；必要时扩展 `ChatPage.test.ts` 已有的 `surface` 替身（它在每次渲染时记录 `ChatPageNavigation` 收到的 props）。不改生产代码。
+**改动文件：** 只改测试：`src/renderer/react/features/chat/pages/ChatPage.regression.test.ts`（复用 B 的夹具）；H1–H4 可沿用 `ChatPage.test.ts` 已有的 `surface` 替身（它在每次渲染时记录 `ChatPageNavigation` 收到的 props）。H5 的渲染次数断言要挂载**真实的** `ChatPageNavigation`（`ChatPage.test.ts` 把它整个替换掉了，探针不会触发）。不改生产代码。
 
 **任务：**
 
@@ -708,13 +708,13 @@ npm test -- src/renderer/react/features/chat/components/DesktopAsrButton.test.ts
   - 先写的测试：同一路径先后带行号 10、20 打开，断言只有一个 `file:` 标签、定位更新为 20 且触发了新的滚动序号；`withTree: false` 打开时不出现文件树标签，默认打开且已绑定工作区时出现。
   - 验证：同 H1。
 - [ ] H3 标签顺序、关闭与面板开关
-  - 先写的测试：依次打开任务、文件树、产出、文件、差异、计划、浏览器标签，断言顺序固定为“任务 → 文件树 → 产出 → 文件 → 差异 → 结果 → 改动 → 计划 → 浏览器”；关闭活动标签后活动标签落到左侧相邻项，没有左侧时落到右侧，全部关闭时为空；标题行开关在面板已打开且可见时关闭它，浏览器经自身清理路径关闭（关闭请求计数加一），其余直接关闭；收起后再展开保留原标签。
+  - 先写的测试：把九类标签全部打开，其中“结果”经 `openResultTab`、“改动”经 `openChangesTab` 打开；打开的先后顺序故意打乱（例如浏览器 → 差异 → 任务 → 改动 → 文件 → 计划 → 结果 → 产出 → 文件树），断言标签顺序仍固定为“任务 → 文件树 → 产出 → 文件 → 差异 → 结果 → 改动 → 计划 → 浏览器”；关闭活动标签后活动标签落到左侧相邻项，没有左侧时落到右侧，全部关闭时为空；标题行开关在面板已打开且可见时关闭它，浏览器经自身清理路径关闭（关闭请求计数加一），其余直接关闭；收起后再展开保留原标签。
   - 验证：同 H1。
 - [ ] H4 委派任务与侧栏状态
   - 先写的测试：任务行触发 `openDelegation(taskId)`：当前会话里能找到该任务（按 `tasks` 或工具的 `taskResult.sessionId`）时打开对应结果标签并聚焦任务，重复触发时聚焦序号递增；找不到时什么都不打开。侧栏收到的待处理会话与运行中会话列表随交互卡、计划审阅和运行开始与结束而变化，切换会话后不残留。
   - 验证：同 H1。
 - [ ] H5 导航动作与引用稳定
-  - 先写的测试：经 `surface.navigation` 调用新建任务、项目任务、临时会话、切换模式、选择会话、导出（失败与取消两种）、前进和后退，断言各自调用了正确的 `chatStore` 方法、参数和次数，失败只出一次错误提示，取消不提示；切换模式会作废进行中的会话选择（旧选择返回后不覆盖新模式）。另断言：流式输出期间多次重渲染，`surface.navigation` 上的回调引用保持同一个（`toBe`），确保拆分后 `ChatPageNavigation` 的 `React.memo` 仍然命中。
+  - 先写的测试：经 `surface.navigation` 调用新建任务、项目任务、临时会话、切换模式、选择会话、导出（失败与取消两种）、前进和后退，断言各自调用了正确的 `chatStore` 方法、参数和次数，失败只出一次错误提示，取消不提示；切换模式会作废进行中的会话选择（旧选择返回后不覆盖新模式）。另断言流式输出不让导航重渲染：挂载真实的 `ChatPageNavigation`，在 `window.__fireflyChatPerfProbe` 上注册计数器（`components/chat-perf-probe.ts`），只推送流式正文更新时 `navigationRenders` 不增加。只比较回调引用（`toBe`）不够：`navHistory` 等 props 每次重建同样会让 `React.memo` 失效。
   - 验证：同 H1。
 
 **验收：** H1–H5 在拆分前的 `ChatPage.tsx` 上通过；每条至少做一次反向验证（例如去掉同 id 去重、改变标签顺序、把导航回调换成每次渲染新建的函数），确认测试失败后还原。
@@ -839,7 +839,7 @@ npm test -- src/renderer/react/features/chat/components/DesktopAsrButton.test.ts
 ### 验证命令 3：模块、类型与构建
 
 ```powershell
-npm test -- src/renderer/react/features/chat src/main/chat src/main/chats src/main/asr
+npm test -- src/renderer/react/features/chat src/main/features/chat src/main/features/sessions src/main/platform/speech/asr
 npm run check:renderer
 npm run check:storage-boundary
 npm run build:main
@@ -887,10 +887,10 @@ Remove-Item Env:FIREFLY_ISOLATION_ROOT
 | 会话选择与管理 | `selectSession`、`openSessionById`、`refreshSessions`、`ensureSession`、`createNewTask`、`sessionActions` | D | 是 |
 | 检查器标签与导航 | `openDiffTab`、`openFileTab`、`closeInspectorTab`、`navActionsRef`、`useNavigationHistory` | H | 是 |
 | 输入框、附件、听写 | `ChatComposer`、`useComposerAttachments`、`desktop-asr-controller` | E | 否：主要在组件和 hook 里，拆分不移动它们；E9（切会话）在拆分前完成更好 |
-| 审批归属修复 | `interaction-owner.ts`、主进程 `checkPermission` | G | 否：是产品修复，与拆分无关；但 G 改的页面行为要在拆分前或拆分后整体完成，不能夹在拆分提交中间 |
+| 审批归属修复 | `interaction-owner.ts`、主进程 `checkPermission` | G | 是：C 依赖 G（C5 的验收依赖 G1–G3），C 是拆分前必须完成的，所以 G 也必须先完成 |
 | 真机回归 | — | F | 否：拆分的每个 PR 合入前按 F 的相关步骤做真机检查 |
 
-建议顺序因此调整为：A → B → G → C → D → H →（拆分）→ E → F。E、F 也可以与拆分并行，但不要和拆分改同一文件。
+开工条件因此是 A、B、G、C、D、H 全部合并，顺序为 A → B → G → C → D → H →（拆分）→ E → F。H 依赖 B 的页面夹具。E、F 也可以与拆分并行，但不要和拆分改同一文件。
 
 ## 回滚方案
 
@@ -936,4 +936,4 @@ Remove-Item Env:FIREFLY_ISOLATION_ROOT
 
 2026-11-15 新增、待负责人确认：
 
-- 是否加入施工包 H（拆分前的检查器与导航接线，只补测试），以及“拆分 ChatPage 前的保护集”一节的开工条件和顺序。
+- 是否加入施工包 H（拆分前的检查器与导航接线，只补测试，依赖 B），以及“拆分 ChatPage 前的保护集”一节的开工条件（A、B、G、C、D、H）和顺序。
