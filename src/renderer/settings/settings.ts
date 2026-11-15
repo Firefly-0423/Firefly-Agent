@@ -2,7 +2,6 @@ import { showMemoryView } from "./memory/entries-panel";
 import { bindDesktopAsrSettings } from "./desktop-asr-settings";
 import type {} from "../global";
 import { bindUiColorControls } from "./appearance/colors";
-import { DEFAULT_UI_COLORS } from "../../shared/ui-colors";
 import { parseContextWindowTokens } from "../../shared/context-window";
 import { renderProviderRows } from "./api/provider-rows";
 import { applyProviderEditorLayout, mountProfileEditor, placeSaveStatus, renderKeepingProfileEditor } from "./api/provider-editor";
@@ -13,13 +12,12 @@ import "../ui/theme";
 import { normalizeChatSocialContextEnabled, normalizeProactiveChatMode, normalizeProactiveDeliveryTarget, normalizeSegmentedChatEnabled, type ProactiveChatMode, type ProactiveDeliveryTarget } from "../../shared/preferences";
 import { isProactiveDeliveryTargetSelectable } from "../../shared/proactive-delivery";
 import { normalizeUiTheme, type UiTheme } from "../../shared/ui-theme";
-import { DEFAULT_UI_FONT, normalizeUiFont, type UiFont } from "../../shared/ui-font";
+import { normalizeUiFont, type UiFont } from "../../shared/ui-font";
 import { normalizeUiIcon, type UiIcon } from "../../shared/ui-icon";
 import { type ReasoningPreference } from "../../shared/reasoning";
 import { resolveApiEndpoint, type ApiTransport } from "../../shared/api-endpoint";
 import { CHAT_FONT_SIZE_MAX, CHAT_FONT_SIZE_MIN, CODE_FONT_SIZE_MAX, CODE_FONT_SIZE_MIN, DEFAULT_CHAT_APPEARANCE, UI_FONT_SIZE_MAX, UI_FONT_SIZE_MIN, clampFiniteNumber, normalizeChatAppearance, type ChatAppearanceSettings } from "../../shared/chat-appearance";
 import { CUSTOM_ENDPOINT_PROVIDERS, getCustomEndpointMode, getCustomEndpointPresentation, getCustomEndpointProvider, validateCustomEndpointConfig, type CustomEndpointMode } from "./custom-endpoint-state";
-import type { ScheduleConfig, SchedulerApi, SchedulerResult, SchedulerToolInfo, SchedulerToolMode, ScheduledTask, ScheduledTaskHistoryEntry } from "./scheduler/types";
 import { channelsState } from "./channels/state";
 import { mountPluginPanels } from "./plugin-panels";
 import { channelsWechatEnabledEl, channelsFeishuEnabledEl, channelsWechatStatusEl, channelsFeishuStatusEl, channelsRateUserEl, channelsRateChannelEl, channelsStickerEl, channelsMirrorEl, channelsToolSandboxOffEl, channelsToolSandboxAllEl, channelsFeishuAppIdEl, channelsFeishuAppSecretEl, channelsFeishuAppSecretRevealBtn, channelsFeishuSaveBtn, channelsWechatLoginBtn, channelsWechatRestartBtn, channelsWechatFeedbackEl, channelsFeishuFeedbackEl, channelsLogListEl, channelsLogRefreshBtn, channelsLogClearBtn } from "./channels/dom";
@@ -42,7 +40,8 @@ import { minBtn, closeBtn, preferencesForm, sectionTitle, sectionHint, placehold
 import { permissionBlocksWrap, permissionNote } from "./plugins/dom";
 import { stickerEnabledInput, stickerSizeSelect, stickerThresholdInput, stickerThresholdVal, stickerAddOverlay, stickerAddPickBtn, stickerAddFileName, stickerAddId, stickerAddDesc, stickerAddPhrases, stickerAddError, stickerAddConfirm, stickerAddCancel } from "./preferences/dom";
 import { pluginsState } from "./plugins/state";
-import type { GeneralSettings, MemoryPanelApi, MemoryPanelPayload, ModelPreset, ModelSettings, ProviderProfile, SettingsApi, UserApi } from "./shared/types";
+import type { GeneralSettings, ModelPreset, ModelSettings, ProviderProfile } from "./shared/types";
+import { installPreviewBridge } from "./shared/preview-bridge";
 import { MODEL_PRESETS, sortPresetsForDisplay } from "./api/presets";
 import { attachCardSelect, enhanceSelects } from "./shared/dropdown";
 import { attachDatePicker } from "./shared/date-picker";
@@ -61,7 +60,6 @@ import { renderProactiveDeliveryAvailability } from "./channels/panel";
 import "./email/panel";
 import "./search/panel";
 import { saveTimeoutSettings } from "./timeout/panel";
-import { DEFAULT_TIMEOUT_SETTINGS, type TimeoutSettings } from "../../shared/timeout-types";
 import "./user/panel";
 import "./plugins/panel";
 import "./plugins/permission";
@@ -71,145 +69,9 @@ import "./mcp/panel";
 import { t, subscribeLocaleChanged } from "./i18n";
 import { renderStickerSendStatus } from "./preferences/sticker-send-status";
 
-declare global {
-  interface Window {
-    fireflyScheduler?: SchedulerApi;
-    user?: UserApi;
-    memoryPanel?: MemoryPanelApi;
-  }
-}
-
 const MIMO_ICON_URL = "https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/light/xiaomimimo.png";
 
-const unavailableSettings = async () => ({ ok: false, error: "settings api unavailable" });
-const emptyList = async () => [];
-const emptyObject = async () => ({});
-const noSubscription = () => () => {};
-
-// 浏览器预览没有持久化后端；这些默认值按功能域分别构造，避免凭据对象被复用。
-function previewSearchSettings() {
-  return {
-    searchEngine: "off" as const,
-    searchBochaKey: "", searchTavilyKey: "",
-    searchMinimaxKey: "", searchAnySearchKey: "",
-  };
-}
-
-function previewEmailSettings() {
-  return {
-    emailEnabled: false,
-    emailSmtpHost: "", emailSmtpPort: 465, emailSmtpSecure: true,
-    emailSmtpUser: "", emailSmtpPass: "", emailFromName: "",
-  };
-}
-
-if (!window.settings) {
-  (window as unknown as { settings: SettingsApi }).settings = {
-    minimize: () => {},
-    close: () => {},
-    getConfig: () =>
-      Promise.resolve({
-        mode: "auto",
-        provider: "DeepSeek",
-        baseUrl: "https://api.deepseek.com",
-        model: "deepseek-v4-pro",
-        apiKey: "",
-        stickerEnabled: false,
-        stickerSize: "standard",
-        stickerSimilarityThreshold: 0.55,
-        chatRequestTimeoutSec: 300,
-      }),
-    saveConfig: (c) => Promise.resolve(c as ModelSettings),
-    getGeneral: () => Promise.resolve({
-      maxParallelToolCalls: 4,
-      maxToolRounds: 200,
-      runTimeoutMinutes: 120,
-      petAlwaysOnTop: true,
-      petVisible: true,
-      petZoom: 1,
-      ...DEFAULT_CHAT_APPEARANCE,
-      sidebarVisible: true,
-      language: "zh-CN",
-      uiTheme: "pearl-white",
-      uiColors: { ...DEFAULT_UI_COLORS },
-      uiFont: DEFAULT_UI_FONT,
-      uiIcon: "firefly",
-      segmentedChatEnabled: true,
-      proactiveChatMode: "off",
-      proactiveDeliveryTarget: "local",
-      chatSocialContextEnabled: true,
-      screenshotHotkey: "Alt+Shift+S",
-      weatherSource: "open-meteo",
-      weatherEnabled: false,
-      amapKey: "",
-      travelEnabled: false,
-      musicEnabled: true,
-      playwrightMcpEnabled: false,
-      ...previewSearchSettings(),
-      ...previewEmailSettings(),
-    }),
-    saveGeneral: (c) => Promise.resolve(c as GeneralSettings),
-    channelsGetConfig: () => Promise.resolve({ wechat: {}, feishu: {}, qq: {} }),
-    channelsSaveConfig: emptyObject,
-    channelsRestart: () => Promise.resolve({ ok: false }),
-    channelsQqTestConnection: unavailableSettings,
-    channelsQqResolveAuthRequirement: () =>
-      Promise.resolve({ ok: false, requiresAccessToken: false, error: "settings api unavailable" }),
-    channelsQqBotTestConnection: unavailableSettings,
-    channelsSenderResolve: unavailableSettings,
-    channelsLogGet: emptyList,
-    channelsLogClear: () => Promise.resolve({ ok: true }),
-    channelsContextBindingsGet: () => Promise.resolve({ externalChats: [], bindings: [], conversations: [] }),
-    channelsContextBind: unavailableSettings,
-    channelsContextUnbind: unavailableSettings,
-    onChannelsInstallProgress: noSubscription,
-    onChannelsWechatQrcode: noSubscription,
-    onChannelsWechatLoginDone: noSubscription,
-    channelsWechatLoginStart: unavailableSettings,
-    channelsGetStatus: emptyObject,
-    onChannelsStatusChanged: noSubscription,
-    beginScreenshotHotkeyCapture: () => Promise.resolve(true),
-    endScreenshotHotkeyCapture: () => Promise.resolve(true),
-    setPetAlwaysOnTop: () => {},
-    setPetVisible: () => {},
-    setPetZoom: () => {},
-    pickUiFont: () => Promise.resolve(null),
-    importUiFont: () => Promise.resolve(DEFAULT_UI_FONT),
-    resetUiFont: () => Promise.resolve(DEFAULT_UI_FONT),
-    openStickerManager: unavailableSettings,
-    stickerPickFile: async () => null,
-    stickerAdd: async () => { throw new Error("settings api unavailable"); },
-    getToolCatalog: emptyList,
-    getToolModeOverrides: emptyObject,
-    setToolModeOverride: unavailableSettings,
-    getSkillCatalog: emptyList,
-    rescanSkills: async () => ({ ok: false, count: 0, error: "settings api unavailable" }),
-    getSkillModeOverrides: emptyObject,
-    setSkillModeOverride: unavailableSettings,
-    addMcpServer: unavailableSettings,
-    removeMcpServer: unavailableSettings,
-    setMcpServerEnabled: unavailableSettings,
-    listMcpServers: emptyList,
-    getTimeoutSettings: async () => DEFAULT_TIMEOUT_SETTINGS,
-    saveTimeoutSettings: async c => (c as TimeoutSettings),
-  };
-}
-
-if (!window.fireflyScheduler) {
-  const missingScheduler = async () => ({ ok: false as const, error: "scheduler api unavailable" });
-  const schedulerItems = async () => ({ ok: true as const, value: [] });
-  const schedulerFallback: SchedulerApi = {
-    list: schedulerItems,
-    add: missingScheduler,
-    update: missingScheduler,
-    delete: missingScheduler,
-    toggle: missingScheduler,
-    fireNow: async () => ({ ok: false, reason: "scheduler api unavailable" }),
-    getHistory: schedulerItems,
-    getTools: schedulerItems,
-  };
-  window.fireflyScheduler = schedulerFallback;
-}
+installPreviewBridge();
 
 const NAV_LABELS: Record<string, { emoji: string; title: string; hint: string }> = Object.fromEntries([
   ["usage", "", t("settings.usage.title"), t("settings.usage.hint")],

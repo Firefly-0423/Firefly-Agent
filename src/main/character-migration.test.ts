@@ -97,6 +97,7 @@ describe("Firefly character assets", () => {
       "src/renderer/react/components/ui/NewTaskButton.tsx",
       "src/renderer/settings/index.html",
       "src/renderer/settings/settings.ts",
+      "src/renderer/settings/shared/preview-bridge.ts",
       "src/renderer/toast/toast.ts",
     ];
     for (const file of activeFiles) {
