@@ -577,6 +577,84 @@ describe("takeover regression (ChatPage B3/B4)", () => {
         expect(f.effects).not.toHaveBeenCalled();
     });
 
+    it.each([
+        { settlementMs: 9_999, succeeds: true, label: "one millisecond before the deadline" },
+        { settlementMs: 10_000, succeeds: true, label: "at the deadline with settlement queued first" },
+        { settlementMs: 10_001, succeeds: false, label: "one millisecond after the deadline" },
+        { settlementMs: null, succeeds: false, label: "never" },
+    ])("uses the default two 5000ms waits when the old run settles $label", async ({ settlementMs, succeeds }) => {
+        session("conversation", "chat", [user("input")]);
+        running();
+        const f = await bridge();
+        const first = await f.run("conversation", { userTurnId: "input" }), original = agentOptions(), oldStream = wire.subscriptions[0];
+        const { getConversationTranscriptStore } = await import("../../conversation/transcript/conversation-transcript-store");
+        const store = getConversationTranscriptStore(wire.root);
+        const before = (await store.read("conversation")).entries;
+        // Register first to make the exact-deadline ordering deterministic.
+        if (settlementMs !== null) setTimeout(() => {
+            oldStream.next({ type: "RUN_FINISHED", runId: first.runId, result: cancelled });
+            oldStream.complete();
+        }, settlementMs);
+        let outcome = "pending";
+        const takeover = f.run("conversation", { takeoverFromRunId: first.runId, userTurnId: "input" });
+        const observed = takeover.then(() => { outcome = "accepted"; }, () => { outcome = "rejected"; });
+        await vi.advanceTimersByTimeAsync(0);
+        expect(original.signal.aborted).toEqual(true);
+        await vi.advanceTimersByTimeAsync(4_999);
+        expect(outcome).toEqual("pending");
+        await vi.advanceTimersByTimeAsync(1);
+        expect(outcome).toEqual("pending");
+        expect(wire.run).toHaveBeenCalledTimes(1);
+        expect(f.module.__getSessionActiveRunForTest("conversation")).toEqual(first.runId);
+        await vi.advanceTimersByTimeAsync(4_998);
+        expect(outcome).toEqual("pending");
+        if (succeeds) {
+            await vi.advanceTimersByTimeAsync(settlementMs! - 9_998);
+            const replacement = await takeover;
+            await observed;
+            expect(outcome).toEqual("accepted");
+            expect(replacement).toEqual({ success: true, runId: agentOptions().runId });
+            expect(wire.run.mock.calls.map(([options]) => options.runId)).toEqual([first.runId, replacement.runId]);
+            expect(agentOptions().signal.aborted).toEqual(false);
+            expect(f.module.__getSessionActiveRunForTest("conversation")).toEqual(replacement.runId);
+            expect(f.module.hasActiveConversationRun()).toEqual(true);
+            expect(f.module.__hasActiveRunForTest(first.runId)).toEqual(false);
+            wire.subscriptions[1].next({ type: "RUN_FINISHED", runId: replacement.runId, result: cancelled });
+            wire.subscriptions[1].complete();
+            await vi.advanceTimersByTimeAsync(0);
+            expect(f.module.__getSessionActiveRunForTest("conversation")).toEqual(undefined);
+            expect(f.module.hasActiveConversationRun()).toEqual(false);
+        } else {
+            await vi.advanceTimersByTimeAsync(1);
+            expect(outcome).toEqual("pending");
+            await vi.advanceTimersByTimeAsync(1);
+            expect(outcome).toEqual("rejected");
+            await expect(takeover).rejects.toMatchObject({ message: `SESSION_RUN_TAKEOVER_STUCK:${first.runId}` });
+            await observed;
+            expect(wire.run).toHaveBeenCalledTimes(1);
+            expect(f.build).toHaveBeenCalledTimes(1);
+            expect(f.module.__getSessionActiveRunForTest("conversation")).toEqual(first.runId);
+            expect(f.module.__hasActiveRunForTest(first.runId)).toEqual(true);
+            expect(f.module.isActiveConversationRun("conversation", first.runId)).toEqual(false);
+            expect(f.module.hasActiveConversationRun()).toEqual(true);
+            expect(f.sent).toEqual([{ type: "RUN_STARTED", runId: first.runId }]);
+            expect(wire.reset.mock.calls).toEqual([]);
+            expect((await store.read("conversation")).entries).toEqual(before);
+            // STUCK retains the aborted incumbent; only its real settlement releases busy.
+            if (settlementMs !== null) await vi.advanceTimersByTimeAsync(1);
+            else {
+                oldStream.next({ type: "RUN_FINISHED", runId: first.runId, result: cancelled });
+                oldStream.complete();
+                await vi.advanceTimersByTimeAsync(0);
+            }
+            expect(f.module.__getSessionActiveRunForTest("conversation")).toEqual(undefined);
+            expect(f.module.hasActiveConversationRun()).toEqual(false);
+            expect(wire.run).toHaveBeenCalledTimes(1);
+            expect(wire.reset.mock.calls).toEqual([["conversation", first.runId]]);
+        }
+        expect(f.effects).not.toHaveBeenCalled();
+        expect((await store.read("conversation")).entries).toEqual(before);
+    });
 });
 
 describe("transcript ownership and Work read evidence", () => {
