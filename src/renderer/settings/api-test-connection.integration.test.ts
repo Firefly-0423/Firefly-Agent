@@ -117,10 +117,13 @@ describe("settings api testActiveConnection integration (T4)", () => {
   it("persists testTimeout before invoking testConnection with local auth fallback key and full payload", async () => {
     const callOrder: string[] = [];
     let resolveTest!: (value: { ok: boolean; latency: number; sample?: string; error?: string }) => void;
+    let resolveSave!: () => void;
 
-    const saveTimeoutSettings = vi.fn(async (patch) => {
+    const saveTimeoutSettings = vi.fn((patch) => {
       callOrder.push("saveTimeoutSettings");
-      return { userChoiceTimeout: 60000, testTimeout: 15000, ...patch };
+      return new Promise((resolve) => {
+        resolveSave = () => resolve({ userChoiceTimeout: 60000, testTimeout: 15000, ...patch });
+      });
     });
     const testConnection = vi.fn(() => {
       callOrder.push("testConnection");
@@ -148,6 +151,13 @@ describe("settings api testActiveConnection integration (T4)", () => {
     testBtn.click();
     await flushMicrotasks();
 
+    // The connection test starts only after the timeout write has finished.
+    expect(callOrder).toEqual(["saveTimeoutSettings"]);
+    expect(testConnection).not.toHaveBeenCalled();
+
+    resolveSave();
+    await flushMicrotasks();
+
     expect(callOrder).toEqual(["saveTimeoutSettings", "testConnection"]);
     expect(saveTimeoutSettings).toHaveBeenCalledExactlyOnceWith({ testTimeout: 25 });
     expect(testConnection).toHaveBeenCalledExactlyOnceWith({
@@ -168,6 +178,32 @@ describe("settings api testActiveConnection integration (T4)", () => {
     expect(status.textContent).toBe("连接成功 42ms · hello");
     expect(status.classList.contains("is-ok")).toBe(true);
     expect(status.classList.contains("is-error")).toBe(false);
+  });
+
+  it("skips testConnection when the timeout save fails", async () => {
+    const saveTimeoutSettings = vi.fn(async () => {
+      throw new Error("ipc write failed");
+    });
+    const testConnection = vi.fn();
+    await mountSettingsPage({
+      settings: { saveTimeoutSettings, testConnection },
+    });
+
+    openCustomEndpointDraft("local");
+    byId<HTMLInputElement>("base-url").value = "http://127.0.0.1:11434/v1";
+    byId<HTMLInputElement>("model-input").value = "qwen3:8b";
+    byId<HTMLInputElement>("timeout-test").value = "25";
+
+    const testBtn = byId<HTMLButtonElement>("test-connection-btn");
+    const status = byId<HTMLElement>("save-status");
+    testBtn.click();
+    await flushMicrotasks();
+
+    expect(saveTimeoutSettings).toHaveBeenCalledExactlyOnceWith({ testTimeout: 25 });
+    expect(testConnection).not.toHaveBeenCalled();
+    expect(status.textContent).toBe("保存失败");
+    expect(status.classList.contains("is-error")).toBe(true);
+    expect(testBtn.disabled).toBe(false);
   });
 
   it("reports error details and restores button enabled state on failed response or rejection", async () => {
