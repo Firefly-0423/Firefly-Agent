@@ -36,17 +36,37 @@ function specifiers(file: string): string[] {
   return found;
 }
 
-function mainImports(processDir: string): string[] {
+/** 解析一个相对导入实际指向的源文件；找不到时返回 undefined。 */
+function resolveLocal(fromFile: string, specifier: string): string | undefined {
+  const base = path.resolve(path.dirname(fromFile), specifier);
+  const candidates = [base, base + ".ts", base + ".tsx", base.replace(/\.js$/, ".ts"), path.join(base, "index.ts"), path.join(base, "index.tsx")];
+  return candidates.find((candidate) => fs.existsSync(candidate) && fs.statSync(candidate).isFile());
+}
+
+const portable = (file: string) => path.relative(srcRoot, file).split(path.sep).join("/");
+const inMain = (file: string) => file === mainRoot || file.startsWith(mainRoot + path.sep);
+
+/**
+ * 从某个进程目录的生产代码出发，沿相对导入一路追踪（经过 src/shared 也继续追），
+ * 返回所有到达 src/main 或测试文件的导入。只查直接导入的话，经共享模块转一手就漏了。
+ */
+function reachableViolations(processDir: string): string[] {
+  const start = listFiles(path.join(srcRoot, processDir)).filter((file) => !isTestFile(file));
+  const seen = new Set(start);
+  const queue = [...start];
   const violations: string[] = [];
-  for (const file of listFiles(path.join(srcRoot, processDir))) {
-    if (isTestFile(file)) continue;
+  while (queue.length > 0) {
+    const file = queue.shift()!;
     for (const specifier of specifiers(file)) {
       if (!specifier.startsWith(".")) continue;
-      const target = path.resolve(path.dirname(file), specifier);
-      const from = path.relative(srcRoot, file).split(path.sep).join("/");
-      if (target === mainRoot || target.startsWith(mainRoot + path.sep)) violations.push(`${from} -> ${specifier}`);
+      const target = resolveLocal(file, specifier) ?? path.resolve(path.dirname(file), specifier);
+      if (inMain(target)) violations.push(`${portable(file)} -> ${specifier}`);
       // 测试辅助文件（*.test-support.* 等）只给测试用，生产代码引用它会把测试工具打进安装包。
-      else if (isTestFile(target) || isTestFile(target + ".ts") || isTestFile(target + ".tsx")) violations.push(`${from} -> ${specifier} (引用测试文件)`);
+      else if (isTestFile(target)) violations.push(`${portable(file)} -> ${specifier} (引用测试文件)`);
+      else if (codeExtensions.includes(path.extname(target)) && !seen.has(target)) {
+        seen.add(target);
+        queue.push(target);
+      }
     }
   }
   return violations;
@@ -64,7 +84,7 @@ describe("test-only files stay out of the build", () => {
 });
 
 describe("process boundary", () => {
-  it.each(["renderer", "preload"])("%s production code imports neither src/main nor test-only files", (processDir) => {
-    expect(mainImports(processDir)).toEqual([]);
+  it.each(["renderer", "preload"])("%s production code reaches neither src/main nor test-only files, also through shared modules", (processDir) => {
+    expect(reachableViolations(processDir)).toEqual([]);
   });
 });
