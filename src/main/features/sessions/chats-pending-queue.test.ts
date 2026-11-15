@@ -531,4 +531,51 @@ describe("claim recovery combinations (ChatPage B10)", () => {
         expect.soft(ids(store.getPendingMessages(bId))).toEqual(["neighbour-queued"]);
         expect.soft(fs.readdirSync(sessionsDir()).sort()).toStrictEqual([`${aId}.json`, `${bId}.json`]);
     });
+    it("retains a damaged dispatch ledger missing its user anchor without blocking neighbour sessions", async () => {
+        let { store, aId, bId } = await arrangeSessionPair();
+        const [expectedAlpha, expectedBeta] = store.getPendingMessages(aId)!;
+        const expectedNeighbour = store.getPendingMessages(bId)![0];
+        vi.setSystemTime(baseTime + 1000);
+        const damagedClaimedAt = Date.now();
+        const damagedSession = store.getSession(aId)!;
+        damagedSession.messages = damagedSession.messages.filter(item => item.id === "existing");
+        damagedSession.pendingDispatch = { messageId: "missing-user-anchor", claimedAt: damagedClaimedAt };
+        const corruptedABytes = JSON.stringify(damagedSession, null, 2);
+        fs.writeFileSync(sessionPath(aId), corruptedABytes, "utf8");
+        const indexBeforeReload = fs.readFileSync(indexPath(), "utf8");
+        const neighbourBytes = fs.readFileSync(sessionPath(bId), "utf8");
+        vi.setSystemTime(baseTime + 2000);
+        vi.resetModules();
+        store = await import("./chats-store");
+        store.initialize();
+        const reloadedA = store.getSession(aId)!;
+        expect.soft(reloadedA.pendingDispatch).toStrictEqual({ messageId: "missing-user-anchor", claimedAt: damagedClaimedAt });
+        expect.soft(reloadedA.messages).toStrictEqual([{ id: "existing", role: "user", content: "Existing conversation", at: baseTime }]);
+        expect.soft(reloadedA.pendingMessages).toStrictEqual([expectedAlpha, expectedBeta]);
+        expect.soft(store.claimPendingMessage(aId)).toEqual({ ok: false, error: "already-dispatching" });
+        expect.soft(store.completePendingDispatch(aId, "alpha")).toEqual({ ok: true, cleared: false });
+        expect.soft(store.getSession(aId)?.pendingDispatch).toStrictEqual({ messageId: "missing-user-anchor", claimedAt: damagedClaimedAt });
+        expect.soft(fs.readFileSync(sessionPath(aId), "utf8")).toBe(corruptedABytes);
+        expect.soft(fs.readFileSync(indexPath(), "utf8")).toBe(indexBeforeReload);
+        expect.soft(fs.readFileSync(sessionPath(bId), "utf8")).toBe(neighbourBytes);
+        expect.soft(store.getPendingMessages(bId)).toStrictEqual([expectedNeighbour]);
+        vi.setSystemTime(baseTime + 2500);
+        const neighbourClaimedAt = Date.now();
+        const neighbourClaim = store.claimPendingMessage(bId);
+        expect(neighbourClaim).toMatchObject({
+            ok: true,
+            claimed: true,
+            visibleContent: "Queued instruction neighbour-queued",
+            userMessage: { id: "neighbour-queued", role: "user", content: "Queued instruction neighbour-queued", at: neighbourClaimedAt },
+            remainingQueue: [],
+        });
+        expect.soft(store.getSession(bId)?.messages).toStrictEqual([
+            { id: "neighbour-existing", role: "user", content: "Neighbour conversation", at: baseTime },
+            { id: "neighbour-queued", role: "user", content: "Queued instruction neighbour-queued", at: neighbourClaimedAt },
+        ]);
+        expect.soft(store.getSession(bId)?.pendingDispatch).toStrictEqual({ messageId: "neighbour-queued", claimedAt: neighbourClaimedAt });
+        expect.soft(fs.readFileSync(sessionPath(aId), "utf8")).toBe(corruptedABytes);
+        expect.soft(store.getSession(aId)?.pendingDispatch).toStrictEqual({ messageId: "missing-user-anchor", claimedAt: damagedClaimedAt });
+        expect.soft(fs.readdirSync(sessionsDir()).sort()).toStrictEqual([`${aId}.json`, `${bId}.json`]);
+    });
 });
