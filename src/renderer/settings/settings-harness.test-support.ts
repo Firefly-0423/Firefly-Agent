@@ -86,6 +86,75 @@ export async function flushMicrotasks(rounds = 8): Promise<void> {
   }
 }
 
+interface TrackedListener {
+  target: EventTarget;
+  type: string;
+  listener: EventListenerOrEventListenerObject;
+  capture: boolean;
+}
+
+interface MountResources {
+  observers: MutationObserver[];
+  listeners: TrackedListener[];
+  restore: () => void;
+}
+
+let mountResources: MountResources | null = null;
+
+// Every mount reuses the same document, so observers and document/window listeners from an earlier mount would
+// still fire on the next one (an old observer could mark the new controls as enhanced before the new entry ran).
+// Record what each mount creates and release it on cleanup.
+function trackMountResources(): MountResources {
+  const observers: MutationObserver[] = [];
+  const listeners: TrackedListener[] = [];
+  const NativeObserver = globalThis.MutationObserver;
+  class TrackedObserver extends NativeObserver {
+    constructor(callback: MutationCallback) {
+      super(callback);
+      observers.push(this);
+    }
+  }
+  globalThis.MutationObserver = TrackedObserver;
+  window.MutationObserver = TrackedObserver;
+
+  const targets: EventTarget[] = [document, window];
+  const ownDescriptors = targets.map((target) => Object.getOwnPropertyDescriptor(target, "addEventListener"));
+  for (const target of targets) {
+    const original = target.addEventListener;
+    Object.defineProperty(target, "addEventListener", {
+      configurable: true,
+      writable: true,
+      value(this: EventTarget, type: string, listener: EventListenerOrEventListenerObject | null, options?: boolean | AddEventListenerOptions) {
+        if (listener) listeners.push({ target, type, listener, capture: typeof options === "boolean" ? options : Boolean(options?.capture) });
+        return original.call(this, type, listener, options);
+      },
+    });
+  }
+
+  return {
+    observers,
+    listeners,
+    restore: () => {
+      globalThis.MutationObserver = NativeObserver;
+      window.MutationObserver = NativeObserver;
+      targets.forEach((target, index) => {
+        const descriptor = ownDescriptors[index];
+        if (descriptor) Object.defineProperty(target, "addEventListener", descriptor);
+        else delete (target as { addEventListener?: unknown }).addEventListener;
+      });
+    },
+  };
+}
+
+function releaseMountResources(): void {
+  if (!mountResources) return;
+  const { observers, listeners, restore } = mountResources;
+  mountResources = null;
+  restore();
+  for (const observer of observers) observer.disconnect();
+  for (const { target, type, listener, capture } of listeners) target.removeEventListener(type, listener, capture);
+}
+
 export interface MountSettingsOptions {
   hash?: string;
   general?: Partial<GeneralSettings>;
@@ -110,6 +179,7 @@ export interface MountedSettingsPage {
 
 export async function mountSettingsPage(options: MountSettingsOptions = {}): Promise<MountedSettingsPage> {
   vi.resetModules();
+  releaseMountResources();
 
   if (typeof window.localStorage?.clear === "function") {
     window.localStorage.clear();
@@ -233,6 +303,7 @@ export async function mountSettingsPage(options: MountSettingsOptions = {}): Pro
   if (options.appUpdate) win.appUpdate = options.appUpdate;
   if (options.plugins) win.plugins = options.plugins;
 
+  mountResources = trackMountResources();
   await import("./settings");
   await flushMicrotasks(options.flushRounds ?? 10);
 
@@ -250,6 +321,7 @@ export async function mountSettingsPage(options: MountSettingsOptions = {}): Pro
 export function cleanupSettingsPage(): void {
   window.dispatchEvent(new Event("pagehide"));
   window.dispatchEvent(new Event("beforeunload"));
+  releaseMountResources();
 
   for (const id of ["ff-modal-overlay", "ff-html-modal-overlay", "ff-input-modal-overlay"]) {
     document.getElementById(id)?.remove();
