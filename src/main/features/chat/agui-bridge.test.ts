@@ -640,7 +640,8 @@ describe("takeover regression (ChatPage B3/B4)", () => {
             expect(f.sent).toEqual([{ type: "RUN_STARTED", runId: first.runId }]);
             expect(wire.reset.mock.calls).toEqual([]);
             expect((await store.read("conversation")).entries).toEqual(before);
-            // STUCK retains the aborted incumbent; only its real settlement releases busy.
+            // STUCK keeps the incumbent whose cancel was requested but not yet settled; only its real settlement
+            // releases the guard, and the session then accepts a new submission.
             if (settlementMs !== null) await vi.advanceTimersByTimeAsync(1);
             else {
                 oldStream.next({ type: "RUN_FINISHED", runId: first.runId, result: cancelled });
@@ -651,6 +652,13 @@ describe("takeover regression (ChatPage B3/B4)", () => {
             expect(f.module.hasActiveConversationRun()).toEqual(false);
             expect(wire.run).toHaveBeenCalledTimes(1);
             expect(wire.reset.mock.calls).toEqual([["conversation", first.runId]]);
+            const resubmitted = await f.run("conversation", { userTurnId: "input" });
+            expect(resubmitted).toEqual({ success: true, runId: agentOptions().runId });
+            expect(wire.run.mock.calls.map(([options]) => options.runId)).toEqual([first.runId, resubmitted.runId]);
+            expect(f.module.__getSessionActiveRunForTest("conversation")).toEqual(resubmitted.runId);
+            wire.subscriptions[1].next({ type: "RUN_FINISHED", runId: resubmitted.runId, result: cancelled });
+            wire.subscriptions[1].complete();
+            await vi.advanceTimersByTimeAsync(0);
         }
         expect(f.effects).not.toHaveBeenCalled();
         expect((await store.read("conversation")).entries).toEqual(before);
