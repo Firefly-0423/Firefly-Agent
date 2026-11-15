@@ -1,8 +1,10 @@
 import * as fs from "fs";
+import { basename } from "path";
 import { type BaseEvent, EventType } from "@ag-ui/core";
 import type { ReviewRunStatus } from "../../../../shared/review-types";
 import type { ConversationMode } from "../../../../shared/chat-types";
 import { getPlanState, supplementPlan, getPlanPath, completeExecution } from "../../tools/plan-mode";
+import { logger, LogTag } from "../../../base/logging/logger";
 
 export async function preparePlanRunContext(request: {
   threadId: string;
@@ -14,7 +16,7 @@ export async function preparePlanRunContext(request: {
   const eligible = request.mode === "code" || request.mode === "chat";
   if (eligible && getPlanState(request.threadId) === "PLAN_REVIEW") {
     supplementPlan(request.threadId);
-    console.log("[AgentLoopAdapter] [Plan] new message during PLAN_REVIEW, back to PLAN_DISCUSSING");
+    logger.info(LogTag.Runtime, "plan: new message during PLAN_REVIEW, back to PLAN_DISCUSSING");
   }
   const snapshot = eligible ? getPlanState(request.threadId) : undefined;
   if (snapshot === "EXECUTING") {
@@ -44,7 +46,7 @@ export function completePlanRun(completion: {
   if (completion.planState !== "EXECUTING") return;
   const archivedPath = completeExecution(completion.threadId);
   if (!archivedPath) return;
-  console.log(`[AgentLoopAdapter] [Plan] execution finished, back to NORMAL, plan=${archivedPath}`);
+  logger.info(LogTag.Runtime, `plan: execution finished, back to NORMAL, plan=${basename(archivedPath)}`);
   // 先释放执行态，再决定是否通知界面。
   if (completion.signal.aborted || completion.runStatus !== "completed") return;
   completion.send({

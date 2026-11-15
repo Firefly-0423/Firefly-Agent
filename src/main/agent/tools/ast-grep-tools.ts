@@ -7,6 +7,7 @@ import type { ToolContext } from "../../tooling/registry/tool-context";
 import type { ToolDiffLine, ToolFileChange } from "../../../shared/chat-types";
 import { finalizeFileChanges } from "../../tooling/registry/tool-evidence";
 import { reviewTrackerFor } from "../review/review-tracker-access";
+import { logger, LogTag } from "../../base/logging/logger";
 
 const LOG_PREFIX = "[AstGrep]";
 const EXTENSION_TO_LANG: Record<string, string> = { ".ts": "TypeScript", ".tsx": "Tsx", ".mts": "TypeScript", ".cts": "TypeScript", ".js": "JavaScript", ".jsx": "Jsx", ".mjs": "JavaScript", ".cjs": "JavaScript", ".py": "Python", ".rs": "Rust", ".go": "Go", ".java": "Java", ".json": "Json", ".yaml": "Yaml", ".yml": "Yaml", ".css": "Css", ".html": "Html", ".c": "C", ".h": "C", ".cpp": "Cpp", ".cc": "Cpp", ".hpp": "Cpp", };
@@ -140,7 +141,7 @@ async function executeAstGrepSearch(args: Record<string, unknown>, ctx?: ToolCon
       } catch (failure) { problems.push(`${file.relPath}: ${patternFailure(failure)}`); }
     }
   } catch (failure) { return JSON.stringify({ success: false, matches: [], errors: [patternFailure(failure)] }); }
-  console.log(LOG_PREFIX, `search "${request.pattern.slice(0, 40)}" → ${output.length} 处 / ${matchingFiles} 个文件`);
+  logger.info(LogTag.BuiltinTools, `search patternLen=${request.pattern.length} → ${output.length} 处 / ${matchingFiles} 个文件`);
   return JSON.stringify({ success: true, pattern: request.pattern, language: request.language ?? "auto", scannedFiles: files.length,
     filesWithMatches: matchingFiles, matchCount: output.length, truncated: limited, matches: output,
     ...(skipped.length > 0 ? { skipped: skipped.slice(0, 20) } : {}),
@@ -175,7 +176,7 @@ async function executeAstGrepReplace(args: Record<string, unknown>, ctx?: ToolCo
   const count = plans.reduce((sum, entry) => sum + entry.matchCount, 0);
   const finalized = finalizeFileChanges(evidence);
   if (previewOnly) {
-    console.log(LOG_PREFIX, `replace(dryRun) "${request.pattern.slice(0, 40)}" → ${plans.length} 文件 ${count} 处`);
+    logger.info(LogTag.BuiltinTools, `replace(dryRun) patternLen=${request.pattern.length} → ${plans.length} 文件 ${count} 处`);
     return JSON.stringify({ success: true, dryRun: true, pattern: request.pattern, rewrite: template, filesToChange: plans.length,
       totalMatches: count, planned: plans.map(entry => ({ file: entry.file, matchCount: entry.matchCount })), changes: finalized,
       ...(skipped.length > 0 ? { skipped: skipped.slice(0, 20) } : {}),
@@ -194,7 +195,7 @@ async function executeAstGrepReplace(args: Record<string, unknown>, ctx?: ToolCo
     } catch (failure) { problems.push(`${absolute}: ${failure instanceof Error ? failure.message : String(failure)}`); }
   }
   writes.clear();
-  console.log(LOG_PREFIX, `replace "${request.pattern.slice(0, 40)}" → 写入 ${completed.length} 个文件`);
+  logger.info(LogTag.BuiltinTools, `replace patternLen=${request.pattern.length} → 写入 ${completed.length} 个文件`);
   return JSON.stringify({ success: problems.length === 0, dryRun: false, pattern: request.pattern, rewrite: template, changedFiles: completed.length,
     totalMatches: count, changed: completed, changes: finalizeFileChanges(evidence.filter(change => completed.includes(change.file))),
     ...(skipped.length > 0 ? { skipped: skipped.slice(0, 20) } : {}), ...(problems.length > 0 ? { errors: problems.slice(0, 10) } : {}) });
@@ -219,5 +220,5 @@ export function registerAstGrepTools(): void {
     needsContext: true,     inputSchema: { type: "object", properties: { pattern: { type: "string", description: "AST 模式（一段普通代码作模板）" }, rewrite: { type: "string", description: "替换模板，可引用 pattern 中捕获的 $VAR" }, paths: { type: "array", items: { type: "string" }, description: "相对工作区的文件或目录列表，默认 [\".\"]" }, language: { type: "string", enum: SUPPORTED_LANGUAGES, description: "限定语言" }, dryRun: { type: "boolean", description: "true=只预览不写文件（默认），false=实际写入" }, }, required: ["pattern", "rewrite"], },
     execute: executeAstGrepReplace,
   });
-  console.log(LOG_PREFIX, "已注册：ast_grep_search / ast_grep_replace");
+  logger.info(LogTag.BuiltinTools, "已注册：ast_grep_search / ast_grep_replace");
 }

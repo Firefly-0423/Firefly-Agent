@@ -2,6 +2,7 @@ import * as path from "path";
 import { addMcpServer, removeMcpServer, listMcpServerConfigs } from "./mcp-manager";
 import type { McpServerConfig } from "./mcp-adapter";
 import { classifyMcpFailure } from "./mcp-failure";
+import { logger, LogTag } from "../../base/logging/logger";
 export const PLAYWRIGHT_MCP_ID = "playwright-mcp";
 export const REMOVED_BUILTIN_MCP_IDS: readonly string[] = ["firecrawl-hosted"];
 export function resolvePlaywrightMcpCliPath(): string {
@@ -22,7 +23,7 @@ export async function syncPlaywrightMcp(settings: { playwrightMcpEnabled: boolea
   const previous = listMcpServerConfigs().find((configuration) => configuration.id === PLAYWRIGHT_MCP_ID);
   if (!settings.playwrightMcpEnabled) {
     if (!previous) return;
-    console.log("[Firefly]", "移除 Playwright MCP Server...");
+    logger.info(LogTag.Firefly, "移除 Playwright MCP Server...");
     try { await removeMcpServer(PLAYWRIGHT_MCP_ID); }
     catch (failure) { console.error("[Firefly]", "Playwright MCP 移除异常:", classifyMcpFailure(failure)); }
     return;
@@ -30,15 +31,15 @@ export async function syncPlaywrightMcp(settings: { playwrightMcpEnabled: boolea
   const desired = buildPlaywrightMcpConfig();
   const obsolete = !!previous && !equivalent(previous, desired);
   if (obsolete) {
-    console.log("[Firefly]", "Playwright MCP 配置过期，自动迁移");
+    logger.info(LogTag.Firefly, "Playwright MCP 配置过期，自动迁移");
     try { await removeMcpServer(PLAYWRIGHT_MCP_ID); }
     catch (failure) { console.error("[Firefly]", "Playwright MCP 旧配置移除异常:", classifyMcpFailure(failure)); }
   }
   if (previous && !obsolete) return;
-  console.log("[Firefly]", "注册 Playwright MCP Server...");
+  logger.info(LogTag.Firefly, "注册 Playwright MCP Server...");
   try {
     const registration = await addMcpServer(buildPlaywrightMcpConfig());
-    if (registration.ok) console.log("[Firefly]", "Playwright MCP 注册成功,工具:", registration.toolIds?.join(", "));
+    if (registration.ok) logger.info(LogTag.Firefly, "Playwright MCP 注册成功,工具:", registration.toolIds?.join(", "));
     else console.error("[Firefly]", "Playwright MCP 注册失败:", registration.reason ?? "failed");
   } catch (failure) { console.error("[Firefly]", "Playwright MCP 注册异常:", classifyMcpFailure(failure)); }
 }

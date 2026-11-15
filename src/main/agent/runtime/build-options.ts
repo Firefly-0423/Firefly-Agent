@@ -39,6 +39,7 @@ import { policyFor } from "../../platform/permission/permission-policy";
 import { resolveTranscriptRetainTokens, type MaterializedTranscript } from "../loop/conversation-transcript-context";
 import { DEFAULT_CONTEXT_WINDOW_TOKENS } from "../../../shared/context-window";
 import type { UncertainEffect } from "../loop/types";
+import { logger, LogTag } from "../../base/logging/logger";
 
 export type BuildOptionsDeps = {
   buildPluginPromptContext?: (input: { source: "conversation" | "plugin-agent"; mode: ConversationMode; userText: string; conversationId?: string; channel?: string; }) => Promise<string>;
@@ -157,7 +158,7 @@ function withDirectImageAttachments(messages: ChatMessage[], input: AguiRunInput
       pieces.push({ type: "text", text: `图片 ${attachment.name} 无法读取：${media.error}。请诚实说明暂时无法看清这张图，不要编造图片内容。` });
       continue;
     }
-    console.log(`[image-send] 直发挂块 ${attachment.name}: ok ${media.mime} ${media.buffer.length}B`);
+    logger.info(LogTag.Runtime, `image-send 直发挂块 ${attachment.name}: ok ${media.mime} ${media.buffer.length}B`);
     pieces.push({ type: "image_url", image_url: { url: `data:${media.mime};base64,${media.buffer.toString("base64")}` } });
   }
   const updated = messages.slice();
@@ -180,7 +181,7 @@ async function withCaptionedImageAttachments(messages: ChatMessage[], input: Agu
   for (const attachment of images) {
     const caption = await deps.captionImageForFallback(attachment.filePath);
     if (caption.ok && caption.caption) {
-      console.log(`[image-send] caption 降级 ${attachment.name}: ok`);
+      logger.info(LogTag.Runtime, `image-send caption 降级 ${attachment.name}: ok`);
       captions.push(`- ${attachment.name}：${caption.caption}`);
     } else {
       console.warn(`[image-send] caption 降级 ${attachment.name}: 失败 ${caption.error ?? "未知错误"}`);
@@ -262,7 +263,7 @@ export async function buildAgentRunOptions(input: AguiRunInput, deps: BuildOptio
   const binding = bindingId ? deps.getWorkspaceBinding?.(bindingId) : undefined;
   const workspace = binding?.workspaceRoot;
   const metadata = workspace ? readWorkspaceMeta(workspace) : undefined;
-  if (workspace) console.log("[BuildOptions] workspace binding loaded:", "conversationId=" + conversation.slice(0, 8) + "...", "workspaceRoot=" + workspace);
+  if (workspace) logger.info(LogTag.Runtime, "workspace binding loaded:", "conversationId=" + conversation.slice(0, 8) + "...", "workspace=" + basename(workspace));
   const socialEnabled = chatting && style.chatSocialContextEnabled === true && Boolean(deps.buildChatSocialContext);
   const profile = deps.loadUserProfile();
   const timed = buildConversationTimeContext(history as unknown as ChatContextMessage[], resolveChatContextTimezone(profile.timezone));
@@ -347,7 +348,7 @@ export async function buildAgentRunOptions(input: AguiRunInput, deps: BuildOptio
   const knowledgeIds = new Set(["obsidian_list_files", "obsidian_search", "obsidian_read_file", "obsidian_read_section", "obsidian_edit", "obsidian_open_note"]);
   const tools = capabilities.tools.filter((definition) => (!planning || allowedDuringPlan(definition)) && (!knowledgeIds.has(definition.id) || knowledge !== undefined));
   const searches = searchFiltered.filter((definition) => definition.id === "web_search" || definition.id.startsWith("minimax-web-search-")).map((definition) => definition.id);
-  console.log(`[Firefly] 搜索后端=${backend} 暴露搜索工具=[${searches.join(", ") || "无"}]`);
+  logger.info(LogTag.Runtime, `搜索后端=${backend} 暴露搜索工具=[${searches.join(", ") || "无"}]`);
   const persona = deps.buildModePrompt?.(mode) ?? deps.buildSoulSystemBasePrompt(mode);
   const soulBase = knowledge && await canUpdateLearningProgress(knowledge) ? [persona, loadPromptFile("knowledge_workflow.md")].filter(Boolean).join("\n\n") : persona;
   const toolBase = mode === "chat" ? (tools.length > 0 ? deps.buildToolSystemPrompt(mode, tools) : "") : deps.buildToolSystemPrompt(mode, tools);
@@ -362,7 +363,7 @@ export async function buildAgentRunOptions(input: AguiRunInput, deps: BuildOptio
     .filter((section): section is string => Boolean(section?.trim())).join("\n\n---\n\n");
   const route = resolveImageRoute("attachment", model);
   const direct = route.mode === "direct";
-  if (input.imageAttachments?.length) console.log("[image-send] 直发判定:", { provider: model.provider, model: model.model, 多模态推断: model.multimodal === true, 图片数: input.imageAttachments.length, 结果: direct ? "直发 image 块" : "拒绝（当前型号不支持图片）" });
+  if (input.imageAttachments?.length) logger.info(LogTag.Runtime, "image-send 直发判定:", { provider: model.provider, model: model.model, 多模态推断: model.multimodal === true, 图片数: input.imageAttachments.length, 结果: direct ? "直发 image 块" : "拒绝（当前型号不支持图片）" });
   const documents = new Map<number, OpenAIContentBlock>();
   const materialize = async (authorized: Readonly<MainAttachmentSource>, caption = false): Promise<OpenAIContentBlock[]> => {
     const pieces: OpenAIContentBlock[] = [];

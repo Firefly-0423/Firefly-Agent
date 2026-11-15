@@ -5,6 +5,7 @@ import { publishAskCard, resolveAskCardSubmission, validateAskUserAnswer, } from
 import { getTimeoutSettings } from "../settings/timeout-manager";
 import { createAbortError } from "../../base/utils/abort-utils";
 import { toastEvents } from "./toast-events";
+import { logger, LogTag } from "../../base/logging/logger";
 const CHOICE_LOG = "[UserChoice]";
 export type ChoiceOption = {
     label: string;
@@ -109,7 +110,7 @@ export function requestUserChoice(questionText: string, candidates: ChoiceOption
             removeCancellation = () => cancellation.removeEventListener("abort", cancelRequest);
         }
         const message: ChoiceCardData = { id: interactionKey, question: questionText, options: candidates, default: fallbackAnswer };
-        console.log(CHOICE_LOG, "发送选择请求:", interactionKey, questionText);
+        logger.info(LogTag.Runtime, "user choice: 发送选择请求:", interactionKey, `questionLen=${questionText.length}`);
         if (!deliverCard) {
             clearTimeout(expiry);
             removeCancellation();
@@ -167,7 +168,7 @@ export function requestUserClarification(promptCard: AskClarificationCard, deliv
                 }
             },
         });
-        console.log(CHOICE_LOG, "发送结构化澄清:", interactionKey);
+        logger.info(LogTag.Runtime, "user choice: 发送结构化澄清:", interactionKey);
         const sendCard = deliver ?? deliverCard;
         if (!sendCard) {
             clearTimeout(expiry);
@@ -200,11 +201,11 @@ export function registerChoiceIpc(scopeOverride?: IpcScope): void {
         }
         pending.status = "resolving";
         const response = message.answer ?? message.value ?? "";
-        console.log(CHOICE_LOG, "用户回答 payload:", JSON.stringify({
+        logger.info(LogTag.Runtime, "user choice: 用户回答 payload:", JSON.stringify({
             id: message.id,
             hasAnswer: !!message.answer,
             valueType: typeof message.value,
-            resolved: JSON.stringify(response).slice(0, 200),
+            resolvedLen: JSON.stringify(response).length,
         }));
         if (!pending.resolve(response)) {
             pending.status = "open";
@@ -213,7 +214,7 @@ export function registerChoiceIpc(scopeOverride?: IpcScope): void {
         }
         clearTimeout(pending.timer);
         awaitingAnswers.delete(message.id);
-        console.log(CHOICE_LOG, "用户选择:", message.id);
+        logger.info(LogTag.Runtime, "user choice: 用户选择:", message.id);
         return { ok: true };
     });
 }
@@ -225,6 +226,6 @@ export function cancelPendingChoicesForRun(executionId: string): void {
         awaitingAnswers.delete(interactionKey);
         pending.onSettled?.({ id: interactionKey, runId: executionId, revision: pending.revision ?? 1, reason: "cancelled" });
         pending.reject?.(createAbortError());
-        console.log(CHOICE_LOG, "cancelPendingChoicesForRun 清理:", interactionKey, "runId=", executionId);
+        logger.info(LogTag.Runtime, "user choice: cancelPendingChoicesForRun 清理:", interactionKey, "runId=", executionId);
     }
 }

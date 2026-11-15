@@ -53,14 +53,14 @@ function lineWindow(text: string, start: number, maximum: number): { rows: strin
 async function executeReadFile(args: Record<string, unknown>, context?: ToolContext): Promise<string> {
   const supplied = String(args.path || "").trim(), location = absolutePath(supplied);
   if (!location) {
-    console.log(LOG_PREFIX, "read_file 非绝对路径:", supplied, "cwd=", process.cwd());
+    logger.info(LogTag.FsTools, "read_file 非绝对路径:", path.basename(supplied), "cwd=", path.basename(process.cwd()));
     return JSON.stringify({ success: false, errorCode: "INVALID_PATH", error: "path 必须是绝对路径: " + supplied, retryable: false });
   }
   const observed = await readWorkspaceFile(location, context, READ_MAX_BYTES);
   if (!observed) assertWorkspacePathFallback(location, "read", context);
   const entry = observedStat(observed, location);
   if (!entry) {
-    console.log(LOG_PREFIX, "read_file 文件不存在:", location, "raw=", supplied, "cwd=", process.cwd());
+    logger.info(LogTag.FsTools, "read_file 文件不存在:", path.basename(location), "raw=", path.basename(supplied), "cwd=", path.basename(process.cwd()));
     return JSON.stringify({ success: false, errorCode: "FILE_NOT_FOUND", error: "文件不存在或无法访问: " + location + "。不要重复读取相同路径，请先用 search_text 或 list_dir 重新定位文件。", retryable: true });
   }
   if (!entry.isFile()) return JSON.stringify({ success: false, errorCode: "NOT_A_FILE", error: "不是文件（是目录或其它）: " + location, retryable: false });
@@ -73,7 +73,7 @@ async function executeReadFile(args: Record<string, unknown>, context?: ToolCont
   const requested = Math.max(1, Math.min(2000, Math.floor(Number(args.maxLines) || 500)));
   if (confirmed && start > confirmed.endLine) return JSON.stringify({ success: false, errorCode: "OUTSIDE_CONFIRMED_RANGE", error: "请求行号超出用户确认的读取范围", retryable: false });
   const maximum = confirmed ? Math.min(requested, confirmed.endLine - start + 1) : requested;
-  console.log(LOG_PREFIX, "read_file:", location, "size=" + formatBytes(entry.size), "lines=" + start + "..+" + maximum);
+  logger.info(LogTag.FsTools, "read_file:", path.basename(location), "size=" + formatBytes(entry.size), "lines=" + start + "..+" + maximum);
   let bytes: Buffer;
   try { bytes = observed ? observed.bytes ?? Buffer.alloc(0) : fs.readFileSync(location); }
   catch (failure) { return JSON.stringify({ success: false, errorCode: "READ_FAILED", error: "读取失败: " + errorText(failure), retryable: false }); }
@@ -103,7 +103,7 @@ async function executeReadFile(args: Record<string, unknown>, context?: ToolCont
   const response = { path: location, canonicalPath: canonical, startLine: start, endLine: end, totalLines: selected.count, sha256: digest,
     content: selected.rows.map((row, index) => String(start + index).padStart(5, " ") + " | " + row).join("\n"),
     truncated: false, ...(extracted ? { extractedText: true } : {}), ...(confirmed && requested > maximum ? { scopeLimited: true } : {}) };
-  console.log(LOG_PREFIX, "read_file 完成: lines=" + start + ".." + end + "/" + selected.count);
+  logger.info(LogTag.FsTools, "read_file 完成: lines=" + start + ".." + end + "/" + selected.count);
   return JSON.stringify(response);
 }
 toolRegistry.register({
@@ -124,7 +124,7 @@ async function executeListDir(args: Record<string, unknown>, context?: ToolConte
   if (!entry) return "[错误] 目录不存在或无法访问: " + directory;
   if (!entry.isDirectory()) return "[错误] 不是目录: " + directory;
   const hidden = args.showHidden === true, filter = typeof args.filter === "string" ? args.filter.trim() : "";
-  console.log(LOG_PREFIX, "list_dir:", directory, "showHidden=" + hidden);
+  logger.info(LogTag.FsTools, "list_dir:", path.basename(directory), "showHidden=" + hidden);
   let children: Array<Pick<fs.Dirent, "name" | "isDirectory" | "isFile" | "isSymbolicLink">>;
   try { children = observed ? observed.map(child => ({ name: child.name, isDirectory: () => child.kind === "directory", isFile: () => child.kind === "file", isSymbolicLink: () => false }))
     : fs.readdirSync(directory, { withFileTypes: true }); }
@@ -189,7 +189,7 @@ async function executePathWriteFile(args: Record<string, unknown>, ctx: ToolCont
       if (decision.blocked) throw new ToolExecutionError("E_OVERWRITE_DROP_BLOCKED", overwriteDropMessage(decision), "runtime_safety", false, "not_applied");
     }
   }
-  console.log(LOG_PREFIX, "write_file:", location, "bytes=" + Buffer.byteLength(text, "utf8"), append ? "(append)" : "(overwrite)");
+  logger.info(LogTag.FsTools, "write_file:", path.basename(location), "bytes=" + Buffer.byteLength(text, "utf8"), append ? "(append)" : "(overwrite)");
   const batch = beginWriteBatch(ctx, [location]);
   await batch.run([location], async () => {
     assertWorkspacePathFallback(location, "write", ctx);
@@ -290,7 +290,7 @@ async function executeReadImage(args: Record<string, unknown>, ctx?: ToolContext
   const types: Record<string, string> = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp", ".bmp": "image/bmp", ".svg": "image/svg+xml" };
   const mime = types[extension];
   if (!mime) return "[错误] 不支持的图片格式: " + extension + "（支持 png/jpg/jpeg/gif/webp/bmp/svg）";
-  console.log(LOG_PREFIX, "read_image:", location, "mime=" + mime, "size=" + formatBytes(entry.size));
+  logger.info(LogTag.FsTools, "read_image:", path.basename(location), "mime=" + mime, "size=" + formatBytes(entry.size));
   let bytes: Buffer;
   try { bytes = observed ? observed.bytes! : fs.readFileSync(location); }
   catch (failure) { return "[错误] 读取失败: " + errorText(failure); }
