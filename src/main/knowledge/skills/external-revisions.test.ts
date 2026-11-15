@@ -8,7 +8,7 @@ import { createExternalSkillService } from "./external-service";
 import { externalSkillId } from "./external-policy";
 import { ExternalSkillStateStore } from "./external-state";
 import { evaluateExternalSkill } from "./external-review";
-import { createExternalFixture, isolatedStorageContext, rawFile } from "./testing/external-fixtures";
+import { createExternalFixture, isolatedStorageContext, rawFile } from "./testing/external-fixtures.test-support";
 
 const policyVersion = "firefly-instruction-only-v1";
 const owner: ExternalOwner = { webContentsId: 17, frameProcessId: 18, frameRoutingId: 19, generation: 0 };
