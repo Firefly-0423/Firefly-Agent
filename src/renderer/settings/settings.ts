@@ -42,6 +42,7 @@ import { stickerEnabledInput, stickerSizeSelect, stickerThresholdInput, stickerT
 import { pluginsState } from "./plugins/state";
 import type { GeneralSettings, ModelPreset, ModelSettings, ProviderProfile } from "./shared/types";
 import { installPreviewBridge } from "./shared/preview-bridge";
+import { applyOptionGroupValue, getOptionGroupValue, onChoice, selectButtons } from "./shared/option-group";
 import { MODEL_PRESETS, sortPresetsForDisplay } from "./api/presets";
 import { attachCardSelect, enhanceSelects } from "./shared/dropdown";
 import { attachDatePicker } from "./shared/date-picker";
@@ -107,27 +108,6 @@ async function saveAppearancePatch(patch: Partial<GeneralSettings>, successText 
     console.error("自动应用外观设置失败:", failure);
     report(t("settings.status.applyFailed"), "is-error");
   }
-}
-
-function markChoice(button: HTMLButtonElement, selected: boolean, radio = false): void {
-  button.classList.toggle("is-active", selected);
-  if (radio) button.setAttribute("aria-checked", String(selected));
-  button.setAttribute("aria-pressed", String(selected));
-}
-
-function selectButtons(root: HTMLElement, selector: string, matches: (button: HTMLButtonElement) => boolean, radio = false): void {
-  for (const button of root.querySelectorAll<HTMLButtonElement>(selector)) {
-    markChoice(button, matches(button), radio);
-  }
-}
-
-function applyOptionGroupValue(group: HTMLElement, value: string): void {
-  selectButtons(group, ".option-block", option => option.dataset.value === value);
-}
-
-function getOptionGroupValue(group: HTMLElement, fallback: string): string {
-  const selected = group.querySelector<HTMLButtonElement>(".option-block.is-active");
-  return selected?.dataset.value ?? fallback;
 }
 
 function stickerSize(value: string | undefined): "small" | "standard" | "large" {
@@ -688,12 +668,6 @@ function syncStickerSendStatus(): void {
 
 const dirtyStickers = (): void => setFireflySaveStatus(t("settings.status.dirty"));
 const dirtyPreferences = (): void => setPreferencesSaveStatus(t("settings.status.dirty"));
-
-function onChoice(root: HTMLElement, selector: string, choose: (button: HTMLButtonElement) => void): void {
-  root.querySelectorAll<HTMLButtonElement>(selector).forEach(option => {
-    option.addEventListener("click", () => choose(option));
-  });
-}
 
 stickerEnabledInput.addEventListener("change", () => {
   syncStickerSendStatus();
