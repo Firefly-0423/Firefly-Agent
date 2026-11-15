@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
 import type { ChatMessage, ChatSession, PendingChatMessage } from "../../../../../shared/chat-types";
 import type { ComposerAttachment } from "../components/ChatComposer";
 import type { PendingClaimResult, ChatStoreApi } from "./chat-page-bridge";
@@ -283,4 +283,206 @@ describe("Concurrent entry points serialize one session", () => {
     h.flow.handleRunFinished({ mode: "chat", sessionId: "owner", queuePaused: false }); await settle();
     expect(h.disk.pendingClaim).toHaveBeenCalledWith("owner");
   });
+});
+
+describe("queue consumption after run settlement (ChatPage B6/B7)", () => {
+  const TERMINAL_STATUSES = ["success", "cancelled", "timeout", "runtime_error"] as const;
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const flushTimersAndMicrotasks = async () => {
+    await vi.runAllTimersAsync();
+  };
+
+  function setupTwoSessions(execute: PendingQueueFlowHost["startRun"] = async () => {}) {
+    const h = setup(execute);
+    const sessions = new Map<string, ChatSession>();
+    const queues = new Map<string, PendingChatMessage[]>();
+    const dispatches = new Map<string, { messageId: string; claimedAt: number } | undefined>();
+
+    const syncSessionView = (id: string): ChatSession | null => {
+      const current = sessions.get(id);
+      if (!current) return null;
+      return {
+        ...current,
+        pendingMessages: [...(queues.get(id) ?? [])],
+        pendingDispatch: dispatches.get(id),
+      };
+    };
+
+    h.disk.get.mockImplementation(async (id: string) => syncSessionView(id));
+    h.disk.pendingList.mockImplementation(async (id: string) => (queues.has(id) ? [...(queues.get(id) ?? [])] : null));
+    h.disk.pendingCompleteDispatch.mockImplementation(async (id: string, messageId: string) => {
+      const active = dispatches.get(id);
+      if (active?.messageId !== messageId) return { ok: true, cleared: false };
+      dispatches.delete(id);
+      return { ok: true, cleared: true };
+    });
+    h.disk.pendingClaim.mockImplementation(async (id: string) => {
+      const queue = queues.get(id) ?? [];
+      if (dispatches.get(id)) return { ok: false, error: "already-dispatching" };
+      if (queue.length === 0) return { ok: true, claimed: false };
+      const [head, ...rest] = queue;
+      queues.set(id, rest);
+      const userMessage: ChatMessage = { id: head.id, role: "user", content: head.rawContent, at: Date.now() };
+      const existing = sessions.get(id);
+      if (existing) {
+        existing.messages = [...existing.messages, userMessage];
+      }
+      dispatches.set(id, { messageId: head.id, claimedAt: userMessage.at });
+      return {
+        ok: true,
+        claimed: true,
+        userMessage,
+        visibleContent: head.visibleContent,
+        remainingQueue: [...rest],
+        session: syncSessionView(id)!,
+      };
+    });
+
+    const appendedUserIdsFor = (sessionId: string): string[] =>
+      h.ports.appendMessages.mock.calls
+        .filter(([sid]) => sid === sessionId)
+        .flatMap(([, items]) => items.filter((item: ChatMessageItem) => item.role === "user").map((item: ChatMessageItem) => item.id));
+
+    return { ...h, sessions, queues, dispatches, appendedUserIdsFor };
+  }
+
+  test.each(TERMINAL_STATUSES)(
+    "consumes the successor once on %s settlement without touching a neighbour session",
+    async (terminalStatus) => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-11-15T14:00:00Z"));
+      const h = setupTwoSessions();
+
+      h.sessions.set("session-a", session({ id: "session-a", mode: "chat", messages: [] }));
+      h.sessions.set(
+        "session-b",
+        session({ id: "session-b", mode: "work", messages: [turn("b-init")] }),
+      );
+      h.queues.set("session-a", [queued("a-1"), queued("a-2")]);
+      h.queues.set("session-b", [queued("b-1")]);
+
+      // Start first pending item on session-a
+      await h.flow.consume("chat", "session-a");
+      expect(h.disk.pendingClaim.mock.calls).toEqual([["session-a"]]);
+      expect(h.ports.startRun).toHaveBeenCalledTimes(1);
+      expect(h.ports.startRun.mock.calls[0][0]).toMatchObject({
+        targetMode: "chat",
+        sessionId: "session-a",
+        userMessageId: "a-1",
+        claimedPendingMessageId: "a-1",
+      });
+      h.rendered.add("session-a/a-1");
+
+      // Session A run ends as accepted with the given terminalStatus (ack cleared pendingDispatch)
+      h.dispatches.delete("session-a");
+      const sessA = h.sessions.get("session-a")!;
+      sessA.messages = [
+        ...sessA.messages,
+        {
+          id: "a-1-reply",
+          role: "model",
+          content: terminalStatus === "success" ? "Done A1" : "",
+          at: Date.now(),
+          answersUserMessageId: "a-1",
+          runSnapshot: { status: "terminal", terminalStatus, updatedAt: Date.now() },
+        },
+      ];
+
+      h.flow.handleRunFinished({ mode: "chat", sessionId: "session-a", queuePaused: false });
+      await flushTimersAndMicrotasks();
+
+      expect(h.disk.pendingClaim.mock.calls).toEqual([["session-a"], ["session-a"]]);
+      expect(h.ports.startRun).toHaveBeenCalledTimes(2);
+      expect(h.ports.startRun.mock.calls[1][0]).toMatchObject({
+        targetMode: "chat",
+        sessionId: "session-a",
+        userMessageId: "a-2",
+        claimedPendingMessageId: "a-2",
+      });
+      expect(h.appendedUserIdsFor("session-a")).toEqual(["a-1", "a-2"]);
+      expect(h.disk.get.mock.calls.some(([sid]) => sid === "session-b")).toBe(false);
+      expect(h.appendedUserIdsFor("session-b")).toEqual([]);
+      h.rendered.add("session-a/a-2");
+
+      // Session A second run completes: queue is now empty, no extra dispatch and session-b still untouched
+      h.dispatches.delete("session-a");
+      h.flow.handleRunFinished({ mode: "chat", sessionId: "session-a", queuePaused: false });
+      await flushTimersAndMicrotasks();
+
+      expect(h.disk.pendingClaim.mock.calls).toEqual([["session-a"], ["session-a"], ["session-a"]]);
+      expect(h.ports.startRun).toHaveBeenCalledTimes(2);
+      expect(h.appendedUserIdsFor("session-a")).toEqual(["a-1", "a-2"]);
+      expect(h.disk.pendingClaim.mock.calls.some(([sid]) => sid === "session-b")).toBe(false);
+
+      // Session B finishes independently and claims/dispatches only its own queued item
+      h.flow.handleRunFinished({ mode: "work", sessionId: "session-b", queuePaused: false });
+      await flushTimersAndMicrotasks();
+
+      expect(h.disk.pendingClaim.mock.calls).toEqual([["session-a"], ["session-a"], ["session-a"], ["session-b"]]);
+      expect(h.ports.startRun).toHaveBeenCalledTimes(3);
+      expect(h.ports.startRun.mock.calls[2][0]).toMatchObject({
+        targetMode: "work",
+        sessionId: "session-b",
+        userMessageId: "b-1",
+        claimedPendingMessageId: "b-1",
+      });
+      expect(h.appendedUserIdsFor("session-b")).toEqual(["b-1"]);
+      expect(h.appendedUserIdsFor("session-a")).toEqual(["a-1", "a-2"]);
+    },
+  );
+
+  test.each(TERMINAL_STATUSES)(
+    "clears retained dispatch ledger on %s settlement and claims the next pending item once",
+    async (terminalStatus) => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-11-15T14:05:00Z"));
+      const h = setupTwoSessions();
+
+      h.sessions.set(
+        "session-a",
+        session({
+          id: "session-a",
+          mode: "code",
+          messages: [
+            turn("a-1"),
+            {
+              id: "a-1-reply",
+              role: "model",
+              content: terminalStatus === "success" ? "Committed answer" : "",
+              at: Date.now(),
+              answersUserMessageId: "a-1",
+              runSnapshot: { status: "terminal", terminalStatus, updatedAt: Date.now() },
+            },
+          ],
+        }),
+      );
+      h.dispatches.set("session-a", { messageId: "a-1", claimedAt: Date.now() - 1000 });
+      h.queues.set("session-a", [queued("a-2")]);
+      h.sessions.set(
+        "session-b",
+        session({ id: "session-b", mode: "work", messages: [turn("b-init")] }),
+      );
+      h.queues.set("session-b", [queued("b-1")]);
+
+      h.flow.handleRunFinished({ mode: "code", sessionId: "session-a", queuePaused: false });
+      await flushTimersAndMicrotasks();
+
+      expect(h.disk.pendingCompleteDispatch.mock.calls).toEqual([["session-a", "a-1"]]);
+      expect(h.disk.pendingClaim.mock.calls).toEqual([["session-a"]]);
+      expect(h.ports.startRun).toHaveBeenCalledTimes(1);
+      expect(h.ports.startRun.mock.calls[0][0]).toMatchObject({
+        targetMode: "code",
+        sessionId: "session-a",
+        userMessageId: "a-2",
+        claimedPendingMessageId: "a-2",
+      });
+      expect(h.appendedUserIdsFor("session-a")).toEqual(["a-2"]);
+      expect(h.disk.get.mock.calls.some(([sid]) => sid === "session-b")).toBe(false);
+      expect(h.disk.pendingClaim.mock.calls.some(([sid]) => sid === "session-b")).toBe(false);
+    },
+  );
 });
