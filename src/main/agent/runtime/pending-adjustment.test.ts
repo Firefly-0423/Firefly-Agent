@@ -61,7 +61,8 @@ describe("adjustment history and transcript commits", () => {
     it("retries a failed history commit using the same stable transcript turn ID", async () => {
         const f = environment([item("retryable")]);
         f.failCommit(true);
-        await expect(f.poll()).rejects.toThrow();
+        await expect(f.poll()).rejects.toMatchObject({ message: "PENDING_ADJUST_COMMIT_FAILED:retryable:write-failed" });
+        expect(f.appendUser).toHaveBeenCalledTimes(1);
         expect(f.commitPendingAdjust).toHaveBeenCalledTimes(1);
         expect(f.queue().map(entry => entry.id)).toEqual(["retryable"]);
         f.failCommit(false);
