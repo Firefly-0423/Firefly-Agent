@@ -247,6 +247,7 @@
     "setWorkspaceFailedTitle": "设置工作区失败",
     "temporaryBanner": "临时聊天：不保存对话、不写入记忆，关闭应用后消失",
     "temporaryUnavailable": "当前记忆模式不支持临时聊天。",
+    "terminalSaveFailed": "这条回答没能保存到聊天记录，重新打开后可能看不到。需要的话请先复制保留。",
     "toolCallFallbackName": "工具调用",
     "unknownError": "未知错误"
   },

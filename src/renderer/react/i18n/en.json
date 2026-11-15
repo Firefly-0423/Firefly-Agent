@@ -247,6 +247,7 @@
     "setWorkspaceFailedTitle": "Failed to set workspace",
     "temporaryBanner": "Temporary chat: not saved, nothing is written to memory, gone when the app closes",
     "temporaryUnavailable": "Temporary chat is not supported in the current memory mode.",
+    "terminalSaveFailed": "This reply couldn't be saved to the chat history and may be gone after you reopen it. Copy anything you need now.",
     "toolCallFallbackName": "Tool call",
     "unknownError": "Unknown error"
   },
