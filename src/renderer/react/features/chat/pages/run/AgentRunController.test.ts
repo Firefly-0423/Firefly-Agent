@@ -596,7 +596,9 @@ describe("ChatPage package A: run and persistence baseline", () => {
     expect(host.updateContextUsage).toHaveBeenCalledTimes(2);
   });
 
-  test("A10: a terminal checkpoint that cannot be written is never reported as persisted", async () => {
+  // A10 covers only a write that keeps failing. A single failure followed by success, and a write that returns
+  // null, still lose or misreport the answer; they are tracked as a separate fix (see the progress doc).
+  test("A10: a terminal checkpoint that keeps failing to write is never reported as persisted", async () => {
     const disk = memory();
     disk.upsert.mockImplementation(async (_sessionId: string, message: any) => {
       if (message.runSnapshot.status === "terminal") throw new Error("CHAT_HISTORY_WRITE_FAILED synthetic");
