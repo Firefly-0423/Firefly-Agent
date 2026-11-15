@@ -5,6 +5,7 @@ import {contextFixture} from '../../../../scripts/verify/memory-context/context-
 import {createMainHistory,createMainHistoryProvider} from '../history/main-history';
 import {parseFireflyHistoryBytes} from '../history/firefly-history-reader';
 import {createMainTranscriptProvider} from '../history/main-transcript-provider';
+import { exactly } from "../../../shared/testing/error-code.test-support";
 function records(f:{databasePath:string}){
  const db=new DatabaseSync(f.databasePath,{readOnly:true});
  try{return {context:db.prepare('SELECT id,payload FROM context_records ORDER BY id').all().map(r=>({...r})),history:db.prepare('SELECT id,payload FROM history_records ORDER BY id').all().map(r=>({...r}))}}finally{db.close()}
@@ -13,7 +14,7 @@ function records(f:{databasePath:string}){
 async function denies(f:{databasePath:string},run:()=>Promise<unknown>,code:string){
  const before=records(f);
  expect(before.context.length).toBeGreaterThan(0);
- await expect(run()).rejects.toThrow(code);
+ await expect(run()).rejects.toThrow(exactly(code));
  expect(records(f)).toEqual(before);
 }
 async function fixture(options:{reserve?:boolean;claim?:boolean;generic?:boolean}={}){
@@ -39,7 +40,7 @@ async function fixture(options:{reserve?:boolean;claim?:boolean;generic?:boolean
 }
 it('claimed response validates exact selected H and S pending union while ordinary H remains denied',async()=>{
  const f=await fixture();await expect(f.response()).resolves.toEqual({valid:true});
- await expect(Promise.resolve().then(()=>f.repo.historyCommand({kind:'validate',scopeKey:'scope-a',body:{actorKey:'actor-a',providerId:'synthetic',sessionId:'session-a',dependencies:f.queried.hits.map(h=>h.dependency)}}))).rejects.toThrow('MEMORY_CONTEXT_TRANSCRIPT_PENDING');
+ await expect(Promise.resolve().then(()=>f.repo.historyCommand({kind:'validate',scopeKey:'scope-a',body:{actorKey:'actor-a',providerId:'synthetic',sessionId:'session-a',dependencies:f.queried.hits.map(h=>h.dependency)}}))).rejects.toThrow(exactly("MEMORY_CONTEXT_TRANSCRIPT_PENDING"));
 });
 it.each([['missing-s','MEMORY_CONTEXT_RESPONSE_PROGRESS_DENIED'],['missing-h','MEMORY_CONTEXT_RESPONSE_PROGRESS_DENIED'],['extra','MEMORY_CONTEXT_RESPONSE_PROGRESS_DENIED'],['duplicate','MEMORY_CONTEXT_RESPONSE_PROGRESS_DENIED'],['wrong-ref','MEMORY_CONTEXT_RESPONSE_PROGRESS_DENIED'],['wrong-operation','MEMORY_CONTEXT_RESPONSE_PROGRESS_STALE'],['other-boot','MEMORY_CONTEXT_ACCESS_DENIED']])('response union denies %s with %s',async(kind,code)=>{
  const f=await fixture();let refs=f.refs.map(r=>({...r})),op=f.operationId;
@@ -54,7 +55,7 @@ function mutate(f:Awaited<ReturnType<typeof fixture>>,table:'context_records'|'h
  const record=codec.open<any>(type,'scope-a',row.id as string,row.payload);change(record);db.prepare('UPDATE '+table+' SET payload=? WHERE id=?').run(codec.seal(type,'scope-a',row.id as string,record),row.id);
  }finally{db.close()}
 }
-it('unclaimed snapshot never obtains response pending exception',async()=>{const f=await fixture({claim:false});await expect(f.response()).rejects.toThrow('MEMORY_CONTEXT_RESPONSE_UNSENT')});
+it('unclaimed snapshot never obtains response pending exception',async()=>{const f=await fixture({claim:false});await expect(f.response()).rejects.toThrow(exactly("MEMORY_CONTEXT_RESPONSE_UNSENT"))});
 it.each([['ready','MEMORY_CONTEXT_RESPONSE_PROGRESS_STALE'],['deleted','MEMORY_CONTEXT_RESPONSE_PROGRESS_STALE'],['missing','MEMORY_CONTEXT_RESPONSE_PROGRESS_STALE'],['wrong-old-ref','MEMORY_CONTEXT_RESPONSE_PROGRESS_STALE']])('selected pending H head rejects %s with %s',async(kind,code)=>{
  const f=await fixture(),ref=f.refs.at(-1)!;
  if(kind==='missing'){const db=new DatabaseSync(f.databasePath);try{db.prepare('DELETE FROM context_records WHERE id=?').run(ref.headId)}finally{db.close()}}
@@ -65,21 +66,21 @@ it.each([['incarnation','MEMORY_DATA_INVALID'],['revision','MEMORY_DATA_INVALID'
  const f=await fixture();mutate(f,'history_records','history-document',undefined,doc=>{if(kind==='incarnation')doc.incarnation='different';if(kind==='revision')doc.revision++;if(kind==='digest')doc.digest='0'.repeat(64);if(kind==='body')doc.messages[0].text='changed';if(kind==='deleted')doc.state='deleted'});
  await denies(f,()=>f.response(),code);
 });
-it('forget after reservation still rejects original generation under correct receipt',async()=>{const f=await fixture(),fact=await f.active();await f.forget(fact.factId!);await expect(f.response()).rejects.toThrow('MEMORY_CONTEXT_STALE')});
+it('forget after reservation still rejects original generation under correct receipt',async()=>{const f=await fixture(),fact=await f.active();await f.forget(fact.factId!);await expect(f.response()).rejects.toThrow(exactly("MEMORY_CONTEXT_STALE"))});
 it.each([['last-stale','MEMORY_CONTEXT_TRANSCRIPT_STALE'],['duplicate','MEMORY_CONTEXT_INPUT_INVALID'],['after-first-reserve','SUMMARY_INJECTED_FAULT']])('combined reserve %s fails with %s and rolls back every head',async(kind,code)=>{
  const f=await fixture({reserve:false});let refs=f.refs.map(r=>({...r}));
  if(kind==='last-stale')refs.at(-1)!.revision++;if(kind==='duplicate')refs.push(refs[0]);if(kind==='after-first-reserve')f.setFault(true,'transcriptReserveBatch',1);
- await expect(f.call('transcriptReserveBatch',{generation:f.snapshot.generation,operationId:f.operationId,expectedRefs:refs},'failing-reserve')).rejects.toThrow(code);f.setFault(false);
+ await expect(f.call('transcriptReserveBatch',{generation:f.snapshot.generation,operationId:f.operationId,expectedRefs:refs},'failing-reserve')).rejects.toThrow(exactly(code));f.setFault(false);
  await expect(f.call('baseline',{sourceRefs:[],factRefs:[],transcriptRefs:f.refs})).resolves.toMatchObject({generation:f.snapshot.generation});
 });
 
 it('same-session ordinary source-backed H remains current and never joins response pending union',async()=>{
  const f=await fixture({generic:true});await expect(f.response()).resolves.toEqual({valid:true});
  await f.call('transcriptReserveBatch',{generation:f.snapshot.generation,operationId:f.operationId,expectedRefs:[f.hRef]},'generic-h-pending');
- await expect(f.response([...f.refs,f.hRef])).rejects.toThrow('MEMORY_CONTEXT_TRANSCRIPT_PENDING');
+ await expect(f.response([...f.refs,f.hRef])).rejects.toThrow(exactly("MEMORY_CONTEXT_TRANSCRIPT_PENDING"));
 });
 it('ordinary source-backed H source mutation still rejects response despite valid S receipt',async()=>{
- const f=await fixture({generic:true});await f.registry.prepareChange(f.access,f.provider.adapter,f.source!.ref);await expect(f.response()).rejects.toThrow('MEMORY_SOURCE_PENDING');
+ const f=await fixture({generic:true});await f.registry.prepareChange(f.access,f.provider.adapter,f.source!.ref);await expect(f.response()).rejects.toThrow(exactly("MEMORY_SOURCE_PENDING"));
 });
 it.each([['actor','MEMORY_CONTEXT_ACCESS_DENIED'],['provider','MEMORY_HISTORY_ACCESS_DENIED'],['session','MEMORY_HISTORY_ACCESS_DENIED'],['partition','MEMORY_HISTORY_ACCESS_DENIED'],['extra-flag','MEMORY_INPUT_INVALID']])('claimed response rejects %s forgery with %s',async(kind,code)=>{
  const f=await fixture();
