@@ -23,6 +23,9 @@ import { buildTodoRecoveryContext, mergeAgentLoopTodosForSession, startSessionTo
 
 const prefersReducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 type CheckpointPhase = "running" | "waiting_user" | "terminal";
+/** A terminal snapshot is written at most this many times; the waits between attempts follow. */
+const TERMINAL_SAVE_ATTEMPTS = 3;
+const TERMINAL_SAVE_RETRY_MS = [100, 300] as const;
 type PublicText = [key: string, content: string, publish: (chunk: string) => void];
 
 export type AgentRunInput = {
@@ -215,9 +218,7 @@ export class AgentRunController {
         agentRounds: this.rounds, reasoningStreaming: false, runActivity: this.activity,
         responseStarted: committed, sticker: this.stickerId, toolExecutions: this.tools,
       });
-      await this.checkpointRun("terminal", true);
-      await this.refreshCanonicalSettlement();
-      this.reportRunPersisted();
+      await this.settleTerminalSave();
     } catch (failure) {
       this.finishStatus = this.finishStatus ?? "runtime_error";
       if (!this.ended) this.failPlan("failed");
@@ -235,7 +236,7 @@ export class AgentRunController {
           this.patch({ loading: true, waitingForFirstEvent: true, streaming: false, responseStarted: false });
           await this.ports.startRun({ ...this.request, takeoverFromRunId: conflict });
         });
-        await this.checkpointRun("terminal", true);
+        if (!await this.persistTerminal()) this.showTerminalSaveFailure();
         return;
       }
       const publicFailure = publicRunFailure(failure);
@@ -256,9 +257,7 @@ export class AgentRunController {
       )];
       this.patchFailedProcess();
       this.savedAnswer = "";
-      await this.checkpointRun("terminal", true);
-      await this.refreshCanonicalSettlement();
-      this.reportRunPersisted();
+      await this.settleTerminalSave();
     } finally {
       this.cancelCandidateFrame();
       if (this.saveTimer !== undefined) window.clearTimeout(this.saveTimer);
@@ -287,6 +286,43 @@ export class AgentRunController {
       loading: false, waitingForFirstEvent: false, streaming: false, reasoningStreaming: false,
       runActivity: this.activity, responseStarted: false,
     });
+  }
+
+  /**
+   * The run outcome is already decided here; this only records it. Main is told the run is persisted only after the
+   * store returns the session holding this exact snapshot. Otherwise the answer stays on screen with a notice.
+   */
+  private async settleTerminalSave(): Promise<void> {
+    if (!await this.persistTerminal()) { this.showTerminalSaveFailure(); return; }
+    await this.refreshCanonicalSettlement();
+    this.reportRunPersisted();
+  }
+
+  /** Writes one frozen terminal snapshot, retrying it after a thrown failure; a reply without the message is final. */
+  private async persistTerminal(): Promise<boolean> {
+    if (this.saveTimer !== undefined) {
+      window.clearTimeout(this.saveTimer);
+      this.saveTimer = undefined;
+    }
+    const snapshot = this.buildCheckpoint("terminal");
+    for (let attempt = 0; attempt < TERMINAL_SAVE_ATTEMPTS; attempt += 1) {
+      this.saves = this.saves.catch(() => null).then(() => this.ports.store!.upsert(this.request.sessionId, snapshot));
+      try {
+        const saved = await this.saves;
+        return Boolean(saved?.messages?.some((entry) => entry.id === snapshot.id));
+      } catch {
+        const wait = TERMINAL_SAVE_RETRY_MS[attempt];
+        if (wait !== undefined) await new Promise<void>((resume) => { window.setTimeout(resume, wait); });
+      }
+    }
+    return false;
+  }
+
+  private showTerminalSaveFailure(): void {
+    this.progressEntries = [...this.progressEntries, createRoundProcessMessage(
+      "process-" + this.nextProcessNumber++, t("chatPage.terminalSaveFailed"), this.tools.length, this.roundKey, this.nextSeq(),
+    )];
+    this.patch({ processMessages: this.progressEntries });
   }
 
   private reportRunPersisted(): void {

@@ -18,7 +18,7 @@ function registries(): AgentRunRegistries {
   return { checkpointTriggers: { current: {} }, activeRuns: { current: {} }, eventUnsubscribers: { current: new Set() }, cancelRequestedSessions: { current: new Set() } };
 }
 function memory() {
-  return { upsert: vi.fn(async (_sessionId: string, _message: any) => ({ id: "session-1" })), append: vi.fn(async () => null), pendingCompleteDispatch: vi.fn(async () => ({ ok: true })) };
+  return { upsert: vi.fn(async (_sessionId: string, message: any) => ({ id: "session-1", messages: [message] }) as unknown as ChatSession | null), append: vi.fn(async () => null), pendingCompleteDispatch: vi.fn(async () => ({ ok: true })) };
 }
 function observer() {
   let todos: TodoStateBySession = {};
@@ -556,7 +556,7 @@ describe("ChatPage package A: run and persistence baseline", () => {
     disk.upsert.mockImplementation(async (_sessionId: string, message: any) => {
       if (holding && message.runSnapshot.status === "running" && message.toolExecutions.some((tool: any) => tool.status === "success")) { holding = false; await held.promise; }
       stored.set(message.id, structuredClone(message));
-      return { id: "session-1" };
+      return { id: "session-1", messages: [...stored.values()] } as unknown as ChatSession;
     });
     const s = runScenario({ disk }); await s.ready();
     s.send({ type: "TOOL_CALL_START", runId: "run-1", toolCallId: "lookup-call", toolCallName: "read_file" });
@@ -596,17 +596,21 @@ describe("ChatPage package A: run and persistence baseline", () => {
     expect(host.updateContextUsage).toHaveBeenCalledTimes(2);
   });
 
-  // A10 covers only a write that keeps failing. A single failure followed by success, and a write that returns
-  // null, still lose or misreport the answer; they are tracked as a separate fix (see the progress doc).
-  test("A10: a terminal checkpoint that keeps failing to write is never reported as persisted", async () => {
+  test("A10: a terminal write that keeps failing keeps the answer on screen and is never reported as persisted", async () => {
     const disk = memory();
     disk.upsert.mockImplementation(async (_sessionId: string, message: any) => {
       if (message.runSnapshot.status === "terminal") throw new Error("CHAT_HISTORY_WRITE_FAILED synthetic");
-      return { id: "session-1" };
+      return { id: "session-1", messages: [message] } as unknown as ChatSession;
     });
     const s = runScenario({ disk }); await s.ready(); s.text("An answer that cannot be saved.");
     s.send({ type: "RUN_FINISHED", runId: "run-1", result: terminalResult("success") });
-    await expect(s.completed).rejects.toThrow("CHAT_HISTORY_WRITE_FAILED synthetic");
+    await s.completed;
+    const terminalWrites = s.saved().filter(record => record.runSnapshot.status === "terminal");
+    expect(terminalWrites).toHaveLength(3);
+    expect(terminalWrites.every(record => JSON.stringify(record) === JSON.stringify(terminalWrites[0]))).toEqual(true);
+    expect(terminalWrites[0]).toMatchObject({ content: "An answer that cannot be saved.", runSnapshot: { runId: "run-1", terminalStatus: "success" } });
+    expect(s.patches().filter(patch => "content" in patch).at(-1)).toMatchObject({ content: "An answer that cannot be saved.", responseStarted: true, loading: false, streaming: false });
+    expect(s.patches().at(-1)?.processMessages?.map(record => record.content)).toEqual([t("chatPage.terminalSaveFailed")]);
     expect(s.bridge.reportRunPersisted).not.toHaveBeenCalled();
     expect(s.refs.activeRuns.current).toEqual({});
     expect(s.host.setModeBusy).toHaveBeenLastCalledWith("chat", false);
@@ -614,5 +618,57 @@ describe("ChatPage package A: run and persistence baseline", () => {
     expect(s.bridge.run).toHaveBeenCalledTimes(1);
     expect(s.bridge.cancel).not.toHaveBeenCalled();
     expectOwnSessionOnly(s);
+  });
+});
+
+describe("Terminal checkpoint saves are confirmed before they are reported", () => {
+  test("a terminal write that fails once is retried with the same snapshot and reported once", async () => {
+    const disk = memory(); let failures = 0;
+    disk.upsert.mockImplementation(async (_sessionId: string, message: any) => {
+      if (message.runSnapshot.status === "terminal" && failures === 0) { failures += 1; throw new Error("EBUSY synthetic"); }
+      return { id: "session-1", messages: [message] } as unknown as ChatSession;
+    });
+    const s = runScenario({ disk }); await s.ready(); s.text("The verified answer."); await s.finish();
+    const terminalWrites = s.saved().filter(record => record.runSnapshot.status === "terminal");
+    expect(terminalWrites).toHaveLength(2);
+    expect(terminalWrites[1]).toStrictEqual(terminalWrites[0]);
+    expect(terminalWrites[1]).toMatchObject({ content: "The verified answer.", runSnapshot: { runId: "run-1", status: "terminal", terminalStatus: "success" } });
+    expect(JSON.stringify(terminalWrites[1].processMessages)).not.toContain("E_HARNESS_FAILURE");
+    expect(s.patches().at(-1)).toMatchObject({ content: "The verified answer.", runStage: { kind: "completed" }, responseStarted: true });
+    expect(s.patches().some(patch => patch.runStage?.kind === "failed")).toEqual(false);
+    expect(s.bridge.reportRunPersisted.mock.calls).toEqual([[{ runId: "run-1", finalMessageId: "assistant-1" }]]);
+    expect(s.bridge.run).toHaveBeenCalledTimes(1);
+  });
+
+  test.each([
+    ["null", null],
+    ["a session without the message", { id: "session-1", messages: [] }],
+  ])("a terminal write that returns %s is not treated as saved and is not retried", async (_label, reply) => {
+    const disk = memory();
+    disk.upsert.mockImplementation(async (_sessionId: string, message: any) =>
+      (message.runSnapshot.status === "terminal" ? reply : { id: "session-1", messages: [message] }) as unknown as ChatSession | null);
+    const s = runScenario({ disk }); await s.ready(); s.text("An answer the store did not keep."); await s.finish();
+    expect(s.saved().filter(record => record.runSnapshot.status === "terminal")).toHaveLength(1);
+    expect(s.bridge.reportRunPersisted).not.toHaveBeenCalled();
+    expect(s.patches().filter(patch => "content" in patch).at(-1)).toMatchObject({ content: "An answer the store did not keep.", responseStarted: true });
+    expect(s.patches().at(-1)?.processMessages?.map(record => record.content)).toEqual([t("chatPage.terminalSaveFailed")]);
+    expect(s.host.onRunFinished).toHaveBeenCalledTimes(1);
+  });
+
+  test("a failed run whose terminal write is rejected shows both notices and sends no receipt", async () => {
+    const disk = memory();
+    disk.upsert.mockImplementation(async (_sessionId: string, message: any) => {
+      if (message.runSnapshot.status === "terminal") throw new Error("CHAT_HISTORY_WRITE_FAILED synthetic");
+      return { id: "session-1", messages: [message] } as unknown as ChatSession;
+    });
+    const s = runScenario({ disk }); await s.ready(); await s.fail("socket hang up", { code: "E_MODEL_CONNECTION_LOST", errorSource: "model" });
+    const terminalWrites = s.saved().filter(record => record.runSnapshot.status === "terminal");
+    expect(terminalWrites).toHaveLength(3);
+    expect(terminalWrites[0].runSnapshot.terminalStatus).toEqual("runtime_error");
+    expect(s.patches().at(-1)?.processMessages?.map(record => record.content)).toEqual([
+      t("chatPage.errorNetworkInterrupted", { code: "E_MODEL_CONNECTION_LOST" }), t("chatPage.terminalSaveFailed"),
+    ]);
+    expect(s.bridge.reportRunPersisted).not.toHaveBeenCalled();
+    expect(s.host.setModeBusy).toHaveBeenLastCalledWith("chat", false);
   });
 });
