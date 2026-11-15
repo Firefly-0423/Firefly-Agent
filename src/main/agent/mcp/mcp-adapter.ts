@@ -12,6 +12,7 @@ import type { ToolContext } from "../../tooling/registry/tool-context";
 import { createAbortError, isCancellationError, raceWithSignal } from "../../base/utils/abort-utils";
 import { createMcpSchemaValidator, discoverMcpToolCatalog } from "./mcp-tool-catalog";
 import { classifyMcpFailure, isMcpAuthFailure } from "./mcp-failure";
+import { logger, LogTag } from "../../base/logging/logger";
 
 const SECRET_ENV_KEY = /token|secret|key|passw|auth|credential|cookie|bearer|session|signature|private/i;
 
@@ -200,7 +201,7 @@ function createTransport(config: McpServerConfig): Transport {
 }
 
 async function connectMcpServerNow(config: McpServerConfig, owner?: object): Promise<string[]> {
-  console.log(LOG_PREFIX, "连接 MCP server:", config.name, `(${config.id})`);
+  logger.info(LogTag.MCP, "连接 MCP server:", config.name, `(${config.id})`);
 
   const transport = createTransport(config);
 
@@ -231,7 +232,7 @@ async function connectMcpServerNow(config: McpServerConfig, owner?: object): Pro
 
   try {
     await client.connect(transport);
-    console.log(LOG_PREFIX, "已连接到", config.name);
+    logger.info(LogTag.MCP, "已连接到", config.name);
   } catch (err) {
     console.error(LOG_PREFIX, `连接失败 [${config.name}]:`, classifyMcpFailure(err));
     // 连接失败时清理 transport
@@ -250,7 +251,7 @@ async function connectMcpServerNow(config: McpServerConfig, owner?: object): Pro
 
   try {
     catalog = await discoverMcpToolCatalog(client, discovery.signal, schemaValidator);
-    console.log(LOG_PREFIX, "发现 " + catalog.tools.length + " 个工具:", catalog.tools.map(t => t.name).join(", "));
+    logger.info(LogTag.MCP, "发现 " + catalog.tools.length + " 个工具:", catalog.tools.map(t => t.name).join(", "));
   } catch (err) {
     console.error(LOG_PREFIX, "listTools 失败 [" + config.name + "]:", classifyMcpFailure(err));
     await cleanupFailedMcpState(state);
@@ -286,7 +287,7 @@ async function connectMcpServerNow(config: McpServerConfig, owner?: object): Pro
         // Cancellation belongs to SDK request options, never to server-visible tool arguments.
         execute: async (args: Record<string, unknown>, ctx?: ToolContext) => {
           if (ctx?.signal?.aborted) throw createAbortError();
-          console.log(LOG_PREFIX, "调用工具:", toolId);
+          logger.debug(LogTag.MCP, "调用工具:", toolId);
           try {
             const owned = mcpServerStates.get(config.id);
             if (!owned?.connected || owned.client !== client || closed) {
@@ -325,7 +326,7 @@ async function connectMcpServerNow(config: McpServerConfig, owner?: object): Pro
               : [];
             const output = texts.join("\n") || JSON.stringify(result.content);
             if (result.isError === true) throw new Error(`E_MCP_TOOL_FAILED${output ? `: ${output}` : ""}`);
-            console.log(LOG_PREFIX, `工具返回 [${toolId}]`);
+            logger.debug(LogTag.MCP, `工具返回 [${toolId}]`);
             return output;
           } catch (err) {
             if (isCancellationError(err, ctx?.signal)) throw createAbortError();
@@ -348,13 +349,13 @@ async function connectMcpServerNow(config: McpServerConfig, owner?: object): Pro
 
       state.ownedTools.set(toolId, toolDef);
       toolRegistry.register(toolDef); registeredIds.push(toolId);
-      console.log(LOG_PREFIX, "已注册工具:", toolId);
+      logger.debug(LogTag.MCP, "已注册工具:", toolId);
     }
 
     // 保存状态
     state.connected = true;
 
-    console.log(LOG_PREFIX, "MCP server 就绪:", config.name, "(" + registeredIds.length + " 个工具)");
+    logger.info(LogTag.MCP, "MCP server 就绪:", config.name, "(" + registeredIds.length + " 个工具)");
     return [...registeredIds];
   } catch (err) {
     unregisterOwnedMcpTools(state);
@@ -372,7 +373,7 @@ export function disconnectMcpServer(serverId: string, owner?: object): Promise<b
 }
 
 async function disconnectMcpServerNow(serverId: string, owner?: object): Promise<boolean> {
-  console.log(LOG_PREFIX, `断开 MCP server: ${serverId}`);
+  logger.info(LogTag.MCP, `断开 MCP server: ${serverId}`);
   const state = mcpServerStates.get(serverId);
   if (!state) {
     console.warn(LOG_PREFIX, "未找到 MCP server:", serverId);
@@ -384,7 +385,7 @@ async function disconnectMcpServerNow(serverId: string, owner?: object): Promise
   state.connected = false;
   unregisterOwnedMcpTools(state);
   await releaseMcpState(state);
-  console.log(LOG_PREFIX, "已断开:", serverId);
+  logger.info(LogTag.MCP, "已断开:", serverId);
   return true;
 }
 

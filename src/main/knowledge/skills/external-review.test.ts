@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { ExternalSkill, ExternalSkillFile, LicenseEvidence } from "../../../shared/external-skills";
 import type { ExternalSkillReview } from "./external-types";
 import { externalSkillId, EXTERNAL_REVIEW_POLICY_VERSION } from "./external-policy";
-import { createExternalFixture } from "./testing/external-fixtures";
+import { createExternalFixture } from "./testing/external-fixtures.test-support";
 
 const modules = import.meta.glob<typeof import("./external-review")>("./external-review.ts");
 const registryModules = import.meta.glob<typeof import("./external-reviews")>("./external-reviews.ts");

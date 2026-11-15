@@ -1,6 +1,7 @@
 import { app, BrowserWindow, screen } from "electron";
 import path from "node:path";
 import { IPC } from "../../../shared/ipc-channels";
+import { logger, LogTag } from "../../../shared/logger";
 
 export const PET_WINDOW_BASE_WIDTH = 400;
 export const PET_WINDOW_BASE_HEIGHT = 500;
@@ -21,7 +22,7 @@ function placePet(preferences: PetWindowSettingsSlice, extentX: number, extentY:
     if (overlapX >= extentX / 3 && overlapY >= extentY / 3) {
       return { x: preferences.petWindowX, y: preferences.petWindowY };
     }
-    console.log("[Firefly] 桌宠保存位置已离屏（仅 " + overlapX + "x" + overlapY + " 可见），回退到屏幕中央");
+    logger.info(LogTag.Firefly, "桌宠保存位置已离屏（仅 " + overlapX + "x" + overlapY + " 可见），回退到屏幕中央");
   }
   const work = screen.getPrimaryDisplay().workArea;
   return { x: Math.round(work.x + (work.width - extentX) / 2), y: Math.round(work.y + (work.height - extentY) / 2) };
