@@ -53,9 +53,13 @@ function mainImports(processDir: string): string[] {
 }
 
 describe("test-only files stay out of the build", () => {
-  it("tsconfig.main.json excludes every kind of test file from dist/main", () => {
-    const config = JSON.parse(fs.readFileSync(path.join(srcRoot, "..", "tsconfig.main.json"), "utf8")) as { exclude: string[] };
-    expect(config.exclude).toEqual(expect.arrayContaining(["src/**/*.test.ts", "src/**/*.acceptance.ts", "src/**/*.test-support.ts"]));
+  // 按 TypeScript 实际解析出的编译清单检查，而不是只看 exclude 里写了哪些字符串。
+  it.each(["tsconfig.main.json", "tsconfig.preload.json"])("%s compiles no test-only file", (configName) => {
+    const repoRoot = path.join(srcRoot, "..");
+    const read = ts.readConfigFile(path.join(repoRoot, configName), ts.sys.readFile);
+    const parsed = ts.parseJsonConfigFileContent(read.config, ts.sys, repoRoot);
+    expect(parsed.fileNames.length).toBeGreaterThan(0);
+    expect(parsed.fileNames.filter(isTestFile).map((file) => path.relative(repoRoot, file).split(path.sep).join("/"))).toEqual([]);
   });
 });
 
