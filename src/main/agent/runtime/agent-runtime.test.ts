@@ -87,6 +87,17 @@ describe("Runtime completion notifications", () => {
   });
 });
 
+describe("Run-finish dependency assembly", () => {
+  it("hands the sticker matcher the embedding provider and index untouched, and reports no match for an empty index", async () => {
+    const embed = vi.fn(async () => [0, 1]), provider = { name: "calendar-vectors", dims: 2, embed };
+    await createAgentRuntime(dependencies({ getEmbeddingProvider: () => provider, getStickerEmbeddingIndex: () => [] } as never)).onRunFinished(result, "Read my calendar", context);
+    const supplied = effects.finish.mock.calls[0][2] as builders.OnRunFinishedDeps;
+    expect(supplied.getEmbeddingProvider()).toBe(provider);
+    await expect(supplied.matchSticker("Tuesday is available", supplied.getEmbeddingProvider(), supplied.stickerEmbeddingIndex, 0.55)).resolves.toBeNull();
+    expect(embed).not.toHaveBeenCalled();
+  });
+});
+
 describe("Options dependency assembly", () => {
   async function capture(deps: AgentRuntimeDeps) {
     let observed!: builders.BuildOptionsDeps;
@@ -101,6 +112,34 @@ describe("Options dependency assembly", () => {
     const event = { toolId: "write_file", toolCallId: "calendar-call", runId: "calendar-run", status: "success", risk: "fs-write", durationMs: 28 } as const;
     withObserver.built.options.onToolFinished!(event); expect(publish).toHaveBeenCalledWith(event);
     expect((await createAgentRuntime(dependencies()).buildOptions({} as never)).options.onToolFinished).toBeUndefined();
+  });
+  it("passes skill entries and history through to the real prompt builders, reading bodies from the skill registry", async () => {
+    const getBody = vi.fn((id: string) => id === "calendar-skill" ? "Plan Tuesday.\n## Soul 回复策略\nSpeak warmly." : null);
+    const deps = dependencies({ skillRegistry: { getEnabled: vi.fn(() => []), getEnabledForMode: vi.fn(() => []), getBody } as never }), { observed } = await capture(deps);
+    const entries = [{ id: "calendar-skill", description: "Read the calendar", enabled: true, manifest: { autoInject: true } }, { id: "off-skill", description: "Disabled", enabled: false }];
+    expect(observed.buildSkillCatalog(entries)).toContain("- calendar-skill: Read the calendar [自动注入：无需再次调用 invoke_skill]");
+    expect(observed.buildSkillCatalog(entries)).not.toContain("off-skill");
+    expect(observed.buildAutoInjectedSkillContext(entries)).toContain("### calendar-skill\nPlan Tuesday.");
+    expect(observed.buildAutoInjectedSoulContext!(entries)).toContain("### calendar-skill\nSpeak warmly.");
+    expect(observed.buildAutoInjectedSoulContext!(entries)).not.toContain("Plan Tuesday.");
+    expect(getBody.mock.calls.map(([id]) => id)).toEqual(["calendar-skill", "calendar-skill", "calendar-skill"]);
+    expect(observed.buildSkillCatalog([])).toBe("");
+  });
+  it("routes always-on context to the legacy or worldbook builder with the same query and history", async () => {
+    const history = [{ role: "user", content: "Tuesday?" }];
+    const legacy = await capture(dependencies());
+    await expect(legacy.observed.buildAlwaysOnContext("Tuesday?", history)).resolves.toBe("[CALENDAR_LEGACY]");
+    expect(effects.legacy).toHaveBeenCalledWith("Tuesday?", history); expect(effects.worldbook).not.toHaveBeenCalled();
+    effects.legacy.mockClear();
+    const worldbook = await capture(dependencies({ defaultMemory: true } as never));
+    await expect(worldbook.observed.buildAlwaysOnContext("Tuesday?", history)).resolves.toBe("[CALENDAR_WORLDBOOK]");
+    expect(effects.worldbook).toHaveBeenCalledWith("Tuesday?", history); expect(effects.legacy).not.toHaveBeenCalled();
+  });
+  it("normalizes history and resolves slash activation through the real helpers", async () => {
+    const { observed } = await capture(dependencies());
+    expect(observed.normalizeChatMessages("not a list" as never)).toEqual([]);
+    expect(observed.normalizeChatMessages([{ role: "user", content: "Tuesday?" }, { role: "bogus", content: "kept as assistant" }]).map((message) => message.role)).toEqual(["user", "assistant"]);
+    expect(observed.resolveSlashActivation([{ role: "assistant", content: "No user turn yet" }], "chat")).toBe("");
   });
   it("connects tool registries, workspace bindings, plugin prompts, social retrieval and image fallback", async () => {
     const deps = dependencies(), { observed } = await capture(deps);

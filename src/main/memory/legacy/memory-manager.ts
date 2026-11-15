@@ -5,6 +5,7 @@ import { findPossibleConflictCandidate } from "./memory-conflict"
 import { scoreMemoryConflict, type ConflictEvidenceLevel } from "./memory-conflict-score"
 import { wasRecentlyInjectedMemory } from "./recent-injected-memory"
 import { addL2MemoryVector, searchMemoryEntries } from "../../knowledge/rag/index"
+import { logger, LogTag } from "../../base/logging/logger"
 
 type L1Field = "recentGoals" | "recentPreferences" | "currentProject"
 
@@ -52,7 +53,7 @@ export class MemoryManager {
   async writeMemory(candidates: MemoryCandidate[]): Promise<void> {
     for (const candidate of candidates) {
       if (isRejectedByJudge(candidate)) {
-        console.log("[PMRS/Manager] 候选标记为不写入或存在过度概括，跳过")
+        logger.info(LogTag.Memory, "manager: 候选标记为不写入或存在过度概括，跳过")
         continue
       }
 
@@ -63,7 +64,7 @@ export class MemoryManager {
         case "L1": {
           const target = resolveL1Field(candidate.field, candidate.content)
           await memoryStore.replaceL1Field(target, candidate.content)
-          console.log(`[PMRS/Manager] L1 更新字段: ${target}`)
+          logger.info(LogTag.Memory, `manager: L1 更新字段: ${target}`)
           break
         }
         case "L2":
@@ -75,13 +76,13 @@ export class MemoryManager {
 
   private async writeL0(candidate: MemoryCandidate): Promise<void> {
     if (!isUserExplicit(candidate)) {
-      console.log("[PMRS/Manager] L0 候选不是用户明确事实，跳过自动写核心画像")
+      logger.info(LogTag.Memory, "manager: L0 候选不是用户明确事实，跳过自动写核心画像")
       return
     }
 
     const profile = await memoryStore.getL0()
     if (profile.isPinned) {
-      console.log("[PMRS/Manager] L0 已锁定，跳过自动更新")
+      logger.info(LogTag.Memory, "manager: L0 已锁定，跳过自动更新")
       return
     }
 
@@ -95,7 +96,7 @@ export class MemoryManager {
     }
 
     await memoryStore.upsertL0Field(candidate.field as L0WritableField, candidate.content)
-    console.log(`[PMRS/Manager] L0 更新字段: ${candidate.field} = "${candidate.content.slice(0, 20)}"`)
+    logger.info(LogTag.Memory, `manager: L0 更新字段: ${candidate.field}（内容长度 ${candidate.content.length}）`)
   }
 
   private async writeL2(candidate: MemoryCandidate): Promise<void> {
@@ -126,7 +127,7 @@ export class MemoryManager {
       return
     }
 
-    console.log(`[PMRS/Manager] L2 写入: "${head(candidate.content, 30)}"（l2Id: ${created.id}, ragId: ${ragId}）`)
+    logger.info(LogTag.Memory, `manager: L2 写入（内容长度 ${candidate.content.length}，l2Id: ${created.id}, ragId: ${ragId}）`)
 
     try {
       await this.detectAndMarkConflicts(candidate.content, created.id, ragId, candidate.triggerText)
@@ -187,7 +188,7 @@ export class MemoryManager {
         candidateSource: source,
       })
       await memoryStore.scoreConflictLog(log.id, score)
-      console.log(`[PMRS/Manager] ⚠️ 发现疑似记忆冲突候选: "${head(existing.content, 30)}" ↔ "${head(content, 30)}"`)
+      logger.info(LogTag.Memory, `manager: 发现疑似记忆冲突候选（已有内容长度 ${existing.content.length}，新内容长度 ${content.length}）`)
     }
   }
 
@@ -203,7 +204,7 @@ export class MemoryManager {
   /** 片段权重衰减；目前由外部手动触发，调度策略以后统一放在 memory-scheduler */
   async runDecay(): Promise<void> {
     const updated = await memoryStore.decayL2Weights()
-    console.log(`[PMRS/Manager] L2 权重衰减完成，更新 ${updated} 条`)
+    logger.info(LogTag.Memory, `manager: L2 权重衰减完成，更新 ${updated} 条`)
   }
 }
 

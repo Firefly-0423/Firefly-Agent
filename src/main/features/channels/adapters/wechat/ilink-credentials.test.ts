@@ -7,7 +7,7 @@ const state = vi.hoisted(() => ({ directory: "", available: true, encrypt: vi.fn
 vi.mock("electron", () => ({ app: { getPath: () => state.directory }, safeStorage: {
   isEncryptionAvailable: () => state.available, encryptString: state.encrypt, decryptString: state.decrypt,
 } }));
-vi.mock("../../../../base/logging/logger", () => ({ logger: { warn: state.warn }, LogTag: { Runtime: "runtime", Wechat: "wechat" } }));
+vi.mock("../../../../base/logging/logger", () => ({ logger: { warn: state.warn, info: vi.fn() }, LogTag: { Runtime: "runtime", Wechat: "wechat" } }));
 vi.mock("./ilink-protocol-client", async (original) => ({ ...(await original<typeof import("./ilink-protocol-client")>()), pollQrStatus: state.poll }));
 import { ILinkBotAdapter, loadCredentials } from "./ilink-bot-adapter";
 import { writeCredentials, GENERAL_CREDENTIAL_FIELDS } from "../../../../platform/settings/credential-storage";

@@ -13,6 +13,7 @@ import type {
   PopQuizSettledPayload,
   QuizQuestionInput,
 } from "../../../shared/pop-quiz";
+import { logger, LogTag } from "../../base/logging/logger";
 
 // 使用发布结果的实际嵌套类型，避免判分与提交契约各自漂移。
 type QuizAnswerResult = Extract<PopQuizToolResult, { status: "submitted" }>["answers"][number];
@@ -201,7 +202,7 @@ export function requestPopQuiz(questions: QuizQuestionInput[], identity: { runId
     const replay = setInterval(() => { broadcastToAllWindows(IPC.POP_QUIZ_REQUEST, published.card); }, 10_000);
     if (typeof replay.unref === "function") replay.unref();
     awaiting.set(id, { publication: published, resolve: complete, reject: fail, rebroadcastTimer: replay, runId: identity.runId });
-    console.log("[PopQuiz]", "发送抽查卡片:", id, "题数:", questions.length);
+    logger.info(LogTag.Runtime, "pop quiz: 发送抽查卡片:", id, "题数:", questions.length);
     broadcastToAllWindows(IPC.POP_QUIZ_REQUEST, published.card);
     toastEvents.publishQuizPending({ quizId: id, runId: identity.runId, firstQuestion: published.card.questions[0]?.question ?? published.card.intro });
   });
@@ -235,7 +236,7 @@ export function registerPopQuizIpc(ipcOption?: IpcScope): void {
 export function cancelPendingQuizzesForRun(runId: string): void {
   for (const [id, pending] of [...awaiting]) if (pending.runId === runId) {
     settlePendingQuiz(id, "cancelled", (open) => open.reject(createAbortError()));
-    console.log("[PopQuiz]", "cancelPendingQuizzesForRun 清理:", id, "runId=", runId);
+    logger.info(LogTag.Runtime, "pop quiz: cancelPendingQuizzesForRun 清理:", id, "runId=", runId);
   }
 }
 function quizQuestionSchemaDescription(): string {

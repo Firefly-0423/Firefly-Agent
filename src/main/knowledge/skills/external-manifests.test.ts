@@ -5,7 +5,7 @@ import type { ExternalFetcher, ExternalTree } from "./external-fetch";
 import { EXTERNAL_SOURCES, externalSkillId } from "./external-policy";
 import { discoverExternalSkills, verifyExternalSkillDeclaration } from "./external-sources";
 import { digestExternalFiles, evaluateExternalSkill } from "./external-review";
-import { createExternalFixture } from "./testing/external-fixtures";
+import { createExternalFixture } from "./testing/external-fixtures.test-support";
 
 const commit = "a".repeat(40), schema = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json";
 const text = "---\nname: text\ndescription: Summarize supplied text\n---\nSummarize only the text provided by the user.\n";
