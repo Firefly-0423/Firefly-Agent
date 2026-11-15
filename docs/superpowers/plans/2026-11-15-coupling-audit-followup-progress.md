@@ -50,7 +50,7 @@
 - R3.2 发现一处原来被 `as any` 盖住的类型不一致：`deriveState` 返回首字母大写的 `DmaeState`（`Active` / `Dormant` / `Archived`），而 `L2DmaeState.state` 声明为小写。`l2-dmae-manager.ts` 的 `buildEntries` 里那处值没有被使用，已通过收窄 `toDmaeEntry` 的参数去掉 `as any`，运行结果不变；但 `updateL2DmaeState` 那处的 `as L2DmaeState["state"]` 会把大写值写进持久化数据，按"只改类型"没有处理，留给负责人决定是改类型还是改写入值。
 - R6 是计划外新增：R3 核对时发现，负责人当天决定。写死的历史目录 `E:\Codex\2026-10-01\task\...` 这次没动，诊断代码现在只在开发版能走到。
 - R3 核对中发现、负责人决定修（默认小写，首字母大写的映射为小写）：`knowledge/rag/worldbook.ts` 的 `deriveState` 返回首字母大写的 `"Active"`，`l2-dmae-manager.ts` 同步时把它写进声明为小写的 `L2DmaeState.state`。分支 `fix/dmae-state-case` 上分两个行为修复提交：写入时用类型化的映射表转成小写，去掉了掩盖问题的类型断言；读入 `memory.json` 时把已存的首字母大写值映射为小写，下次保存即落盘。两处都附了测试，修复前失败、修复后通过；`src/main/memory/legacy` 283 项通过。
-- 代码审查（2026-11-15）发现：`l2DmaeStates` 里只要有一个 `null` 等非对象条目，读入时的状态迁移就会抛错，整个记忆库变成读取失败。已改为只转换对象条目里的三个已知旧名，其他条目原样保留，并补了测试（读得出 L2 正文、能写回）。另记一条未改的旧问题：`updateL2DmaeState` / `getL2DmaeState` 按 `s.l2Id` 查找，遇到 `null` 条目同样会抛错；是否清理这类坏条目需要负责人决定。
+- 代码审查（2026-11-15）发现：`l2DmaeStates` 里只要有一个 `null` 等非对象条目，读入时的状态迁移就会抛错，整个记忆库变成读取失败。已改为只转换对象条目里的三个已知旧名，其他条目原样保留，并补了测试（读得出 L2 正文、能写回）。另记一条未改的旧问题：`updateL2DmaeState` / `getL2DmaeState` 按 `s.l2Id` 查找，遇到 `null` 条目同样会抛错；负责人 2026-11-15 决定：这类坏条目以后统一清理，本次不动。
 - R4：`platform/permission/permission.ts` 被 `knowledge/skills/external-boundary.test.ts` 固定了内容哈希。这次只把 6 处 `console.log` 换成 `logger.info`，没动判定逻辑，哈希随平台目录的提交一起更新，并在测试里注明原因，请负责人确认。
 - R4：`base/logging/agent-log.ts` 的 `debugLog` 仍受 `FIREFLY_DEBUG_LOGS=1` 控制，打开后以 info 级别输出；安装版默认 warn，要同时设 `FIREFLY_LOG_LEVEL=info` 才能看到。
 - R4：`features/music/music-smoke-entry.ts` 是烟测入口，负责人 2026-11-14 确认和诊断目录一样保留 `console.log`，已加入日志检查的例外。
