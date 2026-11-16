@@ -110,6 +110,14 @@ export function isActiveConversationRun(sessionId: string, runId: string): boole
   return runsByConversation.get(sessionId)?.runId === runId && !!entry && !entry.abortController.signal.aborted;
 }
 
+/** 运行仍在进行（未中止）时返回它所属的会话 id；已结束、已取消、被接管或不经本桥的运行返回 undefined。 */
+export function findActiveConversationForRun(runId: string): string | undefined {
+  const entry = runsById.get(runId);
+  if (!entry || entry.abortController.signal.aborted) return undefined;
+  for (const [sessionId, active] of runsByConversation) if (active.runId === runId) return sessionId;
+  return undefined;
+}
+
 export function __hasActiveRunForTest(runId: string): boolean {
   return runsById.has(runId);
 }

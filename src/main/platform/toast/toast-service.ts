@@ -3,10 +3,11 @@
 // 用户关闭或点击后卡片消失，但去重记忆留到业务结算才清除。
 
 import { IPC } from "../../../shared/ipc-channels";
-import type { ToastItem, ToastPushPayload } from "../../../shared/toast-types";
+import type { ToastApprovalDetail, ToastItem, ToastPushPayload } from "../../../shared/toast-types";
 import type { IpcScope } from "../../base/ipc/ipc-scope";
 import type { WindowActivationRequest } from "../windows/window-activation";
 import type { ToastWindowController } from "./toast-window";
+import type { ApprovalReview } from "./approval-review";
 import type {
   ApprovalPendingEvent,
   ApprovalSettledEvent,
@@ -35,6 +36,8 @@ export interface ToastServiceDeps {
   isSoundEnabled?: () => boolean;
   /** 通知档焦点抑制：返回 true 时整条通知直接丢弃 */
   shouldSuppressNotify?: (event: SchedulerFinishedEvent) => boolean;
+  /** 审批的现场核实与作答；未提供时“查看审批”只返回已失效，作答一律不放行 */
+  review?: ApprovalReview;
 }
 
 type ItemKind = ToastItem["kind"];
@@ -124,7 +127,7 @@ export function createToastService(deps: ToastServiceDeps) {
   function buildItem(
     fields: Pick<ToastItem, "kind" | "tier" | "sourceId" | "title" | "target"> & {
       summary?: string;
-      approval?: ToastItem["approval"];
+      review?: ToastItem["review"];
     },
   ): ToastItem {
     const id = mintId();
@@ -141,19 +144,24 @@ export function createToastService(deps: ToastServiceDeps) {
   const onApprovalPending = (event: ApprovalPendingEvent): void => {
     const ownedByRun = typeof event.runId === "string" && event.runId.trim().length > 0;
     if (ownedByRun) {
-      raiseActionItem(waitingForChat("approval", event.id, "流萤在等你的批准", event.toolName));
+      // 卡片本该在所属会话里；渲染页重载后可能接不住，所以 toast 同时给“查看审批”入口。
+      raiseActionItem(buildItem({
+        kind: "approval", tier: "action-pending", sourceId: event.id, title: "流萤在等你的批准",
+        summary: event.toolName, target: chatWindowTarget(), review: { approvalId: event.id },
+      }));
       return;
     }
     const source = event.agentId ? `子代理 ${event.agentId}` : `工具 ${event.toolId}`;
+    // 没有运行 ID：不属于任何会话，聊天页不显示。提醒只给“查看审批”，主进程核实后只显示、不放行。
     raiseActionItem(
       buildItem({
         kind: "approval",
         tier: "action-pending",
         sourceId: event.id,
-        title: "有一项审批需要你在这里处理",
+        title: "有一项审批无法确认来源",
         summary: `${event.toolName} · 来源：${source}`,
         target: chatWindowTarget(),
-        approval: { approvalId: event.id, toolName: event.toolName, source },
+        review: { approvalId: event.id },
       }),
     );
   };
@@ -256,16 +264,19 @@ export function createToastService(deps: ToastServiceDeps) {
     }
   }
 
+  /** 审批提醒只在审批结算后撤下：点开聊天窗口或点关闭都不能让仍在等待的审批从提醒里消失 */
+  const awaitsApproval = (item: ToastItem): boolean => item.kind === "approval";
+
   function onClicked(id: string): void {
     const item = visible.get(id);
-    if (!item || item.approval) return;
+    if (!item) return;
     routeTo(item.target);
-    dismiss(id);
+    if (!awaitsApproval(item)) dismiss(id);
   }
 
   function onDismissed(id: string): void {
     const item = visible.get(id);
-    if (!item || item.approval) return;
+    if (!item || awaitsApproval(item)) return;
     dismiss(id);
   }
 
@@ -298,6 +309,17 @@ export function createToastService(deps: ToastServiceDeps) {
     };
     ipc.on(IPC.TOAST_CLICKED, fromToastWindowOnly(idFrom(onClicked)));
     ipc.on(IPC.TOAST_DISMISSED, fromToastWindowOnly(idFrom(onDismissed)));
+    // 查看与作答只接受 toast 窗口自己的调用，并且每次都由主进程按审批 id 现场核实。
+    ipc.handle(IPC.TOAST_APPROVAL_INSPECT, (event: { sender: { id: number } }, approvalId: unknown): ToastApprovalDetail => {
+      const id = typeof approvalId === "string" ? approvalId : "";
+      if (!deps.window.owns(event.sender) || !id || !deps.review) return { state: "expired", approvalId: id };
+      return deps.review.inspect(id);
+    });
+    ipc.handle(IPC.TOAST_APPROVAL_ANSWER, (event: { sender: { id: number } }, answer: unknown): { ok: boolean } => {
+      const { id, allowed } = (answer ?? {}) as { id?: unknown; allowed?: unknown };
+      if (!deps.window.owns(event.sender) || typeof id !== "string" || typeof allowed !== "boolean" || !deps.review) return { ok: false };
+      return deps.review.answer(id, allowed);
+    });
     ipc.on(
       IPC.TOAST_RESIZE,
       fromToastWindowOnly((arg) => {

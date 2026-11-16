@@ -25,6 +25,10 @@ import { prepareToolRuntime } from "./adapter/tool-runtime";
 import { runChildSession } from "./child-session-runtime";
 import { AgentSessionRegistry } from "../tasks/agent-session-registry";
 import { TaskSessionStore } from "../tasks/task-session-store";
+import { answerApproval, getPendingApproval } from "../../platform/permission/permission";
+import { createApprovalReview } from "../../platform/toast/approval-review";
+import { getConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
+import { createTranscriptSink } from "../loop/transcript-sink";
 
 const execute = vi.fn(async () => "g2 saved");
 const tool: ToolDefinition = { id: "g2_save", name: "G2 save", description: "Synthetic approval probe", enabled: true,
@@ -115,5 +119,32 @@ describe("approval requests carry the run id (ChatPage G2)", () => {
       for (const card of cards()) if (card.runId) cancelPendingApprovalsForRun(card.runId);
       await pending;
     }
+  });
+});
+
+describe("approval answered from the toast review", () => {
+  it("lets the original run finish and records its tool result and answer once", async () => {
+    const runId = "review-run";
+    const config: FireflyRunOptions = { ...options("work", runId), conversationId: "review-session" };
+    const store = getConversationTranscriptStore(host.root);
+    config.transcriptSink = createTranscriptSink({ store, conversationId: "review-session", runId });
+    // The renderer that started the run is gone; only Main's run registry still knows its session.
+    const review = createApprovalReview({ getPendingApproval, answerApproval,
+      findActiveSessionForRun: id => id === runId ? "review-session" : undefined });
+    const pending = lastValueFrom(new FireflyAgent({ threadId: "review-session" }).runWithEvents(config).pipe(toArray()));
+    await vi.waitFor(() => expect(cards()).toEqual([expectedCard(runId)]));
+    const id = cards()[0].id;
+    expect(review.inspect(id)).toMatchObject({ state: "pending", session: { id: "review-session" } });
+    expect(review.answer(id, true)).toEqual({ ok: true });
+    expect(review.answer(id, true)).toEqual({ ok: false });
+    const events = await pending;
+    expect(events.filter(event => event.type === EventType.RUN_FINISHED).map(event => event.runId)).toEqual([runId]);
+    expect(execute).toHaveBeenCalledTimes(1);
+    const { entries } = await store.read("review-session");
+    // One assistant turn that called the tool, one tool result, one final answer: nothing replayed or duplicated.
+    expect(entries.map(entry => entry.kind)).toEqual(["assistant", "tool_result", "assistant"]);
+    expect(entries.filter(entry => entry.kind === "tool_result").map(entry => entry.payload.toolCallId)).toEqual([call.id]);
+    expect(entries.at(-1)).toMatchObject({ kind: "assistant", payload: { role: "assistant", content: "Saved" } });
+    expect(entries.every(entry => entry.runId === runId)).toEqual(true);
   });
 });

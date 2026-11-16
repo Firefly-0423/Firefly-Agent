@@ -50,7 +50,9 @@ const unchangedBoundaries = {
   // Logging (2026-11-15): console.log calls became logger.info; no decision logic changed.
   // ChatPage G3 (2026-11-16): requestApproval also forwards the request's agentId and childRunId to the toast event so an
   // approval without a run id can show its source; the allow/ask/deny decision and the approval round trip are unchanged.
-  "src/main/platform/permission/permission.ts": "a39abf6043ede037276f4136c9a1a77e2ed1295a4d74bf5f738ea25d88a484c6",
+  // Toast approval review (2026-11-16): the waiter keeps its original request, getPendingApproval reads it and
+  // answerApproval is the single answering path the chat channel now uses too; no decision or settlement rule changed.
+  "src/main/platform/permission/permission.ts": "7df6660975af5153c541cdfb918f18177cdd255e2376704a7300b4726b6aa3e4",
   "src/main/platform/permission/bootstrap.ts": "765b21f85aa5f048ebed87c0fb0cf53c7fa3059f34dc3451521d4a58fc523ce1",
 } as const;
 it.each(Object.entries(unchangedBoundaries))("no_execution_or_permission_expansion: %s exactly matches approved boundary preimage", (file, expected) => { expect(hash(file)).toBe(expected); });

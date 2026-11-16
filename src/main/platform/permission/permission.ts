@@ -86,6 +86,8 @@ interface Waiter {
   fail: (err: Error) => void;
   ticker: NodeJS.Timeout;
   runId?: string;
+  /** 下发时的原请求，供 toast“查看审批”按 id 现场核实 */
+  request: ApprovalRequest;
   unhook?: () => void;
 }
 
@@ -139,7 +141,7 @@ export function requestApproval(request: Omit<ApprovalRequest, "id">, signal?: A
     if (typeof ticker.unref === "function") ticker.unref();
 
     const onAbort = (): void => closeWaiter(id, "cancelled", rejectAsCancelled);
-    const waiter: Waiter = { grant, fail, ticker, runId: request.runId };
+    const waiter: Waiter = { grant, fail, ticker, runId: request.runId, request: card };
     if (signal) waiter.unhook = () => signal.removeEventListener("abort", onAbort);
     waiters.set(id, waiter);
     signal?.addEventListener("abort", onAbort, { once: true });
@@ -160,6 +162,19 @@ export function requestApproval(request: Omit<ApprovalRequest, "id">, signal?: A
       ...(childRunId !== undefined ? { childRunId } : {}),
     });
   });
+}
+
+/** 按审批 id 取仍在等待的原请求；已结算、已取消或未知的 id 返回 undefined。 */
+export function getPendingApproval(id: string): ApprovalRequest | undefined {
+  return waiters.get(id)?.request;
+}
+
+/** 回答一次仍在等待的审批；已结算或未知的 id 返回 false，不结算任何东西。 */
+export function answerApproval(id: string, allowed: boolean): boolean {
+  if (!waiters.has(id)) return false;
+  logger.info(LogTag.Permission, "审批回传:", id, allowed ? "同意" : "拒绝");
+  closeWaiter(id, "answered", (w) => w.grant(Boolean(allowed)));
+  return true;
 }
 
 /** 取消某个 run 名下全部未决审批（每条都会广播 SETTLED）。 */
@@ -187,13 +202,9 @@ export function registerPermissionIpc(ipcOption?: IpcScope): void {
   });
 
   scope.handle(IPC.PERMISSION_APPROVAL_RESOLVE, (_event, answer: { id: string; allowed: boolean }) => {
-    if (!waiters.has(answer?.id)) {
-      console.warn(TAG, "收到未知审批的回传:", answer?.id);
-      return { ok: false };
-    }
-    logger.info(LogTag.Permission, "审批回传:", answer.id, answer.allowed ? "同意" : "拒绝");
-    closeWaiter(answer.id, "answered", (w) => w.grant(Boolean(answer.allowed)));
-    return { ok: true };
+    if (answerApproval(answer?.id, Boolean(answer?.allowed))) return { ok: true };
+    console.warn(TAG, "收到未知审批的回传:", answer?.id);
+    return { ok: false };
   });
 
   logger.info(LogTag.Permission, "IPC handlers registered");
