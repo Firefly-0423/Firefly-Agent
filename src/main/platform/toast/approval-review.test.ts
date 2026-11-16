@@ -77,7 +77,7 @@ describe("toast approval review", () => {
   });
 
   it("lists at most the argument limit and truncates long values", () => {
-    const args = Object.fromEntries(Array.from({ length: APPROVAL_ARGUMENT_LIMIT + 2 }, (_, index) => [`k${index}`, index]));
+    const args: Record<string, unknown> = Object.fromEntries(Array.from({ length: APPROVAL_ARGUMENT_LIMIT + 2 }, (_, index) => [`k${index}`, index]));
     args.k0 = "x".repeat(APPROVAL_ARGUMENT_TEXT_LIMIT + 1);
     const summary = summarizeApprovalArguments(args);
     expect(summary.map(item => item.key)).toEqual(Array.from({ length: APPROVAL_ARGUMENT_LIMIT }, (_, index) => `k${index}`));
