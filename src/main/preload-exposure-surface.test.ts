@@ -239,7 +239,7 @@ const EXPECTED_NAMESPACE_KEYS: Record<string, readonly string[]> = {
   ],
   sidebar: ["close", "minimize", "openSettings", "toggleAlwaysOnTop"],
   stickerManager: ["close", "getConfig", "minimize", "setEnabled"],
-  toast: ["clicked", "dismissed", "getAll", "onPush", "onRemove", "reportHeight", "resolveApproval"],
+  toast: ["clicked", "dismissed", "getAll", "inspectApproval", "onPush", "onRemove", "reportHeight", "resolveApproval"],
   tokenUsage: ["clear", "get", "history", "sessionStats"],
   user: ["getAvatar", "getProfile", "onAvatarChanged", "onProfileChanged", "saveProfile", "uploadAvatar"],
   workspaceFiles: ["list", "read", "save"],

@@ -1,6 +1,6 @@
 import type { AppUpdateApi, AppUpdateState } from "../shared/app-update";
 import { IPC } from "../shared/ipc-channels";
-import type { ToastItem, ToastPushPayload, ToastRendererApi } from "../shared/toast-types";
+import type { ToastApprovalDetail, ToastItem, ToastPushPayload, ToastRendererApi } from "../shared/toast-types";
 
 export interface WindowShellIpcRenderer {
     invoke: (channel: string, ...args: unknown[]) => Promise<any>;
@@ -63,8 +63,11 @@ export function createToastApi(ipcRenderer: WindowShellIpcRenderer): ToastRender
         reportHeight: (height: number) => {
             return ipcRenderer.send(IPC.TOAST_RESIZE, height);
         },
+        inspectApproval: (approvalId: string) => {
+            return ipcRenderer.invoke(IPC.TOAST_APPROVAL_INSPECT, approvalId) as Promise<ToastApprovalDetail>;
+        },
         resolveApproval: (approvalId: string, allowed: boolean) => {
-            return ipcRenderer.invoke(IPC.PERMISSION_APPROVAL_RESOLVE, { id: approvalId, allowed }) as Promise<{ ok: boolean }>;
+            return ipcRenderer.invoke(IPC.TOAST_APPROVAL_ANSWER, { id: approvalId, allowed }) as Promise<{ ok: boolean }>;
         },
         onPush: (receive: (message: ToastPushPayload) => void) => {
             const forwardEvent = (_ipcEvent: unknown, message: ToastPushPayload) => {

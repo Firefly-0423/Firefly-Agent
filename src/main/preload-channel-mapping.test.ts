@@ -86,7 +86,8 @@ const CHANNEL_MAPPING_CASES: readonly MappingCase[] = [
   { path: "toast.clicked", op: "send", channel: IPC.TOAST_CLICKED, callArgs: ["toast-1"], expectedArgs: ["toast-1"] },
   { path: "toast.dismissed", op: "send", channel: IPC.TOAST_DISMISSED, callArgs: ["toast-1"], expectedArgs: ["toast-1"] },
   { path: "toast.reportHeight", op: "send", channel: IPC.TOAST_RESIZE, callArgs: [128], expectedArgs: [128] },
-  { path: "toast.resolveApproval", op: "invoke", channel: IPC.PERMISSION_APPROVAL_RESOLVE, callArgs: ["approve-1", false], expectedArgs: [{ id: "approve-1", allowed: false }] },
+  { path: "toast.inspectApproval", op: "invoke", channel: IPC.TOAST_APPROVAL_INSPECT, callArgs: ["approve-1"], expectedArgs: ["approve-1"] },
+  { path: "toast.resolveApproval", op: "invoke", channel: IPC.TOAST_APPROVAL_ANSWER, callArgs: ["approve-1", false], expectedArgs: [{ id: "approve-1", allowed: false }] },
 
   // chat (15; ingestDroppedFiles is verified in preload-parameter-guards.test.ts)
   { path: "chat.minimize", op: "send", channel: IPC.CHAT_MINIMIZE, callArgs: [], expectedArgs: [] },
@@ -354,10 +355,10 @@ describe("preload IPC channel and argument mapping", () => {
   it("accounts for every non-listener invoke/send method across all exposed APIs", () => {
     const mapped = CHANNEL_MAPPING_CASES.map((entry) => entry.path);
     expect(new Set(mapped).size).toBe(mapped.length);
-    expect(mapped).toHaveLength(217);
+    expect(mapped).toHaveLength(218);
 
     const allExposedFunctions = collectLeafFunctionPaths(harness.exposed);
-    expect(allExposedFunctions).toHaveLength(253);
+    expect(allExposedFunctions).toHaveLength(254);
 
     const nonTableFunctions = allExposedFunctions.filter(
       (methodPath) => methodPath === "chat.ingestDroppedFiles" || /\.on[A-Z]/.test(methodPath),

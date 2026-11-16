@@ -244,6 +244,8 @@ export const IPC = {
   STICKERS_PICK_FILE: "stickers:pick-file",
   STICKERS_SET_ENABLED: "stickers:set-enabled",
   // ---- TOAST ----
+  TOAST_APPROVAL_ANSWER: "toast:approval-answer",
+  TOAST_APPROVAL_INSPECT: "toast:approval-inspect",
   TOAST_CLICKED: "toast:clicked",
   TOAST_DISMISSED: "toast:dismissed",
   TOAST_GET_ALL: "toast:get-all",

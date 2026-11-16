@@ -71,13 +71,15 @@ import { registerOpenInAppIpc } from "../features/sessions/open-in-app";
 import { registerChatUiIpc, getActiveChatSessionId } from "../features/sessions/chat-ui-ipc";
 import { createToastWindowController } from "../platform/toast/toast-window";
 import { createToastService } from "../platform/toast/toast-service";
+import { createApprovalReview } from "../platform/toast/approval-review";
+import { answerApproval, getPendingApproval } from "../platform/permission/permission";
 import { toastEvents } from "../platform/interaction/toast-events";
 import { createToastWindowShell } from "../platform/windows/create-toast-window";
 import * as chatsStore from "../features/sessions/chats-store";
 import { flush as flushTokenUsage } from "../base/storage/token-usage-store";
 import { loadUserProfile } from "../base/storage/settings-store";
 import { getAppIconPath } from "../platform/windows/app-icon";
-import { hasActiveConversationRun, isActiveConversationRun, registerAgUiIpc } from "../features/chat/agui-bridge";
+import { findActiveConversationForRun, hasActiveConversationRun, isActiveConversationRun, registerAgUiIpc } from "../features/chat/agui-bridge";
 import { updateLocaleContext } from "../base/identity/locale-context";
 import { initSkills, rescanSkills, shippedSkillIds, skillRegistry } from "../knowledge/skills";
 import { createExternalSkillService } from "../knowledge/skills/external-service";
@@ -293,6 +295,13 @@ function wireToasts(
       if (!chat || chat.isDestroyed() || !chat.isFocused()) return false;
       return getActiveChatSessionId() === event.sessionId;
     },
+    // toast“查看审批”：按审批 id 找原请求，原运行必须仍在它的会话里进行，才给批准。
+    review: createApprovalReview({
+      getPendingApproval,
+      findActiveSessionForRun: findActiveConversationForRun,
+      getSessionTitle: (sessionId) => chatsStore.getSession(sessionId)?.title,
+      answerApproval,
+    }),
   });
   service.registerIpc(input.ipc);
   // 先建好隐藏窗口并预载页面，首次弹出没有延迟

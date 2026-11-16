@@ -29,6 +29,7 @@ function notificationDesk(options: Partial<ToastServiceDeps> = {}) {
   return { events, service, send, activate, resize,
     report: (channel: string, payload: unknown, sender = 106) => listeners.get(channel)!({ sender: { id: sender } }, payload),
     all: () => routes.get("toast:get-all")!(),
+    invoke: (channel: string, payload: unknown, sender = 106) => routes.get(channel)!({ sender: { id: sender } }, payload),
     sounds: () => send.mock.calls.filter(([channel]) => channel === "toast:push").map(([, data]) => (data as ToastPushPayload).sound),
   };
 }
@@ -61,11 +62,14 @@ describe("Toast renderer messages", () => {
     expect(desk.service.getActiveToasts()).toEqual([]);
   });
 
-  it("opens chat without a session target for an approval click", () => {
+  it("opens chat without a session target for an approval click and keeps the reminder until it settles", () => {
     const desk = notificationDesk();
     desk.events.publishApprovalPending(approval);
-    desk.report("toast:clicked", desk.service.getActiveToasts()[0].id);
+    const active = desk.service.getActiveToasts();
+    desk.report("toast:clicked", active[0].id);
     expect(desk.activate).toHaveBeenCalledExactlyOnceWith({ kind: "chat" });
+    expect(desk.service.getActiveToasts()).toEqual(active);
+    expect(desk.send.mock.calls.filter(([channel]) => channel === "toast:remove")).toEqual([]);
   });
 
   it.each(["toast:clicked", "toast:dismissed", "toast:resize"])("ignores %s from an unrelated renderer", (channel) => {
@@ -80,18 +84,20 @@ describe("Toast renderer messages", () => {
 });
 
 describe("Action notification lifetimes", () => {
-  it("deduplicates approval replay both before and after visual dismissal", () => {
+  it("keeps a pending approval reminder through close and deduplicates its replay", () => {
     const desk = notificationDesk();
     desk.events.publishApprovalPending(approval);
     desk.events.publishApprovalPending(approval);
     expect(desk.service.getActiveToasts()).toHaveLength(1);
     const item = desk.service.getActiveToasts()[0];
     expect(item).toMatchObject({ tier: "action-pending", kind: "approval", sourceId: approval.id });
+    // 审批仍在等待时关闭不撤卡，否则用户就再也找不到处理入口。
     desk.report("toast:dismissed", item.id);
-    expect(desk.service.getActiveToasts()).toEqual([]);
+    expect(desk.service.getActiveToasts()).toEqual([item]);
     expect(desk.service.hasPendingSeen("approval", approval.id)).toEqual(true);
     desk.events.publishApprovalPending(approval);
-    expect(desk.service.getActiveToasts()).toEqual([]);
+    expect(desk.service.getActiveToasts()).toEqual([item]);
+    expect(desk.send.mock.calls.filter(([channel]) => channel === "toast:push")).toHaveLength(1);
   });
 
   it("settles a visible approval synchronously and permits another pending cycle", () => {
@@ -294,13 +300,12 @@ describe("approvals without a run id (ChatPage G3)", () => {
     });
   });
 
-  it("keeps standard payload without approval action when runId is present", () => {
+  it("offers a review entry instead of approval buttons when runId is present", () => {
     const desk = notificationDesk({ now: () => 23_456 });
     desk.events.publishApprovalPending(approval);
 
     const pushCalls = desk.send.mock.calls.filter(([channel]) => channel === "toast:push");
     expect(pushCalls).toHaveLength(1);
-    expect("approval" in (pushCalls[0][1] as Record<string, unknown>)).toBe(false);
     expect(pushCalls[0][1]).toStrictEqual({
       id: "notice-131",
       kind: "approval",
@@ -311,7 +316,31 @@ describe("approvals without a run id (ChatPage G3)", () => {
       target: { type: "window", window: "chat" },
       createdAt: 23_456,
       sound: true,
+      review: { approvalId: approval.id },
     });
+  });
+
+  it("answers review calls only from the toast window and only through the review checks", () => {
+    const detail = { state: "expired" as const, approvalId: "permission-93" };
+    const review = { inspect: vi.fn(() => detail), answer: vi.fn(() => ({ ok: true })) };
+    const desk = notificationDesk({ review });
+    expect(desk.invoke("toast:approval-inspect", "permission-93")).toEqual(detail);
+    expect(desk.invoke("toast:approval-answer", { id: "permission-93", allowed: false })).toEqual({ ok: true });
+    expect(review.inspect.mock.calls).toEqual([["permission-93"]]);
+    expect(review.answer.mock.calls).toEqual([["permission-93", false]]);
+    // Another renderer, or a malformed answer, never reaches the review checks.
+    expect(desk.invoke("toast:approval-inspect", "permission-93", 907)).toEqual({ state: "expired", approvalId: "permission-93" });
+    expect(desk.invoke("toast:approval-answer", { id: "permission-93", allowed: true }, 907)).toEqual({ ok: false });
+    expect(desk.invoke("toast:approval-answer", { id: "permission-93", allowed: "yes" })).toEqual({ ok: false });
+    expect(desk.invoke("toast:approval-answer", { allowed: true })).toEqual({ ok: false });
+    expect(review.inspect).toHaveBeenCalledTimes(1);
+    expect(review.answer).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports an approval as expired and refuses to answer when no review is wired", () => {
+    const desk = notificationDesk();
+    expect(desk.invoke("toast:approval-inspect", "permission-93")).toEqual({ state: "expired", approvalId: "permission-93" });
+    expect(desk.invoke("toast:approval-answer", { id: "permission-93", allowed: true })).toEqual({ ok: false });
   });
 
   it("ignores body click and dismiss on unowned approval toasts and removes once on settlement", () => {

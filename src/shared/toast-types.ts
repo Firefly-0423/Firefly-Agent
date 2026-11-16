@@ -25,6 +25,29 @@ export type ToastTarget =
  */
 export type ToastApprovalAction = { approvalId: string; toolName: string; source: string };
 
+/**
+ * 带运行 ID 的审批：卡片本该在所属会话里，但渲染页重载后可能接不住。toast 只给“查看审批”入口，
+ * 详情和作答都由主进程按 approvalId 现场核实，不靠当前打开的会话猜归属。
+ */
+export type ToastApprovalReview = { approvalId: string };
+
+/** 审批详情里给用户看的一个参数（键原样，值是截断后的文本） */
+export type ToastApprovalArgument = { key: string; value: string };
+
+/**
+ * “查看审批”时主进程现场核实的结果：
+ * pending：仍在等待且原运行仍在所属会话里进行，可以批准或拒绝；
+ * runless：没有运行 ID 的审批（G3），按负责人决定可在 toast 作答；
+ * unverified：仍在等待，但找不到原运行或它的会话，不提供批准；
+ * expired：已结算、已取消、原运行已结束或已被接管。
+ */
+export type ToastApprovalDetail =
+  | { state: "pending"; approvalId: string; toolName: string; toolId: string; agentId?: string;
+    session: { id: string; title?: string }; args: ToastApprovalArgument[] }
+  | { state: "runless"; approvalId: string; toolName: string; toolId: string; agentId?: string; args: ToastApprovalArgument[] }
+  | { state: "unverified"; approvalId: string; toolName: string; toolId: string; agentId?: string; args: ToastApprovalArgument[] }
+  | { state: "expired"; approvalId: string };
+
 /** 主进程维护并推给渲染页的 toast 条目 */
 export type ToastItem = {
   createdAt: number;
@@ -38,6 +61,8 @@ export type ToastItem = {
   id: string;
   /** 只有无会话归属的审批带这个字段，toast 上显示批准与拒绝 */
   approval?: ToastApprovalAction;
+  /** 带运行 ID 的审批带这个字段，toast 上显示“查看审批”入口 */
+  review?: ToastApprovalReview;
 };
 
 /** 推送载荷：条目加上本次是否播提示音（由主进程结合设置页开关与并发合并决定） */
@@ -62,6 +87,11 @@ export type ToastRendererApi = {
   clicked(id: string): void;
   /** 页面加载或重载后取回主进程权威状态的当前显示列表 */
   getAll(): Promise<ToastItem[]>;
-  /** 回答无会话归属的审批，沿用聊天页使用的审批结算通道；未知或已结算的 id 返回 ok:false */
+  /** 按审批 id 向主进程现场核实详情；不改变审批状态，也不撤卡 */
+  inspectApproval(approvalId: string): Promise<ToastApprovalDetail>;
+  /**
+   * 在 toast 里回答审批。主进程作答前再核实一次：只有 pending 或 runless 才结算，
+   * 已结算、已取消、已接管或无法核实的一律返回 ok:false，不放行。
+   */
   resolveApproval(approvalId: string, allowed: boolean): Promise<{ ok: boolean }>;
 };
