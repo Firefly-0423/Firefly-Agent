@@ -17,7 +17,7 @@ interface Options {
  /** Main configuration only. IPC/session metadata cannot opt itself in. */
  isControlledSession:(session:DesktopMemorySession)=>boolean;
 }
-interface GrantState {target:ActiveChatTarget;sender:WebContents;frame:WebFrameMain;controller:AbortController;binding:DesktopMemoryBinding}
+interface GrantState {kind:"page"|"run";target:ActiveChatTarget;sender:WebContents;frame:WebFrameMain;controller:AbortController;binding:DesktopMemoryBinding}
 const denied=():never=>{throw Error("MEMORY_DESKTOP_SESSION_DENIED")};
 /** Main-owned live window/session proof. Opaque tokens never enter IPC or model data. */
 export function createMainDesktopSessionAuthority(options:Options){
@@ -40,12 +40,17 @@ export function createMainDesktopSessionAuthority(options:Options){
  function check(state:GrantState,conversationId:string){
   if(state.controller.signal.aborted||conversationId!==state.binding.conversationId)return denied();
   try{
+   if(state.kind==="run"){
+    const session=options.getSession(conversationId);
+    if(disposed||deleted.has(conversationId)||!session||session.id!==conversationId||session.mode!==state.target.mode||options.isControlledSession(session)!==true)return denied();
+    return;
+   }
    const target=selected(state.sender,state.frame,conversationId);
    if(target.rendererTargetId!==state.target.rendererTargetId)return denied();
   }catch(error){revoke(state);throw error}
  }
  function refresh(){for(const state of [...states])try{check(state,state.binding.conversationId)}catch{/* Revocation is observable through the retained signal. */}}
- const releaseInvalidated=options.targets.onInvalidated(()=>{for(const state of [...states])revoke(state)});
+ const releaseInvalidated=options.targets.onInvalidated(()=>{for(const state of [...states])if(state.kind==="page")revoke(state)});
  const releaseDeleted=options.targets.onSessionDeleted(id=>{deleted.add(id);for(const state of [...states])if(state.binding.conversationId===id)revoke(state)});
  return Object.freeze({
   bind(event:Pick<IpcMainInvokeEvent,"sender"|"senderFrame">,conversationId:string):object {
@@ -55,12 +60,24 @@ export function createMainDesktopSessionAuthority(options:Options){
    if(current)return current.token;
    const controller=new AbortController(),token=Object.freeze({});
    const binding=Object.freeze({conversationId,scopeKey,actorKey,webContentsId:target.webContentsId,signal:controller.signal});
-   const state:GrantState={target:Object.freeze({...target}),sender:event.sender,frame,controller,binding};
+   const state:GrantState={kind:"page",target:Object.freeze({...target}),sender:event.sender,frame,controller,binding};
    grants.set(token,state);states.add(state);current={token,state};return token;
   },
   require(token:object,conversationId:string):DesktopMemoryBinding {
    const state=token&&typeof token==="object"?grants.get(token):undefined;if(!state)return denied();
    check(state,conversationId);return state.binding;
+  },
+  /** Main-only promotion: a page proof admits a separate, non-transferable run proof.
+   * Page invalidation never revives or promotes a revoked page token. */
+  retainRun(token:object,conversationId:string):object {
+   const page=token&&typeof token==="object"?grants.get(token):undefined;
+   if(!page||page.kind!=="page")return denied();check(page,conversationId);
+   const controller=new AbortController(),run=Object.freeze({});
+   const state:GrantState={...page,kind:"run",controller,binding:Object.freeze({...page.binding,signal:controller.signal})};
+   grants.set(run,state);states.add(state);return run;
+  },
+  releaseRun(token:object):void {
+   const state=grants.get(token);if(state?.kind==="run")revoke(state);
   },
   refresh,
   dispose(){if(disposed)return;disposed=true;for(const state of [...states])revoke(state);releaseInvalidated();releaseDeleted()},

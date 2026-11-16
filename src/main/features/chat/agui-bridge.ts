@@ -260,7 +260,7 @@ export function registerAgUiIpc(
     readonly retiresLegacyHistoryIndex?:boolean;
     // 成功后的记忆处理独立执行，不把失败带回聊天。
     onTurnSucceeded?:(input:{sessionId:string;runId:string})=>Promise<void>;
-    prepareAttachmentGrant?:(event:Electron.IpcMainInvokeEvent,sessionId:string,input:{userTurnId:string})=>Promise<MainAttachmentGrant|undefined>;
+    prepareAttachmentGrant?:(event:Electron.IpcMainInvokeEvent,sessionId:string,input:{userTurnId:string;authorization?:object})=>Promise<MainAttachmentGrant|undefined>;
   },
 ): void {
   const routes = ipcOption ?? createIpcScope();
@@ -357,6 +357,7 @@ export function registerAgUiIpc(
       if (!settlementPort || controlledSettlement(settlementPort).requestCancel()) abortSource.abort();
     };
     let relinquish: (() => void) | null = null;
+    let memoryAuthorization: ReturnType<MainDesktopMemory["authorizeRun"]>;
 
     // 取得守卫之前不让出执行权；接管醒来后仍须重新竞争。
     for (let attempts = 0; ; attempts++) {
@@ -388,7 +389,7 @@ export function registerAgUiIpc(
     }
 
     try {
-      const authorization = memory?.authorizeRun(invocation, conversationId);
+      const authorization = memoryAuthorization = memory?.authorizeRun(invocation, conversationId);
       if (authorization) {
         if (!request.userTurnId || !request.assistantTurnId) {
           authorization.release();
@@ -451,7 +452,7 @@ export function registerAgUiIpc(
     let preparation;
     try {
       const attachmentContext: MainBuildOptionsContext | undefined = memory?.prepareAttachmentGrant && request.userTurnId
-        ? { attachmentGrant: await memory.prepareAttachmentGrant(invocation, conversationId, { userTurnId: request.userTurnId }) }
+        ? { attachmentGrant: await memory.prepareAttachmentGrant(invocation, conversationId, { userTurnId: request.userTurnId, ...(memoryAuthorization ? { authorization: memoryAuthorization } : {}) }) }
         : undefined;
       if (memory?.prepareAttachmentGrant) {
         if (readScopes.length && !attachmentContext?.attachmentGrant) throw Error("MEMORY_ATTACHMENT_DENIED");

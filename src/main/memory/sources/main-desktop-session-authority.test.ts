@@ -31,3 +31,33 @@ it.each(["work","code"] as const)("permits a Main-enabled %s target only when st
  const grant=authority.bind({sender,senderFrame:sender.mainFrame} as any,"session-a");expect(authority.require(grant,"session-a").signal.aborted).toBe(false);
  session.mode="chat";expect(()=>authority.require(grant,"session-a")).toThrow("MEMORY_DESKTOP_SESSION_DENIED");authority.dispose();
 });
+
+
+describe("run lifetime is independent of the visible page",()=>{
+ it.each(['switch','navigation','destroyed'] as const)('%s revokes the page grant but preserves the accepted run',kind=>{
+  const f=fixture(),page=f.authority.bind(f.event as any,'session-a');
+  const run=f.authority.retainRun(page,'session-a'),binding=f.authority.require(run,'session-a');
+  if(kind==='switch'){f.select('session-b');f.authority.refresh()}
+  if(kind==='navigation')f.sender.emit('did-start-navigation',{},'synthetic://next',false,true);
+  if(kind==='destroyed')f.sender.emit('destroyed');
+  expect(binding.signal.aborted).toBe(false);
+  expect(f.authority.require(run,'session-a')).toBe(binding);
+  expect(()=>f.authority.require(page,'session-a')).toThrow('MEMORY_DESKTOP_SESSION_DENIED');
+  expect(()=>f.authority.bind(f.event as any,'session-a')).toThrow('MEMORY_DESKTOP_SESSION_DENIED');
+  f.select();const next=f.authority.bind(f.event as any,'session-a');expect(next).not.toBe(page);expect(next).not.toBe(run);
+  expect(()=>f.authority.require(page,'session-a')).toThrow('MEMORY_DESKTOP_SESSION_DENIED');
+  expect(()=>f.authority.retainRun(run,'session-a')).toThrow('MEMORY_DESKTOP_SESSION_DENIED');
+  f.authority.releaseRun(run);expect(binding.signal.aborted).toBe(true);
+  expect(()=>f.authority.require(run,'session-a')).toThrow('MEMORY_DESKTOP_SESSION_DENIED');f.authority.dispose();
+ });
+ it.each(['delete','dispose','missing-session','policy-drift'] as const)('%s still aborts a run after switching away',kind=>{
+  const f=fixture(),page=f.authority.bind(f.event as any,'session-a'),run=f.authority.retainRun(page,'session-a'),binding=f.authority.require(run,'session-a');
+  f.select('session-b');f.authority.refresh();expect(binding.signal.aborted).toBe(false);
+  if(kind==='delete')f.targets.notifySessionDeleted('session-a');
+  if(kind==='dispose')f.authority.dispose();
+  if(kind==='missing-session')f.sessions.delete('session-a');
+  if(kind==='policy-drift')f.sessions.get('session-a')!.modelProfileId='ordinary';
+  if(kind==='missing-session'||kind==='policy-drift')f.authority.refresh();
+  expect(binding.signal.aborted).toBe(true);expect(()=>f.authority.require(run,'session-a')).toThrow('MEMORY_DESKTOP_SESSION_DENIED');f.authority.dispose();
+ });
+});
