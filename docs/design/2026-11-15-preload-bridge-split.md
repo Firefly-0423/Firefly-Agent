@@ -55,7 +55,7 @@
    - 子模块不直接调用 `contextBridge.exposeInMainWorld`，而导出 `create*Api(ipcRenderer)` 工厂（`createChatApi` 额外接收 `webUtils` 的受限接口，`createChatStoreApi` 接收 `pageTargetKey`）。
    - `index.ts` 作为全仓唯一且集中的 `contextBridge.exposeInMainWorld(...)` 装配清单（连同既有 `exposeMusicApi()` 调用），一眼可读全部暴露面，也避免给每个文件都引入 `electron` 上下文耦合。
 3. **关键静态扫描兼容边界（硬约束）**：
-   - `src/main/app/ipc-contract-scanner.ts:50-75` 以 AST 规则静态验证主进程与预加载通道一致性，要求每次跨进程调用**必须满足**：调用对象标识符名为 `ipcRenderer`，且第 1 个实参字面量为 `IPC.<KEY>`（例如 `ipcRenderer.invoke(IPC.SETTINGS_GET_CONFIG)`）。
+   - `src/main/app/ipc-contract-scanner.test-support.ts` 以 AST 规则静态验证主进程与预加载通道一致性，要求每次跨进程调用**必须满足**：调用对象标识符名为 `ipcRenderer`，且第 1 个实参字面量为 `IPC.<KEY>`（例如 `ipcRenderer.invoke(IPC.SETTINGS_GET_CONFIG)`）。
    - 因此，**禁止**抽取类似 `function subscribe(channel: string, cb)` 这样把 `channel` 作为形参传入 `ipcRenderer.on(channel, ...)` 的通用辅助函数；否则静态扫描会漏检 `preload` 侧 `listen` 通道，导致 `ipc-contract.test.ts` 中 `outbound` 对齐检查报错。
    - 同时，已拆出的 `music.ts` 与 `memory-openrouter-once.ts` 本次保持原位与原导出不变，不破坏现有外部测试里的 `vi.mock("../../../preload/music")`。
 
@@ -63,9 +63,9 @@
 
 | 方案 | 做法 | 不选原因 |
 | --- | --- | --- |
-| **方案 A（推荐）**：12 个域模块（含 `settings/` 子目录）导出 `create*Api(ipcRenderer)`，`index.ts` 集中 `exposeInMainWorld` | 保留 `live2d-work-api.ts` 注入约定；`settingsApi` 拆为 4 个内部切片再组合；所有 `ipcRenderer.<op>(IPC.*)` 调用形态不变 | **选中**：暴露清单集中在 `index.ts` 易于安全审计；新子模块免 `electron` mock 可单测；100% 兼容 `ipc-contract-scanner.ts` |
+| **方案 A（推荐）**：12 个域模块（含 `settings/` 子目录）导出 `create*Api(ipcRenderer)`，`index.ts` 集中 `exposeInMainWorld` | 保留 `live2d-work-api.ts` 注入约定；`settingsApi` 拆为 4 个内部切片再组合；所有 `ipcRenderer.<op>(IPC.*)` 调用形态不变 | **选中**：暴露清单集中在 `index.ts` 易于安全审计；新子模块免 `electron` mock 可单测；100% 兼容 `ipc-contract-scanner.test-support.ts` |
 | **备选 1（不选）**：按 1 对象 = 1 文件，全部效仿 `music.ts` 直接调 `contextBridge.exposeInMainWorld` | 在 `src/preload/` 下平铺约 30 个只暴露单个对象的 `expose*.ts` 文件 | 产生近 30 个零碎文件（大量不足 25 行）；`exposeInMainWorld` 散落各处降低安全审查可读性；每个单测都必须 mock Electron `contextBridge` |
-| **备选 2（不选）**：抽象通用监听器/调用器 helper（如 `onIpc(channel, wrap)`）去重样板代码 | 用通用 helper 包裹 `ipcRenderer.on` / `ipcRenderer.off` 与 `removeListener` | 直接触发 `ipc-contract-scanner.ts:11,69-75` 的静态求值限制（参数 `channel` 不算 `IPC.<KEY>`），导致全仓 IPC 契约测试失效；且 `off`/`removeListener` 行为混合时容易破坏现有 `preload-*` 测试 mock |
+| **备选 2（不选）**：抽象通用监听器/调用器 helper（如 `onIpc(channel, wrap)`）去重样板代码 | 用通用 helper 包裹 `ipcRenderer.on` / `ipcRenderer.off` 与 `removeListener` | 直接触发 `ipc-contract-scanner.test-support.ts` 的静态求值限制（参数 `channel` 不算 `IPC.<KEY>`），导致全仓 IPC 契约测试失效；且 `off`/`removeListener` 行为混合时容易破坏现有 `preload-*` 测试 mock |
 | **备选 3（不选）**：按窗口类型拆成多份 preload 入口（`chat-preload.ts`、`settings-preload.ts` 等） | 为每个 `BrowserWindow` 生成独立的 `dist/preload/*.js` 只注入各自所需桥 | 需要改动 `main` 层窗口创建、Vite/构建与类型检查流程，属于窗口安全架构演进而非纯文件拆分，超出本任务边界 |
 
 ---
@@ -106,7 +106,7 @@
 
 ### 3.3 渲染进程类型声明如何保持不变
 
-- 目前渲染进程接口类型分布在：`src/shared/*.ts`（共享契约接口，如 `AppUpdateApi`、`DesktopAsrApi`、`BrowserAvailabilityApi`、`ManualBrowserWorkspaceApi`、`PluginPanelApi`、`MemoryAutomationPanelApi`、`ToastRendererApi`）、[global.d.ts](file:///E:/Codex/Firefly/firefly-r5-preload/src/renderer/global.d.ts)（声明 `window.settings`、`chat`、`toast`、`plugins`、`modelConfig`、`manualBrowser*` 等）、[firefly.d.ts](file:///E:/Codex/Firefly/firefly-r5-preload/src/renderer/types/firefly.d.ts)（`window.firefly`）、[chat-page-bridge.ts](file:///E:/Codex/Firefly/firefly-r5-preload/src/renderer/react/features/chat/pages/chat-page-bridge.ts)（`ChatStoreApi`、`AguiApi`、`SettingsApprovalApi` 等）以及个别文件的局部 `declare global { interface Window }`（`main.ts`、`sidebar.ts`、`ui/theme.ts`、`settings/settings.ts`）。
+- 目前渲染进程接口类型分布在：`src/shared/*.ts`（共享契约接口，如 `AppUpdateApi`、`DesktopAsrApi`、`BrowserAvailabilityApi`、`ManualBrowserWorkspaceApi`、`PluginPanelApi`、`MemoryAutomationPanelApi`、`ToastRendererApi`）、[global.d.ts](../../src/renderer/global.d.ts)（声明 `window.settings`、`chat`、`toast`、`plugins`、`modelConfig`、`manualBrowser*` 等）、[firefly.d.ts](../../src/renderer/types/firefly.d.ts)（`window.firefly`）、[chat-page-bridge.ts](../../src/renderer/react/features/chat/pages/chat-page-bridge.ts)（`ChatStoreApi`、`AguiApi`、`SettingsApprovalApi` 等）以及个别文件的局部 `declare global { interface Window }`（`main.ts`、`sidebar.ts`、`ui/theme.ts`、`settings/settings.ts`）。
 - **类型不变约束**：
   1. 以上所有渲染进程与 `src/shared/*` 中的 `Window` 类型声明均**原地保持不变**；
   2. 新拆出的 `src/preload/*.ts` 仅允许依赖 `../shared/*` 与 Electron 类型，严禁引用 `src/renderer/*` 或 `src/main/*`（受 `src/shared/process-boundary.test.ts` 与 `tsconfig.preload.json` 双重保护）；
@@ -204,7 +204,7 @@
 
 ### 7.1 主要风险与规避
 
-1. **`ipc-contract-scanner.ts` 对抽象封装失明导致契约误报**：
+1. **`ipc-contract-scanner.test-support.ts` 对抽象封装失明导致契约误报**：
    - *风险*：如果拆出模块里把 `IPC.<KEY>` 存进变量/配置数组后再传给 `ipcRenderer.invoke(ch)`，AST 静态扫描无法提取常量键名，`ipc-contract.test.ts` 会立即报主进程多出未配对的 `handle` / `outbound`。
    - *规避*：坚持零动态通道传参，所有调用保留直接字面写法 `ipcRenderer.<method>(IPC.<KEY>, ...)` 与 `MANUAL_BROWSER_WORKSPACE_IPC.*` / `SIDEBAR_LAYOUT_IPC.*`（注意：`ipc-contract-scanner` 只识别 `IPC.*` 标识符，既有的 `MANUAL_BROWSER_WORKSPACE_IPC` 与 `SIDEBAR_LAYOUT_IPC` 原样保持即可）。
 2. **既有测试 `electron` mock 缺少 `off` 方法导致运行时报错**：
