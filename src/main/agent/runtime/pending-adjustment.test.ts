@@ -13,7 +13,7 @@ vi.mock("fs", async () => {
             return (actual.writeFileSync as any)(file, ...args);
         } };
 });
-import { createRunAdjustmentPoller, bindRunAdjustmentPoller, requireRunAdjustmentPermit, isRunAdjustmentInFlight, type PendingAdjustmentStore, type TranscriptUserWritePort } from "./pending-adjustment";
+import { createRunAdjustmentPoller, bindRunAdjustmentPoller, requireRunAdjustmentPermit, isRunAdjustmentInFlight, RunAdjustmentRetryableError, type PendingAdjustmentStore, type TranscriptUserWritePort } from "./pending-adjustment";
 import { exactly } from "../../../shared/testing/error-code.test-support";
 const item = (id: string, run = "current-run", attachments?: PendingChatAttachment[]): PendingChatMessage => ({ id, rawContent: `Instruction ${id}`, visibleContent: `Instruction ${id}`, enqueuedAt: 8, ...(run ? { adjustRunId: run } : {}), ...(attachments ? { attachments } : {}) });
 function environment(entries: PendingChatMessage[] = []) {
@@ -283,7 +283,7 @@ describe("Main-owned adjustment authority", () => {
         let ticket!: object;
         bindRunAdjustmentPoller(f.poll, binding, async (permit, commit) => {
             ticket = permit;
-            expect(requireRunAdjustmentPermit(permit, binding)).toEqual({ turnId: "admitted", revision: 1, text: "Instruction admitted" });
+            expect(requireRunAdjustmentPermit(permit, binding)).toEqual({ turnId: "admitted", revision: 1, text: "Instruction admitted", committed: false });
             for (const changed of [{ ...binding, sessionId: "other-session" }, { ...binding, runId: "other-run" }])
                 expect(() => requireRunAdjustmentPermit(permit, changed)).toThrow(exactly("MEMORY_CONTEXT_ADJUSTMENT_DENIED"));
             expect(f.commitPendingAdjust).not.toHaveBeenCalled();
@@ -296,28 +296,102 @@ describe("Main-owned adjustment authority", () => {
         expect(f.queue()).toEqual([]);
         expect(() => requireRunAdjustmentPermit(ticket, binding)).toThrow(exactly("MEMORY_CONTEXT_ADJUSTMENT_DENIED"));
     });
-    it("retains data on stale boundaries or failed commits and succeeds after retry", async () => {
+    it("blocks a stale boundary as non-retryable and a failed history write as retryable, keeping the queue until a retry delivers", async () => {
         const f = environment([item("boundary-item")]);
         let stale = true;
         bindRunAdjustmentPoller(f.poll, binding, async (_permit, commit) => { if (stale)
             throw new Error("MEMORY_CONTEXT_TRANSCRIPT_STALE"); return commit(); });
-        await expect(f.poll()).rejects.toThrow(exactly("MEMORY_CONTEXT_TRANSCRIPT_STALE"));
+        expect(await f.poll()).toEqual({ delivered: [], blocked: { messageId: "boundary-item", reason: "MEMORY_CONTEXT_TRANSCRIPT_STALE", retryable: false } });
         expect(f.queue()).toHaveLength(1);
         expect(f.commitPendingAdjust).not.toHaveBeenCalled();
         stale = false;
         f.failCommit(true);
-        await expect(f.poll()).rejects.toThrow(/^PENDING_ADJUST_COMMIT_FAILED:/);
+        expect(await f.poll()).toEqual({ delivered: [], blocked: { messageId: "boundary-item", reason: "write-failed", retryable: true } });
         expect(f.queue()).toHaveLength(1);
+        expect(f.history()).toEqual([]);
         f.failCommit(false);
-        expect((await f.poll())!.delivered).toHaveLength(1);
+        expect(await f.poll()).toEqual({ delivered: delivered("boundary-item") });
         expect(f.queue()).toEqual([]);
+        expect(f.history().map(message => message.id)).toEqual(["boundary-item"]);
+    });
+    it("blocks a history commit rejected for a non-write reason as non-retryable with its stable code", async () => {
+        const f = environment([item("gone")]);
+        f.commitPendingAdjust.mockReturnValueOnce({ ok: false as const, error: "not-found" });
+        bindRunAdjustmentPoller(f.poll, binding, async (_permit, commit) => commit());
+        expect(await f.poll()).toEqual({ delivered: [], blocked: { messageId: "gone", reason: "PENDING_ADJUST_COMMIT_FAILED:gone:not-found", retryable: false } });
+        expect(f.history()).toEqual([]);
+        expect(f.appendUser).not.toHaveBeenCalled();
+    });
+    it("reports an unrecognised handler failure as ADJUSTMENT_FAILED without leaking its message", async () => {
+        const f = environment([item("odd")]);
+        bindRunAdjustmentPoller(f.poll, binding, async () => { throw new Error("disk path C:\secret\file failed"); });
+        expect(await f.poll()).toEqual({ delivered: [], blocked: { messageId: "odd", reason: "ADJUSTMENT_FAILED", retryable: false } });
+        expect(f.commitPendingAdjust).not.toHaveBeenCalled();
+        expect(f.queue()).toHaveLength(1);
+    });
+    it("delivers the committed prefix and blocks the next item as non-retryable when the handler refuses it", async () => {
+        const f = environment([item("A"), item("B"), item("C")]);
+        bindRunAdjustmentPoller(f.poll, binding, async (permit, commit) => {
+            if (requireRunAdjustmentPermit(permit, binding).turnId === "B")
+                throw new Error("MEMORY_CONTEXT_ADJUSTMENT_STALE");
+            return commit();
+        });
+        expect(await f.poll()).toEqual({ delivered: delivered("A"), blocked: { messageId: "B", reason: "MEMORY_CONTEXT_ADJUSTMENT_STALE", retryable: false } });
+        expect(f.history().map(message => message.id)).toEqual(["A"]);
+        expect(f.queue().map(entry => entry.id)).toEqual(["B", "C"]);
+        expect(f.commitPendingAdjust.mock.calls.map(call => call[1])).toEqual(["A"]);
+    });
+    it("recovers a committed item through a committed permit, calling the handler once and never committing history again", async () => {
+        const f = environment([item("A")]);
+        let fail = true;
+        const seen: boolean[] = [];
+        bindRunAdjustmentPoller(f.poll, binding, async (permit, commit) => {
+            const allowed = requireRunAdjustmentPermit(permit, binding);
+            seen.push(allowed.committed);
+            const message = commit();
+            if (fail) { fail = false; throw new RunAdjustmentRetryableError("transcript-write-failed"); }
+            return message;
+        });
+        expect(await f.poll()).toEqual({ delivered: [], blocked: { messageId: "A", reason: "transcript-write-failed", retryable: true } });
+        expect(f.history().map(message => message.id)).toEqual(["A"]);
+        expect(await f.poll()).toEqual({ delivered: delivered("A") });
+        expect(seen).toEqual([false, true]);
+        expect(f.commitPendingAdjust).toHaveBeenCalledTimes(1);
+        expect(f.poll()).toBeUndefined();
+    });
+    it("switches a permit to committed after its history commit and rejects it as stale once that history message is gone", async () => {
+        const f = environment([item("A")]);
+        const phases: boolean[] = [];
+        bindRunAdjustmentPoller(f.poll, binding, async (permit, commit) => {
+            phases.push(requireRunAdjustmentPermit(permit, binding).committed);
+            commit();
+            phases.push(requireRunAdjustmentPermit(permit, binding).committed);
+            f.history().length = 0;
+            expect(() => requireRunAdjustmentPermit(permit, binding)).toThrow(exactly("MEMORY_CONTEXT_ADJUSTMENT_STALE"));
+            throw new Error("MEMORY_CONTEXT_ADJUSTMENT_STALE");
+        });
+        expect(await f.poll()).toEqual({ delivered: [], blocked: { messageId: "A", reason: "MEMORY_CONTEXT_ADJUSTMENT_STALE", retryable: false } });
+        expect(phases).toEqual([false, true]);
+        expect(f.appendUser).not.toHaveBeenCalled();
     });
     it("refuses content mutated after admission", async () => {
         const f = environment([item("mutating")]);
         bindRunAdjustmentPoller(f.poll, binding, async (_permit, commit) => { f.queue()[0].rawContent = "Modified after approval"; return commit(); });
-        await expect(f.poll()).rejects.toThrow(exactly("MEMORY_CONTEXT_ADJUSTMENT_STALE"));
+        expect(await f.poll()).toEqual({ delivered: [], blocked: { messageId: "mutating", reason: "MEMORY_CONTEXT_ADJUSTMENT_STALE", retryable: false } });
         expect(f.queue()).toHaveLength(1);
         expect(f.commitPendingAdjust).not.toHaveBeenCalled();
+    });
+    it("blocks a later item unmarked while an earlier one is admitted, delivering only the earlier one and never calling the handler for it", async () => {
+        const f = environment([item("first"), item("second")]);
+        const admit = vi.fn(async (_permit, commit) => { const message = commit(); delete f.queue()[0].adjustRunId; return message; });
+        bindRunAdjustmentPoller(f.poll, binding, admit);
+        expect(await f.poll()).toEqual({
+            delivered: [{ id: "first", rawContent: "Instruction first", revision: 1 }],
+            blocked: { messageId: "second", reason: "MEMORY_CONTEXT_ADJUSTMENT_STALE", retryable: false },
+        });
+        expect(admit).toHaveBeenCalledTimes(1);
+        expect(f.commitPendingAdjust).toHaveBeenCalledTimes(1);
+        expect(f.queue().map(entry => entry.id)).toEqual(["second"]);
     });
     it("serializes overlapping polls without admitting the same item twice", async () => {
         const f = environment([item("concurrent")]);

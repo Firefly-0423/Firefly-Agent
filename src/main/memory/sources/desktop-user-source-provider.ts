@@ -63,6 +63,13 @@ export function createDesktopUserSourceProvider(options:Options){
    if(options.readUser(identity)!==null||receipts.has(key(identity))||admitted.has(key(identity)))return denied();
    const ticket=Object.freeze({});admitted.add(key(identity));admissions.set(ticket,{grant,identity});return ticket;
   },
+  /** Read-only: whether this exact original user event already has its live receipt. Never creates one.
+   * Receipts live in memory only, so this is false after a restart. */
+  hasUserReceipt(grant:object,conversationId:string,messageId:string,text:string):boolean {
+   attachSession(grant,conversationId);const identity=parseSourceIdentity({providerId,sessionId:conversationId,messageId});
+   const receipt=receipts.get(key(identity)),user=options.readUser(identity);
+   return !!receipt&&receipt.state==="live"&&receipt.contentRevision===1&&receipt.text===text&&user?.role==="user"&&user.text===text;
+  },
   /** Release a failed preparation only while no user bytes or receipt were committed.
    * Never undoes persisted metadata, finished receipts, or a consumed/unknown outcome. */
   cancelUserCommit(ticket:object):void {

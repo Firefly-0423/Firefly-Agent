@@ -10,6 +10,7 @@ import { createMainHistory } from "../../memory/history/main-history";
 import { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
 import { createTranscriptSink, requireTranscriptSinkBinding } from "../loop/transcript-sink";
 import type { ChatMessage, ChatRequest } from "../../model/providers/types";
+import type { ChatMessage as StoredChatMessage } from "../../../shared/chat-types";
 import type { MainMemoryRunLifecycle } from "./main-memory-runtime";
 import { createDefaultRunCapture } from "./default-run-capture";
 import {createMainAttachmentProjectionAuthority,prepareMainAttachmentProjection} from "../../memory/context/main-attachment-projection";
@@ -191,12 +192,19 @@ it("invalidates the synchronous capture fence before a mutation observer first a
 
 function adjustment(f: Awaited<ReturnType<typeof fixture>>) {
   const queue = [{ id: "adjust-user", rawContent: "another trusted question", visibleContent: "another trusted question", enqueuedAt: 1001, adjustRunId: "run-a" }];
+  const history: StoredChatMessage[] = [];
+  let commits = 0;
   const poller = createRunAdjustmentPoller("session-a", "run-a", {
     getPendingMessages: () => [...queue],
-    commitPendingAdjust: () => { queue.splice(0); return { ok: true, userMessage: { id: "adjust-user" }, remainingQueue: [] }; },
+    commitPendingAdjust: () => {
+      commits++; queue.splice(0);
+      history.push({ id: "adjust-user", role: "user", content: "another trusted question", at: 1002, runInsertion: { version: 1, runId: "run-a", revision: 1, sequence: history.length + 1 } });
+      return { ok: true, userMessage: { id: "adjust-user" }, remainingQueue: [] };
+    },
+    listRunInsertions: (_session: string, runId: string) => history.filter(message => message.runInsertion?.runId === runId),
   });
   const release = bindRunAdjustmentPoller(poller, { sessionId: "session-a", runId: "run-a" }, (permit, commit) => f.capture.commitRunAdjustment(permit, commit));
-  return { poller, queue, release };
+  return { poller, queue, history, release, get commits() { return commits; } };
 }
 
 it.each(["before-first-round", "between-rounds"])("transfers a genuine Main poller adjustment %s to the next canonical capture", async boundary => {
@@ -212,12 +220,14 @@ it.each(["before-first-round", "between-rounds"])("transfers a genuine Main poll
   } finally { a.release(); }
 });
 
-it("rejects a poller adjustment while canonical tool results are pending", async () => {
+it("blocks a poller adjustment as non-retryable without committing history while canonical tool results are pending", async () => {
   const f = await fixture(), a = adjustment(f); await f.response();
   await f.sink.appendAssistant({ message: { role: "assistant", content: "checking", toolCalls: [{ id: "t1", name: "lookup", arguments: "{}" }] }, roundId: "r1" });
   try {
-    await expect(a.poller()).rejects.toThrow(exactly("MEMORY_CONTEXT_TOOL_PAIR_INVALID"));
+    await expect(a.poller()).resolves.toEqual({ delivered: [], blocked: { messageId: "adjust-user", reason: "MEMORY_CONTEXT_TOOL_PAIR_INVALID", retryable: false } });
     expect(a.queue).toHaveLength(1);
+    expect(a.commits).toBe(0);
+    expect(a.history).toEqual([]);
     expect((await f.store.read("session-a")).entries.filter(entry => entry.kind === "user")).toHaveLength(1);
   } finally { a.release(); }
 });
@@ -232,18 +242,19 @@ it("returns the Main history query's evidence and coverage notice together", asy
   } finally { await capture.close!(); }
 });
 
-it("rejects a cancelled poller adjustment before its canonical user write", async () => {
+it("blocks a poller adjustment cancelled before its canonical user write after the history commit, writing no transcript entry and delivering nothing", async () => {
   let arrive!: () => void, release!: () => void;
   const arrived = new Promise<void>(resolve => { arrive = resolve; }), held = new Promise<void>(resolve => { release = resolve; });
   const f = await fixture({ beforeMutation: async (_kind, entry) => {
     if (entry?.kind === "user" && entry.turnId === "adjust-user") { arrive(); await held; }
   } }), a = adjustment(f);
-  const pending = a.poller()!.then(() => "success", error => error.message);
+  const pending = a.poller()!;
   await arrived; f.controller.abort(); release();
   try {
-    const result = await pending;
+    // History is committed before the transcript write; cancellation after that stops the transcript write and the delivery.
+    expect(await pending).toEqual({ delivered: [], blocked: { messageId: "adjust-user", reason: "MEMORY_CONTEXT_CANCELLED", retryable: false } });
     expect((await f.store.read("session-a")).entries.filter(entry => entry.kind === "user")).toHaveLength(1);
-    expect(result).toBe("MEMORY_CONTEXT_CANCELLED"); expect(a.queue).toHaveLength(1);
+    expect(a.commits).toBe(1); expect(a.history.map(message => message.id)).toEqual(["adjust-user"]); expect(a.queue).toHaveLength(0);
   } finally { a.release(); }
 });
 
