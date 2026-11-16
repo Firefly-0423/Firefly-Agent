@@ -19,6 +19,12 @@ export type ToastTarget =
   | { type: "session"; sessionId: string }
   | { type: "window"; window: "chat" };
 
+/**
+ * 没有运行 ID、无法归属任何会话的审批：聊天页不渲染这张卡，toast 是唯一能作答的地方。
+ * approvalId 是主进程 permission 生成的审批 id；source 是给用户看的来源说明。
+ */
+export type ToastApprovalAction = { approvalId: string; toolName: string; source: string };
+
 /** 主进程维护并推给渲染页的 toast 条目 */
 export type ToastItem = {
   createdAt: number;
@@ -30,6 +36,8 @@ export type ToastItem = {
   tier: ToastTier;
   kind: ToastKind;
   id: string;
+  /** 只有无会话归属的审批带这个字段，toast 上显示批准与拒绝 */
+  approval?: ToastApprovalAction;
 };
 
 /** 推送载荷：条目加上本次是否播提示音（由主进程结合设置页开关与并发合并决定） */
@@ -54,4 +62,6 @@ export type ToastRendererApi = {
   clicked(id: string): void;
   /** 页面加载或重载后取回主进程权威状态的当前显示列表 */
   getAll(): Promise<ToastItem[]>;
+  /** 回答无会话归属的审批，沿用聊天页使用的审批结算通道；未知或已结算的 id 返回 ok:false */
+  resolveApproval(approvalId: string, allowed: boolean): Promise<{ ok: boolean }>;
 };

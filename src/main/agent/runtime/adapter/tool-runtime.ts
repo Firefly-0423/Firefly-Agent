@@ -68,6 +68,11 @@ export function prepareToolRuntime(input: ToolRuntimeInput): PreparedToolRuntime
     }
     if (policyFor(fileAccessLevel, risk) === "deny") return false;
     if (options.permissionMode === "allow_all") return true;
+    if (!runId) {
+      const policies = [policyFor(fileAccessLevel, risk), policyFor(getCurrentLevel(), risk)];
+      // 与权限宿主取更严判定的规则一致：只有真正要问用户的审批才需要所属运行。
+      if (!policies.includes("deny") && policies.includes("ask")) return false;
+    }
     const requestSignal = invocationSignal && invocationSignal !== signal ? AbortSignal.any([signal, invocationSignal]) : signal;
     const decision = await checkPermission({ toolId, toolName: tool.name, toolDescription: tool.description, args, risk, runId, origin, signal: requestSignal, level: fileAccessLevel });
     // 等待用户审批期间也可能进入计划讨论，批准单次工具不能解除计划限制。

@@ -150,8 +150,15 @@ export function requestApproval(request: Omit<ApprovalRequest, "id">, signal?: A
 
     showCard(card);
     // 只通知一次；之后的重播由 toast 侧去重
-    const { toolId, toolName, runId } = request;
-    toastEvents.publishApprovalPending({ id, toolId, toolName, runId });
+    const { toolId, toolName, runId, agentId, childRunId } = request;
+    toastEvents.publishApprovalPending({
+      id,
+      toolId,
+      toolName,
+      runId,
+      ...(agentId !== undefined ? { agentId } : {}),
+      ...(childRunId !== undefined ? { childRunId } : {}),
+    });
   });
 }
 

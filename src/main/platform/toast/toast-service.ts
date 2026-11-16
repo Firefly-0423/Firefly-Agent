@@ -122,7 +122,10 @@ export function createToastService(deps: ToastServiceDeps) {
   }
 
   function buildItem(
-    fields: Pick<ToastItem, "kind" | "tier" | "sourceId" | "title" | "target"> & { summary?: string },
+    fields: Pick<ToastItem, "kind" | "tier" | "sourceId" | "title" | "target"> & {
+      summary?: string;
+      approval?: ToastItem["approval"];
+    },
   ): ToastItem {
     const id = mintId();
     return { id, ...fields, createdAt: clock() };
@@ -136,7 +139,23 @@ export function createToastService(deps: ToastServiceDeps) {
   // ── 四类等待操作档 + 计划流 ──
 
   const onApprovalPending = (event: ApprovalPendingEvent): void => {
-    raiseActionItem(waitingForChat("approval", event.id, "流萤在等你的批准", event.toolName));
+    const ownedByRun = typeof event.runId === "string" && event.runId.trim().length > 0;
+    if (ownedByRun) {
+      raiseActionItem(waitingForChat("approval", event.id, "流萤在等你的批准", event.toolName));
+      return;
+    }
+    const source = event.agentId ? `子代理 ${event.agentId}` : `工具 ${event.toolId}`;
+    raiseActionItem(
+      buildItem({
+        kind: "approval",
+        tier: "action-pending",
+        sourceId: event.id,
+        title: "有一项审批需要你在这里处理",
+        summary: `${event.toolName} · 来源：${source}`,
+        target: chatWindowTarget(),
+        approval: { approvalId: event.id, toolName: event.toolName, source },
+      }),
+    );
   };
 
   const onApprovalSettled = (event: ApprovalSettledEvent): void => {
@@ -239,12 +258,14 @@ export function createToastService(deps: ToastServiceDeps) {
 
   function onClicked(id: string): void {
     const item = visible.get(id);
-    if (!item) return;
+    if (!item || item.approval) return;
     routeTo(item.target);
     dismiss(id);
   }
 
   function onDismissed(id: string): void {
+    const item = visible.get(id);
+    if (!item || item.approval) return;
     dismiss(id);
   }
 

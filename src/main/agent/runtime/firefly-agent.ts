@@ -7,10 +7,8 @@ import { AgentRuntimeError } from "../../model/errors/agent-runtime-error";
 import { AgentExecutionError, type RunPhase } from "./run-execution-status";
 import { Observable } from "rxjs";
 import { toolRegistry, type ToolDefinition } from "../../tooling/registry/tool-registry";
-import type { ToolCallResult, ToolExecutionOutcome } from "../../tooling/registry/tool-call-types";
-import { checkPermission, type ToolRiskLevel } from "../../platform/permission/permission";
+import type { ToolCallResult } from "../../tooling/registry/tool-call-types";
 import { getAdapterForConfig, type ChatMessage } from "../../model/providers";
-import { contextRefRegistry, extractLastUserQuery, type ToolContext } from "../../tooling/registry/tool-context";
 import { runChatLoop } from "./chat-loop";
 import type { RunCapabilities } from "./run-capabilities";
 import { runAgentLoopWithAdapter } from "./agent-loop-adapter";
@@ -23,7 +21,6 @@ import { debugLog, flowLog } from "../../base/logging/agent-log";
 import { requestUserClarification } from "../../platform/interaction/user-choice";
 import type { ConversationMode } from "../../../shared/chat-types";
 import type { FireflyRunTerminalResult } from "../../../shared/run-terminal";
-import { executeToolDefinition } from "../../tooling/registry/tool-executor";
 import { createLive2dWorkRunTracker } from "./live2d-work-signal";
 import { recordMessage, recordPluginCall } from "../../base/storage/token-usage-store";
 import { runWithUsageAttribution, usageFeatureForMode } from "../../base/storage/usage-attribution";
@@ -143,19 +140,6 @@ export function toAguiEvent(event: RunEvent): BaseEvent {
   }
 }
 
-async function executeToolCall(tc: { id: string; name: string; arguments: string }, runnableToolIds: Set<string>, ctx?: ToolContext): Promise<ToolExecutionOutcome> {
-  const failed = (errorCode: string, output: string): ToolExecutionOutcome => ({ status: "failed", errorCode, output });
-  const definition = toolRegistry.getById(tc.name);
-  let arguments_: Record<string, unknown> = {};
-  try { arguments_ = JSON.parse(tc.arguments || "{}"); } catch { return failed("E_TOOL_ARGS_INVALID", "工具参数解析失败"); }
-  if (!runnableToolIds.has(tc.name)) return failed("E_TOOL_UNAVAILABLE", "工具不可用: " + tc.name);
-  if (!definition || !definition.enabled) return failed("E_TOOL_UNAVAILABLE", "工具不可用: " + tc.name);
-  const risk: ToolRiskLevel = (definition as ToolDefinition & { risk?: ToolRiskLevel }).risk || "safe";
-  const access = await checkPermission({ toolId: tc.name, toolName: definition.name, toolDescription: definition.description, args: arguments_, risk, runId: ctx?.runId });
-  if (!access.allowed) return failed("E_PERMISSION_DENIED", access.reason || "权限不足");
-  return executeToolDefinition(definition, arguments_, ctx);
-}
-
 export class FireflyAgent extends AbstractAgent {
   lastResult?: FireflyRunResult;
   protected _runOptions?: FireflyRunOptions;
@@ -222,12 +206,6 @@ export class FireflyAgent extends AbstractAgent {
               onEvent: notify, signal: cancellation.signal, mode: options.conversationMode, transcriptSink: current.transcriptSink, memoryRun: current.memoryRun,
             }));
           } else {
-            const executeTool = (call: Parameters<typeof executeToolCall>[0], allowed: Set<string>) => executeToolCall(call, allowed, {
-              userQuery: extractLastUserQuery(options.messages), conversationId: options.conversationId ?? "default", runId: run,
-              contextRefs: contextRefRegistry, signal: cancellation.signal, resolvedWorkspaceRoot: options.resolvedWorkspaceRoot,
-              mode: options.conversationMode, allowedSkillIds: options.capabilities?.skillIds, workReadScopes: options.workReadScopes,
-            });
-            const conversationId = options.conversationId ?? "default";
             completed = await perf.track("agent_loop", () => runAgentLoopWithAdapter(current, cancellation.signal, (event: BaseEvent) => {
               if (event.type === EventType.TOOL_CALL_START) work.markToolStarted();
               if (!unsubscribed) observer.next(event);

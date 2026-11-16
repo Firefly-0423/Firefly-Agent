@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
-// ChatPage regression package B (docs/superpowers/plans/2026-11-12-chatpage-regression.md): the real ChatPage, its
+// ChatPage regression packages B and G (docs/superpowers/plans/2026-11-12-chatpage-regression.md): the real ChatPage, its
 // pending-queue flow and run controller run together. Only IPC (chat store, AG-UI, file intake) and layout shells
 // are replaced. The fake store follows the Main contracts in src/main/features/sessions/chats-store.ts.
 import React, { act, createElement, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { ChatMessage, ChatSession, ConversationMode, PendingChatMessage } from "../../../../../shared/chat-types";
-import type { AguiApi, AguiEvent, ChatStoreApi } from "./chat-page-bridge";
+import type { AguiApi, AguiEvent, ChatStoreApi, PermissionApprovalRequest, SettingsApprovalApi } from "./chat-page-bridge";
 import { t } from "../../../i18n";
 
 vi.mock("react-resizable-panels", () => ({
@@ -62,6 +62,9 @@ let acks: Array<Ack | Promise<Ack> | Error>;
 let enqueueReplies: Array<"ok" | "error" | Error | Promise<void>>;
 let interrupted: Record<string, { runId: string; rounds: number; todoCount: number } | null>;
 let uuid: number;
+let approvalListeners: Set<(request: PermissionApprovalRequest) => void>;
+/** window.settings is the full settings bridge; ChatPage only reads its approval half, installed in installBridges. */
+let approvals: SettingsApprovalApi;
 
 const flush = () => act(async () => { for (let turn = 0; turn < 6; turn++) await new Promise<void>(resolve => setTimeout(resolve, 0)); });
 const emit = (event: AguiEvent) => { for (const listener of [...listeners]) listener(event); };
@@ -145,6 +148,14 @@ function installBridges() {
     notifyReactReady() {},
   };
   page.chatStore = store as ChatStoreApi;
+  approvals = {
+    onPermissionApprovalRequest: callback => { approvalListeners.add(callback); return () => { approvalListeners.delete(callback); }; },
+    onPermissionApprovalSettled: () => () => {},
+    resolvePermissionApproval: vi.fn(async () => ({ ok: true })),
+    onPopQuizRequest: () => () => {}, onPopQuizSettled: () => () => {},
+    skipPopQuiz: vi.fn(async () => ({ ok: true })), resolvePopQuiz: vi.fn(async () => ({ ok: true }) as never),
+  };
+  Object.assign(window, { settings: approvals });
   // ChatPage only reads file intake from window.chat; the rest of that bridge is not part of these scenarios.
   Object.assign(window, { chat: {
     ingestDroppedFiles: vi.fn(async (files: File[]) => files.map(file => ({ kind: "document", name: file.name, filePath: `C:/fixture/${file.name}`, status: "done" }))),
@@ -165,7 +176,7 @@ beforeEach(() => {
   vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
   window.matchMedia = vi.fn().mockReturnValue({ matches: false, addListener() {}, removeListener() {} });
   uuid = 0; vi.spyOn(crypto, "randomUUID").mockImplementation(() => `00000000-0000-4000-8000-${String(++uuid).padStart(12, "0")}` as `${string}-${string}-${string}-${string}-${string}`);
-  listeners = new Set(); queues = {}; dispatching = {}; runCalls = []; acks = []; enqueueReplies = []; interrupted = {}; nextFiles.length = 0;
+  listeners = new Set(); approvalListeners = new Set(); queues = {}; dispatching = {}; runCalls = []; acks = []; enqueueReplies = []; interrupted = {}; nextFiles.length = 0;
   sessions = {};
 });
 afterEach(async () => {
@@ -304,5 +315,59 @@ describe("ChatPage package B: recovery, takeover and the pending queue", () => {
     expect(sessions["session-a"].messages[0]).toMatchObject({ role: "user", content: "send the first one" });
     expect(texts("#draft")).toEqual(["a follow-up thought"]);
     expect(texts("#attachments li")).toEqual(["second.txt"]);
+  });
+});
+
+/** Main broadcasts an approval to every window; the page decides which conversation owns it. */
+function requestApproval(id: string, runId?: string) {
+  const request: PermissionApprovalRequest = { id, toolId: "file_editor", toolName: "Edit file", toolDescription: "Edit a workspace file",
+    risk: "fs-write", args: { path: `${id}.md` }, ...(runId ? { runId } : {}) };
+  for (const listener of [...approvalListeners]) listener(request);
+}
+/** The real permission panel ComposerSlot shows, identified by the target path each request carries. */
+const card = () => $(".ff-interaction-panel") ? texts(".ff-interaction-panel dd[title]") : null;
+const writes = () => (page.chatStore!.upsert as unknown as { mock: { calls: Array<[string, ChatMessage]> } }).mock.calls.map(([id]) => id);
+
+describe("ChatPage package G: approval ownership", () => {
+  test("G1: a background run's approval belongs to its own session and never shows in the visible one", async () => {
+    sessions = { "session-a": session("session-a", "code"), "session-b": session("session-b", "code") };
+    await mount("code");
+    await type("edit the notes"); await click("#send"); await flush();
+    expect(runCalls.map(call => call.sessionId)).toEqual(["session-a"]);
+    await click("#select-b"); await flush();
+    const before = writes().length;
+    await act(async () => { requestApproval("approve-1", "run-1"); }); await flush();
+    expect(card()).toBeNull();
+    expect(writes().slice(before).every(id => id === "session-a")).toEqual(true);
+    expect(sessions["session-b"].messages).toEqual([]);
+    await click("#select-a"); await flush();
+    expect(card()).toEqual(["approve-1.md"]);
+    expect(approvals.resolvePermissionApproval).not.toHaveBeenCalled();
+    await act(async () => { buttonByText(t("interaction.allow"))!.click(); }); await flush();
+    expect(approvals.resolvePermissionApproval).toHaveBeenCalledExactlyOnceWith("approve-1", true);
+    expect(runCalls).toHaveLength(1);
+  });
+
+  test.each([
+    ["G1", "an unknown run", "session-a", "run-gone"],
+    ["G1", "an unknown run", "session-b", "run-gone"],
+    ["G3", "no run", "session-a", undefined],
+    ["G3", "no run", "session-b", undefined],
+  ] as const)("%s: an approval naming %s lands nowhere while %s is visible", async (_task, _label, visible, runId) => {
+    sessions = { "session-a": session("session-a", "work"), "session-b": session("session-b", "work") };
+    await mount("work");
+    await type("summarise the logs"); await click("#send"); await flush();
+    if (visible === "session-b") { await click("#select-b"); await flush(); }
+    const before = writes().length;
+    await act(async () => { requestApproval("approve-stray", runId); }); await flush();
+    expect(card()).toBeNull();
+    await click(visible === "session-a" ? "#select-b" : "#select-a"); await flush();
+    expect(card()).toBeNull();
+    // No checkpoint is written for a card nobody owns, and nothing is answered or dispatched on its behalf.
+    // A card without a run id is answered in the toast window instead (G3; covered by the toast tests).
+    expect(writes().slice(before)).toEqual([]);
+    expect(approvals.resolvePermissionApproval).not.toHaveBeenCalled();
+    expect(runCalls.map(call => call.sessionId)).toEqual(["session-a"]);
+    expect(sessions["session-b"].messages).toEqual([]);
   });
 });

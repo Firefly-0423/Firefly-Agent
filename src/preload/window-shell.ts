@@ -63,6 +63,9 @@ export function createToastApi(ipcRenderer: WindowShellIpcRenderer): ToastRender
         reportHeight: (height: number) => {
             return ipcRenderer.send(IPC.TOAST_RESIZE, height);
         },
+        resolveApproval: (approvalId: string, allowed: boolean) => {
+            return ipcRenderer.invoke(IPC.PERMISSION_APPROVAL_RESOLVE, { id: approvalId, allowed }) as Promise<{ ok: boolean }>;
+        },
         onPush: (receive: (message: ToastPushPayload) => void) => {
             const forwardEvent = (_ipcEvent: unknown, message: ToastPushPayload) => {
                 return receive(message);

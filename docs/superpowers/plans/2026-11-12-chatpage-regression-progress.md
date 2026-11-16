@@ -1,6 +1,6 @@
 # ChatPage 回归清单施工进度
 
-状态：施工中（施工包 A 与终态保存修复已合并，施工包 B 待合并）
+状态：施工中（施工包 A、终态保存修复与施工包 B 已合并，施工包 G 待合并）
 施工计划：[2026-11-12-chatpage-regression.md](./2026-11-12-chatpage-regression.md)
 
 本文是交接入口。每完成一个任务就更新下面各节；换会话或换人时先读这里，再读施工计划。
@@ -14,9 +14,9 @@
 - 拆分缺口：检查器标签回调和导航动作在页面层没有测试，A–G 也没覆盖。已在计划里补“施工包 H”（依赖 B）和“拆分 ChatPage 前的保护集”（开工条件 A、B、G、C、D、H），待负责人确认。
 ## 1. 当前状态
 
-- 分支：`feat/chatpage-b`（已合入 `dev/firefly-1.2.0` 的 `4683aae`；施工包 A 由 #89、终态保存修复由 #90 合并）
-- 进行到：施工包 B 完成，待合并；下一包 G
-- 工作区：`E:\Codex\Firefly\firefly-chatpage-b`
+- 分支：`feat/chatpage-g`（基于 `dev/firefly-1.2.0` 的 `dc6327a`；施工包 A 由 #89、终态保存修复由 #90、施工包 B 由 #91 合并）
+- 进行到：施工包 G 完成，待合并。负责人 2026-11-16 另排了三件事，各自单独一个 PR：仓库布局（含 pnpm 切换）、刷新后从提醒窗口处理审批、docs 分类对齐；之后按顺序做 C
+- 工作区：`E:\Codex\Firefly\firefly-chatpage-g`
 - 建议顺序：A → B → G → C → D → E → F；完整依赖及正式包前置条件见计划。2026-11-15 补充施工包 H，拆分前须完成 A → B → G → C → D → H（待负责人确认）。
 
 ## 2. 已完成项
@@ -51,6 +51,14 @@
 | B8 入队失败重试 | 存储拒绝与传输异常两行：草稿与附件保留、不派发、不写历史；重试沿用同一个 ID，最后只有一条用户消息和一次派发 | 入队前就清草稿 → B8、B9 失败；重试换新 ID → 两行失败 |
 | B9 等待中继续输入 | 入队挂起期间继续输入、再加附件；成功后只清发送时的快照，新文字与新附件保留 | 无条件清草稿、清掉全部附件 → 各自失败 |
 | B10 认领恢复 | `chats-pending-queue.test.ts`：重启后再认领返回 `already-dispatching`，用户消息不重复、队列不前进；`.tmp` 被目录占住时认领返回 `write-failed`，会话文件、索引、邻会话逐字节不变，清掉障碍后只认领一次；派发记账指向不存在的用户消息时记账保留、不被别的 ID 清掉，邻会话照常认领 | 认领不守卫派发、绕过 `.tmp`、缺锚点时自动清账、确认派发不核对 ID → 各自失败 |
+
+**施工包 G**：克宝写 G1 与 G3 的聊天页一侧，以及三方共用的提醒窗口接口（先提交，`86d9cbb`）；Codex 写 G2；Gemini 写 G3 的主进程提醒服务（G13）与提醒窗口页面（G14）。交回后同样逐个检出复核、独立改坏验证。
+
+| 任务 | 测试与实现 | 反向验证 |
+|---|---|---|
+| G1 未知 run 不误投 | `interaction-owner.ts`：带了 run ID 却找不到持有者的卡不再回退可见会话。`interaction-owner.test.ts` 表驱动；`ChatPage.regression.test.ts` 新增审批桥：后台 run 的卡只属于它自己的会话，切回才看到，批准只结算一次；未知 run 的卡在 A、B 分别可见时都不出现，不写检查点、不结算、不派发 | 恢复回退 → 3 项失败；一律投可见会话 → 6 项失败 |
+| G2 审批都带运行 ID | 删掉 `firefly-agent.ts` 里从未被调用的 `executeToolCall`（唯一可能传空 `runId` 的路径）；`tool-runtime.ts` 在运行 ID 为空且确实要问用户时拒绝，不发卡、不执行工具，结果沿用 dispatcher 现有的 `permission_denied`。新建 `firefly-agent-approval.test.ts`：Work、Code、带工具的 Chat 经真实入口发出的审批卡带本次运行 ID；伙伴子运行带父运行 ID 和自己的 `agentId`、`childRunId`，父运行取消时审批一起结算 | 去掉守卫 → 3 项失败；`runId` 传 `undefined` → 4 项失败；子运行改用自己的 ID → 失败；守卫放最前挡住 allow → 2 项失败；守卫只看会话档位 → 1 项失败 |
+| G3 无运行 ID 走提醒窗口 | 共用接口：`ToastItem.approval`、提醒窗口的 `resolveApproval`（沿用 `permission:approval-resolve`，不新增 IPC 通道）。主进程：审批事件带上 `agentId`、`childRunId`；无运行 ID 的审批生成带批准动作的提醒，标题“有一项审批需要你在这里处理”，摘要写工具名和来源，点击、关闭都不移除，只在结算后移除。页面：批准、拒绝两个按钮，点一次即禁用，`ok:false` 仍禁用，调用失败才恢复；文字一律按文本写入。聊天页：`interactionOwner` 不再接收可见会话，无运行 ID 的卡不进任何会话 | 无运行 ID 也不带批准动作 → 3 项失败；点击照常移除 → 失败；不转发 `agentId` → 2 项失败；去掉重复作答检查 → 3 项失败；不禁用按钮 → 6 项失败；失败后不恢复 → 2 项失败；`ok:false` 也恢复 → 失败；聊天页仍回退可见会话 → 2 项失败 |
 
 ## 3. 未完成项
 
@@ -134,9 +142,9 @@
 
 ### 施工包 G：未知 run 审批归属修复
 
-- [ ] G1 已携带未知 run 的审批不误投可见会话
-- [ ] G2 所有审批请求都带运行 ID
-- [ ] G3 仍缺运行 ID 的审批卡走独立提醒
+- [x] G1 已携带未知 run 的审批不误投可见会话
+- [x] G2 所有审批请求都带运行 ID
+- [x] G3 仍缺运行 ID 的审批卡走独立提醒
 
 ### 施工包 H：拆分前的检查器与导航接线（待负责人确认）
 
@@ -155,6 +163,7 @@
 | 施工包 A 三个测试文件的类型检查（仓库配置不检查测试文件，用 TypeScript API 把测试文件加入所属配置单独检查） | 0 条诊断 | 2026-11-15 |
 | 终态保存修复：全量测试 `npm test`；三端类型检查 | 1134 个文件、14907 项通过，11 项显式跳过，退出码 0；类型检查均通过 | 2026-11-15 |
 | 施工包 B：全量测试 `npm test`；三端类型检查；B 包四个测试文件的类型检查 | 1135 个文件、14935 项通过，11 项显式跳过，退出码 0；三端类型检查通过；四个测试文件 0 条诊断 | 2026-11-15 |
+| 施工包 G：全量测试 `npm test`；三端类型检查；本地构建 `npm run build`；G 包测试文件与提醒窗口页面的类型检查 | `npm test` 1136 个文件、14971 项通过，11 项显式跳过，退出码 0（第一次跑有 5 项失败：1 项是 `permission.ts` 的边界哈希，已在 G13 的提交里刷新；4 项是新工作区缺 release 版原生助手，补齐后通过）；三端类型检查通过；`npm run build` 退出码 0；测试文件类型检查：渲染端 0 条，主进程 4 条均为已有 | 2026-11-16 |
 | 真机验证 | 未执行（施工包 A 只有测试与类型改动；真机项在施工包 F） | — |
 
 ## 5. 偏离计划
@@ -170,5 +179,11 @@
 - **B2 的两层清卡**：控制器在 run 被接受时调用 `clearTakeover`，页面点“终止并重开”时也会先清掉卡片，所以只去掉其中一层，测试不会失败。`clearTakeover` 单独起作用的场景是冲突以别的方式解除（例如后来的一次发送被接受），B 包没有覆盖。
 - **B1、B2 的启动认领**：页面打开时会做一次恢复认领（队列为空时返回空），测试按完整的认领序列断言，不把它当成多余调用。
 - **测试文件类型检查**：B 包四个测试文件用 TypeScript API 单独检查，发现 G11 用了 `ChatMessageItem` 却没导入（vitest 不报），已补。已有的 `ChatPage.plan-lifecycle.test.ts` 有 11 条同类诊断（`window.agui` / `window.chatStore` 没有全局类型），不是本次引入；新的 `ChatPage.regression.test.ts` 用带类型的 `page` 引用避开。
+- **G1 的代价：渲染端不认识的运行，审批卡不再显示**（负责人已定“已携带但无法归属的 run 不回退当前会话”，这里记下它带来的结果）。例如渲染页重载后，主进程的运行还在、审批每 10 秒重播一次，页面已不知道这个运行属于哪个会话：卡片不再出现在任何会话，提醒窗口仍是普通的“流萤在等你的批准”，点开只到聊天窗口。用户可以停止或接管那次运行；审批随运行取消一起结算。负责人 2026-11-16 决定保留 G1，另开一个小 PR：提醒提供“查看审批”入口，由主进程按审批 id 核对请求仍待处理、原运行仍有效后显示所属会话、发起伙伴、工具和关键参数，再批准或拒绝；打开详情不撤卡，结算后才撤；原运行已结束显示“审批已失效”；归属无法核实时不提供批准。恢复整段流式界面不在这个 PR 里。
+- **G2 的失败结果没有错误码**：计划写“工具结果为明确的失败码”。dispatcher 拒绝权限时现有结果是 `{ outcome: "failure", category: "permission_denied", tool, message }`，没有 `errorCode` 字段；按“不新增错误码”保持原样，测试比较完整对象。缺运行 ID 只能在绕过正常入口时出现（`run-preparation.ts` 先拒绝空运行 ID），守卫是防御边界。
+- **G2 的测试文件**：计划写 `firefly-agent.test.ts`，实际新建 `firefly-agent-approval.test.ts`（需要真实权限宿主和独立的 electron 替身，放进已有文件会影响其余用例）。
+- **G 的非测试文件超出计划的 8 个**：实际 11 个（`interaction-owner.ts`、`ChatPage.tsx`、`tool-runtime.ts`、`firefly-agent.ts`、`toast-types.ts`、`window-shell.ts`、`toast-events.ts`、`permission.ts`、`toast-service.ts`、`toast.ts`、`toast.css`）。多出来的是提醒窗口作答需要的接口（preload 与共享类型）、来源说明需要的事件字段，以及按钮样式。另有两个测试清单随 preload 新方法更新（`preload-channel-mapping.test.ts`、`preload-exposure-surface.test.ts`）。
+- **提醒窗口页面不在任何类型检查配置里**：`tsconfig.renderer.json` 只包含 `src/renderer/react/**` 等目录，`src/renderer/toast/**` 不在其中；`global.d.ts` 里 `toast?: ToastRendererApi` 没有导入这个类型（`skipLibCheck` 下不报）。不是本次引入；本次把 `toast.ts`、`toast.test.ts` 用 TypeScript API 单独检查，0 条诊断，`toast.ts` 里的 `bridge` 也显式标了 `ToastRendererApi`。是否把这些页面加入类型检查，另行决定。
+- **两个已有测试文件的类型诊断（不是本次引入）**：用 TypeScript API 检查 G 包涉及的测试文件时，渲染端 0 条；主进程 4 条都在本次没改的行上：`permission.contract.test.ts` 开头的 `await vi.hoisted(...)`（顶层 await），`external-boundary.test.ts` 第 23 行的 `import.meta` 和第 219、222 行回调返回类型不符。本次只改了 `external-boundary.test.ts` 里 `permission.ts` 那一行哈希和注释。
 - **测试文件没有类型检查**：根 `tsconfig.json` 只有引用，`tsconfig.main` 与 `tsconfig.renderer` 都排除测试文件，vitest 也不做类型检查。是否加入 CI 由负责人另定，不在本计划内。
 - **QA 清单与计划的出入**（Gemini 核对时记录，计划未改）：计划“验收清单（全量）”漏了 H1–H5，`A10` 位置后移，`C5`、`F8` 文案与施工包正文不一致；H1–H5 未进文件清单、工作量估计与“验证命令 2”；H2–H4 的适用模式在清单里写作“待定”。

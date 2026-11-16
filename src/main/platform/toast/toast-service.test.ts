@@ -33,7 +33,7 @@ function notificationDesk(options: Partial<ToastServiceDeps> = {}) {
   };
 }
 
-const approval = { id: "permission-93", toolId: "file_editor", toolName: "Edit workspace file" };
+const approval = { id: "permission-93", toolId: "file_editor", toolName: "Edit workspace file", runId: "approval-run-93" };
 const review = { sessionId: "conversation-78", runId: "plan-run-54" };
 const question = { cardId: "question-64", runId: review.runId, revision: 1, intro: "Choose an output directory" };
 const job = { schedulerRunId: "scheduled-run-39", taskId: "job-83", taskTitle: "Workspace digest", status: "success", outputPreview: "Digest ready" };
@@ -244,5 +244,110 @@ describe("Toast sound policy", () => {
     const desk = notificationDesk({ isSoundEnabled: () => false });
     desk.events.publishApprovalPending(approval);
     expect(desk.sounds()).toEqual([false]);
+  });
+});
+
+describe("approvals without a run id (ChatPage G3)", () => {
+  it.each([
+    {
+      label: "missing runId with agentId",
+      event: {
+        id: "permission-unowned-agent",
+        toolId: "write_file",
+        toolName: "Write File",
+        agentId: "helper-agent",
+        childRunId: "child-1",
+      },
+      expectedSource: "子代理 helper-agent",
+    },
+    {
+      label: "empty runId without agentId",
+      event: {
+        id: "permission-unowned-tool",
+        toolId: "bash",
+        toolName: "Run Shell",
+        runId: "",
+      },
+      expectedSource: "工具 bash",
+    },
+  ])("pushes full approval payload when $label", ({ event, expectedSource }) => {
+    const desk = notificationDesk({ now: () => 12_345 });
+    desk.events.publishApprovalPending(event);
+
+    const pushCalls = desk.send.mock.calls.filter(([channel]) => channel === "toast:push");
+    expect(pushCalls).toHaveLength(1);
+    expect(pushCalls[0][1]).toStrictEqual({
+      id: "notice-131",
+      kind: "approval",
+      tier: "action-pending",
+      sourceId: event.id,
+      title: "有一项审批需要你在这里处理",
+      summary: `${event.toolName} · 来源：${expectedSource}`,
+      target: { type: "window", window: "chat" },
+      createdAt: 12_345,
+      sound: true,
+      approval: {
+        approvalId: event.id,
+        toolName: event.toolName,
+        source: expectedSource,
+      },
+    });
+  });
+
+  it("keeps standard payload without approval action when runId is present", () => {
+    const desk = notificationDesk({ now: () => 23_456 });
+    desk.events.publishApprovalPending(approval);
+
+    const pushCalls = desk.send.mock.calls.filter(([channel]) => channel === "toast:push");
+    expect(pushCalls).toHaveLength(1);
+    expect("approval" in (pushCalls[0][1] as Record<string, unknown>)).toBe(false);
+    expect(pushCalls[0][1]).toStrictEqual({
+      id: "notice-131",
+      kind: "approval",
+      tier: "action-pending",
+      sourceId: approval.id,
+      title: "流萤在等你的批准",
+      summary: approval.toolName,
+      target: { type: "window", window: "chat" },
+      createdAt: 23_456,
+      sound: true,
+    });
+  });
+
+  it("ignores body click and dismiss on unowned approval toasts and removes once on settlement", () => {
+    const desk = notificationDesk();
+    desk.events.publishApprovalPending({
+      id: "permission-unowned-stay",
+      toolId: "bash",
+      toolName: "Run Shell",
+    });
+
+    const active = desk.service.getActiveToasts();
+    expect(active).toHaveLength(1);
+    const toastId = active[0].id;
+    desk.send.mockClear();
+
+    desk.report("toast:clicked", toastId);
+    desk.report("toast:dismissed", toastId);
+
+    expect(desk.activate).not.toHaveBeenCalled();
+    expect(desk.send.mock.calls.filter(([channel]) => channel === "toast:remove")).toEqual([]);
+    expect(desk.service.getActiveToasts()).toEqual(active);
+    expect(desk.service.hasPendingSeen("approval", "permission-unowned-stay")).toBe(true);
+
+    // Replay while still pending remains deduplicated
+    desk.events.publishApprovalPending({
+      id: "permission-unowned-stay",
+      toolId: "bash",
+      toolName: "Run Shell",
+    });
+    expect(desk.send.mock.calls.filter(([channel]) => channel === "toast:push")).toEqual([]);
+
+    desk.events.publishApprovalSettled({ id: "permission-unowned-stay", reason: "answered" });
+    expect(desk.service.getActiveToasts()).toEqual([]);
+    expect(desk.service.hasPendingSeen("approval", "permission-unowned-stay")).toBe(false);
+    expect(desk.send.mock.calls.filter(([channel]) => channel === "toast:remove")).toEqual([
+      ["toast:remove", toastId],
+    ]);
   });
 });

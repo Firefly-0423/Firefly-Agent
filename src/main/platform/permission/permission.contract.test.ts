@@ -336,7 +336,12 @@ describe("approval origin passthrough", () => {
       expect(entry.payload).toMatchObject({ runId: "run-origin", toolCallId: "call-1", childRunId: "child-1", agentId: "agent-1" });
     }
     expect(env.toastPending).toHaveBeenCalledWith({
-      id: sent[0].payload.id, toolId: "write_file", toolName: "Write File", runId: "run-origin",
+      id: sent[0].payload.id,
+      toolId: "write_file",
+      toolName: "Write File",
+      runId: "run-origin",
+      agentId: "agent-1",
+      childRunId: "child-1",
     });
     answer(sent[0].payload.id, true);
     await done;
@@ -574,5 +579,57 @@ describe("level persistence and IPC", () => {
     if (content !== undefined) fs.writeFileSync(levelFile, content, "utf8");
     initPermissionFromDisk();
     expect(getCurrentLevel()).toBe("scoped");
+  });
+});
+
+describe("approvals without a run id (ChatPage G3)", () => {
+  it("forwards agentId and childRunId to publishApprovalPending only when provided", async () => {
+    const withOrigin = begin("run-with-origin", {
+      runId: undefined,
+      agentId: "worker-7",
+      childRunId: "child-8",
+    });
+    const withOriginId = requestsSeen()[0].payload.id as string;
+    expect(env.toastPending).toHaveBeenCalledTimes(1);
+    expect(env.toastPending.mock.calls[0][0]).toStrictEqual({
+      id: withOriginId,
+      toolId: "write_file",
+      toolName: "Write File",
+      runId: undefined,
+      agentId: "worker-7",
+      childRunId: "child-8",
+    });
+    answer(withOriginId, true);
+    await withOrigin.done;
+
+    env.toastPending.mockClear();
+    const withoutOrigin = begin("run-without-origin", { runId: undefined });
+    const withoutOriginId = requestsSeen()[1].payload.id as string;
+    expect(env.toastPending).toHaveBeenCalledTimes(1);
+    const plainPayload = env.toastPending.mock.calls[0][0] as Record<string, unknown>;
+    expect("agentId" in plainPayload).toBe(false);
+    expect("childRunId" in plainPayload).toBe(false);
+    expect(plainPayload).toStrictEqual({
+      id: withoutOriginId,
+      toolId: "write_file",
+      toolName: "Write File",
+      runId: undefined,
+    });
+    answer(withoutOriginId, false);
+    await withoutOrigin.done;
+  });
+
+  it("resolves an unowned approval once and rejects duplicate answers cleanly", async () => {
+    const { holder, done } = begin("run-unowned-dup", { runId: undefined, agentId: "worker-9" });
+    const id = idOf();
+
+    expect(answer(id, true)).toEqual({ ok: true });
+    expect(answer(id, false)).toEqual({ ok: false });
+    await done;
+
+    expect(holder.outcome).toEqual({ status: "resolved", value: true });
+    expect(settledSeen().map((s) => s.payload)).toEqual([{ id, runId: undefined, reason: "answered" }]);
+    expect(env.toastSettled).toHaveBeenCalledTimes(1);
+    expect(env.toastSettled).toHaveBeenCalledWith({ id, runId: undefined, reason: "answered" });
   });
 });
