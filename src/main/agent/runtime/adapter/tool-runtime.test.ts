@@ -4,12 +4,14 @@ const { getById, checkPermission, getCurrentLevel, createAgentExecutor, taskStor
   getById: vi.fn(),
   checkPermission: vi.fn(),
   getCurrentLevel: vi.fn(() => "scoped"),
-  createAgentExecutor: vi.fn(() => vi.fn()),
+  createAgentExecutor: vi.fn((_input: Parameters<typeof import("../persistent-agent-runtime").createAgentExecutor>[0]) => vi.fn()),
   taskStore: vi.fn(),
   toolOutputStore: vi.fn(),
 }));
 
-vi.mock("../../../tooling/registry/tool-registry", () => ({ toolRegistry: { getById } }));
+vi.mock("../../../tooling/registry/tool-registry", async original => ({
+  ...await original<typeof import("../../../tooling/registry/tool-registry")>(), toolRegistry: { getById },
+}));
 vi.mock("../../../platform/permission/permission", () => ({ checkPermission, getCurrentLevel }));
 vi.mock("../persistent-agent-runtime", () => ({ createAgentExecutor }));
 vi.mock("../../../model/config/model-settings", () => ({ loadModelSettings: () => ({ modelProfiles: [], agentModelProfiles: {} }) }));
@@ -21,13 +23,13 @@ vi.mock("electron", () => ({ app: { getPath: vi.fn(() => "E:\\synthetic-firefly-
 import { prepareToolRuntime } from "./tool-runtime";
 import { approvePlan, enterPlanDiscussing, markPlanWritten, moveToReview, resetPlanSessionsForTest } from "../../tools/plan-mode";
 
-function prepareRuntime(mode: "code" | "chat" | "work" = "code", permissionMode: "normal" | "allow_all" = "normal") {
+function prepareRuntime(mode: "code" | "chat" | "work" = "code", permissionMode: "normal" | "allow_all" = "normal", identity: { runId?: string } = { runId: "run-synthetic" }) {
   return prepareToolRuntime({
     options: { conversationId: "plan-runtime", conversationMode: mode, permissionMode,
       settings: { provider: "synthetic", baseUrl: "", model: "model", apiKey: "" },
       messages: [{ role: "user", content: "Inspect synthetic plan" }] } as never,
     signal: new AbortController().signal,
-    prepared: { threadId: "plan-runtime", runId: "run-synthetic", systemPrompt: "system",
+    prepared: { threadId: "plan-runtime", runId: identity.runId, systemPrompt: "system",
       vendorConfig: {}, tools: [], runStore: {} } as never,
     sendBaseEvent: vi.fn(),
   });
@@ -217,4 +219,54 @@ it("Main owner quiescence stops only its composite and external cancellation sti
   expect(external.signal.aborted).toBe(false);
   external.abort();
   expect(second.signal.aborted).toBe(true);
+});
+
+describe("approval requests carry the run id (ChatPage G2)", () => {
+  beforeEach(() => {
+    resetPlanSessionsForTest();
+    getCurrentLevel.mockReset().mockReturnValue("per-action");
+    checkPermission.mockReset().mockResolvedValue({ allowed: true });
+    getById.mockReset();
+  });
+
+  it.each(["", undefined])("rejects an approval with missing run id %s before any request or tool execution", async runId => {
+    const { dispatchToolCall } = await import("../../loop/tool-dispatcher");
+    const execute = vi.fn(async () => "written");
+    const tool = { id: "g2_write", name: "Write", description: "fixture", risk: "fs-write" as const,
+      enabled: true, inputSchema: { type: "object" as const, properties: {} }, execute };
+    getById.mockReturnValue(tool);
+    // 故意违反 prepared run 的契约（正常入口会先拒绝），只为验证这道防御边界。
+    const runtime = prepareRuntime("code", "normal", { runId });
+    const result = await dispatchToolCall({ id: "g2-call", name: tool.id, arguments: "{}" }, {
+      tools: [tool], state: { todoItems: [], uncertainEffects: [] },
+      toolContext: runtime.toolContext, checkPermission: runtime.checkPermission,
+    });
+    expect(result).toEqual({ outcome: "failure", category: "permission_denied", tool: "g2_write",
+      message: '工具 "g2_write" 被权限系统拒绝' });
+    expect(checkPermission).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { name: "allow_all", permissionMode: "allow_all", level: "per-action", plan: false, risk: "fs-write", allowed: true, checks: 0 },
+    { name: "plan read-only", permissionMode: "allow_all", level: "full", plan: true, risk: "fs-write", allowed: false, checks: 0 },
+    { name: "level deny", permissionMode: "normal", level: "read-only", plan: false, risk: "fs-write", allowed: false, checks: 0 },
+    { name: "policy allow", permissionMode: "normal", level: "full", plan: false, risk: "fs-write", allowed: true, checks: 1 },
+  ] as const)("preserves $name with an empty run id", async ({ permissionMode, level, plan, risk, allowed, checks }) => {
+    getCurrentLevel.mockReturnValue(level);
+    getById.mockReturnValue({ id: "g2_write", name: "Write", description: "fixture", risk });
+    if (plan) enterPlanDiscussing("plan-runtime");
+    const runtime = prepareRuntime("code", permissionMode, { runId: "" });
+    expect(await runtime.checkPermission("g2_write", {})).toBe(allowed);
+    expect(checkPermission).toHaveBeenCalledTimes(checks);
+  });
+
+  it("rejects a missing run id when the global level changes from allow to ask", async () => {
+    getCurrentLevel.mockReturnValue("full");
+    getById.mockReturnValue({ id: "g2_write", name: "Write", description: "fixture", risk: "fs-write" });
+    const runtime = prepareRuntime("code", "normal", { runId: "" });
+    getCurrentLevel.mockReturnValue("per-action");
+    expect(await runtime.checkPermission("g2_write", {})).toBe(false);
+    expect(checkPermission).not.toHaveBeenCalled();
+  });
 });
