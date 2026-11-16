@@ -67,8 +67,9 @@ function visibleUserText(content: string): string {
   return content.replace(/\[sticker:[^\]]+\]/gi, "").trim();
 }
 
+/** Fields only Main may set: the S projection and the run insertion marker. */
 function stripSProjection(message: ChatMessage): ChatMessage {
-  const { sSettlement: _projection, ...stored } = message;
+  const { sSettlement: _projection, runInsertion: _insertion, ...stored } = message;
   return stored;
 }
 
