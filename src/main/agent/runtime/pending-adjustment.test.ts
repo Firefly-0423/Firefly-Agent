@@ -37,7 +37,7 @@ describe("adjustment history and transcript commits", () => {
         const f = environment([item("alpha", "current-run", attachments), item("beta"), item("gamma")]);
         const pending = f.poll();
         expect(pending).toBeInstanceOf(Promise);
-        expect(await pending).toEqual(["alpha", "beta", "gamma"].map(id => ({ id, rawContent: `Instruction ${id}` })));
+        expect(await pending).toEqual({ delivered: ["alpha", "beta", "gamma"].map(id => ({ id, rawContent: `Instruction ${id}`, revision: 1 })) });
         expect(f.sequence).toEqual(["trace:alpha", "history:alpha", "trace:beta", "history:beta", "trace:gamma", "history:gamma"]);
         expect(f.appendUser.mock.calls[0][0]).toMatchObject({ turnId: "alpha", text: "Instruction alpha", attachments });
         expect(f.appendUser.mock.calls[1][0]).toMatchObject({ turnId: "beta", text: "Instruction beta" });
@@ -48,7 +48,7 @@ describe("adjustment history and transcript commits", () => {
     });
     it("consumes only marks belonging to the bound run", async () => {
         const f = environment([item("owned"), item("other", "other-run")]);
-        expect((await f.poll())!.map(entry => entry.id)).toEqual(["owned"]);
+        expect((await f.poll())!.delivered.map(entry => entry.id)).toEqual(["owned"]);
         expect(f.queue().map(entry => entry.id)).toEqual(["other"]);
         expect(f.appendUser.mock.calls.map(([input]) => input.turnId)).toEqual(["owned"]);
     });
@@ -67,7 +67,7 @@ describe("adjustment history and transcript commits", () => {
         expect(f.commitPendingAdjust).toHaveBeenCalledTimes(1);
         expect(f.queue().map(entry => entry.id)).toEqual(["retryable"]);
         f.failCommit(false);
-        expect((await f.poll())!.map(entry => entry.id)).toEqual(["retryable"]);
+        expect((await f.poll())!.delivered.map(entry => entry.id)).toEqual(["retryable"]);
         expect(f.commitPendingAdjust).toHaveBeenCalledTimes(2);
         expect(f.queue()).toEqual([]);
         expect(f.appendUser.mock.calls.map(([input]) => input.turnId)).toEqual(["retryable", "retryable"]);
@@ -75,7 +75,7 @@ describe("adjustment history and transcript commits", () => {
     it("supports legacy history-only polling and never injects a successful item twice", async () => {
         const f = environment([item("legacy")]);
         const poll = createRunAdjustmentPoller("chat-session", "current-run", f.store);
-        expect((await poll())!.map(entry => entry.id)).toEqual(["legacy"]);
+        expect((await poll())!.delivered.map(entry => entry.id)).toEqual(["legacy"]);
         expect(f.commitPendingAdjust.mock.calls).toEqual([["chat-session", "legacy", "current-run"]]);
         expect(f.queue()).toEqual([]);
         expect(f.appendUser).not.toHaveBeenCalled();
@@ -100,7 +100,7 @@ describe("Main-owned adjustment authority", () => {
             expect(() => commit()).toThrow(exactly("MEMORY_CONTEXT_ADJUSTMENT_DENIED"));
             return result;
         });
-        expect(await f.poll()).toEqual([{ id: "admitted", rawContent: "Instruction admitted" }]);
+        expect(await f.poll()).toEqual({ delivered: [{ id: "admitted", rawContent: "Instruction admitted", revision: 1 }] });
         expect(f.appendUser).not.toHaveBeenCalled();
         expect(f.queue()).toEqual([]);
         expect(() => requireRunAdjustmentPermit(ticket, binding)).toThrow(exactly("MEMORY_CONTEXT_ADJUSTMENT_DENIED"));
@@ -118,7 +118,7 @@ describe("Main-owned adjustment authority", () => {
         await expect(f.poll()).rejects.toThrow(/^PENDING_ADJUST_COMMIT_FAILED:/);
         expect(f.queue()).toHaveLength(1);
         f.failCommit(false);
-        expect(await f.poll()).toHaveLength(1);
+        expect((await f.poll())!.delivered).toHaveLength(1);
         expect(f.queue()).toEqual([]);
     });
     it("refuses content mutated after admission", async () => {
@@ -136,8 +136,8 @@ describe("Main-owned adjustment authority", () => {
         bindRunAdjustmentPoller(f.poll, binding, admit);
         const first = f.poll(), second = f.poll();
         release();
-        expect(await first).toHaveLength(1);
-        expect(await second).toEqual([]);
+        expect((await first)!.delivered).toHaveLength(1);
+        expect(await second).toEqual({ delivered: [] });
         expect(admit).toHaveBeenCalledTimes(1);
         expect(f.commitPendingAdjust).toHaveBeenCalledTimes(1);
     });

@@ -340,7 +340,7 @@ describe("pending edits and run adjustments", () => {
         expect(store.removePendingMessage(id, "alpha")).toMatchObject({ ok: false, error: "already-adjusting" });
         expect(store.getPendingMessages(id)![0].id).toEqual("alpha");
         release();
-        expect(ids(await processing)).toEqual(["alpha"]);
+        expect(ids((await processing)!.delivered)).toEqual(["alpha"]);
         expect(recorded).toEqual(["alpha"]);
         expect(ids(store.getPendingMessages(id))).toEqual(["beta"]);
     });

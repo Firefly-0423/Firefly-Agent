@@ -94,7 +94,16 @@ export type AgentLoopCheckpoint = {
   /** Every insertion delivered so far, saved in the same checkpoint as the messages that contain them. */
   insertions: RunInsertionReceipt[];
 };
-export type RunAdjustmentMessage = { rawContent: string; id: string };
+export type RunAdjustmentMessage = { rawContent: string; id: string; revision: number };
+/**
+ * One pull of inserted queue messages. `delivered` are fully committed (history and transcript)
+ * and may enter the context; `blocked` is the first item that could not be committed this time.
+ * Items after it are left for the next pull, so delivery stays in queue order.
+ */
+export type RunAdjustmentPoll = {
+  delivered: RunAdjustmentMessage[];
+  blocked?: { messageId: string; reason: string; retryable: boolean };
+};
 export type AgentLoopToolSpec = ToolSpec & { harnessBuiltin?: boolean };
 export type AgentLoopInput = {
   allowedBuiltinToolIds?: ReadonlySet<string>;
@@ -108,7 +117,7 @@ export type AgentLoopInput = {
   planState?: import("../tools/plan-mode").PlanStateName;
   includeInteractiveTools?: boolean;
   requestUserClarification?: (card: unknown) => Promise<unknown>;
-  pollRunAdjustments?: () => Promise<RunAdjustmentMessage[]> | undefined;
+  pollRunAdjustments?: () => Promise<RunAdjustmentPoll> | undefined;
   onCacheDiagnostic?: (diagnostic: AgentLoopCacheDiagnostic) => void;
   onCompactionLifecycle?: (event: AgentLoopCompactionLifecycleEvent) => void;
   onToolFinished?: (event: AgentLoopToolFinishedEvent) => void;

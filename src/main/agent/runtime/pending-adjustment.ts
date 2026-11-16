@@ -7,7 +7,7 @@
 // 已提交的条目也不会被二次注入（提交会把它移出队列，再次提交时按未找到处理）。
 
 import type { PendingChatAttachment, PendingChatMessage } from "../../../shared/chat-types";
-import type { RunAdjustmentMessage } from "../loop/types";
+import type { RunAdjustmentMessage, RunAdjustmentPoll } from "../loop/types";
 
 /** Opaque Main-only authority for one live, unchanged marked queue item. */
 declare const adjustmentPermitBrand: unique symbol;
@@ -67,12 +67,12 @@ export type TranscriptUserWritePort = {
  * 任一步写入失败会 reject，标记保留到下个边界再试，由 harness 失败关闭。
  * 未提供 transcript 端口（旧调用方未传 userTurnId）时只提交聊天历史，不写轨迹。
  */
-export function createRunAdjustmentPoller(sessionId: string, runId: string, store: PendingAdjustmentStore, transcript?: TranscriptUserWritePort): () => Promise<RunAdjustmentMessage[]> | undefined {
+export function createRunAdjustmentPoller(sessionId: string, runId: string, store: PendingAdjustmentStore, transcript?: TranscriptUserWritePort): () => Promise<RunAdjustmentPoll> | undefined {
   const state: PollerState = { sessionId, runId };
-  let active: Promise<RunAdjustmentMessage[]> | undefined;
+  let active: Promise<RunAdjustmentPoll> | undefined;
   const poller = () => {
     if (state.closed) return Promise.reject(new Error("MEMORY_CONTEXT_ADJUSTMENT_DENIED"));
-    if (active) return active.then(() => []);
+    if (active) return active.then(() => ({ delivered: [] }));
     // 队列为空或读取为 null 时，两种情况都视为"本 run 没有待插话"
     const marked = (store.getPendingMessages(sessionId) ?? []).filter((item) => item.adjustRunId === runId);
     if (!marked.length) return undefined;
@@ -101,7 +101,7 @@ export function createRunAdjustmentPoller(sessionId: string, runId: string, stor
               attempted = true; assertPending();
               const result = store.commitPendingAdjust(sessionId, item.id, runId);
               if (!result.ok) throw new Error(`PENDING_ADJUST_COMMIT_FAILED:${item.id}:${result.error}`);
-              committed = { id: result.userMessage.id, rawContent: item.rawContent };
+              committed = { id: result.userMessage.id, rawContent: item.rawContent, revision: 1 };
               return committed;
             });
             if (!committed) return denied();
@@ -124,9 +124,9 @@ export function createRunAdjustmentPoller(sessionId: string, runId: string, stor
           throw new Error(`PENDING_ADJUST_COMMIT_FAILED:${item.id}:${commit.error}`);
         }
         // 两步都成功后才把消息交给运行
-        injected.push({ id: commit.userMessage.id, rawContent: item.rawContent });
+        injected.push({ id: commit.userMessage.id, rawContent: item.rawContent, revision: 1 });
       }
-      return injected;
+      return { delivered: injected };
     })();
     active = operation;
     const settle = () => { active = undefined; for (const key of keys) inFlight.delete(key); };

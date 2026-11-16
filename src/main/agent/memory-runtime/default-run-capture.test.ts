@@ -203,7 +203,7 @@ it.each(["before-first-round", "between-rounds"])("transfers a genuine Main poll
   const f = await fixture(), a = adjustment(f);
   if (boundary === "between-rounds") { await f.response(); await f.sink.appendAssistant({ message: { role: "assistant", content: "first answer" }, roundId: "r1" }); }
   try {
-    await expect(a.poller()).resolves.toEqual([{ id: "adjust-user", rawContent: "another trusted question" }]);
+    await expect(a.poller()).resolves.toEqual({ delivered: [{ id: "adjust-user", rawContent: "another trusted question", revision: 1 }] });
     expect(a.queue).toHaveLength(0);
     const { sources } = await f.response();
     expect(sources.currentTranscript?.user).toEqual({ turnId: "adjust-user", revision: 1 });

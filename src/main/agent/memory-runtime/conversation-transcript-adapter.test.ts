@@ -314,7 +314,7 @@ async function adjustmentFixture(beforeMutation?:Parameters<typeof createConvers
 }
 it("transfers a complete run to a genuine marked adjustment without reviving its prior frame",async()=>{
  const f=await adjustmentFixture();
- expect(await f.poll()).toEqual([{id:"adjust-1",rawContent:"also include detail"}]);
+ expect(await f.poll()).toEqual({delivered:[{id:"adjust-1",rawContent:"also include detail",revision:1}]});
  expect(f.queue).toEqual([]);expect(f.commits).toBe(1);
  const current=await f.adapter.captureRunRound("run-a");
  expect(current.userTurnId).toBe("adjust-1");expect(current.userRevision).toBe(1);
@@ -330,7 +330,7 @@ it("retries only its exact partial canonical adjustment after a history commit f
  expect(f.queue).toHaveLength(1);
  expect((await f.store.read("session-a")).entries.filter(entry=>entry.turnId==="adjust-1")).toHaveLength(1);
  await expect(f.adapter.captureRunRound("run-a")).rejects.toThrow(exactly("MEMORY_CONTEXT_STREAM_RUN_REUSED"));
- f.failCommit(false);expect(await f.poll()).toHaveLength(1);
+ f.failCommit(false);expect((await f.poll())!.delivered).toHaveLength(1);
  expect((await f.store.read("session-a")).entries.filter(entry=>entry.turnId==="adjust-1")).toHaveLength(1);
  expect((await f.adapter.captureRunRound("run-a")).userTurnId).toBe("adjust-1");
  expect(f.queue).toEqual([]);expect(f.commits).toBe(2);

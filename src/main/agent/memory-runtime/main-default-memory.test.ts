@@ -346,7 +346,7 @@ it.each(['work','code'] as const)('admits a genuine %s adjustment with committed
  const f=await fixture(mode);await f.user('session-a','baseline question');f.memory.authorizeRun(f.event,'session-a');
  const a=await adjustment(f),input={...f.input(),pollRunAdjustments:a.poller},run=await f.memory.openRun(input);
  const sink=await completeToolRound(f,run,input);
- await expect(a.poller()).resolves.toEqual([{id:'adjust-user',rawContent:'I prefer fish'}]);
+ await expect(a.poller()).resolves.toEqual({delivered:[{id:'adjust-user',rawContent:'I prefer fish',revision:1}]});
  expect(a.queue).toHaveLength(0);
  await expect(run.call(f.call())).resolves.toMatchObject({text:'synthetic answer'});
  await sink.appendAssistant({roundId:'r2',message:{role:'assistant',content:'adjusted answer'}});
@@ -361,7 +361,7 @@ it.each(['false','throw'] as const)('retains the pending adjustment after histor
  await expect(a.poller()).rejects.toMatchObject({ message: failure==='false'?'PENDING_ADJUST_COMMIT_FAILED:adjust-user:write-failed':'synthetic-adjust-write-failure' });expect(a.queue).toHaveLength(1);
  expect(f.sessions.get('session-a').messages.some((message:any)=>message.id==='adjust-user')).toBe(false);
  expect((await f.store.read('session-a')).entries.filter(entry=>entry.kind==='user'&&entry.turnId==='adjust-user')).toHaveLength(1);
- a.recover();await expect(a.poller()).resolves.toEqual([{id:'adjust-user',rawContent:'I prefer fish'}]);
+ a.recover();await expect(a.poller()).resolves.toEqual({delivered:[{id:'adjust-user',rawContent:'I prefer fish',revision:1}]});
  await expect(run.call(f.call())).resolves.toMatchObject({text:'synthetic answer'});
  expect((await f.store.read('session-a')).entries.filter(entry=>entry.kind==='user'&&entry.turnId==='adjust-user')).toHaveLength(1);
 });
