@@ -39,7 +39,9 @@ import {
   ACCESS_LEVEL_LABEL,
   cancelPendingApprovalsForRun,
   checkPermission,
+  answerApproval,
   getCurrentLevel,
+  getPendingApproval,
   initPermissionFromDisk,
   registerPermissionIpc,
   requestApproval,
@@ -182,6 +184,36 @@ describe("requestApproval request and settlement", () => {
     expect(resolveHandler()({}, undefined)).toEqual({ ok: false });
     expect(resolveHandler()({}, null)).toEqual({ ok: false });
     expect(settledSeen()).toHaveLength(1);
+  });
+
+  it("looks up the original request by approval id only while it is still pending", async () => {
+    const { done } = begin("run-lookup", { agentId: "reviewer", childRunId: "child-1", toolCallId: "call-1" });
+    const id = idOf();
+    expect(getPendingApproval(id)).toEqual({
+      id, toolId: "write_file", toolName: "Write File", toolDescription: "writes a file", args: { path: "C:/tmp/x" },
+      risk: "fs-write", runId: "run-lookup", agentId: "reviewer", childRunId: "child-1", toolCallId: "call-1",
+    });
+    expect(getPendingApproval("approve-0-0")).toEqual(undefined);
+    expect(answer(id, true)).toEqual({ ok: true });
+    await done;
+    expect(getPendingApproval(id)).toEqual(undefined);
+    const cancelled = begin("run-lookup-cancel");
+    const cancelledId = idOf(1);
+    cancelPendingApprovalsForRun("run-lookup-cancel");
+    await cancelled.done;
+    expect(getPendingApproval(cancelledId)).toEqual(undefined);
+  });
+
+  it("answers a pending approval once through answerApproval, the same way as the chat channel", async () => {
+    const { holder, done } = begin("run-answer");
+    const id = idOf();
+    expect(answerApproval(id, false)).toEqual(true);
+    await done;
+    expect(holder.outcome).toEqual({ status: "resolved", value: false });
+    expect(answerApproval(id, true)).toEqual(false);
+    expect(answer(id, true)).toEqual({ ok: false });
+    expect(settledSeen().map(s => s.payload)).toEqual([{ id, runId: "run-answer", reason: "answered" }]);
+    expect(env.toastSettled).toHaveBeenCalledTimes(1);
   });
 
   it("refuses immediately, without any broadcast, when no window exists", async () => {
