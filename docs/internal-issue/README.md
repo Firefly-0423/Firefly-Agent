@@ -4,6 +4,7 @@
 
 | 日期 | 问题 | 当前状态 | 详细记录 |
 | --- | --- | --- | --- |
+| 2026-11-16 | 运行中插入的补充在部分写入失败时丢失，或会话记录半截条目被重放 | 修复已提 PR（#96；真机造障未测） | [queue-insert-lost-or-replayed](./queue-insert-lost-or-replayed.md) |
 | 2026-11-16 | 切换会话、刷新或关窗会取消正在进行的运行 | 待修复（负责人确认是缺陷，修复进行中） | [run-cancelled-on-switch-or-reload](./run-cancelled-on-switch-or-reload.md) |
 | 2026-11-16 | 渲染页重载后，仍在等待的审批没有可处理的卡片 | 修复已提 PR（#93） | [approval-lost-after-reload](./approval-lost-after-reload.md) |
 | 2026-11-16 | 接管超时后旧运行仍占着会话守卫，界面侧停止状态与提示待补 | 待修复（Main 守卫已由 PR #91 定型；界面提示另开 PR） | [takeover-timeout-retains-guard](./takeover-timeout-retains-guard.md) |
