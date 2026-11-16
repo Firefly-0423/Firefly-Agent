@@ -1,12 +1,14 @@
 // 插话拉取器：把已被标记到当前 run 的排队消息转成正式的用户消息，
-// 由 harness 在两个边界（每次模型请求前、最终结算前）按入队顺序取出。
+// 由 harness 在两个边界（每次模型请求前、最终结算前）按入队顺序取出（#96）。
 //
-// 写入约束：两处落库都成功后才算注入。先写权威轨迹（ID 固定，附件元数据随行），
-// 再提交聊天历史。任一步出错都会上抛，且标记保持不变（失败即关闭）。
-// 下一轮拉取时轨迹按 ID 幂等命中，只重做聊天历史这一步；未可靠落库的内容不会注入，
-// 已提交的条目也不会被二次注入（提交会把它移出队列，再次提交时按未找到处理）。
+// 写入顺序：先提交聊天历史（出队与进历史是同一次文件写入，并带上 runInsertion 标记），
+// 再写会话记录（turnId 固定，同 id 已存在时读回正文核对，不一致即冲突、不交付）。
+// 这样会话记录里不会出现聊天历史没有的半截条目。
+// 两处都成功才交付。某一条卡住时停在这里：已交付的前缀照常返回，卡住的那条以 blocked 报给
+// harness，后面的留到下一次拉取，保持入队顺序。聊天历史已提交、会话记录没写成的条目，
+// 下一次拉取凭 runInsertion 找回，补写会话记录后交付，不会因为已经出队而丢失。
 
-import type { PendingChatAttachment, PendingChatMessage } from "../../../shared/chat-types";
+import type { ChatMessage, PendingChatAttachment, PendingChatMessage } from "../../../shared/chat-types";
 import type { RunAdjustmentMessage, RunAdjustmentPoll } from "../loop/types";
 
 /** Opaque Main-only authority for one live, unchanged marked queue item. */
@@ -50,37 +52,69 @@ type PendingCommitOutcome =
 
 export type PendingAdjustmentStore = {
   getPendingMessages(sessionId: string): PendingChatMessage[] | null;
-  commitPendingAdjust(sessionId: string, messageId: string, runId: string): PendingCommitOutcome;
+  commitPendingAdjust(sessionId: string, messageId: string, runId: string, options?: { assistantTurnId?: string }): PendingCommitOutcome;
+  /** History messages already inserted into this run (runInsertion), in commit order. */
+  listRunInsertions(sessionId: string, runId: string): ChatMessage[];
 };
 
 type TranscriptUserEntry = { turnId: string; text: string; attachments?: PendingChatAttachment[] };
 
-/** 轨迹写入端口：以固定的 turnId 写 user 条目，附件元数据一并保存；同 ID 重复写入视为幂等。 */
+/**
+ * 轨迹写入端口：以固定的 turnId 写 user 条目，附件元数据一并保存。
+ * 同 ID 已存在时不覆盖，返回已存的正文，由拉取器核对是否就是这条消息。
+ */
 export type TranscriptUserWritePort = {
-  appendUser(input: TranscriptUserEntry): Promise<void>;
+  appendUser(input: TranscriptUserEntry): Promise<{ text: string }>;
 };
+
+type Blocked = NonNullable<RunAdjustmentPoll["blocked"]>;
+
+/** Writes (or finds) the transcript entry for a committed insertion; returns why it is blocked, if it is. */
+async function ensureTranscript(transcript: TranscriptUserWritePort | undefined, entry: TranscriptUserEntry): Promise<Omit<Blocked, "messageId"> | undefined> {
+  if (!transcript) return undefined;
+  let stored: { text: string };
+  try { stored = await transcript.appendUser(entry); }
+  catch { return { reason: "transcript-write-failed", retryable: true }; }
+  // The store keeps the first write for an id; a different text there is not this message.
+  if (stored?.text !== entry.text) return { reason: "transcript-conflict", retryable: false };
+  return undefined;
+}
 
 /**
  * 生成 run 级别的插话拉取函数。
  * 没有待处理插话时同步返回 undefined（不引入额外的 await 挂起点）；
- * 有插话时返回 Promise，解析为按入队顺序完成双写的消息列表。
- * 任一步写入失败会 reject，标记保留到下个边界再试，由 harness 失败关闭。
+ * 有插话时返回 Promise，解析为 { delivered, blocked? }：按入队顺序完成双写的消息，
+ * 以及第一条没能完成的条目（可否重试由原因决定）。
  * 未提供 transcript 端口（旧调用方未传 userTurnId）时只提交聊天历史，不写轨迹。
  */
-export function createRunAdjustmentPoller(sessionId: string, runId: string, store: PendingAdjustmentStore, transcript?: TranscriptUserWritePort): () => Promise<RunAdjustmentPoll> | undefined {
+export function createRunAdjustmentPoller(
+  sessionId: string, runId: string, store: PendingAdjustmentStore, transcript?: TranscriptUserWritePort,
+  options: { assistantTurnId?: string } = {},
+): () => Promise<RunAdjustmentPoll> | undefined {
   const state: PollerState = { sessionId, runId };
   let active: Promise<RunAdjustmentPoll> | undefined;
+  /** Insertions this poller has handed to the run; the loop's receipts also guard against repeats. */
+  const handed = new Set<string>();
   const poller = () => {
     if (state.closed) return Promise.reject(new Error("MEMORY_CONTEXT_ADJUSTMENT_DENIED"));
     if (active) return active.then(() => ({ delivered: [] }));
+    // Committed to history earlier but not yet handed over (its transcript write failed): finish those first.
+    const committed = state.handler ? [] : store.listRunInsertions(sessionId, runId).filter((message) => !handed.has(message.id));
     // 队列为空或读取为 null 时，两种情况都视为"本 run 没有待插话"
     const marked = (store.getPendingMessages(sessionId) ?? []).filter((item) => item.adjustRunId === runId);
-    if (!marked.length) return undefined;
+    if (!marked.length && !committed.length) return undefined;
     // Taken synchronously, before the first await, so a removal request handled meanwhile sees it.
     const keys = marked.map((item) => flightKey(sessionId, item.id));
     for (const key of keys) inFlight.add(key);
-    const operation = (async () => {
+    const operation = (async (): Promise<RunAdjustmentPoll> => {
       const injected: RunAdjustmentMessage[] = [];
+      const block = (messageId: string, why: Omit<Blocked, "messageId">): RunAdjustmentPoll => ({ delivered: injected, blocked: { messageId, ...why } });
+      for (const message of committed) {
+        const why = await ensureTranscript(transcript, { turnId: message.id, text: message.content });
+        if (why) return block(message.id, why);
+        injected.push({ id: message.id, rawContent: message.content, revision: message.runInsertion?.revision ?? 1 });
+        handed.add(message.id);
+      }
       for (const pending of marked) {
         const item = structuredClone(pending);
         if (state.handler) {
@@ -99,32 +133,27 @@ export function createRunAdjustmentPoller(sessionId: string, runId: string, stor
             await handler(permit, () => {
               if (attempted || state.handler !== handler) return denied();
               attempted = true; assertPending();
-              const result = store.commitPendingAdjust(sessionId, item.id, runId);
+              const result = store.commitPendingAdjust(sessionId, item.id, runId, options);
               if (!result.ok) throw new Error(`PENDING_ADJUST_COMMIT_FAILED:${item.id}:${result.error}`);
               committed = { id: result.userMessage.id, rawContent: item.rawContent, revision: 1 };
               return committed;
             });
             if (!committed) return denied();
             injected.push(committed);
+            handed.add(committed.id);
           } finally { permits.delete(permit); }
           continue;
         }
-        // 第一步：轨迹。失败直接上抛，聊天历史不动、标记仍在；没有端口时跳过。
-        if (transcript) {
-          const attachments = item.attachments?.length ? item.attachments : undefined;
-          await transcript.appendUser({
-            turnId: item.id,
-            text: item.rawContent,
-            ...(attachments ? { attachments } : {}),
-          });
-        }
-        // 第二步：聊天历史。失败同样上抛；下一轮轨迹会幂等命中，只重做这一步。
-        const commit = store.commitPendingAdjust(sessionId, item.id, runId);
-        if (!commit.ok) {
-          throw new Error(`PENDING_ADJUST_COMMIT_FAILED:${item.id}:${commit.error}`);
-        }
+        // 第一步：聊天历史（出队 + 进历史 + runInsertion，同一次写入）。失败时队列与标记不变。
+        const commit = store.commitPendingAdjust(sessionId, item.id, runId, options);
+        if (!commit.ok) return block(item.id, { reason: commit.error, retryable: commit.error === "write-failed" });
+        // 第二步：会话记录。失败时这条已在聊天历史里，下一次拉取凭 runInsertion 找回补写。
+        const attachments = item.attachments?.length ? item.attachments : undefined;
+        const why = await ensureTranscript(transcript, { turnId: item.id, text: item.rawContent, ...(attachments ? { attachments } : {}) });
+        if (why) return block(item.id, why);
         // 两步都成功后才把消息交给运行
         injected.push({ id: commit.userMessage.id, rawContent: item.rawContent, revision: 1 });
+        handed.add(item.id);
       }
       return { delivered: injected };
     })();
