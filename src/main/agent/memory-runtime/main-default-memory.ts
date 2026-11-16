@@ -178,6 +178,7 @@ export function createMainDefaultMemory(options: MainDefaultMemoryOptions) {
   const channelKey = (sessionId: string, runId: string) => canonicalJson([sessionId, runId]);
   const models = createProductionModelRegistry({ settings: options.settings });
   const admissions = new Map<string, { grant: object; users: number; revision: number; controller: AbortController; signal: AbortSignal }>();
+  const runHandles = new WeakMap<object, NonNullable<ReturnType<typeof admissions.get>>>();
   let revision = 0, closing = false, closePromise: Promise<void> | undefined;
   type SessionRecord = { actor: object; access: object; entry: "desktop" | "channel" | "scheduler" | "proactive" | "child"; native: ReturnType<typeof createNativeHistoryProvider>; eventEpochs: Map<string, number>; releaseObserver?: () => void; active: boolean };
   const records = new Map<string, SessionRecord>();
@@ -225,6 +226,7 @@ export function createMainDefaultMemory(options: MainDefaultMemoryOptions) {
   }
   function revokeAdmission(id: string) {
     const admission = admissions.get(id); admissions.delete(id);
+    if (admission) authority.releaseRun(admission.grant);
     admission?.controller.abort(Error("MEMORY_RUN_REVOKED"));
   }
   const releaseDeleted = options.targets.onSessionDeleted(id => { deletedSessions.add(id); revokeAdmission(id); attachments.revokeSession(id); forgetAttachmentProofs(id); sessionModes.remove(id); temporaryRecords.delete(id); shadow?.cancelSession(id, "source-changed"); });
@@ -905,10 +907,18 @@ export function createMainDefaultMemory(options: MainDefaultMemoryOptions) {
     supportsTemporarySessions: true as const,
     /** 默认 S/M/H 接管全部会话，旧历史向量索引不再写入；受控模式只管辖部分会话，没有此标记。 */
     retiresLegacyHistoryIndex: true as const,
-    prepareAttachmentGrant(event: Event, id: string, input: { userTurnId: string }): Promise<MainAttachmentGrant | undefined> {
+    prepareAttachmentGrant(event: Event, id: string, input: { userTurnId: string; authorization?: object }): Promise<MainAttachmentGrant | undefined> {
       return serialized(async () => {
-        const grant = bind(event, id), admission = requireAdmission(id);
-        if (grant !== admission.grant) return fail("MEMORY_ATTACHMENT_DENIED");
+        // The bridge carries its exact Main-only handle after admission. Calls without
+        // that handle remain page operations, including their post-await check.
+        const page = input.authorization === undefined ? bind(event, id) : undefined;
+        if (input.authorization !== undefined && (!runHandles.has(input.authorization) || runHandles.get(input.authorization) !== admissions.get(id))) return fail("MEMORY_ATTACHMENT_DENIED");
+        const admission = requireAdmission(id), grant = admission.grant;
+        const checkIssuer = () => {
+          if (page) authority.require(page, id);
+          else if (!input.authorization || runHandles.get(input.authorization) !== admission) return fail("MEMORY_ATTACHMENT_DENIED");
+        };
+        checkIssuer();
         const userTurnId = parseInternalId(input.userTurnId);
         const matches = options.getSession(id)?.messages.filter(message => message.id === userTurnId);
         if (matches?.length !== 1 || matches[0].role !== "user" || typeof matches[0].content !== "string" || matches[0].modelContext) return fail("MEMORY_ATTACHMENT_DENIED");
@@ -939,7 +949,7 @@ export function createMainDefaultMemory(options: MainDefaultMemoryOptions) {
           if (!current || current.role !== "user" || current.modelContext || current.content !== userText || !current.attachments?.length
             || canonicalJson(copyResponseJson(current.attachments, true)) !== storedFingerprint) return fail("MEMORY_ATTACHMENT_DENIED");
         };
-        assertCurrent();
+        assertCurrent(); checkIssuer();
         return attachments.issue({ sessionId: id, userTurnId, userRevision: canonical.revision!, userText, attachments: selected, assertCurrent, signal: admission.signal });
       });
     },
@@ -956,16 +966,17 @@ export function createMainDefaultMemory(options: MainDefaultMemoryOptions) {
     },
     getHistoryCoverage(id: string): DefaultMemoryHistoryCoverage { return coverage.get(id) ?? Object.freeze({ status: "not-checked", selected: 0, covered: 0, diagnostics: Object.freeze([]) }); },
     authorizeRun(event: Event, id: string) {
-      const grant = bind(event, id), binding = authority.require(grant, id);
+      const page = bind(event, id);
       let admission = admissions.get(id);
       if (admission?.signal.aborted) { revokeAdmission(id); admission = undefined; }
-      if (admission && admission.grant !== grant) return fail();
       if (!admission) {
+        const grant = authority.retainRun(page, id), binding = authority.require(grant, id);
         const controller = new AbortController();
         admission = { grant, users: 0, revision: ++revision, controller, signal: AbortSignal.any([binding.signal, controller.signal]) }; admissions.set(id, admission);
       }
       const state = admission; state.users++; let released = false;
-      return Object.freeze({ signal: state.signal, release() { if (released) return; released = true; if (--state.users === 0 && admissions.get(id) === state) revokeAdmission(id); } });
+      const handle = Object.freeze({ signal: state.signal, release() { if (released) return; released = true; runHandles.delete(handle); if (--state.users === 0 && admissions.get(id) === state) revokeAdmission(id); } });
+      runHandles.set(handle, state); return handle;
     },
     afterTranscript(id: string, input: { userTurnId?: string; transcriptRewind?: { disposition: string } }) {
       if (input.transcriptRewind?.disposition === "replace_user") shadow?.cancelSession(id, "source-changed");

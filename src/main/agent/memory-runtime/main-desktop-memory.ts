@@ -85,7 +85,13 @@ export function createMainDesktopMemory(options:Options){
  return Object.freeze({
   refresh:authority.refresh,ownsSession:owned,
   quiesce(){closing=true;authority.dispose();runs.clear()},
-  authorizeRun(event:Event,id:string){if(!owned(id))return undefined;const grant=bind(event,id),binding=authority.require(grant,id),current=runs.get(id);if(current&&current.grant!==grant)fail();const state=current??{grant,users:0};state.users++;runs.set(id,state);let released=false;return Object.freeze({signal:binding.signal,release(){if(released)return;released=true;if(--state.users===0&&runs.get(id)===state)runs.delete(id)}})},
+  authorizeRun(event:Event,id:string){
+   if(!owned(id))return undefined;const page=bind(event,id);let state=runs.get(id);
+   if(state&&authority.require(state.grant,id).signal.aborted)fail();
+   if(!state){state={grant:authority.retainRun(page,id),users:0};runs.set(id,state)}
+   const current=state,binding=authority.require(current.grant,id);current.users++;let released=false;
+   return Object.freeze({signal:binding.signal,release(){if(released)return;released=true;if(--current.users===0&&runs.get(id)===current){runs.delete(id);authority.releaseRun(current.grant)}}});
+  },
   async afterTranscript(id:string,input:{userTurnId?:string;transcriptRewind?:{disposition:string}}){
    if(!owned(id))return;const grant=requireRun(id);if(input.transcriptRewind?.disposition==='replace_user'&&input.userTurnId){await source.commitUserEdit(grant,id,input.userTurnId);const core=await resources();await core.registry.capture(core.access,source.token,{providerId:PROVIDER,sessionId:id,messageId:input.userTurnId})}
   },

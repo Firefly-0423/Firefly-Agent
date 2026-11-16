@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { EventEmitter } from "node:events";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 // Real SQLite / filesystem integration cases: the 5 s default is too tight on CI runners, so this file allows 30 s. Other files keep the default.
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 import { AgentRunStore } from "../loop/run-store";
@@ -166,9 +166,9 @@ it("uses an existing saved default when legacy settings omit the default ID, wit
   const run = await f.memory.openRun(f.input()); expect(JSON.stringify(f.settings)).toBe(before); await run.close();
 });
 
-it("navigation and admission release revoke runs without accepting a replacement plain signal", async () => {
+it("admission release revokes runs without accepting a replacement plain signal", async () => {
   const f = await fixture(); await f.user(); const admission = f.memory.authorizeRun(f.event, "session-a");
-  const run = await f.memory.openRun(f.input()); f.targets.clearActive(f.sender as any); f.memory.refresh();
+  const run = await f.memory.openRun(f.input()); admission.release();
   expect(admission.signal.aborted).toBe(true);
   await expect(run.call(f.call())).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED"));
   await expect(f.memory.openRun({ ...f.input(), signal: new AbortController().signal })).rejects.toThrow(exactly("MEMORY_DESKTOP_SESSION_DENIED"));
@@ -1413,4 +1413,66 @@ it("a session that cannot be read never fails the settings list; the project fac
   const state = await f.memory.settingsHost.getState(f.settingsEvent);
   const fact = state.facts.find((item: any) => item.assertion.includes("bash")) as any;
   expect(fact).toMatchObject({ scope: "project" }); expect(fact.projectName).toBeUndefined();
+});
+
+
+describe("run lifetime is independent of the visible page",()=>{
+ it('a newly selected page needs fresh admission and only the final release ends the run',async()=>{
+  const f=await fixture(),first=f.memory.authorizeRun(f.event,'session-a')!;
+  f.sender.emit('did-start-navigation',{},'synthetic://next',false,true);
+  expect(()=>f.memory.authorizeRun(f.event,'session-a')).toThrow('MEMORY_DESKTOP_SESSION_DENIED');
+  f.targets.setActive({sender:f.sender as any,sessionId:'session-a',mode:'chat',rendererTargetId:'replacement'});
+  const second=f.memory.authorizeRun(f.event,'session-a')!;expect(second.signal).toBe(first.signal);
+  first.release();first.release();expect(second.signal.aborted).toBe(false);
+  second.release();expect(second.signal.aborted).toBe(true);await f.memory.close();
+ });
+ it('accepted run issues its attachment after navigation using only its Main authorization',async()=>{
+  const f=await fixture();await attachmentUser(f);const authorization=f.memory.authorizeRun(f.event,'session-a');
+  f.sender.emit('did-start-navigation',{},'synthetic://next',false,true);
+  const input={userTurnId:'attachment-user',authorization};
+  const grant=await f.memory.prepareAttachmentGrant(f.event,'session-a',input);
+  const {readMainAttachmentGrant}=await import('../../memory/context/main-attachment-projection');
+  expect(readMainAttachmentGrant(grant!).sessionId).toBe('session-a');
+  await expect(f.memory.prepareAttachmentGrant(f.event,'session-a',{...input,authorization:{...authorization}})).rejects.toThrow('MEMORY_ATTACHMENT_DENIED');
+  authorization.release();await expect(f.memory.prepareAttachmentGrant(f.event,'session-a',input)).rejects.toThrow('MEMORY_ATTACHMENT_DENIED');expect(f.sent).toEqual([]);
+ });
+ it.each(['switch','navigation','destroyed'] as const)('%s preserves an issued attachment capability but denies new page issuance',async kind=>{
+  const f=await fixture();await attachmentUser(f);const admission=f.memory.authorizeRun(f.event,'session-a');
+  const grant=await f.memory.prepareAttachmentGrant(f.event,'session-a',{userTurnId:'attachment-user'});
+  if(kind==='switch'){f.sessions.set('session-b',{id:'session-b',mode:'chat',messages:[],modelProfileId:'luna'});f.select('session-b');f.memory.refresh()}
+  if(kind==='navigation')f.sender.emit('did-start-navigation',{},'synthetic://next',false,true);
+  if(kind==='destroyed')f.sender.emit('destroyed');
+  const {prepareMainAttachmentProjection}=await import('../../memory/context/main-attachment-projection');
+  const read=vi.fn(async()=>[{type:'text' as const,text:'authorized file content'}]);
+  await prepareMainAttachmentProjection(grant!,read);expect(read).toHaveBeenCalledTimes(1);
+  await expect(f.memory.prepareAttachmentGrant(f.event,'session-a',{userTurnId:'attachment-user'})).rejects.toThrow('MEMORY_DESKTOP_SESSION_DENIED');
+  admission.release();await expect(prepareMainAttachmentProjection(grant!,read)).rejects.toThrow(exactly('MEMORY_CONTEXT_CANCELLED'));expect(read).toHaveBeenCalledTimes(1);
+ });
+ it.each(['switch','navigation','destroyed'] as const)('%s preserves authorization and rejects page writes to the old session',async kind=>{
+  const f=await fixture();
+  await f.user();
+  const admission=f.memory.authorizeRun(f.event,'session-a')!;
+  if(kind==='switch'){f.sessions.set('session-b',{id:'session-b',mode:'chat',messages:[],modelProfileId:'luna'});f.targets.setActive({sender:f.sender as any,sessionId:'session-b',mode:'chat',rendererTargetId:'new-page'});f.memory.refresh()}
+  if(kind==='navigation')f.sender.emit('did-start-navigation',{},'synthetic://next',false,true);
+  if(kind==='destroyed')f.sender.emit('destroyed');
+  expect(admission.signal.aborted).toBe(false);
+  const write=vi.fn();
+  await expect(f.memory.appendUser(f.event,'session-a',{id:'forbidden',role:'user',content:'must not commit',at:1},write)).rejects.toThrow('MEMORY_DESKTOP_SESSION_DENIED');
+  expect(write).not.toHaveBeenCalled();
+  expect(()=>f.memory.authorizeRun(f.event,'session-a')).toThrow('MEMORY_DESKTOP_SESSION_DENIED');
+  const run=await f.memory.openRun(f.input());
+  await expect(run.call(f.call())).resolves.toMatchObject({text:'synthetic answer'});
+  expect(f.sent).toHaveLength(1);await run.close();
+  admission.release();admission.release();expect(admission.signal.aborted).toBe(true);
+  await expect(f.memory.openRun(f.input())).rejects.toThrow('MEMORY_DESKTOP_SESSION_DENIED');expect(f.sent).toHaveLength(1);
+  await f.memory.close();
+ });
+ it.each(['delete','quiesce','close'] as const)('%s aborts authorization after the page has gone',async kind=>{
+  const f=await fixture(),admission=f.memory.authorizeRun(f.event,'session-a')!;
+  f.sender.emit('did-start-navigation',{},'synthetic://next',false,true);expect(admission.signal.aborted).toBe(false);
+  if(kind==='delete')f.targets.notifySessionDeleted('session-a');
+  if(kind==='quiesce')f.memory.quiesce();
+  if(kind==='close')await f.memory.close();
+  expect(admission.signal.aborted).toBe(true);admission.release();await f.memory.close();
+ });
 });
