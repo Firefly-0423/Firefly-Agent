@@ -333,7 +333,7 @@ async function adjustment(f: Awaited<ReturnType<typeof fixture>>, options: { ses
    if(!item||id!==sessionId)return {ok:false,error:'not-found'};
    const messages=f.sessions.get(id).messages;
    // 'finish' leaves history committed but unreadable as a user event, so the source receipt cannot be minted.
-   messages.push({id:messageId,role:'user',content:item.rawContent,...(failure==='finish'?{modelContext:true}:{}),runInsertion:{version:1,runId:currentRun,revision:1,sequence:messages.length+1}});queue.splice(queue.indexOf(item),1);
+   messages.push({id:messageId,role:'user',content:item.rawContent,at:1001,...(failure==='finish'?{modelContext:true}:{}),runInsertion:{version:1,runId:currentRun,revision:1,sequence:messages.length+1}});queue.splice(queue.indexOf(item),1);
    return {ok:true,userMessage:{id:messageId},remainingQueue:structuredClone(queue)};
   },
   listRunInsertions:(id,currentRun)=>id===sessionId?f.sessions.get(id).messages.filter((message:any)=>message.runInsertion?.runId===currentRun):[],
@@ -424,6 +424,39 @@ it('resumes after a transcript storage failure without preparing the user source
   const observation=f.commands.filter(command=>command.kind==='finish').map(command=>command.body.observation).find(observation=>observation.messageId==='adjust-user');
   expect(observation).toMatchObject({role:'user',trust:'direct-user-event',contentRevision:1});
  }finally{faults.restore()}
+});
+it('reconciles an insertion whose transcript write never landed into the next run, once and before that run\'s own user turn',async()=>{
+ const {prepareTranscriptDispatch}=await import('../../conversation/transcript/conversation-transcript-coordinator');
+ const f=await fixture('work'),session=f.sessions.get('session-a');
+ const addUser=async(id:string,content:string,at:number)=>{const message={id,role:'user' as const,content,at};await f.memory.appendUser(f.event,'session-a',message,()=>{session.messages.push(message)})};
+ await addUser('u1','baseline question',1000);
+ await prepareTranscriptDispatch({store:f.store,session,userTurnId:'u1',runId:'run-a'});
+ const admission=f.memory.authorizeRun(f.event,'session-a')!;
+ const a=await adjustment(f),input={...f.input(),pollRunAdjustments:a.poller},run=await f.memory.openRun(input);await completeToolRound(f,run,input);
+ const faults=transcriptFaults();
+ try{
+  faults.plan.mkdirFail=1;
+  await expect(a.poller()).resolves.toEqual(adjustBlocked('transcript-write-failed',true));
+ }finally{faults.restore()}
+ // The run ends here: history holds the insertion, the transcript does not.
+ expect(a.history()).toHaveLength(1);expect(await adjustUserEntries(f)).toEqual([]);
+ await run.close();admission.release();
+ await addUser('u2','next question',2000);
+ await prepareTranscriptDispatch({store:f.store,session,userTurnId:'u2',runId:'run-b'});
+ f.memory.authorizeRun(f.event,'session-a');
+ const nextInput=f.input('session-a','run-b'),next=await f.memory.openRun(nextInput);
+ await expect(next.call(f.call())).resolves.toMatchObject({text:'synthetic answer'});
+ const request=f.sent[1];
+ expect(f.sent).toHaveLength(2);
+ expect(request.split('I prefer fish')).toHaveLength(2);
+ expect(request.indexOf('I prefer fish')).toBeLessThan(request.indexOf('next question'));
+ const users=(await f.store.read('session-a')).entries.filter(entry=>entry.kind==='user').map(entry=>({id:entry.id,turnId:entry.turnId,text:(entry as any).payload.text}));
+ expect(users).toEqual([
+  {id:'user:v1:u1:r1',turnId:'u1',text:'baseline question'},
+  {id:'user:v1:adjust-user:r1',turnId:'adjust-user',text:'I prefer fish'},
+  {id:'user:v1:u2:r1',turnId:'u2',text:'next question'},
+ ]);
+ await next.close();
 });
 it('denies recovery as non-retryable when the source receipt was never finished, writing no transcript user and delivering nothing',async()=>{
  const f=await fixture('work');await f.user('session-a','baseline question');f.memory.authorizeRun(f.event,'session-a');
