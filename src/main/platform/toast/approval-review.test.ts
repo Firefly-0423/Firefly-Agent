@@ -37,7 +37,7 @@ describe("toast approval review", () => {
       detail: { state: "unverified", approvalId: "approve-1", toolName: "Write file", toolId: "write_file", args: [{ key: "path", value: "notes.md" }] },
     },
     {
-      name: "an approval without a run id is answered in the toast (G3)",
+      name: "an approval without a run id is shown as runless (display only)",
       options: { pending: request({ runId: undefined }) },
       detail: { state: "runless", approvalId: "approve-1", toolName: "Write file", toolId: "write_file", args: [{ key: "path", value: "notes.md" }] },
     },
@@ -62,7 +62,8 @@ describe("toast approval review", () => {
 
   it.each([
     { name: "pending", options: { pending: request(), owner: "session-a" }, ok: true, settled: [["approve-1", false]] },
-    { name: "runless", options: { pending: request({ runId: "" }) }, ok: true, settled: [["approve-1", false]] },
+    // Main cannot confirm a run-less approval came from a standalone approval entry, so it is shown but never answered here.
+    { name: "runless", options: { pending: request({ runId: "" }) }, ok: false, settled: [] },
     { name: "unverified", options: { pending: request(), owner: undefined }, ok: false, settled: [] },
     { name: "expired", options: { pending: undefined }, ok: false, settled: [] },
   ])("answers a $name approval only when it can be verified", ({ options, ok, settled }) => {

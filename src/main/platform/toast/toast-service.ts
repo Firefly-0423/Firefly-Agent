@@ -127,7 +127,6 @@ export function createToastService(deps: ToastServiceDeps) {
   function buildItem(
     fields: Pick<ToastItem, "kind" | "tier" | "sourceId" | "title" | "target"> & {
       summary?: string;
-      approval?: ToastItem["approval"];
       review?: ToastItem["review"];
     },
   ): ToastItem {
@@ -153,15 +152,16 @@ export function createToastService(deps: ToastServiceDeps) {
       return;
     }
     const source = event.agentId ? `子代理 ${event.agentId}` : `工具 ${event.toolId}`;
+    // 没有运行 ID：不属于任何会话，聊天页不显示。提醒只给“查看审批”，主进程核实后只显示、不放行。
     raiseActionItem(
       buildItem({
         kind: "approval",
         tier: "action-pending",
         sourceId: event.id,
-        title: "有一项审批需要你在这里处理",
+        title: "有一项审批无法确认来源",
         summary: `${event.toolName} · 来源：${source}`,
         target: chatWindowTarget(),
-        approval: { approvalId: event.id, toolName: event.toolName, source },
+        review: { approvalId: event.id },
       }),
     );
   };
@@ -269,7 +269,7 @@ export function createToastService(deps: ToastServiceDeps) {
 
   function onClicked(id: string): void {
     const item = visible.get(id);
-    if (!item || item.approval) return;
+    if (!item) return;
     routeTo(item.target);
     if (!awaitsApproval(item)) dismiss(id);
   }

@@ -276,7 +276,7 @@ describe("approvals without a run id (ChatPage G3)", () => {
       },
       expectedSource: "工具 bash",
     },
-  ])("pushes full approval payload when $label", ({ event, expectedSource }) => {
+  ])("pushes a review-only reminder for an approval with $label", ({ event, expectedSource }) => {
     const desk = notificationDesk({ now: () => 12_345 });
     desk.events.publishApprovalPending(event);
 
@@ -287,16 +287,12 @@ describe("approvals without a run id (ChatPage G3)", () => {
       kind: "approval",
       tier: "action-pending",
       sourceId: event.id,
-      title: "有一项审批需要你在这里处理",
+      title: "有一项审批无法确认来源",
       summary: `${event.toolName} · 来源：${expectedSource}`,
       target: { type: "window", window: "chat" },
       createdAt: 12_345,
       sound: true,
-      approval: {
-        approvalId: event.id,
-        toolName: event.toolName,
-        source: expectedSource,
-      },
+      review: { approvalId: event.id },
     });
   });
 
@@ -343,7 +339,7 @@ describe("approvals without a run id (ChatPage G3)", () => {
     expect(desk.invoke("toast:approval-answer", { id: "permission-93", allowed: true })).toEqual({ ok: false });
   });
 
-  it("ignores body click and dismiss on unowned approval toasts and removes once on settlement", () => {
+  it("opens chat on a body click but keeps an unowned approval reminder until it settles, and removes it once", () => {
     const desk = notificationDesk();
     desk.events.publishApprovalPending({
       id: "permission-unowned-stay",
@@ -359,7 +355,7 @@ describe("approvals without a run id (ChatPage G3)", () => {
     desk.report("toast:clicked", toastId);
     desk.report("toast:dismissed", toastId);
 
-    expect(desk.activate).not.toHaveBeenCalled();
+    expect(desk.activate).toHaveBeenCalledExactlyOnceWith({ kind: "chat" });
     expect(desk.send.mock.calls.filter(([channel]) => channel === "toast:remove")).toEqual([]);
     expect(desk.service.getActiveToasts()).toEqual(active);
     expect(desk.service.hasPendingSeen("approval", "permission-unowned-stay")).toBe(true);

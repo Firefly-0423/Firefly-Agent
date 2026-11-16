@@ -22,7 +22,7 @@ const registry = new Map<string, CardEntry>();
 const attentionAudio = new Audio(actionSoundUrl);
 const notificationAudio = new Audio(notifySoundUrl);
 function isApprovalReminder(item: ToastItem): boolean {
-  return item.kind === "approval" || Boolean(item.approval || item.review);
+  return item.kind === "approval" || Boolean(item.review);
 }
 function playSound(tier: ToastTier): void {
   const selected = tier === "action-pending" ? attentionAudio : notificationAudio;
@@ -34,26 +34,24 @@ function setApprovalButtonsDisabled(el: HTMLElement, disabled: boolean): void {
     button.disabled = disabled;
   });
 }
-async function submitApprovalAction(entry: CardEntry, mode: "direct" | "review", allowed: boolean): Promise<void> {
+async function submitApprovalAction(entry: CardEntry, allowed: boolean): Promise<void> {
   if (entry.approvalLocked) return;
-  const approvalId = mode === "review" ? entry.item.review?.approvalId : entry.item.approval?.approvalId;
+  const approvalId = entry.item.review?.approvalId;
   if (!approvalId) return;
   entry.approvalLocked = true;
   setApprovalButtonsDisabled(entry.el, true);
   try {
     if (!bridge) throw new Error("toast bridge unavailable");
     const result = await bridge.resolveApproval(approvalId, allowed);
-    const currentId = mode === "review" ? entry.item.review?.approvalId : entry.item.approval?.approvalId;
-    if (currentId !== approvalId) return;
-    if (mode === "review" && !result?.ok) {
+    if (entry.item.review?.approvalId !== approvalId) return;
+    if (!result?.ok) {
       entry.approvalLocked = false;
       entry.reviewState = { phase: "loaded", detail: { state: "expired", approvalId } };
       renderReviewSection(entry);
       relayout();
     }
   } catch {
-    const currentId = mode === "review" ? entry.item.review?.approvalId : entry.item.approval?.approvalId;
-    if (currentId !== approvalId) return;
+    if (entry.item.review?.approvalId !== approvalId) return;
     entry.approvalLocked = false;
     setApprovalButtonsDisabled(entry.el, false);
   }
@@ -69,14 +67,14 @@ function buildActionButton(label: string, className: string, onClick: (pointer: 
   });
   return button;
 }
-function buildApprovalActions(entry: CardEntry, mode: "direct" | "review"): HTMLElement {
+function buildApprovalActions(entry: CardEntry): HTMLElement {
   const actions = document.createElement("div");
   actions.className = "toast-card__actions";
   const approve = buildActionButton("批准", "toast-card__approve", () => {
-    void submitApprovalAction(entry, mode, true);
+    void submitApprovalAction(entry, true);
   });
   const deny = buildActionButton("拒绝", "toast-card__deny", () => {
-    void submitApprovalAction(entry, mode, false);
+    void submitApprovalAction(entry, false);
   });
   approve.disabled = entry.approvalLocked;
   deny.disabled = entry.approvalLocked;
@@ -182,6 +180,11 @@ function renderReviewSection(entry: CardEntry): void {
     return;
   }
   section.append(buildReviewDetailBlock(detail));
+  if (detail.state === "runless") {
+    // 没有运行 ID 的审批：主进程确认不了它来自独立的审批入口，只显示，不在这里批准。
+    section.append(buildReviewNotice("这项审批没有所属任务，无法确认来源，不能在这里批准"));
+    return;
+  }
   if (detail.state === "unverified") {
     const actions = document.createElement("div");
     actions.className = "toast-card__actions";
@@ -192,7 +195,7 @@ function renderReviewSection(entry: CardEntry): void {
     section.append(buildReviewNotice("无法核实这项审批属于哪个会话，不能在这里批准"), actions);
     return;
   }
-  section.append(buildApprovalActions(entry, "review"));
+  section.append(buildApprovalActions(entry));
 }
 function populateCard(entry: CardEntry): HTMLElement {
   const { item, el: card } = entry;
@@ -215,12 +218,6 @@ function populateCard(entry: CardEntry): HTMLElement {
   description.textContent = item.summary ?? "";
   if (!item.summary) description.hidden = true;
   content.append(heading, description);
-  if (item.approval) {
-    card.classList.add("toast-card--approval");
-    content.append(buildApprovalActions(entry, "direct"));
-    card.append(emblem, content);
-    return card;
-  }
   if (item.review) {
     card.classList.add("toast-card--review");
     const reviewSection = document.createElement("div");
@@ -262,8 +259,8 @@ function createCardEntry(item: ToastItem): CardEntry {
 }
 function updateCardContent(entry: CardEntry, prevItem: ToastItem): void {
   const { el, item } = entry;
-  const prevShape = prevItem.approval ? "approval" : prevItem.review ? "review" : isApprovalReminder(prevItem) ? "bare-approval" : "standard";
-  const nextShape = item.approval ? "approval" : item.review ? "review" : isApprovalReminder(item) ? "bare-approval" : "standard";
+  const prevShape = prevItem.review ? "review" : isApprovalReminder(prevItem) ? "bare-approval" : "standard";
+  const nextShape = item.review ? "review" : isApprovalReminder(item) ? "bare-approval" : "standard";
   if (prevShape !== nextShape) {
     entry.approvalLocked = false;
     entry.reviewState = { phase: "idle" };
@@ -272,9 +269,6 @@ function updateCardContent(entry: CardEntry, prevItem: ToastItem): void {
     populateCard(entry);
     el.replaceWith(next);
     return;
-  }
-  if (prevItem.approval?.approvalId !== item.approval?.approvalId) {
-    entry.approvalLocked = false;
   }
   if (prevItem.review?.approvalId !== item.review?.approvalId) {
     entry.approvalLocked = false;
@@ -288,7 +282,7 @@ function updateCardContent(entry: CardEntry, prevItem: ToastItem): void {
     description.textContent = item.summary ?? "";
     description.hidden = !item.summary;
   }
-  if (item.approval || item.review) {
+  if (item.review) {
     setApprovalButtonsDisabled(el, entry.approvalLocked);
   }
 }

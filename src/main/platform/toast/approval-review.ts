@@ -45,7 +45,7 @@ export function createApprovalReview(deps: ApprovalReviewDeps) {
       ...(request.agentId ? { agentId: request.agentId } : {}),
       args: summarizeApprovalArguments(request.args),
     };
-    // 没有运行 ID 的审批按 G3 的决定由 toast 作答，它本来就不属于任何会话。
+    // 没有运行 ID 的审批不属于任何会话；主进程确认不了它来自独立的审批入口，只显示，不能批准。
     if (!hasRunId(request)) return { state: "runless", ...shared };
     const sessionId = deps.findActiveSessionForRun(request.runId);
     if (!sessionId) return { state: "unverified", ...shared };
@@ -53,10 +53,10 @@ export function createApprovalReview(deps: ApprovalReviewDeps) {
     return { state: "pending", ...shared, session: { id: sessionId, ...(title ? { title } : {}) } };
   }
 
-  /** 作答前再核实一次；只有 pending 与 runless 才结算，其余一律不放行 */
+  /** 作答前再核实一次；只有原运行仍在所属会话里的 pending 才结算，其余一律不放行 */
   function answer(approvalId: string, allowed: boolean): { ok: boolean } {
     const detail = inspect(approvalId);
-    if (detail.state !== "pending" && detail.state !== "runless") return { ok: false };
+    if (detail.state !== "pending") return { ok: false };
     return { ok: deps.answerApproval(approvalId, allowed) };
   }
 

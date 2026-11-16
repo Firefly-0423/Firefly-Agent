@@ -23,250 +23,6 @@ it("does not replace a push received while restoration was pending", async () =>
 it("contains restore failures and accepts later pushes", async () => { api.getAll.mockRejectedValue(Error("offline")); await load(); push(item("a")); expect(ids()).toEqual(["a"]); });
 it("supports a missing stack", async () => { document.body.innerHTML = ""; await load(); expect(api.getAll).not.toHaveBeenCalled(); expect(api.onPush).not.toHaveBeenCalled(); });
 
-describe("approval actions (ChatPage G3)", () => {
-  const approvalItem = (id: string, patch: Partial<ToastPushPayload> = {}): ToastPushPayload =>
-    item(id, {
-      kind: "approval",
-      tier: "action-pending",
-      title: "需要批准执行操作",
-      summary: "工具：run_command · 来源：全局快捷键",
-      approval: { approvalId: "approve-1", toolName: "run_command", source: "global-hotkey" },
-      ...patch,
-    });
-
-  const deferred = <T,>() => {
-    let resolve!: (value: T) => void;
-    let reject!: (reason?: unknown) => void;
-    const promise = new Promise<T>((res, rej) => {
-      resolve = res;
-      reject = rej;
-    });
-    return { promise, resolve, reject };
-  };
-
-  const buttonsOf = (card: Element) => ({
-    approve: card.querySelector<HTMLButtonElement>(".toast-card__approve")!,
-    deny: card.querySelector<HTMLButtonElement>(".toast-card__deny")!,
-  });
-
-  it("renders approve and deny buttons without a close button and ignores card body clicks", async () => {
-    await load();
-    push(approvalItem("a"));
-
-    const card = document.querySelector<HTMLElement>(".toast-card")!;
-    expect(card.classList.contains("toast-card--approval")).toBe(true);
-    expect(card.querySelector(".toast-card__close")).toBeNull();
-
-    const bodyButtons = [...card.querySelectorAll<HTMLButtonElement>(".toast-card__body .toast-card__actions button")];
-    expect(bodyButtons.map((button) => ({
-      className: button.className,
-      text: button.textContent,
-      type: button.type,
-      disabled: button.disabled,
-    }))).toEqual([
-      { className: "toast-card__approve", text: "批准", type: "button", disabled: false },
-      { className: "toast-card__deny", text: "拒绝", type: "button", disabled: false },
-    ]);
-
-    card.querySelector<HTMLElement>(".toast-card__title")!.click();
-    card.querySelector<HTMLElement>(".toast-card__summary")!.click();
-    card.click();
-
-    expect(api.clicked).not.toHaveBeenCalled();
-    expect(api.dismissed).not.toHaveBeenCalled();
-    expect(api.resolveApproval).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    { label: "批准", selector: ".toast-card__approve", allowed: true },
-    { label: "拒绝", selector: ".toast-card__deny", allowed: false },
-  ])("resolves $label ($allowed) once and keeps both buttons disabled while pending and after ok:true", async ({ selector, allowed }) => {
-    const pending = deferred<{ ok: boolean }>();
-    api.resolveApproval.mockReturnValue(pending.promise);
-    await load();
-    push(approvalItem("a"));
-
-    const card = document.querySelector<HTMLElement>(".toast-card")!;
-    const { approve, deny } = buttonsOf(card);
-
-    card.querySelector<HTMLButtonElement>(selector)!.click();
-
-    expect(api.resolveApproval.mock.calls).toEqual([["approve-1", allowed]]);
-    expect(approve.disabled).toBe(true);
-    expect(deny.disabled).toBe(true);
-    expect(api.clicked).not.toHaveBeenCalled();
-    expect(api.dismissed).not.toHaveBeenCalled();
-
-    approve.click();
-    deny.click();
-    expect(api.resolveApproval).toHaveBeenCalledTimes(1);
-
-    pending.resolve({ ok: true });
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(approve.disabled).toBe(true);
-    expect(deny.disabled).toBe(true);
-
-    approve.click();
-    deny.click();
-    expect(api.resolveApproval.mock.calls).toEqual([["approve-1", allowed]]);
-    expect(api.clicked).not.toHaveBeenCalled();
-    expect(api.dismissed).not.toHaveBeenCalled();
-  });
-
-  it("keeps both buttons disabled when resolveApproval returns ok:false", async () => {
-    api.resolveApproval.mockResolvedValue({ ok: false });
-    await load();
-    push(approvalItem("a"));
-
-    const card = document.querySelector<HTMLElement>(".toast-card")!;
-    const { approve, deny } = buttonsOf(card);
-
-    approve.click();
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(api.resolveApproval.mock.calls).toEqual([["approve-1", true]]);
-    expect(approve.disabled).toBe(true);
-    expect(deny.disabled).toBe(true);
-
-    approve.click();
-    deny.click();
-    expect(api.resolveApproval).toHaveBeenCalledTimes(1);
-    expect(api.clicked).not.toHaveBeenCalled();
-    expect(api.dismissed).not.toHaveBeenCalled();
-  });
-
-  it("re-enables both buttons on rejection without unhandled rejection so the user can retry", async () => {
-    api.resolveApproval
-      .mockRejectedValueOnce(new Error("ipc channel closed"))
-      .mockResolvedValueOnce({ ok: true });
-    await load();
-    push(approvalItem("a"));
-
-    const card = document.querySelector<HTMLElement>(".toast-card")!;
-    const { approve, deny } = buttonsOf(card);
-
-    approve.click();
-    expect(approve.disabled).toBe(true);
-    expect(deny.disabled).toBe(true);
-
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(approve.disabled).toBe(false);
-    expect(deny.disabled).toBe(false);
-    expect(api.clicked).not.toHaveBeenCalled();
-    expect(api.dismissed).not.toHaveBeenCalled();
-
-    deny.click();
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(api.resolveApproval.mock.calls).toEqual([
-      ["approve-1", true],
-      ["approve-1", false],
-    ]);
-    expect(approve.disabled).toBe(true);
-    expect(deny.disabled).toBe(true);
-  });
-
-  it("re-enables both buttons when resolveApproval throws synchronously", async () => {
-    api.resolveApproval
-      .mockImplementationOnce(() => { throw new Error("sync failure"); })
-      .mockResolvedValueOnce({ ok: true });
-    await load();
-    push(approvalItem("a"));
-
-    const card = document.querySelector<HTMLElement>(".toast-card")!;
-    const { approve, deny } = buttonsOf(card);
-
-    approve.click();
-    await Promise.resolve();
-
-    expect(approve.disabled).toBe(false);
-    expect(deny.disabled).toBe(false);
-
-    approve.click();
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(api.resolveApproval.mock.calls).toEqual([
-      ["approve-1", true],
-      ["approve-1", true],
-    ]);
-    expect(approve.disabled).toBe(true);
-    expect(deny.disabled).toBe(true);
-  });
-
-  it("keeps approval buttons disabled when the same ID is pushed again while waiting", async () => {
-    const pending = deferred<{ ok: boolean }>();
-    api.resolveApproval.mockReturnValue(pending.promise);
-    await load();
-    push(approvalItem("a", { title: "第一次推送", summary: "tool-a · src-a" }));
-
-    const card = document.querySelector<HTMLElement>(".toast-card")!;
-    const { approve, deny } = buttonsOf(card);
-    approve.click();
-    expect(approve.disabled).toBe(true);
-    expect(deny.disabled).toBe(true);
-
-    push(approvalItem("a", { title: "重复推送", summary: "tool-a · src-a (updated)" }));
-
-    expect(document.querySelector(".toast-card")).toBe(card);
-    expect(card.querySelector(".toast-card__title")?.textContent).toBe("重复推送");
-    expect(card.querySelector(".toast-card__summary")?.textContent).toBe("tool-a · src-a (updated)");
-    expect(approve.disabled).toBe(true);
-    expect(deny.disabled).toBe(true);
-
-    approve.click();
-    deny.click();
-    expect(api.resolveApproval).toHaveBeenCalledTimes(1);
-    expect(api.clicked).not.toHaveBeenCalled();
-    expect(api.dismissed).not.toHaveBeenCalled();
-
-    pending.resolve({ ok: true });
-    await Promise.resolve();
-    await Promise.resolve();
-  });
-
-  it("renders untrusted approval title, summary, toolName, and source literally without HTML injection", async () => {
-    await load();
-    const xssImg = "<img src=x onerror=bad()>";
-    const xssScript = "<script>bad()</script>";
-    push(approvalItem("a", {
-      title: xssImg,
-      summary: `${xssImg} ${xssScript}`,
-      approval: { approvalId: "approve-xss", toolName: xssScript, source: xssImg },
-    }));
-
-    const card = document.querySelector<HTMLElement>(".toast-card")!;
-    expect(card.querySelectorAll("script")).toHaveLength(0);
-    expect(card.querySelectorAll(".toast-card__body img")).toHaveLength(0);
-    expect(card.querySelectorAll("img")).toHaveLength(1);
-    expect(card.querySelector(".toast-card__title")?.textContent).toBe(xssImg);
-    expect(card.querySelector(".toast-card__summary")?.textContent).toBe(`${xssImg} ${xssScript}`);
-  });
-
-  it("restores approval cards via getAll and removes them with the exit animation on toast:remove", async () => {
-    api.getAll.mockResolvedValue([approvalItem("a")]);
-    await load();
-
-    const card = document.querySelector<HTMLElement>(".toast-card")!;
-    expect(card.classList.contains("toast-card--approval")).toBe(true);
-    expect(card.querySelector(".toast-card__close")).toBeNull();
-    expect(card.querySelectorAll(".toast-card__actions button")).toHaveLength(2);
-
-    remove("a");
-    expect(card.classList.contains("toast-card--leaving")).toBe(true);
-    await vi.advanceTimersByTimeAsync(219);
-    expect(ids()).toEqual(["a"]);
-    await vi.advanceTimersByTimeAsync(1);
-    expect(ids()).toEqual([]);
-  });
-});
-
 describe("approval review (toast)", () => {
   const reviewItem = (id: string, patch: Partial<ToastPushPayload> = {}): ToastPushPayload =>
     item(id, {
@@ -294,13 +50,6 @@ describe("approval review (toast)", () => {
   it("hides the close button on approval reminders while keeping it on non-approval reminders", async () => {
     await load();
     push(reviewItem("rev-card"));
-    push(item("app-card", {
-      kind: "approval",
-      tier: "action-pending",
-      title: "有一项审批需要你在这里处理",
-      summary: "Run Shell · 来源：工具 bash",
-      approval: { approvalId: "approve-unowned", toolName: "Run Shell", source: "工具 bash" },
-    }));
     push(item("bare-app-card", {
       kind: "approval",
       tier: "action-pending",
@@ -318,7 +67,6 @@ describe("approval review (toast)", () => {
       [...document.querySelectorAll<HTMLElement>(".toast-card")].map((card) => [card.dataset.id!, card]),
     );
     expect(cards.get("rev-card")?.querySelector(".toast-card__close")).toBeNull();
-    expect(cards.get("app-card")?.querySelector(".toast-card__close")).toBeNull();
     expect(cards.get("bare-app-card")?.querySelector(".toast-card__close")).toBeNull();
     expect(cards.get("choice-card")?.querySelector(".toast-card__close")).not.toBeNull();
   });
@@ -401,8 +149,8 @@ describe("approval review (toast)", () => {
         agentId: "cron-worker",
         args: [{ key: "command", value: "echo ok" }],
       },
-      expectedTexts: ["所属会话：无所属会话", "发起伙伴：cron-worker", "工具：Run Shell"],
-      expectedButtons: ["批准", "拒绝"],
+      expectedTexts: ["所属会话：无所属会话", "发起伙伴：cron-worker", "工具：Run Shell", "这项审批没有所属任务，无法确认来源，不能在这里批准"],
+      expectedButtons: [],
       expectedArgs: [["command", "echo ok"]],
     },
     {
