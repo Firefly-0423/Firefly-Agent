@@ -14,7 +14,7 @@ vi.mock("fs", async () => {
         } };
 });
 beforeEach(() => { profile.blocked = ""; vi.resetModules(); profile.handlers.clear(); profile.root = fs.mkdtempSync(join(tmpdir(), "pending-contract-")); });
-afterEach(() => { vi.restoreAllMocks(); fs.rmSync(profile.root, { recursive: true, force: true }); });
+afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); fs.rmSync(profile.root, { recursive: true, force: true }); });
 const entry = (id: string, patch: Record<string, unknown> = {}) => ({ id, rawContent: `Queued instruction ${id}`, visibleContent: `Queued instruction ${id}`, ...patch });
 async function setup(ids = ["alpha", "beta", "gamma"], withHistory = true) {
     const store = await import("./chats-store");
@@ -417,5 +417,165 @@ describe("queue IPC boundary", () => {
         expect(await call(IPC.CHATS_PENDING_REMOVE, { sessionId: session.id, messageId: "remove-via-ipc" })).toEqual({ ok: true, removed: false });
         expect(await call(IPC.CHATS_PENDING_REMOVE, { sessionId: "missing-session", messageId: "remove-via-ipc" })).toEqual({ ok: false, error: "session-not-found" });
         expect(await call(IPC.CHATS_PENDING_LIST, session.id)).toEqual([]);
+    });
+});
+describe("claim recovery combinations (ChatPage B10)", () => {
+    const sessionAId = "00000000-0000-4000-8000-000000000001";
+    const sessionBId = "00000000-0000-4000-8000-000000000002";
+    const baseTime = new Date("2026-11-15T09:00:00.000Z").getTime();
+    const sessionsDir = () => join(profile.root, "firefly-chats", "sessions");
+    const sessionPath = (id: string) => join(sessionsDir(), `${id}.json`);
+    const indexPath = () => join(profile.root, "firefly-chats", "index.json");
+    beforeEach(async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(baseTime);
+        const actualCrypto = await vi.importActual<typeof import("crypto")>("crypto");
+        vi.doMock("crypto", () => ({
+            ...actualCrypto,
+            randomUUID: vi.fn().mockReturnValueOnce(sessionAId).mockReturnValueOnce(sessionBId),
+        }));
+    });
+    afterEach(() => { vi.doUnmock("crypto"); });
+    async function arrangeSessionPair() {
+        const store = await import("./chats-store");
+        store.initialize();
+        const sessionA = store.createSession({
+            mode: "work",
+            initialMessages: [{ id: "existing", role: "user", content: "Existing conversation", at: Date.now() }],
+        });
+        for (const id of ["alpha", "beta"])
+            expect(store.enqueuePendingMessage(sessionA.id, entry(id))).toMatchObject({ ok: true, enqueued: true });
+        const sessionB = store.createSession({
+            mode: "chat",
+            initialMessages: [{ id: "neighbour-existing", role: "user", content: "Neighbour conversation", at: Date.now() }],
+        });
+        expect(store.enqueuePendingMessage(sessionB.id, entry("neighbour-queued"))).toMatchObject({ ok: true, enqueued: true });
+        expect([sessionA.id, sessionB.id]).toStrictEqual([sessionAId, sessionBId]);
+        return { store, aId: sessionA.id, bId: sessionB.id };
+    }
+    function expectSingleAlphaClaim(
+        store: Awaited<typeof import("./chats-store")>,
+        aId: string,
+        claimedAt: number,
+        expectedBeta: NonNullable<ReturnType<typeof store.getPendingMessages>>[number],
+    ) {
+        const expectedMessages = [
+            { id: "existing", role: "user", content: "Existing conversation", at: baseTime },
+            { id: "alpha", role: "user", content: "Queued instruction alpha", at: claimedAt },
+        ];
+        const sessionA = store.getSession(aId)!;
+        expect.soft(sessionA.messages).toStrictEqual(expectedMessages);
+        expect.soft(sessionA.messages.filter(item => item.id === "alpha")).toHaveLength(1);
+        expect.soft(sessionA.pendingDispatch).toStrictEqual({ messageId: "alpha", claimedAt });
+        expect.soft(sessionA.pendingMessages).toStrictEqual([expectedBeta]);
+        const diskA = JSON.parse(fs.readFileSync(sessionPath(aId), "utf8"));
+        expect.soft(diskA.messages).toStrictEqual(expectedMessages);
+        expect.soft(diskA.messages.filter((item: { id: string }) => item.id === "alpha")).toHaveLength(1);
+        expect.soft(diskA.pendingDispatch).toStrictEqual({ messageId: "alpha", claimedAt });
+        expect.soft(diskA.pendingMessages).toStrictEqual([expectedBeta]);
+    }
+    it("recovers an incomplete claim after restart without duplicating the user message or advancing the queue", async () => {
+        let { store, aId, bId } = await arrangeSessionPair();
+        const expectedBeta = store.getPendingMessages(aId)![1];
+        const neighbourBytes = fs.readFileSync(sessionPath(bId), "utf8");
+        vi.setSystemTime(baseTime + 1000);
+        const claimedAt = Date.now();
+        const firstClaim = store.claimPendingMessage(aId);
+        expect(firstClaim).toMatchObject({ ok: true, claimed: true, userMessage: { id: "alpha", at: claimedAt } });
+        const indexAfterFirstClaim = fs.readFileSync(indexPath(), "utf8");
+        vi.setSystemTime(baseTime + 2000);
+        vi.resetModules();
+        store = await import("./chats-store");
+        store.initialize();
+        const secondClaim = store.claimPendingMessage(aId);
+        expect.soft(secondClaim).toEqual({ ok: false, error: "already-dispatching" });
+        expectSingleAlphaClaim(store, aId, claimedAt, expectedBeta);
+        expect.soft(fs.readFileSync(sessionPath(bId), "utf8")).toBe(neighbourBytes);
+        expect.soft(fs.readFileSync(indexPath(), "utf8")).toBe(indexAfterFirstClaim);
+        expect.soft(ids(store.getPendingMessages(bId))).toEqual(["neighbour-queued"]);
+        expect.soft(fs.readdirSync(sessionsDir()).sort()).toStrictEqual([`${aId}.json`, `${bId}.json`]);
+    });
+    it("preserves session bytes when a staging directory blocks claim and claims once after obstacle removal", async () => {
+        const { store, aId, bId } = await arrangeSessionPair();
+        const [expectedAlpha, expectedBeta] = store.getPendingMessages(aId)!;
+        const sessionABytes = fs.readFileSync(sessionPath(aId), "utf8");
+        const indexBytes = fs.readFileSync(indexPath(), "utf8");
+        const neighbourBytes = fs.readFileSync(sessionPath(bId), "utf8");
+        const stagingPath = `${sessionPath(aId)}.tmp`;
+        fs.mkdirSync(stagingPath);
+        vi.setSystemTime(baseTime + 1000);
+        const failedClaim = store.claimPendingMessage(aId);
+        expect.soft(failedClaim).toEqual({ ok: false, error: "write-failed" });
+        expect.soft(fs.readFileSync(sessionPath(aId), "utf8")).toBe(sessionABytes);
+        expect.soft(fs.readFileSync(indexPath(), "utf8")).toBe(indexBytes);
+        expect.soft(fs.readFileSync(sessionPath(bId), "utf8")).toBe(neighbourBytes);
+        const afterFailureA = store.getSession(aId)!;
+        expect.soft(afterFailureA.messages).toStrictEqual([{ id: "existing", role: "user", content: "Existing conversation", at: baseTime }]);
+        expect.soft(afterFailureA.pendingMessages).toStrictEqual([expectedAlpha, expectedBeta]);
+        expect.soft(afterFailureA.pendingDispatch).toBeUndefined();
+        expect.soft(store.listSessions().find(item => item.id === aId)?.messageCount).toBe(1);
+        fs.rmdirSync(stagingPath);
+        vi.setSystemTime(baseTime + 1500);
+        const claimedAt = Date.now();
+        const recoveredClaim = store.claimPendingMessage(aId);
+        expect(recoveredClaim).toMatchObject({
+            ok: true,
+            claimed: true,
+            visibleContent: "Queued instruction alpha",
+            userMessage: { id: "alpha", role: "user", content: "Queued instruction alpha", at: claimedAt },
+            remainingQueue: [expectedBeta],
+        });
+        expect.soft(store.claimPendingMessage(aId)).toEqual({ ok: false, error: "already-dispatching" });
+        expectSingleAlphaClaim(store, aId, claimedAt, expectedBeta);
+        expect.soft(fs.readFileSync(sessionPath(bId), "utf8")).toBe(neighbourBytes);
+        expect.soft(ids(store.getPendingMessages(bId))).toEqual(["neighbour-queued"]);
+        expect.soft(fs.readdirSync(sessionsDir()).sort()).toStrictEqual([`${aId}.json`, `${bId}.json`]);
+    });
+    it("retains a damaged dispatch ledger missing its user anchor without blocking neighbour sessions", async () => {
+        let { store, aId, bId } = await arrangeSessionPair();
+        const [expectedAlpha, expectedBeta] = store.getPendingMessages(aId)!;
+        const expectedNeighbour = store.getPendingMessages(bId)![0];
+        vi.setSystemTime(baseTime + 1000);
+        const damagedClaimedAt = Date.now();
+        const damagedSession = store.getSession(aId)!;
+        damagedSession.messages = damagedSession.messages.filter(item => item.id === "existing");
+        damagedSession.pendingDispatch = { messageId: "missing-user-anchor", claimedAt: damagedClaimedAt };
+        const corruptedABytes = JSON.stringify(damagedSession, null, 2);
+        fs.writeFileSync(sessionPath(aId), corruptedABytes, "utf8");
+        const indexBeforeReload = fs.readFileSync(indexPath(), "utf8");
+        const neighbourBytes = fs.readFileSync(sessionPath(bId), "utf8");
+        vi.setSystemTime(baseTime + 2000);
+        vi.resetModules();
+        store = await import("./chats-store");
+        store.initialize();
+        const reloadedA = store.getSession(aId)!;
+        expect.soft(reloadedA.pendingDispatch).toStrictEqual({ messageId: "missing-user-anchor", claimedAt: damagedClaimedAt });
+        expect.soft(reloadedA.messages).toStrictEqual([{ id: "existing", role: "user", content: "Existing conversation", at: baseTime }]);
+        expect.soft(reloadedA.pendingMessages).toStrictEqual([expectedAlpha, expectedBeta]);
+        expect.soft(store.claimPendingMessage(aId)).toEqual({ ok: false, error: "already-dispatching" });
+        expect.soft(store.completePendingDispatch(aId, "alpha")).toEqual({ ok: true, cleared: false });
+        expect.soft(store.getSession(aId)?.pendingDispatch).toStrictEqual({ messageId: "missing-user-anchor", claimedAt: damagedClaimedAt });
+        expect.soft(fs.readFileSync(sessionPath(aId), "utf8")).toBe(corruptedABytes);
+        expect.soft(fs.readFileSync(indexPath(), "utf8")).toBe(indexBeforeReload);
+        expect.soft(fs.readFileSync(sessionPath(bId), "utf8")).toBe(neighbourBytes);
+        expect.soft(store.getPendingMessages(bId)).toStrictEqual([expectedNeighbour]);
+        vi.setSystemTime(baseTime + 2500);
+        const neighbourClaimedAt = Date.now();
+        const neighbourClaim = store.claimPendingMessage(bId);
+        expect(neighbourClaim).toMatchObject({
+            ok: true,
+            claimed: true,
+            visibleContent: "Queued instruction neighbour-queued",
+            userMessage: { id: "neighbour-queued", role: "user", content: "Queued instruction neighbour-queued", at: neighbourClaimedAt },
+            remainingQueue: [],
+        });
+        expect.soft(store.getSession(bId)?.messages).toStrictEqual([
+            { id: "neighbour-existing", role: "user", content: "Neighbour conversation", at: baseTime },
+            { id: "neighbour-queued", role: "user", content: "Queued instruction neighbour-queued", at: neighbourClaimedAt },
+        ]);
+        expect.soft(store.getSession(bId)?.pendingDispatch).toStrictEqual({ messageId: "neighbour-queued", claimedAt: neighbourClaimedAt });
+        expect.soft(fs.readFileSync(sessionPath(aId), "utf8")).toBe(corruptedABytes);
+        expect.soft(store.getSession(aId)?.pendingDispatch).toStrictEqual({ messageId: "missing-user-anchor", claimedAt: damagedClaimedAt });
+        expect.soft(fs.readdirSync(sessionsDir()).sort()).toStrictEqual([`${aId}.json`, `${bId}.json`]);
     });
 });

@@ -437,6 +437,234 @@ it("resets Work adjustment marks on both natural settlement and failed construct
     expect(wire.reset).toHaveBeenCalled();
     expect(f.module.hasActiveConversationRun()).toEqual(false);
 });
+describe("takeover regression (ChatPage B3/B4)", () => {
+    const cancelled = { status: "cancelled", reason: "user_cancelled", externalEffectsMayContinue: true };
+    beforeEach(() => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-11-15T00:00:00Z"));
+    });
+    afterEach(() => vi.useRealTimers());
+
+    it("rejects a missing or foreign takeover ID exactly without dispatch or transcript writes", async () => {
+        session("conversation", "chat", [user("input")]);
+        running();
+        const f = await bridge();
+        const first = await f.run("conversation", { userTurnId: "input" });
+        const original = agentOptions();
+        const { getConversationTranscriptStore } = await import("../../conversation/transcript/conversation-transcript-store");
+        const store = getConversationTranscriptStore(wire.root);
+        const before = (await store.read("conversation")).entries;
+        const eventsBefore = [...f.sent];
+        for (const patch of [{}, { takeoverFromRunId: "foreign-run" }]) {
+            let outcome = "pending";
+            const request = f.run("conversation", { userTurnId: "input", ...patch });
+            const observed = request.then(() => { outcome = "accepted"; }, () => { outcome = "rejected"; });
+            await vi.advanceTimersByTimeAsync(0);
+            expect(outcome).toEqual("rejected");
+            await expect(request).rejects.toMatchObject({ message: `SESSION_RUN_ACTIVE:${first.runId}` });
+            await observed;
+            expect(f.module.__getSessionActiveRunForTest("conversation")).toEqual(first.runId);
+            expect(f.module.hasActiveConversationRun()).toEqual(true);
+            expect(original.signal.aborted).toEqual(false);
+            expect(wire.run).toHaveBeenCalledTimes(1);
+            expect(f.build).toHaveBeenCalledTimes(1);
+            expect(f.sent).toEqual(eventsBefore);
+            expect((await store.read("conversation")).entries).toEqual(before);
+            expect(wire.reset.mock.calls).toEqual([]);
+        }
+    });
+
+    it("settles the old owner before replacement execution and isolates late terminal and cancel from its assistant", async () => {
+        session("conversation", "chat", [user("input"), { ...answer("old-answer", ""), answersUserMessageId: "input" }]);
+        running();
+        const f = await bridge();
+        const first = await f.run("conversation", { userTurnId: "input", assistantTurnId: "old-answer" });
+        const original = agentOptions(), oldStream = wire.subscriptions[0];
+        const order: string[] = [];
+        wire.reset.mockImplementation(() => { order.push("old-settled"); return { ok: true, reset: 0 }; });
+        f.build.prepareTranscript = async () => { order.push("new-prepare"); };
+        wire.run.mockImplementation(() => order.push("new-start"));
+        let accepted = false;
+        session("conversation", "chat", [user("input"), { ...answer("new-answer", ""), answersUserMessageId: "input" }]);
+        const takeover = f.run("conversation", { takeoverFromRunId: first.runId, userTurnId: "input", assistantTurnId: "new-answer" })
+            .then((ack: any) => { accepted = true; return ack; });
+        await vi.advanceTimersByTimeAsync(0);
+        expect(original.signal.aborted).toEqual(true);
+        expect(order).toEqual([]);
+        expect(accepted).toEqual(false);
+        expect(f.module.__getSessionActiveRunForTest("conversation")).toEqual(first.runId);
+        expect(wire.run).toHaveBeenCalledTimes(1);
+        oldStream.next({ type: "RUN_FINISHED", runId: first.runId, result: cancelled });
+        await vi.advanceTimersByTimeAsync(0);
+        expect(terminals(f.sent)).toEqual([]);
+        expect(order).toEqual([]);
+        oldStream.complete();
+        const second = await takeover, replacement = agentOptions();
+        expect(order).toEqual(["old-settled", "new-prepare", "new-start"]);
+        expect(terminals(f.sent)).toEqual([{ type: "RUN_FINISHED", runId: first.runId, result: cancelled }]);
+        const { readTranscriptSinkBinding } = await import("../../agent/loop/transcript-sink");
+        expect(readTranscriptSinkBinding(replacement.transcriptSink)).toEqual({ conversationId: "conversation", runId: second.runId, assistantTurnId: "new-answer" });
+        await replacement.transcriptSink.appendAssistant({ message: { role: "assistant", content: "Replacement answer" } });
+        const { getConversationTranscriptStore } = await import("../../conversation/transcript/conversation-transcript-store");
+        const store = getConversationTranscriptStore(wire.root);
+        const before = (await store.read("conversation")).entries;
+        expect(before.filter(entry => entry.kind === "assistant").map(entry => ({ runId: entry.runId, turnId: entry.turnId, content: entry.payload.content })))
+            .toEqual([{ runId: second.runId, turnId: "new-answer", content: "Replacement answer" }]);
+        const eventsBefore = [...f.sent];
+        await f.cancel(first.runId);
+        oldStream.next({ type: "RUN_FINISHED", runId: first.runId, result: { status: "success", externalEffectsMayContinue: false } });
+        oldStream.complete();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(f.module.__getSessionActiveRunForTest("conversation")).toEqual(second.runId);
+        expect(f.module.isActiveConversationRun("conversation", second.runId)).toEqual(true);
+        expect(replacement.signal.aborted).toEqual(false);
+        expect(f.sent).toEqual(eventsBefore);
+        expect((await store.read("conversation")).entries).toEqual(before);
+        expect(wire.run).toHaveBeenCalledTimes(2);
+        expect(f.build).toHaveBeenCalledTimes(2);
+        expect(f.effects).not.toHaveBeenCalled();
+        expect(wire.reset.mock.calls).toEqual([["conversation", first.runId]]);
+    });
+
+    it("keeps conversation B ownership, events and targeted cancellation independent while A takes over", async () => {
+        session("a", "chat", [user("a-input")]);
+        session("b", "chat", [user("b-input")]);
+        running();
+        const f = await bridge();
+        const a = await f.run("a", { userTurnId: "a-input" }), aOptions = agentOptions(), aStream = wire.subscriptions[0];
+        const b = await f.run("b", { userTurnId: "b-input" }), bOptions = agentOptions(), bStream = wire.subscriptions[1];
+        const { getConversationTranscriptStore } = await import("../../conversation/transcript/conversation-transcript-store");
+        const store = getConversationTranscriptStore(wire.root);
+        const bBefore = (await store.read("b")).entries;
+        const bEvents = f.sent.filter(event => event.runId === b.runId);
+        const takeover = f.run("a", { takeoverFromRunId: a.runId, userTurnId: "a-input" });
+        await vi.advanceTimersByTimeAsync(0);
+        expect(aOptions.signal.aborted).toEqual(true);
+        expect(bOptions.signal.aborted).toEqual(false);
+        expect(f.module.__getSessionActiveRunForTest("b")).toEqual(b.runId);
+        expect(f.module.isActiveConversationRun("b", b.runId)).toEqual(true);
+        expect(f.sent.filter(event => event.runId === b.runId)).toEqual(bEvents);
+        const bPacket = { type: "CUSTOM", name: "fixture.progress", value: { step: 1 }, runId: b.runId };
+        bStream.next(bPacket);
+        expect(f.sent.filter(event => event.runId === b.runId)).toEqual([...bEvents, bPacket]);
+        await f.cancel(b.runId);
+        expect(bOptions.signal.aborted).toEqual(true);
+        bStream.next({ type: "RUN_FINISHED", runId: b.runId, result: cancelled });
+        bStream.complete();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(f.module.__getSessionActiveRunForTest("b")).toEqual(undefined);
+        expect(f.module.__getSessionActiveRunForTest("a")).toEqual(a.runId);
+        expect(f.module.hasActiveConversationRun()).toEqual(true);
+        aStream.next({ type: "RUN_FINISHED", runId: a.runId, result: cancelled });
+        aStream.complete();
+        const replacement = await takeover, replacementOptions = agentOptions();
+        await f.cancel(a.runId);
+        await f.cancel(b.runId);
+        expect(replacementOptions.signal.aborted).toEqual(false);
+        expect(f.module.__getSessionActiveRunForTest("a")).toEqual(replacement.runId);
+        expect(f.module.__getSessionActiveRunForTest("b")).toEqual(undefined);
+        expect(f.sent.filter(event => event.runId === b.runId)).toEqual([
+            ...bEvents, bPacket, { type: "RUN_FINISHED", runId: b.runId, result: cancelled },
+        ]);
+        expect(terminals(f.sent)).toEqual([
+            { type: "RUN_FINISHED", runId: b.runId, result: cancelled },
+            { type: "RUN_FINISHED", runId: a.runId, result: cancelled },
+        ]);
+        expect((await store.read("b")).entries).toEqual(bBefore);
+        expect(wire.run.mock.calls.map(([options]) => options.runId)).toEqual([a.runId, b.runId, replacement.runId]);
+        expect(f.build).toHaveBeenCalledTimes(3);
+        expect(wire.reset.mock.calls).toEqual([["b", b.runId], ["a", a.runId]]);
+        expect(f.effects).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        { settlementMs: 9_999, succeeds: true, label: "one millisecond before the deadline" },
+        { settlementMs: 10_000, succeeds: true, label: "at the deadline with settlement queued first" },
+        { settlementMs: 10_001, succeeds: false, label: "one millisecond after the deadline" },
+        { settlementMs: null, succeeds: false, label: "never" },
+    ])("uses the default two 5000ms waits when the old run settles $label", async ({ settlementMs, succeeds }) => {
+        session("conversation", "chat", [user("input")]);
+        running();
+        const f = await bridge();
+        const first = await f.run("conversation", { userTurnId: "input" }), original = agentOptions(), oldStream = wire.subscriptions[0];
+        const { getConversationTranscriptStore } = await import("../../conversation/transcript/conversation-transcript-store");
+        const store = getConversationTranscriptStore(wire.root);
+        const before = (await store.read("conversation")).entries;
+        // Register first to make the exact-deadline ordering deterministic.
+        if (settlementMs !== null) setTimeout(() => {
+            oldStream.next({ type: "RUN_FINISHED", runId: first.runId, result: cancelled });
+            oldStream.complete();
+        }, settlementMs);
+        let outcome = "pending";
+        const takeover = f.run("conversation", { takeoverFromRunId: first.runId, userTurnId: "input" });
+        const observed = takeover.then(() => { outcome = "accepted"; }, () => { outcome = "rejected"; });
+        await vi.advanceTimersByTimeAsync(0);
+        expect(original.signal.aborted).toEqual(true);
+        await vi.advanceTimersByTimeAsync(4_999);
+        expect(outcome).toEqual("pending");
+        await vi.advanceTimersByTimeAsync(1);
+        expect(outcome).toEqual("pending");
+        expect(wire.run).toHaveBeenCalledTimes(1);
+        expect(f.module.__getSessionActiveRunForTest("conversation")).toEqual(first.runId);
+        await vi.advanceTimersByTimeAsync(4_998);
+        expect(outcome).toEqual("pending");
+        if (succeeds) {
+            await vi.advanceTimersByTimeAsync(settlementMs! - 9_998);
+            const replacement = await takeover;
+            await observed;
+            expect(outcome).toEqual("accepted");
+            expect(replacement).toEqual({ success: true, runId: agentOptions().runId });
+            expect(wire.run.mock.calls.map(([options]) => options.runId)).toEqual([first.runId, replacement.runId]);
+            expect(agentOptions().signal.aborted).toEqual(false);
+            expect(f.module.__getSessionActiveRunForTest("conversation")).toEqual(replacement.runId);
+            expect(f.module.hasActiveConversationRun()).toEqual(true);
+            expect(f.module.__hasActiveRunForTest(first.runId)).toEqual(false);
+            wire.subscriptions[1].next({ type: "RUN_FINISHED", runId: replacement.runId, result: cancelled });
+            wire.subscriptions[1].complete();
+            await vi.advanceTimersByTimeAsync(0);
+            expect(f.module.__getSessionActiveRunForTest("conversation")).toEqual(undefined);
+            expect(f.module.hasActiveConversationRun()).toEqual(false);
+        } else {
+            await vi.advanceTimersByTimeAsync(1);
+            expect(outcome).toEqual("pending");
+            await vi.advanceTimersByTimeAsync(1);
+            expect(outcome).toEqual("rejected");
+            await expect(takeover).rejects.toMatchObject({ message: `SESSION_RUN_TAKEOVER_STUCK:${first.runId}` });
+            await observed;
+            expect(wire.run).toHaveBeenCalledTimes(1);
+            expect(f.build).toHaveBeenCalledTimes(1);
+            expect(f.module.__getSessionActiveRunForTest("conversation")).toEqual(first.runId);
+            expect(f.module.__hasActiveRunForTest(first.runId)).toEqual(true);
+            expect(f.module.isActiveConversationRun("conversation", first.runId)).toEqual(false);
+            expect(f.module.hasActiveConversationRun()).toEqual(true);
+            expect(f.sent).toEqual([{ type: "RUN_STARTED", runId: first.runId }]);
+            expect(wire.reset.mock.calls).toEqual([]);
+            expect((await store.read("conversation")).entries).toEqual(before);
+            // STUCK keeps the incumbent whose cancel was requested but not yet settled; only its real settlement
+            // releases the guard, and the session then accepts a new submission.
+            if (settlementMs !== null) await vi.advanceTimersByTimeAsync(1);
+            else {
+                oldStream.next({ type: "RUN_FINISHED", runId: first.runId, result: cancelled });
+                oldStream.complete();
+                await vi.advanceTimersByTimeAsync(0);
+            }
+            expect(f.module.__getSessionActiveRunForTest("conversation")).toEqual(undefined);
+            expect(f.module.hasActiveConversationRun()).toEqual(false);
+            expect(wire.run).toHaveBeenCalledTimes(1);
+            expect(wire.reset.mock.calls).toEqual([["conversation", first.runId]]);
+            const resubmitted = await f.run("conversation", { userTurnId: "input" });
+            expect(resubmitted).toEqual({ success: true, runId: agentOptions().runId });
+            expect(wire.run.mock.calls.map(([options]) => options.runId)).toEqual([first.runId, resubmitted.runId]);
+            expect(f.module.__getSessionActiveRunForTest("conversation")).toEqual(resubmitted.runId);
+            wire.subscriptions[1].next({ type: "RUN_FINISHED", runId: resubmitted.runId, result: cancelled });
+            wire.subscriptions[1].complete();
+            await vi.advanceTimersByTimeAsync(0);
+        }
+        expect(f.effects).not.toHaveBeenCalled();
+        expect((await store.read("conversation")).entries).toEqual(before);
+    });
+});
+
 describe("transcript ownership and Work read evidence", () => {
     it.each(["transcript", "renderer"])("commits users while honoring the %s context source", async (source) => {
         vi.stubEnv("FIREFLY_TRANSCRIPT_CONTEXT_SOURCE", source);
