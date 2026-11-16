@@ -250,8 +250,7 @@ export function ChatPage() {
   );
 
   function deliverInteraction(runId: string | undefined, interaction: () => ComposerInteraction, stage: "waiting_permission" | "waiting_user") {
-    const visible = activeSessionIdsRef.current[activeModeRef.current];
-    const sessionId = interactionOwner(activeRunsBySession.current, runId, visible);
+    const sessionId = interactionOwner(activeRunsBySession.current, runId);
     if (!sessionId) return;
     setInteractionForSession(sessionId, interaction());
     const run = activeRunsBySession.current[sessionId];

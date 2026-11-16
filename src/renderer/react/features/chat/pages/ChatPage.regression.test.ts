@@ -348,17 +348,23 @@ describe("ChatPage package G: approval ownership", () => {
     expect(runCalls).toHaveLength(1);
   });
 
-  test.each(["session-a", "session-b"])("G1: an approval naming an unknown run lands nowhere while %s is visible", async visible => {
+  test.each([
+    ["G1", "an unknown run", "session-a", "run-gone"],
+    ["G1", "an unknown run", "session-b", "run-gone"],
+    ["G3", "no run", "session-a", undefined],
+    ["G3", "no run", "session-b", undefined],
+  ] as const)("%s: an approval naming %s lands nowhere while %s is visible", async (_task, _label, visible, runId) => {
     sessions = { "session-a": session("session-a", "work"), "session-b": session("session-b", "work") };
     await mount("work");
     await type("summarise the logs"); await click("#send"); await flush();
     if (visible === "session-b") { await click("#select-b"); await flush(); }
     const before = writes().length;
-    await act(async () => { requestApproval("approve-stray", "run-gone"); }); await flush();
+    await act(async () => { requestApproval("approve-stray", runId); }); await flush();
     expect(card()).toBeNull();
     await click(visible === "session-a" ? "#select-b" : "#select-a"); await flush();
     expect(card()).toBeNull();
     // No checkpoint is written for a card nobody owns, and nothing is answered or dispatched on its behalf.
+    // A card without a run id is answered in the toast window instead (G3; covered by the toast tests).
     expect(writes().slice(before)).toEqual([]);
     expect(approvals.resolvePermissionApproval).not.toHaveBeenCalled();
     expect(runCalls.map(call => call.sessionId)).toEqual(["session-a"]);
