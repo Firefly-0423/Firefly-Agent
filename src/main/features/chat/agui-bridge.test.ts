@@ -1,4 +1,7 @@
 import fs from "node:fs";
+import { EventEmitter } from "node:events";
+import { createActiveChatTargetRegistry } from "../../platform/interaction/active-chat-target";
+import { createMainDesktopMemory } from "../../agent/memory-runtime/main-desktop-memory";
 import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -89,9 +92,9 @@ async function bridge(options: {
 } = {}) {
     const module = await import("./agui-bridge");
     const build = options.build ?? vi.fn(async () => built()), effects = options.effects ?? vi.fn(async () => ({})), sent: any[] = [];
-    const sender = { isDestroyed: () => false, send: vi.fn((_channel: string, event: any) => { sent.push(event); }), once: vi.fn(), removeListener: vi.fn() };
+    const sender = Object.assign(new EventEmitter(), { id: 7, mainFrame: {}, isDestroyed: () => false, send: vi.fn((_channel: string, event: any) => { sent.push(event); }) });
     module.registerAgUiIpc(build, effects, () => null, undefined, undefined, options.pendingTurns, options.memory);
-    const run = (id = "conversation", patch: any = {}) => wire.handlers.get(IPC.AGUI_RUN)({ sender }, { messages: [{ role: "user", content: question }], sessionId: id, ...patch });
+    const run = (id = "conversation", patch: any = {}) => wire.handlers.get(IPC.AGUI_RUN)({ sender, senderFrame: sender.mainFrame }, { messages: [{ role: "user", content: question }], sessionId: id, ...patch });
     return { module, build, effects, sent, sender, run, cancel: (id?: string) => wire.handlers.get(IPC.AGUI_CANCEL)({}, id), adjust: (payload: any) => wire.handlers.get(IPC.CHATS_PENDING_ADJUST)({ sender }, payload), idle: async () => vi.waitFor(() => expect(module.hasActiveConversationRun()).toEqual(false)) };
 }
 function running(cooperative = false) { wire.omitTerminal = true; wire.keepOpen = true; wire.finishOnAbort = cooperative; }
@@ -862,4 +865,36 @@ describe("history index ownership", () => {
         else
             expect(indexConversationTurn).toHaveBeenCalledExactlyOnceWith("conversation", question, "A helpful response");
     });
+});
+
+
+describe("run lifetime is independent of the visible page",()=>{
+ it.each(['switch','navigation','destroyed','cancel','delete'] as const)('%s keeps the run alive unless explicitly cancelled or deleted',async kind=>{
+  session('conversation','chat',[user('u'),{...answer('a',''),answersUserMessageId:'u'}]);running(true);
+  let host:any;
+  const targets=createActiveChatTargetRegistry();
+  const memory=createMainDesktopMemory({enabled:true,getChatWindow:()=>host,targets,getSession:id=>wire.sessions.get(id),listSessionIds:()=>[...wire.sessions.keys()],isControlledSession:()=>true,store:{} as any,openBackend:async()=>{throw Error('BACKEND_MUST_STAY_CLOSED')}})!;
+  let accepted:ReturnType<typeof memory.authorizeRun>;
+  const authorizeRun=vi.fn((event:any,id:string)=>accepted=memory.authorizeRun(event,id));
+  const prepareAttachmentGrant=vi.fn(async(_event:any,_id:string,input:{userTurnId:string;authorization?:object})=>{
+   expect(input).toEqual({userTurnId:'u',authorization:accepted});return undefined;
+  });
+  const f=await bridge({memory:{...memory,authorizeRun,prepareAttachmentGrant}});
+  host={webContents:f.sender,isDestroyed:()=>false};
+  targets.setActive({sender:f.sender as any,sessionId:'conversation',mode:'chat',rendererTargetId:'page-a'});
+  try{
+   const ack=await f.run('conversation',{userTurnId:'u',assistantTurnId:'a'});
+   await vi.waitFor(()=>expect(wire.run).toHaveBeenCalledTimes(1));expect(authorizeRun).toHaveBeenCalledTimes(1);expect(prepareAttachmentGrant).toHaveBeenCalledTimes(1);
+   if(kind==='switch'){session('other');targets.setActive({sender:f.sender as any,sessionId:'other',mode:'chat',rendererTargetId:'page-b'});memory.refresh()}
+   if(kind==='navigation'||kind==='destroyed')f.sender.emit(kind==='navigation'?'did-start-navigation':'destroyed',{},'synthetic://next',false,true);
+   if(kind==='cancel')await f.cancel(ack.runId);
+   if(kind==='delete')targets.notifySessionDeleted('conversation');
+   const cancelled=kind==='cancel'||kind==='delete';expect(agentOptions().signal.aborted).toBe(cancelled);
+   if(!cancelled){expect(f.module.isActiveConversationRun('conversation',ack.runId)).toBe(true);const subscriber=wire.subscriptions[0];subscriber.next({type:'RUN_FINISHED',runId:ack.runId,result:{status:'success',externalEffectsMayContinue:false}});subscriber.complete()}
+   await f.idle();
+   expect(terminals(f.sent)).toEqual([{type:'RUN_FINISHED',runId:ack.runId,result:cancelled?{status:'cancelled',reason:'user_cancelled',externalEffectsMayContinue:true}:{status:'success',externalEffectsMayContinue:false}}]);
+   if(cancelled)expect(f.effects).not.toHaveBeenCalled();else expect(f.effects).toHaveBeenCalledTimes(1);
+   expect(memory.sContext.isControlledSession('conversation')).toBe(false);
+  }finally{await memory.close();targets.dispose()}
+ });
 });
