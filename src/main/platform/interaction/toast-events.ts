@@ -8,6 +8,8 @@ export interface ApprovalPendingEvent {
   toolName: string;
   toolId: string;
   id: string;
+  agentId?: string;
+  childRunId?: string;
 }
 
 /** 审批已有结论（回答、取消或不可用之一） */
