@@ -343,6 +343,22 @@ describe("session ownership, cancellation and takeover", () => {
         await f.idle();
         expect(f.module.isActiveConversationRun("conversation", second.runId)).toEqual(false);
     });
+    it("names a run's session only while it is live: not after takeover, cancellation or for an unknown run", async () => {
+        session();
+        running(true);
+        const f = await bridge();
+        const first = await f.run();
+        expect(f.module.findActiveConversationForRun(first.runId)).toEqual("conversation");
+        expect(f.module.findActiveConversationForRun("obsolete-run")).toEqual(undefined);
+        const second = await f.run("conversation", { takeoverFromRunId: first.runId });
+        // The taken-over run is aborted, so an approval it still waits on cannot be verified.
+        expect(f.module.findActiveConversationForRun(first.runId)).toEqual(undefined);
+        expect(f.module.findActiveConversationForRun(second.runId)).toEqual("conversation");
+        await f.cancel(second.runId);
+        expect(f.module.findActiveConversationForRun(second.runId)).toEqual(undefined);
+        await f.idle();
+        expect(f.module.findActiveConversationForRun(second.runId)).toEqual(undefined);
+    });
     it("bounds takeover waits for an aborted run that never settles", async () => {
         session();
         running();
