@@ -74,8 +74,25 @@ export type AgentLoopToolFinishedEvent = {
 export type AgentLoopCompactionLifecycleEvent = {
   cache?: AgentLoopCacheState; messageCountAfter?: number; messageCountBefore: number; status: "started" | "committed";
 };
+/**
+ * An inserted queue message that entered this run's model context and was saved together with it.
+ * "Delivered" means it is in the context the next request is built from, not that the model has answered it.
+ */
+export type RunInsertionReceipt = {
+  /** The history message id (also the transcript turn id). */
+  messageId: string;
+  revision: number;
+  /** The run the message was inserted into. */
+  sourceRunId: string;
+  /** The loop round before which it was accepted. */
+  round: number;
+  /** Delivery order within this run, starting at 1. */
+  order: number;
+};
 export type AgentLoopCheckpoint = {
   at: number; cache: AgentLoopCacheState; rounds: number; toolOutputs: ToolOutputRef[]; state: AgentState; messages: ChatMessage[];
+  /** Every insertion delivered so far, saved in the same checkpoint as the messages that contain them. */
+  insertions: RunInsertionReceipt[];
 };
 export type RunAdjustmentMessage = { rawContent: string; id: string };
 export type AgentLoopToolSpec = ToolSpec & { harnessBuiltin?: boolean };

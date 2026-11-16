@@ -1,7 +1,7 @@
 import { promptTokensOf } from "./context-usage";
 import type { ToolSpec, ChatResponse, ChatMessage } from "../../model/providers/types";
 import { causeCodes } from "../../model/providers/error-chain";
-import type { RunAdjustmentMessage, AgentLoopResult, AgentLoopInput, AgentLoopConfig, AgentLoopCacheState, AgentState } from "./types";
+import type { RunAdjustmentMessage, RunInsertionReceipt, AgentLoopResult, AgentLoopInput, AgentLoopConfig, AgentLoopCacheState, AgentState } from "./types";
 import type { ToolOutputRef } from "./tool-output/tool-output-store";
 import { INITIAL_AGENT_LOOP_CACHE_STATE, DEFAULT_AGENT_LOOP_CONFIG } from "./types";
 import { getAgentLoopBuiltinToolSpecs } from "./builtin-tools";
@@ -37,6 +37,8 @@ export type AgentLoopRun = {
   measuredUsage?: { inputTokens: number; outputTokens: number; messageCount: number };
   cache: AgentLoopCacheState;
   toolOutputs: ToolOutputRef[];
+  /** Receipts of inserted queue messages already in `messages`; saved with every checkpoint. */
+  insertions: RunInsertionReceipt[];
   messages: ChatMessage[];
   allToolSpecs: ToolSpec[];
   streamController: StreamController;
@@ -176,7 +178,7 @@ function createRun(input: AgentLoopInput): AgentLoopRun {
     toolContext: { userQuery: input.toolContext?.userQuery ?? "", ...input.toolContext, signal: input.signal } };
   return {
     input, config: limits, state: restored, clock: new TimeoutClock(limits.totalTimeoutMs, limits.userWaitTimeoutMs),
-    streamController: new StreamController(), allToolSpecs: advertised, messages: [...input.messages], toolOutputs: [],
+    streamController: new StreamController(), allToolSpecs: advertised, messages: [...input.messages], toolOutputs: [], insertions: [],
     cache: input.initialCache ? { ...input.initialCache } : { ...INITIAL_AGENT_LOOP_CACHE_STATE }, rounds: 0,
     checkpoint() { checkpoint(this); }, askDispatchContext: interactive,
     toolDispatchContext: { ...interactive, checkPermission: input.checkPermission, toolContext: input.toolContext,
@@ -245,7 +247,7 @@ async function callRoundLLM(run: AgentLoopRun, promptLayers: PromptLayers, round
 
 function checkpoint(run: AgentLoopRun): void {
   try { run.input.onCheckpoint?.({ messages: run.messages, state: run.state, toolOutputs: run.toolOutputs,
-    rounds: run.rounds, cache: { ...run.cache }, at: Date.now() }); }
+    rounds: run.rounds, cache: { ...run.cache }, insertions: run.insertions.map((receipt) => ({ ...receipt })), at: Date.now() }); }
   catch (cause) {
     const safe = publicRunFailure(cause);
     run.failure ??= safe;
