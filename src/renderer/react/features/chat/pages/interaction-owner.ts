@@ -6,5 +6,7 @@ export function interactionOwner(
   runId: string | undefined,
   visibleSessionId: string | undefined,
 ): string | undefined {
-  return findSessionIdForRun(activeRuns, runId) ?? visibleSessionId;
+  // 带了 run ID 却找不到持有者的卡直接丢弃，不落到恰好可见的会话里。
+  if (runId) return findSessionIdForRun(activeRuns, runId);
+  return visibleSessionId;
 }
