@@ -98,7 +98,7 @@
 4. **调用模型 (`callRoundLLM` → `callLLM`)**：`src/main/agent/loop/agent-loop-llm.ts` 调用 `MainMemoryRun.call`（或直接 `streamChatWithSdk`）。文本前缀经过 `ChatTimeStreamPrefixFilter` 过滤后以 `candidate_text_delta` 推送，推理增量以 `reasoning_start` / `reasoning_delta` / `reasoning_end` 推送。若首段内容前遭遇显式不支持流式拒绝，自动回退为 `stream: false` 请求。
 5. **模型底层发送（`dispatchPreparedModelCall` → `runSdkStream`）**：
    - `prepareModelCall`（`src/main/model/providers/prepared-model-call.ts`）在发送前冻结序列化请求体与输入模态。
-   - `dispatchPreparedModelCall` 通过共享连接池 `modelConnectionPool` 拦截全局 `fetch`，监控响应头（默认 120s）/ 流式体空闲超时（默认 300s，`MODEL_IDLE_DEFAULTS`），并在特定条件下执行自动重试（详见 `docs/references/vendor-errors/README.md` 与 `docs/specs/2026-11-16-model-request-retry.md`）。
+   - `dispatchPreparedModelCall` 通过共享连接池 `modelConnectionPool` 拦截全局 `fetch`，监控响应头（默认 120s）/ 流式体空闲超时（默认 300s，`MODEL_IDLE_DEFAULTS`），并在特定条件下执行自动重试（详见 `docs/references/vendor-errors/README.md` 与 `docs/specs/model-request-retry.md`）。
    - `runSdkStream`（`src/main/model/providers/sdk-stream/runtime.ts`）固定将 `client-config.ts` 中三家 SDK 客户端配置为 `maxRetries: 0`，将原生流事件交由各协议 Normalizer 与 `FireflyStreamAccumulator` 聚合为统一 `ChatResponse`。
 6. **响应落盘与分支**：将 `assistant` 消息记入 `run.messages` 并调用 `transcriptSink.appendAssistant`；若本轮不含 `toolCalls` 且 `finalPoll` 无新插话，提交 `progressBuffer`、发出 `final_answer` 并调用 `finishRun`；否则先执行 `checkpoint(run)` 再进入工具轮次。
 
