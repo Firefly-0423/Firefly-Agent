@@ -168,7 +168,7 @@ export function createConversationTranscriptAdapter(options:AdapterOptions) {
    if(done)return done;
   }
   const attempt:Attempt=pending??{turnId:item.turnId,text:item.text,throughSeq:boundary.throughSeq,proof:{revision:boundary.mutationRevision,epoch:-1},
-   input:{id:`user:v1:${item.turnId}:r1`,at:Date.now(),kind:"user",turnId:item.turnId,revision:1,payload:{text:item.text}}};
+   input:{id:`user:v1:${item.turnId}:r1`,at:Date.now(),kind:"user",runId,turnId:item.turnId,revision:1,payload:{text:item.text}}};
   attempt.observed=undefined;
   try{
    await options.store.append(actor.sessionId,attempt.input,{
@@ -207,7 +207,7 @@ export function createConversationTranscriptAdapter(options:AdapterOptions) {
      const seen=attempt.observed,entry=mutation.entry;
      if(!seen||runs.get(runId)!==attempt.previous||mutation.kind!=="append"||seen.revision!==attempt.proof.revision+1||seen.epoch!==attempt.proof.epoch+1
       ||revision!==seen.revision||mutationEpoch!==seen.epoch
-      ||entry?.kind!=="user"||entry.seq!==attempt.throughSeq+1||entry.id!==attempt.input.id||entry.turnId!==item.turnId||entry.revision!==1
+      ||entry?.kind!=="user"||entry.seq!==attempt.throughSeq+1||entry.id!==attempt.input.id||entry.runId!==runId||entry.turnId!==item.turnId||entry.revision!==1
       ||canonicalJson(entry.payload)!==canonicalJson({text:item.text}))return stale();
      const written=await write();
      // Revoked after the write was dispatched: the entry may stand, but the run is not bound or delivered.

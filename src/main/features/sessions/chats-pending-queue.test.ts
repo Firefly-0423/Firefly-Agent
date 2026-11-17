@@ -292,7 +292,7 @@ describe("pending edits and run adjustments", () => {
         const { createRunAdjustmentPoller, isRunAdjustmentInFlight } = await import("../../agent/runtime/pending-adjustment");
         let release!: () => void;
         const gate = new Promise<void>(resolve => { release = resolve; });
-        const processing = createRunAdjustmentPoller(id, "running", store, { appendUser: async (input) => { await gate; return { text: input.text }; } })();
+        const processing = createRunAdjustmentPoller(id, "running", store, { appendUser: async (input) => { await gate; return { text: input.text, runId: input.runId }; } })();
         expect(isRunAdjustmentInFlight(id, "alpha")).toBe(true);
         expect(isRunAdjustmentInFlight(id, "beta")).toBe(false);
         release();
@@ -335,7 +335,7 @@ describe("pending edits and run adjustments", () => {
         let release!: () => void;
         const gate = new Promise<void>(resolve => { release = resolve; });
         const recorded: string[] = [];
-        const poll = createRunAdjustmentPoller(id, "running", store, { appendUser: async (input) => { recorded.push(input.turnId); await gate; return { text: input.text }; } });
+        const poll = createRunAdjustmentPoller(id, "running", store, { appendUser: async (input) => { recorded.push(input.turnId); await gate; return { text: input.text, runId: input.runId }; } });
         const processing = poll();
         expect(processing).toBeInstanceOf(Promise);
         // History is committed first: alpha has already left the queue for chat history, the transcript write is what is pending.
@@ -393,7 +393,7 @@ describe("queue IPC boundary", () => {
         store.markPendingAdjust(session.id, "beta", "running");
         let release!: () => void;
         const gate = new Promise<void>(resolve => { release = resolve; });
-        const writing = createRunAdjustmentPoller(session.id, "running", store, { appendUser: async (input) => { await gate; return { text: input.text }; } })();
+        const writing = createRunAdjustmentPoller(session.id, "running", store, { appendUser: async (input) => { await gate; return { text: input.text, runId: input.runId }; } })();
         // alpha is already in chat history (out of the queue); beta is still queued but taken by the run.
         expect(await call({ sessionId: session.id, messageId: "alpha" })).toMatchObject({ ok: false, error: "not-found", queue: [{ id: "beta" }] });
         expect(await call({ sessionId: session.id, messageId: "beta" })).toMatchObject({ ok: false, error: "already-adjusting", queue: [{ id: "beta" }] });

@@ -75,14 +75,15 @@ export type PendingAdjustmentStore = {
   listRunInsertions(sessionId: string, runId: string): ChatMessage[];
 };
 
-type TranscriptUserEntry = { turnId: string; text: string; attachments?: PendingChatAttachment[] };
+/** `runId` marks the entry as inserted into that run; the model context frames it (#96). */
+type TranscriptUserEntry = { turnId: string; runId: string; text: string; attachments?: PendingChatAttachment[] };
 
 /**
  * 轨迹写入端口：以固定的 turnId 写 user 条目，附件元数据一并保存。
  * 同 ID 已存在时不覆盖，返回已存的正文，由拉取器核对是否就是这条消息。
  */
 export type TranscriptUserWritePort = {
-  appendUser(input: TranscriptUserEntry): Promise<{ text: string }>;
+  appendUser(input: TranscriptUserEntry): Promise<{ text: string; runId?: string }>;
 };
 
 type Blocked = NonNullable<RunAdjustmentPoll["blocked"]>;
@@ -90,11 +91,11 @@ type Blocked = NonNullable<RunAdjustmentPoll["blocked"]>;
 /** Writes (or finds) the transcript entry for a committed insertion; returns why it is blocked, if it is. */
 async function ensureTranscript(transcript: TranscriptUserWritePort | undefined, entry: TranscriptUserEntry): Promise<Omit<Blocked, "messageId"> | undefined> {
   if (!transcript) return undefined;
-  let stored: { text: string };
+  let stored: { text: string; runId?: string };
   try { stored = await transcript.appendUser(entry); }
   catch { return { reason: "transcript-write-failed", retryable: true }; }
   // The store keeps the first write for an id; a different text there is not this message.
-  if (stored?.text !== entry.text) return { reason: "transcript-conflict", retryable: false };
+  if (stored?.text !== entry.text || stored.runId !== entry.runId) return { reason: "transcript-conflict", retryable: false };
   return undefined;
 }
 
@@ -167,7 +168,7 @@ export function createRunAdjustmentPoller(
           const outcome = await viaHandler(item, { committed: true, assertPending: () => denied() }, known);
           if (!("id" in outcome)) return block(message.id, outcome);
         } else {
-          const why = await ensureTranscript(transcript, { turnId: message.id, text: message.content });
+          const why = await ensureTranscript(transcript, { turnId: message.id, runId, text: message.content });
           if (why) return block(message.id, why);
         }
         injected.push(known);
@@ -196,7 +197,7 @@ export function createRunAdjustmentPoller(
         if (!commit.ok) return block(item.id, { reason: commit.error, retryable: commit.error === "write-failed" });
         // 第二步：会话记录。失败时这条已在聊天历史里，下一次拉取凭 runInsertion 找回补写。
         const attachments = item.attachments?.length ? item.attachments : undefined;
-        const why = await ensureTranscript(transcript, { turnId: item.id, text: item.rawContent, ...(attachments ? { attachments } : {}) });
+        const why = await ensureTranscript(transcript, { turnId: item.id, runId, text: item.rawContent, ...(attachments ? { attachments } : {}) });
         if (why) return block(item.id, why);
         // 两步都成功后才把消息交给运行
         injected.push({ id: commit.userMessage.id, rawContent: item.rawContent, revision: 1 });

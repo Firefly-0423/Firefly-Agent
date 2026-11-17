@@ -516,18 +516,19 @@ export function registerAgUiIpc(
       runOptions.pollRunAdjustments = createRunAdjustmentPoller(
         conversationId, executionId, chatsStore,
         writesTranscript ? {
-          appendUser: async ({ turnId, text: content, attachments: files }) => {
+          appendUser: async ({ turnId, runId: insertedInto, text: content, attachments: files }) => {
             const journal = getConversationTranscriptStore(app.getPath("userData"));
             const stored = await journal.append(conversationId, {
               id: `user:v1:${turnId}:r1`,
               at: Date.now(),
               kind: "user",
+              runId: insertedInto,
               turnId,
               revision: 1,
               payload: { text: content, ...(files ? { attachments: files } : {}) },
             });
-            // An existing entry with this id is returned as is; the poller compares its text.
-            return { text: stored.kind === "user" ? stored.payload.text : "" };
+            // An existing entry with this id is returned as is; the poller compares its text and run.
+            return stored.kind === "user" ? { text: stored.payload.text, ...(stored.runId ? { runId: stored.runId } : {}) } : { text: "" };
           },
         } : undefined,
         request.assistantTurnId ? { assistantTurnId: request.assistantTurnId } : {},

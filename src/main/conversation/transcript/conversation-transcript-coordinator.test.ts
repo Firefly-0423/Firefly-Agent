@@ -102,6 +102,40 @@ describe("Canonical transcript dispatch", () => {
       const rows = (await entries()).filter((row) => row.turnId === "extra-a");
       expect(rows.map((row) => row.id)).toEqual(["backfill:v1:extra-a"]);
     });
+
+    it("marks reconciled and backfilled insertion rows with the run they were inserted into and leaves ordinary users unmarked", async () => {
+      const { store, session, dispatch, entries } = setup();
+      session.messages.splice(1, 0, inserted("backfilled", "Backfilled supplement", "agenda-old", 1));
+      await dispatch("agenda-first");
+      session.messages.splice(3, 0, inserted("reconciled", "Reconciled supplement", "agenda-first", 1));
+      session.messages.push({ id: "question-next", role: "user", content: "Thursday appointments", at: 90 });
+      await prepareTranscriptDispatch({ store, session, userTurnId: "question-next", runId: "agenda-second" });
+      const rows = (await entries()).filter((row) => row.kind === "user");
+      expect(rows.map((row) => [row.id, row.runId])).toEqual([
+        ["backfill:v1:question-old", undefined],
+        ["backfill:v1:backfilled", "agenda-old"],
+        ["user:v1:question-now:r1", undefined],
+        ["user:v1:reconciled:r1", "agenda-first"],
+        ["user:v1:question-next:r1", undefined],
+      ]);
+      expect(rows.filter((row) => row.id.startsWith("backfill:v1:question-old") || row.turnId?.startsWith("question-")).every((row) => !("runId" in row))).toBe(true);
+    });
+
+    it("fails the reconcile without a second row when a concurrent writer already stored the same text under another run", async () => {
+      const { store, session, dispatch, entries } = setup();
+      await dispatch("agenda-first");
+      session.messages.push(inserted("clash", "Same text", "agenda-first", 1), { id: "question-next", role: "user", content: "Thursday appointments", at: 90 });
+      const before = await entries();
+      // The other writer lands after the coordinator read the transcript and before its own append.
+      const racing = { read: (room: string) => store.read(room), append: async (room: string, draft: Parameters<typeof store.append>[1]) => {
+        await store.append(room, { id: "user:v1:clash:r1", kind: "user", runId: "agenda-elsewhere", turnId: "clash", revision: 1, at: 31, payload: { text: "Same text" } });
+        return store.append(room, draft);
+      } } as unknown as ConversationTranscriptStore;
+      await expect(prepareTranscriptDispatch({ store: racing, session, userTurnId: "question-next", runId: "agenda-second" })).rejects.toThrow("TRANSCRIPT_INSERTION_RECONCILE_CONFLICT");
+      const after = await entries();
+      expect(after.slice(0, before.length)).toEqual(before);
+      expect(after.slice(before.length).map((row) => [row.id, row.kind === "user" ? row.runId : undefined])).toEqual([["user:v1:clash:r1", "agenda-elsewhere"]]);
+    });
   });
 
   it.each(["absent-turn", "answer-old"])("rejects a missing or non-user anchor %s", async (userTurnId) => {
