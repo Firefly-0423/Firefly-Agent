@@ -33,3 +33,4 @@
 - 施工计划与进度：`docs/superpowers/plans/2026-11-12-main-process-layering.md` 及同名 `-progress.md`
 - 本层的功能施工计划在 `docs/superpowers/plans/` 下，开工前在这里补上链接。
 - 运行中插入的提交与恢复（#96）：[施工计划](../../../docs/superpowers/plans/queue-insert-commit.md)、[验证报告](../../../docs/superpowers/plans/queue-insert-commit-progress.md)。
+- 运行中插入的模型说明（#96 后续 PR 2）：[施工计划](../../../docs/superpowers/plans/queue-insert-framing.md)、[验证报告](../../../docs/superpowers/plans/queue-insert-framing-progress.md)。
