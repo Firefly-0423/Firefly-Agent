@@ -19,6 +19,7 @@ import { publicRunFailure, type RunFailure, type RunFailureSource } from "../../
 import { ContextError } from "../../model/context/context-contracts";
 import { buildStableSystemPrefix, type PromptLayers } from "../../model/prompt/prompt-layers";
 import { logger, LogTag } from "../../base/logging/logger";
+import { frameRunInsertion } from "./run-insertion-framing";
 
 const logTag = "[AgentLoop]";
 export type AgentLoopRun = {
@@ -106,7 +107,7 @@ async function acceptAdjustments(run: AgentLoopRun, firstPoll: Promise<RunAdjust
     if (fresh.length > 0) {
       if (accepted === 0) beforeFirstInsertion?.();
       for (const entry of fresh) {
-        run.messages.push({ role: "user", content: entry.rawContent });
+        run.messages.push({ role: "user", content: frameRunInsertion(entry.rawContent) });
         run.insertions.push({ messageId: entry.id, revision: entry.revision, sourceRunId: host.runId ?? "", round: run.rounds, order: run.insertions.length + 1 });
       }
       accepted += fresh.length;

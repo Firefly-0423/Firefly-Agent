@@ -4,6 +4,7 @@ import { DEFAULT_AGENT_LOOP_CONFIG, tryParseToolCallArgs, toolCallFingerprint, t
 import type { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
 import type { TranscriptEntry } from "../../conversation/transcript/conversation-transcript-types";
 import { classifySAssistantSettlement } from "../../conversation/transcript/conversation-transcript-settlement";
+import { frameRunInsertion, isRunInsertionEntry } from "./run-insertion-framing";
 import type { ChatMessage, ToolCall } from "../../model/providers/types";
 import type { ChatMessage as StoredChatMessage } from "../../../shared/chat-types";
 import { autoCompactTriggerTokens } from "../../../shared/context-window";
@@ -108,7 +109,11 @@ export function materializeTranscript(entries: TranscriptEntry[], reader: Transc
   const messages: ChatMessage[] = [];
   const sources: TranscriptEntry[] = [];
   for (const node of view) {
-    if (node.kind === "user") { messages.push({ role: "user", content: node.text }); sources.push(node.entry); continue; }
+    if (node.kind === "user") {
+      // An insertion carries its frame only in the model context; the entry itself keeps the original text.
+      messages.push({ role: "user", content: isRunInsertionEntry(node.entry) ? frameRunInsertion(node.text) : node.text });
+      sources.push(node.entry); continue;
+    }
     const disposition = dispositions.get(node.entry.id);
     if (disposition !== "legacy" && disposition !== "success") continue;
     const turnId = node.entry.turnId;

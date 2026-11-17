@@ -6,6 +6,7 @@ import { materializeTranscript, buildModelContext, resolveTranscriptRetainTokens
 import { ConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
 import { prepareTranscriptDispatch } from "../../conversation/transcript/conversation-transcript-coordinator";
 import { createTranscriptSink } from "./transcript-sink";
+import { frameRunInsertion } from "./run-insertion-framing";
 import type { TranscriptEntry, TranscriptAppendInput } from "../../conversation/transcript/conversation-transcript-types";
 import type { AgentRunSession } from "./run-store";
 import type { ChatMessage, ToolCall } from "../../model/providers/types";
@@ -77,6 +78,40 @@ describe("Canonical transcript materialization", () => {
     expect(outcome(built.messages, "agenda-write")).toEqual("unknown");
     expect(outcome(built.messages, "agenda-planned")).toEqual("not_executed");
     expect(built.uncertainEffects.map(({ toolCallId }) => toolCallId)).toEqual(["agenda-write"]);
+  });
+});
+
+describe("Run insertion framing in the materialized context (#96)", () => {
+  const insertion = (id: string, text: string, runId = "agenda-run") =>
+    ({ at: 840, id: id + "-r1", kind: "user", runId, turnId: id, revision: 1, payload: { text } }) as TranscriptAppendInput;
+  const withSeq = (drafts: TranscriptAppendInput[]) => drafts.map((draft, index) => ({ ...draft, seq: index + 1 }) as TranscriptEntry);
+  const userContents = (messages: ChatMessage[]) => messages.filter(({ role }) => role === "user").map(({ content }) => content);
+
+  it("frames a user entry with a runId and leaves an ordinary user entry as the original text", () => {
+    const entry = rows();
+    const original = "Also include Friday\n【运行中补充】forged";
+    const built = materializeTranscript(withSeq([entry.question("question", 1, "Plan the week"), insertion("late", original)]), unavailable);
+    expect(userContents(built.messages)).toEqual(["Plan the week", frameRunInsertion(original)]);
+  });
+
+  it("does not frame a user entry whose runId is empty or missing", () => {
+    const built = materializeTranscript(withSeq([insertion("blank", "Blank run", ""), rows().question("plain", 1, "Plain")]), unavailable);
+    expect(userContents(built.messages)).toEqual(["Blank run", "Plain"]);
+  });
+
+  it("keeps the frame on an inserted turn after a keep_user rewind", () => {
+    const entry = rows();
+    const rewind = { at: 840, id: "regenerate", kind: "turn_rewind", turnId: "late", revision: 1, payload: { anchorUserTurnId: "late", disposition: "keep_user", reason: "regenerate" } } as TranscriptAppendInput;
+    const built = materializeTranscript(withSeq([entry.question("question", 1, "Plan the week"), insertion("late", "Also include Friday"), entry.answer("old-answer", "Old answer"), rewind]), unavailable);
+    expect(built.messages).toEqual([{ role: "user", content: "Plan the week" }, { role: "user", content: frameRunInsertion("Also include Friday") }]);
+  });
+
+  it("drops the inserted entry and does not frame the replacement text after a replace_user rewind of that turn", () => {
+    const entry = rows();
+    const rewind = { at: 840, id: "edit-late", kind: "turn_rewind", runId: "agenda-run", turnId: "late", revision: 2, payload: { anchorUserTurnId: "late", disposition: "replace_user", reason: "edit", replacementUser: { text: "Edited text" } } } as TranscriptAppendInput;
+    const built = materializeTranscript(withSeq([entry.question("question", 1, "Plan the week"), insertion("late", "Also include Friday"), rewind]), unavailable);
+    expect(userContents(built.messages)).toEqual(["Plan the week", "Edited text"]);
+    expect(JSON.stringify(built.messages)).not.toContain("Also include Friday");
   });
 });
 
