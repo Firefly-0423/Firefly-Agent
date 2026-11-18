@@ -4,6 +4,7 @@
 
 | 日期 | 问题 | 当前状态 | 详细记录 |
 | --- | --- | --- | --- |
+| 2026-11-17 | 中断的运行重开后，“询问用户”等工具行仍显示“进行中” | 修复已提 PR（`fix/interrupted-tool-rows`） | [interrupted-run-tool-rows-keep-waiting](./interrupted-run-tool-rows-keep-waiting.md) |
 | 2026-11-16 | 运行中插入的补充在部分写入失败时丢失，或会话记录半截条目被重放 | 修复已提 PR（#96；真机造障未测） | [queue-insert-lost-or-replayed](./queue-insert-lost-or-replayed.md) |
 | 2026-11-16 | 切换会话、刷新或关窗会取消正在进行的运行 | 待修复（负责人确认是缺陷，修复进行中） | [run-cancelled-on-switch-or-reload](./run-cancelled-on-switch-or-reload.md) |
 | 2026-11-16 | 渲染页重载后，仍在等待的审批没有可处理的卡片 | 修复已提 PR（#93） | [approval-lost-after-reload](./approval-lost-after-reload.md) |
