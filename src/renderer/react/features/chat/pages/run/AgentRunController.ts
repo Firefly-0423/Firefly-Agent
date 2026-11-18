@@ -22,7 +22,7 @@ import { FrameCoalescer, PacedTextReveal, SMOOTH_REVEAL_TICK_MS, SmoothTextRevea
 import { buildTodoRecoveryContext, mergeAgentLoopTodosForSession, startSessionTodos, type TodoStateBySession } from "../session-runtime-state";
 
 const prefersReducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-type CheckpointPhase = "running" | "waiting_user" | "terminal";
+type CheckpointPhase = "running" | "waiting_user" | "terminal" | "interrupted";
 /** A terminal snapshot is written at most this many times; the waits between attempts follow. */
 const TERMINAL_SAVE_ATTEMPTS = 3;
 const TERMINAL_SAVE_RETRY_MS = [100, 300] as const;
@@ -38,6 +38,7 @@ export type AgentRunHost = {
   onRunFinished(input: { mode: ConversationMode; sessionId: string; queuePaused: boolean }): void;
   clearTakeover(sessionId: string): void;
   requestTakeover(sessionId: string, activeRunId: string, retry: () => Promise<void>): void;
+  onTakeoverStuck?(sessionId: string, activeRunId: string): void;
   setModeBusy(mode: ConversationMode, busy: boolean): void;
   setCompressingContext(sessionId: string, value: boolean): void;
   updateContextUsage(sessionId: string, snapshot: ContextUsageSnapshot): void;
@@ -224,6 +225,16 @@ export class AgentRunController {
       if (!this.ended) this.failPlan("failed");
       this.completeRunActivity(true);
       const explanation = failure instanceof Error ? failure.message : String(failure);
+      const stuckRun = /(?:^|: )SESSION_RUN_TAKEOVER_STUCK:([^\s:]+)$/.exec(explanation.trim())?.[1];
+      if (stuckRun !== undefined && stuckRun === this.request.takeoverFromRunId) {
+        this.ports.host.onTakeoverStuck?.(this.request.sessionId, stuckRun);
+        this.progressEntries = [...this.progressEntries, createRoundProcessMessage(
+          "process-" + this.nextProcessNumber++, t("workspaceNotices.takeoverStuck"), this.tools.length, this.roundKey, this.nextSeq(),
+        )];
+        this.patchFailedProcess();
+        if (!await this.persistTerminal("interrupted")) this.showTerminalSaveFailure();
+        return;
+      }
       const conflict = parseSessionRunActiveError(explanation);
       if (conflict) {
         this.moveCandidateToInterruptedProcess();
@@ -236,7 +247,8 @@ export class AgentRunController {
           this.patch({ loading: true, waitingForFirstEvent: true, streaming: false, responseStarted: false });
           await this.ports.startRun({ ...this.request, takeoverFromRunId: conflict });
         });
-        if (!await this.persistTerminal()) this.showTerminalSaveFailure();
+        // 未获 Main 接纳，保留待发认领；终态会让队列误认这条消息已经派发。
+        if (!await this.persistTerminal("interrupted")) this.showTerminalSaveFailure();
         return;
       }
       const publicFailure = publicRunFailure(failure);
@@ -299,12 +311,12 @@ export class AgentRunController {
   }
 
   /** Writes one frozen terminal snapshot, retrying it after a thrown failure; a reply without the message is final. */
-  private async persistTerminal(): Promise<boolean> {
+  private async persistTerminal(status: "terminal" | "interrupted" = "terminal"): Promise<boolean> {
     if (this.saveTimer !== undefined) {
       window.clearTimeout(this.saveTimer);
       this.saveTimer = undefined;
     }
-    const snapshot = this.buildCheckpoint("terminal");
+    const snapshot = this.buildCheckpoint(status);
     for (let attempt = 0; attempt < TERMINAL_SAVE_ATTEMPTS; attempt += 1) {
       this.saves = this.saves.catch(() => null).then(() => this.ports.store!.upsert(this.request.sessionId, snapshot));
       try {
@@ -352,7 +364,7 @@ export class AgentRunController {
       answersUserMessageId: this.request.userMessageId, sticker: this.stickerId, toolExecutions: this.tools,
       contextUsage: this.usage, workReadReport: this.readEvidence,
       runSnapshot: {
-        runId: this.ports.registries.activeRuns.current[this.request.sessionId]?.runId, status,
+        runId: status === "interrupted" ? undefined : this.ports.registries.activeRuns.current[this.request.sessionId]?.runId, status,
         terminalStatus: status === "terminal" ? this.finishStatus as "success" | "cancelled" | "timeout" | "runtime_error" | undefined : undefined,
         todos: this.todos, updatedAt: Date.now(),
       },
