@@ -3,7 +3,7 @@ import path from "node:path";
 import {expect,it,vi} from "vitest";
 vi.mock("electron",()=>({app:{getPath:()=>""},shell:{openPath:vi.fn()}}));
 import {createRunAdjustmentPoller,bindRunAdjustmentPoller} from "../runtime/pending-adjustment";
-import type {PendingChatMessage} from "../../../shared/chat-types";
+import type {ChatMessage,PendingChatMessage} from "../../../shared/chat-types";
 import os from "node:os";
 import {randomBytes} from "node:crypto";
 import {afterEach} from "vitest";
@@ -299,22 +299,52 @@ it.each(["new-user","edit","delete","interruption"] as const)("rejects same-run 
 });
 
 
+const adjustmentBlocked=(reason:string,retryable:boolean)=>({delivered:[],blocked:{messageId:"adjust-1",reason,retryable}});
+const adjustmentDelivered={delivered:[{id:"adjust-1",rawContent:"also include detail",revision:1}]};
+const storageFailure=()=>Object.assign(new Error("synthetic storage failure"),{code:"EIO"});
+const faultSpies:Array<{mockRestore():void}>=[];
+afterEach(()=>{for(const spy of faultSpies.splice(0))spy.mockRestore()});
+/** Real temp-dir adapter plus a history queue that records when each step ran; storage faults are injected at the file calls. */
 async function adjustmentFixture(beforeMutation?:Parameters<typeof createConversationTranscriptAdapter>[0]["beforeMutation"],assertCurrent?:()=>void) {
- const f=await fixture(beforeMutation);await f.adapter.captureRun("run-a");
+ const events:string[]=[];
+ const f=await fixture(async(...args)=>{
+  if(args[1]?.kind==="user"&&args[1].turnId==="adjust-1")events.push("observer");
+  await beforeMutation?.(...args);
+ });await f.adapter.captureRun("run-a");
  await f.store.append("session-a",{id:"a1",runId:"run-a",at:1001,kind:"assistant",payload:{role:"assistant",content:"checking",toolCalls:[{id:"call-a",name:"read_file",arguments:"{}"}]}});
  await f.store.append("session-a",{id:"t1",runId:"run-a",at:1002,kind:"tool_result",payload:{assistantEntryId:"a1",toolCallId:"call-a",outcome:"success",message:{role:"tool",content:"result",toolCallId:"call-a"}}});
  const boundary=await f.adapter.captureRunRound("run-a");
+ const history:ChatMessage[]=[];
  let queue:PendingChatMessage[]=[{id:"adjust-1",rawContent:"also include detail",visibleContent:"also include detail",enqueuedAt:1003,adjustRunId:"run-a"}],failCommit=false,commits=0;
  const poll=createRunAdjustmentPoller("session-a","run-a",{
   getPendingMessages:()=>queue,
-  commitPendingAdjust:(_session,id)=>{commits++;if(failCommit)return {ok:false,error:"write-failed"};queue=[];return {ok:true,userMessage:{id},remainingQueue:[]}},
+  commitPendingAdjust:(_session,id,runId)=>{
+   commits++;events.push("history");if(failCommit)return {ok:false,error:"write-failed"};
+   queue=[];history.push({id,role:"user",content:"also include detail",at:1003,runInsertion:{version:1,runId,revision:1,sequence:history.length+1}});
+   return {ok:true,userMessage:{id},remainingQueue:[]};
+  },
+  listRunInsertions:(_session,runId)=>history.filter(message=>message.runInsertion?.runId===runId),
  });
  bindRunAdjustmentPoller(poll,{sessionId:"session-a",runId:"run-a"},(permit,commit)=>f.adapter.commitRunAdjustment("run-a",permit,{throughSeq:boundary.throughSeq,mutationRevision:boundary.mutationRevision,...(assertCurrent?{assertCurrent}:{})},commit));
- return {...f,boundary,poll,get queue(){return queue},get commits(){return commits},failCommit:(value:boolean)=>{failCommit=value}};
+ // Armed after the fixture's own appends: each counter fails that many upcoming calls for this conversation.
+ const faults={mkdir:0,append:0,afterWrite:0,afterDispatch:undefined as (()=>void)|undefined};
+ const realMkdir=fs.promises.mkdir.bind(fs.promises),realAppend=fs.promises.appendFile.bind(fs.promises);
+ faultSpies.push(vi.spyOn(fs.promises,"mkdir").mockImplementation((async(target:unknown,options:unknown)=>{
+  if(String(target).includes("session-a")){events.push("mkdir");if(faults.mkdir>0){faults.mkdir--;throw storageFailure()}}
+  return realMkdir(target as string,options as never);
+ }) as never));
+ faultSpies.push(vi.spyOn(fs.promises,"appendFile").mockImplementation((async(target:unknown,data:unknown,options:unknown)=>{
+  if(!String(target).includes("session-a")||!String(data).includes("adjust-1"))return realAppend(target as string,data as string,options as never);
+  events.push("append");if(faults.append>0){faults.append--;throw storageFailure()}
+  await realAppend(target as string,data as string,options as never);
+  faults.afterDispatch?.();if(faults.afterWrite>0){faults.afterWrite--;throw storageFailure()}
+ }) as never));
+ const adjustEntries=async()=>(await f.store.read("session-a")).entries.filter(entry=>entry.turnId==="adjust-1");
+ return {...f,boundary,poll,events,faults,history,adjustEntries,get queue(){return queue},get commits(){return commits},failCommit:(value:boolean)=>{failCommit=value}};
 }
 it("transfers a complete run to a genuine marked adjustment without reviving its prior frame",async()=>{
  const f=await adjustmentFixture();
- expect(await f.poll()).toEqual([{id:"adjust-1",rawContent:"also include detail"}]);
+ expect(await f.poll()).toEqual(adjustmentDelivered);
  expect(f.queue).toEqual([]);expect(f.commits).toBe(1);
  const current=await f.adapter.captureRunRound("run-a");
  expect(current.userTurnId).toBe("adjust-1");expect(current.userRevision).toBe(1);
@@ -324,43 +354,102 @@ it("transfers a complete run to a genuine marked adjustment without reviving its
  await f.store.append("session-a",user("untrusted-user"));
  await expect(f.adapter.captureRunRound("run-a")).rejects.toThrow(exactly("MEMORY_CONTEXT_STREAM_RUN_REUSED"));
 });
-it("retries only its exact partial canonical adjustment after a history commit failure",async()=>{
- const f=await adjustmentFixture();f.failCommit(true);
- await expect(f.poll()).rejects.toThrow(/^PENDING_ADJUST_COMMIT_FAILED:/);
- expect(f.queue).toHaveLength(1);
- expect((await f.store.read("session-a")).entries.filter(entry=>entry.turnId==="adjust-1")).toHaveLength(1);
- await expect(f.adapter.captureRunRound("run-a")).rejects.toThrow(exactly("MEMORY_CONTEXT_STREAM_RUN_REUSED"));
- f.failCommit(false);expect(await f.poll()).toHaveLength(1);
- expect((await f.store.read("session-a")).entries.filter(entry=>entry.turnId==="adjust-1")).toHaveLength(1);
+it("commits history inside the guarded append before the transcript entry exists, then writes and binds it once",async()=>{
+ const f=await adjustmentFixture();
+ expect(await f.poll()).toEqual(adjustmentDelivered);
+ expect(f.events).toEqual(["history","observer","mkdir","append"]);
+ expect(f.history.map(message=>message.id)).toEqual(["adjust-1"]);
+ expect((await f.adjustEntries()).map(entry=>[entry.seq,entry.kind,entry.id])).toEqual([[4,"user","user:v1:adjust-1:r1"]]);
  expect((await f.adapter.captureRunRound("run-a")).userTurnId).toBe("adjust-1");
- expect(f.queue).toEqual([]);expect(f.commits).toBe(2);
+ expect(f.poll()).toBeUndefined();
 });
-it.each(["append","edit","delete"] as const)("rejects a partial adjustment retry after unrelated %s without consuming pending",async kind=>{
- const f=await adjustmentFixture();f.failCommit(true);await expect(f.poll()).rejects.toThrow(/^PENDING_ADJUST_COMMIT_FAILED:/);
+it("leaves the transcript untouched and retries from scratch after a history write failure, committing history once it succeeds",async()=>{
+ const f=await adjustmentFixture();f.failCommit(true);
+ expect(await f.poll()).toEqual(adjustmentBlocked("write-failed",true));
+ expect(f.queue).toHaveLength(1);expect(f.history).toEqual([]);expect(await f.adjustEntries()).toEqual([]);
+ expect(f.events).toEqual(["history"]);
+ await expect(f.adapter.captureRunRound("run-a")).resolves.toMatchObject({userTurnId:"u1"});
+ f.failCommit(false);expect(await f.poll()).toEqual(adjustmentDelivered);
+ expect(f.events).toEqual(["history","history","observer","mkdir","append"]);
+ expect(f.commits).toBe(2);expect(f.history).toHaveLength(1);expect(await f.adjustEntries()).toHaveLength(1);
+ expect((await f.adapter.captureRunRound("run-a")).userTurnId).toBe("adjust-1");expect(f.queue).toEqual([]);
+});
+it("recovers in the same run after the observer ran and mkdir failed, without committing history a second time",async()=>{
+ const f=await adjustmentFixture();f.faults.mkdir=1;
+ expect(await f.poll()).toEqual(adjustmentBlocked("transcript-write-failed",true));
+ expect(f.events).toEqual(["history","observer","mkdir"]);
+ expect(f.commits).toBe(1);expect(f.history).toHaveLength(1);expect(await f.adjustEntries()).toEqual([]);
+ expect(await f.poll()).toEqual(adjustmentDelivered);
+ expect(f.events).toEqual(["history","observer","mkdir","observer","mkdir","append"]);
+ expect(f.commits).toBe(1);expect(f.history).toHaveLength(1);expect(await f.adjustEntries()).toHaveLength(1);
+ expect((await f.adapter.captureRunRound("run-a")).userTurnId).toBe("adjust-1");
+});
+it("appends again at the same seq when appendFile failed before writing, without committing history a second time",async()=>{
+ const f=await adjustmentFixture();f.faults.append=1;
+ expect(await f.poll()).toEqual(adjustmentBlocked("transcript-write-failed",true));
+ expect(await f.adjustEntries()).toEqual([]);expect(f.commits).toBe(1);
+ expect(await f.poll()).toEqual(adjustmentDelivered);
+ expect(f.events.filter(event=>event==="append")).toHaveLength(2);
+ expect((await f.adjustEntries()).map(entry=>entry.seq)).toEqual([4]);
+ expect(f.commits).toBe(1);expect(f.history).toHaveLength(1);
+ expect((await f.adapter.captureRunRound("run-a")).userTurnId).toBe("adjust-1");
+});
+it("binds without a second write when the entry was written but the call then threw",async()=>{
+ const f=await adjustmentFixture();f.faults.afterWrite=1;
+ expect(await f.poll()).toEqual(adjustmentBlocked("transcript-write-failed",true));
+ expect((await f.adjustEntries()).map(entry=>entry.seq)).toEqual([4]);
+ expect(await f.poll()).toEqual(adjustmentDelivered);
+ expect(f.events.filter(event=>event==="append")).toHaveLength(1);
+ expect((await f.adjustEntries()).map(entry=>entry.seq)).toEqual([4]);
+ expect(f.commits).toBe(1);expect(f.history).toHaveLength(1);
+ expect((await f.adapter.captureRunRound("run-a")).userTurnId).toBe("adjust-1");
+});
+it.each(["append","edit","delete"] as const)("blocks a partial adjustment retry as non-retryable stale after an unrelated %s, writing nothing further",async kind=>{
+ const f=await adjustmentFixture();f.faults.mkdir=1;expect(await f.poll()).toEqual(adjustmentBlocked("transcript-write-failed",true));
  if(kind==="append")await f.store.append("session-a",user("external-user"));
  else if(kind==="delete")await f.store.deleteConversation("session-a");
- else await f.store.append("session-a",{id:"edit",at:1004,kind:"turn_rewind",turnId:"adjust-1",revision:2,payload:{anchorUserTurnId:"adjust-1",disposition:"replace_user",reason:"edit",replacementUser:{text:"edited"}}});
- f.failCommit(false);await expect(f.poll()).rejects.toThrow(exactly("MEMORY_CONTEXT_ADJUSTMENT_STALE"));
- expect(f.queue).toHaveLength(1);expect(f.commits).toBe(1);
+ else await f.store.append("session-a",{id:"edit",at:1004,kind:"turn_rewind",turnId:"u1",revision:2,payload:{anchorUserTurnId:"u1",disposition:"replace_user",reason:"edit",replacementUser:{text:"edited"}}});
+ const before=await f.store.read("session-a"),appends=f.events.filter(event=>event==="append").length;
+ expect(await f.poll()).toEqual(adjustmentBlocked("MEMORY_CONTEXT_ADJUSTMENT_STALE",false));
+ expect(await f.store.read("session-a")).toEqual(before);expect(f.events.filter(event=>event==="append")).toHaveLength(appends);
+ expect(await f.adjustEntries()).toEqual([]);expect(f.commits).toBe(1);
 });
 it("rejects forged adjustment permits before canonical or history writes",async()=>{
  const f=await adjustmentFixture(),before=await f.store.read("session-a"),commit=vi.fn();
  await expect(f.adapter.commitRunAdjustment("run-a",{} as never,f.boundary,commit)).rejects.toThrow(exactly("MEMORY_CONTEXT_ADJUSTMENT_DENIED"));
  expect(await f.store.read("session-a")).toEqual(before);expect(commit).not.toHaveBeenCalled();
+ expect(f.events).toEqual([]);expect(f.commits).toBe(0);
 });
-it("rejects an obsolete adjustment boundary before queue commit",async()=>{
+it("blocks an obsolete adjustment boundary as non-retryable stale before any history commit or transcript write",async()=>{
  const f=await adjustmentFixture();await f.store.append("session-a",user("external-user"));
- await expect(f.poll()).rejects.toThrow(exactly("MEMORY_CONTEXT_ADJUSTMENT_STALE"));
- expect(f.queue).toHaveLength(1);expect(f.commits).toBe(0);
- expect((await f.store.read("session-a")).entries.some(entry=>entry.turnId==="adjust-1")).toBe(false);
+ f.events.length=0;const before=await f.store.read("session-a");
+ // The store's own seq guard rejects the append before validate runs, so history is never committed.
+ expect(await f.poll()).toEqual(adjustmentBlocked("MEMORY_CONTEXT_TRANSCRIPT_STALE",false));
+ expect(f.queue).toHaveLength(1);expect(f.commits).toBe(0);expect(f.history).toEqual([]);
+ expect(f.events).toEqual([]);expect(await f.store.read("session-a")).toEqual(before);
+ expect(await f.adjustEntries()).toEqual([]);
 });
 
-it("revalidates Main lifecycle after async mutation work before writing an adjustment",async()=>{
+it("stops a Main lifecycle revoked while the observer ran after the history commit before writing the transcript entry",async()=>{
  const controller=new AbortController();let armed=false;
  const f=await adjustmentFixture(async()=>{if(armed)controller.abort()},()=>{if(controller.signal.aborted)throw new Error("MEMORY_CONTEXT_CANCELLED")});
  const before=await f.store.read("session-a");armed=true;
- await expect(f.poll()).rejects.toThrow(exactly("MEMORY_CONTEXT_CANCELLED"));
- expect(await f.store.read("session-a")).toEqual(before);expect(f.queue).toHaveLength(1);expect(f.commits).toBe(0);
+ expect(await f.poll()).toEqual(adjustmentBlocked("MEMORY_CONTEXT_CANCELLED",false));
+ expect(await f.store.read("session-a")).toEqual(before);expect(f.events).not.toContain("append");
+ expect(f.queue).toEqual([]);expect(f.commits).toBe(1);expect(f.history.map(message=>message.id)).toEqual(["adjust-1"]);
+});
+it("does not bind or deliver an adjustment revoked after its append was dispatched, and later resolves it as stale instead of writing again",async()=>{
+ let revoked=false;
+ const f=await adjustmentFixture(undefined,()=>{if(revoked)throw new Error("MEMORY_CONTEXT_CANCELLED")});
+ f.faults.afterDispatch=()=>{revoked=true};
+ expect(await f.poll()).toEqual(adjustmentBlocked("MEMORY_CONTEXT_CANCELLED",false));
+ // The entry may stand; the contract is only that the run was not bound and nothing was delivered.
+ expect(f.events.filter(event=>event==="append")).toHaveLength(1);
+ revoked=false;
+ // Unbound: the run still belongs to its original user turn, so it cannot continue on the inserted one.
+ await expect(f.adapter.captureRunRound("run-a")).rejects.toThrow(exactly("MEMORY_CONTEXT_STREAM_RUN_REUSED"));
+ expect(await f.poll()).toEqual(adjustmentBlocked("MEMORY_CONTEXT_ADJUSTMENT_STALE",false));
+ expect(f.events.filter(event=>event==="append")).toHaveLength(1);expect(f.commits).toBe(1);
 });
 
 it.each(["original","replacement"])("projects authorized %s attachment blocks while current user text stays original",async origin=>{

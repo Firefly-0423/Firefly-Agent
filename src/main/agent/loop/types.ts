@@ -74,10 +74,36 @@ export type AgentLoopToolFinishedEvent = {
 export type AgentLoopCompactionLifecycleEvent = {
   cache?: AgentLoopCacheState; messageCountAfter?: number; messageCountBefore: number; status: "started" | "committed";
 };
+/**
+ * An inserted queue message that entered this run's model context and was saved together with it.
+ * "Delivered" means it is in the context the next request is built from, not that the model has answered it.
+ */
+export type RunInsertionReceipt = {
+  /** The history message id (also the transcript turn id). */
+  messageId: string;
+  revision: number;
+  /** The run the message was inserted into. */
+  sourceRunId: string;
+  /** The loop round before which it was accepted. */
+  round: number;
+  /** Delivery order within this run, starting at 1. */
+  order: number;
+};
 export type AgentLoopCheckpoint = {
   at: number; cache: AgentLoopCacheState; rounds: number; toolOutputs: ToolOutputRef[]; state: AgentState; messages: ChatMessage[];
+  /** Every insertion delivered so far, saved in the same checkpoint as the messages that contain them. */
+  insertions: RunInsertionReceipt[];
 };
-export type RunAdjustmentMessage = { rawContent: string; id: string };
+export type RunAdjustmentMessage = { rawContent: string; id: string; revision: number };
+/**
+ * One pull of inserted queue messages. `delivered` are fully committed (history and transcript)
+ * and may enter the context; `blocked` is the first item that could not be committed this time.
+ * Items after it are left for the next pull, so delivery stays in queue order.
+ */
+export type RunAdjustmentPoll = {
+  delivered: RunAdjustmentMessage[];
+  blocked?: { messageId: string; reason: string; retryable: boolean };
+};
 export type AgentLoopToolSpec = ToolSpec & { harnessBuiltin?: boolean };
 export type AgentLoopInput = {
   allowedBuiltinToolIds?: ReadonlySet<string>;
@@ -91,7 +117,7 @@ export type AgentLoopInput = {
   planState?: import("../tools/plan-mode").PlanStateName;
   includeInteractiveTools?: boolean;
   requestUserClarification?: (card: unknown) => Promise<unknown>;
-  pollRunAdjustments?: () => Promise<RunAdjustmentMessage[]> | undefined;
+  pollRunAdjustments?: () => Promise<RunAdjustmentPoll> | undefined;
   onCacheDiagnostic?: (diagnostic: AgentLoopCacheDiagnostic) => void;
   onCompactionLifecycle?: (event: AgentLoopCompactionLifecycleEvent) => void;
   onToolFinished?: (event: AgentLoopToolFinishedEvent) => void;

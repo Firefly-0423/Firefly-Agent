@@ -60,6 +60,50 @@ describe("Canonical transcript dispatch", () => {
     expect(rows.filter((row) => row.kind === "user" && row.turnId === "question-now")).toHaveLength(1);
   });
 
+  describe("insertions an earlier run left in history only (#96)", () => {
+    const inserted = (id: string, content: string, runId: string, sequence: number) =>
+      ({ id, role: "user" as const, content, at: 30 + sequence, runInsertion: { version: 1 as const, runId, revision: 1, sequence } });
+    const userRows = async (entries: () => Promise<Awaited<ReturnType<ReturnType<typeof setup>["entries"]>>>) =>
+      (await entries()).filter((row) => row.kind === "user").map((row) => ({ id: row.id, turnId: row.turnId, text: row.kind === "user" ? row.payload.text : undefined }));
+
+    it("writes missing insertions in history order before the new run's own user, once across dispatches", async () => {
+      const { store, session, dispatch, entries } = setup();
+      await dispatch("agenda-first");
+      session.messages.splice(2, 0, inserted("extra-a", "Also check Wednesday", "agenda-first", 1), inserted("extra-b", "Skip lunch slots", "agenda-first", 2));
+      session.messages.push({ id: "question-next", role: "user", content: "Thursday appointments", at: 90 });
+      const next = () => prepareTranscriptDispatch({ store, session, userTurnId: "question-next", runId: "agenda-second" });
+      await next(); await next();
+      expect((await userRows(entries)).slice(-3)).toEqual([
+        { id: "user:v1:extra-a:r1", turnId: "extra-a", text: "Also check Wednesday" },
+        { id: "user:v1:extra-b:r1", turnId: "extra-b", text: "Skip lunch slots" },
+        { id: "user:v1:question-next:r1", turnId: "question-next", text: "Thursday appointments" },
+      ]);
+      expect((await entries()).filter((row) => row.turnId === "extra-a")).toHaveLength(1);
+    });
+
+    it("leaves an insertion whose transcript entry exists untouched and never writes the current run's own insertions", async () => {
+      const { store, session, dispatch, entries } = setup();
+      await dispatch("agenda-first");
+      await store.append("agenda", { id: "user:v1:landed:r1", kind: "user", turnId: "landed", revision: 1, at: 31, payload: { text: "Already written" } });
+      session.messages.push(inserted("landed", "Already written", "agenda-first", 1), inserted("own", "Belongs to this run", "agenda-second", 1),
+        { id: "question-next", role: "user", content: "Thursday appointments", at: 90 });
+      const before = (await entries()).length;
+      await prepareTranscriptDispatch({ store, session, userTurnId: "question-next", runId: "agenda-second" });
+      const rows = await entries();
+      expect(rows).toHaveLength(before + 1);
+      expect(rows.filter((row) => row.turnId === "landed")).toHaveLength(1);
+      expect(rows.some((row) => row.turnId === "own")).toBe(false);
+    });
+
+    it("lets the one-time backfill cover insertions on a conversation's first dispatch without a second entry", async () => {
+      const { session, dispatch, entries } = setup();
+      session.messages.splice(1, 0, inserted("extra-a", "Also check Wednesday", "agenda-old", 1));
+      await dispatch();
+      const rows = (await entries()).filter((row) => row.turnId === "extra-a");
+      expect(rows.map((row) => row.id)).toEqual(["backfill:v1:extra-a"]);
+    });
+  });
+
   it.each(["absent-turn", "answer-old"])("rejects a missing or non-user anchor %s", async (userTurnId) => {
     const { store, session } = setup();
     await expect(prepareTranscriptDispatch({ store, session, userTurnId, runId: "agenda-run" })).rejects.toThrow("TRANSCRIPT_USER_TURN_NOT_FOUND");

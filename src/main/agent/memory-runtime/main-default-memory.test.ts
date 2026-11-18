@@ -318,23 +318,27 @@ it.each(['false','throw'])('retries a definitely uncommitted synchronous append 
  expect(f.sessions.get('session-a').messages).toEqual([message]);
 });
 
-async function adjustment(f: Awaited<ReturnType<typeof fixture>>, options: { sessionId?: string; runId?: string; failure?: 'false' | 'throw' } = {}) {
+async function adjustment(f: Awaited<ReturnType<typeof fixture>>, options: { sessionId?: string; runId?: string; failure?: 'false' | 'throw' | 'finish' } = {}) {
  const { createRunAdjustmentPoller } = await import('../runtime/pending-adjustment');
  const sessionId=options.sessionId??'session-a', runId=options.runId??'run-a';
- let failure=options.failure;
+ let failure=options.failure,commits=0;
  const queue=[{id:'adjust-user',rawContent:'I prefer fish',visibleContent:'I prefer fish',enqueuedAt:1001,adjustRunId:runId}];
  const poller=createRunAdjustmentPoller(sessionId,runId,{
   getPendingMessages:id=>id===sessionId?structuredClone(queue):null,
   commitPendingAdjust(id,messageId,currentRun){
+   commits++;
    if(failure==='false')return {ok:false,error:'write-failed'};
    if(failure==='throw')throw Error('synthetic-adjust-write-failure');
    const item=queue.find(item=>item.id===messageId&&item.adjustRunId===currentRun);
    if(!item||id!==sessionId)return {ok:false,error:'not-found'};
-   f.sessions.get(id).messages.push({id:messageId,role:'user',content:item.rawContent});queue.splice(queue.indexOf(item),1);
+   const messages=f.sessions.get(id).messages;
+   // 'finish' leaves history committed but unreadable as a user event, so the source receipt cannot be minted.
+   messages.push({id:messageId,role:'user',content:item.rawContent,at:1001,...(failure==='finish'?{modelContext:true}:{}),runInsertion:{version:1,runId:currentRun,revision:1,sequence:messages.length+1}});queue.splice(queue.indexOf(item),1);
    return {ok:true,userMessage:{id:messageId},remainingQueue:structuredClone(queue)};
   },
- },{appendUser:async ({turnId,text})=>{await f.store.append(sessionId,{id:`user:v1:${turnId}:r1`,kind:'user',turnId,revision:1,at:1001,payload:{text}})}});
- return {poller,queue,recover(){failure=undefined}};
+  listRunInsertions:(id,currentRun)=>id===sessionId?f.sessions.get(id).messages.filter((message:any)=>message.runInsertion?.runId===currentRun):[],
+ },{appendUser:async ({turnId,text})=>{await f.store.append(sessionId,{id:`user:v1:${turnId}:r1`,kind:'user',turnId,revision:1,at:1001,payload:{text}});return {text}}});
+ return {poller,queue,recover(){failure=undefined},get commits(){return commits},history:()=>f.sessions.get(sessionId).messages.filter((message:any)=>message.id==='adjust-user')};
 }
 async function completeToolRound(f: Awaited<ReturnType<typeof fixture>>,run: Awaited<ReturnType<typeof f.memory.openRun>>,input:FireflyRunOptions){
  const sink=run.bindSink(input.transcriptSink!);await run.call(f.call());
@@ -346,7 +350,7 @@ it.each(['work','code'] as const)('admits a genuine %s adjustment with committed
  const f=await fixture(mode);await f.user('session-a','baseline question');f.memory.authorizeRun(f.event,'session-a');
  const a=await adjustment(f),input={...f.input(),pollRunAdjustments:a.poller},run=await f.memory.openRun(input);
  const sink=await completeToolRound(f,run,input);
- await expect(a.poller()).resolves.toEqual([{id:'adjust-user',rawContent:'I prefer fish'}]);
+ await expect(a.poller()).resolves.toEqual({delivered:[{id:'adjust-user',rawContent:'I prefer fish',revision:1}]});
  expect(a.queue).toHaveLength(0);
  await expect(run.call(f.call())).resolves.toMatchObject({text:'synthetic answer'});
  await sink.appendAssistant({roundId:'r2',message:{role:'assistant',content:'adjusted answer'}});
@@ -355,15 +359,17 @@ it.each(['work','code'] as const)('admits a genuine %s adjustment with committed
  expect(observation).toMatchObject({role:'user',trust:'direct-user-event',contentRevision:1});
  expect((await f.store.read('session-a')).entries.filter(entry=>entry.kind==='user'&&entry.turnId==='adjust-user')).toHaveLength(1);
 });
-it.each(['false','throw'] as const)('retains the pending adjustment after history %s without rolling back its canonical user',async failure=>{
+it.each([['false','write-failed',true],['throw','ADJUSTMENT_FAILED',false]] as const)('keeps the adjustment queued and writes no transcript user after history %s, then delivers it once history recovers',async(failure,reason,retryable)=>{
  const f=await fixture('work');await f.user('session-a','baseline question');f.memory.authorizeRun(f.event,'session-a');
  const a=await adjustment(f,{failure}),input={...f.input(),pollRunAdjustments:a.poller},run=await f.memory.openRun(input);await completeToolRound(f,run,input);
- await expect(a.poller()).rejects.toMatchObject({ message: failure==='false'?'PENDING_ADJUST_COMMIT_FAILED:adjust-user:write-failed':'synthetic-adjust-write-failure' });expect(a.queue).toHaveLength(1);
- expect(f.sessions.get('session-a').messages.some((message:any)=>message.id==='adjust-user')).toBe(false);
- expect((await f.store.read('session-a')).entries.filter(entry=>entry.kind==='user'&&entry.turnId==='adjust-user')).toHaveLength(1);
- a.recover();await expect(a.poller()).resolves.toEqual([{id:'adjust-user',rawContent:'I prefer fish'}]);
+ await expect(a.poller()).resolves.toEqual({delivered:[],blocked:{messageId:'adjust-user',reason,retryable}});expect(a.queue).toHaveLength(1);
+ expect(a.history()).toEqual([]);
+ // History comes first, so a failed history commit must leave the transcript without the adjustment.
+ expect((await f.store.read('session-a')).entries.filter(entry=>entry.kind==='user'&&entry.turnId==='adjust-user')).toHaveLength(0);
+ a.recover();await expect(a.poller()).resolves.toEqual({delivered:[{id:'adjust-user',rawContent:'I prefer fish',revision:1}]});
  await expect(run.call(f.call())).resolves.toMatchObject({text:'synthetic answer'});
  expect((await f.store.read('session-a')).entries.filter(entry=>entry.kind==='user'&&entry.turnId==='adjust-user')).toHaveLength(1);
+ expect(a.history()).toHaveLength(1);
 });
 it.each(['forged','session','run'])('rejects a %s adjustment poller before it can acquire a source transaction',async kind=>{
  const f=await fixture('work');await f.user();f.memory.authorizeRun(f.event,'session-a');
@@ -376,8 +382,121 @@ it('does not promote an ordinary canonical append into a trusted same-run user a
  const f=await fixture('work');await f.user('session-a','baseline question');f.memory.authorizeRun(f.event,'session-a');
  const a=await adjustment(f),input={...f.input(),pollRunAdjustments:a.poller},run=await f.memory.openRun(input);await completeToolRound(f,run,input);
  await f.store.append('session-a',{id:'untrusted-append',kind:'user',turnId:'untrusted-user',revision:1,payload:{text:'untrusted new user'}});
- await expect(a.poller()).rejects.toThrow(/MEMORY_CONTEXT_/);expect(a.queue).toHaveLength(1);
+ await expect(a.poller()).resolves.toEqual({delivered:[],blocked:{messageId:'adjust-user',reason:'MEMORY_CONTEXT_TRANSCRIPT_STALE',retryable:false}});
+ expect(a.queue).toHaveLength(1);expect(a.commits).toBe(0);expect(a.history()).toEqual([]);
  await expect(run.call(f.call())).rejects.toThrow(/MEMORY_CONTEXT_/);expect(f.sent).toHaveLength(1);
+});
+
+/** Injects transcript storage faults (EIO) at the file calls of one conversation; `gate` pauses mkdir, `afterDispatch` runs once appendFile has written. */
+function transcriptFaults(){
+ const realMkdir=fs.promises.mkdir.bind(fs.promises),realAppend=fs.promises.appendFile.bind(fs.promises);
+ const plan={mkdirFail:0,appendFail:0,gate:undefined as undefined|(()=>Promise<void>),afterDispatch:undefined as undefined|(()=>void)},calls={mkdir:0,append:0};
+ const eio=()=>Object.assign(new Error('synthetic storage failure'),{code:'EIO'});
+ const spies=[
+  vi.spyOn(fs.promises,'mkdir').mockImplementation((async(target:unknown,options:unknown)=>{
+   if(String(target).includes('session-a')){calls.mkdir++;await plan.gate?.();if(plan.mkdirFail>0){plan.mkdirFail--;throw eio()}}
+   return realMkdir(target as string,options as never);
+  }) as never),
+  vi.spyOn(fs.promises,'appendFile').mockImplementation((async(target:unknown,data:unknown,options:unknown)=>{
+   if(!String(target).includes('session-a')||!String(data).includes('adjust-user'))return realAppend(target as string,data as string,options as never);
+   calls.append++;if(plan.appendFail>0){plan.appendFail--;throw eio()}
+   await realAppend(target as string,data as string,options as never);plan.afterDispatch?.();
+  }) as never),
+ ];
+ return {plan,calls,restore(){for(const spy of spies)spy.mockRestore()}};
+}
+const adjustUserEntries=async(f:Awaited<ReturnType<typeof fixture>>)=>(await f.store.read('session-a')).entries.filter(entry=>entry.kind==='user'&&entry.turnId==='adjust-user');
+const adjustBlocked=(reason:string,retryable:boolean)=>({delivered:[],blocked:{messageId:'adjust-user',reason,retryable}});
+const adjustDelivered={delivered:[{id:'adjust-user',rawContent:'I prefer fish',revision:1}]};
+it('resumes after a transcript storage failure without preparing the user source again and delivers the adjustment to the next round',async()=>{
+ const f=await fixture('work');await f.user('session-a','baseline question');f.memory.authorizeRun(f.event,'session-a');
+ const a=await adjustment(f),input={...f.input(),pollRunAdjustments:a.poller},run=await f.memory.openRun(input);await completeToolRound(f,run,input);
+ const faults=transcriptFaults();
+ try{
+  faults.plan.mkdirFail=1;
+  await expect(a.poller()).resolves.toEqual(adjustBlocked('transcript-write-failed',true));
+  expect(a.commits).toBe(1);expect(a.history()).toHaveLength(1);expect(await adjustUserEntries(f)).toEqual([]);expect(faults.calls.append).toBe(0);
+  // A second prepareUserCommit for the same message would be refused as MEMORY_USER_SOURCE_DENIED; recovery must deliver instead.
+  await expect(a.poller()).resolves.toEqual(adjustDelivered);
+  expect(a.commits).toBe(1);expect(a.history()).toHaveLength(1);expect(await adjustUserEntries(f)).toHaveLength(1);expect(faults.calls.append).toBe(1);
+  await expect(run.call(f.call())).resolves.toMatchObject({text:'synthetic answer'});
+  expect(f.sent).toHaveLength(2);expect(f.sent[1]).toContain('I prefer fish');
+  const observation=f.commands.filter(command=>command.kind==='finish').map(command=>command.body.observation).find(observation=>observation.messageId==='adjust-user');
+  expect(observation).toMatchObject({role:'user',trust:'direct-user-event',contentRevision:1});
+ }finally{faults.restore()}
+});
+it('reconciles an insertion whose transcript write never landed into the next run, once and before that run\'s own user turn',async()=>{
+ const {prepareTranscriptDispatch}=await import('../../conversation/transcript/conversation-transcript-coordinator');
+ const f=await fixture('work'),session=f.sessions.get('session-a');
+ const addUser=async(id:string,content:string,at:number)=>{const message={id,role:'user' as const,content,at};await f.memory.appendUser(f.event,'session-a',message,()=>{session.messages.push(message)})};
+ await addUser('u1','baseline question',1000);
+ await prepareTranscriptDispatch({store:f.store,session,userTurnId:'u1',runId:'run-a'});
+ const admission=f.memory.authorizeRun(f.event,'session-a')!;
+ const a=await adjustment(f),input={...f.input(),pollRunAdjustments:a.poller},run=await f.memory.openRun(input);await completeToolRound(f,run,input);
+ const faults=transcriptFaults();
+ try{
+  faults.plan.mkdirFail=1;
+  await expect(a.poller()).resolves.toEqual(adjustBlocked('transcript-write-failed',true));
+ }finally{faults.restore()}
+ // The run ends here: history holds the insertion, the transcript does not.
+ expect(a.history()).toHaveLength(1);expect(await adjustUserEntries(f)).toEqual([]);
+ await run.close();admission.release();
+ await addUser('u2','next question',2000);
+ await prepareTranscriptDispatch({store:f.store,session,userTurnId:'u2',runId:'run-b'});
+ f.memory.authorizeRun(f.event,'session-a');
+ const nextInput=f.input('session-a','run-b'),next=await f.memory.openRun(nextInput);
+ await expect(next.call(f.call())).resolves.toMatchObject({text:'synthetic answer'});
+ const request=f.sent[1];
+ expect(f.sent).toHaveLength(2);
+ expect(request.split('I prefer fish')).toHaveLength(2);
+ expect(request.indexOf('I prefer fish')).toBeLessThan(request.indexOf('next question'));
+ const users=(await f.store.read('session-a')).entries.filter(entry=>entry.kind==='user').map(entry=>({id:entry.id,turnId:entry.turnId,text:(entry as any).payload.text}));
+ expect(users).toEqual([
+  {id:'user:v1:u1:r1',turnId:'u1',text:'baseline question'},
+  {id:'user:v1:adjust-user:r1',turnId:'adjust-user',text:'I prefer fish'},
+  {id:'user:v1:u2:r1',turnId:'u2',text:'next question'},
+ ]);
+ await next.close();
+});
+it('denies recovery as non-retryable when the source receipt was never finished, writing no transcript user and delivering nothing',async()=>{
+ const f=await fixture('work');await f.user('session-a','baseline question');f.memory.authorizeRun(f.event,'session-a');
+ const a=await adjustment(f,{failure:'finish'}),input={...f.input(),pollRunAdjustments:a.poller},run=await f.memory.openRun(input);await completeToolRound(f,run,input);
+ const faults=transcriptFaults();
+ try{
+  await expect(a.poller()).resolves.toEqual(adjustBlocked('MEMORY_USER_SOURCE_DENIED',false));
+  expect(a.commits).toBe(1);expect(a.history()).toHaveLength(1);
+  await expect(a.poller()).resolves.toEqual(adjustBlocked('MEMORY_RUN_ADJUSTMENT_DENIED',false));
+  expect(a.commits).toBe(1);expect(await adjustUserEntries(f)).toEqual([]);
+  expect(faults.calls).toEqual({mkdir:0,append:0});expect(f.sent).toHaveLength(1);
+  expect(f.commands.filter(command=>command.kind==='finish').some(command=>command.body.observation.messageId==='adjust-user')).toBe(false);
+ }finally{faults.restore()}
+});
+it('revoked while mkdir is pending: keeps the committed history, writes no transcript user and delivers nothing',async()=>{
+ const f=await fixture('work');await f.user('session-a','baseline question');const admission=f.memory.authorizeRun(f.event,'session-a');
+ const a=await adjustment(f),input={...f.input(),pollRunAdjustments:a.poller},run=await f.memory.openRun(input);await completeToolRound(f,run,input);
+ const faults=transcriptFaults();let arrive!:()=>void,release!:()=>void;
+ const arrived=new Promise<void>(resolve=>{arrive=resolve}),held=new Promise<void>(resolve=>{release=resolve});
+ faults.plan.gate=async()=>{arrive();await held};
+ try{
+  const pending=a.poller()!;await arrived;admission.release();release();
+  await expect(pending).resolves.toEqual(adjustBlocked('MEMORY_CONTEXT_CANCELLED',false));
+  expect(faults.calls.append).toBe(0);expect(await adjustUserEntries(f)).toEqual([]);
+  expect(a.commits).toBe(1);expect(a.history()).toHaveLength(1);
+  await expect(run.call(f.call())).rejects.toThrow(exactly('MEMORY_CONTEXT_CANCELLED'));expect(f.sent).toHaveLength(1);
+ }finally{faults.restore()}
+});
+it('revoked after appendFile was dispatched: delivers nothing and leaves the entry for reconciliation',async()=>{
+ const f=await fixture('work');await f.user('session-a','baseline question');const admission=f.memory.authorizeRun(f.event,'session-a');
+ const a=await adjustment(f),input={...f.input(),pollRunAdjustments:a.poller},run=await f.memory.openRun(input);await completeToolRound(f,run,input);
+ const faults=transcriptFaults();faults.plan.afterDispatch=()=>admission.release();
+ try{
+  // The file write may have landed, so the entry is deliberately not asserted either way; only binding and delivery are.
+  await expect(a.poller()).resolves.toEqual(adjustBlocked('MEMORY_CONTEXT_CANCELLED',false));
+  expect(faults.calls.append).toBe(1);expect(a.commits).toBe(1);
+  await expect(run.call(f.call())).rejects.toThrow(exactly('MEMORY_CONTEXT_CANCELLED'));expect(f.sent).toHaveLength(1);
+  await expect(a.poller()).resolves.toMatchObject({delivered:[],blocked:{messageId:'adjust-user',retryable:false}});
+  expect(faults.calls.append).toBe(1);expect(a.commits).toBe(1);
+ }finally{faults.restore()}
 });
 
 it('keeps written metadata and refuses to reuse its source admission when the callback throws after writing',async()=>{
