@@ -215,3 +215,89 @@ describe("Durable main-run ledger", () => {
     expect(metric).toMatch(/completed/);
   });
 });
+
+describe("insertion receipts (#96)", () => {
+  const receipt = (messageId: string, order: number, round = 1) => ({ messageId, revision: 1, sourceRunId: "audit-bronze", round, order });
+  const validReceipt = receipt("note-1", 1);
+  const neighbour = (store: AgentRunStore) => store.create({
+    runId: "audit-silver", conversationId: "dialog-bronze", messages: [{ role: "user", content: "Neighbour" }],
+    request: { provider: "custom", model: "fixture-model", contextWindowTokens: 64000, promptFingerprint: "p", toolSchemaFingerprint: "t" },
+  });
+
+  it("a new run starts with an empty delivered list", () => {
+    const { store } = storage();
+    expect(store.get("audit-bronze")?.insertions).toEqual([]);
+  });
+
+  it("checkpointed receipts keep their order across a reopen and are copied, not aliased", () => {
+    const { root, store } = storage();
+    const input = [receipt("note-1", 1, 0), receipt("note-2", 2, 3)];
+    store.checkpoint("audit-bronze", { insertions: input });
+    input[0].messageId = "mutated-after-call";
+    input.pop();
+    const expected = [receipt("note-1", 1, 0), receipt("note-2", 2, 3)];
+    expect(store.get("audit-bronze")?.insertions).toEqual(expected);
+    expect(new AgentRunStore(root).get("audit-bronze")?.insertions).toEqual(expected);
+  });
+
+  it("a checkpoint without insertions keeps the stored list exactly", () => {
+    const { root, store } = storage();
+    const stored = [receipt("note-1", 1), receipt("note-2", 2)];
+    store.checkpoint("audit-bronze", { insertions: stored });
+    store.checkpoint("audit-bronze", { rounds: 5 });
+    expect(store.get("audit-bronze")).toMatchObject({ rounds: 5, insertions: stored });
+    expect(new AgentRunStore(root).get("audit-bronze")?.insertions).toEqual(stored);
+  });
+
+  it("a checkpoint with an empty list replaces the stored receipts", () => {
+    const { store } = storage();
+    store.checkpoint("audit-bronze", { insertions: [validReceipt] });
+    store.checkpoint("audit-bronze", { insertions: [] });
+    expect(store.get("audit-bronze")?.insertions).toEqual([]);
+  });
+
+  it("a session file saved before the field existed loads with insertions unknown, not empty", () => {
+    const { root, location } = storage();
+    const file = location("sessions/audit-bronze.json");
+    const legacy = JSON.parse(fs.readFileSync(file, "utf8"));
+    delete legacy.insertions;
+    fs.writeFileSync(file, JSON.stringify(legacy));
+    const loaded = new AgentRunStore(root).get("audit-bronze");
+    expect(loaded).toMatchObject({ runId: "audit-bronze", status: "interrupted" });
+    expect(loaded?.insertions).toBeUndefined();
+  });
+
+  const invalid: Array<[string, unknown]> = [
+    ["a non-array value", { messageId: "note-1" }],
+    ["a string value", "note-1"],
+    ["an empty messageId", [{ ...validReceipt, messageId: "" }]],
+    ["a numeric messageId", [{ ...validReceipt, messageId: 7 }]],
+    ["a non-string sourceRunId", [{ ...validReceipt, sourceRunId: 1 }]],
+    ["a zero revision", [{ ...validReceipt, revision: 0 }]],
+    ["a fractional revision", [{ ...validReceipt, revision: 1.5 }]],
+    ["a negative round", [{ ...validReceipt, round: -1 }]],
+    ["a fractional round", [{ ...validReceipt, round: 0.5 }]],
+    ["a zero order", [{ ...validReceipt, order: 0 }]],
+    ["a missing order", [{ messageId: "note-1", revision: 1, sourceRunId: "audit-bronze", round: 1 }]],
+    ["a null entry", [null]],
+    ["a bad entry after a good one", [validReceipt, { ...validReceipt, order: -2 }]],
+  ];
+  it.each(invalid)("a stored session with %s fails to load while a valid neighbour still loads", (_name, bad) => {
+    const { root, store, location } = storage();
+    neighbour(store);
+    const file = location("sessions/audit-bronze.json");
+    const session = JSON.parse(fs.readFileSync(file, "utf8"));
+    session.insertions = bad;
+    const corrupt = JSON.stringify(session);
+    fs.writeFileSync(file, corrupt);
+    // Opening a store reads every indexed session, so the corrupt run fails the open like any other corrupt file.
+    expect(() => new AgentRunStore(root)).toThrow("AGENT_RUN_READ_FAILED");
+    // Without its index row the corrupt run is only read on demand, which must fail while its neighbour is unaffected.
+    fs.writeFileSync(location("index.json"), JSON.stringify(JSON.parse(fs.readFileSync(location("index.json"), "utf8")).filter((row: { runId: string }) => row.runId !== "audit-bronze")));
+    const reopened = new AgentRunStore(root);
+    expect(() => reopened.get("audit-bronze")).toThrow("AGENT_RUN_READ_FAILED");
+    expect(reopened.get("audit-silver")).toMatchObject({ runId: "audit-silver", insertions: [] });
+    expect(fs.readFileSync(file, "utf8")).toBe(corrupt);
+    store.markTerminal("audit-silver", "completed");
+  });
+});

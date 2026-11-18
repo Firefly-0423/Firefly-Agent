@@ -3,7 +3,7 @@ import { fireflyDataDirectory } from "../../base/storage/firefly-data-paths";
 import path from "node:path";
 import { ephemeralConversations } from "../../base/storage/ephemeral-conversations";
 import type { ChatMessage } from "../../model/providers/types";
-import { INITIAL_AGENT_LOOP_CACHE_STATE, type SideEffectKind, type AgentLoopCacheState, type AgentState } from "./types";
+import { INITIAL_AGENT_LOOP_CACHE_STATE, type SideEffectKind, type AgentLoopCacheState, type AgentState, type RunInsertionReceipt } from "./types";
 import type { ToolOutputRef } from "./tool-output/tool-output-store";
 import { logger, LogTag } from "../../base/logging/logger";
 
@@ -17,6 +17,11 @@ export type PersistedToolCall = {
   updatedAt: number; status: PersistedToolCallStatus; sideEffect: SideEffectKind; toolName: string; toolCallId: string;
 };
 export type AgentRunSession = {
+  /**
+   * Receipts of inserted queue messages delivered into this run. An empty list means none were
+   * delivered; a run saved before this field existed has none and its deliveries are unknown.
+   */
+  insertions?: RunInsertionReceipt[];
   resumedFromRunId?: string; completedAt?: number; updatedAt: number; createdAt: number;
   request: AgentRunRequestSnapshot; cache: AgentLoopCacheState; rounds: number; toolCalls: PersistedToolCall[];
   toolOutputs: ToolOutputRef[]; state: AgentState; messages: ChatMessage[]; status: AgentRunStatus;
@@ -27,6 +32,7 @@ export type CreateAgentRunInput = {
   messages: ChatMessage[]; runId: string; conversationId: string;
 };
 export type AgentRunCheckpoint = {
+  insertions?: RunInsertionReceipt[];
   request?: AgentRunRequestSnapshot; cache?: AgentLoopCacheState; rounds?: number; toolOutputs?: ToolOutputRef[];
   todoItems?: AgentState["todoItems"]; state?: AgentState; messages?: ChatMessage[];
 };
@@ -50,6 +56,13 @@ function isCacheState(value: unknown): value is AgentLoopCacheState {
   return candidate.epochReason === "run_start" || candidate.epochReason === "compaction" || candidate.epochReason === "recovery"
     || candidate.epochReason === "model_changed" || candidate.epochReason === "tool_catalog_changed" || candidate.epochReason === "prompt_version_changed";
 }
+function isInsertionReceipt(value: unknown): value is RunInsertionReceipt {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const receipt = value as Partial<RunInsertionReceipt>;
+  return typeof receipt.messageId === "string" && receipt.messageId.length > 0 && typeof receipt.sourceRunId === "string"
+    && Number.isInteger(receipt.revision) && receipt.revision! > 0 && Number.isInteger(receipt.round) && receipt.round! >= 0
+    && Number.isInteger(receipt.order) && receipt.order! > 0;
+}
 function isSession(value: unknown): value is AgentRunSession {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const entry = value as Partial<AgentRunSession>;
@@ -58,6 +71,7 @@ function isSession(value: unknown): value is AgentRunSession {
     && Array.isArray(entry.messages) && !!entry.state && Array.isArray(entry.state.todoItems) && Array.isArray(entry.state.uncertainEffects)
     && Array.isArray(entry.toolOutputs) && Array.isArray(entry.toolCalls) && typeof entry.rounds === "number"
     && (entry.cache === undefined || isCacheState(entry.cache)) && !!entry.request
+    && (entry.insertions === undefined || (Array.isArray(entry.insertions) && entry.insertions.every(isInsertionReceipt)))
     && typeof entry.createdAt === "number" && typeof entry.updatedAt === "number";
 }
 function indexEntry(session: AgentRunSession): IndexRow {
@@ -90,7 +104,7 @@ export class AgentRunStore {
     const created: AgentRunSession = {
       schemaVersion: 1, conversationId: input.conversationId, runId: input.runId, status: "running",
       messages: copy(input.messages), state: copy(input.state ?? { todoItems: [], uncertainEffects: [] }),
-      toolOutputs: [], toolCalls: [], rounds: 0, cache: copy(input.cache ?? INITIAL_AGENT_LOOP_CACHE_STATE), request: copy(input.request),
+      toolOutputs: [], toolCalls: [], insertions: [], rounds: 0, cache: copy(input.cache ?? INITIAL_AGENT_LOOP_CACHE_STATE), request: copy(input.request),
       ...(input.resumedFromRunId ? { resumedFromRunId: input.resumedFromRunId } : {}), createdAt: timestamp, updatedAt: timestamp,
     };
     this.persist(created, "now");
@@ -120,6 +134,7 @@ export class AgentRunStore {
   checkpoint(runId: string, patch: AgentRunCheckpoint): AgentRunSession {
     const current = this.mustLoad(runId);
     if (patch.messages !== undefined) current.messages = copy(patch.messages);
+    if (patch.insertions !== undefined) current.insertions = copy(patch.insertions);
     if (patch.state !== undefined) current.state = copy(patch.state);
     if (patch.todoItems !== undefined) current.state.todoItems = copy(patch.todoItems);
     if (patch.toolOutputs !== undefined) current.toolOutputs = copy(patch.toolOutputs);
