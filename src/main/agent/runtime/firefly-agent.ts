@@ -41,7 +41,7 @@ export type RunResult = {
 
 export type FireflyRunOptions = {
   transcriptSink?: import("../loop/transcript-sink").TranscriptSink;
-  pollRunAdjustments?: () => Promise<import("../loop/types").RunAdjustmentMessage[]> | undefined;
+  pollRunAdjustments?: () => Promise<import("../loop/types").RunAdjustmentPoll> | undefined;
   onToolFinished?: (event: import("../loop/types").AgentLoopToolFinishedEvent) => void;
   signal?: AbortSignal;
   resolvedWorkspaceRoot?: string;

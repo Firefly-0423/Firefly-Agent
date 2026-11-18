@@ -264,10 +264,19 @@ export function appendMessage(id: string, message: ChatMessage): ChatSession | n
   });
 }
 
+/**
+ * runInsertion is Main-owned: a write of an existing message keeps the stored marker and
+ * ignores any supplied one, so a stale or forged object can neither erase nor fake it.
+ */
+function keepRunInsertion(stored: ChatMessage | undefined, incoming: ChatMessage): ChatMessage {
+  const { runInsertion: _ignored, ...rest } = incoming;
+  return stored?.runInsertion ? { ...rest, runInsertion: stored.runInsertion } : rest;
+}
+
 export function upsertMessage(id: string, message: ChatMessage): ChatSession | null {
   return change(id, (conversation) => {
     const offset = conversation.messages.findIndex((row) => row.id === message.id);
-    if (offset >= 0) conversation.messages[offset] = message;
+    if (offset >= 0) conversation.messages[offset] = keepRunInsertion(conversation.messages[offset], message);
     else conversation.messages.push(message);
     conversation.updatedAt = Date.now();
     retitle(conversation);
@@ -285,7 +294,8 @@ export function replaceMessages(id: string, messages: ChatMessage[]): ChatSessio
 export function replaceMessagesTail(id: string, startIndex: number, messages: ChatMessage[]): ChatSession | null {
   const conversation = read(id);
   if (!conversation || !Number.isInteger(startIndex) || startIndex < 0 || startIndex > conversation.messages.length) return null;
-  conversation.messages = conversation.messages.slice(0, startIndex).concat(messages);
+  const stored = new Map(conversation.messages.map((row) => [row.id, row] as const));
+  conversation.messages = conversation.messages.slice(0, startIndex).concat(messages.map((row) => keepRunInsertion(stored.get(row.id), row)));
   conversation.updatedAt = Date.now();
   retitle(conversation);
   save(conversation);
@@ -631,7 +641,16 @@ export function markPendingAdjust(sessionId: string, messageId: string, runId: s
   return { ok: true, queue: copyQueue(pending) };
 }
 
-export function commitPendingAdjust(sessionId: string, messageId: string, runId: string): CommitPendingAdjustResult {
+/** History messages inserted into this run, in the order they were committed. */
+export function listRunInsertions(sessionId: string, runId: string): ChatMessage[] {
+  const conversation = read(sessionId);
+  if (!conversation) return [];
+  return conversation.messages
+    .filter((row) => row.runInsertion?.runId === runId)
+    .sort((left, right) => left.runInsertion!.sequence - right.runInsertion!.sequence);
+}
+
+export function commitPendingAdjust(sessionId: string, messageId: string, runId: string, options: { assistantTurnId?: string } = {}): CommitPendingAdjustResult {
   const conversation = read(sessionId);
   if (!conversation) return { ok: false, error: "session-not-found" };
   const pending = conversation.pendingMessages ?? [];
@@ -640,7 +659,12 @@ export function commitPendingAdjust(sessionId: string, messageId: string, runId:
   const matched = pending[offset];
   if (matched.adjustRunId !== runId) return { ok: false, error: "run-mismatch" };
   const timestamp = Date.now();
-  const promoted = historyMessage(matched, timestamp, false);
+  const sequence = conversation.messages.filter((row) => row.runInsertion?.runId === runId).length + 1;
+  const promoted: ChatMessage = {
+    ...historyMessage(matched, timestamp, false),
+    // The marker is written in the same file write that moves the item out of the queue.
+    runInsertion: { version: 1, runId, revision: 1, sequence, ...(options.assistantTurnId ? { assistantTurnId: options.assistantTurnId } : {}) },
+  };
   conversation.messages = [...conversation.messages, promoted];
   conversation.pendingMessages = pending.filter((row) => row.id !== messageId);
   conversation.updatedAt = timestamp;

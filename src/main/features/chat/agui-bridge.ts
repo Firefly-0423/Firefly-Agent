@@ -518,7 +518,7 @@ export function registerAgUiIpc(
         writesTranscript ? {
           appendUser: async ({ turnId, text: content, attachments: files }) => {
             const journal = getConversationTranscriptStore(app.getPath("userData"));
-            await journal.append(conversationId, {
+            const stored = await journal.append(conversationId, {
               id: `user:v1:${turnId}:r1`,
               at: Date.now(),
               kind: "user",
@@ -526,8 +526,11 @@ export function registerAgUiIpc(
               revision: 1,
               payload: { text: content, ...(files ? { attachments: files } : {}) },
             });
+            // An existing entry with this id is returned as is; the poller compares its text.
+            return { text: stored.kind === "user" ? stored.payload.text : "" };
           },
         } : undefined,
+        request.assistantTurnId ? { assistantTurnId: request.assistantTurnId } : {},
       );
     }
     runOptions.requestUserClarification = (question) => requestUserClarification(

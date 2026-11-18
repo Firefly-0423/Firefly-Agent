@@ -58,6 +58,19 @@ export async function prepareTranscriptDispatch(input: {
     identities.add(saved.id);
     known.push(saved);
   }
+  // #96：之前运行中插入的消息已进聊天历史、会话记录却没写成（运行失败、取消或应用退出），
+  // 在本次运行写自己的用户消息之前按聊天历史顺序补上。只补缺失的，已有同一轮次的条目一律不动。
+  for (const display of conversation.messages) {
+    if (display.role !== "user" || !display.runInsertion || display.runInsertion.runId === run || display.id === userId) continue;
+    if (known.some((entry) => entry.turnId === display.id
+      && (entry.kind === "user" || entry.kind === "turn_rewind" && entry.payload.disposition === "replace_user"))) continue;
+    const saved = await transcript.append(conversation.id, { id: `user:v1:${display.id}:r1`, at: display.at, kind: "user", turnId: display.id, revision: 1,
+      payload: { text: display.content, attachments: stableAttachments(display) } });
+    // first-write-wins on the id: an existing entry with other text is not this insertion.
+    if (saved.kind !== "user" || saved.turnId !== display.id || saved.payload.text !== display.content) throw Error("TRANSCRIPT_INSERTION_RECONCILE_CONFLICT");
+    identities.add(saved.id);
+    known.push(saved);
+  }
   if (revisionRequest) {
     const id = `${run}:rewind:${revisionRequest.anchorUserTurnId}`;
     if (!identities.has(id)) {
