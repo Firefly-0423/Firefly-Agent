@@ -23,7 +23,7 @@
 ## 根因
 
 1. **主进程刻意保留旧守卫的原因**：在 `src/main/conversation/transcript/run-settlement.ts` 中，`SRunSettlementGate.requestCancel()` 在 `phase !== "open"` 时返回 `false`（进入终态提交后取消不再中止落盘）；`src/main/features/chat/agui-bridge.ts` 若在接管超时后强行摘除守卫，会让新运行在旧运行仍可能写盘期间并发进入同一会话，违反会话唯一所有者约束。
-2. **界面侧未收尾的原因**：`docs/superpowers/plans/2026-11-12-chatpage-regression-progress.md` §5 明确将 B4 “无悬空 busy”拆为两条：主进程保持互斥守卫（已在 PR `#91` 验收），而界面侧处理超时（结束等待、显示“旧任务尚未停止，未启动新任务”、暂停自动派发、让接管按钮不再一直转圈）另开 PR 解决，未放进施工包 B。目前 `src/renderer/react/features/chat/pages/ChatPage.tsx` 与 `AgentRunController.ts` 尚未处理该专属界面分支。
+2. **界面侧未收尾的原因**：`docs/superpowers/plans/chatpage-regression-progress.md` §5 明确将 B4 “无悬空 busy”拆为两条：主进程保持互斥守卫（已在 PR `#91` 验收），而界面侧处理超时（结束等待、显示“旧任务尚未停止，未启动新任务”、暂停自动派发、让接管按钮不再一直转圈）另开 PR 解决，未放进施工包 B。目前 `src/renderer/react/features/chat/pages/ChatPage.tsx` 与 `AgentRunController.ts` 尚未处理该专属界面分支。
 
 ## 当前状态
 
@@ -32,7 +32,7 @@
 
 ## 相关文件
 
-- `docs/superpowers/plans/2026-11-12-chatpage-regression-progress.md`（§2 B4、§5 偏离计划）
+- `docs/superpowers/plans/chatpage-regression-progress.md`（§2 B4、§5 偏离计划）
 - `src/main/features/chat/agui-bridge.ts`（`SESSION_RUN_TAKEOVER_STUCK`、接管等待循环）
 - `src/main/conversation/transcript/run-settlement.ts`（`SRunSettlementGate.requestCancel`）
 - `src/renderer/react/features/chat/pages/run/AgentRunController.ts`

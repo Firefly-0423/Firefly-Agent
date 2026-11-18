@@ -1,5 +1,5 @@
 {
-  "description": "src/main 的分层表。allow 列出每一层可以引用的其他层；同层内部引用不受限制。设计见 docs/design/2026-11-12-main-process-layering.md。",
+  "description": "src/main 的分层表。allow 列出每一层可以引用的其他层；同层内部引用不受限制。设计见 docs/design/main-process-layering.md。",
   "layers": {
     "base": {
       "level": 0,

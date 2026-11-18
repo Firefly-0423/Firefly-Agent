@@ -24,4 +24,4 @@ executor 对已取消请求返回 `cancelled`，归属不符返回 `owner_mismat
 ## 未完成与设计约束
 操作枚举中没有 scroll、press、screenshot，均未实现。若扩展，保留现有归属链并新增显式授权；旧授权不自动包含新动作。滚动限定当前可见页面及有限距离；按键限定集合，提交表单另定；截图仅限授权网页视口，需先确定图像投递与容量。具体键集合、限额、代理多标签及截图保留方式尚未决定。
 
-计划只读和未知效果的后续约束分别链接[提醒与界面](../superpowers/plans/2026-11-12-reminders-and-ui.md)、[会话可靠性](../superpowers/plans/2026-11-12-conversation-reliability.md)，不另建权限系统。现有回归入口：`src/main/agent/tools/browser-workspace-executor.test.ts`、`src/main/agent/tools/browser-workspace-tool.test.ts`、`src/main/platform/browser/browser-service.test.ts`；真实焦点、网络和输入未验证。
+计划只读和未知效果的后续约束分别链接[提醒与界面](../superpowers/plans/reminders-and-ui.md)、[会话可靠性](../superpowers/plans/conversation-reliability.md)，不另建权限系统。现有回归入口：`src/main/agent/tools/browser-workspace-executor.test.ts`、`src/main/agent/tools/browser-workspace-tool.test.ts`、`src/main/platform/browser/browser-service.test.ts`；真实焦点、网络和输入未验证。

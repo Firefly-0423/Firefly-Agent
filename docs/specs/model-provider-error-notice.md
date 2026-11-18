@@ -2,7 +2,7 @@
 
 状态：已实现规范（核验日期 2026-11-16）
 
-> **范围说明**：本文档仅规范当前仓库已实现且有测试守卫的故障上报与渲染进程通知行为。`docs/superpowers/plans/2026-11-12-model-error-classification.md` 中规划的 `RUN_ERROR.metadata` 扩展字段与独立故障提示组件当前处于 `未开工`，不在本规范范围内。
+> **范围说明**：本文档仅规范当前仓库已实现且有测试守卫的故障上报与渲染进程通知行为。`docs/superpowers/plans/model-error-classification.md` 中规划的 `RUN_ERROR.metadata` 扩展字段与独立故障提示组件当前处于 `未开工`，不在本规范范围内。
 
 ---
 

@@ -26,6 +26,6 @@
 `resumePendingDispatch` 对部分残留认领仍调用 startClaimedRun。认领、轨迹和模型接纳不是同一事务，稳定条目 ID 不证明重启零续派或请求恰好执行一次。
 
 ## 未完成与计划
-稳定请求回执、原子接纳、重启只对账而不续派，归[会话可靠性计划](../superpowers/plans/2026-11-12-conversation-reliability.md)及[进度](../superpowers/plans/2026-11-12-conversation-reliability-progress.md)。三模式输入与停止回归归[提醒与界面计划](../superpowers/plans/2026-11-12-reminders-and-ui.md)，不重新建设队列。
+稳定请求回执、原子接纳、重启只对账而不续派，归[会话可靠性计划](../superpowers/plans/conversation-reliability.md)及[进度](../superpowers/plans/conversation-reliability-progress.md)。三模式输入与停止回归归[提醒与界面计划](../superpowers/plans/reminders-and-ui.md)，不重新建设队列。
 
 现有测试入口：`src/renderer/react/features/chat/components/ChatComposer.sender-integration.test.ts`、`src/renderer/react/features/chat/pages/pending-queue-flow.test.ts`、`src/main/features/sessions/chats-pending-queue.test.ts`。本次未执行；真实输入法、刷新和崩溃窗口未验收。候选显示见[候选正文](live-candidate-answer.md)，文件执行证据见[文件与差异](workspace-file-and-diff-panels.md)。

@@ -23,15 +23,15 @@
 
 ## 根因
 
-`docs/design/2026-11-15-settings-page-split.md` 指出，为坚持“结构搬移与 bug 修复严格分离”（确保拆分 PR 可零成本独立回归或按提交回退），排查出的这些既有问题在 PR 2（PR `#87`）中刻意原样搬入 `section-router.ts` 或保留在 `settings.ts`，未混入拆分提交。
+`docs/design/settings-page-split.md` 指出，为坚持“结构搬移与 bug 修复严格分离”（确保拆分 PR 可零成本独立回归或按提交回退），排查出的这些既有问题在 PR 2（PR `#87`）中刻意原样搬入 `section-router.ts` 或保留在 `settings.ts`，未混入拆分提交。
 
 ## 当前状态
 
-- **已决定延后**：负责人（`hotaru`，2026-11-15）已在 `docs/design/2026-11-15-settings-page-split.md`「负责人决定」第 4 条明确规定：上述三项问题均等设置页拆分全部完成（即 PR 3、PR 4 合并后）再单独提一个修复 PR 统一解决；其中 `MIMO_ICON_URL` 暂不删除，`settings.fetchModels` 暂不改成 `window.settings!.fetchModels`。
+- **已决定延后**：负责人（`hotaru`，2026-11-15）已在 `docs/design/settings-page-split.md`「负责人决定」第 4 条明确规定：上述三项问题均等设置页拆分全部完成（即 PR 3、PR 4 合并后）再单独提一个修复 PR 统一解决；其中 `MIMO_ICON_URL` 暂不删除，`settings.fetchModels` 暂不改成 `window.settings!.fetchModels`。
 
 ## 相关文件
 
-- `docs/design/2026-11-15-settings-page-split.md`（§6 PR 划分、§负责人决定 #4）
+- `docs/design/settings-page-split.md`（§6 PR 划分、§负责人决定 #4）
 - `src/renderer/settings/shared/section-router.ts`（第 14–31 行 `NAV_LABELS`）
 - `src/renderer/settings/settings.ts`（第 69 行 `MIMO_ICON_URL`、第 890 行 `settings.fetchModels`）
 - 相关拆分 PR：PR `#87`（`5dc1caf`，将 `NAV_LABELS` 从 `settings.ts` 迁入 `section-router.ts`）

@@ -42,4 +42,4 @@ PR #93 修复：所有审批提醒都带“查看审批”入口。主进程按�
 - `src/main/platform/permission/permission.ts`
 - `src/main/platform/toast/toast-service.ts`
 - `src/renderer/react/features/chat/pages/interaction-owner.ts`
-- `docs/superpowers/plans/2026-11-12-chatpage-regression-progress.md`（施工包 G 与跟进 PR 的记录）
+- `docs/superpowers/plans/chatpage-regression-progress.md`（施工包 G 与跟进 PR 的记录）

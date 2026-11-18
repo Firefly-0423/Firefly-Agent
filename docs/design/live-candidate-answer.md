@@ -24,6 +24,6 @@ RunEventGate 接纳运行事件后，控制器还核对 roundId。工具过程�
 候选不等于工具结果或最终权威正文；两份全文不同也只能形成一份正式回答。尚未归类的候选只在内存，刷新或崩溃可能丢失。普通无工具 Chat 有独立执行路径，不能仅凭主循环候选证据承诺所有模式事件完全相同。
 
 ## 未完成与维护
-跨刷新恢复半截预览、修改渐显延迟预算未获决定；本次没有首字延迟、视觉跳动或语音效果证据。持久化终态和缺合法流终态的行为由[会话可靠性计划](../superpowers/plans/2026-11-12-conversation-reliability.md)承接，时间线见[统一运行视图](runtime-unified-view.md)。
+跨刷新恢复半截预览、修改渐显延迟预算未获决定；本次没有首字延迟、视觉跳动或语音效果证据。持久化终态和缺合法流终态的行为由[会话可靠性计划](../superpowers/plans/conversation-reliability.md)承接，时间线见[统一运行视图](runtime-unified-view.md)。
 
 现有测试入口：`src/main/agent/loop/agent-loop.test.ts`、`src/main/agent/runtime/adapter/event-mapper.test.ts`、`src/renderer/react/features/chat/pages/run/AgentRunController.test.ts`。本次未执行；后续比较完整正文及有序事件，拒绝旧运行事件造成写入。

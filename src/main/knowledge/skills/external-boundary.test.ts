@@ -59,7 +59,7 @@ it.each(Object.entries(unchangedBoundaries))("no_execution_or_permission_expansi
 it("no_execution_or_permission_expansion native executable marketplace uses exactly the approved catalog and repository rename release prefixes, and fixed source data does not broaden it", () => {
   expect(MARKET_REGISTRY_URLS).toEqual(["https://raw.githubusercontent.com/Firefly-0423/firefly-plugins/main/registry.json"]);
   expect(MARKET_ZIP_URL_PREFIXES).toEqual(["https://github.com/Firefly-0423/firefly-plugins/releases/download/"]);
-  // Reviewed source change (2026-10-29, docs/superpowers/specs/2026-10-29-firefly-skills-market-source.md): Firefly's own
+  // Reviewed source change (2026-10-29, docs/superpowers/specs/firefly-skills-market-source.md): Firefly's own
   // Skill repository joins as a Claude-catalog source under the Firefly-native policy. Its Firefly metadata (modes,
   // effectKind, tools) is visibility and labelling only; every install still needs an exact per-commit static review and
   // grants no tool permission. Third-party sources keep the instruction-only policy unchanged.

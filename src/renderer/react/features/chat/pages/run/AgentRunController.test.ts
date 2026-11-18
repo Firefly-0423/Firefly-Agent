@@ -406,7 +406,7 @@ describe("Delegated result evidence survives owning checkpoints", () => {
   });
 });
 
-// ChatPage regression package A (docs/superpowers/plans/2026-11-12-chatpage-regression.md).
+// ChatPage regression package A (docs/superpowers/plans/chatpage-regression.md).
 const MODES = ["chat", "work", "code"] as const;
 function deferred<T>() {
   let resolve!: (value: T) => void; let reject!: (failure: unknown) => void;

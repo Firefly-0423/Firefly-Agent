@@ -17,7 +17,7 @@
 
 ## 根因
 
-`probe-root.test.mjs` 与 `probe-root.ts` 早期将允许的工作目录硬编码为本机一次性任务输出目录的绝对路径（详见 `2026-11-13-data-directory-1-2-0-progress.md` §5、`2026-11-12-docs-and-engineering-progress.md` §新发现的未完成项与偏离计划），未基于当前仓库根目录动态识别授权工作区边界。
+`probe-root.test.mjs` 与 `probe-root.ts` 早期将允许的工作目录硬编码为本机一次性任务输出目录的绝对路径（详见 `data-directory-1-2-0-progress.md` §5、`docs-and-engineering-progress.md` §新发现的未完成项与偏离计划），未基于当前仓库根目录动态识别授权工作区边界。
 
 ## 当前状态
 
@@ -27,6 +27,6 @@
 
 - `scripts/verify/memory-core/probe-root.ts`
 - `scripts/verify/memory-core/probe-root.test.mjs`
-- `docs/superpowers/plans/2026-11-13-data-directory-1-2-0-progress.md`（§5 偏离计划）
-- `docs/superpowers/plans/2026-11-12-docs-and-engineering-progress.md`（§收尾复验）
+- `docs/superpowers/plans/data-directory-1-2-0-progress.md`（§5 偏离计划）
+- `docs/superpowers/plans/docs-and-engineering-progress.md`（§收尾复验）
 - 修复提交：PR `#63`（`d2d1184`）

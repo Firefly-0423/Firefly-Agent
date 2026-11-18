@@ -20,6 +20,6 @@
 内部 saved 列布局是组件状态，不能据此外推全部打开项、放大和排列跨重启恢复。仅以 activeSessionId/mode 为依赖的清理也不能证明同会话更换工作区根时全部项一定清空；访问仍须 Main 重新核对绑定。布局运算不执行文件恢复或审批。
 
 ## 未完成与维护
-内部排列持久恢复、同会话换根保留策略和独立浮窗尚未决定。命令展示采用[命令实时输出计划](../superpowers/plans/2026-11-12-command-live-output.md)，性能采用[提醒与界面计划](../superpowers/plans/2026-11-12-reminders-and-ui.md)。
+内部排列持久恢复、同会话换根保留策略和独立浮窗尚未决定。命令展示采用[命令实时输出计划](../superpowers/plans/command-live-output.md)，性能采用[提醒与界面计划](../superpowers/plans/reminders-and-ui.md)。
 
 现有测试：`src/renderer/react/features/chat/components/RightInspector.behavior.test.ts`、`src/renderer/react/features/chat/components/panel-layout.test.ts`。本次未执行；原生浏览器拖放、焦点、窄窗、多屏和屏幕阅读器未验收。

@@ -29,6 +29,6 @@
 并发见[调度设计](harness-parallel-scheduling.md)，取消、重放、空文件及未决效果见[运行边界](harness-runtime-boundary.md)，候选显示见[候选正文](live-candidate-answer.md)。
 
 ## 未完成与施工入口
-持久化工具回执、原子接纳和恢复由[会话可靠性](../superpowers/plans/2026-11-12-conversation-reliability.md)承接；模型请求失败反馈由[模型错误分类](../superpowers/plans/2026-11-12-model-error-classification.md)承接；有界命令展示由[命令实时输出](../superpowers/plans/2026-11-12-command-live-output.md)承接。不得将完整结果存储说成实时日志。
+持久化工具回执、原子接纳和恢复由[会话可靠性](../superpowers/plans/conversation-reliability.md)承接；模型请求失败反馈由[模型错误分类](../superpowers/plans/model-error-classification.md)承接；有界命令展示由[命令实时输出](../superpowers/plans/command-live-output.md)承接。不得将完整结果存储说成实时日志。
 
 现有 `src/main/agent/loop/agent-loop.test.ts` 覆盖写后结束、声明保存与未知效果；`src/main/agent/loop/agent-loop-cancel.test.ts` 覆盖取消。本次未执行。正式数据目录的当前依据为 `src/main/base/identity/data-directory.ts` 的 `FIREFLY_DATA_DIRECTORY`，已为 `Firefly-1.2.0`。

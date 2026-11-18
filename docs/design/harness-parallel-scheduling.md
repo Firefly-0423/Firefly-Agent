@@ -20,6 +20,6 @@ halt 停止后续发射，保留已启动调用的真实结果；未发射项才
 ## 存储边界与未完成项
 `src/main/agent/loop/run-store.ts` 的 `AgentRunStore` 保存运行快照、检查点与终态；索引有合并写入，终态立即刷新。事件日志只含部分事件事实，不能从中推出可完整重放所有模型消息。缓存、临时会话分支和原子替换也不能替代会话数据库事务、跨重启幂等或任意损坏修复。
 
-[会话可靠性计划](../superpowers/plans/2026-11-12-conversation-reliability.md)统一承接新后端和恢复；不另建竞争日志后端。并发容量、写入次数和延迟没有本次测量结果。
+[会话可靠性计划](../superpowers/plans/conversation-reliability.md)统一承接新后端和恢复；不另建竞争日志后端。并发容量、写入次数和延迟没有本次测量结果。
 
 现有测试：`src/main/agent/loop/tool-call-scheduler.test.ts`、`src/main/agent/loop/agent-loop-scheduler-failure.test.ts`、`src/main/agent/loop/run-store.test.ts`、`src/main/agent/loop/run-store-ephemeral.test.ts`。后续验收核对完整提交顺序、取消前后执行次数和终态刷盘；本次未执行。

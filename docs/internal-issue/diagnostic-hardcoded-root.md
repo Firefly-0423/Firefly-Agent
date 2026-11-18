@@ -21,7 +21,7 @@
 
 ## 根因
 
-早期阶段性联调脚本将试验性输出根与准入凭证目录写死在源码常量中，且 `diagnostic-main.ts` 的 `fail()` 回调曾吞掉异常未输出诊断码（`2026-11-15-coupling-audit-followup-progress.md` §2 R6 代码审查后修复）。
+早期阶段性联调脚本将试验性输出根与准入凭证目录写死在源码常量中，且 `diagnostic-main.ts` 的 `fail()` 回调曾吞掉异常未输出诊断码（`coupling-audit-followup-progress.md` §2 R6 代码审查后修复）。
 
 ## 当前状态
 
@@ -32,7 +32,7 @@
 
 ## 相关文件
 
-- `docs/superpowers/plans/2026-11-15-coupling-audit-followup-progress.md`（§2 R6、§4 偏离计划）
+- `docs/superpowers/plans/coupling-audit-followup-progress.md`（§2 R6、§4 偏离计划）
 - `src/main/features/diagnostics/memory-online-once/diagnostic-main.ts`
 - `src/main/features/diagnostics/memory-online-once/runner.ts`
 - `src/main/features/diagnostics/memory-openrouter-once/diagnostic-main.ts`
