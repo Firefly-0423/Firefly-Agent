@@ -113,7 +113,7 @@
 
 ### 新数据目录尚未满足
 
-`base/identity/runtime-profile.ts:55` 的 production 路径仍为 `%APPDATA%\Firefly`，与 `README.md:121`、`DEVELOPMENT.md:27` 一致。源码开发启动器也有既有默认隔离根，见 `scripts/dev/launch-electron.mjs::DEFAULT_ISOLATION`。因此，新目录必须作为本主题运行验收的前置条件；不能直接启动当前 production 档案进行测试。
+`base/identity/runtime-profile.ts:55` 的 production 路径仍为 `%APPDATA%\Firefly`，与 `README.md:121`、`docs/contributing/development.md:27` 一致。源码开发启动器也有既有默认隔离根，见 `scripts/dev/launch-electron.mjs::DEFAULT_ISOLATION`。因此，新目录必须作为本主题运行验收的前置条件；不能直接启动当前 production 档案进行测试。
 
 ## 全局约束
 
@@ -152,7 +152,7 @@
 | `src/main/base/identity/runtime-profile.ts`、`src/main/base/identity/runtime-profile.test.ts` | A |
 | `src/main/base/identity/runtime-profile-documentation.test.ts` | A |
 | `scripts/dev/launch-electron.mjs`、`scripts/dev/launch-electron.test.mjs` | A |
-| `README.md`、`DEVELOPMENT.md`（若版本基础主题已完成此项，只核对提交及验收记录，不重复修改；`README.md` 在 G 中补渠道指南链接） | A、G |
+| `README.md`、`docs/contributing/development.md`（若版本基础主题已完成此项，只核对提交及验收记录，不重复修改；`README.md` 在 G 中补渠道指南链接） | A、G |
 | `src/main/model/config/model-settings.ts`、`src/main/model/config/model-settings.test.ts`、`src/main/model/config/model-settings.vision.test.ts` | B |
 | `src/main/features/sessions/chat-ui-ipc.ts`、`src/main/features/sessions/chat-ui-ipc.test.ts` | B |
 | `src/preload/index.ts` | B、E |
@@ -195,13 +195,13 @@
 ### 施工包 A：建立 1.2.0 数据隔离前置条件
 
 依赖：无（若版本基础主题已完成此项，本包只核对提交及验收记录，不重复修改）
-**改动文件：** `src/main/base/identity/runtime-profile.ts`、`src/main/base/identity/runtime-profile.test.ts`、`src/main/base/identity/runtime-profile-documentation.test.ts`、`scripts/dev/launch-electron.mjs`、`scripts/dev/launch-electron.test.mjs`、`README.md`、`DEVELOPMENT.md`（非测试文件 4 个）
+**改动文件：** `src/main/base/identity/runtime-profile.ts`、`src/main/base/identity/runtime-profile.test.ts`、`src/main/base/identity/runtime-profile-documentation.test.ts`、`scripts/dev/launch-electron.mjs`、`scripts/dev/launch-electron.test.mjs`、`README.md`、`docs/contributing/development.md`（非测试文件 4 个）
 
 **任务：**
 
 - [ ] A1 将 production 数据根切换至 `%APPDATA%\Firefly-1.2.0`，不读取、不迁移旧目录
   - 先写的测试：`src/main/base/identity/runtime-profile.test.ts`、`src/main/base/identity/runtime-profile-documentation.test.ts`：新目录不存在、临时根中存在模拟旧目录 `%APPDATA%\Firefly` → 返回新根 `%APPDATA%\Firefly-1.2.0`，启动后配置为空；旧目录没有读取、复制或写入。
-  - 实现：修改 `src/main/base/identity/runtime-profile.ts` 将 production 解析到 `%APPDATA%\Firefly-1.2.0`，保持路径预检和隔离保护；更新 `README.md`、`DEVELOPMENT.md` 中的数据目录说明。
+  - 实现：修改 `src/main/base/identity/runtime-profile.ts` 将 production 解析到 `%APPDATA%\Firefly-1.2.0`，保持路径预检和隔离保护；更新 `README.md`、`docs/contributing/development.md` 中的数据目录说明。
   - 验证：`npm test -- src/main/startup`
 - [ ] A2 隔离开发启动器默认根，保证不同运行档案互不混用
   - 先写的测试：`src/main/base/identity/runtime-profile.test.ts`、`scripts/dev/launch-electron.test.mjs`：同时启动不同运行档案（development / test / smoke / production） → `userData`、session、日志路径互不混用，开发默认隔离根与旧开发数据分离。

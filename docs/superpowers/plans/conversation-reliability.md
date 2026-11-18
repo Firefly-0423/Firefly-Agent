@@ -99,7 +99,7 @@
 
 ### 修改
 
-- `DEVELOPMENT.md`
+- `docs/contributing/development.md`
 - `README.md`
 - `native/src/history_read.rs`
 - `src/main/app/default-dependencies.test.ts`
@@ -1095,7 +1095,7 @@ assistant 整组声明提交
 - 修改 `src/renderer/react/i18n/zh-CN.json`
 - 修改 `src/renderer/react/i18n/en.json`
 - 修改 `README.md`
-- 修改 `DEVELOPMENT.md`
+- 修改 `docs/contributing/development.md`
 
 测试文件（保留/扩展现有文件，不存在的同名测试在本包新建）：
 
@@ -1120,7 +1120,7 @@ assistant 整组声明提交
 - 修改 `src/renderer/react/features/chat/pages/pending-queue-flow.ts`、`run/AgentRunController.ts` 及现有消息流组件：三模式提示、继续动作、终态回执恢复。
 - 修改 `src/renderer/react/i18n/zh-CN.json`、`en.json`：新增键及中文文案。
 - 新增 `src/main/features/chat/conversation-reliability.integration.test.ts`：全入口、三模式、重启与失败矩阵。
-- 更新 `README.md`、`DEVELOPMENT.md` 的目录和恢复操作说明。
+- 更新 `README.md`、`docs/contributing/development.md` 的目录和恢复操作说明。
 - 统一启用新后端；排除新目录上的旧 JSON writer、renderer 历史旁路及自动续派入口。
 
 交付：完整 1.2.0 会话路径。未通过原生读取、全入口和三模式验收前，不声明本主题完成。

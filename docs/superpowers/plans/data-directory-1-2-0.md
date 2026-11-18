@@ -38,7 +38,7 @@
 - `src/main/app/identity-preflight.test.ts`
 - `build/installer.nsh`、`scripts/packaging/electron-builder-config.test.mjs`
 - `scripts/verify/memory-online-startup/drive.mjs`、`entry.cjs`
-- `README.md`、`README.en.md`、`DEVELOPMENT.md`
+- `README.md`、`README.en.md`、`docs/contributing/development.md`
 
 ## 施工包
 

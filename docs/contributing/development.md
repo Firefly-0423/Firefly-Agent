@@ -2,7 +2,7 @@
 
 自有 Skills 使用 `firefly-*` 名称；旧 ID 只用于兼容已有设置和命令，不再作为内置目录名。
 
-项目以 Electron、TypeScript、React 和既有 Agent 运行架构为基础。当前功能边界见 [README](./README.md)；历史阶段结论从归档索引查阅，不作为当前操作指南。远程旧版 Firefly 的 Python 入口和测试脚本不再属于当前运行链。
+项目以 Electron、TypeScript、React 和既有 Agent 运行架构为基础。当前功能边界见 [README](../../README.md)；历史阶段结论从归档索引查阅，不作为当前操作指南。远程旧版 Firefly 的 Python 入口和测试脚本不再属于当前运行链。
 
 ## 环境与构建
 
@@ -16,7 +16,7 @@ npm run build
 
 `npm run build` 生成 Main、Preload、CLI 和 Renderer，不制作安装器。开发模式使用 `npm run dev`。单元测试使用 `npm test`，局部测试使用 `npx vitest run <实际测试文件>`。
 
-Windows 真实 Bash 用例要求 `FIREFLY_TEST_BASH` 指向已核对存在的 Git Bash `bash.exe` 绝对路径。`npm test` 仅扫描 `vitest.config.ts` 列出的目录；`scripts` 下的 `.test.mjs` 不在该集合内，需按 [脚本说明](./scripts/README.md) 单独执行。构建不代替 `check:renderer`，历史测试数字不代表当前工作树通过。
+Windows 真实 Bash 用例要求 `FIREFLY_TEST_BASH` 指向已核对存在的 Git Bash `bash.exe` 绝对路径。`npm test` 仅扫描 `vitest.config.ts` 列出的目录；`scripts` 下的 `.test.mjs` 不在该集合内，需按 [脚本说明](../../scripts/README.md) 单独执行。构建不代替 `check:renderer`，历史测试数字不代表当前工作树通过。
 
 项目归档调用使用 `yauzl@3.4.0` 与 `src/shared/zip-extraction.ts`。旧审计结论保留其阶段意义，不作为当前安全认证。
 
@@ -26,7 +26,7 @@ Windows 真实 Bash 用例要求 `FIREFLY_TEST_BASH` 指向已核对存在的 Gi
 
 应用用户数据在 `%APPDATA%\Firefly-1.2.0`，包括设置、会话和日志（目录名定义在 `src/main/base/identity/data-directory.ts`，安装器写开机自启选项用同一目录）。1.1.x 的 `%APPDATA%\Firefly` 不会被读取、迁移或删除。不要将用户数据、私有语音资源或构建产物复制进源码树。GPT-SoVITS 是用户自行配置的外部服务；自动更新保持关闭。流萤模型与其他素材的公开再分发范围、安装器和更新元数据仍需在发布前核实。
 
-保留现有 Agent Loop、工具权限、审批和任务状态所有者。修改提示词、角色卡或资源时，保留安全与任务执行约束。许可证见 [LICENSE](./LICENSE) 与 [第三方来源说明](./THIRD_PARTY_NOTICES.md)。
+保留现有 Agent Loop、工具权限、审批和任务状态所有者。修改提示词、角色卡或资源时，保留安全与任务执行约束。许可证见 [LICENSE](../../LICENSE) 与 [第三方来源说明](../../THIRD_PARTY_NOTICES.md)。
 
 ## 开发文档
 
