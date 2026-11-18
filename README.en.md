@@ -297,7 +297,7 @@ assets/ build/ resources/ # App and tray icons, file-type icons; installer scrip
 
 ## 🤝 Contributing
 
-Read [AGENTS.md](./AGENTS.md) and [DEVELOPMENT.md](./DEVELOPMENT.md) first, run the checks that match your change and say what they do not cover. Send Skills to [firefly-skills](https://github.com/Firefly-0423/firefly-skills) and plugins to [firefly-plugins](https://github.com/Firefly-0423/firefly-plugins). Never attach keys, private conversations or user data to an issue or pull request.
+Read [AGENTS.md](./AGENTS.md) and [docs/contributing/development.md](./docs/contributing/development.md) first, run the checks that match your change and say what they do not cover. Send Skills to [firefly-skills](https://github.com/Firefly-0423/firefly-skills) and plugins to [firefly-plugins](https://github.com/Firefly-0423/firefly-plugins). Never attach keys, private conversations or user data to an issue or pull request.
 
 ## 📄 License and character assets
 

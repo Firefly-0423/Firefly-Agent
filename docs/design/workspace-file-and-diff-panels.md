@@ -25,6 +25,6 @@ Main 重取工作区绑定，真实路径越界返回 OUT_OF_ROOT；目录最多
 运行快照只覆盖接入捕获的路径，不能证明任意 Shell、插件或外部编辑器的全部改动；当前文件刷新不应替换旧快照。大文件、二进制或截断证据可能只展示元数据，取消和失败不自动回滚文件。
 
 ## 未完成与维护
-专用上一处/下一处差异导航、运行中自动打开差异尚未实现或定案。面板布局见[右侧布局](right-panel-layout.md)；运行中预览见[Git 自动刷新](code-git-live-refresh.md)；命令展示由[命令实时输出计划](../superpowers/plans/2026-11-12-command-live-output.md)承接。
+专用上一处/下一处差异导航、运行中自动打开差异尚未实现或定案。面板布局见[右侧布局](right-panel-layout.md)；运行中预览见[Git 自动刷新](code-git-live-refresh.md)；命令展示由[命令实时输出计划](../superpowers/plans/command-live-output.md)承接。
 
 现有测试：`src/main/features/sessions/workspace-files-ipc.test.ts`、`src/main/features/sessions/workspace-file-editor.test.ts`、`src/main/agent/review/run-review-tracker.test.ts`、`src/renderer/react/features/chat/workspace/CodeDiff.test.ts`。本次未执行；链接平台前提、原生句柄、真实保存拒绝和窄窗未验收。

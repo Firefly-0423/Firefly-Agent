@@ -36,6 +36,6 @@
 | 图表、知识进度、压缩、上下文与性能 | 安全降级和作用域正确；无进度不补建，性能先测量。 |
 
 ## 未完成与统一计划
-接纳、重启只对账、终态提交见[会话可靠性](../superpowers/plans/2026-11-12-conversation-reliability.md)；输出见[命令实时输出](../superpowers/plans/2026-11-12-command-live-output.md)；错误反馈见[模型错误分类](../superpowers/plans/2026-11-12-model-error-classification.md)；提醒、图片和性能见[提醒与界面](../superpowers/plans/2026-11-12-reminders-and-ui.md)。这些目标不能提前勾为通过。
+接纳、重启只对账、终态提交见[会话可靠性](../superpowers/plans/conversation-reliability.md)；输出见[命令实时输出](../superpowers/plans/command-live-output.md)；错误反馈见[模型错误分类](../superpowers/plans/model-error-classification.md)；提醒、图片和性能见[提醒与界面](../superpowers/plans/reminders-and-ui.md)。这些目标不能提前勾为通过。
 
 现有最近测试：`src/renderer/react/features/chat/pages/run/AgentRunController.test.ts`、`src/renderer/react/features/chat/pages/run-event-gate.test.ts`、`src/renderer/react/features/chat/components/ChatComposer.sender-integration.test.ts`、`src/renderer/react/features/chat/components/desktop-asr-controller.test.ts`。本次未执行；页面进一步分域和卸载接口是否增加仍待实际问题支持。

@@ -24,6 +24,6 @@ Chat 分组组织会话；Work / Code 按项目显示时分组组织整个项目
 提交携带 expectedRevision；旧修订返回 conflict 及最新快照，无效补丁返回 invalid，读写失败返回 storage_error。合法保存使用本次拥有的临时文件、fsync 和 rename；失败不应覆盖旧布局。损坏 JSON 不自动重建覆盖；读取对账不等于已写回。单进程修订机制不是任意外部并发的数据库事务。
 
 ## 未完成与维护
-当前按项目视图不保证空项目常驻；搜索、滚动、宽度及全部瞬时状态也没有由布局文件自动获得跨重启保证。跨模式共享布局、自由移动项目内会话和空项目常驻均未决定。性能测量采用[提醒与界面计划](../superpowers/plans/2026-11-12-reminders-and-ui.md)，不预设虚拟化门槛。
+当前按项目视图不保证空项目常驻；搜索、滚动、宽度及全部瞬时状态也没有由布局文件自动获得跨重启保证。跨模式共享布局、自由移动项目内会话和空项目常驻均未决定。性能测量采用[提醒与界面计划](../superpowers/plans/reminders-and-ui.md)，不预设虚拟化门槛。
 
 已有测试：`src/shared/sidebar-layout.test.ts`、`src/main/features/sessions/sidebar-layout-store.test.ts`、`src/main/features/sessions/sidebar-layout-ipc.test.ts`、`src/renderer/react/features/chat/pages/sidebar-tiers.test.ts`。本次未执行；长列表、键盘和窄窗未验收。

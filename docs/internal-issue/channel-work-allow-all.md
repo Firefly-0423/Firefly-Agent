@@ -23,18 +23,18 @@
 ## 根因
 
 1. 当前 `resolveChannelAgentPolicy` 在代码层尚未引入 1.2.0 规格要求的“渠道默认 Chat、Work 仅放行 `fs-read`、拒绝在外部平台发起/等效审批”的收紧策略。
-2. 根据 `docs/superpowers/plans/2026-11-12-docs-and-engineering.md`（全局约束）与 `docs/superpowers/plans/2026-11-12-docs-and-engineering-progress.md`（未完成项 B6），渠道文档当前先如实披露“开启工具后为 `work` + `allow_all`”的现状与风险，等待独立渠道收紧施工合入后再更新策略与文档。
+2. 根据 `docs/superpowers/plans/docs-and-engineering.md`（全局约束）与 `docs/superpowers/plans/docs-and-engineering-progress.md`（未完成项 B6），渠道文档当前先如实披露“开启工具后为 `work` + `allow_all`”的现状与风险，等待独立渠道收紧施工合入后再更新策略与文档。
 
 ## 当前状态
 
 - **待修复**：
-  - `docs/superpowers/plans/2026-11-12-docs-and-engineering-progress.md` 未完成项 B6 与验收待办继续挂起，等待渠道 Work 收紧实现（对应 `docs/superpowers/specs/2026-11-12-plugin-sdk-1-2-0.md` §7.4 仅放行 `fs-read` 风险工具的策略）。
+  - `docs/superpowers/plans/docs-and-engineering-progress.md` 未完成项 B6 与验收待办继续挂起，等待渠道 Work 收紧实现（对应 `docs/superpowers/specs/plugin-sdk-1-2-0.md` §7.4 仅放行 `fs-read` 风险工具的策略）。
   - 当前 `docs/disclaimer.zh-CN.md`（④ 工具与授权风险）与 `docs/user-guide/` 已将该行为明确标注为现状与安全警示。
 
 ## 相关文件
 
 - `src/main/features/channels/agent-policy.ts`（`resolveChannelAgentPolicy`、`enforceChannelAgentPolicy`）
-- `docs/superpowers/plans/2026-11-12-docs-and-engineering-progress.md`（未完成项 B6、验收待办）
-- `docs/superpowers/plans/2026-11-12-docs-and-engineering.md`（全局约束）
-- `docs/superpowers/specs/2026-11-12-plugin-sdk-1-2-0.md`（§7.4 外部渠道的模式）
+- `docs/superpowers/plans/docs-and-engineering-progress.md`（未完成项 B6、验收待办）
+- `docs/superpowers/plans/docs-and-engineering.md`（全局约束）
+- `docs/superpowers/specs/plugin-sdk-1-2-0.md`（§7.4 外部渠道的模式）
 - `docs/disclaimer.zh-CN.md`（第 ④ 条渠道 Work 说明）

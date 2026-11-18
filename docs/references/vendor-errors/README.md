@@ -4,7 +4,7 @@
 
 本文档说明 Firefly 当前已实现的模型调用失败分类架构、底层传输重试逻辑、渲染进程脱敏展示，以及全部公开错误码与国际化文案映射表。
 
-> **现状边界声明**：`docs/superpowers/plans/2026-11-12-model-error-classification.md`（及其进度文档 `-progress.md`）当前状态为 `未开工`。因此，Firefly 现阶段**尚未**按厂商响应体内的 `error.code` / `error.type` 做细分分类，也**未**引入用户可配的模型重试次数或独立故障提示卡片；当前全部内置提供商共享一套统一的运行期错误收口与传输重试机制。
+> **现状边界声明**：`docs/superpowers/plans/model-error-classification.md`（及其进度文档 `-progress.md`）当前状态为 `未开工`。因此，Firefly 现阶段**尚未**按厂商响应体内的 `error.code` / `error.type` 做细分分类，也**未**引入用户可配的模型重试次数或独立故障提示卡片；当前全部内置提供商共享一套统一的运行期错误收口与传输重试机制。
 
 ---
 

@@ -2,7 +2,7 @@
 
 状态：参考资料（核验日期 2026-11-16）
 
-> **边界提示**：Firefly 当前未按 Anthropic 响应体中的 `error.type`（如 `overloaded_error`、`rate_limit_error`）做专属二次拆分（相关计划 `docs/superpowers/plans/2026-11-12-model-error-classification.md` 处于 `未开工`）。以下记录 Firefly 当前已实装的公共错误映射与 Anthropic 专属协议处理，**具体接口与状态码含义以供应商最新文档为准**。
+> **边界提示**：Firefly 当前未按 Anthropic 响应体中的 `error.type`（如 `overloaded_error`、`rate_limit_error`）做专属二次拆分（相关计划 `docs/superpowers/plans/model-error-classification.md` 处于 `未开工`）。以下记录 Firefly 当前已实装的公共错误映射与 Anthropic 专属协议处理，**具体接口与状态码含义以供应商最新文档为准**。
 
 ---
 

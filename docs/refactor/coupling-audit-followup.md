@@ -5,7 +5,7 @@
 
 ## 为什么做
 
-主进程七层分层（PR `#57`–`#59`）解决了 `src/main` 内部目录缠绕与两处文件循环，但前期耦合审查仍有五类遗留问题未清（`docs/superpowers/plans/2026-11-15-coupling-audit-followup.md`）：
+主进程七层分层（PR `#57`–`#59`）解决了 `src/main` 内部目录缠绕与两处文件循环，但前期耦合审查仍有五类遗留问题未清（`docs/superpowers/plans/coupling-audit-followup.md`）：
 
 1. **跨进程边界失守**：渲染进程生产代码（`qqmusic-panel.ts`）与 preload（`music.ts`）仍直接引用 `src/main` 类型；
 2. **测试辅助文件混入生产编译**：仅有测试引用的扫描器/构建器（`history-index-builder.ts`、`ipc-contract-scanner.ts`、`default-dialogs-scanner.ts`）没有测试后缀，生产代码可误引用，且会随 `tsc` 打入 `dist/main` 安装包；
@@ -33,7 +33,7 @@
 
 ## 涉及的 PR
 
-- **PR `#66`**（`b66e325`，2026-11-14）：`docs/coupling-followup-plan`（计划文件 `2026-11-15-coupling-audit-followup.md`）。
+- **PR `#66`**（`b66e325`，2026-11-14）：`docs/coupling-followup-plan`（计划文件 `coupling-audit-followup.md`）。
 - **PR `#67`**（`a96f254`，2026-11-14）：`feat/coupling-r1`（R1 跨进程边界与 `qqmusic-types.ts`）。
 - **PR `#68`**（`623d2d4`，2026-11-15）：`feat/coupling-r2`（R2 测试辅助文件更名与产物排除）。
 - **PR `#69`**（`8e93484`，2026-11-15）：`feat/coupling-r3`（R3 空 catch 与全量清除 `as any`）。
@@ -44,5 +44,5 @@
 
 ## 遗留事项
 
-1. **其余大文件尚未拆分**（`2026-11-15-coupling-audit-followup.md` §现状）：除 `preload/index.ts` 已完成拆解、`settings.ts` 处于拆解中（PR 3–4 待续）外，`ChatPage.tsx`（1592 行，计划在回归包 A–H 保护完成后再拆）、`main-default-memory.ts`（1137 行）、`default-dependencies.ts`（978 行）、`agui-bridge.ts`、`AgentRunController.ts`、`git-service.ts` 均尚未另立拆分 PR；`src/plugins/` 重构划归 1.2.0 SDK 规格。
+1. **其余大文件尚未拆分**（`coupling-audit-followup.md` §现状）：除 `preload/index.ts` 已完成拆解、`settings.ts` 处于拆解中（PR 3–4 待续）外，`ChatPage.tsx`（1592 行，计划在回归包 A–H 保护完成后再拆）、`main-default-memory.ts`（1137 行）、`default-dependencies.ts`（978 行）、`agui-bridge.ts`、`AgentRunController.ts`、`git-service.ts` 均尚未另立拆分 PR；`src/plugins/` 重构划归 1.2.0 SDK 规格。
 2. **已知未修关联问题**：[l2-dmae-malformed-entries.md](../internal-issue/l2-dmae-malformed-entries.md)（`getL2DmaeState`/`updateL2DmaeState` 遇 `null` 条目抛错，已决定延后）与 [diagnostic-hardcoded-root.md](../internal-issue/diagnostic-hardcoded-root.md)（源码保留历史绝对路径默认值）。

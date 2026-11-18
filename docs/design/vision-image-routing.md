@@ -25,7 +25,7 @@ direct 是能力判断，不证明发送或理解成功。转述不是主模型�
 拒绝和转述失败主要通过模型上下文表达，不能保证用户界面一定独立展示原因。文件验证、转述回调缺失和异常分支需结合入口核对；正常链路已有回调检查，不能仅凭一处分支推断桌面必现丢图。
 
 ## 未完成与施工入口
-统一格式拒绝、逐图失败反馈和独立界面提示，由[提醒与界面计划](../superpowers/plans/2026-11-12-reminders-and-ui.md)及[进度](../superpowers/plans/2026-11-12-reminders-and-ui-progress.md)承接。首版拒绝不支持格式，不自动转码，不改变工具结果为图片块；请求失败重试另见[模型错误分类计划](../superpowers/plans/2026-11-12-model-error-classification.md)。
+统一格式拒绝、逐图失败反馈和独立界面提示，由[提醒与界面计划](../superpowers/plans/reminders-and-ui.md)及[进度](../superpowers/plans/reminders-and-ui-progress.md)承接。首版拒绝不支持格式，不自动转码，不改变工具结果为图片块；请求失败重试另见[模型错误分类计划](../superpowers/plans/model-error-classification.md)。
 
 可选工具图片结果尚未批准：先试点本地图片读取，使用 Main 发放且绑定会话/run/调用的受控引用，发送前复核来源、文件身份、格式、容量和取消；协议投影保持工具配对，日志不含图片字节。不支持时明确失败，是否提供显式转述选择待定。短期或持久引用、保留与删除、协议支持范围未定，不预写不存在的类型和路径。
 

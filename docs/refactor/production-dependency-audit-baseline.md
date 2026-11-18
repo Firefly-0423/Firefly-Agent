@@ -5,7 +5,7 @@
 
 ## 为什么做
 
-虽然 `.github/workflows/test.yml` 此前已配有非阻断的 `npm audit --omit=dev --json` 与 `npm-audit-prod` 产物上传，但仓库一直缺少把审计报告转化为可追踪风险台账的规范文档（对应 `docs/superpowers/plans/2026-11-12-docs-and-engineering.md` 施工包 C：C1–C3）。
+虽然 `.github/workflows/test.yml` 此前已配有非阻断的 `npm audit --omit=dev --json` 与 `npm-audit-prod` 产物上传，但仓库一直缺少把审计报告转化为可追踪风险台账的规范文档（对应 `docs/superpowers/plans/docs-and-engineering.md` 施工包 C：C1–C3）。
 
 在不主动擅自升级生产依赖、不改变锁文件与不把审计改成 CI 硬阻断的前提下，工程侧需要建立一套面向发布审查的基线台账，准确记录每个漏洞包实例的完整依赖链、安装位置假设、触发前提与关闭证据标准，防止“跑了静态单测”或“改了 override 但未查 ASAR”被误认为风险关闭。
 
@@ -20,7 +20,7 @@
 
 ## 怎么验证的
 
-1. **原始审计采集与依赖链解析**（`2026-11-12-docs-and-engineering-progress.md` §C 施工记录）：
+1. **原始审计采集与依赖链解析**（`docs-and-engineering-progress.md` §C 施工记录）：
    - 运行 `npm audit --omit=dev --json` 成功获得合法 `auditReportVersion 2` 报告（退出码 1；汇总 low 1、moderate 3、high 0、critical 0，4 个受影响包、11 个公告及 1 条传递影响）；
    - 对 4 个目标包逐一运行 `npm explain <包名> --json`，全部退出 0，并将同版本多引用链完整写入登记表。
 2. **构建输入核查**（`docs/security/dependency-risk-register.md` §构建与分发核查记录）：

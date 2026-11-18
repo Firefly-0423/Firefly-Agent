@@ -12,7 +12,7 @@
 
 - 只许引用同层和更低的层，类型引用也一样；层级表在 `src/main/layers.json`，由 `src/main/layering.test.ts` 检查。
 - 每个层目录有自己的 `AGENTS.md`（如 `src/main/agent/AGENTS.md`），写明这一层负责什么、可以引用谁、各模块职责、验证命令和施工文件。改某一层的代码前先读那一层的 `AGENTS.md`。
-- 设计与存量违规的处理顺序见 `docs/design/2026-11-12-main-process-layering.md`。
+- 设计与存量违规的处理顺序见 `docs/design/main-process-layering.md`。
 
 ## 按需使用 Skills
 

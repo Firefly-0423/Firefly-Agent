@@ -30,11 +30,11 @@
 ## 当前状态
 
 - **读取兼容（已修复）**：PR `#71`（`89d705c`）已在 `normalizeL2DmaeStateNames` 中增加 `!isPlainObject(entry)` 保护，只转换三个已知旧名，其他条目原样保留。
-- **坏条目抛错与清理（已决定延后）**：`docs/superpowers/plans/2026-11-15-coupling-audit-followup-progress.md` §4 记录负责人 2026-11-15 决定，此类坏条目留待后续统一清理，当前不改。
+- **坏条目抛错与清理（已决定延后）**：`docs/superpowers/plans/coupling-audit-followup-progress.md` §4 记录负责人 2026-11-15 决定，此类坏条目留待后续统一清理，当前不改。
 
 ## 相关文件
 
-- `docs/superpowers/plans/2026-11-15-coupling-audit-followup-progress.md`（§4 偏离计划）
+- `docs/superpowers/plans/coupling-audit-followup-progress.md`（§4 偏离计划）
 - `src/main/memory/legacy/memory-store-defaults.ts`（`normalizeL2DmaeStateNames`、`isCurrentMemoryStore`）
 - `src/main/memory/legacy/memory-store.ts`（`getL2DmaeState`、`updateL2DmaeState`）
 - `src/main/memory/legacy/l2-dmae-manager.ts`（`loadStates`、`syncToStore`）

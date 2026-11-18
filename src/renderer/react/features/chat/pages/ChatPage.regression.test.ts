@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// ChatPage regression packages B and G (docs/superpowers/plans/2026-11-12-chatpage-regression.md): the real ChatPage, its
+// ChatPage regression packages B and G (docs/superpowers/plans/chatpage-regression.md): the real ChatPage, its
 // pending-queue flow and run controller run together. Only IPC (chat store, AG-UI, file intake) and layout shells
 // are replaced. The fake store follows the Main contracts in src/main/features/sessions/chats-store.ts.
 import React, { act, createElement, useRef } from "react";

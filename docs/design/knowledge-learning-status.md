@@ -27,6 +27,6 @@
 图表通过 `src/renderer/react/features/chat/components/svg-sanitize.ts` 限长并消毒；渲染失败回退源码，不能把提示词禁止脚本当作实际安全门禁。
 
 ## 未完成与计划
-主进程阅读证据绑定、跨重启抽查恢复尚未提供；材料理解质量与图表布局需真实模型和界面验收。提醒定位和权限增量链接[提醒与界面计划](../superpowers/plans/2026-11-12-reminders-and-ui.md)，恢复链接[会话可靠性计划](../superpowers/plans/2026-11-12-conversation-reliability.md)。
+主进程阅读证据绑定、跨重启抽查恢复尚未提供；材料理解质量与图表布局需真实模型和界面验收。提醒定位和权限增量链接[提醒与界面计划](../superpowers/plans/reminders-and-ui.md)，恢复链接[会话可靠性计划](../superpowers/plans/conversation-reliability.md)。
 
 现有测试入口：`src/main/knowledge/workspace/knowledge-workspace.test.ts`、`src/main/agent/runtime/pop-quiz.test.ts`、`src/main/knowledge/workspace/progress/learn-post-turn.test.ts`、`src/renderer/react/features/chat/components/svg-card-block.test.ts`。本次未执行。

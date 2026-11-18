@@ -1,6 +1,6 @@
 # Firefly 文档
 
-按用途分目录。写作与施工流程见 [contributing/development-workflow.md](contributing/development-workflow.md)。
+按用途分目录。写作与施工流程见 [contributing/development-workflow.md](contributing/development-workflow.md)，环境、构建与测试说明见 [contributing/development.md](contributing/development.md)。
 
 | 目录 | 放什么 |
 | --- | --- |

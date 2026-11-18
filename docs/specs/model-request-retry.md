@@ -2,7 +2,7 @@
 
 状态：已实现规范（核验日期 2026-11-16）
 
-> **范围说明**：本文档仅规范当前仓库已实现且受测试守卫的重试与语义回退行为。`docs/superpowers/plans/2026-11-12-model-error-classification.md` 中关于设置项 `modelRequestMaxRetries` 及按厂商错误子类驱动可配置退避的规划当前处于 `未开工`，故目前不存在用户级模型请求重尝试数配置。
+> **范围说明**：本文档仅规范当前仓库已实现且受测试守卫的重试与语义回退行为。`docs/superpowers/plans/model-error-classification.md` 中关于设置项 `modelRequestMaxRetries` 及按厂商错误子类驱动可配置退避的规划当前处于 `未开工`，故目前不存在用户级模型请求重尝试数配置。
 
 ---
 

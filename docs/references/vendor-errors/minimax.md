@@ -2,7 +2,7 @@
 
 状态：参考资料（核验日期 2026-11-16）
 
-> **边界提示**：Firefly 当前未针对 MiniMax 响应体内部错误码（如 `base_resp`）做专属拆分映射（`docs/superpowers/plans/2026-11-12-model-error-classification.md` 处于 `未开工`）。以下先说明 Firefly 代码实装映射，再概括常见 HTTP 错误语义，**以供应商最新文档为准**。
+> **边界提示**：Firefly 当前未针对 MiniMax 响应体内部错误码（如 `base_resp`）做专属拆分映射（`docs/superpowers/plans/model-error-classification.md` 处于 `未开工`）。以下先说明 Firefly 代码实装映射，再概括常见 HTTP 错误语义，**以供应商最新文档为准**。
 
 ---
 

@@ -15,7 +15,7 @@
 
 | 文档 | 主题 | 状态 |
 |---|---|---|
-| [2026-11-12-main-process-layering.md](2026-11-12-main-process-layering.md) | 主进程七层依赖与模块职责 | 已实现 |
+| [main-process-layering.md](main-process-layering.md) | 主进程七层依赖与模块职责 | 已实现 |
 
 ## L1 platform：平台服务
 
@@ -72,7 +72,7 @@
 | [project-session-sidebar.md](project-session-sidebar.md) | 项目、会话分组与修订布局存储 | 已实现 |
 | [right-panel-layout.md](right-panel-layout.md) | 右侧面板停靠、尺寸与身份 | 已实现 |
 | [workspace-file-and-diff-panels.md](workspace-file-and-diff-panels.md) | 当前文件、人工编辑与运行审查快照 | 已实现 |
-| [2026-11-15-preload-bridge-split.md](2026-11-15-preload-bridge-split.md) | preload 桥按功能域拆分 | 部分实现 |
-| [2026-11-15-settings-page-split.md](2026-11-15-settings-page-split.md) | 设置页入口职责拆分 | 部分实现 |
+| [preload-bridge-split.md](preload-bridge-split.md) | preload 桥按功能域拆分 | 部分实现 |
+| [settings-page-split.md](settings-page-split.md) | 设置页入口职责拆分 | 部分实现 |
 
 L0 基础能力随分层及组合根设计说明；本批没有独立 L0 主题。L3 记忆的默认实现仍在当前代码中，本批未保留缺少对应产品链的独立新记忆提案，不据此推断默认记忆缺失。
