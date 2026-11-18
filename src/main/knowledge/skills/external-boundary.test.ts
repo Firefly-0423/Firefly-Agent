@@ -41,7 +41,7 @@ const unchangedBoundaries = {
   "src/main/platform/browser/browser-startup-config.ts": "08b61ff4e0f654f1bb236bcf19d6f09d3ddcc8d9b2c21d6052fdb55e800f2701",
   // Also reviewed: renderer-crash cancellation and safe native failure/redirect forwarding; native preferences, routing,
   // certificate denial and fixed isolated-world scripts retain their boundaries.
-  // See docs/browser-reference-audit-2026-10-15.md (boundary preimage review).
+  // See docs/browser-reference-audit.md (boundary preimage review).
   "src/main/platform/browser/electron-browser-guest.ts": "bde77619d13add92b14d9754fd244bb312821ee3b7e7aaae49847672438502d7",
   "src/main/platform/permission/permission-policy.ts": "79d8456fce1598dd91651f7b86508824569941ec96cb563ef6c73f85bedab801",
   // Reimplemented from observable behavior with identical allow/ask/deny decisions; verified by the policyFor decision-table
