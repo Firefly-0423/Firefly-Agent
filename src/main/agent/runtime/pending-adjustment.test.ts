@@ -23,7 +23,7 @@ function environment(entries: PendingChatMessage[] = []) {
     const history: ChatMessage[] = [];
     const sequence: string[] = [];
     const appendUser = vi.fn(async (input: any) => { sequence.push("trace:" + input.turnId); if (transcriptFailure)
-        throw new Error("authoritative transcript unavailable"); return { text: input.text as string }; });
+        throw new Error("authoritative transcript unavailable"); return { text: input.text as string, runId: input.runId as string }; });
     const commitPendingAdjust = vi.fn((session: string, id: string, run: string, _options?: { assistantTurnId?: string }) => {
         sequence.push("history:" + id);
         if (commitFailure)
@@ -59,9 +59,9 @@ describe("adjustment history and transcript commits", () => {
         expect(await pending).toEqual({ delivered: delivered("alpha", "beta", "gamma") });
         expect(f.sequence).toEqual(["history:alpha", "trace:alpha", "history:beta", "trace:beta", "history:gamma", "trace:gamma"]);
         expect(f.appendUser.mock.calls.map(([input]) => input)).toEqual([
-            { turnId: "alpha", text: "Instruction alpha", attachments },
-            { turnId: "beta", text: "Instruction beta" },
-            { turnId: "gamma", text: "Instruction gamma" },
+            { turnId: "alpha", runId: "current-run", text: "Instruction alpha", attachments },
+            { turnId: "beta", runId: "current-run", text: "Instruction beta" },
+            { turnId: "gamma", runId: "current-run", text: "Instruction gamma" },
         ]);
         expect(f.queue()).toEqual([]);
         expect(f.history().map(message => message.id)).toEqual(["alpha", "beta", "gamma"]);
@@ -133,21 +133,21 @@ describe("history-first commit and recovery (#96)", () => {
         const insertion = (id: string) => history().find(message => message.id === id)?.runInsertion;
         return { store, sessionId: session.id, queue, history, insertion };
     }
-    /** In-memory transcript: the first write for a turn id wins, later writes read back the stored text. */
-    function memoryTranscript(seed: Record<string, string> = {}) {
-        const stored = new Map(Object.entries(seed));
+    /** In-memory transcript: the first write for a turn id wins, later writes read back the stored text and run. A string seed was inserted into RUN. */
+    function memoryTranscript(seed: Record<string, string | { text: string; runId?: string }> = {}) {
+        const stored = new Map<string, { text: string; runId?: string }>(Object.entries(seed).map(([turnId, value]) => [turnId, typeof value === "string" ? { text: value, runId: RUN } : value]));
         const failing = new Set<string>();
         const written: string[] = [];
         const hooks: { afterWrite?: (turnId: string) => void } = {};
-        const appendUser = vi.fn(async (input: { turnId: string; text: string }) => {
+        const appendUser = vi.fn(async (input: { turnId: string; runId: string; text: string }) => {
             if (failing.has(input.turnId))
                 throw new Error("transcript unavailable");
             if (!stored.has(input.turnId)) {
-                stored.set(input.turnId, input.text);
+                stored.set(input.turnId, { text: input.text, runId: input.runId });
                 written.push(input.turnId);
             }
             hooks.afterWrite?.(input.turnId);
-            return { text: stored.get(input.turnId)! };
+            return stored.get(input.turnId)!;
         });
         const port: TranscriptUserWritePort = { appendUser };
         return { port, appendUser, written, failing, hooks };
@@ -214,6 +214,35 @@ describe("history-first commit and recovery (#96)", () => {
         expect(f.queue().map(entry => entry.id)).toEqual(["C"]);
         expect(transcript.written).toEqual(["A"]);
     });
+    it("blocks an existing transcript entry with the same text but another run as a non-retryable conflict and delivers nothing after it", async () => {
+        const f = await arrange();
+        const transcript = memoryTranscript({ B: { text: "Queued B", runId: "another-run" } });
+        const poll = createRunAdjustmentPoller(f.sessionId, RUN, f.store, transcript.port);
+        const conflict = { delivered: queued("A"), blocked: { messageId: "B", reason: "transcript-conflict", retryable: false } };
+        expect(await poll()).toEqual(conflict);
+        expect(transcript.written).toEqual(["A"]);
+        expect(await poll()).toEqual({ delivered: [], blocked: conflict.blocked });
+        expect(f.queue().map(entry => entry.id)).toEqual(["C"]);
+        expect(transcript.appendUser.mock.calls.map(([input]) => input.turnId)).toEqual(["A", "B", "B"]);
+        expect(transcript.written).toEqual(["A"]);
+    });
+    it("blocks an existing transcript entry with the same text and no run as a non-retryable conflict", async () => {
+        const f = await arrange(["A"]);
+        const transcript = memoryTranscript({ A: { text: "Queued A" } });
+        const poll = createRunAdjustmentPoller(f.sessionId, RUN, f.store, transcript.port);
+        expect(await poll()).toEqual({ delivered: [], blocked: { messageId: "A", reason: "transcript-conflict", retryable: false } });
+        expect(transcript.written).toEqual([]);
+    });
+    it("hands the transcript port the run each item is inserted into, on first delivery and on the retry after a failed write", async () => {
+        const f = await arrange(["A", "B"]);
+        const transcript = memoryTranscript();
+        transcript.failing.add("B");
+        const poll = createRunAdjustmentPoller(f.sessionId, RUN, f.store, transcript.port);
+        await poll();
+        transcript.failing.clear();
+        expect(await poll()).toEqual({ delivered: queued("B") });
+        expect(transcript.appendUser.mock.calls.map(([input]) => [input.turnId, input.runId])).toEqual([["A", RUN], ["B", RUN], ["B", RUN]]);
+    });
     it("delivers an item whose existing transcript entry has the same text without rewriting it", async () => {
         const f = await arrange();
         const transcript = memoryTranscript({ B: "Queued B" });
@@ -261,7 +290,7 @@ describe("history-first commit and recovery (#96)", () => {
         const transcript = memoryTranscript();
         let release!: () => void;
         const gate = new Promise<void>(resolve => { release = resolve; });
-        transcript.appendUser.mockImplementationOnce(async input => { await gate; return { text: input.text }; });
+        transcript.appendUser.mockImplementationOnce(async input => { await gate; return { text: input.text, runId: input.runId }; });
         const poll = createRunAdjustmentPoller(f.sessionId, RUN, f.store, transcript.port);
         const first = poll(), second = poll();
         expect(isRunAdjustmentInFlight(f.sessionId, "A")).toBe(true);

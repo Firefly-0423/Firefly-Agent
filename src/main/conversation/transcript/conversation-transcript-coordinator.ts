@@ -48,7 +48,7 @@ export async function prepareTranscriptDispatch(input: {
       const id = `backfill:v1:${display.id}`;
       if (identities.has(id)) continue;
       const draft: TranscriptAppendInput = display.role === "user"
-        ? { id, at: display.at, kind: "user", turnId: display.id, revision: 1, payload: { text: modelText(display, input.forceUserContent), attachments: stableAttachments(display) } }
+        ? { id, at: display.at, kind: "user", ...(display.runInsertion ? { runId: display.runInsertion.runId } : {}), turnId: display.id, revision: 1, payload: { text: modelText(display, input.forceUserContent), attachments: stableAttachments(display) } }
         : { id, at: display.at, kind: "assistant", payload: { role: "assistant", content: modelText(display, input.forceUserContent) } };
       const saved = await transcript.append(conversation.id, draft);
       identities.add(saved.id);
@@ -64,10 +64,11 @@ export async function prepareTranscriptDispatch(input: {
     if (display.role !== "user" || !display.runInsertion || display.runInsertion.runId === run || display.id === userId) continue;
     if (known.some((entry) => entry.turnId === display.id
       && (entry.kind === "user" || entry.kind === "turn_rewind" && entry.payload.disposition === "replace_user"))) continue;
-    const saved = await transcript.append(conversation.id, { id: `user:v1:${display.id}:r1`, at: display.at, kind: "user", turnId: display.id, revision: 1,
-      payload: { text: display.content, attachments: stableAttachments(display) } });
-    // first-write-wins on the id: an existing entry with other text is not this insertion.
-    if (saved.kind !== "user" || saved.turnId !== display.id || saved.payload.text !== display.content) throw Error("TRANSCRIPT_INSERTION_RECONCILE_CONFLICT");
+    const saved = await transcript.append(conversation.id, { id: `user:v1:${display.id}:r1`, at: display.at, kind: "user", runId: display.runInsertion.runId,
+      turnId: display.id, revision: 1, payload: { text: display.content, attachments: stableAttachments(display) } });
+    // first-write-wins on the id: an existing entry with another text, run or revision is not this insertion.
+    if (saved.kind !== "user" || saved.turnId !== display.id || saved.runId !== display.runInsertion.runId || saved.revision !== 1
+      || saved.payload.text !== display.content) throw Error("TRANSCRIPT_INSERTION_RECONCILE_CONFLICT");
     identities.add(saved.id);
     known.push(saved);
   }

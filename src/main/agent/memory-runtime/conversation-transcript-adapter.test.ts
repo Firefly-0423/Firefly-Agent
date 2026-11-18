@@ -360,6 +360,7 @@ it("commits history inside the guarded append before the transcript entry exists
  expect(f.events).toEqual(["history","observer","mkdir","append"]);
  expect(f.history.map(message=>message.id)).toEqual(["adjust-1"]);
  expect((await f.adjustEntries()).map(entry=>[entry.seq,entry.kind,entry.id])).toEqual([[4,"user","user:v1:adjust-1:r1"]]);
+ expect((await f.adjustEntries()).map(entry=>[entry.kind==="user"?entry.runId:undefined,entry.kind==="user"?entry.payload.text:undefined])).toEqual([["run-a","also include detail"]]);
  expect((await f.adapter.captureRunRound("run-a")).userTurnId).toBe("adjust-1");
  expect(f.poll()).toBeUndefined();
 });

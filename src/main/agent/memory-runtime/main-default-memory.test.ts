@@ -23,6 +23,7 @@ import { createMemoryAutomationSettingsIpc } from "../../memory/policy/memory-au
 import { createMemoryAutomationPanel } from "../../../renderer/settings/memory/automation-panel";
 import type { MemoryPanelAction, MemoryPanelOutcome } from "../../../shared/memory-panel-contracts";
 import { exactly } from "../../../shared/testing/error-code.test-support";
+import { frameRunInsertion, RUN_INSERTION_FRAME_HEAD } from "../loop/run-insertion-framing";
 
 const isolation = fs.mkdtempSync(path.join(os.tmpdir(), "default-memory-owner-"));
 const storage = initializeStorageContext(resolveRuntimeProfile({ argv: ["--firefly-profile=test", "--firefly-isolation-root=" + isolation], env: {}, isPackaged: false, productionAppData: path.join(os.tmpdir(), "synthetic-production-unopened") }));
@@ -358,6 +359,22 @@ it.each(['work','code'] as const)('admits a genuine %s adjustment with committed
  const observation=f.commands.filter(command=>command.kind==='finish').map(command=>command.body.observation).find(observation=>observation.messageId==='adjust-user');
  expect(observation).toMatchObject({role:'user',trust:'direct-user-event',contentRevision:1});
  expect((await f.store.read('session-a')).entries.filter(entry=>entry.kind==='user'&&entry.turnId==='adjust-user')).toHaveLength(1);
+});
+it('sends a delivered adjustment to the model framed exactly once while the transcript keeps the original text and marks the run',async()=>{
+ const f=await fixture('work');await f.user('session-a','baseline question');f.memory.authorizeRun(f.event,'session-a');
+ const a=await adjustment(f),input={...f.input(),pollRunAdjustments:a.poller},run=await f.memory.openRun(input);
+ const sink=await completeToolRound(f,run,input);
+ await expect(a.poller()).resolves.toEqual({delivered:[{id:'adjust-user',rawContent:'I prefer fish',revision:1}]});
+ await run.call(f.call());await sink.appendAssistant({roundId:'r2',message:{role:'assistant',content:'adjusted answer'}});
+ const fragment=JSON.stringify(frameRunInsertion('I prefer fish')).slice(1,-1);
+ expect(f.sent).toHaveLength(2);
+ expect(f.sent[1].split(fragment).length-1).toBe(1);
+ expect(f.sent[1].split(RUN_INSERTION_FRAME_HEAD).length-1).toBe(1);
+ expect(f.sent[0]).not.toContain(RUN_INSERTION_FRAME_HEAD);
+ const written=(await f.store.read('session-a')).entries.filter(entry=>entry.kind==='user'&&entry.turnId==='adjust-user');
+ expect(written).toHaveLength(1);
+ expect(written[0]).toMatchObject({kind:'user',runId:input.runId,payload:{text:'I prefer fish'}});
+ expect(a.history().map((message:any)=>message.content)).toEqual(['I prefer fish']);
 });
 it.each([['false','write-failed',true],['throw','ADJUSTMENT_FAILED',false]] as const)('keeps the adjustment queued and writes no transcript user after history %s, then delivers it once history recovers',async(failure,reason,retryable)=>{
  const f=await fixture('work');await f.user('session-a','baseline question');f.memory.authorizeRun(f.event,'session-a');

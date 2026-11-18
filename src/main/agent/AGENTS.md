@@ -45,3 +45,4 @@
 - 本层的功能施工计划在 `docs/superpowers/plans/` 下，开工前在这里补上链接。
 - 记忆运行准入修复：[施工计划](../../../docs/superpowers/plans/run-lifecycle-fix.md)、[验证报告](../../../docs/superpowers/plans/run-lifecycle-fix-progress.md)。
 - 运行中插入的提交与恢复（#96）：[施工计划](../../../docs/superpowers/plans/queue-insert-commit.md)、[验证报告](../../../docs/superpowers/plans/queue-insert-commit-progress.md)。
+- 运行中插入的模型说明（#96 后续 PR 2）：[施工计划](../../../docs/superpowers/plans/queue-insert-framing.md)、[验证报告](../../../docs/superpowers/plans/queue-insert-framing-progress.md)。
