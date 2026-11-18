@@ -37,6 +37,8 @@ import { reportChatPerfRender } from "./chat-perf-probe";
 import { StreamdownMessageContent } from "./StreamdownMessageContent";
 import { FileLinkContext, MessageStreamingContext, type FileLinkEnv } from "./message-contexts";
 import { useScrollPinning } from "./useScrollPinning";
+import { placeRunInsertionBubbles, type RunInsertionBubble, type RunInsertionContent } from "./run-insertion-bubbles";
+import type { RunInsertion } from "../../../../../shared/chat-types";
 
 export interface ChatMessageItem {
   sSettlement?: import("../../../../../shared/chat-types").ChatMessage["sSettlement"]; id: string; role: "user" | "assistant" | "system";
@@ -49,6 +51,7 @@ export interface ChatMessageItem {
   runId?: string; taskPlan?: TaskPlanPresentation; attachments?: ChatMessageAttachment[];
   weather?: WeatherData; contextUsage?: ContextUsageSnapshot; workReadReport?: WorkReadReport;
   modelContext?: string; channelSource?: ChatMessageChannelSource;
+  runInsertion?: RunInsertion; insertionBubbles?: RunInsertionBubble[];
 }
 
 export interface ChatMessageAttachment {
@@ -256,6 +259,7 @@ type ActivityDetailProps = {
   live?: boolean; agentRounds?: AgentRoundRecord[]; reasoningBlocks: ReasoningBlock[];
   processMessages: ProcessMessageRecord[]; taskDelegations?: TaskDelegationDisplayRecord[];
   tools: ToolExecutionRecord[]; interrupted?: boolean;
+  insertionBubbles?: RunInsertionContent[];
 };
 function timelineEntryRows(entries: readonly FlatRunTimelineEntry[]): ReactNode[] {
   return entries.flatMap((entry) => {
@@ -264,6 +268,11 @@ function timelineEntryRows(entries: readonly FlatRunTimelineEntry[]): ReactNode[
       case "reasoning": return entry.reasoning?.content.trim() ? [<RunActivityReasoningBlock block={entry.reasoning} key={entry.key} />] : [];
       case "tool": return entry.tool ? [<ToolExecutionContent key={entry.key} tools={[entry.tool]} />] : [];
       case "task": return entry.task ? [<TaskDelegationRow delegation={entry.task} key={entry.key} />] : [];
+      case "insertion": return entry.insertion ? [<div key={entry.key} className="ff-run-activity__insertion">
+        <span>{t("messageList.runInsertion")}</span>
+        <UserContent content={stripMessageStickerMarkers(entry.insertion.content)}
+          stickerUrl={entry.insertion.stickerUrl} stickerUnavailable={entry.insertion.stickerUnavailable} />
+      </div>] : [];
     }
   });
 }
@@ -276,9 +285,10 @@ function activityRows(input: Required<ActivityDetailProps>): ReactNode[] {
     </section>]
     : timelineEntryRows([row]));
 }
-export function RunActivityDetail({ live = false, agentRounds = [], reasoningBlocks, processMessages, taskDelegations = [], tools, interrupted = false }: ActivityDetailProps) {
+export function RunActivityDetail({ live = false, agentRounds = [], reasoningBlocks, processMessages, taskDelegations = [],
+  tools, interrupted = false, insertionBubbles = [] }: ActivityDetailProps) {
   const { t } = useTranslation();
-  const rows = activityRows({ live, agentRounds, reasoningBlocks, processMessages, taskDelegations, tools, interrupted });
+  const rows = activityRows({ live, agentRounds, reasoningBlocks, processMessages, taskDelegations, tools, interrupted, insertionBubbles });
   if (rows.length === 0) { return <div className="ff-run-activity__empty">{t("messageList.organizingReply")}</div>; }
   return <div className="ff-run-activity__detail">{rows}</div>;
 }
@@ -287,6 +297,7 @@ type ActivityContentProps = {
   activityId: string; activity: RunActivityRecord; reasoningBlocks: ReasoningBlock[];
   processMessages: ProcessMessageRecord[]; agentRounds: AgentRoundRecord[]; taskDelegations: TaskDelegationDisplayRecord[];
   tools: ToolExecutionRecord[]; stage?: AgentRunStage; taskPlan?: TaskPlanPresentation;
+  insertionBubbles?: RunInsertionContent[];
   expanded: boolean; onExpand: (expanded: boolean) => void;
 };
 /** The facts after "处理了 N 秒" in a finished run's caption. Failed steps stay in it: a run that recovered still collapses,
@@ -327,7 +338,7 @@ function RunActivityContent(props: ActivityContentProps) {
       {/* The header's hairline already separates it from the steps; a divider only sets a plan apart from them. */}
       {props.taskPlan && <><TaskPlanCard plan={props.taskPlan} /><div className="ff-run-activity__divider" /></>}
       <RunActivityDetail live={state.processing} agentRounds={props.agentRounds} reasoningBlocks={props.reasoningBlocks}
-        processMessages={props.processMessages} taskDelegations={props.taskDelegations} tools={props.tools}
+        processMessages={props.processMessages} taskDelegations={props.taskDelegations} tools={props.tools} insertionBubbles={props.insertionBubbles}
         interrupted={Boolean(props.activity.keepExpanded && props.activity.completedAt !== undefined)} />
     </div>}
   </section>;
@@ -497,6 +508,7 @@ type RoleInfo = { extraInfo?: {
   activityId?: string; activity?: RunActivityRecord; reasoningBlocks?: ReasoningBlock[];
   processMessages?: ProcessMessageRecord[]; agentRounds?: AgentRoundRecord[]; taskDelegations?: TaskDelegationDisplayRecord[];
   tools?: ToolExecutionRecord[]; runStage?: AgentRunStage; taskPlan?: TaskPlanPresentation; weather?: WeatherData; runId?: string;
+  insertionBubbles?: RunInsertionContent[];
 } };
 function plainRole(name: string) {
   return { placement: "start" as const, variant: "borderless" as const, avatar: null, rootClassName: `ff-message ff-message--${name}` };
@@ -565,6 +577,7 @@ function createRoles(
       return <RunActivityContent activityId={id} activity={record} reasoningBlocks={info.extraInfo?.reasoningBlocks ?? []}
         processMessages={info.extraInfo?.processMessages ?? []} agentRounds={info.extraInfo?.agentRounds ?? []}
         taskDelegations={info.extraInfo?.taskDelegations ?? []} tools={info.extraInfo?.tools ?? []}
+        insertionBubbles={info.extraInfo?.insertionBubbles}
         stage={info.extraInfo?.runStage} taskPlan={info.extraInfo?.taskPlan}
         expanded={resolveRunActivityExpanded(reasoningExpanded, id, record)} onExpand={(open) => onReasoningExpand(id, open)} />;
     },
@@ -583,18 +596,24 @@ function unavailableSticker(id: string | null | undefined, stickers: readonly En
   if (id && isRetiredStickerId(id)) { return "表情包已下架"; }
   return id && !resolveStickerUrl(id, stickers) ? "表情包不可用" : undefined;
 }
-function nonAssistantItem(message: ChatMessageItem, stickers: readonly EnabledSticker[]): BubbleItemType {
+function userSticker(message: { content: string; sticker?: string | null }, stickers: readonly EnabledSticker[]) {
   const id = extractMessageStickerId(message.content, message.sticker);
+  return {
+    stickerUrl: id ? resolveStickerUrl(id, stickers) : undefined,
+    stickerUnavailable: unavailableSticker(id, stickers),
+  };
+}
+function nonAssistantItem(message: ChatMessageItem, stickers: readonly EnabledSticker[]): BubbleItemType {
   return {
     key: message.id, role: message.role, content: stripMessageStickerMarkers(message.content),
     extraInfo: {
-      stickerUrl: id ? resolveStickerUrl(id, stickers) : undefined,
-      stickerUnavailable: unavailableSticker(id, stickers),
+      ...userSticker(message, stickers),
       attachments: message.attachments, messageId: message.id, channelSource: message.channelSource,
     },
   };
 }
-function appendMessageActivity(items: BubbleItemType[], message: ChatMessageItem, blocks: ReasoningBlock[], tools: ToolExecutionRecord[], visible: boolean): void {
+function appendMessageActivity(items: BubbleItemType[], message: ChatMessageItem, blocks: ReasoningBlock[],
+  tools: ToolExecutionRecord[], visible: boolean, stickers: readonly EnabledSticker[]): void {
   if (!visible) { return; }
   items.push({
     key: `${message.id}-activity`,
@@ -604,6 +623,7 @@ function appendMessageActivity(items: BubbleItemType[], message: ChatMessageItem
       activityId: `${message.id}-activity`, activity: message.runActivity, reasoningBlocks: blocks,
       processMessages: message.processMessages ?? [], agentRounds: message.agentRounds ?? [],
       taskDelegations: message.taskDelegations ?? [], tools, runStage: message.runStage, taskPlan: message.taskPlan,
+      insertionBubbles: message.insertionBubbles?.map(bubble => ({ ...bubble, ...userSticker(bubble, stickers) })),
     },
   });
 }
@@ -653,10 +673,10 @@ function convertMessage(message: ChatMessageItem, enabledStickers: readonly Enab
     : stages.includes("reasoning") ? [{ id: `${message.id}-legacy`, content: message.reasoning ?? "", streaming: message.reasoningStreaming }] : [];
   const tools = message.toolExecutions ?? [];
   const hasProcess = (message.processMessages ?? []).some((entry) => entry.content.trim()) || tools.length > 0
-    || (message.taskDelegations ?? []).length > 0 || blocks.some((entry) => entry.content.trim());
+    || (message.taskDelegations ?? []).length > 0 || blocks.some((entry) => entry.content.trim()) || Boolean(message.insertionBubbles?.length);
   const processing = message.runActivity?.completedAt === undefined;
   const activityVisible = Boolean(message.runActivity) && (processing || hasProcess);
-  if (message.runActivity) { appendMessageActivity(items, message, blocks, tools, activityVisible); }
+  if (message.runActivity) { appendMessageActivity(items, message, blocks, tools, activityVisible, enabledStickers); }
   else { appendMessageSteps(items, message, blocks, tools); }
   if (message.weather) { items.push({ key: `${message.id}-weather`, role: "weather", content: "", extraInfo: { weather: message.weather } }); }
   if (message.sSettlement && message.sSettlement.state !== "success") {
@@ -674,8 +694,8 @@ function convertMessage(message: ChatMessageItem, enabledStickers: readonly Enab
   appendReadReport(items, message);
   return items;
 }
-export function createMessageItems(messages: ChatMessageItem[], enabledStickers: EnabledSticker[]): BubbleItemType[] {
-  const items = messages.flatMap((entry) => convertMessage(entry, enabledStickers));
+export function createMessageItems(messages: ChatMessageItem[], enabledStickers: EnabledSticker[], mode: ConversationMode = "chat"): BubbleItemType[] {
+  const items = placeRunInsertionBubbles(messages, mode).flatMap((entry) => convertMessage(entry, enabledStickers));
   return items;
 }
 export interface MessageItemsCacheState {
@@ -747,10 +767,10 @@ export function ChatMessageList({
   }, []);
   const cacheRef = useRef<MessageItemsCacheState | null>(null);
   const items = useMemo(() => {
-    const batch = assembleMessageItems(messages, stickers, cacheRef.current);
+    const batch = assembleMessageItems(placeRunInsertionBubbles(messages, mode), stickers, cacheRef.current);
     cacheRef.current = batch.cache;
     return batch.items;
-  }, [messages, stickers]);
+  }, [messages, mode, stickers]);
   const channelLabel = resolveChannelConversationLabel(messages);
   // While a reply is live the newest avatar floats (ChatMessageList.css); idle, nothing animates.
   const live = messages.some(message => message.streaming || message.loading || message.waitingForFirstEvent || message.reasoningStreaming

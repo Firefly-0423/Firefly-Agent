@@ -1,5 +1,6 @@
 import { t } from "../../../i18n";
 import type { AgentRoundRecord, ProcessMessageRecord, ReasoningBlock, TaskDelegationDisplayRecord, ToolExecutionRecord } from "../../../../../shared/chat-types";
+import { insertionRoundNumber, type RunInsertionContent } from "./run-insertion-bubbles";
 
 // 保持工具顺序，文案在调用时求值。
 const TOOL_LABEL_KEYS: Record<string, string> = Object.fromEntries([
@@ -164,13 +165,15 @@ export function countRoundChangedFiles(tools: readonly ToolExecutionRecord[]): n
 }
 
 export interface FlatRunTimelineEntry {
-  kind: "reasoning" | "process" | "tool" | "task"; key: string; seq?: number;
+  kind: "reasoning" | "process" | "tool" | "task" | "insertion"; key: string; seq?: number;
   reasoning?: ReasoningBlock; process?: ProcessMessageRecord;
   tool?: ToolExecutionRecord; task?: TaskDelegationDisplayRecord;
+  insertion?: RunInsertionContent;
 }
 interface FlatRunTimelineInput {
   processMessages: ProcessMessageRecord[]; reasoningBlocks: ReasoningBlock[];
   tools: ToolExecutionRecord[]; taskDelegations: TaskDelegationDisplayRecord[];
+  insertionBubbles?: RunInsertionContent[];
 }
 
 function legacyTimeline(input: FlatRunTimelineInput): FlatRunTimelineEntry[] {
@@ -220,6 +223,21 @@ function delegationSeq(task: TaskDelegationDisplayRecord, input: FlatRunTimeline
 }
 
 export function buildFlatRunTimeline(input: FlatRunTimelineInput): FlatRunTimelineEntry[] {
+  const rows = buildRunSteps(input);
+  if (!input.insertionBubbles?.length) return rows;
+  const insertions = [...input.insertionBubbles].sort((a, b) => a.round - b.round || a.order - b.order);
+  for (const insertion of insertions) {
+    const index = rows.findIndex(row => {
+      const roundId = row.tool?.roundId ?? row.task?.roundId ?? row.process?.roundId ?? row.reasoning?.roundId;
+      const round = insertionRoundNumber(roundId);
+      return round !== undefined && round >= insertion.round;
+    });
+    rows.splice(index < 0 ? rows.length : index, 0, { kind: "insertion", key: `insertion-${insertion.id}`, insertion });
+  }
+  return rows;
+}
+
+function buildRunSteps(input: FlatRunTimelineInput): FlatRunTimelineEntry[] {
   const { processMessages, reasoningBlocks, tools, taskDelegations } = input;
   const sequenced = [...processMessages, ...reasoningBlocks, ...tools].some(({ seq }) => seq !== undefined);
   if (!sequenced) { return legacyTimeline(input); }

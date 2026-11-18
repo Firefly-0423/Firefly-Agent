@@ -105,7 +105,24 @@ export function patchSessionMessage(state: Record<string, ChatMessageItem[]>, se
 }
 
 export function hydrateSessionMessages(state: Record<string, ChatMessageItem[]>, sessionId: string, storedMessages: ChatMessageItem[], hasActiveRun: boolean): Record<string, ChatMessageItem[]> {
-  return hasActiveRun && state[sessionId] ? state : { ...state, [sessionId]: storedMessages };
+  const active = hasActiveRun ? state[sessionId] : undefined;
+  if (!active) return { ...state, [sessionId]: storedMessages };
+  if (!storedMessages.some(message => message.role === "user" && message.runInsertion)) return state;
+  const merged = [...active];
+  for (const [index, message] of storedMessages.entries()) {
+    if (message.role !== "user" || !message.runInsertion) continue;
+    const existing = merged.findIndex(row => row.id === message.id);
+    if (existing >= 0) {
+      if (merged[existing].role === "user") {
+        merged[existing] = { ...merged[existing], content: message.content, runInsertion: message.runInsertion };
+      }
+      continue;
+    }
+    const following = storedMessages.slice(index + 1).find(row => merged.some(live => live.id === row.id));
+    const offset = following ? merged.findIndex(row => row.id === following.id) : merged.length;
+    merged.splice(offset, 0, message);
+  }
+  return { ...state, [sessionId]: merged };
 }
 
 export function recoverInterruptedMessage(message: ChatMessageItem, snapshot: NonNullable<ChatMessage["runSnapshot"]>): ChatMessageItem {

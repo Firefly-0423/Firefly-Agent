@@ -54,6 +54,17 @@ function setup(execute: PendingQueueFlowHost["startRun"] = async () => {}) {
 }
 
 describe("Pending mutations follow authoritative store replies", () => {
+  test("an older queue read cannot put a committed insertion back in the dock", async () => {
+    const h = setup();
+    const delayed = latch<PendingChatMessage[]>();
+    h.disk.pendingList.mockReturnValueOnce(delayed.waiting);
+    const older = h.flow.syncProjection("owner");
+    await h.flow.syncProjection("owner");
+    expect(h.projectionIds()).toEqual([]);
+    delayed.release([queued("head")]);
+    await older;
+    expect(h.ports.replaceProjection.mock.calls).toEqual([["owner", []]]);
+  });
   test("editing preserves raw text, visible text and sticker metadata", async () => {
     const h = setup();
     const update = { rawContent: "Updated queued request [sticker:shy]", visibleContent: "Updated queued request", userSticker: "shy" };
@@ -83,6 +94,22 @@ describe("Pending mutations follow authoritative store replies", () => {
     expect(await h.flow.unmarkMessage("owner", "head")).toBe(false);
     expect(h.projectionIds()).toEqual(["head"]);
     expect(h.ports.reportError).toHaveBeenCalledTimes(1);
+  });
+  test.each([
+    { phase: "delivered", expected: "composer.queueWithdrawDelivered" },
+    { phase: "committed", expected: "composer.queueWithdrawCommitted" },
+    { phase: "removed", expected: "composer.queueWithdrawGone" },
+  ])("withdrawal reports $phase from history instead of treating any missing item as delivered", async ({ phase, expected }) => {
+    const h = setup();
+    const message = { ...turn(), runInsertion: { version: 1 as const, runId: "run-1", revision: 1, sequence: 1,
+      ...(phase === "delivered" ? { delivery: { round: 1, order: 1 } } : {}) } };
+    h.disk.pendingUnmark.mockResolvedValueOnce({ ok: false, error: "not-found", queue: [queued("tail")] });
+    h.disk.get.mockResolvedValueOnce(session({ messages: phase === "removed" ? [] : [message], mode: "work" }));
+    expect(await h.flow.unmarkMessage("owner", "head")).toBe(false);
+    expect(h.projectionIds()).toEqual(["tail"]);
+    const { t } = await import("../../../i18n");
+    expect(h.ports.reportError.mock.calls).toEqual([[t(expected)]]);
+    expect(h.ports.startRun).not.toHaveBeenCalled();
   });
   test("an accepted adjustment forwards its id and removes the dispatched entry from projection", async () => {
     const h = setup();

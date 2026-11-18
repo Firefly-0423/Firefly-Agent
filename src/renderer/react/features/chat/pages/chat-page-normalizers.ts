@@ -106,6 +106,7 @@ export function toUiMessages(session: ChatSession): ChatMessageItem[] {
       responseStarted: stored.role === "model" && Boolean(stored.content.trim() || stored.sticker),
       sticker: stored.sticker, toolExecutions: stored.toolExecutions, attachments: stored.attachments,
       contextUsage: stored.contextUsage, workReadReport: stored.workReadReport, runId: stored.runSnapshot?.runId,
+      ...(stored.role === "user" && stored.runInsertion && { runInsertion: stored.runInsertion }),
     };
     const restored = stored.runSnapshot ? recoverInterruptedMessage(view, stored.runSnapshot) : view;
     return applySSettlementProjection(restored, stored.sSettlement);

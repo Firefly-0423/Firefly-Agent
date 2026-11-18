@@ -11,13 +11,15 @@ const wire = vi.hoisted(() => ({
     root: "", handlers: new Map<string, any>(), notifications: new Map<string, any>(), sessions: new Map<string, any>(),
     run: vi.fn(), ask: vi.fn(), pending: vi.fn(), mark: vi.fn(), reset: vi.fn(), reads: [] as unknown[], events: [] as any[],
     terminal: undefined as any, duplicate: false, failure: null as Error | null, lateFailure: false, omitTerminal: false, keepOpen: false, finishOnAbort: false, subscriptions: [] as any[],
+    commitInsertion: vi.fn(),
 }));
 vi.mock("fs", async () => {
     const actual = await vi.importActual<typeof import("node:fs")>("node:fs");
     return { ...actual, readFileSync: (...args: any[]) => { wire.reads.push(args[0]); return (actual.readFileSync as any)(...args); } };
 });
 vi.mock("electron", () => ({ app: { getPath: () => wire.root }, BrowserWindow: { getAllWindows: () => [] }, ipcMain: { handle: (channel: string, callback: any) => wire.handlers.set(channel, callback), on: (channel: string, callback: any) => wire.notifications.set(channel, callback), removeListener: vi.fn() } }));
-vi.mock("../sessions/chats-store", () => ({ getSession: (id: string) => wire.sessions.get(id) ?? null, getPendingMessages: wire.pending, markPendingAdjust: wire.mark, resetPendingAdjustByRun: wire.reset }));
+vi.mock("../sessions/chats-store", () => ({ getSession: (id: string) => wire.sessions.get(id) ?? null, getPendingMessages: wire.pending,
+    listRunInsertions: () => [], commitPendingAdjust: wire.commitInsertion, markPendingAdjust: wire.mark, resetPendingAdjustByRun: wire.reset }));
 vi.mock("../../platform/interaction/user-choice", () => ({ requestUserClarification: wire.ask, cancelPendingChoicesForRun: vi.fn() }));
 vi.mock("../../platform/permission/permission", () => ({ cancelPendingApprovalsForRun: vi.fn(), checkPermission: vi.fn(), getCurrentLevel: () => "read-only" }));
 vi.mock("../../agent/tools/history-tools", () => ({ indexConversationTurn: vi.fn() }));
@@ -416,6 +418,24 @@ describe("session ownership, cancellation and takeover", () => {
     });
 });
 describe("live pending adjustments", () => {
+    it.each([true, false])("broadcasts a scoped queue update before checkpoint only when history committed=%s", async committed => {
+        session("conversation", "work"); running(true);
+        const f = await bridge();
+        const ack = await f.run();
+        wire.pending.mockReturnValue([{ id: "supplement", rawContent: "More details", adjustRunId: ack.runId }]);
+        wire.commitInsertion.mockReturnValueOnce(committed
+            ? { ok: true, userMessage: { id: "supplement" }, remainingQueue: [] }
+            : { ok: false, error: "write-failed" });
+        await agentOptions().pollRunAdjustments();
+        const notice = [IPC.CHATS_CHANGED, { runInsertionSessionId: "conversation" }];
+        const notices = () => f.sender.send.mock.calls.filter(([channel]) => channel === IPC.CHATS_CHANGED);
+        expect(notices()).toEqual(committed ? [notice] : []);
+        if (committed) agentOptions().onRunInsertionsCheckpointed();
+        expect(notices()).toEqual(committed ? [notice, notice] : []);
+        expect(f.module.hasActiveConversationRun()).toBe(true);
+        await f.cancel(ack.runId);
+        await f.idle();
+    });
     it("rejects malformed, missing, idle and Chat targets without marking messages", async () => {
         const f = await bridge();
         for (const payload of [null, { sessionId: "", messageId: "pending" }])

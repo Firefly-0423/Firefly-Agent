@@ -24,6 +24,7 @@ export async function runAgentLoopWithAdapter(options: FireflyRunOptions, signal
     recovered: resume, promptLayers: layers, agentLoopPromptLayers: requestLayers, systemPrompt: prefix, runMessages: history } = preparation;
   const runtime = prepareToolRuntime({ options, signal, prepared: preparation, sendBaseEvent });
   const { toolContext: context, checkPermission: permission, toolOutputStore: outputStore, agentExecutor: executeAgent, agentDefinitions: agents } = runtime;
+  let deliveredInsertions = 0;
   const invocation: AgentLoopInput = {
     systemPrompt: prefix,
     promptLayers: requestLayers,
@@ -43,10 +44,16 @@ export async function runAgentLoopWithAdapter(options: FireflyRunOptions, signal
     signal: runtime.signal,
     quiesceExecution: runtime.quiesceExecution,
     onEvent: (event: AgentLoopEvent) => { if (!signal.aborted) sendAgentLoopEventAsAgui(event, message, thread, run, sendBaseEvent); },
-    onCheckpoint: (checkpoint) => { journal.checkpoint(run, {
-      messages: checkpoint.messages, state: checkpoint.state, toolOutputs: checkpoint.toolOutputs, rounds: checkpoint.rounds, cache: checkpoint.cache,
-      insertions: checkpoint.insertions,
-    }); },
+    onCheckpoint: (checkpoint) => {
+      journal.checkpoint(run, {
+        messages: checkpoint.messages, state: checkpoint.state, toolOutputs: checkpoint.toolOutputs, rounds: checkpoint.rounds, cache: checkpoint.cache,
+        insertions: checkpoint.insertions,
+      });
+      if (options.onRunInsertionsCheckpointed && checkpoint.insertions.length > deliveredInsertions) {
+        deliveredInsertions = checkpoint.insertions.length;
+        options.onRunInsertionsCheckpointed();
+      }
+    },
     onToolsPlanned: (events) => { journal.recordTools(run, events.map((event) => ({ toolCallId: event.toolCallId, toolName: event.toolName, sideEffect: event.toolSideEffect, status: event.status }))); },
     onToolLifecycle: (event) => { journal.recordTool(run, { toolCallId: event.toolCallId, toolName: event.toolName, sideEffect: event.toolSideEffect, status: event.status }); },
     onCompactionLifecycle: (event) => journal.recordCompaction(run, event),

@@ -305,17 +305,20 @@ export function registerAgUiIpc(
     const beganAt = Date.now();
     let isControlled = false;
 
-    const emit = (packet: unknown): void => {
-      const stamped = packet && typeof packet === "object"
-        ? { ...(packet as Record<string, unknown>), runId: (packet as { runId?: unknown }).runId ?? executionId }
-        : packet;
+    const runRecipients = (): WebContents[] => {
       const recipients: WebContents[] = [];
       if (!origin.isDestroyed()) recipients.push(origin);
       const companion = resolveChatWindow();
       if (companion && !companion.isDestroyed() && companion.webContents !== origin) {
         recipients.push(companion.webContents);
       }
-      for (const recipient of recipients) {
+      return recipients;
+    };
+    const emit = (packet: unknown): void => {
+      const stamped = packet && typeof packet === "object"
+        ? { ...(packet as Record<string, unknown>), runId: (packet as { runId?: unknown }).runId ?? executionId }
+        : packet;
+      for (const recipient of runRecipients()) {
         try {
           if (isControlled && (packet as { type?: string })?.type === "TEXT_MESSAGE_START") {
             recipient.send(IPC.AGUI_EVENT, {
@@ -513,8 +516,23 @@ export function registerAgUiIpc(
     if (runOptions.controlledResponses && runOptions.transcriptSink) settlementPort = runOptions.transcriptSink;
     runOptions.signal = abortSource.signal;
     if (conversationMode !== "chat") {
+      const notifyInsertionChanged = () => {
+        for (const recipient of runRecipients()) {
+          try { recipient.send(IPC.CHATS_CHANGED, { runInsertionSessionId: conversationId }); }
+          catch (failure) { console.warn("[AgUiBridge] 插话更新通知失败:", failure); }
+        }
+      };
+      runOptions.onRunInsertionsCheckpointed = notifyInsertionChanged;
       runOptions.pollRunAdjustments = createRunAdjustmentPoller(
-        conversationId, executionId, chatsStore,
+        conversationId, executionId, {
+          getPendingMessages: chatsStore.getPendingMessages,
+          listRunInsertions: (...args) => chatsStore.listRunInsertions(...args),
+          commitPendingAdjust: (...args) => {
+            const result = chatsStore.commitPendingAdjust(...args);
+            if (result.ok) notifyInsertionChanged();
+            return result;
+          },
+        },
         writesTranscript ? {
           appendUser: async ({ turnId, runId: insertedInto, text: content, attachments: files }) => {
             const journal = getConversationTranscriptStore(app.getPath("userData"));

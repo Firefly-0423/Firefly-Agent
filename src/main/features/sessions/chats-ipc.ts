@@ -30,6 +30,7 @@ import { inspectWorkReadDocument, isWorkReadScopeCurrent, WORK_READ_PAGE_LINES }
 import { getDefaultModelProfile, loadModelSettings, resolveModelSettingsProfile } from "../../model/config/model-settings";
 import { FileToolOutputStore } from "../../agent/loop/tool-output/file-tool-output-store";
 import { getAgentRunStore } from "../../agent/loop/run-store";
+import { projectRunInsertions } from "./run-insertion-projection";
 import { getConversationTranscriptStore } from "../../conversation/transcript/conversation-transcript-store";
 import { projectSSettlementMessages } from "../../agent/loop/conversation-transcript-context";
 import { getStorageContext } from "../../base/storage/storage-context";
@@ -237,13 +238,16 @@ export function registerChatsIpc(ipcOption?: IpcScope, options: ChatsIpcOptions 
 
   ipc.handle(IPC.CHATS_LIST, (_event, opts?: { mode?: ConversationMode }) => chatsStore.listSessions(opts));
 
-  const project = async <T extends { messages: ChatMessage[] }>(id: string, value: T | null): Promise<T | null> => {
+  const project = async <T extends { messages: ChatMessage[]; mode?: ConversationMode }>(id: string, value: T | null): Promise<T | null> => {
     if (!value) return value;
-    const transcripts = getConversationTranscriptStore(getStorageContext().dataRoot);
-    return transcripts.withReadLease(id, async (read) => ({
-      ...value,
-      messages: projectSSettlementMessages(value.messages, (await read()).entries),
-    }));
+    const { dataRoot } = getStorageContext();
+    const transcripts = getConversationTranscriptStore(dataRoot);
+    return transcripts.withReadLease(id, async (read) => {
+      const messages = projectSSettlementMessages(value.messages, (await read()).entries);
+      if (value.mode !== "work" && value.mode !== "code") return { ...value, messages };
+      return { ...value, messages: projectRunInsertions(id, messages,
+        runId => getAgentRunStore(dataRoot).insertionEvidence(runId)) };
+    });
   };
   ipc.handle(IPC.CHATS_GET, (_event, id: string) => project(id, chatsStore.getSession(id)));
 

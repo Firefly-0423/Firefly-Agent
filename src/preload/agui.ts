@@ -179,8 +179,10 @@ export function createChatStoreApi(ipcRenderer: AguiIpcRenderer, pageTargetKey: 
         setActiveSession: (conversationKey: string | null, conversationMode?: ConversationMode) => {
             return ipcRenderer.invoke(IPC.CHATS_SET_ACTIVE_SESSION, conversationKey ? { sessionId: conversationKey, mode: conversationMode, rendererTargetId: pageTargetKey } : null);
         },
-        onChanged: (receive: () => void) => {
-            const forwardEvent = () => {
+        onChanged: (receive: (notice?: import("../shared/chat-types").RunInsertionChanged) => void) => {
+            const forwardEvent = (_event: unknown, notice?: import("../shared/chat-types").RunInsertionChanged) => {
+                const sessionId = notice?.runInsertionSessionId;
+                if (typeof sessionId === "string" && sessionId.trim()) return receive({ runInsertionSessionId: sessionId });
                 return receive();
             };
             ipcRenderer.on(IPC.CHATS_CHANGED, forwardEvent);

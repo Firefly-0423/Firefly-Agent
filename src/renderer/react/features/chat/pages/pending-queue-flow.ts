@@ -41,6 +41,7 @@ export function createPendingQueueFlow(getHost: () => PendingQueueFlowHost): Pen
   const blocked = new Set<string>();
   const processing = new Set<string>();
   const nextPass = new Map<string, ConversationMode>();
+  const projectionReads = new Map<string, symbol>();
 
   function rememberFailedEnqueue(key: string, id: string): void {
     retries.set(key, id);
@@ -221,7 +222,22 @@ export function createPendingQueueFlow(getHost: () => PendingQueueFlowHost): Pen
       if (!storage) throw new Error(t("chatPage.errorChatStoreUnavailable"));
       const reply = await storage.pendingUnmark(sessionId, messageId);
       if (reply.queue) ports.replaceProjection(sessionId, copyQueue(reply.queue));
-      if (!reply.ok) throw new Error(reply.error === "already-adjusting" ? t("composer.queueWithdrawInFlight") : reply.error);
+      if (!reply.ok) {
+        if (reply.error === "already-adjusting") {
+          ports.reportError(t("composer.queueWithdrawInFlight"));
+        } else if (reply.error === "not-found") {
+          if (!reply.queue) await syncProjection(sessionId);
+          const session = await storage.get(sessionId).catch(() => null);
+          const marker = session?.id === sessionId
+            ? session.messages.find(message => message.id === messageId && message.role === "user")?.runInsertion
+            : undefined;
+          ports.reportError(t(marker?.delivery ? "composer.queueWithdrawDelivered" :
+            marker ? "composer.queueWithdrawCommitted" : "composer.queueWithdrawGone"));
+        } else {
+          throw new Error(reply.error);
+        }
+        return false;
+      }
       return true;
     } catch (failure) {
       ports.reportError(t("composer.queueWithdrawFailed", { error: failure instanceof Error ? failure.message : String(failure) }));
@@ -257,13 +273,20 @@ export function createPendingQueueFlow(getHost: () => PendingQueueFlowHost): Pen
     const ports = getHost();
     const storage = ports.getStore();
     if (!storage) return;
-    let entries: PendingChatMessage[] | null;
-    try { entries = await storage.pendingList(sessionId); }
+    const request = Symbol();
+    projectionReads.set(sessionId, request);
+    try {
+      const entries = await storage.pendingList(sessionId);
+      if (projectionReads.get(sessionId) === request) {
+        ports.replaceProjection(sessionId, entries === null ? null : copyQueue(entries));
+      }
+    }
     catch (failure) {
       console.warn("[pending-queue-flow] 读取待发队列失败，投影保持不变:", sessionId, failure);
-      return;
     }
-    ports.replaceProjection(sessionId, entries === null ? null : copyQueue(entries));
+    finally {
+      if (projectionReads.get(sessionId) === request) projectionReads.delete(sessionId);
+    }
   }
 
   function handleRunFinished(input: { mode: ConversationMode; sessionId: string; queuePaused: boolean }): void {
