@@ -4,7 +4,7 @@
 状态：自动验证与实机测试通过
 Issue：#96（消息队列后续 PR 3）。基于 [运行中插入的模型说明](queue-insert-framing.md)（#99）。
 要解决的问题：[#97 实机测试发现的三个界面问题](queue-insert-commit-progress.md)。
-分工：Codex 实现，克宝复核、拆分提交、反向验证和实机测试。
+分工：Codex 实现，Claude 复核、拆分提交、反向验证和实机测试。
 
 ## 提交
 
