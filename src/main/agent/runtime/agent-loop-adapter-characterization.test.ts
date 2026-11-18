@@ -51,11 +51,30 @@ describe("Adapter orchestration boundaries", () => {
   });
 
   it("preserves all checkpoint fields including a committed compaction epoch", async () => {
-    const checkpoint = { messages: [], state: { todoItems: [], uncertainEffects: [] }, toolOutputs: [], rounds: 2, cache: { cacheEpoch: 5, epochReason: "compaction" }, at: 83 };
+    const checkpoint = { messages: [], state: { todoItems: [], uncertainEffects: [] }, toolOutputs: [], rounds: 2, cache: { cacheEpoch: 5, epochReason: "compaction" },
+      insertions: [], at: 83 };
     collaborators.run.mockImplementation(async (input: AgentLoopInput) => { input.onCheckpoint!(checkpoint as never); return result(); });
     await runAgentLoopWithAdapter(options("checkpoint-ochre") as never, new AbortController().signal, vi.fn());
     const { at: _at, ...persisted } = checkpoint;
     expect(collaborators.store.checkpoint).toHaveBeenCalledWith("checkpoint-ochre", persisted);
+  });
+
+  it("notifies after saving newly delivered insertions and once for repeated checkpoints", async () => {
+    const runId = "insertion-ochre";
+    const receipt = { messageId: "supplement", sourceRunId: runId, order: 1, round: 1, revision: 1 };
+    const observed: unknown[] = [];
+    collaborators.run.mockImplementation(async (input: AgentLoopInput) => {
+      const checkpoint = { messages: [], state: { todoItems: [], uncertainEffects: [] }, toolOutputs: [],
+        rounds: 1, cache: {}, at: 1 };
+      input.onCheckpoint!({ ...checkpoint, insertions: [] } as never);
+      input.onCheckpoint!({ ...checkpoint, insertions: [receipt] } as never);
+      input.onCheckpoint!({ ...checkpoint, insertions: [receipt] } as never);
+      return result();
+    });
+    await runAgentLoopWithAdapter({ ...options(runId), onRunInsertionsCheckpointed: () => {
+      observed.push(collaborators.store.checkpoint.mock.lastCall?.[1].insertions);
+    } } as never, new AbortController().signal, vi.fn());
+    expect(observed).toEqual([[receipt]]);
   });
 
   it("writes every planned invocation through to the recoverable batch before terminal completion", async () => {
