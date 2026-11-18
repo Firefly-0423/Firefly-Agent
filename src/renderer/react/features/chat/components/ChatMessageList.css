@@ -421,6 +421,24 @@
   padding: 2px 2px;
 }
 
+.ff-run-activity__insertion {
+  width: fit-content;
+  max-width: 85%;
+  margin-inline-start: auto;
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ff-accent) 11%, transparent);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.ff-run-activity__insertion > span {
+  display: block;
+  margin-block-end: 0.2rem;
+  font-size: 0.8em;
+  font-weight: 600;
+}
+
 .ff-run-activity__process-label {
   font-weight: 600;
   font-size: var(--ff-fs-caption);

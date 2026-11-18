@@ -1,5 +1,5 @@
 import type { SidebarLayoutApi } from "../../../../../shared/sidebar-layout";
-import type { ChatMessage, ChatSession, ChatSessionMeta, ConversationMode, PendingChatMessage, ToolFileChange } from "../../../../../shared/chat-types";
+import type { ChatMessage, ChatSession, ChatSessionMeta, ConversationMode, PendingChatMessage, RunInsertionChanged, ToolFileChange } from "../../../../../shared/chat-types";
 import type { PopQuizCard, PopQuizResolveResponse, PopQuizSettledPayload, PopQuizSubmission } from "../../../../../shared/pop-quiz";
 import type { ApprovalRequest as PermissionApprovalRequest, ApprovalSettledPayload as PermissionApprovalSettled } from "../../../../../shared/permission-approval";
 
@@ -19,7 +19,7 @@ export type PendingMutationResult =
 export type ChatStoreApi = {
   notifyReactReady: () => void;
   onReactSwitchSession: (callback: (sessionId: string) => void) => () => void;
-  onChanged: (callback: () => void) => () => void;
+  onChanged: (callback: (notice?: RunInsertionChanged) => void) => () => void;
   setActiveSession: (sessionId: string | null, mode?: ConversationMode) => Promise<unknown>;
   openWorkspace: (workspaceRoot: string) => Promise<{ ok: boolean; error?: string }>;
   setWorkspace: (sessionId: string, workspaceRoot: string) => Promise<{ ok: boolean; error?: string }>;
