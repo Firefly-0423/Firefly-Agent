@@ -15,7 +15,7 @@ import type { BrowserToolErrorCode, BrowserToolReply } from "../../../shared/bro
 import type { BrowserNetworkDependencies, BrowserViewPort } from "./browser-network-binding";
 export interface BrowserHostPort {
   webContents: { id: number; mainFrame: object; isDestroyed(): boolean; on(event: string, listener: () => void): unknown; removeListener(event: string, listener: () => void): unknown };
-  isDestroyed(): boolean; isVisible(): boolean; isFocused(): boolean; getContentSize(): number[]; contentView: Pick<View, "addChildView" | "removeChildView">;
+  isDestroyed(): boolean; isVisible(): boolean; isMinimized?(): boolean; isFocused(): boolean; getContentSize(): number[]; contentView: Pick<View, "addChildView" | "removeChildView">;
   on(event: string, listener: () => void): unknown; removeListener(event: string, listener: () => void): unknown;
 }
 export interface TrustedBrowserOwner { readonly host: BrowserHostPort; readonly topFrame: object; readonly profile: object; readonly conversationId: string | null; readonly workspaceId?: string; readonly ownerSessionId: string; readonly generation: number; readonly signal: AbortSignal }
@@ -79,7 +79,7 @@ const fail = (code: BrowserErrorCode): BrowserReply<never> => ({ ok: false, code
 
 /** Main-only owner registry and manual controller. No renderer payload creates an owner/epoch. */
 export function createBrowserService<S extends object>(options: BrowserServiceOptions<S>) {
-  type Host = { host: BrowserHostPort; resolveOwner(event: BrowserInvokeEvent): TrustedBrowserOwner | null; current?: Owner; transitioning: boolean; lastGeneration: number; detach(): void; overlay: boolean; visible: boolean; focused: boolean };
+  type Host = { host: BrowserHostPort; resolveOwner(event: BrowserInvokeEvent): TrustedBrowserOwner | null; current?: Owner; transitioning: boolean; lastGeneration: number; detach(): void; overlay: boolean; visible: boolean; minimized: boolean; focused: boolean };
   type PendingPermission = { id: string; scope: BrowserPermissionScope; cancel: AbortController; promise: Promise<BrowserReply<BrowserPermissionDto>> };
   type Owner = { agentBusy?: boolean; grant?: BrowserPermissionScope; pending?: PendingPermission; denied?: boolean; value: TrustedBrowserOwner; host: Host; event: BrowserInvokeEvent; retired: boolean; cells: Set<Cell> };
   type Cell = { connectionFailure?: BrowserConnectionError | "load_failed"; attached: boolean; presentationRevision: number; observation?: { value: BrowserObservation; requestId: number; runId: string }; owner: Owner; context: BrowserDomainContext; abort: AbortController; page: BrowserPageDto; preparing?: Promise<BrowserNetworkReply<BrowserNetworkBinding<S>>>; binding?: BrowserNetworkBinding<S>; guest?: BrowserGuestPort<S>; navigation?: AbortController; manualRequestId?: number; closing: boolean; failed: boolean; cleanup?: Promise<BrowserReply<null>>; onAbort(): void };
@@ -262,12 +262,19 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
   function usable(cell: Cell): boolean { return !cell.closing && !cell.abort.signal.aborted && current(cell.owner) && cell.binding?.isCurrent() === true; }
   function hostVisible(owner: Owner): boolean {
     const entry = owner.host;
-    return !owner.pending && !entry.overlay && entry.visible && entry.focused && entry.host.isVisible() && entry.host.isFocused();
+    return !owner.pending && !entry.overlay && entry.visible && !entry.minimized && entry.host.isVisible() && !entry.host.isMinimized?.();
   }
-  function presented(cell: Cell): boolean { return cell.attached && hostVisible(cell.owner); }
+  function hostInteractive(owner: Owner): boolean {
+    return hostVisible(owner) && owner.host.focused && owner.host.host.isFocused();
+  }
+  function invalidateObservation(cell: Cell): void {
+    cell.presentationRevision++;
+    cell.observation = undefined;
+  }
+  function presented(cell: Cell): boolean { return cell.attached && hostInteractive(cell.owner); }
   function detach(cell: Cell): void {
     // A later attach must never revive an observation made before the user hid the page.
-    cell.attached = false; cell.presentationRevision++; cell.observation = undefined;
+    cell.attached = false; invalidateObservation(cell);
     cell.guest?.detach();
   }
   function blockedNavigation(cell: Cell, input: string): void {
@@ -552,7 +559,7 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
     if (command.operation !== "open" && (!cell || cell.closing)) return fail("closed");
     if (cell && cell.owner !== owner) return fail("owner_mismatch");
     if (command.operation !== "open" && (!cell || !usable(cell) || !cell.guest)) return fail("owner_mismatch");
-    if (command.operation !== "close" && (!hostVisible(owner!) || (command.operation !== "open" && !presented(cell!)))) return fail("permission_denied");
+    if (command.operation !== "close" && (!hostInteractive(owner!) || (command.operation !== "open" && !presented(cell!)))) return fail("permission_denied");
     const grant = owner!.grant;
     const stillCurrent = () => runCurrent() && owner!.grant === grant;
     const cancel = () => { clearPermission(owner!); for (const owned of owner!.cells) { terminate(owned); void cleanup(owned); } };
@@ -603,14 +610,19 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
     if (stopping || hosts.has(host) || host.isDestroyed()) throw new Error("browser host unavailable");
     const detachGuests = () => { for (const cell of entry.current?.cells ?? []) detach(cell); };
     const hidden = () => { entry.visible = false; detachGuests(); };
-    const blurred = () => { entry.focused = false; detachGuests(); };
+    const minimized = () => { entry.minimized = true; detachGuests(); };
+    const restored = () => { entry.minimized = false; };
+    const blurred = () => {
+      entry.focused = false;
+      for (const cell of entry.current?.cells ?? []) invalidateObservation(cell);
+    };
     const shown = () => { entry.visible = true; };
     const focused = () => { entry.focused = true; };
     const closed = () => { void closeHost(host); };
-    const entry: Host = { host, resolveOwner, transitioning: false, lastGeneration: -1, overlay: false, visible: host.isVisible(), focused: host.isFocused(), detach: () => {
-      host.removeListener("closed", closed); host.removeListener("hide", hidden); host.removeListener("blur", blurred); host.removeListener("show", shown); host.removeListener("focus", focused); host.webContents.removeListener("destroyed", closed);
+    const entry: Host = { host, resolveOwner, transitioning: false, lastGeneration: -1, overlay: false, visible: host.isVisible(), minimized: host.isMinimized?.() ?? false, focused: host.isFocused(), detach: () => {
+      host.removeListener("closed", closed); host.removeListener("hide", hidden); host.removeListener("minimize", minimized); host.removeListener("restore", restored); host.removeListener("blur", blurred); host.removeListener("show", shown); host.removeListener("focus", focused); host.webContents.removeListener("destroyed", closed);
     } };
-    hosts.set(host, entry); host.on("closed", closed); host.on("hide", hidden); host.on("blur", blurred); host.on("show", shown); host.on("focus", focused); host.webContents.on("destroyed", closed);
+    hosts.set(host, entry); host.on("closed", closed); host.on("hide", hidden); host.on("minimize", minimized); host.on("restore", restored); host.on("blur", blurred); host.on("show", shown); host.on("focus", focused); host.webContents.on("destroyed", closed);
     return () => { void closeHost(host); };
   }
   async function closeHost(host: BrowserHostPort, signal?: AbortSignal): Promise<BrowserReply<null>> {
