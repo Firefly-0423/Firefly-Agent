@@ -11,7 +11,7 @@
 
 ### 随市场目录分发的离线插件
 
-这五个插件都只做内存内计算：不联网、不读写文件、不启动命令，首次安装保持停用。每个目录含 `manifest.json`、`index.cjs`、`README.md`、`LICENSE`，以及只供目录条目使用、不进入 ZIP 的 `catalog.json`。测试在 `scripts/plugin-marketplace/`，运行 `npm run test:plugin-marketplace`。
+这五个插件都只做内存内计算：不联网、不读写文件、不启动命令，首次安装保持停用。每个目录含 `manifest.json`、`index.cjs`、`README.md`、`LICENSE`，以及只供目录条目使用、不进入 ZIP 的 `catalog.json`。测试在 `scripts/plugin-marketplace/`，运行 `pnpm run test:plugin-marketplace`。
 
 | 目录 | 工具 | 来源 |
 | --- | --- | --- |
@@ -26,9 +26,9 @@
 在仓库根目录，现有命令为：
 
 ```bash
-npm run build:plugin-sdk
+pnpm run build:plugin-sdk
 npm pack ./plugin-sdk
-npm run test:plugin-examples
+pnpm run test:plugin-examples
 ```
 
 前两条生成本地 SDK tarball；在插件项目通过 `npm install /path/to/firefly_wu-plugin-sdk-<版本>.tgz` 安装；已发布的版本也可以直接 `npm install @firefly_wu/plugin-sdk`。
@@ -41,7 +41,7 @@ npm run test:plugin-examples
 
 ## 当前源码限制
 
-示例验证入口为 `npm run test:plugin-examples`。Mock 验证不代表真实外部服务或 GUI 通过。
+示例验证入口为 `pnpm run test:plugin-examples`。Mock 验证不代表真实外部服务或 GUI 通过。
 
 - `system-status`：CPU/网络差分首次没有基准；GPU 依赖本机命令，Windows 采集依赖 PowerShell。`diskUsage()` 未传盘符时固定查询 `C`，不是枚举全部磁盘，也不是动态发现系统盘。
 - `weather-tool`：`secrets.get()` 抛错会使注册失败；只有缺少密钥或 OpenWeather 请求失败才进入免密钥路径。`unregister()` 先清空 `lastCity`，宿主随后执行的 `onDispose` 再尝试保存该值，不能宣称停止后城市缓存可靠保存。

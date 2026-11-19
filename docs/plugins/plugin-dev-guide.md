@@ -15,7 +15,7 @@ npm install @firefly_wu/plugin-sdk
 若在本仓库基于源码构建本地 SDK 包（`examples/README.md`）：
 
 ```bash
-npm run build:plugin-sdk
+pnpm run build:plugin-sdk
 npm pack ./plugin-sdk
 # 在插件项目目录安装生成的 tarball
 npm install /path/to/firefly_wu-plugin-sdk-<版本>.tgz
@@ -193,10 +193,10 @@ await ctx.dispose();
 
 在本仓库内可执行以下插件验证命令（`package.json`、`examples/README.md`）：
 
-- `npm run check:plugin-sdk`：构建 SDK 并校验导出包内容。
-- `npm run test:plugin-examples`：打包 SDK tarball，在临时目录编译 4 个 TS 示例并通过 `scripts/plugin-sdk/smoke-examples.mjs` 冒烟验证。
-- `npm run test:plugin-marketplace`：验证离线目录构建与插件市场测试。
-- `npm run check:plugin-schema`：检查 `plugin-sdk/src/manifest.schema.json` 与 `api.ts` 类型定义是否同步。
+- `pnpm run check:plugin-sdk`：构建 SDK 并校验导出包内容。
+- `pnpm run test:plugin-examples`：打包 SDK tarball，在临时目录编译 4 个 TS 示例并通过 `scripts/plugin-sdk/smoke-examples.mjs` 冒烟验证。
+- `pnpm run test:plugin-marketplace`：验证离线目录构建与插件市场测试。
+- `pnpm run check:plugin-schema`：检查 `plugin-sdk/src/manifest.schema.json` 与 `api.ts` 类型定义是否同步。
 
 ## 6. 打包与本地安装
 

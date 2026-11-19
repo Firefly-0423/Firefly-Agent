@@ -93,7 +93,7 @@ Compress-Archive -Path .\my-first-plugin -DestinationPath .\my-first-plugin-1.0.
 装进流萤之后再排查问题，成本较高。建议先在本地用模拟上下文跑一遍。前两条命令在流萤仓库根目录执行，第三条在插件项目中执行：
 
 ```bash
-npm run build:plugin-sdk
+pnpm run build:plugin-sdk
 npm pack ./plugin-sdk
 npm install /path/to/firefly_wu-plugin-sdk-<版本>.tgz
 ```
