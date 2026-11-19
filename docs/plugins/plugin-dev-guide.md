@@ -227,7 +227,7 @@ await ctx.dispose();
 
 ## 1.2.0 规划中，尚未提供
 
-仓库中存在设计规格文档 [2026-11-12-plugin-sdk-1-2-0.md](../superpowers/specs/2026-11-12-plugin-sdk-1-2-0.md)（状态：设计规格），规划对插件系统进行不兼容 0.x 的全新重构。**以下 1.2.0 能力在当前源码（`plugin-sdk/package.json` `0.2.1` 与 `plugin-sdk/src/`）中均尚未提供，切勿在当前插件中使用**：
+仓库中存在设计规格文档 [plugin-sdk-1-2-0.md](../superpowers/specs/plugin-sdk-1-2-0.md)（状态：设计规格），规划对插件系统进行不兼容 0.x 的全新重构。**以下 1.2.0 能力在当前源码（`plugin-sdk/package.json` `0.2.1` 与 `plugin-sdk/src/`）中均尚未提供，切勿在当前插件中使用**：
 
 - **包版本与工具链**：`@firefly_wu/plugin-sdk@1.2.0`、`bin` 命令 `firefly-plugin validate` / `firefly-plugin pack`（`.ffplugin` 包格式）目前均不存在（当前 `plugin-sdk/package.json` 无 `bin` 字段）。
 - **新入口与错误处理**：`definePlugin`、`PluginError` / `PluginErrorCode`（`ERR_UNDECLARED`、`ERR_PERMISSION`、`ERR_RATE_LIMITED` 等）、新 `PluginContext` 布局（`ctx.version`、`ctx.dataDir`、`ctx.has()`、`ctx.tools`、`ctx.context`、`ctx.channels`、`ctx.model`、`ctx.sessions`、`ctx.workspace`、`ctx.schedules`、`ctx.secrets`、`ctx.ui`）及工具结构化四态返回值 `ToolResult` / `ToolCall.progress()` 均未实现。

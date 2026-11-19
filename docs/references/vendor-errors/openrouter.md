@@ -2,7 +2,7 @@
 
 状态：参考资料（核验日期 2026-11-16）
 
-> **边界提示**：Firefly 当前未针对 OpenRouter 上游透传错误或 `metadata` 做细分子码分类（`docs/superpowers/plans/2026-11-12-model-error-classification.md` 处于 `未开工`）。以下先说明 Firefly 当前代码对 OpenRouter 的接入与错误收口逻辑，再概括网关常见 HTTP 状态语义，**以供应商最新文档为准**。
+> **边界提示**：Firefly 当前未针对 OpenRouter 上游透传错误或 `metadata` 做细分子码分类（`docs/superpowers/plans/model-error-classification.md` 处于 `未开工`）。以下先说明 Firefly 当前代码对 OpenRouter 的接入与错误收口逻辑，再概括网关常见 HTTP 状态语义，**以供应商最新文档为准**。
 
 ---
 

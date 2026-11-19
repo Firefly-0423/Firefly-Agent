@@ -23,6 +23,6 @@
 点击只上传条目 ID，Main 从保存目标导航，不批准或作答。当前目标只有会话和窗口，不能直达审批、抽查或任务的具体运行记录。操作 IPC 有 Toast 来源守卫，`TOAST_GET_ALL` 当前没有使用同一守卫。
 
 ## 未完成与施工入口
-精确目标、就绪投递、过期目标提示及读写来源校验由[提醒与界面计划](../superpowers/plans/2026-11-12-reminders-and-ui.md)和[进度](../superpowers/plans/2026-11-12-reminders-and-ui-progress.md)承接。严格单次音效聚合未定，不写成现有保证。
+精确目标、就绪投递、过期目标提示及读写来源校验由[提醒与界面计划](../superpowers/plans/reminders-and-ui.md)和[进度](../superpowers/plans/reminders-and-ui-progress.md)承接。严格单次音效聚合未定，不写成现有保证。
 
 已有测试入口：`src/main/platform/toast/toast-service.test.ts`、`src/main/platform/toast/toast-window.test.ts`。多屏、不抢焦点和真实定时任务尚未在本次验证。

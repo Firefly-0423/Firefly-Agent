@@ -97,7 +97,7 @@ it("keeps maintenance tools at their current paths and excludes unused installer
   for (const file of ["scripts/packaging/upstream-skills/fetch_skills.py", "scripts/packaging/upstream-skills/sources.json", "scripts/verify/sandbox-runtime/check-status.mjs"]) {
     expect(fs.existsSync(path.join(root, file)), file).toBe(true);
   }
-  for (const file of ["README.md", "README.en.md", "DEVELOPMENT.md", "scripts/README.md", "resources/README.md", "examples/README.md"]) {
+  for (const file of ["README.md", "README.en.md", "docs/contributing/development.md", "scripts/README.md", "resources/README.md", "examples/README.md"]) {
     expect(read(file), file).not.toMatch(/docs\/refactor\/|docs\/migration\/|docs\/internal-issue\/|poc\/srt|tools\/firefly-upstream-fetch/);
   }
   expect(read("scripts/perf/chat-renderer-baseline.mjs")).toContain("output/perf/baseline-report.json");

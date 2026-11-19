@@ -26,15 +26,15 @@
 
 ## 根因
 
-`docs/superpowers/plans/2026-11-12-chatpage-regression-progress.md` §0（2026-11-15 开工前复核）记录：负责人 2026-11-13 的决定在计划写成时尚未落地到代码与既有测试；相关修改已被排入尚未施工的 **施工包 C 的 C12（Chat 不进入计划模式）**。
+`docs/superpowers/plans/chatpage-regression-progress.md` §0（2026-11-15 开工前复核）记录：负责人 2026-11-13 的决定在计划写成时尚未落地到代码与既有测试；相关修改已被排入尚未施工的 **施工包 C 的 C12（Chat 不进入计划模式）**。
 
 ## 当前状态
 
-- **待修复**：排期于 `docs/superpowers/plans/2026-11-12-chatpage-regression-progress.md` §3 施工包 C（`- [ ] C12 Chat 不进入计划模式`），施工时须同步修改 `conversation-run-policy.ts` 与 `ChatPage.test.ts` 的表驱动期望值。
+- **待修复**：排期于 `docs/superpowers/plans/chatpage-regression-progress.md` §3 施工包 C（`- [ ] C12 Chat 不进入计划模式`），施工时须同步修改 `conversation-run-policy.ts` 与 `ChatPage.test.ts` 的表驱动期望值。
 
 ## 相关文件
 
-- `docs/superpowers/plans/2026-11-12-chatpage-regression-progress.md`（§0 开工前复核、§3 C12）
-- `docs/superpowers/plans/2026-11-12-chatpage-regression.md`
+- `docs/superpowers/plans/chatpage-regression-progress.md`（§0 开工前复核、§3 C12）
+- `docs/superpowers/plans/chatpage-regression.md`
 - `src/renderer/react/features/chat/pages/conversation-run-policy.ts`
 - `src/renderer/react/features/chat/pages/ChatPage.test.ts`

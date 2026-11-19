@@ -366,7 +366,7 @@ export function createMainDefaultMemory(options: MainDefaultMemoryOptions) {
                     const other = actorAuthority.requireActor(token), historical = records.get(other.sessionId);
                     if (!historical || historical.actor !== token || other.sessionId === id) return fail("MEMORY_ACTOR_DENIED");
                     // A delegated child shares what its family already acquired, so it does not revoke the parent's or a
-                    // sibling's evidence (docs/superpowers/specs/2026-10-26-delegated-history-sharing.md).
+                    // sibling's evidence (docs/superpowers/specs/delegated-history-sharing.md).
                     return backgroundEntry?.parentGrant ? historical.native.captureShared(signal) : historical.native.capture(signal);
                   },
                   query: async covered => {

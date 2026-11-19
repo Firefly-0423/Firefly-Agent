@@ -20,6 +20,6 @@ seq 是渲染端接受并投影的展示顺序，不是跨进程持久全局序�
 有正式正文的成功只保留一份回答；工具轮文字进入过程，取消、超时、错误和缺权威正文保留中断过程，不转正。完成折叠受 keepExpanded 与用户选择影响，不改变工具事实。ask_user 的已发生问答可在运行卡成对展示，输入仍由交互卡负责；展开不作答、不批准，结果预览也不保证问答完整未截断。
 
 ## 未完成与维护
-当前没有独立持久化的“最终回答分界线”字段；固定所有终态 DOM 身份、禁用运行中分组或更改展开偏好均未决定。权威终态和展示降级见[会话可靠性计划](../superpowers/plans/2026-11-12-conversation-reliability.md)。
+当前没有独立持久化的“最终回答分界线”字段；固定所有终态 DOM 身份、禁用运行中分组或更改展开偏好均未决定。权威终态和展示降级见[会话可靠性计划](../superpowers/plans/conversation-reliability.md)。
 
 现有测试：`src/renderer/react/features/chat/components/agent-rounds.test.ts`、`src/renderer/react/features/chat/components/ChatMessageList.test.ts`、`src/renderer/react/features/chat/components/run-activity.test.ts`。本次未执行；滚动、焦点、视觉稳定性和性能需界面验收。

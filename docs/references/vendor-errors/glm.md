@@ -2,7 +2,7 @@
 
 状态：参考资料（核验日期 2026-11-16）
 
-> **边界提示**：Firefly 当前未针对智谱 API 返回体内的错误码做独立分类映射（`docs/superpowers/plans/2026-11-12-model-error-classification.md` 处于 `未开工`）。以下先列出代码库实装处理，再概括常见 HTTP 状态含义，**以供应商最新文档为准**。
+> **边界提示**：Firefly 当前未针对智谱 API 返回体内的错误码做独立分类映射（`docs/superpowers/plans/model-error-classification.md` 处于 `未开工`）。以下先列出代码库实装处理，再概括常见 HTTP 状态含义，**以供应商最新文档为准**。
 
 ---
 

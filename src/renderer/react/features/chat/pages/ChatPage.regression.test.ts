@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// ChatPage regression packages B and G (docs/superpowers/plans/2026-11-12-chatpage-regression.md): the real ChatPage, its
+// ChatPage regression packages B and G (docs/superpowers/plans/chatpage-regression.md): the real ChatPage, its
 // pending-queue flow and run controller run together. Only IPC (chat store, AG-UI, file intake) and layout shells
 // are replaced. The fake store follows the Main contracts in src/main/features/sessions/chats-store.ts.
 import React, { act, createElement, useRef } from "react";
@@ -109,7 +109,10 @@ function installBridges() {
   } as unknown as AguiApi;
   const store: Partial<ChatStoreApi> = {
     list: async options => Object.values(sessions).filter(item => !options?.mode || item.mode === options.mode).map(item => ({ ...item, messageCount: item.messages.length })) as never,
-    get: async id => sessions[id] ? structuredClone(sessions[id]) : null,
+    get: async id => sessions[id] ? structuredClone({
+      ...sessions[id],
+      pendingDispatch: dispatching[id] ? { messageId: dispatching[id], claimedAt: 2 } : undefined,
+    }) : null,
     append: vi.fn(async (id: string, message: ChatMessage) => { sessions[id].messages.push(message); return structuredClone(sessions[id]); }),
     upsert: vi.fn(async (id: string, message: ChatMessage) => {
       const list = sessions[id].messages; const index = list.findIndex(item => item.id === message.id);
@@ -214,6 +217,67 @@ describe("ChatPage package B: recovery, takeover and the pending queue", () => {
     expect(page.agui!.getInterruptedRun).not.toHaveBeenCalled();
     expect(runCalls).toEqual([]);
   });
+  test.each([false, true])("B4: a takeover timeout pauses only the original session (old run finished before reply: %s)", async (endedBeforeReply) => {
+    sessions = { "session-a": session("session-a", "code"), "session-b": session("session-b", "code") };
+    let reply!: (value: Ack) => void;
+    acks = [
+      { success: false, error: "SESSION_RUN_ACTIVE:old-a" },
+      new Promise<Ack>(resolve => { reply = resolve; }),
+    ];
+    await mount("code");
+    const restart = t("workspaceNotices.takeoverAndRestart");
+    const waiting = t("workspaceNotices.takeoverWaiting");
+    const timeout = t("workspaceNotices.takeoverStuck");
+    await type("first"); await click("#send"); await flush();
+    const firstId = runCalls[0].userTurnId;
+    await act(async () => { buttonByText(restart)!.click(); }); await flush();
+    expect(buttonByText(waiting)?.disabled).toBe(true);
+    if (endedBeforeReply) { await act(async () => finishRun("old-a")); await flush(); }
+    await act(async () => { reply({ success: false, error: "Error invoking remote method: Error: SESSION_RUN_TAKEOVER_STUCK:old-a" }); });
+    await flush();
+    expect(buttonByText(waiting)).toBeUndefined();
+    expect(buttonByText(restart)).toBeUndefined();
+    if (!endedBeforeReply) {
+      expect(host.textContent).toContain(timeout);
+      const claimsBefore = await claims();
+      await type("queued"); await click("#send"); await flush();
+      await act(async () => { finishRun("not-old-a"); emit({ type: "RUN_ERROR", runId: "old-a", code: "E_HARNESS_FAILURE" }); }); await flush();
+      expect(await claims()).toEqual(claimsBefore);
+      expect(runCalls).toHaveLength(2);
+      expect(queues["session-a"].map(item => item.visibleContent)).toEqual(["queued"]);
+      await click("#select-b"); await flush();
+      expect(host.textContent).not.toContain(timeout);
+      await type("other session"); await click("#send"); await flush();
+      expect(runCalls[2].sessionId).toBe("session-b");
+      await act(async () => finishRun("run-3")); await flush();
+      expect(runCalls).toHaveLength(3);
+      await click("#select-a"); await flush();
+      await act(async () => { finishRun("old-a"); finishRun("old-a"); }); await flush();
+    }
+    expect(runCalls.filter(call => call.sessionId === "session-a").map(call => [call.userTurnId, call.takeoverFromRunId]))
+      .toEqual([[firstId, undefined], [firstId, "old-a"], [firstId, undefined]]);
+    if (!endedBeforeReply) {
+      await act(async () => finishRun("run-4")); await flush();
+      expect(runCalls[4].sessionId).toBe("session-a");
+      expect(sessions["session-a"].messages.filter(item => item.role === "user").map(item => item.content)).toEqual(["first", "queued"]);
+    }
+  });
+  test("B4: if only a run error is delivered, a manual retry still goes through the old run's guard", async () => {
+    sessions = { "session-a": session("session-a", "code") };
+    acks = [
+      { success: false, error: "SESSION_RUN_ACTIVE:old-a" },
+      { success: false, error: "SESSION_RUN_TAKEOVER_STUCK:old-a" },
+    ];
+    await mount("code"); await type("first"); await click("#send"); await flush();
+    await act(async () => { buttonByText(t("workspaceNotices.takeoverAndRestart"))!.click(); }); await flush();
+    await act(async () => emit({ type: "RUN_ERROR", runId: "old-a", code: "E_HARNESS_FAILURE" })); await flush();
+    expect(runCalls).toHaveLength(2);
+    await act(async () => { buttonByText(t("workspaceNotices.takeoverRetry"))!.click(); }); await flush();
+    expect(runCalls.map(call => [call.userTurnId, call.takeoverFromRunId]))
+      .toEqual([[runCalls[0].userTurnId, undefined], [runCalls[0].userTurnId, "old-a"], [runCalls[0].userTurnId, "old-a"]]);
+    expect(buttonByText(t("workspaceNotices.takeoverRetry"))).toBeUndefined();
+    await act(async () => finishRun("run-3")); await flush();
+  });
   test("B2: a send that meets an old run shows one restart card, queues further sends and takes over once", async () => {
     sessions = { "session-a": session("session-a", "code"), "session-b": session("session-b", "code") };
     acks = [{ success: false, error: "SESSION_RUN_ACTIVE:run-before-refresh" }];
@@ -224,11 +288,12 @@ describe("ChatPage package B: recovery, takeover and the pending queue", () => {
     expect(runCalls).toHaveLength(1);
     expect(restartCards()).toHaveLength(1);
     expect(dispatching["session-a"]).toEqual(first);
-    // A second send while the conflict stands only queues: the retained claim blocks a new dispatch.
+    // A second send while the conflict stands only queues; the first claim stays intact.
+    const claimsBefore = await claims();
     await type("second question"); await click("#send"); await flush();
     expect(runCalls).toHaveLength(1);
     expect(restartCards()).toHaveLength(1);
-    expect((await claims()).slice(2)).toEqual([["session-a", "already-dispatching"]]);
+    expect(await claims()).toEqual(claimsBefore);
     expect(texts("#queue li")).toEqual(["second questionx"]);
     await act(async () => { restartCards()[0].click(); }); await flush();
     expect(runCalls.map(call => [call.userTurnId, call.takeoverFromRunId])).toEqual([[first, undefined], [first, "run-before-refresh"]]);
@@ -237,7 +302,7 @@ describe("ChatPage package B: recovery, takeover and the pending queue", () => {
     finishRun("run-2"); await flush();
     // The queued second message is consumed once, after the takeover run has settled.
     expect(runCalls).toHaveLength(3);
-    expect((await claims()).slice(3)).toEqual([["session-a", `claimed ${runCalls[2].userTurnId}`]]);
+    expect((await claims()).slice(claimsBefore.length)).toEqual([["session-a", `claimed ${runCalls[2].userTurnId}`]]);
     expect(sessions["session-a"].messages.map(item => [item.role, item.content || item.runSnapshot?.terminalStatus])).toEqual([
       ["user", "first question"], ["model", "success"], ["user", "second question"], ["model", undefined],
     ]);

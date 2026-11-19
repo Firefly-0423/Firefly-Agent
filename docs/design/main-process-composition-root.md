@@ -28,6 +28,6 @@
 `src/main/app/electron-lifecycle.ts` 处理普通退出与系统会话结束，紧急同步 flush 不能替代完整异步关闭。数据根由 `src/main/base/identity/runtime-profile.ts` 消费 `src/main/base/identity/data-directory.ts`，正式目录已是 `Firefly-1.2.0`；应用名称仍为 Firefly，二者不能混淆。
 
 ## 未完成与维护验证
-后续会话库启动、停止接纳与关闭由[会话可靠性计划](../superpowers/plans/2026-11-12-conversation-reliability.md)承接；精确提醒投递由[提醒与界面计划](../superpowers/plans/2026-11-12-reminders-and-ui.md)承接。代码接线存在不代表所有资源与真实系统退出已验收。
+后续会话库启动、停止接纳与关闭由[会话可靠性计划](../superpowers/plans/conversation-reliability.md)承接；精确提醒投递由[提醒与界面计划](../superpowers/plans/reminders-and-ui.md)承接。代码接线存在不代表所有资源与真实系统退出已验收。
 
 最近测试目录为 `src/main/app/`、`src/main/base/lifecycle/`。重点核对：核心失败不放行、隐藏桌宠不闪现、迟到后台资源归属、拒绝退出无清理、同阶段失败继续、超时不虚报完成。开发态与打包态的窗口重建、真实系统退出未在本次验证。

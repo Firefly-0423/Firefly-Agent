@@ -17,7 +17,7 @@
 
 ## 根因
 
-`docs/superpowers/plans/2026-11-12-docs-and-engineering-progress.md` §收尾复验（及 `2026-11-15-test-assertion-hardening-progress.md` §6 T3）定位：
+`docs/superpowers/plans/docs-and-engineering-progress.md` §收尾复验（及 `test-assertion-hardening-progress.md` §6 T3）定位：
 
 1. `history-repository.ts` 的 `projectNative` 在 `originStates` 非全部 `valid` 时返回 `partial` 且不产出生效文档，`native-history-provider.ts` 据此判定为 `coverage-insufficient`（`MEMORY_HISTORY_ORIGIN_UNPROVEN`）。
 2. `native-history-zero-write.acceptance.ts` 的夹具仅通过 `ConversationTranscriptStore` 写入对话记录，漏掉了像 `native-history-provider.test.ts` 中 `bindUsers()` 那样调用 `historyUserOrigin` 登记用户消息来源的步骤，导致来源证明缺失——属于测试夹具缺口，而非产品代码故障。
@@ -32,6 +32,6 @@
 - `src/main/memory/history/history-repository.ts`
 - `src/main/memory/history/native-history-provider.ts`
 - `src/main/memory/history/native-history-provider.test.ts`
-- `docs/superpowers/plans/2026-11-12-docs-and-engineering-progress.md`（§新发现的未完成项与偏离计划、§收尾复验）
-- `docs/superpowers/plans/2026-11-15-test-assertion-hardening-progress.md`（§5、§6 T3）
+- `docs/superpowers/plans/docs-and-engineering-progress.md`（§新发现的未完成项与偏离计划、§收尾复验）
+- `docs/superpowers/plans/test-assertion-hardening-progress.md`（§5、§6 T3）
 - 修复提交：PR `#63`（`d2d1184`）
