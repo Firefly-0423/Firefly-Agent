@@ -25,10 +25,10 @@
 计划限制已先于免审批，不重复登记为“allow_all 绕过守卫”的已复现缺陷；但 risk 策略也不等于已经落实“只允许 effect=read”。
 
 ## 未实现目标与归属
-按 effect 只允许明确 read、拒绝 unknown、mutation、verification、external_side_effect 并保持 Shell 禁止，采用[提醒与界面计划](../superpowers/plans/2026-11-12-reminders-and-ui.md)。这是目标，不写成当前代码。
+按 effect 只允许明确 read、拒绝 unknown、mutation、verification、external_side_effect 并保持 Shell 禁止，采用[提醒与界面计划](../superpowers/plans/reminders-and-ui.md)。这是目标，不写成当前代码。
 
 以下仍是未批准提案：移除写计划时的 `.gitignore` 修改；可靠提交计划状态、修订和执行所有者；重启将 REVIEW/EXECUTING 收回讨论态，旧卡失效且零模型/工具自动调用；保存失败不发布批准，损坏状态不自动放开权限。具体后端、恢复提示消费、Work 生命周期覆盖和损坏状态处理尚未决定，不新增猜测源码路径。
 
-verification 分类需逐工具核对真实写入和外部动作，不能因“验证”意图就统一认为可并行重试。[会话可靠性计划](../superpowers/plans/2026-11-12-conversation-reliability.md)负责运行事实恢复，[同运行审批提案](plan-approval-in-run.md)负责审批接续，二者不能各自成为许可权威。
+verification 分类需逐工具核对真实写入和外部动作，不能因“验证”意图就统一认为可并行重试。[会话可靠性计划](../superpowers/plans/conversation-reliability.md)负责运行事实恢复，[同运行审批提案](plan-approval-in-run.md)负责审批接续，二者不能各自成为许可权威。
 
 已有测试：`src/main/agent/tools/plan-mode.test.ts`、`src/main/agent/loop/plan-tools.test.ts`、`src/main/agent/runtime/adapter/tool-runtime.test.ts`、`src/main/agent/runtime/adapter/plan-lifecycle.test.ts`。本次未执行；持久化和重启目标尚无本次验收。

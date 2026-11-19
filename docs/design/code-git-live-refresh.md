@@ -22,4 +22,4 @@
 ## 未完成与设计选择
 可选运行中预览需 Main 根据已归属当前 run 的证据生成，绑定会话、修订和终态；不能高频调用具有最终落盘语义的 finalizeReview。终态后迟到预览不得覆盖最终快照，重开不从当前 Git 重算历史结果。是否做预览、是否只限 Code、是否默认三行展示均未决定，不能写成已交付。
 
-运行事实和恢复沿用[会话可靠性计划](../superpowers/plans/2026-11-12-conversation-reliability.md)，展示证据详见[文件与差异](workspace-file-and-diff-panels.md)。现有测试：`src/main/platform/git/git-workspace-watcher.test.ts`、`src/main/platform/git/code-git-ipc.test.ts`、`src/renderer/react/features/chat/components/code-git-refresh.test.ts`、`src/renderer/react/features/chat/components/CodeGitPanel.subscription.test.ts`。本次未运行监听、真实 Git 操作或性能测量。
+运行事实和恢复沿用[会话可靠性计划](../superpowers/plans/conversation-reliability.md)，展示证据详见[文件与差异](workspace-file-and-diff-panels.md)。现有测试：`src/main/platform/git/git-workspace-watcher.test.ts`、`src/main/platform/git/code-git-ipc.test.ts`、`src/renderer/react/features/chat/components/code-git-refresh.test.ts`、`src/renderer/react/features/chat/components/CodeGitPanel.subscription.test.ts`。本次未运行监听、真实 Git 操作或性能测量。

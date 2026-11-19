@@ -41,7 +41,7 @@ const unchangedBoundaries = {
   "src/main/platform/browser/browser-startup-config.ts": "08b61ff4e0f654f1bb236bcf19d6f09d3ddcc8d9b2c21d6052fdb55e800f2701",
   // Also reviewed: renderer-crash cancellation and safe native failure/redirect forwarding; native preferences, routing,
   // certificate denial and fixed isolated-world scripts retain their boundaries.
-  // See docs/browser-reference-audit-2026-10-15.md (boundary preimage review).
+  // See docs/browser-reference-audit.md (boundary preimage review).
   "src/main/platform/browser/electron-browser-guest.ts": "bde77619d13add92b14d9754fd244bb312821ee3b7e7aaae49847672438502d7",
   "src/main/platform/permission/permission-policy.ts": "79d8456fce1598dd91651f7b86508824569941ec96cb563ef6c73f85bedab801",
   // Reimplemented from observable behavior with identical allow/ask/deny decisions; verified by the policyFor decision-table
@@ -59,7 +59,7 @@ it.each(Object.entries(unchangedBoundaries))("no_execution_or_permission_expansi
 it("no_execution_or_permission_expansion native executable marketplace uses exactly the approved catalog and repository rename release prefixes, and fixed source data does not broaden it", () => {
   expect(MARKET_REGISTRY_URLS).toEqual(["https://raw.githubusercontent.com/Firefly-0423/firefly-plugins/main/registry.json"]);
   expect(MARKET_ZIP_URL_PREFIXES).toEqual(["https://github.com/Firefly-0423/firefly-plugins/releases/download/"]);
-  // Reviewed source change (2026-10-29, docs/superpowers/specs/2026-10-29-firefly-skills-market-source.md): Firefly's own
+  // Reviewed source change (2026-10-29, docs/superpowers/specs/firefly-skills-market-source.md): Firefly's own
   // Skill repository joins as a Claude-catalog source under the Firefly-native policy. Its Firefly metadata (modes,
   // effectKind, tools) is visibility and labelling only; every install still needs an exact per-commit static review and
   // grants no tool permission. Third-party sources keep the instruction-only policy unchanged.

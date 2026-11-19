@@ -1458,6 +1458,9 @@
     "interruptedRun": "流萤上次任务意外中断（已进行 {{rounds}} 轮）。",
     "resumeTask": "继续任务",
     "sessionTakeover": "当前会话有正在运行的任务（可能来自刷新前），本轮消息尚未执行。",
-    "takeoverAndRestart": "终止并重开"
+    "takeoverAndRestart": "终止并重开",
+    "takeoverWaiting": "正在等待旧任务停止…",
+    "takeoverStuck": "旧任务还没停下，没有启动新任务。",
+    "takeoverRetry": "再试一次接管"
   }
 }

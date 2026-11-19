@@ -10,7 +10,7 @@
   - 市场来源固定校验 `MARKET_REGISTRY_URLS` 与 `MARKET_ZIP_URL_PREFIXES`（`src/main/features/plugins/host/plugin-marketplace.ts`），核对条目固定 SHA-256 后才解包。
   - 已存在同 ID 插件时，禁止不同已知来源静默接管；从本地或离线目录转为在线市场来源需在宿主原生确认对话框中显式确认。
   - 在设置页中，`settingsPanel` 运行在 `firefly-plugin://` 协议的受限 iframe 中，仅在插件实际处于运行状态时挂载，停用或卸载时销毁 iframe 并拒绝旧桥接调用（`src/main/features/plugins/panel/plugin-panel-protocol.ts`、`src/main/features/plugins/host/plugin-runtime.ts`）。
-- **1.2.0 规划演进**（详见 [2026-11-12-plugin-sdk-1-2-0.md](../superpowers/specs/2026-11-12-plugin-sdk-1-2-0.md) §5.1、§9、§14）：
+- **1.2.0 规划演进**（详见 [plugin-sdk-1-2-0.md](../superpowers/specs/plugin-sdk-1-2-0.md) §5.1、§9、§14）：
   - 1.2.0 计划将已启用插件移入独立 Electron `utilityProcess`（不继承宿主密钥/环境凭据），但负责人已明确：**进程隔离保护的是宿主稳定性与宿主内部数据，仍非系统级安全沙箱**，插件进程依然具备 Node 文件系统与网络访问能力，因此仍坚持“启用即信任该插件的代码”。
   - 包含 `.node` / `.dll` 原生模块（`native: true`）的插件包在 1.2.0 规划中**禁止进入线上目录**，仅允许本地安装并在启用时弹出高风险提示。
 
@@ -29,7 +29,7 @@
 1. **旧枚举残留（当前源码）**：`src/main/platform/permission/permission-policy.ts` 的 `AgentFileAccessLevel` 仍保留 `"project-read-only"` 与 `"scoped"`（设置界面已不再提供，仅在 1.2.0 规格中计划一并删除）。
 2. **工具风险声明 `risk`**：
    - 在当前 SDK `0.2.1`（`plugin-sdk/src/api.ts`）中，`PluginTool.risk` 为可选字段，`PluginToolRisk` 包含 `"safe" | "fs-read" | "fs-write" | "shell" | "network" | "input-control"`；若声明 `"safe"`，`policyFor` 会直接放行。
-   - 依据 [2026-11-12-plugin-sdk-1-2-0.md](../superpowers/specs/2026-11-12-plugin-sdk-1-2-0.md) §4 与 §7.3，1.2.0 将要求每个插件工具**必须**声明至少一项真实风险，**禁止插件使用 `safe`**（因为宿主无法核实第三方工具确无副作用），并在审批卡片标明由插件声明。作者在编写新插件时即应如实声明 `fs-read`、`fs-write`、`shell`、`network` 或 `input-control`，不要依赖 `safe` 绕过审批。
+   - 依据 [plugin-sdk-1-2-0.md](../superpowers/specs/plugin-sdk-1-2-0.md) §4 与 §7.3，1.2.0 将要求每个插件工具**必须**声明至少一项真实风险，**禁止插件使用 `safe`**（因为宿主无法核实第三方工具确无副作用），并在审批卡片标明由插件声明。作者在编写新插件时即应如实声明 `fs-read`、`fs-write`、`shell`、`network` 或 `input-control`，不要依赖 `safe` 绕过审批。
 3. **渠道与模式边界**：
    - `PluginTool.modes` 可限制工具仅在 `"code"` 或 `"work"` 中暴露。
    - 根据 [disclaimer.zh-CN.md](../disclaimer.zh-CN.md) ④，当前渠道策略仅在 Chat / Work 间切换（不包含 Code）；在 1.2.0 规格 §7.4 中进一步规划了“渠道默认 Chat，开启 Work 仅放行 `fs-read`，外部平台不接受审批”，但以当前主分支代码为准，目前渠道 Work 路径仍待独立收紧（详见已知问题记录）。

@@ -6,7 +6,7 @@
 ## 为什么做
 
 1. **缺乏统一贡献与分包验收标准**：协作进入多智能体并行与细粒度 PR 阶段后，需要统一“设计/规格 → 施工计划 → 进度交接 → 单包 PR → 文档归档”流程与 PR 粒度（提交 `5bc54ac`）。
-2. **文档、渠道风险披露与测试覆盖盲区**（`docs/superpowers/plans/2026-11-12-docs-and-engineering.md`）：
+2. **文档、渠道风险披露与测试覆盖盲区**（`docs/superpowers/plans/docs-and-engineering.md`）：
    - 缺少独立的免责声明及飞书/QQ/QQ Bot 用户配置指南，部分设置界面提示与真实代码边界不符；
    - 26 个 `scripts/**/*.test.mjs` Node 测试与原生历史零写入验收测试虽已存在于仓库，却未接入 `.github/workflows/test.yml`，导致脚本失效与路径漂移长期未在 CI 暴露；
    - `test.yml` 未触发 `dev/**` 分支推送，且 1.2.0 需要切换到与 1.1.x 隔离的数据目录 `%APPDATA%\Firefly-1.2.0`。
@@ -22,7 +22,7 @@
 
 ## 怎么验证的
 
-1. **三端类型检查与构建**（`2026-11-12-docs-and-engineering-progress.md` §收尾复验）：`tsc -p tsconfig.{main,preload,renderer}.json --noEmit`、`npm run check:storage-boundary`（79 个许可访问点 / 43 文件）、`npm run check:plugin-schema`、`npm run build` 均退出 0。
+1. **三端类型检查与构建**（`docs-and-engineering-progress.md` §收尾复验）：`tsc -p tsconfig.{main,preload,renderer}.json --noEmit`、`npm run check:storage-boundary`（79 个许可访问点 / 43 文件）、`npm run check:plugin-schema`、`npm run build` 均退出 0。
 2. **渠道与界面测试**：channels 专题 22 文件 215 项通过；设置页 channels/i18n 6 文件 49 项通过，并在 `FIREFLY_ISOLATION_ROOT` 隔离开发版实际确认 7 处新文案呈现。
 3. **Node 脚本、原生与全量测试**：`node --test "scripts/**/*.test.mjs"` 修正 `probe-root`、`pr-workflow` 与音乐路径后达到 196 项 195 通过 1 跳过 0 失败；`npm run test:memory-history-zero-write` 12 项全通过；Cargo `workspace_handle_contract`（6 项）与 `workspace_access`（9 项）通过；`pr-workflow.test.ts` 6/6 通过。
 

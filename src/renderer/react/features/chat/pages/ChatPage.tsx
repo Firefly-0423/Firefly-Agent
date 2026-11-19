@@ -226,11 +226,22 @@ export function ChatPage() {
   const [interruptedRun, setInterruptedRun] = useState<{ runId: string; rounds: number; todoCount: number } | null>(null);
   // 会话守卫冲突（SESSION_RUN_ACTIVE）：主进程拒绝了并发 run，
   // 等用户决定是否终止旧 run 并接管重开本轮。仅 UX 层；正确性由主进程守卫保证。
-  const [sessionTakeover, setSessionTakeover] = useState<{
-    sessionId: string;
+  type Takeover = {
     activeRunId: string;
+    mode: ConversationMode;
     retry: () => Promise<void>;
-  } | null>(null);
+    phase: "offered" | "waiting" | "stuck";
+    terminalSeen?: boolean;
+    retryFinished?: boolean;
+  };
+  const takeoverBySession = useRef<Record<string, Takeover>>({});
+  const [takeoverNotices, setTakeoverNotices] = useState<Record<string, Takeover>>({});
+  function updateTakeover(sessionId: string, next?: Takeover) {
+    takeoverBySession.current = next
+      ? { ...takeoverBySession.current, [sessionId]: next }
+      : withoutKey(takeoverBySession.current, sessionId);
+    setTakeoverNotices(takeoverBySession.current);
+  }
   const activeRunsBySession = useRef<Record<string, { assistantId: string; runId?: string; mode: ConversationMode }>>({});
   const runCheckpointBySessionRef = useRef<Record<string, (status: "running" | "waiting_user") => void>>({});
   // bootstrap 标志：只由 cold-start finally 写入；模式切换 effect 仅检查
@@ -300,7 +311,7 @@ export function ChatPage() {
 
   const { queues: pendingQueueBySession, queuesRef: pendingQueueBySessionRef, flow: queueFlow } = usePendingQueue({
     getStore: () => chatStore(),
-    isSessionBusy,
+    isSessionBusy: (sessionId) => isSessionBusy(sessionId) || Boolean(takeoverBySession.current[sessionId]),
     hasRenderedMessage: (sessionId, messageId) =>
       (messagesBySessionRef.current[sessionId] ?? []).some((item) => item.id === messageId),
     appendMessages,
@@ -313,6 +324,42 @@ export function ChatPage() {
     startRun: runModel,
     reportError: (message) => feedback.notice({ tone: "error", message }),
   });
+  function releaseSettledTakeover(sessionId: string, takeover: Takeover) {
+    if (takeover.phase !== "stuck" || !takeover.retryFinished || !takeover.terminalSeen) return;
+    updateTakeover(sessionId);
+    if (activeModeRef.current === takeover.mode && activeSessionIdsRef.current[takeover.mode] === sessionId) {
+      queueFlow.handleRunFinished({ mode: takeover.mode, sessionId, queuePaused: false });
+    }
+  }
+  useEffect(() => aguiApi()?.onEvent((event) => {
+    // RUN_ERROR can arrive while Main is still finishing. Only the deferred terminal
+    // is a resume signal for a run the renderer did not start.
+    if (event.type !== "RUN_FINISHED" || !event.runId || !event.result) return;
+    for (const [sessionId, takeover] of Object.entries(takeoverBySession.current)) {
+      if (takeover.phase === "offered" || takeover.activeRunId !== event.runId) continue;
+      const observed = { ...takeover, terminalSeen: true };
+      updateTakeover(sessionId, observed);
+      releaseSettledTakeover(sessionId, observed);
+    }
+  }), [queueFlow]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function retryTakeover(sessionId: string) {
+    const takeover = takeoverBySession.current[sessionId];
+    if (!takeover || takeover.phase === "waiting") return;
+    updateTakeover(sessionId, { ...takeover, phase: "waiting", retryFinished: false });
+    try { await takeover.retry(); }
+    finally {
+      const current = takeoverBySession.current[sessionId];
+      if (current?.retry === takeover.retry) {
+        if (current.phase === "waiting") updateTakeover(sessionId);
+        if (current.phase === "stuck") {
+          const finished = { ...current, retryFinished: true };
+          updateTakeover(sessionId, finished);
+          releaseSettledTakeover(sessionId, finished);
+        }
+      }
+    }
+  }
   const sessions = sessionsByMode[mode] ?? EMPTY_SESSIONS;
   const [activeSession, setActiveSession] = useState<ChatSession | null>(null);
   // 会话级最新上下文快照（环形图优先读取点）：run 事件实时写入；
@@ -681,8 +728,14 @@ export function ChatPage() {
           modelBusyByModeRef.current = updateModeBusy(modelBusyByModeRef.current, targetMode, busy);
           setModelBusyByMode(current => updateModeBusy(current, targetMode, busy));
         },
-        requestTakeover: (sessionId, activeRunId, retry) => setSessionTakeover({ sessionId, activeRunId, retry }),
-        clearTakeover: (sessionId) => setSessionTakeover((current) => (current && current.sessionId === sessionId ? null : current)),
+        requestTakeover: (sessionId, activeRunId, retry) => updateTakeover(sessionId, { activeRunId, retry, mode: input.targetMode, phase: "offered" }),
+        clearTakeover: (sessionId) => { if (takeoverBySession.current[sessionId]) updateTakeover(sessionId); },
+        onTakeoverStuck: (sessionId, activeRunId) => {
+          const takeover = takeoverBySession.current[sessionId];
+          if (takeover?.phase === "waiting" && takeover.activeRunId === activeRunId) {
+            updateTakeover(sessionId, { ...takeover, phase: "stuck" });
+          }
+        },
 
         onRunFinished: ({ mode, sessionId, queuePaused }) => {
           setWorkspaceRevisionBySession(current => ({ ...current, [sessionId]: (current[sessionId] ?? 0) + 1 }));
@@ -1391,16 +1444,10 @@ export function ChatPage() {
         <div className="ff-workspace-content">
         <RunRecoveryNotices
           interruptedRun={interruptedRun}
-          sessionTakeover={sessionTakeover}
-          activeSessionId={activeSessionId}
+          sessionTakeover={activeSessionId ? takeoverNotices[activeSessionId] : undefined}
           isRunning={isCurrentScopeRunning}
           onResume={(runId) => void sendMessage(t("chatPage.resumeLastTaskMessage"), runId)}
-          onTakeover={() => {
-            const takeover = sessionTakeover;
-            if (!takeover) return;
-            setSessionTakeover(null);
-            void takeover.retry();
-          }}
+          onTakeover={() => { if (activeSessionId) void retryTakeover(activeSessionId); }}
         />
         {hasMessages && (
           <ChatInspectorActionsContext.Provider value={inspectorActions}>

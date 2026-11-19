@@ -28,12 +28,12 @@
 
 ## 当前状态
 
-- **待负责人决定**：`docs/superpowers/plans/2026-11-12-chatpage-regression-progress.md` §5 明确记录：是否把测试文件（以及如 `toast` 等未入配置页面）的类型检查纳入 CI，留待负责人另行决定；施工包 A、B（及未合并的 G）当前采用临时以 TypeScript API 单独检查相关测试文件作为过渡验证（详见进度文档 §4、§5）。
+- **待负责人决定**：`docs/superpowers/plans/chatpage-regression-progress.md` §5 明确记录：是否把测试文件（以及如 `toast` 等未入配置页面）的类型检查纳入 CI，留待负责人另行决定；施工包 A、B（及未合并的 G）当前采用临时以 TypeScript API 单独检查相关测试文件作为过渡验证（详见进度文档 §4、§5）。
 
 ## 相关文件
 
-- `docs/superpowers/plans/2026-11-12-chatpage-regression-progress.md`（§4 验证记录、§5 偏离计划）
-- `docs/superpowers/plans/2026-11-15-test-assertion-hardening-progress.md`（§5 T2 记录）
-- `docs/superpowers/plans/2026-11-15-coupling-audit-followup-progress.md`（§2 R2.3/R2.4）
+- `docs/superpowers/plans/chatpage-regression-progress.md`（§4 验证记录、§5 偏离计划）
+- `docs/superpowers/plans/test-assertion-hardening-progress.md`（§5 T2 记录）
+- `docs/superpowers/plans/coupling-audit-followup-progress.md`（§2 R2.3/R2.4）
 - `tsconfig.json`、`tsconfig.main.json`、`tsconfig.preload.json`、`tsconfig.renderer.json`
 - `vitest.config.ts`

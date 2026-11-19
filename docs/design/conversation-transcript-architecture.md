@@ -24,6 +24,6 @@
 当前存储仍含文件追加，队列、展示和运行记录不在同一接纳事务。轨迹 checkpoint 类型或预算裁剪并不证明会话级压缩已完成；原始协议内容存在也不代表允许向任意模型来源重放。兼容回填代码不是读取旧版本数据的授权。
 
 ## 未完成与施工入口
-全入口接纳事务、终态持久化、来源绑定回放、会话压缩与重启对账，由[会话可靠性计划](../superpowers/plans/2026-11-12-conversation-reliability.md)及[进度](../superpowers/plans/2026-11-12-conversation-reliability-progress.md)承接。
+全入口接纳事务、终态持久化、来源绑定回放、会话压缩与重启对账，由[会话可靠性计划](../superpowers/plans/conversation-reliability.md)及[进度](../superpowers/plans/conversation-reliability-progress.md)承接。
 
 现有测试：`src/main/conversation/transcript/conversation-transcript-store.test.ts`、`src/main/agent/loop/conversation-transcript-context.test.ts`、`src/main/agent/loop/transcript-sink.test.ts`。本次不据测试定义宣称重启、崩溃和真实模型回放通过。

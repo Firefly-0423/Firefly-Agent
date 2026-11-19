@@ -16,7 +16,7 @@
 
 1. Agent 运行生成了非空回答并到达终态（`RUN_FINISHED` 或失败路径 / 会话冲突路径）。
 2. `chatsStore.upsert` 发生暂存文件写入抛错（如 `.tmp` 被占住）、返回 `null` 或返回值缺失该消息条目。
-3. 在修复前运行 `AgentRunController.test.ts` 中 A10 新增的 5 个写入拒绝用例，5 个全部失败（`docs/superpowers/plans/2026-11-12-chatpage-regression-progress.md` §2 A10）。
+3. 在修复前运行 `AgentRunController.test.ts` 中 A10 新增的 5 个写入拒绝用例，5 个全部失败（`docs/superpowers/plans/chatpage-regression-progress.md` §2 A10）。
 
 ## 影响范围
 
@@ -33,11 +33,11 @@
   - 冻结同一份 `terminal` 快照，抛错后最多额外重试两次（间隔 `100ms`、`300ms`），不重跑模型；
   - 严格检查存储返回值 `Boolean(saved?.messages?.some((entry) => entry.id === snapshot.id))` 确认落盘后才调用 `refreshCanonicalSettlement()` 与 `reportRunPersisted()`；返回 `null` 或缺消息时不重试、不发回执；
   - 最终写入失败时保留界面正文并在过程信息中添加国际化失败提示 `chatPage.terminalSaveFailed`（已补中英文）。
-- **真机待补**：`2026-11-12-chatpage-regression-progress.md` §5 注明本次只在单元测试替身中验证并完成反向改坏检查，真机环境制造磁盘写入失败尚未实测（归施工包 F 阶段）。
+- **真机待补**：`chatpage-regression-progress.md` §5 注明本次只在单元测试替身中验证并完成反向改坏检查，真机环境制造磁盘写入失败尚未实测（归施工包 F 阶段）。
 
 ## 相关文件
 
-- `docs/superpowers/plans/2026-11-12-chatpage-regression-progress.md`（§2 A10、§5 偏离计划）
+- `docs/superpowers/plans/chatpage-regression-progress.md`（§2 A10、§5 偏离计划）
 - `src/renderer/react/features/chat/pages/run/AgentRunController.ts`（`settleTerminalSave`、`persistTerminal`）
 - `src/renderer/react/features/chat/pages/run/AgentRunController.test.ts`
 - `src/renderer/react/i18n/zh-CN.json`、`src/renderer/react/i18n/en.json`

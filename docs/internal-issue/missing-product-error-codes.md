@@ -13,7 +13,7 @@
 
 ## 触发条件或复现步骤
 
-在执行 `docs/superpowers/plans/2026-11-15-test-assertion-hardening.md` 并对既有 `toThrow()` 用例逐条排查真实产品返回时触发上述发现，具体清单已登记在 `docs/superpowers/plans/2026-11-15-test-assertion-hardening-progress.md` §4「缺稳定错误码」。
+在执行 `docs/superpowers/plans/test-assertion-hardening.md` 并对既有 `toThrow()` 用例逐条排查真实产品返回时触发上述发现，具体清单已登记在 `docs/superpowers/plans/test-assertion-hardening-progress.md` §4「缺稳定错误码」。
 
 ## 影响范围
 
@@ -22,16 +22,16 @@
 
 ## 根因
 
-`2026-11-15-test-assertion-hardening.md` 规定“只改测试、不改产品代码与错误码定义”，因此整改过程中不得顺手补齐缺失的产品错误码；遇无产品码路径时，仅按真实报错对象/消息、`TypeError` / `DataCloneError` / `EPERM` 或副作用未发生做断言，并将其登记为遗留清单。
+`test-assertion-hardening.md` 规定“只改测试、不改产品代码与错误码定义”，因此整改过程中不得顺手补齐缺失的产品错误码；遇无产品码路径时，仅按真实报错对象/消息、`TypeError` / `DataCloneError` / `EPERM` 或副作用未发生做断言，并将其登记为遗留清单。
 
 ## 当前状态
 
-- **待负责人决定**：已在 `docs/superpowers/plans/2026-11-15-test-assertion-hardening-progress.md` §4 完整登记 8 类路径，是否需要为其中的产品分支（特别是 `mcp-adapter.ts` 连接失败、`memory-schemas`）补充稳定产品错误码，待负责人评审决定后另立开发任务。
+- **待负责人决定**：已在 `docs/superpowers/plans/test-assertion-hardening-progress.md` §4 完整登记 8 类路径，是否需要为其中的产品分支（特别是 `mcp-adapter.ts` 连接失败、`memory-schemas`）补充稳定产品错误码，待负责人评审决定后另立开发任务。
 
 ## 相关文件
 
-- `docs/superpowers/plans/2026-11-15-test-assertion-hardening-progress.md`（§4 缺稳定错误码）
-- `docs/superpowers/plans/2026-11-15-test-assertion-hardening.md`
+- `docs/superpowers/plans/test-assertion-hardening-progress.md`（§4 缺稳定错误码）
+- `docs/superpowers/plans/test-assertion-hardening.md`
 - `src/main/agent/mcp/mcp-adapter.ts`
 - `src/main/memory/legacy/memory-schemas.ts`
 - `src/main/memory/context/main-memory-contracts.ts`
