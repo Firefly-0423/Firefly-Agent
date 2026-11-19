@@ -32,7 +32,7 @@ beforeEach(()=>{
  fixtures.push(fixture);preparedFixture={root,fixture,clock};
 });
 afterEach(()=>{vi.restoreAllMocks();for(const f of fixtures.splice(0))f.close();for(const root of roots.splice(0))fs.rmSync(root,{recursive:true,force:true});setVendorRuntimeSettingsGetter(()=>({}))});
-async function fixture(options:{queryText?:string;unknownTime?:boolean;trust?:"history"|"imported"|"model";history?:"source"|"tool"}={}){
+async function fixture(options:{queryText?:string;unknownTime?:boolean;trust?:"history"|"imported"|"model";history?:"source"|"tool"|"native"}={}){
  const {root,fixture:f,clock}=preparedFixture,now=clock.now;setVendorRuntimeSettingsGetter(()=>({}));
  const coordinator=createMainUserFactCoordinator({actorAuthority:f.actorAuthority,registry:f.registry,policy:f.policy}),selector=createMainFactSelector({actorAuthority:f.actorAuthority,registry:f.registry,policy:f.policy,recall:f.recall});
  const prior=await f.source("I prefer PowerShell",{sessionId:"session-b",occurredAt:now}),actorB=f.actorAuthority.bindActor(f.access,f.adapter,prior.id);
@@ -40,7 +40,7 @@ async function fixture(options:{queryText?:string;unknownTime?:boolean;trust?:"h
  const queryText=options.queryText??"Give me a terminal command",query=await f.source(queryText,{messageId:"u1",...(options.unknownTime?{}:{occurredAt:now}),...(options.trust?{trust:options.trust}:{})});
  const store=new ConversationTranscriptStore(path.join(root,"canonical"));await store.append("session-a",{kind:"user",id:"u1",turnId:"u1",revision:1,at:now,payload:{text:queryText}});
  const observerRegistration=vi.spyOn(store,"observeMutations"),counts:any[]=[],sends:any[]=[],events:any[]=[];let hook:undefined|(()=>Promise<void>),onStream:undefined|(()=>Promise<void>),onMutation:undefined|(()=>Promise<void>);
- const historySource=options.history?await f.source("terminal quartz command history",{sessionId:"session-b",trust:"history"}):undefined;
+ const historySource=options.history && options.history!=="native"?await f.source("terminal quartz command history",{sessionId:"session-b",trust:"history"}):undefined;
  let historyDocument:HistoryDocument|undefined,historyCapture:Awaited<ReturnType<typeof f.history.captureTranscript>>|undefined;
  if(historySource){
   if(options.history==="tool"){
@@ -53,7 +53,7 @@ async function fixture(options:{queryText?:string;unknownTime?:boolean;trust?:"h
    historyCapture=await f.history.captureTranscript(actorB,provider,"history-tools");
   }else await f.history.captureSource(actorB,historySource.ref,{documentId:"history-source",incarnation:"synthetic-history",revision:1});
  }
- const historyScope=historySource?f.history.grantSessions(f.actor,[actorB]):undefined;
+ const historyScope=options.history?f.history.grantSessions(f.actor,[actorB]):undefined;
  let historyQuery=async(capture:{userTurnId:string;userRevision:number;userText:string},signal?:AbortSignal)=>[(await f.history.query(f.actor,{query:capture.userText,scope:historyScope,signal})).evidence];
  const item={id:"out",type:"message",role:"assistant",status:"completed",content:[{type:"output_text",text:"ok",annotations:[]}]};
  const wire=[{type:"response.created",response:{id:"r",status:"in_progress",output:[]}},{type:"response.output_item.added",output_index:0,item:{...item,status:"in_progress",content:[]}},{type:"response.content_part.added",item_id:"out",output_index:0,content_index:0,part:{type:"output_text",text:"",annotations:[]}},{type:"response.output_text.delta",item_id:"out",output_index:0,content_index:0,delta:"ok"},{type:"response.output_text.done",item_id:"out",output_index:0,content_index:0,text:"ok"},{type:"response.content_part.done",item_id:"out",output_index:0,content_index:0,part:item.content[0]},{type:"response.output_item.done",output_index:0,item},{type:"response.completed",response:{id:"r",status:"completed",output:[item]}}].map((event,sequence_number)=>({...event,sequence_number}));
@@ -63,7 +63,7 @@ async function fixture(options:{queryText?:string;unknownTime?:boolean;trust?:"h
  const sink=createTranscriptSink({store,conversationId:"session-a",runId:"run",assistantTurnId:"a1"});
  const port=createMainSRuntimePort({enabled:true,clock:()=>clock.now,registry:f.registry,transport:f.transport,actorAuthority:f.actorAuthority,actorToken:f.actor,binding,
   facts:{currentUserSource:async()=>query.ref,coordinator,selector,limits:{maxFacts:8}},
-  ...(historySource?{history:{query:(capture:{userTurnId:string;userRevision:number;userText:string},signal?:AbortSignal)=>historyQuery(capture,signal)}}:{}),
+  ...(options.history?{history:{query:(capture:{userTurnId:string;userRevision:number;userText:string},signal?:AbortSignal)=>historyQuery(capture,signal)}}:{}),
   createTranscript:context=>createConversationTranscriptAdapter({enabled:true,store,context,actorAuthority:f.actorAuthority,actorToken:f.actor,beforeMutation:async()=>{await onMutation?.()}})!})!;
  const input={request:{model:"fixture-model",messages:[{role:"system" as const,content:"fixed"}],stream:true,maxTokens:128},stream:{conversationId:"session-a",runId:"run",assistantTurnId:"a1",userTurnId:"u1",sink,isCurrent:()=>true,onEvent:(event:unknown)=>events.push(event)}};
  return {...f,port,store,input,counts,sends,events,prior,query,actorB,observerRegistration,historySource,historyCapture,setHistoryDocument:(value:HistoryDocument)=>{historyDocument=value},setHistoryQuery:(value:typeof historyQuery)=>{historyQuery=value},beforeMutation:(value:typeof onMutation)=>{onMutation=value},setCountHook:(value:typeof hook)=>{hook=value},onStream:(value:typeof onStream)=>{onStream=value},advance:(ms:number)=>{clock.now+=ms}};
@@ -167,7 +167,7 @@ it("forget blocks selected H derived from the same fact source and cannot revive
 });
 it("supplied-byte S pending text remains diagnostic and never enters H evidence or M",async()=>{
  const f=await fixture({history:"source"}),a=f.actorAuthority.requireActor(f.actorB),entries=[
-  {id:"history-user",seq:1,at:1700000000000,turnId:"history-user",revision:1,kind:"user",payload:{text:"terminal quartz command history"}},
+  {id:"history-user",seq:1,at:1700000000000,turnId:"history-user",revision:1,kind:"user",runId:"inserted-run",payload:{text:"terminal quartz command history",attachments:[{kind:"document",name:"private-attachment.docx",filePath:"X:/private-attachment.docx"}]}},
   {id:"history-run:assistant:s-response",seq:2,at:1700000000001,turnId:"history-assistant",runId:"history-run",roundId:"s-response",kind:"assistant",sSettlement:{version:1,userTurnId:"history-user",userRevision:1},payload:{role:"assistant",content:"PENDING_AUDIT_ONLY"}}
  ];
  const parsed=parseFireflyHistoryBytes({root:f.root,actorKey:a.actorKey,scopeKey:a.scopeKey,sessions:[{providerId:a.providerId,sessionId:a.sessionId}]},[{providerId:a.providerId,sessionId:a.sessionId,incarnation:"synthetic-bytes",transcript:Buffer.from(entries.map(e=>JSON.stringify(e)).join("\n")+"\n"),snapshot:null,chat:null}]);
@@ -177,7 +177,46 @@ it("supplied-byte S pending text remains diagnostic and never enters H evidence 
   const doc:HistoryDocument={...record.document,sourceDeps:[{sourceRef:boundSource.ref,subjectKeys:null,derivedRefs:null}],messages:record.document.messages.map(m=>({...m,sourceRef:boundSource.ref}))};
   const provider=createMainHistoryProvider(f.actorAuthority,f.actorB,{withLease:async(_locator,run)=>run(async()=>structuredClone(doc))});await f.history.captureTranscript(f.actorB,provider,doc.id);
  }
- await f.port.run(f.input);const sent=JSON.stringify(f.sends[0]);expect(sent).toContain("history-user");expect(sent).not.toContain("PENDING_AUDIT_ONLY");expect(await f.policy.recall(f.actor)).toHaveLength(1);
+ await f.port.run(f.input);const sent=JSON.stringify(f.sends[0]);expect(sent).toContain("history-user");expect(sent).not.toContain("private-attachment");expect(sent).not.toContain("PENDING_AUDIT_ONLY");expect(await f.policy.recall(f.actor)).toHaveLength(1);
+});
+
+it("a new task sends proven project history and omits an unproven attachment turn",async()=>{
+ const storageModule=await import('../../base/storage/storage-context');
+ const {resolveRuntimeProfile}=await import('../../base/identity/runtime-profile');
+ const {createNativeHistoryProvider}=await import('../history/native-history-provider');
+ const isolation=fs.mkdtempSync(path.join(os.tmpdir(),'attachment-project-'));roots.push(isolation);
+ const storage=storageModule.createStorageContext(resolveRuntimeProfile({argv:['--firefly-profile=test','--firefly-isolation-root='+isolation],env:{},isPackaged:false,productionAppData:path.join(os.tmpdir(),'unused-profile')}));
+ vi.spyOn(storageModule,'getStorageContext').mockReturnValue(storage);
+ vi.spyOn(storageModule,'installedStorageContext').mockReturnValue(storage);
+ const f=await fixture({history:"native",queryText:"quartz"});
+ const store=new ConversationTranscriptStore(storage.dataRoot);
+ const proofText="quartz eligible project milestone";
+ const entry=await store.append("session-b",{kind:"user",id:"verified",turnId:"verified",revision:1,at:1000,payload:{text:proofText}});
+ const proof=await f.source(proofText,{sessionId:"session-b",messageId:"verified",occurredAt:1000});
+ await f.context.recordHistoryUser(f.actorB,proof.ref,entry);
+ const privateDir=path.join(isolation,"private-folder-token");fs.mkdirSync(privateDir);
+ const filePath=path.join(privateDir,"private-name.docx");fs.writeFileSync(filePath,"private-document-body");
+ await store.append("session-b",{kind:"user",id:"unproven",turnId:"unproven",revision:1,at:2000,payload:{text:"quartz unproven-turn-text",attachments:[
+  {kind:"document",name:"private-name.docx",filePath},{kind:"image",name:"secret-image.png",filePath:path.join(privateDir,"secret-image.png"),mime:"image/png",caption:"private-caption"}]}});
+ await store.checkpoint("session-b");
+ const native=createNativeHistoryProvider({actorAuthority:f.actorAuthority,actorToken:f.actorB,store,history:f.history,deadlineMs:20000,endpointFactory:async()=>({
+  rootIdentity:{volumeSerial:42,fileIndex:'1111111111111111'},async read([sessionId,leaf],limit){
+   expect(sessionId).toBe("session-b");expect(["snapshot.json","transcript.jsonl"]).toContain(leaf);
+   const bytes=fs.readFileSync(path.join(storage.dataRoot,"transcripts",sessionId,leaf));expect(bytes.length).toBeLessThanOrEqual(limit);
+   return {identity:{volumeSerial:42,fileIndex:leaf==="snapshot.json"?"bbbbbbbbbbbbbbbb":"aaaaaaaaaaaaaaaa"},bytes};
+  },assertLive(){},async dispose(){}
+ })});
+ try{
+  const scope=f.history.grantSessions(f.actor,[f.actorB]);
+  f.setHistoryQuery(async({userText},signal)=>{
+   const coverage=await native.capture(signal);
+   expect(coverage).toMatchObject({status:"captured",coverage:"partial",captured:1,diagnostics:["MEMORY_HISTORY_COVERAGE_INSUFFICIENT","MEMORY_HISTORY_ORIGIN_UNPROVEN"]});
+   return [(await f.history.query(f.actor,{query:userText,scope,signal})).evidence];
+  });
+  await f.port.run(f.input);expect(f.sends).toHaveLength(1);
+  const sent=JSON.stringify(f.sends[0]);expect(sent).toContain(proofText);
+  for(const secret of ["unproven-turn-text","private-folder-token","private-name.docx","secret-image.png","private-caption","private-document-body"])expect(sent).not.toContain(secret);
+ }finally{await native.close()}
 });
 
 it("native H joins S and M through one observer and coverage never invokes legacy RAG",async()=>{

@@ -17,6 +17,19 @@ function string(v:unknown):string{if(typeof v!=='string'||v.length>65536)fail();
 // Message bodies and tool arguments are bounded by the 8 MiB file limit; an oversized turn is classified
 // 'unverified' with MEMORY_HISTORY_INPUT_LIMIT below instead of making the whole history unreadable.
 function body(v:unknown):string{if(typeof v!=='string')fail();return v}
+// History projects only visible text. Attachment metadata never becomes searchable content.
+function validateAttachments(value:unknown):void {
+ if(value===undefined)return;
+ if(!Array.isArray(value))fail('MEMORY_HISTORY_FORMAT_UNSUPPORTED');
+ for(const item of value){
+  if(!item||typeof item!=='object'||Array.isArray(item)
+   ||(item.kind!=='document'&&item.kind!=='image')
+   ||typeof item.name!=='string'||!item.name.trim()||typeof item.filePath!=='string'||!item.filePath.trim()
+   ||(item.mime!==undefined&&typeof item.mime!=='string')
+   ||(item.caption!==undefined&&typeof item.caption!=='string')
+   ||(item.hasAnnotations!==undefined&&typeof item.hasAnnotations!=='boolean'))fail('MEMORY_HISTORY_FORMAT_UNSUPPORTED');
+ }
+}
 function id(v:unknown):string{const s=string(v);if(!s||s.length>1024||/[\u0000-\u001f\u007f]/u.test(s))fail();return s}
 function integer(v:unknown,min=0):number{if(!Number.isSafeInteger(v)||(v as number)<min)fail();return v as number}
 function time(v:unknown):number|null{return v===undefined||v===null?null:integer(v)}
@@ -111,12 +124,12 @@ function transcriptRecords(scope:ReadonlyHistoryScope,session:ReadonlyHistorySco
    const removed=active.splice(index);
    for(const group of removed){const copy=structuredClone(group);for(const n of copy)n.provenance.active=false;retired.push(copy)}
    if(e.payload.disposition==='keep_user'){active.push([removed[0][0]]);continue}
-   if(!e.turnId||e.turnId!==anchor||!e.revision||e.revision<=(removed[0][0].provenance.revision??0))fail();const p=row(e.payload.replacementUser);if(p.attachments!==undefined&&(!Array.isArray(p.attachments)||p.attachments.length))fail('MEMORY_HISTORY_FORMAT_UNSUPPORTED');
+   if(!e.turnId||e.turnId!==anchor||!e.revision||e.revision<=(removed[0][0].provenance.revision??0))fail();const p=row(e.payload.replacementUser);validateAttachments(p.attachments);
    active.push([makeNode(scope,session,'transcript-v1',incarnation,e.raw,{role:'user',text:body(p.text)},e.seq,e.turnId,e.revision,e.at)]);continue;
   }
   if(['backfill_boundary','interruption','compaction_checkpoint','assistant_settlement'].includes(e.kind))continue;
   let m:ContextMessage;
-  if(e.kind==='user'){if(!e.turnId||!e.revision)fail();if(e.payload.attachments!==undefined&&(!Array.isArray(e.payload.attachments)||e.payload.attachments.length))fail('MEMORY_HISTORY_FORMAT_UNSUPPORTED');m={role:'user',text:body(e.payload.text)}}
+  if(e.kind==='user'){if(!e.turnId||!e.revision)fail();validateAttachments(e.payload.attachments);m={role:'user',text:body(e.payload.text)}}
   else if(e.kind==='assistant')m=message(e.payload,'assistant');
   else if(e.kind==='tool_result'){if(!['success','failure','unknown','not_executed'].includes(e.payload.outcome as string))fail();m=message(row(e.payload.message),'tool');if(m.toolCallId!==e.payload.toolCallId)fail();id(e.payload.assistantEntryId)}
   else fail('MEMORY_HISTORY_FORMAT_UNSUPPORTED');
@@ -140,11 +153,13 @@ function chatRecords(scope:ReadonlyHistoryScope,session:ReadonlyHistoryScope['se
  const groups:Node[][]=[],separate:Node[][]=[];
  for(const raw of chat.messages){
   const r=row(raw);if(r.role!=='user'&&r.role!=='model')fail();
-  if(r.attachments!==undefined&&(!Array.isArray(r.attachments)||r.attachments.length))fail('MEMORY_HISTORY_FORMAT_UNSUPPORTED');
+  validateAttachments(r.attachments);
+  if(Array.isArray(r.attachments)&&r.attachments.length&&r.modelContext!==undefined&&typeof r.modelContext!=='string')fail('MEMORY_HISTORY_FORMAT_UNSUPPORTED');
+  if(r.role!=='user'&&Array.isArray(r.attachments)&&r.attachments.length)fail('MEMORY_HISTORY_FORMAT_UNSUPPORTED');
   const role=r.role==='user'?'user':'assistant',n=makeNode(scope,session,'chat-session-v1',file.incarnation,r,{role,text:body(r.content)},null,role==='user'?id(r.id):null,null,time(r.at));
   if(derived(n.message.text)){separate.push([n]);if(role==='user')groups.push([])}
   else if(role==='user')groups.push([n]);else if(groups.at(-1)?.length)groups.at(-1)!.push(n);else separate.push([n]);
-  if(r.modelContext!==undefined){const variant=makeNode(scope,session,'chat-session-v1',file.incarnation,{...r,readonlyDerived:true},{role,text:body(r.modelContext)},null,n.provenance.turnId,null,time(r.at));variant.provenance.field='modelContext';separate.push([variant])}
+  if(r.modelContext!==undefined&&!(Array.isArray(r.attachments)&&r.attachments.length)){const variant=makeNode(scope,session,'chat-session-v1',file.incarnation,{...r,readonlyDerived:true},{role,text:body(r.modelContext)},null,n.provenance.turnId,null,time(r.at));variant.provenance.field='modelContext';separate.push([variant])}
   if(r.toolExecutions!==undefined)diagnostics.push('MEMORY_HISTORY_DISPLAY_TOOLS_UNVERIFIED');
  }
  return records(scope,session,[...groups,...separate],diagnostics);
