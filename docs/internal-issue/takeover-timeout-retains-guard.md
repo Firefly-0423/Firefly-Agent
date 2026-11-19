@@ -1,7 +1,7 @@
 # 接管超时后旧运行仍占着会话守卫，界面侧停止状态与提示待补
 
-状态：待修复（主进程守卫行为已由 PR #91 定型保留；界面侧停止等待与提示待另开 PR）
-日期：2026-11-16
+状态：已修复（Main 侧守卫 PR #91 / 提交 `dc6327a`；界面提示与暂停派发 PR #102 / 提交 `7c7aa49` 已合入 `dev/firefly-1.2.0`）
+日期：2026-11-16（更新于 2026-11-19）
 
 ## 现象
 
@@ -28,7 +28,7 @@
 ## 当前状态
 
 - **主进程侧（已定型）**：PR `#91`（`dc6327a`）已合入并锁死 B4 行为——超时只产生一次旧运行调用、不启动新运行、不强制放锁、旧运行迟到结算后允许重提。
-- **界面侧（待修复）**：待另开 PR 实现接管超时的界面提示、暂停自动派发及结束接管按钮等待状态。
+- **界面侧（已修复）**：PR `#102`（`7c7aa49`）已合入 `dev/firefly-1.2.0`——接管超时时结束接管按钮转圈等待、明确提示旧任务尚未停止且未启动新任务、按会话暂停自动派发直至旧运行结算并支持手动重试。
 
 ## 相关文件
 
@@ -37,4 +37,4 @@
 - `src/main/conversation/transcript/run-settlement.ts`（`SRunSettlementGate.requestCancel`）
 - `src/renderer/react/features/chat/pages/run/AgentRunController.ts`
 - `src/renderer/react/features/chat/pages/ChatPage.tsx`
-- 提交与 PR：PR `#91`（`dc6327a`）
+- 提交与 PR：PR `#91`（`dc6327a`）、PR `#102`（`7c7aa49`）
