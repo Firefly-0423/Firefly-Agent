@@ -28,13 +28,16 @@ jobs:
         with:
           node-version: "24"
 
+      - name: Install pnpm
+        run: npm install --global pnpm@12.10.1
+
       - name: Install dependencies
-        run: npm ci --foreground-scripts
+        run: pnpm install --frozen-lockfile
 
       # 打包质量校验：Schema 无漂移、vendored 契约无漂移、包内容与内部路径检查、双入口加载
       - name: Build and verify SDK package
-        run: npm run check:plugin-sdk
+        run: pnpm run check:plugin-sdk
 
       # 端到端：从打包产物（而非源码）编译四个示例插件并冒烟测试
       - name: Compile and smoke-test plugin examples
-        run: npm run test:plugin-examples
+        run: pnpm run test:plugin-examples

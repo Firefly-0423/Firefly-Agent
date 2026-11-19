@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import YAML from "yaml";
 import { syntheticHistoryHelper } from "../verify/history-helpers-fixture.mjs";
+import { readProjectLock } from "../build/pnpm-lock.mjs";
 const require = createRequire(import.meta.url);
 const { FileMatcher, copyFiles } = require("app-builder-lib/out/fileMatcher.js");
 const { copyDir } = require("builder-util");
@@ -15,7 +16,7 @@ const { copyDir } = require("builder-util");
 const source = await readFile(new URL("../../electron-builder.yml", import.meta.url), "utf8");
 const installerInclude = await readFile(new URL("../../build/installer.nsh", import.meta.url), "utf8");
 const packageJson = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"));
-const packageLock = JSON.parse(await readFile(new URL("../../package-lock.json", import.meta.url), "utf8"));
+const projectLock = readProjectLock(fileURLToPath(new URL("../../pnpm-lock.yaml", import.meta.url)));
 const packageWorkflow = YAML.parse(await readFile(new URL("../../.github/workflows/package-windows.yml", import.meta.url), "utf8"));
 
 test("vendor resources ship canonical directories and legal notices without a ZIP", async context => {
@@ -80,11 +81,12 @@ test("production TypeScript entry sets exclude tests but retain application and 
 
 test("the Firefly package identity is consistent and does not publish updates", () => {
   assert.equal(packageJson.name, "firefly-agent");
-  assert.equal(packageLock.name, packageJson.name);
-  assert.equal(packageLock.packages[""].name, packageJson.name);
   assert.equal(packageJson.version, "1.1.4");
-  assert.equal(packageLock.version, packageJson.version);
-  assert.equal(packageLock.packages[""].version, packageJson.version);
+  assert.equal(packageJson.packageManager, "pnpm@12.10.1");
+  // pnpm's lock has no name or version; it must instead list exactly the dependencies package.json declares.
+  const specifiers = section => Object.fromEntries(Object.entries(projectLock.importer[section] ?? {}).map(([name, entry]) => [name, entry.specifier]));
+  assert.deepEqual(specifiers("dependencies"), packageJson.dependencies);
+  assert.deepEqual(specifiers("devDependencies"), packageJson.devDependencies);
   assert.match(source, /^appId: com\.serendipitywu02\.firefly$/m);
   assert.match(source, /^productName: Firefly_Agent$/m);
   assert.match(source, /^publish: \[\]$/m);
@@ -173,16 +175,16 @@ test("both Windows package entrypoints build and verify both helpers before pack
   for (const key of ["package:win:dir", "package:win"]) {
     const steps = packageJson.scripts[key]?.split(" && ");
     assert.ok(steps, `${key} is a supported Windows package entrypoint`);
-    for (const step of ["npm run build", "npm run build:screenshot-helper", "npm run build:history-helpers", "npm run verify:history-helpers", "npm run build:workspace-helper", "npm run verify:workspace-helper", "npm run prepare:mingit"])
+    for (const step of ["pnpm run build", "pnpm run build:screenshot-helper", "pnpm run build:history-helpers", "pnpm run verify:history-helpers", "pnpm run build:workspace-helper", "pnpm run verify:workspace-helper", "pnpm run prepare:mingit"])
       assert.ok(steps.includes(step), `${key} must include ${step}`);
-    const build = steps.indexOf("npm run build:history-helpers");
-    const verify = steps.indexOf("npm run verify:history-helpers");
+    const build = steps.indexOf("pnpm run build:history-helpers");
+    const verify = steps.indexOf("pnpm run verify:history-helpers");
     const pack = steps.findIndex(step => step.startsWith("electron-builder --win"));
     assert.ok(build < verify && verify < pack, `${key} must verify built helpers before electron-builder`);
-    assert.ok(steps.indexOf("npm run build:workspace-helper") < steps.indexOf("npm run verify:workspace-helper") && steps.indexOf("npm run verify:workspace-helper") < pack);
+    assert.ok(steps.indexOf("pnpm run build:workspace-helper") < steps.indexOf("pnpm run verify:workspace-helper") && steps.indexOf("pnpm run verify:workspace-helper") < pack);
   }
-  assert.match(packageJson.scripts["package:win:dir"], /electron-builder --win --dir && npm run verify:workspace-helper -- release\/win-unpacked\/resources\/bin && npm run verify:history-helpers -- release\/win-unpacked\/resources\/bin$/);
-  assert.match(packageJson.scripts["package:win"], /electron-builder --win nsis --publish never && npm run verify:installer$/);
+  assert.match(packageJson.scripts["package:win:dir"], /electron-builder --win --dir && pnpm run verify:workspace-helper release\/win-unpacked\/resources\/bin && pnpm run verify:history-helpers release\/win-unpacked\/resources\/bin$/);
+  assert.match(packageJson.scripts["package:win"], /electron-builder --win nsis --publish never && pnpm run verify:installer$/);
 });
 
 test("installer verification rejects missing packaged helpers before checking legacy artifacts", () => {
@@ -191,9 +193,12 @@ test("installer verification rejects missing packaged helpers before checking le
 
 test("the real Windows NSIS workflow uses the same verified package entrypoint", () => {
   const steps = packageWorkflow.jobs.package.steps;
-  assert.ok(steps.some(step => step.run === "npm run package:win"));
-  assert.ok(!steps.some(step => /npx electron-builder/.test(step.run ?? "")));
-  assert.ok(steps.some(step => step.run === "npm run verify:installer"));
+  assert.ok(steps.some(step => step.run === "pnpm run package:win"));
+  assert.ok(!steps.some(step => /(npx|pnpm exec) electron-builder/.test(step.run ?? "")));
+  assert.ok(steps.some(step => step.run === "pnpm run verify:installer"));
+  // Electron 43 no longer downloads its binary on install; packaging needs it prepared first.
+  const prepare = steps.findIndex(step => /pnpm exec install-electron/.test(step.run ?? ""));
+  assert.ok(prepare >= 0 && prepare < steps.findIndex(step => step.run === "pnpm run package:win"));
   assert.deepEqual(packageWorkflow.permissions, { contents: "read" });
 });
 

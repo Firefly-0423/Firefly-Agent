@@ -156,7 +156,7 @@ Issue（问题或需求）
 
 - 断言写法按 `AGENTS.md`“测试断言写法”的 12 条。
 - 测试文件与被测文件同目录，命名 `*.test.ts`；跨进程或需要真实文件的测试放在临时目录里做，结束后清理。
-- 验证顺序：最近的测试 → 所在模块 → `npm run build:main` / `npm run build:preload` / `npm run check:renderer` → 全量 `npm test`（需要 `FIREFLY_TEST_BASH` 指向 Git Bash）。
+- 验证顺序：最近的测试 → 所在模块 → `pnpm run build:main` / `pnpm run build:preload` / `pnpm run check:renderer` → 全量 `pnpm test`（需要 `FIREFLY_TEST_BASH` 指向 Git Bash）。
 - 新增原生辅助程序或打包相关的改动，还要在打包版里验证。
 - 平台限制导致跑不了的断言，用显式跳过并写明原因。
 

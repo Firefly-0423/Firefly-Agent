@@ -221,22 +221,23 @@ flowchart TB
 
 ## 🛠️ 从源码运行
 
-需要 Windows、Node.js 24 及以上与 npm 10 以上；本地打包另需 Rust（MSVC 工具链）与 C++ 构建工具。
+需要 Windows、Node.js 24 及以上与 pnpm 12.10.1（`npm install --global pnpm@12.10.1`）；Electron 程序由 `pnpm exec install-electron` 单独下载。本地打包另需 Rust（MSVC 工具链）与 C++ 构建工具。
 
 ```powershell
 git clone https://github.com/Firefly-0423/Firefly-Agent.git
 cd Firefly-Agent
-npm ci
-npm run dev
+pnpm install
+pnpm exec install-electron
+pnpm run dev
 ```
 
 | 命令 | 作用 |
 | --- | --- |
-| `npm run check:renderer` | 界面类型检查 |
-| `npm test` | 运行 Vitest |
-| `npm run validate:skills` | 校验 Skills 来源与许可 |
-| `npm run check:plugin-sdk` | 插件 SDK 检查 |
-| `npm run package:win` | 打包 NSIS 安装包（`package:win:dir` 为免安装目录） |
+| `pnpm run check:renderer` | 界面类型检查 |
+| `pnpm test` | 运行 Vitest |
+| `pnpm run validate:skills` | 校验 Skills 来源与许可 |
+| `pnpm run check:plugin-sdk` | 插件 SDK 检查 |
+| `pnpm run package:win` | 打包 NSIS 安装包（`package:win:dir` 为免安装目录） |
 
 脚本说明见 [scripts/README.md](./scripts/README.md)。
 

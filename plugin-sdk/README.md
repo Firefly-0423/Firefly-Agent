@@ -13,7 +13,7 @@ npm install @firefly_wu/plugin-sdk
 从本仓库源码构建（例如试用尚未发布的改动）：
 
 ```bash
-npm run build:plugin-sdk
+pnpm run build:plugin-sdk
 npm pack ./plugin-sdk
 ```
 
