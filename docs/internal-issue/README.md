@@ -10,7 +10,7 @@
 | 2026-11-16 | 渲染页重载后，仍在等待的审批没有可处理的卡片 | 已修复（PR #93 / `ecbdfbd` 已合并） | [approval-lost-after-reload](./approval-lost-after-reload.md) |
 | 2026-11-16 | 接管超时后旧运行仍占着会话守卫，界面侧停止状态与提示待补 | 已修复（Main 守卫 PR #91 / `dc6327a`；界面提示与暂停派发 PR #102 / `7c7aa49` 已合并；漏收事件时需手动重试，见详细记录） | [takeover-timeout-retains-guard](./takeover-timeout-retains-guard.md) |
 | 2026-11-16 | 外部渠道私聊开启工具后采用 `work` 与 `allow_all` 直接执行 | 待修复（待渠道 Work 收紧落地后由 B6 跟进） | [channel-work-allow-all](./channel-work-allow-all.md) |
-| 2026-11-16 | Chat 模式仍监听并允许延迟 Plan 事件 | 待修复（排期 ChatPage 回归施工包 C12） | [chat-deferred-plan-events](./chat-deferred-plan-events.md) |
+| 2026-11-16 | Chat 模式仍监听并允许延迟 Plan 事件 | 已修复，待合并 | [chat-deferred-plan-events](./chat-deferred-plan-events.md) |
 | 2026-11-16 | 插件示例存在停止写回被清空及非 JSON 对象持久化缺陷，Mock 测试无法检出 | 待修复（已登记于 `examples/README.md`） | [plugin-example-mock-blindspots](./plugin-example-mock-blindspots.md) |
 | 2026-11-16 | 旧版 `memory.json` 中 `l2DmaeStates` 含坏条目时按 ID 查找与更新会抛错 | 已决定延后（读取规范化已修 PR #71；坏条目抛错延后统一清理） | [l2-dmae-malformed-entries](./l2-dmae-malformed-entries.md) |
 | 2026-11-16 | 设置页拆分发现的三项既有缺陷（`NAV_LABELS`、`MIMO_ICON_URL`、`settings.fetchModels`） | 已决定延后（待设置页拆分 PR 4 完成后独立修复） | [settings-post-split-bugs](./settings-post-split-bugs.md) |
