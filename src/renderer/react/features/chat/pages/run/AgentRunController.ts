@@ -627,7 +627,7 @@ export class AgentRunController {
     if (event.type === "CUSTOM" && event.name === "firefly.plan.completed") {
       const fields = event.value as { runStatus?: unknown; planPath?: unknown } | null | undefined;
       const registered = this.ports.registries.activeRuns.current[this.request.sessionId];
-      if ((this.request.targetMode === "code" || this.request.targetMode === "chat")
+      if (this.request.targetMode === "code"
         && event.threadId === this.request.sessionId && event.runId === registered?.runId
         && registered?.assistantId === this.request.assistantId && fields?.runStatus === "completed"
         && typeof fields.planPath === "string" && fields.planPath) {

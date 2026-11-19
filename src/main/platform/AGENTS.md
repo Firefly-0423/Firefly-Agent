@@ -34,10 +34,10 @@
 
 ## 验证
 
-- 最近的测试：`npm test -- src/main/platform`
-- 依赖方向：`npm test -- src/main/layering.test.ts`
-- 类型检查：`npm run build:main`（或 `npx tsc -p tsconfig.main.json --noEmit`）
-- 涉及落盘路径时：`npm run check:storage-boundary`
+- 最近的测试：`pnpm test src/main/platform`
+- 依赖方向：`pnpm test src/main/layering.test.ts`
+- 类型检查：`pnpm run build:main`（或 `pnpm exec tsc -p tsconfig.main.json --noEmit`）
+- 涉及落盘路径时：`pnpm run check:storage-boundary`
 
 ## 施工文件
 

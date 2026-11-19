@@ -9,6 +9,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
+import { npmCliEntry } from "./npm-cli.mjs";
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..");
 const sdkRoot = path.join(repoRoot, "plugin-sdk");
@@ -18,11 +19,9 @@ function fail(message) {
   process.exit(1);
 }
 
-// npm 的命令行入口：优先用 npm run 注入的 npm_execpath（跨平台，指向真实的 npm-cli.js，
-// Linux CI 上 node 和 npm 不在同一目录）；直接运行本脚本时退回 Windows 安装器的目录布局。
+// 打包检查一律用真正的 npm（外部插件作者就是这样用的）；pnpm run 下 npm_execpath 指向 pnpm，见 npm-cli.mjs。
 // 一律用 node 去执行这个 js 入口，避免 Windows 上派生 .cmd 的已知问题
-const npmEntry = process.env.npm_execpath
-  ?? path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
+const npmEntry = npmCliEntry();
 
 /** 递归列出目录下的所有文件。 */
 async function listFiles(dir) {
@@ -51,14 +50,17 @@ async function checkVendoredApi() {
 }
 
 function checkPackedFiles() {
-  const listing = execFileSync(process.execPath, [npmEntry, "pack", "--dry-run"], {
+  // 用 --json 读结构化清单：文本输出的文件列表写在 stderr，按 stdout 解析会得到空列表而误判通过。
+  const listing = execFileSync(process.execPath, [npmEntry, "pack", "--dry-run", "--json"], {
     cwd: sdkRoot,
     encoding: "utf8",
   });
-  // 每个文件一行："<大小> <路径>"；只看带目录分隔的行，排除汇总信息
-  const packed = [...listing.matchAll(/^\s+\S*\s+(\S+)$/gm)].map((m) => m[1]).filter((name) => name.includes("/"));
+  const packed = (JSON.parse(listing)[0]?.files ?? []).map((file) => String(file.path).replace(/\\/g, "/"));
+  if (!packed.includes("package.json") || !packed.some((name) => name.startsWith("dist/"))) {
+    fail(`npm pack 清单缺少 package.json 或 dist/：${JSON.stringify(packed)}`);
+  }
   const permitted = /^(dist\/|package\.json$|README\.md$|LICENSE$)/;
-  const stray = packed.filter((name) => !permitted.test(name.replace(/\\/g, "/")));
+  const stray = packed.filter((name) => !permitted.test(name));
   if (stray.length) fail(`npm pack 将包含意外文件: ${stray.join(", ")}`);
 }
 

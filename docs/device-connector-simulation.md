@@ -64,7 +64,7 @@ try {
 
 正常 close/重建已测试。进程异常退出会保留 lease 并拒绝重新接管；本批不自动删除陈旧 lease，也不实现离线恢复工具。不得声称已验证 OS 进程崩溃恢复、多进程 exactly-once、真实 GUI 确认、真实账户/设备、厂商遥测或网络故障下的真实硬件行为。
 
-在已有隔离依赖环境运行 `npm test -- device-simulation`。实际 SDK/HTTP/adapter/registry 集成测试位于 `src/main/device-simulation/mcp-fixture.integration.test.ts`；模块替身限于 Electron/RAG 环境依赖，异常用例另有受控 provider 故障注入，SDK/HTTP/adapter/registry 保持真实。测试使用独立临时 profile；本任务同时设置空 Electron runtime override，以阻止依赖模块隐式下载或启动 Electron。无需安装候选插件、调用付费模型或输入凭据。
+在已有隔离依赖环境运行 `pnpm test device-simulation`。实际 SDK/HTTP/adapter/registry 集成测试位于 `src/main/device-simulation/mcp-fixture.integration.test.ts`；模块替身限于 Electron/RAG 环境依赖，异常用例另有受控 provider 故障注入，SDK/HTTP/adapter/registry 保持真实。测试使用独立临时 profile；本任务同时设置空 Electron runtime override，以阻止依赖模块隐式下载或启动 Electron。无需安装候选插件、调用付费模型或输入凭据。
 
 清理按两层归属执行：adapter 记录自己注册的 ToolDefinition 对象，仅在 registry 仍持有同一对象时注销；fixture 另以 Main 内存 owner 对象绑定原连接。宿主后来替换同 namespace 的工具定义会被保留，但不阻止原 client/transport 释放；旧 fixture 也不能关闭同 server ID 的后来连接。owner 不进入配置、MCP 参数或领域授权，既有不传 owner 的 Main 接口保持兼容。
 

@@ -221,22 +221,23 @@ flowchart TB
 
 ## 🛠️ Run from source
 
-You need Windows, Node.js 24 or later and npm 10 or later; packaging also needs Rust (MSVC toolchain) and C++ build tools.
+You need Windows, Node.js 24 or later and pnpm 12.10.1 (`npm install --global pnpm@12.10.1`); the Electron binary is downloaded separately by `pnpm exec install-electron`. packaging also needs Rust (MSVC toolchain) and C++ build tools.
 
 ```powershell
 git clone https://github.com/Firefly-0423/Firefly-Agent.git
 cd Firefly-Agent
-npm ci
-npm run dev
+pnpm install
+pnpm exec install-electron
+pnpm run dev
 ```
 
 | Command | Purpose |
 | --- | --- |
-| `npm run check:renderer` | Type-check the interface |
-| `npm test` | Run Vitest |
-| `npm run validate:skills` | Validate Skill sources and licenses |
-| `npm run check:plugin-sdk` | Check the plugin SDK |
-| `npm run package:win` | Build the NSIS installer (`package:win:dir` for an unpacked directory) |
+| `pnpm run check:renderer` | Type-check the interface |
+| `pnpm test` | Run Vitest |
+| `pnpm run validate:skills` | Validate Skill sources and licenses |
+| `pnpm run check:plugin-sdk` | Check the plugin SDK |
+| `pnpm run package:win` | Build the NSIS installer (`package:win:dir` for an unpacked directory) |
 
 Scripts are described in [scripts/README.md](./scripts/README.md).
 

@@ -110,12 +110,15 @@ describe.runIf(process.platform === "win32")("Windows development launcher", () 
     } finally { fs.writeFileSync(cli, original); }
   });
   it("explains how to start after setup without installing or linking anything", () => {
-    // cmd resolves this current-directory stub before any real npm on PATH.
-    fs.writeFileSync(path.join(project, "npm.cmd"), "@echo off\r\nexit /b 0\r\n");
+    // cmd resolves this current-directory stub before any real pnpm on PATH.
+    fs.writeFileSync(path.join(project, "pnpm.cmd"), "@echo off\r\nexit /b 0\r\n");
     const result = launch([], {}, true, "setup.bat");
     expect(result.code, result.output).toBe(0);
     expect(result.output).toContain("Setup complete");
     expect(result.output).toContain("Run start.bat");
+    // Registering the global command is a separate, opt-in step.
+    expect(result.output).toContain('Optional: run "setup.bat link"');
+    expect(result.output).not.toContain("注册全局 firefly 命令");
     expect(result.output).toContain("output\\development-profile");
   });
   it("propagates an Electron executable resolution failure without writing profile data", () => {

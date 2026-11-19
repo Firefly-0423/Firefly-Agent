@@ -84,6 +84,48 @@ describe("loaded-run cache and evidence reads", () => {
   });
 });
 
+describe("insertion receipt evidence", () => {
+  const receipt = { messageId: "inserted-message", sourceRunId: "audit-bronze", revision: 2, round: 3, order: 1 };
+
+  it("projects only the saved receipt after reopening and evicting a run with a megabyte of messages", () => {
+    const { root, store, location } = storage();
+    store.checkpoint("audit-bronze", { messages: [{ role: "user", content: "a".repeat(1024 * 1024) }], insertions: [receipt] });
+    store.markTerminal("audit-bronze", "completed");
+    const request = { provider: "custom", model: "fixture-model", contextWindowTokens: 64000, promptFingerprint: "p", toolSchemaFingerprint: "t" };
+    for (let index = 0; index < 30; index++) {
+      const runId = `later-run-${index}`;
+      store.create({ runId, conversationId: "dialog-later", messages: [], request });
+      store.markTerminal(runId, "completed");
+    }
+    const reopened = new AgentRunStore(root);
+    const read = vi.spyOn(fs, "readFileSync");
+    const evidence = reopened.insertionEvidence("audit-bronze");
+    expect(evidence).toEqual({ conversationId: "dialog-bronze", insertions: [receipt] });
+    evidence!.insertions![0].round = 99;
+    expect(reopened.insertionEvidence("audit-bronze")).toEqual({ conversationId: "dialog-bronze", insertions: [receipt] });
+    expect(read.mock.calls.filter(([file]) => file === location("sessions/audit-bronze.json"))).toHaveLength(0);
+  });
+
+  it("keeps the last persisted receipt after a failed write and clears it after deletion", () => {
+    const { store } = storage();
+    expect(store.insertionEvidence("audit-bronze")).toEqual({ conversationId: "dialog-bronze", insertions: [] });
+    store.checkpoint("audit-bronze", { insertions: [receipt] });
+    vi.spyOn(fs, "renameSync").mockImplementationOnce(() => { throw new Error("disk full"); });
+    expect(() => store.checkpoint("audit-bronze", { insertions: [{ ...receipt, round: 9 }] })).toThrow("disk full");
+    expect(store.insertionEvidence("audit-bronze")).toEqual({ conversationId: "dialog-bronze", insertions: [receipt] });
+    store.deleteConversation("dialog-bronze");
+    expect(store.insertionEvidence("audit-bronze")).toBeNull();
+  });
+
+  it("returns null for an unreadable snapshot without rewriting it", () => {
+    const { store, location } = storage();
+    const damaged = location("sessions/damaged-run.json");
+    fs.writeFileSync(damaged, '{"schemaVersion":1,"conversationId":"dialog-bronze","messages":[', "utf8");
+    expect(store.insertionEvidence("damaged-run")).toBeNull();
+    expect(fs.readFileSync(damaged, "utf8")).toBe('{"schemaVersion":1,"conversationId":"dialog-bronze","messages":[');
+  });
+});
+
 describe("Durable main-run ledger", () => {
   it("writes one session for a planned batch while journaling each call in order", () => {
     const { store, location } = storage();

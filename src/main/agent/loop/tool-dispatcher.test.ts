@@ -37,6 +37,13 @@ const scopeFor = (coordinator: RunExecutionCoordinator) => ({
 });
 
 describe("Dispatch facts and model-visible output", () => {
+  it.each(["enter_plan_mode", "write_plan"])("rejects %s in Chat without publishing a plan event", async name => {
+    const onEvent = vi.fn();
+    const result = await dispatchToolCall({ id: "plan-attempt", name, arguments: "{}" },
+      { ...setup(), toolContext: { mode: "chat", userQuery: "discuss", conversationId: "chat-only" }, onEvent });
+    expect(result).toEqual({ outcome: "failure", category: "runtime_safety", tool: name, message: "Chat 模式不支持计划工具" });
+    expect(onEvent.mock.calls).toEqual([[{ type: "tool_start", toolCallId: "plan-attempt", toolName: name, args: {} }]]);
+  });
   it("prunes only above the inclusive 30000-code-point threshold, retaining both ends", () => {
     const full = "BEGIN_EVIDENCE\n" + "q".repeat(31000) + "\nEND_EVIDENCE";
     const pruned = truncateOutput(full, DEFAULT_TRUNCATION, "publish-pearl");

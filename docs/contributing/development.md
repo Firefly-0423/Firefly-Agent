@@ -6,21 +6,24 @@
 
 ## 环境与构建
 
-需要 Windows、Node.js 24 及以上、npm 10 及项目锁文件对应的依赖。
+需要 Windows、Node.js 24 及以上和 pnpm 12.10.1（`npm install --global pnpm@12.10.1`），依赖按 `pnpm-lock.yaml` 安装。`node_modules` 用平铺布局（`pnpm-workspace.yaml` 的 `nodeLinker: hoisted`），Electron 程序不随安装下载，要单独运行 `pnpm exec install-electron`。
+
+从 npm 时期的检出切换过来：先删除整个 `node_modules`，再按下面的命令重新安装。
 
 ```powershell
-npm ci
-npm run check:renderer
-npm run build
+pnpm install --frozen-lockfile
+pnpm exec install-electron
+pnpm run check:renderer
+pnpm run build
 ```
 
-`npm run build` 生成 Main、Preload、CLI 和 Renderer，不制作安装器。开发模式使用 `npm run dev`。单元测试使用 `npm test`，局部测试使用 `npx vitest run <实际测试文件>`。
+`pnpm run build` 生成 Main、Preload、CLI 和 Renderer，不制作安装器。开发模式使用 `pnpm run dev`。单元测试使用 `pnpm test`，局部测试使用 `pnpm test <实际测试文件>` 或 `pnpm exec vitest run <实际测试文件>`。注意不要写成 `pnpm test -- <文件>`：pnpm 会把 `--` 原样交给 Vitest，结果跑的是全量。
 
-Windows 真实 Bash 用例要求 `FIREFLY_TEST_BASH` 指向已核对存在的 Git Bash `bash.exe` 绝对路径。`npm test` 仅扫描 `vitest.config.ts` 列出的目录；`scripts` 下的 `.test.mjs` 不在该集合内，需按 [脚本说明](../../scripts/README.md) 单独执行。构建不代替 `check:renderer`，历史测试数字不代表当前工作树通过。
+Windows 真实 Bash 用例要求 `FIREFLY_TEST_BASH` 指向已核对存在的 Git Bash `bash.exe` 绝对路径。`pnpm test` 仅扫描 `vitest.config.ts` 列出的目录；`scripts` 下的 `.test.mjs` 不在该集合内，需按 [脚本说明](../../scripts/README.md) 单独执行。构建不代替 `check:renderer`，历史测试数字不代表当前工作树通过。
 
 项目归档调用使用 `yauzl@3.4.0` 与 `src/shared/zip-extraction.ts`。旧审计结论保留其阶段意义，不作为当前安全认证。
 
-原生截图助手源码位于 `native/`，manifest 为 `native/Cargo.toml`，构建入口是 `npm run build:screenshot-helper`。此步骤还需要 Rust/Cargo 的 Windows MSVC 工具链；编译出的 `resources/bin/firefly-screenshot.exe` 是本地产物，不进入 Git。Windows 本地打包脚本见 `package.json` 和 `electron-builder.yml`，NSIS 源码为 `build/installer.nsh`。
+原生截图助手源码位于 `native/`，manifest 为 `native/Cargo.toml`，构建入口是 `pnpm run build:screenshot-helper`。此步骤还需要 Rust/Cargo 的 Windows MSVC 工具链；编译出的 `resources/bin/firefly-screenshot.exe` 是本地产物，不进入 Git。Windows 本地打包脚本见 `package.json` 和 `electron-builder.yml`，NSIS 源码为 `build/installer.nsh`。
 
 ## 数据与发布
 

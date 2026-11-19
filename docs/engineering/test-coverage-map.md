@@ -6,10 +6,10 @@
 
 | 入口 | 测试集合 | 前提 | CI 位置与证据 |
 |---|---|---|---|
-| `npm test` | vitest.config.ts 的七组 include | 安装依赖，Git Bash；原生用例需对应 helper | test.yml 的 Run full test suite 通过 scripts/ci/run-vitest.ps1 无文件参数运行 Vitest |
+| `pnpm test` | vitest.config.ts 的七组 include | 安装依赖，Git Bash；原生用例需对应 helper | test.yml 的 Run full test suite 通过 scripts/ci/run-vitest.ps1 无文件参数运行 Vitest |
 | `node --test "scripts/**/*.test.mjs"` | 下表 26 个文件，含 eval 与 marketplace | Node 24 CI，依赖与合成临时目录 | test.yml 的 Run Node script tests，失败日志随现有 evidence artifact 上传 |
-| `npm run test:memory-history-zero-write` | 1 个独立 acceptance 文件，12 项 | Windows 本地 NTFS、独立根与 TEMP/TMP 相同、debug/release history-read helper | test.yml 的 Run native memory history zero-write acceptance，在已有 release helpers 构建后显式构建 debug helper |
-| `npm run test:plugin-examples` | scripts/plugin-sdk/test-examples.mjs 从打包 SDK 编译和冒烟示例 | check:plugin-sdk 生成可用包 | plugin-sdk.yml 的 Compile and smoke-test plugin examples |
+| `pnpm run test:memory-history-zero-write` | 1 个独立 acceptance 文件，12 项 | Windows 本地 NTFS、独立根与 TEMP/TMP 相同、debug/release history-read helper | test.yml 的 Run native memory history zero-write acceptance，在已有 release helpers 构建后显式构建 debug helper |
+| `pnpm run test:plugin-examples` | scripts/plugin-sdk/test-examples.mjs 从打包 SDK 编译和冒烟示例 | check:plugin-sdk 生成可用包 | plugin-sdk.yml 的 Compile and smoke-test plugin examples |
 | 两条 workspace Cargo 测试 | workspace_handle_contract、lib workspace_access | Windows，本地 NTFS，FF_WORKSPACE_TEST_ROOT | test.yml 的 Build workspace helper and run its native tests |
 
 默认 Vitest 路径为 `src/plugins/**/*.test.ts`、`src/main/**/*.test.ts`、`src/renderer/**/*.test.ts`、`src/shared/**/*.test.ts`、`src/cli/**/*.test.ts`、`skills/**/tests/**/*.test.ts`、`plugin-sdk/src/**/*.test.ts`。独立 acceptance 使用 `scripts/testing/vitest.memory-history-zero-write.config.ts`，不匹配这些默认路径。
@@ -55,8 +55,8 @@ Node 24 官方测试运行器文档提供带引号的 glob 示例，本次命令
 
 ```powershell
 $env:NODE_OPTIONS='--no-experimental-webstorage'
-npm run build:history-helpers
-npm run build:workspace-helper
+pnpm run build:history-helpers
+pnpm run build:workspace-helper
 cargo build --locked --manifest-path native/Cargo.toml --features history-read --bin firefly-history-read
 New-Item -ItemType Directory -Force output/docs-eng/native-root | Out-Null
 $env:FF_HISTORY_TEST_ROOT=(Resolve-Path output/docs-eng/native-root).Path
@@ -64,7 +64,7 @@ $env:TEMP=$env:FF_HISTORY_TEST_ROOT
 $env:TMP=$env:FF_HISTORY_TEST_ROOT
 $env:FF_HISTORY_HELPER=(Resolve-Path native/target/debug/firefly-history-read.exe).Path
 $env:FF_HISTORY_RELEASE_HELPER=(Resolve-Path native/target/release/firefly-history-read.exe).Path
-npm run test:memory-history-zero-write
+pnpm run test:memory-history-zero-write
 ```
 
 路径由本工作区实际构建产生。debug helper 包含取消屏障，release helper 验证忽略 debug 环境变量。缺少根目录时 suite 直接以 `EXPLICIT_WINDOWS_NTFS_SYNTHETIC_ROOT_REQUIRED` 失败；缺少 helper 以 `EXACT_SYNTHETIC_HELPER_REQUIRED` 失败。零项执行不会被登记为通过。CI 根位于 runner.temp 并只在该步骤设置 TEMP/TMP，不修改默认测试配置。

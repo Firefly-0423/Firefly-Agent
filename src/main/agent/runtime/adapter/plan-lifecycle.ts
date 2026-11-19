@@ -13,7 +13,7 @@ export async function preparePlanRunContext(request: {
   planContextBlock?: string;
   planState: ReturnType<typeof getPlanState> | undefined;
 }> {
-  const eligible = request.mode === "code" || request.mode === "chat";
+  const eligible = request.mode === "code";
   if (eligible && getPlanState(request.threadId) === "PLAN_REVIEW") {
     supplementPlan(request.threadId);
     logger.info(LogTag.Runtime, "plan: new message during PLAN_REVIEW, back to PLAN_DISCUSSING");
@@ -42,7 +42,7 @@ export function completePlanRun(completion: {
   threadId: string;
   mode?: ConversationMode;
 }): void {
-  if (completion.mode !== "code" && completion.mode !== "chat") return;
+  if (completion.mode !== "code") return;
   if (completion.planState !== "EXECUTING") return;
   const archivedPath = completeExecution(completion.threadId);
   if (!archivedPath) return;
