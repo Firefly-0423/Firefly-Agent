@@ -15,10 +15,10 @@
 ## 运行
 
 ```bash
-npm run eval:memory-history                       # 规模 250 和 512，session 与 window 两种粒度，只看 dev
-npm run eval:memory-history -- --sizes 250 --granularity session
-npm run eval:memory-history -- --split holdout    # 最后一次对比才用
-npm run test:eval                                 # 指标与数据集的单元测试
+pnpm run eval:memory-history                       # 规模 250 和 512，session 与 window 两种粒度，只看 dev
+pnpm run eval:memory-history --sizes 250 --granularity session
+pnpm run eval:memory-history --split holdout    # 最后一次对比才用
+pnpm run test:eval                                 # 指标与数据集的单元测试
 ```
 
 参数：`--sizes`（会话数，逗号分隔）、`--granularity`（`session`、`window`）、`--split`（`dev`、`holdout`、`all`）、`--seed`、`--out`。

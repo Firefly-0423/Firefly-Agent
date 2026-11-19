@@ -61,6 +61,6 @@
   - 随应用离线包由 `scripts/plugin-marketplace/build.mjs` 从 `examples/<id>/` 构建至 `resources/plugin-marketplace/`，并与线上使用同一套确定性 ZIP 打包规则。
   - 安全边界实现与测试当前分别位于 `src/main/features/plugins/host/plugin-marketplace.ts` 与 `src/main/knowledge/skills/external-boundary.test.ts`（`plugin-catalog-publishing.md` 中仍沿用主进程七层分层前的旧文件名提示）。
 - **发布 `@firefly_wu/plugin-sdk` 到 npm**：见 [plugin-sdk-publishing.md](../plugin-sdk-publishing.md)
-  - 通过 `.github/workflows/plugin-sdk-publish.yml` 使用 npm OIDC Trusted Publishing 发布，版本标签格式为 `plugin-sdk-v<version>`，发布前执行 `npm run check:plugin-sdk` 与 `npm run test:plugin-examples`。
+  - 通过 `.github/workflows/plugin-sdk-publish.yml` 使用 npm OIDC Trusted Publishing 发布，版本标签格式为 `plugin-sdk-v<version>`，发布前执行 `pnpm run check:plugin-sdk` 与 `pnpm run test:plugin-examples`。
 - **宿主生命周期与真实 Electron 验收参考**：见 [plugin-sdk/LIFECYCLE.md](../../plugin-sdk/LIFECYCLE.md) 与 [plugin-lifecycle-validation.md](../plugin-lifecycle-validation.md)
   - 涉及更新重启切换、失败恢复、版本目录清理与面板边界校验时，可对照其中的测试矩阵与验证方式执行验证。
