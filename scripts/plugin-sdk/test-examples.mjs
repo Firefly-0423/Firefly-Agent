@@ -6,16 +6,15 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { npmCliEntry } from "./npm-cli.mjs";
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..");
 const sdkRoot = path.join(repoRoot, "plugin-sdk");
 const examplesRoot = path.join(repoRoot, "examples");
 const EXAMPLE_IDS = ["weather-tool", "long-term-memory", "scheduled-automation"];
 
-// npm 的命令行入口：优先用 npm run 注入的 npm_execpath（跨平台，指向真实的 npm-cli.js，
-// Linux CI 上 node 和 npm 不在同一目录）；直接运行本脚本时退回 Windows 安装器的目录布局
-const npmEntry = process.env.npm_execpath
-  ?? path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
+// 打包和安装 SDK 一律用真正的 npm，模拟外部插件作者的用法；pnpm run 下 npm_execpath 指向 pnpm，见 npm-cli.mjs。
+const npmEntry = npmCliEntry();
 const tscEntry = path.join(repoRoot, "node_modules", "typescript", "bin", "tsc");
 
 function fail(message) {

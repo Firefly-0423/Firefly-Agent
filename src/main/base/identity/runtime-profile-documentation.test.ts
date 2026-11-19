@@ -16,9 +16,9 @@ async function launcher() {
 }
 
 describe("runtime profile startup documentation", () => {
-  it.each(["README.md", "README.en.md"])("%s starts from source with plain npm commands", (file) => {
+  it.each(["README.md", "README.en.md"])("%s starts from source with plain pnpm commands", (file) => {
     const source = fs.readFileSync(path.resolve(file), "utf8");
-    expect(source).toMatch(/npm ci\r?\nnpm run dev\r?\n```/);
+    expect(source).toMatch(/pnpm install\r?\npnpm exec install-electron\r?\npnpm run dev\r?\n```/);
     expect(source).not.toContain("$env:FIREFLY_RUNTIME_PROFILE");
     expect(source).not.toContain("$env:FIREFLY_ISOLATION_ROOT");
     expect(source).not.toMatch(/开发与构建实例使用同一正式数据身份|Development and built instances share the production data identity/);

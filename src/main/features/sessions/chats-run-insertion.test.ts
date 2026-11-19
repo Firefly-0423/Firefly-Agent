@@ -79,11 +79,12 @@ it("projects saved delivery receipts into history only for the owning conversati
     expect(await markers()).toEqual({ first: { round: 3, order: 1 }, second: undefined, other: undefined, "wrong-version": undefined });
     expect(store.getSession(id)?.messages.find(message => message.id === "first")?.runInsertion).not.toHaveProperty("delivery");
     const read = runs.insertionEvidence.bind(runs);
-    vi.spyOn(runs, "insertionEvidence").mockImplementation(runId => {
+    const readEvidence = vi.spyOn(runs, "insertionEvidence").mockImplementation(runId => {
         if (runId === "run-B") throw new Error("AGENT_RUN_READ_FAILED");
         return read(runId);
     });
     expect(await markers()).toEqual({ first: { round: 3, order: 1 }, second: undefined, other: undefined, "wrong-version": undefined });
+    expect(readEvidence.mock.calls).toEqual([["run-A"], ["run-B"]]);
 });
 
 describe("run insertion marker (#96)", () => {

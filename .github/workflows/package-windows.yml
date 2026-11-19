@@ -22,14 +22,18 @@ jobs:
           }
           Write-Host "标签与 package.json 版本一致：$pkg"
         shell: pwsh
+      - name: Install pnpm
+        run: npm install --global pnpm@12.10.1
       - name: Install dependencies
-        run: npm ci --foreground-scripts
-      - name: Verify Electron installation
-        run: npx electron --version
+        run: pnpm install --frozen-lockfile
+      - name: Prepare and verify Electron
+        run: |
+          pnpm exec install-electron
+          pnpm exec electron --version
       - name: Build NSIS installer
-        run: npm run package:win
+        run: pnpm run package:win
       - name: Verify installer artifacts
-        run: npm run verify:installer
+        run: pnpm run verify:installer
       - name: Upload installer artifacts
         uses: actions/upload-artifact@v7
         with:

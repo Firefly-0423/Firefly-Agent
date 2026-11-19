@@ -1,0 +1,46 @@
+packages:
+  - .
+
+# 与 npm 布局一致的平铺 node_modules：Electron 打包、原生模块和按根目录路径读取依赖的脚本都依赖这种布局。
+nodeLinker: hoisted
+
+allowBuilds:
+  # 打包与渲染构建用的 esbuild 原生二进制。
+  esbuild: true
+  # electron-builder 的传递依赖，只在 Squirrel.Windows 目标下需要；本项目打 NSIS 安装包，用不到。
+  electron-winstaller: false
+  # 安装脚本只打印版本提示，不影响运行。
+  protobufjs: false
+
+# 从 npm 的 package.json overrides 逐条移植，保持依赖安全修复的解析结果不变。
+overrides:
+  # 与根依赖的 rxjs 版本一致（原 npm 写法 $rxjs）。
+  '@ag-ui/client>rxjs': ^7.8.2
+  '@hono/node-server': 2.1.5
+  '@xenova/transformers>sharp': 0.35.5
+  '@xmldom/xmldom': 0.8.15
+  axios: 1.20.0
+  'brace-expansion@^1': 1.1.21
+  'brace-expansion@^2': 2.1.7
+  'brace-expansion@^5': 5.0.12
+  'exceljs>uuid': 11.1.1
+  fast-uri: 3.1.9
+  hono: 4.13.14
+  ip-address: 10.7.5
+  'js-yaml@^3': 3.15.2
+  'js-yaml@^4': 4.3.2
+  'jsdom>undici': 8.10.2
+  # 与根依赖的 katex 版本一致（原 npm 写法 $katex）。
+  katex: 0.18.2
+  mermaid: 11.16.1
+  'nanoid@^3': 3.3.18
+  'nanoid@^5': 5.1.16
+  node-forge: 1.4.2
+  postcss: 8.5.23
+  protobufjs: 7.6.5
+  proxy-addr: 2.0.8
+  qs: 6.16.2
+  shell-quote: 1.11.0
+  source-map-js: 1.2.2
+  undici: 7.30.1
+  zod: 4.6.7

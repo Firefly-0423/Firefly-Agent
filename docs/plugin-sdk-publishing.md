@@ -10,9 +10,9 @@ npm only lets you configure a trusted publisher for a package that already exist
 2. From a clean checkout of the commit you want to release, build and check the package:
 
    ```bash
-   npm ci
-   npm run check:plugin-sdk
-   npm run test:plugin-examples
+   pnpm install --frozen-lockfile
+   pnpm run check:plugin-sdk
+   pnpm run test:plugin-examples
    ```
 
 3. Log in and publish:

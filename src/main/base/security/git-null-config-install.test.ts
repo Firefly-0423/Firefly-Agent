@@ -88,6 +88,6 @@ describe("Git null-device adaptation installation", () => {
   it("stays in the normal install path without relaxing the audit command", () => {
     const metadata = JSON.parse(fs.readFileSync("package.json", "utf8"));
     expect(metadata.scripts.postinstall).toBe("node scripts/security/git-null-config-backport.mjs");
-    expect(fs.readFileSync(".github/workflows/test.yml", "utf8")).toContain("npm audit --omit=dev --json > npm-audit-prod.json");
+    expect(fs.readFileSync(".github/workflows/test.yml", "utf8")).toContain("pnpm audit --prod --json > pnpm-audit-prod.json");
   });
 });

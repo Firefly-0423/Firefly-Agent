@@ -15,9 +15,9 @@
 使用 Electron 43.7.0、仓库已有 Playwright 和生产构建的实际页面，驱动可复跑：
 
 ```powershell
-npm run build:main
-npm run build:preload
-npm run build:renderer
+pnpm run build:main
+pnpm run build:preload
+pnpm run build:renderer
 node scripts/verify/plugin-electron-ui.cjs --full
 ```
 
