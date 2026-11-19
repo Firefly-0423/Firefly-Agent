@@ -2,7 +2,7 @@
 
 const path = require("node:path");
 const os = require("node:os");
-const { execFile } = require("node:child_process");
+const childProcess = require("node:child_process");
 
 // ---------------------------------------------------------------------------
 // 模块内状态：几次采样之间需要记住的东西
@@ -18,6 +18,12 @@ const memo = {
   net: null,
 };
 
+function resetSamplingState() {
+  memo.cpu = null;
+  memo.net = null;
+  memo.smiUsable = true;
+}
+
 const GIB = 1024 ** 3;
 const round1 = (n) => Math.round(n * 10) / 10;
 
@@ -25,7 +31,7 @@ const round1 = (n) => Math.round(n * 10) / 10;
 function spawnQuiet(command, argv, timeoutMs = 5000) {
   return new Promise((resolve) => {
     const opts = { timeout: timeoutMs, windowsHide: true };
-    execFile(command, argv, opts, (err, out, errOut) => {
+    childProcess.execFile(command, argv, opts, (err, out, errOut) => {
       resolve({ ok: !err, stdout: String(out || ""), stderr: String(errOut || "") });
     });
   });
@@ -41,18 +47,22 @@ function powershell(script, timeoutMs) {
 // CPU：靠 os.cpus() 前后两次累计值相减，不起子进程
 // ---------------------------------------------------------------------------
 function cpuUsagePercent() {
+  const cpus = os.cpus();
+  if (!Array.isArray(cpus) || cpus.length === 0) return null;
   let idle = 0;
   let total = 0;
-  for (const { times } of os.cpus()) {
+  for (const { times } of cpus) {
     idle += times.idle;
     total += times.user + times.nice + times.sys + times.idle + times.irq;
   }
+  if (!Number.isFinite(idle) || !Number.isFinite(total)) return null;
   const previous = memo.cpu;
   memo.cpu = { idle, total };
   if (!previous) return null;
+  const idleDelta = idle - previous.idle;
   const totalDelta = total - previous.total;
-  if (!(totalDelta > 0)) return null;
-  const busy = 1 - (idle - previous.idle) / totalDelta;
+  if (!(totalDelta > 0) || idleDelta < 0 || idleDelta > totalDelta) return null;
+  const busy = 1 - idleDelta / totalDelta;
   return Math.max(0, Math.min(100, busy * 100));
 }
 
@@ -91,7 +101,7 @@ async function readGpu() {
 function makeMiscScript() {
   const collect = {
     disks: "$r.disks = @(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=3' | Select-Object DeviceID,Size,FreeSpace)",
-    network: "$net = Get-NetAdapterStatistics -ErrorAction SilentlyContinue | Measure-Object -Property ReceivedBytes,SentBytes -Sum; $r.net = @{ r = [double]$net.ReceivedBytes; s = [double]$net.SentBytes }",
+    network: "$net = @(Get-NetAdapterStatistics -ErrorAction SilentlyContinue | Measure-Object -Property ReceivedBytes,SentBytes -Sum); $rx = ($net | Where-Object Property -eq 'ReceivedBytes' | Select-Object -First 1).Sum; $tx = ($net | Where-Object Property -eq 'SentBytes' | Select-Object -First 1).Sum; $r.net = if ($rx -ne $null -and $tx -ne $null) { @{ r = [double]$rx; s = [double]$tx } } else { $null }",
     battery: "$bat = Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue; if ($bat) { $r.bat = @{ p = [int]$bat.EstimatedChargeRemaining; charging = ($bat.BatteryStatus -eq 2) } } else { $r.bat = $null }",
     gpu: "$g = Get-CimInstance Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine -ErrorAction SilentlyContinue | Measure-Object -Property UtilizationPercentage -Sum; if ($g.Sum -ne $null) { $r.gpuEngine = [math]::Round([double]$g.Sum, 1) } else { $r.gpuEngine = $null }",
   };
@@ -114,7 +124,15 @@ async function readWindowsMisc() {
 // 网络速率：当前累计字节减去上次累计字节，再除以间隔秒数
 // ---------------------------------------------------------------------------
 function networkRate(counters) {
-  if (!counters || !Number.isFinite(counters.r) || !Number.isFinite(counters.s)) return null;
+  if (
+    !counters ||
+    !Number.isFinite(counters.r) ||
+    !Number.isFinite(counters.s) ||
+    counters.r < 0 ||
+    counters.s < 0
+  ) {
+    return null;
+  }
   const at = Date.now();
   const bytes = counters.r + counters.s;
   const before = memo.net;
@@ -239,17 +257,34 @@ async function collectStatus() {
   return out;
 }
 
+function extractDriveLetter(value) {
+  if (typeof value !== "string") return null;
+  const match = /^\s*([a-z])(?::(?:[\\/].*)?)?\s*$/i.exec(value);
+  return match ? match[1].toUpperCase() : null;
+}
+
+function resolveSystemDrive(env = process.env) {
+  for (const key of ["SystemDrive", "SYSTEMDRIVE", "SystemRoot", "SYSTEMROOT", "windir", "WINDIR"]) {
+    const letter = extractDriveLetter(env?.[key]);
+    if (letter) return letter;
+  }
+  return null;
+}
+
 async function diskUsage(drive) {
-  const letter = drive ? drive.toUpperCase() : "C";
-  const res = await powershell(
-    `$d = Get-PSDrive -Name "${letter}" -ErrorAction SilentlyContinue; if ($d) { "$($d.Used) $($d.Free)" } else { Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='${letter}:'" -ErrorAction SilentlyContinue | ForEach-Object { "$($_.Size - $_.FreeSpace) $($_.FreeSpace)" } }`,
-  );
+  const targetLetter = drive ? extractDriveLetter(drive) : resolveSystemDrive();
+  if (drive && !targetLetter) return null;
+  const script = targetLetter
+    ? `$letter = '${targetLetter}'; $d = Get-PSDrive -Name $letter -ErrorAction SilentlyContinue; if ($d -and $d.Used -ne $null -and $d.Free -ne $null) { "$letter $($d.Used) $($d.Free)" } else { Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$($letter):'" -ErrorAction SilentlyContinue | Select-Object -First 1 | ForEach-Object { "$letter $($_.Size - $_.FreeSpace) $($_.FreeSpace)" } }`
+    : "$disk = $null; $sys = (Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue).SystemDrive; if ($sys) { $disk = Get-CimInstance Win32_LogicalDisk -Filter \"DeviceID='$sys'\" -ErrorAction SilentlyContinue | Select-Object -First 1 }; if (-not $disk) { $disk = Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=3' -ErrorAction SilentlyContinue | Select-Object -First 1 }; if ($disk -and $disk.DeviceID) { \"$($disk.DeviceID.TrimEnd(':')) $($disk.Size - $disk.FreeSpace) $($disk.FreeSpace)\" }";
+  const res = await powershell(script);
   if (!res.ok || !res.stdout.trim()) return null;
-  const [usedText, freeText] = res.stdout.trim().split(/\s+/);
+  const [rawLetter, usedText, freeText] = res.stdout.trim().split(/\s+/);
+  const resolvedLetter = targetLetter ?? extractDriveLetter(rawLetter);
   const used = Number(usedText);
   const free = Number(freeText);
-  const sane = Number.isFinite(used) && Number.isFinite(free) && used + free > 0;
-  return sane ? { drive: letter, used, free, total: used + free } : null;
+  const sane = Boolean(resolvedLetter) && Number.isFinite(used) && Number.isFinite(free) && used >= 0 && free >= 0 && used + free > 0;
+  return sane ? { drive: resolvedLetter, used, free, total: used + free } : null;
 }
 
 async function collectDisk(drive) {
@@ -318,9 +353,13 @@ const windowActions = {
 
 const systemStatusPlugin = {
   register(ctx) {
+    resetSamplingState();
     ctx.registerTool(makeStatusTool());
     ctx.registerTool(makeDiskTool());
     ctx.registerIpc("snapshot", () => collectSnapshot());
+    ctx.onDispose(() => {
+      resetSamplingState();
+    });
     ctx.log("系统状态插件已注册: system-status_status / system-status_disk");
   },
 
