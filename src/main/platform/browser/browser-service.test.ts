@@ -344,7 +344,7 @@ describe("Main browser service using the real Session/epoch controller", () => {
     expect(f.changed).toHaveLength(notifications); expect(f.service.credentialsFor(native, challenge)).toBeNull();
     expect(f.service.isRegisteredBrowser(native)).toBe(true); await f.service.dispose();
   });
-  it.each(["blur", "hide"])("a queued layout cannot undo %s until trusted restoration", async event => {
+  it.each(["minimize", "hide"])("a queued layout cannot undo %s until trusted restoration", async event => {
     const f = fixture(), opened = await f.service.dispatch(f.sender, { kind: "open", url: "https://example.com/" });
     if (!opened.ok || !opened.value) throw Error("page missing");
     const command = { kind: "layout", browserId: opened.value.browserId, bounds: { x: 1, y: 2, width: 100, height: 100 } };
@@ -352,7 +352,7 @@ describe("Main browser service using the real Session/epoch controller", () => {
     (f.host as unknown as EventEmitter).emit(event);
     const before = f.effects.filter(effect => effect === "attach").length;
     await f.service.dispatch(f.sender, command); expect(f.effects.filter(effect => effect === "attach")).toHaveLength(before);
-    (f.host as unknown as EventEmitter).emit(event === "blur" ? "focus" : "show");
+    (f.host as unknown as EventEmitter).emit(event === "minimize" ? "restore" : "show");
     await f.service.dispatch(f.sender, command); expect(f.effects.filter(effect => effect === "attach")).toHaveLength(before + 1); await f.service.dispose();
   });
   it("clips negative-origin rectangles by their original edges and detaches fully offscreen layouts", async () => {
@@ -447,7 +447,7 @@ describe("Agent operations require the presented page", () => {
       expect(f.effects).not.toContain("observe");
     } finally { await f.service.dispose(); }
   });
-  it.each(["null-layout", "offscreen", "blur", "hide", "overlay"])("blocks background work after %s and still permits cleanup", async reason => {
+  it.each(["null-layout", "offscreen", "blur", "hide", "minimize", "overlay"])("blocks background work after %s and still permits cleanup", async reason => {
     const f = fixture(false, async () => true);
     const run = { conversationId: "a", runId: "run", signal: new AbortController().signal, isCurrent: () => true };
     try {
@@ -458,7 +458,19 @@ describe("Agent operations require the presented page", () => {
       if (reason === "null-layout") await f.service.dispatch(f.sender, { kind: "layout", browserId: page.value.browserId, bounds: null });
       else if (reason === "offscreen") await f.service.dispatch(f.sender, { kind: "layout", browserId: page.value.browserId, bounds: { x: 900, y: 0, width: 100, height: 100 } });
       else if (reason === "overlay") f.service.setTrustedOverlay(f.host, true);
-      else (f.host as unknown as EventEmitter).emit(reason);
+      else {
+        const start = f.effects.length;
+        (f.host as unknown as EventEmitter).emit(reason);
+        await showPage(f);
+        const effects = f.effects.slice(start);
+        if (reason === "blur") {
+          expect(effects).not.toContain("detach");
+          expect(effects).toContain("attach");
+        } else {
+          expect(effects).toContain("detach");
+          expect(effects).not.toContain("attach");
+        }
+      }
       const before = [...f.effects];
       for (const operation of ["observe", "click", "type", "navigate", "back", "forward", "reload"]) {
         expect(await f.service.executeAgent(f.owner(), { operation, snapshotId: "observed", ref: "1", text: "query", url: "https://example.com/next" }, run)).toEqual({ ok: false, code: "permission_denied" });
@@ -467,7 +479,7 @@ describe("Agent operations require the presented page", () => {
       expect(await f.service.executeAgent(f.owner(), { operation: "close" }, run)).toMatchObject({ ok: true });
     } finally { await f.service.dispose(); }
   });
-  it("a hide/show cycle invalidates both stored snapshots and pending observations", async () => {
+  it.each(["layout", "blur", "hide", "minimize"] as const)("a %s cycle invalidates both stored snapshots and pending observations", async reason => {
     const f = fixture(false, async () => true), wait = deferred<void>();
     const run = { conversationId: "a", runId: "run", signal: new AbortController().signal, isCurrent: () => true };
     try {
@@ -475,13 +487,21 @@ describe("Agent operations require the presented page", () => {
       const page = await f.service.executeAgent(f.owner(), { operation: "open", url: "https://example.com/" }, run);
       if (!page.ok || !page.value || !("browserId" in page.value)) throw new Error("missing page");
       const browserId = page.value.browserId;
-      const hide = () => f.service.dispatch(f.sender, { kind: "layout", browserId, bounds: null });
+      const cycle = async () => {
+        if (reason === "layout") await f.service.dispatch(f.sender, { kind: "layout", browserId, bounds: null });
+        else {
+          const events = f.host as unknown as EventEmitter;
+          events.emit(reason);
+          events.emit({ blur: "focus", hide: "show", minimize: "restore" }[reason]);
+        }
+        await showPage(f);
+      };
       await showPage(f); await f.service.executeAgent(f.owner(), { operation: "observe" }, run);
-      await hide(); await showPage(f);
+      await cycle();
       expect(await f.service.executeAgent(f.owner(), { operation: "click", snapshotId: "observed", ref: "1" }, run)).toEqual({ ok: false, code: "permission_denied" });
       f.delayObservation(() => wait.promise);
       const pending = f.service.executeAgent(f.owner(), { operation: "observe" }, run);
-      await Promise.resolve(); await hide(); await showPage(f); wait.resolve();
+      await Promise.resolve(); await cycle(); wait.resolve();
       expect(await pending).toEqual({ ok: false, code: "cancelled" });
       expect(await f.service.executeAgent(f.owner(), { operation: "click", snapshotId: "observed", ref: "1" }, run)).toEqual({ ok: false, code: "permission_denied" });
       f.delayObservation(async () => {});
