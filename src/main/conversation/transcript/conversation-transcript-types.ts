@@ -95,7 +95,10 @@ export type TranscriptEnvelopeBase = {
   revision?: number;
   /** userTurnId 或 assistantTurnId。 */
   turnId?: string;
-  /** 生成本条记录的 run。 */
+  /**
+   * 生成本条记录的 run。user 条目上非空的 runId 专用于“运行中插入”：值是它插入的那次运行，
+   * 模型上下文据此套上固定说明（#96）。普通 user 条目不写这个字段，也不要拿它记别的审计信息。
+   */
   runId?: string;
   at: number;
   /** entryId，同时作为幂等主键。 */

@@ -113,6 +113,12 @@ export function recoverInterruptedMessage(message: ChatMessageItem, snapshot: No
   return {
     ...message, streaming: false, reasoningStreaming: false, loading: false, waitingForFirstEvent: false,
     runStage: { kind: "failed", detail: t("chatPage.lastRunInterrupted") },
+    // Nothing is still running after an interruption: a tool or round left "running" (e.g. ask_user
+    // still "waiting for the user's answer") is shown as ended. Display only; the stored record is unchanged.
+    ...(message.toolExecutions ? { toolExecutions: message.toolExecutions.map((tool) => tool.status === "running"
+      ? { ...tool, status: "error" as const, result: tool.result ?? t("chatPage.lastRunInterrupted") } : tool) } : {}),
+    ...(message.agentRounds ? { agentRounds: message.agentRounds.map((round) => round.status === "running"
+      ? { ...round, status: "completed" as const, completedAt: round.completedAt ?? snapshot.updatedAt } : round) } : {}),
     runActivity: {
       ...(message.runActivity ?? { startedAt: snapshot.updatedAt, reasoningMs: 0 }),
       activeReasoningStartedAt: undefined, completedAt: snapshot.updatedAt, keepExpanded: true,

@@ -530,6 +530,12 @@ export function createMainDefaultMemory(options: MainDefaultMemoryOptions) {
             const allowed = requireRunAdjustmentPermit(permit, { sessionId: id, runId: target.runId });
             const capture = runCaptures.get(runContext);
             if (!capture) return fail("MEMORY_RUN_ADJUSTMENT_DENIED");
+            // Already committed to history (#96): finish its transcript entry only. Its source receipt
+            // must already exist; it is never prepared again or minted from history.
+            if (allowed.committed) {
+              if (!source.hasUserReceipt(admission.grant, id, allowed.turnId, allowed.text)) return fail("MEMORY_RUN_ADJUSTMENT_DENIED");
+              return capture.commitRunAdjustment(permit, () => fail("MEMORY_RUN_ADJUSTMENT_DENIED"));
+            }
             // Do not hold the source queue while validating the old S/M/H boundary:
             // validation itself acquires source leases. The adapter owns the canonical
             // queue here, and the owner serializes this against desktop edits.

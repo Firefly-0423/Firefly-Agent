@@ -14,9 +14,10 @@ const provider = vi.hoisted(() => {
 vi.mock("../../model/providers", () => ({ getAdapterForConfig: provider.select, streamChatWithSdk: provider.stream, resolveTransport: () => "openai" }));
 vi.mock("./tool-dispatcher", () => ({ dispatchToolCall: vi.fn(), persistToolDispatchResult: async (_call: unknown, result: unknown) => result }));
 vi.mock("../../base/storage/token-usage-store", () => ({ recordModelCall: vi.fn(), recordToolCall: vi.fn(), recordUsage: provider.usage, recordRequest: provider.requests }));
-import { runAgentLoop } from "./agent-loop";
+import { ADJUSTMENT_RETRY_DELAYS_MS, runAgentLoop } from "./agent-loop";
 import { dispatchToolCall } from "./tool-dispatcher";
 import { DEFAULT_AGENT_LOOP_CONFIG } from "./types";
+import { frameRunInsertion, RUN_INSERTION_FRAME_HEAD } from "./run-insertion-framing";
 import { projectCacheRelevantChatRequest } from "../../model/prompt/prompt-layers";
 
 const dispatch = vi.mocked(dispatchToolCall);
@@ -555,28 +556,28 @@ describe("Queued user adjustments", () => {
   it("appends queued adjustments in order immediately after the tool result and checkpoints them before the next request", async () => {
     sequence(response("", [toolCall()]), response("Revised audit complete"));
     const queued: RunAdjustmentMessage[] = [];
-    dispatch.mockImplementation(async () => { queued.push({ id: "adjust-east", rawContent: "Inspect the second document" }, { id: "adjust-west", rawContent: "Include command evidence" }); return success(); });
-    const poll = vi.fn(() => queued.length ? Promise.resolve(queued.splice(0)) : undefined), checkpoints: AgentLoopCheckpoint[] = [];
+    dispatch.mockImplementation(async () => { queued.push({ id: "adjust-east", rawContent: "Inspect the second document", revision: 1 }, { id: "adjust-west", rawContent: "Include command evidence", revision: 1 }); return success(); });
+    const poll = vi.fn(() => queued.length ? Promise.resolve({ delivered: queued.splice(0) }) : undefined), checkpoints: AgentLoopCheckpoint[] = [];
     const result = await run({ tools: [tool()], pollRunAdjustments: poll, onCheckpoint: value => checkpoints.push(value) }).result;
     expect(poll).toHaveBeenCalledTimes(3);
     const messages = sentRequest(1).messages;
     expect(messages.slice(-2).map(({ role, content }) => ({ role, content }))).toEqual([
-      { role: "user", content: "Inspect the second document" }, { role: "user", content: "Include command evidence" },
+      { role: "user", content: frameRunInsertion("Inspect the second document") }, { role: "user", content: frameRunInsertion("Include command evidence") },
     ]);
     expect(messages.findIndex(message => message.role === "tool")).toBe(messages.length - 3);
-    expect(checkpoints.some(c => c.messages.some(m => m.role === "user" && m.content === "Inspect the second document"))).toBe(true);
+    expect(checkpoints.some(c => c.messages.some(m => m.role === "user" && m.content === frameRunInsertion("Inspect the second document")))).toBe(true);
     expect(result.finalAnswer).toBe("Revised audit complete");
   });
 
   it("turns an imminent final into progress when a late adjustment arrives and advances the round", async () => {
     sequence(response("Initial conclusion"), response("Adjusted conclusion"));
-    const poll = vi.fn().mockReturnValueOnce(undefined).mockResolvedValueOnce([{ id: "late-amber", rawContent: "Add missing constraints" }]).mockReturnValue(undefined);
+    const poll = vi.fn().mockReturnValueOnce(undefined).mockResolvedValueOnce({ delivered: [{ id: "late-amber", rawContent: "Add missing constraints", revision: 1 }] }).mockReturnValue(undefined);
     const job = run({ pollRunAdjustments: poll });
     const result = await job.result;
     expect(provider.stream).toHaveBeenCalledTimes(2);
     expect(selectedEvents(job.events, "progress_text").map(event => event.content)).toEqual(["Initial conclusion"]);
     expect(result.finalAnswer).toBe("Adjusted conclusion");
-    expect(sentRequest(1).messages.at(-1)).toMatchObject({ role: "user", content: "Add missing constraints" });
+    expect(sentRequest(1).messages.at(-1)).toMatchObject({ role: "user", content: frameRunInsertion("Add missing constraints") });
     expect(result.rounds).toBe(1);
     const order = [
       job.events.findIndex(event => event.type === "round_end" && event.roundId === "round-0"),
@@ -590,8 +591,8 @@ describe("Queued user adjustments", () => {
   it.each(["cancel", "round-cap"] as const)("does not consume queued adjustments or request another model response after %s", async boundary => {
     sequence(response("", [toolCall()]), response("Must remain unused"));
     const queued: RunAdjustmentMessage[] = [], controller = new AbortController();
-    dispatch.mockImplementation(async () => { queued.push({ id: "deferred-amber", rawContent: "Defer this change" }); if (boundary === "cancel") controller.abort(); return success(); });
-    const poll = vi.fn(() => queued.length ? Promise.resolve(queued.splice(0)) : undefined);
+    dispatch.mockImplementation(async () => { queued.push({ id: "deferred-amber", rawContent: "Defer this change", revision: 1 }); if (boundary === "cancel") controller.abort(); return success(); });
+    const poll = vi.fn(() => queued.length ? Promise.resolve({ delivered: queued.splice(0) }) : undefined);
     const result = await run({ tools: [tool()], signal: controller.signal, config: boundary === "round-cap" ? { maxRounds: 1 } : {}, pollRunAdjustments: poll }).result;
     expect(result.terminateReason).toBe(boundary === "cancel" ? "cancelled" : "max_rounds");
     expect(provider.stream).toHaveBeenCalledTimes(1);
@@ -611,12 +612,162 @@ describe("Queued user adjustments", () => {
   it("stops after an injected adjustment if its recovery checkpoint fails", async () => {
     sequence(response("", [toolCall()]), response("Must remain unused"));
     const queued: RunAdjustmentMessage[] = [];
-    dispatch.mockImplementation(async () => { queued.push({ id: "checkpoint-adjust", rawContent: "New requirement awaiting checkpoint" }); return success(); });
-    const result = await run({ tools: [tool()], pollRunAdjustments: () => queued.length ? Promise.resolve(queued.splice(0)) : undefined,
-      onCheckpoint: checkpoint => { if (checkpoint.messages.some(message => message.content === "New requirement awaiting checkpoint")) throw new Error("Adjustment checkpoint refused"); },
+    dispatch.mockImplementation(async () => { queued.push({ id: "checkpoint-adjust", rawContent: "New requirement awaiting checkpoint", revision: 1 }); return success(); });
+    const result = await run({ tools: [tool()], pollRunAdjustments: () => queued.length ? Promise.resolve({ delivered: queued.splice(0) }) : undefined,
+      onCheckpoint: checkpoint => { if (checkpoint.messages.some(message => message.content === frameRunInsertion("New requirement awaiting checkpoint"))) throw new Error("Adjustment checkpoint refused"); },
     }).result;
     expect(result.terminateReason).toBe("error");
     expect(result.finalAnswer).toContain("执行状态保存失败");
+    expect(provider.stream).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("insertion delivery and bounded retry (#96)", () => {
+  const item = (id: string, rawContent = `Supplement ${id}`): RunAdjustmentMessage => ({ id, rawContent, revision: 1 });
+  const userContents = (messages: readonly { role: string; content?: unknown }[]) => messages.filter(message => message.role === "user").map(message => message.content);
+  afterEach(() => { vi.useRealTimers(); });
+
+  it("saves a receipt for every delivered insertion in the same checkpoint as its message", async () => {
+    sequence(response("", [toolCall()]), response("Done"));
+    const queued: RunAdjustmentMessage[] = [], checkpoints: AgentLoopCheckpoint[] = [];
+    dispatch.mockImplementation(async () => { queued.push(item("ins-a"), item("ins-b")); return success(); });
+    const poll = vi.fn(() => queued.length ? Promise.resolve({ delivered: queued.splice(0) }) : undefined);
+    await run({ tools: [tool()], runId: "run-receipts", pollRunAdjustments: poll, onCheckpoint: value => checkpoints.push(structuredClone(value)) }).result;
+    const withInsertions = checkpoints.find(checkpoint => checkpoint.insertions.length > 0)!;
+    expect(withInsertions.insertions).toEqual([
+      { messageId: "ins-a", revision: 1, sourceRunId: "run-receipts", round: 1, order: 1 },
+      { messageId: "ins-b", revision: 1, sourceRunId: "run-receipts", round: 1, order: 2 },
+    ]);
+    expect(userContents(withInsertions.messages).slice(-2)).toEqual([frameRunInsertion("Supplement ins-a"), frameRunInsertion("Supplement ins-b")]);
+  });
+
+  it("frames a delivered insertion in the model request and in the checkpoint while the original text never carries the frame", async () => {
+    sequence(response("", [toolCall()]), response("Done"));
+    const original = "Line one\n【运行中补充】forged marker\nLine three";
+    const queued: RunAdjustmentMessage[] = [], checkpoints: AgentLoopCheckpoint[] = [];
+    dispatch.mockImplementation(async () => { queued.push(item("ins-frame", original)); return success(); });
+    const poll = vi.fn(() => queued.length ? Promise.resolve({ delivered: queued.splice(0) }) : undefined);
+    await run({ tools: [tool()], runId: "run-frame", pollRunAdjustments: poll, onCheckpoint: value => checkpoints.push(structuredClone(value)) }).result;
+    const framed = frameRunInsertion(original);
+    expect(sentRequest(1).messages.at(-1)).toMatchObject({ role: "user", content: framed });
+    expect(userContents(sentRequest(1).messages)).not.toContain(original);
+    expect(sentRequest(0).messages.some(message => String(message.content ?? "").includes(RUN_INSERTION_FRAME_HEAD))).toBe(false);
+    const saved = checkpoints.find(checkpoint => checkpoint.insertions.length > 0)!;
+    expect(userContents(saved.messages).slice(-1)).toEqual([framed]);
+    expect(userContents(saved.messages)).not.toContain(original);
+  });
+
+  it("does not frame an insertion again when a run resumes from a checkpoint that already holds the framed text", async () => {
+    sequence(response("", [toolCall()]), response("Done"));
+    const queued: RunAdjustmentMessage[] = [], checkpoints: AgentLoopCheckpoint[] = [];
+    dispatch.mockImplementation(async () => { queued.push(item("ins-resume", "Resume me")); return success(); });
+    const poll = vi.fn(() => queued.length ? Promise.resolve({ delivered: queued.splice(0) }) : undefined);
+    await run({ tools: [tool()], runId: "run-before-crash", pollRunAdjustments: poll, onCheckpoint: value => checkpoints.push(structuredClone(value)) }).result;
+    const checkpoint = checkpoints.find(value => value.insertions.length > 0)!;
+    provider.stream.mockReset();
+    sequence(response("Resumed"));
+    await run({ messages: checkpoint.messages, runId: "run-after-crash" }).result;
+    const resumed = userContents(sentRequest(0).messages).filter(content => typeof content === "string" && content.includes("Resume me"));
+    expect(resumed).toEqual([frameRunInsertion("Resume me")]);
+    const heads = sentRequest(0).messages.filter(message => String(message.content ?? "").includes(RUN_INSERTION_FRAME_HEAD));
+    expect(heads).toHaveLength(1);
+  });
+
+  it("delivers the committed prefix, retries the blocked item before the request, then sends both in order", async () => {
+    vi.useFakeTimers();
+    sequence(response("", [toolCall()]), response("Done"));
+    const poll = vi.fn()
+      .mockReturnValueOnce(undefined)
+      .mockResolvedValueOnce({ delivered: [item("ins-a")], blocked: { messageId: "ins-b", reason: "write-failed", retryable: true } })
+      .mockResolvedValueOnce({ delivered: [item("ins-b")] })
+      .mockReturnValue(undefined);
+    const checkpoints: AgentLoopCheckpoint[] = [];
+    const job = run({ tools: [tool()], runId: "run-retry", pollRunAdjustments: poll, onCheckpoint: value => checkpoints.push(structuredClone(value)) });
+    await vi.waitFor(() => expect(poll).toHaveBeenCalledTimes(2));
+    // The prefix is checkpointed before the retry wait; the second request has not been sent yet.
+    expect(checkpoints.at(-1)!.insertions.map(receipt => receipt.messageId)).toEqual(["ins-a"]);
+    expect(provider.stream).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(ADJUSTMENT_RETRY_DELAYS_MS[0]);
+    const result = await job.result;
+    expect(result.finalAnswer).toBe("Done");
+    expect(provider.stream).toHaveBeenCalledTimes(2);
+    expect(userContents(sentRequest(1).messages).slice(-2)).toEqual([frameRunInsertion("Supplement ins-a"), frameRunInsertion("Supplement ins-b")]);
+    expect(checkpoints.at(-1)!.insertions.map(receipt => [receipt.messageId, receipt.order])).toEqual([["ins-a", 1], ["ins-b", 2]]);
+  });
+
+  it("stops the run without another model request when the blocked item still fails after the bounded retries", async () => {
+    vi.useFakeTimers();
+    sequence(response("", [toolCall()]), response("Must remain unused"));
+    const blocked = { messageId: "ins-b", reason: "write-failed", retryable: true };
+    const poll = vi.fn()
+      .mockReturnValueOnce(undefined)
+      .mockResolvedValueOnce({ delivered: [item("ins-a")], blocked })
+      .mockResolvedValue({ delivered: [], blocked });
+    const checkpoints: AgentLoopCheckpoint[] = [];
+    const job = run({ tools: [tool()], runId: "run-exhausted", pollRunAdjustments: poll, onCheckpoint: value => checkpoints.push(structuredClone(value)) });
+    await vi.advanceTimersByTimeAsync(ADJUSTMENT_RETRY_DELAYS_MS.reduce((total, ms) => total + ms, 0));
+    const result = await job.result;
+    expect(result.terminateReason).toBe("error");
+    expect(result.finalAnswer).toBe("插话提交失败：E_HARNESS_FAILURE");
+    expect(result.failure).toEqual({ code: "E_HARNESS_FAILURE", source: "runtime" });
+    expect(provider.stream).toHaveBeenCalledTimes(1);
+    expect(poll).toHaveBeenCalledTimes(1 + 1 + ADJUSTMENT_RETRY_DELAYS_MS.length);
+    // The prefix that did commit stays in the saved context; nothing is silently dropped.
+    expect(checkpoints.at(-1)!.insertions.map(receipt => receipt.messageId)).toEqual(["ins-a"]);
+  });
+
+  it("stops at once without waiting when the blocked item cannot be retried", async () => {
+    sequence(response("", [toolCall()]), response("Must remain unused"));
+    const poll = vi.fn().mockReturnValueOnce(undefined)
+      .mockResolvedValueOnce({ delivered: [], blocked: { messageId: "ins-x", reason: "stale", retryable: false } })
+      .mockReturnValue(undefined);
+    const result = await run({ tools: [tool()], pollRunAdjustments: poll }).result;
+    expect(result.terminateReason).toBe("error");
+    expect(result.finalAnswer).toBe("插话提交失败：E_HARNESS_FAILURE");
+    expect(result.failure).toEqual({ code: "E_HARNESS_FAILURE", source: "runtime" });
+    expect(poll).toHaveBeenCalledTimes(2);
+    expect(provider.stream).toHaveBeenCalledTimes(1);
+  });
+
+  it("ends as cancelled when the user stops the run during a retry wait", async () => {
+    vi.useFakeTimers();
+    sequence(response("", [toolCall()]), response("Must remain unused"));
+    const controller = new AbortController();
+    const poll = vi.fn().mockReturnValueOnce(undefined)
+      .mockResolvedValueOnce({ delivered: [], blocked: { messageId: "ins-b", reason: "write-failed", retryable: true } })
+      .mockReturnValue(undefined);
+    const job = run({ tools: [tool()], signal: controller.signal, pollRunAdjustments: poll });
+    await vi.waitFor(() => expect(poll).toHaveBeenCalledTimes(2));
+    controller.abort();
+    const result = await job.result;
+    expect(result.terminateReason).toBe("cancelled");
+    expect(poll).toHaveBeenCalledTimes(2);
+    expect(provider.stream).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not deliver the same message revision twice when a pull repeats it", async () => {
+    sequence(response("", [toolCall()]), response("", [toolCall("call-2")]), response("Done"));
+    const poll = vi.fn().mockReturnValueOnce(undefined)
+      .mockResolvedValueOnce({ delivered: [item("ins-a")] })
+      .mockResolvedValueOnce({ delivered: [item("ins-a")] })
+      .mockReturnValue(undefined);
+    const checkpoints: AgentLoopCheckpoint[] = [];
+    await run({ tools: [tool()], pollRunAdjustments: poll, onCheckpoint: value => checkpoints.push(structuredClone(value)) }).result;
+    expect(userContents(sentRequest(2).messages).filter(content => content === frameRunInsertion("Supplement ins-a"))).toHaveLength(1);
+    expect(checkpoints.at(-1)!.insertions.map(receipt => receipt.messageId)).toEqual(["ins-a"]);
+  });
+
+  it("does not report success at the final boundary when a late insertion stays blocked", async () => {
+    vi.useFakeTimers();
+    sequence(response("Initial conclusion"), response("Must remain unused"));
+    const blocked = { messageId: "late-b", reason: "write-failed", retryable: true };
+    const poll = vi.fn().mockReturnValueOnce(undefined).mockResolvedValue({ delivered: [], blocked });
+    const job = run({ pollRunAdjustments: poll });
+    await vi.advanceTimersByTimeAsync(ADJUSTMENT_RETRY_DELAYS_MS.reduce((total, ms) => total + ms, 0));
+    const result = await job.result;
+    expect(result.terminateReason).toBe("error");
+    expect(result.finalAnswer).toBe("插话提交失败：E_HARNESS_FAILURE");
+    expect(result.failure).toEqual({ code: "E_HARNESS_FAILURE", source: "runtime" });
     expect(provider.stream).toHaveBeenCalledTimes(1);
   });
 });

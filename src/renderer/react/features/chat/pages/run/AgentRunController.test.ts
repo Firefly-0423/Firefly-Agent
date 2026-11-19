@@ -283,7 +283,7 @@ describe("Session conflicts preserve the legitimate owner", () => {
     expect(s.host.requestTakeover).toHaveBeenCalledTimes(1);
     const [sessionId, runId, retry] = s.host.requestTakeover.mock.calls[0];
     expect([sessionId, runId]).toEqual(["session-1", "previous-run"]);
-    expect(s.lastSaved().runSnapshot?.status).toEqual("terminal");
+    expect(s.lastSaved().runSnapshot).toMatchObject({ status: "interrupted", runId: undefined, terminalStatus: undefined });
     expect(s.host.onRunFinished).toHaveBeenCalled(); await retry();
     s.expectPatch({ loading: true, waitingForFirstEvent: true });
     expect(s.restart).toHaveBeenCalledWith(expect.objectContaining({ takeoverFromRunId: "previous-run" }));

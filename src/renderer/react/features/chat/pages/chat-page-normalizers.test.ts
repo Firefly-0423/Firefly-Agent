@@ -127,11 +127,13 @@ describe("stored run snapshots projected on reopen (ChatPage A8)", () => {
         ttsCacheVersion: undefined,
         responseStarted: true,
         sticker: undefined,
+        // A tool left running is shown as ended by the interruption, never as a success and never replayed.
         toolExecutions: [
           {
             id: "tool-1",
             name: "read_file",
-            status: "running",
+            status: "error",
+            result: interruptedDetail,
             argsText: "{\"path\":\"README.md\"}",
             seq: 2,
           },

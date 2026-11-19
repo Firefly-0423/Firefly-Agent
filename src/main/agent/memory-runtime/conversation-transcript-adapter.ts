@@ -2,15 +2,15 @@ import {createHash,randomUUID} from "node:crypto";
 import type {MainActorAuthority} from "../../memory/core/main-actor-authority";
 import {materializeTranscript,type TranscriptRunReader} from "../loop/conversation-transcript-context";
 import type {ConversationTranscriptStore} from "../../conversation/transcript/conversation-transcript-store";
-import type {TranscriptSnapshot,TranscriptEntry} from "../../conversation/transcript/conversation-transcript-types";
+import type {TranscriptSnapshot,TranscriptEntry,TranscriptAppendInput} from "../../conversation/transcript/conversation-transcript-types";
 import {readMainAttachmentProjection,observeMainAttachmentProjection} from "../../memory/context/main-attachment-projection";
 import {maskContextSecrets} from "../../memory/core/source-secret-screen";
 import {canonicalJson} from "../../memory/core/repository-types";
-import {contextFail,type ContextMessage,type ContextUnit} from "../../model/context/context-contracts";
+import {ContextError,contextFail,type ContextMessage,type ContextUnit} from "../../model/context/context-contracts";
 import type {createMainContext} from "../../memory/context/main-context";
 import {createMainTranscriptProvider,type CanonicalTranscript} from "../../memory/history/main-transcript-provider";
 import {validateUnit} from "../../memory/core/token-budget";
-import {requireRunAdjustmentPermit,type RunAdjustmentPermit} from "../runtime/pending-adjustment";
+import {RunAdjustmentRetryableError,requireRunAdjustmentPermit,type RunAdjustmentPermit} from "../runtime/pending-adjustment";
 import type {RunAdjustmentMessage} from "../loop/types";
 
 interface AdapterOptions {
@@ -29,6 +29,8 @@ interface AdapterOptions {
  observedEventEpochs?:Map<string,number>;
 }
 const LOCATOR="conversation";
+/** Node file-system failures (EIO, ENOSPC, EBUSY, …); never a context, protocol or authority error. */
+const isStorageFailure=(error:unknown)=>!(error instanceof ContextError)&&typeof (error as {code?:unknown})?.code==="string"&&/^E[A-Z]+$/.test((error as {code:string}).code);
 
 /** Main-only opt-in seam. No application, IPC, model or settings registration. */
 export function createConversationTranscriptAdapter(options:AdapterOptions) {
@@ -41,7 +43,9 @@ export function createConversationTranscriptAdapter(options:AdapterOptions) {
  const projectionEpochs=new Map<string,number>(),turnVersions=new Map<string,{physicalThroughSeq:number;userRevision:number;projectionEpoch:number;version:number}>();
  type RunBinding={incarnation:string;userTurnId:string;userRevision:number;throughSeq:number};
  const runs=new Map<string,RunBinding>();
- const adjustments=new Map<string,{previous:RunBinding;turnId:string;text:string;throughSeq:number;mutationRevision:number;epoch:number;entry?:TranscriptEntry;writeRevision?:number;writeEpoch?:number}>();
+ /** One in-flight insertion per run: its boundary, the progress it has proven, and its committed history. */
+ type Attempt={previous?:RunBinding;turnId:string;text:string;throughSeq:number;proof:{revision:number;epoch:number};input:TranscriptAppendInput;ticket?:object;observed?:{revision:number;epoch:number};history?:RunAdjustmentMessage};
+ const adjustments=new Map<string,Attempt>();
  let mutation:{revision:number;kind:string;entry?:TranscriptEntry;receipt?:object}={revision,kind:"initial"};
  let receipt:object|undefined;
  const hash=(value:unknown)=>createHash("sha256").update(canonicalJson(value)).digest("hex");
@@ -72,6 +76,8 @@ export function createConversationTranscriptAdapter(options:AdapterOptions) {
   revision++;
   if(kind==="delete"){incarnation=randomUUID();revision=1;eventEpochs.clear();projectionEpochs.clear();turnVersions.clear()}
   mutation={revision,kind,...(entry?{entry:structuredClone(entry)}:{}),...(receipt?{receipt}:{})};
+  // Only this attempt's own guarded append records progress; other writes never advance its proof.
+  if(ticket)for(const attempt of adjustments.values())if(attempt.ticket===ticket)attempt.observed={revision,epoch:mutationEpoch};
  });
  let leased:CanonicalTranscript[]|null=null;
  const turns=(snapshot:TranscriptSnapshot,attachmentChecks?:Set<()=>void>)=>{
@@ -127,65 +133,96 @@ export function createConversationTranscriptAdapter(options:AdapterOptions) {
     }finally{leased=null}
    });
   }
+ /**
+  * History first, then the transcript, in one guarded append (#96). `validate` holds the transcript
+  * queue: it checks the permit and the run boundary, then commits history (and its source receipt)
+  * through `commitHistory`; the observer records this attempt's own progress; `commit` writes the
+  * entry and binds the run. A retry after a storage failure resumes from the recorded progress:
+  * nothing written → append again at the same seq; written but unacknowledged → bind without a
+  * second write; anything else is stale. History is never committed twice.
+  */
  async function commitRunAdjustment(
   runId:string,permit:RunAdjustmentPermit,boundary:{throughSeq:number;mutationRevision:number;assertCurrent?:()=>void},
   commitHistory:()=>RunAdjustmentMessage|Promise<RunAdjustmentMessage>,
  ):Promise<RunAdjustmentMessage>{
   assertOpen();boundary.assertCurrent?.();
-  const item=requireRunAdjustmentPermit(permit,{sessionId:actor.sessionId,runId});
-  const stale=():never=>contextFail("MEMORY_CONTEXT_ADJUSTMENT_STALE");
-  let attempt=adjustments.get(runId);
-  await options.store.withReadLease(actor.sessionId,async read=>{
-   assertOpen();boundary.assertCurrent?.();requireRunAdjustmentPermit(permit,{sessionId:actor.sessionId,runId});
-   const previous=runs.get(runId),raw=await read();
-   if(!previous||previous.incarnation!==incarnation)return stale();
-   if(attempt){
-    if(attempt.previous!==previous||attempt.turnId!==item.turnId||attempt.text!==item.text
-     ||attempt.throughSeq!==boundary.throughSeq||attempt.mutationRevision!==boundary.mutationRevision
-     ||!attempt.entry||revision!==attempt.writeRevision||mutationEpoch!==attempt.writeEpoch||raw.throughSeq!==attempt.entry.seq)return stale();
-   }else{
-    if(raw.throughSeq!==boundary.throughSeq||revision!==boundary.mutationRevision
-     ||raw.entries.some(entry=>entry.kind==="interruption"&&entry.runId===runId||entry.seq>previous.throughSeq&&entry.kind==="turn_rewind")
-     ||raw.entries.some(entry=>entry.kind==="user"&&entry.turnId===item.turnId))return stale();
-    const current=turns(raw).at(-1)?.provenance?.[0];
-    if(!current||current.turnId!==previous.userTurnId||current.revision!==previous.userRevision)return stale();
-    attempt={previous,turnId:item.turnId,text:item.text,throughSeq:boundary.throughSeq,mutationRevision:boundary.mutationRevision,epoch:mutationEpoch};
-    adjustments.set(runId,attempt);
-   }
-  });
-  const pending=attempt!;
-  if(!pending.entry){
-   try{
-    await options.store.append(actor.sessionId,{id:`user:v1:${item.turnId}:r1`,at:Date.now(),kind:"user",turnId:item.turnId,revision:1,payload:{text:item.text}},{
-     throughSeq:pending.throughSeq,
-     validate:async()=>{
-      assertOpen();boundary.assertCurrent?.();requireRunAdjustmentPermit(permit,{sessionId:actor.sessionId,runId});
-      if(runs.get(runId)!==pending.previous||incarnation!==pending.previous.incarnation||revision!==pending.mutationRevision||mutationEpoch!==pending.epoch)return stale();
-     },
-     commit:async write=>{
-      assertOpen();boundary.assertCurrent?.();requireRunAdjustmentPermit(permit,{sessionId:actor.sessionId,runId});
-      const entry=mutation.entry;
-      if(runs.get(runId)!==pending.previous||mutation.kind!=="append"||revision!==pending.mutationRevision+1||mutationEpoch!==pending.epoch+1
-       ||entry?.kind!=="user"||entry.seq!==pending.throughSeq+1||entry.id!==`user:v1:${item.turnId}:r1`||entry.turnId!==item.turnId||entry.revision!==1
-       ||canonicalJson(entry.payload)!==canonicalJson({text:item.text}))return stale();
-      const written=await write();pending.entry=written;pending.writeRevision=revision;pending.writeEpoch=mutationEpoch;return written;
-     },
-    });
-   }catch(error){if(!pending.entry)adjustments.delete(runId);throw error}
+  const check=()=>{assertOpen();boundary.assertCurrent?.();return requireRunAdjustmentPermit(permit,{sessionId:actor.sessionId,runId})};
+  const item=check(),stale=():never=>contextFail("MEMORY_CONTEXT_ADJUSTMENT_STALE");
+  let pending=adjustments.get(runId);
+  if(pending&&(pending.turnId!==item.turnId||pending.text!==item.text||pending.throughSeq!==boundary.throughSeq))return stale();
+  // A committed permit resumes only this adapter's own attempt; anything else is reconciled later.
+  if(!pending&&item.committed||pending?.history&&!item.committed)return stale();
+  const bind=(attempt:Attempt,entry:TranscriptEntry)=>{
+   runs.set(runId,{incarnation,userTurnId:attempt.turnId,userRevision:1,throughSeq:entry.seq});adjustments.delete(runId);return attempt.history!;
+  };
+  if(pending){
+   const attempt=pending;
+   const done=await options.store.withReadLease(actor.sessionId,async read=>{
+    check();const raw=await read();
+    if(!attempt.previous||runs.get(runId)!==attempt.previous||incarnation!==attempt.previous.incarnation||revision!==attempt.proof.revision||mutationEpoch!==attempt.proof.epoch)return stale();
+    if(raw.throughSeq===attempt.throughSeq)return undefined;
+    const last=raw.entries.at(-1);
+    if(attempt.history&&raw.throughSeq===attempt.throughSeq+1&&last&&canonicalJson(last)===canonicalJson({...attempt.input,seq:attempt.throughSeq+1}))return bind(attempt,last);
+    return stale();
+   });
+   if(done)return done;
   }
-  // The store lease protects the final verification and history/source commit.
-  // A failed history write retains only this exact, already-written attempt for
-  // retry; unrelated appends/edits/deletes can never adopt its authority.
-  return options.store.withReadLease(actor.sessionId,async read=>{
-   assertOpen();boundary.assertCurrent?.();requireRunAdjustmentPermit(permit,{sessionId:actor.sessionId,runId});
-   const raw=await read();
-   if(runs.get(runId)!==pending.previous||incarnation!==pending.previous.incarnation||revision!==pending.writeRevision||mutationEpoch!==pending.writeEpoch
-    ||!pending.entry||raw.throughSeq!==pending.entry.seq||canonicalJson(raw.entries.at(-1))!==canonicalJson(pending.entry))return stale();
-   boundary.assertCurrent?.();
-   const result=await commitHistory();
-   runs.set(runId,{incarnation,userTurnId:item.turnId,userRevision:1,throughSeq:pending.entry.seq});adjustments.delete(runId);
-   return result;
-  });
+  const attempt:Attempt=pending??{turnId:item.turnId,text:item.text,throughSeq:boundary.throughSeq,proof:{revision:boundary.mutationRevision,epoch:-1},
+   input:{id:`user:v1:${item.turnId}:r1`,at:Date.now(),kind:"user",runId,turnId:item.turnId,revision:1,payload:{text:item.text}}};
+  attempt.observed=undefined;
+  try{
+   await options.store.append(actor.sessionId,attempt.input,{
+    throughSeq:attempt.throughSeq,
+    validate:async ticket=>{
+     check();
+     await options.store.withReadLease(actor.sessionId,async read=>{
+      check();const raw=await read(),previous=runs.get(runId);
+      if(!previous||previous.incarnation!==incarnation)return stale();
+      if(attempt.previous){if(attempt.previous!==previous||revision!==attempt.proof.revision||mutationEpoch!==attempt.proof.epoch)return stale()}
+      else if(revision!==boundary.mutationRevision)return stale();
+      if(raw.throughSeq!==attempt.throughSeq
+       ||raw.entries.some(entry=>entry.kind==="interruption"&&entry.runId===runId||entry.seq>previous.throughSeq&&entry.kind==="turn_rewind")
+       ||raw.entries.some(entry=>entry.kind==="user"&&entry.turnId===item.turnId))return stale();
+      const current=turns(raw).at(-1)?.provenance?.[0];
+      if(!current||current.turnId!==previous.userTurnId||current.revision!==previous.userRevision)return stale();
+      if(!attempt.previous){attempt.previous=previous;attempt.proof={revision,epoch:mutationEpoch}}
+     });
+     attempt.ticket=ticket;adjustments.set(runId,attempt);
+     if(!attempt.history){
+      try{
+       const message=await commitHistory();
+       if(message.id!==item.turnId||message.rawContent!==item.text||message.revision!==1)return stale();
+       attempt.history=message;
+      }catch(error){
+       // Keep the attempt only if history is now committed; its source receipt is then checked on resume.
+       let committed=false;try{committed=check().committed}catch{/* revoked: nothing more may be written */}
+       if(committed)attempt.history={id:item.turnId,rawContent:item.text,revision:1};else adjustments.delete(runId);
+       throw error;
+      }
+     }
+     if(!check().committed)return stale();
+    },
+    commit:async write=>{
+     check();
+     const seen=attempt.observed,entry=mutation.entry;
+     if(!seen||runs.get(runId)!==attempt.previous||mutation.kind!=="append"||seen.revision!==attempt.proof.revision+1||seen.epoch!==attempt.proof.epoch+1
+      ||revision!==seen.revision||mutationEpoch!==seen.epoch
+      ||entry?.kind!=="user"||entry.seq!==attempt.throughSeq+1||entry.id!==attempt.input.id||entry.runId!==runId||entry.turnId!==item.turnId||entry.revision!==1
+      ||canonicalJson(entry.payload)!==canonicalJson({text:item.text}))return stale();
+     const written=await write();
+     // Revoked after the write was dispatched: the entry may stand, but the run is not bound or delivered.
+     check();if(runs.get(runId)!==attempt.previous||revision!==seen.revision||mutationEpoch!==seen.epoch)return stale();
+     bind(attempt,written);
+     return written;
+    },
+   });
+  }catch(error){
+   // Storage failed after this attempt's own observer ran: resume from that progress on retry.
+   const seen=attempt.observed;
+   if(seen&&adjustments.get(runId)===attempt&&isStorageFailure(error)){attempt.proof=seen;attempt.observed=undefined;attempt.ticket=undefined;throw new RunAdjustmentRetryableError("transcript-write-failed",{cause:error})}
+   throw error;
+  }
+  return attempt.history!;
  }
  return {
   commitRunAdjustment,

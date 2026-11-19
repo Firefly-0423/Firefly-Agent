@@ -1,7 +1,7 @@
 import { promptTokensOf } from "./context-usage";
 import type { ToolSpec, ChatResponse, ChatMessage } from "../../model/providers/types";
 import { causeCodes } from "../../model/providers/error-chain";
-import type { RunAdjustmentMessage, AgentLoopResult, AgentLoopInput, AgentLoopConfig, AgentLoopCacheState, AgentState } from "./types";
+import type { RunAdjustmentMessage, RunAdjustmentPoll, RunInsertionReceipt, AgentLoopResult, AgentLoopInput, AgentLoopConfig, AgentLoopCacheState, AgentState } from "./types";
 import type { ToolOutputRef } from "./tool-output/tool-output-store";
 import { INITIAL_AGENT_LOOP_CACHE_STATE, DEFAULT_AGENT_LOOP_CONFIG } from "./types";
 import { getAgentLoopBuiltinToolSpecs } from "./builtin-tools";
@@ -19,6 +19,7 @@ import { publicRunFailure, type RunFailure, type RunFailureSource } from "../../
 import { ContextError } from "../../model/context/context-contracts";
 import { buildStableSystemPrefix, type PromptLayers } from "../../model/prompt/prompt-layers";
 import { logger, LogTag } from "../../base/logging/logger";
+import { frameRunInsertion } from "./run-insertion-framing";
 
 const logTag = "[AgentLoop]";
 export type AgentLoopRun = {
@@ -37,6 +38,8 @@ export type AgentLoopRun = {
   measuredUsage?: { inputTokens: number; outputTokens: number; messageCount: number };
   cache: AgentLoopCacheState;
   toolOutputs: ToolOutputRef[];
+  /** Receipts of inserted queue messages already in `messages`; saved with every checkpoint. */
+  insertions: RunInsertionReceipt[];
   messages: ChatMessage[];
   allToolSpecs: ToolSpec[];
   streamController: StreamController;
@@ -71,6 +74,56 @@ function failedStage(run: AgentLoopRun, cause: unknown, source: RunFailureSource
   const publicFailure = recordFailure(run, cause, source, prefix);
   return finishRun(run, prefix + publicFailure.code, true, "error");
 }
+/** Waits before retrying a blocked insertion, so a transient storage fault can clear. */
+export const ADJUSTMENT_RETRY_DELAYS_MS = [200, 600] as const;
+
+function waitForRetry(run: AgentLoopRun, ms: number): Promise<void> {
+  const signal = run.input.signal;
+  return new Promise((resolve) => {
+    if (signal?.aborted) { resolve(); return; }
+    const done = () => { clearTimeout(timer); signal?.removeEventListener("abort", done); resolve(); };
+    const timer = setTimeout(done, ms);
+    signal?.addEventListener("abort", done, { once: true });
+  });
+}
+
+/**
+ * Pulls inserted queue messages before the next model request. Committed items enter the
+ * context with a delivery receipt and are checkpointed first; a blocked item is retried a
+ * bounded number of times before the request, and if it still cannot be committed the run
+ * stops instead of answering without the user's supplement. Returns how many entered the
+ * context, or the run's result when it must end here.
+ */
+async function acceptAdjustments(run: AgentLoopRun, firstPoll: Promise<RunAdjustmentPoll> | undefined, beforeFirstInsertion?: () => void): Promise<number | AgentLoopResult> {
+  const host = run.input;
+  let accepted = 0;
+  for (let attempt = 0; ; attempt++) {
+    const poll = attempt === 0 ? firstPoll : host.pollRunAdjustments?.();
+    if (!poll) return accepted;
+    let pulled: RunAdjustmentPoll;
+    try { pulled = await poll; }
+    catch (cause) { return failedStage(run, cause, "runtime", "插话提交失败："); }
+    const fresh = pulled.delivered.filter((entry) => !run.insertions.some((receipt) => receipt.messageId === entry.id && receipt.revision === entry.revision));
+    if (fresh.length > 0) {
+      if (accepted === 0) beforeFirstInsertion?.();
+      for (const entry of fresh) {
+        run.messages.push({ role: "user", content: frameRunInsertion(entry.rawContent) });
+        run.insertions.push({ messageId: entry.id, revision: entry.revision, sourceRunId: host.runId ?? "", round: run.rounds, order: run.insertions.length + 1 });
+      }
+      accepted += fresh.length;
+      checkpoint(run);
+      if (run.checkpointFailure) return checkpointFailed(run);
+    }
+    if (!pulled.blocked) return accepted;
+    const { messageId, reason, retryable } = pulled.blocked;
+    if (!retryable || attempt >= ADJUSTMENT_RETRY_DELAYS_MS.length) {
+      return failedStage(run, new Error(`PENDING_ADJUST_BLOCKED:${messageId}:${reason}`), "runtime", "插话提交失败：");
+    }
+    await waitForRetry(run, ADJUSTMENT_RETRY_DELAYS_MS[attempt]);
+    if (host.signal?.aborted) return abortedResult(run);
+  }
+}
+
 function checkpointFailed(run: AgentLoopRun): Promise<AgentLoopResult> {
   return finishRun(run, `执行状态保存失败：${run.checkpointFailure}`, true, "error");
 }
@@ -84,16 +137,11 @@ async function runAgentLoopRounds(run: AgentLoopRun): Promise<AgentLoopResult> {
       host.onEvent?.({ type: "final_answer", content: reply });
       return finishRun(run, reply, true, "max_rounds");
     }
-    const poll = host.pollRunAdjustments?.();
-    if (poll) {
-      let queued: RunAdjustmentMessage[];
-      try { queued = await poll; }
-      catch (cause) { return failedStage(run, cause, "runtime", "插话提交失败："); }
-      if (queued.length > 0) {
-        for (const entry of queued) run.messages.push({ role: "user", content: entry.rawContent });
-        checkpoint(run);
-        if (run.checkpointFailure) return checkpointFailed(run);
-      }
+    // Nothing marked: pass straight through, so the first model request gains no extra await.
+    const firstPoll = host.pollRunAdjustments?.();
+    if (firstPoll) {
+      const inserted = await acceptAdjustments(run, firstPoll);
+      if (typeof inserted !== "number") return inserted;
     }
     const layers = buildRoundPromptLayers(host);
     const round = `round-${run.rounds}`;
@@ -139,19 +187,15 @@ async function runAgentLoopRounds(run: AgentLoopRun): Promise<AgentLoopResult> {
       continue;
     }
     const suffix = generated.finishReason === "length" ? "\n\n⚠️ 模型输出达到长度上限，以上回复可能不完整。" : "";
-    let finalPoll: RunAdjustmentMessage[];
-    try { finalPoll = await host.pollRunAdjustments?.() ?? []; }
-    catch (cause) { return failedStage(run, cause, "runtime", "插话提交失败："); }
-    if (finalPoll.length > 0) {
+    const lateInsertions = await acceptAdjustments(run, host.pollRunAdjustments?.(), () => {
+      // The answer this round was about to give becomes progress before the late insertion.
       const intermediate = run.streamController.commitProgressBuffer() + suffix;
       host.onEvent?.({ type: "round_end", roundId: round });
       if (intermediate) host.onEvent?.({ type: "progress_text", content: intermediate });
-      for (const entry of finalPoll) run.messages.push({ role: "user", content: entry.rawContent });
       run.rounds++;
-      checkpoint(run);
-      if (run.checkpointFailure) return checkpointFailed(run);
-      continue;
-    }
+    });
+    if (typeof lateInsertions !== "number") return lateInsertions;
+    if (lateInsertions > 0) continue;
     const reply = run.streamController.commitProgressBuffer() + suffix;
     host.onEvent?.({ type: "round_end", roundId: round });
     host.onEvent?.({ type: "final_answer", content: reply });
@@ -176,7 +220,7 @@ function createRun(input: AgentLoopInput): AgentLoopRun {
     toolContext: { userQuery: input.toolContext?.userQuery ?? "", ...input.toolContext, signal: input.signal } };
   return {
     input, config: limits, state: restored, clock: new TimeoutClock(limits.totalTimeoutMs, limits.userWaitTimeoutMs),
-    streamController: new StreamController(), allToolSpecs: advertised, messages: [...input.messages], toolOutputs: [],
+    streamController: new StreamController(), allToolSpecs: advertised, messages: [...input.messages], toolOutputs: [], insertions: [],
     cache: input.initialCache ? { ...input.initialCache } : { ...INITIAL_AGENT_LOOP_CACHE_STATE }, rounds: 0,
     checkpoint() { checkpoint(this); }, askDispatchContext: interactive,
     toolDispatchContext: { ...interactive, checkPermission: input.checkPermission, toolContext: input.toolContext,
@@ -245,7 +289,7 @@ async function callRoundLLM(run: AgentLoopRun, promptLayers: PromptLayers, round
 
 function checkpoint(run: AgentLoopRun): void {
   try { run.input.onCheckpoint?.({ messages: run.messages, state: run.state, toolOutputs: run.toolOutputs,
-    rounds: run.rounds, cache: { ...run.cache }, at: Date.now() }); }
+    rounds: run.rounds, cache: { ...run.cache }, insertions: run.insertions.map((receipt) => ({ ...receipt })), at: Date.now() }); }
   catch (cause) {
     const safe = publicRunFailure(cause);
     run.failure ??= safe;

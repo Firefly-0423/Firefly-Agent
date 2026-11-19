@@ -292,7 +292,7 @@ describe("pending edits and run adjustments", () => {
         const { createRunAdjustmentPoller, isRunAdjustmentInFlight } = await import("../../agent/runtime/pending-adjustment");
         let release!: () => void;
         const gate = new Promise<void>(resolve => { release = resolve; });
-        const processing = createRunAdjustmentPoller(id, "running", store, { appendUser: async () => { await gate; } })();
+        const processing = createRunAdjustmentPoller(id, "running", store, { appendUser: async (input) => { await gate; return { text: input.text, runId: input.runId }; } })();
         expect(isRunAdjustmentInFlight(id, "alpha")).toBe(true);
         expect(isRunAdjustmentInFlight(id, "beta")).toBe(false);
         release();
@@ -327,22 +327,30 @@ describe("pending edits and run adjustments", () => {
         expect(ids(store.getSession(id)?.messages)).toEqual(["existing"]);
         expect(store.getSession(id)?.pendingMessages?.[0]).toMatchObject({ id: "alpha", adjustRunId: "running" });
     });
-    it("preserves the marked item against withdrawal while its transcript write is pending", async () => {
-        const { store, id } = await setup(["alpha", "beta"]);
+    it("finds nothing to withdraw once an item is committed to history while its transcript write is pending, and still protects the marked item behind it", async () => {
+        const { store, id } = await setup(["alpha", "beta", "gamma"]);
         store.markPendingAdjust(id, "alpha", "running");
-        const { createRunAdjustmentPoller } = await import("../../agent/runtime/pending-adjustment");
+        store.markPendingAdjust(id, "beta", "running");
+        const { createRunAdjustmentPoller, isRunAdjustmentInFlight } = await import("../../agent/runtime/pending-adjustment");
         let release!: () => void;
         const gate = new Promise<void>(resolve => { release = resolve; });
         const recorded: string[] = [];
-        const poll = createRunAdjustmentPoller(id, "running", store, { appendUser: async (input) => { recorded.push(input.turnId); await gate; } });
+        const poll = createRunAdjustmentPoller(id, "running", store, { appendUser: async (input) => { recorded.push(input.turnId); await gate; return { text: input.text, runId: input.runId }; } });
         const processing = poll();
         expect(processing).toBeInstanceOf(Promise);
-        expect(store.removePendingMessage(id, "alpha")).toMatchObject({ ok: false, error: "already-adjusting" });
-        expect(store.getPendingMessages(id)![0].id).toEqual("alpha");
+        // History is committed first: alpha has already left the queue for chat history, the transcript write is what is pending.
+        expect(isRunAdjustmentInFlight(id, "alpha")).toBe(true);
+        expect(ids(store.getPendingMessages(id))).toEqual(["beta", "gamma"]);
+        expect(store.getSession(id)!.messages.map(message => [message.id, message.runInsertion?.sequence])).toEqual([["existing", undefined], ["alpha", 1]]);
+        expect(store.removePendingMessage(id, "alpha")).toEqual({ ok: true, removed: false });
+        expect(ids(store.getSession(id)!.messages)).toEqual(["existing", "alpha"]);
+        expect(store.removePendingMessage(id, "beta")).toMatchObject({ ok: false, error: "already-adjusting" });
+        expect(store.getPendingMessages(id)![0]).toMatchObject({ id: "beta", adjustRunId: "running" });
         release();
-        expect(ids(await processing)).toEqual(["alpha"]);
-        expect(recorded).toEqual(["alpha"]);
-        expect(ids(store.getPendingMessages(id))).toEqual(["beta"]);
+        expect(await processing).toEqual({ delivered: [{ id: "alpha", rawContent: "Queued instruction alpha", revision: 1 }, { id: "beta", rawContent: "Queued instruction beta", revision: 1 }] });
+        expect(recorded).toEqual(["alpha", "beta"]);
+        expect(ids(store.getPendingMessages(id))).toEqual(["gamma"]);
+        expect(ids(store.getSession(id)!.messages)).toEqual(["existing", "alpha", "beta"]);
     });
     it("resets only one run and clears stale marks after a restart without reordering content", async () => {
         let { store, id } = await setup(["alpha", "beta"]);
@@ -369,7 +377,7 @@ describe("pending edits and run adjustments", () => {
     });
 });
 describe("queue IPC boundary", () => {
-    it("withdraws only when the marked message is not being written", async () => {
+    it("withdraws a marked message only before a run takes it: a committed one is not-found and a still-queued taken one is refused", async () => {
         const { registerChatsIpc } = await import("./chats-ipc");
         const store = await import("./chats-store");
         const { createRunAdjustmentPoller } = await import("../../agent/runtime/pending-adjustment");
@@ -380,13 +388,21 @@ describe("queue IPC boundary", () => {
         store.markPendingAdjust(session.id, "alpha", "running");
         expect(await call({ sessionId: session.id, messageId: "alpha" })).toMatchObject({ ok: true, queue: [{ id: "alpha" }] });
         expect(store.getPendingMessages(session.id)![0]).not.toHaveProperty("adjustRunId");
+        store.enqueuePendingMessage(session.id, entry("beta"));
         store.markPendingAdjust(session.id, "alpha", "running");
+        store.markPendingAdjust(session.id, "beta", "running");
         let release!: () => void;
         const gate = new Promise<void>(resolve => { release = resolve; });
-        const writing = createRunAdjustmentPoller(session.id, "running", store, { appendUser: async () => { await gate; } })();
-        expect(await call({ sessionId: session.id, messageId: "alpha" })).toMatchObject({ ok: false, error: "already-adjusting" });
-        expect(store.getPendingMessages(session.id)![0].adjustRunId).toBe("running");
-        release(); await writing;
+        const writing = createRunAdjustmentPoller(session.id, "running", store, { appendUser: async (input) => { await gate; return { text: input.text, runId: input.runId }; } })();
+        // alpha is already in chat history (out of the queue); beta is still queued but taken by the run.
+        expect(await call({ sessionId: session.id, messageId: "alpha" })).toMatchObject({ ok: false, error: "not-found", queue: [{ id: "beta" }] });
+        expect(await call({ sessionId: session.id, messageId: "beta" })).toMatchObject({ ok: false, error: "already-adjusting", queue: [{ id: "beta" }] });
+        expect(store.getPendingMessages(session.id)).toMatchObject([{ id: "beta", adjustRunId: "running" }]);
+        expect(store.getSession(session.id)!.messages.map(message => message.id)).toEqual(["alpha"]);
+        release();
+        expect(await writing).toMatchObject({ delivered: [{ id: "alpha" }, { id: "beta" }] });
+        expect(store.getPendingMessages(session.id)).toEqual([]);
+        expect(store.getSession(session.id)!.messages.map(message => message.id)).toEqual(["alpha", "beta"]);
     });
     it("validates queue/edit/claim payloads and forwards authoritative outcomes", async () => {
         const { registerChatsIpc } = await import("./chats-ipc");
