@@ -128,6 +128,7 @@ export function createPendingQueueFlow(getHost: () => PendingQueueFlowHost): Pen
       return;
     }
     if (!conversation) { ports.replaceProjection(sessionId, null); return; }
+    if (ports.isSessionBusy(sessionId)) return;
     if (conversation.pendingDispatch) { await resumePendingDispatch(mode, sessionId, conversation); return; }
     let claimed: PendingClaimResult;
     try { claimed = await storage.pendingClaim(sessionId); }

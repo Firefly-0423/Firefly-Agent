@@ -5,7 +5,7 @@
 
 ## 为什么做
 
-拆分前（依据 `docs/design/2026-11-15-preload-bridge-split.md`），`src/preload/index.ts` 单个文件长达 1257 行，同时定义了 30 个 `window.*` 暴露对象并挂载已拆出的 `exposeMusicApi()`，向渲染进程暴露合计 31 个全局桥接命名空间，同时内部混合使用 `ipcRenderer.off` 与 `ipcRenderer.removeListener`。大单文件带来三大问题：
+拆分前（依据 `docs/design/preload-bridge-split.md`），`src/preload/index.ts` 单个文件长达 1257 行，同时定义了 30 个 `window.*` 暴露对象并挂载已拆出的 `exposeMusicApi()`，向渲染进程暴露合计 31 个全局桥接命名空间，同时内部混合使用 `ipcRenderer.off` 与 `ipcRenderer.removeListener`。大单文件带来三大问题：
 
 1. **安全审计与契约核对成本高**：跨进程暴露面集中在一处超长实现内，仅 `window.settings` 就承担约 370 行、跨越设置弹窗与聊天页运行时交互 6 类职责。
 2. **事件注销方式不统一带来测试隐患**：部分测试 mock 仅实现 `ipcRenderer.removeListener` 而无 `off`，混用写法使搬移容易出现 `TypeError: ipcRenderer.off is not a function`。
@@ -24,12 +24,12 @@
 ## 怎么验证的
 
 1. **拆分前监听统一与保护网锁定**：PR `#76`（`8983810`）添加 `src/main/preload-listener-removal.test.ts`；PR `#77`（`e289ca5`）先锁死 31 个 `window.*` 暴露键集合、全量表驱动方法→通道→参数映射、参数裁剪归一化与 34 处事件监听注销及回调异常隔离。
-2. **IPC 静态契约扫描保持零缺口**：遵循 `docs/design/2026-11-15-preload-bridge-split.md` 边界要求，未封装抽象通道 helper，保留直接字面写法 `ipcRenderer.<method>(IPC.<KEY>, ...)`，确保 `ipc-contract-scanner.test-support.ts` 正常工作。
+2. **IPC 静态契约扫描保持零缺口**：遵循 `docs/design/preload-bridge-split.md` 边界要求，未封装抽象通道 helper，保留直接字面写法 `ipcRenderer.<method>(IPC.<KEY>, ...)`，确保 `ipc-contract-scanner.test-support.ts` 正常工作。
 3. **编译与进程边界验证**：按设计文档 §8.1 以 `npm run build:preload`（`tsc -p tsconfig.preload.json`）、`src/shared/process-boundary.test.ts`（确保新子模块不引入 `src/main` 或 `src/renderer`）、preload 专项单元测试与三端检查配合合并流程。
 
 ## 涉及的 PR
 
-- **PR `#74`**（`7037948`，2026-11-15）：`docs/split-design-preload`（定稿 `docs/design/2026-11-15-preload-bridge-split.md`）。
+- **PR `#74`**（`7037948`，2026-11-15）：`docs/split-design-preload`（定稿 `docs/design/preload-bridge-split.md`）。
 - **PR `#76`**（`8983810`，2026-11-15）：`fix/preload-listener-removal`（全部 34 处监听统一为 `removeListener` + `preload-listener-removal.test.ts`）。
 - **PR `#77`**（`e289ca5`，2026-11-15）：`feat/preload-split-tests`（preload PR 1：补齐 4 个保护测试文件并扩展 `ipc-contract.test.ts` / `structure-cleanup.test.ts` 扫盘范围）。
 - **PR `#85`**（`98c921a`，2026-11-15）：`feat/preload-split-peripheral`（preload PR 2：拆出 11 个外围域工厂模块）。

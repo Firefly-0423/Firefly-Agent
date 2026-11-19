@@ -2,7 +2,7 @@
 
 状态：参考资料（核验日期 2026-11-16）
 
-> **边界提示**：Firefly 当前未针对 DeepSeek 的细分错误码做独立分支映射（相关计划 `docs/superpowers/plans/2026-11-12-model-error-classification.md` 处于 `未开工`）。以下先列出现有代码中的适配、错误收敛与回退行为，再概括 DeepSeek 常见 HTTP 错误语义，**以供应商最新文档为准**。
+> **边界提示**：Firefly 当前未针对 DeepSeek 的细分错误码做独立分支映射（相关计划 `docs/superpowers/plans/model-error-classification.md` 处于 `未开工`）。以下先列出现有代码中的适配、错误收敛与回退行为，再概括 DeepSeek 常见 HTTP 错误语义，**以供应商最新文档为准**。
 
 ---
 

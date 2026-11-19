@@ -5,7 +5,7 @@
 
 ## 为什么做
 
-设计文档（`docs/design/2026-11-15-settings-page-split.md`）记录，传统设置窗口主文件 `src/renderer/settings/settings.ts` 膨胀至 1629 行，混合了外观/字体、聊天偏好、Firefly 贴纸与向量设置、模型档案/Presets/Custom Endpoint/测试连接/拉取模型、导航路由、窗口预览桥以及若干历史页面（Scheduler、Memory、Music）的孤儿事件胶水；而其余子页面已经完成模块化拆分，唯独入口超级模块持续承载跨模块逻辑。
+设计文档（`docs/design/settings-page-split.md`）记录，传统设置窗口主文件 `src/renderer/settings/settings.ts` 膨胀至 1629 行，混合了外观/字体、聊天偏好、Firefly 贴纸与向量设置、模型档案/Presets/Custom Endpoint/测试连接/拉取模型、导航路由、窗口预览桥以及若干历史页面（Scheduler、Memory、Music）的孤儿事件胶水；而其余子页面已经完成模块化拆分，唯独入口超级模块持续承载跨模块逻辑。
 
 为防止无测试直接搬移破坏既有表单提交与源码扫描契约，采用“先补 T1–T7 行为集成测试 → 拆壳层与遗留胶水 → 拆通用/偏好/外观面板 → 拆 API 面板 → 单独提 PR 修既小缺陷”的 4-PR 渐进方案。
 
@@ -25,7 +25,7 @@
 
 ## 涉及的 PR
 
-- **PR `#73`**（`7403ddb`，2026-11-15）：`docs/split-design-settings`（定稿 `docs/design/2026-11-15-settings-page-split.md`）。
+- **PR `#73`**（`7403ddb`，2026-11-15）：`docs/split-design-settings`（定稿 `docs/design/settings-page-split.md`）。
 - **PR `#78`**（`72150af`，2026-11-15）：`feat/settings-split-tests`（settings PR 1：补全 T1–T7 拆前集成测试与 `settings-harness.test-support.ts`）。
 - **PR `#87`**（`5dc1caf`，2026-11-15）：`feat/settings-split-shell`（settings PR 2：抽出 3 个 `shared/*` 模块、归位 3 个面板胶水，使 `settings.ts` 从 1629 行降至 1332 行）。
 

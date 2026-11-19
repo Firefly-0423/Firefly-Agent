@@ -5,7 +5,7 @@
 
 ## 为什么做
 
-2026-11-14 对 `src/main/agent`、`src/main/memory` 与 `src/main/features/channels` 共 382 个测试文件的断言质量审查发现（`docs/superpowers/plans/2026-11-15-test-assertion-hardening.md`）：大量测试存在违反 `AGENTS.md`「测试断言写法」12 条规则的问题——包括 204 处不带错误码的裸 `toThrow()` / `rejects.toThrow()`（agent 37、memory 161、channels 6）、22 处仅断言不报错或 `undefined`/已定义的弱断言、缺少拒绝路径的“不写盘/不发请求”负向副作用断言，以及部分真实定时器等待。
+2026-11-14 对 `src/main/agent`、`src/main/memory` 与 `src/main/features/channels` 共 382 个测试文件的断言质量审查发现（`docs/superpowers/plans/test-assertion-hardening.md`）：大量测试存在违反 `AGENTS.md`「测试断言写法」12 条规则的问题——包括 204 处不带错误码的裸 `toThrow()` / `rejects.toThrow()`（agent 37、memory 161、channels 6）、22 处仅断言不报错或 `undefined`/已定义的弱断言、缺少拒绝路径的“不写盘/不发请求”负向副作用断言，以及部分真实定时器等待。
 
 整改要求**只改测试、不改产品代码与错误码定义**，且对每一条重构后的断言做**反向验证**（临时改坏对应产品实现，确认测试先失败再还原）。
 
@@ -22,7 +22,7 @@
 
 ## 怎么验证的
 
-1. **反向验证机制**（`2026-11-15-test-assertion-hardening-progress.md` §2）：每类产品错误码和校验逻辑均采用“临时改坏产品源码（改坏错误码字符串、删掉写入检查或跳过校验）→ 跑对应套件确认测试失败 → `git checkout` 还原产品文件”进行证实（如 T2 37 个 `MEMORY_*` 码逐一改坏均导致对应测试失败）。
+1. **反向验证机制**（`test-assertion-hardening-progress.md` §2）：每类产品错误码和校验逻辑均采用“临时改坏产品源码（改坏错误码字符串、删掉写入检查或跳过校验）→ 跑对应套件确认测试失败 → `git checkout` 还原产品文件”进行证实（如 T2 37 个 `MEMORY_*` 码逐一改坏均导致对应测试失败）。
 2. **分包全过记录**：
    - T1：174 文件 3049 项（3043 通过、6 跳过）及 `tsc -p tsconfig.main.json --noEmit` 通过；
    - T2：`src/main/memory/context` 33 文件 624 项通过；`toThrow()` 扫描仅剩已审核的 `.not.toThrow()` 排除项；
@@ -42,6 +42,6 @@
 
 ## 遗留事项
 
-1. **T6（真实等待改为假定时器）尚未实施**（`2026-11-15-test-assertion-hardening.md` §现状与进度文档停于 T5）：原审查列出的真实定时器等待（9 处确认、12 处待复核）尚未开启对应 PR；`test-assertion-hardening-progress.md` 也未合入 T5 的详细更新段（仅合入进度表改动一行）。
+1. **T6（真实等待改为假定时器）尚未实施**（`test-assertion-hardening.md` §现状与进度文档停于 T5）：原审查列出的真实定时器等待（9 处确认、12 处待复核）尚未开启对应 PR；`test-assertion-hardening-progress.md` 也未合入 T5 的详细更新段（仅合入进度表改动一行）。
 2. **缺少稳定产品错误码的既有分支**（[missing-product-error-codes.md](../internal-issue/missing-product-error-codes.md)）：已登记 8 类缺少产品码的分支（含 `mcp-adapter.ts`），待负责人另立计划裁定。
 3. **旧权限档位用例暂未动**（计划文档 §不改的东西）：约 95 处涉及 `scoped` / `project-read-only` 的测试随 1.2.0 插件 SDK 规格第 3 阶段删除代码时一并迁移。

@@ -29,6 +29,6 @@
 `src/main/agent/tools/fs-tools.ts` 的写入结果允许零字节文件；写入后取证失败返回未知效果，不以“文件非空”判断成功。相关断言在 `src/main/agent/tools/fs-tools.test.ts`。
 
 ## 未完成与验收归属
-[会话可靠性计划](../superpowers/plans/2026-11-12-conversation-reliability.md)负责 durable 回执、一次授权、接纳和重启对账；[命令实时输出计划](../superpowers/plans/2026-11-12-command-live-output.md)负责取消后的有界输出收尾。本文不重排施工。
+[会话可靠性计划](../superpowers/plans/conversation-reliability.md)负责 durable 回执、一次授权、接纳和重启对账；[命令实时输出计划](../superpowers/plans/command-live-output.md)负责取消后的有界输出收尾。本文不重排施工。
 
 现有测试入口：`src/main/agent/loop/execution-ledger.test.ts`、`src/main/agent/loop/uncertain-effect-guard.test.ts`、`src/main/agent/loop/agent-loop-cancel.test.ts`、`src/main/features/chat/agui-bridge.test.ts`。真实进程树、远端副作用及崩溃窗口未在本次验证。

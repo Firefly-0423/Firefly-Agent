@@ -169,7 +169,7 @@ export function createNativeHistoryProvider(options:Options){
    revoke();await cleanupHeads();if(insufficientCoverage){coverage=insufficientCoverage;return structuredClone(coverage)}throw error;
   }finally{publishing=false}
  }
- /** For delegated runs only (docs/superpowers/specs/2026-10-26-delegated-history-sharing.md): reuse the committed capture
+ /** For delegated runs only (docs/superpowers/specs/delegated-history-sharing.md): reuse the committed capture
   * while its epoch has not moved, or join the shared capture in flight, instead of revoking evidence other runs of the
   * family still hold. The caller's signal only detaches that caller; the shared capture keeps its own deadline. A direct
   * capture() in progress is still refused, as before. */

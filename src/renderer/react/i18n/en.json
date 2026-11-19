@@ -1458,6 +1458,9 @@
     "interruptedRun": "The last task was interrupted after {{rounds}} rounds.",
     "resumeTask": "Resume task",
     "sessionTakeover": "A task is already running in this session (possibly from before a refresh), so this message hasn't been acted on yet.",
-    "takeoverAndRestart": "Stop and restart"
+    "takeoverAndRestart": "Stop and restart",
+    "takeoverWaiting": "Waiting for the previous task to stop…",
+    "takeoverStuck": "The previous task hasn’t stopped. No new task was started.",
+    "takeoverRetry": "Try again"
   }
 }

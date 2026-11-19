@@ -18,7 +18,7 @@
 ## 根因
 
 1. 主进程七层分层（PR `#57` `2dab331`）将音乐脚本目录迁移到了 `src/main/platform/music/scripts/qqmusic_gsmtc.ps1`，`electron-builder.yml` 也已更新为新路径。
-2. 但 `scripts/packaging/electron-builder-config.test.mjs` 属于 `node --test` 独立脚本套件、不在默认 `npm test`（Vitest）集合内，因此分层重构后该测试仍硬编码断言旧路径 `src/main/music/scripts/qqmusic_gsmtc.ps1`，在 PR `#62`/`#63` 同步施工准备把脚本测试接入 CI 时才暴露出来（详见 `2026-11-13-data-directory-1-2-0-progress.md` §5、`2026-11-12-docs-and-engineering-progress.md` §偏离计划 & §收尾复验）。
+2. 但 `scripts/packaging/electron-builder-config.test.mjs` 属于 `node --test` 独立脚本套件、不在默认 `npm test`（Vitest）集合内，因此分层重构后该测试仍硬编码断言旧路径 `src/main/music/scripts/qqmusic_gsmtc.ps1`，在 PR `#62`/`#63` 同步施工准备把脚本测试接入 CI 时才暴露出来（详见 `data-directory-1-2-0-progress.md` §5、`docs-and-engineering-progress.md` §偏离计划 & §收尾复验）。
 
 ## 当前状态
 
@@ -29,6 +29,6 @@
 - `scripts/packaging/electron-builder-config.test.mjs`
 - `electron-builder.yml`
 - `src/main/platform/music/scripts/qqmusic_gsmtc.ps1`
-- `docs/superpowers/plans/2026-11-13-data-directory-1-2-0-progress.md`（§5 偏离计划）
-- `docs/superpowers/plans/2026-11-12-docs-and-engineering-progress.md`（§偏离计划、§收尾复验）
+- `docs/superpowers/plans/data-directory-1-2-0-progress.md`（§5 偏离计划）
+- `docs/superpowers/plans/docs-and-engineering-progress.md`（§偏离计划、§收尾复验）
 - 修复提交：PR `#62`（`ecdd9d8`）、PR `#63`（`d2d1184`）

@@ -2,7 +2,7 @@
 
 状态：已实现规范（核验日期 2026-11-16）
 
-> **范围说明**：本文档仅规范当前仓库已实现且有单元测试或集成测试守卫的错误分类与公开错误码映射行为。按厂商响应体 `error.code` / `error.type` 细分子类的规划（`docs/superpowers/plans/2026-11-12-model-error-classification.md`）当前状态为 `未开工`，不属于本规范约束范围。
+> **范围说明**：本文档仅规范当前仓库已实现且有单元测试或集成测试守卫的错误分类与公开错误码映射行为。按厂商响应体 `error.code` / `error.type` 细分子类的规划（`docs/superpowers/plans/model-error-classification.md`）当前状态为 `未开工`，不属于本规范约束范围。
 
 ---
 

@@ -36,6 +36,6 @@
 
 ## 施工文件
 
-- 分层设计：`docs/design/2026-11-12-main-process-layering.md`
-- 施工计划与进度：`docs/superpowers/plans/2026-11-12-main-process-layering.md` 及同名 `-progress.md`
+- 分层设计：`docs/design/main-process-layering.md`
+- 施工计划与进度：`docs/superpowers/plans/main-process-layering.md` 及同名 `-progress.md`
 - 本层的功能施工计划在 `docs/superpowers/plans/` 下，开工前在这里补上链接。

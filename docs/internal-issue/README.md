@@ -4,10 +4,11 @@
 
 | 日期 | 问题 | 当前状态 | 详细记录 |
 | --- | --- | --- | --- |
-| 2026-11-16 | 运行中插入的补充在部分写入失败时丢失，或会话记录半截条目被重放 | 修复已提 PR（#96；真机造障未测） | [queue-insert-lost-or-replayed](./queue-insert-lost-or-replayed.md) |
-| 2026-11-16 | 切换会话、刷新或关窗会取消正在进行的运行 | 待修复（负责人确认是缺陷，修复进行中） | [run-cancelled-on-switch-or-reload](./run-cancelled-on-switch-or-reload.md) |
-| 2026-11-16 | 渲染页重载后，仍在等待的审批没有可处理的卡片 | 修复已提 PR（#93） | [approval-lost-after-reload](./approval-lost-after-reload.md) |
-| 2026-11-16 | 接管超时后旧运行仍占着会话守卫，界面侧停止状态与提示待补 | 待修复（Main 守卫已由 PR #91 定型；界面提示另开 PR） | [takeover-timeout-retains-guard](./takeover-timeout-retains-guard.md) |
+| 2026-11-17 | 中断的运行重开后，“询问用户”等工具行仍显示“进行中” | 已修复（PR #100 / `94b397d` 已合并） | [interrupted-run-tool-rows-keep-waiting](./interrupted-run-tool-rows-keep-waiting.md) |
+| 2026-11-16 | 运行中插入的补充在部分写入失败时丢失，或会话记录半截条目被重放 | 已修复（PR #97 / `23aa1f6` 已合并；真机造障未测） | [queue-insert-lost-or-replayed](./queue-insert-lost-or-replayed.md) |
+| 2026-11-16 | 切换会话、刷新或关窗会取消正在进行的运行 | 已修复（PR #95 / `633eb36` 已合并） | [run-cancelled-on-switch-or-reload](./run-cancelled-on-switch-or-reload.md) |
+| 2026-11-16 | 渲染页重载后，仍在等待的审批没有可处理的卡片 | 已修复（PR #93 / `ecbdfbd` 已合并） | [approval-lost-after-reload](./approval-lost-after-reload.md) |
+| 2026-11-16 | 接管超时后旧运行仍占着会话守卫，界面侧停止状态与提示待补 | 已修复（Main 守卫 PR #91 / `dc6327a`；界面提示与暂停派发 PR #102 / `7c7aa49` 已合并；漏收事件时需手动重试，见详细记录） | [takeover-timeout-retains-guard](./takeover-timeout-retains-guard.md) |
 | 2026-11-16 | 外部渠道私聊开启工具后采用 `work` 与 `allow_all` 直接执行 | 待修复（待渠道 Work 收紧落地后由 B6 跟进） | [channel-work-allow-all](./channel-work-allow-all.md) |
 | 2026-11-16 | Chat 模式仍监听并允许延迟 Plan 事件 | 待修复（排期 ChatPage 回归施工包 C12） | [chat-deferred-plan-events](./chat-deferred-plan-events.md) |
 | 2026-11-16 | 插件示例存在停止写回被清空及非 JSON 对象持久化缺陷，Mock 测试无法检出 | 待修复（已登记于 `examples/README.md`） | [plugin-example-mock-blindspots](./plugin-example-mock-blindspots.md) |

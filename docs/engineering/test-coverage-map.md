@@ -98,4 +98,4 @@ Node 步骤通过 Tee-Object 保存输出并显式 `exit $LASTEXITCODE`，独立
 - 默认全量 14431 项通过、1 项失败、11 项跳过。失败为 pr-workflow.test.ts 的旧 push 分支精确期望与 D4 冲突，处理方式待负责人确认。
 - 安装包、真实渠道、完整远端 CI 和 Node 24 尚未验收，详见施工进度。
 
-- [施工进度与完整验证结果](../superpowers/plans/2026-11-12-docs-and-engineering-progress.md)
+- [施工进度与完整验证结果](../superpowers/plans/docs-and-engineering-progress.md)

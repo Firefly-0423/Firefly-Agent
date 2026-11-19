@@ -297,7 +297,7 @@ assets/ build/ resources/ # 应用与托盘图标、文件类型图标；安装�
 
 ## 🤝 参与开发
 
-开发前请阅读 [AGENTS.md](./AGENTS.md) 与 [DEVELOPMENT.md](./DEVELOPMENT.md)，按修改范围运行验证并说明未覆盖项。Skills 投稿请到 [firefly-skills](https://github.com/Firefly-0423/firefly-skills)，插件投稿请到 [firefly-plugins](https://github.com/Firefly-0423/firefly-plugins)。提交问题或 PR 时不要附上密钥、私人对话或用户数据。
+开发前请阅读 [AGENTS.md](./AGENTS.md) 与 [docs/contributing/development.md](./docs/contributing/development.md)，按修改范围运行验证并说明未覆盖项。Skills 投稿请到 [firefly-skills](https://github.com/Firefly-0423/firefly-skills)，插件投稿请到 [firefly-plugins](https://github.com/Firefly-0423/firefly-plugins)。提交问题或 PR 时不要附上密钥、私人对话或用户数据。
 
 ## 📄 许可证与角色素材
 

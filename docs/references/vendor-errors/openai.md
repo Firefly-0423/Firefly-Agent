@@ -2,7 +2,7 @@
 
 状态：参考资料（核验日期 2026-11-16）
 
-> **边界提示**：Firefly 当前未针对 OpenAI 响应体 `error.code` / `error.type` 实现专属细分映射（相关计划 `docs/superpowers/plans/2026-11-12-model-error-classification.md` 处于 `未开工`）。以下先说明 Firefly 代码中实际落地的适配与收口链路，再概括 OpenAI 常见 HTTP 错误语义，**具体状态码与错误定义以供应商最新文档为准**。
+> **边界提示**：Firefly 当前未针对 OpenAI 响应体 `error.code` / `error.type` 实现专属细分映射（相关计划 `docs/superpowers/plans/model-error-classification.md` 处于 `未开工`）。以下先说明 Firefly 代码中实际落地的适配与收口链路，再概括 OpenAI 常见 HTTP 错误语义，**具体状态码与错误定义以供应商最新文档为准**。
 
 ---
 

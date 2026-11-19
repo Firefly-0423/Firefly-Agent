@@ -17,7 +17,7 @@
 ## 触发条件或复现步骤
 
 1. 审阅 `docs/disclaimer.zh-CN.md` 元信息行、第 ⑤ 条、第 ⑧ 条与第 ⑪ 条。
-2. 对照 `src/main/base/identity/data-directory.ts` 与 `docs/superpowers/plans/2026-11-13-data-directory-1-2-0-progress.md`。
+2. 对照 `src/main/base/identity/data-directory.ts` 与 `docs/superpowers/plans/data-directory-1-2-0-progress.md`。
 
 ## 影响范围
 
@@ -26,7 +26,7 @@
 
 ## 根因
 
-1. 第 ⑧ 条与第 ⑪ 条涉及项目负责人的合规与联系政策拍板，按 `docs/superpowers/plans/2026-11-12-docs-and-engineering-progress.md`（未完成项与验收待办）特意留给维护者 `hotaru` 审核填写。
+1. 第 ⑧ 条与第 ⑪ 条涉及项目负责人的合规与联系政策拍板，按 `docs/superpowers/plans/docs-and-engineering-progress.md`（未完成项与验收待办）特意留给维护者 `hotaru` 审核填写。
 2. PR `#63`（`feat/docs-eng`）基于旧基线 `74d4d4e` 施工时，PR `#62`（`feat/data-dir`）尚未合入，当时按 `docs-and-engineering-progress.md` 全局约束不能提前宣称目录已切换；两分支先后合入后形成了文档文本相对 PR `#62` 代码的短暂滞后。
 
 ## 当前状态
@@ -38,7 +38,7 @@
 - `docs/disclaimer.zh-CN.md`
 - `docs/disclaimer.en.md`
 - `docs/disclaimer.ja-JP.md`
-- `docs/superpowers/plans/2026-11-12-docs-and-engineering-progress.md`
-- `docs/superpowers/plans/2026-11-13-data-directory-1-2-0-progress.md`
+- `docs/superpowers/plans/docs-and-engineering-progress.md`
+- `docs/superpowers/plans/data-directory-1-2-0-progress.md`
 - `src/main/base/identity/data-directory.ts`
 - 相关 PR：PR `#62`（`ecdd9d8`）、PR `#63`（`d2d1184`）

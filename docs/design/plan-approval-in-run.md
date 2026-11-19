@@ -26,6 +26,6 @@
 ## 生命周期与未决定项
 同 run 批准会改变启动时计划快照，因此结束清理应绑定实际执行修订和 run 所有权，不能无条件清掉后来运行的新计划。当前完整准备/收尾只显式覆盖 Chat / Code，Work 是否补齐待定；伙伴不得自行批准父计划。界面代发与新审批入口不能同时启用。
 
-状态持久化与重启旧卡失效见[计划权限与恢复](plan-mode-permission-and-state.md)。运行接纳和安全恢复沿用[会话可靠性计划](../superpowers/plans/2026-11-12-conversation-reliability.md)，提醒导航沿用[提醒与界面计划](../superpowers/plans/2026-11-12-reminders-and-ui.md)，不抄写施工步骤。
+状态持久化与重启旧卡失效见[计划权限与恢复](plan-mode-permission-and-state.md)。运行接纳和安全恢复沿用[会话可靠性计划](../superpowers/plans/conversation-reliability.md)，提醒导航沿用[提醒与界面计划](../superpowers/plans/reminders-and-ui.md)，不抄写施工步骤。
 
 尚未决定是否采纳、模式覆盖、审批超时、卡片布局和排期。现有行为测试入口为 `src/main/agent/loop/plan-tools.test.ts`、`src/main/agent/runtime/adapter/plan-lifecycle.test.ts`、`src/renderer/react/features/chat/pages/ChatPage.plan-lifecycle.test.ts`；它们不能证明本提案已实现。本次未执行。
