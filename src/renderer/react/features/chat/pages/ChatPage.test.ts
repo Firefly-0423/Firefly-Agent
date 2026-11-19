@@ -78,7 +78,7 @@ async function page(mode: "chat" | "code" = "chat") {
   return { container, store, replace, openSettings, browserAlert, browserConfirm };
 }
 
-test.each([["code", true], ["chat", true], ["work", false], ["learn", false]] as const)("deferred plan subscription in %s is %s", (mode, enabled) => {
+test.each([["code", true], ["chat", false], ["work", false], ["learn", false]] as const)("deferred plan subscription in %s is %s", (mode, enabled) => {
   expect(shouldListenForDeferredPlanEvents(mode)).toBe(enabled);
 });
 test("the rail preferences action requests General exactly once", async () => {
