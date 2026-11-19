@@ -850,7 +850,7 @@ export function registerAgUiIpc(
           emit(deferredTerminal);
           deferredTerminal = null;
         }
-        if ((conversationMode === "code" || conversationMode === "chat") && succeeded) {
+        if (conversationMode === "code" && succeeded) {
           startPlanReviewFlow({ sessionId: conversationId, threadId: threadKey, runId: executionId, send: emit });
         }
         endLifecycle();

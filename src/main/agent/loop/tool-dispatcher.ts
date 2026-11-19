@@ -198,6 +198,9 @@ async function executeAgentLoopBuiltin(call: ToolCall, ctx: ToolDispatchContext)
   if (call.name === "update_todo") return executeUpdateTodo(call, ctx.state, ctx.onEvent);
   if (call.name === "ask_user") return executeAskUser(call, ctx.requestUserClarification, ctx.onEvent);
   if (call.name === CONFIRM_UNCERTAIN_EFFECT_TOOL_ID) return executeConfirmUncertainEffect(call, ctx.state, ctx.requestUserClarification, ctx.toolContext?.signal);
+  if (ctx.toolContext?.mode === "chat" && (call.name === ENTER_PLAN_MODE_TOOL_ID || call.name === WRITE_PLAN_TOOL_ID)) {
+    return { outcome: "failure", category: "runtime_safety", tool: call.name, message: "Chat 模式不支持计划工具" };
+  }
   if (call.name === ENTER_PLAN_MODE_TOOL_ID) return executeEnterPlanMode(call, ctx.toolContext, ctx.onEvent);
   if (call.name === WRITE_PLAN_TOOL_ID) return executeWritePlan(call, ctx.toolContext, ctx.onEvent);
   if (call.name === DELEGATE_AGENT_TOOL_ID) return executeDelegateAgent(call, ctx.agentExecutor, ctx.delegationScope, ctx.onExecutionStarted);

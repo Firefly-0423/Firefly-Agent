@@ -41,6 +41,8 @@ export type AgentRunStoreOptions = { now?: () => number };
 export type AgentRunEvidence = Pick<AgentRunSession, "runId" | "conversationId" | "status" | "toolCalls">;
 /** Persisted runs kept parsed in memory; every write goes through this store, so a cached run is never stale. */
 const LOADED_RUN_LIMIT = 24;
+type RunInsertionEvidence = Required<Pick<AgentRunSession, "conversationId" | "insertions">>;
+type CachedRunEvidence = AgentRunEvidence & Pick<RunInsertionEvidence, "insertions">;
 type IndexRow = { updatedAt: number; status: AgentRunStatus; runId: string; conversationId: string };
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 function validRunId(value: string): boolean {
@@ -85,7 +87,7 @@ export class AgentRunStore {
   private readonly volatile = new Map<string, AgentRunSession>();
   private readonly loaded = new Map<string, AgentRunSession>();
   /** Evidence of every run read or written in this process; small, so it is kept for the store's lifetime. */
-  private readonly evidenceByRun = new Map<string, AgentRunEvidence>();
+  private readonly evidenceByRun = new Map<string, CachedRunEvidence>();
   private pendingIndex: ReturnType<typeof setTimeout> | undefined;
   private writes = 0;
   private characters = 0;
@@ -117,9 +119,10 @@ export class AgentRunStore {
   }
   /** The whole run (same as get); named for TranscriptRunReader.session. */
   session(runId: string): AgentRunSession | null { return this.get(runId); }
-  insertionEvidence(runId: string): Pick<AgentRunSession, "conversationId" | "insertions"> | null {
-    const run = this.load(runId);
-    return run ? { conversationId: run.conversationId, insertions: copy(run.insertions ?? []) } : null;
+  insertionEvidence(runId: string): RunInsertionEvidence | null {
+    if (!validRunId(runId)) return null;
+    const known = this.volatile.get(runId) ?? this.evidenceByRun.get(runId);
+    return known ? { conversationId: known.conversationId, insertions: copy(known.insertions ?? []) } : null;
   }
   /** A light read for hot paths: copies only the run's identity, status and tool calls. */
   evidence(runId: string): AgentRunEvidence | null {
@@ -128,7 +131,10 @@ export class AgentRunStore {
     return known ? { runId: known.runId, conversationId: known.conversationId, status: known.status, toolCalls: copy(known.toolCalls) } : null;
   }
   private noteEvidence(session: AgentRunSession): void {
-    this.evidenceByRun.set(session.runId, { runId: session.runId, conversationId: session.conversationId, status: session.status, toolCalls: copy(session.toolCalls) });
+    this.evidenceByRun.set(session.runId, {
+      runId: session.runId, conversationId: session.conversationId, status: session.status,
+      toolCalls: copy(session.toolCalls), insertions: copy(session.insertions ?? []),
+    });
   }
   getLatestInterrupted(conversationId: string): AgentRunSession | null {
     const latest = Array.from(this.rows.values()).filter((entry) => entry.conversationId === conversationId && entry.status === "interrupted")
@@ -258,7 +264,7 @@ export class AgentRunStore {
       // Callers mutate the loaded session before persisting it. If the write fails, memory must not stay ahead of
       // disk: forget the cached copy so the next read sees what was actually saved.
       try { this.atomicWrite(this.sessionPath(session.runId), session); }
-      catch (failure) { this.loaded.delete(session.runId); this.evidenceByRun.delete(session.runId); throw failure; }
+      catch (failure) { this.loaded.delete(session.runId); throw failure; }
       this.remember(session); this.noteEvidence(session);
     }
     this.rows.set(session.runId, indexEntry(session));
