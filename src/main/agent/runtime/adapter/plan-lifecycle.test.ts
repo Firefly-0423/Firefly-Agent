@@ -16,6 +16,17 @@ beforeEach(() => {
 });
 
 describe("Plan state at run boundaries", () => {
+  it("ignores saved plan state and never publishes completion for Chat", async () => {
+    services.state.mockReturnValue("EXECUTING");
+    const send = vi.fn();
+    expect(await preparePlanRunContext({ mode: "chat", threadId: "old-plan" })).toEqual({ planState: undefined });
+    completePlanRun({ mode: "chat", threadId: "old-plan", runId: "r", runStatus: "completed",
+      planState: "EXECUTING", signal: new AbortController().signal, send });
+    expect(services.state).not.toHaveBeenCalled();
+    expect(services.read).not.toHaveBeenCalled();
+    expect(services.release).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
   it("reopens review before capturing the discussion state", async () => {
     services.state.mockReturnValueOnce("PLAN_REVIEW").mockReturnValueOnce("PLAN_DISCUSSING");
     expect(await preparePlanRunContext({ mode: "code", threadId: "planning-thread" })).toEqual({ planState: "PLAN_DISCUSSING" });

@@ -316,7 +316,7 @@ export async function buildAgentRunOptions(input: AguiRunInput, deps: BuildOptio
   let catalog = deps.buildSkillCatalog(skills);
   let injectedSkills = deps.buildAutoInjectedSkillContext(skills);
   let injectedSoul = deps.buildAutoInjectedSoulContext?.(skills) ?? "";
-  const planPhase = mode === "code" || mode === "chat" ? getPlanState(conversation) : "NORMAL";
+  const planPhase = mode === "code" ? getPlanState(conversation) : "NORMAL";
   let planContext: string | undefined;
   if (planPhase === "PLAN_DISCUSSING" || planPhase === "PLAN_REVIEW") {
     const instruction = loadPromptFile("workflow-support/plan-mode.md");
