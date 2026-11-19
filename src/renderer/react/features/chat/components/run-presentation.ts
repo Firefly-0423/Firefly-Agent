@@ -1,10 +1,8 @@
 import type { AskCardSubmission } from "../../../../../shared/ask-clarification";
 import { t } from "../../../i18n";
 
-export type AgentRunStageKind =
-  | "understanding" | "planning" | "executing" | "waiting_permission" | "waiting_user"
-  | "responding" | "completed" | "cancelled" | "timeout" | "failed";
-export type AgentRunStage = { detail?: string; kind: AgentRunStageKind };
+import type { AgentRunStage } from "../../../../../shared/run-display";
+export { resolveRunFinishedStage, resolveTerminalContent, isFormalAnswerCommitted, type AgentRunStage, type AgentRunStageKind } from "../../../../../shared/run-display";
 export type TaskPlanStep = { status?: "pending" | "running" | "completed" | "failed"; title: string; id: string };
 export type TaskPlanPresentation = { steps: TaskPlanStep[]; title?: string };
 
@@ -67,23 +65,6 @@ export type ComposerSlotKind = "composer" | ComposerInteraction["kind"];
 export function resolveComposerSlot(interaction?: ComposerInteraction): ComposerSlotKind {
   const selected = interaction?.kind;
   return selected ?? "composer";
-}
-
-export function resolveRunFinishedStage(result: { status?: string } | undefined | null): AgentRunStage {
-  const outcome = result?.status;
-  if (outcome === "cancelled") return { kind: "cancelled" };
-  if (outcome === "timeout") return { kind: "timeout" };
-  if (outcome === "runtime_error") return { kind: "failed" };
-  return { kind: "completed" };
-}
-
-export function resolveTerminalContent(streamContent: string, status: string | undefined): string {
-  const stripped = streamContent.trim();
-  return status === "success" || status === "cancelled" || status === "timeout" ? stripped : streamContent;
-}
-
-export function isFormalAnswerCommitted(content: string, status: string | undefined, finalMessageCompleted: boolean): boolean {
-  return status === "success" && finalMessageCompleted && content.trim().length > 0;
 }
 
 export function shouldClearComposerInteractionForTerminal(activeRunId: string | undefined, terminalRunId: string | undefined): boolean {

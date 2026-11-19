@@ -4,13 +4,13 @@ import type {
   RunActivityRecord, TaskDelegationDisplayRecord, ToolExecutionRecord, WorkReadReport,
 } from "../../../../../../shared/chat-types";
 import { isContextUsageSnapshot, type ContextUsageSnapshot } from "../../../../../../shared/context-usage";
-import { normalizeToolTaskResult } from "../../../../../../shared/task-result-evidence";
+import { reduceDisplayAnswer, reduceToolDisplay, displayTerminal, finishDisplayAnswer } from "../../../../../../shared/run-display";
 import type { TodoItem } from "../../../../../../shared/todo-types";
 import type { ChatMessageItem } from "../../components/ChatMessageList";
 import type { ComposerAttachment } from "../../components/ChatComposer";
 import {
-  isFormalAnswerCommitted, normalizeChoiceInteraction, normalizeTaskPlanPresentation, resolveRunFinishedStage,
-  resolveTerminalContent, shouldClearComposerInteractionForTerminal, type ComposerInteraction,
+  normalizeChoiceInteraction, normalizeTaskPlanPresentation, resolveRunFinishedStage,
+  shouldClearComposerInteractionForTerminal, type ComposerInteraction,
 } from "../../components/run-presentation";
 import { applyAgentRoundBoundary, createRoundProcessMessage } from "../../components/agent-rounds";
 import { applyTaskDelegationEvent, normalizeTaskDelegationEvent } from "../../components/task-delegations";
@@ -66,7 +66,7 @@ export type AgentRunDeps = {
 export class AgentRunController {
   private readonly request: AgentRunInput;
   private readonly ports: AgentRunDeps;
-  private answerText = "";
+  private answer = { text: "", closed: false };
   private finishStatus: string | undefined;
   private ended = false;
   private readEvidence: WorkReadReport | undefined;
@@ -78,7 +78,6 @@ export class AgentRunController {
   private roundKey: string | undefined;
   private nextProcessNumber = 0;
   private timelineNumber = 0;
-  private answerClosed = false;
   private revealStopped = false;
   private revealSteps: Promise<void> = Promise.resolve();
   private readonly textReveal = new PacedTextReveal(() => this.request.targetMode !== "chat" && !prefersReducedMotion());
@@ -206,11 +205,10 @@ export class AgentRunController {
       const terminalFailure = await this.settlement;
       if (terminalFailure) throw terminalFailure;
       await this.revealSteps;
-      const committed = isFormalAnswerCommitted(this.answerText, this.finishStatus, this.answerClosed);
+      const { committed, content: finalText } = finishDisplayAnswer(this.answer.text, this.finishStatus, this.answer.closed);
       if (!committed) this.moveCandidateToInterruptedProcess();
       else this.resetCandidateState();
       this.completeRunActivity(!committed);
-      const finalText = committed ? resolveTerminalContent(this.answerText, this.finishStatus) : "";
       this.savedAnswer = finalText;
       this.patch({
         content: finalText, runStage: resolveRunFinishedStage({ status: this.finishStatus }), transientText: undefined,
@@ -388,18 +386,6 @@ export class AgentRunController {
       void this.writeCheckpoint(status);
     }, 350);
     return this.saves;
-  }
-
-  private updateRunTool(toolId: string, patch: Partial<ToolExecutionRecord>) {
-    const found = this.tools.findIndex((entry) => entry.id === toolId);
-    if (found === -1) {
-      this.tools = [...this.tools, {
-        id: toolId, name: patch.name ?? t("chatPage.toolCallFallbackName"), displayName: patch.displayName,
-        status: patch.status ?? "running", result: patch.result, argsText: patch.argsText,
-        changes: patch.changes, roundId: patch.roundId ?? this.roundKey, seq: this.nextSeq(),
-      }];
-    } else this.tools = this.tools.map((entry, offset) => offset === found ? { ...entry, ...patch } : entry);
-    this.patch({ toolExecutions: this.tools });
   }
 
   private enqueuePublicTextReveal(key: string, content: string, publish: (chunk: string) => void) {
@@ -718,51 +704,36 @@ export class AgentRunController {
         if (phase) this.patch({ runStage: phase });
         break;
       }
-      case "TOOL_CALL_START": {
-        if (!event.toolCallId) break;
-        const caption = event.toolCallDisplayName ?? event.toolCallName ?? t("chatPage.toolCallFallbackName");
-        this.updateRunTool(event.toolCallId, {
-          name: event.toolCallName ?? t("chatPage.toolCallFallbackName"),
-          displayName: event.toolCallDisplayName, status: "running", roundId: this.roundKey,
-        });
-        this.patch({ runStage: { kind: "executing", detail: caption } });
+      case "TOOL_CALL_START":
+      case "TOOL_CALL_ARGS":
+      case "TOOL_CALL_RESULT":
+      case "TOOL_CALL_END": {
+        const fallback = t("chatPage.toolCallFallbackName");
+        const update = reduceToolDisplay(this.tools, event, this.roundKey, this.timelineNumber, fallback);
+        if (!update) break;
+        this.tools = update.records;
+        this.timelineNumber = update.nextSeq;
+        this.patch({ toolExecutions: this.tools });
+        if (event.type === "TOOL_CALL_START") this.patch({ runStage: { kind: "executing", detail: event.toolCallDisplayName ?? event.toolCallName ?? fallback } });
+        if (event.type === "TOOL_CALL_RESULT") void this.checkpointRun("running", true);
         break;
       }
-      case "TOOL_CALL_ARGS": {
-        if (!event.toolCallId || !event.delta) break;
-        const prior = this.tools.find((entry) => entry.id === event.toolCallId)?.argsText ?? "";
-        this.updateRunTool(event.toolCallId, { argsText: prior + event.delta, roundId: this.roundKey });
-        break;
-      }
-      case "TOOL_CALL_RESULT": {
-        if (!event.toolCallId) break;
-        this.updateRunTool(event.toolCallId, {
-          status: event.status === "failed" ? "error" : "success", result: (event.content ?? "").slice(0, 4000),
-          changes: event.changes, taskResult: this.tools.find((entry) => entry.id === event.toolCallId)?.name === "delegate_agent"
-            ? normalizeToolTaskResult(event.taskResult, event.runId) : undefined,
-        });
-        void this.checkpointRun("running", true);
-        break;
-      }
-      case "TOOL_CALL_END":
-        if (event.toolCallId) this.updateRunTool(event.toolCallId, {});
-        break;
       case "TEXT_MESSAGE_START":
         this.patch({ loading: false, reasoningStreaming: false, responseStarted: true, streaming: true, runStage: { kind: "responding" } });
         break;
       case "TEXT_MESSAGE_CONTENT":
         if (!event.delta) break;
-        if (this.previewText) this.answerText += event.delta;
+        if (this.previewText) this.answer = reduceDisplayAnswer(this.answer, event);
         else this.enqueuePublicTextReveal("answer", event.delta, (chunk) => {
-          this.answerText += chunk;
-          this.patch({ content: this.answerText, loading: false, streaming: true, responseStarted: true });
+          this.answer = reduceDisplayAnswer(this.answer, { type: "TEXT_MESSAGE_CONTENT", delta: chunk });
+          this.patch({ content: this.answer.text, loading: false, streaming: true, responseStarted: true });
           void this.checkpointRun("running");
         });
         break;
       case "TEXT_MESSAGE_END":
-        if (this.previewText) this.answerClosed = true;
+        if (this.previewText) this.answer = reduceDisplayAnswer(this.answer, event);
         else this.chainReveal(() => {
-          this.answerClosed = true;
+          this.answer = reduceDisplayAnswer(this.answer, event);
           this.patch({ streaming: false });
         });
         break;
@@ -772,11 +743,11 @@ export class AgentRunController {
       case "RUN_FINISHED": {
         this.ensureWorkReadReport();
         this.ended = true;
-        const terminal = event.result;
-        this.finishStatus = terminal?.status;
+        const terminal = displayTerminal({ ...event, type: event.type });
+        this.finishStatus = terminal.status;
         if (this.finishStatus !== "success") this.failPlan(this.finishStatus === "cancelled" ? "cancelled" : "failed");
         if (this.finishStatus !== "success") { this.cancelPublicReveal(); this.abortCandidateReveal(); }
-        const phase = resolveRunFinishedStage(terminal);
+        const phase = terminal.stage;
         this.patch({ runStage: phase });
         const owner = this.ports.registries.activeRuns.current[this.request.sessionId]?.runId;
         if (shouldClearComposerInteractionForTerminal(owner, event.runId)) this.ports.host.clearInteraction(this.request.sessionId);
@@ -790,10 +761,11 @@ export class AgentRunController {
         this.cancelPublicReveal();
         this.abortCandidateReveal();
         this.completeRunActivity(true);
-        this.patch({ runStage: { kind: "failed" } });
+        const terminal = displayTerminal({ ...event, type: event.type });
+        this.patch({ runStage: terminal.stage });
         const owner = this.ports.registries.activeRuns.current[this.request.sessionId]?.runId;
         if (shouldClearComposerInteractionForTerminal(owner, event.runId)) this.ports.host.clearInteraction(this.request.sessionId);
-        const failure = publicRunFailure({ code: event.code, message: event.message });
+        const failure = terminal.failure;
         this.settle(Object.assign(new Error(failure.code), failure));
         break;
       }
