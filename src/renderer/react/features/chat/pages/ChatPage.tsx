@@ -384,6 +384,7 @@ export function ChatPage() {
   useEffect(() => {
     const store = chatStore();
     if (!store) return;
+    const insertionReads = new Map<string, symbol>();
     const refresh = () => {
       const targetMode = activeModeRef.current;
       void refreshSessions(targetMode, true).catch((error) => {
@@ -398,8 +399,25 @@ export function ChatPage() {
       }
       for (const sessionId of sessionIds) void queueFlow.syncProjection(sessionId);
     };
-    const off = store.onChanged(refresh);
-    return off;
+    const off = store.onChanged((notice) => {
+      if (!notice?.runInsertionSessionId) {
+        refresh();
+        return;
+      }
+      const sessionId = notice.runInsertionSessionId;
+      void queueFlow.syncProjection(sessionId);
+      const request = Symbol();
+      insertionReads.set(sessionId, request);
+      void store.get(sessionId).then(session => {
+        if (insertionReads.get(sessionId) !== request || session?.id !== sessionId) return;
+        if (session.mode === "work" || session.mode === "code") hydrateMessages(sessionId, toUiMessages(session), true);
+      }).catch(error => {
+        console.warn("[ChatPage] Failed to refresh run insertions:", error);
+      }).finally(() => {
+        if (insertionReads.get(sessionId) === request) insertionReads.delete(sessionId);
+      });
+    });
+    return () => { insertionReads.clear(); off(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

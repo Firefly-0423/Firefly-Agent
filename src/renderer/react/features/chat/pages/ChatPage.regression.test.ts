@@ -5,8 +5,9 @@
 import React, { act, createElement, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import type { ChatMessage, ChatSession, ConversationMode, PendingChatMessage } from "../../../../../shared/chat-types";
+import type { ChatMessage, ChatSession, ConversationMode, PendingChatMessage, RunInsertionChanged } from "../../../../../shared/chat-types";
 import type { AguiApi, AguiEvent, ChatStoreApi, PermissionApprovalRequest, SettingsApprovalApi } from "./chat-page-bridge";
+import type { ChatMessageItem } from "../components/ChatMessageList";
 import { t } from "../../../i18n";
 
 vi.mock("react-resizable-panels", () => ({
@@ -16,10 +17,21 @@ vi.mock("react-resizable-panels", () => ({
   useDefaultLayout: () => ({}),
   usePanelRef: () => useRef({ expand() {}, collapse() {} }),
 }));
-vi.mock("../components/ChatMessageList", () => ({
-  ChatMessageList: ({ messages }: { messages: Array<{ id: string; role: string; content: string }> }) =>
-    createElement("ol", { id: "messages" }, ...messages.map(item => createElement("li", { key: item.id, "data-id": item.id, "data-role": item.role }, item.content))),
-}));
+vi.mock("../components/ChatMessageList", async () => {
+  const { placeRunInsertionBubbles } = await import("../components/run-insertion-bubbles");
+  const { buildFlatRunTimeline } = await import("../components/agent-rounds");
+  return {
+    ChatMessageList: ({ messages, mode }: { messages: ChatMessageItem[]; mode: ConversationMode }) =>
+      createElement("ol", { id: "messages" }, ...placeRunInsertionBubbles(messages, mode).map(item => {
+        const timeline = item.insertionBubbles ? buildFlatRunTimeline({
+          tools: item.toolExecutions ?? [], reasoningBlocks: [], taskDelegations: [], processMessages: [],
+          insertionBubbles: item.insertionBubbles,
+        }).map(step => createElement("div", { key: step.key, "data-timeline-step": step.kind },
+          step.insertion?.content ?? step.tool?.name)) : [];
+        return createElement("li", { key: item.id, "data-id": item.id, "data-role": item.role }, item.content, ...timeline);
+      })),
+  };
+});
 // A thin composer: ChatPage owns the draft, attachments and queue projection, so the real page logic stays in play.
 vi.mock("../components/ChatComposer", () => ({
   parseComposerMessage: (_mode: string, content: string) => ({ rawContent: content.trim(), visibleContent: content.trim() }),
@@ -54,6 +66,7 @@ const nextFiles: File[] = [];
 let host: HTMLDivElement;
 let root: ReturnType<typeof createRoot>;
 let listeners: Set<(event: AguiEvent) => void>;
+let historyChange: ((notice?: RunInsertionChanged) => void) | undefined;
 let sessions: Record<string, ChatSession>;
 let queues: Record<string, PendingChatMessage[]>;
 let dispatching: Record<string, string | undefined>;
@@ -147,7 +160,8 @@ function installBridges() {
       };
     }),
     pendingCompleteDispatch: vi.fn(async (id: string) => { dispatching[id] = undefined; return { ok: true }; }),
-    setActiveSession: async () => {}, onChanged: () => () => {}, onReactSwitchSession: () => () => {},
+    setActiveSession: async () => {}, onChanged: receive => { historyChange = receive; return () => { historyChange = undefined; }; },
+    onReactSwitchSession: () => () => {},
     notifyReactReady() {},
   };
   page.chatStore = store as ChatStoreApi;
@@ -311,6 +325,44 @@ describe("ChatPage package B: recovery, takeover and the pending queue", () => {
     // Recovery notices hide while a run is active, so the card is checked again once every run has settled.
     finishRun("run-3"); await flush();
     expect(restartCards()).toHaveLength(0);
+  });
+
+  test.each(["work", "code"] as const)("a committed insertion leaves the queue, then joins the live %s timeline once delivered", async mode => {
+    sessions = { "session-a": session("session-a", mode), "session-b": session("session-b", mode) };
+    await mount(mode);
+    await type("start"); await click("#send"); await flush();
+    await type("add this"); await click("#send"); await flush();
+    expect(texts("#queue li")).toEqual(["add thisx"]);
+    const [queued] = queues["session-a"];
+    const owner = runCalls[0].assistantTurnId!;
+    const runCount = runCalls.length;
+    const round = (id: string, action: string) => emit({ type: "CUSTOM", name: "firefly.round", value: { roundId: id, action }, runId: "run-1" });
+    const tool = (id: string, name: string) => emit({ type: "TOOL_CALL_START", toolCallId: id, toolCallName: name, runId: "run-1" });
+    await act(async () => { round("round-0", "start"); tool("read", "read_file"); round("round-0", "end"); });
+    await flush();
+    queues["session-a"] = [];
+    sessions["session-a"].messages.push({ id: queued.id, role: "user", content: queued.visibleContent, at: 3,
+      runInsertion: { version: 1, runId: "run-1", assistantTurnId: owner, sequence: 1, revision: 1 } });
+    await act(async () => { historyChange!({ runInsertionSessionId: "session-a" }); });
+    await flush();
+    expect(texts("#queue li")).toEqual([]);
+    expect(texts("#messages [data-role='user']")).toEqual(["start", "add this"]);
+    expect($(`#messages [data-id="${owner}"]`)).not.toBeNull();
+    expect(runCalls).toHaveLength(runCount);
+    await act(async () => { round("round-1", "start"); tool("write", "write_file"); });
+    await flush();
+    const committed = sessions["session-a"].messages.find(message => message.id === queued.id)!;
+    committed.runInsertion!.delivery = { round: 1, order: 1 };
+    await act(async () => {
+      historyChange!({ runInsertionSessionId: "session-a" });
+      historyChange!({ runInsertionSessionId: "session-a" });
+    });
+    await flush();
+    expect(texts("#messages [data-role='user']")).toEqual(["start"]);
+    expect(texts(`#messages [data-id="${owner}"] [data-timeline-step]`)).toEqual(["read_file", "add this", "write_file"]);
+    expect(texts("#queue li")).toEqual([]);
+    expect(runCalls).toHaveLength(runCount);
+    await act(async () => { finishRun("run-1"); }); await flush();
   });
 
   test("B5: while a run is busy, two sends queue in order and removing one touches only that id", async () => {

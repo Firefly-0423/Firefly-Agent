@@ -6,6 +6,10 @@ import { IPC } from "../../../shared/ipc-channels";
 import type { ChatMessage } from "../../../shared/chat-types";
 const profile = vi.hoisted(() => ({ root: "", sessionId: "", blocked: "", handlers: new Map<string, any>() }));
 vi.mock("electron", () => ({ app: { getPath: () => profile.root }, shell: { openPath: vi.fn() }, BrowserWindow: { getAllWindows: () => [] }, ipcMain: { handle: (channel: string, handler: any) => profile.handlers.set(channel, handler) }, dialog: { showOpenDialog: vi.fn() } }));
+vi.mock("../../base/storage/storage-context", async original => ({
+    ...await original<typeof import("../../base/storage/storage-context")>(),
+    getStorageContext: () => ({ dataRoot: profile.root }),
+}));
 vi.mock("fs", async () => {
     const actual = await vi.importActual<typeof import("node:fs")>("node:fs");
     return { ...actual, writeFileSync: (file: any, ...args: any[]) => {
@@ -45,6 +49,43 @@ async function ipcSetup() {
     return { store, call };
 }
 const forged = { version: 1, runId: "forged-run", revision: 9, sequence: 99, assistantTurnId: "forged-turn" };
+
+it("projects saved delivery receipts into history only for the owning conversation, turn and revision", async () => {
+    const { store, id } = await setup(["first", "second", "other", "wrong-version"]);
+    const { call } = await ipcSetup();
+    const runs = (await import("../../agent/loop/run-store")).getAgentRunStore(profile.root);
+    const request = { mode: "work", provider: "mock", model: "mock", contextWindowTokens: 1024,
+        promptFingerprint: "prompt", toolSchemaFingerprint: "tools" };
+    runs.create({ conversationId: id, runId: "run-A", messages: [], request });
+    runs.create({ conversationId: "another-session", runId: "run-B", messages: [], request });
+    const answer = (runId: string): ChatMessage => ({ id: "answer-" + runId, role: "model", content: "", at: 2,
+        runSnapshot: { status: "running", runId, updatedAt: 2 } });
+    store.upsertMessage(id, answer("run-A"));
+    store.upsertMessage(id, answer("run-B"));
+    for (const key of ["first", "second", "wrong-version"]) insert(store, id, key, "run-A", { assistantTurnId: "answer-run-A" });
+    insert(store, id, "other", "run-B", { assistantTurnId: "answer-run-B" });
+    const markers = async () => {
+        const session: import("../../../shared/chat-types").ChatSession = await call(IPC.CHATS_GET, id);
+        return Object.fromEntries(session.messages.filter(message => message.runInsertion)
+            .map(message => [message.id, message.runInsertion?.delivery]));
+    };
+    expect(await markers()).toEqual({ first: undefined, second: undefined, other: undefined, "wrong-version": undefined });
+    runs.checkpoint("run-A", { insertions: [
+        { messageId: "first", sourceRunId: "run-A", revision: 1, round: 3, order: 1 },
+        { messageId: "wrong-version", sourceRunId: "run-A", revision: 2, round: 3, order: 2 },
+    ] });
+    runs.checkpoint("run-B", { insertions: [{ messageId: "other", sourceRunId: "run-B", revision: 1, round: 4, order: 1 }] });
+    runs.markTerminal("run-A", "completed");
+    expect(await markers()).toEqual({ first: { round: 3, order: 1 }, second: undefined, other: undefined, "wrong-version": undefined });
+    expect(store.getSession(id)?.messages.find(message => message.id === "first")?.runInsertion).not.toHaveProperty("delivery");
+    const read = runs.insertionEvidence.bind(runs);
+    vi.spyOn(runs, "insertionEvidence").mockImplementation(runId => {
+        if (runId === "run-B") throw new Error("AGENT_RUN_READ_FAILED");
+        return read(runId);
+    });
+    expect(await markers()).toEqual({ first: { round: 3, order: 1 }, second: undefined, other: undefined, "wrong-version": undefined });
+});
+
 describe("run insertion marker (#96)", () => {
     describe("commitPendingAdjust marks the history message", () => {
         it("numbers insertions per run in commit order and stores the exact marked messages", async () => {

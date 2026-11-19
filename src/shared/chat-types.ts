@@ -99,7 +99,11 @@ export type RunInsertion = {
     revision: number;
     /** Order among the insertions committed for this run, starting at 1. */
     sequence: number;
+    /** Read-only projection from the original run's checkpoint. */
+    delivery?: { round: number; order: number };
 };
+
+export type RunInsertionChanged = { runInsertionSessionId: string };
 export type ChatMessage = {
     agentRounds?: AgentRoundRecord[];
     answersUserMessageId?: string;

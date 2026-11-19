@@ -117,6 +117,10 @@ export class AgentRunStore {
   }
   /** The whole run (same as get); named for TranscriptRunReader.session. */
   session(runId: string): AgentRunSession | null { return this.get(runId); }
+  insertionEvidence(runId: string): Pick<AgentRunSession, "conversationId" | "insertions"> | null {
+    const run = this.load(runId);
+    return run ? { conversationId: run.conversationId, insertions: copy(run.insertions ?? []) } : null;
+  }
   /** A light read for hot paths: copies only the run's identity, status and tool calls. */
   evidence(runId: string): AgentRunEvidence | null {
     if (!validRunId(runId)) return null;

@@ -157,6 +157,20 @@ describe("preload event listeners, payload unwrapping, and unsubscribe isolation
     expect(listed.slice().sort()).toEqual(collectListenerPaths(harness.exposed));
   });
 
+  it("only forwards the session ID from a run insertion history notice", () => {
+    const receive = vi.fn();
+    const off = resolveCallable("chatStore.onChanged")(receive);
+    try {
+      const nativeEvent = { sender: "native-ipc-event" };
+      harness.emit(IPC.CHATS_CHANGED, nativeEvent, { runInsertionSessionId: "work-1", private: "unexpected field" });
+      harness.emit(IPC.CHATS_CHANGED, nativeEvent, { runInsertionSessionId: 42 });
+      harness.emit(IPC.CHATS_CHANGED, nativeEvent);
+      expect(receive.mock.calls).toEqual([[{ runInsertionSessionId: "work-1" }], [], []]);
+    } finally {
+      off();
+    }
+  });
+
   it.each(LISTENER_CASES)(
     "$path strips _ipcEvent, isolates sibling listeners, and supports idempotent unsubscribe",
     ({ path, channel, firstPayload, secondPayload, thirdPayload, expectDelivered = expectSingleArg }) => {
