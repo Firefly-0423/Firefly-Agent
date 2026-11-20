@@ -56,6 +56,7 @@ export type CandidateTextEventValue =
   | { delta: string; roundId: string; action: "delta" };
 
 export type AguiApi = {
+  getRunStatus?: (request: import("../../../../../shared/run-status").RunStatusRequest) => Promise<import("../../../../../shared/run-status").RunStatusItem[]>;
   getInterruptedRun?: (sessionId: string) => Promise<{ runId: string; rounds: number; todoCount: number; updatedAt: number } | null>;
   reportRunPersisted?: (payload: { runId: string; finalMessageId?: string }) => void;
   cancel: (runId?: string) => Promise<unknown>;

@@ -57,6 +57,7 @@ import {
   type ModelConfigApi,
 } from "./chat-page-bridge";
 import { observeStickerPreference } from "./sticker-preference";
+import { isRunStatusCandidate, observeSessionRunStatus } from "./session-run-status";
 import {
   getInitialMode,
   isConversationMode,
@@ -308,6 +309,9 @@ export function ChatPage() {
   // 渲染态消息快照 ref：待发队列流程查询消息是否已在视图（刷新恢复时不重复追加）
   const messagesBySessionRef = useRef(messagesBySession);
   messagesBySessionRef.current = messagesBySession;
+  const observedRunBusyRef = useRef<Record<string, boolean>>({});
+  const observedRunStatusesRef = useRef<Record<string, import("../../../../../shared/run-status").RunStatusItem[]>>({});
+  const runStatusObserverRef = useRef<ReturnType<typeof observeSessionRunStatus> | undefined>(undefined);
 
   const { queues: pendingQueueBySession, queuesRef: pendingQueueBySessionRef, flow: queueFlow } = usePendingQueue({
     getStore: () => chatStore(),
@@ -376,6 +380,7 @@ export function ChatPage() {
   }, [mode]);
 
   useEffect(() => () => {
+    runStatusObserverRef.current?.dispose();
     for (const off of activeAguiOffsRef.current) off();
     activeAguiOffsRef.current.clear();
 
@@ -410,7 +415,8 @@ export function ChatPage() {
       insertionReads.set(sessionId, request);
       void store.get(sessionId).then(session => {
         if (insertionReads.get(sessionId) !== request || session?.id !== sessionId) return;
-        if (session.mode === "work" || session.mode === "code") hydrateMessages(sessionId, toUiMessages(session), true);
+        if (session.mode === "work" || session.mode === "code") hydrateMessages(sessionId,
+          toUiMessages(session, aguiApi()?.getRunStatus ? observedRunStatusesRef.current[sessionId] ?? [] : undefined), true);
       }).catch(error => {
         console.warn("[ChatPage] Failed to refresh run insertions:", error);
       }).finally(() => {
@@ -591,6 +597,48 @@ export function ChatPage() {
     const session = await store.get(sessionId);
     if (generation !== sessionSelectionGeneration.current) return "stale";
     if (!session) return "unavailable";
+    runStatusObserverRef.current?.dispose();
+    const api = aguiApi();
+    const query = api?.getRunStatus;
+    let statusMessages = toUiMessages(session, query ? [] : undefined);
+    let presentationSession = session;
+    let unresolvedRunStatus = false;
+    if (query && targetMode === activeModeRef.current) {
+      await store.setActiveSession(sessionId, targetMode);
+      if (generation !== sessionSelectionGeneration.current) return "stale";
+      const observer = observeSessionRunStatus({ sessionId,
+        candidates: session.messages.filter(isRunStatusCandidate).map(message => ({
+          assistantTurnId: message.id, ...(message.runSnapshot?.runId ? { runId: message.runSnapshot.runId } : {}),
+        })), query: async request => {
+          const statuses = await query(request);
+          const latest = await store.get(sessionId);
+          if (latest?.id === sessionId) presentationSession = latest;
+          return statuses;
+        },
+        listen: changed => {
+          const off = store.onChanged(() => changed());
+          const visible = () => { if (document.visibilityState === "visible") changed(); };
+          document.addEventListener("visibilitychange", visible);
+          return () => { off(); document.removeEventListener("visibilitychange", visible); };
+        },
+        publish: statuses => {
+          if (generation !== sessionSelectionGeneration.current) return;
+          unresolvedRunStatus = statuses.some(item => item.phase === "unavailable");
+          observedRunBusyRef.current[sessionId] = statuses.some(item => item.phase === "running" || item.phase === "settling");
+          observedRunStatusesRef.current[sessionId] = statuses;
+          statusMessages = toUiMessages(presentationSession, statuses);
+          if (!hasActiveRunForSession(activeRunsBySession.current, sessionId)) hydrateMessages(sessionId, statusMessages, false);
+          else for (const status of statuses) {
+            if (status.phase !== "finished") continue;
+            const replacement = statusMessages.find(message => message.id === status.assistantTurnId);
+            if (replacement) updateMessage(sessionId, replacement.id, replacement);
+          }
+        },
+      });
+      runStatusObserverRef.current = observer;
+      await observer.ready;
+      if (generation !== sessionSelectionGeneration.current) { observer.dispose(); return "stale"; }
+    }
     setActiveSession(session);
     // 环形图快照初始化：session 级（压缩后写入）与消息级（最近 run 留下）取最新。
     setSessionContextUsageBySession((current) => {
@@ -611,16 +659,18 @@ export function ChatPage() {
       setTodoStateBySession(current => restoreSessionTodos(current, sessionId, session,
         hasActiveRunForSession(activeRunsBySession.current, sessionId)));
     }
-    hydrateMessages(sessionId, toUiMessages(session), hasActiveRunForSession(activeRunsBySession.current, sessionId));
+    hydrateMessages(sessionId, statusMessages, hasActiveRunForSession(activeRunsBySession.current, sessionId));
     setWorkspaceNames((current) => ({
       ...current,
       [targetMode]: session.workspaceBinding?.displayName,
     }));
-    if (targetMode === activeModeRef.current) void store.setActiveSession(sessionId, targetMode);
+    if (!query && targetMode === activeModeRef.current) void store.setActiveSession(sessionId, targetMode);
     // 切到会话即对账队列投影，并尝试消费队列/恢复残留认领
     // （页面刷新、进程重启后队列消费的恢复入口；会话忙或队列空时内部直接返回）
     void queueFlow.syncProjection(sessionId);
-    void queueFlow.consume(targetMode, sessionId);
+    // Unknown ownership prevents automatic dispatch; an explicit send still reaches Main
+    // through its atomic claim and run guard, rather than being frozen by a stale read.
+    if (!unresolvedRunStatus) void queueFlow.consume(targetMode, sessionId);
     return "selected";
   }
 
@@ -755,7 +805,7 @@ export function ChatPage() {
   }
 
   function isSessionBusy(sessionId: string): boolean {
-    return hasActiveRunForSession(activeRunsBySession.current, sessionId);
+    return hasActiveRunForSession(activeRunsBySession.current, sessionId) || Boolean(observedRunBusyRef.current[sessionId]);
   }
 
   const { edit: editLastChatUserMessage, regenerate: regenerateLastChatResponse, revisionBusy: lastTurnRevisionStarting } = useLastTurnActions({
