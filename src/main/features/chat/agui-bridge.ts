@@ -1,3 +1,5 @@
+import { RunDisplayAccumulator } from "../../../shared/run-display-accumulator";
+import type { RunPresentationIdentity } from "../../../shared/run-status";
 import { activeChatTargetRegistry } from "../../platform/interaction/active-chat-target";
 import { queryRunStatus } from "./run-status-query";
 import { publicRunFailure } from "../../../shared/run-failure";
@@ -269,10 +271,12 @@ export function registerAgUiIpc(
   optionBuilder = buildOptions;
   resolveChatWindow = getChatWindow;
 
+  const mainOwnedRuns = new Set<string>();
   if (pendingTurns) {
     routes.on(IPC.AGUI_RUN_PERSISTED, (_notice, data: unknown) => {
       const confirmation = data as { runId?: unknown; finalMessageId?: unknown };
       if (typeof confirmation?.runId !== "string" || !confirmation.runId) return;
+      if (mainOwnedRuns.has(confirmation.runId)) return;
       pendingTurns.confirmPersistence(confirmation.runId, {
         ...(typeof confirmation.finalMessageId === "string" && confirmation.finalMessageId
           ? { finalMessageId: confirmation.finalMessageId } : {}),
@@ -321,10 +325,12 @@ export function registerAgUiIpc(
       }
       return recipients;
     };
+    let display: RunDisplayAccumulator | undefined;
     const emit = (packet: unknown): void => {
       const stamped = packet && typeof packet === "object"
         ? { ...(packet as Record<string, unknown>), runId: (packet as { runId?: unknown }).runId ?? executionId }
         : packet;
+      if (stamped && typeof stamped === "object") display?.accept(stamped);
       for (const recipient of runRecipients()) {
         try {
           if (isControlled && (packet as { type?: string })?.type === "TEXT_MESSAGE_START") {
@@ -572,6 +578,15 @@ export function registerAgUiIpc(
         }
       } catch (failure) { abandonPreparedRun(); throw failure; }
     }
+    const identity: RunPresentationIdentity | undefined = request.assistantTurnId ? {
+      profileId: chatsStore.RUN_PRESENTATION_PROFILE_ID, sessionId: conversationId,
+      assistantTurnId: request.assistantTurnId, runId: executionId,
+    } : undefined;
+    if (identity) {
+      mainOwnedRuns.add(executionId);
+      const seed = chatsStore.getSession(conversationId)?.messages.find(row => row.id === identity.assistantTurnId);
+      display = new RunDisplayAccumulator(seed ?? { id: identity.assistantTurnId, role: "model", content: "", at: beganAt }, executionId);
+    }
     const learningSpace = openKnowledgeWorkspace(conversationMode, storedSession.workspaceBinding?.workspaceRoot);
     const threadKey = `thread-${Date.now()}`;
     const runner = new FireflyAgent({ threadId: threadKey, description: "流萤主聊天" });
@@ -588,8 +603,8 @@ export function registerAgUiIpc(
         runTimeoutMs: runOptions.timeoutMs,
       });
       const disposePendingTurn = (): void => { pendingTurns?.disposeEntry(executionId); };
-      origin.once("destroyed", disposePendingTurn);
-      origin.once("did-start-navigation", disposePendingTurn);
+      if (!identity) origin.once("destroyed", disposePendingTurn);
+      if (!identity) origin.once("did-start-navigation", disposePendingTurn);
       unwatchOrigin = () => {
         origin.removeListener("destroyed", disposePendingTurn);
         origin.removeListener("did-start-navigation", disposePendingTurn);
@@ -610,6 +625,7 @@ export function registerAgUiIpc(
     const endLifecycle = (): void => {
       if (ended) return;
       ended = true;
+      mainOwnedRuns.delete(executionId);
       try {
         chatsStore.resetPendingAdjustByRun(conversationId, executionId);
       } catch (failure) {
@@ -620,6 +636,26 @@ export function registerAgUiIpc(
       lifecycle?.onConversationEnded();
     };
 
+    const persistMainTerminal = (): void => {
+      if (!identity || !display) { endLifecycle(); return; }
+      const outcome = gate.get();
+      if (!outcome) return;
+      const frozen = display.freeze(outcome);
+      chatsStore.retryRunTerminal(identity, frozen, (saved) => {
+        if (saved) {
+          pendingTurns?.confirmPersistence(executionId, { finalMessageId: identity.assistantTurnId });
+          broadcastChatsChanged();
+        } else {
+          pendingTurns?.disposeEntry(executionId);
+        }
+        endLifecycle();
+      });
+    };
+    const beginMainSettlement = (): void => {
+      if (!identity) return;
+      try { chatsStore.beginRunSettlement(identity); } catch { /* commit retries the durable barrier */ }
+      broadcastChatsChanged();
+    };
     let thoughtStream: ThinkStreamFilter | null = null;
     let clockStream: ChatTimeStreamPrefixFilter | null = null;
     const filterPolicy: ThinkFilterMode = "leading-only";
@@ -676,6 +712,7 @@ export function registerAgUiIpc(
               }
             }
             if (!gate.trySettle(outcome)) return;
+            beginMainSettlement();
             if (outcome.status === "runtime_error") {
               const safe = publicRunFailure({ code: outcome.reason });
               emit({
@@ -762,9 +799,10 @@ export function registerAgUiIpc(
             });
           }
           cleanupRunState();
-          endLifecycle();
+          persistMainTerminal();
           return;
         }
+        beginMainSettlement();
         pendingTurns?.settleTerminal(executionId, {
           status: "runtime_error", durationMs: Date.now() - beganAt,
         });
@@ -773,7 +811,7 @@ export function registerAgUiIpc(
           threadId: threadKey, runId: executionId,
         });
         cleanupRunState();
-        endLifecycle();
+        persistMainTerminal();
       },
       complete: async () => {
         telemetry.mark("agent_run_complete");
@@ -793,6 +831,7 @@ export function registerAgUiIpc(
           }
           deferredTerminal = { type: "RUN_FINISHED", threadId: threadKey, runId: executionId, result: fallback };
         }
+        beginMainSettlement();
         const finalState = gate.get();
         const succeeded = finalState?.status === "success";
         if (finalState) {
@@ -867,7 +906,7 @@ export function registerAgUiIpc(
         if (conversationMode === "code" && succeeded) {
           startPlanReviewFlow({ sessionId: conversationId, threadId: threadKey, runId: executionId, send: emit });
         }
-        endLifecycle();
+        persistMainTerminal();
         telemetry.dump();
       },
     });
@@ -876,7 +915,7 @@ export function registerAgUiIpc(
         subscription: streamSubscription, endLifecycle, abortController: abortSource, cancel: cancelRun,
       });
     }
-    return { success: true, runId: executionId };
+    return { success: true, runId: executionId, ...(identity ? { mainOwnsTerminal: true } : {}) };
   }));
 
   routes.handle(IPC.AGUI_CANCEL, (_notice, runId?: string) => {

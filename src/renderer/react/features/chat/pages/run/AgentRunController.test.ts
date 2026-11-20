@@ -6,7 +6,7 @@ import type { TodoStateBySession } from "../session-runtime-state";
 import { AgentRunController, type AgentRunHost, type AgentRunInput, type AgentRunRegistries } from "./AgentRunController";
 import { t } from "../../../../i18n";
 
-type Acknowledgement = { success: boolean; runId: string; error?: string };
+type Acknowledgement = { success: boolean; runId: string; error?: string; mainOwnsTerminal?: boolean };
 const nextTurn = () => new Promise<void>(resolve => setTimeout(resolve, 0));
 const successfulAck = (runId = "run-1"): Acknowledgement => ({ success: true, runId });
 const terminalResult = (status: FireflyTerminalStatus) => ({ status, externalEffectsMayContinue: status !== "success" });
@@ -670,5 +670,15 @@ describe("Terminal checkpoint saves are confirmed before they are reported", () 
     ]);
     expect(s.bridge.reportRunPersisted).not.toHaveBeenCalled();
     expect(s.host.setModeBusy).toHaveBeenLastCalledWith("chat", false);
+  });
+});
+
+ describe("Main terminal ownership", () => {
+  test.each(["success", "runtime_error"] as const)("accepted Main-managed %s does not write or acknowledge a terminal snapshot", async status => {
+    const s = runScenario({ ack: { success: true, runId: "run-1", mainOwnsTerminal: true } });
+    await s.ready(); s.text("visible answer");
+    if (status === "runtime_error") await s.fail("E_HARNESS_FAILURE"); else await s.finish();
+    expect(s.saved().filter(row => row.runSnapshot?.status === "terminal")).toEqual([]);
+    expect(s.bridge.reportRunPersisted).not.toHaveBeenCalled();
   });
 });

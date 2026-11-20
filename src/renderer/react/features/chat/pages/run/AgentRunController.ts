@@ -99,6 +99,7 @@ export class AgentRunController {
   private tools: ToolExecutionRecord[] = [];
   private started = false;
   private accepted = false;
+  private mainOwnsTerminal = false;
   private activity: RunActivityRecord | undefined;
   private todos: TodoItem[] = [];
   private savedAnswer = "";
@@ -166,6 +167,7 @@ export class AgentRunController {
         imageAttachments: this.request.attachments.filter((file) => file.kind === "image" && file.filePath)
           .map((file) => ({ name: file.name, filePath: file.filePath!, mime: file.mime })),
       });
+      this.mainOwnsTerminal = acknowledgement.success && acknowledgement.mainOwnsTerminal === true;
       if (!acknowledgement.success) throw new Error(acknowledgement.error ?? t("chatPage.errorModelRequestStartFailed"));
       if (incumbent) this.ports.host.setModeBusy(this.request.targetMode, true);
       this.ports.registries.activeRuns.current = {
@@ -303,6 +305,12 @@ export class AgentRunController {
    * store returns the session holding this exact snapshot. Otherwise the answer stays on screen with a notice.
    */
   private async settleTerminalSave(): Promise<void> {
+    if (this.mainOwnsTerminal) {
+      if (this.saveTimer !== undefined) { window.clearTimeout(this.saveTimer); this.saveTimer = undefined; }
+      await this.saves.catch(() => null);
+      await this.refreshCanonicalSettlement();
+      return;
+    }
     if (!await this.persistTerminal()) { this.showTerminalSaveFailure(); return; }
     await this.refreshCanonicalSettlement();
     this.reportRunPersisted();
@@ -376,6 +384,7 @@ export class AgentRunController {
   }
 
   private checkpointRun(status: CheckpointPhase, immediate = false): Promise<ChatSession | null> {
+    if (this.mainOwnsTerminal) return this.saves;
     if (this.saveTimer !== undefined) {
       window.clearTimeout(this.saveTimer);
       this.saveTimer = undefined;

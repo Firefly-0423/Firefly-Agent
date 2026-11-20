@@ -12,6 +12,8 @@ export interface RunPresentationIdentity {
 }
 export interface RunPresentationRecord extends RunPresentationIdentity {
   version: 1;
+  /** Frozen visible message, saved before the final history write; never sent over IPC. */
+  pendingMessage?: ChatMessage;
   seq: number;
   phase: "running" | "settling" | "finished" | "interrupted";
 }

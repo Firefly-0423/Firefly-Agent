@@ -70,7 +70,7 @@ export type AguiApi = {
     assistantTurnId: string;
     userTurnId: string;
     messages: Array<{ at?: number; content: string; role: "user" | "model" }>;
-  }) => Promise<{ success: boolean; runId: string; error?: string }>;
+  }) => Promise<import("../../../../../shared/run-terminal").AguiRunAck>;
 };
 
 export type ChoiceApi = { resolve: (id: string, value: unknown) => Promise<{ ok: boolean }> };
