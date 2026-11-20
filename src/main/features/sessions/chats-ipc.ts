@@ -205,6 +205,14 @@ async function compactSession(sessionId: string, memory: ChatsIpcOptions["memory
   }
 }
 
+/** Internal run records and frozen pending messages stay in Main. */
+function publicSession<T extends object>(value: T | null): T | null {
+  if (!value) return value;
+  const result = { ...value };
+  delete (result as { runPresentations?: unknown }).runPresentations;
+  return result;
+}
+
 export function registerChatsIpc(ipcOption?: IpcScope, options: ChatsIpcOptions = {}): void {
   const ipc = ipcOption ?? createIpcScope();
   const memory = options.memory;
@@ -240,6 +248,7 @@ export function registerChatsIpc(ipcOption?: IpcScope, options: ChatsIpcOptions 
 
   const project = async <T extends { messages: ChatMessage[]; mode?: ConversationMode }>(id: string, value: T | null): Promise<T | null> => {
     if (!value) return value;
+    value = publicSession(value)!;
     const { dataRoot } = getStorageContext();
     const transcripts = getConversationTranscriptStore(dataRoot);
     return transcripts.withReadLease(id, async (read) => {
@@ -284,7 +293,7 @@ export function registerChatsIpc(ipcOption?: IpcScope, options: ChatsIpcOptions 
         ...(temporary ? { temporary: true } : {}),
       });
       broadcastChanged(event.sender);
-      return created;
+      return publicSession(created);
     },
   );
 
@@ -296,7 +305,7 @@ export function registerChatsIpc(ipcOption?: IpcScope, options: ChatsIpcOptions 
       message.role === "user" && memory
         ? await memory.appendUser(event, id, message, commit)
         : await mutate(event, id, [], commit);
-    if (!session) return session;
+    if (!session) return publicSession(session);
 
     broadcastChanged(event.sender);
     if (message.role === "user" && !memory?.ownsSession?.(id)) {
@@ -306,7 +315,7 @@ export function registerChatsIpc(ipcOption?: IpcScope, options: ChatsIpcOptions 
         text: visibleUserText(message.content),
       });
     }
-    return session;
+    return publicSession(session);
   });
 
   ipc.handle(IPC.CHATS_UPSERT, async (event, payload: { id: string; message: ChatMessage } | null | undefined) => {
@@ -321,7 +330,7 @@ export function registerChatsIpc(ipcOption?: IpcScope, options: ChatsIpcOptions 
       chatsStore.upsertMessage(id, stripSProjection(message)),
     );
     if (session) broadcastChanged(event.sender);
-    return session;
+    return publicSession(session);
   });
 
   ipc.handle(
@@ -364,7 +373,7 @@ export function registerChatsIpc(ipcOption?: IpcScope, options: ChatsIpcOptions 
         chatsStore.replaceMessagesTail(id, startIndex, messages.map(stripSProjection)),
       );
       if (session) broadcastChanged(event.sender);
-      return session;
+      return publicSession(session);
     },
   );
 
@@ -379,7 +388,7 @@ export function registerChatsIpc(ipcOption?: IpcScope, options: ChatsIpcOptions 
     if (!payload || !payload.id) return null;
     const renamed = chatsStore.renameSession(payload.id, payload.title ?? "");
     if (renamed) broadcastChanged(event.sender);
-    return renamed;
+    return publicSession(renamed);
   });
 
   ipc.handle(IPC.CHATS_DELETE, async (event, id: string) => {
@@ -588,7 +597,7 @@ export function registerChatsIpc(ipcOption?: IpcScope, options: ChatsIpcOptions 
     if (!payload || typeof payload.id !== "string") return null;
     const updated = chatsStore.setSessionModelProfile(payload.id, payload.modelProfileId);
     if (updated) broadcastChanged(event.sender);
-    return updated;
+    return publicSession(updated);
   });
 
   ipc.handle(IPC.CHATS_OPEN_WORKSPACE, async (_event, root: unknown) => {

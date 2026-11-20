@@ -1,3 +1,4 @@
+import type { RunPresentationIdentity, RunPresentationRecord, RunStatusItem } from "../../../shared/run-status";
 import * as path from "path";
 import * as fs from "fs";
 import { randomUUID } from "crypto";
@@ -19,6 +20,8 @@ let sessionsDirectory = "";
 let indexFilename = "";
 let catalog: ChatSessionMeta[] = [];
 const volatile = new Map<string, ChatSession>();
+export const RUN_PRESENTATION_PROFILE_ID = "desktop-local-profile-v1";
+const liveRunPresentations = new Map<string, RunPresentationRecord>();
 
 const validMode = (candidate: unknown): candidate is ConversationMode =>
   candidate === "chat" || candidate === "work" || candidate === "code";
@@ -707,4 +710,55 @@ export function clearStalePendingAdjustMarks(): void {
       if (altered) write(conversation);
     } catch (failure) { console.warn("[chats-store] 清理陈旧调整标记失败:", summary.id, failure); }
   }
+}
+
+
+/** Commit the trusted turn/run mapping before invoking the model or tools. */
+export function registerRun(identity: RunPresentationIdentity, userTurnId?: string): boolean {
+  if (identity.profileId !== RUN_PRESENTATION_PROFILE_ID || !identity.sessionId || !identity.assistantTurnId || !identity.runId) return false;
+  const session = read(identity.sessionId);
+  if (!session || session.id !== identity.sessionId || Object.hasOwn(session.runPresentations ?? {}, identity.assistantTurnId)) return false;
+  const matches = session.messages.filter(row => row.id === identity.assistantTurnId);
+  if (matches.length > 1 || matches.some(row => row.role !== "model" || row.content !== "" || (row.runSnapshot !== undefined && (row.runSnapshot.runId !== undefined || row.runSnapshot.status !== "running")) || (userTurnId !== undefined && row.answersUserMessageId !== userTurnId) || row.toolExecutions?.length || row.processMessages?.length || row.reasoning)) return false;
+  if (!matches.length) session.messages.push({ id: identity.assistantTurnId, role: "model", content: "", at: Date.now() });
+  const record: RunPresentationRecord = { ...identity, version: 1, seq: 1, phase: "running" };
+  session.runPresentations = { ...session.runPresentations, [identity.assistantTurnId]: record };
+  save(session);
+  liveRunPresentations.set(identity.runId, record);
+  return true;
+}
+
+export function updateRunPresentation(identity: RunPresentationIdentity, phase: RunPresentationRecord["phase"], seq: number): boolean {
+  const session = read(identity.sessionId);
+  const record = session?.runPresentations?.[identity.assistantTurnId];
+  if (!session || !record || record.runId !== identity.runId || record.profileId !== identity.profileId
+      || identity.profileId !== RUN_PRESENTATION_PROFILE_ID || !Number.isSafeInteger(seq) || seq <= record.seq || record.phase === "finished") return false;
+  const next = { ...record, phase, seq };
+  session.runPresentations![identity.assistantTurnId] = next;
+  write(session);
+  liveRunPresentations.set(identity.runId, next);
+  return true;
+}
+
+export function getRunStatus(sessionId: string, assistantTurnId: string, snapshot?: ChatSession): RunStatusItem | undefined {
+  const session = snapshot ?? read(sessionId);
+  const record = session?.runPresentations?.[assistantTurnId];
+  if (!record || record.version !== 1 || record.sessionId !== sessionId || record.assistantTurnId !== assistantTurnId || record.profileId !== RUN_PRESENTATION_PROFILE_ID
+      || !record.runId || !Number.isSafeInteger(record.seq) || record.seq < 1) return undefined;
+  const matches = session!.messages.filter(row => row.id === assistantTurnId && row.role === "model");
+  if (matches.length !== 1) return undefined;
+  const { runId, seq } = record;
+  const identity = { sessionId, assistantTurnId, runId, seq };
+  if (record.phase === "finished") {
+    const message = matches[0];
+    if (message.runSnapshot?.runId !== runId || message.runSnapshot.status !== "terminal") return undefined;
+    return { ...identity, phase: "finished", message };
+  }
+  if (record.phase === "settling") return liveRunPresentations.has(runId)
+    ? { ...identity, phase: "settling" }
+    : { ...identity, seq: seq + 1, phase: "interrupted" };
+  if (record.phase === "interrupted") return { ...identity, phase: "interrupted" };
+  if (record.phase !== "running") return undefined;
+  if (!liveRunPresentations.has(runId)) return { ...identity, seq: seq + 1, phase: "interrupted" };
+  return { ...identity, phase: "running" };
 }

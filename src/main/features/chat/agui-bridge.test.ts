@@ -11,14 +11,14 @@ const wire = vi.hoisted(() => ({
     root: "", handlers: new Map<string, any>(), notifications: new Map<string, any>(), sessions: new Map<string, any>(),
     run: vi.fn(), ask: vi.fn(), pending: vi.fn(), mark: vi.fn(), reset: vi.fn(), reads: [] as unknown[], events: [] as any[],
     terminal: undefined as any, duplicate: false, failure: null as Error | null, lateFailure: false, omitTerminal: false, keepOpen: false, finishOnAbort: false, subscriptions: [] as any[],
-    commitInsertion: vi.fn(),
+    commitInsertion: vi.fn(), registerRun: vi.fn(), getRunStatus: vi.fn(),
 }));
 vi.mock("fs", async () => {
     const actual = await vi.importActual<typeof import("node:fs")>("node:fs");
     return { ...actual, readFileSync: (...args: any[]) => { wire.reads.push(args[0]); return (actual.readFileSync as any)(...args); } };
 });
 vi.mock("electron", () => ({ app: { getPath: () => wire.root }, BrowserWindow: { getAllWindows: () => [] }, ipcMain: { handle: (channel: string, callback: any) => wire.handlers.set(channel, callback), on: (channel: string, callback: any) => wire.notifications.set(channel, callback), removeListener: vi.fn() } }));
-vi.mock("../sessions/chats-store", () => ({ getSession: (id: string) => wire.sessions.get(id) ?? null, getPendingMessages: wire.pending,
+vi.mock("../sessions/chats-store", () => ({ RUN_PRESENTATION_PROFILE_ID: "desktop-local-profile-v1", registerRun: wire.registerRun, getRunStatus: wire.getRunStatus, getSession: (id: string) => wire.sessions.get(id) ?? null, getPendingMessages: wire.pending,
     listRunInsertions: () => [], commitPendingAdjust: wire.commitInsertion, markPendingAdjust: wire.mark, resetPendingAdjustByRun: wire.reset }));
 vi.mock("../../platform/interaction/user-choice", () => ({ requestUserClarification: wire.ask, cancelPendingChoicesForRun: vi.fn() }));
 vi.mock("../../platform/permission/permission", () => ({ cancelPendingApprovalsForRun: vi.fn(), checkPermission: vi.fn(), getCurrentLevel: () => "read-only" }));
@@ -69,6 +69,7 @@ beforeEach(() => {
     wire.omitTerminal = false;
     wire.keepOpen = false;
     wire.finishOnAbort = false;
+    wire.registerRun.mockReturnValue(true);
     wire.pending.mockReturnValue([]);
     wire.reset.mockReturnValue({ ok: true, reset: 0 });
 });
@@ -445,7 +446,8 @@ describe("live pending adjustments", () => {
         wire.pending.mockReturnValue([{ id: "pending", rawContent: "Queued", visibleContent: "Queued", enqueuedAt: 12 }]);
         expect(await f.adjust({ sessionId: "project", messageId: "pending" })).toEqual({ ok: false, error: "no-active-run", queue: [expect.objectContaining({ id: "pending" })] });
         session();
-        wire.pending.mockReturnValue([]);
+        wire.registerRun.mockReturnValue(true);
+    wire.pending.mockReturnValue([]);
         running();
         await f.run();
         expect(await f.adjust({ sessionId: "conversation", messageId: "pending" })).toEqual({ ok: false, error: "no-safe-next-step", queue: [] });
@@ -933,4 +935,26 @@ describe("run lifetime is independent of the visible page",()=>{
    expect(memory.sContext.isControlledSession('conversation')).toBe(false);
   }finally{await memory.close();targets.dispose()}
  });
+});
+
+
+describe("run identity admission", () => {
+    it("registers the exact session and assistant identity before invoking the model", async () => {
+        session(); running();
+        const f = await bridge();
+        wire.run.mockImplementationOnce(options => {
+            expect(wire.registerRun).toHaveBeenCalledExactlyOnceWith({ profileId: "desktop-local-profile-v1", sessionId: "conversation", assistantTurnId: "assistant", runId: options.runId }, undefined);
+        });
+        const ack = await f.run("conversation", { assistantTurnId: "assistant" });
+        expect(wire.registerRun).toHaveBeenCalledExactlyOnceWith({ profileId: "desktop-local-profile-v1", sessionId: "conversation", assistantTurnId: "assistant", runId: ack.runId }, undefined);
+    });
+    it("rejects a failed identity write without model execution or a retained session guard", async () => {
+        session();
+        const f = await bridge();
+        wire.registerRun.mockImplementationOnce(() => { throw Error("DISK_FULL"); });
+        await expect(f.run("conversation", { assistantTurnId: "assistant" })).rejects.toThrow("DISK_FULL");
+        expect(wire.run).not.toHaveBeenCalled();
+        expect(f.module.hasActiveConversationRun()).toBe(false);
+        expect(f.sent).toEqual([]);
+    });
 });

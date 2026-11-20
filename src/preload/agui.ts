@@ -1,3 +1,4 @@
+import type { RunStatusItem, RunStatusRequest } from "../shared/run-status";
 import type {} from "electron";
 import type { ConversationMode } from "../shared/chat-types";
 import { IPC } from "../shared/ipc-channels";
@@ -63,6 +64,7 @@ export function createAguiApi(ipcRenderer: AguiIpcRenderer) {
         }) => {
             ipcRenderer.send(IPC.AGUI_RUN_PERSISTED, message);
         },
+        getRunStatus: (request: RunStatusRequest): Promise<RunStatusItem[]> => ipcRenderer.invoke(IPC.AGUI_RUN_STATUS, request),
         getInterruptedRun: (conversationKey: string) => {
             return ipcRenderer.invoke(IPC.AGENT_RUN_GET_INTERRUPTED, conversationKey) as Promise<{
                 runId: string;

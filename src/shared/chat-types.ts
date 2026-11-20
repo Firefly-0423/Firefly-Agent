@@ -210,6 +210,7 @@ export type PendingDispatchState = {
     messageId: string;
 };
 export type ChatSession = {
+    runPresentations?: Record<string, import("./run-status").RunPresentationRecord>;
     createdAt: number;
     currentContextUsage?: ContextUsageSnapshot;
     id: string;

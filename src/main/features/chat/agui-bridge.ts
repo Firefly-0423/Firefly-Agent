@@ -1,3 +1,5 @@
+import { activeChatTargetRegistry } from "../../platform/interaction/active-chat-target";
+import { queryRunStatus } from "./run-status-query";
 import { publicRunFailure } from "../../../shared/run-failure";
 import {readMainAttachmentGrant,type MainAttachmentGrant} from "../../memory/context/main-attachment-projection";
 import type {MainDesktopMemory} from "../../agent/memory-runtime/main-desktop-memory";
@@ -289,6 +291,11 @@ export function registerAgUiIpc(
     } : null;
   });
 
+  routes.handle(IPC.AGUI_RUN_STATUS, (invocation: IpcMainInvokeEvent, payload: unknown) => queryRunStatus(invocation, payload, {
+    window: resolveChatWindow(), target: activeChatTargetRegistry.getActive(),
+    getSession: chatsStore.getSession, getStatus: chatsStore.getRunStatus,
+  }));
+
   const finishTurn = onRunFinished;
   routes.handle(IPC.AGUI_RUN, async (invocation: IpcMainInvokeEvent, payload: unknown) => perf.withTurn(async (telemetry) => {
     if (!optionBuilder || !finishTurn) throw new Error("AG-UI 桥未初始化");
@@ -558,6 +565,13 @@ export function registerAgUiIpc(
       (closed) => { emit({ type: "CUSTOM", name: "firefly.choice.dismiss", value: closed, threadId: threadKey, runId: executionId }); },
       { runId: executionId, revision: 1 },
     );
+    if (request.assistantTurnId) {
+      try {
+        if (!chatsStore.registerRun({ profileId: chatsStore.RUN_PRESENTATION_PROFILE_ID, sessionId: conversationId, assistantTurnId: request.assistantTurnId, runId: executionId }, request.userTurnId)) {
+          throw new Error("AGUI_RUN_IDENTITY_DENIED");
+        }
+      } catch (failure) { abandonPreparedRun(); throw failure; }
+    }
     const learningSpace = openKnowledgeWorkspace(conversationMode, storedSession.workspaceBinding?.workspaceRoot);
     const threadKey = `thread-${Date.now()}`;
     const runner = new FireflyAgent({ threadId: threadKey, description: "流萤主聊天" });
