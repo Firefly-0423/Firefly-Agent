@@ -29,6 +29,41 @@ it('parses supplied native transcript bytes with colon IDs, original quotes, nul
  expect(a.documents[0].classification).toBe('raw-history');expect(a.documents[0].provenance[0]).toMatchObject({originalId:'backfill:v1:u:1',seq:1,turnId:'u:1',occurredAt:1001,timeZone:null,active:true,format:'transcript-v1'});
  expect(a.documents[0].document.messages[0].text).toBe('周末只喝咖啡');expect(b).toEqual(a);expect(digest(file)).toBe(before);
 });
+const attachment={kind:'document',name:'private.docx',filePath:'X:/private/private.docx'};
+it('reads inserted and replaced user text without exposing attachment metadata',async()=>{
+ const f=fixture();write(f.root,[{...user(),runId:'inserting-run',payload:{text:'before',attachments:[attachment]}},
+  {id:'edit',kind:'turn_rewind',turnId:'u:1',seq:2,revision:2,payload:{anchorUserTurnId:'u:1',disposition:'replace_user',replacementUser:{text:'after',attachments:[{kind:'image',name:'photo',filePath:'private-location',caption:'secret-caption'}]}}}]);
+ const r=await parseSyntheticFixture(f.scope);
+ expect(r.documents.map(d=>[d.provenance[0].active,d.document.messages[0].text])).toEqual([[false,'before'],[true,'after']]);
+ expect(JSON.stringify(r)).not.toMatch(/private|secret-caption/);
+});
+const invalidLists: Array<[string,unknown]>=[
+ ['not an array',{}],['missing name',[{kind:'document',filePath:'x'}]],['missing path',[{kind:'document',name:'x'}]],
+ ['unknown kind',[{...attachment,kind:'audio'}]],['invalid mime',[{...attachment,kind:'image',mime:1}]],
+ ['invalid caption',[{...attachment,kind:'image',caption:1}]],['invalid annotations',[{...attachment,kind:'image',hasAnnotations:'yes'}]],
+ ['null list',null],['null element',[null]],['missing kind',[{name:'x',filePath:'x'}]],['empty name',[{...attachment,name:''}]],['numeric path',[{...attachment,filePath:42}]]
+];
+function legacyFixture(root:string,message:object){
+ const dir=path.join(root,'firefly-chats','sessions');fs.mkdirSync(dir,{recursive:true});
+ fs.writeFileSync(path.join(dir,'session-a.json'),JSON.stringify({schemaVersion:1,id:'session-a',mode:'work',messages:[message]}));
+}
+it.each((['user','replacement','legacy'] as const).flatMap(input=>invalidLists.map(([reason,attachments])=>({input,reason,attachments}))))('$input refuses $reason',async({input,attachments})=>{
+ const f=fixture(),payload={text:'visible',attachments};
+ if(input==='user')write(f.root,[{...user(),payload}]);
+ else if(input==='replacement')write(f.root,[user(),{id:'edit',kind:'turn_rewind',turnId:'u:1',seq:2,revision:2,payload:{anchorUserTurnId:'u:1',disposition:'replace_user',replacementUser:payload}}]);
+ else legacyFixture(f.root,{id:'u',role:'user',content:'visible',attachments});
+ await expect(parseSyntheticFixture(f.scope)).rejects.toThrow(/^MEMORY_HISTORY_FORMAT_UNSUPPORTED$/);
+});
+it.each([{role:'model'},{role:'user',modelContext:42}])('rejects invalid legacy attachment message %j',async fields=>{
+ const f=fixture();legacyFixture(f.root,{id:'u',content:'visible',attachments:[attachment],...fields});
+ await expect(parseSyntheticFixture(f.scope)).rejects.toThrow(/^MEMORY_HISTORY_FORMAT_UNSUPPORTED$/);
+});
+it('uses only visible user text for legacy attachment bubbles',async()=>{
+ const f=fixture(),dir=path.join(f.root,'firefly-chats','sessions');fs.mkdirSync(dir,{recursive:true});
+ fs.writeFileSync(path.join(dir,'session-a.json'),JSON.stringify({schemaVersion:1,id:'session-a',mode:'work',messages:[{id:'u',at:1,role:'user',content:'visible',attachments:[{...attachment,status:'done'}],modelContext:'private attachment extract'}]}));
+ const r=await parseSyntheticFixture(f.scope);expect(r.documents.flatMap(d=>d.document.messages.map(m=>m.text))).toEqual(['visible']);
+ expect(JSON.stringify(r)).not.toContain('private');
+});
 it('reads a reasoning-model answer as its visible text and leaves the reasoning out of history',async()=>{
  const reasoning={...assistant(),payload:{role:'assistant',content:'咖啡回复',thinking:'先想想要不要推荐',rawAssistant:[{type:'reasoning',content:[{type:'reasoning_text',text:'先想想要不要推荐'}],encrypted_content:'opaque'},{type:'message',role:'assistant',content:[{type:'output_text',text:'咖啡回复'}]}]}};
  const f=fixture();write(f.root,[user(),reasoning]);const r=await parseSyntheticFixture(f.scope);
