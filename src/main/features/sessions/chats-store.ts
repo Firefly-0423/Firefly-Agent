@@ -883,13 +883,27 @@ export function commitRunTerminal(identity: RunPresentationIdentity, message: Ch
   return true;
 }
 
+const recoveredRunListeners = new Set<() => void>();
+
+/** Notified when a startup-recovered final message settles (saved or given up), so open pages can refresh. */
+export function onRecoveredRunTerminal(listener: () => void): () => void {
+  recoveredRunListeners.add(listener);
+  return () => { recoveredRunListeners.delete(listener); };
+}
+
+function notifyRecoveredRun(): void {
+  for (const listener of recoveredRunListeners) {
+    try { listener(); } catch { logger.warn(LogTag.Runtime, "run final message recovery listener failed"); }
+  }
+}
+
 /** Startup only resumes history writes, never model execution or tool calls. */
 export function recoverPendingRunTerminals(): void {
   for (const summary of catalog) {
     try {
       const session = read(summary.id);
       for (const record of Object.values(session?.runPresentations ?? {})) {
-        if (record.phase === "settling" && record.pendingMessage) retryRunTerminal(record, record.pendingMessage);
+        if (record.phase === "settling" && record.pendingMessage) retryRunTerminal(record, record.pendingMessage, notifyRecoveredRun);
       }
     } catch {
       logger.warn(LogTag.Runtime, "run final message recovery deferred");

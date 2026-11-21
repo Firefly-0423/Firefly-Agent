@@ -44,6 +44,8 @@ import { enqueueLLMTask } from "../../model/queue/llm-queue";
 import { createConversationTitleService, type ConversationTitleService } from "./conversation-title-service";
 import { logger, LogTag } from "../../base/logging/logger";
 
+let unwatchRecoveredRuns: (() => void) | undefined;
+
 function broadcastChanged(skip?: WebContents | null): void {
   BrowserWindow.getAllWindows().forEach((win) => {
     if (win.isDestroyed()) return;
@@ -220,6 +222,9 @@ function publicSession<T extends object>(value: T | null): T | null {
 
 export function registerChatsIpc(ipcOption?: IpcScope, options: ChatsIpcOptions = {}): void {
   const ipc = ipcOption ?? createIpcScope();
+  // A final message recovered at startup may land long after the page stopped polling; tell it.
+  unwatchRecoveredRuns?.();
+  unwatchRecoveredRuns = chatsStore.onRecoveredRunTerminal(() => broadcastChanged());
   const memory = options.memory;
   const titleService =
     options.titleService ??

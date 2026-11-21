@@ -131,6 +131,22 @@ describe("terminal recovery boundaries",()=>{
    expect(store.getRunStatus(session.id,"a")?.phase).toBe("finished");
   } finally { vi.useRealTimers(); }
  });
+ it("tells open pages when a final message recovered at startup is finally saved",async()=>{
+  vi.useFakeTimers();
+  try {
+   let {store,session,identity,message}=await setup();
+   env.writes=0; env.failAt=2;
+   expect(()=>store.commitRunTerminal(identity,message)).toThrow("disk full");
+   vi.resetModules(); env.writes=0; env.failAt=1; store=await import("./chats-store"); store.initialize();
+   const changed=vi.fn(); store.onRecoveredRunTerminal(changed);
+   await vi.advanceTimersByTimeAsync(5000);
+   expect(changed).not.toHaveBeenCalled();
+   expect(store.getRunStatus(session.id,"a")?.phase).toBe("settling");
+   env.failAt=0; await vi.advanceTimersByTimeAsync(1000);
+   expect(store.getRunStatus(session.id,"a")?.phase).toBe("finished");
+   expect(changed).toHaveBeenCalledTimes(1);
+  } finally { vi.useRealTimers(); }
+ });
  it("retries the first persisted value even when a later caller supplies different text",async()=>{
   const {store,session,identity,message}=await setup();
   env.writes=0; env.failAt=2;
