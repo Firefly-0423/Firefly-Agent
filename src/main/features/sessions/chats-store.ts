@@ -1,3 +1,4 @@
+import type { RunPresentationIdentity, RunPresentationRecord, RunStatusItem } from "../../../shared/run-status";
 import * as path from "path";
 import * as fs from "fs";
 import { randomUUID } from "crypto";
@@ -19,6 +20,9 @@ let sessionsDirectory = "";
 let indexFilename = "";
 let catalog: ChatSessionMeta[] = [];
 const volatile = new Map<string, ChatSession>();
+export const RUN_PRESENTATION_PROFILE_ID = "desktop-local-profile-v1";
+const terminalRetryTimers = new Map<string, { sessionId: string; timer: ReturnType<typeof setTimeout>; completed?: (saved: boolean) => void }>();
+const liveRunPresentations = new Map<string, RunPresentationRecord>();
 
 const validMode = (candidate: unknown): candidate is ConversationMode =>
   candidate === "chat" || candidate === "work" || candidate === "code";
@@ -167,6 +171,7 @@ export function initialize(): void {
     workCount: catalog.filter((row) => row.mode === "work").length,
   });
   ready = true;
+  recoverPendingRunTerminals();
 }
 
 export type CachedCoverageSessions =
@@ -258,7 +263,13 @@ export function getOrCreateSessionByPurpose(purpose: ChatSessionPurpose, opts?: 
 
 export function appendMessage(id: string, message: ChatMessage): ChatSession | null {
   return change(id, (conversation) => {
-    conversation.messages.push(message);
+    const record = conversation.runPresentations?.[message.id];
+    if (isProtectedRun(record) || isLateRunCheckpoint(record, message)) return;
+    if (record) {
+      const offset = conversation.messages.findIndex(row => row.id === message.id);
+      if (offset >= 0) conversation.messages[offset] = keepRunInsertion(conversation.messages[offset], message);
+      else conversation.messages.push(message);
+    } else conversation.messages.push(message);
     conversation.updatedAt = Date.now();
     retitle(conversation);
   });
@@ -275,6 +286,8 @@ function keepRunInsertion(stored: ChatMessage | undefined, incoming: ChatMessage
 
 export function upsertMessage(id: string, message: ChatMessage): ChatSession | null {
   return change(id, (conversation) => {
+    const record = conversation.runPresentations?.[message.id];
+    if (isProtectedRun(record) || isLateRunCheckpoint(record, message)) return;
     const offset = conversation.messages.findIndex((row) => row.id === message.id);
     if (offset >= 0) conversation.messages[offset] = keepRunInsertion(conversation.messages[offset], message);
     else conversation.messages.push(message);
@@ -285,7 +298,7 @@ export function upsertMessage(id: string, message: ChatMessage): ChatSession | n
 
 export function replaceMessages(id: string, messages: ChatMessage[]): ChatSession | null {
   return change(id, (conversation) => {
-    conversation.messages = messages;
+    conversation.messages = protectRunMessages(conversation, messages);
     conversation.updatedAt = Date.now();
     retitle(conversation);
   });
@@ -295,7 +308,7 @@ export function replaceMessagesTail(id: string, startIndex: number, messages: Ch
   const conversation = read(id);
   if (!conversation || !Number.isInteger(startIndex) || startIndex < 0 || startIndex > conversation.messages.length) return null;
   const stored = new Map(conversation.messages.map((row) => [row.id, row] as const));
-  conversation.messages = conversation.messages.slice(0, startIndex).concat(messages.map((row) => keepRunInsertion(stored.get(row.id), row)));
+  conversation.messages = protectRunMessages(conversation, conversation.messages.slice(0, startIndex).concat(messages.map((row) => keepRunInsertion(stored.get(row.id), row))));
   conversation.updatedAt = Date.now();
   retitle(conversation);
   save(conversation);
@@ -340,6 +353,12 @@ export function setSessionContextUsage(id: string, snapshot: ContextUsageSnapsho
 }
 
 export function deleteSession(id: string): boolean {
+  for (const [runId, pending] of terminalRetryTimers) {
+    if (pending.sessionId === id) { clearTimeout(pending.timer); terminalRetryTimers.delete(runId); pending.completed?.(false); }
+  }
+  for (const [runId, record] of liveRunPresentations) {
+    if (record.sessionId === id) liveRunPresentations.delete(runId);
+  }
   if (volatile.has(id)) {
     volatile.delete(id);
     return true;
@@ -707,4 +726,207 @@ export function clearStalePendingAdjustMarks(): void {
       if (altered) write(conversation);
     } catch (failure) { console.warn("[chats-store] 清理陈旧调整标记失败:", summary.id, failure); }
   }
+}
+
+
+/** Commit the trusted turn/run mapping before invoking the model or tools. */
+export function registerRun(identity: RunPresentationIdentity, userTurnId?: string): boolean {
+  if (identity.profileId !== RUN_PRESENTATION_PROFILE_ID || !identity.sessionId || !identity.assistantTurnId || !identity.runId) return false;
+  const session = read(identity.sessionId);
+  if (!session || session.id !== identity.sessionId || Object.hasOwn(session.runPresentations ?? {}, identity.assistantTurnId)) return false;
+  const matches = session.messages.filter(row => row.id === identity.assistantTurnId);
+  if (matches.length > 1 || matches.some(row => row.role !== "model" || row.content !== "" || (row.runSnapshot !== undefined && (row.runSnapshot.runId !== undefined || row.runSnapshot.status !== "running")) || (userTurnId !== undefined && row.answersUserMessageId !== userTurnId) || row.toolExecutions?.length || row.processMessages?.length || row.reasoning)) return false;
+  if (!matches.length) session.messages.push({ id: identity.assistantTurnId, role: "model", content: "", at: Date.now() });
+  const record: RunPresentationRecord = { ...identity, version: 1, seq: 1, phase: "running" };
+  session.runPresentations = { ...session.runPresentations, [identity.assistantTurnId]: record };
+  save(session);
+  liveRunPresentations.set(identity.runId, record);
+  return true;
+}
+
+export function updateRunPresentation(identity: RunPresentationIdentity, phase: RunPresentationRecord["phase"], seq: number): boolean {
+  const session = read(identity.sessionId);
+  const record = session?.runPresentations?.[identity.assistantTurnId];
+  if (!session || !record || record.runId !== identity.runId || record.profileId !== identity.profileId
+      || identity.profileId !== RUN_PRESENTATION_PROFILE_ID || !Number.isSafeInteger(seq) || seq <= record.seq || record.phase === "finished") return false;
+  const next = { ...record, phase, seq };
+  session.runPresentations![identity.assistantTurnId] = next;
+  write(session);
+  liveRunPresentations.set(identity.runId, next);
+  return true;
+}
+
+export function getRunStatus(sessionId: string, assistantTurnId: string, snapshot?: ChatSession): RunStatusItem | undefined {
+  const session = snapshot ?? read(sessionId);
+  const record = session?.runPresentations?.[assistantTurnId];
+  if (!record || record.version !== 1 || record.sessionId !== sessionId || record.assistantTurnId !== assistantTurnId || record.profileId !== RUN_PRESENTATION_PROFILE_ID
+      || !record.runId || !Number.isSafeInteger(record.seq) || record.seq < 1) return undefined;
+  const matches = session!.messages.filter(row => row.id === assistantTurnId && row.role === "model");
+  if (matches.length !== 1) return undefined;
+  const { runId, seq } = record;
+  const identity = { sessionId, assistantTurnId, runId, seq };
+  if (record.phase === "finished") {
+    const message = matches[0];
+    if (message.runSnapshot?.runId !== runId || message.runSnapshot.status !== "terminal") return undefined;
+    return { ...identity, phase: "finished", message };
+  }
+  if (record.phase === "settling") return liveRunPresentations.has(runId) || record.pendingMessage
+    ? { ...identity, phase: "settling" }
+    : { ...identity, seq: seq + 1, phase: "interrupted" };
+  if (record.phase === "interrupted") return { ...identity, phase: "interrupted" };
+  if (record.phase !== "running") return undefined;
+  if (!liveRunPresentations.has(runId)) return { ...identity, seq: seq + 1, phase: "interrupted" };
+  return { ...identity, phase: "running" };
+}
+
+
+/** Protected while a run here still owns the row: live in this process, or a frozen result waiting for startup recovery.
+ * A running or settling record left by an earlier process is interrupted (as getRunStatus reports) and stays editable. */
+function isProtectedRun(record: RunPresentationRecord | undefined): boolean {
+  if (record?.phase === "running") return liveRunPresentations.has(record.runId);
+  if (record?.phase === "settling") return liveRunPresentations.has(record.runId) || Boolean(record.pendingMessage);
+  return false;
+}
+
+/** A snapshot of the same run that no longer owns the row: anything but its terminal after finishing, a running one after interruption. */
+function isLateRunCheckpoint(record: RunPresentationRecord | undefined, message: ChatMessage): boolean {
+  if (!record || isProtectedRun(record) || message.runSnapshot?.runId !== record.runId) return false;
+  return record.phase === "finished" ? message.runSnapshot.status !== "terminal" : message.runSnapshot.status === "running";
+}
+
+/** A replacement may delete finished replies, but cannot undo an active write or restore a stale checkpoint. */
+function protectRunMessages(session: ChatSession, incoming: ChatMessage[]): ChatMessage[] {
+  const incomingById = new Map(incoming.map(row => [row.id, row]));
+  const records = session.runPresentations;
+  for (const [id, record] of Object.entries(records ?? {})) {
+    if (!isProtectedRun(record) && !incomingById.has(id)) delete records![id];
+  }
+  const protectedRows = session.messages.filter(row => {
+    const record = records?.[row.id];
+    const replacement = incomingById.get(row.id);
+    return isProtectedRun(record) || Boolean(replacement && isLateRunCheckpoint(record, replacement));
+  });
+  const protectedById = new Map(protectedRows.map(row => [row.id, row]));
+  const seen = new Set<string>();
+  const merged = incoming.flatMap(row => {
+    const stored = protectedById.get(row.id);
+    if (!stored) return [row];
+    if (seen.has(row.id)) return [];
+    seen.add(row.id);
+    return [stored];
+  });
+  for (const row of protectedRows) {
+    if (seen.has(row.id)) continue;
+    const oldIndex = session.messages.findIndex(stored => stored.id === row.id);
+    const priorIds = new Set(session.messages.slice(0, oldIndex).map(stored => stored.id));
+    const lastPrior = merged.reduce((position, stored, index) => priorIds.has(stored.id) ? index : position, -1);
+    merged.splice(lastPrior + 1, 0, row);
+  }
+  return merged;
+}
+
+/** Persist a display checkpoint only for the run that still owns this row. */
+export function writeRunCheckpoint(identity: RunPresentationIdentity, message: ChatMessage): boolean {
+  const session = read(identity.sessionId);
+  const record = session?.runPresentations?.[identity.assistantTurnId];
+  if (!session || !record || record.version !== 1 || record.phase !== "running"
+      || record.profileId !== RUN_PRESENTATION_PROFILE_ID || record.profileId !== identity.profileId
+      || record.sessionId !== identity.sessionId || record.assistantTurnId !== identity.assistantTurnId
+      || record.runId !== identity.runId || !liveRunPresentations.has(identity.runId)
+      || message.id !== identity.assistantTurnId || message.role !== "model"
+      || message.runSnapshot?.runId !== identity.runId || message.runSnapshot.status !== "running") return false;
+  const offset = session.messages.findIndex(row => row.id === identity.assistantTurnId && row.role === "model");
+  if (offset < 0) return false;
+  session.messages[offset] = message;
+  record.seq += 1;
+  write(session);
+  liveRunPresentations.set(identity.runId, record);
+  return true;
+}
+
+/** Start the save barrier before running post-turn effects. */
+export function beginRunSettlement(identity: RunPresentationIdentity): boolean {
+  const session = read(identity.sessionId);
+  const record = session?.runPresentations?.[identity.assistantTurnId];
+  if (!record || record.version !== 1 || record.profileId !== RUN_PRESENTATION_PROFILE_ID
+      || record.profileId !== identity.profileId || record.runId !== identity.runId) return false;
+  if (record.phase === "settling" || record.phase === "finished") return true;
+  return updateRunPresentation(identity, "settling", record.seq + 1);
+}
+
+/** Two atomic writes form a recoverable outbox. Retrying always uses the first frozen value. */
+export function commitRunTerminal(identity: RunPresentationIdentity, message: ChatMessage): boolean {
+  const session = read(identity.sessionId);
+  const record = session?.runPresentations?.[identity.assistantTurnId];
+  if (!session || !record || record.version !== 1 || record.profileId !== RUN_PRESENTATION_PROFILE_ID
+      || record.profileId !== identity.profileId || record.sessionId !== identity.sessionId
+      || record.assistantTurnId !== identity.assistantTurnId || record.runId !== identity.runId
+      || message.id !== identity.assistantTurnId || message.role !== "model"
+      || message.runSnapshot?.runId !== identity.runId || message.runSnapshot.status !== "terminal") return false;
+  if (record.phase === "finished") return true;
+  if (!record.pendingMessage) {
+    record.pendingMessage = structuredClone(message);
+    record.phase = "settling"; record.seq += 1;
+    write(session);
+    liveRunPresentations.set(identity.runId, structuredClone(record));
+  }
+  const frozen = structuredClone(record.pendingMessage);
+  const offset = session.messages.findIndex(row => row.id === identity.assistantTurnId && row.role === "model");
+  if (offset < 0) return false;
+  session.messages[offset] = frozen;
+  record.phase = "finished"; record.seq += 1;
+  delete record.pendingMessage;
+  session.updatedAt = Date.now();
+  write(session);
+  liveRunPresentations.delete(identity.runId);
+  updateCatalog(session);
+  return true;
+}
+
+const recoveredRunListeners = new Set<() => void>();
+
+/** Notified when a startup-recovered final message settles (saved or given up), so open pages can refresh. */
+export function onRecoveredRunTerminal(listener: () => void): () => void {
+  recoveredRunListeners.add(listener);
+  return () => { recoveredRunListeners.delete(listener); };
+}
+
+function notifyRecoveredRun(): void {
+  for (const listener of recoveredRunListeners) {
+    try { listener(); } catch { logger.warn(LogTag.Runtime, "run final message recovery listener failed"); }
+  }
+}
+
+/** Startup only resumes history writes, never model execution or tool calls. */
+export function recoverPendingRunTerminals(): void {
+  for (const summary of catalog) {
+    try {
+      const session = read(summary.id);
+      for (const record of Object.values(session?.runPresentations ?? {})) {
+        if (record.phase === "settling" && record.pendingMessage) retryRunTerminal(record, record.pendingMessage, notifyRecoveredRun);
+      }
+    } catch {
+      logger.warn(LogTag.Runtime, "run final message recovery deferred");
+    }
+  }
+}
+
+/** Retry only the immutable display write. Session deletion clears scheduled retries. */
+export function retryRunTerminal(identity: RunPresentationIdentity, message: ChatMessage, completed?: (saved: boolean) => void): void {
+  const existing = terminalRetryTimers.get(identity.runId);
+  if (existing) clearTimeout(existing.timer);
+  const retry = (): void => {
+    terminalRetryTimers.delete(identity.runId);
+    let saved: boolean;
+    try { saved = commitRunTerminal(identity, message); }
+    catch {
+      const timer = setTimeout(retry, 1000);
+      timer.unref?.();
+      terminalRetryTimers.set(identity.runId, { sessionId: identity.sessionId, timer, completed });
+      return;
+    }
+    if (!saved) liveRunPresentations.delete(identity.runId);
+    completed?.(saved);
+  };
+  retry();
 }

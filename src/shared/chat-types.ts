@@ -210,6 +210,9 @@ export type PendingDispatchState = {
     messageId: string;
 };
 export type ChatSession = {
+    runPresentations?: Record<string, import("./run-status").RunPresentationRecord>;
+    /** Read-only projection for the page: assistant turns Main still records as running or settling. Never persisted. */
+    activeRunTurnIds?: string[];
     createdAt: number;
     currentContextUsage?: ContextUsageSnapshot;
     id: string;

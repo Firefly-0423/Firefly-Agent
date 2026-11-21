@@ -17,6 +17,7 @@ export const IPC = {
   AGUI_CANCEL: "agui:cancel",
   AGUI_EVENT: "agui:event",
   AGUI_RUN: "agui:run",
+  AGUI_RUN_STATUS: "agui:run-status",
   AGUI_RUN_PERSISTED: "agui:run-persisted",
   // ---- APP ----
   APP_UPDATE_DOWNLOAD: "app-update:download",

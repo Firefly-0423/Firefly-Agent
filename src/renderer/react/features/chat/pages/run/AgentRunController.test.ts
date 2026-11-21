@@ -6,7 +6,7 @@ import type { TodoStateBySession } from "../session-runtime-state";
 import { AgentRunController, type AgentRunHost, type AgentRunInput, type AgentRunRegistries } from "./AgentRunController";
 import { t } from "../../../../i18n";
 
-type Acknowledgement = { success: boolean; runId: string; error?: string };
+type Acknowledgement = { success: boolean; runId: string; error?: string; mainOwnsTerminal?: boolean };
 const nextTurn = () => new Promise<void>(resolve => setTimeout(resolve, 0));
 const successfulAck = (runId = "run-1"): Acknowledgement => ({ success: true, runId });
 const terminalResult = (status: FireflyTerminalStatus) => ({ status, externalEffectsMayContinue: status !== "success" });
@@ -680,5 +680,32 @@ describe("Terminal checkpoint saves are confirmed before they are reported", () 
     ]);
     expect(s.bridge.reportRunPersisted).not.toHaveBeenCalled();
     expect(s.host.setModeBusy).toHaveBeenLastCalledWith("chat", false);
+  });
+});
+
+ describe("Main terminal ownership", () => {
+  test.each(["success", "runtime_error"] as const)("accepted Main-managed %s does not write or acknowledge a terminal snapshot", async status => {
+    const s = runScenario({ ack: { success: true, runId: "run-1", mainOwnsTerminal: true } });
+    await s.ready(); s.text("visible answer");
+    if (status === "runtime_error") await s.fail("E_HARNESS_FAILURE"); else await s.finish();
+    expect(s.saved().filter(row => row.runSnapshot?.status === "terminal")).toEqual([]);
+    expect(s.bridge.reportRunPersisted).not.toHaveBeenCalled();
+  });
+
+  test("a Main-managed run releases the queue only after Main stops reporting it as settling", async () => {
+    const s = runScenario({ ack: { success: true, runId: "run-1", mainOwnsTerminal: true } });
+    const phases = ["settling", "settling", "finished"] as const;
+    let call = 0;
+    const getRunStatus = vi.fn(async () => {
+      const phase = phases[Math.min(call++, phases.length - 1)];
+      if (phase !== "finished") expect(s.host.onRunFinished).not.toHaveBeenCalled();
+      return [{ sessionId: "session-1", assistantTurnId: "assistant-1", runId: "run-1", seq: call, phase }];
+    });
+    (s.bridge as AguiApi).getRunStatus = getRunStatus as unknown as AguiApi["getRunStatus"];
+    await s.ready(); s.text("visible answer");
+    await s.finish();
+    expect(getRunStatus).toHaveBeenCalledTimes(3);
+    expect(getRunStatus).toHaveBeenCalledWith({ sessionId: "session-1", candidates: [{ assistantTurnId: "assistant-1", runId: "run-1" }] });
+    expect(s.host.onRunFinished.mock.calls).toEqual([[{ mode: "chat", sessionId: "session-1", queuePaused: false }]]);
   });
 });

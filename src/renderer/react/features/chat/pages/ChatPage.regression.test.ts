@@ -160,7 +160,13 @@ function installBridges() {
       };
     }),
     pendingCompleteDispatch: vi.fn(async (id: string) => { dispatching[id] = undefined; return { ok: true }; }),
-    setActiveSession: async () => {}, onChanged: receive => { historyChange = receive; return () => { historyChange = undefined; }; },
+    setActiveSession: vi.fn(async () => {}), onChanged: (() => {
+      const observers = new Set<(notice?: RunInsertionChanged) => void>();
+      return (receive: (notice?: RunInsertionChanged) => void) => {
+        observers.add(receive); historyChange = notice => { for (const observer of [...observers]) observer(notice); };
+        return () => { observers.delete(receive); };
+      };
+    })(),
     onReactSwitchSession: () => () => {},
     notifyReactReady() {},
   };
@@ -179,8 +185,9 @@ function installBridges() {
   } });
 }
 
-async function mount(mode: ConversationMode) {
+async function mount(mode: ConversationMode, configure?: () => void) {
   installBridges();
+  configure?.();
   localStorage.setItem("firefly-react-last-mode", mode);
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
   await act(async () => root.render(createElement(FeedbackProvider, null, createElement(ChatPage))));
@@ -195,6 +202,192 @@ beforeEach(() => {
   uuid = 0; vi.spyOn(crypto, "randomUUID").mockImplementation(() => `00000000-0000-4000-8000-${String(++uuid).padStart(12, "0")}` as `${string}-${string}-${string}-${string}-${string}`);
   listeners = new Set(); approvalListeners = new Set(); queues = {}; dispatching = {}; runCalls = []; acks = []; enqueueReplies = []; interrupted = {}; nextFiles.length = 0;
   sessions = {};
+});
+
+describe("C7 read-only run status recovery", () => {
+  test.each(["chat", "work", "code"] as const)("%s reload before ack finds the same assistant row, waits through settling, fills the terminal and then resumes the queue", async mode => {
+    const partial: ChatMessage = { id: "original-assistant", role: "model", at: 2, content: "partial",
+      toolExecutions: [{ id: "tool", name: "ask_user", status: "running" }] };
+    sessions = { "session-a": session("session-a", mode, [{ id: "u", role: "user", at: 1, content: "task" }, partial]) };
+    const waiting = { id: "queued-next", rawContent: "next task", visibleContent: "next task", enqueuedAt: 3 };
+    queues["session-a"] = [waiting];
+    let phase: "running" | "settling" | "finished" = "running";
+    let seq = 1;
+    const query = vi.fn(async (request: Parameters<NonNullable<AguiApi["getRunStatus"]>>[0]) => {
+      expect(page.chatStore.setActiveSession).toHaveBeenCalledWith("session-a", mode);
+      expect(request).toEqual({ sessionId: "session-a", candidates: [{ assistantTurnId: "original-assistant" }] });
+      return [{ sessionId: "session-a", assistantTurnId: "original-assistant", runId: "main-run", seq, phase,
+        ...(phase === "finished" ? { message: { ...partial, content: "final answer", toolExecutions: [{ id: "tool", name: "ask_user", status: "success" as const, result: "approved" }],
+          runSnapshot: { runId: "main-run", status: "terminal" as const, terminalStatus: "success" as const, updatedAt: 10 } } } : {}) }];
+    });
+    await mount(mode, () => { page.agui.getRunStatus = query as NonNullable<AguiApi["getRunStatus"]>; });
+    expect(texts("#messages li")).toEqual(["task", "partial"]);
+    await act(async () => emit({ type: "RUN_ERROR", runId: "main-run", code: "E_HARNESS_FAILURE" }));
+    phase = "settling"; seq++;
+    await act(async () => document.dispatchEvent(new Event("visibilitychange"))); await flush();
+    expect(texts("#messages li")).toEqual(["task", "partial"]);
+    expect(runCalls).toEqual([]);
+    expect(page.chatStore.upsert).not.toHaveBeenCalled();
+    expect(approvals.resolvePermissionApproval).not.toHaveBeenCalled();
+    expect(page.chatStore.pendingClaim).not.toHaveBeenCalled();
+    expect(queues["session-a"]).toEqual([waiting]);
+    phase = "finished"; seq++;
+    await act(async () => document.dispatchEvent(new Event("visibilitychange"))); await flush();
+    expect(texts("#messages li").slice(0, 2)).toEqual(["task", "final answer"]);
+    expect(page.chatStore.upsert).not.toHaveBeenCalledWith("session-a", expect.objectContaining({ id: "original-assistant" }));
+    expect(page.agui.reportRunPersisted).not.toHaveBeenCalledWith(expect.objectContaining({ runId: "main-run" }));
+    // The reload dropped the controller that would resume the queue, so the observed finish hands over once.
+    expect(page.chatStore.pendingClaim).toHaveBeenCalledWith("session-a");
+    expect(runCalls).toHaveLength(1);
+    expect(runCalls[0].sessionId).toBe("session-a");
+    expect(queues["session-a"] ?? []).toEqual([]);
+  });
+
+  test("an older interrupted reply does not pause the queue when the observed run finishes", async () => {
+    const old: ChatMessage = { id: "old", role: "model", at: 2, content: "half", runSnapshot: { runId: "r-old", status: "running", updatedAt: 2 } };
+    const current: ChatMessage = { id: "b", role: "model", at: 4, content: "partial", runSnapshot: { runId: "r-b", status: "running", updatedAt: 4 } };
+    sessions = { "session-a": session("session-a", "work", [{ id: "u1", role: "user", at: 1, content: "first" }, old, { id: "u2", role: "user", at: 3, content: "second" }, current]) };
+    const waiting = { id: "queued-next", rawContent: "next task", visibleContent: "next task", enqueuedAt: 5 };
+    queues["session-a"] = [waiting];
+    let done = false;
+    const query = vi.fn(async () => [
+      { sessionId: "session-a", assistantTurnId: "old", runId: "r-old", seq: 3, phase: "interrupted" as const },
+      { sessionId: "session-a", assistantTurnId: "b", runId: "r-b", seq: done ? 2 : 1, phase: done ? "finished" as const : "running" as const,
+        ...(done ? { message: { ...current, content: "final", runSnapshot: { runId: "r-b", status: "terminal" as const, terminalStatus: "success" as const, updatedAt: 9 } } } : {}) },
+    ]);
+    await mount("work", () => { page.agui.getRunStatus = query as NonNullable<AguiApi["getRunStatus"]>; });
+    expect(runCalls).toEqual([]);
+    done = true;
+    await act(async () => document.dispatchEvent(new Event("visibilitychange"))); await flush();
+    expect(runCalls).toHaveLength(1);
+    expect(runCalls[0].sessionId).toBe("session-a");
+    expect(queues["session-a"] ?? []).toEqual([]);
+  });
+
+  test("an observed run that ends interrupted leaves the queue paused", async () => {
+    const partial: ChatMessage = { id: "a", role: "model", at: 2, content: "partial", runSnapshot: { runId: "r", status: "running", updatedAt: 2 } };
+    sessions = { "session-a": session("session-a", "work", [{ id: "u", role: "user", at: 1, content: "task" }, partial]) };
+    const waiting = { id: "queued-next", rawContent: "next task", visibleContent: "next task", enqueuedAt: 3 };
+    queues["session-a"] = [waiting];
+    let phase: "running" | "interrupted" = "running";
+    const query = vi.fn(async () => [{ sessionId: "session-a", assistantTurnId: "a", runId: "r", seq: phase === "running" ? 1 : 2, phase }]);
+    await mount("work", () => { page.agui.getRunStatus = query as NonNullable<AguiApi["getRunStatus"]>; });
+    phase = "interrupted";
+    await act(async () => document.dispatchEvent(new Event("visibilitychange"))); await flush();
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(page.chatStore.pendingClaim).not.toHaveBeenCalled();
+    expect(runCalls).toEqual([]);
+    expect(queues["session-a"]).toEqual([waiting]);
+  });
+
+  test.each(["manual", "queued"] as const)("returning to a session completed in the background releases observed busy state for %s work", async source => {
+    const partial: ChatMessage = { id: "a", role: "model", at: 1, content: "partial",
+      runSnapshot: { runId: "r", status: "running", updatedAt: 1 } };
+    sessions = { "session-a": session("session-a", "work", [partial]),
+      "session-b": session("session-b", "work", [{ id: "b", role: "model", at: 1, content: "other answer" }]) };
+    const query = vi.fn(async () => [{ sessionId: "session-a", assistantTurnId: "a", runId: "r", seq: 1, phase: "running" as const }]);
+    await mount("work", () => { page.agui.getRunStatus = query; });
+    expect(runCalls).toEqual([]);
+    await click("#select-b"); await flush();
+    sessions["session-a"].messages = [{ ...partial, content: "final answer",
+      runSnapshot: { runId: "r", status: "terminal", terminalStatus: "success", updatedAt: 2 } }];
+    if (source === "queued") queues["session-a"] = [{ id: "queued-next", rawContent: "next task", visibleContent: "next task", enqueuedAt: 3 }];
+    await click("#select-a"); await flush();
+    expect(texts("#messages li")[0]).toBe("final answer");
+    if (source === "manual") { await type("next task"); await click("#send"); await flush(); }
+    // Once on load, once by the watcher kept for A while B was shown; returning to A stops it.
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(runCalls).toHaveLength(1);
+    expect(runCalls[0].sessionId).toBe("session-a");
+    expect(queues["session-a"] ?? []).toEqual([]);
+  });
+
+  test("leaving a session whose observed run is still busy still resumes its queue when that run finishes", async () => {
+    const partial: ChatMessage = { id: "a", role: "model", at: 1, content: "partial", runSnapshot: { runId: "r", status: "running", updatedAt: 1 } };
+    sessions = { "session-a": session("session-a", "work", [partial]),
+      "session-b": session("session-b", "work", [{ id: "b", role: "model", at: 1, content: "other answer" }]) };
+    const waiting = { id: "queued-next", rawContent: "next task", visibleContent: "next task", enqueuedAt: 3 };
+    queues["session-a"] = [waiting];
+    let done = false;
+    const query = vi.fn(async (request: Parameters<NonNullable<AguiApi["getRunStatus"]>>[0]) => request.sessionId !== "session-a" ? []
+      : [{ sessionId: "session-a", assistantTurnId: "a", runId: "r", seq: done ? 2 : 1, phase: done ? "finished" as const : "running" as const,
+        ...(done ? { message: { ...partial, content: "final", runSnapshot: { runId: "r", status: "terminal" as const, terminalStatus: "success" as const, updatedAt: 2 } } } : {}) }]);
+    await mount("work", () => { page.agui.getRunStatus = query as NonNullable<AguiApi["getRunStatus"]>; });
+    await click("#select-b"); await flush();
+    expect(runCalls).toEqual([]);
+    done = true;
+    await act(async () => historyChange?.()); await flush();
+    expect(runCalls).toHaveLength(1);
+    expect(runCalls[0].sessionId).toBe("session-a");
+    expect(queues["session-a"] ?? []).toEqual([]);
+  });
+
+  test("ordinary completed legacy replies do not query or schedule status polling", async () => {
+    sessions = { "session-a": session("session-a", "work", [{ id: "old", role: "model", at: 1, content: "saved answer" }]) };
+    const query = vi.fn(async () => []);
+    await mount("work", () => { page.agui.getRunStatus = query; });
+    expect(query).not.toHaveBeenCalled();
+    expect(texts("#messages li")).toEqual(["saved answer"]);
+  });
+
+  test.each(["unavailable", "rejected"])("%s status keeps pending work untouched on reload and allows an explicit send to reach Main", async failure => {
+    sessions = { "session-a": session("session-a", "work", [{ id: "a", role: "model", at: 1, content: "partial",
+      runSnapshot: { runId: "r", status: "running", updatedAt: 1 } }]) };
+    const waiting = { id: "queued-next", rawContent: "next task", visibleContent: "next task", enqueuedAt: 3 };
+    queues["session-a"] = [waiting];
+    const query = vi.fn(async () => {
+      if (failure === "rejected") throw new Error("offline");
+      return [{ assistantTurnId: "a", phase: "unavailable" as const }];
+    });
+    await mount("work", () => { page.agui.getRunStatus = query; });
+    expect(page.chatStore.pendingClaim).not.toHaveBeenCalled();
+    expect(runCalls).toEqual([]);
+    expect(queues["session-a"]).toEqual([waiting]);
+    await type("continue explicitly"); await click("#send"); await flush();
+    expect(page.chatStore.pendingClaim).toHaveBeenCalledWith("session-a");
+    expect(runCalls).toHaveLength(1);
+    expect(runCalls[0].sessionId).toBe("session-a");
+  });
+
+  test("terminal backfill keeps a delivered insertion once and ignores an older subsequent history snapshot", async () => {
+    const partial: ChatMessage = { id: "a", role: "model", at: 2, content: "partial", runSnapshot: { runId: "r", status: "running", updatedAt: 2 } };
+    sessions = { "session-a": session("session-a", "work", [partial]) };
+    let finished = false;
+    const query = vi.fn(async () => [{ sessionId: "session-a", assistantTurnId: "a", runId: "r", seq: finished ? 2 : 1,
+      phase: finished ? "finished" as const : "running" as const,
+      ...(finished ? { message: { ...partial, content: "final", runActivity: { startedAt: 2, completedAt: 9, reasoningMs: 0 },
+        agentRounds: [{ id: "round-1", status: "completed" as const, startedAt: 2, completedAt: 9 }],
+        runSnapshot: { runId: "r", status: "terminal" as const, terminalStatus: "success" as const, updatedAt: 9 } } } : {}) }]);
+    await mount("work", () => { page.agui.getRunStatus = query as NonNullable<AguiApi["getRunStatus"]>; });
+    const insertion: ChatMessage = { id: "i", role: "user", at: 3, content: "also check",
+      runInsertion: { version: 1, assistantTurnId: "a", runId: "r", sequence: 1, revision: 1, delivery: { round: 1, order: 1 } } };
+    sessions["session-a"].messages.push(insertion);
+    finished = true;
+    await act(async () => document.dispatchEvent(new Event("visibilitychange"))); await flush();
+    expect(texts("#messages li")).toEqual(["finalalso check"]);
+    await act(async () => historyChange?.({ runInsertionSessionId: "session-a" })); await flush();
+    expect(texts("#messages li")).toEqual(["finalalso check"]);
+    expect(runCalls).toEqual([]);
+    expect(page.chatStore.upsert).not.toHaveBeenCalled();
+    expect(approvals.resolvePermissionApproval).not.toHaveBeenCalled();
+  });
+
+  test("a late status for the previous session cannot render or consume its pending queue", async () => {
+    sessions = { "session-a": session("session-a", "work", [{ id: "a", role: "model", at: 1, content: "old partial", runSnapshot: { runId: "r", status: "running", updatedAt: 1 } }]),
+      "session-b": session("session-b", "work", [{ id: "b", role: "model", at: 1, content: "other answer" }]) };
+    let complete!: (items: import("../../../../../shared/run-status").RunStatusItem[]) => void;
+    const query = vi.fn(async (request: Parameters<NonNullable<AguiApi["getRunStatus"]>>[0]) => {
+      if (request.sessionId === "session-a") return new Promise<import("../../../../../shared/run-status").RunStatusItem[]>(done => { complete = done; });
+      return [{ assistantTurnId: "b", phase: "unavailable" as const }];
+    });
+    await mount("work", () => { page.agui.getRunStatus = query; });
+    await click("#select-b"); await flush();
+    await act(async () => complete([{ sessionId: "session-a", assistantTurnId: "a", runId: "r", seq: 9, phase: "finished",
+      message: { id: "a", role: "model", at: 1, content: "late answer" } }])); await flush();
+    expect(texts("#messages li")).toEqual(["other answer"]);
+    expect(runCalls).toEqual([]);
+    expect(page.chatStore.upsert).not.toHaveBeenCalled();
+  });
 });
 afterEach(async () => {
   await act(async () => root?.unmount());

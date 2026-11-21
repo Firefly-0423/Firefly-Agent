@@ -1,5 +1,5 @@
 import type { SidebarLayoutApi } from "../../../../../shared/sidebar-layout";
-import type { ChatMessage, ChatSession, ChatSessionMeta, ConversationMode, PendingChatMessage, RunInsertionChanged, ToolFileChange } from "../../../../../shared/chat-types";
+import type { ChatMessage, ChatSession, ChatSessionMeta, ConversationMode, PendingChatMessage, RunInsertionChanged } from "../../../../../shared/chat-types";
 import type { PopQuizCard, PopQuizResolveResponse, PopQuizSettledPayload, PopQuizSubmission } from "../../../../../shared/pop-quiz";
 import type { ApprovalRequest as PermissionApprovalRequest, ApprovalSettledPayload as PermissionApprovalSettled } from "../../../../../shared/permission-approval";
 
@@ -49,34 +49,14 @@ export type ChatStoreApi = {
 };
 
 export type SidebarApi = { openSettings: (section?: string) => void };
-export type AguiEvent = {
-  taskResult?: import("../../../../../shared/chat-types").ToolTaskResult;
-  changes?: ToolFileChange[];
-  status?: string;
-  stepName?: string;
-  toolCallDisplayName?: string;
-  toolCallName?: string;
-  toolCallId?: string;
-  value?: unknown;
-  name?: string;
-  content?: string;
-  error?: string;
-  message?: string;
-  delta?: string;
-  messageId?: string;
-  runId?: string;
-  threadId?: string;
-  type?: string;
-  errorSource?: import("../../../../../shared/run-failure").RunFailureSource;
-  code?: string;
-  /** RUN_FINISHED carries the shared terminal result (status, reason, externalEffectsMayContinue). */
-  result?: import("../../../../../shared/run-terminal").FireflyRunTerminalResult;
-};
+export type { AguiEvent } from "../../../../../shared/run-display";
+import type { AguiEvent } from "../../../../../shared/run-display";
 export type CandidateTextEventValue =
   | { roundId: string; action: "discard" }
   | { delta: string; roundId: string; action: "delta" };
 
 export type AguiApi = {
+  getRunStatus?: (request: import("../../../../../shared/run-status").RunStatusRequest) => Promise<import("../../../../../shared/run-status").RunStatusItem[]>;
   getInterruptedRun?: (sessionId: string) => Promise<{ runId: string; rounds: number; todoCount: number; updatedAt: number } | null>;
   reportRunPersisted?: (payload: { runId: string; finalMessageId?: string }) => void;
   cancel: (runId?: string) => Promise<unknown>;
@@ -91,7 +71,7 @@ export type AguiApi = {
     assistantTurnId: string;
     userTurnId: string;
     messages: Array<{ at?: number; content: string; role: "user" | "model" }>;
-  }) => Promise<{ success: boolean; runId: string; error?: string }>;
+  }) => Promise<import("../../../../../shared/run-terminal").AguiRunAck>;
 };
 
 export type ChoiceApi = { resolve: (id: string, value: unknown) => Promise<{ ok: boolean }> };

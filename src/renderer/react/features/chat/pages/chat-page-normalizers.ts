@@ -3,7 +3,11 @@ import { describePermissionRequest, type AgentRunStage, type ComposerInteraction
 import type { ChatMessageItem } from "../components/ChatMessageList";
 import type { WeatherData } from "../components/weather/weather-types";
 import type { PermissionApprovalRequest } from "./chat-page-bridge";
+import { isRunStatusCandidate } from "./session-run-status";
 import { recoverInterruptedMessage } from "./session-runtime-state";
+import { t } from "../../../i18n";
+import type { RunStatusItem } from "../../../../../shared/run-status";
+import { resolveRunFinishedStage } from "../../../../../shared/run-display";
 
 export const LAST_MODE_STORAGE_KEY = "firefly-react-last-mode";
 const modes: readonly ConversationMode[] = ["chat", "work", "code"];
@@ -95,8 +99,13 @@ export function stageForStep(stepName: string | undefined): AgentRunStage | unde
   return stepName?.startsWith(toolPrefix) ? { kind: "executing", detail: stepName.slice(toolPrefix.length) } : undefined;
 }
 
-export function toUiMessages(session: ChatSession): ChatMessageItem[] {
-  return session.messages.map((stored) => {
+export function toUiMessages(session: ChatSession, statuses?: readonly RunStatusItem[]): ChatMessageItem[] {
+  return session.messages.map((original) => {
+    const status = original.role === "model" ? statuses?.find(item => item.assistantTurnId === original.id
+      && (item.phase === "unavailable" || item.sessionId === session.id
+        && (!original.runSnapshot?.runId || original.runSnapshot.runId === item.runId))) : undefined;
+    const stored = status?.phase === "finished" && status.message.id === original.id && status.message.role === "model"
+      ? { ...original, ...status.message } : original;
     const view: ChatMessageItem = {
       id: stored.id, role: stored.role === "model" ? "assistant" : "user", content: stored.content,
       modelContext: stored.modelContext, channelSource: normalizeChannelSource(stored.channelSource),
@@ -108,7 +117,22 @@ export function toUiMessages(session: ChatSession): ChatMessageItem[] {
       contextUsage: stored.contextUsage, workReadReport: stored.workReadReport, runId: stored.runSnapshot?.runId,
       ...(stored.role === "user" && stored.runInsertion && { runInsertion: stored.runInsertion }),
     };
-    const restored = stored.runSnapshot ? recoverInterruptedMessage(view, stored.runSnapshot) : view;
+    if (status?.phase === "running" || status?.phase === "settling") return {
+      ...view, runId: status.runId, loading: true, streaming: false, reasoningStreaming: false,
+      runStage: { kind: "executing", detail: t(status.phase === "settling" ? "runPresentation.observedSettling" : "runPresentation.observedRunning") },
+    };
+    if (status?.phase === "finished") return applySSettlementProjection({ ...view,
+      loading: false, streaming: false, reasoningStreaming: false,
+      runStage: resolveRunFinishedStage({ status: stored.runSnapshot?.terminalStatus }),
+    }, stored.sSettlement);
+    if (statuses !== undefined && (!status || status.phase === "unavailable")
+      && isRunStatusCandidate(stored)) return {
+      ...view, loading: false, streaming: false, reasoningStreaming: false,
+      runStatusNotice: t("runPresentation.observedUnavailable"),
+    };
+    // Unknown ownership must not turn a live checkpoint into an interrupted run.
+    const recover = statuses === undefined || status?.phase === "interrupted";
+    const restored = recover && stored.runSnapshot ? recoverInterruptedMessage(view, stored.runSnapshot) : view;
     return applySSettlementProjection(restored, stored.sSettlement);
   });
 }

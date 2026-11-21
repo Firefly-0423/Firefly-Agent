@@ -11,14 +11,14 @@ const wire = vi.hoisted(() => ({
     root: "", handlers: new Map<string, any>(), notifications: new Map<string, any>(), sessions: new Map<string, any>(),
     run: vi.fn(), ask: vi.fn(), pending: vi.fn(), mark: vi.fn(), reset: vi.fn(), reads: [] as unknown[], events: [] as any[],
     terminal: undefined as any, duplicate: false, failure: null as Error | null, lateFailure: false, omitTerminal: false, keepOpen: false, finishOnAbort: false, subscriptions: [] as any[],
-    commitInsertion: vi.fn(),
+    commitInsertion: vi.fn(), writeCheckpoint: vi.fn(), terminalWrites: vi.fn(), holdTerminal:false, savedCallback:undefined as any, beginSettlement: vi.fn(), registerRun: vi.fn(), getRunStatus: vi.fn(),
 }));
 vi.mock("fs", async () => {
     const actual = await vi.importActual<typeof import("node:fs")>("node:fs");
     return { ...actual, readFileSync: (...args: any[]) => { wire.reads.push(args[0]); return (actual.readFileSync as any)(...args); } };
 });
 vi.mock("electron", () => ({ app: { getPath: () => wire.root }, BrowserWindow: { getAllWindows: () => [] }, ipcMain: { handle: (channel: string, callback: any) => wire.handlers.set(channel, callback), on: (channel: string, callback: any) => wire.notifications.set(channel, callback), removeListener: vi.fn() } }));
-vi.mock("../sessions/chats-store", () => ({ getSession: (id: string) => wire.sessions.get(id) ?? null, getPendingMessages: wire.pending,
+vi.mock("../sessions/chats-store", () => ({ RUN_PRESENTATION_PROFILE_ID: "desktop-local-profile-v1", registerRun: wire.registerRun, writeRunCheckpoint: wire.writeCheckpoint, beginRunSettlement: wire.beginSettlement, retryRunTerminal: (identity:any,message:any,completed:any)=> {wire.terminalWrites(identity,message); if(wire.holdTerminal) wire.savedCallback=completed; else completed(true);}, getRunStatus: wire.getRunStatus, getSession: (id: string) => wire.sessions.get(id) ?? null, getPendingMessages: wire.pending,
     listRunInsertions: () => [], commitPendingAdjust: wire.commitInsertion, markPendingAdjust: wire.mark, resetPendingAdjustByRun: wire.reset }));
 vi.mock("../../platform/interaction/user-choice", () => ({ requestUserClarification: wire.ask, cancelPendingChoicesForRun: vi.fn() }));
 vi.mock("../../platform/permission/permission", () => ({ cancelPendingApprovalsForRun: vi.fn(), checkPermission: vi.fn(), getCurrentLevel: () => "read-only" }));
@@ -59,6 +59,7 @@ beforeEach(() => {
     wire.notifications.clear();
     wire.sessions.clear();
     wire.root = fs.mkdtempSync(join(tmpdir(), "agui-contract-"));
+    wire.holdTerminal=false;wire.savedCallback=undefined;
     wire.events = [];
     wire.reads = [];
     wire.subscriptions = [];
@@ -69,6 +70,7 @@ beforeEach(() => {
     wire.omitTerminal = false;
     wire.keepOpen = false;
     wire.finishOnAbort = false;
+    wire.registerRun.mockReturnValue(true);
     wire.pending.mockReturnValue([]);
     wire.reset.mockReturnValue({ ok: true, reset: 0 });
 });
@@ -250,17 +252,20 @@ describe("stream content and interactions", () => {
         if (dismiss)
             expect(f.sent.find(event => event.name === "firefly.choice.dismiss").value).toMatchObject({ id: "plan-approval", runId: f.sent.find(event => event.type === "RUN_STARTED").runId, revision: 1, reason: "timeout" });
     });
-    it("requires terminal settlement plus renderer persistence before publishing completion", async () => {
+    it("requires Main persistence before publishing managed completion despite a forged renderer receipt", async () => {
         session("conversation", "chat", [user("input"), { ...answer("output", ""), answersUserMessageId: "input" }]);
         const { createPendingTurnLifecycle } = await import("../plugins/host/pending-turn-lifecycle");
         const publisher = { publishTurnStarted: vi.fn(), publishTurnFinished: vi.fn(), publishSchedulerFinished: vi.fn() }, pendingTurns = createPendingTurnLifecycle({ publisher: publisher as any, now: () => 0 });
+        wire.holdTerminal=true;
         const f = await bridge({ pendingTurns });
         const ack = await f.run("conversation", { userTurnId: "input", assistantTurnId: "output" });
-        await f.idle();
+        await vi.waitFor(()=>expect(wire.terminalWrites).toHaveBeenCalledTimes(1));
         expect(publisher.publishTurnStarted).toHaveBeenCalledExactlyOnceWith({ source: "desktop", runId: ack.runId, mode: "chat", conversationId: "conversation", inputMessageId: "input" });
         expect(pendingTurns.pendingCount()).toEqual(1);
         expect(publisher.publishTurnFinished).not.toHaveBeenCalled();
         wire.notifications.get(IPC.AGUI_RUN_PERSISTED)({}, { runId: ack.runId, finalMessageId: "output" });
+        expect(publisher.publishTurnFinished).not.toHaveBeenCalled();
+        wire.savedCallback(true);
         await vi.waitFor(() => expect(publisher.publishTurnFinished).toHaveBeenCalledTimes(1));
         expect(publisher.publishTurnFinished).toHaveBeenCalledWith(expect.objectContaining({ source: "desktop", runId: ack.runId, mode: "chat", conversationId: "conversation", inputMessageId: "input", finalMessageId: "output", status: "success" }));
         expect(pendingTurns.pendingCount()).toEqual(0);
@@ -445,7 +450,8 @@ describe("live pending adjustments", () => {
         wire.pending.mockReturnValue([{ id: "pending", rawContent: "Queued", visibleContent: "Queued", enqueuedAt: 12 }]);
         expect(await f.adjust({ sessionId: "project", messageId: "pending" })).toEqual({ ok: false, error: "no-active-run", queue: [expect.objectContaining({ id: "pending" })] });
         session();
-        wire.pending.mockReturnValue([]);
+        wire.registerRun.mockReturnValue(true);
+    wire.pending.mockReturnValue([]);
         running();
         await f.run();
         expect(await f.adjust({ sessionId: "conversation", messageId: "pending" })).toEqual({ ok: false, error: "no-safe-next-step", queue: [] });
@@ -933,4 +939,91 @@ describe("run lifetime is independent of the visible page",()=>{
    expect(memory.sContext.isControlledSession('conversation')).toBe(false);
   }finally{await memory.close();targets.dispose()}
  });
+});
+
+
+describe("run identity admission", () => {
+    it("registers the exact session and assistant identity before invoking the model", async () => {
+        session(); running();
+        const f = await bridge();
+        wire.run.mockImplementationOnce(options => {
+            expect(wire.registerRun).toHaveBeenCalledExactlyOnceWith({ profileId: "desktop-local-profile-v1", sessionId: "conversation", assistantTurnId: "assistant", runId: options.runId }, undefined);
+        });
+        const ack = await f.run("conversation", { assistantTurnId: "assistant" });
+        expect(wire.registerRun).toHaveBeenCalledExactlyOnceWith({ profileId: "desktop-local-profile-v1", sessionId: "conversation", assistantTurnId: "assistant", runId: ack.runId }, undefined);
+    });
+    it("rejects a failed identity write without model execution or a retained session guard", async () => {
+        session();
+        const f = await bridge();
+        wire.registerRun.mockImplementationOnce(() => { throw Error("DISK_FULL"); });
+        await expect(f.run("conversation", { assistantTurnId: "assistant" })).rejects.toThrow("DISK_FULL");
+        expect(wire.run).not.toHaveBeenCalled();
+        expect(f.module.hasActiveConversationRun()).toBe(false);
+        expect(f.sent).toEqual([]);
+    });
+});
+
+describe("Main managed terminal timing",()=>{
+ it("checkpoints visible progress immediately after a tool result before completion",async()=>{
+  session("conversation","chat",[user("input"),{...answer("output",""),answersUserMessageId:"input"}]);
+  wire.keepOpen=true;
+  wire.events=[{type:"TEXT_MESSAGE_START",messageId:"answer"},{type:"TEXT_MESSAGE_CONTENT",delta:"visible progress"},
+   {type:"TOOL_CALL_START",toolCallId:"t",toolCallName:"read_file"},
+   {type:"TOOL_CALL_RESULT",toolCallId:"t",content:"visible result"}];
+  const f=await bridge();
+  const ack=await f.run("conversation",{userTurnId:"input",assistantTurnId:"output"});
+  expect(wire.writeCheckpoint).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({runId:ack.runId}),expect.objectContaining({
+   id:"output",content:"visible progress",toolExecutions:[expect.objectContaining({id:"t",status:"success",result:"visible result"})],
+   runSnapshot:expect.objectContaining({runId:ack.runId,status:"running"}),
+  }));
+  expect(wire.terminalWrites).not.toHaveBeenCalled();
+ });
+ it("freezes only after post-turn effects and keeps ownership until the history write completes",async()=>{
+  session("conversation","chat",[user("input"),{...answer("output",""),answersUserMessageId:"input"}]);
+  let release!:()=>void;const barrier=new Promise<void>(resolve=>release=resolve);
+  const effects=vi.fn(async()=>{await barrier;return {sticker:"happy"}});
+  wire.events=[{type:"CUSTOM",name:"firefly.round",value:{action:"start",roundId:"one"}},{type:"TEXT_MESSAGE_START",messageId:"answer"},{type:"TEXT_MESSAGE_CONTENT",delta:"[2027-03-11 09:12, Europe/Paris]visible answer"},{type:"TEXT_MESSAGE_END"}];
+  wire.holdTerminal=true;const f=await bridge({effects});
+  const ack=await f.run("conversation",{userTurnId:"input",assistantTurnId:"output"});
+  expect(ack.mainOwnsTerminal).toBe(true);
+  expect(wire.terminalWrites).not.toHaveBeenCalled();
+  expect(f.module.hasActiveConversationRun()).toBe(true);
+  release();await vi.waitFor(()=>expect(wire.terminalWrites).toHaveBeenCalledTimes(1));
+  expect(wire.terminalWrites).toHaveBeenCalledTimes(1);
+  const [identity,message]=wire.terminalWrites.mock.calls[0];
+  expect(identity).toEqual({profileId:"desktop-local-profile-v1",sessionId:"conversation",assistantTurnId:"output",runId:ack.runId});
+  expect(message.content).toBe("visible answer");expect(message.sticker).toBe("happy");
+  expect(message.agentRounds).toEqual([{id:"one",status:"completed",startedAt:expect.any(Number),completedAt:expect.any(Number)}]);
+  expect(f.module.hasActiveConversationRun()).toBe(true);
+  wire.savedCallback(true);
+  expect(f.module.hasActiveConversationRun()).toBe(false);
+ });
+ it("writes one safe partial message on observable failure without replaying the model",async()=>{
+  session("conversation","chat",[user("input"),{...answer("output",""),answersUserMessageId:"input"}]);
+  wire.events=[{type:"TEXT_MESSAGE_START",messageId:"answer"},{type:"TEXT_MESSAGE_CONTENT",delta:"visible partial"}];
+  wire.failure=new Error("PRIVATE_SECRET_PROVIDER");const f=await bridge();
+  const ack=await f.run("conversation",{userTurnId:"input",assistantTurnId:"output"});await f.idle();
+  expect(wire.run).toHaveBeenCalledTimes(1);expect(wire.terminalWrites).toHaveBeenCalledTimes(1);
+  const message=wire.terminalWrites.mock.calls[0][1];
+  expect(message.runSnapshot).toEqual({runId:ack.runId,status:"terminal",terminalStatus:"runtime_error",updatedAt:expect.any(Number)});
+  expect(message.content).toBe("");
+  expect(message.processMessages.map((row:any)=>row.content)).toEqual(["E_HARNESS_FAILURE","visible partial"]);
+  expect(JSON.stringify(message)).not.toContain("PRIVATE_SECRET_PROVIDER");expect(f.effects).not.toHaveBeenCalled();
+ });
+});
+
+it("does not publish a persisted turn after Main rejects the write and a renderer forges a receipt", async () => {
+  session("conversation", "chat", [user("input"), { ...answer("output", ""), answersUserMessageId: "input" }]);
+  const { createPendingTurnLifecycle } = await import("../plugins/host/pending-turn-lifecycle");
+  const publisher = { publishTurnStarted: vi.fn(), publishTurnFinished: vi.fn(), publishSchedulerFinished: vi.fn() };
+  const pendingTurns = createPendingTurnLifecycle({ publisher: publisher as any, now: () => 0 });
+  wire.holdTerminal = true;
+  const f = await bridge({ pendingTurns });
+  const ack = await f.run("conversation", { userTurnId: "input", assistantTurnId: "output" });
+  await vi.waitFor(() => expect(wire.terminalWrites).toHaveBeenCalledTimes(1));
+  wire.savedCallback(false);
+  wire.notifications.get(IPC.AGUI_RUN_PERSISTED)({}, { runId: ack.runId, finalMessageId: "output" });
+  expect(publisher.publishTurnFinished).not.toHaveBeenCalled();
+  expect(pendingTurns.pendingCount()).toBe(0);
+  expect(f.module.hasActiveConversationRun()).toBe(false);
 });
