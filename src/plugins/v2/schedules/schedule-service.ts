@@ -1133,6 +1133,15 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
   } {
     const ownerPluginId = ensureNonEmptyId(pluginId, "pluginId");
 
+    // Delete the scheduled tasks first: if that fails, keep every piece of plugin state so no task is left
+    // running without its action metadata.
+    let removedTasks: number;
+    try {
+      removedTasks = store.deleteTasksByOwner(ownerPluginId);
+    } catch (cause) {
+      throw new PluginScheduleError("ERR_INTERNAL", "Failed to delete the plugin's scheduled tasks", { cause });
+    }
+
     let removedProposals = 0;
     for (const [proposalId, proposal] of Object.entries(state.proposals)) {
       if (proposal.pluginId === ownerPluginId) {
@@ -1166,7 +1175,6 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       activeTriggerControllers.delete(ownerPluginId);
     }
 
-    const removedTasks = store.deleteTasksByOwner(ownerPluginId);
     persistState();
     refreshEngine();
 

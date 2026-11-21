@@ -822,6 +822,24 @@ describe("PluginSchedulesService (v2)", () => {
       expect(runAgentMock).not.toHaveBeenCalled();
     });
 
+    it("an uninstall whose task delete fails keeps the plugin's schedule state and callbacks", async () => {
+      const { store, service, runAgentMock } = setupHarness();
+      const client = service.forPlugin("dev.firefly.reminder");
+      const fired: string[] = [];
+      client.onTrigger(async event => { fired.push(event.taskId); });
+      const proposed = await client.propose({ title: "Stretch", schedule: { kind: "interval", minutes: 5 }, action: { type: "callback" } });
+      service.confirmProposal(proposed.taskId);
+
+      const spy = vi.spyOn(store, "deleteTasksByOwner").mockImplementationOnce(() => { throw new Error("disk full"); });
+      expect(() => service.uninstallPlugin("dev.firefly.reminder")).toThrow(PluginScheduleError);
+      spy.mockRestore();
+
+      currentNow = new Date("2032-03-10T10:05:00.000Z");
+      await vi.advanceTimersByTimeAsync(5 * 60_000);
+      expect(fired).toEqual([proposed.taskId]);
+      expect(runAgentMock).not.toHaveBeenCalled();
+    });
+
     it("rejects calls when plugin signal is aborted or schedules permission is revoked", async () => {
       const { service } = setupHarness();
       const ac = new AbortController();
