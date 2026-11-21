@@ -24,7 +24,7 @@ class Child extends EventEmitter {
     port.start();
   }
 }
-function setup(failChannel = false, forceKill = vi.fn()) {
+function setup(failChannel = false, forceKill = vi.fn(), configureRpc?: () => (() => void)) {
   const children: Child[] = [];
   const options: any[] = [];
   let metrics: any[] = [];
@@ -47,12 +47,24 @@ function setup(failChannel = false, forceKill = vi.fn()) {
     getAppMetrics: () => metrics,
     environment: { SystemRoot: "C:\\Windows", SECRET: "secret", HTTP_PROXY: "proxy", FIREFLY_KEY: "key" },
     memoryPollMs: 100,
-    forceKill,
+    forceKill, configureRpc,
   });
   return { manager, children, options, forceKill, setMetrics: (m: any[]) => { metrics = m; } };
 }
 afterEach(() => { vi.useRealTimers(); });
 describe("plugin host", () => {
+  it("disposes service registrations exactly once on stop and crash before restarting", async () => {
+    vi.useFakeTimers();
+    const cleanup = vi.fn(); const configure = vi.fn(() => cleanup);
+    const { manager, children } = setup(false, vi.fn(), configure);
+    await manager.start("p"); await manager.stop("p");
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    await manager.start("p"); children[1].emit("exit", 1);
+    expect(cleanup).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(configure).toHaveBeenCalledTimes(3);
+    await manager.stop("p"); expect(cleanup).toHaveBeenCalledTimes(3);
+  });
   it("kills the child if setting up its message channel fails", async () => {
     const { manager, children } = setup(true);
     await expect(manager.start("p")).rejects.toMatchObject({ code: "ERR_INTERNAL" });
