@@ -143,7 +143,7 @@ async function runAgentLoopRounds(run: AgentLoopRun): Promise<AgentLoopResult> {
       const inserted = await acceptAdjustments(run, firstPoll);
       if (typeof inserted !== "number") return inserted;
     }
-    const layers = buildRoundPromptLayers(host);
+    const layers = await buildRoundPromptLayers(host, run.rounds);
     const round = `round-${run.rounds}`;
     host.onEvent?.({ type: "round_start", roundId: round });
     // 无需压缩时同步穿过这里，首次模型调用不增加等待点。
@@ -238,10 +238,21 @@ function materializeInitialContext(run: AgentLoopRun): void {
     kind: host.initialInternalContext?.kind ?? "run_start", revision: revision + 1, runId: host.runId ?? "harness-run", content: facts.join("\n\n---\n\n"),
   }));
 }
-function buildRoundPromptLayers(input: AgentLoopInput): PromptLayers {
-  return { stablePrefix: input.promptLayers?.stablePrefix ?? input.systemPrompt,
+async function buildRoundPromptLayers(input: AgentLoopInput, round = 0): Promise<PromptLayers> {
+  let turnPluginContext: string | undefined;
+  if (input.collectTurnPluginContext) {
+    try {
+      turnPluginContext = await input.collectTurnPluginContext({ round, signal: input.signal });
+    } catch (cause) {
+      logger.warn(LogTag.Plugins, "per-turn plugin context collection failed, skipped:", cause);
+    }
+  }
+  return {
+    stablePrefix: input.promptLayers?.stablePrefix ?? input.systemPrompt,
     ...(input.promptLayers?.sessionPrefix ? { sessionPrefix: input.promptLayers.sessionPrefix } : {}),
-    ...(input.promptLayers?.mode ? { mode: input.promptLayers.mode } : {}) };
+    ...(input.promptLayers?.mode ? { mode: input.promptLayers.mode } : {}),
+    ...(turnPluginContext?.trim() ? { runtimeContext: turnPluginContext.trim() } : {}),
+  };
 }
 function compactIfNeeded(run: AgentLoopRun, promptLayers: PromptLayers): Promise<void> | undefined {
   if (run.input.memoryRun) return undefined;
