@@ -95,7 +95,7 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
   type Host = { host: BrowserHostPort; resolveOwner(event: BrowserInvokeEvent): TrustedBrowserOwner | null; current?: Owner; transitioning: boolean; lastGeneration: number; detach(): void; overlay: boolean; visible: boolean; minimized: boolean; focused: boolean };
   type PendingPermission = { id: string; scope: BrowserPermissionScope; cancel: AbortController; promise: Promise<BrowserReply<BrowserPermissionDto>> };
   type Owner = { agentBusy?: boolean; grant?: BrowserPermissionScope; pending?: PendingPermission; denied?: boolean; value: TrustedBrowserOwner; host: Host; event: BrowserInvokeEvent; retired: boolean; cells: Set<Cell>; lease?: BrowserRunLease; leaseOnAbort?: () => void; validGenerations: Set<number> };
-  type Cell = { connectionFailure?: BrowserConnectionError | "load_failed"; attached: boolean; presentationRevision: number; observation?: { value: BrowserObservation; requestId: number; runId: string }; owner: Owner; context: BrowserDomainContext; abort: AbortController; page: BrowserPageDto; preparing?: Promise<BrowserNetworkReply<BrowserNetworkBinding<S>>>; binding?: BrowserNetworkBinding<S>; guest?: BrowserGuestPort<S>; navigation?: AbortController; manualRequestId?: number; closing: boolean; failed: boolean; cleanup?: Promise<BrowserReply<null>>; onAbort(): void };
+  type Cell = { connectionFailure?: BrowserConnectionError | "load_failed"; attached: boolean; lastBounds?: BrowserBounds; presentationRevision: number; observation?: { value: BrowserObservation; requestId: number; runId: string }; owner: Owner; context: BrowserDomainContext; abort: AbortController; page: BrowserPageDto; preparing?: Promise<BrowserNetworkReply<BrowserNetworkBinding<S>>>; binding?: BrowserNetworkBinding<S>; guest?: BrowserGuestPort<S>; navigation?: AbortController; manualRequestId?: number; closing: boolean; failed: boolean; cleanup?: Promise<BrowserReply<null>>; onAbort(): void };
   const hosts = new Map<BrowserHostPort, Host>(), owners = new WeakMap<TrustedBrowserOwner, Owner>(), retired = new WeakSet<TrustedBrowserOwner>();
   const leasedSlots = new Map<string, Owner>();
   const cells = new Map<string, Cell>(), guests = new WeakMap<S, BrowserGuestPort<S>>(), byContents = new WeakMap<object, Cell>();
@@ -300,9 +300,28 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
   function hostInteractive(owner: Owner): boolean {
     return hostVisible(owner) && owner.host.focused && owner.host.host.isFocused();
   }
+  /** True only when a leased run's page is in one of the three Q1 background states
+   * (session switched away, window hidden, or window minimized) — never while visible & merely blurred. */
+  function backgroundObserveAllowed(owner: Owner): boolean {
+    if (stopping || owner.retired || !hasLiveLease(owner) || owner.pending) return false;
+    if (!currentPage(owner)) return true;
+    const entry = owner.host;
+    try {
+      const hidden = !entry.visible || !entry.host.isVisible();
+      const minimized = entry.minimized || entry.host.isMinimized?.() === true;
+      return hidden || minimized;
+    } catch { return false; }
+  }
   function invalidateObservation(cell: Cell): void {
     cell.presentationRevision++;
     cell.observation = undefined;
+  }
+  function markObserveRequired(cell: Cell): void {
+    invalidateObservation(cell);
+    if (cell.page.agentBlockedReason !== "observe_required") {
+      cell.page = { ...cell.page, agentBlockedReason: "observe_required" };
+      publish(cell);
+    }
   }
   function presented(cell: Cell): boolean { return cell.attached && hostInteractive(cell.owner); }
   function detach(cell: Cell): void {
@@ -441,19 +460,26 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
     if (url) cell.page = { ...cell.page, url, loading: false, pendingUrl: null, canGoBack: native.canGoBack, canGoForward: native.canGoForward };
     publish(cell);
   }
-  async function navigate(cell: Cell, url: string, action?: "back" | "forward" | "reload"): Promise<BrowserReply<BrowserPageDto>> {
+  async function navigate(
+    cell: Cell,
+    url: string,
+    action?: "back" | "forward" | "reload",
+    awaitGuard?: { stillCurrent(): boolean; samePresentation(presentationRevision: number): boolean },
+  ): Promise<BrowserReply<BrowserPageDto>> {
     if (!usable(cell) || !cell.guest) return fail(cell.owner.value.signal.aborted ? "cancelled" : "owner_mismatch");
     cell.observation = undefined; cell.connectionFailure = undefined; cell.navigation?.abort();
     const navigation = new AbortController(); cell.navigation = navigation;
+    const owner = cell.owner, grant = owner.grant;
     const requestId = cell.page.requestId + 1;
     cell.manualRequestId = requestId;
     const stop = () => { try { cell.guest?.stop(); } catch { cell.failed = true; } };
     navigation.signal.addEventListener("abort", stop, { once: true });
-    cell.page = { ...cell.page, requestId, loading: true, pendingUrl: url, error: null,
+    cell.page = { ...cell.page, requestId, loading: true, pendingUrl: url, error: null, agentBlockedReason: undefined,
       ...(cell.owner.grant?.mode === "manual" ? { blockedResourceHosts: [], blockedNavigationUrl: undefined, blockedRequest: false } : {}) }; publish(cell);
+    const presentationRevision = cell.presentationRevision;
     let abort!: () => void;
     try {
-      if (!usable(cell)) return fail("cancelled");
+      if (!usable(cell) || owner.grant !== grant || (awaitGuard && (!awaitGuard.stillCurrent() || !awaitGuard.samePresentation(presentationRevision)))) return fail("cancelled");
       const operation = action ? cell.guest.history(action) : cell.guest.loadURL(url);
       await Promise.race([operation, new Promise<never>((_, reject) => {
         abort = () => reject(new Error("cancelled")); navigation.signal.addEventListener("abort", abort, { once: true });
@@ -461,6 +487,11 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
       })]);
       if (navigation.signal.aborted || cell.page.requestId !== requestId) return fail("cancelled");
       if (!usable(cell)) { terminate(cell); return fail(cell.owner.value.signal.aborted ? "cancelled" : "owner_mismatch"); }
+      if (owner.grant !== grant || (awaitGuard && (!awaitGuard.stillCurrent() || !awaitGuard.samePresentation(presentationRevision)))) {
+        invalidateObservation(cell);
+        cell.page = { ...cell.page, loading: false, pendingUrl: null };
+        return fail("cancelled");
+      }
       const native = cell.guest.snapshot(), committed = allowedUrl(cell.owner, native.url);
       if (!committed) throw new Error("invalid committed destination");
       cell.connectionFailure = undefined;
@@ -474,7 +505,11 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
       cell.page = { ...cell.page, loading: false, pendingUrl: null, error: code }; publish(cell); return fail(code);
     } finally { navigation.signal.removeEventListener("abort", stop); if (abort) navigation.signal.removeEventListener("abort", abort); if (cell.manualRequestId === requestId) cell.manualRequestId = undefined; if (cell.navigation === navigation) cell.navigation = undefined; }
   }
-  async function execute(ownerValue: TrustedBrowserOwner, input: unknown): Promise<BrowserReply<BrowserPageDto | null>> {
+  async function execute(
+    ownerValue: TrustedBrowserOwner,
+    input: unknown,
+    awaitGuard?: { stillCurrent(): boolean; samePresentation(presentationRevision: number): boolean },
+  ): Promise<BrowserReply<BrowserPageDto | null>> {
     const owner = owners.get(ownerValue);
     if (!owner || !current(owner)) return fail(ownerValue.signal?.aborted ? "cancelled" : "owner_mismatch");
     const command = parseCommand(input); if (!command) return fail("permission_denied");
@@ -486,6 +521,7 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
       if (!permits(owner, "navigate")) return fail(policy ? "permission_denied" : "network_unavailable");
       const url = allowedUrl(owner, command.url); if (!url) return fail("blocked_url");
       if (owner.cells.size) return fail("closed");
+      const grant = owner.grant;
       const abort = new AbortController(), browserId = randomUUID();
       const identity = { conversationId: ownerValue.conversationId,
         ...(ownerValue.workspaceId === undefined ? {} : { workspaceId: ownerValue.workspaceId }) };
@@ -498,6 +534,7 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
         } };
       cells.set(browserId, cell); owner.cells.add(cell); ownerValue.signal.addEventListener("abort", cell.onAbort, { once: true });
       cell.preparing = network.prepare(context, owner.grant?.web === true ? { web: true } : owner.grant ? { hosts: owner.grant.hosts, resourceHosts: owner.grant.resourceHosts } : undefined); publish(cell);
+      const prepareRequestId = cell.page.requestId, prepareRevision = cell.presentationRevision;
       let cancelPrepare!: () => void;
       let prepared: BrowserNetworkReply<BrowserNetworkBinding<S>>;
       try {
@@ -510,7 +547,11 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
       if (abort.signal.aborted) { void cleanup(cell); return fail("cancelled"); }
       if (!prepared.ok) { await cleanup(cell); return fail(ownerValue.signal.aborted ? "cancelled" : prepared.code); }
       cell.binding = prepared.value; cell.guest = guests.get(prepared.value.session);
-      if (!usable(cell) || !cell.guest) { await cleanup(cell); return fail(ownerValue.signal.aborted ? "cancelled" : "owner_mismatch"); }
+      if (!usable(cell) || !cell.guest || owner.grant !== grant || cell.page.requestId !== prepareRequestId
+        || (awaitGuard && (!awaitGuard.stillCurrent() || !awaitGuard.samePresentation(prepareRevision)))) {
+        await cleanup(cell);
+        return fail(ownerValue.signal.aborted ? "cancelled" : awaitGuard ? "cancelled" : "owner_mismatch");
+      }
       registered.add(cell.guest.contents); byContents.set(cell.guest.contents, cell);
       cell.guest.installCallbacks({ allowsNavigation: target => { const allowed = usable(cell) && allowedUrl(owner, target) !== null; if (!allowed) blockedNavigation(cell, target); return allowed; },
         started: (target, redirect) => {
@@ -529,7 +570,7 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
           cell.connectionFailure = undefined; cell.page = { ...cell.page, loading: false, pendingUrl: null, error }; publish(cell);
         } },
         destroyed: () => { if (!cell.closing) void cleanup(cell); } });
-      return navigate(cell, url);
+      return navigate(cell, url, undefined, awaitGuard);
     }
     const cell = cells.get(command.browserId);
     if (!cell || cell.closing) return fail("closed"); if (cell.owner !== owner) return fail("owner_mismatch");
@@ -559,12 +600,12 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
       }
       finally { if (cell.manualRequestId === requestId) cell.manualRequestId = undefined; }
     }
-    if (command.kind === "navigate") { if (!permits(owner, "navigate")) return fail("permission_denied"); const url = allowedUrl(owner, command.url); return url ? navigate(cell, url) : fail("blocked_url"); }
+    if (command.kind === "navigate") { if (!permits(owner, "navigate")) return fail("permission_denied"); const url = allowedUrl(owner, command.url); return url ? navigate(cell, url, undefined, awaitGuard) : fail("blocked_url"); }
     if (command.kind === "history") {
       if (!permits(owner, "navigate")) return fail("permission_denied");
       const native = cell.guest.snapshot();
       if ((command.action === "back" && !native.canGoBack) || (command.action === "forward" && !native.canGoForward) || !cell.page.url) return fail("closed");
-      return navigate(cell, cell.page.url, command.action);
+      return navigate(cell, cell.page.url, command.action, awaitGuard);
     }
     if (command.bounds === null || !hostVisible(owner)) detach(cell);
     else {
@@ -572,7 +613,14 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
       const x = Math.max(0, Math.min(width, left)), y = Math.max(0, Math.min(height, top));
       const bounds = { x, y, width: Math.max(0, Math.min(width, left + Math.trunc(command.bounds.width)) - x), height: Math.max(0, Math.min(height, top + Math.trunc(command.bounds.height)) - y) };
       if (!bounds.width || !bounds.height) detach(cell);
-      else { if (!usable(cell)) return fail("owner_mismatch"); cell.guest.setBounds(bounds); cell.guest.attach(ownerValue.host); cell.attached = true; }
+      else {
+        if (!usable(cell)) return fail("owner_mismatch");
+        if (!cell.lastBounds || cell.lastBounds.width !== bounds.width || cell.lastBounds.height !== bounds.height) {
+          invalidateObservation(cell);
+        }
+        cell.lastBounds = bounds;
+        cell.guest.setBounds(bounds); cell.guest.attach(ownerValue.host); cell.attached = true;
+      }
     }
     return { ok: true, value: Object.freeze({ ...cell.page }) };
   }
@@ -651,9 +699,10 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
       if (owner.value.workspaceId !== undefined) {
         if (command.conversationId !== undefined || (command.workspaceId !== undefined && command.workspaceId !== owner.value.workspaceId)) return fail("owner_mismatch");
       } else if (command.workspaceId !== undefined || (command.conversationId !== undefined && command.conversationId !== owner.value.conversationId)) return fail("owner_mismatch");
+      const generation = owner.value.generation;
       detachLeaseFromOwner(owner, true);
       clearPermission(owner); const closed = await closeOwner(owner); if (!closed.ok) return closed;
-      return currentPage(owner) ? { ok: true, value: permissionDto(owner) } : fail("owner_mismatch");
+      return currentPage(owner) && owner.value.generation === generation ? { ok: true, value: permissionDto(owner) } : fail("owner_mismatch");
     }
     if (command.kind !== "request" || !currentPage(owner)) return fail("permission_denied");
     const scope = parseScope(command.scope, owner); if (!scope) return fail("permission_denied");
@@ -663,19 +712,26 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
     }
     if (owner.grant && equalScope(owner.grant, scope)) return { ok: true, value: permissionDto(owner) };
     clearPermission(owner);
+    const generation = owner.value.generation;
+    const initialCell = [...owner.cells].find(cell => !cell.closing);
+    const initialRequestId = initialCell?.page.requestId;
     const pending: PendingPermission = { id: randomUUID(), scope, cancel: new AbortController(), promise: undefined! };
     owner.pending = pending;
     const cancel = () => pending.cancel.abort(); owner.value.signal.addEventListener("abort", cancel, { once: true });
     pending.promise = (async () => {
       let stop: (() => void) | undefined;
+      const stillCurrent = () => currentPage(owner) && !owner.retired && owner.value.generation === generation
+        && owner.pending === pending && !pending.cancel.signal.aborted;
+      const samePresentation = () => hostVisible(owner) || currentPage(owner);
       try {
         const closed = await closeOwner(owner); if (!closed.ok) return closed;
-        if (!currentPage(owner) || pending.cancel.signal.aborted) return fail("cancelled");
+        if (!stillCurrent() || !samePresentation() || owner.cells.size > 0
+          || (initialCell && initialCell.page.requestId === initialRequestId)) return fail("cancelled");
         const approved = await Promise.race([options.confirmPermission!(owner.value, scope, pending.cancel.signal), new Promise<boolean>(resolve => {
           stop = () => resolve(false); pending.cancel.signal.addEventListener("abort", stop, { once: true });
           if (pending.cancel.signal.aborted) stop();
         })]);
-        if (!currentPage(owner) || owner.pending !== pending || pending.cancel.signal.aborted) return fail("cancelled");
+        if (!stillCurrent() || !samePresentation() || owner.cells.size > 0) return fail("cancelled");
         owner.pending = undefined; owner.denied = approved !== true;
         if (approved === true) owner.grant = scope;
         return { ok: true, value: permissionDto(owner) } as BrowserReply<BrowserPermissionDto>;
@@ -718,7 +774,22 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
     if (command.operation !== "open" && (!cell || cell.closing)) return fail("closed");
     if (cell && cell.owner !== owner) return fail("owner_mismatch");
     if (command.operation !== "open" && (!cell || !usable(cell) || !cell.guest)) return fail("owner_mismatch");
-    if (command.operation !== "close" && (!hostInteractive(owner!) || (command.operation !== "open" && !presented(cell!)))) return fail("permission_denied");
+    const allowBgObserve = lease !== null && backgroundObserveAllowed(owner!);
+    if (command.operation !== "close") {
+      if (command.operation === "open") {
+        if (!hostInteractive(owner!)) return fail("permission_denied");
+      } else if (command.operation === "observe") {
+        if (!presented(cell!) && !allowBgObserve) return fail("permission_denied");
+      } else if (!hostInteractive(owner!) || !presented(cell!)) {
+        // Plan (b): under a live run lease in detached/background state (session switched, hidden, minimized),
+        // mutation/navigation ops settle immediately as observe_required without queuing or firing guest work.
+        if (lease !== null && allowBgObserve) {
+          markObserveRequired(cell!);
+          return fail("observe_required");
+        }
+        return fail("permission_denied");
+      }
+    }
     const grant = owner!.grant;
     const stillCurrent = () => runCurrent() && owner!.grant === grant;
     const cancel = () => { detachLeaseFromOwner(owner!, true); clearPermission(owner!); for (const owned of owner!.cells) { terminate(owned); void cleanup(owned); } };
@@ -729,33 +800,66 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
     try {
       const operation = (async (): Promise<BrowserReply<BrowserPageDto | BrowserObservation | null>> => {
         if (!stillCurrent()) return fail("cancelled");
-        if (command.operation === "open") return execute(owner!.value, { kind: "open", url: command.url });
+        if (command.operation === "open") {
+          return execute(owner!.value, { kind: "open", url: command.url }, {
+            stillCurrent,
+            samePresentation: (presentationRevision: number) => hostInteractive(owner!) && [...owner!.cells].some(c => !c.closing && c.presentationRevision === presentationRevision),
+          });
+        }
         cell = activeCell(); if (!cell || !cell.guest || !usable(cell)) return fail("closed");
-        if (command.operation === "navigate") return execute(owner!.value, { kind: "navigate", browserId: cell.page.browserId, url: command.url });
-        if (["back", "forward", "reload"].includes(command.operation)) return execute(owner!.value, { kind: "history", browserId: cell.page.browserId, action: command.operation });
+        if (command.operation === "navigate") {
+          const targetCell = cell;
+          return execute(owner!.value, { kind: "navigate", browserId: targetCell.page.browserId, url: command.url }, {
+            stillCurrent,
+            samePresentation: (presentationRevision: number) => presented(targetCell) && targetCell.presentationRevision === presentationRevision,
+          });
+        }
+        if (["back", "forward", "reload"].includes(command.operation)) {
+          const targetCell = cell;
+          return execute(owner!.value, { kind: "history", browserId: targetCell.page.browserId, action: command.operation }, {
+            stillCurrent,
+            samePresentation: (presentationRevision: number) => presented(targetCell) && targetCell.presentationRevision === presentationRevision,
+          });
+        }
         if (command.operation === "close") {
           const closed = await execute(owner!.value, { kind: "close", browserId: cell.page.browserId });
           detachLeaseFromOwner(owner!, true);
           return closed;
         }
-        if (!presented(cell) || cell.page.loading || !allowedUrl(owner!, cell.page.url)) return fail("permission_denied");
+        const canObserveHere = command.operation === "observe" && (presented(cell) || (lease !== null && backgroundObserveAllowed(owner!)));
+        const canActHere = command.operation !== "observe" && presented(cell);
+        if ((!canObserveHere && !canActHere) || cell.page.loading || !allowedUrl(owner!, cell.page.url)) return fail("permission_denied");
         const requestId = cell.page.requestId, presentationRevision = cell.presentationRevision;
-        const samePresentation = () => presented(cell!) && cell!.presentationRevision === presentationRevision;
+        const startedForeground = presented(cell);
+        const samePresentation = () => (startedForeground ? presented(cell!) : backgroundObserveAllowed(owner!)) && cell!.presentationRevision === presentationRevision;
         if (command.operation === "observe") {
           if (!cell.guest.observe) return fail("network_unavailable");
           const value = await cell.guest.observe(grant!.hosts);
-          if (!stillCurrent() || !usable(cell) || !samePresentation() || cell.page.requestId !== requestId || value.url !== cell.page.url) return fail("cancelled");
+          if (!stillCurrent() || !usable(cell) || !samePresentation() || cell.page.requestId !== requestId || value.url !== cell.page.url) {
+            invalidateObservation(cell);
+            return fail("cancelled");
+          }
+          if (cell.page.agentBlockedReason !== undefined) {
+            cell.page = { ...cell.page, agentBlockedReason: undefined };
+            publish(cell);
+          }
           cell.observation = { value, requestId, runId: run.runId };
           return { ok: true, value };
         }
         const observed = cell.observation;
-        if (!observed || observed.requestId !== requestId || observed.runId !== run.runId || observed.value.snapshotId !== command.snapshotId
-          || !observed.value.elements.some(element => element.ref === command.ref) || !cell.guest.act
+        if (!observed || observed.requestId !== requestId || observed.runId !== run.runId || observed.value.snapshotId !== command.snapshotId) {
+          invalidateObservation(cell);
+          return fail(lease !== null ? "observe_required" : "permission_denied");
+        }
+        if (!observed.value.elements.some(element => element.ref === command.ref) || !cell.guest.act
           || (command.operation === "type" && (typeof command.text !== "string" || command.text.length > 4000))) return fail("permission_denied");
         cell.observation = undefined;
-        if (!stillCurrent()) return fail("cancelled");
+        if (!stillCurrent() || !samePresentation() || cell.page.requestId !== requestId) return fail("cancelled");
         const acted = await cell.guest.act({ kind: command.operation as "click" | "type", snapshotId: observed.value.snapshotId, ref: command.ref!, text: command.text, url: observed.value.url, hosts: grant!.hosts });
-        if (!stillCurrent() || !usable(cell) || !samePresentation() || cell.page.requestId !== requestId) return fail("cancelled");
+        if (!stillCurrent() || !usable(cell) || !samePresentation() || cell.page.requestId !== requestId) {
+          invalidateObservation(cell);
+          return fail("cancelled");
+        }
         return acted ? { ok: true, value: Object.freeze({ ...cell.page }) } : fail("permission_denied");
       })();
       const result = await Promise.race([operation, new Promise<BrowserReply<never>>(resolve => {

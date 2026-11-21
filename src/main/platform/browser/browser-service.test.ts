@@ -847,7 +847,7 @@ it("discards late exact-site confirmation after revocation", async () => {
 });
 
 describe("BrowserRunLease preservation across switch, refresh, tray hide and parallel sessions", () => {
-  it("preserves live guest view and network grant across session switch, refresh and hide while keeping detached executeAgent denied", async () => {
+  it("preserves live guest view and network grant across session switch, refresh and hide while allowing background observe and settling mutations as observe_required", async () => {
     const f = fixture(false, async () => true, true, false, false);
     const targets = createActiveChatTargetRegistry();
     const service2 = createBrowserService({
@@ -915,8 +915,9 @@ describe("BrowserRunLease preservation across switch, refresh, tray hide and par
     expect(f.effects).toContain("detach");
     expect(f.effects).not.toContain("destroy");
     expect(f.requests[0]({ url: "https://example.com/", method: "GET", resourceType: "mainFrame", webContentsId: f.guests[0].contents.id })).toBe(true);
-    // A-1 does NOT relax background executeAgent: still denied while detached
-    expect(await service2.executeAgent(leaseA, { operation: "observe" }, runA)).toEqual({ ok: false, code: "permission_denied" });
+    // A-2 allows read-only observe in background while settling mutations as observe_required
+    expect(await service2.executeAgent(leaseA, { operation: "observe" }, runA)).toMatchObject({ ok: true, value: { url: "https://example.com/" } });
+    expect(await service2.executeAgent(leaseA, { operation: "click", snapshotId: "snap", ref: "1" }, runA)).toEqual({ ok: false, code: "observe_required" });
 
     // Page refresh (main-frame navigation) also preserves lease and guest
     (f.host.webContents as unknown as EventEmitter).emit("did-start-navigation", {}, "https://app.local/", false, true);

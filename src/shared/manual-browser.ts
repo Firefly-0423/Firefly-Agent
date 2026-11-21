@@ -2,10 +2,12 @@
 export interface BrowserBounds { x: number; y: number; width: number; height: number }
 export type BrowserNetworkFailure = "permission_denied" | "owner_mismatch" | "cancelled" | "closed" | "network_unavailable" | "cleanup_failed";
 export type BrowserConnectionError = "restricted_address" | "dns_failed" | "dns_timeout" | "connection_failed";
-export type BrowserErrorCode = BrowserNetworkFailure | BrowserConnectionError | "blocked_url" | "load_failed" | "tab_limit";
+export type BrowserErrorCode = BrowserNetworkFailure | BrowserConnectionError | "blocked_url" | "load_failed" | "tab_limit" | "observe_required";
 export interface BrowserPageDto { browserId: string; conversationId: string; requestId: number; closed: boolean; loading: boolean; url: string; pendingUrl: string | null; canGoBack: boolean; canGoForward: boolean; error: BrowserErrorCode | null;
   /** Main-only discovery, bounded and non-authorizing. Navigation contains origin only. */
   blockedResourceHosts?: readonly string[]; blockedNavigationUrl?: string; blockedRequest?: boolean;
+  /** Set when an Agent mutation/navigation was rejected in background/stale state and requires a fresh foreground observe. */
+  agentBlockedReason?: "observe_required" | null;
 }
 export type BrowserReply<T> = { ok: true; value: T } | { ok: false; code: BrowserErrorCode };
 export type ManualBrowserCommand = { kind: "get" } | { kind: "open"; url: string } | { kind: "navigate"; browserId: string; url: string } | { kind: "history"; browserId: string; action: "back" | "forward" | "reload" } | { kind: "layout"; browserId: string; bounds: BrowserBounds | null } | { kind: "stop"; browserId: string } | { kind: "close"; browserId: string };
