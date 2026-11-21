@@ -26,3 +26,9 @@ describe("public run failure metadata", () => {
   expect(publicRunFailure(new Error("prefix MEMORY_CONTEXT_TRANSCRIPT_SECRET SYNTHETIC_SECRET"))).toEqual({code:"E_HARNESS_FAILURE",source:"runtime"});
  });
 });
+
+describe("attachment that needs Work mode", () => {
+ it("publishes MEMORY_ATTACHMENT_NEEDS_WORK_MODE as a context failure", () => {
+  expect(publicRunFailure(new Error("MEMORY_ATTACHMENT_NEEDS_WORK_MODE"))).toEqual({code:"MEMORY_ATTACHMENT_NEEDS_WORK_MODE",source:"context"});
+ });
+});

@@ -14,6 +14,7 @@ const sources = {
  MEMORY_CONTEXT_RECENT_OVER_BUDGET:"context", MEMORY_CONTEXT_FIXED_OVER_BUDGET:"context", MEMORY_CONTEXT_OVER_BUDGET:"context",
  MEMORY_CONTEXT_COUNT_FAILED:"context", MEMORY_CONTEXT_COUNTER_MISMATCH:"context", MEMORY_CONTEXT_COUNTER_UNSUPPORTED:"context",
  MEMORY_SOURCE_STALE:"context",
+ MEMORY_ATTACHMENT_NEEDS_WORK_MODE:"context",
 } as const;
 
 export type RunFailureSource = "context" | "model" | "tool" | "runtime";
