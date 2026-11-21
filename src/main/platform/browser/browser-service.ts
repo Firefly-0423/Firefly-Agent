@@ -197,6 +197,7 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
   }
   function equalScope(a: BrowserPermissionScope, b: BrowserPermissionScope): boolean { return JSON.stringify(a) === JSON.stringify(b); }
   let stopping = false;
+  let hostClosePolicy: BrowserServiceOptions<S>["onHostClosed"] = options.onHostClosed;
   function validOwner(value: TrustedBrowserOwner, host: Host): boolean {
     try { return value.host === host.host && value.profile === options.profile && value.topFrame === host.host.webContents.mainFrame
       && value.signal instanceof AbortSignal && !value.signal.aborted && !host.host.isDestroyed() && !host.host.webContents.isDestroyed()
@@ -793,7 +794,7 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
     const currentOwner = entry.current;
     entry.current = undefined;
     let decision: { revokeAllLeases?: boolean; affectedConversations?: readonly string[] } | void;
-    try { decision = options.onHostClosed?.(host); } catch { decision = { revokeAllLeases: true }; }
+    try { decision = hostClosePolicy?.(host); } catch { decision = { revokeAllLeases: true }; }
     if (decision?.revokeAllLeases) {
       revokeAllLeases();
     } else if (decision?.affectedConversations) {
@@ -821,6 +822,7 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
     return result.ok && results.every(r => r.ok) ? { ok: true, value: null } : fail("cleanup_failed");
   }
   return Object.freeze({ registerHost, dispatch, dispatchPermission, useTab, execute, executeAgent, attachRunLease, releaseRunLease, detachPageOwner, revoke, revokeConversation, revokeAllLeases, revokeAll, closeHost, dispose,
+    setHostClosePolicy(policy: BrowserServiceOptions<S>["onHostClosed"]) { hostClosePolicy = policy; },
     isEnabled: () => (gateOpen || !!policy) && !stopping,
     isRegisteredBrowser: (contents: object) => registered.has(contents),
     credentialsFor: (contents: object, challenge: ProxyChallenge) => { const cell = byContents.get(contents); return cell && usable(cell) && cell.guest?.contents === contents ? cell.binding?.credentialsFor(cell.guest.contents, challenge) ?? null : null; },

@@ -505,27 +505,27 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
       onChanged: (owner, page) => {
         const host = liveHostFor((win) => win === owner.host);
         if (!host) return;
-        const currentOwner = host.binding.getCurrentOwner();
+        const currentOwner = host.binding.getCurrentOwner?.();
         if (!currentOwner || currentOwner.conversationId !== page.conversationId || currentOwner.generation !== owner.generation) {
           return;
         }
         host.window.webContents.send(IPC.BROWSER_CHANGED, page);
       },
-      onHostClosed: (closingHost) => {
-        const closing = [...browserHosts.values()].find((entry) => entry.window === closingHost);
-        const remaining = liveBrowserHosts().filter((entry) => entry.window !== closingHost);
-        if (remaining.length === 0) {
-          const allLeased = new Set<string>();
-          for (const entry of browserHosts.values()) {
-            for (const cid of entry.binding.listLeasedConversations()) allLeased.add(cid);
-          }
-          for (const cid of allLeased) abortConversationRun(cid);
-          return { revokeAllLeases: true };
+    });
+    created?.setHostClosePolicy?.((closingHost) => {
+      const closing = [...browserHosts.values()].find((entry) => entry.window === closingHost);
+      const remaining = liveBrowserHosts().filter((entry) => entry.window !== closingHost);
+      if (remaining.length === 0) {
+        const allLeased = new Set<string>();
+        for (const entry of browserHosts.values()) {
+          for (const cid of entry.binding.listLeasedConversations?.() ?? []) allLeased.add(cid);
         }
-        const affected = closing?.binding.listLeasedConversations() ?? [];
-        for (const cid of affected) abortConversationRun(cid);
-        return { affectedConversations: affected };
-      },
+        for (const cid of allLeased) abortConversationRun(cid);
+        return { revokeAllLeases: true };
+      }
+      const affected = closing?.binding.listLeasedConversations?.() ?? [];
+      for (const cid of affected) abortConversationRun(cid);
+      return { affectedConversations: affected };
     });
     browserService = created;
     app.once("will-quit", installBrowserServiceLifecycle(app, created, shutdown, "browser-service"));
@@ -625,12 +625,12 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
     browserHosts.set(window, current);
     window.once("closed", () => {
       externalSkillsIpc?.refreshHost();
-      const leasedOnClosing = binding.listLeasedConversations();
+      const leasedOnClosing = binding.listLeasedConversations?.() ?? [];
       browserHosts.delete(window);
       const remaining = liveBrowserHosts();
       if (remaining.length === 0) {
         for (const cid of leasedOnClosing) abortConversationRun(cid);
-        browserService?.revokeAllLeases();
+        browserService?.revokeAllLeases?.();
       } else {
         for (const cid of leasedOnClosing) abortConversationRun(cid);
       }
