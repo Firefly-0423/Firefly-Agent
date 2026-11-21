@@ -622,7 +622,14 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
           invalidateObservation(cell);
         }
         cell.lastBounds = bounds;
+        const reattaching = !cell.attached;
         cell.guest.setBounds(bounds); cell.guest.attach(ownerValue.host); cell.attached = true;
+        // The page is visible again, so the "switch back" notice has done its job. Clearing it now lets the panel
+        // settle its size before the agent observes, instead of the notice vanishing after a fresh snapshot.
+        if (reattaching && cell.page.agentBlockedReason !== undefined) {
+          cell.page = { ...cell.page, agentBlockedReason: undefined };
+          publish(cell);
+        }
       }
     }
     return { ok: true, value: Object.freeze({ ...cell.page }) };

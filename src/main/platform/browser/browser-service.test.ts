@@ -1520,6 +1520,33 @@ describe("PR A-2 background read-only observe, 1px viewport invalidation and pos
     binding.dispose(); f.targets.dispose(); await f.service.dispose();
   });
 
+  it("clears the switch-back notice when the page is re-attached, so the panel settles before the fresh snapshot", async () => {
+    const f = leasedFixture();
+    const { registerBrowserHostOwner } = await import("./browser-host-owner");
+    const binding = registerBrowserHostOwner({ host: f.host, profile: f.profile, targets: f.targets, service: f.service, readSession: id => ({ id, mode: "work" }), isRunActive: () => true });
+    f.targets.setActive({ sender: f.wc as unknown as WebContents, sessionId: "a", mode: "work", rendererTargetId: "r1" });
+    binding.refresh();
+    await f.service.dispatchPermission(f.sender, { kind: "request", scope: { mode: "agent", hosts: ["example.com"], actions: ["navigate", "observe", "click", "type"] } });
+    const lease = binding.retainRunLease(binding.getCurrentOwner()!, { conversationId: "a", runId: "run-1" })!;
+    const run = { conversationId: "a", runId: "run-1", signal: new AbortController().signal, isCurrent: () => true };
+    const opened = await f.service.executeAgent(lease, { operation: "open", url: "https://example.com/" }, run);
+    const browserId = (opened as { ok: true; value: { browserId: string } }).value.browserId;
+    await f.service.dispatch(f.sender, { kind: "layout", browserId, bounds: { x: 0, y: 0, width: 400, height: 300 } });
+    f.targets.setActive({ sender: f.wc as unknown as WebContents, sessionId: "b", mode: "work", rendererTargetId: "r1" });
+    binding.refresh();
+    expect(await f.service.executeAgent(lease, { operation: "click", snapshotId: "snap-1", ref: "1" }, run)).toEqual({ ok: false, code: "observe_required" });
+    f.targets.setActive({ sender: f.wc as unknown as WebContents, sessionId: "a", mode: "work", rendererTargetId: "r2" });
+    binding.refresh();
+    await f.service.dispatch(f.sender, { kind: "layout", browserId, bounds: { x: 0, y: 0, width: 400, height: 300 } });
+    const shown = await f.service.dispatch(f.sender, { kind: "get" }) as { ok: true; value: { agentBlockedReason?: string } };
+    expect(shown.value.agentBlockedReason).toBeUndefined();
+    // The panel grows once the notice is gone; only after that does the agent observe, and its snapshot stays valid.
+    await f.service.dispatch(f.sender, { kind: "layout", browserId, bounds: { x: 0, y: 0, width: 400, height: 340 } });
+    const fresh = await f.service.executeAgent(lease, { operation: "observe" }, run) as { ok: true; value: { snapshotId: string } };
+    expect(await f.service.executeAgent(lease, { operation: "click", snapshotId: fresh.value.snapshotId, ref: "1" }, run)).toMatchObject({ ok: true });
+    expect(f.effects.filter(effect => effect.startsWith("click:"))).toEqual(["click:1"]);
+    binding.dispose(); f.targets.dispose(); await f.service.dispose();
+  });
   it("handles concurrent race conditions: simultaneous release & input, permission change while detached, and reused ref on new element", async () => {
     const f = leasedFixture();
     const { registerBrowserHostOwner } = await import("./browser-host-owner");
