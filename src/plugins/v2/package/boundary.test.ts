@@ -35,6 +35,13 @@ describe("inspectPackage: 合法的包", () => {
     expect(result.errors).toEqual([]);
   });
 
+  it("清单里用反斜杠写的路径在各平台都按包内文件解析", async () => {
+    const root = createPackage(ws.base, { manifest: goodManifest({ main: "dist\\index.mjs", icon: "assets\\icon.png" }) });
+    const result = await inspect(root);
+    expect(result.errors).toEqual([]);
+    expect(result.ok).toBe(true);
+  });
+
   it("清单带 UTF-8 BOM 也能读", async () => {
     const root = createPackage(ws.base);
     writeFileSync(path.join(root, "firefly.plugin.json"), `\uFEFF${JSON.stringify(goodManifest())}`);

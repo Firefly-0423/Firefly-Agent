@@ -97,7 +97,9 @@ export async function checkPackageBoundary(
       continue;
     }
 
-    const lexical = path.resolve(realRoot, value);
+    // The manifest allows both separators; normalise them before touching the filesystem, so a package
+    // written on Windows resolves the same way on macOS and Linux.
+    const lexical = path.resolve(realRoot, ...value.split(/[\\/]/));
     if (!isInside(realRoot, lexical)) {
       errors.push({ code: "path_traversal", path: pointer, message: `${pointer} 解析到包根目录之外` });
       continue;

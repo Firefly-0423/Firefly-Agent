@@ -53,7 +53,8 @@ interface Comparator {
 export type RangeSet = Comparator[];
 
 const PART = String.raw`(0|[1-9]\d*|x|X|\*)`;
-const PARTIAL = new RegExp(`^v?${PART}(?:\\.${PART}(?:\\.${PART}(?:-([0-9a-zA-Z.-]+))?)?)?$`);
+// Build metadata ("+build.5") is accepted and ignored, as SemVer precedence ignores it.
+const PARTIAL = new RegExp(`^v?${PART}(?:\\.${PART}(?:\\.${PART}(?:-([0-9a-zA-Z.-]+))?(?:\\+[0-9a-zA-Z.-]+)?)?)?$`);
 
 function isWild(part: string | undefined): boolean {
   return part === undefined || part === "x" || part === "X" || part === "*";

@@ -154,6 +154,9 @@ describe("validateManifest: 规则 2 id、version、sdk", () => {
     ["不是版本范围", "banana", "1.2.0", [{ code: "invalid_sdk_range", path: "/sdk" }]],
     ["空范围", " ", "1.2.0", [{ code: "invalid_value", path: "/sdk" }]],
     ["1.x.3 不合法", "1.x.3", "1.2.0", [{ code: "invalid_sdk_range", path: "/sdk" }]],
+    ["范围里的构建元数据被忽略：^1.2.0+build.5", "^1.2.0+build.5", "1.2.0", []],
+    ["范围里的构建元数据被忽略：>=1.2.0+build.5 <2.0.0", ">=1.2.0+build.5 <2.0.0", "1.2.0", []],
+    ["构建元数据不影响上限", "^1.2.0+build.5", "2.0.0", [{ code: "sdk_unsatisfied", path: "/sdk" }]],
   ])("sdk 范围 %s", (_name, sdk, host, expected) => {
     expect(errorsOf(mutated((m) => (m.sdk = sdk)), host)).toEqual(expected);
   });
