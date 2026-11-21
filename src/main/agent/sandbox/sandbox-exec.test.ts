@@ -41,7 +41,7 @@ afterEach(() => {
 });
 
 describe("Windows sandbox session grants", () => {
-  it.each(["scoped", "project-read-only"] as const)("%s grants the trusted workspace rather than cwd or an ancestor project", async (level) => {
+  it.each(["read-only", "per-action"] as const)("%s grants the trusted workspace rather than cwd or an ancestor project", async (level) => {
     const outer = workspace();
     fs.writeFileSync(path.join(outer, "package.json"), "{}");
     const root = path.join(outer, "bound");
@@ -50,15 +50,13 @@ describe("Windows sandbox session grants", () => {
     await sandbox.initSandbox();
     expect(await sandbox.wrapWithSandbox("echo test", cwd, undefined, level, root)).toMatchObject({ ok: true });
     const filesystem = host.initialize.mock.calls[0][0].filesystem;
-    if (level === "scoped") expect(filesystem.allowWrite).toEqual([root]);
-    else expect(filesystem.allowRead).toEqual([root]);
+    if (level === "per-action") expect(filesystem.allowWrite).toEqual([root]);
+    else expect(filesystem.allowWrite).toEqual([]);
     expect(host.wrap.mock.calls[0][4]).toBe(cwd);
   });
 
   it.each([
     ["read-only", { allowWrite: [], denyRead: [], denyWrite: [] }],
-    ["project-read-only", { allowRead: ["E:\\calendar-workspace"], allowWrite: [], denyRead: [], denyWrite: [] }],
-    ["scoped", { allowWrite: ["E:\\calendar-workspace"], denyRead: [], denyWrite: [] }],
     ["per-action", { allowWrite: ["E:\\calendar-workspace"], denyRead: [], denyWrite: [] }],
     ["full", { allowWrite: [], denyRead: [], denyWrite: [], disabled: true }],
   ] as const)("resolves %s access without unrelated home or app grants", (level, expected) => {
@@ -98,7 +96,7 @@ describe("Sandbox startup and explicit disable", () => {
 });
 
 describe("Command wrapping and session reuse", () => {
-  it.each(["read-only", "scoped", "per-action"] as const)("initializes %s grants and passes only the per-call filesystem policy", async (level) => {
+  it.each(["read-only", "per-action"] as const)("initializes %s grants and passes only the per-call filesystem policy", async (level) => {
     host.level = level; await sandbox.initSandbox(); const root = workspace();
     const result = await sandbox.wrapWithSandbox("echo calendar", root);
     expect(result).toEqual({ ok: true, ...wrapped });
@@ -108,14 +106,6 @@ describe("Command wrapping and session reuse", () => {
     }));
     expect(host.wrap).toHaveBeenCalledWith("echo calendar", undefined, { filesystem: level === "per-action" ? { disabled: true } : { denyRead: [], denyWrite: [] } }, undefined, root, undefined);
     expect(sandbox.isSandboxReady()).toEqual(true);
-  });
-
-  it("finds the project root for readonly access from a nested working directory", async () => {
-    host.level = "project-read-only"; await sandbox.initSandbox();
-    const root = workspace(), nested = path.join(root, "packages", "calendar");
-    fs.mkdirSync(nested, { recursive: true }); fs.mkdirSync(path.join(root, ".git"));
-    expect((await sandbox.wrapWithSandbox("git log", nested)).ok).toEqual(true);
-    expect(host.initialize).toHaveBeenCalledWith(expect.objectContaining({ filesystem: { allowRead: [root], allowWrite: [], denyRead: [], denyWrite: [] } }));
   });
 
   it("bypasses sandbox work entirely for full access and forwards an explicitly selected shell otherwise", async () => {
@@ -134,7 +124,7 @@ describe("Command wrapping and session reuse", () => {
     expect(host.initialize).toHaveBeenCalledTimes(1); expect(host.status).toHaveBeenCalledTimes(2); expect(host.wrap).toHaveBeenCalledTimes(2);
     await sandbox.wrapWithSandbox("echo next", second);
     expect(host.reset).toHaveBeenCalledTimes(1); expect(host.initialize).toHaveBeenCalledTimes(2);
-    host.level = "scoped"; await sandbox.wrapWithSandbox("echo scoped", second);
+    host.level = "per-action"; await sandbox.wrapWithSandbox("echo per-action", second);
     expect(host.reset).toHaveBeenCalledTimes(2); expect(host.initialize).toHaveBeenCalledTimes(3);
     expect(host.initialize).toHaveBeenLastCalledWith(expect.objectContaining({ filesystem: { allowWrite: [second], denyRead: [], denyWrite: [] } }));
   });
@@ -189,7 +179,7 @@ describe("Sandbox shutdown cleanup", () => {
     host.reset.mockRejectedValueOnce(Error("Calendar sandbox cleanup failed"));
     await expect(sandbox.resetSandbox()).resolves.toBeUndefined();
     expect(sandbox.isSandboxReady()).toBe(true);
-    host.level = "scoped";
+    host.level = "per-action";
     expect(await sandbox.wrapWithSandbox("echo reinit", next)).toEqual({ ok: true, ...wrapped });
     expect(host.reset).toHaveBeenCalledTimes(2);
     expect(host.initialize).toHaveBeenCalledTimes(2);

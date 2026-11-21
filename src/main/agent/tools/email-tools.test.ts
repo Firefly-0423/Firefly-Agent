@@ -57,14 +57,8 @@ describe("email validation and confirmation gates", () => {
     expect(await send({ ...message, attachments: ["observations.docx"] })).toBe("[错误] 附件必须是绝对路径：observations.docx");
     expect(mail.send).not.toHaveBeenCalled();
   });
-  it("keeps a project-read-only run from attaching a file outside the workspace", async () => {
-    const context = { userQuery: "", runId: "mail-run-73", fileAccessLevel: "project-read-only" as const, resolvedWorkspaceRoot: workspace };
-    await expect(send({ ...message, attachments: [outside] }, context)).rejects.toMatchObject({ code: "E_WORKSPACE_BOUNDARY", reason: "outside-root" });
-    expect(mail.choose).not.toHaveBeenCalled();
-    expect(mail.send).not.toHaveBeenCalled();
-  });
-  it("lets a restricted run attach a file inside the workspace and sends the bytes it read", async () => {
-    const context = { userQuery: "", runId: "mail-run-73", fileAccessLevel: "project-read-only" as const, resolvedWorkspaceRoot: workspace };
+  it("lets a read-only run attach a readable file and sends the bytes it read", async () => {
+    const context = { userQuery: "", runId: "mail-run-73", fileAccessLevel: "read-only" as const, resolvedWorkspaceRoot: workspace };
     expect(await send({ ...message, attachments: [report] }, context)).toMatch(/^\[send_email\] 已发送/);
     expect(mail.send.mock.calls[0][0].attachments).toEqual([{ filename: "observations.docx", content: Buffer.from("report bytes") }]);
   });

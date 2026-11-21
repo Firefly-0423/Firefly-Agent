@@ -87,18 +87,18 @@ describe("run_shell input and authorization", () => {
     expect(mocks.spawn).not.toHaveBeenCalled();
   });
   it("rechecks permissions after asynchronous shell resolution", async () => {
-    mocks.resolve.mockImplementationOnce(async () => { mocks.level.mockReturnValue("scoped"); return { kind: "cmd", executable: "cmd.exe" }; });
+    mocks.resolve.mockImplementationOnce(async () => { mocks.level.mockReturnValue("read-only"); return { kind: "cmd", executable: "cmd.exe" }; });
     await expect(runShellTool.execute({ command: "echo fixture" })).rejects.toMatchObject({ code: "E_PERMISSION_CHANGED", message: "命令准备期间权限已变化，请重新授权此次调用。" });
     expect(mocks.spawn).not.toHaveBeenCalled();
   });
   it.each(["disabled", "not_ready", "wrap_failed"])("fails closed for sandbox %s", async reason => {
-    mocks.level.mockReturnValue("scoped"); mocks.wrap.mockResolvedValue({ ok: false, reason });
+    mocks.level.mockReturnValue("read-only"); mocks.wrap.mockResolvedValue({ ok: false, reason });
     const result = await run({ command: "git status", run_in_background: true });
     expect(result).toMatchObject({ success: false, errorCode: "E_SHELL_REJECTED", effectState: "not_applied", exitCode: -1, stdout: "", sandboxed: false });
     expect(mocks.spawn).not.toHaveBeenCalled(); expect(mocks.background).not.toHaveBeenCalled();
   });
   it("fails closed if the sandbox wrapper throws", async () => {
-    mocks.level.mockReturnValue("scoped"); mocks.wrap.mockRejectedValue(new Error("broken wrapper"));
+    mocks.level.mockReturnValue("read-only"); mocks.wrap.mockRejectedValue(new Error("broken wrapper"));
     expect(await run({ command: "git status" })).toMatchObject({ errorCode: "E_SHELL_REJECTED", stderr: "[拒绝] 沙箱包装异常，该命令已终止（未执行）" });
     expect(mocks.spawn).not.toHaveBeenCalled();
   });
@@ -126,12 +126,12 @@ describe("foreground shell results", () => {
     expect(await run({ command: "echo fixture" }, ctx())).toMatchObject({ errorCode: "E_SHELL_SETUP", stderr: "[executePlan internal error] setup failed", effectState: "not_applied" });
   });
   it("executes a wrapped shell and reports sandbox telemetry", async () => {
-    mocks.level.mockReturnValue("scoped");
+    mocks.level.mockReturnValue("read-only");
     const { pending } = await launch({ shell: "bash" }, {} as ToolContext);
     child.stdout.emit("data", Buffer.from([0xd6, 0xd0])); child.emit("close", 0);
     expect(await pending).toMatchObject({ success: true, shell: "bash", stdout: "中", sandboxed: true });
     // 第五个参数是受信任的工作区根；本用例的上下文没有提供，因此为 undefined。
-    expect(mocks.wrap).toHaveBeenCalledWith("echo fixture", undefined, "bash.exe", "scoped", undefined);
+    expect(mocks.wrap).toHaveBeenCalledWith("echo fixture", undefined, "bash.exe", "read-only", undefined);
   });
   it("lets an approved per-action invocation run directly when the sandbox is disabled", async () => {
     mocks.level.mockReturnValue("per-action"); mocks.wrap.mockResolvedValue({ ok: false, reason: "disabled" });

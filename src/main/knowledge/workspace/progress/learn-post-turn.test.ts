@@ -27,7 +27,7 @@ it("keeps short quiz evidence and delayed progress in the captured workspace", a
     const workspace = new ObsidianWorkspaceService();
     workspace.configure({ enabled: true, vaultPath: root });
     obsidianWorkspace.configure({ enabled: true, vaultPath: other });
-    await runLearnPostTurnHook({ workspace, accessLevel: "scoped", assistantMessage: "正确", userMessage: "测验",
+    await runLearnPostTurnHook({ workspace, accessLevel: "full", assistantMessage: "正确", userMessage: "测验",
       quizEvidence: [{ questionId: "question", learningObjective: "test-topic", userAnswer: true, correctAnswer: true, grading: "correct" }], adapter: {}, cfg: {}, systemPrompt: "" } as never);
     await vi.waitFor(() => expect(fs.existsSync(path.join(root, "learn/progress.md"))).toBe(true));
     await vi.waitFor(() => expect(fs.readFileSync(path.join(root, "learn/progress.md"), "utf8")).toContain("test-topic"));
@@ -51,7 +51,7 @@ it.each(["read-only", "per-action"])("does not write silent progress with %s per
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
-it.each(["scoped", "full"])("does not initialize progress for an ordinary Obsidian Vault with %s permissions", async (accessLevel) => {
+it("does not initialize progress for an ordinary Obsidian Vault with full permissions", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "notes-only-"));
   try {
     fs.mkdirSync(path.join(root, ".obsidian"));
@@ -59,7 +59,7 @@ it.each(["scoped", "full"])("does not initialize progress for an ordinary Obsidi
     const workspace = openKnowledgeWorkspace("work", root)!;
     expect((await workspace.readFile({ path: "note.md" })).content).toBe("ordinary note");
     vi.mocked(extractProgress).mockClear();
-    await runLearnPostTurnHook({ workspace, accessLevel, assistantMessage: "ordinary notes ".repeat(20), userMessage: "summarize notes", adapter: {}, cfg: {}, systemPrompt: "" } as never);
+    await runLearnPostTurnHook({ workspace, accessLevel: "full", assistantMessage: "ordinary notes ".repeat(20), userMessage: "summarize notes", adapter: {}, cfg: {}, systemPrompt: "" } as never);
     await new Promise<void>((resolve) => setImmediate(resolve));
     expect(fs.existsSync(path.join(root, "learn"))).toBe(false);
     expect(extractProgress).not.toHaveBeenCalled();
@@ -77,7 +77,7 @@ it.each(["legacy-progress", "explicit-init"])("continues %s progress in Work", a
         "test-topic": { status: "learning", mastery: 20, unresolvedQuestions: ["keep existing question"], lastStudiedAt: "2026-09-26T00:00:00.000Z" },
       } }, workspace)).toBe(true);
     }
-    await runLearnPostTurnHook({ workspace, accessLevel: "scoped", assistantMessage: "teaching ".repeat(20), userMessage: "continue", adapter: {}, cfg: {}, systemPrompt: "" } as never);
+    await runLearnPostTurnHook({ workspace, accessLevel: "full", assistantMessage: "teaching ".repeat(20), userMessage: "continue", adapter: {}, cfg: {}, systemPrompt: "" } as never);
     await vi.waitFor(() => expect(fs.readFileSync(path.join(root, "learn/progress.md"), "utf8")).toContain(origin === "legacy-progress" ? "mastery: 30" : "mastery: 10"));
     if (origin === "legacy-progress") expect(fs.readFileSync(path.join(root, "learn/progress.md"), "utf8")).toContain("keep existing question");
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
