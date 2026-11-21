@@ -252,6 +252,9 @@ function startPlanReviewFlow(params: {
 import { fireflyEnvironment } from "../../../shared/firefly-environment";
 import { logger, LogTag } from "../../base/logging/logger";
 
+/** Streaming checkpoints rewrite the whole session file synchronously on Main; tool results still save at once. */
+const RUN_CHECKPOINT_THROTTLE_MS = 1000;
+
 export function registerAgUiIpc(
   buildOptions: BuildOptionsFn,
   onRunFinished: OnRunFinishedFn,
@@ -647,7 +650,7 @@ export function registerAgUiIpc(
       if (checkpointTimer === undefined && (type === "TEXT_MESSAGE_CONTENT" || type?.startsWith("REASONING_MESSAGE_")
         || type === "TOOL_CALL_START" || type === "TOOL_CALL_ARGS"
         || type === "CUSTOM" && ["firefly.round", "firefly.process_text", "firefly.candidate_text", "firefly.todo", "firefly.task"].includes(name ?? ""))) {
-        checkpointTimer = setTimeout(saveCheckpoint, 350);
+        checkpointTimer = setTimeout(saveCheckpoint, RUN_CHECKPOINT_THROTTLE_MS);
         checkpointTimer.unref?.();
       }
     };
