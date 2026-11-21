@@ -41,6 +41,35 @@ pnpm run dev
 
 Read the [disclaimer](./docs/disclaimer.en.md) before use. Channel setup is in the [user guide](./docs/user-guide/index.md) (Chinese); packaging and the native helper build are in the [development guide](./docs/contributing/development.md).
 
+## 🗂️ Project structure
+
+```
+src/
+├── main/          # Electron main process in seven layers, each with its own AGENTS.md
+│   ├── base/          # Base: storage, logging, app identity and data directory, IPC registration
+│   ├── platform/      # Platform services: settings, permissions and approvals, windows, speech, browser, Git, LSP
+│   ├── model/         # Model access: vendor adapters, model profiles, layered prompts
+│   ├── tooling/       # Tool contracts: registry, argument validation, execution coordination
+│   ├── conversation/  # Conversation records: types, storage and settlement
+│   ├── knowledge/     # Knowledge: document retrieval, study workspace, Skills
+│   ├── memory/        # Memory: core store, recall, history, context
+│   ├── agent/         # Agent runtime: main loop, built-in tools, MCP, partner delegation
+│   ├── features/      # Feature entry points: chat, sessions, channels, scheduler, plugins
+│   └── app/           # Composition root: wires modules, runs startup and shutdown
+├── renderer/      # Renderer: React UI, Live2D, online demo
+├── preload/       # Controlled IPC bridge
+├── plugins/       # Plugin system core
+├── shared/        # Contracts shared by main and renderer
+└── cli/           # Command-line entry
+
+native/            # Rust native helper: screenshots, history reading, workspace handles
+plugin-sdk/        # Plugin SDK; examples/ holds plugin examples
+skills/            # Project Skills; third-party Skills are in vendor/firefly-skills/
+prompts/           # Layered character prompts and world lore
+site/              # Promo website and online demo
+scripts/  docs/    # Build, packaging and verification scripts; design and development docs
+```
+
 ## 💬 Feedback and contact
 
 - Questions and suggestions: [open an issue](https://github.com/Firefly-0423/Firefly-Agent/issues).
