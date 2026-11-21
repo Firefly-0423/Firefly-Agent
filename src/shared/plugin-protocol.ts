@@ -12,15 +12,18 @@ export class PluginError extends Error {
 }
 export const HOST_TO_PLUGIN_METHODS = {
   activate: 'activate', deactivate: 'deactivate', toolExecute: 'tool.execute', contextProvide: 'context.provide',
-  channelStart: 'channel.start', channelStop: 'channel.stop', channelSend: 'channel.send'
+  channelStart: 'channel.start', channelStop: 'channel.stop', channelSend: 'channel.send',
+  uiMessage: 'ui.message'
 } as const
 export const PLUGIN_TO_HOST_METHODS = {
-  toolsRegister: 'tools.register', contextRegister: 'context.register', modelGenerate: 'model.generate', modelRun: 'model.run',
+  toolsRegister: 'tools.register', contextRegister: 'context.register',
+  channelsRegister: 'channels.register', channelsReportState: 'channels.reportState', channelsDeliver: 'channels.deliver',
+  modelGenerate: 'model.generate', modelRun: 'model.run',
   eventsSubscribe: 'events.subscribe', sessionsList: 'sessions.list', sessionsMessages: 'sessions.messages',
-  workspaceInfo: 'workspace.info', workspaceRead: 'workspace.read',
+  workspaceInfo: 'workspace.info', workspaceRead: 'workspace.read', workspaceWatch: 'workspace.watch',
   schedulesPropose: 'schedules.propose', schedulesUpdate: 'schedules.update', schedulesRemove: 'schedules.remove', schedulesList: 'schedules.list', schedulesOnTrigger: 'schedules.onTrigger',
   secretsGet: 'secrets.get', secretsSet: 'secrets.set', secretsDelete: 'secrets.delete', secretsKeys: 'secrets.keys',
-  uiOpenWindow: 'ui.openWindow', uiOnMessage: 'ui.onMessage', uiPost: 'ui.post'
+  uiOpenWindow: 'ui.openWindow', uiCloseWindow: 'ui.closeWindow', uiOnMessage: 'ui.onMessage', uiPost: 'ui.post'
 } as const
 export type Frame =
   | { type: 'req'; id: string; method: string; params: unknown; deadline: number }
