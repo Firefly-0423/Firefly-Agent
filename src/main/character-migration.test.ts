@@ -97,6 +97,7 @@ describe("Firefly character assets", () => {
       "src/renderer/react/components/ui/NewTaskButton.tsx",
       "src/renderer/settings/index.html",
       "src/renderer/settings/settings.ts",
+      "src/renderer/settings/api/fetch-models-controller.ts",
       "src/renderer/settings/api/endpoint-view.ts",
       "src/renderer/settings/general/panel.ts",
       "src/renderer/settings/preferences/chat-panel.ts",

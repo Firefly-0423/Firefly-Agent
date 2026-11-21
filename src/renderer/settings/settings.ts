@@ -1,3 +1,4 @@
+import { initFetchModelsController } from "./api/fetch-models-controller";
 import { initEndpointView } from "./api/endpoint-view";
 import { bindDesktopAsrSettings } from "./desktop-asr-settings";
 import type {} from "../global";
@@ -10,17 +11,14 @@ import { getCustomEndpointMode, getCustomEndpointProvider, type CustomEndpointMo
 import { mountPluginPanels } from "./plugin-panels";
 import { apiState, type SavedProfileLite } from "./api/state";
 import { bindReasoningLevels, readReasoningLevels, writeReasoningLevels } from "./api/reasoning-levels";
-import { createModelPicker } from "./api/model-picker";
-import { createInputModalitiesPanel, declarationOf, type InputModalitiesPanel } from "./api/input-modalities";
-import { inputModalitiesSelect, inputModalitiesHint } from "./api/dom";
-import type { InputModality } from "../../shared/input-modalities";
-import { apiForm, apiRuntimeForm, presetCards, profileList, profileListCount, profileEditorTitle, deleteProfileBtn, displayNameInput, baseUrlInput, modelInput, modelInputSuggestions, contextWindowInput, apiKeyInput, testConnectionBtn, transportSelect, customEndpointControls, fetchModelsBtn, fetchModelsStatus, fetchModelsPicker, fetchModelsSearch, fetchModelsList, fetchModelsEmpty, toggleEnableThinking, toggleDisableThinking, toggleDisableMaxToken } from "./api/dom";
+import { declarationOf } from "./api/input-modalities";
+import { apiForm, apiRuntimeForm, presetCards, profileList, profileListCount, profileEditorTitle, deleteProfileBtn, displayNameInput, baseUrlInput, modelInput, contextWindowInput, apiKeyInput, testConnectionBtn, transportSelect, customEndpointControls, toggleEnableThinking, toggleDisableThinking, toggleDisableMaxToken } from "./api/dom";
 import { hydrateAppearanceSettings, initAppearancePanel } from "./appearance/panel";
 import { hydrateGeneralSettings, initGeneralPanel } from "./general/panel";
 import { hydrateChatPreferences, initChatPreferencesPanel } from "./preferences/chat-panel";
 import { hydrateFireflyConfig, initFireflyPanel } from "./preferences/firefly-panel";
 import { minBtn, closeBtn } from "./shared/shell";
-import type { ModelPreset, ModelSettings, ProviderProfile } from "./shared/types";
+import type { ModelSettings, ProviderProfile } from "./shared/types";
 import { installPreviewBridge } from "./shared/preview-bridge";
 import { createSectionRouter } from "./shared/section-router";
 import { MODEL_PRESETS } from "./api/presets";
@@ -60,43 +58,9 @@ initAppearancePanel();
 initChatPreferencesPanel();
 initFireflyPanel();
 
+const fetchModels = initFetchModelsController({ updateProfileDraftState, getApiKeyForRequest: () => getApiKeyForRequest() });
+const { inputModalities, fillModelOptions } = fetchModels;
 const { fillPresetOptions, findPreset, applyPreset, getCurrentModelValue, getApiKeyForRequest, validateActiveCustomEndpoint } = initEndpointView({ fillModelOptions, updateProfileDraftState });
-
-// 表单每次被填成另一个档案 / 厂商，就作废还在路上的“获取模型列表”，并收起上一个档案的候选列表。
-// 输入类型面板：三态控件 + 生效结果说明；状态与保存口径见 api/input-modalities.ts。
-const inputModalities: InputModalitiesPanel = createInputModalitiesPanel({ select: inputModalitiesSelect, hint: inputModalitiesHint }, {
-  getProvider: () => apiState.activeProvider,
-  getModel: () => modelInput.value.trim(),
-  resolve: (input) => window.settings?.resolveInputModalities?.(input) ?? Promise.resolve(undefined),
-  t: (key) => t(key),
-  onChange: () => updateProfileDraftState(),
-});
-/** 最近一次“获取模型列表”给出的各型号输入模态；选中某个型号时记为厂商接口记录。 */
-const fetchedInputModalities = new Map<string, InputModality[] | undefined>();
-let fetchModelsGeneration = 0;
-let closeFetchedModelPicker: () => void = () => {};
-function fillModelSuggestions(models: readonly { id: string; name?: string }[]): void {
-  modelInputSuggestions.replaceChildren();
-  models.forEach(({ id, name }) => {
-    const suggestion = document.createElement("option");
-    suggestion.value = id;
-    if (name) suggestion.label = name;
-    modelInputSuggestions.appendChild(suggestion);
-  });
-}
-
-function fillModelOptions(preset: ModelPreset, preferredModel?: string): void {
-  ++fetchModelsGeneration;
-  fetchedInputModalities.clear();
-  closeFetchedModelPicker();
-  if (fetchModelsStatus) {
-    fetchModelsStatus.textContent = "";
-    fetchModelsStatus.classList.remove("is-error", "is-ok");
-  }
-  fillModelSuggestions(preset.mainModels.map(id => ({ id })));
-  modelInput.value = preferredModel ?? preset.mainModels[0] ?? "";
-  inputModalities.modelChanged();
-}
 
 // ── 档案编辑（表单绑定档案，不再绑定"当前厂商"） ────────────────
 
@@ -365,67 +329,7 @@ if (testConnectionBtn) {
 
 bindReasoningLevels();
 
-// ── 从厂商获取模型列表：型号由接入的厂商决定，预设只是拉不到时的兜底建议 ──
-const modelPicker = fetchModelsPicker && fetchModelsSearch && fetchModelsList && fetchModelsEmpty
-  ? createModelPicker({ root: fetchModelsPicker, search: fetchModelsSearch, list: fetchModelsList, empty: fetchModelsEmpty }, (id) => {
-    modelInput.value = id;
-    modelInput.dispatchEvent(new Event("input", { bubbles: true }));
-    inputModalities.picked(id, fetchedInputModalities.get(id));
-  })
-  : undefined;
-closeFetchedModelPicker = () => modelPicker?.close();
-modelInput.addEventListener("input", () => {
-  const typed = modelInput.value.trim();
-  modelPicker?.syncCurrent(typed);
-  inputModalities.modelChanged();
-  // 原生 datalist 选中（或手填成了列表里的 id）不会经过自定义选择器；
-  // 只要这个 id 是刚拉取到的厂商模型，就按厂商返回的模态记录，避免图片能力被静默丢掉。
-  if (fetchedInputModalities.has(typed)) inputModalities.picked(typed, fetchedInputModalities.get(typed));
-});
-function fetchModelsErrorText(error: string): string {
-  const status = /^HTTP_(\d+)$/.exec(error)?.[1];
-  if (status === "401" || status === "403") return t("settings.panel.api.field.model.fetch.unauthorized", { status });
-  if (status === "404") return t("settings.panel.api.field.model.fetch.notFound");
-  if (status) return t("settings.panel.api.field.model.fetch.http", { status });
-  if (error === "MISSING_API_KEY" || error === "MISSING_BASE_URL") return t("settings.panel.api.field.model.fetch.needKey");
-  if (error === "TIMEOUT") return t("settings.panel.api.field.model.fetch.timeout");
-  if (error === "BAD_RESPONSE") return t("settings.panel.api.field.model.fetch.empty");
-  return t("settings.panel.api.field.model.fetch.network");
-}
-fetchModelsBtn?.addEventListener("click", async () => {
-  if (!fetchModelsBtn || !fetchModelsStatus) return;
-  const show = (text: string, tone: "" | "is-error" | "is-ok" = "") => {
-    fetchModelsStatus.textContent = text;
-    fetchModelsStatus.classList.remove("is-error", "is-ok");
-    if (tone) fetchModelsStatus.classList.add(tone);
-  };
-  show(t("settings.panel.api.field.model.fetch.loading"));
-  modelPicker?.close();
-  fetchModelsBtn.disabled = true;
-  const generation = fetchModelsGeneration;
-  try {
-    const result = await settings.fetchModels?.({
-      provider: apiState.activeProvider,
-      baseUrl: baseUrlInput.value.trim(),
-      apiKey: getApiKeyForRequest(),
-      explicitTransport: transportSelect.value as ApiTransport,
-    });
-    // 等待期间切到了别的档案：结果属于上一个档案，丢掉，不要写进现在这个档案的候选里
-    if (generation !== fetchModelsGeneration) return;
-    if (!result) { show(fetchModelsErrorText("NETWORK"), "is-error"); return; }
-    if (!result.ok) { show(fetchModelsErrorText(result.error), "is-error"); return; }
-    fetchedInputModalities.clear();
-    for (const model of result.models) fetchedInputModalities.set(model.id, model.inputModalities);
-    fillModelSuggestions(result.models);
-
-    modelPicker?.open(result.models, modelInput.value.trim());
-    show(t("settings.panel.api.field.model.fetch.done", { count: result.models.length }), "is-ok");
-  } catch {
-    if (generation === fetchModelsGeneration) show(fetchModelsErrorText("NETWORK"), "is-error");
-  } finally {
-    fetchModelsBtn.disabled = false;
-  }
-});
+fetchModels.bind();
 
 apiRuntimeForm.addEventListener("submit", async event => {
   event.preventDefault();
