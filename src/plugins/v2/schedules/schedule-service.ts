@@ -1028,7 +1028,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       throw new PluginScheduleError("ERR_REJECTED", `Run "${runId}" was already rejected`);
     }
     if (record.status === "cancelled") {
-      throw new PluginScheduleError("ERR_CANCELLED", `Run "${runId}" was cancelled`);
+      throw new PluginScheduleError("ERR_CANCELLED", record.error ?? `Run "${runId}" was cancelled`);
     }
     if (record.status !== "pending_approval") {
       throw new PluginScheduleError(
@@ -1115,7 +1115,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       throw new PluginScheduleError("ERR_REJECTED", `Run "${runId}" was already rejected`);
     }
     if (record.status === "cancelled") {
-      throw new PluginScheduleError("ERR_CANCELLED", `Run "${runId}" was cancelled`);
+      throw new PluginScheduleError("ERR_CANCELLED", record.error ?? `Run "${runId}" was cancelled`);
     }
     if (record.status !== "pending_approval") {
       throw new PluginScheduleError(
@@ -1202,6 +1202,21 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       removedProposals,
       cancelledApprovals,
     };
+  }
+
+  // These approvals were persisted before execution, so the previous host may have already produced side effects.
+  const interruptedApprovals = Object.values(state.approvals).filter(
+    (approval) => approval.status === "approved",
+  );
+  if (interruptedApprovals.length > 0) {
+    const settledAt = clock().toISOString();
+    for (const approval of interruptedApprovals) {
+      approval.status = "cancelled";
+      approval.reason = "host_interrupted";
+      approval.error = "Host restarted before the approval was settled. Check run history and side effects before starting a new run.";
+      approval.settledAt = settledAt;
+    }
+    persistState();
   }
 
   // The host creates this service before starting the scheduler engine, so overdue cron tasks are re-armed first.

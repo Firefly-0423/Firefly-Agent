@@ -991,6 +991,73 @@ describe("PluginSchedulesService (v2)", () => {
       expect(triggered).toEqual([{ taskId: confirmedProp.taskId, payload: { step: 42 } }]);
     });
 
+    it("settles an approval interrupted by host restart without replaying the callback", async () => {
+      const { service, store, engine } = setupHarness();
+      const pluginId = "dev.firefly.persist";
+      const client = service.forPlugin(pluginId);
+      // Leave the callback running so the last durable approval state is "approved".
+      const interruptedListener = vi.fn(() => new Promise<void>(() => {}));
+      client.onTrigger(interruptedListener);
+      const proposed = await client.propose({
+        title: "Privileged reminder",
+        schedule: { kind: "interval", minutes: 15 },
+        action: { type: "callback" },
+      });
+      service.confirmProposal(proposed.taskId);
+      const [task] = store.getTasks();
+      const interrupted = service.suspendUnattendedRun(proposed.taskId, ["shell"]);
+      const pending = service.suspendUnattendedRun(proposed.taskId, ["shell"]);
+      void service.approveRun(interrupted.runId);
+      expect(interruptedListener).toHaveBeenCalledTimes(1);
+      expect(service.getRunApproval(interrupted.runId)?.status).toBe("approved");
+      const history = store.getHistory(task.id);
+      engine.stop();
+
+      const reopenService = () => {
+        const reopenedStore = createSchedulerStore({
+          tasksFile: join(workdir, "scheduled-tasks.json"),
+          historyFile: join(workdir, "scheduled-tasks-history.jsonl"),
+          now: () => currentNow,
+        });
+        reopenedStore.load();
+        return {
+          store: reopenedStore,
+          service: createPluginScheduleService({
+            store: reopenedStore,
+            stateFile: join(workdir, "plugin-schedules-state.json"),
+            now: () => currentNow,
+          }),
+        };
+      };
+
+      currentNow = new Date("2032-03-10T10:05:00.000Z");
+      const restarted = reopenService();
+      const recovered = {
+        ...interrupted,
+        status: "cancelled",
+        reason: "host_interrupted",
+        error: expect.stringContaining("Check run history and side effects"),
+        settledAt: currentNow.toISOString(),
+      };
+      expect(restarted.service.getRunApproval(interrupted.runId)).toEqual(recovered);
+      expect(restarted.service.listPendingRunApprovals(pluginId)).toEqual([pending]);
+      const restartedListener = vi.fn();
+      restarted.service.forPlugin(pluginId).onTrigger(restartedListener);
+      await expect(restarted.service.approveRun(interrupted.runId)).rejects.toMatchObject({
+        code: "ERR_CANCELLED",
+        retryable: false,
+        message: expect.stringContaining("Check run history and side effects"),
+      });
+      expect(() => restarted.service.rejectRun(interrupted.runId)).toThrowError(
+        expect.objectContaining({ code: "ERR_CANCELLED" }),
+      );
+      expect(restartedListener).not.toHaveBeenCalled();
+      expect(restarted.store.getHistory(task.id)).toEqual(history);
+
+      currentNow = new Date("2032-03-10T10:10:00.000Z");
+      expect(reopenService().service.getRunApproval(interrupted.runId)).toEqual(recovered);
+    });
+
     it("rejects safe risk on plugin schedule proposals", async () => {
       const { service } = setupHarness();
       const client = service.forPlugin("dev.firefly.alpha");
