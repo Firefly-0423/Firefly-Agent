@@ -21,7 +21,7 @@ export function createBrowserWorkspaceTool(execute: BrowserWorkspaceExecutor): T
         if (result.code === "observe_required") {
           throw new ToolExecutionError(
             "BROWSER_OBSERVE_REQUIRED",
-            "右侧浏览器：observe_required（页面已脱离展示、视口变化或旧快照已失效，需要重新观察）。请切回当前会话可见页面并先调用 observe 重新观察页面，再执行点击、输入或导航；不要复用旧 snapshotId。",
+            "右侧浏览器：observe_required（页面已在后台、视口变化或旧快照失效）。请在页面可见时先调用 observe，用新的 snapshotId 再操作。",
             "semantic_failure",
             false,
             "not_applied",

@@ -347,14 +347,16 @@ describe("production browser composition preserves separate Agent approval", () 
       category: "semantic_failure",
       effectState: "not_applied",
     });
-    expect(clickErr.message).toContain("observe");
+    expect(clickErr.message).toContain("请在页面可见时先调用 observe");
+    expect(clickErr.message).not.toContain("请切回当前会话");
     const navErr = await tool.execute({ operation: "navigate", url: "https://github.com/" }, ctx).catch(err => err);
     expect(navErr).toMatchObject({
       code: "BROWSER_OBSERVE_REQUIRED",
       category: "semantic_failure",
       effectState: "not_applied",
     });
-    expect(navErr.message).toContain("observe");
+    expect(navErr.message).toContain("请在页面可见时先调用 observe");
+    expect(navErr.message).not.toContain("请切回当前会话");
     expect(native.effects.slice(effectBefore)).toEqual([]);
 
     binding.dispose(); targets.dispose();
