@@ -913,7 +913,9 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     const meta = findMetadataByAnyId(storeTaskId);
     if (!meta?.requiresCronRearm || meta.schedule.kind !== "cron") return;
     const current = store.getTasks().find(candidate => candidate.id === meta.storeTaskId);
-    if (!current || current.pluginUserEnabled !== false || current.nextFireAt !== null || current.schedule.kind !== "once") return;
+    // Two ways to end up with no appointment: the engine stopped the one-shot (disabled), or the user resumed a
+    // paused task after its stored time passed and the store cleared the expired appointment (enabled).
+    if (!current || current.nextFireAt !== null || current.schedule.kind !== "once") return;
     const now = clock();
     if (new Date(current.schedule.runAt).getTime() > now.getTime()) return;
     rearmCronTaskIfNeeded(current, meta, now);

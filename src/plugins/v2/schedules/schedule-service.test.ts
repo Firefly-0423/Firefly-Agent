@@ -731,6 +731,31 @@ describe("PluginSchedulesService (v2)", () => {
       expect(service.getRunApproval(second.runId)?.status).toBe("completed");
     });
 
+    it("a paused cron task stays paused while its time passes, and resuming it later schedules the next slot", async () => {
+      const { store, service, runAgentMock } = setupHarness();
+      const proposed = await service.forPlugin("dev.firefly.cron").propose({
+        title: "Quarter-hour check",
+        schedule: { kind: "cron", expression: "*/15 * * * *", timezone: "UTC" },
+        action: { type: "run", prompt: "Ping", mode: "work" },
+      });
+      service.confirmProposal(proposed.taskId);
+      const id = store.getTasks()[0].id;
+
+      currentNow = new Date("2032-03-10T10:05:00.000Z");
+      store.updateTask(id, { pluginUserEnabled: false });
+      currentNow = new Date("2032-03-10T10:18:00.000Z");
+      await vi.advanceTimersByTimeAsync(13 * 60_000);
+      store.addTask({ title: "Unrelated", prompt: "x", enabled: false, schedule: { kind: "interval", every: 30, unit: "minutes" }, toolMode: "allow-list", allowedToolIds: [] });
+      expect(store.getTasks().find(task => task.id === id)?.pluginUserEnabled).toBe(false);
+      expect(runAgentMock).not.toHaveBeenCalled();
+
+      currentNow = new Date("2032-03-10T10:20:00.000Z");
+      store.updateTask(id, { pluginUserEnabled: true });
+      const resumed = store.getTasks().find(task => task.id === id)!;
+      expect(resumed.pluginUserEnabled).toBe(true);
+      expect(resumed.nextFireAt).toBe("2032-03-10T10:30:00.000Z");
+    });
+
     it("rejects calls when plugin signal is aborted or schedules permission is revoked", async () => {
       const { service } = setupHarness();
       const ac = new AbortController();
