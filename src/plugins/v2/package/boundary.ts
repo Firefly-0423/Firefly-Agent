@@ -35,9 +35,14 @@ function collectPathRefs(manifest: PluginManifestV1): PathRef[] {
   return refs;
 }
 
+/** True when a relative path leaves its base. Only a whole ".." segment does; a name like "..output" stays inside. */
+export function escapesRoot(relative: string): boolean {
+  return relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative);
+}
+
 function isInside(root: string, target: string): boolean {
   const relative = path.relative(root, target);
-  return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
+  return relative !== "" && !escapesRoot(relative);
 }
 
 function toPosix(relative: string): string {

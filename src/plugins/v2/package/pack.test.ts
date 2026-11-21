@@ -67,6 +67,14 @@ describe("packPackage", () => {
     expect(readFileSync(path.join(root, "dist/index.mjs"), "utf8")).toBe(before);
     expect(existsSync(path.join(root, "next.ffplugin"))).toBe(false);
   });
+  it("文件名以两个点开头的输出仍在包内，同样拒绝", async () => {
+    const root = createPackage(ws.base);
+    const out = path.join(root, "..output.ffplugin");
+    const result = await pack(root, out);
+    expect(result.ok).toBe(false);
+    expect(existsSync(out)).toBe(false);
+  });
+
   it("输出文件放在包目录里时拒绝，避免下次打包把旧包也装进去", async () => {
     const root = createPackage(ws.base);
     const out = path.join(root, "self.ffplugin");

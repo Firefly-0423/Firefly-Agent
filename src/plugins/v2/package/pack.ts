@@ -2,6 +2,7 @@ import { lstat, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import path from "node:path";
 import JSZip from "jszip";
 import type { ManifestError } from "../../../shared/plugin-manifest";
+import { escapesRoot } from "./boundary";
 import { inspectPackage } from "./inspect";
 
 export type PackResult =
@@ -38,7 +39,7 @@ export async function packPackage(dir: string, outFile: string, options: { hostV
   const target = path.resolve(outFile);
   // Compare real paths: an output reached through a link or junction must not land inside the package.
   const relativeToRoot = path.relative(root, await realTarget(target));
-  if (relativeToRoot !== "" && !relativeToRoot.startsWith("..") && !path.isAbsolute(relativeToRoot)) {
+  if (!escapesRoot(relativeToRoot)) {
     return { ok: false, errors: [{ code: "invalid_path", path: "", message: `输出文件不能放在包目录内: ${outFile}` }] };
   }
 
