@@ -33,7 +33,7 @@ export function registerManualBrowserWorkspaceIpc(scope: Pick<IpcScope, "handle"
 /** Registered guest identities only; unrelated app authentication is unchanged.
  * https://github.com/electron/electron/blob/v43.1.0/docs/api/app.md#event-login
  */
-export function installBrowserServiceLifecycle<S extends object>(app: Pick<App, "on" | "removeListener">, service: Service<S>, shutdown: Pick<ShutdownCoordinator, "register">, serviceId: "browser-service" | "manual-browser-service" = "browser-service"): () => void {
+export function installBrowserServiceLifecycle<S extends object>(app: Pick<App, "on" | "removeListener">, service: Pick<Service<S>, "isRegisteredBrowser" | "credentialsFor" | "revokeAll" | "dispose">, shutdown: Pick<ShutdownCoordinator, "register">, serviceId: "browser-service" | "manual-browser-service" = "browser-service"): () => void {
   const owns = (contents: WebContents) => service.isRegisteredBrowser(contents);
   const onLogin = (event: Electron.Event, contents: WebContents, _details: Electron.AuthenticationResponseDetails, auth: Electron.AuthInfo, callback: (username?: string, password?: string) => void) => {
     if (!owns(contents)) return;
