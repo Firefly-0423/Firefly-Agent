@@ -41,11 +41,11 @@ pnpm run test:plugin-examples
 
 ## 当前源码限制
 
-示例验证入口为 `pnpm run test:plugin-examples`。Mock 验证不代表真实外部服务或 GUI 通过。
+示例验证入口为 `pnpm run test:plugin-examples` 与 `src/plugins/examples-lifecycle.test.ts`（覆盖 `unregister()` → `dispose()` 真实顺序与 JSON 持久化往返）。Mock 验证不代表真实外部服务或 GUI 通过。
 
-- `system-status`：CPU/网络差分首次没有基准；GPU 依赖本机命令，Windows 采集依赖 PowerShell。`diskUsage()` 未传盘符时固定查询 `C`，不是枚举全部磁盘，也不是动态发现系统盘。
-- `weather-tool`：`secrets.get()` 抛错会使注册失败；只有缺少密钥或 OpenWeather 请求失败才进入免密钥路径。`unregister()` 先清空 `lastCity`，宿主随后执行的 `onDispose` 再尝试保存该值，不能宣称停止后城市缓存可靠保存。
-- `long-term-memory`：直接向 JSON 存储写 `Map`，恢复所得值不具备 `Map` 方法；`unregister()` 还会在保存回调之前清空记忆。消息读取只取一页，未循环消费游标；事件没有 `finalMessageId` 时也未跳过，不能宣称已实现严格冻结的全量归档。
-- `scheduled-automation`：`unregister()` 先清空 `ownTaskIds`，保存回调随后写入空数组；停止后本地所有权清单不能可靠恢复。宿主仍通过插件所有权校验限制任务访问，示例没有启用任务的接口。
+- `system-status`：CPU 与网络速率采用前后两次采样差分，首次调用或停用重启后的第一次采样因缺少基准返回 `null`；GPU 依赖本机命令，Windows 采集依赖 PowerShell。未传盘符时会按环境变量或系统 WMI 动态发现系统盘。
+- `weather-tool`：`secrets.get()` 抛错会使注册失败；只有缺少密钥或 OpenWeather 请求失败才进入免密钥路径。
+- `long-term-memory`：依赖宿主提供完整 `getMessages` 游标分页；真实 LLM 摘要质量取决于宿主模型服务，离线或调用失败时退回截断摘要。
+- `scheduled-automation`：宿主仍通过插件所有权校验限制任务访问，示例没有启用任务的接口。
 
-停止顺序依据 `src/plugins/manager.ts`：`beginStop()` → 插件 `unregister()` → context `dispose()`。真实存储依据 `src/plugins/storage.ts` 的 `JSON.stringify` / `JSON.parse`；Mock 以进程内 Map 保存原值，且 `dispose()` 不代调 `unregister()`，因此注册冒烟无法发现上述所有问题。上述实现缺陷已登记，留待后续处理。
+停止顺序依据 `src/plugins/manager.ts`：`beginStop()` → 插件 `unregister()` → context `dispose()`。真实存储依据 `src/plugins/storage.ts` 的 `JSON.stringify` / `JSON.parse`；`plugin-sdk` 里的 `createMockPluginContext` 与 `scripts/plugin-sdk/smoke-examples.mjs` 当前以进程内 Map 保存原值且未按真实停止顺序调度，真实持久化与生命周期行为以 `src/plugins/examples-lifecycle.test.ts` 为准。

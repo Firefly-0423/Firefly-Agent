@@ -1,20 +1,14 @@
 import { bindDesktopAsrSettings } from "./desktop-asr-settings";
 import type {} from "../global";
-import { bindUiColorControls } from "./appearance/colors";
 import { parseContextWindowTokens } from "../../shared/context-window";
 import { renderProviderRows } from "./api/provider-rows";
 import { applyProviderEditorLayout, mountProfileEditor, placeSaveStatus, renderKeepingProfileEditor } from "./api/provider-editor";
 import { mountSettingsSearch } from "./shared/search";
 import "../ui/base.css";
 import "../ui/theme";
-import { normalizeChatSocialContextEnabled, normalizeProactiveChatMode, normalizeProactiveDeliveryTarget, normalizeSegmentedChatEnabled, type ProactiveChatMode, type ProactiveDeliveryTarget } from "../../shared/preferences";
 import { isProactiveDeliveryTargetSelectable } from "../../shared/proactive-delivery";
-import { normalizeUiTheme, type UiTheme } from "../../shared/ui-theme";
-import { normalizeUiFont, type UiFont } from "../../shared/ui-font";
-import { normalizeUiIcon, type UiIcon } from "../../shared/ui-icon";
 import { type ReasoningPreference } from "../../shared/reasoning";
 import { resolveApiEndpoint, type ApiTransport } from "../../shared/api-endpoint";
-import { CHAT_FONT_SIZE_MAX, CHAT_FONT_SIZE_MIN, CODE_FONT_SIZE_MAX, CODE_FONT_SIZE_MIN, DEFAULT_CHAT_APPEARANCE, UI_FONT_SIZE_MAX, UI_FONT_SIZE_MIN, clampFiniteNumber, normalizeChatAppearance, type ChatAppearanceSettings } from "../../shared/chat-appearance";
 import { CUSTOM_ENDPOINT_PROVIDERS, getCustomEndpointMode, getCustomEndpointPresentation, getCustomEndpointProvider, validateCustomEndpointConfig, type CustomEndpointMode } from "./custom-endpoint-state";
 import { channelsState } from "./channels/state";
 import { mountPluginPanels } from "./plugin-panels";
@@ -28,21 +22,21 @@ import { createModelPicker } from "./api/model-picker";
 import { createInputModalitiesPanel, declarationOf, type InputModalitiesPanel } from "./api/input-modalities";
 import { inputModalitiesSelect, inputModalitiesHint } from "./api/dom";
 import type { InputModality } from "../../shared/input-modalities";
-import { apiForm, apiRuntimeForm, presetCards, profileList, profileListCount, profileEditorTitle, deleteProfileBtn, presetWebsiteLink, displayNameInput, baseUrlInput, baseUrlResetBtn, modelInput, modelInputSuggestions, contextWindowInput, apiKeyInput, apiKeyLabel, apiKeyHint, testConnectionBtn, transportSelect, transportHint, endpointPreview, customEndpointControls, customEndpointOverrides, customEndpointSummary, customEndpointGuideBtn, workFlowAdaptBtn, apiNoteText, fetchModelsBtn, fetchModelsStatus, fetchModelsPicker, fetchModelsSearch, fetchModelsList, fetchModelsEmpty, embeddingDimensionsInput, toggleEnableThinking, toggleDisableThinking, toggleDisableMaxToken } from "./api/dom";
-import { appearanceForm, appearanceSaveStatus, petAlwaysOnTopInput, petVisibleInput, petZoomInput, petZoomVal, chatLineHeightInput, chatLineHeightVal, chatParaSpacingInput, chatParaSpacingVal, uiFontCurrent, uiFontSelect, uiFontCustomOption, uiFontImportButton, uiFontResetButton, uiFontSizeInput, chatFontSizeInput, codeFontSizeInput, uiIconSelect, uiThemeSelect, screenshotHotkeyInput } from "./appearance/dom";
-import { generalForm, languageSelect, segmentedChatEnabledInput, proactiveChatSelect, proactiveDeliveryRow, proactiveDeliverySelect, chatSocialContextEnabledInput, toastSoundEnabledInput, launchAtLoginInput, desktopSaveStatus } from "./general/dom";
-import { minBtn, closeBtn, preferencesForm, fireflyPanel, saveStatus, runtimeSaveStatus, preferencesSaveStatus, fireflySaveStatus, openStickerManagerBtn, addStickerBtn } from "./shared/shell";
+import { apiForm, apiRuntimeForm, presetCards, profileList, profileListCount, profileEditorTitle, deleteProfileBtn, presetWebsiteLink, displayNameInput, baseUrlInput, baseUrlResetBtn, modelInput, modelInputSuggestions, contextWindowInput, apiKeyInput, apiKeyLabel, apiKeyHint, testConnectionBtn, transportSelect, transportHint, endpointPreview, customEndpointControls, customEndpointOverrides, customEndpointSummary, customEndpointGuideBtn, workFlowAdaptBtn, apiNoteText, fetchModelsBtn, fetchModelsStatus, fetchModelsPicker, fetchModelsSearch, fetchModelsList, fetchModelsEmpty, toggleEnableThinking, toggleDisableThinking, toggleDisableMaxToken } from "./api/dom";
+import { hydrateAppearanceSettings, initAppearancePanel } from "./appearance/panel";
+import { hydrateGeneralSettings, initGeneralPanel } from "./general/panel";
+import { hydrateChatPreferences, initChatPreferencesPanel } from "./preferences/chat-panel";
+import { hydrateFireflyConfig, initFireflyPanel } from "./preferences/firefly-panel";
+import { minBtn, closeBtn, saveStatus, runtimeSaveStatus } from "./shared/shell";
 import { permissionBlocksWrap, permissionNote } from "./plugins/dom";
-import { stickerEnabledInput, stickerSizeSelect, stickerThresholdInput, stickerThresholdVal, stickerAddOverlay, stickerAddPickBtn, stickerAddFileName, stickerAddId, stickerAddDesc, stickerAddPhrases, stickerAddError, stickerAddConfirm, stickerAddCancel } from "./preferences/dom";
 import { pluginsState } from "./plugins/state";
-import type { GeneralSettings, ModelPreset, ModelSettings, ProviderProfile } from "./shared/types";
+import type { ModelPreset, ModelSettings, ProviderProfile } from "./shared/types";
 import { installPreviewBridge } from "./shared/preview-bridge";
-import { applyOptionGroupValue, getOptionGroupValue, onChoice, selectButtons } from "./shared/option-group";
+import { selectButtons } from "./shared/option-group";
 import { createSectionRouter } from "./shared/section-router";
 import { MODEL_PRESETS, sortPresetsForDisplay } from "./api/presets";
 import { attachCardSelect, enhanceSelects } from "./shared/dropdown";
 import { attachDatePicker } from "./shared/date-picker";
-import { bindAppearanceAdvanced } from "./appearance/advanced";
 import { trackRangeFills } from "./shared/range-fill";
 import { userBirthdayInput } from "./user/dom";
 import { showConfirm, showHtmlModal, showInputModal } from "./shared/modal";
@@ -64,7 +58,6 @@ import "./rag/panel";
 import "./preferences/panel";
 import "./mcp/panel";
 import { t, subscribeLocaleChanged } from "./i18n";
-import { renderStickerSendStatus } from "./preferences/sticker-send-status";
 
 const MIMO_ICON_URL = "https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/light/xiaomimimo.png";
 
@@ -73,121 +66,10 @@ installPreviewBridge();
 minBtn.addEventListener("click", () => window.settings?.minimize());
 closeBtn.addEventListener("click", () => window.settings?.close());
 
-const uiColorControls = bindUiColorControls(appearanceForm, colors => window.settings!.saveGeneral({ uiColors: colors }));
-
-async function saveAppearancePatch(patch: Partial<GeneralSettings>, successText = t("settings.status.applied")): Promise<void> {
-  const report = setAppearanceSaveStatus;
-  try {
-    report(t("settings.status.applying"));
-    await window.settings!.saveGeneral(patch);
-    report(successText, "is-ok");
-  } catch (failure) {
-    console.error("自动应用外观设置失败:", failure);
-    report(t("settings.status.applyFailed"), "is-error");
-  }
-}
-
-function stickerSize(value: string | undefined): "small" | "standard" | "large" {
-  if (value === "small" || value === "large") return value;
-  return "standard";
-}
-
-function getStickerSizeValue(): "small" | "standard" | "large" {
-  return stickerSize(getOptionGroupValue(stickerSizeSelect, "standard"));
-}
-
-function applyStickerSizeSelection(size: "small" | "standard" | "large"): void {
-  applyOptionGroupValue(stickerSizeSelect, size);
-}
-
-type UiLanguage = "zh-CN" | "en";
-const normalizeUiLanguage = (language: unknown): UiLanguage => language === "en" ? "en" : "zh-CN";
-const applyLanguageSelection = (language: UiLanguage): void => {
-  selectButtons(languageSelect, ".language-option", option => option.dataset.lang === language);
-};
-
-const applyProactiveChatSelection = (mode: ProactiveChatMode): void => applyOptionGroupValue(proactiveChatSelect, mode);
-const applyProactiveDeliverySelection = (target: ProactiveDeliveryTarget): void => applyOptionGroupValue(proactiveDeliverySelect, target);
-const getProactiveChatValue = (): ProactiveChatMode => normalizeProactiveChatMode(getOptionGroupValue(proactiveChatSelect, "off"));
-const getProactiveDeliveryValue = (): ProactiveDeliveryTarget => normalizeProactiveDeliveryTarget(getOptionGroupValue(proactiveDeliverySelect, "local"));
-
-function renderProactiveDeliveryVisibility(): void {
-  const enabled = getProactiveChatValue() === "on";
-  proactiveDeliveryRow.hidden = !enabled;
-}
-
-function renderUiFont(font: UiFont): void {
-  uiFontCurrent.textContent = font.kind === "custom" ? font.displayName : t("settings.appearance.font.defaultNotion");
-  uiFontResetButton.hidden = font.kind !== "custom";
-  uiFontCustomOption.disabled = font.kind !== "custom";
-  uiFontSelect.value = font.kind === "custom" ? "custom" : "default";
-}
-
-// 外观排版：行高、段间距、三个字号。设置窗口自己的界面字号即时生效，其他窗口由主进程广播。
-type PixelSizeKey = "uiFontSize" | "chatFontSize" | "codeFontSize";
-const pixelSizeInputs: Record<PixelSizeKey, HTMLInputElement> = {
-  uiFontSize: uiFontSizeInput,
-  chatFontSize: chatFontSizeInput,
-  codeFontSize: codeFontSizeInput,
-};
-const pixelSizeRanges: Record<PixelSizeKey, [number, number]> = {
-  uiFontSize: [UI_FONT_SIZE_MIN, UI_FONT_SIZE_MAX],
-  chatFontSize: [CHAT_FONT_SIZE_MIN, CHAT_FONT_SIZE_MAX],
-  codeFontSize: [CODE_FONT_SIZE_MIN, CODE_FONT_SIZE_MAX],
-};
-let savedChatAppearance: ChatAppearanceSettings = { ...DEFAULT_CHAT_APPEARANCE };
-// The "高级" preferences save on their own; a reset also restores the sizes and spacing above, so redraw those too.
-const appearanceAdvanced = bindAppearanceAdvanced(appearanceForm, async patch => {
-  await saveAppearancePatch(patch as Partial<GeneralSettings>);
-  if ("chatLineHeight" in patch) renderChatAppearanceControls({ ...savedChatAppearance, ...patch });
-});
-
-function renderChatAppearanceControls(settings: ChatAppearanceSettings): void {
-  savedChatAppearance = settings;
-  appearanceAdvanced.render(settings);
-  chatLineHeightInput.value = String(settings.chatLineHeight);
-  chatLineHeightVal.textContent = settings.chatLineHeight.toFixed(2);
-  document.documentElement.style.setProperty("--rb-chat-line-height", String(settings.chatLineHeight));
-  chatParaSpacingInput.value = String(settings.chatParaSpacing);
-  chatParaSpacingVal.textContent = settings.chatParaSpacing.toFixed(2) + "em";
-  document.documentElement.style.setProperty("--rb-chat-para-spacing", settings.chatParaSpacing + "em");
-  for (const key of Object.keys(pixelSizeInputs) as PixelSizeKey[]) {
-    pixelSizeInputs[key].value = String(settings[key]);
-  }
-  document.documentElement.style.setProperty("--ff-ui-font-size", `${settings.uiFontSize}px`);
-}
-
-function bindPixelSizeInput(key: PixelSizeKey): void {
-  const input = pixelSizeInputs[key];
-  const [min, max] = pixelSizeRanges[key];
-  input.addEventListener("input", () => {
-    const value = Number(input.value);
-    if (input.value.trim() && Number.isFinite(value) && key === "uiFontSize") {
-      document.documentElement.style.setProperty("--ff-ui-font-size", `${clampFiniteNumber(value, min, max, savedChatAppearance.uiFontSize)}px`);
-    }
-    setAppearanceSaveStatus(t("settings.status.releaseApply"));
-  });
-  input.addEventListener("change", () => {
-    const raw = input.value.trim();
-    const value = Number(raw);
-    if (!raw || !Number.isFinite(value)) {
-      input.value = String(savedChatAppearance[key]);
-      return;
-    }
-    const next = Math.round(clampFiniteNumber(value, min, max, savedChatAppearance[key]));
-    input.value = String(next);
-    savedChatAppearance = { ...savedChatAppearance, [key]: next };
-    void saveAppearancePatch({ [key]: next } as Partial<GeneralSettings>);
-  });
-}
-
-function renderUiTheme(theme: UiTheme): void {
-  selectButtons(uiThemeSelect, ".appearance-theme-option", option => option.dataset.value === theme, true);
-}
-
-function renderUiIcon(icon: UiIcon): void {
-  selectButtons(uiIconSelect, ".appearance-icon-option", option => option.dataset.icon === icon);
-}
+initGeneralPanel();
+initAppearancePanel();
+initChatPreferencesPanel();
+initFireflyPanel();
 
 function presetLogo(preset: ModelPreset): HTMLSpanElement {
   const logo = document.createElement("span");
@@ -552,13 +434,7 @@ export function applyPreset(
 
 function restoreModelSettings(config: ModelSettings): void {
   applyPreset(config.provider, config.model, config.apiKey, config.baseUrl, config.displayName, config.explicitTransport);
-  stickerEnabledInput.checked = config.stickerEnabled !== false;
-  syncStickerSendStatus();
-  applyStickerSizeSelection(config.stickerSize);
-  const similarity = config.stickerSimilarityThreshold ?? 0.55;
-  stickerThresholdInput.value = String(similarity);
-  stickerThresholdVal.textContent = similarity.toFixed(2);
-  if (embeddingDimensionsInput) embeddingDimensionsInput.value = config.embeddingDimensions ? String(config.embeddingDimensions) : "";
+  hydrateFireflyConfig(config);
   toggleEnableThinking.checked = config.thinkingOverride === 1;
   toggleDisableThinking.checked = config.thinkingOverride === -1;
   toggleDisableMaxToken.checked = !!config.disableMaxToken;
@@ -589,39 +465,15 @@ restoreModelSettings(cfg);
   }
 }
 
-function restorePetAndAppearance(config: GeneralSettings): void {
-  petAlwaysOnTopInput.checked = config.petAlwaysOnTop;
-  petVisibleInput.checked = config.petVisible;
-  const zoom = config.petZoom ?? 1;
-  petZoomInput.value = String(zoom);
-  petZoomVal.textContent = Math.round(zoom * 100) + "%";
-  renderChatAppearanceControls(normalizeChatAppearance(config));
-  renderUiFont(normalizeUiFont(config.uiFont));
-  renderUiIcon(normalizeUiIcon(config.uiIcon));
-  renderUiTheme(normalizeUiTheme(config.uiTheme));
-}
-
-function restoreChatPreferences(config: GeneralSettings): void {
-  segmentedChatEnabledInput.checked = normalizeSegmentedChatEnabled(config.segmentedChatEnabled);
-  applyProactiveChatSelection(normalizeProactiveChatMode(config.proactiveChatMode));
-  applyProactiveDeliverySelection(normalizeProactiveDeliveryTarget(config.proactiveDeliveryTarget));
-  renderProactiveDeliveryVisibility();
-  if (screenshotHotkeyInput) screenshotHotkeyInput.value = config.screenshotHotkey ?? "Alt+Shift+S";
-}
-
 async function loadGeneralSettings(): Promise<void> {
   try {
     const cfg = await window.settings!.getGeneral();
-    uiColorControls.load(cfg.uiColors);
-    chatSocialContextEnabledInput.checked = normalizeChatSocialContextEnabled(cfg.chatSocialContextEnabled);
-    toastSoundEnabledInput.checked = cfg.toastSoundEnabled !== false;
-    launchAtLoginInput.checked = cfg.launchAtLogin === true;
-    restorePetAndAppearance(cfg);
-    restoreChatPreferences(cfg);
+    hydrateAppearanceSettings(cfg);
+    hydrateChatPreferences(cfg);
     void window.settings!.channelsGetStatus()
       .then((status: unknown) => renderProactiveDeliveryAvailability(status as Record<string, { phase?: string }>))
       .catch(() => renderProactiveDeliveryAvailability({}));
-    applyLanguageSelection(normalizeUiLanguage(cfg.language));
+    hydrateGeneralSettings(cfg);
     setPreferencesSaveStatus(t("settings.status.waiting"));
     setAppearanceSaveStatus(t("settings.status.waiting"));
   } catch {
@@ -637,124 +489,6 @@ function bindExclusiveToggle(selected: HTMLInputElement, other: HTMLInputElement
 }
 bindExclusiveToggle(toggleEnableThinking, toggleDisableThinking);
 bindExclusiveToggle(toggleDisableThinking, toggleEnableThinking);
-
-function syncStickerSendStatus(): void {
-  const display = document.getElementById("sticker-send-status");
-  if (display) renderStickerSendStatus(display, stickerEnabledInput.checked);
-}
-
-const dirtyStickers = (): void => setFireflySaveStatus(t("settings.status.dirty"));
-const dirtyPreferences = (): void => setPreferencesSaveStatus(t("settings.status.dirty"));
-
-stickerEnabledInput.addEventListener("change", () => {
-  syncStickerSendStatus();
-  dirtyStickers();
-});
-onChoice(stickerSizeSelect, ".option-block", option => {
-  applyStickerSizeSelection(stickerSize(option.dataset.value));
-  dirtyStickers();
-});
-stickerThresholdInput.addEventListener("input", () => {
-  stickerThresholdVal.textContent = parseFloat(stickerThresholdInput.value).toFixed(2);
-  dirtyStickers();
-});
-
-(["uiFontSize", "chatFontSize", "codeFontSize"] as PixelSizeKey[]).forEach(bindPixelSizeInput);
-uiFontSelect.addEventListener("change", () => {
-  if (uiFontSelect.value === "default") uiFontResetButton.click();
-});
-
-function bindPetControl(control: HTMLInputElement, apply: () => void): void {
-  control.addEventListener("change", () => {
-    apply();
-    setAppearanceSaveStatus(t("settings.status.appliedOk"), "is-ok");
-  });
-}
-bindPetControl(petAlwaysOnTopInput, () => window.settings?.setPetAlwaysOnTop(petAlwaysOnTopInput.checked));
-
-async function changeFont(action: "import" | "reset"): Promise<void> {
-  const importing = action === "import";
-  const trigger = importing ? uiFontImportButton : uiFontResetButton;
-  try {
-    let path: string | null | undefined;
-    if (importing) {
-      path = await window.settings?.pickUiFont();
-      if (!path) return;
-    }
-    trigger.disabled = true;
-    if (importing) setAppearanceSaveStatus(t("settings.status.importingFont"));
-    const font = importing ? await window.settings!.importUiFont(path!) : await window.settings!.resetUiFont();
-    renderUiFont(font);
-    setAppearanceSaveStatus(t(importing ? "settings.status.fontApplied" : "settings.status.fontResetOk"), "is-ok");
-  } catch (failure) {
-    console.error(importing ? "导入字体失败:" : "恢复默认字体失败:", failure);
-    setAppearanceSaveStatus(t(importing ? "settings.status.importFontFailed" : "settings.status.fontResetFailed"), "is-error");
-  } finally {
-    trigger.disabled = false;
-  }
-}
-uiFontImportButton.addEventListener("click", () => void changeFont("import"));
-uiFontResetButton.addEventListener("click", () => void changeFont("reset"));
-
-async function chooseTheme(option: HTMLButtonElement): Promise<void> {
-  const chosen = normalizeUiTheme(option.dataset.value);
-  const previous = uiThemeSelect.querySelector<HTMLButtonElement>(".appearance-theme-option.is-active")?.dataset.value;
-  if (previous === chosen) return;
-  renderUiTheme(chosen);
-  try {
-    await window.settings!.saveGeneral({ uiTheme: chosen });
-    setAppearanceSaveStatus(t("settings.status.themeApplied"), "is-ok");
-  } catch (failure) {
-    console.error("应用主题失败:", failure);
-    renderUiTheme(normalizeUiTheme(previous));
-    setAppearanceSaveStatus(t("settings.status.themeFailed"), "is-error");
-  }
-}
-onChoice(uiThemeSelect, ".appearance-theme-option", option => void chooseTheme(option));
-
-async function chooseIcon(option: HTMLButtonElement): Promise<void> {
-  const chosen = normalizeUiIcon(option.dataset.icon);
-  try {
-    await window.settings!.saveGeneral({ uiIcon: chosen });
-    renderUiIcon(chosen);
-    setAppearanceSaveStatus(t("settings.status.iconApplied"), "is-ok");
-  } catch (failure) {
-    console.error("应用图标失败:", failure);
-    setAppearanceSaveStatus(t("settings.status.iconFailed"), "is-error");
-  }
-}
-onChoice(uiIconSelect, ".appearance-icon-option", option => void chooseIcon(option));
-
-bindPetControl(petVisibleInput, () => window.settings?.setPetVisible(petVisibleInput.checked));
-petZoomInput.addEventListener("input", () => {
-  petZoomVal.textContent = Math.round(Number(petZoomInput.value) * 100) + "%";
-});
-bindPetControl(petZoomInput, () => window.settings?.setPetZoom(Number(petZoomInput.value)));
-
-function bindSpacingSlider(key: "chatLineHeight" | "chatParaSpacing", input: HTMLInputElement, label: HTMLElement, css: string, unit: string): void {
-  input.addEventListener("input", () => {
-    const spacing = Number(input.value);
-    label.textContent = spacing.toFixed(2) + unit;
-    document.documentElement.style.setProperty(css, String(spacing) + unit);
-    setAppearanceSaveStatus(t("settings.status.releaseApply"));
-  });
-  input.addEventListener("change", () => {
-    void saveAppearancePatch({ [key]: Number(input.value) });
-  });
-}
-bindSpacingSlider("chatLineHeight", chatLineHeightInput, chatLineHeightVal, "--rb-chat-line-height", "");
-bindSpacingSlider("chatParaSpacing", chatParaSpacingInput, chatParaSpacingVal, "--rb-chat-para-spacing", "em");
-
-onChoice(proactiveChatSelect, ".option-block", option => {
-  applyProactiveChatSelection(normalizeProactiveChatMode(option.dataset.value));
-  renderProactiveDeliveryVisibility();
-  dirtyPreferences();
-});
-onChoice(proactiveDeliverySelect, ".option-block", option => {
-  if (option.disabled) return;
-  applyProactiveDeliverySelection(normalizeProactiveDeliveryTarget(option.dataset.value));
-  dirtyPreferences();
-});
 
 // ── 模型厂商 Work 流程适配说明 ──────────────────────────────
 // 展示各厂商结构化输出档位与实测兼容性；「详细文档」在 app 内本地渲染完整实测报告。
@@ -949,80 +683,6 @@ apiRuntimeForm.addEventListener("submit", async event => {
   } catch {
     report(t("settings.status.saveFailed"), "is-error");
   }
-});
-appearanceForm.addEventListener("submit", event => event.preventDefault());
-
-// 通用设置只有语言一项：选择即保存（main 端 saveGeneralSettings 与既有配置合并，单项保存不会覆盖其他字段）。
-languageSelect.querySelectorAll<HTMLButtonElement>(".language-option").forEach((button) => {
-  button.addEventListener("click", async () => {
-    const previous = normalizeUiLanguage(languageSelect.querySelector<HTMLButtonElement>(".language-option.is-active")?.dataset.lang);
-    const language = normalizeUiLanguage(button.dataset.lang);
-    applyLanguageSelection(language);
-    try {
-      await window.settings!.saveGeneral({ language });
-    } catch {
-      applyLanguageSelection(previous);
-    }
-  });
-});
-
-// 桌面与系统：两个开关同样选择即保存；失败时回滚开关并显示提示。
-function setDesktopSaveStatus(text: string, cls = ""): void {
-  desktopSaveStatus.textContent = text;
-  desktopSaveStatus.className = `save-status ${cls}`.trim();
-  desktopSaveStatus.hidden = !text;
-}
-
-function bindDesktopSwitch(input: HTMLInputElement, save: (checked: boolean) => Promise<unknown>): void {
-  input.addEventListener("change", async () => {
-    const next = input.checked;
-    try {
-      await save(next);
-      setDesktopSaveStatus("");
-    } catch {
-      input.checked = !next;
-      setDesktopSaveStatus(t("settings.panel.general.desktopSaveFailed"), "is-error");
-    }
-  });
-}
-
-bindDesktopSwitch(toastSoundEnabledInput, checked => window.settings!.saveGeneral({ toastSoundEnabled: checked }));
-bindDesktopSwitch(launchAtLoginInput, checked => window.settings!.saveGeneral({ launchAtLogin: checked }));
-
-// 版本号：设置页底部与“关于”卡片共用 appUpdate 状态里的 currentVersion。
-void window.appUpdate?.getState().then((state) => {
-  document.querySelectorAll<HTMLElement>("[data-app-version]").forEach((el) => {
-    el.textContent = state.currentVersion;
-  });
-}).catch(() => {});
-
-function bindSettingsSubmit(form: HTMLFormElement, report: (text: string, cls?: string) => void, save: () => Promise<unknown>): void {
-  form.addEventListener("submit", async event => {
-    event.preventDefault();
-    report(t("settings.status.saving"));
-    try {
-      await save();
-      report(t("settings.status.saved"), "is-ok");
-    } catch {
-      report(t("settings.status.saveFailed"), "is-error");
-    }
-  });
-}
-
-function embeddingDimensions(): number | undefined {
-  const entered = embeddingDimensionsInput?.value?.trim();
-  const number = entered ? Number(entered) : NaN;
-  if (!Number.isFinite(number) || number <= 0) return undefined;
-  return Math.max(1, Math.min(65536, Math.round(number)));
-}
-bindSettingsSubmit(fireflyPanel, setFireflySaveStatus, () => {
-  const dimensions = embeddingDimensions();
-  return window.settings!.saveConfig({
-    stickerEnabled: stickerEnabledInput.checked,
-    stickerSize: getStickerSizeValue(),
-    stickerSimilarityThreshold: parseFloat(stickerThresholdInput.value),
-    embeddingDimensions: dimensions,
-  });
 });
 
 apiForm.addEventListener("submit", async (e) => {
@@ -1319,14 +979,3 @@ subscribeLocaleChanged(() => {
   applyEditingStateUI();
   updateProfileDraftState();
 });
-
-chatSocialContextEnabledInput.addEventListener("change", dirtyPreferences);
-segmentedChatEnabledInput.addEventListener("change", dirtyPreferences);
-
-bindSettingsSubmit(preferencesForm, setPreferencesSaveStatus, () => window.settings!.saveGeneral({
-  chatSocialContextEnabled: chatSocialContextEnabledInput.checked,
-  segmentedChatEnabled: segmentedChatEnabledInput.checked,
-  proactiveChatMode: getProactiveChatValue(),
-  proactiveDeliveryTarget: getProactiveDeliveryValue(),
-  screenshotHotkey: screenshotHotkeyInput?.value || "Alt+Shift+S",
-}));

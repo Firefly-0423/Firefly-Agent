@@ -149,13 +149,19 @@ const deleteTool = schedulerTool(
 const plugin: FireflyPlugin = {
   async register(ctx) {
     deps = ctx.deps;
-    ownedIds = ctx.storage.get<string[]>("ownTaskIds") ?? [];
-    ctx.onDispose(() => ctx.storage.set("ownTaskIds", ownedIds));
+    const stored = ctx.storage.get<unknown>("ownTaskIds");
+    ownedIds = Array.isArray(stored) ? stored.filter((id): id is string => typeof id === "string") : [];
+    // 先由 onDispose 持久化所有权列表再清空模块状态，避免 unregister 先置空
+    ctx.onDispose(() => {
+      ctx.storage.set("ownTaskIds", [...ownedIds]);
+      ownedIds = [];
+      deps = {};
+    });
 
     [createTool, listTool, updateTool, deleteTool].forEach((tool) => ctx.registerTool(tool));
   },
   unregister() {
-    ownedIds = [];
+    // 持久化写回与模块状态清理在 onDispose 中顺序完成
   },
 };
 
