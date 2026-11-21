@@ -76,6 +76,7 @@ export interface AguiConversationLifecycle {
   onUserMessage(): void;
   onConversationStarted(): void;
   onConversationEnded(): void;
+  onConversationRunEnded?(conversationId: string, runId: string): void;
 }
 
 interface SessionActiveRun {
@@ -427,6 +428,7 @@ export function registerAgUiIpc(
       try { chatsStore.resetPendingAdjustByRun(conversationId, executionId); } catch { /* 保留原失败原因 */ }
       relinquish?.();
       relinquish = null;
+      lifecycle?.onConversationRunEnded?.(conversationId, executionId);
       lifecycle?.onConversationEnded();
     };
     const contextSource = resolveTranscriptContextSource();
@@ -603,6 +605,7 @@ export function registerAgUiIpc(
       }
       relinquish?.();
       relinquish = null;
+      lifecycle?.onConversationRunEnded?.(conversationId, executionId);
       lifecycle?.onConversationEnded();
     };
 

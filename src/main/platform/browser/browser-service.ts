@@ -22,6 +22,17 @@ export interface TrustedBrowserOwner { readonly host: BrowserHostPort; readonly 
 import type { BrowserBounds, BrowserErrorCode, BrowserOwnedPageDto as BrowserPageDto, BrowserReply, ManualBrowserCommand, BrowserPermissionScope, BrowserOwnedPermissionDto as BrowserPermissionDto, BrowserAction, BrowserDomInput, BrowserObservation, BrowserWorkspaceCommand } from "../../../shared/manual-browser";
 export type { BrowserBounds, BrowserErrorCode, BrowserOwnedPageDto as BrowserPageDto, BrowserReply, ManualBrowserCommand } from "../../../shared/manual-browser";
 export interface TrustedBrowserRun { readonly conversationId: string; readonly runId: string; readonly signal: AbortSignal; isCurrent(): boolean }
+export interface BrowserRunLease {
+  readonly kind: "run";
+  readonly leaseId: string;
+  readonly conversationId: string;
+  readonly runId: string;
+  readonly profile: object;
+  readonly host: BrowserHostPort;
+  readonly signal: AbortSignal;
+  isCurrent(): boolean;
+  revoke?(): void;
+}
 export interface BrowserInvokeEvent { sender: BrowserHostPort["webContents"]; senderFrame: object | null }
 export interface BrowserGuestPort<S extends object> extends BrowserViewPort<S> {
   loadURL(url: string): Promise<void>; history(action: "back" | "forward" | "reload"): Promise<void>;
@@ -42,6 +53,8 @@ export interface BrowserServiceOptions<S extends object> extends Omit<BrowserNet
   /** Main-owned native confirmation; never provided by renderer or a tool. */
   confirmPermission?(owner: TrustedBrowserOwner, scope: BrowserPermissionScope, signal: AbortSignal): Promise<boolean>;
   createView(session: S): BrowserGuestPort<S>; onChanged?(owner: TrustedBrowserOwner, page: BrowserPageDto): void;
+  /** Main composition only. Decides which leases are affected when a host window closes. */
+  onHostClosed?(host: BrowserHostPort): { revokeAllLeases?: boolean; affectedConversations?: readonly string[] } | void;
   /** Main composition only. Asked once per download, and only for an ordinary-browsing (`web`) manual page that is still current. */
   acceptDownload?(owner: TrustedBrowserOwner, item: DownloadItemLike): boolean;
 }
@@ -81,9 +94,10 @@ const fail = (code: BrowserErrorCode): BrowserReply<never> => ({ ok: false, code
 export function createBrowserService<S extends object>(options: BrowserServiceOptions<S>) {
   type Host = { host: BrowserHostPort; resolveOwner(event: BrowserInvokeEvent): TrustedBrowserOwner | null; current?: Owner; transitioning: boolean; lastGeneration: number; detach(): void; overlay: boolean; visible: boolean; minimized: boolean; focused: boolean };
   type PendingPermission = { id: string; scope: BrowserPermissionScope; cancel: AbortController; promise: Promise<BrowserReply<BrowserPermissionDto>> };
-  type Owner = { agentBusy?: boolean; grant?: BrowserPermissionScope; pending?: PendingPermission; denied?: boolean; value: TrustedBrowserOwner; host: Host; event: BrowserInvokeEvent; retired: boolean; cells: Set<Cell> };
+  type Owner = { agentBusy?: boolean; grant?: BrowserPermissionScope; pending?: PendingPermission; denied?: boolean; value: TrustedBrowserOwner; host: Host; event: BrowserInvokeEvent; retired: boolean; cells: Set<Cell>; lease?: BrowserRunLease; leaseOnAbort?: () => void; validGenerations: Set<number> };
   type Cell = { connectionFailure?: BrowserConnectionError | "load_failed"; attached: boolean; presentationRevision: number; observation?: { value: BrowserObservation; requestId: number; runId: string }; owner: Owner; context: BrowserDomainContext; abort: AbortController; page: BrowserPageDto; preparing?: Promise<BrowserNetworkReply<BrowserNetworkBinding<S>>>; binding?: BrowserNetworkBinding<S>; guest?: BrowserGuestPort<S>; navigation?: AbortController; manualRequestId?: number; closing: boolean; failed: boolean; cleanup?: Promise<BrowserReply<null>>; onAbort(): void };
   const hosts = new Map<BrowserHostPort, Host>(), owners = new WeakMap<TrustedBrowserOwner, Owner>(), retired = new WeakSet<TrustedBrowserOwner>();
+  const leasedSlots = new Map<string, Owner>();
   const cells = new Map<string, Cell>(), guests = new WeakMap<S, BrowserGuestPort<S>>(), byContents = new WeakMap<object, Cell>();
   const registered = new WeakSet<object>();
   const gateOpen = options.gateOpen === true;
@@ -183,6 +197,7 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
   }
   function equalScope(a: BrowserPermissionScope, b: BrowserPermissionScope): boolean { return JSON.stringify(a) === JSON.stringify(b); }
   let stopping = false;
+  let hostClosePolicy: BrowserServiceOptions<S>["onHostClosed"] = options.onHostClosed;
   function validOwner(value: TrustedBrowserOwner, host: Host): boolean {
     try { return value.host === host.host && value.profile === options.profile && value.topFrame === host.host.webContents.mainFrame
       && value.signal instanceof AbortSignal && !value.signal.aborted && !host.host.isDestroyed() && !host.host.webContents.isDestroyed()
@@ -193,10 +208,21 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
       && Number.isSafeInteger(value.generation) && value.generation >= 0;
     } catch { return false; }
   }
-  function current(owner: Owner): boolean {
+  function currentPage(owner: Owner): boolean {
     try { return !stopping && !owner.retired && hosts.get(owner.value.host) === owner.host && owner.host.current === owner
       && validOwner(owner.value, owner.host) && owner.host.resolveOwner(owner.event) === owner.value;
     } catch { return false; }
+  }
+  function hasLiveLease(owner: Owner): boolean {
+    try {
+      return !stopping && !owner.retired && !!owner.lease && !owner.lease.signal.aborted
+        && owner.lease.conversationId === owner.value.conversationId
+        && owner.lease.profile === options.profile
+        && owner.lease.isCurrent() === true;
+    } catch { return false; }
+  }
+  function current(owner: Owner): boolean {
+    return currentPage(owner) || hasLiveLease(owner);
   }
   const registry = createBrowserAuthorizationDomainRegistry<S>({ gateOpen,
     isContextAuthorized: context => {
@@ -207,7 +233,8 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
       const owner = owners.get(context.owner as TrustedBrowserOwner);
       return !!owner && current(owner) && context.profile === options.profile && context.conversationId === owner.value.conversationId
         && context.workspaceId === owner.value.workspaceId
-        && context.generation === owner.value.generation && cells.get(context.browserId)?.owner === owner;
+        && (context.generation === owner.value.generation || owner.validGenerations.has(context.generation))
+        && cells.get(context.browserId)?.owner === owner;
     } });
   const network = createBrowserNetworkController(registry, { ...options, onDownload: (context, item) => {
     const cell = cells.get(context.browserId);
@@ -255,12 +282,18 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
     const guest = options.createView(session); guests.set(session, guest); return guest;
   } });
   function publish(cell: Cell): void {
-    if (current(cell.owner)) {
-      try { options.onChanged?.(cell.owner.value, Object.freeze({ ...cell.page })); } catch { /* presentation callback cannot grant authority */ }
+    const owner = cell.owner;
+    if (
+      currentPage(owner)
+      && owner.value.conversationId === cell.page.conversationId
+      && owner.value.generation === owner.host.lastGeneration
+    ) {
+      try { options.onChanged?.(owner.value, Object.freeze({ ...cell.page })); } catch { /* presentation callback cannot grant authority */ }
     }
   }
   function usable(cell: Cell): boolean { return !cell.closing && !cell.abort.signal.aborted && current(cell.owner) && cell.binding?.isCurrent() === true; }
   function hostVisible(owner: Owner): boolean {
+    if (!currentPage(owner)) return false;
     const entry = owner.host;
     return !owner.pending && !entry.overlay && entry.visible && !entry.minimized && entry.host.isVisible() && !entry.host.isMinimized?.();
   }
@@ -312,11 +345,95 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
     const results = await Promise.all([...owner.cells].map(cell => cleanup(cell, signal)));
     return results.every(r => r.ok) ? { ok: true, value: null } : fail("cleanup_failed");
   }
+  function detachLeaseFromOwner(owner: Owner, notifyRevoke = false): void {
+    const lease = owner.lease;
+    if (!lease) return;
+    if (owner.leaseOnAbort) {
+      lease.signal.removeEventListener("abort", owner.leaseOnAbort);
+      owner.leaseOnAbort = undefined;
+    }
+    owner.lease = undefined;
+    if (owner.value.conversationId && leasedSlots.get(owner.value.conversationId) === owner) {
+      leasedSlots.delete(owner.value.conversationId);
+    }
+    if (notifyRevoke) {
+      try { lease.revoke?.(); } catch { /* revocation callback must not block cleanup */ }
+    }
+  }
+  function attachRunLease(ownerValue: TrustedBrowserOwner, lease: BrowserRunLease): boolean {
+    if (stopping || ownerValue.workspaceId !== undefined || !ownerValue.conversationId) return false;
+    const owner = owners.get(ownerValue);
+    if (!owner || !currentPage(owner) || owner.value !== ownerValue) return false;
+    if (lease.kind !== "run" || lease.profile !== options.profile || lease.conversationId !== ownerValue.conversationId || lease.signal.aborted) return false;
+    try { if (lease.isCurrent() !== true) return false; } catch { return false; }
+    if (owner.lease && owner.lease !== lease) {
+      if (hasLiveLease(owner)) return false;
+      detachLeaseFromOwner(owner);
+    }
+    const existing = leasedSlots.get(lease.conversationId);
+    if (existing && existing !== owner) {
+      if (hasLiveLease(existing)) return false;
+      leasedSlots.delete(lease.conversationId);
+    }
+    const onLeaseAbort = () => {
+      if (owner.lease !== lease) return;
+      detachLeaseFromOwner(owner);
+      if (!currentPage(owner)) {
+        owner.retired = true;
+        clearPermission(owner);
+        for (const cell of owner.cells) terminate(cell);
+        void closeOwner(owner).catch(() => { for (const cell of owner.cells) cell.failed = true; });
+      }
+    };
+    owner.lease = lease;
+    owner.leaseOnAbort = onLeaseAbort;
+    leasedSlots.set(lease.conversationId, owner);
+    lease.signal.addEventListener("abort", onLeaseAbort, { once: true });
+    if (lease.signal.aborted) onLeaseAbort();
+    return owner.lease === lease;
+  }
+  function releaseRunLease(lease: BrowserRunLease): void {
+    const owner = leasedSlots.get(lease.conversationId);
+    if (!owner || owner.lease !== lease) return;
+    detachLeaseFromOwner(owner);
+    if (!currentPage(owner)) {
+      owner.retired = true;
+      clearPermission(owner);
+      for (const cell of owner.cells) terminate(cell);
+      void closeOwner(owner).catch(() => { for (const cell of owner.cells) cell.failed = true; });
+    }
+  }
+  function detachPageOwner(ownerValue: TrustedBrowserOwner): void {
+    const record = owners.get(ownerValue);
+    if (!record) return;
+    if (hasLiveLease(record)) {
+      for (const cell of record.cells) detach(cell);
+      if (record.host.current === record) record.host.current = undefined;
+      return;
+    }
+    revoke(ownerValue);
+  }
   function revoke(owner: TrustedBrowserOwner): void {
     const record = owners.get(owner); if (!record) return;
+    detachLeaseFromOwner(record, true);
     record.retired = true; retired.add(owner); clearPermission(record);
+    if (record.host.current === record) record.host.current = undefined;
     for (const cell of record.cells) terminate(cell);
     void closeOwner(record).catch(() => { for (const cell of record.cells) cell.failed = true; });
+  }
+  function revokeConversation(conversationId: string): void {
+    const leased = leasedSlots.get(conversationId);
+    if (leased) revoke(leased.value);
+    for (const host of hosts.values()) {
+      if (host.current?.value.conversationId === conversationId && host.current.value.workspaceId === undefined) {
+        revoke(host.current.value);
+      }
+    }
+  }
+  function revokeAllLeases(): void {
+    for (const owner of [...leasedSlots.values()]) {
+      revoke(owner.value);
+    }
   }
   function snapshot(cell: Cell): void {
     if (!usable(cell) || !cell.guest || cell.manualRequestId !== undefined) return;
@@ -375,7 +492,10 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
       const context = Object.freeze({ owner: ownerValue, profile: options.profile, ...identity, browserId, generation: ownerValue.generation, signal: abort.signal });
       const cell: Cell = { owner, context, abort, attached: false, presentationRevision: 0, closing: false, failed: false,
         page: { browserId, ...identity, requestId: 0, closed: false, loading: true, url: "", pendingUrl: url, canGoBack: false, canGoForward: false, error: null } as BrowserPageDto,
-        onAbort: () => { terminate(cell); void cleanup(cell); } };
+        onAbort: () => {
+          if (hasLiveLease(owner)) { detach(cell); return; }
+          terminate(cell); void cleanup(cell);
+        } };
       cells.set(browserId, cell); owner.cells.add(cell); ownerValue.signal.addEventListener("abort", cell.onAbort, { once: true });
       cell.preparing = network.prepare(context, owner.grant?.web === true ? { web: true } : owner.grant ? { hosts: owner.grant.hosts, resourceHosts: owner.grant.resourceHosts } : undefined); publish(cell);
       let cancelPrepare!: () => void;
@@ -465,9 +585,39 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
       if (host.transitioning || value.generation <= host.lastGeneration) return fail("owner_mismatch");
       host.transitioning = true;
       try {
-        if (host.current) { const old = host.current; revoke(old.value); const result = await closeOwner(old); if (!result.ok) return result; }
+        if (host.current) {
+          const old = host.current;
+          if (hasLiveLease(old)) {
+            for (const cell of old.cells) detach(cell);
+            host.current = undefined;
+          } else {
+            revoke(old.value);
+            const result = await closeOwner(old);
+            if (!result.ok) return result;
+          }
+        }
         if (hosts.get(host.host) !== host || !validOwner(value, host) || host.resolveOwner(event) !== value) return fail("owner_mismatch");
-        const owner: Owner = { value, host, event, retired: false, cells: new Set() }; host.current = owner; host.lastGeneration = value.generation; owners.set(value, owner);
+        const leased = value.workspaceId === undefined && value.conversationId ? leasedSlots.get(value.conversationId) : undefined;
+        if (leased && hasLiveLease(leased)) {
+          if (leased.host !== host && leased.host.current === leased) return fail("owner_mismatch");
+          for (const cell of leased.cells) {
+            leased.value.signal.removeEventListener("abort", cell.onAbort);
+            value.signal.addEventListener("abort", cell.onAbort, { once: true });
+          }
+          leased.value = value;
+          leased.host = host;
+          leased.event = event;
+          leased.retired = false;
+          leased.validGenerations.add(value.generation);
+          host.current = leased;
+          host.lastGeneration = value.generation;
+          owners.set(value, leased);
+        } else {
+          const owner: Owner = { value, host, event, retired: false, cells: new Set(), validGenerations: new Set([value.generation]) };
+          host.current = owner;
+          host.lastGeneration = value.generation;
+          owners.set(value, owner);
+        }
       } finally { host.transitioning = false; }
     }
     return { ok: true, value: host.current! };
@@ -501,10 +651,11 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
       if (owner.value.workspaceId !== undefined) {
         if (command.conversationId !== undefined || (command.workspaceId !== undefined && command.workspaceId !== owner.value.workspaceId)) return fail("owner_mismatch");
       } else if (command.workspaceId !== undefined || (command.conversationId !== undefined && command.conversationId !== owner.value.conversationId)) return fail("owner_mismatch");
+      detachLeaseFromOwner(owner, true);
       clearPermission(owner); const closed = await closeOwner(owner); if (!closed.ok) return closed;
-      return current(owner) ? { ok: true, value: permissionDto(owner) } : fail("owner_mismatch");
+      return currentPage(owner) ? { ok: true, value: permissionDto(owner) } : fail("owner_mismatch");
     }
-    if (command.kind !== "request") return fail("permission_denied");
+    if (command.kind !== "request" || !currentPage(owner)) return fail("permission_denied");
     const scope = parseScope(command.scope, owner); if (!scope) return fail("permission_denied");
     if (owner.pending) {
       if (equalScope(owner.pending.scope, scope)) return owner.pending.promise;
@@ -519,12 +670,12 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
       let stop: (() => void) | undefined;
       try {
         const closed = await closeOwner(owner); if (!closed.ok) return closed;
-        if (!current(owner) || pending.cancel.signal.aborted) return fail("cancelled");
+        if (!currentPage(owner) || pending.cancel.signal.aborted) return fail("cancelled");
         const approved = await Promise.race([options.confirmPermission!(owner.value, scope, pending.cancel.signal), new Promise<boolean>(resolve => {
           stop = () => resolve(false); pending.cancel.signal.addEventListener("abort", stop, { once: true });
           if (pending.cancel.signal.aborted) stop();
         })]);
-        if (!current(owner) || owner.pending !== pending || pending.cancel.signal.aborted) return fail("cancelled");
+        if (!currentPage(owner) || owner.pending !== pending || pending.cancel.signal.aborted) return fail("cancelled");
         owner.pending = undefined; owner.denied = approved !== true;
         if (approved === true) owner.grant = scope;
         return { ok: true, value: permissionDto(owner) } as BrowserReply<BrowserPermissionDto>;
@@ -536,14 +687,22 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
     })();
     return pending.promise;
   }
-  async function executeAgent(ownerValue: TrustedBrowserOwner, input: unknown, run: TrustedBrowserRun): Promise<BrowserReply<BrowserPageDto | BrowserObservation | null>> {
-    if (ownerValue.workspaceId !== undefined) return fail("owner_mismatch");
-    const owner = owners.get(ownerValue);
+  function isRunLease(authority: TrustedBrowserOwner | BrowserRunLease): authority is BrowserRunLease {
+    return "kind" in authority && authority.kind === "run";
+  }
+  async function executeAgent(authority: TrustedBrowserOwner | BrowserRunLease, input: unknown, run: TrustedBrowserRun): Promise<BrowserReply<BrowserPageDto | BrowserObservation | null>> {
+    const lease = isRunLease(authority) ? authority : null;
+    if (!isRunLease(authority) && authority.workspaceId !== undefined) return fail("owner_mismatch");
+    const owner = lease ? leasedSlots.get(lease.conversationId) : owners.get(authority as TrustedBrowserOwner);
     const runCurrent = () => {
-      try { return !!owner && current(owner) && run.conversationId === ownerValue.conversationId && typeof run.runId === "string" && !!run.runId
-        && run.signal instanceof AbortSignal && !run.signal.aborted && run.isCurrent() === true; } catch { return false; }
+      try {
+        if (!owner || run.conversationId !== authority.conversationId || typeof run.runId !== "string" || !run.runId
+          || !(run.signal instanceof AbortSignal) || run.signal.aborted || run.isCurrent() !== true) return false;
+        if (lease) return owner.lease === lease && hasLiveLease(owner) && lease.runId === run.runId;
+        return current(owner);
+      } catch { return false; }
     };
-    if (!runCurrent()) return fail(run?.signal?.aborted ? "cancelled" : "owner_mismatch");
+    if (!runCurrent()) return fail(run?.signal?.aborted || authority.signal?.aborted ? "cancelled" : "owner_mismatch");
     if (!owner!.grant || owner!.grant.mode !== "agent") return fail("permission_denied");
     if (!input || typeof input !== "object" || Array.isArray(input)) return fail("permission_denied");
     const raw = input as Record<string, unknown>;
@@ -562,7 +721,7 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
     if (command.operation !== "close" && (!hostInteractive(owner!) || (command.operation !== "open" && !presented(cell!)))) return fail("permission_denied");
     const grant = owner!.grant;
     const stillCurrent = () => runCurrent() && owner!.grant === grant;
-    const cancel = () => { clearPermission(owner!); for (const owned of owner!.cells) { terminate(owned); void cleanup(owned); } };
+    const cancel = () => { detachLeaseFromOwner(owner!, true); clearPermission(owner!); for (const owned of owner!.cells) { terminate(owned); void cleanup(owned); } };
     run.signal.addEventListener("abort", cancel, { once: true });
     let onAbort!: () => void;
     const cellSignal = command.operation === "close" ? undefined : cell?.abort.signal;
@@ -570,11 +729,15 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
     try {
       const operation = (async (): Promise<BrowserReply<BrowserPageDto | BrowserObservation | null>> => {
         if (!stillCurrent()) return fail("cancelled");
-        if (command.operation === "open") return execute(ownerValue, { kind: "open", url: command.url });
+        if (command.operation === "open") return execute(owner!.value, { kind: "open", url: command.url });
         cell = activeCell(); if (!cell || !cell.guest || !usable(cell)) return fail("closed");
-        if (command.operation === "navigate") return execute(ownerValue, { kind: "navigate", browserId: cell.page.browserId, url: command.url });
-        if (["back", "forward", "reload"].includes(command.operation)) return execute(ownerValue, { kind: "history", browserId: cell.page.browserId, action: command.operation });
-        if (command.operation === "close") return execute(ownerValue, { kind: "close", browserId: cell.page.browserId });
+        if (command.operation === "navigate") return execute(owner!.value, { kind: "navigate", browserId: cell.page.browserId, url: command.url });
+        if (["back", "forward", "reload"].includes(command.operation)) return execute(owner!.value, { kind: "history", browserId: cell.page.browserId, action: command.operation });
+        if (command.operation === "close") {
+          const closed = await execute(owner!.value, { kind: "close", browserId: cell.page.browserId });
+          detachLeaseFromOwner(owner!, true);
+          return closed;
+        }
         if (!presented(cell) || cell.page.loading || !allowedUrl(owner!, cell.page.url)) return fail("permission_denied");
         const requestId = cell.page.requestId, presentationRevision = cell.presentationRevision;
         const samePresentation = () => presented(cell!) && cell!.presentationRevision === presentationRevision;
@@ -592,19 +755,19 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
         cell.observation = undefined;
         if (!stillCurrent()) return fail("cancelled");
         const acted = await cell.guest.act({ kind: command.operation as "click" | "type", snapshotId: observed.value.snapshotId, ref: command.ref!, text: command.text, url: observed.value.url, hosts: grant!.hosts });
-        if (!stillCurrent() || !usable(cell) || !samePresentation()) return fail("cancelled");
+        if (!stillCurrent() || !usable(cell) || !samePresentation() || cell.page.requestId !== requestId) return fail("cancelled");
         return acted ? { ok: true, value: Object.freeze({ ...cell.page }) } : fail("permission_denied");
       })();
       const result = await Promise.race([operation, new Promise<BrowserReply<never>>(resolve => {
         onAbort = () => resolve(fail("cancelled"));
-        run.signal.addEventListener("abort", onAbort, { once: true }); ownerValue.signal.addEventListener("abort", onAbort, { once: true }); cellSignal?.addEventListener("abort", onAbort, { once: true });
-        if (run.signal.aborted || ownerValue.signal.aborted || cellSignal?.aborted) onAbort();
+        run.signal.addEventListener("abort", onAbort, { once: true }); authority.signal.addEventListener("abort", onAbort, { once: true }); cellSignal?.addEventListener("abort", onAbort, { once: true });
+        if (run.signal.aborted || authority.signal.aborted || cellSignal?.aborted) onAbort();
       })]);
-      if (!runCurrent()) { cancel(); return fail(run.signal.aborted ? "cancelled" : "owner_mismatch"); }
+      if (!runCurrent()) { cancel(); return fail(run.signal.aborted || authority.signal.aborted ? "cancelled" : "owner_mismatch"); }
       // Closing intentionally consumes its grant.
       return command.operation === "close" || owner!.grant === grant ? result : fail("cancelled");
     } catch { return fail(run.signal.aborted ? "cancelled" : "load_failed"); }
-    finally { owner!.agentBusy = false; run.signal.removeEventListener("abort", cancel); if (onAbort) { run.signal.removeEventListener("abort", onAbort); ownerValue.signal.removeEventListener("abort", onAbort); cellSignal?.removeEventListener("abort", onAbort); } }
+    finally { owner!.agentBusy = false; run.signal.removeEventListener("abort", cancel); if (onAbort) { run.signal.removeEventListener("abort", onAbort); authority.signal.removeEventListener("abort", onAbort); cellSignal?.removeEventListener("abort", onAbort); } }
   }
   function registerHost(host: BrowserHostPort, resolveOwner: Host["resolveOwner"]): () => void {
     if (stopping || hosts.has(host) || host.isDestroyed()) throw new Error("browser host unavailable");
@@ -627,16 +790,39 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
   }
   async function closeHost(host: BrowserHostPort, signal?: AbortSignal): Promise<BrowserReply<null>> {
     const entry = hosts.get(host); if (!entry) return { ok: true, value: null };
-    hosts.delete(host); entry.detach(); if (!entry.current) return { ok: true, value: null };
-    revoke(entry.current.value); return closeOwner(entry.current, signal);
+    hosts.delete(host); entry.detach();
+    const currentOwner = entry.current;
+    entry.current = undefined;
+    let decision: { revokeAllLeases?: boolean; affectedConversations?: readonly string[] } | void;
+    try { decision = hostClosePolicy?.(host); } catch { decision = { revokeAllLeases: true }; }
+    if (decision?.revokeAllLeases) {
+      revokeAllLeases();
+    } else if (decision?.affectedConversations) {
+      for (const conversationId of decision.affectedConversations) {
+        revokeConversation(conversationId);
+      }
+    }
+    if (!currentOwner) return { ok: true, value: null };
+    if (hasLiveLease(currentOwner)) {
+      for (const cell of currentOwner.cells) detach(cell);
+      return { ok: true, value: null };
+    }
+    revoke(currentOwner.value); return closeOwner(currentOwner, signal);
   }
-  function revokeAll(): void { stopping = true; for (const host of hosts.values()) if (host.current) clearPermission(host.current); for (const cell of cells.values()) terminate(cell); network.revokeAll(); }
+  function revokeAll(): void {
+    stopping = true;
+    for (const owner of [...leasedSlots.values()]) { detachLeaseFromOwner(owner, true); clearPermission(owner); }
+    for (const host of hosts.values()) if (host.current) { detachLeaseFromOwner(host.current, true); clearPermission(host.current); }
+    for (const cell of cells.values()) terminate(cell);
+    network.revokeAll();
+  }
   async function dispose(signal?: AbortSignal): Promise<BrowserReply<null>> {
     revokeAll(); for (const entry of hosts.values()) entry.detach(); hosts.clear();
     const results = await Promise.all([...cells.values()].map(cell => cleanup(cell, signal))), result = await network.disposeAll(signal);
     return result.ok && results.every(r => r.ok) ? { ok: true, value: null } : fail("cleanup_failed");
   }
-  return Object.freeze({ registerHost, dispatch, dispatchPermission, useTab, execute, executeAgent, revoke, revokeAll, closeHost, dispose,
+  return Object.freeze({ registerHost, dispatch, dispatchPermission, useTab, execute, executeAgent, attachRunLease, releaseRunLease, detachPageOwner, revoke, revokeConversation, revokeAllLeases, revokeAll, closeHost, dispose,
+    setHostClosePolicy(policy: BrowserServiceOptions<S>["onHostClosed"]) { hostClosePolicy = policy; },
     isEnabled: () => (gateOpen || !!policy) && !stopping,
     isRegisteredBrowser: (contents: object) => registered.has(contents),
     credentialsFor: (contents: object, challenge: ProxyChallenge) => { const cell = byContents.get(contents); return cell && usable(cell) && cell.guest?.contents === contents ? cell.binding?.credentialsFor(cell.guest.contents, challenge) ?? null : null; },
