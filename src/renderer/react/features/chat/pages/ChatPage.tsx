@@ -626,6 +626,8 @@ export function ChatPage() {
           if (generation !== sessionSelectionGeneration.current) return;
           unresolvedRunStatus = statuses.some(item => item.phase === "unavailable");
           const wasBusy = Boolean(observedRunBusyRef.current[sessionId]);
+          const endingTurns = new Set((observedRunStatusesRef.current[sessionId] ?? [])
+            .filter(item => item.phase === "running" || item.phase === "settling").map(item => item.assistantTurnId));
           const busy = statuses.some(item => item.phase === "running" || item.phase === "settling");
           observedRunBusyRef.current[sessionId] = busy;
           observedRunStatusesRef.current[sessionId] = statuses;
@@ -637,10 +639,11 @@ export function ChatPage() {
             if (replacement) updateMessage(sessionId, replacement.id, replacement);
           }
           // A reload dropped the controller whose onRunFinished would resume the queue; an observed run that
-          // ends hands over to the same path. Interrupted or unknown endings pause it, as a failed start does.
+          // ends hands over to the same path. Only the runs that were busy decide: an interrupted or unknown
+          // ending pauses the queue, as a failed start does; an older interrupted reply does not.
           if (observerReady && wasBusy && !busy && !hasActiveRunForSession(activeRunsBySession.current, sessionId)) {
             queueFlow.handleRunFinished({ mode: targetMode, sessionId,
-              queuePaused: unresolvedRunStatus || statuses.some(item => item.phase === "interrupted") });
+              queuePaused: [...endingTurns].some(id => statuses.find(item => item.assistantTurnId === id)?.phase !== "finished") });
           }
         },
       });

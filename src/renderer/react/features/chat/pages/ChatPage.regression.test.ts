@@ -243,6 +243,27 @@ describe("C7 read-only run status recovery", () => {
     expect(queues["session-a"] ?? []).toEqual([]);
   });
 
+  test("an older interrupted reply does not pause the queue when the observed run finishes", async () => {
+    const old: ChatMessage = { id: "old", role: "model", at: 2, content: "half", runSnapshot: { runId: "r-old", status: "running", updatedAt: 2 } };
+    const current: ChatMessage = { id: "b", role: "model", at: 4, content: "partial", runSnapshot: { runId: "r-b", status: "running", updatedAt: 4 } };
+    sessions = { "session-a": session("session-a", "work", [{ id: "u1", role: "user", at: 1, content: "first" }, old, { id: "u2", role: "user", at: 3, content: "second" }, current]) };
+    const waiting = { id: "queued-next", rawContent: "next task", visibleContent: "next task", enqueuedAt: 5 };
+    queues["session-a"] = [waiting];
+    let done = false;
+    const query = vi.fn(async () => [
+      { sessionId: "session-a", assistantTurnId: "old", runId: "r-old", seq: 3, phase: "interrupted" as const },
+      { sessionId: "session-a", assistantTurnId: "b", runId: "r-b", seq: done ? 2 : 1, phase: done ? "finished" as const : "running" as const,
+        ...(done ? { message: { ...current, content: "final", runSnapshot: { runId: "r-b", status: "terminal" as const, terminalStatus: "success" as const, updatedAt: 9 } } } : {}) },
+    ]);
+    await mount("work", () => { page.agui.getRunStatus = query as NonNullable<AguiApi["getRunStatus"]>; });
+    expect(runCalls).toEqual([]);
+    done = true;
+    await act(async () => document.dispatchEvent(new Event("visibilitychange"))); await flush();
+    expect(runCalls).toHaveLength(1);
+    expect(runCalls[0].sessionId).toBe("session-a");
+    expect(queues["session-a"] ?? []).toEqual([]);
+  });
+
   test("an observed run that ends interrupted leaves the queue paused", async () => {
     const partial: ChatMessage = { id: "a", role: "model", at: 2, content: "partial", runSnapshot: { runId: "r", status: "running", updatedAt: 2 } };
     sessions = { "session-a": session("session-a", "work", [{ id: "u", role: "user", at: 1, content: "task" }, partial]) };
