@@ -114,7 +114,7 @@ describe("包边界：路径写法逃出包根", () => {
 });
 
 describe("包边界：符号链接与 junction", () => {
-  it.skipIf(!CAN_LINK_DIRECTORY)("main 经目录 junction 指向包外时被拒绝，且仍在包内的文件不受影响（跳过原因：无法创建 junction）", async () => {
+  it.skipIf(!CAN_LINK_DIRECTORY)("main 经目录 junction 指向包外时报 path_symlink_escape 而不是 file_missing（跳过原因：无法创建 junction）", async () => {
     const outsideDir = path.join(ws.base, "outside-dir");
     writeFiles(outsideDir, { "index.mjs": "export default { stolen: true };" });
     const root = createPackage(ws.base, { files: { "assets/icon.png": "png", "ui/settings.html": "<!doctype html>" } });
