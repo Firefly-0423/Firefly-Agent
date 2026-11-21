@@ -1,4 +1,7 @@
 {
+  "bin": {
+    "firefly-plugin": "./dist/cli/firefly-plugin.mjs"
+  },
   "dependencies": {
     "ajv": "^8.17.1"
   },

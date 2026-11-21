@@ -1,10 +1,12 @@
-// 校验 @firefly_wu/plugin-sdk 的打包质量，共五项：
+// 校验 @firefly_wu/plugin-sdk 的打包质量，共六项：
 //   1. manifest.schema.json 与 PluginManifestInput 类型没有漂移（generate-schema --check）
 //   2. 包内 vendored 的 api.ts 与宿主的 src/plugins/api.ts 逐字节一致
 //   3. npm pack --dry-run 列出的文件只有 dist、package.json、README.md（以及 LICENSE）
 //   4. 产物（d.ts 与 js）里没有指向 src/main、src/renderer 等内部路径的模块引用
 //   5. CJS 与 ESM 两种入口都能加载，并导出关键常量
-import { readFile, readdir } from "node:fs/promises";
+//   6. bin 声明的 firefly-plugin 命令行在打包清单里，且能校验并打包一个最小插件、拒绝一个不合法的插件
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -59,6 +61,7 @@ function checkPackedFiles() {
   if (!packed.includes("package.json") || !packed.some((name) => name.startsWith("dist/"))) {
     fail(`npm pack 清单缺少 package.json 或 dist/：${JSON.stringify(packed)}`);
   }
+  if (!packed.includes("dist/cli/firefly-plugin.mjs")) fail("npm pack 清单缺少 dist/cli/firefly-plugin.mjs（bin）");
   const permitted = /^(dist\/|package\.json$|README\.md$|LICENSE$)/;
   const stray = packed.filter((name) => !permitted.test(name));
   if (stray.length) fail(`npm pack 将包含意外文件: ${stray.join(", ")}`);
@@ -96,10 +99,52 @@ async function checkEntryPoints() {
   }
 }
 
+/** 用打好的命令行跑一遍：最小插件校验并打包通过；声明 safe 风险的插件被拒绝且不生成文件。 */
+async function checkCli() {
+  const sdkPackage = JSON.parse(await readFile(path.join(sdkRoot, "package.json"), "utf8"));
+  const binRelative = sdkPackage.bin?.["firefly-plugin"];
+  if (binRelative !== "./dist/cli/firefly-plugin.mjs") fail(`package.json 的 bin.firefly-plugin 不对: ${binRelative}`);
+  const bin = path.join(sdkRoot, binRelative);
+  const run = (...args) => {
+    try {
+      return { code: 0, out: execFileSync(process.execPath, [bin, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }) };
+    } catch (error) {
+      return { code: error.status, out: String(error.stderr ?? "") };
+    }
+  };
+
+  const work = await mkdtemp(path.join(tmpdir(), "firefly-plugin-cli-"));
+  try {
+    const writePackage = async (name, tool) => {
+      const dir = path.join(work, name);
+      await mkdir(path.join(dir, "dist"), { recursive: true });
+      await writeFile(path.join(dir, "dist/index.mjs"), "export default {};\n");
+      await writeFile(
+        path.join(dir, "firefly.plugin.json"),
+        JSON.stringify({ schemaVersion: 1, id: "dev.firefly.smoke", name: "smoke", version: "1.0.0", sdk: "^1.2.0", main: "dist/index.mjs", tools: [tool] }),
+      );
+      return dir;
+    };
+    const good = await writePackage("good", { name: "ping", title: "Ping", risk: ["network"], modes: ["work"] });
+    const bad = await writePackage("bad", { name: "ping", title: "Ping", risk: ["safe"], modes: ["work"] });
+    const out = path.join(work, "good.ffplugin");
+
+    if (run("validate", good).code !== 0) fail("firefly-plugin validate 没有通过最小插件");
+    if (run("pack", good, "-o", out).code !== 0) fail("firefly-plugin pack 没有打包最小插件");
+    if (!(await readFile(out)).subarray(0, 2).equals(Buffer.from("PK"))) fail("firefly-plugin pack 生成的不是 ZIP");
+    const rejected = run("validate", bad);
+    if (rejected.code !== 1 || !rejected.out.includes("risk_safe_forbidden")) fail(`firefly-plugin validate 没有拒绝 safe 风险: ${rejected.out}`);
+    if (run("pack", bad, "-o", path.join(work, "bad.ffplugin")).code !== 1) fail("firefly-plugin pack 没有拒绝不合法的插件");
+  } finally {
+    await rm(work, { recursive: true, force: true });
+  }
+}
+
 checkSchemaInSync();
 await checkVendoredApi();
 checkPackedFiles();
 await checkNoInternalReferences();
 await checkEntryPoints();
+await checkCli();
 
 console.log("[verify-package] plugin-sdk 打包校验全部通过");
