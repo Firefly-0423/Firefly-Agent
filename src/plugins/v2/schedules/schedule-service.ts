@@ -46,8 +46,6 @@ interface PluginTaskMetadata {
   action: ScheduleAction;
   requiredRisks: ToolRisk[];
   requiresCronRearm: boolean;
-  /** The one-shot appointment this service last set for a cron task; a different stored time means the user edited it. */
-  armedRunAt?: string;
 }
 
 interface PersistedScheduleState {
@@ -75,6 +73,18 @@ function isPersistedState(value: unknown): value is PersistedScheduleState {
     && candidate.approvals !== null
     && typeof candidate.approvals === "object"
   );
+}
+
+/** True when `runAt` is an instant the cron schedule fires at. */
+function isCronOccurrence(schedule: Schedule, runAt: string): boolean {
+  if (schedule.kind !== "cron") return false;
+  const at = Date.parse(runAt);
+  if (!Number.isFinite(at)) return false;
+  try {
+    return computeNextCronFireAt(schedule.expression, new Date(at - 1), schedule.timezone).getTime() === at;
+  } catch {
+    return false;
+  }
 }
 
 function cloneValue<T>(value: T): T {
@@ -435,7 +445,9 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     task = store.getTasks().find(candidate => candidate.id === task.id) ?? task;
     // The user may have changed the plan in the scheduler panel. Only a one-shot appointment that this service
     // set is still the cron's; anything else means the user took over, so stop re-arming.
-    if (task.schedule.kind !== "once" || (meta.armedRunAt !== undefined && task.schedule.runAt !== meta.armedRunAt)) {
+    // Judged from the stored plan alone (no second file that could be out of date): a one-shot at an instant the
+    // cron expression produces is still the cron's.
+    if (task.schedule.kind !== "once" || !isCronOccurrence(meta.schedule, task.schedule.runAt)) {
       meta.requiresCronRearm = false;
       try { persistState(); } catch { /* The flag is re-derived as false on the next check anyway. */ }
       return;
@@ -455,8 +467,6 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       pluginUserEnabled: true,
       approvalFingerprint: nextFingerprint,
     });
-    meta.armedRunAt = nextSchedule.runAt;
-    try { persistState(); } catch { /* A stale armedRunAt only stops re-arming; the task itself is saved. */ }
   }
 
   /**
@@ -800,7 +810,6 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
         action: cloneValue(proposal.spec.action),
         requiredRisks,
         requiresCronRearm,
-        ...(requiresCronRearm && storeSchedule.kind === "once" ? { armedRunAt: storeSchedule.runAt } : {}),
       };
       state.metadata[proposal.taskId] = meta;
       state.proposals[proposal.proposalId] = {
@@ -861,7 +870,6 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       action: cloneValue(proposal.spec.action),
       requiredRisks,
       requiresCronRearm,
-      ...(requiresCronRearm && storeSchedule.kind === "once" ? { armedRunAt: storeSchedule.runAt } : {}),
     };
     state.metadata[proposal.taskId] = meta;
     state.proposals[proposal.proposalId] = {

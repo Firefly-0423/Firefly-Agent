@@ -1,4 +1,5 @@
-import { chmodSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
+import { AtomicJsonStore } from "../../../main/base/storage/atomic-json-store";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -15,6 +16,19 @@ import {
 } from "./index";
 
 const BASE_TIME = new Date("2032-03-10T10:00:00.000Z");
+
+/** Fail the next write of the plugin schedule state file only (the task store uses the same writer class). */
+function failNextPluginStateSave() {
+  const original = AtomicJsonStore.prototype.write;
+  let armed = true;
+  return vi.spyOn(AtomicJsonStore.prototype, "write").mockImplementation(function (this: AtomicJsonStore<unknown>, value: unknown) {
+    if (armed && String((this as unknown as { file: string }).file).endsWith("plugin-schedules-state.json")) {
+      armed = false;
+      throw new Error("disk full");
+    }
+    return original.call(this, value);
+  });
+}
 
 describe("PluginSchedulesService (v2)", () => {
   let workdir: string;
@@ -690,13 +704,13 @@ describe("PluginSchedulesService (v2)", () => {
     it("a confirmation whose plugin state cannot be saved leaves no task behind, and a retry creates exactly one", async () => {
       const { store, service } = setupHarness();
       const proposed = await service.forPlugin("dev.firefly.alpha").propose(runSpec());
-      const stateFile = join(workdir, "plugin-schedules-state.json");
-      chmodSync(stateFile, 0o444);
+      // Fail the next state save deterministically on every OS (a read-only file does not stop an atomic rename on POSIX).
+      const failSave = failNextPluginStateSave();
       try {
         expect(() => service.confirmProposal(proposed.taskId)).toThrow(PluginScheduleError);
         expect(store.getTasks()).toEqual([]);
       } finally {
-        chmodSync(stateFile, 0o644);
+        failSave.mockRestore();
       }
       service.confirmProposal(proposed.taskId);
       expect(store.getTasks()).toHaveLength(1);
@@ -770,12 +784,12 @@ describe("PluginSchedulesService (v2)", () => {
 
       const running = service.approveRun(waiting.runId);
       await vi.advanceTimersByTimeAsync(0);
-      const stateFile = join(workdir, "plugin-schedules-state.json");
-      chmodSync(stateFile, 0o444);
+      // Fail the next state save deterministically on every OS (a read-only file does not stop an atomic rename on POSIX).
+      const failSave = failNextPluginStateSave();
       try {
         await expectErrorCode(client.propose(runSpec()), "ERR_INTERNAL");
       } finally {
-        chmodSync(stateFile, 0o644);
+        failSave.mockRestore();
       }
       release();
       const settled = await running;
