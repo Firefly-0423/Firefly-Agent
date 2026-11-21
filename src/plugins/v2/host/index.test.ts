@@ -24,7 +24,7 @@ class Child extends EventEmitter {
     port.start();
   }
 }
-function setup(failChannel = false) {
+function setup(failChannel = false, forceKill = vi.fn()) {
   const children: Child[] = [];
   const options: any[] = [];
   let metrics: any[] = [];
@@ -47,8 +47,9 @@ function setup(failChannel = false) {
     getAppMetrics: () => metrics,
     environment: { SystemRoot: "C:\\Windows", SECRET: "secret", HTTP_PROXY: "proxy", FIREFLY_KEY: "key" },
     memoryPollMs: 100,
+    forceKill,
   });
-  return { manager, children, options, setMetrics: (m: any[]) => { metrics = m; } };
+  return { manager, children, options, forceKill, setMetrics: (m: any[]) => { metrics = m; } };
 }
 afterEach(() => { vi.useRealTimers(); });
 describe("plugin host", () => {
@@ -118,6 +119,25 @@ describe("plugin host", () => {
     await vi.advanceTimersByTimeAsync(5000); await stopping;
     expect(manager.status("p")).toBe("disabled");
     expect(children).toHaveLength(1);
+  });
+  it("force-kills a child that is still alive 750 ms after the termination request, and only then", async () => {
+    vi.useFakeTimers(); const { manager, children, forceKill, setMetrics } = setup(); await manager.start("p");
+    setMetrics([{ pid: 100, memory: { workingSetSize: 512 * 1024 + 1 } }]);
+    await vi.advanceTimersByTimeAsync(100); expect(children[0].kill).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(749); expect(forceKill).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1); expect(forceKill.mock.calls).toEqual([[100]]);
+    await manager.stop("p", "disabled");
+  });
+  it("does not force-kill a child that exits after the termination request", async () => {
+    vi.useFakeTimers(); const { manager, children, forceKill, setMetrics } = setup(); await manager.start("p");
+    children[0].kill.mockImplementation(() => { queueMicrotask(() => children[0].emit("exit", 0)); return true; });
+    setMetrics([{ pid: 100, memory: { workingSetSize: 512 * 1024 + 1 } }]);
+    await vi.advanceTimersByTimeAsync(100);
+    setMetrics([]);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(children[0].kill).toHaveBeenCalledTimes(1);
+    expect(forceKill).not.toHaveBeenCalled();
+    await manager.stop("p", "disabled");
   });
   it("fails activation at 10 seconds and kills the child without restarting", async () => {
     vi.useFakeTimers(); const { manager, children } = setup(); const started = manager.start("p");

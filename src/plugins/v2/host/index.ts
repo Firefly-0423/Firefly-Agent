@@ -28,6 +28,8 @@ export interface HostDependencies {
   prepareDataDir?(path: string): void;
   environment?: NodeJS.ProcessEnv;
   memoryPollMs?: number;
+  /** Last resort when the child is still alive after a termination request (POSIX kill() is only SIGTERM). */
+  forceKill?(pid: number): void;
   configureRpc?(id: string, rpc: PluginRpc): void;
 }
 
@@ -68,6 +70,8 @@ interface RecordState {
   stopping?: Promise<void>;
 }
 const unavailable = () => new PluginError("ERR_UNAVAILABLE", "Plugin process is unavailable");
+/** Shorter than the first restart delay, so a replacement never starts next to a still-living child. */
+const TERMINATE_GRACE_MS = 750;
 
 export class PluginHostManager {
   private readonly records = new Map<string, RecordState>();
@@ -206,7 +210,20 @@ export class PluginHostManager {
     runtime.rpc.close(unavailable());
     for (const port of runtime.ports) port.close();
     if (record.runtime === runtime) record.runtime = undefined;
-    if (kill) runtime.child.kill();
+    if (kill) this.terminate(runtime.child);
+  }
+  /** Ask the child to exit, then make sure it did: a plugin may ignore SIGTERM on POSIX. */
+  private terminate(child: HostChild): void {
+    let exited = false;
+    const onExit = () => { exited = true; clearTimeout(timer); };
+    child.on("exit", onExit);
+    try { child.kill(); } catch { /* Already gone. */ }
+    const timer = setTimeout(() => {
+      child.removeListener("exit", onExit);
+      if (exited || child.pid === undefined) return;
+      try { (this.dependencies.forceKill ?? (pid => process.kill(pid, "SIGKILL")))(child.pid); } catch { /* Exited meanwhile. */ }
+    }, TERMINATE_GRACE_MS);
+    timer.unref?.();
   }
   private crash(id: string, record: RecordState, runtime: Runtime, kill = false): void {
     if (runtime.finished || record.runtime !== runtime) return;
