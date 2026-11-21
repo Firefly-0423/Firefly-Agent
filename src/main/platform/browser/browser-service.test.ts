@@ -1155,10 +1155,6 @@ describe("BrowserRunLease preservation across switch, refresh, tray hide and par
       permissionPolicy: { hosts: ["example.com", "github.com"], actions: ["navigate", "observe", "click", "type"] },
       confirmPermission: async () => true,
       onChanged: (owner, page) => {
-        // Mirror composition root's 3-tuple gate: target window + active conversation + page generation
-        const binding = bindings.get(owner.host);
-        const current = binding?.getCurrentOwner();
-        if (!current || current.conversationId !== page.conversationId || current.generation !== owner.generation) return;
         pushed.push({ host: owner.host, conversationId: owner.conversationId, generation: owner.generation, pageUrl: page.url });
       },
       createSession: () => {
