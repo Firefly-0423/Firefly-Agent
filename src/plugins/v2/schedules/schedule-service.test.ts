@@ -756,6 +756,32 @@ describe("PluginSchedulesService (v2)", () => {
       expect(resumed.nextFireAt).toBe("2032-03-10T10:30:00.000Z");
     });
 
+    it("an approved run still records its result after another operation's save failed meanwhile", async () => {
+      const { service } = setupHarness();
+      const client = service.forPlugin("dev.firefly.alpha");
+      let release!: () => void;
+      client.onTrigger(async () => { await new Promise<void>(resolve => { release = resolve; }); });
+      const proposed = await client.propose({ title: "Write", schedule: { kind: "interval", minutes: 15 }, action: { type: "callback" }, requiredRisks: ["shell"] });
+      service.confirmProposal(proposed.taskId);
+      currentNow = new Date("2032-03-10T10:15:00.000Z");
+      await vi.advanceTimersByTimeAsync(15 * 60_000);
+      const [waiting] = service.listPendingRunApprovals("dev.firefly.alpha");
+
+      const running = service.approveRun(waiting.runId);
+      await vi.advanceTimersByTimeAsync(0);
+      const stateFile = join(workdir, "plugin-schedules-state.json");
+      chmodSync(stateFile, 0o444);
+      try {
+        await expectErrorCode(client.propose(runSpec()), "ERR_INTERNAL");
+      } finally {
+        chmodSync(stateFile, 0o644);
+      }
+      release();
+      const settled = await running;
+      expect(settled.approval.status).toBe("completed");
+      expect(service.getRunApproval(waiting.runId)?.status).toBe("completed");
+    });
+
     it("rejects calls when plugin signal is aborted or schedules permission is revoked", async () => {
       const { service } = setupHarness();
       const ac = new AbortController();

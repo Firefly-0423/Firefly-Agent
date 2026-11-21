@@ -1046,17 +1046,22 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
         true,
         runId,
       );
-      record.status = result.ok ? "completed" : "failed";
+      // Another operation's failed save may have reloaded `state` while the action ran; settle the current record.
+      const settled = state.approvals[runId] ?? record;
+      settled.status = result.ok ? "completed" : "failed";
       if (!result.ok && result.error) {
-        record.error = result.error;
+        settled.error = result.error;
       }
-      record.settledAt = clock().toISOString();
+      settled.settledAt = clock().toISOString();
+      state.approvals[runId] = settled;
       persistState();
-      return { approval: cloneValue(record), result };
+      return { approval: cloneValue(settled), result };
     } catch (failure) {
-      record.status = "failed";
-      record.error = failure instanceof Error ? failure.message : String(failure);
-      record.settledAt = clock().toISOString();
+      const settled = state.approvals[runId] ?? record;
+      settled.status = "failed";
+      settled.error = failure instanceof Error ? failure.message : String(failure);
+      settled.settledAt = clock().toISOString();
+      state.approvals[runId] = settled;
       persistState();
       throw failure;
     } finally {
