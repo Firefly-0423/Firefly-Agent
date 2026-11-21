@@ -46,6 +46,8 @@ interface PluginTaskMetadata {
   action: ScheduleAction;
   requiredRisks: ToolRisk[];
   requiresCronRearm: boolean;
+  /** The one-shot appointment this service last set for a cron task; a different stored time means the user edited it. */
+  armedRunAt?: string;
 }
 
 interface PersistedScheduleState {
@@ -429,6 +431,15 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     appointment: Date,
   ): void {
     if (!meta || !meta.requiresCronRearm || meta.schedule.kind !== "cron") return;
+    // Callers may hold a snapshot taken before an earlier re-arm in the same run; decide on the stored task.
+    task = store.getTasks().find(candidate => candidate.id === task.id) ?? task;
+    // The user may have changed the plan in the scheduler panel. Only a one-shot appointment that this service
+    // set is still the cron's; anything else means the user took over, so stop re-arming.
+    if (task.schedule.kind !== "once" || (meta.armedRunAt !== undefined && task.schedule.runAt !== meta.armedRunAt)) {
+      meta.requiresCronRearm = false;
+      try { persistState(); } catch { /* The flag is re-derived as false on the next check anyway. */ }
+      return;
+    }
     const anchor = new Date(Math.max(appointment.getTime(), clock().getTime()));
     const nextFire = computeNextCronFireAt(meta.schedule.expression, anchor, meta.schedule.timezone);
     const nextSchedule = { kind: "once" as const, runAt: nextFire.toISOString() };
@@ -444,6 +455,8 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       pluginUserEnabled: true,
       approvalFingerprint: nextFingerprint,
     });
+    meta.armedRunAt = nextSchedule.runAt;
+    try { persistState(); } catch { /* A stale armedRunAt only stops re-arming; the task itself is saved. */ }
   }
 
   /**
@@ -636,14 +649,23 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
         if (!owned) return false;
 
         let removed = false;
+        const meta = state.metadata[taskId];
+        const storeTaskId = meta?.storeTaskId ?? taskId;
+        // Delete the scheduled task first: if that fails, the plugin state (action metadata, approvals) must stay,
+        // or a surviving callback task would later run as a plain agent prompt.
+        try {
+          if (store.deleteTask(storeTaskId)) {
+            removed = true;
+          }
+        } catch (cause) {
+          throw new PluginScheduleError("ERR_INTERNAL", "Failed to delete scheduled task", { cause });
+        }
         for (const [proposalId, proposal] of Object.entries(state.proposals)) {
           if (proposal.taskId === taskId && proposal.pluginId === ownerPluginId) {
             delete state.proposals[proposalId];
             removed = true;
           }
         }
-        const meta = state.metadata[taskId];
-        const storeTaskId = meta?.storeTaskId ?? taskId;
         if (meta) {
           delete state.metadata[taskId];
           removed = true;
@@ -652,13 +674,6 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
           if (approval.taskId === taskId && approval.pluginId === ownerPluginId) {
             delete state.approvals[runId];
           }
-        }
-        try {
-          if (store.deleteTask(storeTaskId)) {
-            removed = true;
-          }
-        } catch (cause) {
-          throw new PluginScheduleError("ERR_INTERNAL", "Failed to delete scheduled task", { cause });
         }
         persistState();
         return removed;
@@ -785,6 +800,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
         action: cloneValue(proposal.spec.action),
         requiredRisks,
         requiresCronRearm,
+        ...(requiresCronRearm && storeSchedule.kind === "once" ? { armedRunAt: storeSchedule.runAt } : {}),
       };
       state.metadata[proposal.taskId] = meta;
       state.proposals[proposal.proposalId] = {
@@ -845,6 +861,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       action: cloneValue(proposal.spec.action),
       requiredRisks,
       requiresCronRearm,
+      ...(requiresCronRearm && storeSchedule.kind === "once" ? { armedRunAt: storeSchedule.runAt } : {}),
     };
     state.metadata[proposal.taskId] = meta;
     state.proposals[proposal.proposalId] = {

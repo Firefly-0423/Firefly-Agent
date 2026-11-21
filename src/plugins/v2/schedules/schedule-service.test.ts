@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SchedulerEngine } from "../../../main/features/scheduler/scheduler-engine";
+import { computeExecutionSpecFingerprint } from "../../../main/features/scheduler/execution-spec";
 import { createSchedulerStore } from "../../../main/features/scheduler/scheduler-store";
 import type { ScheduledRunResult, ScheduledTask } from "../../../main/platform/schedule/schedule-types";
 import {
@@ -780,6 +781,45 @@ describe("PluginSchedulesService (v2)", () => {
       const settled = await running;
       expect(settled.approval.status).toBe("completed");
       expect(service.getRunApproval(waiting.runId)?.status).toBe("completed");
+    });
+
+    it("a cron task whose plan the user changed in the scheduler panel keeps the user's plan", async () => {
+      const { store, service, runAgentMock } = setupHarness();
+      const proposed = await service.forPlugin("dev.firefly.cron").propose({
+        title: "Quarter-hour check",
+        schedule: { kind: "cron", expression: "*/15 * * * *", timezone: "UTC" },
+        action: { type: "run", prompt: "Ping", mode: "work" },
+      });
+      service.confirmProposal(proposed.taskId);
+      const id = store.getTasks()[0].id;
+      // What the panel's SCHEDULER_UPDATE saves: the new plan with a matching approval fingerprint.
+      const edited = { kind: "interval" as const, every: 60, unit: "minutes" as const };
+      const current = store.getTasks()[0];
+      store.updateTask(id, { schedule: edited, nextFireAt: "2032-03-10T11:00:00.000Z",
+        approvalFingerprint: computeExecutionSpecFingerprint({ schedule: edited, prompt: current.prompt, mode: current.mode ?? "work", allowedToolIds: current.allowedToolIds }) });
+
+      currentNow = new Date("2032-03-10T11:00:00.000Z");
+      await vi.advanceTimersByTimeAsync(60 * 60_000);
+      expect(runAgentMock).toHaveBeenCalledTimes(1);
+      expect(store.getTasks()[0].schedule).toEqual({ kind: "interval", every: 60, unit: "minutes" });
+    });
+
+    it("a removal whose scheduled-task delete fails keeps the callback action intact", async () => {
+      const { store, service, runAgentMock } = setupHarness();
+      const client = service.forPlugin("dev.firefly.reminder");
+      const fired: string[] = [];
+      client.onTrigger(async event => { fired.push(event.taskId); });
+      const proposed = await client.propose({ title: "Stretch", schedule: { kind: "interval", minutes: 5 }, action: { type: "callback" } });
+      service.confirmProposal(proposed.taskId);
+
+      const spy = vi.spyOn(store, "deleteTask").mockImplementationOnce(() => { throw new Error("disk full"); });
+      await expectErrorCode(client.remove(proposed.taskId), "ERR_INTERNAL");
+      spy.mockRestore();
+
+      currentNow = new Date("2032-03-10T10:05:00.000Z");
+      await vi.advanceTimersByTimeAsync(5 * 60_000);
+      expect(fired).toEqual([proposed.taskId]);
+      expect(runAgentMock).not.toHaveBeenCalled();
     });
 
     it("rejects calls when plugin signal is aborted or schedules permission is revoked", async () => {
