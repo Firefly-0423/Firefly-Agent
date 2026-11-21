@@ -673,14 +673,10 @@
   "permission": {
     "descFull": "Unrestricted files and commands",
     "descPerAction": "Asks before changes or commands",
-    "descProjectReadOnly": "Reads the current project only; changes nothing",
     "descReadOnly": "Reads files, changes nothing",
-    "descScoped": "Can read and write inside the current project folder",
     "levelFull": "Full access",
     "levelPerAction": "Ask first",
-    "levelProjectReadOnly": "Read-only",
     "levelReadOnly": "Read only",
-    "levelScoped": "Project folder",
     "panelQuestion": "How should Firefly's actions be approved?",
     "panelTitle": "Permission level"
   },

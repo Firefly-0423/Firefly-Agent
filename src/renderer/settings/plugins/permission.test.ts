@@ -17,7 +17,7 @@ vi.mock("./dom", () => ({
 }));
 vi.mock("../shared/modal", () => ({ _initModalOverlay: modalMock.init }));
 
-const LEVELS = ["project-read-only", "read-only", "scoped", "per-action", "full"] as const;
+const LEVELS = ["read-only", "per-action", "full"] as const;
 
 async function flush(): Promise<void> {
   for (let i = 0; i < 16; i++) await Promise.resolve();
@@ -96,16 +96,16 @@ afterEach(() => {
 });
 
 describe("permission level initialization", () => {
-  it("paints the loaded level, mapping scoped to the visible read-only button", async () => {
+  it.each(["project-read-only", "scoped"])("falls back to read-only when legacy level %s is returned", async (legacy) => {
     const { note, button } = await setup({
-      getPermissionLevel: async () => ({ level: "scoped" }),
+      getPermissionLevel: async () => ({ level: legacy }),
     });
 
     expect(button("read-only").classList.contains("is-active")).toBe(true);
     expect(button("read-only").getAttribute("aria-pressed")).toBe("true");
-    expect(button("scoped").classList.contains("is-active")).toBe(false);
+    expect(button("per-action").classList.contains("is-active")).toBe(false);
     expect(button("full").getAttribute("aria-pressed")).toBe("false");
-    expect(note.textContent).toContain("指定目录");
+    expect(note.textContent).toContain("只读");
   });
 
   it("defaults to read-only when the backend omits a level", async () => {
@@ -143,10 +143,10 @@ describe("permission changes", () => {
     const { api, button } = await setup();
     api.setPermissionLevel.mockResolvedValue({ ok: true });
 
-    button("project-read-only").click();
+    button("per-action").click();
     await flush();
 
-    expect(button("project-read-only").classList.contains("is-active")).toBe(true);
+    expect(button("per-action").classList.contains("is-active")).toBe(true);
   });
 
   it("does nothing for an already-active button or a non-button target", async () => {
@@ -170,7 +170,7 @@ describe("permission changes", () => {
     expect(console.warn).toHaveBeenCalled();
 
     api.setPermissionLevel.mockRejectedValue(new Error("synthetic exception"));
-    button("scoped").click();
+    button("per-action").click();
     await flush();
     expect(button("read-only").classList.contains("is-active")).toBe(true);
     expect(console.error).toHaveBeenCalled();

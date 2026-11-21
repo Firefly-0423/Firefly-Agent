@@ -673,14 +673,10 @@
   "permission": {
     "descFull": "不受限制地访问文件和命令",
     "descPerAction": "修改文件或运行命令前先询问",
-    "descProjectReadOnly": "只读取当前项目，不做任何修改",
     "descReadOnly": "可读取文件，不能修改",
-    "descScoped": "可在当前项目目录内读写",
     "levelFull": "完全访问",
     "levelPerAction": "请求审批",
-    "levelProjectReadOnly": "完全只读",
     "levelReadOnly": "只读",
-    "levelScoped": "指定目录",
     "panelQuestion": "Firefly 的操作应如何批准？",
     "panelTitle": "权限等级"
   },

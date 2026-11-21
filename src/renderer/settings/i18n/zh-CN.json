@@ -766,7 +766,6 @@
         "file": {
           "title": "文件访问权限",
           "permRead": "只读",
-          "permProjectRead": "全只读",
           "permFull": "完全",
           "permAction": "审批",
           "note": "只读：流萤不会修改本地任何文件。"

@@ -116,7 +116,7 @@ Want a look first? The live demo at [hotarufirefly.online](https://hotarufirefly
 
 ## 🔒 Security and privacy
 
-- **Permission levels and approvals**: files and commands run at read-only, project read-only, scoped or full access; writes, commands and external actions follow approvals and can be cancelled. Personas, Skills and avatars never widen tool permissions.
+- **Permission levels and approvals**: files and commands run at read-only, per-action or full access; writes, commands and external actions follow approvals and can be cancelled. Personas, Skills and avatars never widen tool permissions.
 - **Command execution**: the shell tool has total and idle timeouts and cleans up the whole process tree on finish or cancel.
 - **Browser**: approving a site manually gives the agent no rights; private-network targets have their own limits. Under a TUN proxy in fake-ip mode (such as Mihomo), manual browsing first confirms over DoH that the real address is public; agent browsing refuses fake-ip addresses.
 - **Local data**: settings, credentials, history and user Skills never enter Git or the installer. The memory database key is protected by Windows DPAPI, and channel credentials use the system's encrypted storage.
