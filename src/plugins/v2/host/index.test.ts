@@ -63,7 +63,10 @@ describe("plugin host", () => {
     await manager.start("dev.test.plugin");
     expect(manager.status("dev.test.plugin")).toBe("enabled");
     expect(options[0].cwd).toBe("/data/plugin");
-    expect(options[0].env).toEqual({ SystemRoot: "C:\\Windows", PATH: "C:\\Windows\\System32;C:\\Windows" });
+    // The manager uses the real platform; the explicit "win32" case below covers Windows scrubbing.
+    expect(options[0].env).toEqual(process.platform === "win32"
+      ? { SystemRoot: "C:\\Windows", PATH: "C:\\Windows\\System32;C:\\Windows" }
+      : { PATH: "/usr/bin:/bin" });
     await manager.stop("dev.test.plugin", "disabled");
   });
   it("does not inherit host paths, Node injection switches, proxy or credentials", () => {
@@ -104,6 +107,17 @@ describe("plugin host", () => {
     await vi.advanceTimersByTimeAsync(100); expect(children[0].kill).toHaveBeenCalledTimes(1);
     expect(manager.status("p")).toBe("restarting");
     await manager.stop("p", "disabled"); await vi.advanceTimersByTimeAsync(2000); expect(children).toHaveLength(1);
+  });
+  it("kills a child that exceeds the memory limit while it ignores deactivate during stop", async () => {
+    vi.useFakeTimers(); const { manager, children, setMetrics } = setup(); await manager.start("p");
+    children[0].respond = false;
+    const stopping = manager.stop("p", "disabled");
+    setMetrics([{ pid: 100, memory: { workingSetSize: 512 * 1024 + 1 } }]);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(children[0].kill).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(5000); await stopping;
+    expect(manager.status("p")).toBe("disabled");
+    expect(children).toHaveLength(1);
   });
   it("fails activation at 10 seconds and kills the child without restarting", async () => {
     vi.useFakeTimers(); const { manager, children } = setup(); const started = manager.start("p");

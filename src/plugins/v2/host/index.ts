@@ -210,7 +210,8 @@ export class PluginHostManager {
   }
   private crash(id: string, record: RecordState, runtime: Runtime, kill = false): void {
     if (runtime.finished || record.runtime !== runtime) return;
-    if (record.state === "stopping") { this.finish(record, runtime, false); return; }
+    // While stopping, an exit only needs cleanup; a memory-limit hit must still kill the unresponsive child.
+    if (record.state === "stopping") { this.finish(record, runtime, kill); return; }
     runtime.crashed = true;
     runtime.rejectStartup(unavailable());
     this.finish(record, runtime, kill);
