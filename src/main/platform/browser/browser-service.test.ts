@@ -1309,3 +1309,333 @@ describe("BrowserRunLease preservation across switch, refresh, tray hide and par
     await f.service.dispose();
   });
 });
+
+describe("PR A-2 background read-only observe, 1px viewport invalidation and post-await rechecks", () => {
+  function leasedFixture() {
+    const profile = {};
+    const topFrame = {};
+    const effects: string[] = [];
+    let visible = true, focused = true, minimized = false;
+    const wc = Object.assign(new EventEmitter(), { id: 601, mainFrame: topFrame, isDestroyed: () => false });
+    const host: BrowserHostPort = Object.assign(new EventEmitter(), {
+      webContents: wc, isDestroyed: () => false,
+      isVisible: () => visible, isFocused: () => focused, isMinimized: () => minimized,
+      getContentSize: (): [number, number] => [800, 600],
+      contentView: { addChildView: () => {}, removeChildView: () => {} },
+    });
+    const sender = { sender: wc, senderFrame: topFrame };
+    let nextObserve = async () => {}, nextAct = async () => {}, nextLoad = async () => {};
+    let snapshotIdCounter = 0;
+    let currentRefLabel = "Old Submit";
+    const guests: BrowserGuestPort<object>[] = [];
+    const callbacks: Parameters<BrowserGuestPort<object>["installCallbacks"]>[0][] = [];
+    const changed: import("../../../shared/manual-browser").BrowserOwnedPageDto[] = [];
+    const service = createBrowserService({
+      profile, gateOpen: false, manualBrowsing: true,
+      permissionPolicy: { hosts: ["example.com", "github.com"], actions: ["navigate", "observe", "click", "type"] },
+      confirmPermission: async () => true,
+      onChanged: (_owner, page) => changed.push(page),
+      createSession: () => {
+        const session = {};
+        return {
+          session, persistent: false, installRequestHandler: () => {}, denyPermissions: () => {},
+          setProxy: async () => {}, closeAllConnections: async () => {},
+          clearStorageData: async () => {}, clearCache: async () => {},
+          clearAuthCache: async () => {}, clearHostResolverCache: async () => {}, runningWorkerCount: () => 0,
+        };
+      },
+      createView: (session) => {
+        let destroyed = false, url = "";
+        const guest: BrowserGuestPort<object> = {
+          contents: { id: 700 + guests.length, session, isDestroyed: () => destroyed },
+          observe: async () => {
+            effects.push("observe");
+            await nextObserve();
+            return {
+              snapshotId: `snap-${++snapshotIdCounter}`,
+              url,
+              title: "Page",
+              text: currentRefLabel,
+              elements: [{ ref: "1", tag: "button", role: "button", name: currentRefLabel }],
+            };
+          },
+          act: async input => {
+            effects.push(`${input.kind}:${"ref" in input ? input.ref : ""}`);
+            await nextAct();
+            return true;
+          },
+          loadURL: async target => {
+            effects.push(`load:${target}`);
+            await nextLoad();
+            url = target;
+          },
+          history: async action => { effects.push(action); },
+          snapshot: () => ({ url, canGoBack: true, canGoForward: true }),
+          stop: () => { effects.push("stop"); },
+          attach: () => { effects.push("attach"); },
+          detach: () => { effects.push("detach"); },
+          setBounds: () => {},
+          destroy: () => { destroyed = true; effects.push("destroy"); },
+          installCallbacks: next => callbacks.push(next),
+        };
+        guests.push(guest);
+        return guest;
+      },
+      proxyFactory: async () => ({ endpoint: { host: "127.0.0.1", port: 1234, realm: "fixture" }, credentialsFor: () => null, revoke: async () => {} }),
+    });
+    const targets = createActiveChatTargetRegistry();
+    return {
+      profile, host, wc, sender, effects, guests, callbacks, changed, service, targets,
+      setHostState(next: { visible?: boolean; focused?: boolean; minimized?: boolean }) {
+        if (next.visible !== undefined) visible = next.visible;
+        if (next.focused !== undefined) focused = next.focused;
+        if (next.minimized !== undefined) minimized = next.minimized;
+      },
+      setElementLabel(label: string) { currentRefLabel = label; },
+      delayObserve(fn: () => Promise<void>) { nextObserve = fn; },
+      delayAct(fn: () => Promise<void>) { nextAct = fn; },
+      delayLoad(fn: () => Promise<void>) { nextLoad = fn; },
+    };
+  }
+
+  it("allows background observe on switch/hide/minimize while keeping blur blocked (Q1) and settling mutations as observe_required without killing the run", async () => {
+    const f = leasedFixture();
+    const { registerBrowserHostOwner } = await import("./browser-host-owner");
+    const binding = registerBrowserHostOwner({ host: f.host, profile: f.profile, targets: f.targets, service: f.service, readSession: id => ({ id, mode: "work" }), isRunActive: () => true });
+    f.targets.setActive({ sender: f.wc as unknown as WebContents, sessionId: "a", mode: "work", rendererTargetId: "r1" });
+    binding.refresh();
+    await f.service.dispatchPermission(f.sender, { kind: "request", scope: { mode: "agent", hosts: ["example.com", "github.com"], actions: ["navigate", "observe", "click", "type"] } });
+    const lease = binding.retainRunLease(binding.getCurrentOwner()!, { conversationId: "a", runId: "run-1" })!;
+    const run = { conversationId: "a", runId: "run-1", signal: new AbortController().signal, isCurrent: () => true };
+
+    const opened = await f.service.executeAgent(lease, { operation: "open", url: "https://example.com/" }, run);
+    expect(opened).toMatchObject({ ok: true });
+    const browserId = (opened as { ok: true; value: { browserId: string } }).value.browserId;
+    await f.service.dispatch(f.sender, { kind: "layout", browserId, bounds: { x: 0, y: 0, width: 400, height: 300 } });
+    const firstObs = await f.service.executeAgent(lease, { operation: "observe" }, run);
+    expect(firstObs).toMatchObject({ ok: true, value: { snapshotId: "snap-1" } });
+
+    // Q1: blur while visible MUST still block observe and mutations
+    f.setHostState({ focused: false });
+    (f.host as unknown as EventEmitter).emit("blur");
+    expect(await f.service.executeAgent(lease, { operation: "observe" }, run)).toEqual({ ok: false, code: "permission_denied" });
+    expect(await f.service.executeAgent(lease, { operation: "click", snapshotId: "snap-1", ref: "1" }, run)).toEqual({ ok: false, code: "permission_denied" });
+    f.setHostState({ focused: true });
+    (f.host as unknown as EventEmitter).emit("focus");
+    expect(await f.service.executeAgent(lease, { operation: "observe" }, run)).toMatchObject({ ok: true, value: { snapshotId: "snap-2" } });
+
+    // Switch, hide, minimize: observe succeeds; click/type/navigate/back/forward/reload settle as observe_required without guest act/loadURL/history
+    const transitions = [
+      {
+        name: "switch",
+        enter: () => { f.targets.setActive({ sender: f.wc as unknown as WebContents, sessionId: "b", mode: "work", rendererTargetId: "r1" }); binding.refresh(); },
+        leave: async () => {
+          f.targets.setActive({ sender: f.wc as unknown as WebContents, sessionId: "a", mode: "work", rendererTargetId: "r2" }); binding.refresh();
+          await f.service.dispatch(f.sender, { kind: "layout", browserId, bounds: { x: 0, y: 0, width: 400, height: 300 } });
+        },
+      },
+      {
+        name: "hide",
+        enter: () => { f.setHostState({ visible: false }); (f.host as unknown as EventEmitter).emit("hide"); },
+        leave: async () => {
+          f.setHostState({ visible: true }); (f.host as unknown as EventEmitter).emit("show");
+          await f.service.dispatch(f.sender, { kind: "layout", browserId, bounds: { x: 0, y: 0, width: 400, height: 300 } });
+        },
+      },
+      {
+        name: "minimize",
+        enter: () => { f.setHostState({ minimized: true }); (f.host as unknown as EventEmitter).emit("minimize"); },
+        leave: async () => {
+          f.setHostState({ minimized: false }); (f.host as unknown as EventEmitter).emit("restore");
+          await f.service.dispatch(f.sender, { kind: "layout", browserId, bounds: { x: 0, y: 0, width: 400, height: 300 } });
+        },
+      },
+    ];
+
+    for (const t of transitions) {
+      await f.service.executeAgent(lease, { operation: "observe" }, run);
+      t.enter();
+      expect(await f.service.executeAgent(lease, { operation: "observe" }, run)).toMatchObject({ ok: true });
+      const effectBaseline = f.effects.length;
+      for (const op of [
+        { operation: "click", snapshotId: "snap-1", ref: "1" },
+        { operation: "type", snapshotId: "snap-1", ref: "1", text: "hi" },
+        { operation: "navigate", url: "https://github.com/" },
+        { operation: "back" },
+        { operation: "forward" },
+        { operation: "reload" },
+      ]) {
+        expect(await f.service.executeAgent(lease, op, run), `${t.name}:${op.operation}`).toEqual({ ok: false, code: "observe_required" });
+      }
+      expect(f.effects.slice(effectBaseline)).toEqual([]);
+      expect(lease.signal.aborted).toBe(false);
+      await t.leave();
+    }
+
+    binding.dispose(); f.targets.dispose(); await f.service.dispose();
+  });
+
+  it("denies background open before first open (Q8) and invalidates observation on any 1px viewport width or height change (Q7-1)", async () => {
+    const f = leasedFixture();
+    const { registerBrowserHostOwner } = await import("./browser-host-owner");
+    const binding = registerBrowserHostOwner({ host: f.host, profile: f.profile, targets: f.targets, service: f.service, readSession: id => ({ id, mode: "work" }), isRunActive: () => true });
+    f.targets.setActive({ sender: f.wc as unknown as WebContents, sessionId: "a", mode: "work", rendererTargetId: "r1" });
+    binding.refresh();
+    await f.service.dispatchPermission(f.sender, { kind: "request", scope: { mode: "agent", hosts: ["example.com"], actions: ["navigate", "observe", "click", "type"] } });
+    const lease = binding.retainRunLease(binding.getCurrentOwner()!, { conversationId: "a", runId: "run-1" })!;
+    const run = { conversationId: "a", runId: "run-1", signal: new AbortController().signal, isCurrent: () => true };
+
+    // Q8: switch away after consent before first open -> open rejected in background
+    f.targets.setActive({ sender: f.wc as unknown as WebContents, sessionId: "b", mode: "work", rendererTargetId: "r1" });
+    binding.refresh();
+    expect(await f.service.executeAgent(lease, { operation: "open", url: "https://example.com/" }, run)).toEqual({ ok: false, code: "permission_denied" });
+    expect(f.guests).toHaveLength(0);
+
+    // Switch back -> panel mount recovers owner via get, then open succeeds
+    f.targets.setActive({ sender: f.wc as unknown as WebContents, sessionId: "a", mode: "work", rendererTargetId: "r2" });
+    binding.refresh();
+    await f.service.dispatch(f.sender, { kind: "get" });
+    const opened = await f.service.executeAgent(lease, { operation: "open", url: "https://example.com/" }, run);
+    expect(opened).toMatchObject({ ok: true });
+    const browserId = (opened as { ok: true; value: { browserId: string } }).value.browserId;
+    await f.service.dispatch(f.sender, { kind: "layout", browserId, bounds: { x: 0, y: 0, width: 400, height: 300 } });
+
+    // Q7-1: background observe then 1px width change invalidates old snapshot
+    f.targets.setActive({ sender: f.wc as unknown as WebContents, sessionId: "b", mode: "work", rendererTargetId: "r2" });
+    binding.refresh();
+    const obsW = await f.service.executeAgent(lease, { operation: "observe" }, run);
+    const snapW = (obsW as { ok: true; value: { snapshotId: string } }).value.snapshotId;
+    f.targets.setActive({ sender: f.wc as unknown as WebContents, sessionId: "a", mode: "work", rendererTargetId: "r3" });
+    binding.refresh();
+    await f.service.dispatch(f.sender, { kind: "layout", browserId, bounds: { x: 0, y: 0, width: 401, height: 300 } });
+    expect(await f.service.executeAgent(lease, { operation: "click", snapshotId: snapW, ref: "1" }, run)).toEqual({ ok: false, code: "observe_required" });
+    expect(f.effects.filter(e => e.startsWith("click:"))).toEqual([]);
+
+    // Same for 1px height change
+    const obsH = await f.service.executeAgent(lease, { operation: "observe" }, run);
+    const snapH = (obsH as { ok: true; value: { snapshotId: string } }).value.snapshotId;
+    await f.service.dispatch(f.sender, { kind: "layout", browserId, bounds: { x: 0, y: 0, width: 401, height: 299 } });
+    expect(await f.service.executeAgent(lease, { operation: "click", snapshotId: snapH, ref: "1" }, run)).toEqual({ ok: false, code: "observe_required" });
+
+    binding.dispose(); f.targets.dispose(); await f.service.dispose();
+  });
+
+  it("handles concurrent race conditions: simultaneous release & input, permission change while detached, and reused ref on new element", async () => {
+    const f = leasedFixture();
+    const { registerBrowserHostOwner } = await import("./browser-host-owner");
+    const binding = registerBrowserHostOwner({ host: f.host, profile: f.profile, targets: f.targets, service: f.service, readSession: id => ({ id, mode: "work" }), isRunActive: () => true });
+    f.targets.setActive({ sender: f.wc as unknown as WebContents, sessionId: "a", mode: "work", rendererTargetId: "r1" });
+    binding.refresh();
+    await f.service.dispatchPermission(f.sender, { kind: "request", scope: { mode: "agent", hosts: ["example.com"], actions: ["navigate", "observe", "click", "type"] } });
+    const lease = binding.retainRunLease(binding.getCurrentOwner()!, { conversationId: "a", runId: "run-1" })!;
+    const run = { conversationId: "a", runId: "run-1", signal: new AbortController().signal, isCurrent: () => true };
+
+    const opened = await f.service.executeAgent(lease, { operation: "open", url: "https://example.com/" }, run);
+    const browserId = (opened as { ok: true; value: { browserId: string } }).value.browserId;
+    await f.service.dispatch(f.sender, { kind: "layout", browserId, bounds: { x: 0, y: 0, width: 400, height: 300 } });
+    const oldObs = await f.service.executeAgent(lease, { operation: "observe" }, run);
+    const oldSnap = (oldObs as { ok: true; value: { snapshotId: string } }).value.snapshotId;
+
+    // Race 3: switch away, DOM updates with a DIFFERENT button reusing the exact same ref="1", switch back without re-observing
+    f.targets.setActive({ sender: f.wc as unknown as WebContents, sessionId: "b", mode: "work", rendererTargetId: "r1" });
+    binding.refresh();
+    f.setElementLabel("Delete Forever");
+    f.targets.setActive({ sender: f.wc as unknown as WebContents, sessionId: "a", mode: "work", rendererTargetId: "r2" });
+    binding.refresh();
+    await f.service.dispatch(f.sender, { kind: "layout", browserId, bounds: { x: 0, y: 0, width: 400, height: 300 } });
+    // Reused ref with old snapshotId MUST fail with observe_required and NEVER invoke guest.act
+    expect(await f.service.executeAgent(lease, { operation: "click", snapshotId: oldSnap, ref: "1" }, run)).toEqual({ ok: false, code: "observe_required" });
+    expect(f.effects.filter(e => e.startsWith("click:"))).toEqual([]);
+
+    // Fresh foreground observe returns the new label + new snapshotId; only that new snapshotId can click
+    const freshObs = await f.service.executeAgent(lease, { operation: "observe" }, run);
+    expect(freshObs).toMatchObject({ ok: true, value: { elements: [{ ref: "1", name: "Delete Forever" }] } });
+    const freshSnap = (freshObs as { ok: true; value: { snapshotId: string } }).value.snapshotId;
+
+    // Race 1: op release / dispatch racing at the exact same tick as focus/manual-presentation loss
+    f.setHostState({ focused: false });
+    (f.host as unknown as EventEmitter).emit("blur");
+    expect(await f.service.executeAgent(lease, { operation: "click", snapshotId: freshSnap, ref: "1" }, run)).toEqual({ ok: false, code: "permission_denied" });
+    expect(f.effects.filter(e => e.startsWith("click:"))).toEqual([]);
+
+    // Re-focus, re-observe, and test permission change during detached/paused state (Race 2)
+    f.setHostState({ focused: true });
+    (f.host as unknown as EventEmitter).emit("focus");
+    const obs3 = await f.service.executeAgent(lease, { operation: "observe" }, run);
+    const snap3 = (obs3 as { ok: true; value: { snapshotId: string } }).value.snapshotId;
+    f.targets.setActive({ sender: f.wc as unknown as WebContents, sessionId: "b", mode: "work", rendererTargetId: "r2" });
+    binding.refresh();
+    // Change/revoke permission during detached/switch cycle -> old lease cannot continue after switch-back
+    f.targets.setActive({ sender: f.wc as unknown as WebContents, sessionId: "a", mode: "work", rendererTargetId: "r3" });
+    binding.refresh();
+    await f.service.dispatchPermission(f.sender, { kind: "revoke", conversationId: "a" });
+    await f.service.dispatchPermission(f.sender, { kind: "request", scope: { mode: "agent", hosts: ["example.com"], actions: ["navigate", "observe"] } });
+    expect(await f.service.executeAgent(lease, { operation: "click", snapshotId: snap3, ref: "1" }, run)).toEqual({ ok: false, code: "cancelled" });
+    // Even if a fresh lease is minted for the narrowed grant, narrowed grant (no click) rejects click with permission_denied
+    const narrowedLease = binding.retainRunLease(binding.getCurrentOwner()!, { conversationId: "a", runId: "run-2" })!;
+    expect(await f.service.executeAgent(narrowedLease, { operation: "click", snapshotId: snap3, ref: "1" }, { ...run, runId: "run-2" })).toEqual({ ok: false, code: "permission_denied" });
+
+    binding.dispose(); f.targets.dispose(); await f.service.dispose();
+  });
+
+  it("re-checks stillCurrent, samePresentation and requestId after every await in observe, act and loadURL", async () => {
+    for (const opKind of ["observe", "act", "loadURL"] as const) {
+      for (const disruption of ["requestId", "presentationRevision", "leaseRevoke"] as const) {
+        const f = leasedFixture();
+        const { registerBrowserHostOwner } = await import("./browser-host-owner");
+        const binding = registerBrowserHostOwner({ host: f.host, profile: f.profile, targets: f.targets, service: f.service, readSession: id => ({ id, mode: "work" }), isRunActive: () => true });
+        f.targets.setActive({ sender: f.wc as unknown as WebContents, sessionId: "a", mode: "work", rendererTargetId: "r1" });
+        binding.refresh();
+        await f.service.dispatchPermission(f.sender, { kind: "request", scope: { mode: "agent", hosts: ["example.com", "github.com"], actions: ["navigate", "observe", "click", "type"] } });
+        const lease = binding.retainRunLease(binding.getCurrentOwner()!, { conversationId: "a", runId: `run-${opKind}-${disruption}` })!;
+        const run = { conversationId: "a", runId: `run-${opKind}-${disruption}`, signal: new AbortController().signal, isCurrent: () => true };
+
+        const opened = await f.service.executeAgent(lease, { operation: "open", url: "https://example.com/" }, run);
+        const browserId = (opened as { ok: true; value: { browserId: string } }).value.browserId;
+        await f.service.dispatch(f.sender, { kind: "layout", browserId, bounds: { x: 0, y: 0, width: 400, height: 300 } });
+        const obs = await f.service.executeAgent(lease, { operation: "observe" }, run);
+        const snap = (obs as { ok: true; value: { snapshotId: string } }).value.snapshotId;
+
+        const gate = deferred<void>();
+        if (opKind === "observe") f.delayObserve(() => gate.promise);
+        else if (opKind === "act") f.delayAct(() => gate.promise);
+        else f.delayLoad(() => gate.promise);
+
+        const inFlight = opKind === "observe"
+          ? f.service.executeAgent(lease, { operation: "observe" }, run)
+          : opKind === "act"
+            ? f.service.executeAgent(lease, { operation: "click", snapshotId: snap, ref: "1" }, run)
+            : f.service.executeAgent(lease, { operation: "navigate", url: "https://github.com/" }, run);
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        if (disruption === "requestId") {
+          if (opKind === "loadURL") {
+            // Stop command aborts the pending navigation and advances page.requestId mid-await
+            await f.service.dispatch(f.sender, { kind: "stop", browserId });
+          } else {
+            // Simulate a page-initiated navigation advancing page.requestId mid-await
+            f.callbacks[0]?.started("https://example.com/other");
+          }
+        } else if (disruption === "presentationRevision") {
+          f.setHostState({ focused: false });
+          (f.host as unknown as EventEmitter).emit("blur");
+        } else {
+          binding.releaseRunLease("a", run.runId);
+        }
+
+        gate.resolve();
+        const res = await inFlight;
+        expect(res.ok, `${opKind}/${disruption}`).toBe(false);
+        expect(["cancelled", "owner_mismatch"], `${opKind}/${disruption}`).toContain((res as { ok: false; code: string }).code);
+        if (opKind === "loadURL") {
+          const pageAfter = await f.service.dispatch(f.sender, { kind: "get" });
+          if (disruption !== "leaseRevoke") {
+            expect((pageAfter as { ok: true; value: { url: string } | null }).value?.url).not.toBe("https://github.com/");
+          }
+        }
+        binding.dispose(); f.targets.dispose(); await f.service.dispose();
+      }
+    }
+  });
+});
