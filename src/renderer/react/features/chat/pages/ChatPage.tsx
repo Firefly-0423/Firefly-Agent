@@ -606,6 +606,7 @@ export function ChatPage() {
     if (query && targetMode === activeModeRef.current) {
       await store.setActiveSession(sessionId, targetMode);
       if (generation !== sessionSelectionGeneration.current) return "stale";
+      let observerReady = false;
       const observer = observeSessionRunStatus({ sessionId,
         candidates: session.messages.filter(isRunStatusCandidate).map(message => ({
           assistantTurnId: message.id, ...(message.runSnapshot?.runId ? { runId: message.runSnapshot.runId } : {}),
@@ -624,7 +625,9 @@ export function ChatPage() {
         publish: statuses => {
           if (generation !== sessionSelectionGeneration.current) return;
           unresolvedRunStatus = statuses.some(item => item.phase === "unavailable");
-          observedRunBusyRef.current[sessionId] = statuses.some(item => item.phase === "running" || item.phase === "settling");
+          const wasBusy = Boolean(observedRunBusyRef.current[sessionId]);
+          const busy = statuses.some(item => item.phase === "running" || item.phase === "settling");
+          observedRunBusyRef.current[sessionId] = busy;
           observedRunStatusesRef.current[sessionId] = statuses;
           statusMessages = toUiMessages(presentationSession, statuses);
           if (!hasActiveRunForSession(activeRunsBySession.current, sessionId)) hydrateMessages(sessionId, statusMessages, false);
@@ -633,10 +636,17 @@ export function ChatPage() {
             const replacement = statusMessages.find(message => message.id === status.assistantTurnId);
             if (replacement) updateMessage(sessionId, replacement.id, replacement);
           }
+          // A reload dropped the controller whose onRunFinished would resume the queue; an observed run that
+          // ends hands over to the same path. Interrupted or unknown endings pause it, as a failed start does.
+          if (observerReady && wasBusy && !busy && !hasActiveRunForSession(activeRunsBySession.current, sessionId)) {
+            queueFlow.handleRunFinished({ mode: targetMode, sessionId,
+              queuePaused: unresolvedRunStatus || statuses.some(item => item.phase === "interrupted") });
+          }
         },
       });
       runStatusObserverRef.current = observer;
       await observer.ready;
+      observerReady = true;
       if (generation !== sessionSelectionGeneration.current) { observer.dispose(); return "stale"; }
     }
     setActiveSession(session);

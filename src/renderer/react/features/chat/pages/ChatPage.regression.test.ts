@@ -205,7 +205,7 @@ beforeEach(() => {
 });
 
 describe("C7 read-only run status recovery", () => {
-  test.each(["chat", "work", "code"] as const)("%s reload before ack finds the same assistant row, waits through settling and fills the terminal", async mode => {
+  test.each(["chat", "work", "code"] as const)("%s reload before ack finds the same assistant row, waits through settling, fills the terminal and then resumes the queue", async mode => {
     const partial: ChatMessage = { id: "original-assistant", role: "model", at: 2, content: "partial",
       toolExecutions: [{ id: "tool", name: "ask_user", status: "running" }] };
     sessions = { "session-a": session("session-a", mode, [{ id: "u", role: "user", at: 1, content: "task" }, partial]) };
@@ -233,11 +233,29 @@ describe("C7 read-only run status recovery", () => {
     expect(queues["session-a"]).toEqual([waiting]);
     phase = "finished"; seq++;
     await act(async () => document.dispatchEvent(new Event("visibilitychange"))); await flush();
-    expect(texts("#messages li")).toEqual(["task", "final answer"]);
-    expect(runCalls).toEqual([]);
-    expect(page.chatStore.upsert).not.toHaveBeenCalled();
-    expect(page.agui.reportRunPersisted).not.toHaveBeenCalled();
+    expect(texts("#messages li").slice(0, 2)).toEqual(["task", "final answer"]);
+    expect(page.chatStore.upsert).not.toHaveBeenCalledWith("session-a", expect.objectContaining({ id: "original-assistant" }));
+    expect(page.agui.reportRunPersisted).not.toHaveBeenCalledWith(expect.objectContaining({ runId: "main-run" }));
+    // The reload dropped the controller that would resume the queue, so the observed finish hands over once.
+    expect(page.chatStore.pendingClaim).toHaveBeenCalledWith("session-a");
+    expect(runCalls).toHaveLength(1);
+    expect(runCalls[0].sessionId).toBe("session-a");
+    expect(queues["session-a"] ?? []).toEqual([]);
+  });
+
+  test("an observed run that ends interrupted leaves the queue paused", async () => {
+    const partial: ChatMessage = { id: "a", role: "model", at: 2, content: "partial", runSnapshot: { runId: "r", status: "running", updatedAt: 2 } };
+    sessions = { "session-a": session("session-a", "work", [{ id: "u", role: "user", at: 1, content: "task" }, partial]) };
+    const waiting = { id: "queued-next", rawContent: "next task", visibleContent: "next task", enqueuedAt: 3 };
+    queues["session-a"] = [waiting];
+    let phase: "running" | "interrupted" = "running";
+    const query = vi.fn(async () => [{ sessionId: "session-a", assistantTurnId: "a", runId: "r", seq: phase === "running" ? 1 : 2, phase }]);
+    await mount("work", () => { page.agui.getRunStatus = query as NonNullable<AguiApi["getRunStatus"]>; });
+    phase = "interrupted";
+    await act(async () => document.dispatchEvent(new Event("visibilitychange"))); await flush();
+    expect(query).toHaveBeenCalledTimes(2);
     expect(page.chatStore.pendingClaim).not.toHaveBeenCalled();
+    expect(runCalls).toEqual([]);
     expect(queues["session-a"]).toEqual([waiting]);
   });
 
