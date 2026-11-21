@@ -263,8 +263,13 @@ export function getOrCreateSessionByPurpose(purpose: ChatSessionPurpose, opts?: 
 
 export function appendMessage(id: string, message: ChatMessage): ChatSession | null {
   return change(id, (conversation) => {
-    if (conversation.runPresentations?.[message.id]) return;
-    conversation.messages.push(message);
+    const record = conversation.runPresentations?.[message.id];
+    if (isProtectedRun(record) || isLateRunCheckpoint(record, message)) return;
+    if (record) {
+      const offset = conversation.messages.findIndex(row => row.id === message.id);
+      if (offset >= 0) conversation.messages[offset] = keepRunInsertion(conversation.messages[offset], message);
+      else conversation.messages.push(message);
+    } else conversation.messages.push(message);
     conversation.updatedAt = Date.now();
     retitle(conversation);
   });
@@ -281,7 +286,8 @@ function keepRunInsertion(stored: ChatMessage | undefined, incoming: ChatMessage
 
 export function upsertMessage(id: string, message: ChatMessage): ChatSession | null {
   return change(id, (conversation) => {
-    if (conversation.runPresentations?.[message.id]) return;
+    const record = conversation.runPresentations?.[message.id];
+    if (isProtectedRun(record) || isLateRunCheckpoint(record, message)) return;
     const offset = conversation.messages.findIndex((row) => row.id === message.id);
     if (offset >= 0) conversation.messages[offset] = keepRunInsertion(conversation.messages[offset], message);
     else conversation.messages.push(message);
@@ -774,16 +780,35 @@ export function getRunStatus(sessionId: string, assistantTurnId: string, snapsho
 }
 
 
-/** A page snapshot cannot replace or omit a Main-owned assistant row. */
+function isProtectedRun(record: RunPresentationRecord | undefined): boolean {
+  return record?.phase === "running" || record?.phase === "settling";
+}
+
+function isLateRunCheckpoint(record: RunPresentationRecord | undefined, message: ChatMessage): boolean {
+  return record?.phase === "finished" && message.runSnapshot?.runId === record.runId
+    && message.runSnapshot.status !== "terminal";
+}
+
+/** A replacement may delete finished replies, but cannot undo an active write or restore a stale checkpoint. */
 function protectRunMessages(session: ChatSession, incoming: ChatMessage[]): ChatMessage[] {
-  const protectedRows = session.messages.filter(row => session.runPresentations?.[row.id]);
-  const protectedIds = new Set(protectedRows.map(row => row.id));
+  const incomingById = new Map(incoming.map(row => [row.id, row]));
+  const records = session.runPresentations;
+  for (const [id, record] of Object.entries(records ?? {})) {
+    if (!isProtectedRun(record) && !incomingById.has(id)) delete records![id];
+  }
+  const protectedRows = session.messages.filter(row => {
+    const record = records?.[row.id];
+    const replacement = incomingById.get(row.id);
+    return isProtectedRun(record) || Boolean(replacement && isLateRunCheckpoint(record, replacement));
+  });
+  const protectedById = new Map(protectedRows.map(row => [row.id, row]));
   const seen = new Set<string>();
   const merged = incoming.flatMap(row => {
-    if (!protectedIds.has(row.id)) return [row];
+    const stored = protectedById.get(row.id);
+    if (!stored) return [row];
     if (seen.has(row.id)) return [];
     seen.add(row.id);
-    return [protectedRows.find(stored => stored.id === row.id)!];
+    return [stored];
   });
   for (const row of protectedRows) {
     if (seen.has(row.id)) continue;

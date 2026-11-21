@@ -22,14 +22,45 @@ async function setup() {
  return {store,session,identity,message};
 }
 describe("Main owned final message persistence",()=>{
- it("blocks stale page writes and deletion through tail replacement while keeping unrelated inserted rows",async()=>{
+ it.each(["running","settling"])("keeps the owned assistant row while %s",async phase=>{
+  const {store,session,identity}=await setup();
+  if(phase==="settling")expect(store.beginRunSettlement(identity)).toBe(true);
+  const original=store.getSession(session.id)!.messages[1];
+  store.upsertMessage(session.id,{...original,content:"stale"});
+  store.replaceMessagesTail(session.id,1,[{id:"insert",role:"user",content:"inserted",at:4}]);
+  expect(store.getSession(session.id)?.messages.slice(1)).toEqual([original,{id:"insert",role:"user",content:"inserted",at:4}]);
+ });
+ it.each(["regenerate","edit"])("removes the completed reply on %s and records only its replacement",async operation=>{
   const {store,session,identity,message}=await setup();
   expect(store.commitRunTerminal(identity,message)).toBe(true);
-  store.upsertMessage(session.id,{...message,content:"stale"});
-  store.appendMessage(session.id,{...message,content:"duplicate"});
-  store.replaceMessagesTail(session.id,1,[{id:"insert",role:"user",content:"inserted",at:4}]);
-  expect(store.getSession(session.id)?.messages).toEqual([{id:"u",role:"user",content:"question",at:1},message,{id:"insert",role:"user",content:"inserted",at:4}]);
-  expect(store.getRunStatus(session.id,"a")).toEqual({sessionId:session.id,assistantTurnId:"a",runId:"r",seq:3,phase:"finished",message});
+  const user={id:"u",role:"user" as const,content:operation==="edit"?"edited":"question",at:1};
+  store.replaceMessagesTail(session.id,0,[user]);
+  expect(store.getSession(session.id)?.runPresentations?.a).toBeUndefined();
+  const next={...identity,assistantTurnId:"new-a",runId:"next"};
+  expect(store.registerRun(next)).toBe(true);
+  const response={...message,id:"new-a",content:"new answer",runSnapshot:{...message.runSnapshot,runId:"next"}};
+  expect(store.commitRunTerminal(next,response)).toBe(true);
+  expect(store.getSession(session.id)?.messages).toEqual([user,response]);
+ });
+ it("removes the completed reply and its mapping when history is compacted",async()=>{
+  const {store,session,identity,message}=await setup();
+  expect(store.commitRunTerminal(identity,message)).toBe(true);
+  const summary={id:"summary",role:"user" as const,content:"summary",at:4};
+  store.replaceMessages(session.id,[summary]);
+  expect(store.getSession(session.id)?.messages).toEqual([summary]);
+  expect(store.getRunStatus(session.id,"a")).toBeUndefined();
+  expect(store.getSession(session.id)?.runPresentations?.a).toBeUndefined();
+ });
+ it("rejects late running snapshots but accepts normal updates to a finished row",async()=>{
+  const {store,session,identity,message}=await setup();
+  expect(store.commitRunTerminal(identity,message)).toBe(true);
+  const stale={...message,content:"stale",runSnapshot:{...message.runSnapshot,status:"running" as const}};
+  store.upsertMessage(session.id,stale);
+  store.appendMessage(session.id,stale);
+  store.replaceMessagesTail(session.id,1,[stale]);
+  expect(store.getSession(session.id)?.messages.slice(1)).toEqual([message]);
+  store.upsertMessage(session.id,{...message,content:"updated"});
+  expect(store.getSession(session.id)?.messages.slice(1)).toEqual([{...message,content:"updated"}]);
  });
  it("keeps one frozen pending value after write failure and recovers it on startup without execution",async()=>{
   let {store,session,identity,message}=await setup();
