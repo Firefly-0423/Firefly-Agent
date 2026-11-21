@@ -1082,23 +1082,26 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
         true,
         runId,
       );
-      // Another operation's failed save may have reloaded `state` while the action ran; settle the current record.
-      const settled = state.approvals[runId] ?? record;
+      // State may have been reloaded after a failed save, or the approval may have been removed.
+      const settled = state.approvals[runId];
+      if (!settled) {
+        throw new PluginScheduleError("ERR_CANCELLED", `Run approval "${runId}" was removed before settlement`);
+      }
       settled.status = result.ok ? "completed" : "failed";
       if (!result.ok && result.error) {
         settled.error = result.error;
       }
       settled.settledAt = clock().toISOString();
-      state.approvals[runId] = settled;
       persistState();
       return { approval: cloneValue(settled), result };
     } catch (failure) {
-      const settled = state.approvals[runId] ?? record;
-      settled.status = "failed";
-      settled.error = failure instanceof Error ? failure.message : String(failure);
-      settled.settledAt = clock().toISOString();
-      state.approvals[runId] = settled;
-      persistState();
+      const settled = state.approvals[runId];
+      if (settled) {
+        settled.status = "failed";
+        settled.error = failure instanceof Error ? failure.message : String(failure);
+        settled.settledAt = clock().toISOString();
+        persistState();
+      }
       throw failure;
     } finally {
       runningTasks.delete(task.id);

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { AtomicJsonStore } from "../../../main/base/storage/atomic-json-store";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -844,6 +844,61 @@ describe("PluginSchedulesService (v2)", () => {
       const settled = await running;
       expect(settled.approval.status).toBe("completed");
       expect(service.getRunApproval(waiting.runId)?.status).toBe("completed");
+    });
+
+    it("does not restore an approval when a callback finishes after plugin uninstall", async () => {
+      const { service } = setupHarness();
+      const pluginId = "dev.firefly.reminder";
+      const client = service.forPlugin(pluginId);
+      let finish!: () => void;
+      const callback = vi.fn(() => new Promise<void>(resolve => { finish = resolve; }));
+      client.onTrigger(callback);
+      const proposed = await client.propose(runSpec({ action: { type: "callback" } }));
+      service.confirmProposal(proposed.taskId);
+
+      const pending = service.suspendUnattendedRun(proposed.taskId, ["shell"]);
+      const running = service.approveRun(pending.runId);
+      const outcome = running.catch((failure: unknown) => failure);
+      expect(callback).toHaveBeenCalledTimes(1);
+      expect(service.getRunApproval(pending.runId)?.status).toBe("approved");
+
+      service.uninstallPlugin(pluginId);
+      expect(service.getRunApproval(pending.runId)).toBeUndefined();
+      const stateFile = join(workdir, "plugin-schedules-state.json");
+      const stateAfterUninstall = readFileSync(stateFile, "utf8");
+      finish();
+      const settled = await outcome;
+
+      expect(service.getRunApproval(pending.runId)).toBeUndefined();
+      expect(readFileSync(stateFile, "utf8")).toBe(stateAfterUninstall);
+      expect(settled).toMatchObject({ code: "ERR_CANCELLED", retryable: false });
+    });
+
+    it("does not restore an approval when the approved action throws after task removal", async () => {
+      let failAction!: (cause: Error) => void;
+      const { service, runAgentMock } = setupHarness({
+        runAgentTask: () => new Promise<ScheduledRunResult>((_resolve, reject) => { failAction = reject; }),
+      });
+      const client = service.forPlugin("dev.firefly.reminder");
+      const proposed = await client.propose(runSpec());
+      service.confirmProposal(proposed.taskId);
+
+      const pending = service.suspendUnattendedRun(proposed.taskId, ["shell"]);
+      const running = service.approveRun(pending.runId);
+      const outcome = running.catch((failure: unknown) => failure);
+      expect(runAgentMock).toHaveBeenCalledTimes(1);
+      expect(service.getRunApproval(pending.runId)?.status).toBe("approved");
+
+      expect(await client.remove(proposed.taskId)).toBe(true);
+      expect(service.getRunApproval(pending.runId)).toBeUndefined();
+      const stateFile = join(workdir, "plugin-schedules-state.json");
+      const stateAfterRemoval = readFileSync(stateFile, "utf8");
+      const actionFailure = new Error("Agent run failed");
+      failAction(actionFailure);
+      expect(await outcome).toBe(actionFailure);
+
+      expect(service.getRunApproval(pending.runId)).toBeUndefined();
+      expect(readFileSync(stateFile, "utf8")).toBe(stateAfterRemoval);
     });
 
     it("a cron task whose plan the user changed in the scheduler panel keeps the user's plan", async () => {
