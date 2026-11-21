@@ -691,4 +691,21 @@ describe("Terminal checkpoint saves are confirmed before they are reported", () 
     expect(s.saved().filter(row => row.runSnapshot?.status === "terminal")).toEqual([]);
     expect(s.bridge.reportRunPersisted).not.toHaveBeenCalled();
   });
+
+  test("a Main-managed run releases the queue only after Main stops reporting it as settling", async () => {
+    const s = runScenario({ ack: { success: true, runId: "run-1", mainOwnsTerminal: true } });
+    const phases = ["settling", "settling", "finished"] as const;
+    let call = 0;
+    const getRunStatus = vi.fn(async () => {
+      const phase = phases[Math.min(call++, phases.length - 1)];
+      if (phase !== "finished") expect(s.host.onRunFinished).not.toHaveBeenCalled();
+      return [{ sessionId: "session-1", assistantTurnId: "assistant-1", runId: "run-1", seq: call, phase }];
+    });
+    (s.bridge as AguiApi).getRunStatus = getRunStatus as unknown as AguiApi["getRunStatus"];
+    await s.ready(); s.text("visible answer");
+    await s.finish();
+    expect(getRunStatus).toHaveBeenCalledTimes(3);
+    expect(getRunStatus).toHaveBeenCalledWith({ sessionId: "session-1", candidates: [{ assistantTurnId: "assistant-1", runId: "run-1" }] });
+    expect(s.host.onRunFinished.mock.calls).toEqual([[{ mode: "chat", sessionId: "session-1", queuePaused: false }]]);
+  });
 });

@@ -26,6 +26,8 @@ type CheckpointPhase = "running" | "waiting_user" | "terminal" | "interrupted";
 /** A terminal snapshot is written at most this many times; the waits between attempts follow. */
 const TERMINAL_SAVE_ATTEMPTS = 3;
 const TERMINAL_SAVE_RETRY_MS = [100, 300] as const;
+const MAIN_SETTLEMENT_POLL_MS = 250;
+const MAIN_SETTLEMENT_WAIT_MS = 15_000;
 type PublicText = [key: string, content: string, publish: (chunk: string) => void];
 
 export type AgentRunInput = {
@@ -310,12 +312,35 @@ export class AgentRunController {
     if (this.mainOwnsTerminal) {
       if (this.saveTimer !== undefined) { window.clearTimeout(this.saveTimer); this.saveTimer = undefined; }
       await this.saves.catch(() => null);
+      await this.waitForMainSettlement();
       await this.refreshCanonicalSettlement();
       return;
     }
     if (!await this.persistTerminal()) { this.showTerminalSaveFailure(); return; }
     await this.refreshCanonicalSettlement();
     this.reportRunPersisted();
+  }
+
+  /**
+   * Main keeps the session's run guard until its terminal write lands, retrying a failed write. Releasing the
+   * controller (and resuming the queue) before that would start the next queued message into SESSION_RUN_ACTIVE.
+   * Wait, bounded, until Main no longer reports this turn as running or settling.
+   */
+  private async waitForMainSettlement(): Promise<void> {
+    const query = this.ports.api?.getRunStatus;
+    if (typeof query !== "function") return;
+    const runId = this.ports.registries.activeRuns.current[this.request.sessionId]?.runId;
+    const deadline = Date.now() + MAIN_SETTLEMENT_WAIT_MS;
+    for (;;) {
+      try {
+        const statuses = await query({ sessionId: this.request.sessionId,
+          candidates: [{ assistantTurnId: this.request.assistantId, ...(runId ? { runId } : {}) }] });
+        const phase = statuses.find(item => item.assistantTurnId === this.request.assistantId)?.phase;
+        if (phase !== "running" && phase !== "settling") return;
+      } catch { return; }
+      if (Date.now() >= deadline) return;
+      await new Promise<void>((resume) => { window.setTimeout(resume, MAIN_SETTLEMENT_POLL_MS); });
+    }
   }
 
   /** Writes one frozen terminal snapshot, retrying it after a thrown failure; a reply without the message is final. */
