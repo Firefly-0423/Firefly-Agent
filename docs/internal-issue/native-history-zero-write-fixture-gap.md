@@ -13,7 +13,7 @@
 
 ## 影响范围
 
-- **受影响范围**：原生历史零写入独立验收测试（`scripts/testing/vitest.memory-history-zero-write.config.ts`）。产品历史来源证明契约本身行为正常。
+- **受影响范围**：原生历史零写入独立验收测试（`scripts/testing/vitest.memory-history-zero-write.config.mts`）。产品历史来源证明契约本身行为正常。
 
 ## 根因
 

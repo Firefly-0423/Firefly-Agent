@@ -1,5 +1,5 @@
 import { defineConfig } from "vitest/config";
-import ordinary from "../../vitest.config";
+import ordinary from "../../vitest.config.mts";
 
 /** Explicit native zero-write/cancellation acceptance; ordinary test results do not replace this gate. */
 export default defineConfig({

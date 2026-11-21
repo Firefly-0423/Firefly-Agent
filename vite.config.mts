@@ -7,7 +7,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { fireflyEnvironment } from "./src/shared/firefly-environment";
 
-const fromRoot = (...segments: string[]) => resolve(__dirname, ...segments);
+const fromRoot = (...segments: string[]) => resolve(import.meta.dirname, ...segments);
 
 /** 渲染进程的各个页面：Rollup 入口名 → 相对 src/renderer 的 HTML。 */
 const PAGES: Record<string, string> = {

@@ -27,6 +27,9 @@ import { beginWriteBatch } from "./file-write-evidence";
 import { inspectWorkReadFile } from "../../features/sessions/work-read-scope";
 
 const tool = (id: string) => fixture.tools.get(id)!;
+it("requests code verification when writing a TypeScript ES module", () => {
+  expect(tool("write_file").verificationPolicyResolver?.({ path: "src/module.mts" })).toBe("code");
+});
 const read = async (path: string, args = {}, context?: ToolContext) => JSON.parse(await tool("read_file").execute({ path, ...args }, context));
 const write = async (path: string, content: string, args = {}, context?: ToolContext) => JSON.parse(await tool("write_file").execute({ path, content, ...args }, context));
 const prepare = (text: string, name = "observations.txt") => { const file = join(fixture.root, name); fs.writeFileSync(file, text); return file; };

@@ -34,7 +34,7 @@
 
 ### 修改
 
-- `src/main` 下全部文件的位置与相对引用；`scripts/`、`package.json`、`tsconfig.main.json`、`tsconfig.sim.json`、`vitest.config.ts`、`electron-builder.yml`、`.gitattributes`、README 中的路径
+- `src/main` 下全部文件的位置与相对引用；`scripts/`、`package.json`、`tsconfig.main.json`、`tsconfig.sim.json`、`vitest.config.mts`、`electron-builder.yml`、`.gitattributes`、README 中的路径
 - 根目录 `AGENTS.md`：加“主进程分层”一节
 
 ## 施工包

@@ -44,8 +44,8 @@
 ### 工程与 CI
 
 - 生产依赖审计及报告上传已完成，保持非阻断。证据：`.github/workflows/test.yml` 的 `Audit production dependencies`、`Upload production dependency audit report`。
-- 默认 Vitest 全集已接入 CI。实际配置是 `vitest.config.ts`（不是 `.mts`），列出七组测试路径；CI 无文件参数调用 `scripts/ci/run-vitest.ps1`，该脚本直接执行 `vitest run` 并传回退出码。证据：`vitest.config.ts` 的 `test.include`、`scripts/ci/run-vitest.ps1:1,15,23`、`.github/workflows/test.yml:99-103`。“把筛选测试改成默认 Vitest 全集”已不需要，不在施工范围。
-- 默认 Vitest 不涵盖全部测试入口：现有 26 个 `scripts/**/*.test.mjs` 使用 Node 测试运行器；另有原生零写入独立验收配置。证据：`scripts/README.md:26`、`scripts/testing/vitest.memory-history-zero-write.config.ts`。
+- 默认 Vitest 全集已接入 CI。实际配置是 `vitest.config.mts`（不是 `.mts`），列出七组测试路径；CI 无文件参数调用 `scripts/ci/run-vitest.ps1`，该脚本直接执行 `vitest run` 并传回退出码。证据：`vitest.config.mts` 的 `test.include`、`scripts/ci/run-vitest.ps1:1,15,23`、`.github/workflows/test.yml:99-103`。“把筛选测试改成默认 Vitest 全集”已不需要，不在施工范围。
+- 默认 Vitest 不涵盖全部测试入口：现有 26 个 `scripts/**/*.test.mjs` 使用 Node 测试运行器；另有原生零写入独立验收配置。证据：`scripts/README.md:26`、`scripts/testing/vitest.memory-history-zero-write.config.mts`。
 - CI 已执行部分 Rust 工作区测试及 SDK 示例测试，不代表所有原生测试都执行了。证据：`.github/workflows/test.yml:62-73`、`.github/workflows/plugin-sdk.yml:39-40`。
 - 测试工作流只匹配 `main`、`firefly-demo` 的 push / PR；开发分支的直接 push 不会触发。证据：`.github/workflows/test.yml` 的 `on`。
 
