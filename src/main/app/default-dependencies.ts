@@ -913,10 +913,11 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
             codeGitService: services.git,
             lspManager: services.lsp,
             browserWorkspace: createBrowserWorkspaceExecutor({
-              currentOwner: () => {
+              currentOwner: (conversationId) => {
                 for (const host of liveBrowserHosts()) {
-                  const owner = host.binding.getCurrentOwner();
-                  if (owner) return owner;
+                  const owner = host.binding.getCurrentOwner?.();
+                  if (!owner) continue;
+                  if (conversationId === undefined || owner.conversationId === conversationId) return owner;
                 }
                 return null;
               },

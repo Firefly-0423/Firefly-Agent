@@ -5,7 +5,7 @@ export type BrowserWorkspaceExecutor = (command: Record<string, unknown>, contex
 /** Main composition injects the real host binding and active-run registry. No
  * renderer WebContents IDs, browser DTOs or model-supplied owners are authority. */
 export function createBrowserWorkspaceExecutor(options: {
-  currentOwner(): TrustedBrowserOwner | null;
+  currentOwner(conversationId?: string): TrustedBrowserOwner | null;
   service(): Pick<ReturnType<typeof createBrowserService>, "executeAgent">;
   isRunCurrent(conversationId: string, runId: string): boolean;
   getRunLease?(conversationId: string, runId: string): BrowserRunLease | null;
@@ -21,7 +21,7 @@ export function createBrowserWorkspaceExecutor(options: {
     if (options.retainRunLease || options.getRunLease) {
       let lease = options.getRunLease?.(conversationId, runId) ?? null;
       if (!lease) {
-        const owner = options.currentOwner();
+        const owner = options.currentOwner(conversationId);
         if (!owner || owner.conversationId !== conversationId || owner.signal.aborted) {
           return { ok: false, code: "owner_mismatch" };
         }
@@ -36,13 +36,13 @@ export function createBrowserWorkspaceExecutor(options: {
         isCurrent: () => !signal.aborted && !activeLease.signal.aborted && activeLease.isCurrent() && options.isRunCurrent(conversationId, runId),
       });
     } else {
-      const owner = options.currentOwner();
+      const owner = options.currentOwner(conversationId);
       if (!owner || owner.conversationId !== conversationId || owner.signal.aborted) {
         return { ok: false, code: "owner_mismatch" };
       }
       result = await options.service().executeAgent(owner, command, {
         conversationId, runId, signal,
-        isCurrent: () => !signal.aborted && !owner.signal.aborted && options.currentOwner() === owner && options.isRunCurrent(conversationId, runId),
+        isCurrent: () => !signal.aborted && !owner.signal.aborted && options.currentOwner(conversationId) === owner && options.isRunCurrent(conversationId, runId),
       });
     }
     if (!result.ok) return result;
