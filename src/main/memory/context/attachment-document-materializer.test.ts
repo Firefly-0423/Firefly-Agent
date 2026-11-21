@@ -1,5 +1,6 @@
 import {expect,it,vi} from "vitest";
 import {createAttachmentDocumentMaterializer} from "./attachment-document-materializer";
+import {EMBEDDING_PROVIDER_UNAVAILABLE} from "../../knowledge/rag/embedding";
 it("uses the existing Main document pipeline and labels retrieved excerpts",async()=>{
  const enqueue=vi.fn(async()=>({kind:"indexed" as const,name:"synthetic.txt",chunks:4,importId:"synthetic-import"})),retrieve=vi.fn(async()=>[{text:"synthetic excerpt",score:1}]);
  const materialize=createAttachmentDocumentMaterializer({enqueue,retrieve});
@@ -13,4 +14,10 @@ it("preserves direct plain text and does not reinterpret it as memory facts",asy
 it("reports missing document content without leaking raw paths/errors",async()=>{
  const materialize=createAttachmentDocumentMaterializer({enqueue:async()=>({kind:"error",name:"a",reason:"PRIVATE_PATH_CANARY"}),retrieve:vi.fn()});
  await expect(materialize({kind:"document",name:"a",filePath:"/synthetic/a"} as never,"q")).rejects.toThrow(/^MEMORY_ATTACHMENT_DOCUMENT_UNAVAILABLE$/);
+});
+it("asks for Work mode when a long Chat attachment cannot be indexed because no embedding provider is configured",async()=>{
+ const retrieve=vi.fn();
+ const materialize=createAttachmentDocumentMaterializer({enqueue:async()=>({kind:"error",name:"a",reason:EMBEDDING_PROVIDER_UNAVAILABLE}),retrieve});
+ await expect(materialize({kind:"document",name:"a",filePath:"/synthetic/a"} as never,"q")).rejects.toThrow(/^MEMORY_ATTACHMENT_NEEDS_WORK_MODE$/);
+ expect(retrieve).not.toHaveBeenCalled();
 });

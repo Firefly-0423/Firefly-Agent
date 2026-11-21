@@ -277,6 +277,16 @@ describe("Formal answer commitment and failure reporting", () => {
   });
 });
 
+describe("Chat attachment that needs Work mode", () => {
+  test("a run refused with MEMORY_ATTACHMENT_NEEDS_WORK_MODE tells the user to switch to Work instead of a generic failure", async () => {
+    const s = runScenario({ acknowledge: async () => { throw new Error("MEMORY_ATTACHMENT_NEEDS_WORK_MODE"); } });
+    await nextTurn(); await s.completed;
+    const shown = JSON.stringify([s.host.patchMessage.mock.calls, s.disk.upsert.mock.calls]);
+    expect(shown).toContain(t("chatPage.errorAttachmentNeedsWorkMode", { code: "MEMORY_ATTACHMENT_NEEDS_WORK_MODE" }));
+    expect(shown).not.toContain("E_HARNESS_FAILURE");
+  });
+});
+
 describe("Session conflicts preserve the legitimate owner", () => {
   test("a conflict presents one takeover action and retries the same dispatch with its old run anchor", async () => {
     const s = runScenario({ ack: { success: false, runId: "", error: "SESSION_RUN_ACTIVE:previous-run" } }); await nextTurn(); await s.completed;

@@ -257,11 +257,13 @@ export class AgentRunController {
         tool: "chatPage.errorToolFailedWith", runtime: "chatPage.errorRuntimeFailedWith",
       } as const;
       // Only a failure Main classified as a dropped connection or a silent provider is the network; an HTTP
-      // rejection (bad key, bad request) keeps the generic model notice. The code stays for support.
-      const network = {
+      // rejection (bad key, bad request) keeps the generic model notice. A Chat attachment too long to read
+      // without an index tells the user to switch to Work. The code stays for support.
+      const plainNotices = {
         E_MODEL_CONNECTION_LOST: "chatPage.errorNetworkInterrupted", E_MODEL_REQUEST_TIMEOUT: "chatPage.errorModelTimedOut",
-      } as Partial<Record<string, "chatPage.errorNetworkInterrupted" | "chatPage.errorModelTimedOut">>;
-      const plain = network[publicFailure.code];
+        MEMORY_ATTACHMENT_NEEDS_WORK_MODE: "chatPage.errorAttachmentNeedsWorkMode",
+      } as Partial<Record<string, "chatPage.errorNetworkInterrupted" | "chatPage.errorModelTimedOut" | "chatPage.errorAttachmentNeedsWorkMode">>;
+      const plain = plainNotices[publicFailure.code];
       const notice = plain ? t(plain, { code: publicFailure.code }) : t(labels[publicFailure.source], { message: publicFailure.code });
       this.moveCandidateToInterruptedProcess();
       this.progressEntries = [...this.progressEntries, createRoundProcessMessage(

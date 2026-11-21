@@ -214,6 +214,7 @@
     "errorModelRequestStartFailed": "模型请求发起失败",
     "errorModelServiceNotReady": "模型请求失败：AG-UI 模型服务尚未就绪",
     "errorModelTimedOut": "模型太久没有回应，已经停止等待。稍后再试一次吧。（{{code}}）",
+    "errorAttachmentNeedsWorkMode": "这份文档太长了，Chat 模式只适合聊天，读不完整。请切换到 Work 模式再发送，流萤会用工具完整读取它。（{{code}}）",
     "errorNetworkInterrupted": "网络连接中断，流萤没收到模型的回复。可能是网络或代理不稳定，稍后重新发送就好。（{{code}}）",
     "errorPendingAdjustAttachments": "带附件的消息暂不能插入当前运行，已保留在队列中",
     "errorPendingAdjustFailed": "调整失败：{{error}}",
