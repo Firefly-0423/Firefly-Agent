@@ -95,6 +95,18 @@ export class RunDisplayAccumulator {
       case "firefly.context.usage": if (isContextUsageSnapshot(event.value)) this.message.contextUsage = structuredClone(event.value); break;
     }
   }
+  checkpoint(now: number, includeAnswer: boolean): ChatMessage {
+    const processMessages = [...(this.message.processMessages ?? [])];
+    if (this.candidate.trim()) processMessages.push({
+      id: `process-${this.processId}`, content: this.candidate,
+      afterToolCount: this.message.toolExecutions?.length ?? 0, roundId: this.roundId, seq: this.candidateSeq,
+    });
+    return {
+      ...this.message, content: includeAnswer ? this.answer.text : "", processMessages,
+      runSnapshot: { runId: this.runId, status: "running", ...(this.todos ? { todos: this.todos } : {}), updatedAt: now },
+    };
+  }
+
   freeze(result: FireflyRunTerminalResult, now = Date.now()): ChatMessage {
     if (!this.frozen) {
       const answer = finishDisplayAnswer(this.answer.text, result.status, this.answer.closed);

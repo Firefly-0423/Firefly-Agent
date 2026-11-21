@@ -11,14 +11,14 @@ const wire = vi.hoisted(() => ({
     root: "", handlers: new Map<string, any>(), notifications: new Map<string, any>(), sessions: new Map<string, any>(),
     run: vi.fn(), ask: vi.fn(), pending: vi.fn(), mark: vi.fn(), reset: vi.fn(), reads: [] as unknown[], events: [] as any[],
     terminal: undefined as any, duplicate: false, failure: null as Error | null, lateFailure: false, omitTerminal: false, keepOpen: false, finishOnAbort: false, subscriptions: [] as any[],
-    commitInsertion: vi.fn(), terminalWrites: vi.fn(), holdTerminal:false, savedCallback:undefined as any, beginSettlement: vi.fn(), registerRun: vi.fn(), getRunStatus: vi.fn(),
+    commitInsertion: vi.fn(), writeCheckpoint: vi.fn(), terminalWrites: vi.fn(), holdTerminal:false, savedCallback:undefined as any, beginSettlement: vi.fn(), registerRun: vi.fn(), getRunStatus: vi.fn(),
 }));
 vi.mock("fs", async () => {
     const actual = await vi.importActual<typeof import("node:fs")>("node:fs");
     return { ...actual, readFileSync: (...args: any[]) => { wire.reads.push(args[0]); return (actual.readFileSync as any)(...args); } };
 });
 vi.mock("electron", () => ({ app: { getPath: () => wire.root }, BrowserWindow: { getAllWindows: () => [] }, ipcMain: { handle: (channel: string, callback: any) => wire.handlers.set(channel, callback), on: (channel: string, callback: any) => wire.notifications.set(channel, callback), removeListener: vi.fn() } }));
-vi.mock("../sessions/chats-store", () => ({ RUN_PRESENTATION_PROFILE_ID: "desktop-local-profile-v1", registerRun: wire.registerRun, beginRunSettlement: wire.beginSettlement, retryRunTerminal: (identity:any,message:any,completed:any)=> {wire.terminalWrites(identity,message); if(wire.holdTerminal) wire.savedCallback=completed; else completed(true);}, getRunStatus: wire.getRunStatus, getSession: (id: string) => wire.sessions.get(id) ?? null, getPendingMessages: wire.pending,
+vi.mock("../sessions/chats-store", () => ({ RUN_PRESENTATION_PROFILE_ID: "desktop-local-profile-v1", registerRun: wire.registerRun, writeRunCheckpoint: wire.writeCheckpoint, beginRunSettlement: wire.beginSettlement, retryRunTerminal: (identity:any,message:any,completed:any)=> {wire.terminalWrites(identity,message); if(wire.holdTerminal) wire.savedCallback=completed; else completed(true);}, getRunStatus: wire.getRunStatus, getSession: (id: string) => wire.sessions.get(id) ?? null, getPendingMessages: wire.pending,
     listRunInsertions: () => [], commitPendingAdjust: wire.commitInsertion, markPendingAdjust: wire.mark, resetPendingAdjustByRun: wire.reset }));
 vi.mock("../../platform/interaction/user-choice", () => ({ requestUserClarification: wire.ask, cancelPendingChoicesForRun: vi.fn() }));
 vi.mock("../../platform/permission/permission", () => ({ cancelPendingApprovalsForRun: vi.fn(), checkPermission: vi.fn(), getCurrentLevel: () => "read-only" }));
@@ -964,6 +964,20 @@ describe("run identity admission", () => {
 });
 
 describe("Main managed terminal timing",()=>{
+ it("checkpoints visible progress immediately after a tool result before completion",async()=>{
+  session("conversation","chat",[user("input"),{...answer("output",""),answersUserMessageId:"input"}]);
+  wire.keepOpen=true;
+  wire.events=[{type:"TEXT_MESSAGE_START",messageId:"answer"},{type:"TEXT_MESSAGE_CONTENT",delta:"visible progress"},
+   {type:"TOOL_CALL_START",toolCallId:"t",toolCallName:"read_file"},
+   {type:"TOOL_CALL_RESULT",toolCallId:"t",content:"visible result"}];
+  const f=await bridge();
+  const ack=await f.run("conversation",{userTurnId:"input",assistantTurnId:"output"});
+  expect(wire.writeCheckpoint).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({runId:ack.runId}),expect.objectContaining({
+   id:"output",content:"visible progress",toolExecutions:[expect.objectContaining({id:"t",status:"success",result:"visible result"})],
+   runSnapshot:expect.objectContaining({runId:ack.runId,status:"running"}),
+  }));
+  expect(wire.terminalWrites).not.toHaveBeenCalled();
+ });
  it("freezes only after post-turn effects and keeps ownership until the history write completes",async()=>{
   session("conversation","chat",[user("input"),{...answer("output",""),answersUserMessageId:"input"}]);
   let release!:()=>void;const barrier=new Promise<void>(resolve=>release=resolve);

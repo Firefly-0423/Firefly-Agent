@@ -62,6 +62,30 @@ describe("Main owned final message persistence",()=>{
   store.upsertMessage(session.id,{...message,content:"updated"});
   expect(store.getSession(session.id)?.messages.slice(1)).toEqual([{...message,content:"updated"}]);
  });
+ it("recovers visible progress and tool results after restart without accepting writes after settlement",async()=>{
+  let {store,session,identity,message}=await setup();
+  const checkpoint={...message,content:"partial",toolExecutions:[{id:"tool",name:"read_file",status:"success" as const,result:"kept"}],
+   runSnapshot:{runId:"r",status:"running" as const,updatedAt:4}};
+  expect(store.writeRunCheckpoint(identity,checkpoint)).toBe(true);
+  expect(store.getRunStatus(session.id,"a")).toMatchObject({phase:"running",seq:2});
+  vi.resetModules();store=await import("./chats-store");store.initialize();
+  expect(store.getRunStatus(session.id,"a")).toMatchObject({phase:"interrupted",seq:3});
+  expect(store.getSession(session.id)?.messages[1]).toEqual(checkpoint);
+  expect(store.beginRunSettlement(identity)).toBe(true);
+  expect(store.writeRunCheckpoint(identity,{...checkpoint,content:"late"})).toBe(false);
+  expect(store.commitRunTerminal(identity,message)).toBe(true);
+  expect(store.getSession(session.id)?.messages[1]).toEqual(message);
+ });
+ it("writes temporary run progress only in memory",async()=>{
+  const store=await import("./chats-store");store.initialize();
+  const session=store.createSession({mode:"chat",temporary:true});
+  const identity={profileId:store.RUN_PRESENTATION_PROFILE_ID,sessionId:session.id,assistantTurnId:"temp",runId:"r"};
+  expect(store.registerRun(identity)).toBe(true);
+  const before=[env.fileWrites,env.writes];
+  expect(store.writeRunCheckpoint(identity,{id:"temp",role:"model",content:"visible",at:1,runSnapshot:{runId:"r",status:"running",updatedAt:2}})).toBe(true);
+  expect(store.getSession(session.id)?.messages[0].content).toBe("visible");
+  expect([env.fileWrites,env.writes]).toEqual(before);
+ });
  it("keeps one frozen pending value after write failure and recovers it on startup without execution",async()=>{
   let {store,session,identity,message}=await setup();
   env.writes=0; env.failAt=2;

@@ -326,11 +326,15 @@ export function registerAgUiIpc(
       return recipients;
     };
     let display: RunDisplayAccumulator | undefined;
+    let recordDisplayProgress: ((event: unknown) => void) | undefined;
     const emit = (packet: unknown): void => {
       const stamped = packet && typeof packet === "object"
         ? { ...(packet as Record<string, unknown>), runId: (packet as { runId?: unknown }).runId ?? executionId }
         : packet;
-      if (stamped && typeof stamped === "object") display?.accept(stamped);
+      if (stamped && typeof stamped === "object") {
+        display?.accept(stamped);
+        recordDisplayProgress?.(stamped);
+      }
       for (const recipient of runRecipients()) {
         try {
           if (isControlled && (packet as { type?: string })?.type === "TEXT_MESSAGE_START") {
@@ -622,7 +626,33 @@ export function registerAgUiIpc(
       unwatchOrigin?.();
       unwatchOrigin = null;
     };
+    let checkpointTimer: ReturnType<typeof setTimeout> | undefined;
+    const clearCheckpoint = (): void => {
+      if (checkpointTimer !== undefined) clearTimeout(checkpointTimer);
+      checkpointTimer = undefined;
+    };
+    const saveCheckpoint = (): void => {
+      clearCheckpoint();
+      if (!identity || !display || ended || gate.isSettled()) return;
+      try {
+        chatsStore.writeRunCheckpoint(identity, display.checkpoint(Date.now(), !runOptions.controlledResponses));
+      } catch (failure) {
+        logger.warn(LogTag.AgUiBridge, "run display checkpoint write failed", failure);
+      }
+    };
+    if (identity) recordDisplayProgress = (event) => {
+      if (ended || gate.isSettled()) return;
+      const { type, name } = event as { type?: string; name?: string };
+      if (type === "TOOL_CALL_RESULT") { saveCheckpoint(); return; }
+      if (checkpointTimer === undefined && (type === "TEXT_MESSAGE_CONTENT" || type?.startsWith("REASONING_MESSAGE_")
+        || type === "TOOL_CALL_START" || type === "TOOL_CALL_ARGS"
+        || type === "CUSTOM" && ["firefly.round", "firefly.process_text", "firefly.candidate_text", "firefly.todo", "firefly.task"].includes(name ?? ""))) {
+        checkpointTimer = setTimeout(saveCheckpoint, 350);
+        checkpointTimer.unref?.();
+      }
+    };
     const endLifecycle = (): void => {
+      clearCheckpoint();
       if (ended) return;
       ended = true;
       mainOwnedRuns.delete(executionId);
@@ -652,6 +682,7 @@ export function registerAgUiIpc(
       });
     };
     const beginMainSettlement = (): void => {
+      clearCheckpoint();
       if (!identity) return;
       try { chatsStore.beginRunSettlement(identity); } catch { /* commit retries the durable barrier */ }
       broadcastChatsChanged();

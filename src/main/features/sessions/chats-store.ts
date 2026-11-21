@@ -820,6 +820,25 @@ function protectRunMessages(session: ChatSession, incoming: ChatMessage[]): Chat
   return merged;
 }
 
+/** Persist a display checkpoint only for the run that still owns this row. */
+export function writeRunCheckpoint(identity: RunPresentationIdentity, message: ChatMessage): boolean {
+  const session = read(identity.sessionId);
+  const record = session?.runPresentations?.[identity.assistantTurnId];
+  if (!session || !record || record.version !== 1 || record.phase !== "running"
+      || record.profileId !== RUN_PRESENTATION_PROFILE_ID || record.profileId !== identity.profileId
+      || record.sessionId !== identity.sessionId || record.assistantTurnId !== identity.assistantTurnId
+      || record.runId !== identity.runId || !liveRunPresentations.has(identity.runId)
+      || message.id !== identity.assistantTurnId || message.role !== "model"
+      || message.runSnapshot?.runId !== identity.runId || message.runSnapshot.status !== "running") return false;
+  const offset = session.messages.findIndex(row => row.id === identity.assistantTurnId && row.role === "model");
+  if (offset < 0) return false;
+  session.messages[offset] = message;
+  record.seq += 1;
+  write(session);
+  liveRunPresentations.set(identity.runId, record);
+  return true;
+}
+
 /** Start the save barrier before running post-turn effects. */
 export function beginRunSettlement(identity: RunPresentationIdentity): boolean {
   const session = read(identity.sessionId);
