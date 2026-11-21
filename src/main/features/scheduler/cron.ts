@@ -21,9 +21,8 @@ const WEEKDAY_MAP: Record<string, number> = {
   Sat: 6,
 };
 
-const MAX_MINUTES_INTERVAL = 168 * 60;
-const MAX_STORE_MINUTES_INTERVAL = 1440;
-const MAX_CRON_LOOKAHEAD_DAYS = 366 * 4;
+// Leap days can be eight years apart across a century that is not a leap year.
+const MAX_CRON_LOOKAHEAD_DAYS = 366 * 8;
 
 function parsePositiveInt(raw: string): number | null {
   if (!/^\d+$/.test(raw)) return null;
@@ -208,8 +207,15 @@ function matchesDay(parsed: ParsedCronExpression, parts: WallClockParts): boolea
 /**
  * Computes the next firing timestamp strictly after `after` for a 5-field cron expression.
  */
-export function computeNextCronFireAt(expression: string, after: Date, timezone?: string): Date {
+export function computeNextCronFireAt(expression: string, after: Date, timezone?: string): Date | null {
   const parsed = parseCronExpression(expression, timezone);
+  // With an unrestricted weekday, an impossible month/day cannot match. Use a leap
+  // year for this feasibility check; restricted weekdays have OR semantics.
+  if (!parsed.dayOfWeekRestricted && !Array.from(parsed.months).some(month => {
+    const lastDay = new Date(Date.UTC(2000, month, 0)).getUTCDate();
+    return Array.from(parsed.daysOfMonth).some(day => day <= lastDay);
+  })) return null;
+
   const formatter = timezone ? createFormatter(timezone) : undefined;
   let cursorMs = Math.floor(after.getTime() / 60_000) * 60_000 + 60_000;
   const limitMs = cursorMs + MAX_CRON_LOOKAHEAD_DAYS * 24 * 60 * 60_000;
@@ -231,7 +237,5 @@ export function computeNextCronFireAt(expression: string, after: Date, timezone?
     return new Date(cursorMs);
   }
 
-  throw new Error(`Cron expression "${expression}" has no firing time within ${MAX_CRON_LOOKAHEAD_DAYS} days`,
-  );
+  return null;
 }
-

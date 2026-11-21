@@ -17,7 +17,11 @@ export function validateTimezone(timezone: string): void {
   pluginCronCall(() => cron.validateTimezone(timezone));
 }
 export function computeNextCronFireAt(expression: string, after: Date, timezone?: string): Date {
-  return pluginCronCall(() => cron.computeNextCronFireAt(expression, after, timezone));
+  return pluginCronCall(() => {
+    const next = cron.computeNextCronFireAt(expression, after, timezone);
+    if (!next) throw new Error(`Cron expression "${expression}" has no future occurrence`);
+    return next;
+  });
 }
 
 /** Validate the SDK schedule and preserve cron as a native recurring host schedule. */

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createSchedulerStore } from "./scheduler-store";
@@ -77,4 +77,28 @@ it("fingerprints cron expression and timezone so either change revokes prior aut
 });
 it.each([{ kind: "cron", expression: "60 * * * *" }, { kind: "cron", expression: "* * * * *", timezone: "Invalid/Timezone" }])("rejects invalid native cron without writing tasks: %j", schedule => {
   const store = open(); expect(() => store.addTask({ title: "Bad cron", prompt: "Check", schedule: schedule as ScheduleConfig })).toThrow(); expect(store.getTasks()).toEqual([]);
+});
+
+it.each(["restart", "dispatch"] as const)("a persisted impossible cron is stopped with history while other tasks continue on %s", async phase => {
+  const original = add(open());
+  const base = { ...original, enabled: true, ownerPluginId: undefined, schedule: { kind: "interval", every: 15, unit: "minutes" }, nextFireAt: at("10:15").toISOString() };
+  writeFileSync(join(directory, "tasks.json"), JSON.stringify({ tasks: [
+    { ...base, id: "bad-cron", schedule: { kind: "cron", expression: "0 9 30 2 *", timezone: "UTC" } },
+    { ...base, id: "good-task" },
+  ] }));
+  if (phase === "restart") now = at("10:20");
+  const store = open(); const runTask = vi.fn(success);
+  engine = new SchedulerEngine({ store, now: () => now, runTask });
+  expect(() => engine!.start()).not.toThrow();
+  if (phase === "dispatch") { now = at("10:15"); await vi.advanceTimersByTimeAsync(15 * 60_000); }
+  const bad = store.getTasks().find(task => task.id === "bad-cron")!;
+  expect({ enabled: bad.enabled, nextFireAt: bad.nextFireAt }).toEqual({ enabled: false, nextFireAt: null });
+  expect(store.getHistory("bad-cron")).toContainEqual(expect.objectContaining({ status: "skipped", reason: "schedule has no future occurrence" }));
+  expect(store.getTasks().find(task => task.id === "good-task")!.nextFireAt).toBe(at("10:30").toISOString());
+  now = at("10:30"); await vi.advanceTimersByTimeAsync((phase === "restart" ? 10 : 15) * 60_000);
+  expect(runTask.mock.calls.map(([task]) => task.id)).toEqual(phase === "restart" ? ["good-task"] : ["good-task", "good-task"]);
+});
+it("keeps a legal leap-day cron across the non-leap century year 2100", () => {
+  const plan = { kind: "cron", expression: "0 9 29 2 *", timezone: "UTC" } as ScheduleConfig;
+  expect(computeNextFireAtAfter(plan, new Date("2096-02-29T09:00:00Z"))?.toISOString()).toBe("2104-02-29T09:00:00.000Z");
 });
