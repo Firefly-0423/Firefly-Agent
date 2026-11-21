@@ -749,3 +749,14 @@ it("offers explicit exact Agent sites and resource-only hosts without granting t
   await act(async () => (host.querySelector('[data-browser-authorize-agent-sites]') as HTMLButtonElement).click());
   expect(requestPermission).toHaveBeenCalledWith({mode:'agent',site:true,hosts:['developer.mozilla.org'],resourceHosts:['static.example.org'],actions:['navigate','observe','click','type']});
 });
+
+it("renders the observe_required banner when agentBlockedReason is set and clears it once recovered", async () => {
+  await render();
+  await navigate();
+  await act(async () => changed({ ...page("b", 2), agentBlockedReason: "observe_required" }));
+  expect(host.textContent).toContain("browserWorkspace.observeRequired");
+  expect(en.browserWorkspace.observeRequired).toBeTruthy();
+  expect(zhCN.browserWorkspace.observeRequired).toBeTruthy();
+  await act(async () => changed({ ...page("b", 3), agentBlockedReason: undefined }));
+  expect(host.textContent).not.toContain("browserWorkspace.observeRequired");
+});

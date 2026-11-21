@@ -91,6 +91,7 @@
     "newTabSites": "推荐",
     "newTabTitle": "新标签页",
     "newTabTools": "工具",
+    "observeRequired": "页面此前处于后台或尺寸已变化，流萤需要切回当前页面重新观察后才能继续操作。",
     "open": "打开浏览器",
     "permission": "浏览器授权",
     "permissionDenied": "你已拒绝本次授权，可在需要时重新开启。",

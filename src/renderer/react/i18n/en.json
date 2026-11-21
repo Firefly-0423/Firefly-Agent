@@ -91,6 +91,7 @@
     "newTabSites": "Recommended",
     "newTabTitle": "New tab",
     "newTabTools": "Tools",
+    "observeRequired": "The page was in the background or resized. Switch back to this page so Firefly can re-observe before continuing.",
     "open": "Open browser",
     "permission": "Browser permission",
     "permissionDenied": "You declined this request. You can enable it again when needed.",

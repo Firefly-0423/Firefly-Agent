@@ -24,6 +24,7 @@ describe("native bounded browser consent", () => {
     expect(prompt.detail).toContain("撤销授权");
     expect(prompt.detail).toContain("关闭按钮（×）");
     expect(prompt.detail).toContain("停止运行");
+    expect(prompt.detail).toContain("切走会话或隐藏到后台期间，代理只能读取页面，不会在后台替你点击、输入或导航");
     expect(prompt.detail).not.toContain("关闭页面、撤销或切换会话后失效");
     state.dialog.mockResolvedValueOnce({ response: 1 });
     expect(await service.confirmPermission(owner, BROWSER_PUBLIC_SCOPE)).toBe(true);
