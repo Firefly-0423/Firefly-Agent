@@ -39,10 +39,12 @@ import {
   ACCESS_LEVEL_LABEL,
   cancelPendingApprovalsForRun,
   checkPermission,
+  DEFAULT_ACCESS_LEVEL,
   answerApproval,
   getCurrentLevel,
   getPendingApproval,
   initPermissionFromDisk,
+  normalizeAccessLevel,
   registerPermissionIpc,
   requestApproval,
   setCurrentLevel,
@@ -415,7 +417,7 @@ describe("checkPermission", () => {
   };
 
   it("allows a safe tool without asking, at every global level", async () => {
-    for (const level of ["project-read-only", "read-only", "scoped", "per-action", "full"] as const) {
+    for (const level of ["read-only", "per-action", "full"] as const) {
       setCurrentLevel(level);
       await expect(check({ risk: "safe" })).resolves.toEqual({ allowed: true });
     }
@@ -428,10 +430,9 @@ describe("checkPermission", () => {
       allowed: false,
       reason: "当前档位「只读」不允许此操作（risk=fs-write）。请到设置 → 流萤 → 本地文件权限提升档位。",
     });
-    setCurrentLevel("project-read-only");
     await expect(check({ risk: "input-control" })).resolves.toEqual({
       allowed: false,
-      reason: "当前档位「完全只读」不允许此操作（risk=input-control）。请到设置 → 流萤 → 本地文件权限提升档位。",
+      reason: "当前档位「只读」不允许此操作（risk=input-control）。请到设置 → 流萤 → 本地文件权限提升档位。",
     });
     expect(env.sends).toEqual([]);
   });
@@ -509,19 +510,15 @@ describe("checkPermission", () => {
     ["full", undefined, "fs-write", "allow"],
     ["full", "full", "input-control", "allow"],
     ["full", "read-only", "fs-write", "deny"],
-    ["full", "project-read-only", "network", "allow"],
-    ["full", "scoped", "input-control", "deny"],
+    ["full", "read-only", "network", "allow"],
+    ["full", "read-only", "input-control", "deny"],
     ["full", "per-action", "shell", "ask"],
     ["read-only", "full", "fs-write", "deny"],
     ["read-only", "per-action", "fs-write", "deny"],
-    ["scoped", "full", "input-control", "deny"],
-    ["scoped", "per-action", "fs-write", "ask"],
     ["per-action", "read-only", "fs-write", "deny"],
+    ["per-action", "read-only", "network", "ask"],
     ["per-action", "full", "fs-write", "ask"],
-    ["per-action", "scoped", "fs-write", "ask"],
-    ["per-action", "scoped", "input-control", "deny"],
     ["per-action", undefined, "shell", "ask"],
-    ["scoped", "scoped", "shell", "allow"],
   ];
 
   it.each(NARROW)("global %s with session %s on %s -> %s", async (global, session, risk, expected) => {
@@ -537,12 +534,11 @@ describe("checkPermission", () => {
 describe("level persistence and IPC", () => {
   it("labels every level", () => {
     expect(ACCESS_LEVEL_LABEL).toEqual({
-      "project-read-only": "完全只读",
       "read-only": "只读",
-      "scoped": "指定目录",
       "per-action": "每次审批",
       "full": "完全访问",
     });
+    expect(DEFAULT_ACCESS_LEVEL).toBe("read-only");
   });
 
   it("registers exactly the three channels on a supplied scope", () => {
@@ -561,8 +557,8 @@ describe("level persistence and IPC", () => {
   });
 
   it("reports the in-memory level", () => {
-    setCurrentLevel("scoped");
-    expect(env.ipcHandlers.get(IPC.PERMISSION_GET_LEVEL)!({})).toEqual({ level: "scoped" });
+    setCurrentLevel("per-action");
+    expect(env.ipcHandlers.get(IPC.PERMISSION_GET_LEVEL)!({})).toEqual({ level: "per-action" });
   });
 
   it("switches level for valid input and persists it as indented JSON", () => {
@@ -572,21 +568,21 @@ describe("level persistence and IPC", () => {
     expect(fs.readFileSync(levelFile, "utf8")).toBe('{\n  "level": "per-action"\n}');
   });
 
-  it.each(["", "FULL", "bogus", undefined, null, 3, {}])("rejects invalid level %j without changing anything", (bad) => {
-    setCurrentLevel("scoped");
+  it.each(["project-read-only", "scoped", "", "FULL", "bogus", undefined, null, 3, {}])("rejects invalid or legacy level %j without changing anything", (bad) => {
+    setCurrentLevel("per-action");
     fs.rmSync(levelFile, { force: true });
     const set = env.ipcHandlers.get(IPC.PERMISSION_SET_LEVEL)!;
     expect(set({}, bad)).toEqual({ ok: false, error: "无效的档位: " + String(bad) });
-    expect(getCurrentLevel()).toBe("scoped");
+    expect(getCurrentLevel()).toBe("per-action");
     expect(fs.existsSync(levelFile)).toBe(false);
   });
 
   it("does not rewrite the file when the level is unchanged", () => {
-    setCurrentLevel("scoped");
+    setCurrentLevel("per-action");
     fs.rmSync(levelFile, { force: true });
-    setCurrentLevel("scoped");
+    setCurrentLevel("per-action");
     expect(fs.existsSync(levelFile)).toBe(false);
-    expect(env.ipcHandlers.get(IPC.PERMISSION_SET_LEVEL)!({}, "scoped")).toEqual({ ok: true, level: "scoped" });
+    expect(env.ipcHandlers.get(IPC.PERMISSION_SET_LEVEL)!({}, "per-action")).toEqual({ ok: true, level: "per-action" });
     expect(fs.existsSync(levelFile)).toBe(false);
   });
 
@@ -599,18 +595,28 @@ describe("level persistence and IPC", () => {
   });
 
   it.each([
+    ["legacy project-read-only", "project-read-only"],
+    ["legacy scoped", "scoped"],
+    ["unknown", "root"],
+  ])("normalizes %s to the default read-only level", (_name, raw) => {
+    expect(normalizeAccessLevel(raw)).toBe("read-only");
+  });
+
+  it.each([
+    ["legacy project-read-only", JSON.stringify({ level: "project-read-only" })],
+    ["legacy scoped", JSON.stringify({ level: "scoped" })],
     ["missing file", undefined],
     ["unknown level", JSON.stringify({ level: "root" })],
     ["non-string level", JSON.stringify({ level: 1 })],
     ["no level", JSON.stringify({})],
     ["null document", "null"],
     ["corrupt JSON", "{not json"],
-  ])("keeps the current level for %s", (_name, content) => {
-    setCurrentLevel("scoped");
+  ])("falls back to the default read-only level for %s", (_name, content) => {
+    setCurrentLevel("full");
     fs.rmSync(levelFile, { force: true });
     if (content !== undefined) fs.writeFileSync(levelFile, content, "utf8");
     initPermissionFromDisk();
-    expect(getCurrentLevel()).toBe("scoped");
+    expect(getCurrentLevel()).toBe("read-only");
   });
 });
 

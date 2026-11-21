@@ -17,17 +17,25 @@ export type { ApprovalRequest, ApprovalSettledPayload, ApprovalSettleReason };
 const TAG = "[Permission]";
 
 export const ACCESS_LEVEL_LABEL: Record<AgentFileAccessLevel, string> = {
-  "read-only": "只读", scoped: "指定目录", full: "完全访问",
-  "project-read-only": "完全只读", "per-action": "每次审批",
+  "read-only": "只读",
+  "per-action": "每次审批",
+  "full": "完全访问",
 };
+
+export const DEFAULT_ACCESS_LEVEL: AgentFileAccessLevel = "read-only";
 
 function isValidLevel(value: unknown): value is AgentFileAccessLevel {
   return typeof value === "string" && Object.prototype.hasOwnProperty.call(ACCESS_LEVEL_LABEL, value);
 }
 
+/** 将落盘或外部传入的档位值归一化为受支持的三档之一；旧档位与非法值回落到默认档位。 */
+export function normalizeAccessLevel(value: unknown): AgentFileAccessLevel {
+  return isValidLevel(value) ? value : DEFAULT_ACCESS_LEVEL;
+}
+
 // ── 档位：内存值 + userData 下的 JSON 文件 ──────────────────
 
-let activeLevel: AgentFileAccessLevel = "read-only";
+let activeLevel: AgentFileAccessLevel = DEFAULT_ACCESS_LEVEL;
 
 export function getCurrentLevel(): AgentFileAccessLevel {
   return activeLevel;
@@ -52,23 +60,26 @@ export function setCurrentLevel(level: AgentFileAccessLevel): void {
   writeLevelFile(level);
 }
 
-/** 启动时读回上次的档位；文件缺失或内容不合法时保持默认。需在 app ready 之后调用。 */
+/** 启动时读回上次的档位；文件缺失、旧档位或内容不合法时回落到默认档位。需在 app ready 之后调用。 */
 export function initPermissionFromDisk(): void {
   try {
     const source = levelFilePath();
     if (!fs.existsSync(source)) {
+      activeLevel = DEFAULT_ACCESS_LEVEL;
       logger.info(LogTag.Permission, "没有已保存的档位，沿用默认 read-only");
       return;
     }
     const saved = JSON.parse(fs.readFileSync(source, "utf8")) as { level?: unknown } | null;
     const candidate = saved?.level;
     if (!isValidLevel(candidate)) {
-      console.warn(TAG, "已保存的档位无法识别，沿用默认");
+      activeLevel = DEFAULT_ACCESS_LEVEL;
+      console.warn(TAG, "已保存的档位无法识别，回落到默认 read-only");
       return;
     }
     activeLevel = candidate;
     logger.info(LogTag.Permission, "loaded level from disk:", activeLevel);
   } catch (err) {
+    activeLevel = DEFAULT_ACCESS_LEVEL;
     console.error(TAG, "读取档位文件失败:", err);
   }
 }
