@@ -146,7 +146,7 @@ export function createRpcEndpoint(transport: RpcTransport): PluginRpc {
         })
       })
     },
-    async *stream<T>(method: string, params: unknown, options: RpcOptions = {}) {
+    async *stream<T>(method: string, params: unknown, options: RpcOptions = {}): AsyncGenerator<T> {
       const values: T[] = []
       let done = false
       let error: PluginError | undefined
@@ -168,7 +168,7 @@ export function createRpcEndpoint(transport: RpcTransport): PluginRpc {
       try {
         while (!done || values.length) {
           if (error) throw error
-          if (values.length) yield values.shift()!
+          if (values.length) yield values.shift() as T
           else await new Promise<void>(resolve => { wake = resolve })
         }
         if (error) throw error
