@@ -21,6 +21,8 @@ export interface ModelPickerElements {
   search: HTMLInputElement;
   list: HTMLElement;
   empty: HTMLElement;
+  /** Esc 收起列表时恢复焦点的目标元素（如触发按钮）。 */
+  trigger?: HTMLElement | null;
 }
 
 export interface ModelPicker {
@@ -31,9 +33,34 @@ export interface ModelPicker {
 }
 
 export function createModelPicker(elements: ModelPickerElements, onPick: (id: string) => void): ModelPicker {
-  const { root, search, list, empty } = elements;
+  const { root, search, list, empty, trigger } = elements;
   let all: readonly PickerModel[] = [];
   let current = "";
+  let restoreTarget: HTMLElement | null = null;
+
+  const closePicker = (restoreFocus: boolean): void => {
+    const wasOpen = !root.hidden;
+    root.hidden = true;
+    document.removeEventListener("keydown", onDocumentKeyDown);
+    const target = restoreFocus && wasOpen ? (trigger ?? restoreTarget) : null;
+    restoreTarget = null;
+    if (target?.isConnected) target.focus();
+  };
+
+  const handleEscape = (event: KeyboardEvent): void => {
+    if (event.key !== "Escape" || root.hidden || event.defaultPrevented) return;
+    event.preventDefault();
+    event.stopPropagation();
+    closePicker(true);
+  };
+
+  function onDocumentKeyDown(event: KeyboardEvent): void {
+    if (!root.isConnected) {
+      document.removeEventListener("keydown", onDocumentKeyDown);
+      return;
+    }
+    handleEscape(event);
+  }
 
   const render = (): void => {
     const visible = filterPickerModels(all, search.value);
@@ -70,9 +97,15 @@ export function createModelPicker(elements: ModelPickerElements, onPick: (id: st
     onPick(current);
     render();
   });
+  root.addEventListener("keydown", handleEscape);
+  trigger?.addEventListener("keydown", handleEscape);
   search.addEventListener("input", render);
-  // 搜索框里回车 = 选第一项，省得再用鼠标。
+  // 搜索框里回车 = 选第一项，省得再用鼠标；Esc = 收起列表并还原焦点。
   search.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      handleEscape(event);
+      return;
+    }
     if (event.key !== "Enter") return;
     event.preventDefault();
     list.querySelector<HTMLElement>("[data-model-id]")?.click();
@@ -80,14 +113,19 @@ export function createModelPicker(elements: ModelPickerElements, onPick: (id: st
 
   return {
     open(models, value) {
+      if (root.hidden) {
+        const active = document.activeElement;
+        restoreTarget = active instanceof HTMLElement && !root.contains(active) ? active : null;
+      }
       all = models;
       current = value;
       search.value = "";
       root.hidden = false;
+      document.addEventListener("keydown", onDocumentKeyDown);
       render();
     },
     close() {
-      root.hidden = true;
+      closePicker(false);
     },
     syncCurrent(value) {
       current = value;
