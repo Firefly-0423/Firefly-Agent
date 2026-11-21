@@ -128,12 +128,8 @@ export function ManualBrowserTab({ sessionId, workspaceId, tabId, active = true,
     return () => {
       scope.disposed = true; scope.commandRevision++; scope.permissionRevision++; off?.();
       if (scopeRef.current === scope) scopeRef.current = null;
-      if (!scope.cleaned && !scope.cleanupFailed) queueMicrotask(() => {
-        // StrictMode replaces this scope immediately. A real unmount revokes only its own session.
-        if (scopeRef.current?.ownerKey === scope.ownerKey && scopeRef.current?.tabId === scope.tabId) return;
-        // Main revoke cancels consent and awaits all owned pages; never race it with another close.
-        if (scope.ownerKey) void api?.revokePermission(scope.sessionId).catch(() => {});
-      });
+      // Passive unmount (switching chat sessions or collapsing the right sidebar) only detaches the viewport.
+      // Explicit close (×) and revoke buttons remain the only renderer paths that call revokePermission.
     };
   }, [ownerSessionId, workspaceId, tabId]);
 

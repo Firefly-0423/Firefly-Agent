@@ -18,6 +18,13 @@ describe("native bounded browser consent", () => {
     const prompt = state.dialog.mock.calls.at(-1)![1];
     for (const domain of BROWSER_PUBLIC_SCOPE.hosts) expect(prompt.detail).toContain(domain);
     expect(prompt.detail).toContain("synthetic-session");
+    expect(prompt.detail).toContain("切换会话");
+    expect(prompt.detail).toContain("仍保留给该会话的后台运行");
+    expect(prompt.detail).toContain("不会共享给其他会话");
+    expect(prompt.detail).toContain("撤销授权");
+    expect(prompt.detail).toContain("关闭按钮（×）");
+    expect(prompt.detail).toContain("停止运行");
+    expect(prompt.detail).not.toContain("关闭页面、撤销或切换会话后失效");
     state.dialog.mockResolvedValueOnce({ response: 1 });
     expect(await service.confirmPermission(owner, BROWSER_PUBLIC_SCOPE)).toBe(true);
   });
