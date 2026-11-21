@@ -26,7 +26,7 @@
 
 需要特别注意当前代码与 1.2.0 规划的差异：
 
-1. **旧枚举残留（当前源码）**：`src/main/platform/permission/permission-policy.ts` 的 `AgentFileAccessLevel` 仍保留 `"project-read-only"` 与 `"scoped"`（设置界面已不再提供，仅在 1.2.0 规格中计划一并删除）。
+1. **权限档位**：`src/main/platform/permission/permission-policy.ts` 的 `AgentFileAccessLevel` 只有 `"read-only"`、`"per-action"`、`"full"` 三档；早期的 `"project-read-only"` 与 `"scoped"` 已删除，设置文件里出现这两个旧值时回落到 `read-only`。
 2. **工具风险声明 `risk`**：
    - 在当前 SDK `0.2.1`（`plugin-sdk/src/api.ts`）中，`PluginTool.risk` 为可选字段，`PluginToolRisk` 包含 `"safe" | "fs-read" | "fs-write" | "shell" | "network" | "input-control"`；若声明 `"safe"`，`policyFor` 会直接放行。
    - 依据 [plugin-sdk-1-2-0.md](../superpowers/specs/plugin-sdk-1-2-0.md) §4 与 §7.3，1.2.0 将要求每个插件工具**必须**声明至少一项真实风险，**禁止插件使用 `safe`**（因为宿主无法核实第三方工具确无副作用），并在审批卡片标明由插件声明。作者在编写新插件时即应如实声明 `fs-read`、`fs-write`、`shell`、`network` 或 `input-control`，不要依赖 `safe` 绕过审批。
