@@ -6,7 +6,7 @@
 ## 现象
 
 1. 全仓 `tsconfig.main.json`、`tsconfig.preload.json` 与 `tsconfig.renderer.json` 均排除了对应端下的测试与测试辅助文件；根 `tsconfig.json` 仅做项目引用，也不包含测试文件。
-2. `vitest.config.ts` 运行单元测试时不执行 TypeScript 类型检查（只要语法可被转换即正常运行）。
+2. `vitest.config.mts` 运行单元测试时不执行 TypeScript 类型检查（只要语法可被转换即正常运行）。
 3. 这导致测试文件内缺少类型导入、错误对象或全局声明缺失等问题在 `npm test` 与常规 `tsc --noEmit` 门禁下都会被放过。例如施工包 B 单独用 TypeScript API 扫描测试文件时，发现某测试用了 `ChatMessageItem` 却未导入，而既有的 `ChatPage.plan-lifecycle.test.ts` 存在 11 条诊断（`window.agui` / `window.chatStore` 缺全局类型）一直未暴露。
 4. 此外，独立窗口目录（如提醒窗口 `src/renderer/toast/**`）同样未纳入 `tsconfig.renderer.json` 的 `include` 列表（未合并分支 `feat/chatpage-g` 的 `e26ae78` 进度记录亦标注了该缺口）。
 
@@ -36,4 +36,4 @@
 - `docs/superpowers/plans/test-assertion-hardening-progress.md`（§5 T2 记录）
 - `docs/superpowers/plans/coupling-audit-followup-progress.md`（§2 R2.3/R2.4）
 - `tsconfig.json`、`tsconfig.main.json`、`tsconfig.preload.json`、`tsconfig.renderer.json`
-- `vitest.config.ts`
+- `vitest.config.mts`
