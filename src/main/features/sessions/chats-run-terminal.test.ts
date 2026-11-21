@@ -126,6 +126,14 @@ describe("terminal recovery boundaries",()=>{
   expect(store.commitRunTerminal(identity,{...message,content:"replacement"})).toBe(true);
   expect(store.getSession(session.id)?.messages.filter(row=>row.id==="a")).toEqual([message]);
  });
+ it("a rejected terminal write clears its live settling ownership",async()=>{
+  const {store,session,identity,message}=await setup();
+  expect(store.beginRunSettlement(identity)).toBe(true);
+  const completed=vi.fn();
+  store.retryRunTerminal(identity,{...message,id:"different-assistant"},completed);
+  expect(completed).toHaveBeenCalledExactlyOnceWith(false);
+  expect(store.getRunStatus(session.id,"a")).toMatchObject({phase:"interrupted",seq:3});
+ });
  it("deletion cancels scheduled writes and cannot recreate the session",async()=>{
   vi.useFakeTimers();
   try {

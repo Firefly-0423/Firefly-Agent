@@ -906,6 +906,7 @@ export function retryRunTerminal(identity: RunPresentationIdentity, message: Cha
       terminalRetryTimers.set(identity.runId, { sessionId: identity.sessionId, timer, completed });
       return;
     }
+    if (!saved) liveRunPresentations.delete(identity.runId);
     completed?.(saved);
   };
   retry();

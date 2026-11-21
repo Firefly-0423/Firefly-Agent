@@ -669,7 +669,11 @@ export function registerAgUiIpc(
     const persistMainTerminal = (): void => {
       if (!identity || !display) { endLifecycle(); return; }
       const outcome = gate.get();
-      if (!outcome) return;
+      if (!outcome) {
+        logger.warn(LogTag.AgUiBridge, "run display settlement missing; releasing lifecycle");
+        endLifecycle();
+        return;
+      }
       const frozen = display.freeze(outcome);
       chatsStore.retryRunTerminal(identity, frozen, (saved) => {
         if (saved) {
