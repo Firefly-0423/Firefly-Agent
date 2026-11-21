@@ -195,6 +195,8 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
 
   const triggerListeners = new Map<string, Set<(event: TriggerEvent) => Promise<void> | void>>();
   const activeTriggerControllers = new Map<string, Set<AbortController>>();
+  /** The stop signal of the plugin client that registered each listener. */
+  const listenerSignals = new WeakMap<(event: TriggerEvent) => Promise<void> | void, AbortSignal>();
 
   function persistState(): void {
     if (!backingFile) return;
@@ -359,10 +361,13 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       const startedAt = clock();
       try {
         for (const listener of listeners) {
+          const stopped = listenerSignals.get(listener);
+          // A stopped plugin instance never receives triggers, and stopping it aborts the one it is handling.
+          if (stopped?.aborted) continue;
           await listener({
             taskId: v2TaskId,
             ...(action.payload !== undefined ? { payload: cloneValue(action.payload) } : {}),
-            signal: controller.signal,
+            signal: stopped ? AbortSignal.any([controller.signal, stopped]) : controller.signal,
           });
         }
         const finishedAt = clock();
@@ -436,6 +441,30 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       pluginUserEnabled: true,
       approvalFingerprint: nextFingerprint,
     });
+  }
+
+  /**
+   * Re-arm cron tasks whose stored one-shot appointment passed while the app was closed. Must run before the
+   * engine's overdue handling (start and refresh), which would otherwise disable them as expired one-shots.
+   * Paused tasks stay paused.
+   */
+  function reconcileCronTasks(): number {
+    const now = clock();
+    let rearmed = 0;
+    for (const meta of Object.values(state.metadata)) {
+      if (!meta.requiresCronRearm || meta.schedule.kind !== "cron") continue;
+      const task = store.getTasks().find(candidate => candidate.id === meta.storeTaskId);
+      if (!task || task.pluginUserEnabled === false || task.schedule.kind !== "once") continue;
+      if (new Date(task.schedule.runAt).getTime() > now.getTime()) continue;
+      rearmCronTaskIfNeeded(task, meta, now);
+      rearmed += 1;
+    }
+    return rearmed;
+  }
+
+  function refreshEngine(): void {
+    reconcileCronTasks();
+    options.refreshEngine?.();
   }
 
   function createApprovalSuspension(
@@ -670,15 +699,19 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
           triggerListeners.set(ownerPluginId, listeners);
         }
         listeners.add(fn);
-
-        return {
-          dispose() {
-            listeners?.delete(fn);
-            if (listeners && listeners.size === 0) {
-              triggerListeners.delete(ownerPluginId);
-            }
-          },
+        const dispose = (): void => {
+          listeners?.delete(fn);
+          if (listeners && listeners.size === 0 && triggerListeners.get(ownerPluginId) === listeners) {
+            triggerListeners.delete(ownerPluginId);
+          }
         };
+        const stop = clientOptions?.signal;
+        if (stop) {
+          listenerSignals.set(fn, stop);
+          stop.addEventListener("abort", dispose, { once: true });
+        }
+
+        return { dispose };
       },
     };
   }
@@ -1028,7 +1061,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
 
     const removedTasks = store.deleteTasksByOwner(ownerPluginId);
     persistState();
-    options.refreshEngine?.();
+    refreshEngine();
 
     return {
       removedTasks,
@@ -1037,7 +1070,11 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     };
   }
 
+  // The host creates this service before starting the scheduler engine, so overdue cron tasks are re-armed first.
+  reconcileCronTasks();
+
   return {
+    reconcileCronTasks,
     forPlugin,
     listPendingProposals,
     confirmProposal,

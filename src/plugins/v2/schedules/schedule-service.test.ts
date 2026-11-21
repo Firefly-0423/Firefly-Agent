@@ -529,6 +529,70 @@ describe("PluginSchedulesService (v2)", () => {
       expect(runAgentMock).toHaveBeenCalledTimes(2);
     });
 
+    it("re-arms a cron task whose appointment passed while the app was closed instead of disabling it", async () => {
+      const first = setupHarness();
+      const proposed = await first.service.forPlugin("dev.firefly.cron").propose({
+        title: "Quarter-hour check",
+        schedule: { kind: "cron", expression: "*/15 * * * *", timezone: "UTC" },
+        action: { type: "run", prompt: "Ping", mode: "work" },
+      });
+      expect(first.service.confirmProposal(proposed.taskId).nextFireAt).toBe("2032-03-10T10:15:00.000Z");
+      first.engine.stop();
+
+      currentNow = new Date("2032-03-10T10:20:00.000Z");
+      vi.setSystemTime(currentNow);
+      const store = createSchedulerStore({
+        tasksFile: join(workdir, "scheduled-tasks.json"),
+        historyFile: join(workdir, "scheduled-tasks-history.jsonl"),
+        now: () => currentNow,
+        id: () => `store-task-${idCounter++}`,
+      });
+      store.load();
+      const runAgentTask = vi.fn(async (): Promise<ScheduledRunResult> => ({ ok: true, historyId: `h-${idCounter++}`, effectiveToolIds: [] }));
+      const service = createPluginScheduleService({ store, stateFile: join(workdir, "plugin-schedules-state.json"), now: () => currentNow, id: () => `id-${idCounter++}`, runAgentTask });
+      const engine = new SchedulerEngine({ store, runTask: service.runScheduledTask, now: () => currentNow, id: () => `eng-${idCounter++}` });
+      engines.push(engine);
+      engine.start();
+
+      const [task] = store.getTasks();
+      expect(task.pluginUserEnabled).not.toBe(false);
+      expect(task.nextFireAt).toBe("2032-03-10T10:30:00.000Z");
+      currentNow = new Date("2032-03-10T10:30:00.000Z");
+      await vi.advanceTimersByTimeAsync(10 * 60_000);
+      expect(runAgentTask).toHaveBeenCalledTimes(1);
+    });
+
+    it("a stopped plugin instance's trigger callback is removed and its in-flight trigger is aborted", async () => {
+      const { service } = setupHarness();
+      const stopOld = new AbortController();
+      const oldClient = service.forPlugin("dev.firefly.reminder", { signal: stopOld.signal });
+      const seen: string[] = [];
+      let inFlight: AbortSignal | undefined;
+      let release!: () => void;
+      oldClient.onTrigger(async (event) => {
+        seen.push("old");
+        inFlight = event.signal;
+        await new Promise<void>(resolve => { release = resolve; });
+      });
+      const proposed = await oldClient.propose({
+        title: "Stretch", schedule: { kind: "interval", minutes: 5 }, action: { type: "callback", payload: { n: 1 } },
+      });
+      service.confirmProposal(proposed.taskId);
+
+      currentNow = new Date("2032-03-10T10:05:00.000Z");
+      await vi.advanceTimersByTimeAsync(5 * 60_000);
+      expect(seen).toEqual(["old"]);
+      stopOld.abort();
+      expect(inFlight?.aborted).toBe(true);
+      release();
+      await vi.advanceTimersByTimeAsync(0);
+
+      service.forPlugin("dev.firefly.reminder").onTrigger(async () => { seen.push("new"); });
+      currentNow = new Date("2032-03-10T10:10:00.000Z");
+      await vi.advanceTimersByTimeAsync(5 * 60_000);
+      expect(seen).toEqual(["old", "new"]);
+    });
+
     it("rejects calls when plugin signal is aborted or schedules permission is revoked", async () => {
       const { service } = setupHarness();
       const ac = new AbortController();
