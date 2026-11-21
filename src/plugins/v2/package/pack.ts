@@ -1,4 +1,5 @@
-import { lstat, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { lstat, mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import JSZip from "jszip";
 import type { ManifestError } from "../../../shared/plugin-manifest";
@@ -60,6 +61,14 @@ export async function packPackage(dir: string, outFile: string, options: { hostV
   const buffer = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE", compressionOptions: { level: 9 } });
 
   await mkdir(path.dirname(target), { recursive: true });
-  await writeFile(target, buffer);
+  // Write a fresh file and rename it over the output: writing in place would follow a hard link that the
+  // output may share with a package file (realpath cannot see hard links) and truncate that file.
+  const staging = path.join(path.dirname(target), `.${path.basename(target)}.${randomUUID()}.tmp`);
+  try {
+    await writeFile(staging, buffer, { flag: "wx" });
+    await rename(staging, target);
+  } finally {
+    await rm(staging, { force: true });
+  }
   return { ok: true, outFile: target, entries: inspected.files, bytes: buffer.length };
 }

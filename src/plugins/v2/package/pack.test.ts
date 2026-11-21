@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, symlinkSync } from "node:fs";
+import { existsSync, linkSync, readFileSync, symlinkSync } from "node:fs";
 import path from "node:path";
 import JSZip from "jszip";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -74,6 +74,18 @@ describe("packPackage", () => {
     const result = await pack(root, path.join(dangling, "out.ffplugin"));
     expect(result.ok).toBe(false);
     expect(existsSync(path.join(root, "generated"))).toBe(false);
+  });
+
+  it("包外的输出文件是包内文件的硬链接时，打包替换输出而不改动包内文件", async () => {
+    const root = createPackage(ws.base);
+    const entry = path.join(root, "dist", "index.mjs");
+    const before = readFileSync(entry, "utf8");
+    const out = path.join(ws.base, "output.ffplugin");
+    linkSync(entry, out);
+    const result = await pack(root, out);
+    expect(result.ok).toBe(true);
+    expect(readFileSync(entry, "utf8")).toBe(before);
+    expect(readFileSync(out).subarray(0, 2).toString("latin1")).toBe("PK");
   });
 
   it("文件名以两个点开头的输出仍在包内，同样拒绝", async () => {
