@@ -3,8 +3,17 @@
 import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
-import { app } from "electron";
 import { fireflyEnvironment } from "../../../shared/firefly-environment";
+
+/** The document index worker loads this module, and packaged worker threads cannot resolve Electron. */
+function electronAppPath(): string | undefined {
+  try {
+    const { app } = require("electron") as typeof import("electron");
+    return typeof app?.getAppPath === "function" ? app.getAppPath() : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 const HF_CACHE_DIR = path.join(os.homedir(), ".cache", "huggingface", "Xenova");
 
@@ -63,7 +72,8 @@ export function getProjectModelsDirCandidates(): string[] {
   add(path.join(process.cwd(), "models"));
   add(path.join(path.dirname(process.execPath), "models"));
   try {
-    add(path.join(app.getAppPath(), "models"));
+    const appPath = electronAppPath();
+    if (appPath) add(path.join(appPath, "models"));
   } catch {
     // app 尚未就绪，跳过
   }
