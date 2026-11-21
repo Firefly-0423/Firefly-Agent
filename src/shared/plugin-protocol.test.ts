@@ -1,0 +1,44 @@
+import { describe, expect, it } from 'vitest'
+import { parseFrame, PluginError } from './plugin-protocol'
+
+const valid = [
+  { type: 'req', id: '1', method: 'activate', params: { bytes: new Uint8Array([1]) }, deadline: 123 },
+  { type: 'res', id: '1', ok: true, value: undefined },
+  { type: 'res', id: '1', ok: false, error: { code: 'ERR_PERMISSION', message: 'Denied', retryable: false } },
+  { type: 'cancel', id: '1' }, { type: 'chunk', id: '1', value: ['a'] }, { type: 'end', id: '1' }
+]
+
+describe('parseFrame', () => {
+  it.each(valid)('accepts $type with its exact payload', (frame) => expect(parseFrame(frame)).toEqual(frame))
+  it.each(valid)('rejects extra fields in $type', (frame) => expect(parseFrame({ ...frame, unexpected: true })).toBeNull())
+  it.each([
+    null, [], {}, { type: 'unknown', id: '1' }, ...valid.map(frame => ({ ...frame, id: 1 })),
+    ...valid.map(frame => ({ ...frame, id: '' })),
+    { type: 'req', id: '1', method: '', params: {}, deadline: 1 },
+    { type: 'req', id: '1', method: 'a', deadline: 1 },
+    ...[NaN, Infinity, -1, '123'].map(deadline => ({ type: 'req', id: '1', method: 'a', params: {}, deadline })),
+    { type: 'res', id: '1', ok: true },
+    { type: 'res', id: '1', ok: 'true', value: 1 },
+    { type: 'res', id: '1', ok: false, error: { code: 'ERR_FAKE', message: '', retryable: false } },
+    { type: 'res', id: '1', ok: false, error: { code: 'ERR_INTERNAL', message: '', retryable: 'false' } },
+    { type: 'res', id: '1', ok: false, error: { code: 'ERR_INTERNAL', message: 1, retryable: false } },
+    { type: 'res', id: '1', ok: false, error: { code: 'ERR_INTERNAL', message: '', retryable: false, stack: 'secret' } },
+    { type: 'chunk', id: '1' },
+    { type: 'chunk', id: '1', value: { nested: () => 'secret' } },
+    { type: 'req', id: '1', method: 'a', params: Symbol('x'), deadline: 1 }
+  ])('rejects malformed or non-data frame %#', (frame) => expect(parseFrame(frame)).toBeNull())
+  it('does not invoke payload accessors or throw for hostile objects', () => {
+    let reads = 0
+    expect(parseFrame({ type: 'chunk', id: '1', value: { get secret() { reads++; throw Error('secret') } } })).toBeNull()
+    expect(reads).toBe(0)
+    expect(parseFrame(new Proxy({}, { ownKeys() { throw Error('secret') } }))).toBeNull()
+  })
+  it.each(['ERR_UNDECLARED', 'ERR_PERMISSION', 'ERR_REJECTED', 'ERR_CANCELLED', 'ERR_TIMEOUT', 'ERR_INVALID_ARGUMENT', 'ERR_RATE_LIMITED', 'ERR_UNAVAILABLE', 'ERR_INTERNAL'])('accepts documented error %s', code => {
+    const frame = { type: 'res', id: '1', ok: false, error: { code, message: 'Public', retryable: true } }
+    expect(parseFrame(frame)).toEqual(frame)
+  })
+  it('carries the public error code and retryability', () => {
+    const error = new PluginError('ERR_UNAVAILABLE', 'No service', true)
+    expect(error).toMatchObject({ name: 'PluginError', code: 'ERR_UNAVAILABLE', message: 'No service', retryable: true })
+  })
+})
