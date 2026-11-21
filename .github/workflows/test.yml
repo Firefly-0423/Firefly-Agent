@@ -108,7 +108,7 @@ jobs:
       - name: Check plugin schema contract
         run: pnpm run check:plugin-schema
 
-      # 全量测试：vitest.config.ts 的 include 即权威测试集，新增测试自动纳入门禁
+      # 全量测试：vitest.config.mts 的 include 即权威测试集，新增测试自动纳入门禁
       - name: Select Bash integration test fixture
         shell: bash
         run: |

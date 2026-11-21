@@ -214,6 +214,7 @@
     "errorModelRequestStartFailed": "Couldn't start the model request",
     "errorModelServiceNotReady": "Model request failed: the AG-UI model service isn't ready yet",
     "errorModelTimedOut": "The model took too long to respond, so Firefly stopped waiting. Try again in a moment. ({{code}})",
+    "errorAttachmentNeedsWorkMode": "This document is too long for Chat, which is meant for conversation. Switch to Work mode and send it again; Firefly will read the whole file with its tools. ({{code}})",
     "errorNetworkInterrupted": "The connection dropped before the model replied. The network or a proxy may be unstable; send the message again in a moment. ({{code}})",
     "errorPendingAdjustAttachments": "Messages with attachments can't be inserted into the current run yet; kept in the queue",
     "errorPendingAdjustFailed": "Adjust failed: {{error}}",

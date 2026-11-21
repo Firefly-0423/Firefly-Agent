@@ -198,9 +198,11 @@ export function getEmbeddingProvider(mode: "auto" | "local" | "cloud" = "auto", 
   }
   return selectedProvider;
 }
+/** Shared reason when neither a local nor a cloud embedding provider is configured. */
+export const EMBEDDING_PROVIDER_UNAVAILABLE = "Embedding provider is not available";
 export async function getEmbeddingProviderIdentity(): Promise<EmbeddingProviderIdentity> {
   const instance = getEmbeddingProvider();
-  if (!instance) throw new Error("Embedding provider is not available");
+  if (!instance) throw new Error(EMBEDDING_PROVIDER_UNAVAILABLE);
   if (instance.cacheIdentity) return instance.cacheIdentity;
   const local = Object.values(models).find((model) => instance.name === "local-" + model.hfName.split("/").pop());
   if (local) return { provider: "local", model: local.hfName, dimensions: instance.dims };
@@ -216,7 +218,7 @@ export async function getEmbeddingProviderIdentity(): Promise<EmbeddingProviderI
 }
 export function getEmbeddingWorkerConfig(): EmbeddingWorkerConfig {
   const instance = getEmbeddingProvider();
-  if (!instance) throw new Error("Embedding provider is not available");
+  if (!instance) throw new Error(EMBEDDING_PROVIDER_UNAVAILABLE);
   if (instance.workerConfig) return instance.workerConfig;
   return { provider: "local", modelKey: selectedKey };
 }

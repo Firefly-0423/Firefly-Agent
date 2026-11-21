@@ -2,6 +2,7 @@ import type { RunStatusItem, RunStatusRequest } from "../shared/run-status";
 import type {} from "electron";
 import type { ConversationMode } from "../shared/chat-types";
 import { IPC } from "../shared/ipc-channels";
+import { unwrapIpcErrorCode } from "../shared/ipc-error-code";
 import type { AguiRunAck } from "../shared/run-terminal";
 import { SIDEBAR_LAYOUT_IPC, type SidebarMutation } from "../shared/sidebar-layout";
 
@@ -39,7 +40,8 @@ export function createAguiApi(ipcRenderer: AguiIpcRenderer) {
                 disposition: "keep_user" | "replace_user";
             };
         }) => {
-            return ipcRenderer.invoke(IPC.AGUI_RUN, request) as Promise<AguiRunAck>;
+            return (ipcRenderer.invoke(IPC.AGUI_RUN, request) as Promise<AguiRunAck>)
+                .catch((failure: unknown) => { throw unwrapIpcErrorCode(failure); });
         },
         onEvent: (receive: (eventData: unknown) => void) => {
             const forwardEvent = (_ipcEvent: unknown, eventData: unknown) => {

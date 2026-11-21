@@ -164,4 +164,138 @@ describe("production browser composition preserves separate Agent approval", () 
     await expect(f.tool.execute({ operation: "open", url: "https://example.com/" }, f.context)).rejects.toMatchObject({ code: "BROWSER_OWNER_MISMATCH" });
     expect(native.effects).toEqual([]);
   });
+
+  it("revokes browser lease and closes page on last chat window close without aborting the active run, rejecting subsequent tool calls", async () => {
+    const { createActiveChatTargetRegistry } = await import("../interaction/active-chat-target");
+    const { registerBrowserHostOwner } = await import("./browser-host-owner");
+    const profile = {} as RuntimeProfile;
+    const targets = createActiveChatTargetRegistry();
+    let windowClosed = false;
+    const mainFrame = {}, webContents = Object.assign(new EventEmitter(), { id: 81, mainFrame, isDestroyed: () => windowClosed });
+    const host: BrowserHostPort = Object.assign(new EventEmitter(), {
+      webContents, isDestroyed: () => windowClosed, isVisible: () => !windowClosed, isFocused: () => !windowClosed,
+      getContentSize: () => [800, 600], contentView: { addChildView() {}, removeChildView() {} },
+    });
+    const service = createElectronBrowserService({ profile, trustedResolver: { server: "192.0.2.53", port: 53 } });
+    services.push(service);
+    const liveHosts = new Set<BrowserHostPort>([host]);
+    service.setHostClosePolicy((closingHost) => {
+      liveHosts.delete(closingHost);
+      return liveHosts.size === 0 ? { revokeAllLeases: true } : { affectedConversations: [] };
+    });
+    let runActive = true;
+    const binding = registerBrowserHostOwner({
+      host, profile, targets, service,
+      readSession: id => ({ id, mode: "work" }),
+      isRunActive: (cid, rid) => runActive && cid === "conv-1" && rid === "run-1",
+    });
+    const sender = { sender: webContents, senderFrame: mainFrame };
+    targets.setActive({ sender: webContents as unknown as import("electron").WebContents, sessionId: "conv-1", mode: "work", rendererTargetId: "r1" });
+    binding.refresh();
+    expect(await service.dispatchPermission(sender, { kind: "request", scope: agentScope })).toMatchObject({ ok: true, value: { status: "granted" } });
+
+    const executor = createBrowserWorkspaceExecutor({
+      currentOwner: () => binding.getCurrentOwner(),
+      getRunLease: (cid, rid) => binding.getRunLease(cid, rid),
+      retainRunLease: (owner, input) => binding.retainRunLease(owner, input),
+      service: () => service,
+      isRunCurrent: (cid, rid) => runActive && cid === "conv-1" && rid === "run-1",
+    });
+    const tool = createBrowserWorkspaceTool(executor);
+    const runAbort = new AbortController();
+    const context = { userQuery: "Browse", conversationId: "conv-1", runId: "run-1", signal: runAbort.signal, mode: "work" as const };
+    expect(JSON.parse(await tool.execute({ operation: "open", url: "https://example.com/" }, context))).toMatchObject({ success: true, result: { url: "https://example.com/" } });
+    const lease = binding.getRunLease("conv-1", "run-1")!;
+    expect(lease).not.toBeNull();
+
+    // Close the last chat window: lease is revoked and guest is destroyed, but the agent run itself is NOT aborted
+    windowClosed = true;
+    (host as unknown as EventEmitter).emit("closed");
+    await vi.waitFor(() => expect(native.effects).toContain("destroyed"));
+    expect(lease.signal.aborted).toBe(true);
+    expect(runAbort.signal.aborted).toBe(false);
+    expect(runActive).toBe(true);
+
+    // Subsequent browser tool call from the still-active run is cleanly rejected with BROWSER_OWNER_MISMATCH
+    await expect(tool.execute({ operation: "observe" }, context)).rejects.toMatchObject({ code: "BROWSER_OWNER_MISMATCH" });
+
+    // Run can finish normally later
+    runActive = false;
+    binding.dispose();
+    targets.dispose();
+  });
+
+  it("matches currentOwner by conversationId across two chat windows so session B retains its lease in window B while A cannot touch B", async () => {
+    const { createActiveChatTargetRegistry } = await import("../interaction/active-chat-target");
+    const { registerBrowserHostOwner } = await import("./browser-host-owner");
+    const profile = {} as RuntimeProfile;
+    const makeHost = (id: number) => {
+      const mainFrame = {}, webContents = Object.assign(new EventEmitter(), { id, mainFrame, isDestroyed: () => false });
+      const host: BrowserHostPort = Object.assign(new EventEmitter(), {
+        webContents, isDestroyed: () => false, isVisible: () => true, isFocused: () => true,
+        getContentSize: () => [800, 600], contentView: { addChildView() {}, removeChildView() {} },
+      });
+      return { host, webContents, sender: { sender: webContents, senderFrame: mainFrame } };
+    };
+    const winA = makeHost(91), winB = makeHost(92);
+    const service = createElectronBrowserService({ profile, trustedResolver: { server: "192.0.2.53", port: 53 } });
+    services.push(service);
+    const targetsA = createActiveChatTargetRegistry(), targetsB = createActiveChatTargetRegistry();
+    const bindingA = registerBrowserHostOwner({ host: winA.host, profile, targets: targetsA, service, readSession: id => ({ id, mode: "work" }), isRunActive: () => true });
+    const bindingB = registerBrowserHostOwner({ host: winB.host, profile, targets: targetsB, service, readSession: id => ({ id, mode: "work" }), isRunActive: () => true });
+    const hostList = [
+      { host: winA.host, binding: bindingA },
+      { host: winB.host, binding: bindingB },
+    ];
+
+    targetsA.setActive({ sender: winA.webContents as unknown as import("electron").WebContents, sessionId: "conv-a", mode: "work", rendererTargetId: "ra" });
+    bindingA.refresh();
+    targetsB.setActive({ sender: winB.webContents as unknown as import("electron").WebContents, sessionId: "conv-b", mode: "work", rendererTargetId: "rb" });
+    bindingB.refresh();
+
+    // Grant Agent permission only on window B (conv-b); window A is first in hostList displaying conv-a
+    expect(await service.dispatchPermission(winB.sender, { kind: "request", scope: agentScope })).toMatchObject({ ok: true, value: { status: "granted" } });
+
+    const executor = createBrowserWorkspaceExecutor({
+      currentOwner: (conversationId) => {
+        for (const entry of hostList) {
+          const owner = entry.binding.getCurrentOwner();
+          if (!owner) continue;
+          if (conversationId === undefined || owner.conversationId === conversationId) return owner;
+        }
+        return null;
+      },
+      getRunLease: (cid, rid) => {
+        for (const entry of hostList) {
+          const lease = entry.binding.getRunLease(cid, rid);
+          if (lease) return lease;
+        }
+        return null;
+      },
+      retainRunLease: (owner, input) => {
+        const entry = hostList.find(h => h.host === owner.host);
+        return entry?.binding.retainRunLease(owner, input) ?? null;
+      },
+      service: () => service,
+      isRunCurrent: () => true,
+    });
+    const tool = createBrowserWorkspaceTool(executor);
+
+    // Run B succeeds in window B even though window A (conv-a) is first in hostList
+    const ctxB = { userQuery: "Browse B", conversationId: "conv-b", runId: "run-b", signal: new AbortController().signal, mode: "work" as const };
+    const openedB = JSON.parse(await tool.execute({ operation: "open", url: "https://example.com/" }, ctxB));
+    expect(openedB).toMatchObject({ success: true, result: { conversationId: "conv-b", url: "https://example.com/" } });
+    expect(bindingB.getRunLease("conv-b", "run-b")).not.toBeNull();
+
+    // Run A cannot get window B's owner or operate on window B's page (A has no grant in window A)
+    const ctxA = { userQuery: "Browse A", conversationId: "conv-a", runId: "run-a", signal: new AbortController().signal, mode: "work" as const };
+    await expect(tool.execute({ operation: "open", url: "https://example.com/", browserId: openedB.result.browserId }, ctxA)).rejects.toMatchObject({ code: "BROWSER_OWNER_MISMATCH" });
+    expect(bindingB.getRunLease("conv-a", "run-a")).toBeNull();
+
+    // Unbound conversation C gets BROWSER_OWNER_MISMATCH
+    const ctxC = { userQuery: "Browse C", conversationId: "conv-c", runId: "run-c", signal: new AbortController().signal, mode: "work" as const };
+    await expect(tool.execute({ operation: "open", url: "https://example.com/" }, ctxC)).rejects.toMatchObject({ code: "BROWSER_OWNER_MISMATCH" });
+
+    bindingA.dispose(); bindingB.dispose(); targetsA.dispose(); targetsB.dispose();
+  });
 });

@@ -6,13 +6,13 @@
 
 | 入口 | 测试集合 | 前提 | CI 位置与证据 |
 |---|---|---|---|
-| `pnpm test` | vitest.config.ts 的七组 include | 安装依赖，Git Bash；原生用例需对应 helper | test.yml 的 Run full test suite 通过 scripts/ci/run-vitest.ps1 无文件参数运行 Vitest |
+| `pnpm test` | vitest.config.mts 的七组 include | 安装依赖，Git Bash；原生用例需对应 helper | test.yml 的 Run full test suite 通过 scripts/ci/run-vitest.ps1 无文件参数运行 Vitest |
 | `node --test "scripts/**/*.test.mjs"` | 下表 26 个文件，含 eval 与 marketplace | Node 24 CI，依赖与合成临时目录 | test.yml 的 Run Node script tests，失败日志随现有 evidence artifact 上传 |
 | `pnpm run test:memory-history-zero-write` | 1 个独立 acceptance 文件，12 项 | Windows 本地 NTFS、独立根与 TEMP/TMP 相同、debug/release history-read helper | test.yml 的 Run native memory history zero-write acceptance，在已有 release helpers 构建后显式构建 debug helper |
 | `pnpm run test:plugin-examples` | scripts/plugin-sdk/test-examples.mjs 从打包 SDK 编译和冒烟示例 | check:plugin-sdk 生成可用包 | plugin-sdk.yml 的 Compile and smoke-test plugin examples |
 | 两条 workspace Cargo 测试 | workspace_handle_contract、lib workspace_access | Windows，本地 NTFS，FF_WORKSPACE_TEST_ROOT | test.yml 的 Build workspace helper and run its native tests |
 
-默认 Vitest 路径为 `src/plugins/**/*.test.ts`、`src/main/**/*.test.ts`、`src/renderer/**/*.test.ts`、`src/shared/**/*.test.ts`、`src/cli/**/*.test.ts`、`skills/**/tests/**/*.test.ts`、`plugin-sdk/src/**/*.test.ts`。独立 acceptance 使用 `scripts/testing/vitest.memory-history-zero-write.config.ts`，不匹配这些默认路径。
+默认 Vitest 路径为 `src/plugins/**/*.test.ts`、`src/main/**/*.test.ts`、`src/renderer/**/*.test.ts`、`src/shared/**/*.test.ts`、`src/cli/**/*.test.ts`、`skills/**/tests/**/*.test.ts`、`plugin-sdk/src/**/*.test.ts`。独立 acceptance 使用 `scripts/testing/vitest.memory-history-zero-write.config.mts`，不匹配这些默认路径。
 
 Node 24 官方测试运行器文档提供带引号的 glob 示例，本次命令直接传给 Node，避免 Shell 展开差异。本机 Node 26.13.1 实际发现下表 26 个文件。CI 仍固定 Node 24，Node 24 的实跑发现集合尚待远端验证。本机不据此声称 Node 24 已通过。
 

@@ -52,7 +52,7 @@ describe("findServerCandidates 按扩展名匹配", () => {
 
   it("每个内置服务器的扩展名集合固定：丢掉或改派任何一个扩展名都会失败", () => {
     const expected: Record<string, string[]> = {
-      "typescript-language-server": [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".jsonc"],
+      "typescript-language-server": [".ts", ".mts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".jsonc"],
       "python-pyright": [".py", ".pyi"],
       gopls: [".go"],
       "rust-analyzer": [".rs"],
@@ -72,7 +72,7 @@ describe("findServerCandidates 按扩展名匹配", () => {
 
   it("TypeScript 的主扩展名 .ts 仍归 typescript-language-server", () => {
     expect(idsFor("src/app.ts")).toEqual(["typescript-language-server"]);
-    expect(idsFor("src/app.mts")).toEqual([]);
+    expect(idsFor("src/app.mts")).toEqual(["typescript-language-server"]);
   });
 
   it("目录里声明的每个扩展名都能查到它自己的服务器（新增语言不会漏测）", () => {

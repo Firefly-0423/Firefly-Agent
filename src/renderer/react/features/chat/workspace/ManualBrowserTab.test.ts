@@ -121,7 +121,7 @@ describe("manual browser Main bridge and viewport lifecycle", () => {
     await render("s", true); execute.mockClear();
     await act(async () => { window.dispatchEvent(new Event("focus")); resize?.(); });
     expect(execute.mock.calls.filter(([c]) => c.kind === "layout").length).toBeGreaterThanOrEqual(2);
-    await render("next"); expect(revokePermission).toHaveBeenCalledExactlyOnceWith("s"); expect(execute.mock.calls.some(([c]) => c.kind === "close")).toBe(false); expect(off).toHaveBeenCalled();
+    await render("next"); expect(revokePermission).not.toHaveBeenCalled(); expect(execute.mock.calls.some(([c]) => c.kind === "close")).toBe(false); expect(off).toHaveBeenCalled();
   });
   it("close cancels pending open as soon as Main publishes its ID and never adopts a late reply", async () => {
     let finish!: (value: unknown) => void;
@@ -210,14 +210,22 @@ const manualPermission = (status: BrowserPermissionDto["status"] = "required", h
 
 describe("separate Agent browser approval controls", () => {
   const agentScope = { ...permission("required").scope, mode: "agent" as const };
-  it.each(["close", "unmount"])("revokes approved Agent permission on %s even before a page exists", async action => {
+  it("revokes approved Agent permission on explicit close (×) but preserves it on passive unmount/sidebar collapse", async () => {
     window.manualBrowser!.getPermission = async () => ({ ok: true, value: { ...permission("granted"), scope: agentScope, agentScope } });
     execute.mockResolvedValue({ ok: true, value: null });
     await render();
     expect(revokePermission).not.toHaveBeenCalled();
-    if (action === "close") await act(async () => closeTab());
-    else await act(async () => root.unmount());
-    expect(revokePermission).toHaveBeenCalledTimes(1);
+    // Collapsing the right sidebar (active=false or passive unmount) must not revoke
+    await render("s", false);
+    expect(revokePermission).not.toHaveBeenCalled();
+    await act(async () => root.unmount());
+    expect(revokePermission).not.toHaveBeenCalled();
+
+    // Re-mount and click explicit close (×) -> revokes permission and run lease
+    root = createRoot(host);
+    await render();
+    await act(async () => closeTab());
+    expect(revokePermission).toHaveBeenCalledExactlyOnceWith("s");
     expect(execute.mock.calls.some(([command]) => command.kind === "open")).toBe(false);
   });
   it("manual navigation never requests the separately offered Agent scope", async () => {
@@ -424,7 +432,7 @@ describe("manual public HTTPS site consent", () => {
     expect(requestPermission).toHaveBeenCalledExactlyOnceWith({ mode: "manual", hosts: ["other.example"], resourceHosts: [], actions: ["navigate"] });
     expect(navCalls()).toEqual([{ kind: "open", url: "https://other.example/" }]);
   });
-  it.each(["close", "unmount", "revoke", "session change"])("revokes a pending native request on %s and ignores its late grant", async action => {
+  it.each(["close", "unmount", "revoke", "session change"])("ignores a late grant from a pending native request on %s and only revokes on explicit close/revoke", async action => {
     useManualPermission(); let approve!: (reply: unknown) => void;
     requestPermission.mockImplementation(() => new Promise(resolve => { approve = resolve; }));
     await render(); await navigate("https://docs.example/late");
@@ -432,7 +440,8 @@ describe("manual public HTTPS site consent", () => {
     else if (action === "unmount") await act(async () => root.unmount());
     else if (action === "session change") await render("other");
     else await act(async () => host.querySelector<HTMLButtonElement>('[data-browser-revoke]')!.click());
-    expect(revokePermission).toHaveBeenCalledTimes(1);
+    if (action === "close" || action === "revoke") expect(revokePermission).toHaveBeenCalledTimes(1);
+    else expect(revokePermission).not.toHaveBeenCalled();
     await act(async () => approve({ ok: true, value: manualPermission("granted", ["docs.example"]) }));
     expect(navCalls()).toEqual([]);
   });
@@ -448,10 +457,13 @@ describe("manual public HTTPS site consent", () => {
     expect(navCalls()).toEqual([{ kind: "open", url: "https://new.example/path" }]);
     expect(host.textContent).toContain("new.example"); expect(host.textContent).not.toContain("old.example");
   });
-  it.each(["close", "unmount"])("cancels a pending native request recovered from Main on %s", async action => {
+  it("cancels a pending native request recovered from Main on explicit close without revoking on passive unmount", async () => {
     useManualPermission("pending", ["docs.example"]); await render();
-    if (action === "close") await act(async () => closeTab());
-    else await act(async () => root.unmount());
+    await act(async () => root.unmount());
+    expect(revokePermission).not.toHaveBeenCalled();
+    root = createRoot(host);
+    await render();
+    await act(async () => closeTab());
     expect(revokePermission).toHaveBeenCalledExactlyOnceWith("s");
   });
   it.each(["cancelled", "rejected"])("clears a failed native request's pending status for a retry after %s", async outcome => {
@@ -477,24 +489,22 @@ describe("manual public HTTPS site consent", () => {
     expect(host.textContent).toContain("browserWorkspace.approvedResources");
     expect(host.textContent).toContain("api.example");
   });
-  it.each(["close", "unmount"])("revokes a granted opening immediately before Main publishes an ID on %s", async action => {
+  it("revokes a granted opening immediately before Main publishes an ID on explicit close", async () => {
     useManualPermission(); let finish!: (reply: unknown) => void;
     execute.mockImplementation((c: ManualBrowserCommand) => c.kind === "open" ? new Promise(resolve => { finish = resolve; }) : Promise.resolve({ ok: true, value: null }));
     await render(); await navigate("https://docs.example/path");
     expect(navCalls()).toEqual([{ kind: "open", url: "https://docs.example/path" }]);
-    if (action === "close") await act(async () => closeTab());
-    else await act(async () => root.unmount());
+    await act(async () => closeTab());
     expect(revokePermission).toHaveBeenCalledExactlyOnceWith("s");
     await act(async () => finish({ ok: true, value: { ...page("late-id", 1), url: "https://docs.example/path" } }));
     expect(execute).toHaveBeenCalledWith({ kind: "close", browserId: "late-id" });
     expect(host.querySelector<HTMLInputElement>('input[type="text"]')?.value).not.toBe("https://example.com/");
   });
-  it.each(["close", "unmount"])("revokes the previous live authority after Main rejects a new scope before cleanup on %s", async action => {
+  it("revokes the previous live authority after Main rejects a new scope before cleanup on explicit close", async () => {
     useManualPermission("granted", ["example.com"]); await render(); await navigate();
     requestPermission.mockResolvedValueOnce({ ok: false, code: "permission_denied" });
     await navigate("https://private.example/path");
-    if (action === "close") await act(async () => closeTab());
-    else await act(async () => root.unmount());
+    await act(async () => closeTab());
     expect(revokePermission).toHaveBeenCalledExactlyOnceWith("s");
   });
   it("cancels an older native consent request when the latest Go address has invalid syntax", async () => {
@@ -674,12 +684,12 @@ it.each([en, zhCN])("provides browser state, terminal cleanup, and address-contr
   expect(locale.rightInspector.closeTab).toContain("{{name}}");
 });
 
-it("revokes on real unmount before initial Main permission recovery resolves", async () => {
+it("does not revoke on passive unmount before initial Main permission recovery resolves and ignores late recovery", async () => {
     let recover!: (value: unknown) => void;
     window.manualBrowser!.getPermission = () => new Promise(resolve => { recover = resolve; });
     await render();
     await act(async () => root.render(null));
-    expect(revokePermission).toHaveBeenCalledWith("s");
+    expect(revokePermission).not.toHaveBeenCalled();
     await act(async () => recover({ ok: true, value: permission("granted") }));
     expect(execute.mock.calls.some(([c]) => c.kind === "open")).toBe(false);
   });
@@ -707,11 +717,10 @@ it("revokes the session grant when closing before any page exists", async () => 
     expect(execute.mock.calls.some(([c]) => c.kind === "open")).toBe(false);
   });
 
-it("revokes the old session grant on unmount without touching the next session", async () => {
+it("preserves the old session grant on session switch without calling revokePermission", async () => {
     await render();
     await render("other");
-    expect(revokePermission).toHaveBeenCalledWith("s");
-    expect(revokePermission).not.toHaveBeenCalledWith("other");
+    expect(revokePermission).not.toHaveBeenCalled();
   });
 
 it("cancels a pending native permission on close and ignores its late approval", async () => {
