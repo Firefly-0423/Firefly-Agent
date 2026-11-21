@@ -43,32 +43,40 @@ pnpm run dev
 
 ## 🗂️ 项目结构
 
-```
-src/
-├── main/          # Electron 主进程，分七层，每层有自己的 AGENTS.md
-│   ├── base/          # 基础：存储、日志、应用身份与数据目录、IPC 注册
-│   ├── platform/      # 平台服务：设置、权限与审批、窗口、语音、浏览器、Git、LSP
-│   ├── model/         # 模型接入：厂商适配、模型档案、提示词分层
-│   ├── tooling/       # 工具契约：注册表、参数校验、执行协调
-│   ├── conversation/  # 会话记录：类型、存储与结算
-│   ├── knowledge/     # 知识：文档检索、学习工作区、Skills
-│   ├── memory/        # 记忆：核心库、召回、历史、上下文
-│   ├── agent/         # 智能体运行：主循环、内置工具、MCP、伙伴委派
-│   ├── features/      # 功能入口：聊天、会话、渠道、定时任务、插件
-│   └── app/           # 组合根：装配各模块，管理启动与退出
-├── renderer/      # 渲染进程：React 界面、Live2D、在线演示
-├── preload/       # 受控 IPC 桥接
-├── plugins/       # 插件系统核心
-├── shared/        # 主进程与渲染进程共享的契约
-└── cli/           # 命令行入口
+### 主进程
 
-native/            # Rust 原生助手：截图、历史读取、工作区句柄
-plugin-sdk/        # 插件 SDK；examples/ 是插件示例
-skills/            # 项目 Skills；第三方 Skills 在 vendor/firefly-skills/
-prompts/           # 分层角色提示词与世界观
-site/              # 宣传网站与在线演示
-scripts/  docs/    # 构建、打包与验证脚本；设计与开发文档
-```
+`src/main/` 分七层，自下而上只允许引用同层或更低的层，每层有自己的 `AGENTS.md`。
+
+| 层 | 负责 |
+| --- | --- |
+| `base/` | 存储、日志、应用身份与数据目录、IPC 注册 |
+| `platform/` | 设置、权限与审批、窗口、语音、浏览器、Git、LSP |
+| `model/` · `tooling/` · `conversation/` | 模型接入与提示词；工具契约；会话记录 |
+| `knowledge/` · `memory/` | 文档检索、学习工作区、Skills；记忆、召回与上下文 |
+| `agent/` | 主循环、内置工具、MCP、伙伴委派 |
+| `features/` | 聊天、会话、渠道、定时任务、插件等功能入口 |
+| `app/` | 组合根：装配各模块，管理启动与退出 |
+
+### 界面与共享
+
+| 目录 | 负责 |
+| --- | --- |
+| `src/renderer/` | React 界面、Live2D、在线演示 |
+| `src/preload/` | 受控 IPC 桥接 |
+| `src/plugins/` | 插件系统核心 |
+| `src/shared/` | 主进程与渲染进程共享的契约 |
+| `src/cli/` | 命令行入口 |
+
+### 其他目录
+
+| 目录 | 负责 |
+| --- | --- |
+| `native/` | Rust 原生助手：截图、历史读取、工作区句柄 |
+| `plugin-sdk/` · `examples/` | 插件 SDK 与示例 |
+| `skills/` · `vendor/firefly-skills/` | 项目 Skills；第三方 Skills |
+| `prompts/` | 分层角色提示词与世界观 |
+| `site/` | 宣传网站与在线演示 |
+| `scripts/` · `docs/` | 构建、打包与验证脚本；设计与开发文档 |
 
 ## 💬 反馈与联系
 
