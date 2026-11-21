@@ -239,8 +239,8 @@ export function createPluginHostServices(deps: ServiceDependencies) {
       const allowed = ["run.started", "run.ended", "tool.completed", "schedule.completed"];
       if (params.types !== undefined && (!Array.isArray(params.types) || params.types.length === 0 || params.types.some(t => !allowed.includes(t)))) { throw invalid(); }
       const types = new Set<string>(params.types as string[] ?? allowed);
-      const op = begin("events", signal);
       return (async function* () {
+        const op = begin("events", signal);
         const queue: unknown[] = []; let wake = () => {};
         const abort = () => { queue.length = 0; wake(); };
         let unsubscribe = () => {};

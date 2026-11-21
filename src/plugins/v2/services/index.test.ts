@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createRateLimiter } from "./rate-limit";
 import { createPluginHostServices, type ServiceDependencies } from "./index";
-import { createRpcEndpoint } from "../../../shared/plugin-rpc";
+import { createRpcEndpoint, type PluginRpc } from "../../../shared/plugin-rpc";
 import { PLUGIN_TO_HOST_METHODS as P } from "../../../shared/plugin-protocol";
 
 function fixture() {
@@ -51,6 +51,18 @@ describe("model rate limit", () => {
   });
 });
 describe("host services over RPC", () => {
+  it("does not access the bound conversation when a stream is cancelled before consumption", async () => {
+    const f = fixture(); const context = vi.spyOn(f.deps, "context");
+    const handlers = new Map<string, Parameters<PluginRpc["handle"]>[1]>();
+    const rpc: PluginRpc = { call: vi.fn(), stream: vi.fn(), close: vi.fn(), dispose: vi.fn(),
+      handle: (method, handler) => { handlers.set(method, handler); return () => { handlers.delete(method); }; } };
+    const dispose = f.services.configureRpc("dev.test.plugin", rpc);
+    const abort = new AbortController();
+    const iterable = handlers.get(P.eventsSubscribe)!({}, { signal: abort.signal }) as AsyncIterable<unknown>;
+    abort.abort(); await iterable[Symbol.asyncIterator]().return?.();
+    expect(context).not.toHaveBeenCalled(); expect(f.deps.subscribe).not.toHaveBeenCalled();
+    dispose(); f.close();
+  });
   it("never reuses a pending workspace confirmation after rebinding", async () => {
     const f = fixture(); let resolve!: (accepted: boolean) => void;
     vi.mocked(f.deps.confirm).mockImplementationOnce(() => new Promise<boolean>(done => { resolve = done; })).mockResolvedValue(true);
