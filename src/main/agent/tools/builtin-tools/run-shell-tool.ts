@@ -207,7 +207,7 @@ function resolveShellAccess(context: ToolContext | undefined, args: Record<strin
     (context?.authorizedToolCall?.toolId !== "run_shell" || context.authorizedToolCall.args !== args || !context.authorizedToolCall.approvalRequired)) {
     throw new ToolExecutionError("E_PERMISSION_APPROVAL_REQUIRED", "此命令需要当前调用的审批授权。", "permission_denied");
   }
-  for (const candidate of ["project-read-only", "read-only", "scoped", "per-action", "full"] as const) if (intersection.includes(candidate)) return candidate;
+  for (const candidate of ["read-only", "per-action", "full"] as const) if (intersection.includes(candidate)) return candidate;
   throw new ToolExecutionError("E_PERMISSION_INVALID", "无效的文件权限档位。", "permission_denied");
 }
 
@@ -244,8 +244,7 @@ async function executeRunShell(args: Record<string, unknown>, context?: ToolCont
   // 受限档位下，授权根目录由 Main 持有，不能由模型给出的 cwd 推导；full / allow_all 与无可信工作区的旧调用方保持原行为。
   const trustedRoot = level !== "full" ? context?.resolvedWorkspaceRoot : undefined;
   // 带会话快照的受限调用必须有可信工作区：否则沙箱根会退回到由模型 cwd 推导，与文件工具的 E_WORKSPACE_REQUIRED 保持一致。
-  if (!trustedRoot && context?.fileAccessLevel !== undefined
-    && (level === "project-read-only" || level === "read-only" || level === "scoped")) {
+  if (!trustedRoot && context?.fileAccessLevel !== undefined && level === "read-only") {
     return JSON.stringify({
       ...shellFailure("E_WORKSPACE_REQUIRED", "permission_denied"),
       command, cwd, shell, exitCode: -1,

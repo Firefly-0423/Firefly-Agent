@@ -200,7 +200,7 @@ describe("MCP registration through host permission and dispatcher", () => {
     expect(context.state.uncertainEffects).toEqual([]);
   });
 
-  it.each(["read-only", "project-read-only", "scoped"] as const)("%s denies a server-asserted read-only MCP tool", async (level) => {
+  it.each(["read-only"] as const)("%s denies a server-asserted read-only MCP tool", async (level) => {
     setCurrentLevel(level);
     const tool = await registerMcp({ readOnlyHint: true, destructiveHint: false });
     const result = await dispatchToolCall(call("call-1"), dispatchContext());
@@ -246,7 +246,7 @@ describe("MCP registration through host permission and dispatcher", () => {
     expect(callTool).not.toHaveBeenCalled();
   });
 
-  it.each(["read-only", "project-read-only"] as const)("%s denies mutation, external and unknown MCP without execution", async (level) => {
+  it.each(["read-only"] as const)("%s denies mutation, external and unknown MCP without execution", async (level) => {
     setCurrentLevel(level);
     for (const effect of ["mutation", "external_side_effect", "unknown"] as const) {
       await registerMcp(undefined, effect);
@@ -318,22 +318,12 @@ describe("MCP registration through host permission and dispatcher", () => {
     expect(context.state.uncertainEffects).toEqual([]);
   });
 
-  it.each(["scoped", "full"] as const)("%s preserves mutation admission", async (level) => {
-    setCurrentLevel(level);
+  it("full preserves mutation admission", async () => {
+    setCurrentLevel("full");
     await registerMcp(undefined, "mutation");
     expect(await dispatchToolCall(call("call-1"), dispatchContext())).toMatchObject({ outcome: "success" });
     expect(callTool).toHaveBeenCalledTimes(1);
     expect(approvalRequests).toEqual([]);
-  });
-
-  it("scoped denies external and unknown MCP", async () => {
-    setCurrentLevel("scoped");
-    for (const effect of ["external_side_effect", "unknown"] as const) {
-      await registerMcp(undefined, effect);
-      expect(await dispatchToolCall(call("call-1"), dispatchContext())).toMatchObject({ outcome: "failure", category: "permission_denied" });
-      await disconnectMcpServer("test-error");
-    }
-    expect(callTool).not.toHaveBeenCalled();
   });
 });
 

@@ -75,13 +75,11 @@ describe.runIf(process.platform === "win32")("actual run_shell plan and workspac
     expect(mocks.spawn).not.toHaveBeenCalled(); expect(mocks.background).not.toHaveBeenCalled();
   }
   for (const background of [false, true]) {
-    for (const level of ["scoped", "project-read-only"] as const) {
-      it(`${level} refuses lexical outside cwd before any execution, background=${background}`, async () => {
-        mocks.level = level;
-        expect((await run({ command: "echo changed> created", cwd: rootB, run_in_background: background })).errorCode).toBe("E_SHELL_CWD_OUTSIDE_WORKSPACE");
-        noExecution(); expect(mocks.wrap).not.toHaveBeenCalled();
-      });
-    }
+    it(`read-only refuses lexical outside cwd before any execution, background=${background}`, async () => {
+      mocks.level = "read-only";
+      expect((await run({ command: "echo changed> created", cwd: rootB, run_in_background: background })).errorCode).toBe("E_SHELL_CWD_OUTSIDE_WORKSPACE");
+      noExecution(); expect(mocks.wrap).not.toHaveBeenCalled();
+    });
     // full / allow_all 没有沙箱，cwd 不是授权根目录，显式的工作区外目录保持原行为。
     it(`full keeps an explicit cwd outside the workspace, background=${background}`, async () => {
       mocks.level = "full";
@@ -92,14 +90,14 @@ describe.runIf(process.platform === "win32")("actual run_shell plan and workspac
       else expect(mocks.spawn.mock.calls[0][2].cwd).toBe(rootB);
     });
     it(`rejects a controlled ancestor realpath escape, background=${background}`, async () => {
-      mocks.level = "scoped";
+      mocks.level = "read-only";
       fs.mkdirSync(path.join(rootA, "exports"));
       mocks.canonicalFrom = path.join(rootA, "exports"); mocks.canonicalTo = rootB;
       expect((await run({ command: "echo changed> created", cwd: "exports/new", run_in_background: background })).errorCode).toBe("E_SHELL_CWD_OUTSIDE_WORKSPACE");
       noExecution(); expect(mocks.wrap).not.toHaveBeenCalled();
     });
     it(`preserves an internal canonical cwd and trusted sandbox root, background=${background}`, async () => {
-      mocks.level = "scoped";
+      mocks.level = "read-only";
       const real = path.join(rootA, "real"); fs.mkdirSync(real);
       const alias = path.join(rootA, "alias"); fs.mkdirSync(alias);
       mocks.canonicalFrom = alias; mocks.canonicalTo = real;
@@ -116,7 +114,7 @@ describe.runIf(process.platform === "win32")("actual run_shell plan and workspac
     });
     for (const phase of ["resolve", "wrap"] as const) {
       it(`rechecks canonical cwd after ${phase}, background=${background}`, async () => {
-        mocks.level = "scoped";
+        mocks.level = "read-only";
         const cwd = path.join(rootA, "sub"); fs.mkdirSync(cwd);
         const redirect = () => { mocks.canonicalFrom = cwd; mocks.canonicalTo = rootB; };
         if (phase === "resolve") mocks.resolve.mockImplementation(async () => { redirect(); return resolved; });
@@ -125,37 +123,33 @@ describe.runIf(process.platform === "win32")("actual run_shell plan and workspac
         noExecution();
       });
     }
-    for (const level of ["scoped", "project-read-only"] as const) {
-      it(`${level} refuses outside cwd and junction cwd before wrapping, background=${background}`, async (testContext) => {
-        mocks.level = level;
-        const outsideResult = await run({ command: "echo changed> created", cwd: rootB, run_in_background: background });
-        expect(outsideResult.errorCode).toBe("E_SHELL_CWD_OUTSIDE_WORKSPACE");
-        noExecution(); expect(mocks.wrap).not.toHaveBeenCalled();
-        try { fs.symlinkSync(rootB, path.join(rootA, "exports"), "junction"); }
-        catch (error) {
-          if ((error as NodeJS.ErrnoException).code === "EPERM") testContext.skip("Host sandbox does not permit junction creation; lexical outside cwd checked");
-          throw error;
-        }
-        for (const cwd of [rootB, path.join(rootA, "exports"), path.join(rootA, "exports/new")]) {
-          const result = await run({ command: "echo changed> created", cwd, run_in_background: background });
-          expect(result.errorCode).toBe("E_SHELL_CWD_OUTSIDE_WORKSPACE");
-        }
-        noExecution(); expect(mocks.wrap).not.toHaveBeenCalled();
-      });
-    }
-  }
-  for (const level of ["scoped", "project-read-only"] as const) {
-    it(`${level} without a bound workspace fails closed instead of deriving the sandbox root from cwd`, async () => {
-      mocks.level = level;
-      const raw = await runShellTool.execute({ shell: "cmd", command: "echo changed> created", cwd: rootB }, {
-        userQuery: "synthetic", conversationId: id, fileAccessLevel: level,
-      });
-      expect((JSON.parse(raw) as { errorCode?: string }).errorCode).toBe("E_WORKSPACE_REQUIRED");
+    it(`read-only refuses outside cwd and junction cwd before wrapping, background=${background}`, async (testContext) => {
+      mocks.level = "read-only";
+      const outsideResult = await run({ command: "echo changed> created", cwd: rootB, run_in_background: background });
+      expect(outsideResult.errorCode).toBe("E_SHELL_CWD_OUTSIDE_WORKSPACE");
+      noExecution(); expect(mocks.wrap).not.toHaveBeenCalled();
+      try { fs.symlinkSync(rootB, path.join(rootA, "exports"), "junction"); }
+      catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "EPERM") testContext.skip("Host sandbox does not permit junction creation; lexical outside cwd checked");
+        throw error;
+      }
+      for (const cwd of [rootB, path.join(rootA, "exports"), path.join(rootA, "exports/new")]) {
+        const result = await run({ command: "echo changed> created", cwd, run_in_background: background });
+        expect(result.errorCode).toBe("E_SHELL_CWD_OUTSIDE_WORKSPACE");
+      }
       noExecution(); expect(mocks.wrap).not.toHaveBeenCalled();
     });
   }
+  it("read-only without a bound workspace fails closed instead of deriving the sandbox root from cwd", async () => {
+    mocks.level = "read-only";
+    const raw = await runShellTool.execute({ shell: "cmd", command: "echo changed> created", cwd: rootB }, {
+      userQuery: "synthetic", conversationId: id, fileAccessLevel: "read-only",
+    });
+    expect((JSON.parse(raw) as { errorCode?: string }).errorCode).toBe("E_WORKSPACE_REQUIRED");
+    noExecution(); expect(mocks.wrap).not.toHaveBeenCalled();
+  });
   it("defaults cwd to the bound workspace and preserves a legal relative subtree", async () => {
-    mocks.level = "scoped";
+    mocks.level = "read-only";
     fs.mkdirSync(path.join(rootA, "sub"));
     mocks.wrap.mockImplementation(async (command: string) => ({ ok: true, argv: [resolved.executable, "/d", "/s", "/c", command], env: process.env }));
     expect((await run({ command: "echo ROOT_OK> root.txt" })).exitCode).toBe(0);
@@ -165,7 +159,7 @@ describe.runIf(process.platform === "win32")("actual run_shell plan and workspac
     expect(fs.readFileSync(path.join(rootA, "root.txt"), "utf8").trim()).toBe("ROOT_OK");
     expect(fs.readFileSync(path.join(rootA, "sub/sub.txt"), "utf8").trim()).toBe("SUB_OK");
   });
-  for (const level of ["full", "scoped"] as const) {
+  for (const level of ["full", "read-only"] as const) {
     for (const background of [false, true]) {
       it(`${level} PLAN_DISCUSSING blocks writes before interpreter resolution, background=${background}`, async () => {
         mocks.level = level; enterPlanDiscussing(id, rootA);
@@ -261,7 +255,7 @@ describe.runIf(process.platform === "win32")("actual run_shell plan and workspac
       });
       const outcome = await dispatchToolCall({ id: `approval-race-${phase}`, name: "run_shell", arguments: JSON.stringify({ command: "echo changed> marker.txt", shell: "cmd", cwd: rootA }) }, {
         state: { todoItems: [], uncertainEffects: [] }, tools: [runShellTool], checkPermission: permission,
-        toolContext: { userQuery: "synthetic", conversationId: id, resolvedWorkspaceRoot: rootA, fileAccessLevel: "scoped" },
+        toolContext: { userQuery: "synthetic", conversationId: id, resolvedWorkspaceRoot: rootA, fileAccessLevel: "read-only" },
       });
       noExecution(); expect(permission).toHaveBeenCalledTimes(1); expect(outcome.outcome).toBe("failure");
       expect(outcome.rawResult).toMatchObject({ errorCode: phase === "permission" ? "E_PERMISSION_CHANGED" : "E_PERMISSION_APPROVAL_REQUIRED", effectState: "not_applied" });

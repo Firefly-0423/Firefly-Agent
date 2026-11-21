@@ -43,7 +43,10 @@ const unchangedBoundaries = {
   // certificate denial and fixed isolated-world scripts retain their boundaries.
   // See docs/browser-reference-audit.md (boundary preimage review).
   "src/main/platform/browser/electron-browser-guest.ts": "bde77619d13add92b14d9754fd244bb312821ee3b7e7aaae49847672438502d7",
-  "src/main/platform/permission/permission-policy.ts": "79d8456fce1598dd91651f7b86508824569941ec96cb563ef6c73f85bedab801",
+  // Three-level permissions (2026-11-21, docs/superpowers/specs/plugin-sdk-1-2-0.md §7.2): removed legacy
+  // project-read-only and scoped levels from AgentFileAccessLevel, keeping read-only, per-action, and full,
+  // and falling back legacy persisted values to default read-only.
+  "src/main/platform/permission/permission-policy.ts": "4bb9d4e2027d50af697a847047909e23a0de2004411e2239c97a5d89ba1095a3",
   // Reimplemented from observable behavior with identical allow/ask/deny decisions; verified by the policyFor decision-table
   // test (permission-policy.matrix.test.ts) and the approval contract tests (permission.contract.test.ts, permission.test.ts).
   // The only difference is stricter: an unrecognised session level now denies instead of yielding no decision.
@@ -52,7 +55,7 @@ const unchangedBoundaries = {
   // approval without a run id can show its source; the allow/ask/deny decision and the approval round trip are unchanged.
   // Toast approval review (2026-11-16): the waiter keeps its original request, getPendingApproval reads it and
   // answerApproval is the single answering path the chat channel now uses too; no decision or settlement rule changed.
-  "src/main/platform/permission/permission.ts": "7df6660975af5153c541cdfb918f18177cdd255e2376704a7300b4726b6aa3e4",
+  "src/main/platform/permission/permission.ts": "3a172c03651fe27b89043d41697bc3c603e64efce78c012bc6a74cb94f521824",
   "src/main/platform/permission/bootstrap.ts": "765b21f85aa5f048ebed87c0fb0cf53c7fa3059f34dc3451521d4a58fc523ce1",
 } as const;
 it.each(Object.entries(unchangedBoundaries))("no_execution_or_permission_expansion: %s exactly matches approved boundary preimage", (file, expected) => { expect(hash(file)).toBe(expected); });

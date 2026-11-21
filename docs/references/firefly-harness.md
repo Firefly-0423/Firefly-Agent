@@ -112,7 +112,7 @@
    - 工具失败时，`error-classifier.ts`（`classifyToolError` / `classifyToolResultError`）识别错误类别，结合 `retry-policy.ts`（`decideRetry` / `getRetryParams` / `sleepWithJitter`）与工具 `effectKind` 决定是否重试（如 `non_idempotent_side_effect`、`fatal`、`runtime_safety` 永不重试；`read_only` / `idempotent_mutation` 的 `transient` 最多重试 3 次，退避 `[500, 1000, 2000]` ms；`timeout` `[1000, 3000]` ms；`rate_limited` `[2000, 5000]` ms；`partial_failure` 仅 `read_only` 重试 1 次 `[500]` ms）。
    - 超大输出由 `truncateOutput`（`tool-dispatcher.ts`，阈值 `DEFAULT_TRUNCATION.thresholdChars = 30_000`）裁剪并在 `file-tool-output-store` 持久化全文引用。
 3. **权限审批 (`checkPermission`，`src/main/platform/permission/permission.ts`、`permission-policy.ts`)**：
-   - `policyFor(level, risk)` 按文件访问档位（`project-read-only`、`read-only`、`scoped`、`per-action`、`full`）与工具风险级别（`safe`、`fs-read`、`fs-write`、`network`、`shell`）判定 `allow` / `ask` / `deny`。
+   - `policyFor(level, risk)` 按文件访问档位（`read-only`、`per-action`、`full`）与工具风险级别（`safe`、`fs-read`、`fs-write`、`network`、`shell`）判定 `allow` / `ask` / `deny`。
    - 判定为 `ask` 时调用 `requestApproval` 弹出前端审批卡片并绑定运行取消信号；若运行被取消，`cancelPendingApprovalsForRun` 会广播取消通知并将等待中的审批以 `AbortError` 拒绝。
 4. **子代理委托 (`persistent-agent-runtime.ts`、`child-session-runtime.ts`、`child-run-lifecycle.ts`)**：
    - 委托工具调用 `createAgentExecutor` 启动隔离的 `runChildSession`，为其打开独立 `MainMemoryRun` 并沿用父级 `vendorConfig` 与请求预算；退出前通过 `settleChildExecution` 调用 `coordinator.whenChildSettled(childRunId)` 确保子叶子任务完全收敛后再关闭父边界。

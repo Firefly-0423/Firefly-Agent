@@ -170,7 +170,7 @@ it("places the desktop card after the language card with both switches and no Ab
 it("puts the local file permission control in the general settings, not in the tools panel", () => {
   const form = element("general-form");
   expect(form.querySelector("#plugin-file-permission")).not.toBeNull();
-  expect(form.querySelectorAll("#plugin-file-permission button[data-level]")).toHaveLength(4);
+  expect(form.querySelectorAll("#plugin-file-permission button[data-level]")).toHaveLength(3);
   expect(element("plugin-file-note")).toBeTruthy();
   expect(document.querySelector(".plugin-list #plugin-file-card")).toBeNull();
 });

@@ -8,7 +8,7 @@ vi.mock("../../base/logging/logger", () => ({
 vi.mock("./permission", () => ({
   initPermissionFromDisk: () => { calls.push(["init"]); },
   registerPermissionIpc: (scope: unknown) => { calls.push(["permission-ipc", scope]); },
-  getCurrentLevel: () => "scoped",
+  getCurrentLevel: () => "read-only",
 }));
 vi.mock("../interaction/user-choice", () => ({
   registerChoiceIpc: (scope: unknown) => { calls.push(["choice-ipc", scope]); },
@@ -25,7 +25,7 @@ it("loads the saved level first, then registers both IPC groups on the shared sc
     ["init"],
     ["permission-ipc", scope],
     ["choice-ipc", scope],
-    ["log", "firefly", "当前 agent 权限档位:", "scoped"],
+    ["log", "firefly", "当前 agent 权限档位:", "read-only"],
   ]);
 });
 

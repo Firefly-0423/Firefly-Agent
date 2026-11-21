@@ -88,7 +88,7 @@ describe("R3 actual shell through shared executor, scheduler and ledger", () => 
   for (const scenario of cases) {
     it(`${scenario.name} has honest status, evidence and success-cache behavior`, async () => {
       if (scenario.name === "missing Bash") mocks.resolve.mockResolvedValue(null);
-      if (scenario.name === "sandbox refusal") mocks.level = "scoped";
+      if (scenario.name === "sandbox refusal") mocks.level = "read-only";
       if (scenario.name === "setup error") mocks.invocation.mockImplementation(() => { throw new Error("synthetic setup failure"); });
       if (["spawn error", "nonzero exit", "signal exit without code"].includes(scenario.name)) {
         mocks.spawn.mockImplementation(() => {
@@ -180,7 +180,7 @@ describe("R4 delayed cancellation and R2 live guards", () => {
     for (const phase of ["permission", "resolve", "wrap"] as const) {
       it(`cancel during ${phase} never launches after setup resumes, background=${background}`, async () => {
         const controller = new AbortController(); const entered = deferred<void>(); const release = deferred<void>();
-        mocks.level = phase === "wrap" ? "scoped" : "full";
+        mocks.level = phase === "wrap" ? "read-only" : "full";
         const wait = async () => { entered.resolve(); await release.promise; };
         const permission = vi.fn(async () => { if (phase === "permission") await wait(); return true; });
         if (phase === "resolve") mocks.resolve.mockImplementation(async () => { await wait(); return resolved; });

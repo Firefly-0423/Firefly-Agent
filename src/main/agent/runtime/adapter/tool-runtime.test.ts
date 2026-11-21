@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { getById, checkPermission, getCurrentLevel, createAgentExecutor, taskStore, toolOutputStore } = vi.hoisted(() => ({
   getById: vi.fn(),
   checkPermission: vi.fn(),
-  getCurrentLevel: vi.fn(() => "scoped"),
+  getCurrentLevel: vi.fn(() => "read-only"),
   createAgentExecutor: vi.fn((_input: Parameters<typeof import("../persistent-agent-runtime").createAgentExecutor>[0]) => vi.fn()),
   taskStore: vi.fn(),
   toolOutputStore: vi.fn(),
@@ -39,7 +39,7 @@ describe("harness tool runtime", () => {
   beforeEach(() => {
     getById.mockReset();
     getCurrentLevel.mockReset();
-    getCurrentLevel.mockReturnValue("scoped");
+    getCurrentLevel.mockReturnValue("read-only");
     resetPlanSessionsForTest();
     checkPermission.mockReset();
     createAgentExecutor.mockClear();

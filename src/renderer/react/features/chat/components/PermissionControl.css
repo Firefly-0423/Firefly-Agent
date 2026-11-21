@@ -76,12 +76,8 @@
 }
 .ff-permission-panel__icon svg { width: 16px; height: 16px; }
 
-.ff-permission-panel__option.is-project-read-only .ff-permission-panel__icon,
-.ff-permission-control.is-project-read-only,
 .ff-permission-panel__option.is-read-only .ff-permission-panel__icon,
 .ff-permission-control.is-read-only { color: #21a366; }
-.ff-permission-panel__option.is-scoped .ff-permission-panel__icon,
-.ff-permission-control.is-scoped { color: #3b82f6; }
 .ff-permission-panel__option.is-per-action .ff-permission-panel__icon,
 .ff-permission-control.is-per-action { color: var(--ff-text); }
 .ff-permission-panel__option.is-full .ff-permission-panel__icon,

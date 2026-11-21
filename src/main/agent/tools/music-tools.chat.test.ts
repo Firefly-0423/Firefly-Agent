@@ -54,7 +54,6 @@ describe("QQ Music in Chat", () => {
     expect(control.effectKind).toBe("external_side_effect");
     expect(control.risk).toBe("input-control");
     expect(policyFor("read-only", control.risk!)).toBe("deny");
-    expect(policyFor("scoped", control.risk!)).toBe("deny");
     expect(policyFor("per-action", control.risk!)).toBe("ask");
     expect(policyFor("full", control.risk!)).toBe("allow");
   });

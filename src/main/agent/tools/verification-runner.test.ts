@@ -17,7 +17,7 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe("verification permissions and executable resolution", () => {
-  it.each(["project-read-only", "read-only", "scoped", "per-action", "full"] as PermissionLevel[])("allows builtins and requires custom approval at %s", level => {
+  it.each(["read-only", "per-action", "full"] as PermissionLevel[])("allows builtins and requires custom approval at %s", level => {
     expect(runner.decidePermission(step(), level)).toEqual({ allowed: true, requiresApproval: false });
     expect(runner.decidePermission(step({ trust: "custom" }), level)).toEqual({ allowed: true, requiresApproval: true, reason: "custom 命令需要审批" });
     expect(runner.decidePermission(step({ trust: "workspace_script" }), level)).toEqual(level === "per-action"
