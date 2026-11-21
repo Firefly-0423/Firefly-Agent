@@ -1,3 +1,4 @@
+import { computeNextCronFireAt } from "./cron";
 import type { ScheduleConfig } from "../../platform/schedule/schedule-types";
 
 function localClock(anchor: Date, hhmm: string, daysAhead = 0): Date | null {
@@ -16,6 +17,7 @@ function intervalLength(plan: Extract<ScheduleConfig, { kind: "interval" }>): nu
 }
 
 export function computeInitialNextFireAt(plan: ScheduleConfig, instant: Date): Date | null {
+  if (plan.kind === "cron") return computeNextCronFireAt(plan.expression, instant, plan.timezone);
   if (plan.kind === "once") {
     const appointment = new Date(plan.runAt);
     if (Number.isNaN(appointment.getTime()) || appointment.getTime() <= instant.getTime()) return null;
@@ -36,6 +38,7 @@ export function computeInitialNextFireAt(plan: ScheduleConfig, instant: Date): D
 }
 
 export function computeNextFireAtAfter(plan: ScheduleConfig, appointment: Date): Date | null {
+  if (plan.kind === "cron") return computeNextCronFireAt(plan.expression, appointment, plan.timezone);
   if (plan.kind === "once") return null;
   if (plan.kind === "daily" || plan.kind === "weekly") {
     return localClock(appointment, plan.timeOfDay, plan.kind === "daily" ? 1 : 7);
@@ -49,6 +52,7 @@ export function computeNextFireAtAfter(plan: ScheduleConfig, appointment: Date):
 
 export function normalizeOverdueNextFireAt(plan: ScheduleConfig, appointment: Date, instant: Date): Date | null {
   if (appointment.getTime() > instant.getTime()) return appointment;
+  if (plan.kind === "cron") return computeNextCronFireAt(plan.expression, instant, plan.timezone);
   if (plan.kind === "once") return null;
   if (plan.kind === "interval") {
     const spacing = intervalLength(plan);
