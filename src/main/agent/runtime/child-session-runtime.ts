@@ -157,7 +157,7 @@ async function runChildSessionInner(input: {
       onToolLifecycle: event => runStore?.recordTool(session.childRunId, { toolCallId: event.toolCallId, toolName: event.toolName, sideEffect: event.toolSideEffect, status: event.status }),
       onCompactionLifecycle: event => runStore?.recordCompaction(session.childRunId, event),
       checkPermission: parent.checkPermission && ((toolId, args, signal, origin) => parent.checkPermission!(
-        toolId, args, signal, { ...origin, agentId: session.agent.id, agentName: partnerName, childRunId: session.childRunId },
+        toolId, args, signal, { ...origin, agentId: session.agent.id, ...(lease?.nickname ? { agentName: lease.nickname } : {}), childRunId: session.childRunId },
       )), includeInteractiveTools: parent.includeInteractiveTools,
       allowedBuiltinToolIds: new Set(["update_todo", "read_tool_result"]),
       onEvent: event => {
