@@ -62,6 +62,19 @@ describe("Main owned final message persistence",()=>{
   store.upsertMessage(session.id,{...message,content:"updated"});
   expect(store.getSession(session.id)?.messages.slice(1)).toEqual([{...message,content:"updated"}]);
  });
+ it.each(["running","settling"])("after a restart a %s reply interrupted by the old process can be regenerated, but its stale checkpoint cannot return",async phase=>{
+  let {store,session,identity,message}=await setup();
+  if(phase==="settling")expect(store.beginRunSettlement(identity)).toBe(true);
+  const partial={...message,content:"partial",runSnapshot:{runId:"r",status:"running" as const,updatedAt:4}};
+  vi.resetModules();store=await import("./chats-store");store.initialize();
+  expect(store.getRunStatus(session.id,"a")?.phase).toBe("interrupted");
+  store.upsertMessage(session.id,partial);
+  expect(store.getSession(session.id)?.messages[1]).toEqual({id:"a",role:"model",content:"",at:2});
+  const user={id:"u",role:"user" as const,content:"question",at:1};
+  store.replaceMessagesTail(session.id,0,[user]);
+  expect(store.getSession(session.id)?.messages).toEqual([user]);
+  expect(store.getSession(session.id)?.runPresentations?.a).toBeUndefined();
+ });
  it("recovers visible progress and tool results after restart without accepting writes after settlement",async()=>{
   let {store,session,identity,message}=await setup();
   const checkpoint={...message,content:"partial",toolExecutions:[{id:"tool",name:"read_file",status:"success" as const,result:"kept"}],

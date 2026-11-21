@@ -780,13 +780,18 @@ export function getRunStatus(sessionId: string, assistantTurnId: string, snapsho
 }
 
 
+/** Protected while a run here still owns the row: live in this process, or a frozen result waiting for startup recovery.
+ * A running or settling record left by an earlier process is interrupted (as getRunStatus reports) and stays editable. */
 function isProtectedRun(record: RunPresentationRecord | undefined): boolean {
-  return record?.phase === "running" || record?.phase === "settling";
+  if (record?.phase === "running") return liveRunPresentations.has(record.runId);
+  if (record?.phase === "settling") return liveRunPresentations.has(record.runId) || Boolean(record.pendingMessage);
+  return false;
 }
 
+/** A snapshot of the same run that no longer owns the row: anything but its terminal after finishing, a running one after interruption. */
 function isLateRunCheckpoint(record: RunPresentationRecord | undefined, message: ChatMessage): boolean {
-  return record?.phase === "finished" && message.runSnapshot?.runId === record.runId
-    && message.runSnapshot.status !== "terminal";
+  if (!record || isProtectedRun(record) || message.runSnapshot?.runId !== record.runId) return false;
+  return record.phase === "finished" ? message.runSnapshot.status !== "terminal" : message.runSnapshot.status === "running";
 }
 
 /** A replacement may delete finished replies, but cannot undo an active write or restore a stale checkpoint. */
