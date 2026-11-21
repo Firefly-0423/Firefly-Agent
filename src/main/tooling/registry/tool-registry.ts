@@ -27,6 +27,12 @@ export function controlledInputKind(restriction: ControlledInputPolicy): string 
   return undefined;
 }
 
+export interface PluginToolMeta {
+  pluginId: string;
+  pluginName: string;
+  toolName: string;
+}
+
 // 模型协议字段与 Runtime 策略共用定义，执行许可仍由调度层决定。
 export interface ToolDefinition {
   id: string;
@@ -41,6 +47,9 @@ export interface ToolDefinition {
   controlledInput?: Record<string, ControlledInputPolicy>;
   modes?: ConversationMode[];
   risk?: ToolRiskLevel;
+  risks?: ToolRiskLevel[];
+  pluginMeta?: PluginToolMeta;
+  validateArgs?: (args: Record<string, unknown>) => { valid: true } | { valid: false; message: string };
   chatBuiltin?: boolean;
   needsContext?: boolean;
   ledgerPolicy?: "success_terminal" | "bypass";
@@ -102,6 +111,8 @@ export class ToolRegistry {
   getEnabledToolsForMode(selected: ConversationMode, custom?: ToolModeOverrides): ToolDefinition[] {
     return Array.from(this.definitions.values()).filter(definition => {
       if (!definition.enabled || definition.deprecated || this.memoryIsRetired(definition.id)) return false;
+      // 规格 §4 / §7：插件工具绝不在 Chat 模式暴露（即使自定义模式覆写存在）。
+      if (selected === "chat" && definition.pluginMeta) return false;
       const chosen = custom?.[definition.id]?.[selected];
       if (chosen !== undefined) return chosen;
       return !definition.modes || definition.modes.includes(selected);

@@ -560,6 +560,8 @@
     "pagerAria": "切换问题",
     "pendingMore": "还有 {{count}} 项待处理",
     "permissionTitle": "流萤正在获取审批",
+    "pluginDeclaredLabel": "工具声明",
+    "pluginDeclaredValue": "由插件〔{{name}}〕声明",
     "prevQuestion": "上一个问题",
     "questionProgressAria": "问题完成情况",
     "quizCorrectAnswer": "正确答案",

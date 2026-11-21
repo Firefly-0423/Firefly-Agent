@@ -28,10 +28,10 @@ export function resolveRunCapabilities(input: ResolveRunCapabilitiesInput): RunC
   let selectedSkills: SkillEntry[];
   if (input.mode === "chat") {
     enabled = input.toolRegistry.getEnabledToolsForMode("chat", input.toolModeOverrides)
-      .filter((entry) => entry.chatBuiltin === true);
+      .filter((entry) => entry.chatBuiltin === true && !entry.pluginMeta);
     if (input.chatToolsEnabled) {
       const opted = input.toolRegistry.getEnabledToolsForMode("chat", input.toolModeOverrides)
-        .filter((entry) => input.toolModeOverrides?.[entry.id]?.chat === true);
+        .filter((entry) => !entry.pluginMeta && input.toolModeOverrides?.[entry.id]?.chat === true);
       enabled = [...enabled];
       for (const entry of opted) {
         if (!enabled.some((present) => present.id === entry.id)) enabled.push(entry);

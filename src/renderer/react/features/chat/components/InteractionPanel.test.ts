@@ -38,4 +38,28 @@ test("attributes delegated approvals while keeping primary-agent approvals unlab
   expect(delegated).toContain("documentation-worker");
   const primary = renderToStaticMarkup(React.createElement(PermissionPanel, { interaction: permission }));
   expect(primary).not.toContain("来自子任务");
+  expect(primary).not.toContain("由插件");
+});
+
+test("displays plugin declaredBy attribution and partner identity on plugin tool approvals", () => {
+  vi.stubGlobal("React", React);
+  const permission: PermissionInteraction = {
+    kind: "permission",
+    id: "permit-plugin",
+    toolName: "查询天气",
+    summary: "执行「查询天气」",
+    declaredBy: "天气查询",
+  };
+  const primaryPlugin = renderToStaticMarkup(React.createElement(PermissionPanel, { interaction: permission }));
+  expect(primaryPlugin).toContain("由插件〔天气查询〕声明");
+  expect(primaryPlugin).not.toContain("来自子任务");
+
+  const partnerPlugin = renderToStaticMarkup(
+    React.createElement(PermissionPanel, {
+      interaction: { ...permission, agentId: "implementation", agentName: "刃" },
+    }),
+  );
+  expect(partnerPlugin).toContain("由插件〔天气查询〕声明");
+  expect(partnerPlugin).toContain("来自子任务");
+  expect(partnerPlugin).toContain("刃 (implementation)");
 });

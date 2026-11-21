@@ -63,10 +63,10 @@ describe("Saved data projected into a chat view", () => {
   it("exposes child approval attribution only when the request supplies it", () => {
     const request = { id: "approval-27", toolId: "write_file", toolName: "Write file", toolDescription: "",
       args: { path: "notes.md" }, risk: "fs-write" as const, runId: "parent-27" };
-    expect(permissionInteraction({ ...request, agentId: "document-agent", toolCallId: "tool-27", childRunId: "child-28" }))
-      .toMatchObject({ id: "approval-27", kind: "permission", agentId: "document-agent", toolCallId: "tool-27", childRunId: "child-28" });
+    expect(permissionInteraction({ ...request, declaredBy: "天气查询", agentId: "document-agent", agentName: "丹恒", toolCallId: "tool-27", childRunId: "child-28" }))
+      .toMatchObject({ id: "approval-27", kind: "permission", declaredBy: "天气查询", agentId: "document-agent", agentName: "丹恒", toolCallId: "tool-27", childRunId: "child-28" });
     const standalone = permissionInteraction(request);
-    for (const omitted of ["agentId", "childRunId"]) expect(standalone).not.toHaveProperty(omitted);
+    for (const omitted of ["declaredBy", "agentId", "agentName", "childRunId"]) expect(standalone).not.toHaveProperty(omitted);
   });
 });
 

@@ -560,6 +560,8 @@
     "pagerAria": "Switch question",
     "pendingMore": "{{count}} more waiting",
     "permissionTitle": "Waiting for your approval",
+    "pluginDeclaredLabel": "Declared by",
+    "pluginDeclaredValue": "Declared by plugin [{{name}}]",
     "prevQuestion": "Previous question",
     "questionProgressAria": "Question progress",
     "quizCorrectAnswer": "Correct answer",

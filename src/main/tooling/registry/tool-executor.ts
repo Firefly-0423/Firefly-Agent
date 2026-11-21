@@ -75,6 +75,7 @@ export async function executeToolDefinition(
       return finish({
         status: "failed", output: caught.message, errorCode: caught.code,
         category: caught.category, retryable: caught.retryable, effectState: caught.effectState,
+        ...(caught.toolExecuted === false ? { toolExecuted: false } : {}),
       });
     }
     const detail = caught instanceof Error ? caught.message : String(caught);

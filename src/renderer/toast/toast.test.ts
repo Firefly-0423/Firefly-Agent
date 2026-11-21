@@ -389,4 +389,33 @@ describe("approval review (toast)", () => {
     expect(card.querySelector(".toast-card__review-arg-key")?.textContent).toBe(xssScript);
     expect(card.querySelector(".toast-card__review-arg-value")?.textContent).toBe(xssImg);
   });
+
+  it("displays plugin declaredBy and partner name in approval review details", async () => {
+    api.inspectApproval.mockResolvedValue({
+      state: "pending",
+      approvalId: "approve-plugin-1",
+      toolName: "执行命令",
+      toolId: "plugin_dev_firefly_demo__run_cmd",
+      declaredBy: "示例插件",
+      agentId: "implementation",
+      agentName: "刃",
+      session: { id: "sess-1", title: "工作会话" },
+      args: [{ key: "cmd", value: "echo hi" }],
+    } satisfies ToastApprovalDetail);
+
+    await load();
+    push(reviewItem("rev-plugin-1", { review: { approvalId: "approve-plugin-1" } }));
+    const card = document.querySelector<HTMLElement>(".toast-card")!;
+    card.querySelector<HTMLButtonElement>(".toast-card__inspect")!.click();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const metaTexts = [...card.querySelectorAll<HTMLElement>(".toast-card__review-meta")].map((n) => n.textContent);
+    expect(metaTexts).toEqual([
+      "所属会话：工作会话",
+      "由插件〔示例插件〕声明",
+      "发起伙伴：刃（implementation）",
+      "工具：执行命令",
+    ]);
+  });
 });

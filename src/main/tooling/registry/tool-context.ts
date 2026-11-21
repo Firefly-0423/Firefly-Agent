@@ -14,6 +14,8 @@ export interface ToolContext {
   conversationId?: string;
   ownerSessionId?: string;
   runId?: string;
+  toolCallId?: string;
+  caller?: "firefly" | { partnerId: string; partnerName: string };
   mode?: ConversationMode;
   resolvedWorkspaceRoot?: string;
   contextRefs?: ContextRefRegistry;
@@ -38,7 +40,7 @@ export function getToolRunScope(runContext: ToolContext): object {
 
 export function createToolInvocationContext(
   runContext: ToolContext,
-  callContext: Pick<ToolContext, "execution" | "authorizedToolCall">,
+  callContext: Pick<ToolContext, "execution" | "authorizedToolCall" | "toolCallId">,
 ): ToolContext {
   const combined = { ...runContext, ...callContext };
   invocationScopes.set(combined, getToolRunScope(runContext));

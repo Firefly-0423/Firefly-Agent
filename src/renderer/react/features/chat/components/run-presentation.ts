@@ -36,6 +36,8 @@ export type PermissionInteraction = {
   childRunId?: string;
   toolCallId?: string;
   agentId?: string;
+  agentName?: string;
+  declaredBy?: string;
   targetPath?: string;
   workspaceName?: string;
   summary: string;
