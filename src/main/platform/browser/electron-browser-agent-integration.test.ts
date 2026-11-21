@@ -298,4 +298,67 @@ describe("production browser composition preserves separate Agent approval", () 
 
     bindingA.dispose(); bindingB.dispose(); targetsA.dispose(); targetsB.dispose();
   });
+
+  it("allows background observe in browser_workspace tool when session switches and surfaces actionable BROWSER_OBSERVE_REQUIRED on detached click/navigate", async () => {
+    const { createActiveChatTargetRegistry } = await import("../interaction/active-chat-target");
+    const { registerBrowserHostOwner } = await import("./browser-host-owner");
+    const profile = {} as RuntimeProfile;
+    const mainFrame = {}, webContents = Object.assign(new EventEmitter(), { id: 95, mainFrame, isDestroyed: () => false });
+    const host: BrowserHostPort = Object.assign(new EventEmitter(), {
+      webContents, isDestroyed: () => false, isVisible: () => true, isFocused: () => true,
+      getContentSize: () => [800, 600], contentView: { addChildView() {}, removeChildView() {} },
+    });
+    const service = createElectronBrowserService({ profile, trustedResolver: { server: "192.0.2.53", port: 53 } });
+    services.push(service);
+    const targets = createActiveChatTargetRegistry();
+    const binding = registerBrowserHostOwner({ host, profile, targets, service, readSession: id => ({ id, mode: "work" }), isRunActive: () => true });
+    const sender = { sender: webContents, senderFrame: mainFrame };
+    targets.setActive({ sender: webContents as unknown as import("electron").WebContents, sessionId: "conv-a", mode: "work", rendererTargetId: "ra" });
+    binding.refresh();
+    await service.dispatchPermission(sender, { kind: "request", scope: agentScope });
+
+    const executor = createBrowserWorkspaceExecutor({
+      currentOwner: (cid) => {
+        const owner = binding.getCurrentOwner();
+        return owner && (cid === undefined || owner.conversationId === cid) ? owner : null;
+      },
+      getRunLease: (cid, rid) => binding.getRunLease(cid, rid),
+      retainRunLease: (owner, input) => binding.retainRunLease(owner, input),
+      service: () => service,
+      isRunCurrent: () => true,
+    });
+    const tool = createBrowserWorkspaceTool(executor);
+    const ctx = { userQuery: "Browse A", conversationId: "conv-a", runId: "run-a", signal: new AbortController().signal, mode: "work" as const };
+    const opened = JSON.parse(await tool.execute({ operation: "open", url: "https://example.com/" }, ctx));
+    await service.dispatch(sender, { kind: "layout", browserId: opened.result.browserId, bounds: { x: 0, y: 0, width: 400, height: 300 } });
+
+    // Switch away to conv-b
+    targets.setActive({ sender: webContents as unknown as import("electron").WebContents, sessionId: "conv-b", mode: "work", rendererTargetId: "ra" });
+    binding.refresh();
+
+    // Observe succeeds in background!
+    expect(JSON.parse(await tool.execute({ operation: "observe" }, ctx))).toMatchObject({ success: true, result: { url: "https://example.com/", text: "Actual guest text" } });
+
+    // Click and navigate settle cleanly as BROWSER_OBSERVE_REQUIRED with not_applied and model-actionable text
+    const effectBefore = native.effects.length;
+    const clickErr = await tool.execute({ operation: "click", snapshotId: "snapshot", ref: "1" }, ctx).catch(err => err);
+    expect(clickErr).toMatchObject({
+      code: "BROWSER_OBSERVE_REQUIRED",
+      category: "semantic_failure",
+      effectState: "not_applied",
+    });
+    expect(clickErr.message).toContain("请在页面可见时先调用 observe");
+    expect(clickErr.message).not.toContain("请切回当前会话");
+    const navErr = await tool.execute({ operation: "navigate", url: "https://github.com/" }, ctx).catch(err => err);
+    expect(navErr).toMatchObject({
+      code: "BROWSER_OBSERVE_REQUIRED",
+      category: "semantic_failure",
+      effectState: "not_applied",
+    });
+    expect(navErr.message).toContain("请在页面可见时先调用 observe");
+    expect(navErr.message).not.toContain("请切回当前会话");
+    expect(native.effects.slice(effectBefore)).toEqual([]);
+
+    binding.dispose(); targets.dispose();
+  });
 });

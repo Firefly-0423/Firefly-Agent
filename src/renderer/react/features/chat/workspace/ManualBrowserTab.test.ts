@@ -110,6 +110,16 @@ describe("manual browser Main bridge and viewport lifecycle", () => {
     await render("closed-gate"); await navigate(); expect(execute).not.toHaveBeenCalled();
     expect(host.querySelector("iframe, webview, a[href]")).toBeNull();
   });
+  it("loading and error notices re-send the viewport position without detaching the page", async () => {
+    await render(); await navigate();
+    execute.mockClear();
+    await act(async () => changed({ ...page("b", 2), loading: true, pendingUrl: "https://example.com/next" }));
+    await act(async () => changed({ ...page("b", 3), loading: false, error: "load_failed" }));
+    await act(async () => changed({ ...page("b", 4), loading: false, error: null }));
+    const layouts = execute.mock.calls.map(([command]) => command).filter(command => command.kind === "layout");
+    expect(layouts.length).toBeGreaterThanOrEqual(3);
+    expect(layouts.filter(command => command.bounds === null)).toEqual([]);
+  });
   it("adopts Main IDs, ignores foreign/older updates, detaches inactive viewport, and resends on focus/resize", async () => {
     await render(); await navigate();
     expect(execute).toHaveBeenCalledWith({ kind: "open", url: "https://example.com/" });
@@ -748,4 +758,15 @@ it("offers explicit exact Agent sites and resource-only hosts without granting t
   } });
   await act(async () => (host.querySelector('[data-browser-authorize-agent-sites]') as HTMLButtonElement).click());
   expect(requestPermission).toHaveBeenCalledWith({mode:'agent',site:true,hosts:['developer.mozilla.org'],resourceHosts:['static.example.org'],actions:['navigate','observe','click','type']});
+});
+
+it("renders the observe_required banner when agentBlockedReason is set and clears it once recovered", async () => {
+  await render();
+  await navigate();
+  await act(async () => changed({ ...page("b", 2), agentBlockedReason: "observe_required" }));
+  expect(host.textContent).toContain("browserWorkspace.observeRequired");
+  expect(en.browserWorkspace.observeRequired).toBeTruthy();
+  expect(zhCN.browserWorkspace.observeRequired).toBeTruthy();
+  await act(async () => changed({ ...page("b", 3), agentBlockedReason: undefined }));
+  expect(host.textContent).not.toContain("browserWorkspace.observeRequired");
 });

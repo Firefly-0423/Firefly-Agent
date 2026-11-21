@@ -49,12 +49,14 @@ export function ManualBrowserTab({ sessionId, workspaceId, tabId, active = true,
   const [selectedResources, setSelectedResources] = useState<{ browserId: string; requestId: number; hosts: string[] }>({ browserId: "", requestId: 0, hosts: [] });
   const [scopeReloaded, setScopeReloaded] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const [agentBlockedReason, setAgentBlockedReason] = useState<"observe_required" | null>(null);
   // Which parts of the consent panel are unfolded; the scope details follow the grant until the user toggles them.
   const [unfolded, setUnfolded] = useState<{ details?: boolean; agentSites?: boolean; agentScope?: boolean }>({});
   const detailsId = useId();
   const grantedNow = permission?.status === "granted";
   useEffect(() => { setUnfolded(value => value.details === undefined ? value : { ...value, details: undefined }); }, [grantedNow]);
   const viewport = useRef<HTMLDivElement>(null), scopeRef = useRef<Scope | null>(null);
+  const relayout = useRef<(() => void) | undefined>(undefined);
   // Window tabs on ordinary browsing get the tools (menu, find, downloads, settings). The native page stays detached while one covers it.
   const chrome = useBrowserChrome({ tabId: workspaceId && tabId ? tabId : undefined,
     enabled: active && permission?.status === "granted" && permission.scope.mode === "manual" && permission.scope.web === true,
@@ -89,12 +91,13 @@ export function ManualBrowserTab({ sessionId, workspaceId, tabId, active = true,
         if (dto.closed && scope.permission?.scope.mode === "manual") {
           setPage(emptyPage(scope.sessionId, scope.workspaceId, scope.tabId));
         } else setPage({ ...dto, error: dto.error === null ? null : dto.error === "blocked_url" || dto.error === "network_unavailable" ? "blocked" : "load_failed" });
+        setAgentBlockedReason(dto.closed ? null : dto.agentBlockedReason ?? null);
         if (dto.error === "cleanup_failed") { failCleanup(scope); return; }
         setFailure(dto.error);
         if (!dto.closed && !dto.loading && dto.url && !scope.permissionBusy && !scope.preserveAddress && !scope.addressDirty && !scope.commandPending) setAddress(dto.url);
       },
     };
-    scopeRef.current = scope; setAvailable(false); setChecked(false); setAddress(""); setAgentSites(""); setAgentResources(""); setFailure(null); setPermission(null); setPermissionBusy(false); setSelectedResources({ browserId: "", requestId: 0, hosts: [] }); setScopeReloaded(false);
+    scopeRef.current = scope; setAvailable(false); setChecked(false); setAddress(""); setAgentSites(""); setAgentResources(""); setFailure(null); setAgentBlockedReason(null); setPermission(null); setPermissionBusy(false); setSelectedResources({ browserId: "", requestId: 0, hosts: [] }); setScopeReloaded(false);
     setPage(emptyPage(ownerSessionId, workspaceId, tabId));
     setCommandPending(false); setClosing(false); setStateFailure(false); setStateBusy(false);
     const readPermission = (includePage = false) => {
@@ -300,15 +303,20 @@ export function ManualBrowserTab({ sessionId, workspaceId, tabId, active = true,
         ? { x: rect.left, y: rect.top, width: rect.width, height: rect.height } : null;
       void scope.api!.execute({ kind: "layout", browserId: id, bounds }).catch(() => {});
     };
+    relayout.current = layout;
     const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(layout) : undefined;
     if (node) { observer?.observe(node); if (node.parentElement) observer?.observe(node.parentElement); }
     window.addEventListener("resize", layout); window.addEventListener("focus", layout); document.addEventListener("visibilitychange", layout);
     layout();
     return () => {
       observer?.disconnect(); window.removeEventListener("resize", layout); window.removeEventListener("focus", layout); document.removeEventListener("visibilitychange", layout);
+      if (relayout.current === layout) relayout.current = undefined;
       if (!scope.disposed && !scope.closed) void scope.api!.execute({ kind: "layout", browserId: id, bounds: null }).catch(() => {});
     };
-  }, [page.browserId, page.closed, page.loading, page.error, active, overlayOpen, permission?.status, permissionBusy, stateFailure]);
+  }, [page.browserId, page.closed, active, overlayOpen, permission?.status, permissionBusy, stateFailure]);
+  // The loading and error notices move the viewport without resizing it. Re-send its position only: detaching
+  // here would count as leaving the page and cancel the agent navigation that caused the loading state.
+  useEffect(() => { relayout.current?.(); }, [page.loading, page.error]);
   async function close(): Promise<boolean> {
     const scope = scopeRef.current;
     if (!scope || scope.cleaned) { onClose(); return true; }
@@ -451,7 +459,13 @@ export function ManualBrowserTab({ sessionId, workspaceId, tabId, active = true,
       addressAvailable={manual ? available && !!ownerKey && !scopeRef.current?.closed && !stateFailure && failure !== "cleanup_failed" : undefined}
       emptyContent={<BrowserNewTab available={available && !!ownerKey && !stateFailure} onOpen={url => { setAddress(url); navigate(url); }} />}
       viewportRef={viewport} onAddressChange={editAddress} onAddressReset={resetAddress} onNavigate={navigate}
-      toolbarEnd={chrome.toolbarEnd} belowToolbar={chrome.belowToolbar} overlay={chrome.overlay} snapshot={chrome.snapshot}
+      toolbarEnd={chrome.toolbarEnd}
+      belowToolbar={<>
+        {chrome.belowToolbar}
+        {/* Window-owned manual workspace tabs (workspaceId defined) never run executeAgent or hold run leases, so observe_required only occurs on conversation-scoped tabs. */}
+        {!workspaceId && !page.closed && agentBlockedReason === "observe_required" && <Note tone="info" role="status">{t("browserWorkspace.observeRequired")}</Note>}
+      </>}
+      overlay={chrome.overlay} snapshot={chrome.snapshot}
       commandPending={commandPending}
       onCommand={action => { const id = scopeRef.current?.page?.browserId; if (id) void command(action === "stop" ? { kind: "stop", browserId: id } : { kind: "history", browserId: id, action }); }} />
   </div>;
