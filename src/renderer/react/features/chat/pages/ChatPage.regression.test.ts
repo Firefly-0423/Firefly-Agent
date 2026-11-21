@@ -295,7 +295,28 @@ describe("C7 read-only run status recovery", () => {
     await click("#select-a"); await flush();
     expect(texts("#messages li")[0]).toBe("final answer");
     if (source === "manual") { await type("next task"); await click("#send"); await flush(); }
-    expect(query).toHaveBeenCalledTimes(1);
+    // Once on load, once by the watcher kept for A while B was shown; returning to A stops it.
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(runCalls).toHaveLength(1);
+    expect(runCalls[0].sessionId).toBe("session-a");
+    expect(queues["session-a"] ?? []).toEqual([]);
+  });
+
+  test("leaving a session whose observed run is still busy still resumes its queue when that run finishes", async () => {
+    const partial: ChatMessage = { id: "a", role: "model", at: 1, content: "partial", runSnapshot: { runId: "r", status: "running", updatedAt: 1 } };
+    sessions = { "session-a": session("session-a", "work", [partial]),
+      "session-b": session("session-b", "work", [{ id: "b", role: "model", at: 1, content: "other answer" }]) };
+    const waiting = { id: "queued-next", rawContent: "next task", visibleContent: "next task", enqueuedAt: 3 };
+    queues["session-a"] = [waiting];
+    let done = false;
+    const query = vi.fn(async (request: Parameters<NonNullable<AguiApi["getRunStatus"]>>[0]) => request.sessionId !== "session-a" ? []
+      : [{ sessionId: "session-a", assistantTurnId: "a", runId: "r", seq: done ? 2 : 1, phase: done ? "finished" as const : "running" as const,
+        ...(done ? { message: { ...partial, content: "final", runSnapshot: { runId: "r", status: "terminal" as const, terminalStatus: "success" as const, updatedAt: 2 } } } : {}) }]);
+    await mount("work", () => { page.agui.getRunStatus = query as NonNullable<AguiApi["getRunStatus"]>; });
+    await click("#select-b"); await flush();
+    expect(runCalls).toEqual([]);
+    done = true;
+    await act(async () => historyChange?.()); await flush();
     expect(runCalls).toHaveLength(1);
     expect(runCalls[0].sessionId).toBe("session-a");
     expect(queues["session-a"] ?? []).toEqual([]);

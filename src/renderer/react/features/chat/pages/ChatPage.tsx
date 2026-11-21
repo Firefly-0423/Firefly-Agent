@@ -312,6 +312,8 @@ export function ChatPage() {
   const observedRunBusyRef = useRef<Record<string, boolean>>({});
   const observedRunStatusesRef = useRef<Record<string, import("../../../../../shared/run-status").RunStatusItem[]>>({});
   const runStatusObserverRef = useRef<ReturnType<typeof observeSessionRunStatus> | undefined>(undefined);
+  const observedSessionRef = useRef<{ sessionId: string; mode: ConversationMode } | undefined>(undefined);
+  const backgroundRunWatchersRef = useRef(new Map<string, () => void>());
 
   const { queues: pendingQueueBySession, queuesRef: pendingQueueBySessionRef, flow: queueFlow } = usePendingQueue({
     getStore: () => chatStore(),
@@ -381,6 +383,7 @@ export function ChatPage() {
 
   useEffect(() => () => {
     runStatusObserverRef.current?.dispose();
+    for (const stop of [...backgroundRunWatchersRef.current.values()]) stop();
     for (const off of activeAguiOffsRef.current) off();
     activeAguiOffsRef.current.clear();
 
@@ -589,6 +592,41 @@ export function ChatPage() {
     if (choice) submitInteraction(sessionId, id, () => choice.resolve(id, answer));
   }
 
+  /**
+   * The page only shows one session, but a run observed after a reload has no controller to resume its queue.
+   * When the user leaves such a session while its run is still busy, keep a quiet watcher until it ends and
+   * hand the queue over exactly as the foreground observer would.
+   */
+  function watchObservedRunInBackground(sessionId: string, targetMode: ConversationMode): void {
+    const query = aguiApi()?.getRunStatus;
+    const store = chatStore();
+    const busyTurns = (observedRunStatusesRef.current[sessionId] ?? []).filter(item => item.phase === "running" || item.phase === "settling");
+    if (!query || !store || !observedRunBusyRef.current[sessionId] || !busyTurns.length
+      || hasActiveRunForSession(activeRunsBySession.current, sessionId)) return;
+    backgroundRunWatchersRef.current.get(sessionId)?.();
+    let stopped = false;
+    const watcher = observeSessionRunStatus({ sessionId,
+      candidates: busyTurns.map(item => ({ assistantTurnId: item.assistantTurnId, ...("runId" in item && item.runId ? { runId: item.runId } : {}) })),
+      query: request => query(request),
+      listen: changed => store.onChanged(() => changed()),
+      publish: statuses => {
+        if (stopped || statuses.some(item => item.phase === "running" || item.phase === "settling")) return;
+        stop();
+        observedRunBusyRef.current[sessionId] = false;
+        observedRunStatusesRef.current[sessionId] = statuses;
+        if (hasActiveRunForSession(activeRunsBySession.current, sessionId)) return;
+        queueFlow.handleRunFinished({ mode: targetMode, sessionId,
+          queuePaused: busyTurns.some(turn => statuses.find(item => item.assistantTurnId === turn.assistantTurnId)?.phase !== "finished") });
+      },
+    });
+    function stop(): void {
+      stopped = true;
+      watcher.dispose();
+      if (backgroundRunWatchersRef.current.get(sessionId) === stop) backgroundRunWatchersRef.current.delete(sessionId);
+    }
+    backgroundRunWatchersRef.current.set(sessionId, stop);
+  }
+
   async function selectSession(sessionId: string, targetMode: ConversationMode = mode, expectedGeneration?: number): Promise<SessionSelectionResult> {
     const generation = expectedGeneration ?? ++sessionSelectionGeneration.current;
     if (generation !== sessionSelectionGeneration.current) return "stale";
@@ -597,7 +635,11 @@ export function ChatPage() {
     const session = await store.get(sessionId);
     if (generation !== sessionSelectionGeneration.current) return "stale";
     if (!session) return "unavailable";
+    const leaving = observedSessionRef.current;
     runStatusObserverRef.current?.dispose();
+    observedSessionRef.current = undefined;
+    if (leaving && leaving.sessionId !== sessionId) watchObservedRunInBackground(leaving.sessionId, leaving.mode);
+    backgroundRunWatchersRef.current.get(sessionId)?.();
     const api = aguiApi();
     const query = api?.getRunStatus;
     let statusMessages = toUiMessages(session, query ? [] : undefined);
@@ -648,6 +690,7 @@ export function ChatPage() {
         },
       });
       runStatusObserverRef.current = observer;
+      observedSessionRef.current = { sessionId, mode: targetMode };
       await observer.ready;
       observerReady = true;
       if (generation !== sessionSelectionGeneration.current) { observer.dispose(); return "stale"; }
