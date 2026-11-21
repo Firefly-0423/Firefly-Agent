@@ -326,7 +326,9 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
   function presented(cell: Cell): boolean { return cell.attached && hostInteractive(cell.owner); }
   function detach(cell: Cell): void {
     // A later attach must never revive an observation made before the user hid the page.
-    cell.attached = false; invalidateObservation(cell);
+    // A page that was never shown has no presentation to lose; bumping the revision would cancel its own open.
+    if (cell.attached || cell.lastBounds) invalidateObservation(cell); else cell.observation = undefined;
+    cell.attached = false;
     cell.guest?.detach();
   }
   function blockedNavigation(cell: Cell, input: string): void {
@@ -618,7 +620,8 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
       if (!bounds.width || !bounds.height) detach(cell);
       else {
         if (!usable(cell)) return fail("owner_mismatch");
-        if (!cell.attached || !cell.lastBounds || cell.lastBounds.width !== bounds.width || cell.lastBounds.height !== bounds.height) {
+        // The first attach of a new page is its normal start, not a return to it; later re-attach or resize invalidates.
+        if (cell.lastBounds && (!cell.attached || cell.lastBounds.width !== bounds.width || cell.lastBounds.height !== bounds.height)) {
           invalidateObservation(cell);
         }
         cell.lastBounds = bounds;

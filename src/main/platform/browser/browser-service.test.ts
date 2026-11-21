@@ -1520,6 +1520,29 @@ describe("PR A-2 background read-only observe, 1px viewport invalidation and pos
     binding.dispose(); f.targets.dispose(); await f.service.dispose();
   });
 
+  it("a new page's first layouts while its open is still loading do not cancel that open", async () => {
+    const f = leasedFixture();
+    const { registerBrowserHostOwner } = await import("./browser-host-owner");
+    const binding = registerBrowserHostOwner({ host: f.host, profile: f.profile, targets: f.targets, service: f.service, readSession: id => ({ id, mode: "work" }), isRunActive: () => true });
+    f.targets.setActive({ sender: f.wc as unknown as WebContents, sessionId: "a", mode: "work", rendererTargetId: "r1" });
+    binding.refresh();
+    await f.service.dispatchPermission(f.sender, { kind: "request", scope: { mode: "agent", hosts: ["example.com"], actions: ["navigate", "observe", "click", "type"] } });
+    const lease = binding.retainRunLease(binding.getCurrentOwner()!, { conversationId: "a", runId: "run-1" })!;
+    const run = { conversationId: "a", runId: "run-1", signal: new AbortController().signal, isCurrent: () => true };
+    const gate = deferred<void>();
+    f.delayLoad(() => gate.promise);
+    const opening = f.service.executeAgent(lease, { operation: "open", url: "https://example.com/" }, run);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    const shown = await f.service.dispatch(f.sender, { kind: "get" }) as { ok: true; value: { browserId: string } };
+    const browserId = shown.value.browserId;
+    // The panel sees the new browserId mid-load: it may first send no bounds, then the real ones.
+    await f.service.dispatch(f.sender, { kind: "layout", browserId, bounds: null });
+    await f.service.dispatch(f.sender, { kind: "layout", browserId, bounds: { x: 0, y: 0, width: 400, height: 300 } });
+    gate.resolve();
+    expect(await opening).toMatchObject({ ok: true, value: { browserId, url: "https://example.com/", loading: false } });
+    binding.dispose(); f.targets.dispose(); await f.service.dispose();
+  });
+
   it("clears the switch-back notice when the page is re-attached, so the panel settles before the fresh snapshot", async () => {
     const f = leasedFixture();
     const { registerBrowserHostOwner } = await import("./browser-host-owner");
