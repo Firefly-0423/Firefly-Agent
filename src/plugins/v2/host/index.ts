@@ -140,15 +140,17 @@ export class PluginHostManager {
   private async launch(id: string, record: RecordState): Promise<void> {
     this.setStatus(id, record, "starting");
     let runtime: Runtime | undefined;
+    let child: HostChild | undefined;
+    let ports: { port1: HostPort; port2: HostPort } | undefined;
     try {
       const definition = this.dependencies.resolvePlugin(id);
       const limit = definition.memoryLimitMb ?? 512;
       if (!Number.isFinite(limit) || limit <= 0) throw new PluginError("ERR_INVALID_ARGUMENT", "Invalid plugin memory limit");
       (this.dependencies.prepareDataDir ?? (path => { mkdirSync(path, { recursive: true }); }))(definition.dataDir);
-      const child = this.dependencies.fork(definition.entry, [], {
+      const startedChild = child = this.dependencies.fork(definition.entry, [], {
         cwd: definition.dataDir, env: cleanPluginEnvironment(this.dependencies.environment ?? process.env), serviceName: `Firefly plugin ${id}`, stdio: "ignore",
       });
-      const { port1, port2 } = this.dependencies.createChannel();
+      const { port1, port2 } = ports = this.dependencies.createChannel();
       const rpc = createRpcEndpoint({
         post: frame => port1.postMessage(frame),
         onFrame: callback => {
@@ -160,22 +162,22 @@ export class PluginHostManager {
       let resolveStartup!: () => void, rejectStartup!: (error: PluginError) => void;
       const activated = new Promise<void>((resolve, reject) => { resolveStartup = resolve; rejectStartup = reject; });
       const deadline = Date.now() + 10_000;
-      const active: Runtime = { child, rpc, ports: [port1, port2], crashed: false, finished: false, rejectStartup,
+      const active: Runtime = { child: startedChild, rpc, ports: [port1, port2], crashed: false, finished: false, rejectStartup,
         exit: () => this.crash(id, record, active),
         spawn: () => {
           if (active.finished || record.state !== "starting") return;
           try {
             port1.start();
-            child.postMessage({ type: "firefly-plugin-port" }, [port2]);
+            startedChild.postMessage({ type: "firefly-plugin-port" }, [port2]);
             void rpc.call("activate", { id, dataDir: definition.dataDir }, { timeoutMs: Math.max(1, deadline - Date.now()) }).then(() => resolveStartup(), rejectStartup);
           } catch { rejectStartup(new PluginError("ERR_INTERNAL", "Failed to connect plugin process")); }
         },
       };
       runtime = active; record.runtime = active;
-      child.on("exit", active.exit); child.on("spawn", active.spawn);
+      startedChild.on("exit", active.exit); startedChild.on("spawn", active.spawn);
       active.startupTimer = setTimeout(() => rejectStartup(new PluginError("ERR_TIMEOUT", "Plugin activation timed out")), 10_000);
       active.memoryTimer = setInterval(() => {
-        const metric = this.dependencies.getAppMetrics().find(item => item.pid === child.pid);
+        const metric = this.dependencies.getAppMetrics().find(item => item.pid === startedChild.pid);
         // Electron reports workingSetSize in KiB, while configuration uses MiB.
         if (metric && metric.memory.workingSetSize > limit * 1024) this.crash(id, record, active, true);
       }, this.dependencies.memoryPollMs ?? 1000);
@@ -187,7 +189,12 @@ export class PluginHostManager {
     } catch (error) {
       if (runtime && record.runtime === runtime && record.state === "starting") {
         this.finish(record, runtime, true); this.setStatus(id, record, "disabled-fault");
-      } else if (!runtime && record.state === "starting") this.setStatus(id, record, "disabled-fault");
+      } else if (!runtime) {
+        ports?.port1.close();
+        ports?.port2.close();
+        child?.kill();
+        if (record.state === "starting") this.setStatus(id, record, "disabled-fault");
+      }
       throw error instanceof PluginError ? error : new PluginError("ERR_INTERNAL", "Failed to start plugin process");
     }
   }

@@ -24,7 +24,7 @@ class Child extends EventEmitter {
     port.start();
   }
 }
-function setup() {
+function setup(failChannel = false) {
   const children: Child[] = [];
   const options: any[] = [];
   let metrics: any[] = [];
@@ -39,6 +39,7 @@ function setup() {
       return child;
     },
     createChannel: () => {
+      if (failChannel) throw new Error("channel failed");
       const port1 = new Port(), port2 = new Port();
       port1.peer = port2; port2.peer = port1;
       return { port1, port2 };
@@ -51,6 +52,12 @@ function setup() {
 }
 afterEach(() => { vi.useRealTimers(); });
 describe("plugin host", () => {
+  it("kills the child if setting up its message channel fails", async () => {
+    const { manager, children } = setup(true);
+    await expect(manager.start("p")).rejects.toMatchObject({ code: "ERR_INTERNAL" });
+    expect(children[0].kill).toHaveBeenCalledTimes(1);
+    expect(manager.status("p")).toBe("disabled-fault");
+  });
   it("only forwards system environment and runs in plugin data directory", async () => {
     const { manager, options } = setup();
     await manager.start("dev.test.plugin");
