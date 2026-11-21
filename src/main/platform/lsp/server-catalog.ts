@@ -3,7 +3,7 @@ import type { LspServerDefinition, LspServerOverride } from "./types";
 
 type CatalogRow = [id: string, extensions: string[], command: string, args: string[], rootMarkers: string[], installHint: string];
 const rows: CatalogRow[] = [
-  ["typescript-language-server",[".ts",".tsx",".js",".jsx",".mjs",".cjs",".json",".jsonc"],"typescript-language-server",["--stdio"],["tsconfig.json","jsconfig.json","package.json",".git"],"安装 typescript-language-server 与 typescript，并确保 typescript-language-server 位于 PATH。"],
+  ["typescript-language-server",[".ts",".mts",".tsx",".js",".jsx",".mjs",".cjs",".json",".jsonc"],"typescript-language-server",["--stdio"],["tsconfig.json","jsconfig.json","package.json",".git"],"安装 typescript-language-server 与 typescript，并确保 typescript-language-server 位于 PATH。"],
   ["python-pyright",[".py",".pyi"],"pyright-langserver",["--stdio"],["pyproject.toml","requirements.txt","setup.py",".git"],"安装 pyright，并确保 pyright-langserver 位于 PATH。"],
   ["gopls",[".go"],"gopls",[],["go.mod",".git"],"安装 gopls，并确保 gopls 位于 PATH。"],
   ["rust-analyzer",[".rs"],"rust-analyzer",[],["Cargo.toml",".git"],"安装 rust-analyzer，并确保 rust-analyzer 位于 PATH。"],
@@ -14,7 +14,7 @@ const rows: CatalogRow[] = [
   ["ruby-lsp",[".rb",".rake",".gemspec"],"ruby-lsp",[],["Gemfile",".ruby-version",".git"],"安装 ruby-lsp，并确保 ruby-lsp 位于 PATH。"],
   ["kotlin-language-server",[".kt",".kts"],"kotlin-language-server",[],["build.gradle","settings.gradle",".git"],"安装 kotlin-language-server，并确保它位于 PATH。"],
   ["lua-language-server",[".lua"],"lua-language-server",[],[".luarc.json",".git"],"安装 lua-language-server，并确保它位于 PATH。"],
-  ["vue-language-server",[".vue"],"vue-language-server",["--stdio"],["package.json","vite.config.ts",".git"],"安装 @vue/language-server，并确保 vue-language-server 位于 PATH。"],
+  ["vue-language-server",[".vue"],"vue-language-server",["--stdio"],["package.json","vite.config.ts","vite.config.mts",".git"],"安装 @vue/language-server，并确保 vue-language-server 位于 PATH。"],
   ["yaml-language-server",[".yaml",".yml"],"yaml-language-server",["--stdio"],[".git"],"安装 yaml-language-server，并确保它位于 PATH。"],
 ];
 export const BUILTIN_LSP_SERVERS: readonly LspServerDefinition[] = rows.map(([id, extensions, command, args, rootMarkers, installHint]) => ({

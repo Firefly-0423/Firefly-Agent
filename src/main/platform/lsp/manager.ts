@@ -36,6 +36,7 @@ interface DocumentPosition {
 
 const LANGUAGE_BY_EXTENSION: ReadonlyMap<string, string> = new Map<string, string>([
   [".ts", "typescript"],
+  [".mts", "typescript"],
   [".tsx", "typescript"],
   [".js", "javascript"],
   [".jsx", "javascript"],

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const dir = resolve(__dirname, "..");
 const zh = JSON.parse(readFileSync(resolve(dir, "i18n/zh-CN.json"), "utf8")) as Record<string, unknown>;
-const source = readFileSync(resolve(dir, "settings.ts"), "utf8");
+const source = readFileSync(resolve(dir, "api/fetch-models-controller.ts"), "utf8");
 const html = readFileSync(resolve(dir, "index.html"), "utf8");
 
 const lookup = (path: string): unknown => path.split(".").reduce<unknown>((node, key) => (node && typeof node === "object" ? (node as Record<string, unknown>)[key] : undefined), zh);

@@ -11,7 +11,7 @@ describe("native screenshot product boundary", () => {
     it("ships neither overlay UI files nor a renderer build entry", () => {
         const retired = ["src/preload/screenshot.ts", "src/main/platform/screenshot/screenshot-manager.ts", ...["ts", "css"].map(ext => `src/renderer/screenshot/screenshot.${ext}`), "src/renderer/screenshot/index.html"];
         expect(retired.filter(file => existsSync(resolve(file)))).toEqual([]);
-        const bundler = readFileSync(resolve("vite.config.ts"), "utf8");
+        const bundler = readFileSync(resolve("vite.config.mts"), "utf8");
         expect(bundler).not.toContain("src/renderer/screenshot");
         expect(bundler).not.toMatch(/\bscreenshot\s*:/);
     });

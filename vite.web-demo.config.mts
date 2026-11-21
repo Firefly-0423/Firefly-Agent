@@ -10,29 +10,29 @@ import { siteLicenses } from "./scripts/build/site-licenses.mjs";
  * No public/ directory, so no Live2D model, Cubism core or sticker packs reach the web;
  * only the avatar the UI shows is copied next to the page, and partner portraits are swapped for a stub.
  */
-const outDir = resolve(__dirname, process.env.FIREFLY_WEB_DEMO_OUT_DIR ?? "dist/site/demo");
+const outDir = resolve(import.meta.dirname, process.env.FIREFLY_WEB_DEMO_OUT_DIR ?? "dist/site/demo");
 
 function copyAvatars(): Plugin {
   return {
     name: "firefly-web-demo-avatars",
     closeBundle() {
-      cpSync(resolve(__dirname, "src/renderer/public/avatars"), resolve(outDir, "web-demo/avatars"), { recursive: true });
+      cpSync(resolve(import.meta.dirname, "src/renderer/public/avatars"), resolve(outDir, "web-demo/avatars"), { recursive: true });
     },
   };
 }
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), copyAvatars(), siteLicenses({ outDir, title: "Firefly-Agent online demo" })],
-  root: resolve(__dirname, "src/renderer"),
+  root: resolve(import.meta.dirname, "src/renderer"),
   base: "./",
   publicDir: false,
   resolve: {
     // Partner portraits are other characters' artwork; the demo never shows a delegated partner, so none is published.
-    alias: [{ find: /^.*\/character-portraits$/, replacement: resolve(__dirname, "src/renderer/web-demo/character-portraits.ts") }],
+    alias: [{ find: /^.*\/character-portraits$/, replacement: resolve(import.meta.dirname, "src/renderer/web-demo/character-portraits.ts") }],
   },
   build: {
     outDir,
     emptyOutDir: true,
-    rollupOptions: { input: { "web-demo": resolve(__dirname, "src/renderer/web-demo/index.html") } },
+    rollupOptions: { input: { "web-demo": resolve(import.meta.dirname, "src/renderer/web-demo/index.html") } },
   },
 });

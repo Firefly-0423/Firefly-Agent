@@ -19,7 +19,7 @@ pnpm run build
 
 `pnpm run build` 生成 Main、Preload、CLI 和 Renderer，不制作安装器。开发模式使用 `pnpm run dev`。单元测试使用 `pnpm test`，局部测试使用 `pnpm test <实际测试文件>` 或 `pnpm exec vitest run <实际测试文件>`。注意不要写成 `pnpm test -- <文件>`：pnpm 会把 `--` 原样交给 Vitest，结果跑的是全量。
 
-Windows 真实 Bash 用例要求 `FIREFLY_TEST_BASH` 指向已核对存在的 Git Bash `bash.exe` 绝对路径。`pnpm test` 仅扫描 `vitest.config.ts` 列出的目录；`scripts` 下的 `.test.mjs` 不在该集合内，需按 [脚本说明](../../scripts/README.md) 单独执行。构建不代替 `check:renderer`，历史测试数字不代表当前工作树通过。
+Windows 真实 Bash 用例要求 `FIREFLY_TEST_BASH` 指向已核对存在的 Git Bash `bash.exe` 绝对路径。`pnpm test` 仅扫描 `vitest.config.mts` 列出的目录；`scripts` 下的 `.test.mjs` 不在该集合内，需按 [脚本说明](../../scripts/README.md) 单独执行。构建不代替 `check:renderer`，历史测试数字不代表当前工作树通过。
 
 项目归档调用使用 `yauzl@3.4.0` 与 `src/shared/zip-extraction.ts`。旧审计结论保留其阶段意义，不作为当前安全认证。
 
