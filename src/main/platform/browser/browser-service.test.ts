@@ -1630,9 +1630,10 @@ describe("PR A-2 background read-only observe, 1px viewport invalidation and pos
         expect(["cancelled", "owner_mismatch"], `${opKind}/${disruption}`).toContain((res as { ok: false; code: string }).code);
         if (opKind === "loadURL") {
           const pageAfter = await f.service.dispatch(f.sender, { kind: "get" });
-          if (disruption !== "leaseRevoke") {
-            expect((pageAfter as { ok: true; value: { url: string } | null }).value?.url).not.toBe("https://github.com/");
-          }
+          const after = (pageAfter as { ok: true; value: { url: string; loading: boolean } | null }).value;
+          if (disruption === "requestId") expect(after?.url).not.toBe("https://github.com/");
+          // The load already happened when presentation changed: the page shows where it really is and stops loading.
+          if (disruption === "presentationRevision") expect(after).toMatchObject({ url: "https://github.com/", loading: false });
         }
         binding.dispose(); f.targets.dispose(); await f.service.dispose();
       }

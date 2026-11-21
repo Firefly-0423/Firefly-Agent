@@ -56,6 +56,7 @@ export function ManualBrowserTab({ sessionId, workspaceId, tabId, active = true,
   const grantedNow = permission?.status === "granted";
   useEffect(() => { setUnfolded(value => value.details === undefined ? value : { ...value, details: undefined }); }, [grantedNow]);
   const viewport = useRef<HTMLDivElement>(null), scopeRef = useRef<Scope | null>(null);
+  const relayout = useRef<(() => void) | undefined>(undefined);
   // Window tabs on ordinary browsing get the tools (menu, find, downloads, settings). The native page stays detached while one covers it.
   const chrome = useBrowserChrome({ tabId: workspaceId && tabId ? tabId : undefined,
     enabled: active && permission?.status === "granted" && permission.scope.mode === "manual" && permission.scope.web === true,
@@ -302,15 +303,20 @@ export function ManualBrowserTab({ sessionId, workspaceId, tabId, active = true,
         ? { x: rect.left, y: rect.top, width: rect.width, height: rect.height } : null;
       void scope.api!.execute({ kind: "layout", browserId: id, bounds }).catch(() => {});
     };
+    relayout.current = layout;
     const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(layout) : undefined;
     if (node) { observer?.observe(node); if (node.parentElement) observer?.observe(node.parentElement); }
     window.addEventListener("resize", layout); window.addEventListener("focus", layout); document.addEventListener("visibilitychange", layout);
     layout();
     return () => {
       observer?.disconnect(); window.removeEventListener("resize", layout); window.removeEventListener("focus", layout); document.removeEventListener("visibilitychange", layout);
+      if (relayout.current === layout) relayout.current = undefined;
       if (!scope.disposed && !scope.closed) void scope.api!.execute({ kind: "layout", browserId: id, bounds: null }).catch(() => {});
     };
-  }, [page.browserId, page.closed, page.loading, page.error, active, overlayOpen, permission?.status, permissionBusy, stateFailure]);
+  }, [page.browserId, page.closed, active, overlayOpen, permission?.status, permissionBusy, stateFailure]);
+  // The loading and error notices move the viewport without resizing it. Re-send its position only: detaching
+  // here would count as leaving the page and cancel the agent navigation that caused the loading state.
+  useEffect(() => { relayout.current?.(); }, [page.loading, page.error]);
   async function close(): Promise<boolean> {
     const scope = scopeRef.current;
     if (!scope || scope.cleaned) { onClose(); return true; }

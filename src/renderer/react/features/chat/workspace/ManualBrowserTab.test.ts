@@ -110,6 +110,16 @@ describe("manual browser Main bridge and viewport lifecycle", () => {
     await render("closed-gate"); await navigate(); expect(execute).not.toHaveBeenCalled();
     expect(host.querySelector("iframe, webview, a[href]")).toBeNull();
   });
+  it("loading and error notices re-send the viewport position without detaching the page", async () => {
+    await render(); await navigate();
+    execute.mockClear();
+    await act(async () => changed({ ...page("b", 2), loading: true, pendingUrl: "https://example.com/next" }));
+    await act(async () => changed({ ...page("b", 3), loading: false, error: "load_failed" }));
+    await act(async () => changed({ ...page("b", 4), loading: false, error: null }));
+    const layouts = execute.mock.calls.map(([command]) => command).filter(command => command.kind === "layout");
+    expect(layouts.length).toBeGreaterThanOrEqual(3);
+    expect(layouts.filter(command => command.bounds === null)).toEqual([]);
+  });
   it("adopts Main IDs, ignores foreign/older updates, detaches inactive viewport, and resends on focus/resize", async () => {
     await render(); await navigate();
     expect(execute).toHaveBeenCalledWith({ kind: "open", url: "https://example.com/" });

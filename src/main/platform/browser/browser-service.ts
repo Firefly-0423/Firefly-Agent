@@ -488,8 +488,11 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
       if (navigation.signal.aborted || cell.page.requestId !== requestId) return fail("cancelled");
       if (!usable(cell)) { terminate(cell); return fail(cell.owner.value.signal.aborted ? "cancelled" : "owner_mismatch"); }
       if (owner.grant !== grant || (awaitGuard && (!awaitGuard.stillCurrent() || !awaitGuard.samePresentation(presentationRevision)))) {
+        // The navigation itself already happened: show where the page really is before reporting the result as unknown.
         invalidateObservation(cell);
-        cell.page = { ...cell.page, loading: false, pendingUrl: null };
+        const native = cell.guest.snapshot(), committed = allowedUrl(cell.owner, native.url);
+        cell.page = { ...cell.page, loading: false, pendingUrl: null, ...(committed ? { url: committed, canGoBack: native.canGoBack, canGoForward: native.canGoForward } : {}) };
+        publish(cell);
         return fail("cancelled");
       }
       const native = cell.guest.snapshot(), committed = allowedUrl(cell.owner, native.url);
