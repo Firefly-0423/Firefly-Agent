@@ -456,6 +456,7 @@ export function ManualBrowserTab({ sessionId, workspaceId, tabId, active = true,
       toolbarEnd={chrome.toolbarEnd}
       belowToolbar={<>
         {chrome.belowToolbar}
+        {/* Window-owned manual workspace tabs (workspaceId defined) never run executeAgent or hold run leases, so observe_required only occurs on conversation-scoped tabs. */}
         {!workspaceId && !page.closed && agentBlockedReason === "observe_required" && <Note tone="info" role="status">{t("browserWorkspace.observeRequired")}</Note>}
       </>}
       overlay={chrome.overlay} snapshot={chrome.snapshot}
