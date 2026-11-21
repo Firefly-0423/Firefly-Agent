@@ -593,6 +593,52 @@ describe("PluginSchedulesService (v2)", () => {
       expect(seen).toEqual(["old", "new"]);
     });
 
+    it("a cron run that overlaps the next appointment does not end the schedule", async () => {
+      let release!: () => void;
+      const { store, service, runAgentMock } = setupHarness({
+        runAgentTask: () => new Promise<ScheduledRunResult>(resolve => {
+          release = () => resolve({ ok: true, historyId: `h-${idCounter++}`, effectiveToolIds: [] });
+        }),
+      });
+      const proposed = await service.forPlugin("dev.firefly.cron").propose({
+        title: "Slow check",
+        schedule: { kind: "cron", expression: "*/15 * * * *", timezone: "UTC" },
+        action: { type: "run", prompt: "Ping", mode: "work" },
+      });
+      service.confirmProposal(proposed.taskId);
+
+      currentNow = new Date("2032-03-10T10:15:00.000Z");
+      await vi.advanceTimersByTimeAsync(15 * 60_000);
+      expect(runAgentMock).toHaveBeenCalledTimes(1);
+      currentNow = new Date("2032-03-10T10:31:00.000Z");
+      await vi.advanceTimersByTimeAsync(16 * 60_000);
+      expect(runAgentMock).toHaveBeenCalledTimes(1);
+
+      release();
+      await vi.advanceTimersByTimeAsync(0);
+      const [task] = store.getTasks();
+      expect(task.pluginUserEnabled).not.toBe(false);
+      expect(task.nextFireAt).toBe("2032-03-10T10:45:00.000Z");
+    });
+
+    it("confirming a task update cancels a run still waiting for approval of the old specification", async () => {
+      const { service, runAgentMock } = setupHarness();
+      const client = service.forPlugin("dev.firefly.alpha");
+      const proposed = await client.propose(runSpec({ title: "old title", schedule: { kind: "interval", minutes: 15 }, requiredRisks: ["shell"] }));
+      service.confirmProposal(proposed.taskId);
+      currentNow = new Date("2032-03-10T10:15:00.000Z");
+      await vi.advanceTimersByTimeAsync(15 * 60_000);
+      const [waiting] = service.listPendingRunApprovals("dev.firefly.alpha");
+      expect(waiting.title).toBe("old title");
+
+      await client.update(proposed.taskId, { title: "NEW title", action: { type: "run", prompt: "NEW prompt", mode: "work" } });
+      service.confirmProposal(proposed.taskId);
+
+      expect(service.listPendingRunApprovals("dev.firefly.alpha")).toEqual([]);
+      await expectErrorCode(service.approveRun(waiting.runId), "ERR_CANCELLED");
+      expect(runAgentMock).not.toHaveBeenCalled();
+    });
+
     it("rejects calls when plugin signal is aborted or schedules permission is revoked", async () => {
       const { service } = setupHarness();
       const ac = new AbortController();

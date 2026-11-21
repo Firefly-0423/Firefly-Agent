@@ -808,6 +808,14 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       approvalFingerprint: fingerprint,
     };
     const updated = store.updateTask(existingTask.id, patch);
+    // A run waiting for approval was requested for the old specification; it must not run the new one.
+    for (const approval of Object.values(state.approvals)) {
+      if (approval.taskId === proposal.taskId && approval.status === "pending_approval") {
+        approval.status = "cancelled";
+        approval.reason = "task updated";
+        approval.settledAt = now.toISOString();
+      }
+    }
     const meta: PluginTaskMetadata = {
       taskId: proposal.taskId,
       storeTaskId: updated.id,
@@ -849,6 +857,33 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
   }
 
   async function runScheduledTask(
+    task: ScheduledTask,
+    appointment: Date,
+    requestedByUser: boolean,
+  ): Promise<ScheduledRunResult> {
+    try {
+      return await runScheduledTaskOnce(task, appointment, requestedByUser);
+    } finally {
+      rearmCronStoppedDuringRun(task.id);
+    }
+  }
+
+  /**
+   * A cron appointment that comes due while the previous run is still going is skipped by the engine, which
+   * first disables the stored one-shot. Once the run ends, re-arm such a task from now. A task the user paused
+   * keeps a future appointment, so it is left alone.
+   */
+  function rearmCronStoppedDuringRun(storeTaskId: string): void {
+    const meta = findMetadataByAnyId(storeTaskId);
+    if (!meta?.requiresCronRearm || meta.schedule.kind !== "cron") return;
+    const current = store.getTasks().find(candidate => candidate.id === meta.storeTaskId);
+    if (!current || current.pluginUserEnabled !== false || current.nextFireAt !== null || current.schedule.kind !== "once") return;
+    const now = clock();
+    if (new Date(current.schedule.runAt).getTime() > now.getTime()) return;
+    rearmCronTaskIfNeeded(current, meta, now);
+  }
+
+  async function runScheduledTaskOnce(
     task: ScheduledTask,
     appointment: Date,
     requestedByUser: boolean,
