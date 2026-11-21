@@ -1036,7 +1036,8 @@ describe("BrowserRunLease preservation across switch, refresh, tray hide and par
     };
     const winA = makeWindow(31), winB = makeWindow(32);
     const liveWindows = new Set<BrowserHostPort>([winA.win, winB.win]);
-    const abortedRuns: string[] = [];
+    const activeRuns = new Set<string>(["a:run-a", "b:run-b"]);
+    const isRunActive = (cid: string, rid: string) => activeRuns.has(`${cid}:${rid}`);
     const { registerBrowserHostOwner } = await import("./browser-host-owner");
     const bindings = new Map<BrowserHostPort, ReturnType<typeof registerBrowserHostOwner<object>>>();
 
@@ -1047,15 +1048,8 @@ describe("BrowserRunLease preservation across switch, refresh, tray hide and par
       onHostClosed: (closingHost) => {
         liveWindows.delete(closingHost);
         const closingBinding = bindings.get(closingHost);
-        const affected = closingBinding?.listLeasedConversations() ?? [];
-        if (liveWindows.size === 0) {
-          for (const b of bindings.values()) {
-            for (const cid of b.listLeasedConversations()) abortedRuns.push(cid);
-          }
-          return { revokeAllLeases: true };
-        }
-        for (const cid of affected) abortedRuns.push(cid);
-        return { affectedConversations: affected };
+        if (liveWindows.size === 0) return { revokeAllLeases: true };
+        return { affectedConversations: closingBinding?.listLeasedConversations() ?? [] };
       },
       createSession: () => {
         const session = {};
@@ -1088,8 +1082,8 @@ describe("BrowserRunLease preservation across switch, refresh, tray hide and par
     });
 
     const targetsA = createActiveChatTargetRegistry(), targetsB = createActiveChatTargetRegistry();
-    const bindingA = registerBrowserHostOwner({ host: winA.win, profile, targets: targetsA, service, readSession: id => ({ id, mode: "work" }), isRunActive: () => true });
-    const bindingB = registerBrowserHostOwner({ host: winB.win, profile, targets: targetsB, service, readSession: id => ({ id, mode: "work" }), isRunActive: () => true });
+    const bindingA = registerBrowserHostOwner({ host: winA.win, profile, targets: targetsA, service, readSession: id => ({ id, mode: "work" }), isRunActive });
+    const bindingB = registerBrowserHostOwner({ host: winB.win, profile, targets: targetsB, service, readSession: id => ({ id, mode: "work" }), isRunActive });
     bindings.set(winA.win, bindingA);
     bindings.set(winB.win, bindingB);
 
@@ -1098,13 +1092,13 @@ describe("BrowserRunLease preservation across switch, refresh, tray hide and par
     bindingA.refresh();
     await service.dispatchPermission(winA.sender, { kind: "request", scope: { mode: "agent", hosts: ["example.com"], actions: ["navigate", "observe"] } });
     const leaseA = bindingA.retainRunLease(bindingA.getCurrentOwner()!, { conversationId: "a", runId: "run-a" })!;
-    await service.executeAgent(leaseA, { operation: "open", url: "https://example.com/" }, { conversationId: "a", runId: "run-a", signal: new AbortController().signal, isCurrent: () => true });
+    await service.executeAgent(leaseA, { operation: "open", url: "https://example.com/" }, { conversationId: "a", runId: "run-a", signal: new AbortController().signal, isCurrent: () => isRunActive("a", "run-a") });
 
     targetsB.setActive({ sender: winB.win.webContents as unknown as WebContents, sessionId: "b", mode: "work", rendererTargetId: "rb" });
     bindingB.refresh();
     await service.dispatchPermission(winB.sender, { kind: "request", scope: { mode: "agent", hosts: ["github.com"], actions: ["navigate", "observe"] } });
     const leaseB = bindingB.retainRunLease(bindingB.getCurrentOwner()!, { conversationId: "b", runId: "run-b" })!;
-    await service.executeAgent(leaseB, { operation: "open", url: "https://github.com/" }, { conversationId: "b", runId: "run-b", signal: new AbortController().signal, isCurrent: () => true });
+    await service.executeAgent(leaseB, { operation: "open", url: "https://github.com/" }, { conversationId: "b", runId: "run-b", signal: new AbortController().signal, isCurrent: () => isRunActive("b", "run-b") });
 
     // Case 1: Hide window B to tray -> detaches view but does NOT abort lease B
     (winB.win as unknown as EventEmitter).emit("hide");
@@ -1112,21 +1106,24 @@ describe("BrowserRunLease preservation across switch, refresh, tray hide and par
     expect(guests[1].contents.isDestroyed()).toBe(false);
     expect(requests[1]({ url: "https://github.com/", method: "GET", resourceType: "mainFrame", webContentsId: guests[1].contents.id })).toBe(true);
 
-    // Case 2: Close window A while window B is still alive -> lease A is revoked, lease B continues unaffected
+    // Case 2: Close window A while window B is still alive -> lease A is revoked, lease B continues unaffected, and neither agent run is aborted
     await service.closeHost(winA.win);
     expect(leaseA.signal.aborted).toBe(true);
     expect(guests[0].contents.isDestroyed()).toBe(true);
-    expect(abortedRuns).toEqual(["a"]);
+    expect(isRunActive("a", "run-a")).toBe(true);
     expect(leaseB.signal.aborted).toBe(false);
     expect(guests[1].contents.isDestroyed()).toBe(false);
     expect(requests[1]({ url: "https://github.com/", method: "GET", resourceType: "mainFrame", webContentsId: guests[1].contents.id })).toBe(true);
 
-    // Case 3: Close last remaining chat window B -> all remaining browser runs/leases abort and clean up
+    // Case 3: Close last remaining chat window B -> all remaining browser leases revoke and pages close, while agent runs remain active
     await service.closeHost(winB.win);
     expect(leaseB.signal.aborted).toBe(true);
     expect(guests[1].contents.isDestroyed()).toBe(true);
-    expect(abortedRuns).toEqual(["a", "b"]);
+    expect(isRunActive("b", "run-b")).toBe(true);
     expect(requests[1]({ url: "https://github.com/", method: "GET", resourceType: "mainFrame", webContentsId: guests[1].contents.id })).toBe(false);
+
+    // Subsequent browser call from the still-active run is rejected
+    expect(await service.executeAgent(leaseB, { operation: "observe" }, { conversationId: "b", runId: "run-b", signal: new AbortController().signal, isCurrent: () => isRunActive("b", "run-b") })).toEqual({ ok: false, code: "cancelled" });
 
     bindingA.dispose(); bindingB.dispose(); targetsA.dispose(); targetsB.dispose();
     await service.dispose();

@@ -111,14 +111,6 @@ export function isActiveConversationRun(sessionId: string, runId: string): boole
   return runsByConversation.get(sessionId)?.runId === runId && !!entry && !entry.abortController.signal.aborted;
 }
 
-/** 中止指定会话当前正在进行的运行（例如全部聊天主窗关闭时中止依赖浏览器的运行）。 */
-export function abortConversationRun(sessionId: string): boolean {
-  const active = runsByConversation.get(sessionId);
-  if (!active) return false;
-  active.abort();
-  return true;
-}
-
 /** 运行仍在进行（未中止）时返回它所属的会话 id；已结束、已取消、被接管或不经本桥的运行返回 undefined。 */
 export function findActiveConversationForRun(runId: string): string | undefined {
   const entry = runsById.get(runId);

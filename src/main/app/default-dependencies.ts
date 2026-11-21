@@ -79,7 +79,7 @@ import * as chatsStore from "../features/sessions/chats-store";
 import { flush as flushTokenUsage } from "../base/storage/token-usage-store";
 import { loadUserProfile } from "../base/storage/settings-store";
 import { getAppIconPath } from "../platform/windows/app-icon";
-import { abortConversationRun, findActiveConversationForRun, hasActiveConversationRun, isActiveConversationRun, registerAgUiIpc } from "../features/chat/agui-bridge";
+import { findActiveConversationForRun, hasActiveConversationRun, isActiveConversationRun, registerAgUiIpc } from "../features/chat/agui-bridge";
 import { updateLocaleContext } from "../base/identity/locale-context";
 import { initSkills, rescanSkills, shippedSkillIds, skillRegistry } from "../knowledge/skills";
 import { createExternalSkillService } from "../knowledge/skills/external-service";
@@ -498,6 +498,14 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
   const liveHostFor = (accept: (win: BrowserWindow) => boolean = () => true) =>
     liveBrowserHosts().find((host) => accept(host.window));
 
+  // 统一裁决聊天主窗关闭时受影响的浏览器租约：只收回租约与页面，不中止智能体运行本身
+  const collectHostCloseDecision = (closingHost: unknown): { revokeAllLeases?: boolean; affectedConversations?: readonly string[] } => {
+    const closing = [...browserHosts.values()].find((entry) => entry.window === closingHost);
+    const remaining = liveBrowserHosts().filter((entry) => entry.window !== closingHost);
+    if (remaining.length === 0) return { revokeAllLeases: true };
+    return { affectedConversations: closing?.binding.listLeasedConversations?.() ?? [] };
+  };
+
   const getBrowserService = () => {
     if (browserService) return browserService;
     const created = createStartupBrowserService({
@@ -512,21 +520,7 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
         host.window.webContents.send(IPC.BROWSER_CHANGED, page);
       },
     });
-    created?.setHostClosePolicy?.((closingHost) => {
-      const closing = [...browserHosts.values()].find((entry) => entry.window === closingHost);
-      const remaining = liveBrowserHosts().filter((entry) => entry.window !== closingHost);
-      if (remaining.length === 0) {
-        const allLeased = new Set<string>();
-        for (const entry of browserHosts.values()) {
-          for (const cid of entry.binding.listLeasedConversations?.() ?? []) allLeased.add(cid);
-        }
-        for (const cid of allLeased) abortConversationRun(cid);
-        return { revokeAllLeases: true };
-      }
-      const affected = closing?.binding.listLeasedConversations?.() ?? [];
-      for (const cid of affected) abortConversationRun(cid);
-      return { affectedConversations: affected };
-    });
+    created?.setHostClosePolicy?.(collectHostCloseDecision);
     browserService = created;
     app.once("will-quit", installBrowserServiceLifecycle(app, created, shutdown, "browser-service"));
     return created;
@@ -625,14 +619,10 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
     browserHosts.set(window, current);
     window.once("closed", () => {
       externalSkillsIpc?.refreshHost();
-      const leasedOnClosing = binding.listLeasedConversations?.() ?? [];
+      const decision = collectHostCloseDecision(window);
       browserHosts.delete(window);
-      const remaining = liveBrowserHosts();
-      if (remaining.length === 0) {
-        for (const cid of leasedOnClosing) abortConversationRun(cid);
+      if (decision.revokeAllLeases) {
         browserService?.revokeAllLeases?.();
-      } else {
-        for (const cid of leasedOnClosing) abortConversationRun(cid);
       }
       binding.dispose();
       manualBinding.dispose();

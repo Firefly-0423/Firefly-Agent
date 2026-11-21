@@ -164,4 +164,64 @@ describe("production browser composition preserves separate Agent approval", () 
     await expect(f.tool.execute({ operation: "open", url: "https://example.com/" }, f.context)).rejects.toMatchObject({ code: "BROWSER_OWNER_MISMATCH" });
     expect(native.effects).toEqual([]);
   });
+
+  it("revokes browser lease and closes page on last chat window close without aborting the active run, rejecting subsequent tool calls", async () => {
+    const { createActiveChatTargetRegistry } = await import("../interaction/active-chat-target");
+    const { registerBrowserHostOwner } = await import("./browser-host-owner");
+    const profile = {} as RuntimeProfile;
+    const targets = createActiveChatTargetRegistry();
+    let windowClosed = false;
+    const mainFrame = {}, webContents = Object.assign(new EventEmitter(), { id: 81, mainFrame, isDestroyed: () => windowClosed });
+    const host: BrowserHostPort = Object.assign(new EventEmitter(), {
+      webContents, isDestroyed: () => windowClosed, isVisible: () => !windowClosed, isFocused: () => !windowClosed,
+      getContentSize: () => [800, 600], contentView: { addChildView() {}, removeChildView() {} },
+    });
+    const service = createElectronBrowserService({ profile, trustedResolver: { server: "192.0.2.53", port: 53 } });
+    services.push(service);
+    const liveHosts = new Set<BrowserHostPort>([host]);
+    service.setHostClosePolicy((closingHost) => {
+      liveHosts.delete(closingHost);
+      return liveHosts.size === 0 ? { revokeAllLeases: true } : { affectedConversations: [] };
+    });
+    let runActive = true;
+    const binding = registerBrowserHostOwner({
+      host, profile, targets, service,
+      readSession: id => ({ id, mode: "work" }),
+      isRunActive: (cid, rid) => runActive && cid === "conv-1" && rid === "run-1",
+    });
+    const sender = { sender: webContents, senderFrame: mainFrame };
+    targets.setActive({ sender: webContents as unknown as import("electron").WebContents, sessionId: "conv-1", mode: "work", rendererTargetId: "r1" });
+    binding.refresh();
+    expect(await service.dispatchPermission(sender, { kind: "request", scope: agentScope })).toMatchObject({ ok: true, value: { status: "granted" } });
+
+    const executor = createBrowserWorkspaceExecutor({
+      currentOwner: () => binding.getCurrentOwner(),
+      getRunLease: (cid, rid) => binding.getRunLease(cid, rid),
+      retainRunLease: (owner, input) => binding.retainRunLease(owner, input),
+      service: () => service,
+      isRunCurrent: (cid, rid) => runActive && cid === "conv-1" && rid === "run-1",
+    });
+    const tool = createBrowserWorkspaceTool(executor);
+    const runAbort = new AbortController();
+    const context = { userQuery: "Browse", conversationId: "conv-1", runId: "run-1", signal: runAbort.signal, mode: "work" as const };
+    expect(JSON.parse(await tool.execute({ operation: "open", url: "https://example.com/" }, context))).toMatchObject({ success: true, result: { url: "https://example.com/" } });
+    const lease = binding.getRunLease("conv-1", "run-1")!;
+    expect(lease).not.toBeNull();
+
+    // Close the last chat window: lease is revoked and guest is destroyed, but the agent run itself is NOT aborted
+    windowClosed = true;
+    (host as unknown as EventEmitter).emit("closed");
+    await vi.waitFor(() => expect(native.effects).toContain("destroyed"));
+    expect(lease.signal.aborted).toBe(true);
+    expect(runAbort.signal.aborted).toBe(false);
+    expect(runActive).toBe(true);
+
+    // Subsequent browser tool call from the still-active run is cleanly rejected with BROWSER_OWNER_MISMATCH
+    await expect(tool.execute({ operation: "observe" }, context)).rejects.toMatchObject({ code: "BROWSER_OWNER_MISMATCH" });
+
+    // Run can finish normally later
+    runActive = false;
+    binding.dispose();
+    targets.dispose();
+  });
 });
