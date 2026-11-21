@@ -774,6 +774,9 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
         mode,
       };
       const created = store.addTask(input);
+      // The task store and the plugin state are two files: if the second write fails, remove the task again so a
+      // retry cannot create a duplicate and no task without its action metadata is left to run.
+      const undoCreate = () => { try { store.deleteTask(created.id); } catch { /* Best effort; surfaced below. */ } };
       const meta: PluginTaskMetadata = {
         taskId: proposal.taskId,
         storeTaskId: created.id,
@@ -789,7 +792,12 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
         status: "confirmed",
         updatedAt: now.toISOString(),
       };
-      persistState();
+      try {
+        persistState();
+      } catch (failure) {
+        undoCreate();
+        throw failure;
+      }
       return toTaskRecordFromStore(created, meta);
     }
 
@@ -809,6 +817,16 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       allowedToolIds,
       pluginUserEnabled: true,
       approvalFingerprint: fingerprint,
+    };
+    const previous: ScheduledTaskPatch = {
+      title: existingTask.title,
+      schedule: existingTask.schedule,
+      prompt: existingTask.prompt,
+      mode: existingTask.mode,
+      allowedToolIds: existingTask.allowedToolIds,
+      pluginUserEnabled: existingTask.pluginUserEnabled,
+      approvalFingerprint: existingTask.approvalFingerprint,
+      nextFireAt: existingTask.nextFireAt,
     };
     const updated = store.updateTask(existingTask.id, patch);
     // A run waiting for approval was requested for the old specification; it must not run the new one.
@@ -834,7 +852,12 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       status: "confirmed",
       updatedAt: now.toISOString(),
     };
-    persistState();
+    try {
+      persistState();
+    } catch (failure) {
+      try { store.updateTask(existingTask.id, previous); } catch { /* Best effort; surfaced below. */ }
+      throw failure;
+    }
     return toTaskRecordFromStore(updated, meta);
   }
 
@@ -859,14 +882,24 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     return cloneValue(updated);
   }
 
+  /** Store task ids with an action in progress, from the engine or from an approved run. */
+  const runningTasks = new Set<string>();
+
   async function runScheduledTask(
     task: ScheduledTask,
     appointment: Date,
     requestedByUser: boolean,
   ): Promise<ScheduledRunResult> {
+    if (runningTasks.has(task.id)) {
+      const historyId = `skip-${nextId()}`;
+      store.recordHistory({ id: historyId, taskId: task.id, taskTitle: task.title, firedAt: appointment.toISOString(), status: "skipped", reason: "task already running", effectiveToolIds: [] });
+      return { ok: false, error: "task already running", historyId, effectiveToolIds: [] };
+    }
+    runningTasks.add(task.id);
     try {
       return await runScheduledTaskOnce(task, appointment, requestedByUser);
     } finally {
+      runningTasks.delete(task.id);
       rearmCronStoppedDuringRun(task.id);
     }
   }
@@ -988,8 +1021,18 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       );
     }
 
+    // An approved run shares the task's exclusive slot with scheduled runs; while busy it stays pending.
+    if (runningTasks.has(task.id)) {
+      throw new PluginScheduleError("ERR_UNAVAILABLE", `Task "${record.taskId}" is running; approve again when it finishes`, { retryable: true });
+    }
+    runningTasks.add(task.id);
     record.status = "approved";
-    persistState();
+    try {
+      persistState();
+    } catch (failure) {
+      runningTasks.delete(task.id);
+      throw failure;
+    }
 
     const meta = findMetadataByAnyId(record.taskId);
     try {
@@ -1014,6 +1057,8 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       record.settledAt = clock().toISOString();
       persistState();
       throw failure;
+    } finally {
+      runningTasks.delete(task.id);
     }
   }
 

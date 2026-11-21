@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { chmodSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -684,6 +684,51 @@ describe("PluginSchedulesService (v2)", () => {
       const ok = await client.propose(runSpec());
       expect(ok.status).toBe("pending_approval");
       expect(service.listPendingProposals("dev.firefly.alpha")).toHaveLength(1);
+    });
+
+    it("a confirmation whose plugin state cannot be saved leaves no task behind, and a retry creates exactly one", async () => {
+      const { store, service } = setupHarness();
+      const proposed = await service.forPlugin("dev.firefly.alpha").propose(runSpec());
+      const stateFile = join(workdir, "plugin-schedules-state.json");
+      chmodSync(stateFile, 0o444);
+      try {
+        expect(() => service.confirmProposal(proposed.taskId)).toThrow(PluginScheduleError);
+        expect(store.getTasks()).toEqual([]);
+      } finally {
+        chmodSync(stateFile, 0o644);
+      }
+      service.confirmProposal(proposed.taskId);
+      expect(store.getTasks()).toHaveLength(1);
+    });
+
+    it("an approved run waits for the task's exclusive slot instead of running alongside another run", async () => {
+      const { service } = setupHarness();
+      const client = service.forPlugin("dev.firefly.alpha");
+      let active = 0, peak = 0, release!: () => void;
+      client.onTrigger(async () => {
+        active += 1; peak = Math.max(peak, active);
+        await new Promise<void>(resolve => { release = resolve; });
+        active -= 1;
+      });
+      const proposed = await client.propose({ title: "Write", schedule: { kind: "interval", minutes: 15 }, action: { type: "callback" }, requiredRisks: ["shell"] });
+      service.confirmProposal(proposed.taskId);
+      currentNow = new Date("2032-03-10T10:15:00.000Z");
+      await vi.advanceTimersByTimeAsync(15 * 60_000);
+      currentNow = new Date("2032-03-10T10:30:00.000Z");
+      await vi.advanceTimersByTimeAsync(15 * 60_000);
+      const [first, second] = service.listPendingRunApprovals("dev.firefly.alpha");
+
+      const running = service.approveRun(first.runId);
+      await vi.advanceTimersByTimeAsync(0);
+      await expectErrorCode(service.approveRun(second.runId), "ERR_UNAVAILABLE");
+      expect(service.getRunApproval(second.runId)?.status).toBe("pending_approval");
+      release(); await running;
+
+      const later = service.approveRun(second.runId);
+      await vi.advanceTimersByTimeAsync(0);
+      release(); await later;
+      expect(peak).toBe(1);
+      expect(service.getRunApproval(second.runId)?.status).toBe("completed");
     });
 
     it("rejects calls when plugin signal is aborted or schedules permission is revoked", async () => {
