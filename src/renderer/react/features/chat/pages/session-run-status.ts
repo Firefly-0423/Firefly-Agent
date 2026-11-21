@@ -62,7 +62,7 @@ export function observeSessionRunStatus(deps: {
         versions.set(assistantTurnId, { assistantTurnId, phase: "unavailable" });
         changed = true;
       }
-      if (changed) deps.publish([...versions.values()]);
+      if (changed || deps.candidates.length === 0) deps.publish([...versions.values()]);
       if (deps.candidates.every(candidate => {
         const phase = versions.get(candidate.assistantTurnId)?.phase;
         return phase === "finished" || phase === "interrupted";

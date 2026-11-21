@@ -241,6 +241,27 @@ describe("C7 read-only run status recovery", () => {
     expect(queues["session-a"]).toEqual([waiting]);
   });
 
+  test.each(["manual", "queued"] as const)("returning to a session completed in the background releases observed busy state for %s work", async source => {
+    const partial: ChatMessage = { id: "a", role: "model", at: 1, content: "partial",
+      runSnapshot: { runId: "r", status: "running", updatedAt: 1 } };
+    sessions = { "session-a": session("session-a", "work", [partial]),
+      "session-b": session("session-b", "work", [{ id: "b", role: "model", at: 1, content: "other answer" }]) };
+    const query = vi.fn(async () => [{ sessionId: "session-a", assistantTurnId: "a", runId: "r", seq: 1, phase: "running" as const }]);
+    await mount("work", () => { page.agui.getRunStatus = query; });
+    expect(runCalls).toEqual([]);
+    await click("#select-b"); await flush();
+    sessions["session-a"].messages = [{ ...partial, content: "final answer",
+      runSnapshot: { runId: "r", status: "terminal", terminalStatus: "success", updatedAt: 2 } }];
+    if (source === "queued") queues["session-a"] = [{ id: "queued-next", rawContent: "next task", visibleContent: "next task", enqueuedAt: 3 }];
+    await click("#select-a"); await flush();
+    expect(texts("#messages li")[0]).toBe("final answer");
+    if (source === "manual") { await type("next task"); await click("#send"); await flush(); }
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(runCalls).toHaveLength(1);
+    expect(runCalls[0].sessionId).toBe("session-a");
+    expect(queues["session-a"] ?? []).toEqual([]);
+  });
+
   test("ordinary completed legacy replies do not query or schedule status polling", async () => {
     sessions = { "session-a": session("session-a", "work", [{ id: "old", role: "model", at: 1, content: "saved answer" }]) };
     const query = vi.fn(async () => []);
