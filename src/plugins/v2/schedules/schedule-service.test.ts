@@ -608,6 +608,55 @@ describe("PluginSchedulesService (v2)", () => {
       expect(seen).toEqual(["old", "new"]);
     });
 
+    it("keeps a callback run pending when its plugin stops and completes it after restart", async () => {
+      const { service, store, runAgentMock } = setupHarness();
+      const pluginId = "dev.firefly.reminder";
+      const stopped = new AbortController();
+      const client = service.forPlugin(pluginId, { signal: stopped.signal });
+      const originalListener = vi.fn();
+      client.onTrigger(originalListener);
+      const payload = { text: "Stretch!" };
+      const proposed = await client.propose({
+        title: "Privileged reminder",
+        schedule: { kind: "interval", minutes: 5 },
+        action: { type: "callback", payload },
+        requiredRisks: ["shell"],
+      });
+      service.confirmProposal(proposed.taskId);
+      const [task] = store.getTasks();
+
+      currentNow = new Date("2032-03-10T10:05:00.000Z");
+      await vi.advanceTimersByTimeAsync(5 * 60_000);
+      const [pending] = service.listPendingRunApprovals(pluginId);
+      const history = store.getHistory(task.id);
+      stopped.abort();
+
+      await expect(service.approveRun(pending.runId)).rejects.toMatchObject({
+        code: "ERR_UNAVAILABLE",
+        retryable: true,
+      });
+      expect(service.listPendingRunApprovals(pluginId)).toEqual([pending]);
+      expect(store.getHistory(task.id)).toEqual(history);
+      expect(originalListener).not.toHaveBeenCalled();
+
+      const restartedListener = vi.fn();
+      service.forPlugin(pluginId).onTrigger(restartedListener);
+      const settled = await service.approveRun(pending.runId);
+
+      expect(settled.approval.status).toBe("completed");
+      expect(settled.result).toEqual({ ok: true, historyId: pending.runId, effectiveToolIds: [] });
+      expect(restartedListener.mock.calls).toEqual([[{
+        taskId: proposed.taskId,
+        payload,
+        signal: expect.objectContaining({ aborted: false }),
+      }]]);
+      expect(runAgentMock).not.toHaveBeenCalled();
+      expect(store.getHistory(task.id)).toContainEqual(expect.objectContaining({
+        id: pending.runId,
+        status: "success",
+      }));
+    });
+
     it("a cron run that overlaps the next appointment does not end the schedule", async () => {
       let release!: () => void;
       const { store, service, runAgentMock } = setupHarness({

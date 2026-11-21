@@ -1052,6 +1052,18 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     if (runningTasks.has(task.id)) {
       throw new PluginScheduleError("ERR_UNAVAILABLE", `Task "${record.taskId}" is running; approve again when it finishes`, { retryable: true });
     }
+    const meta = findMetadataByAnyId(record.taskId);
+    if (meta?.action.type === "callback") {
+      const listeners = triggerListeners.get(record.pluginId);
+      if (!listeners || !Array.from(listeners).some(listener => !listenerSignals.get(listener)?.aborted)) {
+        throw new PluginScheduleError(
+          "ERR_UNAVAILABLE",
+          `No active callback listener for plugin "${record.pluginId}"; approve again when it registers one`,
+          { retryable: true },
+        );
+      }
+    }
+
     runningTasks.add(task.id);
     record.status = "approved";
     try {
@@ -1061,7 +1073,6 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       throw failure;
     }
 
-    const meta = findMetadataByAnyId(record.taskId);
     try {
       const result = await executeConfirmedAction(
         record.taskId,
