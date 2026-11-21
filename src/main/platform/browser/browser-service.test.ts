@@ -1131,4 +1131,187 @@ describe("BrowserRunLease preservation across switch, refresh, tray hide and par
     bindingA.dispose(); bindingB.dispose(); targetsA.dispose(); targetsB.dispose();
     await service.dispose();
   });
+
+  it("isolates cross-window and cross-session queries and pushes by target window, active conversation and generation", async () => {
+    const profile = {};
+    const pushed: Array<{ host: BrowserHostPort; conversationId: string | null; generation: number; pageUrl: string }> = [];
+    const callbacks: Parameters<BrowserGuestPort<object>["installCallbacks"]>[0][] = [];
+    const guests: BrowserGuestPort<object>[] = [];
+    const makeWindow = (id: number) => {
+      const topFrame = {}, wc = Object.assign(new EventEmitter(), { id, mainFrame: topFrame, isDestroyed: () => false });
+      const win: BrowserHostPort = Object.assign(new EventEmitter(), {
+        webContents: wc, isDestroyed: () => false, isVisible: () => true, isFocused: () => true,
+        getContentSize: (): [number, number] => [800, 600],
+        contentView: { addChildView: () => {}, removeChildView: () => {} },
+      });
+      return { win, sender: { sender: wc, senderFrame: topFrame } };
+    };
+    const winA = makeWindow(41), winB = makeWindow(42);
+    const { registerBrowserHostOwner } = await import("./browser-host-owner");
+    const bindings = new Map<BrowserHostPort, ReturnType<typeof registerBrowserHostOwner<object>>>();
+
+    const service = createBrowserService({
+      profile, gateOpen: false, manualBrowsing: true,
+      permissionPolicy: { hosts: ["example.com", "github.com"], actions: ["navigate", "observe", "click", "type"] },
+      confirmPermission: async () => true,
+      onChanged: (owner, page) => {
+        // Mirror composition root's 3-tuple gate: target window + active conversation + page generation
+        const binding = bindings.get(owner.host);
+        const current = binding?.getCurrentOwner();
+        if (!current || current.conversationId !== page.conversationId || current.generation !== owner.generation) return;
+        pushed.push({ host: owner.host, conversationId: owner.conversationId, generation: owner.generation, pageUrl: page.url });
+      },
+      createSession: () => {
+        const session = {};
+        return {
+          session, persistent: false,
+          installRequestHandler: () => {}, denyPermissions: () => {},
+          setProxy: async () => {}, closeAllConnections: async () => {},
+          clearStorageData: async () => {}, clearCache: async () => {},
+          clearAuthCache: async () => {}, clearHostResolverCache: async () => {}, runningWorkerCount: () => 0,
+        };
+      },
+      createView: (session) => {
+        let destroyed = false, url = "";
+        const guest: BrowserGuestPort<object> = {
+          contents: { id: 400 + guests.length, session, isDestroyed: () => destroyed },
+          observe: async () => ({ snapshotId: "s", url, title: url, text: url, elements: [] }),
+          act: async () => true,
+          loadURL: async target => { url = target; },
+          history: async () => {},
+          snapshot: () => ({ url, canGoBack: false, canGoForward: false }),
+          stop: () => {}, attach: () => {}, detach: () => {}, setBounds: () => {},
+          destroy: () => { destroyed = true; },
+          installCallbacks: next => { callbacks.push(next); },
+        };
+        guests.push(guest);
+        return guest;
+      },
+      proxyFactory: async () => ({ endpoint: { host: "127.0.0.1", port: 1234, realm: "fixture" }, credentialsFor: () => null, revoke: async () => {} }),
+    });
+
+    const targetsA = createActiveChatTargetRegistry(), targetsB = createActiveChatTargetRegistry();
+    const bindingA = registerBrowserHostOwner({ host: winA.win, profile, targets: targetsA, service, readSession: id => ({ id, mode: "work" }), isRunActive: () => true });
+    const bindingB = registerBrowserHostOwner({ host: winB.win, profile, targets: targetsB, service, readSession: id => ({ id, mode: "work" }), isRunActive: () => true });
+    bindings.set(winA.win, bindingA);
+    bindings.set(winB.win, bindingB);
+
+    // Window A opens session A with a live run lease
+    targetsA.setActive({ sender: winA.win.webContents as unknown as WebContents, sessionId: "a", mode: "work", rendererTargetId: "ra" });
+    bindingA.refresh();
+    await service.dispatchPermission(winA.sender, { kind: "request", scope: { mode: "agent", hosts: ["example.com"], actions: ["navigate", "observe"] } });
+    const ownerA = bindingA.getCurrentOwner()!;
+    const leaseA = bindingA.retainRunLease(ownerA, { conversationId: "a", runId: "run-a" })!;
+    const openedA = await service.executeAgent(leaseA, { operation: "open", url: "https://example.com/" }, { conversationId: "a", runId: "run-a", signal: new AbortController().signal, isCurrent: () => true });
+    expect(openedA).toMatchObject({ ok: true, value: { conversationId: "a", url: "https://example.com/" } });
+    const browserIdA = (openedA as { ok: true; value: { browserId: string } }).value.browserId;
+
+    // Window B views session B: cannot read or control A's page or receive A's pushes
+    targetsB.setActive({ sender: winB.win.webContents as unknown as WebContents, sessionId: "b", mode: "work", rendererTargetId: "rb" });
+    bindingB.refresh();
+    expect(await service.dispatch(winB.sender, { kind: "get" })).toEqual({ ok: true, value: null });
+    expect(await service.dispatchPermission(winB.sender, { kind: "get" })).toMatchObject({ ok: true, value: { conversationId: "b", status: "required" } });
+    expect(await service.dispatch(winB.sender, { kind: "navigate", browserId: browserIdA, url: "https://example.com/hijack" })).toEqual({ ok: false, code: "owner_mismatch" });
+
+    // Even if window B tries to bind session A while window A actively displays A, window B is rejected
+    targetsB.setActive({ sender: winB.win.webContents as unknown as WebContents, sessionId: "a", mode: "work", rendererTargetId: "rb" });
+    bindingB.refresh();
+    expect(await service.dispatch(winB.sender, { kind: "get" })).toEqual({ ok: false, code: "owner_mismatch" });
+
+    // Background guest callback on A while window A switches to session C must NOT push to window A (showing C) or window B
+    pushed.length = 0;
+    targetsA.setActive({ sender: winA.win.webContents as unknown as WebContents, sessionId: "c", mode: "work", rendererTargetId: "ra" });
+    bindingA.refresh();
+    expect(await service.dispatch(winA.sender, { kind: "get" })).toEqual({ ok: true, value: null });
+    callbacks[0]?.changed();
+    expect(pushed).toEqual([]);
+
+    // Switching window A back to A updates generation and delivers pushes only for the new generation on window A
+    targetsA.setActive({ sender: winA.win.webContents as unknown as WebContents, sessionId: "a", mode: "work", rendererTargetId: "ra" });
+    bindingA.refresh();
+    expect(await service.dispatch(winA.sender, { kind: "get" })).toMatchObject({ ok: true, value: { browserId: browserIdA, conversationId: "a" } });
+    const ownerA2 = bindingA.getCurrentOwner()!;
+    expect(ownerA2.generation).toBeGreaterThan(ownerA.generation);
+    callbacks[0]?.changed();
+    expect(pushed).toHaveLength(1);
+    expect(pushed[0]).toMatchObject({ host: winA.win, conversationId: "a", generation: ownerA2.generation, pageUrl: "https://example.com/" });
+
+    bindingA.dispose(); bindingB.dispose(); targetsA.dispose(); targetsB.dispose();
+    await service.dispose();
+  });
+
+  it("immediately invalidates network grants and drops in-flight results on permission revoke", async () => {
+    const f = fixture(false, async () => true, true, false, false);
+    const targets = createActiveChatTargetRegistry();
+    const { registerBrowserHostOwner } = await import("./browser-host-owner");
+    const pendingLoad = deferred<void>();
+    let holdNextLoad = false;
+    const pushed: unknown[] = [];
+    const service = createBrowserService({
+      profile: f.profile, gateOpen: false, manualBrowsing: true,
+      permissionPolicy: { hosts: ["example.com"], actions: ["navigate", "observe"] },
+      confirmPermission: async () => true,
+      onChanged: (_owner, page) => { pushed.push(page); },
+      createSession: () => {
+        const session = {};
+        return {
+          session, persistent: false,
+          installRequestHandler: handler => { f.requests.push(handler); },
+          denyPermissions: () => {},
+          setProxy: async () => {}, closeAllConnections: async () => {},
+          clearStorageData: async () => {}, clearCache: async () => {},
+          clearAuthCache: async () => {}, clearHostResolverCache: async () => {}, runningWorkerCount: () => 0,
+        };
+      },
+      createView: (session) => {
+        let destroyed = false, url = "";
+        const guest: BrowserGuestPort<object> = {
+          contents: { id: 500 + f.guests.length, session, isDestroyed: () => destroyed },
+          observe: async () => ({ snapshotId: "s", url, title: url, text: url, elements: [] }),
+          act: async () => true,
+          loadURL: async target => { if (holdNextLoad) await pendingLoad.promise; url = target; },
+          history: async () => {},
+          snapshot: () => ({ url, canGoBack: false, canGoForward: false }),
+          stop: () => {}, attach: () => {}, detach: () => {}, setBounds: () => {},
+          destroy: () => { destroyed = true; },
+          installCallbacks: () => {},
+        };
+        f.guests.push(guest);
+        return guest;
+      },
+      proxyFactory: async () => ({ endpoint: { host: "127.0.0.1", port: 1234, realm: "fixture" }, credentialsFor: () => null, revoke: async () => {} }),
+    });
+    const binding = registerBrowserHostOwner({ host: f.host, profile: f.profile, targets, service, readSession: id => ({ id, mode: "work" }), isRunActive: () => true });
+    targets.setActive({ sender: f.host.webContents as unknown as WebContents, sessionId: "a", mode: "work", rendererTargetId: "r1" });
+    binding.refresh();
+    await service.dispatchPermission(f.sender, { kind: "request", scope: { mode: "agent", hosts: ["example.com"], actions: ["navigate", "observe"] } });
+    const lease = binding.retainRunLease(binding.getCurrentOwner()!, { conversationId: "a", runId: "run-1" })!;
+    const run = { conversationId: "a", runId: "run-1", signal: new AbortController().signal, isCurrent: () => true };
+    const opened = await service.executeAgent(lease, { operation: "open", url: "https://example.com/" }, run);
+    expect(opened).toMatchObject({ ok: true });
+    const browserId = (opened as { ok: true; value: { browserId: string } }).value.browserId;
+    await service.dispatch(f.sender, { kind: "layout", browserId, bounds: { x: 0, y: 0, width: 400, height: 300 } });
+    expect(f.requests[0]({ url: "https://example.com/", method: "GET", resourceType: "mainFrame", webContentsId: f.guests[0].contents.id })).toBe(true);
+
+    // Start an in-flight navigation, then revoke permission before it resolves
+    holdNextLoad = true;
+    const inFlight = service.executeAgent(lease, { operation: "navigate", url: "https://example.com/next" }, run);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    const revoked = await service.dispatchPermission(f.sender, { kind: "revoke", conversationId: "a" });
+    expect(revoked).toMatchObject({ ok: true, value: { status: "required" } });
+
+    // Network grant is immediately invalid and lease is aborted
+    expect(lease.signal.aborted).toBe(true);
+    expect(f.requests[0]({ url: "https://example.com/", method: "GET", resourceType: "mainFrame", webContentsId: f.guests[0].contents.id })).toBe(false);
+
+    // Resolving the old in-flight load after revoke must NOT deliver success or push any new update
+    const pushesAfterRevoke = pushed.length;
+    pendingLoad.resolve();
+    expect(await inFlight).toEqual({ ok: false, code: "cancelled" });
+    expect(pushed.length).toBe(pushesAfterRevoke);
+
+    binding.dispose(); targets.dispose();
+    await service.dispose();
+    await f.service.dispose();
+  });
 });

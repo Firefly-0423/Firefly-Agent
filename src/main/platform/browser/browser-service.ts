@@ -281,8 +281,13 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
     const guest = options.createView(session); guests.set(session, guest); return guest;
   } });
   function publish(cell: Cell): void {
-    if (currentPage(cell.owner)) {
-      try { options.onChanged?.(cell.owner.value, Object.freeze({ ...cell.page })); } catch { /* presentation callback cannot grant authority */ }
+    const owner = cell.owner;
+    if (
+      currentPage(owner)
+      && owner.value.conversationId === cell.page.conversationId
+      && owner.value.generation === owner.host.lastGeneration
+    ) {
+      try { options.onChanged?.(owner.value, Object.freeze({ ...cell.page })); } catch { /* presentation callback cannot grant authority */ }
     }
   }
   function usable(cell: Cell): boolean { return !cell.closing && !cell.abort.signal.aborted && current(cell.owner) && cell.binding?.isCurrent() === true; }
@@ -593,6 +598,7 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
         if (hosts.get(host.host) !== host || !validOwner(value, host) || host.resolveOwner(event) !== value) return fail("owner_mismatch");
         const leased = value.workspaceId === undefined && value.conversationId ? leasedSlots.get(value.conversationId) : undefined;
         if (leased && hasLiveLease(leased)) {
+          if (leased.host !== host && leased.host.current === leased) return fail("owner_mismatch");
           for (const cell of leased.cells) {
             leased.value.signal.removeEventListener("abort", cell.onAbort);
             value.signal.addEventListener("abort", cell.onAbort, { once: true });
