@@ -1,9 +1,9 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, symlinkSync } from "node:fs";
 import path from "node:path";
 import JSZip from "jszip";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { packPackage } from "./pack";
-import { GOOD_FILES, HOST_VERSION, createPackage, createTempWorkspace, goodManifest, type TempWorkspace } from "./package.test-support";
+import { CAN_LINK_DIRECTORY, GOOD_FILES, HOST_VERSION, createPackage, createTempWorkspace, goodManifest, type TempWorkspace } from "./package.test-support";
 
 let ws: TempWorkspace;
 beforeEach(() => {
@@ -55,6 +55,18 @@ describe("packPackage", () => {
     expect(existsSync(out)).toBe(false);
   });
 
+  it.skipIf(!CAN_LINK_DIRECTORY)("通过 junction 访问包目录时，指向包内的输出仍被拒绝，原入口不被覆盖（跳过原因：无法创建 junction）", async () => {
+    const root = createPackage(ws.base);
+    const alias = path.join(ws.base, "alias");
+    symlinkSync(root, alias, "junction");
+    const before = readFileSync(path.join(root, "dist/index.mjs"), "utf8");
+    for (const out of [path.join(alias, "dist", "index.mjs"), path.join(alias, "next.ffplugin")]) {
+      const result = await pack(alias, out);
+      expect(result.ok).toBe(false);
+    }
+    expect(readFileSync(path.join(root, "dist/index.mjs"), "utf8")).toBe(before);
+    expect(existsSync(path.join(root, "next.ffplugin"))).toBe(false);
+  });
   it("输出文件放在包目录里时拒绝，避免下次打包把旧包也装进去", async () => {
     const root = createPackage(ws.base);
     const out = path.join(root, "self.ffplugin");
