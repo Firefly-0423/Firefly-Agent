@@ -95,7 +95,7 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
   type Host = { host: BrowserHostPort; resolveOwner(event: BrowserInvokeEvent): TrustedBrowserOwner | null; current?: Owner; transitioning: boolean; lastGeneration: number; detach(): void; overlay: boolean; visible: boolean; minimized: boolean; focused: boolean };
   type PendingPermission = { id: string; scope: BrowserPermissionScope; cancel: AbortController; promise: Promise<BrowserReply<BrowserPermissionDto>> };
   type Owner = { agentBusy?: boolean; grant?: BrowserPermissionScope; pending?: PendingPermission; denied?: boolean; value: TrustedBrowserOwner; host: Host; event: BrowserInvokeEvent; retired: boolean; cells: Set<Cell>; lease?: BrowserRunLease; leaseOnAbort?: () => void; validGenerations: Set<number> };
-  type Cell = { connectionFailure?: BrowserConnectionError | "load_failed"; attached: boolean; lastBounds?: BrowserBounds; presentationRevision: number; observation?: { value: BrowserObservation; requestId: number; runId: string }; owner: Owner; context: BrowserDomainContext; abort: AbortController; page: BrowserPageDto; preparing?: Promise<BrowserNetworkReply<BrowserNetworkBinding<S>>>; binding?: BrowserNetworkBinding<S>; guest?: BrowserGuestPort<S>; navigation?: AbortController; manualRequestId?: number; closing: boolean; failed: boolean; cleanup?: Promise<BrowserReply<null>>; onAbort(): void };
+  type Cell = { connectionFailure?: BrowserConnectionError | "load_failed"; attached: boolean; lastBounds?: BrowserBounds; presentationRevision: number; observation?: { value: BrowserObservation; requestId: number; runId: string; foreground: boolean }; owner: Owner; context: BrowserDomainContext; abort: AbortController; page: BrowserPageDto; preparing?: Promise<BrowserNetworkReply<BrowserNetworkBinding<S>>>; binding?: BrowserNetworkBinding<S>; guest?: BrowserGuestPort<S>; navigation?: AbortController; manualRequestId?: number; closing: boolean; failed: boolean; cleanup?: Promise<BrowserReply<null>>; onAbort(): void };
   const hosts = new Map<BrowserHostPort, Host>(), owners = new WeakMap<TrustedBrowserOwner, Owner>(), retired = new WeakSet<TrustedBrowserOwner>();
   const leasedSlots = new Map<string, Owner>();
   const cells = new Map<string, Cell>(), guests = new WeakMap<S, BrowserGuestPort<S>>(), byContents = new WeakMap<object, Cell>();
@@ -615,7 +615,7 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
       if (!bounds.width || !bounds.height) detach(cell);
       else {
         if (!usable(cell)) return fail("owner_mismatch");
-        if (!cell.lastBounds || cell.lastBounds.width !== bounds.width || cell.lastBounds.height !== bounds.height) {
+        if (!cell.attached || !cell.lastBounds || cell.lastBounds.width !== bounds.width || cell.lastBounds.height !== bounds.height) {
           invalidateObservation(cell);
         }
         cell.lastBounds = bounds;
@@ -843,11 +843,11 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
             cell.page = { ...cell.page, agentBlockedReason: undefined };
             publish(cell);
           }
-          cell.observation = { value, requestId, runId: run.runId };
+          cell.observation = { value, requestId, runId: run.runId, foreground: startedForeground };
           return { ok: true, value };
         }
         const observed = cell.observation;
-        if (!observed || observed.requestId !== requestId || observed.runId !== run.runId || observed.value.snapshotId !== command.snapshotId) {
+        if (!observed || !observed.foreground || observed.requestId !== requestId || observed.runId !== run.runId || observed.value.snapshotId !== command.snapshotId) {
           invalidateObservation(cell);
           return fail(lease !== null ? "observe_required" : "permission_denied");
         }

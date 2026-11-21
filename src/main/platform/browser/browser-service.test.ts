@@ -1638,4 +1638,73 @@ describe("PR A-2 background read-only observe, 1px viewport invalidation and pos
       }
     }
   });
+
+  it("rejects background snapshots after re-attach with unchanged viewport size across switch/hide/minimize, while preserving foreground snapshots on repeated attached layout", async () => {
+    const cases = ["switch", "hide", "minimize"] as const;
+    for (const mode of cases) {
+      const f = leasedFixture();
+      const { registerBrowserHostOwner } = await import("./browser-host-owner");
+      const binding = registerBrowserHostOwner({ host: f.host, profile: f.profile, targets: f.targets, service: f.service, readSession: id => ({ id, mode: "work" }), isRunActive: () => true });
+      f.targets.setActive({ sender: f.wc as unknown as WebContents, sessionId: "a", mode: "work", rendererTargetId: "r1" });
+      binding.refresh();
+      await f.service.dispatchPermission(f.sender, { kind: "request", scope: { mode: "agent", hosts: ["example.com"], actions: ["navigate", "observe", "click", "type"] } });
+      const lease = binding.retainRunLease(binding.getCurrentOwner()!, { conversationId: "a", runId: `run-bg-${mode}` })!;
+      const run = { conversationId: "a", runId: `run-bg-${mode}`, signal: new AbortController().signal, isCurrent: () => true };
+
+      const opened = await f.service.executeAgent(lease, { operation: "open", url: "https://example.com/" }, run);
+      const browserId = (opened as { ok: true; value: { browserId: string } }).value.browserId;
+      await f.service.dispatch(f.sender, { kind: "layout", browserId, bounds: { x: 0, y: 0, width: 400, height: 300 } });
+
+      // Leave foreground via switch / hide / minimize
+      if (mode === "switch") {
+        f.targets.setActive({ sender: f.wc as unknown as WebContents, sessionId: "b", mode: "work", rendererTargetId: "r1" });
+        binding.refresh();
+      } else if (mode === "hide") {
+        f.setHostState({ visible: false });
+        (f.host as unknown as EventEmitter).emit("hide");
+      } else {
+        f.setHostState({ minimized: true });
+        (f.host as unknown as EventEmitter).emit("minimize");
+      }
+
+      // Take a background observation while detached, then mutate the DOM label under the same ref
+      const bgObs = await f.service.executeAgent(lease, { operation: "observe" }, run);
+      expect(bgObs, `${mode}: bg observe`).toMatchObject({ ok: true });
+      const bgSnap = (bgObs as { ok: true; value: { snapshotId: string } }).value.snapshotId;
+      f.setElementLabel("Delete Forever");
+
+      // Return to foreground with the EXACT same 400x300 viewport bounds
+      if (mode === "switch") {
+        f.targets.setActive({ sender: f.wc as unknown as WebContents, sessionId: "a", mode: "work", rendererTargetId: "r2" });
+        binding.refresh();
+      } else if (mode === "hide") {
+        f.setHostState({ visible: true });
+        (f.host as unknown as EventEmitter).emit("show");
+      } else {
+        f.setHostState({ minimized: false });
+        (f.host as unknown as EventEmitter).emit("restore");
+      }
+      await f.service.dispatch(f.sender, { kind: "layout", browserId, bounds: { x: 0, y: 0, width: 400, height: 300 } });
+
+      // Background snapshot MUST NOT be usable for click/type even though viewport size is unchanged
+      expect(await f.service.executeAgent(lease, { operation: "click", snapshotId: bgSnap, ref: "1" }, run), `${mode}: click with bgSnap`).toEqual({ ok: false, code: "observe_required" });
+      expect(await f.service.executeAgent(lease, { operation: "type", snapshotId: bgSnap, ref: "1", text: "x" }, run), `${mode}: type with bgSnap`).toEqual({ ok: false, code: "observe_required" });
+      expect(f.effects.filter(e => e.startsWith("click:") || e.startsWith("type:")), `${mode}: no guest act`).toEqual([]);
+
+      // Fresh foreground observe returns the updated label and its snapshotId succeeds for click
+      const fgObs = await f.service.executeAgent(lease, { operation: "observe" }, run);
+      expect(fgObs, `${mode}: fg observe`).toMatchObject({ ok: true, value: { elements: [{ ref: "1", name: "Delete Forever" }] } });
+      const fgSnap = (fgObs as { ok: true; value: { snapshotId: string } }).value.snapshotId;
+      expect(await f.service.executeAgent(lease, { operation: "click", snapshotId: fgSnap, ref: "1" }, run), `${mode}: click with fgSnap`).toMatchObject({ ok: true });
+      expect(f.effects.some(e => e.startsWith("click:")), `${mode}: guest click executed`).toBe(true);
+
+      // While already attached, repeated layout with identical 400x300 bounds MUST preserve a foreground snapshot
+      const fgObs2 = await f.service.executeAgent(lease, { operation: "observe" }, run);
+      const fgSnap2 = (fgObs2 as { ok: true; value: { snapshotId: string } }).value.snapshotId;
+      await f.service.dispatch(f.sender, { kind: "layout", browserId, bounds: { x: 0, y: 0, width: 400, height: 300 } });
+      expect(await f.service.executeAgent(lease, { operation: "click", snapshotId: fgSnap2, ref: "1" }, run), `${mode}: repeated same-bounds attached layout preserves snapshot`).toMatchObject({ ok: true });
+
+      binding.dispose(); f.targets.dispose(); await f.service.dispose();
+    }
+  });
 });
