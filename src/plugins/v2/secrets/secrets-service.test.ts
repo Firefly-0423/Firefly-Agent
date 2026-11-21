@@ -199,6 +199,34 @@ describe("plugin secrets v2 service", () => {
     expect(await service.get("dev.firefly.weather", "token")).toBe("secret-123");
   });
 
+  it("refuses a secret copied from another plugin's file or moved to another key name", async () => {
+    const safeStorage = createFakeSafeStorage();
+    const service = createPluginSecretsService({ dataRoot: tempRoot, safeStorage });
+    await service.set("dev.firefly.victim", "token", "victim-secret");
+    const victimFile = resolvePluginSecretsFile("dev.firefly.victim", tempRoot);
+    const raw = await readFile(victimFile, "utf8");
+
+    await writeFile(resolvePluginSecretsFile("dev.firefly.attacker", tempRoot), raw);
+    const copied = await capturePluginError(service.get("dev.firefly.attacker", "token"));
+    expect(copied.code).toBe("ERR_PERMISSION");
+    expect(copied.message).not.toContain("victim-secret");
+
+    const renamed = JSON.parse(raw) as { version: 1; entries: Record<string, unknown> };
+    renamed.entries.other = renamed.entries.token;
+    await writeFile(victimFile, JSON.stringify(renamed));
+    expect((await capturePluginError(service.get("dev.firefly.victim", "other"))).code).toBe("ERR_PERMISSION");
+    expect(await service.get("dev.firefly.victim", "token")).toBe("victim-secret");
+  });
+
+  it("turns a failure to create the secrets directory into ERR_INTERNAL without writing", async () => {
+    const safeStorage = createFakeSafeStorage();
+    await writeFile(path.join(tempRoot, "plugin-secrets"), "not a directory");
+    const service = createPluginSecretsService({ dataRoot: tempRoot, safeStorage });
+    const failure = await capturePluginError(service.set("dev.firefly.alpha", "token", "value"));
+    expect(failure.code).toBe("ERR_INTERNAL");
+    expect(await readFile(path.join(tempRoot, "plugin-secrets"), "utf8")).toBe("not a directory");
+  });
+
   it("isolates secrets strictly per pluginId", async () => {
     const safeStorage = createFakeSafeStorage();
     const service = createPluginSecretsService({ dataRoot: tempRoot, safeStorage });

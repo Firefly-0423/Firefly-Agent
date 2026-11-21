@@ -153,7 +153,11 @@ async function writeSecretsMap(
   };
   const payload = `${JSON.stringify(document, null, 2)}\n`;
 
-  await fs.mkdir(secretsDir, { recursive: true });
+  try {
+    await fs.mkdir(secretsDir, { recursive: true });
+  } catch (error) {
+    throw new PluginError("ERR_INTERNAL", "Failed to create plugin secrets directory", { cause: error });
+  }
   await assertSafePluginSecretsPaths(dataRoot, secretsDir, targetFile);
 
   const stagingFile = path.join(secretsDir, `.${path.basename(targetFile)}.${randomUUID()}.tmp`);
@@ -174,6 +178,35 @@ async function writeSecretsMap(
       }
     }
   }
+}
+
+interface SealedSecret {
+  readonly v: 1;
+  readonly pluginId: string;
+  readonly key: string;
+  readonly value: string;
+}
+
+/** The plaintext that gets encrypted: the value bound to its owner and name, so a copied file or entry is refused. */
+function sealSecret(pluginId: string, key: string, value: string): string {
+  const sealed: SealedSecret = { v: 1, pluginId, key, value };
+  return JSON.stringify(sealed);
+}
+
+function openSealedSecret(plaintext: string, pluginId: string, key: string): string {
+  let sealed: unknown;
+  try {
+    sealed = JSON.parse(plaintext);
+  } catch {
+    throw new PluginError("ERR_INTERNAL", "Plugin secret payload is malformed");
+  }
+  if (!isPlainObject(sealed) || sealed.v !== 1 || typeof sealed.value !== "string") {
+    throw new PluginError("ERR_INTERNAL", "Plugin secret payload is malformed");
+  }
+  if (sealed.pluginId !== pluginId || sealed.key !== key) {
+    throw new PluginError("ERR_PERMISSION", "Plugin secret does not belong to this plugin and key");
+  }
+  return sealed.value;
 }
 
 /**
@@ -269,15 +302,16 @@ export function createPluginSecretsService(options: PluginSecretsServiceOptions 
         if (!entry) {
           return null;
         }
+        let decrypted: unknown;
         try {
-          const decrypted = storage.decryptString(Buffer.from(entry.ciphertext, "base64"));
-          if (typeof decrypted !== "string") {
-            throw new Error("Non-string decrypted value");
-          }
-          return decrypted;
+          decrypted = storage.decryptString(Buffer.from(entry.ciphertext, "base64"));
         } catch (error) {
           throw new PluginError("ERR_INTERNAL", "Failed to decrypt plugin secret", { cause: error });
         }
+        if (typeof decrypted !== "string") {
+          throw new PluginError("ERR_INTERNAL", "Failed to decrypt plugin secret");
+        }
+        return openSealedSecret(decrypted, pluginId, key);
       });
     },
 
@@ -295,7 +329,7 @@ export function createPluginSecretsService(options: PluginSecretsServiceOptions 
 
         let encrypted: unknown;
         try {
-          encrypted = storage.encryptString(value);
+          encrypted = storage.encryptString(sealSecret(pluginId, key, value));
         } catch (error) {
           throw new PluginError("ERR_INTERNAL", "Failed to encrypt plugin secret", { cause: error });
         }
