@@ -7,7 +7,7 @@ import { createElectronBrowserGuest } from "./electron-browser-guest";
 import { createBrowserService, type BrowserServiceOptions } from "./browser-service";
 import { createTrustedBrowserProxyFactory, type TrustedBrowserResolverConfig } from "./trusted-browser-resolver";
 /** Main composition. Browsing starts denied; only this native user decision may grant a bounded owner scope. */
-export function createElectronBrowserService(options: { profile: RuntimeProfile; gateOpen?: boolean; onChanged?: BrowserServiceOptions<Session>["onChanged"]; acceptDownload?: BrowserServiceOptions<Session>["acceptDownload"]; trustedResolver?: TrustedBrowserResolverConfig }) {
+export function createElectronBrowserService(options: { profile: RuntimeProfile; gateOpen?: boolean; onChanged?: BrowserServiceOptions<Session>["onChanged"]; onHostClosed?: BrowserServiceOptions<Session>["onHostClosed"]; acceptDownload?: BrowserServiceOptions<Session>["acceptDownload"]; trustedResolver?: TrustedBrowserResolverConfig }) {
   return createBrowserService<Session>({ ...options,
     manualBrowsing: true,
     agentSiteSelection: true,

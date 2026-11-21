@@ -53,6 +53,8 @@ export interface BrowserServiceOptions<S extends object> extends Omit<BrowserNet
   /** Main-owned native confirmation; never provided by renderer or a tool. */
   confirmPermission?(owner: TrustedBrowserOwner, scope: BrowserPermissionScope, signal: AbortSignal): Promise<boolean>;
   createView(session: S): BrowserGuestPort<S>; onChanged?(owner: TrustedBrowserOwner, page: BrowserPageDto): void;
+  /** Main composition only. Decides which leases are affected when a host window closes. */
+  onHostClosed?(host: BrowserHostPort): { revokeAllLeases?: boolean; affectedConversations?: readonly string[] } | void;
   /** Main composition only. Asked once per download, and only for an ordinary-browsing (`web`) manual page that is still current. */
   acceptDownload?(owner: TrustedBrowserOwner, item: DownloadItemLike): boolean;
 }
@@ -783,7 +785,21 @@ export function createBrowserService<S extends object>(options: BrowserServiceOp
     const entry = hosts.get(host); if (!entry) return { ok: true, value: null };
     hosts.delete(host); entry.detach();
     const currentOwner = entry.current;
+    entry.current = undefined;
+    let decision: { revokeAllLeases?: boolean; affectedConversations?: readonly string[] } | void;
+    try { decision = options.onHostClosed?.(host); } catch { decision = { revokeAllLeases: true }; }
+    if (decision?.revokeAllLeases) {
+      revokeAllLeases();
+    } else if (decision?.affectedConversations) {
+      for (const conversationId of decision.affectedConversations) {
+        revokeConversation(conversationId);
+      }
+    }
     if (!currentOwner) return { ok: true, value: null };
+    if (hasLiveLease(currentOwner)) {
+      for (const cell of currentOwner.cells) detach(cell);
+      return { ok: true, value: null };
+    }
     revoke(currentOwner.value); return closeOwner(currentOwner, signal);
   }
   function revokeAll(): void {

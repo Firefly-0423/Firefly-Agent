@@ -1020,4 +1020,115 @@ describe("BrowserRunLease preservation across switch, refresh, tray hide and par
     await service2.dispose();
     await f.service.dispose();
   });
+
+  it("handles dual-window close, last-window close, and hide-to-tray via composition-injected main-window lifecycle", async () => {
+    const profile = {}, requests: Array<(request: import("./browser-request-policy").BrowserRequestDetails) => boolean> = [];
+    const guests: BrowserGuestPort<object>[] = [];
+    const effects: string[] = [];
+    const makeWindow = (id: number) => {
+      const topFrame = {}, wc = Object.assign(new EventEmitter(), { id, mainFrame: topFrame, isDestroyed: () => false });
+      const win: BrowserHostPort = Object.assign(new EventEmitter(), {
+        webContents: wc, isDestroyed: () => false, isVisible: () => true, isFocused: () => true,
+        getContentSize: (): [number, number] => [800, 600],
+        contentView: { addChildView: () => {}, removeChildView: () => {} },
+      });
+      return { win, sender: { sender: wc, senderFrame: topFrame }, topFrame };
+    };
+    const winA = makeWindow(31), winB = makeWindow(32);
+    const liveWindows = new Set<BrowserHostPort>([winA.win, winB.win]);
+    const abortedRuns: string[] = [];
+    const { registerBrowserHostOwner } = await import("./browser-host-owner");
+    const bindings = new Map<BrowserHostPort, ReturnType<typeof registerBrowserHostOwner<object>>>();
+
+    const service = createBrowserService({
+      profile, gateOpen: false, manualBrowsing: true,
+      permissionPolicy: { hosts: ["example.com", "github.com"], actions: ["navigate", "observe", "click", "type"] },
+      confirmPermission: async () => true,
+      onHostClosed: (closingHost) => {
+        liveWindows.delete(closingHost);
+        const closingBinding = bindings.get(closingHost);
+        const affected = closingBinding?.listLeasedConversations() ?? [];
+        if (liveWindows.size === 0) {
+          for (const b of bindings.values()) {
+            for (const cid of b.listLeasedConversations()) abortedRuns.push(cid);
+          }
+          return { revokeAllLeases: true };
+        }
+        for (const cid of affected) abortedRuns.push(cid);
+        return { affectedConversations: affected };
+      },
+      createSession: () => {
+        const session = {};
+        return {
+          session, persistent: false,
+          installRequestHandler: handler => { requests.push(handler); },
+          denyPermissions: () => {},
+          setProxy: async () => {}, closeAllConnections: async () => {},
+          clearStorageData: async () => {}, clearCache: async () => {},
+          clearAuthCache: async () => {}, clearHostResolverCache: async () => {}, runningWorkerCount: () => 0,
+        };
+      },
+      createView: (session) => {
+        let destroyed = false, url = "";
+        const guest: BrowserGuestPort<object> = {
+          contents: { id: 300 + guests.length, session, isDestroyed: () => destroyed },
+          observe: async () => ({ snapshotId: "s", url, title: url, text: url, elements: [] }),
+          act: async () => true,
+          loadURL: async target => { url = target; },
+          history: async () => {},
+          snapshot: () => ({ url, canGoBack: false, canGoForward: false }),
+          stop: () => {}, attach: () => { effects.push("attach"); }, detach: () => { effects.push("detach"); }, setBounds: () => {},
+          destroy: () => { destroyed = true; effects.push("destroy"); },
+          installCallbacks: () => {},
+        };
+        guests.push(guest);
+        return guest;
+      },
+      proxyFactory: async () => ({ endpoint: { host: "127.0.0.1", port: 1234, realm: "fixture" }, credentialsFor: () => null, revoke: async () => {} }),
+    });
+
+    const targetsA = createActiveChatTargetRegistry(), targetsB = createActiveChatTargetRegistry();
+    const bindingA = registerBrowserHostOwner({ host: winA.win, profile, targets: targetsA, service, readSession: id => ({ id, mode: "work" }), isRunActive: () => true });
+    const bindingB = registerBrowserHostOwner({ host: winB.win, profile, targets: targetsB, service, readSession: id => ({ id, mode: "work" }), isRunActive: () => true });
+    bindings.set(winA.win, bindingA);
+    bindings.set(winB.win, bindingB);
+
+    // Start run A on window A and run B on window B
+    targetsA.setActive({ sender: winA.win.webContents as unknown as WebContents, sessionId: "a", mode: "work", rendererTargetId: "ra" });
+    bindingA.refresh();
+    await service.dispatchPermission(winA.sender, { kind: "request", scope: { mode: "agent", hosts: ["example.com"], actions: ["navigate", "observe"] } });
+    const leaseA = bindingA.retainRunLease(bindingA.getCurrentOwner()!, { conversationId: "a", runId: "run-a" })!;
+    await service.executeAgent(leaseA, { operation: "open", url: "https://example.com/" }, { conversationId: "a", runId: "run-a", signal: new AbortController().signal, isCurrent: () => true });
+
+    targetsB.setActive({ sender: winB.win.webContents as unknown as WebContents, sessionId: "b", mode: "work", rendererTargetId: "rb" });
+    bindingB.refresh();
+    await service.dispatchPermission(winB.sender, { kind: "request", scope: { mode: "agent", hosts: ["github.com"], actions: ["navigate", "observe"] } });
+    const leaseB = bindingB.retainRunLease(bindingB.getCurrentOwner()!, { conversationId: "b", runId: "run-b" })!;
+    await service.executeAgent(leaseB, { operation: "open", url: "https://github.com/" }, { conversationId: "b", runId: "run-b", signal: new AbortController().signal, isCurrent: () => true });
+
+    // Case 1: Hide window B to tray -> detaches view but does NOT abort lease B
+    (winB.win as unknown as EventEmitter).emit("hide");
+    expect(leaseB.signal.aborted).toBe(false);
+    expect(guests[1].contents.isDestroyed()).toBe(false);
+    expect(requests[1]({ url: "https://github.com/", method: "GET", resourceType: "mainFrame", webContentsId: guests[1].contents.id })).toBe(true);
+
+    // Case 2: Close window A while window B is still alive -> lease A is revoked, lease B continues unaffected
+    await service.closeHost(winA.win);
+    expect(leaseA.signal.aborted).toBe(true);
+    expect(guests[0].contents.isDestroyed()).toBe(true);
+    expect(abortedRuns).toEqual(["a"]);
+    expect(leaseB.signal.aborted).toBe(false);
+    expect(guests[1].contents.isDestroyed()).toBe(false);
+    expect(requests[1]({ url: "https://github.com/", method: "GET", resourceType: "mainFrame", webContentsId: guests[1].contents.id })).toBe(true);
+
+    // Case 3: Close last remaining chat window B -> all remaining browser runs/leases abort and clean up
+    await service.closeHost(winB.win);
+    expect(leaseB.signal.aborted).toBe(true);
+    expect(guests[1].contents.isDestroyed()).toBe(true);
+    expect(abortedRuns).toEqual(["a", "b"]);
+    expect(requests[1]({ url: "https://github.com/", method: "GET", resourceType: "mainFrame", webContentsId: guests[1].contents.id })).toBe(false);
+
+    bindingA.dispose(); bindingB.dispose(); targetsA.dispose(); targetsB.dispose();
+    await service.dispose();
+  });
 });

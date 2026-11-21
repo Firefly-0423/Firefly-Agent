@@ -2,7 +2,7 @@ import { isIP } from "node:net";
 import type { TrustedBrowserResolverConfig } from "./trusted-browser-resolver";
 import { createElectronBrowserService } from "./electron-browser-service";
 type Environment = Readonly<Record<string, string | undefined>>;
-type StartupOptions = Pick<Parameters<typeof createElectronBrowserService>[0], "profile" | "onChanged" | "acceptDownload">;
+type StartupOptions = Pick<Parameters<typeof createElectronBrowserService>[0], "profile" | "onChanged" | "onHostClosed" | "acceptDownload">;
 /** Main launch input only; absence preserves OS DNS, never an all-user router default.
  * The private proxy factory also validates numeric unicast infrastructure endpoints.
  */
@@ -17,7 +17,7 @@ export function readBrowserStartupResolver(env: Environment): TrustedBrowserReso
 }
 /** Startup can select DNS but cannot open the production browsing gate. */
 export function createStartupBrowserService(options: StartupOptions, env: Environment = process.env) {
-  return createElectronBrowserService({ profile: options.profile, onChanged: options.onChanged, acceptDownload: options.acceptDownload,
+  return createElectronBrowserService({ profile: options.profile, onChanged: options.onChanged, onHostClosed: options.onHostClosed, acceptDownload: options.acceptDownload,
     trustedResolver: readBrowserStartupResolver(env),
   });
 }

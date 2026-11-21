@@ -133,6 +133,7 @@ export function registerBrowserHostOwner<S extends object>(options: {
     retainRunLease,
     getRunLease,
     releaseRunLease,
+    listLeasedConversations() { return [...new Set([...leases.values()].map(entry => entry.conversationId))]; },
     dispose() {
       if (disposed) return;
       disposed = true;
