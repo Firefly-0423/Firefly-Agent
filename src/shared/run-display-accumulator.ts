@@ -26,6 +26,24 @@ export class RunDisplayAccumulator {
       afterToolCount: this.message.toolExecutions?.length ?? 0, roundId: this.roundId, seq,
     }];
   }
+  /**
+   * Work/Code stream the same answer first as candidate text, then as the final answer. When the run ends without
+   * committing it, keep one interrupted copy: skip the answer if a closed candidate already holds it, or extend
+   * that candidate if the answer grew past it.
+   */
+  private keepUncommittedAnswer(): void {
+    const answer = this.answer.text.trim();
+    if (!answer) return;
+    const entries = this.message.processMessages ?? [];
+    let index = -1;
+    for (let offset = entries.length - 1; offset >= 0 && index < 0; offset -= 1) {
+      const content = entries[offset].content.trim();
+      if (entries[offset].interrupted && content && answer.startsWith(content)) index = offset;
+    }
+    if (index < 0) { this.process(this.answer.text, true); return; }
+    if (entries[index].content.trim() === answer) return;
+    this.message.processMessages = entries.map((entry, offset) => offset === index ? { ...entry, content: this.answer.text } : entry);
+  }
   private closeCandidate(): void {
     if (this.candidate.trim()) this.process(this.candidate, true, this.candidateSeq);
     this.candidate = ""; this.candidateSeq = undefined;
@@ -113,7 +131,7 @@ export class RunDisplayAccumulator {
       if (answer.committed) { this.candidate = ""; this.candidateSeq = undefined; }
       else {
         this.closeCandidate();
-        if (this.answer.text.trim()) this.process(this.answer.text, true);
+        this.keepUncommittedAnswer();
       }
       this.message.content = answer.content;
       this.message.agentRounds = this.message.agentRounds?.map(round => round.status === "running" ? { ...round, status: "completed", completedAt: now } : round);

@@ -43,3 +43,18 @@ it("closes running rounds and preserves filtered body received before an error",
  expect(final.agentRounds).toEqual([{id:"one",status:"completed",startedAt:2,completedAt:4}]);
  expect(final.runActivity).toEqual({startedAt:1,reasoningMs:0,completedAt:4,activeReasoningStartedAt:undefined,keepExpanded:true});
 });
+
+it.each([
+ ["same text", "the answer", "the answer"],
+ ["answer grew past the candidate", "the ans", "the answer"],
+])("a failed run keeps one interrupted copy when the candidate and the final answer carry the %s", (_case, candidate, answer) => {
+ const view=new RunDisplayAccumulator({id:"a",role:"model",content:"",at:1},"r");
+ view.accept({type:"CUSTOM",name:"firefly.round",value:{action:"start",roundId:"one"}},2);
+ view.accept({type:"CUSTOM",name:"firefly.candidate_text",value:{roundId:"one",action:"delta",delta:candidate}},3);
+ view.accept({type:"TEXT_MESSAGE_CONTENT",delta:answer},4);
+ view.accept({type:"RUN_ERROR",code:"E_HARNESS_FAILURE",message:"checkpoint write failed"},5);
+ const final=view.freeze({status:"runtime_error",externalEffectsMayContinue:false},6);
+ expect(final.content).toBe("");
+ expect(final.processMessages?.filter(entry=>entry.interrupted).map(entry=>entry.content)).toEqual([answer]);
+ expect(final.processMessages?.map(entry=>entry.content)).toEqual([answer,"E_HARNESS_FAILURE"]);
+});
