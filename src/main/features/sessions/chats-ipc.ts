@@ -20,7 +20,7 @@ import { randomUUID } from "crypto";
 import { IPC } from "../../../shared/ipc-channels";
 import { DEFAULT_CONTEXT_WINDOW_TOKENS } from "../../../shared/context-window";
 import { createIpcScope, type IpcScope } from "../../base/ipc/ipc-scope";
-import type { ChatMessage, ConversationMode, ConversationWorkspaceBinding, PendingChatMessage } from "../../../shared/chat-types";
+import type { ChatMessage, ChatSession, ConversationMode, ConversationWorkspaceBinding, PendingChatMessage } from "../../../shared/chat-types";
 import * as chatsStore from "./chats-store";
 import { isRunAdjustmentInFlight } from "../../agent/runtime/pending-adjustment";
 import * as fs from "fs";
@@ -208,8 +208,13 @@ async function compactSession(sessionId: string, memory: ChatsIpcOptions["memory
 /** Internal run records and frozen pending messages stay in Main. */
 function publicSession<T extends object>(value: T | null): T | null {
   if (!value) return value;
-  const result = { ...value };
-  delete (result as { runPresentations?: unknown }).runPresentations;
+  const result = { ...value } as T & { runPresentations?: ChatSession["runPresentations"]; activeRunTurnIds?: string[] };
+  // A reply whose text is already projected as terminal can still be settling in Main; the page must keep asking.
+  const active = Object.values(result.runPresentations ?? {})
+    .filter(record => record.phase === "running" || record.phase === "settling").map(record => record.assistantTurnId);
+  delete result.runPresentations;
+  delete result.activeRunTurnIds;
+  if (active.length) result.activeRunTurnIds = active;
   return result;
 }
 

@@ -76,3 +76,12 @@ test("only unresolved checkpoints, active evidence and empty assistant placehold
   expect(isRunStatusCandidate({ ...base, runSnapshot: { runId: "r", status: "waiting_user", updatedAt: 1 } })).toBe(true);
   expect(isRunStatusCandidate({ ...base, content: "", runSnapshot: { runId: "r", status: "terminal", terminalStatus: "success", updatedAt: 1 } })).toBe(false);
 });
+
+test("a reply that already reads as final is still observed while Main reports its turn as running or settling", () => {
+  const settled = { id: "a", role: "model" as const, at: 1, content: "final", sSettlement: { runId: "r", userTurnId: "u", userRevision: 1 } as never,
+    runSnapshot: { runId: "r", status: "terminal" as const, terminalStatus: "success" as const, updatedAt: 1 } };
+  expect(isRunStatusCandidate(settled)).toBe(false);
+  expect(isRunStatusCandidate(settled, ["a"])).toBe(true);
+  expect(isRunStatusCandidate(settled, ["other"])).toBe(false);
+  expect(isRunStatusCandidate({ ...settled, role: "user" }, ["a"])).toBe(false);
+});

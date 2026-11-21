@@ -608,7 +608,7 @@ export function ChatPage() {
       if (generation !== sessionSelectionGeneration.current) return "stale";
       let observerReady = false;
       const observer = observeSessionRunStatus({ sessionId,
-        candidates: session.messages.filter(isRunStatusCandidate).map(message => ({
+        candidates: session.messages.filter(message => isRunStatusCandidate(message, session.activeRunTurnIds)).map(message => ({
           assistantTurnId: message.id, ...(message.runSnapshot?.runId ? { runId: message.runSnapshot.runId } : {}),
         })), query: async request => {
           const statuses = await query(request);

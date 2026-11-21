@@ -1,7 +1,9 @@
 import type { ChatMessage } from "../../../../../shared/chat-types";
 import type { RunStatusItem, RunStatusRequest } from "../../../../../shared/run-status";
 
-export function isRunStatusCandidate(message: ChatMessage): boolean {
+export function isRunStatusCandidate(message: ChatMessage, activeRunTurnIds?: readonly string[]): boolean {
+  // Main still holds this turn as running or settling, even if its text already reads as final.
+  if (message.role === "model" && activeRunTurnIds?.includes(message.id)) return true;
   if (message.role !== "model" || message.sSettlement || message.runSnapshot?.status === "terminal") return false;
   if (message.runSnapshot) return true;
   return !message.content.trim() && !message.sticker || Boolean(
