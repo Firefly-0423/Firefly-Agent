@@ -17,16 +17,20 @@ async function realTarget(file: string): Promise<string> {
   const missing: string[] = [];
   let current = file;
   for (;;) {
+    let exists = true;
     try {
       await lstat(current);
-      return path.join(await realpath(current), ...missing);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-      const parent = path.dirname(current);
-      if (parent === current) return file;
-      missing.unshift(path.basename(current));
-      current = parent;
+      exists = false;
     }
+    // An entry that exists but cannot be resolved is a dangling link: writing through it would follow the link
+    // to wherever it points, so refuse instead of treating it as a missing path.
+    if (exists) return path.join(await realpath(current), ...missing);
+    const parent = path.dirname(current);
+    if (parent === current) return file;
+    missing.unshift(path.basename(current));
+    current = parent;
   }
 }
 
@@ -38,7 +42,13 @@ export async function packPackage(dir: string, outFile: string, options: { hostV
   const root = await realpath(path.resolve(dir));
   const target = path.resolve(outFile);
   // Compare real paths: an output reached through a link or junction must not land inside the package.
-  const relativeToRoot = path.relative(root, await realTarget(target));
+  let realOut: string;
+  try {
+    realOut = await realTarget(target);
+  } catch {
+    return { ok: false, errors: [{ code: "invalid_path", path: "", message: `输出路径无法解析（可能是悬空链接）: ${outFile}` }] };
+  }
+  const relativeToRoot = path.relative(root, realOut);
   if (!escapesRoot(relativeToRoot)) {
     return { ok: false, errors: [{ code: "invalid_path", path: "", message: `输出文件不能放在包目录内: ${outFile}` }] };
   }

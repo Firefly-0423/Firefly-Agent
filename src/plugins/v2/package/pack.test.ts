@@ -67,6 +67,15 @@ describe("packPackage", () => {
     expect(readFileSync(path.join(root, "dist/index.mjs"), "utf8")).toBe(before);
     expect(existsSync(path.join(root, "next.ffplugin"))).toBe(false);
   });
+  it.skipIf(!CAN_LINK_DIRECTORY)("输出路径经过一个指向包内、目标尚不存在的链接时拒绝，不跟随写入（跳过原因：无法创建 junction）", async () => {
+    const root = createPackage(ws.base);
+    const dangling = path.join(ws.base, "latest");
+    symlinkSync(path.join(root, "generated"), dangling, "junction");
+    const result = await pack(root, path.join(dangling, "out.ffplugin"));
+    expect(result.ok).toBe(false);
+    expect(existsSync(path.join(root, "generated"))).toBe(false);
+  });
+
   it("文件名以两个点开头的输出仍在包内，同样拒绝", async () => {
     const root = createPackage(ws.base);
     const out = path.join(root, "..output.ffplugin");
