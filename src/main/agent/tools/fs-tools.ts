@@ -252,7 +252,7 @@ function resolveWriteFilePolicy(args: Record<string, unknown>): VerificationPoli
   const configuration = new Set(["package.json", "tsconfig.json", "tsconfig.main.json", "tsconfig.preload.json", "vite.config.ts", "vite.config.js", "vitest.config.ts",
     ".eslintrc", ".eslintrc.js", ".eslintrc.json", ".prettierrc", "babel.config.js", "babel.config.json", "webpack.config.js"]);
   if (configuration.has(name)) return "code";
-  const code = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".go", ".rs", ".java", ".c", ".cpp", ".h", ".cs", ".rb", ".php", ".swift", ".kt"];
+  const code = [".ts", ".mts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".go", ".rs", ".java", ".c", ".cpp", ".h", ".cs", ".rb", ".php", ".swift", ".kt"];
   if (code.includes(extension)) return "code";
   const artifacts = [".docx", ".xlsx", ".pdf", ".csv", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".bmp", ".ico", ".mp3", ".mp4", ".zip", ".tar", ".gz"];
   if (artifacts.includes(extension)) return "artifact";
