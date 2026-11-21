@@ -259,4 +259,54 @@ describe("settings api fetchModels race protection & error mapping (T5)", () => 
     expect(picker.hidden).toBe(true);
     expect(fetchBtn.disabled).toBe(false);
   });
+
+  it("closes the fetched model picker on Escape, restores focus to fetchModelsBtn, and keeps the profile editor open", async () => {
+    const fetchModels = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      models: [{ id: "deepseek-v4" }, { id: "deepseek-r1" }],
+    });
+
+    await mountSettingsPage({ settings: { fetchModels } });
+    byId<HTMLButtonElement>("add-profile-btn").click();
+    byId<HTMLInputElement>("api-key").value = "sk-deepseek";
+
+    const editor = byId<HTMLElement>("profile-editor");
+    const fetchBtn = byId<HTMLButtonElement>("fetch-models-btn");
+    const picker = byId<HTMLElement>("fetch-models-picker");
+    const search = byId<HTMLInputElement>("fetch-models-search");
+
+    fetchBtn.click();
+    await flushMicrotasks();
+    expect(picker.hidden).toBe(false);
+    expect(editor.hidden).toBe(false);
+
+    // Pressing Escape when focus is inside the picker search box closes only the picker.
+    search.focus();
+    const escFromSearch = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    search.dispatchEvent(escFromSearch);
+
+    expect(escFromSearch.defaultPrevented).toBe(true);
+    expect(picker.hidden).toBe(true);
+    expect(editor.hidden).toBe(false);
+    expect(document.activeElement).toBe(fetchBtn);
+    expect(document.getElementById("ff-modal-overlay")?.classList.contains("is-hidden") ?? true).toBe(true);
+
+    // Re-open and press Escape while focus is on document.body (e.g. after fetch button disable/enable blur).
+    fetchModels.mockResolvedValueOnce({
+      ok: true,
+      models: [{ id: "deepseek-v4" }],
+    });
+    fetchBtn.click();
+    await flushMicrotasks();
+    expect(picker.hidden).toBe(false);
+    (document.activeElement as HTMLElement | null)?.blur?.();
+
+    const escFromBody = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    document.body.dispatchEvent(escFromBody);
+
+    expect(escFromBody.defaultPrevented).toBe(true);
+    expect(picker.hidden).toBe(true);
+    expect(editor.hidden).toBe(false);
+    expect(document.activeElement).toBe(fetchBtn);
+  });
 });

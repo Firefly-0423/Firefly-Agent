@@ -50,7 +50,7 @@ export function initFetchModelsController(hooks: { updateProfileDraftState: () =
   function bind(): void {
     // ── 从厂商获取模型列表：型号由接入的厂商决定，预设只是拉不到时的兜底建议 ──
     const modelPicker = fetchModelsPicker && fetchModelsSearch && fetchModelsList && fetchModelsEmpty
-      ? createModelPicker({ root: fetchModelsPicker, search: fetchModelsSearch, list: fetchModelsList, empty: fetchModelsEmpty }, (id) => {
+      ? createModelPicker({ root: fetchModelsPicker, search: fetchModelsSearch, list: fetchModelsList, empty: fetchModelsEmpty, trigger: fetchModelsBtn }, (id) => {
         modelInput.value = id;
         modelInput.dispatchEvent(new Event("input", { bubbles: true }));
         inputModalities.picked(id, fetchedInputModalities.get(id));

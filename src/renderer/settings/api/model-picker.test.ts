@@ -20,11 +20,12 @@ describe("model picker", () => {
     search: document.querySelector<HTMLInputElement>("#search")!,
     list: document.querySelector<HTMLElement>("#list")!,
     empty: document.querySelector<HTMLElement>("#empty")!,
+    trigger: document.querySelector<HTMLButtonElement>("#trigger")!,
   });
   const ids = () => [...document.querySelectorAll<HTMLElement>("[data-model-id]")].map((el) => el.dataset.modelId);
 
   beforeEach(() => {
-    document.body.innerHTML = `<div id="picker" hidden><input id="search" /><div id="list"></div><p id="empty" hidden></p></div>`;
+    document.body.innerHTML = `<div id="editor"><button id="trigger" type="button">Fetch</button><div id="picker" hidden><input id="search" /><div id="list"></div><p id="empty" hidden></p></div></div>`;
     onPick = vi.fn();
   });
 
@@ -67,7 +68,49 @@ describe("model picker", () => {
     picker.open(models, "gpt-5");
     picker.syncCurrent("deepseek-chat");
     expect(document.querySelector<HTMLElement>(".is-current")!.dataset.modelId).toBe("deepseek-chat");
+    els().search.focus();
     picker.close();
     expect(els().root.hidden).toBe(true);
+    expect(document.activeElement).toBe(els().search);
+  });
+
+  it("closes on Escape from search or option, stops propagation, and returns focus to trigger", () => {
+    const editorKeydown = vi.fn();
+    document.getElementById("editor")!.addEventListener("keydown", editorKeydown);
+    const picker = createModelPicker(els(), onPick);
+
+    picker.open(models, "");
+    els().search.focus();
+    const fromSearch = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    els().search.dispatchEvent(fromSearch);
+    expect(els().root.hidden).toBe(true);
+    expect(fromSearch.defaultPrevented).toBe(true);
+    expect(editorKeydown).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(els().trigger);
+    expect(onPick).not.toHaveBeenCalled();
+
+    picker.open(models, "");
+    const firstOption = document.querySelector<HTMLButtonElement>('[data-model-id="gpt-5"]')!;
+    firstOption.focus();
+    const fromOption = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    firstOption.dispatchEvent(fromOption);
+    expect(els().root.hidden).toBe(true);
+    expect(fromOption.defaultPrevented).toBe(true);
+    expect(editorKeydown).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(els().trigger);
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
+  it("ignores Escape when already closed without stealing focus or preventing default", () => {
+    const picker = createModelPicker(els(), onPick);
+    const other = document.createElement("input");
+    document.body.appendChild(other);
+    other.focus();
+
+    const closedEsc = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    els().search.dispatchEvent(closedEsc);
+    expect(closedEsc.defaultPrevented).toBe(false);
+    expect(els().root.hidden).toBe(true);
+    expect(document.activeElement).toBe(other);
   });
 });

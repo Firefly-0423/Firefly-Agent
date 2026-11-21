@@ -633,3 +633,38 @@ it("also records the vendor-declared input type when a fetched model id is chose
   await vi.waitFor(() => expect(saveProfile).toHaveBeenCalledTimes(1));
   expect(saveProfile.mock.calls.at(-1)?.[0]).toMatchObject({ model: "vendor-vision-x", inputModalities: ["text", "image"], inputModalitiesSource: "vendor-api" });
 });
+
+it("restores idle save status when discarding changes on Cancel, and preserves unsaved status when continuing to edit", async () => {
+  openExisting();
+  const contextWindow = element<HTMLInputElement>("context-window-input");
+  contextWindow.value = "128000";
+  contextWindow.dispatchEvent(new Event("input", { bubbles: true }));
+
+  const saveStatus = element("save-status");
+  expect(saveStatus.textContent).toBe("有未保存的更改");
+  expect(saveStatus.hasAttribute("data-idle")).toBe(false);
+  expect(element("profile-draft-state").textContent).toBe("未保存的更改");
+
+  element<HTMLButtonElement>("close-profile-editor").click();
+  expect(modalIsOpen()).toBe(true);
+  element<HTMLButtonElement>("ff-modal-cancel").click();
+  await vi.waitFor(() => expect(modalIsOpen()).toBe(false));
+
+  expect(element("profile-editor").hidden).toBe(false);
+  expect(saveStatus.textContent).toBe("有未保存的更改");
+  expect(saveStatus.hasAttribute("data-idle")).toBe(false);
+  expect(element("profile-draft-state").textContent).toBe("未保存的更改");
+  expect(saveProfile).not.toHaveBeenCalled();
+
+  element<HTMLButtonElement>("close-profile-editor").click();
+  expect(modalIsOpen()).toBe(true);
+  element<HTMLButtonElement>("ff-modal-confirm").click();
+  await vi.waitFor(() => expect(element("profile-editor").hidden).toBe(true));
+
+  expect(saveStatus.parentElement).toBe(element("provider-status-top"));
+  expect(saveStatus.textContent).toBe("等待保存");
+  expect(saveStatus.hasAttribute("data-idle")).toBe(true);
+  expect(saveStatus.className).toBe("save-status");
+  expect(document.activeElement).toBe(profileButton());
+  expect(saveProfile).not.toHaveBeenCalled();
+});
