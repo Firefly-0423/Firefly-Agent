@@ -126,10 +126,11 @@ function normalizeAction(action: unknown): ScheduleAction {
   if (candidate.type === "callback") {
     let payload: unknown = undefined;
     if ("payload" in candidate && candidate.payload !== undefined) {
+      // The payload is persisted as JSON, so it must survive a JSON round trip (no BigInt, no cycles).
       try {
-        payload = structuredClone(candidate.payload);
+        payload = JSON.parse(JSON.stringify(candidate.payload));
       } catch (cause) {
-        throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "Callback payload must be cloneable", { cause });
+        throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "Callback payload must be JSON-serializable", { cause });
       }
     }
     return payload === undefined ? { type: "callback" } : { type: "callback", payload };
@@ -203,6 +204,8 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     try {
       backingFile.write(state);
     } catch (cause) {
+      // Never keep an unsaved change in memory: go back to the last state on disk.
+      state = backingFile.read(emptyState());
       throw new PluginScheduleError("ERR_INTERNAL", "Failed to persist plugin schedule state", { cause });
     }
   }
@@ -1107,6 +1110,18 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
 
   // The host creates this service before starting the scheduler engine, so overdue cron tasks are re-armed first.
   reconcileCronTasks();
+  // The engine also stops a cron one-shot when it skips it (plugin not running, previous run still going).
+  // Re-arm those whenever the task list changes; re-arming itself changes it, so guard against re-entry.
+  let sweeping = false;
+  store.onChange?.(() => {
+    if (sweeping) return;
+    sweeping = true;
+    try {
+      for (const meta of Object.values(state.metadata)) rearmCronStoppedDuringRun(meta.storeTaskId);
+    } finally {
+      sweeping = false;
+    }
+  });
 
   return {
     reconcileCronTasks,

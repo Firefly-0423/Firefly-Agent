@@ -639,6 +639,53 @@ describe("PluginSchedulesService (v2)", () => {
       expect(runAgentMock).not.toHaveBeenCalled();
     });
 
+    it("a cron appointment skipped because the plugin is not running keeps the schedule going", async () => {
+      const store = createSchedulerStore({
+        tasksFile: join(workdir, "scheduled-tasks.json"),
+        historyFile: join(workdir, "scheduled-tasks-history.jsonl"),
+        now: () => currentNow,
+        id: () => `store-task-${idCounter++}`,
+      });
+      store.load();
+      const runAgentTask = vi.fn(async (): Promise<ScheduledRunResult> => ({ ok: true, historyId: `h-${idCounter++}`, effectiveToolIds: [] }));
+      const service = createPluginScheduleService({ store, stateFile: join(workdir, "plugin-schedules-state.json"), now: () => currentNow, id: () => `id-${idCounter++}`, runAgentTask });
+      let pluginRunning = false;
+      const engine = new SchedulerEngine({ store, runTask: service.runScheduledTask, canRunTask: () => pluginRunning, now: () => currentNow, id: () => `eng-${idCounter++}` });
+      engines.push(engine);
+      engine.start();
+      const proposed = await service.forPlugin("dev.firefly.cron").propose({
+        title: "Quarter-hour check",
+        schedule: { kind: "cron", expression: "*/15 * * * *", timezone: "UTC" },
+        action: { type: "run", prompt: "Ping", mode: "work" },
+      });
+      service.confirmProposal(proposed.taskId);
+
+      currentNow = new Date("2032-03-10T10:15:00.000Z");
+      await vi.advanceTimersByTimeAsync(15 * 60_000);
+      expect(runAgentTask).not.toHaveBeenCalled();
+      const [skipped] = store.getTasks();
+      expect(skipped.pluginUserEnabled).not.toBe(false);
+      expect(skipped.nextFireAt).toBe("2032-03-10T10:30:00.000Z");
+
+      pluginRunning = true;
+      currentNow = new Date("2032-03-10T10:30:00.000Z");
+      await vi.advanceTimersByTimeAsync(15 * 60_000);
+      expect(runAgentTask).toHaveBeenCalledTimes(1);
+    });
+
+    it("a payload that cannot be saved as JSON is refused without breaking later proposals", async () => {
+      const { service } = setupHarness();
+      const client = service.forPlugin("dev.firefly.alpha");
+      const cyclic: Record<string, unknown> = {}; cyclic.self = cyclic;
+      for (const payload of [1n, cyclic]) {
+        await expectErrorCode(client.propose({ title: "Bad", schedule: { kind: "interval", minutes: 5 }, action: { type: "callback", payload } }), "ERR_INVALID_ARGUMENT");
+      }
+      expect(service.listPendingProposals("dev.firefly.alpha")).toEqual([]);
+      const ok = await client.propose(runSpec());
+      expect(ok.status).toBe("pending_approval");
+      expect(service.listPendingProposals("dev.firefly.alpha")).toHaveLength(1);
+    });
+
     it("rejects calls when plugin signal is aborted or schedules permission is revoked", async () => {
       const { service } = setupHarness();
       const ac = new AbortController();
