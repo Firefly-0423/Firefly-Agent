@@ -1,5 +1,5 @@
 import type { ScheduleConfig } from "../../../main/platform/schedule/schedule-types";
-import { PluginScheduleError, type Schedule } from "./types";
+import { PluginError, type Schedule } from "./types";
 
 export interface ParsedCronExpression {
   expression: string;
@@ -42,25 +42,25 @@ function parseCronField(
   normalize?: (value: number) => number,
 ): { values: Set<number>; restricted: boolean } {
   if (!field) {
-    throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `Cron ${label} field is empty`);
+    throw new PluginError("ERR_INVALID_ARGUMENT", `Cron ${label} field is empty`);
   }
   const values = new Set<number>();
   const restricted = field !== "*";
 
   for (const part of field.split(",")) {
     if (!part) {
-      throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `Invalid cron ${label} token: "${field}"`);
+      throw new PluginError("ERR_INVALID_ARGUMENT", `Invalid cron ${label} token: "${field}"`);
     }
     const slashSplit = part.split("/");
     if (slashSplit.length > 2) {
-      throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `Invalid cron ${label} step: "${part}"`);
+      throw new PluginError("ERR_INVALID_ARGUMENT", `Invalid cron ${label} step: "${part}"`);
     }
     const [rangeRaw, stepRaw] = slashSplit;
     let step = 1;
     if (stepRaw !== undefined) {
       const parsedStep = parsePositiveInt(stepRaw);
       if (parsedStep === null || parsedStep <= 0) {
-        throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `Invalid cron ${label} step: "${part}"`);
+        throw new PluginError("ERR_INVALID_ARGUMENT", `Invalid cron ${label} step: "${part}"`);
       }
       step = parsedStep;
     }
@@ -73,19 +73,19 @@ function parseCronField(
     } else if (rangeRaw.includes("-")) {
       const bounds = rangeRaw.split("-");
       if (bounds.length !== 2) {
-        throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `Invalid cron ${label} range: "${part}"`);
+        throw new PluginError("ERR_INVALID_ARGUMENT", `Invalid cron ${label} range: "${part}"`);
       }
       const left = parsePositiveInt(bounds[0]);
       const right = parsePositiveInt(bounds[1]);
       if (left === null || right === null || left < min || right > max || left > right) {
-        throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `Out-of-range cron ${label} range: "${part}"`);
+        throw new PluginError("ERR_INVALID_ARGUMENT", `Out-of-range cron ${label} range: "${part}"`);
       }
       start = left;
       end = right;
     } else {
       const exact = parsePositiveInt(rangeRaw);
       if (exact === null || exact < min || exact > max) {
-        throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `Out-of-range cron ${label} value: "${part}"`);
+        throw new PluginError("ERR_INVALID_ARGUMENT", `Out-of-range cron ${label} value: "${part}"`);
       }
       if (stepRaw !== undefined) {
         start = exact;
@@ -102,32 +102,32 @@ function parseCronField(
   }
 
   if (values.size === 0) {
-    throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `Cron ${label} field matched no values`);
+    throw new PluginError("ERR_INVALID_ARGUMENT", `Cron ${label} field matched no values`);
   }
   return { values, restricted };
 }
 
 export function validateTimezone(timezone: string): void {
   if (typeof timezone !== "string" || timezone.trim().length === 0) {
-    throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "Timezone must be a non-empty IANA string");
+    throw new PluginError("ERR_INVALID_ARGUMENT", "Timezone must be a non-empty IANA string");
   }
   try {
     new Intl.DateTimeFormat("en-US", { timeZone: timezone });
-  } catch (cause) {
-    throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `Invalid timezone: "${timezone}"`, { cause });
+  } catch {
+    throw new PluginError("ERR_INVALID_ARGUMENT", `Invalid timezone: "${timezone}"`);
   }
 }
 
 export function parseCronExpression(expression: string, timezone?: string): ParsedCronExpression {
   if (typeof expression !== "string") {
-    throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "Cron expression must be a string");
+    throw new PluginError("ERR_INVALID_ARGUMENT", "Cron expression must be a string");
   }
   if (timezone !== undefined) {
     validateTimezone(timezone);
   }
   const fields = expression.trim().split(/\s+/);
   if (fields.length !== 5) {
-    throw new PluginScheduleError(
+    throw new PluginError(
       "ERR_INVALID_ARGUMENT",
       `Cron expression must have exactly 5 fields, got ${fields.length}`,
     );
@@ -236,7 +236,7 @@ export function computeNextCronFireAt(expression: string, after: Date, timezone?
     return new Date(cursorMs);
   }
 
-  throw new PluginScheduleError(
+  throw new PluginError(
     "ERR_INVALID_ARGUMENT",
     `Cron expression "${expression}" has no firing time within ${MAX_CRON_LOOKAHEAD_DAYS} days`,
   );
@@ -261,17 +261,17 @@ export function validateAndConvertSchedule(
   options: { checkOnceInFuture?: boolean } = {},
 ): { storeSchedule: ScheduleConfig; requiresCronRearm: boolean } {
   if (!schedule || typeof schedule !== "object") {
-    throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "Schedule must be an object");
+    throw new PluginError("ERR_INVALID_ARGUMENT", "Schedule must be an object");
   }
 
   const checkOnceInFuture = options.checkOnceInFuture ?? true;
 
   if (schedule.kind === "once") {
     if (typeof schedule.at !== "number" || !Number.isFinite(schedule.at)) {
-      throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "One-shot schedule requires a finite timestamp 'at'");
+      throw new PluginError("ERR_INVALID_ARGUMENT", "One-shot schedule requires a finite timestamp 'at'");
     }
     if (checkOnceInFuture && schedule.at <= now.getTime()) {
-      throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "One-shot schedule 'at' must be in the future");
+      throw new PluginError("ERR_INVALID_ARGUMENT", "One-shot schedule 'at' must be in the future");
     }
     return {
       storeSchedule: { kind: "once", runAt: new Date(schedule.at).toISOString() },
@@ -286,7 +286,7 @@ export function validateAndConvertSchedule(
       || schedule.minutes <= 0
       || schedule.minutes > MAX_MINUTES_INTERVAL
     ) {
-      throw new PluginScheduleError(
+      throw new PluginError(
         "ERR_INVALID_ARGUMENT",
         `Interval minutes must be an integer between 1 and ${MAX_MINUTES_INTERVAL}`,
       );
@@ -303,7 +303,7 @@ export function validateAndConvertSchedule(
         requiresCronRearm: false,
       };
     }
-    throw new PluginScheduleError(
+    throw new PluginError(
       "ERR_INVALID_ARGUMENT",
       `Interval minutes above ${MAX_STORE_MINUTES_INTERVAL} must be a whole multiple of 60`,
     );
@@ -346,5 +346,5 @@ export function validateAndConvertSchedule(
     };
   }
 
-  throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `Unsupported schedule kind: ${String((schedule as { kind?: unknown }).kind)}`);
+  throw new PluginError("ERR_INVALID_ARGUMENT", `Unsupported schedule kind: ${String((schedule as { kind?: unknown }).kind)}`);
 }

@@ -104,8 +104,8 @@ function parseSecretsFile(raw: string): Map<string, StoredEncryptedSecret> {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
-  } catch (error) {
-    throw new PluginError("ERR_INTERNAL", "Plugin secrets store contains invalid JSON", { cause: error });
+  } catch {
+    throw new PluginError("ERR_INTERNAL", "Plugin secrets store contains invalid JSON");
   }
 
   if (!isPlainObject(parsed) || parsed.version !== 1 || !isPlainObject(parsed.entries)) {
@@ -133,7 +133,7 @@ async function readSecretsMap(targetFile: string): Promise<{ exists: boolean; en
     if (isMissingFileError(error)) {
       return { exists: false, entries: new Map() };
     }
-    throw new PluginError("ERR_INTERNAL", "Failed to read plugin secrets store", { cause: error });
+    throw new PluginError("ERR_INTERNAL", "Failed to read plugin secrets store");
   }
   return { exists: true, entries: parseSecretsFile(raw) };
 }
@@ -155,8 +155,8 @@ async function writeSecretsMap(
 
   try {
     await fs.mkdir(secretsDir, { recursive: true });
-  } catch (error) {
-    throw new PluginError("ERR_INTERNAL", "Failed to create plugin secrets directory", { cause: error });
+  } catch {
+    throw new PluginError("ERR_INTERNAL", "Failed to create plugin secrets directory");
   }
   await assertSafePluginSecretsPaths(dataRoot, secretsDir, targetFile);
 
@@ -168,7 +168,7 @@ async function writeSecretsMap(
     if (error instanceof PluginError) {
       throw error;
     }
-    throw new PluginError("ERR_INTERNAL", "Failed to write plugin secrets store", { cause: error });
+    throw new PluginError("ERR_INTERNAL", "Failed to write plugin secrets store");
   } finally {
     try {
       await fs.unlink(stagingFile);
@@ -254,7 +254,7 @@ export function createPluginSecretsService(options: PluginSecretsServiceOptions 
       if (error instanceof PluginError) {
         throw error;
       }
-      throw new PluginError("ERR_UNAVAILABLE", "Plugin secrets data directory is unavailable", { cause: error });
+      throw new PluginError("ERR_UNAVAILABLE", "Plugin secrets data directory is unavailable");
     }
   };
 
@@ -305,8 +305,8 @@ export function createPluginSecretsService(options: PluginSecretsServiceOptions 
         let decrypted: unknown;
         try {
           decrypted = storage.decryptString(Buffer.from(entry.ciphertext, "base64"));
-        } catch (error) {
-          throw new PluginError("ERR_INTERNAL", "Failed to decrypt plugin secret", { cause: error });
+        } catch {
+          throw new PluginError("ERR_INTERNAL", "Failed to decrypt plugin secret");
         }
         if (typeof decrypted !== "string") {
           throw new PluginError("ERR_INTERNAL", "Failed to decrypt plugin secret");
@@ -330,8 +330,8 @@ export function createPluginSecretsService(options: PluginSecretsServiceOptions 
         let encrypted: unknown;
         try {
           encrypted = storage.encryptString(sealSecret(pluginId, key, value));
-        } catch (error) {
-          throw new PluginError("ERR_INTERNAL", "Failed to encrypt plugin secret", { cause: error });
+        } catch {
+          throw new PluginError("ERR_INTERNAL", "Failed to encrypt plugin secret");
         }
         if (!Buffer.isBuffer(encrypted) && !(encrypted instanceof Uint8Array)) {
           throw new PluginError("ERR_INTERNAL", "Encryptor returned invalid ciphertext");
@@ -365,7 +365,7 @@ export function createPluginSecretsService(options: PluginSecretsServiceOptions 
             if (isMissingFileError(error)) {
               return false;
             }
-            throw new PluginError("ERR_INTERNAL", "Failed to remove empty plugin secrets store", { cause: error });
+            throw new PluginError("ERR_INTERNAL", "Failed to remove empty plugin secrets store");
           }
         }
         await writeSecretsMap(dataRoot, secretsDir, targetFile, entries);
@@ -400,7 +400,7 @@ export function createPluginSecretsService(options: PluginSecretsServiceOptions 
           if (isMissingFileError(error)) {
             return false;
           }
-          throw new PluginError("ERR_INTERNAL", "Failed to delete plugin secrets store", { cause: error });
+          throw new PluginError("ERR_INTERNAL", "Failed to delete plugin secrets store");
         }
       });
     },

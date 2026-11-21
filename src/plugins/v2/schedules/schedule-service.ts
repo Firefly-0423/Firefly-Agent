@@ -12,7 +12,7 @@ import type {
 } from "../../../main/platform/schedule/schedule-types";
 import { computeNextCronFireAt, validateAndConvertSchedule } from "./cron";
 import {
-  PluginScheduleError,
+  PluginError,
   UNATTENDED_APPROVAL_RISKS,
   type Disposable,
   type Mode,
@@ -94,12 +94,12 @@ function cloneValue<T>(value: T): T {
 function normalizeRisks(risks: unknown): ToolRisk[] {
   if (risks === undefined) return [];
   if (!Array.isArray(risks)) {
-    throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "requiredRisks must be an array");
+    throw new PluginError("ERR_INVALID_ARGUMENT", "requiredRisks must be an array");
   }
   const seen = new Set<ToolRisk>();
   for (const risk of risks) {
     if (typeof risk !== "string" || !ALLOWED_PLUGIN_RISKS.has(risk as ToolRisk)) {
-      throw new PluginScheduleError(
+      throw new PluginError(
         "ERR_INVALID_ARGUMENT",
         `Invalid plugin schedule tool risk: ${String(risk)}`,
       );
@@ -112,22 +112,22 @@ function normalizeRisks(risks: unknown): ToolRisk[] {
 function normalizeToolIds(toolIds: unknown): string[] {
   if (toolIds === undefined) return [];
   if (!Array.isArray(toolIds) || toolIds.some((id) => typeof id !== "string")) {
-    throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "allowedToolIds must be an array of strings");
+    throw new PluginError("ERR_INVALID_ARGUMENT", "allowedToolIds must be an array of strings");
   }
   return Array.from(new Set(toolIds.map((id) => id.trim()).filter(Boolean)));
 }
 
 function normalizeAction(action: unknown): ScheduleAction {
   if (!action || typeof action !== "object") {
-    throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "Schedule action must be an object");
+    throw new PluginError("ERR_INVALID_ARGUMENT", "Schedule action must be an object");
   }
   const candidate = action as Partial<ScheduleAction>;
   if (candidate.type === "run") {
     if (typeof candidate.prompt !== "string" || candidate.prompt.trim().length === 0) {
-      throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "Run action prompt must be non-empty");
+      throw new PluginError("ERR_INVALID_ARGUMENT", "Run action prompt must be non-empty");
     }
     if (typeof candidate.mode !== "string" || !ALLOWED_MODES.has(candidate.mode as Mode)) {
-      throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `Invalid run mode: ${String(candidate.mode)}`);
+      throw new PluginError("ERR_INVALID_ARGUMENT", `Invalid run mode: ${String(candidate.mode)}`);
     }
     return {
       type: "run",
@@ -141,13 +141,13 @@ function normalizeAction(action: unknown): ScheduleAction {
       // The payload is persisted as JSON, so it must survive a JSON round trip (no BigInt, no cycles).
       try {
         payload = JSON.parse(JSON.stringify(candidate.payload));
-      } catch (cause) {
-        throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "Callback payload must be JSON-serializable", { cause });
+      } catch {
+        throw new PluginError("ERR_INVALID_ARGUMENT", "Callback payload must be JSON-serializable");
       }
     }
     return payload === undefined ? { type: "callback" } : { type: "callback", payload };
   }
-  throw new PluginScheduleError(
+  throw new PluginError(
     "ERR_INVALID_ARGUMENT",
     `Unsupported schedule action type: ${String((action as { type?: unknown }).type)}`,
   );
@@ -155,10 +155,10 @@ function normalizeAction(action: unknown): ScheduleAction {
 
 function normalizeProposalSpec(spec: ScheduleProposalSpec, now: Date): ScheduleProposalSpec {
   if (!spec || typeof spec !== "object") {
-    throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "Schedule proposal spec must be an object");
+    throw new PluginError("ERR_INVALID_ARGUMENT", "Schedule proposal spec must be an object");
   }
   if (typeof spec.title !== "string" || spec.title.trim().length === 0) {
-    throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "Schedule title must be a non-empty string");
+    throw new PluginError("ERR_INVALID_ARGUMENT", "Schedule title must be a non-empty string");
   }
   validateAndConvertSchedule(spec.schedule, now, { checkOnceInFuture: true });
   const action = normalizeAction(spec.action);
@@ -176,7 +176,7 @@ function normalizeProposalSpec(spec: ScheduleProposalSpec, now: Date): ScheduleP
 
 function ensureNonEmptyId(id: unknown, label: string): string {
   if (typeof id !== "string" || id.trim().length === 0) {
-    throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `${label} must be a non-empty string`);
+    throw new PluginError("ERR_INVALID_ARGUMENT", `${label} must be a non-empty string`);
   }
   return id;
 }
@@ -215,10 +215,10 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     if (!backingFile) return;
     try {
       backingFile.write(state);
-    } catch (cause) {
+    } catch {
       // Never keep an unsaved change in memory: go back to the last state on disk.
       state = backingFile.read(emptyState());
-      throw new PluginScheduleError("ERR_INTERNAL", "Failed to persist plugin schedule state", { cause });
+      throw new PluginError("ERR_INTERNAL", "Failed to persist plugin schedule state");
     }
   }
 
@@ -267,12 +267,12 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     const { ownerPluginId, hasStoreTask, hasProposal } = resolveOwnership(taskId);
     if (!hasStoreTask && !hasProposal) {
       if (missingIsError) {
-        throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `Schedule task not found: ${taskId}`);
+        throw new PluginError("ERR_INVALID_ARGUMENT", `Schedule task not found: ${taskId}`);
       }
       return false;
     }
     if (ownerPluginId !== pluginId) {
-      throw new PluginScheduleError(
+      throw new PluginError(
         "ERR_PERMISSION",
         `Plugin "${pluginId}" does not own schedule task "${taskId}"`,
       );
@@ -430,7 +430,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     }
 
     if (!options.runAgentTask) {
-      throw new PluginScheduleError("ERR_UNAVAILABLE", "No agent run delegate configured for schedule execution");
+      throw new PluginError("ERR_UNAVAILABLE", "No agent run delegate configured for schedule execution");
     }
     return options.runAgentTask(task, appointment, requestedByUser);
   }
@@ -542,10 +542,10 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
 
     function assertActiveAndPermitted(): void {
       if (clientOptions?.signal?.aborted) {
-        throw new PluginScheduleError("ERR_CANCELLED", `Plugin "${ownerPluginId}" is stopped`);
+        throw new PluginError("ERR_CANCELLED", `Plugin "${ownerPluginId}" is stopped`);
       }
       if (clientOptions?.hasPermission && !clientOptions.hasPermission()) {
-        throw new PluginScheduleError(
+        throw new PluginError(
           "ERR_PERMISSION",
           `Plugin "${ownerPluginId}" does not hold "schedules" permission`,
         );
@@ -585,7 +585,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
         assertActiveAndPermitted();
         ensureNonEmptyId(taskId, "taskId");
         if (!patch || typeof patch !== "object") {
-          throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "Update patch must be an object");
+          throw new PluginError("ERR_INVALID_ARGUMENT", "Update patch must be an object");
         }
         assertPluginOwnsTarget(ownerPluginId, taskId, true);
 
@@ -667,8 +667,8 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
           if (store.deleteTask(storeTaskId)) {
             removed = true;
           }
-        } catch (cause) {
-          throw new PluginScheduleError("ERR_INTERNAL", "Failed to delete scheduled task", { cause });
+        } catch {
+          throw new PluginError("ERR_INTERNAL", "Failed to delete scheduled task");
         }
         for (const [proposalId, proposal] of Object.entries(state.proposals)) {
           if (proposal.taskId === taskId && proposal.pluginId === ownerPluginId) {
@@ -719,7 +719,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       onTrigger(fn) {
         assertActiveAndPermitted();
         if (typeof fn !== "function") {
-          throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "onTrigger listener must be a function");
+          throw new PluginError("ERR_INVALID_ARGUMENT", "onTrigger listener must be a function");
         }
         let listeners = triggerListeners.get(ownerPluginId);
         if (!listeners) {
@@ -760,9 +760,9 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     if (!proposal) {
       const latest = findLatestProposalForTask(taskId);
       if (latest?.status === "rejected") {
-        throw new PluginScheduleError("ERR_REJECTED", `Proposal for task "${taskId}" was already rejected`);
+        throw new PluginError("ERR_REJECTED", `Proposal for task "${taskId}" was already rejected`);
       }
-      throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `No pending proposal found for task "${taskId}"`);
+      throw new PluginError("ERR_INVALID_ARGUMENT", `No pending proposal found for task "${taskId}"`);
     }
 
     const now = clock();
@@ -828,7 +828,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
 
     const existingTask = findStoreTaskByAnyId(proposal.taskId);
     if (!existingTask || existingTask.ownerPluginId !== proposal.pluginId) {
-      throw new PluginScheduleError(
+      throw new PluginError(
         "ERR_INVALID_ARGUMENT",
         `Target task "${proposal.taskId}" no longer exists for update confirmation`,
       );
@@ -892,9 +892,9 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     if (!proposal) {
       const latest = findLatestProposalForTask(taskId);
       if (latest?.status === "rejected") {
-        throw new PluginScheduleError("ERR_REJECTED", `Proposal for task "${taskId}" was already rejected`);
+        throw new PluginError("ERR_REJECTED", `Proposal for task "${taskId}" was already rejected`);
       }
-      throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `No pending proposal found for task "${taskId}"`);
+      throw new PluginError("ERR_INVALID_ARGUMENT", `No pending proposal found for task "${taskId}"`);
     }
 
     const updated: ScheduleProposal = {
@@ -953,7 +953,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
   ): Promise<ScheduledRunResult> {
     if (!task.ownerPluginId) {
       if (!options.runAgentTask) {
-        throw new PluginScheduleError("ERR_UNAVAILABLE", "No agent run delegate configured");
+        throw new PluginError("ERR_UNAVAILABLE", "No agent run delegate configured");
       }
       return options.runAgentTask(task, appointment, requestedByUser);
     }
@@ -988,14 +988,14 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     const normalized = normalizeRisks(risks);
     const blocking = normalized.filter((risk) => UNATTENDED_APPROVAL_RISKS.has(risk));
     if (blocking.length === 0) {
-      throw new PluginScheduleError(
+      throw new PluginError(
         "ERR_INVALID_ARGUMENT",
         "Unattended approval suspension requires at least one privileged risk (fs-write, shell, input-control)",
       );
     }
     const task = findStoreTaskByAnyId(taskId);
     if (!task || !task.ownerPluginId) {
-      throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `Plugin task not found: ${taskId}`);
+      throw new PluginError("ERR_INVALID_ARGUMENT", `Plugin task not found: ${taskId}`);
     }
     const meta = findMetadataByAnyId(taskId);
     return createApprovalSuspension(task, meta?.taskId ?? task.id, clock(), blocking, reason);
@@ -1022,16 +1022,16 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     ensureNonEmptyId(runId, "runId");
     const record = state.approvals[runId];
     if (!record) {
-      throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `Run approval not found: ${runId}`);
+      throw new PluginError("ERR_INVALID_ARGUMENT", `Run approval not found: ${runId}`);
     }
     if (record.status === "rejected") {
-      throw new PluginScheduleError("ERR_REJECTED", `Run "${runId}" was already rejected`);
+      throw new PluginError("ERR_REJECTED", `Run "${runId}" was already rejected`);
     }
     if (record.status === "cancelled") {
-      throw new PluginScheduleError("ERR_CANCELLED", record.error ?? `Run "${runId}" was cancelled`);
+      throw new PluginError("ERR_CANCELLED", record.error ?? `Run "${runId}" was cancelled`);
     }
     if (record.status !== "pending_approval") {
-      throw new PluginScheduleError(
+      throw new PluginError(
         "ERR_INVALID_ARGUMENT",
         `Run "${runId}" is already settled with status "${record.status}"`,
       );
@@ -1042,7 +1042,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       record.status = "cancelled";
       record.settledAt = clock().toISOString();
       persistState();
-      throw new PluginScheduleError(
+      throw new PluginError(
         "ERR_CANCELLED",
         `Plugin task "${record.taskId}" is no longer available`,
       );
@@ -1050,16 +1050,16 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
 
     // An approved run shares the task's exclusive slot with scheduled runs; while busy it stays pending.
     if (runningTasks.has(task.id)) {
-      throw new PluginScheduleError("ERR_UNAVAILABLE", `Task "${record.taskId}" is running; approve again when it finishes`, { retryable: true });
+      throw new PluginError("ERR_UNAVAILABLE", `Task "${record.taskId}" is running; approve again when it finishes`, true);
     }
     const meta = findMetadataByAnyId(record.taskId);
     if (meta?.action.type === "callback") {
       const listeners = triggerListeners.get(record.pluginId);
       if (!listeners || !Array.from(listeners).some(listener => !listenerSignals.get(listener)?.aborted)) {
-        throw new PluginScheduleError(
+        throw new PluginError(
           "ERR_UNAVAILABLE",
           `No active callback listener for plugin "${record.pluginId}"; approve again when it registers one`,
-          { retryable: true },
+          true,
         );
       }
     }
@@ -1085,7 +1085,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       // State may have been reloaded after a failed save, or the approval may have been removed.
       const settled = state.approvals[runId];
       if (!settled) {
-        throw new PluginScheduleError("ERR_CANCELLED", `Run approval "${runId}" was removed before settlement`);
+        throw new PluginError("ERR_CANCELLED", `Run approval "${runId}" was removed before settlement`);
       }
       settled.status = result.ok ? "completed" : "failed";
       if (!result.ok && result.error) {
@@ -1112,16 +1112,16 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     ensureNonEmptyId(runId, "runId");
     const record = state.approvals[runId];
     if (!record) {
-      throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `Run approval not found: ${runId}`);
+      throw new PluginError("ERR_INVALID_ARGUMENT", `Run approval not found: ${runId}`);
     }
     if (record.status === "rejected") {
-      throw new PluginScheduleError("ERR_REJECTED", `Run "${runId}" was already rejected`);
+      throw new PluginError("ERR_REJECTED", `Run "${runId}" was already rejected`);
     }
     if (record.status === "cancelled") {
-      throw new PluginScheduleError("ERR_CANCELLED", record.error ?? `Run "${runId}" was cancelled`);
+      throw new PluginError("ERR_CANCELLED", record.error ?? `Run "${runId}" was cancelled`);
     }
     if (record.status !== "pending_approval") {
-      throw new PluginScheduleError(
+      throw new PluginError(
         "ERR_INVALID_ARGUMENT",
         `Run "${runId}" is already settled with status "${record.status}"`,
       );
@@ -1160,8 +1160,8 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     let removedTasks: number;
     try {
       removedTasks = store.deleteTasksByOwner(ownerPluginId);
-    } catch (cause) {
-      throw new PluginScheduleError("ERR_INTERNAL", "Failed to delete the plugin's scheduled tasks", { cause });
+    } catch {
+      throw new PluginError("ERR_INTERNAL", "Failed to delete the plugin's scheduled tasks");
     }
 
     let removedProposals = 0;
