@@ -1,3 +1,4 @@
+import { parseCronExpression } from "./cron";
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -44,6 +45,9 @@ export function validateSchedule(plan: ScheduleConfig): void {
     if (!plan || typeof plan !== "object")
         throw new Error("缺少调度配置");
     switch (plan.kind) {
+        case "cron":
+            parseCronExpression(plan.expression, plan.timezone);
+            return;
         case "daily":
             assertClockText(plan.timeOfDay, "每日时间");
             return;

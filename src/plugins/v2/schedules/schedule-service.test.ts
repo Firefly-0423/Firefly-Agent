@@ -572,6 +572,7 @@ describe("PluginSchedulesService (v2)", () => {
       const [task] = store.getTasks();
       expect(task.pluginUserEnabled).not.toBe(false);
       expect(task.nextFireAt).toBe("2032-03-10T10:30:00.000Z");
+      expect(task.schedule).toEqual({ kind: "cron", expression: "*/15 * * * *", timezone: "UTC" });
       currentNow = new Date("2032-03-10T10:30:00.000Z");
       await vi.advanceTimersByTimeAsync(10 * 60_000);
       expect(runAgentTask).toHaveBeenCalledTimes(1);
@@ -683,6 +684,7 @@ describe("PluginSchedulesService (v2)", () => {
       const [task] = store.getTasks();
       expect(task.pluginUserEnabled).not.toBe(false);
       expect(task.nextFireAt).toBe("2032-03-10T10:45:00.000Z");
+      expect(task.schedule).toEqual({ kind: "cron", expression: "*/15 * * * *", timezone: "UTC" });
     });
 
     it("confirming a task update cancels a run still waiting for approval of the old specification", async () => {
@@ -730,6 +732,7 @@ describe("PluginSchedulesService (v2)", () => {
       const [skipped] = store.getTasks();
       expect(skipped.pluginUserEnabled).not.toBe(false);
       expect(skipped.nextFireAt).toBe("2032-03-10T10:30:00.000Z");
+      expect(skipped.schedule).toEqual({ kind: "cron", expression: "*/15 * * * *", timezone: "UTC" });
 
       pluginRunning = true;
       currentNow = new Date("2032-03-10T10:30:00.000Z");
@@ -818,6 +821,7 @@ describe("PluginSchedulesService (v2)", () => {
       const resumed = store.getTasks().find(task => task.id === id)!;
       expect(resumed.pluginUserEnabled).toBe(true);
       expect(resumed.nextFireAt).toBe("2032-03-10T10:30:00.000Z");
+      expect(resumed.schedule).toEqual({ kind: "cron", expression: "*/15 * * * *", timezone: "UTC" });
     });
 
     it("an approved run still records its result after another operation's save failed meanwhile", async () => {
