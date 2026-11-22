@@ -272,10 +272,14 @@ export function createTestHost(options: TestHostOptions): TestHost {
       const validate = ajv.compile(tool.parameters);
       const entry = { def: tool as ToolDefinition<Record<string, unknown>>, validate };
       registeredTools.set(tool.name, entry);
+      let disposed = false;
       return {
         dispose() {
+          if (disposed) return;
+          disposed = true;
           if (registeredTools.get(tool.name) === entry) {
             registeredTools.delete(tool.name);
+            record("tools.unregister", { name: tool.name });
           }
         },
       };
@@ -291,10 +295,14 @@ export function createTestHost(options: TestHostOptions): TestHost {
         throw new PluginError("ERR_UNDECLARED", `Context provider "${provider.id}" is not declared in manifest`);
       }
       registeredProviders.set(provider.id, provider);
+      let disposed = false;
       return {
         dispose() {
+          if (disposed) return;
+          disposed = true;
           if (registeredProviders.get(provider.id) === provider) {
             registeredProviders.delete(provider.id);
+            record("context.unregister", { id: provider.id });
           }
         },
       };

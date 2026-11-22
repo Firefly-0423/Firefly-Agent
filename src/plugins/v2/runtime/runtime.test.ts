@@ -18,6 +18,7 @@ import type { PluginContext } from "../../../../plugin-sdk/src/index";
 import {
   attachPluginRuntime,
   connectParentPortRuntime,
+  defaultPluginLoader,
   type ParentPortLike,
   type TransferredPortLike,
 } from "./index";
@@ -233,7 +234,13 @@ describe("plugin child-process runtime", () => {
                 id: "ch_1",
                 async start(chHost) {
                   chHost.reportState({ state: "connected" });
-                  await chHost.deliver({ externalMessageId: "m1" });
+                  await chHost.deliver({
+                    externalMessageId: "m1",
+                    chat: { type: "private", id: "u1" },
+                    sender: { id: "u1", name: "Alice" },
+                    text: "hello",
+                    timestamp: 1000,
+                  });
                 },
                 async stop() {
                   channelStopped();
@@ -295,7 +302,12 @@ describe("plugin child-process runtime", () => {
 
       // Host -> Plugin channel lifecycle
       await hostRpc.call(H.channelStart, { id: "ch_1" });
-      expect(await hostRpc.call(H.channelSend, { id: "ch_1", message: { text: "hi" } })).toEqual({
+      expect(
+        await hostRpc.call(H.channelSend, {
+          id: "ch_1",
+          message: { chat: { type: "private", id: "u1" }, text: "hi" },
+        }),
+      ).toEqual({
         externalMessageId: "sent-1",
       });
       await hostRpc.call(H.channelStop, { id: "ch_1" });
@@ -536,6 +548,253 @@ describe("plugin child-process runtime", () => {
       port2.close();
     }
   });
+
+  it("evaluates a top-level throwing plugin module only once and propagates its original error", async () => {
+    const dir = makeTempDir("ff-runtime-throw-");
+    const pluginFile = join(dir, "broken.mjs");
+    writeFileSync(
+      pluginFile,
+      `globalThis.__ffLoaderEvalCount = (globalThis.__ffLoaderEvalCount ?? 0) + 1;
+await Promise.resolve();
+throw new Error("top-level plugin failure");\n`,
+      "utf8",
+    );
+    const cjsPluginFile = join(dir, "broken.cjs");
+    writeFileSync(
+      cjsPluginFile,
+      `globalThis.__ffLoaderCjsEvalCount = (globalThis.__ffLoaderCjsEvalCount ?? 0) + 1;
+throw new Error("top-level cjs failure");\n`,
+      "utf8",
+    );
+
+    try {
+      await expect(defaultPluginLoader.load(pluginFile)).rejects.toThrow("top-level plugin failure");
+      expect((globalThis as { __ffLoaderEvalCount?: number }).__ffLoaderEvalCount).toBe(1);
+    } finally {
+      delete (globalThis as { __ffLoaderEvalCount?: number }).__ffLoaderEvalCount;
+    }
+
+    // Also verify the real CJS compiled path (where new Function import() executes directly in Node):
+    const cjsRunner = join(dir, "loader-cjs-check.cjs");
+    buildSync({
+      stdin: {
+        contents: `
+const assert = require("node:assert/strict");
+const { defaultPluginLoader } = require("./src/plugins/v2/runtime/runtime.ts");
+(async () => {
+  let caughtMjs;
+  try {
+    await defaultPluginLoader.load(${JSON.stringify(pluginFile)});
+  } catch (err) {
+    caughtMjs = err;
+  }
+  assert.ok(caughtMjs instanceof Error);
+  assert.equal(caughtMjs.message, "top-level plugin failure");
+  assert.equal(globalThis.__ffLoaderEvalCount, 1);
+
+  let caughtCjs;
+  try {
+    await defaultPluginLoader.load(${JSON.stringify(cjsPluginFile)});
+  } catch (err) {
+    caughtCjs = err;
+  }
+  assert.ok(caughtCjs instanceof Error);
+  assert.equal(caughtCjs.message, "top-level cjs failure");
+  assert.equal(globalThis.__ffLoaderCjsEvalCount, 1);
+  console.log("CJS_LOADER_SINGLE_EVAL_OK");
+})();
+`,
+        resolveDir: process.cwd(),
+      },
+      outfile: cjsRunner,
+      platform: "node",
+      bundle: true,
+      format: "cjs",
+    });
+    const res = spawnSync(process.execPath, [cjsRunner], { encoding: "utf8", timeout: 10_000, windowsHide: true });
+    expect({ status: res.status, stderr: res.stderr }).toMatchObject({ status: 0 });
+    expect(res.stdout).toContain("CJS_LOADER_SINGLE_EVAL_OK");
+
+    // Simulate dynamicImport rejecting with a real module error on a valid plugin file:
+    // defaultPluginLoader must rethrow immediately instead of falling back to import().
+    const validPluginFile = join(dir, "valid.mjs");
+    writeFileSync(validPluginFile, "export default { activate() {} };\n", "utf8");
+    const functionSpy = vi
+      .spyOn(globalThis, "Function")
+      .mockImplementationOnce(function () {
+        return () => Promise.reject(new Error("simulated module throw"));
+      } as never);
+    try {
+      await expect(defaultPluginLoader.load(validPluginFile)).rejects.toThrow("simulated module throw");
+    } finally {
+      functionSpy.mockRestore();
+    }
+  });
+
+  it("sends tools.unregister and context.unregister and removes local handlers when disposed", async () => {
+    const { hostTransport, pluginTransport } = createMemoryRpcPair();
+    const hostRpc = createRpcEndpoint(hostTransport);
+    const unregisteredTools: unknown[] = [];
+    const unregisteredContexts: unknown[] = [];
+
+    hostRpc.handle(P.toolsRegister, () => null);
+    hostRpc.handle(P.contextRegister, () => null);
+    hostRpc.handle(P.toolsUnregister, (params) => {
+      unregisteredTools.push(params);
+      return null;
+    });
+    hostRpc.handle(P.contextUnregister, (params) => {
+      unregisteredContexts.push(params);
+      return null;
+    });
+
+    let toolHandle!: { dispose(): void };
+    let contextHandle!: { dispose(): void };
+
+    const runtime = attachPluginRuntime(pluginTransport, {
+      loader: {
+        async load() {
+          return {
+            activate(ctx) {
+              toolHandle = ctx.tools.register({
+                name: "temp_tool",
+                description: "Temp",
+                parameters: { type: "object", properties: {} },
+                async execute() {
+                  return { status: "succeeded", output: "ok" };
+                },
+              });
+              contextHandle = ctx.context.register({
+                id: "temp_ctx",
+                modes: ["work"],
+                sources: ["user"],
+                async provide() {
+                  return { heading: "H", content: "C" };
+                },
+              });
+            },
+          };
+        },
+      },
+    });
+
+    try {
+      await hostRpc.call(H.activate, {
+        id: "dev.firefly.dispose",
+        version: "1.0.0",
+        dataDir: "/tmp/dispose",
+        main: "/tmp/dispose.mjs",
+        permissions: [],
+      });
+
+      expect(await hostRpc.call(H.toolExecute, { name: "temp_tool", args: {}, callId: "1" })).toEqual({
+        status: "succeeded",
+        output: "ok",
+      });
+      expect(await hostRpc.call(H.contextProvide, { id: "temp_ctx", sessionId: "s1", mode: "work", source: "user" })).toEqual({
+        heading: "H",
+        content: "C",
+      });
+
+      toolHandle.dispose();
+      toolHandle.dispose();
+      contextHandle.dispose();
+      contextHandle.dispose();
+
+      await new Promise((r) => setTimeout(r, 20));
+      expect(unregisteredTools).toEqual([{ name: "temp_tool" }]);
+      expect(unregisteredContexts).toEqual([{ id: "temp_ctx" }]);
+
+      await expect(hostRpc.call(H.toolExecute, { name: "temp_tool", args: {}, callId: "2" })).rejects.toMatchObject({
+        code: "ERR_UNDECLARED",
+      });
+      await expect(
+        hostRpc.call(H.contextProvide, { id: "temp_ctx", sessionId: "s1", mode: "work", source: "user" }),
+      ).rejects.toMatchObject({ code: "ERR_UNDECLARED" });
+
+      // Disposing after deactivation is a safe no-op with no unhandled rejection
+      await hostRpc.call(H.deactivate, "disabled");
+      toolHandle.dispose();
+      contextHandle.dispose();
+    } finally {
+      runtime.dispose();
+      hostRpc.dispose();
+    }
+  });
+
+  it("logs stream subscription refusals and exposes rejection observably via disposable.closed", async () => {
+    const { hostTransport, pluginTransport } = createMemoryRpcPair();
+    const hostRpc = createRpcEndpoint(hostTransport);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    hostRpc.handle(P.eventsSubscribe, () => {
+      throw new PluginError("ERR_UNDECLARED", "events permission not declared");
+    });
+    hostRpc.handle(P.workspaceWatch, () => {
+      throw new PluginError("ERR_PERMISSION", "workspace.read permission revoked");
+    });
+    hostRpc.handle(P.schedulesOnTrigger, (_params, { signal }) => {
+      return (async function* () {
+        await new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
+      })();
+    });
+
+    let eventSub!: { dispose(): void; closed?: Promise<void> };
+    let ignoredWorkspaceSub!: { dispose(): void; closed?: Promise<void> };
+    let scheduleSub!: { dispose(): void; closed?: Promise<void> };
+
+    const runtime = attachPluginRuntime(pluginTransport, {
+      loader: {
+        async load() {
+          return {
+            activate(ctx) {
+              eventSub = ctx.events.on("run.ended", () => {});
+              // Deliberately do not await `closed` on workspace.onChange to verify no unhandledRejection crash.
+              ignoredWorkspaceSub = ctx.workspace.onChange(() => {});
+              scheduleSub = ctx.schedules.onTrigger(async () => {});
+            },
+          };
+        },
+      },
+    });
+
+    try {
+      await hostRpc.call(H.activate, {
+        id: "dev.firefly.streams",
+        version: "1.0.0",
+        dataDir: "/tmp/streams",
+        main: "/tmp/streams.mjs",
+        permissions: ["schedules"],
+      });
+
+      await expect(eventSub.closed).rejects.toMatchObject({
+        code: "ERR_UNDECLARED",
+        message: "events permission not declared",
+      });
+
+      // Give the ignored subscription a tick to settle and verify it logged without crashing.
+      await new Promise((r) => setTimeout(r, 20));
+      expect(ignoredWorkspaceSub.closed).toBeInstanceOf(Promise);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Stream subscription "events.subscribe" failed:'),
+        expect.objectContaining({ code: "ERR_UNDECLARED" }),
+      );
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Stream subscription "workspace.watch" failed:'),
+        expect.objectContaining({ code: "ERR_PERMISSION" }),
+      );
+
+      // Disposing a healthy subscription resolves `closed` cleanly without warning.
+      const warnsBeforeDispose = warnSpy.mock.calls.length;
+      scheduleSub.dispose();
+      await expect(scheduleSub.closed).resolves.toBeUndefined();
+      expect(warnSpy.mock.calls.length).toBe(warnsBeforeDispose);
+    } finally {
+      warnSpy.mockRestore();
+      runtime.dispose();
+      hostRpc.dispose();
+    }
+  });
 });
 
 const require = createRequire(import.meta.url);
@@ -576,7 +835,7 @@ it.skipIf(!electron || !existsSync(electron))(
 
     const runtimeShim = `
 const { connectParentPortRuntime } = require("./src/plugins/v2/runtime/index.ts");
-connectParentPortRuntime(process.parentPort, { fallbackMain: ${JSON.stringify(pluginEntry)} });
+connectParentPortRuntime(process.parentPort);
 `;
     buildSync({
       stdin: { contents: runtimeShim, resolveDir: process.cwd() },
@@ -596,7 +855,13 @@ app.setPath("userData", ${JSON.stringify(dataDir)});
 app.whenReady().then(async () => {
   const registeredTools = [];
   const host = createElectronPluginHost({
-    resolvePlugin: () => ({ entry: ${JSON.stringify(runtimeEntry)}, dataDir: ${JSON.stringify(dataDir)} }),
+    resolvePlugin: () => ({
+      entry: ${JSON.stringify(runtimeEntry)},
+      main: ${JSON.stringify(pluginEntry)},
+      version: "1.0.0",
+      permissions: [],
+      dataDir: ${JSON.stringify(dataDir)},
+    }),
     configureRpc: (_id, rpc) => {
       rpc.handle(PLUGIN_TO_HOST_METHODS.toolsRegister, (params) => {
         registeredTools.push(params);

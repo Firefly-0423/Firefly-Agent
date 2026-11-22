@@ -113,8 +113,8 @@ export function validateTimezone(timezone: string): void {
   }
   try {
     new Intl.DateTimeFormat("en-US", { timeZone: timezone });
-  } catch {
-    throw new PluginError("ERR_INVALID_ARGUMENT", `Invalid timezone: "${timezone}"`);
+  } catch (cause) {
+    throw new PluginError("ERR_INVALID_ARGUMENT", `Invalid timezone: "${timezone}"`, { cause });
   }
 }
 

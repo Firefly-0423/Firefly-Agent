@@ -32,6 +32,11 @@ describe("@firefly_wu/plugin-sdk entry", () => {
 
     const nonRetryable = new PluginError("ERR_UNDECLARED", "Missing permission");
     expect(nonRetryable.retryable).toBe(false);
+
+    const rootCause = new Error("underlying");
+    const wrapped = new PluginError("ERR_INTERNAL", "Failed", { retryable: true, cause: rootCause });
+    expect(wrapped.retryable).toBe(true);
+    expect(wrapped.cause).toBe(rootCause);
   });
 
   it("definePlugin returns the plugin object with preserved methods", async () => {

@@ -59,17 +59,40 @@ function extractPluginExport(loaded: unknown): RuntimePluginModule {
   return candidate as RuntimePluginModule;
 }
 
+function isMissingVmImportCallback(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const record = error as { code?: unknown; message?: unknown };
+  return (
+    record.code === "ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING"
+    || (error instanceof TypeError
+      && typeof record.message === "string"
+      && record.message.includes("dynamic import callback"))
+  );
+}
+
 export const defaultPluginLoader: PluginLoader = {
   async load(mainPath: string): Promise<RuntimePluginModule> {
     const spec = mainPath.startsWith("file://")
       ? mainPath
       : pathToFileURL(path.resolve(mainPath)).href;
-    let loaded: unknown;
+    let dynamicImport: ((url: string) => Promise<unknown>) | undefined;
     try {
       // Preserves native ESM import() in CommonJS tsc output (e.g. Electron utilityProcess).
-      const dynamicImport = new Function("url", "return import(url);") as (url: string) => Promise<unknown>;
-      loaded = await dynamicImport(spec);
+      dynamicImport = new Function("url", "return import(url);") as (url: string) => Promise<unknown>;
     } catch {
+      dynamicImport = undefined;
+    }
+    let loaded: unknown;
+    if (dynamicImport) {
+      try {
+        loaded = await dynamicImport(spec);
+      } catch (error) {
+        if (!isMissingVmImportCallback(error)) {
+          throw error;
+        }
+        loaded = await import(/* @vite-ignore */ spec);
+      }
+    } else {
       loaded = await import(/* @vite-ignore */ spec);
     }
     return extractPluginExport(loaded);
@@ -114,8 +137,14 @@ export function attachPluginRuntime(
     if (activated) {
       throw new PluginError("ERR_INTERNAL", "Plugin is already activated");
     }
-    if (!isPlainRecord(params) || typeof params.id !== "string" || typeof params.dataDir !== "string") {
-      throw new PluginError("ERR_INVALID_ARGUMENT", "activate requires string id and dataDir");
+    if (
+      !isPlainRecord(params)
+      || typeof params.id !== "string"
+      || params.id.length === 0
+      || typeof params.dataDir !== "string"
+      || params.dataDir.length === 0
+    ) {
+      throw new PluginError("ERR_INVALID_ARGUMENT", "activate requires non-empty string id and dataDir");
     }
     const mainPath = typeof params.main === "string" && params.main.length > 0
       ? params.main
@@ -123,10 +152,17 @@ export function attachPluginRuntime(
     if (!mainPath) {
       throw new PluginError("ERR_INVALID_ARGUMENT", "activate requires a plugin main entry path");
     }
-    const version = typeof params.version === "string" ? params.version : "0.0.0";
-    const permissions = Array.isArray(params.permissions)
-      ? params.permissions.filter((item): item is string => typeof item === "string")
-      : [];
+    if (params.version !== undefined && typeof params.version !== "string") {
+      throw new PluginError("ERR_INVALID_ARGUMENT", "activate version must be a string");
+    }
+    if (
+      params.permissions !== undefined
+      && (!Array.isArray(params.permissions) || params.permissions.some((item) => typeof item !== "string"))
+    ) {
+      throw new PluginError("ERR_INVALID_ARGUMENT", "activate permissions must be an array of strings");
+    }
+    const version = typeof params.version === "string" && params.version.length > 0 ? params.version : "0.0.0";
+    const permissions = Array.isArray(params.permissions) ? params.permissions : [];
 
     const controller = new AbortController();
     const proxyRuntime = createPluginContextProxy({

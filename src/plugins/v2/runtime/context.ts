@@ -2,21 +2,46 @@ import {
   HOST_TO_PLUGIN_METHODS as H,
   PLUGIN_TO_HOST_METHODS as P,
   PluginError,
+  type PluginToHostMethod,
+  type PluginToHostParams,
+  type PluginToHostResults,
+  type PluginToHostStreamChunks,
+  type PluginToHostStreamMethod,
+  type ProtocolChannelState,
+  type ProtocolHostEvent,
+  type ProtocolInboundMessage,
+  type ProtocolMessageRecord,
+  type ProtocolMode,
+  type ProtocolModelGenerateChunk,
+  type ProtocolModelGenerateResult,
+  type ProtocolModelRunResult,
+  type ProtocolOutboundMessage,
+  type ProtocolPage,
+  type ProtocolRunEvent,
+  type ProtocolRunSource,
+  type ProtocolScheduleProposalSpec,
+  type ProtocolSessionSummary,
+  type ProtocolTaskRecord,
+  type ProtocolToolCaller,
+  type ProtocolUiMessageEvent,
+  type ProtocolUiTarget,
+  type ProtocolWorkspaceInfo,
 } from "../../../shared/plugin-protocol";
-import type { PluginRpc } from "../../../shared/plugin-rpc";
+import type { PluginRpc, RpcOptions } from "../../../shared/plugin-rpc";
 
 /** Max 32-bit signed timeout accepted by setTimeout / createRpcEndpoint (~24.8 days). */
 const MAX_STREAM_TIMEOUT_MS = 2_147_483_647;
 
 export interface Disposable {
   dispose(): void;
+  readonly closed?: Promise<void>;
 }
 
 export interface RuntimeToolCall {
   readonly callId: string;
   readonly sessionId: string;
   readonly mode: "work" | "code";
-  readonly caller: "firefly" | { partnerId: string; partnerName: string };
+  readonly caller: ProtocolToolCaller;
   readonly signal: AbortSignal;
   progress(message: string, percent?: number): void;
 }
@@ -31,8 +56,8 @@ export interface RuntimeToolDefinition {
 
 export interface RuntimeContextProviderDefinition {
   id: string;
-  modes: string[];
-  sources: string[];
+  modes: ProtocolMode[];
+  sources: ProtocolRunSource[];
   provide(req: { sessionId: string; mode: string; source: string; signal: AbortSignal }): Promise<unknown>;
 }
 
@@ -40,13 +65,13 @@ export interface RuntimeChannelAdapter {
   id: string;
   start(
     host: {
-      reportState(s: { state: "disconnected" | "connecting" | "connected" | "error"; detail?: string }): void;
-      deliver(msg: unknown): Promise<{ accepted: boolean; sessionId?: string }>;
+      reportState(s: ProtocolChannelState): void;
+      deliver(msg: ProtocolInboundMessage): Promise<{ accepted: boolean; sessionId?: string }>;
     },
     signal: AbortSignal,
   ): Promise<void>;
   stop(): Promise<void>;
-  send(msg: unknown, signal: AbortSignal): Promise<{ externalMessageId: string }>;
+  send(msg: ProtocolOutboundMessage, signal: AbortSignal): Promise<{ externalMessageId: string }>;
 }
 
 export interface RuntimePluginContext {
@@ -71,38 +96,38 @@ export interface RuntimePluginContext {
       maxOutputTokens?: number;
       schema?: Record<string, unknown>;
       signal?: AbortSignal;
-    }): Promise<unknown>;
+    }): Promise<ProtocolModelGenerateResult>;
     generateStream(req: {
       prompt: string;
       system?: string;
       maxOutputTokens?: number;
       schema?: Record<string, unknown>;
       signal?: AbortSignal;
-    }): AsyncIterable<unknown>;
+    }): AsyncIterable<ProtocolModelGenerateChunk>;
     run(req: {
       objective: string;
-      mode: string;
+      mode: ProtocolMode;
       sessionId?: string;
       allowPartners?: boolean;
       signal?: AbortSignal;
-    }): { events: AsyncIterable<unknown>; result: Promise<unknown> };
+    }): { events: AsyncIterable<ProtocolRunEvent>; result: Promise<ProtocolModelRunResult> };
   };
   readonly events: {
-    on(type: string, fn: (event: unknown) => void): Disposable;
+    on(type: ProtocolHostEvent["type"], fn: (event: ProtocolHostEvent) => void): Disposable;
   };
   readonly sessions: {
-    list(o?: { cursor?: string; limit?: number; mode?: string }): Promise<unknown>;
-    messages(sessionId: string, o?: { cursor?: string; limit?: number }): Promise<unknown>;
+    list(o?: { cursor?: string; limit?: number; mode?: ProtocolMode }): Promise<ProtocolPage<ProtocolSessionSummary>>;
+    messages(sessionId: string, o?: { cursor?: string; limit?: number }): Promise<ProtocolPage<ProtocolMessageRecord>>;
   };
   readonly workspace: {
-    current(sessionId?: string): Promise<unknown>;
-    onChange(fn: (info: unknown) => void): Disposable;
+    current(sessionId?: string): Promise<ProtocolWorkspaceInfo | null>;
+    onChange(fn: (info: ProtocolWorkspaceInfo | null) => void): Disposable;
   };
   readonly schedules: {
-    propose(spec: unknown): Promise<unknown>;
-    update(taskId: string, patch: unknown): Promise<unknown>;
+    propose(spec: ProtocolScheduleProposalSpec): Promise<{ taskId: string; status: "pending_approval" }>;
+    update(taskId: string, patch: Partial<ProtocolScheduleProposalSpec>): Promise<{ status: "pending_approval" }>;
     remove(taskId: string): Promise<boolean>;
-    list(): Promise<unknown[]>;
+    list(): Promise<ProtocolTaskRecord[]>;
     onTrigger(fn: (e: { taskId: string; payload?: unknown; signal: AbortSignal }) => Promise<void>): Disposable;
   };
   readonly secrets: {
@@ -113,10 +138,8 @@ export interface RuntimePluginContext {
   };
   readonly ui: {
     openWindow(id: string, state?: unknown): Promise<{ close(): Promise<void>; post(msg: unknown): Promise<void> }>;
-    onMessage(
-      fn: (e: { from: { kind: "window" | "settings"; id: string }; method: string; params: unknown }) => Promise<unknown>,
-    ): Disposable;
-    post(to: { kind: "window" | "settings"; id: string }, msg: unknown): Promise<void>;
+    onMessage(fn: (e: ProtocolUiMessageEvent) => Promise<unknown>): Disposable;
+    post(to: ProtocolUiTarget, msg: unknown): Promise<void>;
   };
 }
 
@@ -202,25 +225,53 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
     pendingRegistrations.add(tracked);
   };
 
-  const subscribeStream = (
-    method: string,
-    params: unknown,
-    onChunk: (chunk: unknown, subSignal: AbortSignal) => void | Promise<void>,
+  const callHost = <M extends PluginToHostMethod>(
+    method: M,
+    params: PluginToHostParams[M],
+    callOptions?: RpcOptions,
+  ): Promise<PluginToHostResults[M]> => rpc.call<PluginToHostResults[M]>(method, params, callOptions);
+
+  const streamHost = <M extends PluginToHostStreamMethod>(
+    method: M,
+    params: PluginToHostParams[M],
+    callOptions?: RpcOptions,
+  ): AsyncIterable<PluginToHostStreamChunks[M]> => rpc.stream<PluginToHostStreamChunks[M]>(method, params, callOptions);
+
+  const subscribeStream = <M extends PluginToHostStreamMethod>(
+    method: M,
+    params: PluginToHostParams[M],
+    onChunk: (chunk: PluginToHostStreamChunks[M], subSignal: AbortSignal) => void | Promise<void>,
   ): Disposable => {
     const { controller, detach } = createChildController(signal);
     activeSubscriptions.add(controller);
 
+    let resolveClosed!: () => void;
+    let rejectClosed!: (error: unknown) => void;
+    const closed = new Promise<void>((resolve, reject) => {
+      resolveClosed = resolve;
+      rejectClosed = reject;
+    });
+    // Prevent unhandledRejection crashes when callers ignore `sub.closed`,
+    // while keeping `closed` rejected for callers that await or catch it.
+    closed.catch(() => {});
+
     void (async () => {
       try {
-        for await (const chunk of rpc.stream(method, params, {
+        for await (const chunk of streamHost(method, params, {
           signal: controller.signal,
           timeoutMs: MAX_STREAM_TIMEOUT_MS,
         })) {
           if (controller.signal.aborted) break;
           await onChunk(chunk, controller.signal);
         }
-      } catch {
-        // Subscription ended via cancel, deactivation, or host refusal.
+        resolveClosed();
+      } catch (error) {
+        if (controller.signal.aborted) {
+          resolveClosed();
+        } else {
+          console.warn(`[plugin-runtime] Stream subscription "${method}" failed:`, error);
+          rejectClosed(error);
+        }
       } finally {
         detach();
         activeSubscriptions.delete(controller);
@@ -228,6 +279,7 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
     })();
 
     return {
+      closed,
       dispose() {
         controller.abort("disposed");
         detach();
@@ -316,10 +368,10 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
       await adapter.start(
         {
           reportState: (s) => {
-            void rpc.call(P.channelsReportState, { id: adapter.id, state: s }, { signal }).catch(() => {});
+            void callHost(P.channelsReportState, { id: adapter.id, state: s }, { signal }).catch(() => {});
           },
           deliver: (msg) =>
-            rpc.call<{ accepted: boolean; sessionId?: string }>(
+            callHost(
               P.channelsDeliver,
               { id: adapter.id, message: msg },
               { signal },
@@ -358,7 +410,7 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
       }
       const linked = linkSignals(signal, reqSignal);
       try {
-        return await adapter.send(params.message, linked.signal);
+        return await adapter.send(params.message as ProtocolOutboundMessage, linked.signal);
       } finally {
         linked.cleanup();
       }
@@ -392,7 +444,7 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
       register(tool) {
         registeredTools.set(tool.name, tool);
         trackRegistration(
-          rpc.call(
+          callHost(
             P.toolsRegister,
             {
               name: tool.name,
@@ -402,10 +454,16 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
             { signal },
           ),
         );
+        let disposed = false;
         return {
           dispose() {
+            if (disposed) return;
+            disposed = true;
             if (registeredTools.get(tool.name) === tool) {
               registeredTools.delete(tool.name);
+              void callHost(P.toolsUnregister, { name: tool.name }, { signal }).catch(() => {
+                // Ignore unregister failure if the plugin is already deactivated or transport is closed.
+              });
             }
           },
         };
@@ -416,7 +474,7 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
       register(provider) {
         registeredProviders.set(provider.id, provider);
         trackRegistration(
-          rpc.call(
+          callHost(
             P.contextRegister,
             {
               id: provider.id,
@@ -426,10 +484,16 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
             { signal },
           ),
         );
+        let disposed = false;
         return {
           dispose() {
+            if (disposed) return;
+            disposed = true;
             if (registeredProviders.get(provider.id) === provider) {
               registeredProviders.delete(provider.id);
+              void callHost(P.contextUnregister, { id: provider.id }, { signal }).catch(() => {
+                // Ignore unregister failure if the plugin is already deactivated or transport is closed.
+              });
             }
           },
         };
@@ -440,7 +504,7 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
       register(adapter) {
         registeredChannels.set(adapter.id, adapter);
         trackRegistration(
-          rpc.call(P.channelsRegister, { id: adapter.id }, { signal }),
+          callHost(P.channelsRegister, { id: adapter.id }, { signal }),
         );
         return {
           dispose() {
@@ -457,7 +521,7 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
         const { signal: reqSignal, ...payload } = req;
         const linked = linkSignals(signal, reqSignal);
         try {
-          return await rpc.call(P.modelGenerate, payload, { signal: linked.signal });
+          return await callHost(P.modelGenerate, payload, { signal: linked.signal });
         } finally {
           linked.cleanup();
         }
@@ -467,7 +531,7 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
         const { signal: reqSignal, ...payload } = req;
         const linked = linkSignals(signal, reqSignal);
         try {
-          for await (const chunk of rpc.stream(P.modelGenerate, { ...payload, stream: true }, { signal: linked.signal })) {
+          for await (const chunk of streamHost(P.modelGenerate, { ...payload, stream: true }, { signal: linked.signal })) {
             yield chunk;
           }
         } finally {
@@ -478,14 +542,14 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
       run(req) {
         const { signal: reqSignal, ...payload } = req;
         const linked = linkSignals(signal, reqSignal);
-        const bufferedEvents: unknown[] = [];
+        const bufferedEvents: ProtocolRunEvent[] = [];
         let streamDone = false;
         let streamError: unknown;
         let wakeConsumer: (() => void) | undefined;
 
-        let resolveResult!: (value: unknown) => void;
+        let resolveResult!: (value: ProtocolModelRunResult) => void;
         let rejectResult!: (err: unknown) => void;
-        const resultPromise = new Promise<unknown>((resolve, reject) => {
+        const resultPromise = new Promise<ProtocolModelRunResult>((resolve, reject) => {
           resolveResult = resolve;
           rejectResult = reject;
         });
@@ -496,7 +560,7 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
           let lastRunId = "";
           let lastSessionId = payload.sessionId ?? "";
           try {
-            for await (const chunk of rpc.stream(P.modelRun, payload, {
+            for await (const chunk of streamHost(P.modelRun, payload, {
               signal: linked.signal,
               timeoutMs: MAX_STREAM_TIMEOUT_MS,
             })) {
@@ -506,8 +570,8 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
                 continue;
               }
               if (isPlainRecord(chunk)) {
-                if (typeof chunk.runId === "string") lastRunId = chunk.runId;
-                if (typeof chunk.sessionId === "string") lastSessionId = chunk.sessionId;
+                if ("runId" in chunk && typeof chunk.runId === "string") lastRunId = chunk.runId;
+                if ("sessionId" in chunk && typeof chunk.sessionId === "string") lastSessionId = chunk.sessionId;
               }
               bufferedEvents.push(chunk);
               wakeConsumer?.();
@@ -529,11 +593,11 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
           }
         })();
 
-        const events: AsyncIterable<unknown> = {
+        const events: AsyncIterable<ProtocolRunEvent> = {
           async *[Symbol.asyncIterator]() {
             while (!streamDone || bufferedEvents.length > 0) {
               if (bufferedEvents.length > 0) {
-                yield bufferedEvents.shift();
+                yield bufferedEvents.shift()!;
               } else if (!streamDone) {
                 await new Promise<void>((resolve) => {
                   wakeConsumer = resolve;
@@ -560,13 +624,13 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
     },
 
     sessions: {
-      list: (o) => rpc.call(P.sessionsList, o ?? {}, { signal }),
-      messages: (sessionId, o) => rpc.call(P.sessionsMessages, { sessionId, ...(o ?? {}) }, { signal }),
+      list: (o) => callHost(P.sessionsList, o ?? {}, { signal }),
+      messages: (sessionId, o) => callHost(P.sessionsMessages, { sessionId, ...(o ?? {}) }, { signal }),
     },
 
     workspace: {
       current: (sessionId) =>
-        rpc.call(P.workspaceInfo, sessionId !== undefined ? { sessionId } : {}, { signal }),
+        callHost(P.workspaceInfo, sessionId !== undefined ? { sessionId } : {}, { signal }),
       onChange(fn) {
         return subscribeStream(P.workspaceWatch, {}, (chunk) => {
           fn(chunk);
@@ -575,13 +639,13 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
     },
 
     schedules: {
-      propose: (spec) => rpc.call(P.schedulesPropose, spec, { signal }),
-      update: (taskId, patch) => rpc.call(P.schedulesUpdate, { taskId, patch }, { signal }),
-      remove: (taskId) => rpc.call<boolean>(P.schedulesRemove, { taskId }, { signal }),
-      list: () => rpc.call<unknown[]>(P.schedulesList, {}, { signal }),
+      propose: (spec) => callHost(P.schedulesPropose, spec, { signal }),
+      update: (taskId, patch) => callHost(P.schedulesUpdate, { taskId, patch }, { signal }),
+      remove: (taskId) => callHost(P.schedulesRemove, { taskId }, { signal }),
+      list: () => callHost(P.schedulesList, {}, { signal }),
       onTrigger(fn) {
         return subscribeStream(P.schedulesOnTrigger, {}, async (chunk, subSignal) => {
-          const event = isPlainRecord(chunk) ? chunk : {};
+          const event: Record<string, unknown> = isPlainRecord(chunk) ? chunk : {};
           await fn({
             taskId: typeof event.taskId === "string" ? event.taskId : "",
             payload: event.payload,
@@ -592,21 +656,21 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
     },
 
     secrets: {
-      set: (key, value) => rpc.call<void>(P.secretsSet, { key, value }, { signal }),
-      get: (key) => rpc.call<string | null>(P.secretsGet, { key }, { signal }),
-      delete: (key) => rpc.call<boolean>(P.secretsDelete, { key }, { signal }),
-      keys: () => rpc.call<string[]>(P.secretsKeys, {}, { signal }),
+      set: (key, value) => callHost(P.secretsSet, { key, value }, { signal }),
+      get: (key) => callHost(P.secretsGet, { key }, { signal }),
+      delete: (key) => callHost(P.secretsDelete, { key }, { signal }),
+      keys: () => callHost(P.secretsKeys, {}, { signal }),
     },
 
     ui: {
       async openWindow(windowId, state) {
-        await rpc.call(P.uiOpenWindow, { id: windowId, state }, { signal });
+        await callHost(P.uiOpenWindow, { id: windowId, state }, { signal });
         return {
           close: async () => {
-            await rpc.call(P.uiCloseWindow, { id: windowId }, { signal });
+            await callHost(P.uiCloseWindow, { id: windowId }, { signal });
           },
           post: async (msg) => {
-            await rpc.call(P.uiPost, { to: { kind: "window", id: windowId }, msg }, { signal });
+            await callHost(P.uiPost, { to: { kind: "window", id: windowId }, msg }, { signal });
           },
         };
       },
@@ -623,6 +687,7 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
           });
         });
         return {
+          closed: sub.closed,
           dispose() {
             if (uiMessageHandler === fn) {
               uiMessageHandler = undefined;
@@ -632,7 +697,7 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
         };
       },
       async post(to, msg) {
-        await rpc.call(P.uiPost, { to, msg }, { signal });
+        await callHost(P.uiPost, { to, msg }, { signal });
       },
     },
   };

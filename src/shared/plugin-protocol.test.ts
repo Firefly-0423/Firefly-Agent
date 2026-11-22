@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { parseFrame, PluginError } from './plugin-protocol'
+import {
+  PLUGIN_TO_HOST_METHODS,
+  parseFrame,
+  PluginError,
+  type PluginToHostParams,
+  type PluginToHostResults,
+} from './plugin-protocol'
 
 const valid = [
   { type: 'req', id: '1', method: 'activate', params: { bytes: new Uint8Array([1]) }, deadline: 123 },
@@ -37,8 +43,31 @@ describe('parseFrame', () => {
     const frame = { type: 'res', id: '1', ok: false, error: { code, message: 'Public', retryable: true } }
     expect(parseFrame(frame)).toEqual(frame)
   })
-  it('carries the public error code and retryability', () => {
-    const error = new PluginError('ERR_UNAVAILABLE', 'No service', true)
-    expect(error).toMatchObject({ name: 'PluginError', code: 'ERR_UNAVAILABLE', message: 'No service', retryable: true })
+  it('carries the public error code, retryability, and optional cause', () => {
+    const rootCause = new Error('boom')
+    const error = new PluginError('ERR_UNAVAILABLE', 'No service', true, rootCause)
+    expect(error).toMatchObject({ name: 'PluginError', code: 'ERR_UNAVAILABLE', message: 'No service', retryable: true, cause: rootCause })
+
+    const withOptions = new PluginError('ERR_INTERNAL', 'Wrapped', { retryable: true, cause: rootCause })
+    expect(withOptions).toMatchObject({ name: 'PluginError', code: 'ERR_INTERNAL', message: 'Wrapped', retryable: true, cause: rootCause })
+
+    const withoutCause = new PluginError('ERR_INVALID_ARGUMENT', 'Plain')
+    expect('cause' in withoutCause).toBe(false)
+  })
+
+  it('provides typed parameter and result maps for every PLUGIN_TO_HOST_METHODS entry', () => {
+    const sampleParams: PluginToHostParams['events.subscribe'] = { type: 'run.ended' }
+    const sampleUnregister: PluginToHostParams['tools.unregister'] = { name: 'echo' }
+    const sampleResult: PluginToHostResults['workspace.info'] = {
+      sessionId: 's1',
+      mode: 'work',
+      root: null,
+      name: null,
+    }
+    expect(PLUGIN_TO_HOST_METHODS.toolsUnregister).toBe('tools.unregister')
+    expect(PLUGIN_TO_HOST_METHODS.contextUnregister).toBe('context.unregister')
+    expect(sampleParams.type).toBe('run.ended')
+    expect(sampleUnregister.name).toBe('echo')
+    expect(sampleResult?.mode).toBe('work')
   })
 })

@@ -343,4 +343,49 @@ describe("createTestHost", () => {
     });
     await host.stopChannel("chat_bridge");
   });
+
+  it("unregisters tools and context providers on dispose() and records unregister calls", async () => {
+    let toolDisposable!: { dispose(): void };
+    let contextDisposable!: { dispose(): void };
+
+    const host = createTestHost({ manifest: baseManifest, mode: "work", level: "full" });
+    await host.activate({
+      activate(ctx) {
+        toolDisposable = ctx.tools.register({
+          name: "get_weather",
+          description: "Weather",
+          parameters: { type: "object", properties: {} },
+          async execute() {
+            return { status: "succeeded", output: "sunny" };
+          },
+        });
+        contextDisposable = ctx.context.register({
+          id: "weather_ctx",
+          modes: ["work"],
+          sources: ["user"],
+          async provide() {
+            return { heading: "Weather", content: "sunny" };
+          },
+        });
+      },
+    });
+
+    expect(await host.callTool("get_weather", {})).toEqual({ status: "succeeded", output: "sunny" });
+    expect(await host.provideContext("weather_ctx")).toEqual({ heading: "Weather", content: "sunny" });
+
+    toolDisposable.dispose();
+    toolDisposable.dispose();
+    contextDisposable.dispose();
+    contextDisposable.dispose();
+
+    expect(host.calls.filter((c) => c.method === "tools.unregister").map((c) => c.params)).toEqual([
+      { name: "get_weather" },
+    ]);
+    expect(host.calls.filter((c) => c.method === "context.unregister").map((c) => c.params)).toEqual([
+      { id: "weather_ctx" },
+    ]);
+
+    await expect(host.callTool("get_weather", {})).rejects.toMatchObject({ code: "ERR_UNDECLARED" });
+    await expect(host.provideContext("weather_ctx")).rejects.toMatchObject({ code: "ERR_UNDECLARED" });
+  });
 });

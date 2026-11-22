@@ -141,8 +141,8 @@ function normalizeAction(action: unknown): ScheduleAction {
       // The payload is persisted as JSON, so it must survive a JSON round trip (no BigInt, no cycles).
       try {
         payload = JSON.parse(JSON.stringify(candidate.payload));
-      } catch {
-        throw new PluginError("ERR_INVALID_ARGUMENT", "Callback payload must be JSON-serializable");
+      } catch (cause) {
+        throw new PluginError("ERR_INVALID_ARGUMENT", "Callback payload must be JSON-serializable", { cause });
       }
     }
     return payload === undefined ? { type: "callback" } : { type: "callback", payload };
@@ -215,10 +215,10 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     if (!backingFile) return;
     try {
       backingFile.write(state);
-    } catch {
+    } catch (cause) {
       // Never keep an unsaved change in memory: go back to the last state on disk.
       state = backingFile.read(emptyState());
-      throw new PluginError("ERR_INTERNAL", "Failed to persist plugin schedule state");
+      throw new PluginError("ERR_INTERNAL", "Failed to persist plugin schedule state", { cause });
     }
   }
 
@@ -667,8 +667,8 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
           if (store.deleteTask(storeTaskId)) {
             removed = true;
           }
-        } catch {
-          throw new PluginError("ERR_INTERNAL", "Failed to delete scheduled task");
+        } catch (cause) {
+          throw new PluginError("ERR_INTERNAL", "Failed to delete scheduled task", { cause });
         }
         for (const [proposalId, proposal] of Object.entries(state.proposals)) {
           if (proposal.taskId === taskId && proposal.pluginId === ownerPluginId) {
@@ -1160,8 +1160,8 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     let removedTasks: number;
     try {
       removedTasks = store.deleteTasksByOwner(ownerPluginId);
-    } catch {
-      throw new PluginError("ERR_INTERNAL", "Failed to delete the plugin's scheduled tasks");
+    } catch (cause) {
+      throw new PluginError("ERR_INTERNAL", "Failed to delete the plugin's scheduled tasks", { cause });
     }
 
     let removedProposals = 0;
