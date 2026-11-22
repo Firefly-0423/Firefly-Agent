@@ -139,15 +139,16 @@ describe("host services over RPC", () => {
     await expect(next).rejects.toMatchObject({ code: "ERR_PERMISSION" });
     expect(f.eventListeners.size).toBe(0); f.close();
   });
-  it("drops cross-session and other-plugin events", async () => {
+  it("streams across session switches, excludes other plugins, and projects metadata only", async () => {
     const f = fixture(); const iterator = f.client.stream(P.eventsSubscribe, {})[Symbol.asyncIterator]();
-    const next = iterator.next(); await Promise.resolve(); await Promise.resolve();
-    f.emit({ type: "run.started", runId: "bad", sessionId: "elsewhere", mode: "chat", source: "user", at: 1 });
-    f.emit({ type: "run.started", runId: "bad", sessionId: "elsewhere", pluginId: "dev.test.plugin", mode: "chat", source: "plugin", at: 1 });
-    f.emit({ type: "run.started", runId: "bad", sessionId: "current", pluginId: "another.plugin.id", mode: "chat", source: "user", at: 1 });
-    f.emit({ type: "run.ended", runId: "ok", sessionId: "current", outcome: "completed", at: 2 });
-    expect(await next).toEqual({ done: false, value: { type: "run.ended", runId: "ok", sessionId: "current", outcome: "completed", at: 2 } });
-    await iterator.return?.(); expect(f.eventListeners.size).toBe(0); f.close();
+    try {
+      const next = iterator.next(); await vi.waitFor(() => expect(f.eventListeners.size).toBe(1));
+      f.context.sessionId = "next"; f.context.revision++; f.changeBinding();
+      f.emit({ type: "run.started", runId: "bad", sessionId: "next", pluginId: "another.plugin.id", mode: "chat", source: "plugin", at: 1 });
+      f.emit({ type: "run.ended", runId: "ok", sessionId: "old", workspaceRoot: "D:/private", text: "secret", outcome: "completed", at: 2 });
+      expect(await next).toEqual({ done: false, value: { type: "run.ended", runId: "ok", sessionId: "old", outcome: "completed", at: 2 } });
+    } finally { f.close(); }
+    expect(f.eventListeners.size).toBe(0);
   });
   it("reuses approval across session changes and service restarts, but asks again after a revoke and regrant", async () => {
     const store = new Map<string, number>(), f = fixture(store);

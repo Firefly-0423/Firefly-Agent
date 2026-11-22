@@ -76,14 +76,11 @@ function page<T>(items: readonly T[], params: Record<string, unknown>) {
   const offset = Number(cursor), end = offset + (limit as number);
   return { items: items.slice(offset, end), nextCursor: end < items.length ? String(end) : null };
 }
-function eventDto(input: unknown, pluginId: string, ctx: ServiceContext, types: Set<string>) {
+function eventDto(input: unknown, pluginId: string, types: Set<string>) {
   if (!input || typeof input !== "object") return null;
   const e = input as Record<string, unknown>;
   if (typeof e.type !== "string" || !types.has(e.type) || typeof e.at !== "number" || !Number.isFinite(e.at)) return null;
   if (e.pluginId !== undefined && e.pluginId !== pluginId) return null;
-  if (e.sessionId !== undefined && e.sessionId !== ctx.sessionId) return null;
-  if (e.sessionId === undefined && e.pluginId !== pluginId) return null;
-  if (e.workspaceRoot !== undefined && e.workspaceRoot !== ctx.workspaceRoot) return null;
   const str = (key: string) => typeof e[key] === "string" && (e[key] as string).length > 0;
   if (e.type === "run.started" && str("runId") && str("sessionId") && modes.has(String(e.mode)) && ["user", "schedule", "plugin", "channel"].includes(String(e.source)))
     return { type: e.type, runId: e.runId, sessionId: e.sessionId, mode: e.mode, source: e.source, at: e.at };
@@ -105,6 +102,7 @@ export function createPluginHostServices(deps: ServiceDependencies) {
   function configureRpc(pluginId: string, rpc: PluginRpc): () => void {
     if (disposed) throw unavailable();
     const active = new Set<AbortController>();
+    const eventStops = new Set<() => void>();
     const unregister: Array<() => void> = [];
     let closed = false;
     const check = (required: ServicePermission) => {
@@ -114,8 +112,12 @@ export function createPluginHostServices(deps: ServiceDependencies) {
       return grant;
     };
     const changed = deps.onAccessChange(pluginId, () => {
-      // Cancel in-flight reads, model borrowing and event queues on revocation or rebinding.
+      // Context-bound operations stop on rebind; event streams only stop on permission loss.
       for (const controller of active) controller.abort();
+      const access = deps.access(pluginId);
+      if (!access?.declared.includes("events") || !access.granted.has("events")) {
+        for (const stop of eventStops) stop();
+      }
     });
     function begin(required: ServicePermission, signal: AbortSignal) {
       const access = check(required), ctx = deps.context(pluginId);
@@ -235,30 +237,61 @@ export function createPluginHostServices(deps: ServiceDependencies) {
       if (params.types !== undefined && (!Array.isArray(params.types) || params.types.length === 0 || params.types.some(t => !allowed.includes(t)))) { throw invalid(); }
       const types = new Set<string>(params.types as string[] ?? allowed);
       return (async function* () {
-        const op = begin("events", signal);
-        const queue: unknown[] = []; let wake = () => {};
-        const abort = () => { queue.length = 0; wake(); };
+        check("events");
+        const queue: unknown[] = [];
+        let wake = () => {};
+        let failure: PluginError | undefined;
         let unsubscribe = () => {};
-        op.signal.addEventListener("abort", abort, { once: true });
+        const detach = () => {
+          const off = unsubscribe;
+          unsubscribe = () => {};
+          off();
+        };
+        const stop = (error: PluginError) => {
+          failure ??= error;
+          queue.length = 0;
+          detach();
+          wake();
+        };
+        const revoke = () => stop(permission());
+        const cancel = () => stop(cancelled());
+        const guard = () => {
+          if (failure) throw failure;
+          if (closed || signal.aborted) throw cancelled();
+          const access = deps.access(pluginId);
+          if (!access?.declared.includes("events") || !access.granted.has("events")) throw permission();
+        };
+        eventStops.add(revoke);
+        signal.addEventListener("abort", cancel, { once: true });
         try {
-          op.guard();
+          guard();
           unsubscribe = deps.subscribe(input => {
             try {
-              op.guard(); const dto = eventDto(input, pluginId, op.ctx, types);
+              guard();
+              const dto = eventDto(input, pluginId, types);
               if (dto) { if (queue.length >= 100) queue.shift(); queue.push(dto); wake(); }
-            } catch { op.controller.abort(); }
+            } catch (error) {
+              stop(error instanceof PluginError ? error : permission());
+            }
           });
-          while (!op.signal.aborted) {
-            if (!queue.length) await new Promise<void>(resolve => { wake = resolve; if (op.signal.aborted || queue.length) resolve(); });
-            op.guard();
-            while (queue.length) { op.guard(); yield queue.shift(); }
+          if (failure) detach();
+          while (true) {
+            guard();
+            if (!queue.length) await new Promise<void>(resolve => { wake = resolve; });
+            guard();
+            while (queue.length) { guard(); yield queue.shift(); }
           }
-        } finally { unsubscribe(); op.signal.removeEventListener("abort", abort); op.cleanup(); }
+        } finally {
+          detach();
+          eventStops.delete(revoke);
+          signal.removeEventListener("abort", cancel);
+        }
       })();
     }));
     const dispose = () => {
       if (closed) return; closed = true;
       for (const controller of active) controller.abort();
+      for (const stop of eventStops) stop();
       changed(); unregister.forEach(stop => stop()); disposers.delete(dispose);
     };
     disposers.add(dispose); return dispose;

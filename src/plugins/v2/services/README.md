@@ -60,11 +60,10 @@ it may have consumed provider resources. Revocation, context changes, client
 cancellation and the borrowing stop button abort outstanding operations. Adapters
 must honor the supplied signal to actually stop external effects.
 
-Events require trusted scope metadata (`sessionId` and/or owning `pluginId`, plus
-`workspaceRoot` when applicable), remove that metadata before delivery, and drop
-foreign records. Queues hold at most 100 records, dropping the oldest on overflow;
-consumers never block a run. Cancel/revoke/rebind clears pending event data and
-unsubscribes. Tool/schedule source adapters must attach scope metadata since those
-public event DTOs alone do not identify a conversation.
+Events span conversations and exclude other plugins' private records using
+trusted owner metadata. DTOs omit paths and bodies. The event queue holds at
+most 100 records and drops the oldest on overflow. Cancellation releases the
+subscription. Losing the events grant clears pending records and ends the
+stream with `ERR_PERMISSION`.
 
 Validation: `pnpm exec vitest run src/plugins/v2/services src/plugins/v2/host/index.test.ts`.
