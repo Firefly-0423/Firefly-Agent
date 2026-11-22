@@ -14,7 +14,7 @@ import { isExplicitStreamUnsupported } from "../../model/providers/stream-suppor
 import { composePromptLayers } from "../../model/prompt/prompt-layers";
 import type { TranscriptSink } from "../loop/transcript-sink";
 import type { MainMemoryRun } from "../memory-runtime/main-memory-runtime";
-import { EXTERNAL_DATA_UNTRUSTED_POLICY } from "../../../plugins/v2/context/boundary";
+import { EXTERNAL_DATA_UNTRUSTED_POLICY } from "../../../shared/external-data-policy";
 
 export interface ChatLoopOptions {
   transcriptSink?: TranscriptSink;

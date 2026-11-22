@@ -49,6 +49,7 @@ import { prepareToolRuntime } from "../../../main/agent/runtime/adapter/tool-run
 import type { AgentState } from "../../../main/agent/loop/types";
 import { PluginHostManager, type HostChild, type HostPort } from "../host";
 import { createPluginContextProxy } from "../runtime/context";
+import { evaluateToolPermission } from "../../../../plugin-sdk/src/testing";
 import { createPluginToolService, pluginToolId, type PluginToolExecuteHost } from "./index";
 
 function createPairedTransports(): [RpcTransport, RpcTransport] {
@@ -177,6 +178,24 @@ describe("G37-1 Plugin tools: permission matrix (3 levels x 5 risks & multi-risk
     expect(policyForTool("full", { risks: [], isPlugin: true })).toBe("deny");
     expect(policyForTool("full", { risks: ["safe"], isPlugin: true })).toBe("deny");
   });
+
+  it.each(singleRiskCases)(
+    "matches createTestHost evaluateToolPermission with host policyForTool / policyForPluginRisk: $level + $risk",
+    ({ level, risk }) => {
+      const hostVerdict = policyForTool(level, { risks: [risk], isPlugin: true });
+      expect(policyForPluginRisk(level, risk)).toBe(hostVerdict);
+      expect(evaluateToolPermission(level, [risk])).toBe(hostVerdict);
+    },
+  );
+
+  it.each(multiRiskCases)(
+    "matches createTestHost evaluateToolPermission for multi-risk: $level + $risks",
+    ({ level, risks }) => {
+      expect(evaluateToolPermission(level, risks)).toBe(
+        policyForTool(level, { risks, isPlugin: true }),
+      );
+    },
+  );
 });
 
 describe("G37-1 Plugin tools: registration, modes, schema validation, approval & 4 result states", () => {

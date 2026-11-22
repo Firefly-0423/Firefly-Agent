@@ -5,7 +5,7 @@ import type { PromptLayers } from "../../../model/prompt/prompt-layers";
 import type { ChatMessage } from "../../../model/providers/types";
 import type { AgentState } from "../../loop/types";
 import { loadPromptFile } from "../../../base/prompts/prompt-loader";
-import { EXTERNAL_DATA_UNTRUSTED_POLICY } from "../../../../plugins/v2/context/boundary";
+import { EXTERNAL_DATA_UNTRUSTED_POLICY } from "../../../../shared/external-data-policy";
 
 const layerSeparator = "\n\n---\n\n";
 
