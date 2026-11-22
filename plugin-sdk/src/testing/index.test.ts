@@ -25,6 +25,43 @@ const baseManifest: TestHostManifest = {
 };
 
 describe("createTestHost", () => {
+  it("cancels a running tool call when the host is deactivated", async () => {
+    let seen: AbortSignal | undefined;
+    const host = createTestHost({ manifest: baseManifest, mode: "work", level: "full" });
+    await host.activate(definePlugin({
+      activate(ctx: PluginContext) {
+        ctx.tools.register({
+          name: "get_weather", description: "waits for cancel", parameters: { type: "object", properties: {} },
+          execute: (_args, call) => new Promise((resolve) => {
+            seen = call.signal;
+            call.signal.addEventListener("abort", () => resolve({ status: "not_executed", reason: "cancelled" }), { once: true });
+          }),
+        });
+      },
+    }));
+    const pending = host.callTool("get_weather", {});
+    await Promise.resolve();
+    await host.deactivate("disabled");
+    expect(seen?.aborted).toBe(true);
+    await expect(pending).resolves.toMatchObject({ status: "not_executed" });
+  });
+
+  it("restores model quota after the one-minute window", async () => {
+    vi.useFakeTimers();
+    try {
+      let ctx!: PluginContext;
+      const host = createTestHost({ manifest: baseManifest, rateLimitPerMinute: 1 });
+      await host.activate(definePlugin({ activate(c: PluginContext) { ctx = c; } }));
+      await ctx.model.generate({ prompt: "one" });
+      await vi.advanceTimersByTimeAsync(59_999);
+      await expect(ctx.model.generate({ prompt: "two" })).rejects.toMatchObject({ code: "ERR_RATE_LIMITED" });
+      await vi.advanceTimersByTimeAsync(1);
+      await expect(ctx.model.generate({ prompt: "three" })).resolves.toBeDefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("drops the previous activation's tools, context providers and channels when the host is activated again", async () => {
     const execute = vi.fn(async () => ({ status: "succeeded" as const, output: "old" }));
     const host = createTestHost({ manifest: baseManifest, mode: "work", level: "full" });
