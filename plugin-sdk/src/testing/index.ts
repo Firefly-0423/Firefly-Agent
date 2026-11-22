@@ -698,11 +698,21 @@ export function createTestHost(options: TestHostOptions): TestHost {
       if (typeof value !== "function") { bound[key] = value; continue; }
       const kind = value.constructor?.name;
       bound[key] = (...args: unknown[]) => {
+        const ended = () => new PluginError("ERR_UNAVAILABLE", "This plugin activation has ended");
+        if (kind === "AsyncGeneratorFunction") {
+          // A stream created now but consumed later must still belong to this activation: check when
+          // iteration starts and before every chunk, and only start the underlying stream if still owned.
+          return (async function* () {
+            if (owner.aborted) throw ended();
+            for await (const chunk of (value as (...a: unknown[]) => AsyncIterable<unknown>).apply(api, args)) {
+              if (owner.aborted) throw ended();
+              yield chunk;
+            }
+          })();
+        }
         if (!owner.aborted) return (value as (...a: unknown[]) => unknown).apply(api, args);
-        const ended = new PluginError("ERR_UNAVAILABLE", "This plugin activation has ended");
-        if (kind === "AsyncGeneratorFunction") return (async function* () { throw ended; })();
-        if (kind === "AsyncFunction") return Promise.reject(ended);
-        throw ended;
+        if (kind === "AsyncFunction") return Promise.reject(ended());
+        throw ended();
       };
     }
     return bound as T;
@@ -768,14 +778,17 @@ export function createTestHost(options: TestHostOptions): TestHost {
       }
       // A fresh activation starts like a new plugin process: nothing the previous one registered survives.
       clearRegistrations();
-      contextAbort = new AbortController();
+      const activation = new AbortController();
+      contextAbort = activation;
       currentPlugin = plugin;
       currentStatus = "active";
       try {
         await plugin.activate(createContext());
       } catch (error) {
+        activation.abort("fault");
+        // Only clean up shared state this activation still owns; a later activation may have replaced it.
+        if (contextAbort !== activation) throw error;
         currentStatus = "deactivated";
-        contextAbort.abort("fault");
         // A failed activation leaves nothing behind, same as a stopped plugin process.
         for (const controller of channelControllers.values()) controller.abort("fault");
         channelControllers.clear();
