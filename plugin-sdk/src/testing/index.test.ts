@@ -25,6 +25,35 @@ const baseManifest: TestHostManifest = {
 };
 
 describe("createTestHost", () => {
+  it("refuses calls from a context kept by an earlier activation", async () => {
+    let oldCtx!: PluginContext;
+    const host = createTestHost({ manifest: baseManifest });
+    await host.activate(definePlugin({ activate(c: PluginContext) { oldCtx = c; } }));
+    await host.deactivate("upgrade");
+    await host.activate(definePlugin({ activate() {} }));
+    await expect(oldCtx.secrets.set("token", "stale")).rejects.toMatchObject({ code: "ERR_UNAVAILABLE" });
+    expect(host.calls.filter((call) => call.method === "secrets.set")).toEqual([]);
+  });
+
+  it("aborts a running schedule trigger when its subscription is disposed", async () => {
+    let seen: AbortSignal | undefined;
+    let subscription!: { dispose(): void };
+    const host = createTestHost({ manifest: baseManifest });
+    await host.activate(definePlugin({
+      activate(ctx: PluginContext) {
+        subscription = ctx.schedules.onTrigger(async (e) => {
+          seen = e.signal;
+          await new Promise<void>((resolve) => e.signal.addEventListener("abort", () => resolve(), { once: true }));
+        });
+      },
+    }));
+    const running = host.triggerSchedule("task-1");
+    await Promise.resolve();
+    subscription.dispose();
+    await running;
+    expect(seen?.aborted).toBe(true);
+  });
+
   it("keeps an approved task unchanged until its update is approved", async () => {
     let ctx!: PluginContext;
     const host = createTestHost({ manifest: baseManifest });
