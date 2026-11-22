@@ -545,6 +545,22 @@ describe("G37-2 Per-turn plugin context & untrusted boundary", () => {
     expect(workBuilt.options.collectTurnPluginContext).toEqual(expect.any(Function));
     const perTurn = await workBuilt.options.collectTurnPluginContext!({ round: 0 });
     expect(perTurn).toContain("work:user");
+
+    // Chat with tools runs in the agent loop: no build-time copy, the loop collects (and refreshes) it.
+    collectTurnPluginContext.mockClear();
+    const echo = { id: "echo_tool", name: "Echo", description: "Echo", enabled: true, inputSchema: { type: "object", properties: {} }, execute: async () => "" };
+    const chatToolsBuilt = await buildAgentRunOptions(
+      { sessionId: "s-chat-tools", mode: "chat", executionMode: "chat", messages: [{ role: "user", content: "hi" }] } as never,
+      {
+        ...baseDeps,
+        toolRegistry: { getEnabled: () => [echo], getEnabledToolsForMode: () => [echo] },
+        loadGeneralSettings: () => ({ chatToolsEnabled: true, toolModeOverrides: { echo_tool: { chat: true } } }),
+      } as never,
+    );
+    expect(chatToolsBuilt.options.tools?.map((tool: { id: string }) => tool.id)).toEqual(["echo_tool"]);
+    expect(collectTurnPluginContext).not.toHaveBeenCalled();
+    expect(chatToolsBuilt.options.soulRuntimeContext ?? "").not.toContain("plugin:dev.firefly.demo");
+    expect(chatToolsBuilt.options.collectTurnPluginContext).toEqual(expect.any(Function));
   });
 });
 

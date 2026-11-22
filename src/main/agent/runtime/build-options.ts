@@ -310,12 +310,6 @@ export async function buildAgentRunOptions(input: AguiRunInput, deps: BuildOptio
   let pluginContext = "";
   try { pluginContext = await deps.buildPluginPromptContext?.({ source: input.promptSource ?? "conversation", mode, userText: query, conversationId: conversation, channel: input.promptChannel ?? input.channel }) ?? ""; }
   catch (failure) { console.warn("[plugins] 构建插件提示词上下文失败，已跳过", failure); }
-  if (mode === "chat" && deps.collectTurnPluginContext) {
-    try {
-      const v2Context = await deps.collectTurnPluginContext({ source: contextSourceKind, mode, sessionId: conversation });
-      if (v2Context.trim()) pluginContext = [pluginContext, v2Context].filter(Boolean).join("\n\n");
-    } catch (failure) { logger.warn(LogTag.Plugins, "per-turn plugin context collection failed, skipped:", failure); }
-  }
   const modeTools = deps.toolRegistry.getEnabledToolsForMode(mode, style.toolModeOverrides);
   const planning = (mode === "code" || mode === "chat") && isPlanReadOnly(conversation);
   const allowedDuringPlan = (definition: ToolDefinition): boolean => {
@@ -370,6 +364,16 @@ export async function buildAgentRunOptions(input: AguiRunInput, deps: BuildOptio
     + (workspace ? `\n\n[当前项目工作区]\n可信根目录：${workspace}` + (metadata?.projectName ? `\n项目名称：${metadata.projectName}` : "")
       + `\ngit 仓库：${metadata?.isGitRepo ? "是" : "否"}` + "\n所有本地文件的读取、创建与生成都必须以此目录为根；不得写入桌面、下载目录或其他目录。" : "");
   const soulSystem = (channel ? channel + "\n\n" : "") + soulBase;
+  // One collection path per run: a Chat run without tools uses the plain chat loop, so plugin context is
+  // folded into the runtime context here; any run that enters the agent loop collects it there instead,
+  // where a queued insertion can refresh it.
+  const usesAgentLoop = mode !== "chat" || tools.length > 0;
+  if (!usesAgentLoop && deps.collectTurnPluginContext) {
+    try {
+      const v2Context = await deps.collectTurnPluginContext({ source: contextSourceKind, mode, sessionId: conversation });
+      if (v2Context.trim()) pluginContext = [pluginContext, v2Context].filter(Boolean).join("\n\n");
+    } catch (failure) { logger.warn(LogTag.Plugins, "per-turn plugin context collection failed, skipped:", failure); }
+  }
   const runtimeContext = [environment, timed.timeContext, social, injectedSoul, slash, tone, background, relationship, attachments, grant ? "" : workDocuments, pluginContext]
     .filter((section): section is string => Boolean(section?.trim())).join("\n\n---\n\n");
   const route = resolveImageRoute("attachment", model);
@@ -435,9 +439,7 @@ export async function buildAgentRunOptions(input: AguiRunInput, deps: BuildOptio
         assistantTurnId: input.assistantTurnId, retrievedAtoms: atoms, now: Date.now() } } : {}),
       ...(recovery ? { recoveryContext: recovery } : {}), ...(captionFallback ? { imageCaptionFallback: captionFallback } : {}),
       tools: [...tools], capabilities: { ...capabilities, tools, toolIds: new Set(tools.map((definition) => definition.id)) },
-      // Chat already folded plugin context into the runtime context above; collecting again in the loop
-      // would send two copies and leave a stale one in history after an insertion.
-      ...(deps.collectTurnPluginContext && mode !== "chat" ? {
+      ...(deps.collectTurnPluginContext && usesAgentLoop ? {
         collectTurnPluginContext: ({ signal }) => deps.collectTurnPluginContext!({ source: contextSourceKind, mode, sessionId: conversation, signal }),
       } : {}),
       ...(routes.length > 0 ? { availableSkills: routes } : {}), resolvedWorkspaceRoot: workspace,
