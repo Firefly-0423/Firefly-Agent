@@ -156,7 +156,7 @@
 }
 
 .tool-card__pill {
-  background: #e4e4e8;
+  background: var(--ff-palette-e4e4e8);
   border: none;
   border-radius: 12px;
   cursor: pointer;
@@ -171,7 +171,7 @@
 .tool-card__pill-knob {
   background: var(--ff-surface);
   border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 1px 3px var(--ff-black-alpha-18);
   height: 16px;
   left: 2px;
   position: absolute;

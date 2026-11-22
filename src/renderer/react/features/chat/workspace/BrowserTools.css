@@ -6,7 +6,7 @@
 .ff-browser-tools button[aria-expanded="true"] { background: var(--ff-bg-active); color: var(--ff-text); }
 .ff-browser-tools__dot {
   position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%;
-  background: var(--ff-accent, #6b9982); box-shadow: 0 0 0 2px var(--ff-bg-workspace, var(--ff-surface));
+  background: var(--ff-accent, var(--ff-palette-6b9982)); box-shadow: 0 0 0 2px var(--ff-bg-workspace, var(--ff-surface));
 }
 
 /* Find bar: one quiet row under the toolbar. */
@@ -17,7 +17,7 @@
   flex: 1 1 auto; min-width: 0; height: 30px; box-sizing: border-box; padding: 0 12px; border: 1px solid var(--ff-border); border-radius: 15px;
   background: var(--ff-bg-page, var(--ff-bg-subtle)); color: var(--ff-text); font: inherit; font-size: var(--ff-fs-ui); outline: none;
 }
-.ff-browser-find input:focus { background: var(--ff-bg-workspace, var(--ff-surface)); border-color: var(--ff-accent, #6b9982); }
+.ff-browser-find input:focus { background: var(--ff-bg-workspace, var(--ff-surface)); border-color: var(--ff-accent, var(--ff-palette-6b9982)); }
 .ff-browser-find__count { flex: 0 0 auto; min-width: 44px; padding: 0 6px; color: var(--ff-text-muted); font-size: var(--ff-fs-caption); text-align: center; white-space: nowrap; }
 .ff-browser-find button {
   display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 8px;
@@ -34,7 +34,7 @@
 .ff-browser-popover {
   position: absolute; top: 4px; right: 8px; box-sizing: border-box; max-height: calc(100% - 12px); overflow-y: auto; overscroll-behavior: contain;
   border: 1px solid var(--ff-border); border-radius: 14px; background: var(--ff-bg-workspace, var(--ff-surface)); color: var(--ff-text);
-  box-shadow: 0 12px 32px rgba(20, 24, 40, .18), 0 2px 8px rgba(20, 24, 40, .08);
+  box-shadow: 0 12px 32px var(--ff-palette-141828-18), 0 2px 8px var(--ff-palette-141828-8);
   animation: ff-browser-surface-in 120ms ease-out;
 }
 .ff-browser-menu { width: min(272px, calc(100% - 16px)); padding: 6px; }
@@ -88,8 +88,8 @@
 .ff-browser-download__text { display: flex; flex: 1 1 auto; min-width: 0; flex-direction: column; gap: 2px; }
 .ff-browser-download__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ff-fs-ui); }
 .ff-browser-download__meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ff-text-muted); font-size: var(--ff-fs-caption); }
-.ff-browser-download[data-download-state="failed"] .ff-browser-download__meta { color: var(--ff-danger, #9e3838); }
-.ff-browser-download progress { width: 100%; height: 4px; margin-top: 2px; accent-color: var(--ff-accent, #6b9982); }
+.ff-browser-download[data-download-state="failed"] .ff-browser-download__meta { color: var(--ff-danger, var(--ff-palette-9e3838)); }
+.ff-browser-download progress { width: 100%; height: 4px; margin-top: 2px; accent-color: var(--ff-accent, var(--ff-palette-6b9982)); }
 .ff-browser-download__actions { display: inline-flex; flex: 0 0 auto; gap: 2px; }
 
 .ff-browser-history button {
@@ -119,7 +119,7 @@
 .ff-browser-settings__label { display: block; color: var(--ff-text-muted); font-size: var(--ff-fs-caption); }
 .ff-browser-settings__value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ff-browser-settings__check { cursor: pointer; }
-.ff-browser-settings__check input { flex: 0 0 auto; width: 16px; height: 16px; accent-color: var(--ff-accent, #6b9982); }
+.ff-browser-settings__check input { flex: 0 0 auto; width: 16px; height: 16px; accent-color: var(--ff-accent, var(--ff-palette-6b9982)); }
 .ff-browser-settings__hint { margin: 6px 0 4px; color: var(--ff-text-muted); font-size: var(--ff-fs-caption); line-height: 1.55; }
 .ff-browser-settings__empty, .ff-browser-settings__summary { margin: 4px 0 8px; color: var(--ff-text-muted); font-size: var(--ff-fs-ui); }
 .ff-browser-settings__buttons { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
@@ -128,8 +128,8 @@
 }
 .ff-browser-settings__buttons button:hover:enabled, .ff-browser-cookies button:hover:enabled { background: var(--ff-bg-hover); }
 .ff-browser-settings__buttons button:disabled, .ff-browser-cookies button:disabled { opacity: .45; cursor: default; }
-.ff-browser-settings__buttons button.is-primary { border-color: transparent; background: var(--ff-accent, #6b9982); color: #fff; }
-.ff-browser-settings__buttons button.is-primary:hover:enabled { filter: brightness(.95); background: var(--ff-accent, #6b9982); }
+.ff-browser-settings__buttons button.is-primary { border-color: transparent; background: var(--ff-accent, var(--ff-palette-6b9982)); color: var(--ff-white); }
+.ff-browser-settings__buttons button.is-primary:hover:enabled { filter: brightness(.95); background: var(--ff-accent, var(--ff-palette-6b9982)); }
 .ff-browser-cookies { margin: 4px 0 6px; padding: 0; list-style: none; max-height: 220px; overflow-y: auto; border: 1px solid var(--ff-border); border-radius: 10px; }
 .ff-browser-cookies li { display: flex; align-items: center; gap: 10px; padding: 5px 8px 5px 12px; border-bottom: 1px solid var(--ff-border); font-size: var(--ff-fs-ui); }
 .ff-browser-cookies li:last-child { border-bottom: 0; }
@@ -141,7 +141,7 @@
 .ff-browser-find button:focus-visible,
 .ff-browser-popover button:focus-visible,
 .ff-browser-settings button:focus-visible,
-.ff-browser-settings input:focus-visible { outline: 2px solid var(--ff-accent, #6b9982); outline-offset: -2px; }
+.ff-browser-settings input:focus-visible { outline: 2px solid var(--ff-accent, var(--ff-palette-6b9982)); outline-offset: -2px; }
 
 @media (prefers-reduced-motion: reduce) {
   .ff-browser-menu, .ff-browser-popover { animation: none; }
