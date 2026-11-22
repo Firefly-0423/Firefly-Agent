@@ -358,6 +358,16 @@ export function createTestHost(options: TestHostOptions): TestHost {
 
   // Like the real runtime's linkSignals: a model call ends when either its own signal or the
   // activation it belongs to is aborted.
+  const linkSignals = (a: AbortSignal, b: AbortSignal): { signal: AbortSignal; cleanup(): void } => {
+    const controller = new AbortController();
+    const onA = () => controller.abort(a.reason);
+    const onB = () => controller.abort(b.reason);
+    if (a.aborted) onA(); else if (b.aborted) onB();
+    a.addEventListener("abort", onA, { once: true });
+    b.addEventListener("abort", onB, { once: true });
+    return { signal: controller.signal, cleanup() { a.removeEventListener("abort", onA); b.removeEventListener("abort", onB); } };
+  };
+
   const linkLifecycle = (requestSignal?: AbortSignal): { signal: AbortSignal; cleanup(): void } => {
     const lifecycle = contextAbort.signal;
     const controller = new AbortController();
@@ -581,10 +591,21 @@ export function createTestHost(options: TestHostOptions): TestHost {
     onTrigger(fn) {
       record("schedules.onTrigger", {});
       requirePermission("schedules");
-      scheduleTriggerListeners.add(fn);
+      // Like the runtime's stream subscription: disposing cancels triggers this subscription is running.
+      const subscription = new AbortController();
+      const listener = async (event: ScheduleTriggerEvent) => {
+        const linked = linkSignals(event.signal, subscription.signal);
+        try {
+          await fn({ ...event, signal: linked.signal });
+        } finally {
+          linked.cleanup();
+        }
+      };
+      scheduleTriggerListeners.add(listener);
       return {
         dispose() {
-          scheduleTriggerListeners.delete(fn);
+          subscription.abort("disposed");
+          scheduleTriggerListeners.delete(listener);
         },
       };
     },
@@ -663,23 +684,44 @@ export function createTestHost(options: TestHostOptions): TestHost {
     },
   };
 
-  const createContext = (): PluginContext => ({
-    id: manifest.id,
-    version: manifest.version ?? "1.0.0",
-    dataDir: options.dataDir ?? `/mock/plugin-data/${manifest.id}`,
-    signal: contextAbort.signal,
-    has: (permission: string) => declaredPermissions.has(permission) && !revokedPermissions.has(permission),
-    tools: toolsApi,
-    context: contextApi,
-    channels: channelsApi,
-    model: modelApi,
-    events: eventsApi,
-    sessions: sessionsApi,
-    workspace: workspaceApi,
-    schedules: schedulesApi,
-    secrets: secretsApi,
-    ui: uiApi,
-  });
+  // Each activation gets its own capability objects bound to that activation's signal, so a context kept
+  // by an earlier activation is refused (as the runtime's RPC calls are) instead of touching the new one.
+  const bindToActivation = <T extends object>(api: T, owner: AbortSignal): T => {
+    const bound: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(api)) {
+      if (typeof value !== "function") { bound[key] = value; continue; }
+      const kind = value.constructor?.name;
+      bound[key] = (...args: unknown[]) => {
+        if (!owner.aborted) return (value as (...a: unknown[]) => unknown).apply(api, args);
+        const ended = new PluginError("ERR_UNAVAILABLE", "This plugin activation has ended");
+        if (kind === "AsyncGeneratorFunction") return (async function* () { throw ended; })();
+        if (kind === "AsyncFunction") return Promise.reject(ended);
+        throw ended;
+      };
+    }
+    return bound as T;
+  };
+
+  const createContext = (): PluginContext => {
+    const owner = contextAbort.signal;
+    return {
+      id: manifest.id,
+      version: manifest.version ?? "1.0.0",
+      dataDir: options.dataDir ?? `/mock/plugin-data/${manifest.id}`,
+      signal: owner,
+      has: (permission: string) => declaredPermissions.has(permission) && !revokedPermissions.has(permission),
+      tools: bindToActivation(toolsApi, owner),
+      context: bindToActivation(contextApi, owner),
+      channels: bindToActivation(channelsApi, owner),
+      model: bindToActivation(modelApi, owner),
+      events: bindToActivation(eventsApi, owner),
+      sessions: bindToActivation(sessionsApi, owner),
+      workspace: bindToActivation(workspaceApi, owner),
+      schedules: bindToActivation(schedulesApi, owner),
+      secrets: bindToActivation(secretsApi, owner),
+      ui: bindToActivation(uiApi, owner),
+    };
+  };
 
   const host: TestHost = {
     manifest,
