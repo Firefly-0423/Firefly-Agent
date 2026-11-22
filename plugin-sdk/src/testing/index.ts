@@ -642,12 +642,18 @@ export function createTestHost(options: TestHostOptions): TestHost {
         throw new PluginError("ERR_UNDECLARED", `UI window "${id}" is not declared in manifest`);
       }
       openWindows.set(id, state ?? null);
+      // The handle belongs to the activation that opened it; once that ends it must not close or
+      // message a window a later activation opened with the same id.
+      const owner = contextAbort.signal;
+      const ended = () => new PluginError("ERR_UNAVAILABLE", "This plugin activation has ended");
       return {
         close: async () => {
+          if (owner.aborted) throw ended();
           record("ui.closeWindow", { id });
           openWindows.delete(id);
         },
         post: async (msg) => {
+          if (owner.aborted) throw ended();
           await uiApi.post({ kind: "window", id }, msg);
         },
       };
