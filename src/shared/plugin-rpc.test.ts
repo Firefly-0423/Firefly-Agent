@@ -14,6 +14,19 @@ function pair() {
 afterEach(() => vi.useRealTimers())
 
 describe('plugin RPC', () => {
+  it('treats a PluginError from another bundled copy of the protocol as a PluginError in both directions', async () => {
+    // Stands in for the SDK bundle's own PluginError class, which is a different constructor.
+    class ForeignPluginError extends Error {
+      constructor(readonly code: string, message: string, readonly retryable = false) { super(message); this.name = 'PluginError' }
+    }
+    expect(new ForeignPluginError('ERR_CANCELLED', 'stop')).toBeInstanceOf(PluginError)
+    expect(new ForeignPluginError('ERR_NOT_A_CODE', 'x')).not.toBeInstanceOf(PluginError)
+    expect(Object.assign(new Error('x'), { code: 'ERR_CANCELLED' })).not.toBeInstanceOf(PluginError)
+    const { a, b } = pair()
+    b.handle('stop', () => { throw new ForeignPluginError('ERR_CANCELLED', 'stopped by plugin', true) })
+    await expect(a.call('stop', null)).rejects.toMatchObject({ code: 'ERR_CANCELLED', message: 'stopped by plugin', retryable: true })
+    a.dispose(); b.dispose()
+  })
   it('routes simultaneous opposite-direction calls with independently allocated IDs', async () => {
     const { a, b } = pair()
     a.handle('echo', value => ({ from: 'a', value }))

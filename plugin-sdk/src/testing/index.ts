@@ -233,6 +233,13 @@ export function createTestHost(options: TestHostOptions): TestHost {
   const schedules = new Map<string, TaskRecord>();
   const inflightTools = new Map<string, { controller: AbortController; onCrash: () => void }>();
 
+  // Registrations belong to one activation; secrets and schedules are persistent and stay.
+  const clearRegistrations = () => {
+    registeredTools.clear();
+    registeredProviders.clear();
+    registeredChannels.clear();
+  };
+
   const record = (method: string, params: unknown) => {
     calls.push({ method, params, at: Date.now() });
   };
@@ -653,6 +660,8 @@ export function createTestHost(options: TestHostOptions): TestHost {
       if (currentStatus === "active") {
         throw new PluginError("ERR_INTERNAL", "Plugin is already active");
       }
+      // A fresh activation starts like a new plugin process: nothing the previous one registered survives.
+      clearRegistrations();
       contextAbort = new AbortController();
       currentPlugin = plugin;
       currentStatus = "active";
@@ -675,6 +684,7 @@ export function createTestHost(options: TestHostOptions): TestHost {
       try {
         await currentPlugin?.deactivate?.(reason);
       } finally {
+        clearRegistrations();
         eventListeners.clear();
         workspaceListeners.clear();
         scheduleTriggerListeners.clear();
@@ -695,6 +705,7 @@ export function createTestHost(options: TestHostOptions): TestHost {
         inflight.onCrash();
       }
       inflightTools.clear();
+      clearRegistrations();
       eventListeners.clear();
       workspaceListeners.clear();
       scheduleTriggerListeners.clear();

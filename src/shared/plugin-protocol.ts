@@ -9,6 +9,16 @@ export interface PluginErrorOptions {
   readonly cause?: unknown
 }
 export class PluginError extends Error {
+  /**
+   * The SDK bundle a plugin imports and the host runtime each carry their own copy of this class, so
+   * a plain prototype check would fail across that boundary. Any Error named PluginError with a
+   * known code counts, which keeps `instanceof` and RPC error replies working in both directions.
+   */
+  static [Symbol.hasInstance](value: unknown): boolean {
+    if (!(value instanceof Error) || value.name !== 'PluginError') return false
+    const code = (value as { code?: unknown }).code
+    return typeof code === 'string' && (PLUGIN_ERROR_CODES as readonly string[]).includes(code)
+  }
   readonly retryable: boolean
   constructor(
     readonly code: PluginErrorCode,

@@ -100,6 +100,12 @@ async function checkEntryPoints() {
   if (typeof esmTesting.createTestHost !== "function") fail("ESM testing 入口缺少 createTestHost");
 
   // testing 入口抛出的 PluginError 必须是主入口导出的同一个构造器，插件才能用 instanceof 区分错误。
+  // The CJS and ESM bundles each carry their own PluginError class, like the SDK a plugin bundles and the
+  // host runtime do; instanceof must still hold across copies.
+  if (!(new esmMain.PluginError("ERR_PERMISSION", "x") instanceof cjsMain.PluginError)
+    || !(new cjsMain.PluginError("ERR_PERMISSION", "x") instanceof esmMain.PluginError)) {
+    fail("不同打包副本的 PluginError 之间 instanceof 不成立");
+  }
   for (const [label, main, testing] of [["CJS", cjsMain, cjsTesting], ["ESM", esmMain, esmTesting]]) {
     const host = testing.createTestHost({ manifest: { id: "dev.firefly.verify", name: "verify", version: "1.0.0", permissions: [] } });
     let caught;
