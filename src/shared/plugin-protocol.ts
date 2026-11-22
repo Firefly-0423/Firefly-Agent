@@ -46,7 +46,7 @@ export const HOST_TO_PLUGIN_METHODS = {
   uiMessage: 'ui.message'
 } as const
 export const PLUGIN_TO_HOST_METHODS = {
-  toolsRegister: 'tools.register', toolsUnregister: 'tools.unregister',
+  toolsRegister: 'tools.register', toolsUnregister: 'tools.unregister', toolsProgress: 'tools.progress',
   contextRegister: 'context.register', contextUnregister: 'context.unregister',
   channelsRegister: 'channels.register', channelsReportState: 'channels.reportState', channelsDeliver: 'channels.deliver',
   modelGenerate: 'model.generate', modelRun: 'model.run',
@@ -231,6 +231,7 @@ export interface HostToPluginResults {
 export interface PluginToHostParams {
   'tools.register': { name: string; description: string; parameters: Record<string, unknown> }
   'tools.unregister': { name: string }
+  'tools.progress': { callId: string; message: string; percent?: number }
   'context.register': { id: string; modes: ProtocolMode[]; sources: ProtocolRunSource[] }
   'context.unregister': { id: string }
   'channels.register': { id: string }
@@ -262,6 +263,7 @@ export interface PluginToHostParams {
 export interface PluginToHostResults {
   'tools.register': void
   'tools.unregister': void
+  'tools.progress': void
   'context.register': void
   'context.unregister': void
   'channels.register': void

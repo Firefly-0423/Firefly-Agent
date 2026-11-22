@@ -894,6 +894,41 @@ const { defaultPluginLoader } = require("./src/plugins/v2/runtime/runtime.ts");
       hostRpc.dispose();
     }
   });
+
+  it("sends call.progress to the host as tools.progress, and a host that refuses it does not fail the tool", async () => {
+    const { hostTransport, pluginTransport } = createMemoryRpcPair();
+    const hostRpc = createRpcEndpoint(hostTransport);
+    hostRpc.handle(P.toolsRegister, () => null);
+    const progress: unknown[] = [];
+    const stopProgress = hostRpc.handle(P.toolsProgress, (params) => { progress.push(params); return null; });
+    const runtime = attachPluginRuntime(pluginTransport, {
+      loader: { async load() { return { activate(ctx) {
+        (ctx as unknown as PluginContext).tools.register({
+          name: "slow", description: "reports progress", parameters: { type: "object", properties: {} },
+          execute: async (_args, call) => {
+            call.progress("working", 50);
+            call.progress("almost", 250);
+            return { status: "succeeded", output: "done" };
+          },
+        });
+      } }; } },
+    });
+    try {
+      await hostRpc.call(H.activate, { id: "dev.firefly.p", dataDir: "/tmp/d", main: "/tmp/p.mjs" });
+      await expect(hostRpc.call(H.toolExecute, { name: "slow", args: {}, callId: "c-1" })).resolves.toEqual({ status: "succeeded", output: "done" });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(progress).toEqual([
+        { callId: "c-1", message: "working", percent: 50 },
+        { callId: "c-1", message: "almost", percent: 100 },
+      ]);
+      stopProgress();
+      hostRpc.handle(P.toolsProgress, () => { throw new PluginError("ERR_UNDECLARED", "no progress"); });
+      await expect(hostRpc.call(H.toolExecute, { name: "slow", args: {}, callId: "c-2" })).resolves.toEqual({ status: "succeeded", output: "done" });
+    } finally {
+      runtime.dispose();
+      hostRpc.dispose();
+    }
+  });
 });
 
 const require = createRequire(import.meta.url);
