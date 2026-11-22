@@ -25,6 +25,32 @@ const baseManifest: TestHostManifest = {
 };
 
 describe("createTestHost", () => {
+  it("aborts schedule triggers and channel sends on deactivate, and the previous start when a channel restarts", async () => {
+    const signals: Record<string, AbortSignal[]> = { trigger: [], send: [], start: [] };
+    const waitForAbort = (signal: AbortSignal) => new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
+    const host = createTestHost({ manifest: baseManifest });
+    await host.activate(definePlugin({
+      activate(ctx: PluginContext) {
+        ctx.schedules.onTrigger(async (e) => { signals.trigger.push(e.signal); await waitForAbort(e.signal); });
+        ctx.channels.register({
+          id: "chat_bridge",
+          start: async (_host, signal) => { signals.start.push(signal); },
+          stop: async () => {},
+          send: async (_msg, signal) => { signals.send.push(signal); await waitForAbort(signal); return { externalMessageId: "x" }; },
+        });
+      },
+    }));
+    await host.startChannel("chat_bridge");
+    await host.startChannel("chat_bridge");
+    expect(signals.start.map((s) => s.aborted)).toEqual([true, false]);
+    const trigger = host.triggerSchedule("task-1");
+    const send = host.sendChannel("chat_bridge", { chatId: "c", text: "hi" } as never);
+    await Promise.resolve();
+    await host.deactivate("disabled");
+    await Promise.all([trigger, send]);
+    expect([...signals.trigger, ...signals.send, ...signals.start].every((s) => s.aborted)).toBe(true);
+  });
+
   it("aborts the signal a model stand-in receives when the host is deactivated", async () => {
     let received: AbortSignal | undefined;
     let ctx!: PluginContext;

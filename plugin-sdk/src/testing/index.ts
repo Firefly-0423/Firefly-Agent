@@ -901,16 +901,14 @@ export function createTestHost(options: TestHostOptions): TestHost {
     },
     async triggerSchedule(taskId: string, payload?: unknown, signal?: AbortSignal) {
       ensureActive();
-      const controller = new AbortController();
-      if (signal?.aborted) controller.abort(signal.reason);
-      const onAbort = () => controller.abort(signal?.reason);
-      signal?.addEventListener("abort", onAbort, { once: true });
+      // Deactivate or crash cancels a running trigger, as in the real runtime.
+      const linked = linkLifecycle(signal);
       try {
         for (const listener of scheduleTriggerListeners) {
-          await listener({ taskId, payload, signal: controller.signal });
+          await listener({ taskId, payload, signal: linked.signal });
         }
       } finally {
-        signal?.removeEventListener("abort", onAbort);
+        linked.cleanup();
       }
     },
     approveSchedule(taskId: string): boolean {
@@ -943,6 +941,8 @@ export function createTestHost(options: TestHostOptions): TestHost {
       if (!adapter) {
         throw new PluginError("ERR_UNDECLARED", `Channel "${id}" is not registered`);
       }
+      // Restarting a channel cancels the previous start, like the runtime's channel.start.
+      channelControllers.get(id)?.abort("restarted");
       const controller = new AbortController();
       channelControllers.set(id, controller);
       await adapter.start(
@@ -977,14 +977,11 @@ export function createTestHost(options: TestHostOptions): TestHost {
       if (!adapter) {
         throw new PluginError("ERR_UNDECLARED", `Channel "${id}" is not registered`);
       }
-      const controller = new AbortController();
-      if (signal?.aborted) controller.abort(signal.reason);
-      const onAbort = () => controller.abort(signal?.reason);
-      signal?.addEventListener("abort", onAbort, { once: true });
+      const linked = linkLifecycle(signal);
       try {
-        return await adapter.send(msg, controller.signal);
+        return await adapter.send(msg, linked.signal);
       } finally {
-        signal?.removeEventListener("abort", onAbort);
+        linked.cleanup();
       }
     },
   };
