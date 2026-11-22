@@ -348,6 +348,26 @@ export function createTestHost(options: TestHostOptions): TestHost {
     },
   };
 
+  // Like the real runtime's linkSignals: a model call ends when either its own signal or the
+  // activation it belongs to is aborted.
+  const linkLifecycle = (requestSignal?: AbortSignal): { signal: AbortSignal; cleanup(): void } => {
+    const lifecycle = contextAbort.signal;
+    const controller = new AbortController();
+    const onLifecycle = () => controller.abort(lifecycle.reason);
+    const onRequest = () => controller.abort(requestSignal?.reason);
+    if (lifecycle.aborted) onLifecycle();
+    else if (requestSignal?.aborted) onRequest();
+    lifecycle.addEventListener("abort", onLifecycle, { once: true });
+    requestSignal?.addEventListener("abort", onRequest, { once: true });
+    return {
+      signal: controller.signal,
+      cleanup() {
+        lifecycle.removeEventListener("abort", onLifecycle);
+        requestSignal?.removeEventListener("abort", onRequest);
+      },
+    };
+  };
+
   const modelApi: Model = {
     async generate(req: ModelGenerateRequest): Promise<ModelGenerateResult> {
       record("model.generate", {
@@ -364,7 +384,12 @@ export function createTestHost(options: TestHostOptions): TestHost {
       if (!options.model?.generate) {
         return { text: "" };
       }
-      return await options.model.generate(req);
+      const linked = linkLifecycle(req.signal);
+      try {
+        return await options.model.generate({ ...req, signal: linked.signal });
+      } finally {
+        linked.cleanup();
+      }
     },
 
     async *generateStream(req: ModelGenerateRequest): AsyncIterable<ModelGenerateChunk> {
@@ -382,11 +407,16 @@ export function createTestHost(options: TestHostOptions): TestHost {
       if (!options.model?.generateStream) {
         return;
       }
-      for await (const chunk of options.model.generateStream(req)) {
-        if (req.signal?.aborted || contextAbort.signal.aborted) {
-          throw new PluginError("ERR_CANCELLED", "Model stream was cancelled");
+      const linked = linkLifecycle(req.signal);
+      try {
+        for await (const chunk of options.model.generateStream({ ...req, signal: linked.signal })) {
+          if (linked.signal.aborted) {
+            throw new PluginError("ERR_CANCELLED", "Model stream was cancelled");
+          }
+          yield chunk;
         }
-        yield chunk;
+      } finally {
+        linked.cleanup();
       }
     },
 
@@ -411,7 +441,10 @@ export function createTestHost(options: TestHostOptions): TestHost {
       }
       checkModelRateLimit();
       if (options.model?.run) {
-        return options.model.run(req);
+        const linked = linkLifecycle(req.signal);
+        const handle = options.model.run({ ...req, signal: linked.signal });
+        void Promise.resolve(handle.result).finally(linked.cleanup).catch(() => {});
+        return handle;
       }
       const emptyEvents: RunEvent[] = [
         { type: "run.started", runId: "test-run-1", sessionId: req.sessionId ?? "test-session", mode: req.mode, at: Date.now() },
@@ -684,6 +717,8 @@ export function createTestHost(options: TestHostOptions): TestHost {
         currentStatus = "deactivated";
         contextAbort.abort("fault");
         // A failed activation leaves nothing behind, same as a stopped plugin process.
+        for (const controller of channelControllers.values()) controller.abort("fault");
+        channelControllers.clear();
         clearTransient();
         throw error;
       }
