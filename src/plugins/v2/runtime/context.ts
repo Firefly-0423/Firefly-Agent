@@ -402,10 +402,16 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
             { signal },
           ),
         );
+        let disposed = false;
         return {
           dispose() {
+            if (disposed) return;
+            disposed = true;
             if (registeredTools.get(tool.name) === tool) {
               registeredTools.delete(tool.name);
+              void rpc.call(P.toolsUnregister, { name: tool.name }, { signal }).catch(() => {
+                // Ignore unregister failure if the plugin is already deactivated or transport is closed.
+              });
             }
           },
         };
@@ -426,10 +432,16 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
             { signal },
           ),
         );
+        let disposed = false;
         return {
           dispose() {
+            if (disposed) return;
+            disposed = true;
             if (registeredProviders.get(provider.id) === provider) {
               registeredProviders.delete(provider.id);
+              void rpc.call(P.contextUnregister, { id: provider.id }, { signal }).catch(() => {
+                // Ignore unregister failure if the plugin is already deactivated or transport is closed.
+              });
             }
           },
         };

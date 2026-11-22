@@ -586,6 +586,97 @@ const { defaultPluginLoader } = require("./src/plugins/v2/runtime/runtime.ts");
     expect({ status: res.status, stderr: res.stderr }).toMatchObject({ status: 0 });
     expect(res.stdout).toContain("CJS_LOADER_SINGLE_EVAL_OK");
   });
+
+  it("sends tools.unregister and context.unregister and removes local handlers when disposed", async () => {
+    const { hostTransport, pluginTransport } = createMemoryRpcPair();
+    const hostRpc = createRpcEndpoint(hostTransport);
+    const unregisteredTools: unknown[] = [];
+    const unregisteredContexts: unknown[] = [];
+
+    hostRpc.handle(P.toolsRegister, () => null);
+    hostRpc.handle(P.contextRegister, () => null);
+    hostRpc.handle(P.toolsUnregister, (params) => {
+      unregisteredTools.push(params);
+      return null;
+    });
+    hostRpc.handle(P.contextUnregister, (params) => {
+      unregisteredContexts.push(params);
+      return null;
+    });
+
+    let toolHandle!: { dispose(): void };
+    let contextHandle!: { dispose(): void };
+
+    const runtime = attachPluginRuntime(pluginTransport, {
+      loader: {
+        async load() {
+          return {
+            activate(ctx) {
+              toolHandle = ctx.tools.register({
+                name: "temp_tool",
+                description: "Temp",
+                parameters: { type: "object", properties: {} },
+                async execute() {
+                  return { status: "succeeded", output: "ok" };
+                },
+              });
+              contextHandle = ctx.context.register({
+                id: "temp_ctx",
+                modes: ["work"],
+                sources: ["user"],
+                async provide() {
+                  return { heading: "H", content: "C" };
+                },
+              });
+            },
+          };
+        },
+      },
+    });
+
+    try {
+      await hostRpc.call(H.activate, {
+        id: "dev.firefly.dispose",
+        version: "1.0.0",
+        dataDir: "/tmp/dispose",
+        main: "/tmp/dispose.mjs",
+        permissions: [],
+      });
+
+      expect(await hostRpc.call(H.toolExecute, { name: "temp_tool", args: {}, callId: "1" })).toEqual({
+        status: "succeeded",
+        output: "ok",
+      });
+      expect(await hostRpc.call(H.contextProvide, { id: "temp_ctx", sessionId: "s1", mode: "work", source: "user" })).toEqual({
+        heading: "H",
+        content: "C",
+      });
+
+      toolHandle.dispose();
+      toolHandle.dispose();
+      contextHandle.dispose();
+      contextHandle.dispose();
+
+      await new Promise((r) => setTimeout(r, 20));
+      expect(unregisteredTools).toEqual([{ name: "temp_tool" }]);
+      expect(unregisteredContexts).toEqual([{ id: "temp_ctx" }]);
+
+      await expect(hostRpc.call(H.toolExecute, { name: "temp_tool", args: {}, callId: "2" })).rejects.toMatchObject({
+        code: "ERR_UNDECLARED",
+      });
+      await expect(
+        hostRpc.call(H.contextProvide, { id: "temp_ctx", sessionId: "s1", mode: "work", source: "user" }),
+      ).rejects.toMatchObject({ code: "ERR_UNDECLARED" });
+
+      // Disposing after deactivation is a safe no-op with no unhandled rejection
+      await hostRpc.call(H.deactivate, "disabled");
+      toolHandle.dispose();
+      contextHandle.dispose();
+    } finally {
+      runtime.dispose();
+      hostRpc.dispose();
+    }
+  });
 });
 
 const require = createRequire(import.meta.url);

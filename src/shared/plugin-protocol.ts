@@ -36,7 +36,8 @@ export const HOST_TO_PLUGIN_METHODS = {
   uiMessage: 'ui.message'
 } as const
 export const PLUGIN_TO_HOST_METHODS = {
-  toolsRegister: 'tools.register', contextRegister: 'context.register',
+  toolsRegister: 'tools.register', toolsUnregister: 'tools.unregister',
+  contextRegister: 'context.register', contextUnregister: 'context.unregister',
   channelsRegister: 'channels.register', channelsReportState: 'channels.reportState', channelsDeliver: 'channels.deliver',
   modelGenerate: 'model.generate', modelRun: 'model.run',
   eventsSubscribe: 'events.subscribe', sessionsList: 'sessions.list', sessionsMessages: 'sessions.messages',
