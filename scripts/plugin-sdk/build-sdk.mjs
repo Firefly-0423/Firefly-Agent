@@ -69,13 +69,29 @@ async function buildDeclarations() {
   await rm(tmpOut, { recursive: true, force: true });
 }
 
-/** CJS 与 ESM：主入口与 testing 入口各打一个包，内联协议代码，保留 external 依赖（如 ajv）。 */
+/**
+ * testing 入口里的 `../protocol` 改为引用已打好的主入口，而不是再内联一份协议代码，
+ * 这样两个入口共用同一个 PluginError 构造器，`instanceof` 在两边都成立。
+ */
+function shareMainEntryProtocol(mainEntry) {
+  return {
+    name: "share-main-entry-protocol",
+    setup(pluginBuild) {
+      pluginBuild.onResolve({ filter: /^\.\.\/protocol$/ }, () => ({ path: mainEntry, external: true }));
+    },
+  };
+}
+
+/** CJS 与 ESM：主入口内联协议代码；testing 入口复用主入口的协议导出；保留 external 依赖（如 ajv）。 */
 async function bundleEntries() {
   const bundles = [
     { entry: "src/index.ts", cjs: "dist/index.js", esm: "dist/esm/index.mjs" },
-    { entry: "src/testing/index.ts", cjs: "dist/testing/index.js", esm: "dist/esm/testing/index.mjs" },
+    {
+      entry: "src/testing/index.ts", cjs: "dist/testing/index.js", esm: "dist/esm/testing/index.mjs",
+      cjsMain: "../index.js", esmMain: "../index.mjs",
+    },
   ];
-  for (const { entry, cjs, esm } of bundles) {
+  for (const { entry, cjs, esm, cjsMain, esmMain } of bundles) {
     const common = {
       entryPoints: [path.join(sdkRoot, entry)],
       target: "node18",
@@ -83,8 +99,8 @@ async function bundleEntries() {
       bundle: true,
       packages: "external",
     };
-    await build({ ...common, format: "cjs", outfile: path.join(sdkRoot, cjs) });
-    await build({ ...common, format: "esm", outfile: path.join(sdkRoot, esm) });
+    await build({ ...common, format: "cjs", outfile: path.join(sdkRoot, cjs), plugins: cjsMain ? [shareMainEntryProtocol(cjsMain)] : [] });
+    await build({ ...common, format: "esm", outfile: path.join(sdkRoot, esm), plugins: esmMain ? [shareMainEntryProtocol(esmMain)] : [] });
   }
 }
 
