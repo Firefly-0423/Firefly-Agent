@@ -75,42 +75,36 @@ describe("validateAndConvertSchedule", () => {
       validateAndConvertSchedule({ kind: "once", at: now.getTime() + 60_000 }, now),
     ).toEqual({
       storeSchedule: { kind: "once", runAt: "2032-03-10T10:01:00.000Z" },
-      requiresCronRearm: false,
     });
 
     expect(
       validateAndConvertSchedule({ kind: "interval", minutes: 30 }, now),
     ).toEqual({
       storeSchedule: { kind: "interval", every: 30, unit: "minutes" },
-      requiresCronRearm: false,
     });
 
     expect(
       validateAndConvertSchedule({ kind: "interval", minutes: 2880 }, now),
     ).toEqual({
       storeSchedule: { kind: "interval", every: 48, unit: "hours" },
-      requiresCronRearm: false,
     });
 
     expect(
       validateAndConvertSchedule({ kind: "cron", expression: "30 9 * * *" }, now),
     ).toEqual({
-      storeSchedule: { kind: "daily", timeOfDay: "09:30" },
-      requiresCronRearm: false,
+      storeSchedule: { kind: "cron", expression: "30 9 * * *" },
     });
 
     expect(
       validateAndConvertSchedule({ kind: "cron", expression: "15 8 * * 7" }, now),
     ).toEqual({
-      storeSchedule: { kind: "weekly", dayOfWeek: 0, timeOfDay: "08:15" },
-      requiresCronRearm: false,
+      storeSchedule: { kind: "cron", expression: "15 8 * * 7" },
     });
 
     expect(
       validateAndConvertSchedule({ kind: "cron", expression: "*/15 * * * *", timezone: "UTC" }, now),
     ).toEqual({
-      storeSchedule: { kind: "once", runAt: "2032-03-10T10:15:00.000Z" },
-      requiresCronRearm: true,
+      storeSchedule: { kind: "cron", expression: "*/15 * * * *", timezone: "UTC" },
     });
   });
 

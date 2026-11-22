@@ -3,6 +3,7 @@ type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 type IntervalUnit = "minutes" | "hours";
 
 export type ScheduleConfig =
+  | { kind: "cron"; expression: string; timezone?: string }
   | { kind: "once"; runAt: string }
   | { kind: "daily"; timeOfDay: string }
   | { kind: "weekly"; dayOfWeek: Weekday; timeOfDay: string }
