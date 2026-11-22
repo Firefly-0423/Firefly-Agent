@@ -18,6 +18,7 @@ import type { PluginContext } from "../../../../plugin-sdk/src/index";
 import {
   attachPluginRuntime,
   connectParentPortRuntime,
+  defaultPluginLoader,
   type ParentPortLike,
   type TransferredPortLike,
 } from "./index";
@@ -535,6 +536,55 @@ describe("plugin child-process runtime", () => {
       port1.close();
       port2.close();
     }
+  });
+
+  it("evaluates a top-level throwing plugin module only once and propagates its original error", async () => {
+    const dir = makeTempDir("ff-runtime-throw-");
+    const pluginFile = join(dir, "broken.mjs");
+    writeFileSync(
+      pluginFile,
+      `globalThis.__ffLoaderEvalCount = (globalThis.__ffLoaderEvalCount ?? 0) + 1;
+throw new Error("top-level plugin failure");\n`,
+      "utf8",
+    );
+
+    try {
+      await expect(defaultPluginLoader.load(pluginFile)).rejects.toThrow("top-level plugin failure");
+      expect((globalThis as { __ffLoaderEvalCount?: number }).__ffLoaderEvalCount).toBe(1);
+    } finally {
+      delete (globalThis as { __ffLoaderEvalCount?: number }).__ffLoaderEvalCount;
+    }
+
+    // Also verify the real CJS compiled path (where new Function import() executes directly in Node):
+    const cjsRunner = join(dir, "loader-cjs-check.cjs");
+    buildSync({
+      stdin: {
+        contents: `
+const assert = require("node:assert/strict");
+const { defaultPluginLoader } = require("./src/plugins/v2/runtime/runtime.ts");
+(async () => {
+  let caught;
+  try {
+    await defaultPluginLoader.load(${JSON.stringify(pluginFile)});
+  } catch (err) {
+    caught = err;
+  }
+  assert.ok(caught instanceof Error);
+  assert.equal(caught.message, "top-level plugin failure");
+  assert.equal(globalThis.__ffLoaderEvalCount, 1);
+  console.log("CJS_LOADER_SINGLE_EVAL_OK");
+})();
+`,
+        resolveDir: process.cwd(),
+      },
+      outfile: cjsRunner,
+      platform: "node",
+      bundle: true,
+      format: "cjs",
+    });
+    const res = spawnSync(process.execPath, [cjsRunner], { encoding: "utf8", timeout: 10_000, windowsHide: true });
+    expect({ status: res.status, stderr: res.stderr }).toMatchObject({ status: 0 });
+    expect(res.stdout).toContain("CJS_LOADER_SINGLE_EVAL_OK");
   });
 });
 

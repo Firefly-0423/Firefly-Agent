@@ -59,17 +59,40 @@ function extractPluginExport(loaded: unknown): RuntimePluginModule {
   return candidate as RuntimePluginModule;
 }
 
+function isMissingVmImportCallback(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const record = error as { code?: unknown; message?: unknown };
+  return (
+    record.code === "ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING"
+    || (error instanceof TypeError
+      && typeof record.message === "string"
+      && record.message.includes("dynamic import callback"))
+  );
+}
+
 export const defaultPluginLoader: PluginLoader = {
   async load(mainPath: string): Promise<RuntimePluginModule> {
     const spec = mainPath.startsWith("file://")
       ? mainPath
       : pathToFileURL(path.resolve(mainPath)).href;
-    let loaded: unknown;
+    let dynamicImport: ((url: string) => Promise<unknown>) | undefined;
     try {
       // Preserves native ESM import() in CommonJS tsc output (e.g. Electron utilityProcess).
-      const dynamicImport = new Function("url", "return import(url);") as (url: string) => Promise<unknown>;
-      loaded = await dynamicImport(spec);
+      dynamicImport = new Function("url", "return import(url);") as (url: string) => Promise<unknown>;
     } catch {
+      dynamicImport = undefined;
+    }
+    let loaded: unknown;
+    if (dynamicImport) {
+      try {
+        loaded = await dynamicImport(spec);
+      } catch (error) {
+        if (!isMissingVmImportCallback(error)) {
+          throw error;
+        }
+        loaded = await import(/* @vite-ignore */ spec);
+      }
+    } else {
       loaded = await import(/* @vite-ignore */ spec);
     }
     return extractPluginExport(loaded);
