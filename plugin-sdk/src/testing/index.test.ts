@@ -25,6 +25,22 @@ const baseManifest: TestHostManifest = {
 };
 
 describe("createTestHost", () => {
+  it("drops the previous activation's tools, context providers and channels when the host is activated again", async () => {
+    const execute = vi.fn(async () => ({ status: "succeeded" as const, output: "old" }));
+    const host = createTestHost({ manifest: baseManifest, mode: "work", level: "full" });
+    await host.activate(definePlugin({
+      activate(ctx: PluginContext) {
+        ctx.tools.register({ name: "get_weather", description: "old", parameters: { type: "object", properties: {} }, execute });
+      },
+    }));
+    await host.deactivate("upgrade");
+    await host.activate(definePlugin({ activate() {} }));
+    await expect(host.callTool("get_weather", {})).rejects.toMatchObject({ code: "ERR_UNDECLARED" });
+    await host.crash();
+    await host.activate(definePlugin({ activate() {} }));
+    await expect(host.callTool("get_weather", {})).rejects.toMatchObject({ code: "ERR_UNDECLARED" });
+    expect(execute).not.toHaveBeenCalled();
+  });
   it("supports weather-style plugin lifecycle, call recording, and deactivation", async () => {
     const weatherPlugin = definePlugin({
       activate(ctx: PluginContext) {
