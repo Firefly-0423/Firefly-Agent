@@ -17,7 +17,7 @@ export const HOST_TO_PLUGIN_METHODS = {
 export const PLUGIN_TO_HOST_METHODS = {
   toolsRegister: 'tools.register', contextRegister: 'context.register', modelGenerate: 'model.generate', modelRun: 'model.run',
   eventsSubscribe: 'events.subscribe', sessionsList: 'sessions.list', sessionsMessages: 'sessions.messages',
-  workspaceInfo: 'workspace.info', workspaceRead: 'workspace.read',
+  workspaceInfo: 'workspace.info',
   schedulesPropose: 'schedules.propose', schedulesUpdate: 'schedules.update', schedulesRemove: 'schedules.remove', schedulesList: 'schedules.list', schedulesOnTrigger: 'schedules.onTrigger',
   secretsGet: 'secrets.get', secretsSet: 'secrets.set', secretsDelete: 'secrets.delete', secretsKeys: 'secrets.keys',
   uiOpenWindow: 'ui.openWindow', uiOnMessage: 'ui.onMessage', uiPost: 'ui.post'

@@ -82,7 +82,6 @@ describe("host services over RPC", () => {
     [P.sessionsList, "sessions.read", {}],
     [P.sessionsMessages, "sessions.read", { sessionId: "current" }],
     [P.workspaceInfo, "workspace.read", {}],
-    [P.workspaceRead, "workspace.read", { path: "file.txt" }],
   ])("rejects ungranted %s without underlying calls", async (method, required, params) => {
     const f = fixture(); f.grant.granted.delete(required as string);
     await expect(f.client.call(method as string, params)).rejects.toMatchObject({ code: "ERR_PERMISSION" });
@@ -92,7 +91,7 @@ describe("host services over RPC", () => {
   it("returns approved current workspace metadata only", async () => {
     const f = fixture();
     expect(await f.client.call(P.workspaceInfo, {})).toEqual({ sessionId: "current", mode: "chat", root: null, name: null });
-    await expect(f.client.call(P.workspaceRead, { path: "file.txt" })).rejects.toMatchObject({ code: "ERR_UNAVAILABLE" });
+    await expect(f.client.call("workspace.read", { path: "file.txt" })).rejects.toMatchObject({ code: "ERR_UNDECLARED" });
     expect(f.deps.confirm).toHaveBeenCalledTimes(1); f.close();
   });
   it("rejects a binding change during first confirmation before reading", async () => {

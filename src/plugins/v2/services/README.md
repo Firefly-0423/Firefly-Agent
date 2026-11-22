@@ -32,7 +32,6 @@ objects; extra keys are rejected. Optional arguments can be `{}`/`undefined`.
 | `sessions.list` | `{cursor?, limit?, mode?}` | `{items: [{id, mode, title, createdAt, updatedAt}], nextCursor}` |
 | `sessions.messages` | `{sessionId, cursor?, limit?}` | `{items: [{id, role, text, at}], nextCursor}` |
 | `workspace.info` | `{sessionId?}` | `{sessionId, mode, root, name}` |
-| `workspace.read` | `{path, sessionId?}` | `{text}` |
 
 `model.run` uses source `plugin` and the trusted plugin identity, enters the normal
 host run/approval path, and only targets the host's bound conversation. This RPC
@@ -49,12 +48,7 @@ mandatory host redactor on text. The host redactor must know real secrets and
 foreign paths; this module does not claim regex can detect arbitrary credentials.
 
 `workspace.info` intentionally discloses only the approved current root.
-`workspace.read` is a scoped, read-only UTF-8 extension required by the C10 handoff;
-its relative paths use `/` and reject traversal, drive/UNC/ADS paths, symlinks and
-junctions in any component, including the bound root. Reads are capped at 1 MiB.
-The reader verifies file-handle identity and rechecks ancestors and file metadata
-before releasing content. This is Node filesystem validation, not an OS sandbox;
-plugins remain trusted Node processes as described by the specification.
+File reads and writes use approved tools.
 
 Model calls share a sliding 60-second quota per plugin (default 10, live callback
 setting 1–60). Rejected, cancelled-before-admission and unconfigured calls do not
@@ -71,5 +65,3 @@ unsubscribes. Tool/schedule source adapters must attach scope metadata since tho
 public event DTOs alone do not identify a conversation.
 
 Validation: `pnpm exec vitest run src/plugins/v2/services src/plugins/v2/host/index.test.ts`.
-Filesystem basis: https://nodejs.org/docs/latest-v24.x/api/fs.html
-(`lstat`, `realpath`, `FileHandle.stat`, `FileHandle.read`, `O_NOFOLLOW`).

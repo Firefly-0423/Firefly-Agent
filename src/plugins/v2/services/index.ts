@@ -1,7 +1,6 @@
 import type { PluginRpc } from "../../../shared/plugin-rpc";
 import { PluginError, PLUGIN_TO_HOST_METHODS as P } from "../../../shared/plugin-protocol";
 import { createRateLimiter } from "./rate-limit";
-import { readWorkspaceFile } from "./workspace";
 
 export type Mode = "chat" | "work" | "code";
 export type ServicePermission = "model.generate" | "model.run" | "events" | "sessions.read" | "workspace.read";
@@ -225,13 +224,6 @@ export function createPluginHostServices(deps: ServiceDependencies) {
       if (params.sessionId !== undefined && params.sessionId !== op.ctx.sessionId) throw permission();
       // Path is intentionally disclosed only for the approved, currently bound workspace.
       return { sessionId: op.ctx.sessionId, mode: op.ctx.mode, root: op.ctx.workspaceRoot, name: op.ctx.workspaceName === null ? null : deps.redact(op.ctx.workspaceName, op.ctx) };
-    }, true);
-    register(P.workspaceRead, "workspace.read", async (input, op) => {
-      const params = object(input, ["path", "sessionId"]);
-      if (params.sessionId !== undefined && params.sessionId !== op.ctx.sessionId) throw permission();
-      if (!op.ctx.workspaceRoot) throw unavailable();
-      const content = await op.wait(readWorkspaceFile(op.ctx.workspaceRoot, text(params.path, 4096), op.signal));
-      op.guard(); return { text: deps.redact(content, op.ctx) };
     }, true);
     unregister.push(rpc.handle(P.eventsSubscribe, (input, { signal }) => {
       check("events");
