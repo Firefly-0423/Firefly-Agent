@@ -626,7 +626,7 @@ it.skipIf(!electron || !existsSync(electron))(
 
     const runtimeShim = `
 const { connectParentPortRuntime } = require("./src/plugins/v2/runtime/index.ts");
-connectParentPortRuntime(process.parentPort, { fallbackMain: ${JSON.stringify(pluginEntry)} });
+connectParentPortRuntime(process.parentPort);
 `;
     buildSync({
       stdin: { contents: runtimeShim, resolveDir: process.cwd() },
@@ -646,7 +646,13 @@ app.setPath("userData", ${JSON.stringify(dataDir)});
 app.whenReady().then(async () => {
   const registeredTools = [];
   const host = createElectronPluginHost({
-    resolvePlugin: () => ({ entry: ${JSON.stringify(runtimeEntry)}, dataDir: ${JSON.stringify(dataDir)} }),
+    resolvePlugin: () => ({
+      entry: ${JSON.stringify(runtimeEntry)},
+      main: ${JSON.stringify(pluginEntry)},
+      version: "1.0.0",
+      permissions: [],
+      dataDir: ${JSON.stringify(dataDir)},
+    }),
     configureRpc: (_id, rpc) => {
       rpc.handle(PLUGIN_TO_HOST_METHODS.toolsRegister, (params) => {
         registeredTools.push(params);

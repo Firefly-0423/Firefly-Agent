@@ -137,8 +137,14 @@ export function attachPluginRuntime(
     if (activated) {
       throw new PluginError("ERR_INTERNAL", "Plugin is already activated");
     }
-    if (!isPlainRecord(params) || typeof params.id !== "string" || typeof params.dataDir !== "string") {
-      throw new PluginError("ERR_INVALID_ARGUMENT", "activate requires string id and dataDir");
+    if (
+      !isPlainRecord(params)
+      || typeof params.id !== "string"
+      || params.id.length === 0
+      || typeof params.dataDir !== "string"
+      || params.dataDir.length === 0
+    ) {
+      throw new PluginError("ERR_INVALID_ARGUMENT", "activate requires non-empty string id and dataDir");
     }
     const mainPath = typeof params.main === "string" && params.main.length > 0
       ? params.main
@@ -146,10 +152,17 @@ export function attachPluginRuntime(
     if (!mainPath) {
       throw new PluginError("ERR_INVALID_ARGUMENT", "activate requires a plugin main entry path");
     }
-    const version = typeof params.version === "string" ? params.version : "0.0.0";
-    const permissions = Array.isArray(params.permissions)
-      ? params.permissions.filter((item): item is string => typeof item === "string")
-      : [];
+    if (params.version !== undefined && typeof params.version !== "string") {
+      throw new PluginError("ERR_INVALID_ARGUMENT", "activate version must be a string");
+    }
+    if (
+      params.permissions !== undefined
+      && (!Array.isArray(params.permissions) || params.permissions.some((item) => typeof item !== "string"))
+    ) {
+      throw new PluginError("ERR_INVALID_ARGUMENT", "activate permissions must be an array of strings");
+    }
+    const version = typeof params.version === "string" && params.version.length > 0 ? params.version : "0.0.0";
+    const permissions = Array.isArray(params.permissions) ? params.permissions : [];
 
     const controller = new AbortController();
     const proxyRuntime = createPluginContextProxy({
