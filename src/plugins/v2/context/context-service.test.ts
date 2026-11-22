@@ -156,6 +156,51 @@ describe("G37-2 Per-turn plugin context & untrusted boundary", () => {
     pluginRpc.dispose();
   });
 
+  it("removes context provider from PluginContextService when plugin calls dispose()", async () => {
+    const [hostTransport, pluginTransport] = createPairedTransports();
+    const hostRpc = createRpcEndpoint(hostTransport);
+    const pluginRpc = createRpcEndpoint(pluginTransport);
+    const service = createPluginContextService();
+    const manifest = makeManifest("dev.firefly.music", "音乐播放器", "now_playing", ["work"], ["user"]);
+    const host: PluginContextHost = {
+      call: (_id, method, params, opts) => hostRpc.call(method, params, opts),
+    };
+    service.bindRpc(manifest, hostRpc, host);
+
+    const stop = new AbortController();
+    const { ctx, awaitPendingRegistrations } = createPluginContextProxy({
+      id: manifest.id,
+      version: manifest.version,
+      dataDir: "C:\\tmp\\ctx",
+      permissions: [],
+      signal: stop.signal,
+      rpc: pluginRpc,
+    });
+
+    const provideSpy = vi.fn(async () => ({ heading: "正在播放", content: "Track 1" }));
+    const disposable = ctx.context.register({
+      id: "now_playing",
+      modes: ["work"],
+      sources: ["user"],
+      provide: provideSpy,
+    });
+    await awaitPendingRegistrations();
+    expect(service.listProviders(manifest.id)).toHaveLength(1);
+
+    disposable.dispose();
+    await vi.waitFor(() => {
+      expect(service.listProviders(manifest.id)).toHaveLength(0);
+    });
+
+    const afterDispose = await service.collectContext({ sessionId: "s-2", mode: "work", source: "user" });
+    expect(afterDispose.blocks).toEqual([]);
+    expect(afterDispose.promptText).toBe("");
+    expect(provideSpy).not.toHaveBeenCalled();
+
+    hostRpc.dispose();
+    pluginRpc.dispose();
+  });
+
   it("skips providers exceeding 1500ms timeout (fake timers) or throwing errors, logs warn, and keeps remaining valid context", async () => {
     vi.useFakeTimers();
     const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});

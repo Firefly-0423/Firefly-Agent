@@ -294,6 +294,57 @@ describe("G37-1 Plugin tools: registration, modes, schema validation, approval &
     pluginRpc.dispose();
   });
 
+  it("removes tool from PluginToolService and ToolRegistry when plugin calls dispose()", async () => {
+    const [hostTransport, pluginTransport] = createPairedTransports();
+    const hostRpc = createRpcEndpoint(hostTransport);
+    const pluginRpc = createRpcEndpoint(pluginTransport);
+    const registry = new ToolRegistry();
+    const service = createPluginToolService({ registry });
+    const manifest = makeManifest();
+
+    const host: PluginToolExecuteHost = {
+      call: (_id, method, params, opts) => hostRpc.call(method, params, opts),
+    };
+    service.bindRpc(manifest, hostRpc, host);
+
+    const stopController = new AbortController();
+    const { ctx, awaitPendingRegistrations } = createPluginContextProxy({
+      id: manifest.id,
+      version: manifest.version,
+      dataDir: "C:\\tmp\\plugin-data",
+      permissions: [],
+      signal: stopController.signal,
+      rpc: pluginRpc,
+    });
+
+    const executeSpy = vi.fn(async () => ({ status: "succeeded", output: "sunny" }));
+    const disposable = ctx.tools.register({
+      name: "get_weather",
+      description: "Query weather by city",
+      parameters: { type: "object", properties: { city: { type: "string" } }, required: ["city"] },
+      execute: executeSpy,
+    });
+    await awaitPendingRegistrations();
+
+    const toolId = pluginToolId(manifest.id, "get_weather");
+    expect(registry.getById(toolId)).toBeDefined();
+    expect(service.getTool(manifest.id, "get_weather")).toBeDefined();
+
+    disposable.dispose();
+    await vi.waitFor(() => {
+      expect(registry.getById(toolId)).toBeUndefined();
+      expect(service.getTool(manifest.id, "get_weather")).toBeUndefined();
+    });
+
+    const afterDispose = await service.executeTool(manifest.id, "get_weather", { city: "上海" }, { mode: "work" });
+    expect(afterDispose.status).toBe("not_executed");
+    expect((afterDispose as { reason: string }).reason).toContain("ERR_UNDECLARED");
+    expect(executeSpy).not.toHaveBeenCalled();
+
+    hostRpc.dispose();
+    pluginRpc.dispose();
+  });
+
   it("exposes plugin tools ONLY in work and code modes and NEVER in chat mode (even with overrides)", async () => {
     const registry = new ToolRegistry();
     const service = createPluginToolService({ registry });
@@ -698,7 +749,13 @@ describe("G37-1 Plugin tools: registration, modes, schema validation, approval &
     };
 
     const manager = new PluginHostManager({
-      resolvePlugin: () => ({ entry: "dist/index.mjs", dataDir: "C:\\tmp\\crash-plugin" }),
+      resolvePlugin: () => ({
+        entry: "dist/index.mjs",
+        main: "dist/index.mjs",
+        version: "1.0.0",
+        permissions: [],
+        dataDir: "C:\\tmp\\crash-plugin",
+      }),
       fork: () => {
         queueMicrotask(() => fakeChild.emit("spawn"));
         return fakeChild;

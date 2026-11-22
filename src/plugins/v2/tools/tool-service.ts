@@ -451,10 +451,21 @@ export function createPluginToolService(options: PluginToolServiceOptions = {}):
       .map((entry) => entry.record);
 
   const bindRpc: PluginToolService["bindRpc"] = (manifest, rpc, host) => {
-    return rpc.handle(PLUGIN_TO_HOST_METHODS.toolsRegister, (params) => {
+    const offRegister = rpc.handle(PLUGIN_TO_HOST_METHODS.toolsRegister, (params) => {
       registerTool({ manifest, registration: params, host });
       return null;
     });
+    const offUnregister = rpc.handle(PLUGIN_TO_HOST_METHODS.toolsUnregister, (params) => {
+      if (!isPlainRecord(params) || typeof params.name !== "string" || !params.name.trim()) {
+        throw new PluginError("ERR_INVALID_ARGUMENT", "tools.unregister requires a non-empty tool name");
+      }
+      unregisterTool(manifest.id, params.name);
+      return null;
+    });
+    return () => {
+      offRegister();
+      offUnregister();
+    };
   };
 
   return {

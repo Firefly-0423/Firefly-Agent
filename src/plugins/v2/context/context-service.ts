@@ -307,10 +307,21 @@ export function createPluginContextService(options: PluginContextServiceOptions 
   };
 
   const bindRpc: PluginContextService["bindRpc"] = (manifest, rpc, host) => {
-    return rpc.handle(PLUGIN_TO_HOST_METHODS.contextRegister, (params) => {
+    const offRegister = rpc.handle(PLUGIN_TO_HOST_METHODS.contextRegister, (params) => {
       registerProvider(manifest, params, host);
       return null;
     });
+    const offUnregister = rpc.handle(PLUGIN_TO_HOST_METHODS.contextUnregister, (params) => {
+      if (!isPlainRecord(params) || typeof params.id !== "string" || !params.id.trim()) {
+        throw new PluginError("ERR_INVALID_ARGUMENT", "context.unregister requires a non-empty provider id");
+      }
+      unregisterProvider(manifest.id, params.id);
+      return null;
+    });
+    return () => {
+      offRegister();
+      offUnregister();
+    };
   };
 
   return {
