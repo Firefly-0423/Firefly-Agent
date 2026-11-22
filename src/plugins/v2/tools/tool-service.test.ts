@@ -1152,6 +1152,24 @@ describe("G37 Plugin tools: parameter schemas and explicit results", () => {
     expect(registry.getAllTools()).toHaveLength(0);
   });
 
+  it("re-registers a tool whose schema has an $id after its plugin was unregistered, and lets two plugins share an $id", () => {
+    const registry = new ToolRegistry();
+    const service = createPluginToolService({ registry });
+    const host: PluginToolExecuteHost = { call: vi.fn() };
+    // Each call builds a fresh object, as RPC deserialization does.
+    const parameters = () => ({ $id: "https://example.com/weather-args.json", type: "object", properties: { city: { type: "string" } } });
+    const register = (manifest: PluginManifestV1) => service.registerTool({
+      manifest, registration: { name: "get_weather", description: "Query weather", parameters: parameters() }, host,
+    });
+    const first = makeManifest();
+    register(first);
+    service.unregisterPlugin(first.id);
+    expect(() => register(first)).not.toThrow();
+    expect(() => register(makeManifest({ id: "dev.firefly.other" }))).not.toThrow();
+    expect(registry.getById(pluginToolId(first.id, "get_weather"))).toBeDefined();
+    expect(registry.getById(pluginToolId("dev.firefly.other", "get_weather"))).toBeDefined();
+  });
+
   it("keeps a succeeded plugin result succeeded even when its output looks like a legacy failure payload", async () => {
     const registry = new ToolRegistry();
     const service = createPluginToolService({ registry });

@@ -206,7 +206,6 @@ interface StoredToolEntry {
 export function createPluginToolService(options: PluginToolServiceOptions = {}): PluginToolService {
   const registry = options.registry ?? defaultToolRegistry;
   const defaultTimeoutMs = options.defaultTimeoutMs ?? DEFAULT_TOOL_TIMEOUT_MS;
-  const ajv = new AjvCtor({ strict: false, allErrors: true });
   const tools = new Map<string, StoredToolEntry>();
 
   const keyFor = (pluginId: string, toolName: string) => `${pluginId}\0${toolName}`;
@@ -349,7 +348,9 @@ export function createPluginToolService(options: PluginToolServiceOptions = {}):
     }
     let validate: ValidateFunction;
     try {
-      validate = ajv.compile(registration.parameters);
+      // One Ajv per registration: a schema `$id` must not collide with another plugin's or with a
+      // previous registration of the same tool after it was unregistered.
+      validate = new AjvCtor({ strict: false, allErrors: true }).compile(registration.parameters);
     } catch (error) {
       throw new PluginError(
         "ERR_INVALID_ARGUMENT",
