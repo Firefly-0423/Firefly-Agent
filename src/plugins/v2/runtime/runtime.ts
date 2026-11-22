@@ -177,15 +177,21 @@ export function attachPluginRuntime(
     ctxRuntime = proxyRuntime;
     activated = true;
 
+    // A deactivate can arrive while the module is still loading; this activation then must not run the
+    // plugin's activate() afterwards, nor touch state a later activation owns.
+    const superseded = () => controller.signal.aborted || stopController !== controller;
     try {
       const loadedPlugin = await loader.load(mainPath);
+      if (superseded()) throw new PluginError("ERR_CANCELLED", "Plugin was deactivated during activation");
       plugin = loadedPlugin;
       await loadedPlugin.activate(proxyRuntime.ctx);
       await proxyRuntime.awaitPendingRegistrations();
+      if (superseded()) throw new PluginError("ERR_CANCELLED", "Plugin was deactivated during activation");
       return null;
     } catch (error) {
       controller.abort("fault");
-      reset();
+      if (stopController === controller) reset();
+      else proxyRuntime.dispose();
       throw error;
     }
   });
