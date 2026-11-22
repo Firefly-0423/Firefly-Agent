@@ -1,6 +1,6 @@
 import type { PluginDefinition } from "./types";
 
-export { PLUGIN_ERROR_CODES, PluginError, type PluginErrorCode } from "./protocol";
+export { PLUGIN_ERROR_CODES, PluginError, type PluginErrorCode, type PluginErrorOptions } from "./protocol";
 export type {
   ChannelAdapter,
   ChannelAttachment,

@@ -59,7 +59,7 @@ async function lstatIfExists(targetPath: string) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       return undefined;
     }
-    throw new PluginError("ERR_INTERNAL", "Failed to inspect plugin secrets path");
+    throw new PluginError("ERR_INTERNAL", "Failed to inspect plugin secrets path", { cause: error });
   }
 }
 
@@ -101,8 +101,8 @@ export async function assertSafePluginSecretsPaths(
     canonicalRoot = canonicalPath(resolvedRoot);
     canonicalDir = canonicalPath(resolvedDir);
     canonicalFile = canonicalPath(resolvedFile);
-  } catch {
-    throw new PluginError("ERR_INTERNAL", "Failed to resolve canonical plugin secrets path");
+  } catch (error) {
+    throw new PluginError("ERR_INTERNAL", "Failed to resolve canonical plugin secrets path", { cause: error });
   }
 
   if (!within(canonicalRoot, canonicalDir) || !within(canonicalDir, canonicalFile)) {

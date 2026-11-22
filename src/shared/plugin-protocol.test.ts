@@ -37,8 +37,15 @@ describe('parseFrame', () => {
     const frame = { type: 'res', id: '1', ok: false, error: { code, message: 'Public', retryable: true } }
     expect(parseFrame(frame)).toEqual(frame)
   })
-  it('carries the public error code and retryability', () => {
-    const error = new PluginError('ERR_UNAVAILABLE', 'No service', true)
-    expect(error).toMatchObject({ name: 'PluginError', code: 'ERR_UNAVAILABLE', message: 'No service', retryable: true })
+  it('carries the public error code, retryability, and optional cause', () => {
+    const rootCause = new Error('boom')
+    const error = new PluginError('ERR_UNAVAILABLE', 'No service', true, rootCause)
+    expect(error).toMatchObject({ name: 'PluginError', code: 'ERR_UNAVAILABLE', message: 'No service', retryable: true, cause: rootCause })
+
+    const withOptions = new PluginError('ERR_INTERNAL', 'Wrapped', { retryable: true, cause: rootCause })
+    expect(withOptions).toMatchObject({ name: 'PluginError', code: 'ERR_INTERNAL', message: 'Wrapped', retryable: true, cause: rootCause })
+
+    const withoutCause = new PluginError('ERR_INVALID_ARGUMENT', 'Plain')
+    expect('cause' in withoutCause).toBe(false)
   })
 })

@@ -4,10 +4,30 @@ export const PLUGIN_ERROR_CODES = [
   'ERR_INVALID_ARGUMENT', 'ERR_RATE_LIMITED', 'ERR_UNAVAILABLE', 'ERR_INTERNAL'
 ] as const
 export type PluginErrorCode = typeof PLUGIN_ERROR_CODES[number]
+export interface PluginErrorOptions {
+  readonly retryable?: boolean
+  readonly cause?: unknown
+}
 export class PluginError extends Error {
-  constructor(readonly code: PluginErrorCode, message: string, readonly retryable = false) {
-    super(message)
+  readonly retryable: boolean
+  constructor(
+    readonly code: PluginErrorCode,
+    message: string,
+    retryableOrOptions: boolean | PluginErrorOptions = false,
+    cause?: unknown,
+  ) {
+    const retryable = typeof retryableOrOptions === 'boolean'
+      ? retryableOrOptions
+      : (retryableOrOptions?.retryable ?? false)
+    const resolvedCause = typeof retryableOrOptions === 'object' && retryableOrOptions !== null
+      ? ('cause' in retryableOrOptions ? retryableOrOptions.cause : cause)
+      : cause
+    super(message, resolvedCause !== undefined ? { cause: resolvedCause } : undefined)
     this.name = 'PluginError'
+    this.retryable = retryable
+    if (resolvedCause !== undefined && !('cause' in this)) {
+      ;(this as { cause?: unknown }).cause = resolvedCause
+    }
   }
 }
 export const HOST_TO_PLUGIN_METHODS = {

@@ -174,7 +174,7 @@ export class PluginHostManager {
             port1.start();
             startedChild.postMessage({ type: "firefly-plugin-port" }, [port2]);
             void rpc.call("activate", { id, dataDir: definition.dataDir }, { timeoutMs: Math.max(1, deadline - Date.now()) }).then(() => resolveStartup(), rejectStartup);
-          } catch { rejectStartup(new PluginError("ERR_INTERNAL", "Failed to connect plugin process")); }
+          } catch (cause) { rejectStartup(new PluginError("ERR_INTERNAL", "Failed to connect plugin process", { cause })); }
         },
       };
       runtime = active; record.runtime = active;
@@ -199,7 +199,7 @@ export class PluginHostManager {
         child?.kill();
         if (record.state === "starting") this.setStatus(id, record, "disabled-fault");
       }
-      throw error instanceof PluginError ? error : new PluginError("ERR_INTERNAL", "Failed to start plugin process");
+      throw error instanceof PluginError ? error : new PluginError("ERR_INTERNAL", "Failed to start plugin process", { cause: error });
     }
   }
   private finish(record: RecordState, runtime: Runtime, kill: boolean): void {
