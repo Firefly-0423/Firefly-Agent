@@ -25,6 +25,18 @@ const baseManifest: TestHostManifest = {
 };
 
 describe("createTestHost", () => {
+  it("refuses a window handle kept from an earlier activation without touching the new window", async () => {
+    let oldHandle!: { close(): Promise<void>; post(msg: unknown): Promise<void> };
+    const host = createTestHost({ manifest: baseManifest });
+    await host.activate(definePlugin({ async activate(ctx: PluginContext) { oldHandle = await ctx.ui.openWindow("radar"); } }));
+    await host.deactivate("upgrade");
+    await host.activate(definePlugin({ async activate(ctx: PluginContext) { await ctx.ui.openWindow("radar"); } }));
+    const before = host.calls.length;
+    await expect(oldHandle.close()).rejects.toMatchObject({ code: "ERR_UNAVAILABLE" });
+    await expect(oldHandle.post({ hi: 1 })).rejects.toMatchObject({ code: "ERR_UNAVAILABLE" });
+    expect(host.calls.length).toBe(before);
+  });
+
   it("refuses calls from a context kept by an earlier activation", async () => {
     let oldCtx!: PluginContext;
     const host = createTestHost({ manifest: baseManifest });
