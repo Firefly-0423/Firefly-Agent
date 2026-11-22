@@ -545,3 +545,59 @@ describe("G37-2 Per-turn plugin context & untrusted boundary", () => {
     expect(perTurn).toContain("work:user");
   });
 });
+
+describe("plugin context and the agent loop request budget", () => {
+  const vendorConfig = {
+    provider: "OpenAI", baseUrl: "https://example.invalid/v1", model: "gpt-test", apiKey: "test-key", explicitTransport: "openai",
+  } as const;
+  const answer = { text: "ok", assistantMessage: { role: "assistant", content: "ok" }, toolCalls: [], finishReason: "stop" };
+
+  it("skips a plugin context block larger than a quarter of the context window and still sends the turn", async () => {
+    const captured: unknown[] = [];
+    sdkMock.stream.mockImplementation(async ({ request }: { request: { messages: unknown[] } }) => {
+      captured.push(request.messages);
+      return answer;
+    });
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const huge = `<external-data source="plugin:dev.firefly.big">
+${"上".repeat(30_000)}
+</external-data>`;
+    const result = await runAgentLoop({
+      systemPrompt: "Work Persona",
+      promptLayers: { stablePrefix: "Work Persona", mode: "work" },
+      collectTurnPluginContext: async () => huge,
+      messages: [{ role: "user", content: "hi" }],
+      tools: [],
+      vendorConfig,
+      config: { maxRounds: 2, contextWindowTokens: 16_384 },
+    });
+    expect(result.finalAnswer).toBe("ok");
+    expect(captured).toHaveLength(1);
+    expect(JSON.stringify(captured[0])).not.toContain("dev.firefly.big");
+    expect(warn).toHaveBeenCalledWith(expect.anything(), expect.stringContaining("run plugin context skipped"));
+    warn.mockRestore();
+  });
+
+  it("counts plugin context toward the compaction budget", async () => {
+    sdkMock.stream.mockImplementation(async () => answer);
+    // About 2,400 estimated tokens: under the quarter-window cap, but over this run's compaction trigger.
+    const context = `<external-data source="plugin:dev.firefly.mid">
+${"中".repeat(3_600)}
+</external-data>`;
+    const run = (collect?: () => Promise<string>) => {
+      const lifecycle: string[] = [];
+      return runAgentLoop({
+        systemPrompt: "Work Persona",
+        promptLayers: { stablePrefix: "Work Persona", mode: "work" },
+        ...(collect ? { collectTurnPluginContext: collect } : {}),
+        onCompactionLifecycle: (event: { status: string }) => { lifecycle.push(event.status); },
+        messages: [{ role: "user", content: "hi" }],
+        tools: [],
+        vendorConfig,
+        config: { maxRounds: 2, contextWindowTokens: 16_384, compactionThreshold: 0.1 },
+      }).then(() => lifecycle, () => lifecycle);
+    };
+    expect(await run()).not.toContain("started");
+    expect(await run(async () => context)).toContain("started");
+  });
+});

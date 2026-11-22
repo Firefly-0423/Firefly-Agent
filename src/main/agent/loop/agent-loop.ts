@@ -7,6 +7,7 @@ import { INITIAL_AGENT_LOOP_CACHE_STATE, DEFAULT_AGENT_LOOP_CONFIG } from "./typ
 import { getAgentLoopBuiltinToolSpecs } from "./builtin-tools";
 import type { ToolDispatchContext } from "./tool-dispatcher";
 import { computeTokenBudget, compressForAgentLoop, type TokenBudget } from "./compaction";
+import { estimateTokens } from "./context-manager";
 import { emitContextUsage, emitCacheDiagnostic } from "./agent-loop-observability";
 import { StreamController } from "./stream-controller";
 import { TimeoutClock } from "./timeout-clock";
@@ -253,6 +254,7 @@ function buildRoundPromptLayers(input: AgentLoopInput, turnPluginContext?: strin
     ...(turnPluginContext?.trim() ? { runtimeContext: turnPluginContext.trim() } : {}),
   };
 }
+const PLUGIN_CONTEXT_WINDOW_SHARE = 0.25;
 async function buildRoundPromptLayersWithPluginContext(run: AgentLoopRun): Promise<PromptLayers> {
   const host = run.input;
   if (!run.pluginContext?.loaded) {
@@ -262,6 +264,13 @@ async function buildRoundPromptLayersWithPluginContext(run: AgentLoopRun): Promi
     } catch (cause) {
       logger.warn(LogTag.Plugins, "run plugin context collection failed, skipped:", cause);
     }
+    // Compaction can shrink history but not plugin context; a block that would take more than a quarter
+    // of the window is skipped for this run rather than pushing the request over the limit.
+    const cap = Math.floor(run.config.contextWindowTokens * PLUGIN_CONTEXT_WINDOW_SHARE);
+    if (turnPluginContext && estimateTokens(turnPluginContext) > cap) {
+      logger.warn(LogTag.Plugins, `run plugin context skipped: estimated ${estimateTokens(turnPluginContext)} tokens exceeds ${cap}`);
+      turnPluginContext = undefined;
+    }
     run.pluginContext = { loaded: true, value: turnPluginContext };
   }
   return buildRoundPromptLayers(host, run.pluginContext.value);
@@ -270,7 +279,11 @@ function compactIfNeeded(run: AgentLoopRun, promptLayers: PromptLayers): Promise
   if (run.input.memoryRun) return undefined;
   const limits = run.config;
   const system = buildStableSystemPrefix(promptLayers);
-  const budget = computeTokenBudget(system, run.allToolSpecs, run.messages, limits.contextWindowTokens,
+  // Runtime context (plugin context) is sent with every request, so it counts toward the budget too.
+  const runtime = promptLayers.runtimeContext?.trim();
+  const budget = computeTokenBudget(runtime ? `${system}
+
+${runtime}` : system, run.allToolSpecs, run.messages, limits.contextWindowTokens,
     limits.reservedOutputTokens, limits.safetyMarginTokens, limits.compactionThreshold);
   return budget.needsCompaction ? runCompaction(run, system, budget) : undefined;
 }
