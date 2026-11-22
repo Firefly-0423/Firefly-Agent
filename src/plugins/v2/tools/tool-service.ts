@@ -236,15 +236,18 @@ export function createPluginToolService(options: PluginToolServiceOptions = {}):
       );
       return normalizePluginToolResult(raw);
     } catch (error) {
-      if (isAbortError(error)) {
+      if (isAbortError(error) || meta.signal?.aborted) {
         return {
-          status: "not_executed",
-          reason: "ERR_CANCELLED: Tool call aborted",
+          status: "unknown",
+          reason: "ERR_CANCELLED: Tool call aborted after dispatch",
         };
       }
       if (error instanceof PluginError) {
-        if (error.code === "ERR_UNAVAILABLE" || error.code === "ERR_CANCELLED" || error.code === "ERR_INVALID_ARGUMENT") {
-          return { status: "not_executed", reason: `${error.code}: ${error.message}` };
+        if (error.code === "ERR_TIMEOUT" || error.code === "ERR_CANCELLED" || error.code === "ERR_UNAVAILABLE") {
+          return {
+            status: "unknown",
+            reason: `${error.code}: ${error.message}`,
+          };
         }
         return {
           status: "failed",

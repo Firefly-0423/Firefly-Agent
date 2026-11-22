@@ -880,4 +880,195 @@ describe("G37-1 Plugin tools: registration, modes, schema validation, approval &
     expect(await pending).toBe(false);
     expect(hostCall).not.toHaveBeenCalled();
   });
+
+  it("settles post-dispatch timeout, mid-execution cancellation, and ERR_UNAVAILABLE as unknown, while pre-dispatch abort settles as not_executed", async () => {
+    const [hostTransport, pluginTransport] = createPairedTransports();
+    const hostRpc = createRpcEndpoint(hostTransport);
+    const pluginRpc = createRpcEndpoint(pluginTransport);
+    const registry = new ToolRegistry();
+    const service = createPluginToolService({ registry, defaultTimeoutMs: 40 });
+    const manifest = makeManifest({
+      id: "dev.firefly.lifecycle",
+      name: "生命周期插件",
+      tools: [{ name: "send_notice", title: "发送通知", risk: ["network"], modes: ["work"] }],
+    });
+
+    const host: PluginToolExecuteHost = {
+      call: (_id, method, params, opts) => hostRpc.call(method, params, opts),
+    };
+    service.bindRpc(manifest, hostRpc, host);
+
+    const stopController = new AbortController();
+    const { ctx, awaitPendingRegistrations } = createPluginContextProxy({
+      id: manifest.id,
+      version: manifest.version,
+      dataDir: "C:\\tmp\\plugin-data",
+      permissions: [],
+      signal: stopController.signal,
+      rpc: pluginRpc,
+    });
+
+    let started = false;
+    let markStarted: (() => void) | undefined;
+    let releaseCall!: () => void;
+    const executeSpy = vi.fn(async (args: Record<string, unknown>) => {
+      started = true;
+      markStarted?.();
+      if (args.mode === "hang") {
+        await new Promise<void>((resolve) => {
+          releaseCall = resolve;
+        });
+      }
+      return { status: "succeeded", output: "sent" };
+    });
+
+    ctx.tools.register({
+      name: "send_notice",
+      description: "Send notice",
+      parameters: { type: "object", properties: { mode: { type: "string" } }, required: ["mode"] },
+      execute: executeSpy,
+    });
+    await awaitPendingRegistrations();
+
+    const toolId = pluginToolId(manifest.id, "send_notice");
+    const toolDef = registry.getById(toolId)!;
+
+    // 1. Pre-dispatch cancellation -> not_executed AND plugin handler is NOT called.
+    const preAborted = new AbortController();
+    preAborted.abort();
+    const directPreAbort = await service.executeTool(
+      manifest.id,
+      "send_notice",
+      { mode: "ok" },
+      { mode: "work", signal: preAborted.signal },
+    );
+    expect(directPreAbort).toMatchObject({ status: "not_executed", reason: expect.stringContaining("ERR_CANCELLED") });
+
+    const preAbortState = makeState();
+    const dispatchedPreAbort = await dispatchToolCall(
+      { id: "tc-pre-abort", name: toolId, arguments: JSON.stringify({ mode: "ok" }) },
+      {
+        state: preAbortState,
+        tools: [toolDef],
+        toolContext: { userQuery: "send", mode: "work", runId: "run-pre", conversationId: "sess-1", signal: preAborted.signal },
+      },
+    );
+    expect(dispatchedPreAbort.outcome).toBe("not_executed");
+    expect(preAbortState.uncertainEffects).toHaveLength(0);
+    expect(executeSpy).not.toHaveBeenCalled();
+
+    // 2. Timeout while plugin is mid-execution -> unknown (effectState: "unknown").
+    started = false;
+    const timeoutState = makeState();
+    const dispatchedTimeout = await dispatchToolCall(
+      { id: "tc-timeout", name: toolId, arguments: JSON.stringify({ mode: "hang" }) },
+      {
+        state: timeoutState,
+        tools: [toolDef],
+        toolContext: { userQuery: "send", mode: "work", runId: "run-timeout", conversationId: "sess-1" },
+      },
+    );
+    expect(started).toBe(true);
+    expect(dispatchedTimeout.outcome).toBe("unknown");
+    expect(dispatchedTimeout.rawResult?.effectState).toBe("unknown");
+    expect(dispatchedTimeout.message).toContain("ERR_TIMEOUT");
+    expect(timeoutState.uncertainEffects).toHaveLength(1);
+    releaseCall?.();
+
+    // 3. Mid-execution cancellation -> unknown (effectState: "unknown").
+    const cancelService = createPluginToolService({ registry: new ToolRegistry(), defaultTimeoutMs: 5_000 });
+    cancelService.registerTool({
+      manifest,
+      registration: {
+        name: "send_notice",
+        description: "Send notice",
+        parameters: { type: "object", properties: { mode: { type: "string" } }, required: ["mode"] },
+      },
+      host,
+      timeoutMs: 5_000,
+    });
+    const cancelToolDef = cancelService;
+    void cancelToolDef;
+    started = false;
+    executeSpy.mockClear();
+    const startedPromise = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const midAbort = new AbortController();
+    const cancelState = makeState();
+    const pendingCancel = cancelService.executeTool(
+      manifest.id,
+      "send_notice",
+      { mode: "hang" },
+      { mode: "work", signal: midAbort.signal, timeoutMs: 5_000 },
+    );
+    await startedPromise;
+    expect(started).toBe(true);
+    midAbort.abort();
+    const midCancelResult = await pendingCancel;
+    expect(executeSpy).toHaveBeenCalledTimes(1);
+    expect(midCancelResult).toMatchObject({
+      status: "unknown",
+      reason: expect.stringContaining("ERR_CANCELLED"),
+    });
+    releaseCall?.();
+
+    // Also verify mid-execution cancellation through dispatchToolCall -> outcome: "unknown" & uncertainEffects populated.
+    started = false;
+    executeSpy.mockClear();
+    const dispatchRegistry = new ToolRegistry();
+    const dispatchCancelService = createPluginToolService({ registry: dispatchRegistry, defaultTimeoutMs: 5_000 });
+    dispatchCancelService.registerTool({
+      manifest,
+      registration: {
+        name: "send_notice",
+        description: "Send notice",
+        parameters: { type: "object", properties: { mode: { type: "string" } }, required: ["mode"] },
+      },
+      host,
+      timeoutMs: 5_000,
+    });
+    const startedPromise2 = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const midAbort2 = new AbortController();
+    const pendingDispatchCancel = dispatchToolCall(
+      { id: "tc-mid-cancel", name: toolId, arguments: JSON.stringify({ mode: "hang" }) },
+      {
+        state: cancelState,
+        tools: [dispatchRegistry.getById(toolId)!],
+        toolContext: { userQuery: "send", mode: "work", runId: "run-cancel", conversationId: "sess-1", signal: midAbort2.signal },
+      },
+    );
+    await startedPromise2;
+    midAbort2.abort();
+    const dispatchedMidCancel = await pendingDispatchCancel;
+    expect(executeSpy).toHaveBeenCalledTimes(1);
+    expect(dispatchedMidCancel.outcome).toBe("unknown");
+    expect(dispatchedMidCancel.rawResult?.effectState).toBe("unknown");
+    expect(dispatchedMidCancel.message).toContain("ERR_CANCELLED");
+    expect(cancelState.uncertainEffects).toHaveLength(1);
+    releaseCall?.();
+
+    // 4. Post-dispatch ERR_UNAVAILABLE -> unknown.
+    const unavailableService = createPluginToolService({ registry: new ToolRegistry() });
+    unavailableService.registerTool({
+      manifest,
+      registration: {
+        name: "send_notice",
+        description: "Send notice",
+        parameters: { type: "object", properties: { mode: { type: "string" } }, required: ["mode"] },
+      },
+      host: {
+        call: async () => {
+          throw new PluginError("ERR_UNAVAILABLE", "Plugin process disappeared");
+        },
+      },
+    });
+    const unavailableRes = await unavailableService.executeTool(manifest.id, "send_notice", { mode: "ok" }, { mode: "work" });
+    expect(unavailableRes).toMatchObject({ status: "unknown", reason: expect.stringContaining("ERR_UNAVAILABLE") });
+
+    hostRpc.dispose();
+    pluginRpc.dispose();
+  });
 });
