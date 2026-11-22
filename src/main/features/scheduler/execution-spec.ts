@@ -4,6 +4,7 @@ import type { ScheduleConfig, ScheduledTask, ScheduledTaskPatch } from "../../pl
 
 // 指纹依赖这里的键序；只选执行所需字段。
 function scheduleForDigest(plan: ScheduleConfig): Record<string, unknown> {
+  if (plan.kind === "cron") return { kind: "cron", expression: plan.expression, ...(plan.timezone !== undefined ? { timezone: plan.timezone } : {}) };
   if (plan.kind === "once") return { kind: "once", runAt: plan.runAt };
   if (plan.kind === "daily") return { kind: "daily", timeOfDay: plan.timeOfDay };
   if (plan.kind === "weekly") {

@@ -1,6 +1,7 @@
 import type { PluginPromptMode } from "../../../plugins/api";
 
 export type ScheduleConfig =
+  | { kind: "cron"; expression: string; timezone?: string }
   | { runAt: string; kind: "once" }
   | { timeOfDay: string; kind: "daily" }
   | { timeOfDay: string; dayOfWeek: 0 | 1 | 2 | 3 | 4 | 5 | 6; kind: "weekly" }

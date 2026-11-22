@@ -713,3 +713,14 @@ describe("toggleSchedulerHistory", () => {
     expect(box.textContent).toContain("host restarted");
   });
 });
+
+it("displays native cron read-only and refuses the unsupported editor without updating the task", async () => {
+  const cronTask = task({ schedule: { kind: "cron", expression: "*/15 * * * *", timezone: "UTC" } });
+  const service = api(); install(service); const { panel, state, dom } = await setup(); state.tasks = [cronTask];
+  await panel.renderSchedulerList();
+  expect(dom.schedulerList!.textContent).toContain("Cron */15 * * * * (UTC)");
+  expect(Array.from(dom.schedulerList!.querySelectorAll("button")).some(button => button.textContent === "编辑")).toBe(false);
+  await panel.openSchedulerEditor(cronTask);
+  expect(dom.schedulerEditor!.classList.contains("is-hidden")).toBe(true);
+  expect(service.update).not.toHaveBeenCalled();
+});

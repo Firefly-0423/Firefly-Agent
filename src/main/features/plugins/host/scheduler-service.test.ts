@@ -413,3 +413,12 @@ describe("停止信号", () => {
     expect(store.getTasks()[0].title).toBe("晨报");
   });
 });
+
+test("legacy plugin creation and schedule updates reject native cron without writing or granting authorization", async () => {
+  const service = svcFor("legacy"); const schedule = { kind: "cron" as const, expression: "*/15 * * * *", timezone: "UTC" };
+  expect(await failureOf(service.createTask({ ...draft(), schedule }))).toBe("E_INVALID_ARGUMENT");
+  expect(store.getTasks()).toEqual([]);
+  const task = await service.createTask(draft()); const before = store.getTasks();
+  expect(await failureOf(service.updateTask(task.id, { schedule }))).toBe("E_INVALID_ARGUMENT");
+  expect(store.getTasks()).toEqual(before);
+});

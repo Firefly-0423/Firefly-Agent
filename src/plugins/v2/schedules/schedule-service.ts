@@ -10,7 +10,7 @@ import type {
   ScheduledTask,
   ScheduledTaskPatch,
 } from "../../../main/platform/schedule/schedule-types";
-import { computeNextCronFireAt, validateAndConvertSchedule } from "./cron";
+import { validateAndConvertSchedule } from "./cron";
 import {
   PluginError,
   UNATTENDED_APPROVAL_RISKS,
@@ -45,7 +45,6 @@ interface PluginTaskMetadata {
   schedule: Schedule;
   action: ScheduleAction;
   requiredRisks: ToolRisk[];
-  requiresCronRearm: boolean;
 }
 
 interface PersistedScheduleState {
@@ -73,18 +72,6 @@ function isPersistedState(value: unknown): value is PersistedScheduleState {
     && candidate.approvals !== null
     && typeof candidate.approvals === "object"
   );
-}
-
-/** True when `runAt` is an instant the cron schedule fires at. */
-function isCronOccurrence(schedule: Schedule, runAt: string): boolean {
-  if (schedule.kind !== "cron") return false;
-  const at = Date.parse(runAt);
-  if (!Number.isFinite(at)) return false;
-  try {
-    return computeNextCronFireAt(schedule.expression, new Date(at - 1), schedule.timezone).getTime() === at;
-  } catch {
-    return false;
-  }
 }
 
 function cloneValue<T>(value: T): T {
@@ -287,7 +274,9 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       (record) => record.taskId === v2TaskId && record.status === "pending_approval",
     );
     const enabled = isPluginTaskEffectivelyEnabled(task);
-    const fallbackSchedule: Schedule = task.schedule.kind === "once"
+    const fallbackSchedule: Schedule = task.schedule.kind === "cron"
+      ? task.schedule
+      : task.schedule.kind === "once"
       ? { kind: "once", at: Date.parse(task.schedule.runAt) }
       : task.schedule.kind === "interval"
         ? {
@@ -435,61 +424,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     return options.runAgentTask(task, appointment, requestedByUser);
   }
 
-  function rearmCronTaskIfNeeded(
-    task: ScheduledTask,
-    meta: PluginTaskMetadata | undefined,
-    appointment: Date,
-  ): void {
-    if (!meta || !meta.requiresCronRearm || meta.schedule.kind !== "cron") return;
-    // Callers may hold a snapshot taken before an earlier re-arm in the same run; decide on the stored task.
-    task = store.getTasks().find(candidate => candidate.id === task.id) ?? task;
-    // The user may have changed the plan in the scheduler panel. Only a one-shot appointment that this service
-    // set is still the cron's; anything else means the user took over, so stop re-arming.
-    // Judged from the stored plan alone (no second file that could be out of date): a one-shot at an instant the
-    // cron expression produces is still the cron's.
-    if (task.schedule.kind !== "once" || !isCronOccurrence(meta.schedule, task.schedule.runAt)) {
-      meta.requiresCronRearm = false;
-      try { persistState(); } catch { /* The flag is re-derived as false on the next check anyway. */ }
-      return;
-    }
-    const anchor = new Date(Math.max(appointment.getTime(), clock().getTime()));
-    const nextFire = computeNextCronFireAt(meta.schedule.expression, anchor, meta.schedule.timezone);
-    const nextSchedule = { kind: "once" as const, runAt: nextFire.toISOString() };
-    const nextFingerprint = computeExecutionSpecFingerprint({
-      schedule: nextSchedule,
-      prompt: task.prompt,
-      mode: task.mode ?? "work",
-      allowedToolIds: task.allowedToolIds,
-    });
-    store.updateTask(task.id, {
-      schedule: nextSchedule,
-      nextFireAt: nextFire.toISOString(),
-      pluginUserEnabled: true,
-      approvalFingerprint: nextFingerprint,
-    });
-  }
-
-  /**
-   * Re-arm cron tasks whose stored one-shot appointment passed while the app was closed. Must run before the
-   * engine's overdue handling (start and refresh), which would otherwise disable them as expired one-shots.
-   * Paused tasks stay paused.
-   */
-  function reconcileCronTasks(): number {
-    const now = clock();
-    let rearmed = 0;
-    for (const meta of Object.values(state.metadata)) {
-      if (!meta.requiresCronRearm || meta.schedule.kind !== "cron") continue;
-      const task = store.getTasks().find(candidate => candidate.id === meta.storeTaskId);
-      if (!task || task.pluginUserEnabled === false || task.schedule.kind !== "once") continue;
-      if (new Date(task.schedule.runAt).getTime() > now.getTime()) continue;
-      rearmCronTaskIfNeeded(task, meta, now);
-      rearmed += 1;
-    }
-    return rearmed;
-  }
-
   function refreshEngine(): void {
-    reconcileCronTasks();
     options.refreshEngine?.();
   }
 
@@ -766,7 +701,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     }
 
     const now = clock();
-    const { storeSchedule, requiresCronRearm } = validateAndConvertSchedule(
+    const { storeSchedule } = validateAndConvertSchedule(
       proposal.spec.schedule,
       now,
       { checkOnceInFuture: true },
@@ -809,7 +744,6 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
         schedule: cloneValue(proposal.spec.schedule),
         action: cloneValue(proposal.spec.action),
         requiredRisks,
-        requiresCronRearm,
       };
       state.metadata[proposal.taskId] = meta;
       state.proposals[proposal.proposalId] = {
@@ -869,7 +803,6 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       schedule: cloneValue(proposal.spec.schedule),
       action: cloneValue(proposal.spec.action),
       requiredRisks,
-      requiresCronRearm,
     };
     state.metadata[proposal.taskId] = meta;
     state.proposals[proposal.proposalId] = {
@@ -925,25 +858,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       return await runScheduledTaskOnce(task, appointment, requestedByUser);
     } finally {
       runningTasks.delete(task.id);
-      rearmCronStoppedDuringRun(task.id);
     }
-  }
-
-  /**
-   * A cron appointment that comes due while the previous run is still going is skipped by the engine, which
-   * first disables the stored one-shot. Once the run ends, re-arm such a task from now. A task the user paused
-   * keeps a future appointment, so it is left alone.
-   */
-  function rearmCronStoppedDuringRun(storeTaskId: string): void {
-    const meta = findMetadataByAnyId(storeTaskId);
-    if (!meta?.requiresCronRearm || meta.schedule.kind !== "cron") return;
-    const current = store.getTasks().find(candidate => candidate.id === meta.storeTaskId);
-    // Two ways to end up with no appointment: the engine stopped the one-shot (disabled), or the user resumed a
-    // paused task after its stored time passed and the store cleared the expired appointment (enabled).
-    if (!current || current.nextFireAt !== null || current.schedule.kind !== "once") return;
-    const now = clock();
-    if (new Date(current.schedule.runAt).getTime() > now.getTime()) return;
-    rearmCronTaskIfNeeded(current, meta, now);
   }
 
   async function runScheduledTaskOnce(
@@ -960,8 +875,6 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
 
     const meta = findMetadataByAnyId(task.id);
     const v2TaskId = meta?.taskId ?? task.id;
-
-    rearmCronTaskIfNeeded(task, meta, appointment);
 
     const risks = collectTaskRisks(task, meta);
     const blockingRisks = risks.filter((risk) => UNATTENDED_APPROVAL_RISKS.has(risk));
@@ -1222,23 +1135,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     persistState();
   }
 
-  // The host creates this service before starting the scheduler engine, so overdue cron tasks are re-armed first.
-  reconcileCronTasks();
-  // The engine also stops a cron one-shot when it skips it (plugin not running, previous run still going).
-  // Re-arm those whenever the task list changes; re-arming itself changes it, so guard against re-entry.
-  let sweeping = false;
-  store.onChange?.(() => {
-    if (sweeping) return;
-    sweeping = true;
-    try {
-      for (const meta of Object.values(state.metadata)) rearmCronStoppedDuringRun(meta.storeTaskId);
-    } finally {
-      sweeping = false;
-    }
-  });
-
   return {
-    reconcileCronTasks,
     forPlugin,
     listPendingProposals,
     confirmProposal,

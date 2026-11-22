@@ -11,7 +11,7 @@ export type {
 
 export type Translate = (key: string, options?: Record<string, unknown>) => string;
 
-export type ScheduleKind = ScheduleConfig["kind"];
+export type ScheduleKind = Exclude<ScheduleConfig["kind"], "cron">;
 import type { ScheduledTask } from "../../../../settings/scheduler/types";
 
 export const SCHEDULE_KINDS: ScheduleKind[] = ["once", "daily", "weekly", "interval"];
@@ -40,6 +40,7 @@ export function defaultScheduleDraft(): ScheduleDraft {
 
 /** 将已保存的规格回填为表单态（与设置页 openSchedulerEditor 的回填规则一致）。 */
 export function scheduleDraftFromSchedule(schedule: ScheduleConfig): ScheduleDraft {
+  if (schedule.kind === "cron") throw new Error("Cron schedules are read-only");
   const base = { ...defaultScheduleDraft(), kind: schedule.kind };
   switch (schedule.kind) {
     case "once": return { ...base, runAt: toLocalDateTimeInputValue(schedule.runAt) };
@@ -113,6 +114,7 @@ export function formatScheduledTime(value: string | null | undefined, t: Transla
 
 /** 依据规格生成一句话描述（列表项 meta 第一段）。 */
 export function describeSchedule(schedule: ScheduleConfig, t: Translate): string {
+  if (schedule.kind === "cron") return `Cron ${schedule.expression}${schedule.timezone ? ` (${schedule.timezone})` : ""}`;
   if (schedule.kind === "once") return t("scheduledPanel.summaryOnce", { time: formatScheduledTime(schedule.runAt, t) });
   if (schedule.kind === "daily") return t("scheduledPanel.summaryDaily", { time: schedule.timeOfDay });
   if (schedule.kind === "weekly") {
