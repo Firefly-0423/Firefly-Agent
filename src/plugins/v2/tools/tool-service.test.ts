@@ -43,6 +43,7 @@ import {
   type PolicyVerdict,
 } from "../../../main/platform/permission/permission-policy";
 import { ToolRegistry } from "../../../main/tooling/registry/tool-registry";
+import { executeToolDefinition } from "../../../main/tooling/registry/tool-executor";
 import { resolveRunCapabilities } from "../../../main/agent/runtime/run-capabilities";
 import { dispatchToolCall } from "../../../main/agent/loop/tool-dispatcher";
 import { prepareToolRuntime } from "../../../main/agent/runtime/adapter/tool-runtime";
@@ -1091,5 +1092,80 @@ describe("G37-1 Plugin tools: registration, modes, schema validation, approval &
 
     hostRpc.dispose();
     pluginRpc.dispose();
+  });
+});
+
+describe("G37 Plugin tools: parameter schemas and explicit results", () => {
+  it("inlines local $defs references so the model spec has no dangling $ref, and still validates through them", async () => {
+    const registry = new ToolRegistry();
+    const service = createPluginToolService({ registry });
+    const host: PluginToolExecuteHost = { call: vi.fn(async () => ({ status: "succeeded", output: "ok" })) };
+    const manifest = makeManifest();
+    service.registerTool({
+      manifest,
+      registration: {
+        name: "get_weather",
+        description: "Query weather",
+        parameters: {
+          type: "object",
+          properties: { place: { $ref: "#/$defs/Place", description: "where" } },
+          required: ["place"],
+          $defs: { Place: { type: "object", properties: { city: { type: "string" } }, required: ["city"] } },
+        },
+      },
+      host,
+    });
+    const definition = registry.getById(pluginToolId(manifest.id, "get_weather"))!;
+    expect(definition.inputSchema).toEqual({
+      type: "object",
+      properties: {
+        place: { type: "object", properties: { city: { type: "string" } }, required: ["city"], description: "where" },
+      },
+      required: ["place"],
+    });
+    expect(JSON.stringify(definition.inputSchema)).not.toContain("$ref");
+    expect(await service.executeTool(manifest.id, "get_weather", { place: {} }, { mode: "work" })).toMatchObject({
+      status: "not_executed",
+      reason: expect.stringContaining("ERR_INVALID_ARGUMENT"),
+    });
+    expect(host.call).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a remote $ref", { type: "object", properties: { a: { $ref: "https://example.com/schema.json" } } }],
+    ["a missing local $ref", { type: "object", properties: { a: { $ref: "#/$defs/Missing" } } }],
+    ["a recursive $ref", {
+      type: "object",
+      properties: { node: { $ref: "#/$defs/Node" } },
+      $defs: { Node: { type: "object", properties: { next: { $ref: "#/$defs/Node" } } } },
+    }],
+    ["an $async schema", { $async: true, type: "object", properties: { a: { type: "string" } } }],
+  ])("refuses parameters with %s at registration and registers nothing", (_label, parameters) => {
+    const registry = new ToolRegistry();
+    const service = createPluginToolService({ registry });
+    const host: PluginToolExecuteHost = { call: vi.fn() };
+    expect(() => service.registerTool({
+      manifest: makeManifest(),
+      registration: { name: "get_weather", description: "Query weather", parameters },
+      host,
+    })).toThrow(expect.objectContaining({ name: "PluginError", code: "ERR_INVALID_ARGUMENT" }));
+    expect(registry.getAllTools()).toHaveLength(0);
+  });
+
+  it("keeps a succeeded plugin result succeeded even when its output looks like a legacy failure payload", async () => {
+    const registry = new ToolRegistry();
+    const service = createPluginToolService({ registry });
+    const output = { success: false, error: "remote job failed", timedOut: true, jobId: "j-1" };
+    const host: PluginToolExecuteHost = { call: vi.fn(async () => ({ status: "succeeded", output })) };
+    const manifest = makeManifest();
+    service.registerTool({
+      manifest,
+      registration: { name: "get_weather", description: "Query weather", parameters: { type: "object", properties: {} } },
+      host,
+    });
+    const definition = registry.getById(pluginToolId(manifest.id, "get_weather"))!;
+    const outcome = await executeToolDefinition(definition, {}, { mode: "work" });
+    expect(outcome).toMatchObject({ status: "succeeded" });
+    expect(JSON.parse(outcome.output)).toEqual(output);
   });
 });

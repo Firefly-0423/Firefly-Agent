@@ -76,7 +76,48 @@ function formatAjvErrors(validate: ValidateFunction): string {
     .join("; ");
 }
 
-function normalizeInputSchema(parameters: Record<string, unknown>): ToolDefinition["inputSchema"] {
+function containsAsyncKeyword(node: unknown): boolean {
+  if (Array.isArray(node)) return node.some(containsAsyncKeyword);
+  if (!isPlainRecord(node)) return false;
+  return node.$async === true || Object.values(node).some(containsAsyncKeyword);
+}
+
+/**
+ * The model only receives `properties` / `required`, so local `#/$defs/<name>` and
+ * `#/definitions/<name>` references are inlined here; any other or recursive `$ref` is refused at
+ * registration instead of producing a tool spec with dangling references.
+ */
+function inlineLocalRefs(root: Record<string, unknown>, toolName: string): Record<string, unknown> {
+  const refused = (detail: string) =>
+    new PluginError("ERR_INVALID_ARGUMENT", `Tool "${toolName}" parameters ${detail}`);
+  const resolve = (ref: string): Record<string, unknown> => {
+    const match = /^#\/(\$defs|definitions)\/([^/]+)$/.exec(ref);
+    const defs = match ? root[match[1]] : undefined;
+    const key = match ? decodeURIComponent(match[2]).replace(/~1/g, "/").replace(/~0/g, "~") : "";
+    const target = isPlainRecord(defs) ? defs[key] : undefined;
+    if (!isPlainRecord(target)) throw refused(`use an unsupported $ref "${ref}"; only local #/$defs/<name> references are allowed`);
+    return target;
+  };
+  const walk = (node: unknown, seen: readonly string[], atRoot: boolean): unknown => {
+    if (Array.isArray(node)) return node.map((item) => walk(item, seen, false));
+    if (!isPlainRecord(node)) return node;
+    if (typeof node.$ref === "string") {
+      if (seen.includes(node.$ref)) throw refused(`contain a recursive $ref "${node.$ref}"`);
+      const { $ref, ...siblings } = node;
+      return walk({ ...resolve($ref), ...siblings }, [...seen, $ref], false);
+    }
+    const out: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(node)) {
+      if (atRoot && (key === "$defs" || key === "definitions")) continue;
+      out[key] = walk(value, seen, false);
+    }
+    return out;
+  };
+  return walk(root, [], true) as Record<string, unknown>;
+}
+
+function normalizeInputSchema(rawParameters: Record<string, unknown>, toolName: string): ToolDefinition["inputSchema"] {
+  const parameters = inlineLocalRefs(rawParameters, toolName);
   const properties = isPlainRecord(parameters.properties)
     ? (parameters.properties as Record<string, JsonSchemaProp>)
     : {};
@@ -302,6 +343,10 @@ export function createPluginToolService(options: PluginToolServiceOptions = {}):
       throw new PluginError("ERR_INVALID_ARGUMENT", `Tool "${name}" has invalid declared modes`);
     }
 
+    // validateArgs is synchronous: an async schema would return a Promise that always looks valid.
+    if (containsAsyncKeyword(registration.parameters)) {
+      throw new PluginError("ERR_INVALID_ARGUMENT", `Tool "${name}" parameters must not use $async schemas`);
+    }
     let validate: ValidateFunction;
     try {
       validate = ajv.compile(registration.parameters);
@@ -311,6 +356,10 @@ export function createPluginToolService(options: PluginToolServiceOptions = {}):
         `Invalid parameters JSON Schema for "${name}": ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+    if ((validate as { $async?: unknown }).$async === true) {
+      throw new PluginError("ERR_INVALID_ARGUMENT", `Tool "${name}" parameters must not use $async schemas`);
+    }
+    const inputSchema = normalizeInputSchema(registration.parameters, name);
 
     const validateArgs: RegisteredPluginTool["validateArgs"] = (args) => {
       if (!isPlainRecord(args)) {
@@ -359,7 +408,9 @@ export function createPluginToolService(options: PluginToolServiceOptions = {}):
         pluginName: manifest.name,
         toolName: name,
       },
-      inputSchema: normalizeInputSchema(registration.parameters),
+      inputSchema,
+      // The four-state result is the outcome; output content must not be re-read as a status.
+      explicitOutcome: true,
       needsContext: true,
       validateArgs,
       execute: async (args: Record<string, unknown>, ctx?: ToolContext): Promise<string> => {

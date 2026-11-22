@@ -67,7 +67,7 @@ export async function executeToolDefinition(
     const response = await (invocationUsage
       ? runWithUsageAttribution(invocationUsage, () => definition.execute(input, runContext))
       : definition.execute(input, runContext));
-    const failure = legacyOutcome(response);
+    const failure = definition.explicitOutcome ? undefined : legacyOutcome(response);
     return finish(failure ?? { status: "succeeded", output: response });
   } catch (caught) {
     if (isAbortError(caught)) throw caught;

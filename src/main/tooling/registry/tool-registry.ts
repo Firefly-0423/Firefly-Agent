@@ -50,6 +50,8 @@ export interface ToolDefinition {
   risks?: ToolRiskLevel[];
   pluginMeta?: PluginToolMeta;
   validateArgs?: (args: Record<string, unknown>) => { valid: true } | { valid: false; message: string };
+  /** execute() reports failure only by throwing; its return value is never re-read as a legacy status payload. */
+  explicitOutcome?: boolean;
   chatBuiltin?: boolean;
   needsContext?: boolean;
   ledgerPolicy?: "success_terminal" | "bypass";
