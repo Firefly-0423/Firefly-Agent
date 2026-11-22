@@ -372,6 +372,8 @@ describe("G37-1 Plugin tools: registration, modes, schema validation, approval &
 
     expect(registry.getEnabledToolsForMode("work").map((t) => t.id)).toEqual([workId, bothId]);
     expect(registry.getEnabledToolsForMode("code").map((t) => t.id)).toEqual([bothId]);
+    expect(registry.getById(workId)?.effectKind).toBe("external_side_effect");
+    expect(registry.getById(bothId)?.effectKind).toBe("read");
 
     // Even if custom toolModeOverrides tries to enable plugin tools in chat, chat stays empty.
     const overrides = { [workId]: { chat: true }, [bothId]: { chat: true } };

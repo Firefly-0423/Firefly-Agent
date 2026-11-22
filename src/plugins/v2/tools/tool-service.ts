@@ -350,8 +350,10 @@ export function createPluginToolService(options: PluginToolServiceOptions = {}):
       modes,
       risk: strictestDeclaredRisk(risks),
       risks,
-      // 宿主无法核实第三方插件工具的幂等性，统一按 unknown 处理以保护 crash 时的 uncertainEffects 门禁。
-      effectKind: "unknown",
+      // 仅声明 fs-read 的插件工具按只读（read）处理；其余插件工具宿主无法核实其幂等性，
+      // 显式标为 external_side_effect（经 resolveSideEffect 映射为 non_idempotent_side_effect），
+      // 确保崩溃、超时或中途取消产生 effectState: "unknown" 时触发 uncertainEffects 门禁并禁止自动重试。
+      effectKind: risks.length === 1 && risks[0] === "fs-read" ? "read" : "external_side_effect",
       pluginMeta: {
         pluginId: manifest.id,
         pluginName: manifest.name,
