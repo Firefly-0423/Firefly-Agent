@@ -321,7 +321,14 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
           mode,
           caller,
           signal: linked.signal,
-          progress: () => {},
+          // Progress is advisory: fire-and-forget, and a host that ignores it cannot fail the tool.
+          progress: (message, percent) => {
+            if (typeof message !== "string" || linked.signal.aborted) return;
+            const report = percent === undefined || !Number.isFinite(percent)
+              ? { callId, message }
+              : { callId, message, percent: Math.min(100, Math.max(0, percent)) };
+            void callHost(P.toolsProgress, report, { signal: linked.signal }).catch(() => {});
+          },
         };
         return await tool.execute(args, call);
       } finally {
