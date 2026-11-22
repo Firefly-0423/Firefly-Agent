@@ -283,7 +283,9 @@ export function createPluginToolService(options: PluginToolServiceOptions = {}):
         };
       }
       if (error instanceof PluginError) {
-        if (error.code === "ERR_TIMEOUT" || error.code === "ERR_CANCELLED" || error.code === "ERR_UNAVAILABLE") {
+        // After dispatch, only an explicit four-state result proves nothing happened. A timeout, a cancel,
+        // a lost process or an exception the plugin threw mid-execution (ERR_INTERNAL) may follow a side effect.
+        if (error.code === "ERR_TIMEOUT" || error.code === "ERR_CANCELLED" || error.code === "ERR_UNAVAILABLE" || error.code === "ERR_INTERNAL") {
           return {
             status: "unknown",
             reason: `${error.code}: ${error.message}`,
@@ -296,8 +298,8 @@ export function createPluginToolService(options: PluginToolServiceOptions = {}):
         };
       }
       return {
-        status: "failed",
-        error: error instanceof Error ? error.message : String(error),
+        status: "unknown",
+        reason: `ERR_INTERNAL: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   };

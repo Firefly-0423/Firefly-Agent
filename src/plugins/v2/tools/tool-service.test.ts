@@ -1170,6 +1170,26 @@ describe("G37 Plugin tools: parameter schemas and explicit results", () => {
     expect(registry.getById(pluginToolId("dev.firefly.other", "get_weather"))).toBeDefined();
   });
 
+  it("records an exception the plugin threw after dispatch as unknown, but keeps an explicit failed result as failed", async () => {
+    const registry = new ToolRegistry();
+    const service = createPluginToolService({ registry });
+    const manifest = makeManifest();
+    let reply: () => Promise<unknown> = async () => { throw new PluginError("ERR_INTERNAL", "Internal plugin error"); };
+    const host: PluginToolExecuteHost = { call: vi.fn(async () => reply()) };
+    service.registerTool({
+      manifest,
+      registration: { name: "get_weather", description: "Query weather", parameters: { type: "object", properties: {} } },
+      host,
+    });
+    expect(await service.executeTool(manifest.id, "get_weather", {}, { mode: "work" })).toEqual({
+      status: "unknown", reason: "ERR_INTERNAL: Internal plugin error",
+    });
+    reply = async () => { throw new Error("socket reset"); };
+    expect(await service.executeTool(manifest.id, "get_weather", {}, { mode: "work" })).toMatchObject({ status: "unknown" });
+    reply = async () => ({ status: "failed", error: "city not found" });
+    expect(await service.executeTool(manifest.id, "get_weather", {}, { mode: "work" })).toEqual({ status: "failed", error: "city not found" });
+  });
+
   it("keeps a succeeded plugin result succeeded even when its output looks like a legacy failure payload", async () => {
     const registry = new ToolRegistry();
     const service = createPluginToolService({ registry });
