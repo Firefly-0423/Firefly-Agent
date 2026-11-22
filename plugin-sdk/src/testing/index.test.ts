@@ -25,6 +25,34 @@ const baseManifest: TestHostManifest = {
 };
 
 describe("createTestHost", () => {
+  it("does not let a late failing activation clean up a newer activation", async () => {
+    let failFirst!: (error: Error) => void;
+    let second!: PluginContext;
+    const host = createTestHost({ manifest: baseManifest });
+    const first = host.activate(definePlugin({
+      activate: () => new Promise<void>((_resolve, reject) => { failFirst = reject; }),
+    }));
+    await host.deactivate("upgrade");
+    await host.activate(definePlugin({ activate(c: PluginContext) { second = c; } }));
+    failFirst(new Error("late failure"));
+    await expect(first).rejects.toThrow("late failure");
+    expect(second.signal.aborted).toBe(false);
+    expect(host.status).toBe("active");
+  });
+
+  it("refuses a model stream created by an activation that ended before it was consumed", async () => {
+    const generateStream = vi.fn(async function* () { yield { delta: "x" }; });
+    let oldCtx!: PluginContext;
+    const host = createTestHost({ manifest: baseManifest, model: { generateStream } });
+    await host.activate(definePlugin({ activate(c: PluginContext) { oldCtx = c; } }));
+    const stream = oldCtx.model.generateStream({ prompt: "hi" });
+    await host.deactivate("upgrade");
+    await host.activate(definePlugin({ activate() {} }));
+    const consume = async () => { for await (const _ of stream) { /* drain */ } };
+    await expect(consume()).rejects.toMatchObject({ code: "ERR_UNAVAILABLE" });
+    expect(generateStream).not.toHaveBeenCalled();
+  });
+
   it("refuses a window handle kept from an earlier activation without touching the new window", async () => {
     let oldHandle!: { close(): Promise<void>; post(msg: unknown): Promise<void> };
     const host = createTestHost({ manifest: baseManifest });
