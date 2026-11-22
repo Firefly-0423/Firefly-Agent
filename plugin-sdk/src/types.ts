@@ -19,6 +19,8 @@ export type PluginPermission =
 
 export interface Disposable {
   dispose(): void;
+  /** Optional promise settling when an underlying stream subscription ends (rejects on host error). */
+  readonly closed?: Promise<void>;
 }
 
 export interface JSONSchemaProperty {

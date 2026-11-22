@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { parseFrame, PluginError } from './plugin-protocol'
+import {
+  PLUGIN_TO_HOST_METHODS,
+  parseFrame,
+  PluginError,
+  type PluginToHostParams,
+  type PluginToHostResults,
+} from './plugin-protocol'
 
 const valid = [
   { type: 'req', id: '1', method: 'activate', params: { bytes: new Uint8Array([1]) }, deadline: 123 },
@@ -47,5 +53,21 @@ describe('parseFrame', () => {
 
     const withoutCause = new PluginError('ERR_INVALID_ARGUMENT', 'Plain')
     expect('cause' in withoutCause).toBe(false)
+  })
+
+  it('provides typed parameter and result maps for every PLUGIN_TO_HOST_METHODS entry', () => {
+    const sampleParams: PluginToHostParams['events.subscribe'] = { type: 'run.ended' }
+    const sampleUnregister: PluginToHostParams['tools.unregister'] = { name: 'echo' }
+    const sampleResult: PluginToHostResults['workspace.info'] = {
+      sessionId: 's1',
+      mode: 'work',
+      root: null,
+      name: null,
+    }
+    expect(PLUGIN_TO_HOST_METHODS.toolsUnregister).toBe('tools.unregister')
+    expect(PLUGIN_TO_HOST_METHODS.contextUnregister).toBe('context.unregister')
+    expect(sampleParams.type).toBe('run.ended')
+    expect(sampleUnregister.name).toBe('echo')
+    expect(sampleResult?.mode).toBe('work')
   })
 })

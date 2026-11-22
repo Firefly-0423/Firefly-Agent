@@ -234,7 +234,13 @@ describe("plugin child-process runtime", () => {
                 id: "ch_1",
                 async start(chHost) {
                   chHost.reportState({ state: "connected" });
-                  await chHost.deliver({ externalMessageId: "m1" });
+                  await chHost.deliver({
+                    externalMessageId: "m1",
+                    chat: { type: "private", id: "u1" },
+                    sender: { id: "u1", name: "Alice" },
+                    text: "hello",
+                    timestamp: 1000,
+                  });
                 },
                 async stop() {
                   channelStopped();
@@ -296,7 +302,12 @@ describe("plugin child-process runtime", () => {
 
       // Host -> Plugin channel lifecycle
       await hostRpc.call(H.channelStart, { id: "ch_1" });
-      expect(await hostRpc.call(H.channelSend, { id: "ch_1", message: { text: "hi" } })).toEqual({
+      expect(
+        await hostRpc.call(H.channelSend, {
+          id: "ch_1",
+          message: { chat: { type: "private", id: "u1" }, text: "hi" },
+        }),
+      ).toEqual({
         externalMessageId: "sent-1",
       });
       await hostRpc.call(H.channelStop, { id: "ch_1" });
@@ -673,6 +684,80 @@ const { defaultPluginLoader } = require("./src/plugins/v2/runtime/runtime.ts");
       toolHandle.dispose();
       contextHandle.dispose();
     } finally {
+      runtime.dispose();
+      hostRpc.dispose();
+    }
+  });
+
+  it("logs stream subscription refusals and exposes rejection observably via disposable.closed", async () => {
+    const { hostTransport, pluginTransport } = createMemoryRpcPair();
+    const hostRpc = createRpcEndpoint(hostTransport);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    hostRpc.handle(P.eventsSubscribe, () => {
+      throw new PluginError("ERR_UNDECLARED", "events permission not declared");
+    });
+    hostRpc.handle(P.workspaceWatch, () => {
+      throw new PluginError("ERR_PERMISSION", "workspace.read permission revoked");
+    });
+    hostRpc.handle(P.schedulesOnTrigger, (_params, { signal }) => {
+      return (async function* () {
+        await new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
+      })();
+    });
+
+    let eventSub!: { dispose(): void; closed?: Promise<void> };
+    let ignoredWorkspaceSub!: { dispose(): void; closed?: Promise<void> };
+    let scheduleSub!: { dispose(): void; closed?: Promise<void> };
+
+    const runtime = attachPluginRuntime(pluginTransport, {
+      loader: {
+        async load() {
+          return {
+            activate(ctx) {
+              eventSub = ctx.events.on("run.ended", () => {});
+              // Deliberately do not await `closed` on workspace.onChange to verify no unhandledRejection crash.
+              ignoredWorkspaceSub = ctx.workspace.onChange(() => {});
+              scheduleSub = ctx.schedules.onTrigger(async () => {});
+            },
+          };
+        },
+      },
+    });
+
+    try {
+      await hostRpc.call(H.activate, {
+        id: "dev.firefly.streams",
+        version: "1.0.0",
+        dataDir: "/tmp/streams",
+        main: "/tmp/streams.mjs",
+        permissions: ["schedules"],
+      });
+
+      await expect(eventSub.closed).rejects.toMatchObject({
+        code: "ERR_UNDECLARED",
+        message: "events permission not declared",
+      });
+
+      // Give the ignored subscription a tick to settle and verify it logged without crashing.
+      await new Promise((r) => setTimeout(r, 20));
+      expect(ignoredWorkspaceSub.closed).toBeInstanceOf(Promise);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Stream subscription "events.subscribe" failed:'),
+        expect.objectContaining({ code: "ERR_UNDECLARED" }),
+      );
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Stream subscription "workspace.watch" failed:'),
+        expect.objectContaining({ code: "ERR_PERMISSION" }),
+      );
+
+      // Disposing a healthy subscription resolves `closed` cleanly without warning.
+      const warnsBeforeDispose = warnSpy.mock.calls.length;
+      scheduleSub.dispose();
+      await expect(scheduleSub.closed).resolves.toBeUndefined();
+      expect(warnSpy.mock.calls.length).toBe(warnsBeforeDispose);
+    } finally {
+      warnSpy.mockRestore();
       runtime.dispose();
       hostRpc.dispose();
     }
