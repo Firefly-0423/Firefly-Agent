@@ -28,6 +28,7 @@ export interface ToolExecutionOutcome {
   effectState?: ToolEffectState;
   category?: ToolErrorCategory;
   errorCode?: string;
+  toolExecuted?: false;
   status: "succeeded" | "failed";
   output: string;
 }

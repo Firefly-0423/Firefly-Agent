@@ -95,8 +95,11 @@ function buildReviewDetailBlock(detail: Exclude<ToastApprovalDetail, { state: "e
   } else if (detail.state === "runless") {
     appendReviewMeta(block, "所属会话：无所属会话");
   }
+  if (detail.declaredBy) {
+    appendReviewMeta(block, `由插件〔${detail.declaredBy}〕声明`);
+  }
   if (detail.agentId) {
-    appendReviewMeta(block, `发起伙伴：${detail.agentId}`);
+    appendReviewMeta(block, detail.agentName ? `发起伙伴：${detail.agentName}（${detail.agentId}）` : `发起伙伴：${detail.agentId}`);
   }
   appendReviewMeta(block, `工具：${detail.toolName}`);
   if (detail.args.length > 0) {

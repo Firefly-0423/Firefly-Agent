@@ -28,6 +28,7 @@ export async function runAgentLoopWithAdapter(options: FireflyRunOptions, signal
   const invocation: AgentLoopInput = {
     systemPrompt: prefix,
     promptLayers: requestLayers,
+    ...(options.collectTurnPluginContext ? { collectTurnPluginContext: options.collectTurnPluginContext } : {}),
     usageParts: layers.usageParts,
     messages: history,
     runId: run,

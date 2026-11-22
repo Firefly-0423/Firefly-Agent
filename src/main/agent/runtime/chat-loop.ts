@@ -14,6 +14,7 @@ import { isExplicitStreamUnsupported } from "../../model/providers/stream-suppor
 import { composePromptLayers } from "../../model/prompt/prompt-layers";
 import type { TranscriptSink } from "../loop/transcript-sink";
 import type { MainMemoryRun } from "../memory-runtime/main-memory-runtime";
+import { EXTERNAL_DATA_UNTRUSTED_POLICY } from "../../../shared/external-data-policy";
 
 export interface ChatLoopOptions {
   transcriptSink?: TranscriptSink;
@@ -87,11 +88,17 @@ export async function runChatLoop(options: ChatLoopOptions): Promise<RunResult> 
     return Math.max(1, Math.min(perRequest, left));
   };
   const vendor: VendorConfig = vendorConfigFromSettings(options.settings);
-  const makeRequest = (history: ChatMessage[], stream: boolean): ChatRequest => ({
-    model: options.settings.model,
-    ...composePromptLayers({ stablePrefix: options.soulSystemBaseContent, runtimeContext: options.runtimeContext, mode: options.mode }, history),
-    stream,
-  });
+  const makeRequest = (history: ChatMessage[], stream: boolean): ChatRequest => {
+    const hasExternalData = Boolean(options.runtimeContext?.includes("<external-data"));
+    const stablePrefix = hasExternalData && !options.soulSystemBaseContent.includes("<external-data")
+      ? [options.soulSystemBaseContent, `[EXTERNAL_CONTENT_POLICY]\n${EXTERNAL_DATA_UNTRUSTED_POLICY}`].filter(Boolean).join("\n\n---\n\n")
+      : options.soulSystemBaseContent;
+    return {
+      model: options.settings.model,
+      ...composePromptLayers({ stablePrefix, runtimeContext: options.runtimeContext, mode: options.mode }, history),
+      stream,
+    };
+  };
   const nonStreaming = async (history: ChatMessage[]): Promise<ChatResponse> => {
     const request: ChatRequest = { ...makeRequest(history, false) };
     const hinted = options.adapter.applyCacheHints?.(request, vendor) ?? request;
