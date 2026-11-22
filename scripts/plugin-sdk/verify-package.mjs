@@ -98,6 +98,19 @@ async function checkEntryPoints() {
   }
   if (typeof esmMain.definePlugin !== "function") fail("ESM 主入口缺少 definePlugin");
   if (typeof esmTesting.createTestHost !== "function") fail("ESM testing 入口缺少 createTestHost");
+
+  // testing 入口抛出的 PluginError 必须是主入口导出的同一个构造器，插件才能用 instanceof 区分错误。
+  for (const [label, main, testing] of [["CJS", cjsMain, cjsTesting], ["ESM", esmMain, esmTesting]]) {
+    const host = testing.createTestHost({ manifest: { id: "dev.firefly.verify", name: "verify", version: "1.0.0", permissions: [] } });
+    let caught;
+    await host.activate({
+      async activate(ctx) {
+        try { await ctx.secrets.get("token"); } catch (error) { caught = error; }
+      },
+    });
+    if (caught?.code !== "ERR_UNDECLARED") fail(`${label} testing 入口：未声明的 secrets 调用没有得到 ERR_UNDECLARED`);
+    if (!(caught instanceof main.PluginError)) fail(`${label} testing 入口抛出的 PluginError 不是主入口导出的构造器`);
+  }
 }
 
 /** 用打好的命令行跑一遍：最小插件校验并打包通过；声明 safe 风险的插件被拒绝且不生成文件。 */
