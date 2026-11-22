@@ -1140,6 +1140,8 @@ describe("G37 Plugin tools: parameter schemas and explicit results", () => {
       $defs: { Node: { type: "object", properties: { next: { $ref: "#/$defs/Node" } } } },
     }],
     ["an $async schema", { $async: true, type: "object", properties: { a: { type: "string" } } }],
+    ["a root allOf", { type: "object", allOf: [{ properties: { city: { type: "string" } }, required: ["city"] }] }],
+    ["a root oneOf", { type: "object", oneOf: [{ properties: { a: { type: "string" } } }] }],
   ])("refuses parameters with %s at registration and registers nothing", (_label, parameters) => {
     const registry = new ToolRegistry();
     const service = createPluginToolService({ registry });
