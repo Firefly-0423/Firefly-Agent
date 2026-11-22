@@ -14,7 +14,10 @@ subscription. No service creates grants or treats plugin parameters as authority
 `onAccessChange` must notify synchronously for revoke/regrant, disable, and binding
 changes. Increment access revision for grant/manifest/lifecycle changes and context
 revision whenever the bound conversation/workspace changes. Pending confirmations
-are scoped to both revisions; a changed binding requires new confirmation.
+are scoped to both revisions. Successful confirmations are stored through the
+required `confirmations` adapter using the grant revision only. A completed
+confirmation survives a change of conversation or a restart. The adapter must
+persist grant revisions and never reuse one after revocation, regrant or upgrade.
 
 The application lifecycle/UI composition is a subsequent package. The old plugin
 host is untouched. These adapters are not permissive production defaults.

@@ -4,7 +4,7 @@ import { createPluginHostServices, type ServiceDependencies } from "./index";
 import { createRpcEndpoint, type PluginRpc } from "../../../shared/plugin-rpc";
 import { PLUGIN_TO_HOST_METHODS as P } from "../../../shared/plugin-protocol";
 
-function fixture() {
+function fixture(confirmationStore = new Map<string, number>()) {
   let grant = { name: "Example", declared: ["model.generate", "model.run", "sessions.read", "workspace.read", "events"], granted: new Set(["model.generate", "model.run", "sessions.read", "workspace.read", "events"]), revision: 1 };
   let context = { sessionId: "current", workspaceRoot: null as string | null, mode: "chat" as const, workspaceName: null as string | null, revision: 1 };
   const listeners = new Set<() => void>();
@@ -12,6 +12,10 @@ function fixture() {
   const deps: ServiceDependencies = {
     access: () => grant, context: () => context,
     onAccessChange: (_id, fn) => { listeners.add(fn); return () => { listeners.delete(fn); }; },
+    confirmations: {
+      get: (id, permission) => confirmationStore.get(id + permission),
+      set: (id, permission, revision) => { confirmationStore.set(id + permission, revision); },
+    },
     confirm: vi.fn(async () => true), currentModel: vi.fn(async () => ({ id: "default" })),
     generate: vi.fn(async () => ({ text: "answer", usage: { inputTokens: 1, outputTokens: 2 } })),
     run: vi.fn(async () => ({ runId: "run", sessionId: "current", reply: "reply" })),
@@ -144,6 +148,24 @@ describe("host services over RPC", () => {
     f.emit({ type: "run.ended", runId: "ok", sessionId: "current", outcome: "completed", at: 2 });
     expect(await next).toEqual({ done: false, value: { type: "run.ended", runId: "ok", sessionId: "current", outcome: "completed", at: 2 } });
     await iterator.return?.(); expect(f.eventListeners.size).toBe(0); f.close();
+  });
+  it("reuses approval across session changes and service restarts, but asks again after a revoke and regrant", async () => {
+    const store = new Map<string, number>(), f = fixture(store);
+    await f.client.call(P.sessionsList, {});
+    f.context.sessionId = "another"; f.context.revision++; f.changeBinding();
+    await f.client.call(P.sessionsList, {});
+    expect(f.deps.confirm).toHaveBeenCalledTimes(1);
+    f.close();
+    const reopened = fixture(store);
+    try {
+      await reopened.client.call(P.sessionsList, {});
+      expect(reopened.deps.confirm).not.toHaveBeenCalled();
+      reopened.grant.granted.delete("sessions.read"); reopened.revoke();
+      await expect(reopened.client.call(P.sessionsList, {})).rejects.toMatchObject({ code: "ERR_PERMISSION" });
+      reopened.grant.granted.add("sessions.read"); reopened.revoke();
+      await reopened.client.call(P.sessionsList, {});
+      expect(reopened.deps.confirm).toHaveBeenCalledTimes(1);
+    } finally { reopened.close(); }
   });
   it("rejects undeclared permission before accessing data", async () => {
     const f = fixture(); f.grant.declared = [];

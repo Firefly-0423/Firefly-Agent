@@ -30,6 +30,11 @@ export interface ServiceDependencies {
   context(pluginId: string): ServiceContext | null;
   /** Must notify synchronously on access/binding changes, including disabling a plugin. */
   onAccessChange(pluginId: string, listener: () => void): () => void;
+  /** Store approved grant revisions across process restarts; revocations and upgrades must advance the revision. */
+  confirmations: {
+    get(pluginId: string, permission: ServicePermission): number | undefined;
+    set(pluginId: string, permission: ServicePermission, revision: number): void;
+  };
   confirm(request: { pluginId: string; pluginName: string; permission: ServicePermission; signal: AbortSignal }): Promise<boolean>;
   currentModel(): Promise<object | null>;
   generate(request: GenerateRequest, profile: object, signal: AbortSignal): Promise<GenerateResult>;
@@ -93,7 +98,6 @@ function eventDto(input: unknown, pluginId: string, ctx: ServiceContext, types: 
 
 /** Composition entry for HostDependencies.configureRpc. No v0 host or installation data is consulted. */
 export function createPluginHostServices(deps: ServiceDependencies) {
-  const confirmed = new Map<string, Set<ServicePermission>>();
   const pending = new Map<string, Promise<boolean>>();
   const disposers = new Set<() => void>();
   const limit = createRateLimiter(deps.modelLimitPerMinute);
@@ -112,7 +116,6 @@ export function createPluginHostServices(deps: ServiceDependencies) {
     const changed = deps.onAccessChange(pluginId, () => {
       // Cancel in-flight reads, model borrowing and event queues on revocation or rebinding.
       for (const controller of active) controller.abort();
-      for (const key of confirmed.keys()) if (key.startsWith(`${pluginId}:`)) confirmed.delete(key);
     });
     function begin(required: ServicePermission, signal: AbortSignal) {
       const access = check(required), ctx = deps.context(pluginId);
@@ -142,7 +145,7 @@ export function createPluginHostServices(deps: ServiceDependencies) {
     type Operation = ReturnType<typeof begin>;
     async function confirm(required: ServicePermission, op: Operation) {
       const key = `${pluginId}:${op.access.revision}:${op.ctx.revision}`;
-      if (confirmed.get(key)?.has(required)) { op.guard(); return; }
+      if (deps.confirmations.get(pluginId, required) === op.access.revision) { op.guard(); return; }
       const pendingKey = `${key}:${required}`;
       let request = pending.get(pendingKey);
       if (!request) {
@@ -153,7 +156,7 @@ export function createPluginHostServices(deps: ServiceDependencies) {
       const accepted = await op.wait(request);
       op.guard();
       if (!accepted) throw new PluginError("ERR_REJECTED", "User declined plugin access");
-      const set = confirmed.get(key) ?? new Set<ServicePermission>(); set.add(required); confirmed.set(key, set);
+      deps.confirmations.set(pluginId, required, op.access.revision);
     }
     function register(method: string, required: ServicePermission, action: (params: unknown, op: Operation) => Promise<unknown>, needsConfirmation = false) {
       unregister.push(rpc.handle(method, async (params, { signal }) => {
@@ -260,5 +263,5 @@ export function createPluginHostServices(deps: ServiceDependencies) {
     };
     disposers.add(dispose); return dispose;
   }
-  return { configureRpc, dispose() { disposed = true; for (const dispose of [...disposers]) dispose(); confirmed.clear(); pending.clear(); } };
+  return { configureRpc, dispose() { disposed = true; for (const dispose of [...disposers]) dispose(); pending.clear(); } };
 }
