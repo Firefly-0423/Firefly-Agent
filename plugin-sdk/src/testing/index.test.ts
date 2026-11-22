@@ -25,6 +25,40 @@ const baseManifest: TestHostManifest = {
 };
 
 describe("createTestHost", () => {
+  it("clears listeners from a failed activation so a later activation does not call them", async () => {
+    const stale = vi.fn();
+    const host = createTestHost({ manifest: baseManifest });
+    await expect(host.activate(definePlugin({
+      activate(ctx: PluginContext) {
+        ctx.events.on("run.ended", stale);
+        throw new Error("setup failed");
+      },
+    }))).rejects.toThrow("setup failed");
+    await host.activate(definePlugin({ activate() {} }));
+    host.emitEvent({ type: "run.ended", runId: "r", sessionId: "s", outcome: "completed", at: 1 });
+    expect(stale).not.toHaveBeenCalled();
+  });
+
+  it("does not run a tool whose approval resolves after the plugin was stopped", async () => {
+    let approve!: (decision: "allow") => void;
+    const execute = vi.fn(async () => ({ status: "succeeded" as const, output: "ran" }));
+    const host = createTestHost({
+      manifest: baseManifest, mode: "work", level: "per-action",
+      approvalDecision: () => new Promise((resolve) => { approve = resolve; }),
+    });
+    await host.activate(definePlugin({
+      activate(ctx: PluginContext) {
+        ctx.tools.register({ name: "get_weather", description: "w", parameters: { type: "object", properties: {} }, execute });
+      },
+    }));
+    const pending = host.callTool("get_weather", {});
+    await Promise.resolve();
+    await host.deactivate("disabled");
+    approve("allow");
+    await expect(pending).resolves.toMatchObject({ status: "not_executed" });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it("cancels a running tool call when the host is deactivated", async () => {
     let seen: AbortSignal | undefined;
     const host = createTestHost({ manifest: baseManifest, mode: "work", level: "full" });

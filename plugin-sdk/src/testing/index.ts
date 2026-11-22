@@ -240,6 +240,16 @@ export function createTestHost(options: TestHostOptions): TestHost {
     registeredChannels.clear();
   };
 
+  // Everything one activation owns; secrets and schedules persist across activations.
+  const clearTransient = () => {
+    clearRegistrations();
+    eventListeners.clear();
+    workspaceListeners.clear();
+    scheduleTriggerListeners.clear();
+    uiMessageListeners.clear();
+    openWindows.clear();
+  };
+
   const record = (method: string, params: unknown) => {
     calls.push({ method, params, at: Date.now() });
   };
@@ -673,6 +683,8 @@ export function createTestHost(options: TestHostOptions): TestHost {
       } catch (error) {
         currentStatus = "deactivated";
         contextAbort.abort("fault");
+        // A failed activation leaves nothing behind, same as a stopped plugin process.
+        clearTransient();
         throw error;
       }
     },
@@ -687,12 +699,7 @@ export function createTestHost(options: TestHostOptions): TestHost {
       try {
         await currentPlugin?.deactivate?.(reason);
       } finally {
-        clearRegistrations();
-        eventListeners.clear();
-        workspaceListeners.clear();
-        scheduleTriggerListeners.clear();
-        uiMessageListeners.clear();
-        openWindows.clear();
+        clearTransient();
       }
     },
     async crash() {
@@ -708,12 +715,7 @@ export function createTestHost(options: TestHostOptions): TestHost {
         inflight.onCrash();
       }
       inflightTools.clear();
-      clearRegistrations();
-      eventListeners.clear();
-      workspaceListeners.clear();
-      scheduleTriggerListeners.clear();
-      uiMessageListeners.clear();
-      openWindows.clear();
+      clearTransient();
     },
     async callTool(name: string, args: Record<string, unknown>, opts: CallToolOptions = {}): Promise<ToolResult> {
       if (currentStatus !== "active") {
@@ -734,6 +736,8 @@ export function createTestHost(options: TestHostOptions): TestHost {
         return { status: "not_executed", reason: "ERR_INVALID_ARGUMENT: Tool arguments failed schema validation" };
       }
 
+      // The activation this call belongs to; an approval wait must not carry it into a later one.
+      const lifecycleSignal = contextAbort.signal;
       const verdict = evaluateToolPermission(currentLevel, declared.risk);
       if (verdict === "deny") {
         return { status: "not_executed", reason: `ERR_PERMISSION: Tool "${name}" denied under ${currentLevel} permission level` };
@@ -752,13 +756,15 @@ export function createTestHost(options: TestHostOptions): TestHost {
       if (opts.signal?.aborted) {
         return { status: "not_executed", reason: "ERR_CANCELLED: Tool call was cancelled before execution" };
       }
+      if (lifecycleSignal.aborted || lifecycleSignal !== contextAbort.signal) {
+        return { status: "not_executed", reason: "ERR_CANCELLED: Plugin was stopped before the tool could run" };
+      }
 
       const callId = opts.callId ?? `call-${++callCounter}`;
       const toolAbort = new AbortController();
       const onExternalAbort = () => toolAbort.abort(opts.signal?.reason ?? "cancelled");
       opts.signal?.addEventListener("abort", onExternalAbort, { once: true });
       // Deactivating the plugin cancels its running tool calls, as the real runtime does.
-      const lifecycleSignal = contextAbort.signal;
       const onLifecycleAbort = () => toolAbort.abort(lifecycleSignal.reason ?? "deactivated");
       lifecycleSignal.addEventListener("abort", onLifecycleAbort, { once: true });
 
