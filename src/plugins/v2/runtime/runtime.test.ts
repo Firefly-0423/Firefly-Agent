@@ -555,7 +555,15 @@ describe("plugin child-process runtime", () => {
     writeFileSync(
       pluginFile,
       `globalThis.__ffLoaderEvalCount = (globalThis.__ffLoaderEvalCount ?? 0) + 1;
+await Promise.resolve();
 throw new Error("top-level plugin failure");\n`,
+      "utf8",
+    );
+    const cjsPluginFile = join(dir, "broken.cjs");
+    writeFileSync(
+      cjsPluginFile,
+      `globalThis.__ffLoaderCjsEvalCount = (globalThis.__ffLoaderCjsEvalCount ?? 0) + 1;
+throw new Error("top-level cjs failure");\n`,
       "utf8",
     );
 
@@ -574,15 +582,25 @@ throw new Error("top-level plugin failure");\n`,
 const assert = require("node:assert/strict");
 const { defaultPluginLoader } = require("./src/plugins/v2/runtime/runtime.ts");
 (async () => {
-  let caught;
+  let caughtMjs;
   try {
     await defaultPluginLoader.load(${JSON.stringify(pluginFile)});
   } catch (err) {
-    caught = err;
+    caughtMjs = err;
   }
-  assert.ok(caught instanceof Error);
-  assert.equal(caught.message, "top-level plugin failure");
+  assert.ok(caughtMjs instanceof Error);
+  assert.equal(caughtMjs.message, "top-level plugin failure");
   assert.equal(globalThis.__ffLoaderEvalCount, 1);
+
+  let caughtCjs;
+  try {
+    await defaultPluginLoader.load(${JSON.stringify(cjsPluginFile)});
+  } catch (err) {
+    caughtCjs = err;
+  }
+  assert.ok(caughtCjs instanceof Error);
+  assert.equal(caughtCjs.message, "top-level cjs failure");
+  assert.equal(globalThis.__ffLoaderCjsEvalCount, 1);
   console.log("CJS_LOADER_SINGLE_EVAL_OK");
 })();
 `,
@@ -596,6 +614,21 @@ const { defaultPluginLoader } = require("./src/plugins/v2/runtime/runtime.ts");
     const res = spawnSync(process.execPath, [cjsRunner], { encoding: "utf8", timeout: 10_000, windowsHide: true });
     expect({ status: res.status, stderr: res.stderr }).toMatchObject({ status: 0 });
     expect(res.stdout).toContain("CJS_LOADER_SINGLE_EVAL_OK");
+
+    // Simulate dynamicImport rejecting with a real module error on a valid plugin file:
+    // defaultPluginLoader must rethrow immediately instead of falling back to import().
+    const validPluginFile = join(dir, "valid.mjs");
+    writeFileSync(validPluginFile, "export default { activate() {} };\n", "utf8");
+    const functionSpy = vi
+      .spyOn(globalThis, "Function")
+      .mockImplementationOnce(function () {
+        return () => Promise.reject(new Error("simulated module throw"));
+      } as never);
+    try {
+      await expect(defaultPluginLoader.load(validPluginFile)).rejects.toThrow("simulated module throw");
+    } finally {
+      functionSpy.mockRestore();
+    }
   });
 
   it("sends tools.unregister and context.unregister and removes local handlers when disposed", async () => {
