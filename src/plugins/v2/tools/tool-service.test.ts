@@ -1190,6 +1190,16 @@ describe("G37 Plugin tools: parameter schemas and explicit results", () => {
     expect(await service.executeTool(manifest.id, "get_weather", {}, { mode: "work" })).toEqual({ status: "failed", error: "city not found" });
   });
 
+  it("keeps generated tool ids within 64 characters and unique when the full id would be longer", () => {
+    const long = pluginToolId("com.example.notifications", "send_notification_to_selected_recipient");
+    const sibling = pluginToolId("com.example.notifications", "send_notification_to_selected_recipients");
+    expect(long).toHaveLength(64);
+    expect(sibling).toHaveLength(64);
+    expect(long).toMatch(/^plugin_com_example_notifications__send_notification_to_[0-9a-zA-Z_]*_[0-9a-f]{8}$/);
+    expect(long).not.toBe(sibling);
+    expect(pluginToolId("dev.firefly.weather", "get_weather")).toBe("plugin_dev_firefly_weather__get_weather");
+  });
+
   it("gives tools whose names differ only in characters outside [a-zA-Z0-9_-] distinct registry ids", () => {
     const registry = new ToolRegistry();
     const service = createPluginToolService({ registry });
