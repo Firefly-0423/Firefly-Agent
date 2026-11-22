@@ -217,7 +217,9 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
     | undefined;
 
   const trackRegistration = (promise: Promise<unknown>): void => {
-    const tracked = promise.finally(() => {
+    // Only successful registrations leave the set: a refusal that arrives while activate() is still
+    // awaiting its own setup must stay visible to awaitPendingRegistrations() and fail activation.
+    const tracked = promise.then(() => {
       pendingRegistrations.delete(tracked);
     });
     // Prevent unhandled rejection before H.activate awaits pendingRegistrations.
@@ -521,7 +523,8 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
         const { signal: reqSignal, ...payload } = req;
         const linked = linkSignals(signal, reqSignal);
         try {
-          return await callHost(P.modelGenerate, payload, { signal: linked.signal });
+          // Model calls can legitimately run far past the RPC default; cancellation stays on the signal.
+          return await callHost(P.modelGenerate, payload, { signal: linked.signal, timeoutMs: MAX_STREAM_TIMEOUT_MS });
         } finally {
           linked.cleanup();
         }
@@ -531,7 +534,7 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
         const { signal: reqSignal, ...payload } = req;
         const linked = linkSignals(signal, reqSignal);
         try {
-          for await (const chunk of streamHost(P.modelGenerate, { ...payload, stream: true }, { signal: linked.signal })) {
+          for await (const chunk of streamHost(P.modelGenerate, { ...payload, stream: true }, { signal: linked.signal, timeoutMs: MAX_STREAM_TIMEOUT_MS })) {
             yield chunk;
           }
         } finally {

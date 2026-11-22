@@ -795,6 +795,77 @@ const { defaultPluginLoader } = require("./src/plugins/v2/runtime/runtime.ts");
       hostRpc.dispose();
     }
   });
+
+  it("fails activation when the host refuses a registration while activate() is still awaiting its own setup", async () => {
+    const { hostTransport, pluginTransport } = createMemoryRpcPair();
+    const hostRpc = createRpcEndpoint(hostTransport);
+    hostRpc.handle(P.toolsRegister, () => {
+      throw new PluginError("ERR_UNDECLARED", "Tool is not declared");
+    });
+    const runtime = attachPluginRuntime(pluginTransport, {
+      loader: {
+        async load() {
+          return {
+            async activate(ctx) {
+              ctx.tools.register({
+                name: "late_refused",
+                description: "refused by the host before setup finishes",
+                parameters: { type: "object", properties: {} },
+                execute: async () => ({ status: "succeeded", output: "never" }),
+              });
+              // The refusal lands during this wait, before activate() returns.
+              await new Promise((resolve) => setTimeout(resolve, 20));
+            },
+          };
+        },
+      },
+    });
+    try {
+      await expect(
+        hostRpc.call(H.activate, { id: "dev.firefly.late", dataDir: "/tmp/d", main: "/tmp/late.mjs" }),
+      ).rejects.toMatchObject({ code: "ERR_UNDECLARED" });
+    } finally {
+      runtime.dispose();
+      hostRpc.dispose();
+    }
+  });
+
+  it("lets model.generate and generateStream run past the 10 s RPC default", async () => {
+    const { hostTransport, pluginTransport } = createMemoryRpcPair();
+    const hostRpc = createRpcEndpoint(hostTransport);
+    const slow = () => new Promise((resolve) => setTimeout(resolve, 10_500));
+    hostRpc.handle(P.modelGenerate, async (params) => {
+      if ((params as { stream?: boolean }).stream) {
+        return (async function* () {
+          await slow();
+          yield { delta: "late" };
+        })();
+      }
+      await slow();
+      return { text: "late answer" };
+    });
+    let ctx!: PluginContext;
+    const runtime = attachPluginRuntime(pluginTransport, {
+      loader: { async load() { return { activate(c) { ctx = c as unknown as PluginContext; } }; } },
+    });
+    try {
+      await hostRpc.call(H.activate, { id: "dev.firefly.slow", dataDir: "/tmp/d", main: "/tmp/slow.mjs", permissions: ["model.generate"] });
+      vi.useFakeTimers();
+      const generated = ctx.model.generate({ prompt: "hi" });
+      const streamed = (async () => {
+        const chunks: unknown[] = [];
+        for await (const chunk of ctx.model.generateStream({ prompt: "hi" })) chunks.push(chunk);
+        return chunks;
+      })();
+      await vi.advanceTimersByTimeAsync(10_500);
+      await expect(generated).resolves.toEqual({ text: "late answer" });
+      await expect(streamed).resolves.toEqual([{ delta: "late" }]);
+    } finally {
+      vi.useRealTimers();
+      runtime.dispose();
+      hostRpc.dispose();
+    }
+  });
 });
 
 const require = createRequire(import.meta.url);
