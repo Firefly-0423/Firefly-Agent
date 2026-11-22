@@ -214,7 +214,7 @@ export function createTestHost(options: TestHostOptions): TestHost {
   let contextAbort = new AbortController();
   let callCounter = 0;
   let taskCounter = 0;
-  let modelCallCount = 0;
+  const modelCallTimes: number[] = [];
 
   const calls: RecordedHostCall[] = [];
   const registeredTools = new Map<string, { def: ToolDefinition<Record<string, unknown>>; validate: ReturnType<typeof ajv.compile> }>();
@@ -262,10 +262,13 @@ export function createTestHost(options: TestHostOptions): TestHost {
 
   const checkModelRateLimit = () => {
     if (options.rateLimitPerMinute === undefined) return;
-    modelCallCount += 1;
-    if (modelCallCount > options.rateLimitPerMinute) {
+    // Sliding one-minute window, like the host: quota comes back as old calls age out.
+    const now = Date.now();
+    while (modelCallTimes.length > 0 && now - modelCallTimes[0] >= 60_000) modelCallTimes.shift();
+    if (modelCallTimes.length >= options.rateLimitPerMinute) {
       throw new PluginError("ERR_RATE_LIMITED", "Plugin model call rate limit exceeded", true);
     }
+    modelCallTimes.push(now);
   };
 
   const toolsApi: Tools = {
@@ -754,6 +757,10 @@ export function createTestHost(options: TestHostOptions): TestHost {
       const toolAbort = new AbortController();
       const onExternalAbort = () => toolAbort.abort(opts.signal?.reason ?? "cancelled");
       opts.signal?.addEventListener("abort", onExternalAbort, { once: true });
+      // Deactivating the plugin cancels its running tool calls, as the real runtime does.
+      const lifecycleSignal = contextAbort.signal;
+      const onLifecycleAbort = () => toolAbort.abort(lifecycleSignal.reason ?? "deactivated");
+      lifecycleSignal.addEventListener("abort", onLifecycleAbort, { once: true });
 
       const call: ToolCall = {
         callId,
@@ -771,6 +778,7 @@ export function createTestHost(options: TestHostOptions): TestHost {
         const cleanup = () => {
           inflightTools.delete(callId);
           opts.signal?.removeEventListener("abort", onExternalAbort);
+          lifecycleSignal.removeEventListener("abort", onLifecycleAbort);
         };
         inflightTools.set(callId, {
           controller: toolAbort,
