@@ -1215,6 +1215,26 @@ describe("G37 Plugin tools: parameter schemas and explicit results", () => {
       .toEqual({ type: "object", enum: [literal], default: literal, const: literal });
   });
 
+  it("inlines $ref in parameters named like literal keywords (default, enum, const, examples)", () => {
+    const registry = new ToolRegistry();
+    const service = createPluginToolService({ registry });
+    const manifest = makeManifest();
+    service.registerTool({
+      manifest,
+      registration: {
+        name: "get_weather", description: "w",
+        parameters: {
+          type: "object",
+          properties: { default: { $ref: "#/$defs/Item" }, enum: { $ref: "#/$defs/Item" } },
+          $defs: { Item: { type: "string" } },
+        },
+      },
+      host: { call: vi.fn() },
+    });
+    expect(registry.getById(pluginToolId(manifest.id, "get_weather"))!.inputSchema.properties)
+      .toEqual({ default: { type: "string" }, enum: { type: "string" } });
+  });
+
   it("keeps generated tool ids within 64 characters and unique when the full id would be longer", () => {
     const long = pluginToolId("com.example.notifications", "send_notification_to_selected_recipient");
     const sibling = pluginToolId("com.example.notifications", "send_notification_to_selected_recipients");
