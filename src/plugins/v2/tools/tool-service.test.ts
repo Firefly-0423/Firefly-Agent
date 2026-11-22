@@ -1197,6 +1197,24 @@ describe("G37 Plugin tools: parameter schemas and explicit results", () => {
     expect(await service.executeTool(manifest.id, "get_weather", {}, { mode: "work" })).toEqual({ status: "failed", error: "city not found" });
   });
 
+  it("keeps $ref-shaped literals in enum, const and default unchanged when inlining", () => {
+    const registry = new ToolRegistry();
+    const service = createPluginToolService({ registry });
+    const host: PluginToolExecuteHost = { call: vi.fn() };
+    const manifest = makeManifest();
+    const literal = { $ref: "#/$defs/Missing" };
+    service.registerTool({
+      manifest,
+      registration: {
+        name: "get_weather", description: "w",
+        parameters: { type: "object", properties: { pick: { type: "object", enum: [literal], default: literal, const: literal } } },
+      },
+      host,
+    });
+    expect(registry.getById(pluginToolId(manifest.id, "get_weather"))!.inputSchema.properties.pick)
+      .toEqual({ type: "object", enum: [literal], default: literal, const: literal });
+  });
+
   it("keeps generated tool ids within 64 characters and unique when the full id would be longer", () => {
     const long = pluginToolId("com.example.notifications", "send_notification_to_selected_recipient");
     const sibling = pluginToolId("com.example.notifications", "send_notification_to_selected_recipients");
