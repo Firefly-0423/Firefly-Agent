@@ -25,6 +25,40 @@ const baseManifest: TestHostManifest = {
 };
 
 describe("createTestHost", () => {
+  it("keeps an approved task unchanged until its update is approved", async () => {
+    let ctx!: PluginContext;
+    const host = createTestHost({ manifest: baseManifest });
+    await host.activate(definePlugin({ activate(c: PluginContext) { ctx = c; } }));
+    const { taskId } = await ctx.schedules.propose({
+      title: "Morning", schedule: { kind: "cron", expression: "0 8 * * *" }, action: { type: "callback" },
+    });
+    host.approveSchedule(taskId);
+    await expect(ctx.schedules.update(taskId, { title: "Evening" })).resolves.toEqual({ status: "pending_approval" });
+    expect((await ctx.schedules.list()).map((task) => [task.title, task.status])).toEqual([["Morning", "active"]]);
+    host.approveSchedule(taskId);
+    expect((await ctx.schedules.list()).map((task) => [task.title, task.status])).toEqual([["Evening", "active"]]);
+  });
+
+  it("stops a started channel when its registration is disposed", async () => {
+    let started: AbortSignal | undefined;
+    const stop = vi.fn(async () => {});
+    let registration!: { dispose(): void };
+    const host = createTestHost({ manifest: baseManifest });
+    await host.activate(definePlugin({
+      activate(ctx: PluginContext) {
+        registration = ctx.channels.register({
+          id: "chat_bridge", start: async (_h, signal) => { started = signal; }, stop,
+          send: async () => ({ externalMessageId: "x" }),
+        });
+      },
+    }));
+    await host.startChannel("chat_bridge");
+    registration.dispose();
+    await Promise.resolve(); await Promise.resolve();
+    expect(started?.aborted).toBe(true);
+    expect(stop).toHaveBeenCalledTimes(1);
+  });
+
   it("aborts schedule triggers and channel sends on deactivate, and the previous start when a channel restarts", async () => {
     const signals: Record<string, AbortSignal[]> = { trigger: [], send: [], start: [] };
     const waitForAbort = (signal: AbortSignal) => new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));

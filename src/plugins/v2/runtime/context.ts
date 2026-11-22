@@ -511,6 +511,14 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
         return {
           dispose() {
             if (registeredChannels.get(adapter.id) === adapter) {
+              // A started channel is stopped before its registration goes away; otherwise its
+              // start() signal would never abort and channel.stop could no longer find it.
+              const running = channelAbortControllers.get(adapter.id);
+              if (running) {
+                running.abort("disposed");
+                channelAbortControllers.delete(adapter.id);
+                void Promise.resolve().then(() => adapter.stop()).catch(() => {});
+              }
               registeredChannels.delete(adapter.id);
             }
           },

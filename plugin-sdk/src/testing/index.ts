@@ -231,6 +231,8 @@ export function createTestHost(options: TestHostOptions): TestHost {
   const uiMessageListeners = new Set<(e: UiMessageEvent) => Promise<unknown>>();
   const secrets = new Map<string, string>(Object.entries(options.secrets ?? {}));
   const schedules = new Map<string, TaskRecord>();
+  // Like the real schedule service: an update to an approved task waits as a separate proposal.
+  const pendingScheduleUpdates = new Map<string, Partial<Pick<TaskRecord, "title" | "schedule" | "action">>>();
   const inflightTools = new Map<string, { controller: AbortController; onCrash: () => void }>();
 
   // Registrations belong to one activation; secrets and schedules are persistent and stay.
@@ -341,6 +343,12 @@ export function createTestHost(options: TestHostOptions): TestHost {
       return {
         dispose() {
           if (registeredChannels.get(adapter.id) === adapter) {
+            const running = channelControllers.get(adapter.id);
+            if (running) {
+              running.abort("disposed");
+              channelControllers.delete(adapter.id);
+              void Promise.resolve().then(() => adapter.stop()).catch(() => {});
+            }
             registeredChannels.delete(adapter.id);
           }
         },
@@ -546,19 +554,23 @@ export function createTestHost(options: TestHostOptions): TestHost {
       if (!existing) {
         throw new PluginError("ERR_INVALID_ARGUMENT", `Schedule task not found: ${taskId}`);
       }
-      schedules.set(taskId, {
-        ...existing,
+      const changes = {
         ...(patch.title !== undefined ? { title: patch.title } : {}),
         ...(patch.schedule !== undefined ? { schedule: patch.schedule } : {}),
         ...(patch.action !== undefined ? { action: patch.action } : {}),
-        status: "pending_approval",
-        updatedAt: new Date().toISOString(),
-      });
+      };
+      if (existing.status === "pending_approval" && !pendingScheduleUpdates.has(taskId)) {
+        // Not approved yet: the proposal itself is revised.
+        schedules.set(taskId, { ...existing, ...changes, updatedAt: new Date().toISOString() });
+      } else {
+        pendingScheduleUpdates.set(taskId, { ...pendingScheduleUpdates.get(taskId), ...changes });
+      }
       return { status: "pending_approval" as const };
     },
     async remove(taskId) {
       record("schedules.remove", { taskId });
       requirePermission("schedules");
+      pendingScheduleUpdates.delete(taskId);
       return schedules.delete(taskId);
     },
     async list() {
@@ -914,8 +926,11 @@ export function createTestHost(options: TestHostOptions): TestHost {
     approveSchedule(taskId: string): boolean {
       const existing = schedules.get(taskId);
       if (!existing) return false;
+      const update = pendingScheduleUpdates.get(taskId);
+      pendingScheduleUpdates.delete(taskId);
       schedules.set(taskId, {
         ...existing,
+        ...update,
         status: "active",
         updatedAt: new Date().toISOString(),
       });
