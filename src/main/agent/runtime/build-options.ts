@@ -435,7 +435,9 @@ export async function buildAgentRunOptions(input: AguiRunInput, deps: BuildOptio
         assistantTurnId: input.assistantTurnId, retrievedAtoms: atoms, now: Date.now() } } : {}),
       ...(recovery ? { recoveryContext: recovery } : {}), ...(captionFallback ? { imageCaptionFallback: captionFallback } : {}),
       tools: [...tools], capabilities: { ...capabilities, tools, toolIds: new Set(tools.map((definition) => definition.id)) },
-      ...(deps.collectTurnPluginContext ? {
+      // Chat already folded plugin context into the runtime context above; collecting again in the loop
+      // would send two copies and leave a stale one in history after an insertion.
+      ...(deps.collectTurnPluginContext && mode !== "chat" ? {
         collectTurnPluginContext: ({ signal }) => deps.collectTurnPluginContext!({ source: contextSourceKind, mode, sessionId: conversation, signal }),
       } : {}),
       ...(routes.length > 0 ? { availableSkills: routes } : {}), resolvedWorkspaceRoot: workspace,

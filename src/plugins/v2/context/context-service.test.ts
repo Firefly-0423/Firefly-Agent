@@ -533,6 +533,8 @@ describe("G37-2 Per-turn plugin context & untrusted boundary", () => {
     );
     expect(chatBuilt.options.soulRuntimeContext).toContain('<external-data source="plugin:dev.firefly.demo">');
     expect(chatBuilt.options.soulRuntimeContext).toContain("chat:user");
+    // Chat collected once at build time; the loop must not collect a second copy.
+    expect(chatBuilt.options.collectTurnPluginContext).toBeUndefined();
 
     collectTurnPluginContext.mockClear();
     const workBuilt = await buildAgentRunOptions(
