@@ -866,6 +866,34 @@ const { defaultPluginLoader } = require("./src/plugins/v2/runtime/runtime.ts");
       hostRpc.dispose();
     }
   });
+
+  it("stops a started channel when its registration is disposed", async () => {
+    const { hostTransport, pluginTransport } = createMemoryRpcPair();
+    const hostRpc = createRpcEndpoint(hostTransport);
+    hostRpc.handle(P.channelsRegister, () => null);
+    let started: AbortSignal | undefined;
+    const stop = vi.fn(async () => {});
+    let registration!: { dispose(): void };
+    const runtime = attachPluginRuntime(pluginTransport, {
+      loader: { async load() { return { activate(ctx) {
+        registration = (ctx as unknown as PluginContext).channels.register({
+          id: "bridge", start: async (_h, signal) => { started = signal; }, stop,
+          send: async () => ({ externalMessageId: "x" }),
+        });
+      } }; } },
+    });
+    try {
+      await hostRpc.call(H.activate, { id: "dev.firefly.ch", dataDir: "/tmp/d", main: "/tmp/ch.mjs" });
+      await hostRpc.call(H.channelStart, { id: "bridge" });
+      registration.dispose();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(started?.aborted).toBe(true);
+      expect(stop).toHaveBeenCalledTimes(1);
+    } finally {
+      runtime.dispose();
+      hostRpc.dispose();
+    }
+  });
 });
 
 const require = createRequire(import.meta.url);
