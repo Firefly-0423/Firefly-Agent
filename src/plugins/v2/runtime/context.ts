@@ -293,6 +293,23 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
   const unhandles: Array<() => void> = [];
 
   unhandles.push(
+    // The host asks before showing an approval card; a missing or failing describeApproval falls back to null.
+    rpc.handle(H.toolDescribeApproval, async (params) => {
+      if (!isPlainRecord(params) || typeof params.name !== "string") {
+        throw new PluginError("ERR_INVALID_ARGUMENT", "Invalid tool.describeApproval payload");
+      }
+      const tool = registeredTools.get(params.name);
+      if (!tool) throw new PluginError("ERR_UNDECLARED", `Tool "${params.name}" is not registered`);
+      if (!tool.describeApproval) return null;
+      const described = tool.describeApproval(isPlainRecord(params.args) ? params.args : {});
+      if (!isPlainRecord(described) || typeof described.summary !== "string") return null;
+      return typeof described.target === "string"
+        ? { summary: described.summary, target: described.target }
+        : { summary: described.summary };
+    }),
+  );
+
+  unhandles.push(
     rpc.handle(H.toolExecute, async (params, { signal: callSignal }) => {
       if (!isPlainRecord(params) || typeof params.name !== "string") {
         throw new PluginError("ERR_INVALID_ARGUMENT", "Invalid tool.execute payload");

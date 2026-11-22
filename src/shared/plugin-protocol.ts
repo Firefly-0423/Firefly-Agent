@@ -41,7 +41,7 @@ export class PluginError extends Error {
   }
 }
 export const HOST_TO_PLUGIN_METHODS = {
-  activate: 'activate', deactivate: 'deactivate', toolExecute: 'tool.execute', contextProvide: 'context.provide',
+  activate: 'activate', deactivate: 'deactivate', toolExecute: 'tool.execute', toolDescribeApproval: 'tool.describeApproval', contextProvide: 'context.provide',
   channelStart: 'channel.start', channelStop: 'channel.stop', channelSend: 'channel.send',
   uiMessage: 'ui.message'
 } as const
@@ -210,6 +210,7 @@ export interface HostToPluginParams {
   'activate': { id: string; dataDir: string; main: string; version: string; permissions: string[] }
   'deactivate': ProtocolDeactivateReason | { reason: ProtocolDeactivateReason }
   'tool.execute': { name: string; args: Record<string, unknown>; callId: string; sessionId: string; mode: 'work' | 'code'; caller: ProtocolToolCaller }
+  'tool.describeApproval': { name: string; args: Record<string, unknown> }
   'context.provide': { id: string; sessionId: string; mode: ProtocolMode; source: ProtocolRunSource }
   'channel.start': { id: string }
   'channel.stop': { id: string }
@@ -221,6 +222,8 @@ export interface HostToPluginResults {
   'activate': void
   'deactivate': void
   'tool.execute': ProtocolToolResult
+  /** null when the tool has no describeApproval(); the host then uses its own wording. */
+  'tool.describeApproval': { summary: string; target?: string } | null
   'context.provide': { heading: string; content: string } | null
   'channel.start': void
   'channel.stop': void

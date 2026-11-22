@@ -929,6 +929,54 @@ const { defaultPluginLoader } = require("./src/plugins/v2/runtime/runtime.ts");
       hostRpc.dispose();
     }
   });
+
+  it("does not run activate() when deactivate arrives while the module is still loading", async () => {
+    const { hostTransport, pluginTransport } = createMemoryRpcPair();
+    const hostRpc = createRpcEndpoint(hostTransport);
+    let release!: () => void;
+    const activate = vi.fn();
+    const runtime = attachPluginRuntime(pluginTransport, {
+      loader: { load: () => new Promise((resolve) => { release = () => resolve({ activate }); }) },
+    });
+    try {
+      const activation = hostRpc.call(H.activate, { id: "dev.firefly.slow", dataDir: "/tmp/d", main: "/tmp/s.mjs" }).catch((error) => error);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await hostRpc.call(H.deactivate, "disabled");
+      release();
+      expect(await activation).toMatchObject({ code: "ERR_CANCELLED" });
+      expect(activate).not.toHaveBeenCalled();
+    } finally {
+      runtime.dispose();
+      hostRpc.dispose();
+    }
+  });
+
+  it("answers tool.describeApproval from the registered tool, and null without one", async () => {
+    const { hostTransport, pluginTransport } = createMemoryRpcPair();
+    const hostRpc = createRpcEndpoint(hostTransport);
+    hostRpc.handle(P.toolsRegister, () => null);
+    const runtime = attachPluginRuntime(pluginTransport, {
+      loader: { async load() { return { activate(ctx) {
+        const tools = (ctx as unknown as PluginContext).tools;
+        tools.register<{ path: string }>({
+          name: "write", description: "w", parameters: { type: "object", properties: {} },
+          describeApproval: (args) => ({ summary: "Write a file", target: args.path }),
+          execute: async () => ({ status: "succeeded", output: "" }),
+        });
+        tools.register({ name: "plain", description: "p", parameters: { type: "object", properties: {} }, execute: async () => ({ status: "succeeded", output: "" }) });
+      } }; } },
+    });
+    try {
+      await hostRpc.call(H.activate, { id: "dev.firefly.a", dataDir: "/tmp/d", main: "/tmp/a.mjs" });
+      await expect(hostRpc.call(H.toolDescribeApproval, { name: "write", args: { path: "notes.md" } }))
+        .resolves.toEqual({ summary: "Write a file", target: "notes.md" });
+      await expect(hostRpc.call(H.toolDescribeApproval, { name: "plain", args: {} })).resolves.toBeNull();
+      await expect(hostRpc.call(H.toolDescribeApproval, { name: "missing", args: {} })).rejects.toMatchObject({ code: "ERR_UNDECLARED" });
+    } finally {
+      runtime.dispose();
+      hostRpc.dispose();
+    }
+  });
 });
 
 const require = createRequire(import.meta.url);
