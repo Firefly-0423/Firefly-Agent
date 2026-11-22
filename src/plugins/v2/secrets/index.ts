@@ -3,7 +3,6 @@ export {
   PluginError,
   isPluginError,
   type PluginErrorCode,
-  type PluginErrorOptions,
 } from "./errors";
 export {
   PLUGIN_ID_MAX_LENGTH,
