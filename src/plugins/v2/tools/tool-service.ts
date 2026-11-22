@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import Ajv, { type ValidateFunction } from "ajv";
 import {
   PLUGIN_TOOL_MODES,
@@ -55,7 +56,10 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
 export function pluginToolId(pluginId: string, toolName: string): string {
   const safePlugin = pluginId.replace(/\./g, "_").replace(/[^a-zA-Z0-9_-]/g, "_");
   const safeTool = toolName.replace(/[^a-zA-Z0-9_-]/g, "_");
-  return `plugin_${safePlugin}__${safeTool}`;
+  // Replacing characters is lossy ("read.file" and "read_file" would collide), so a rewritten name
+  // carries a short digest of the original to stay unique.
+  const suffix = safeTool === toolName ? "" : `_${createHash("sha256").update(toolName).digest("hex").slice(0, 8)}`;
+  return `plugin_${safePlugin}__${safeTool}${suffix}`;
 }
 
 function strictestDeclaredRisk(risks: readonly PluginToolRisk[]): PluginToolRisk {

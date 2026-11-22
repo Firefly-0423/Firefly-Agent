@@ -1190,6 +1190,23 @@ describe("G37 Plugin tools: parameter schemas and explicit results", () => {
     expect(await service.executeTool(manifest.id, "get_weather", {}, { mode: "work" })).toEqual({ status: "failed", error: "city not found" });
   });
 
+  it("gives tools whose names differ only in characters outside [a-zA-Z0-9_-] distinct registry ids", () => {
+    const registry = new ToolRegistry();
+    const service = createPluginToolService({ registry });
+    const host: PluginToolExecuteHost = { call: vi.fn() };
+    const manifest = makeManifest({ tools: [
+      { name: "read_file", title: "A", risk: ["fs-read"], modes: ["work"] },
+      { name: "read.file", title: "B", risk: ["fs-read"], modes: ["work"] },
+    ] });
+    for (const name of ["read_file", "read.file"]) {
+      service.registerTool({ manifest, registration: { name, description: name, parameters: { type: "object", properties: {} } }, host });
+    }
+    const ids = [pluginToolId(manifest.id, "read_file"), pluginToolId(manifest.id, "read.file")];
+    expect(ids[0]).toBe("plugin_dev_firefly_weather__read_file");
+    expect(ids[1]).toMatch(/^plugin_dev_firefly_weather__read_file_[0-9a-f]{8}$/);
+    expect(ids.map(id => registry.getById(id)?.description)).toEqual(["read_file", "read.file"]);
+  });
+
   it("keeps a succeeded plugin result succeeded even when its output looks like a legacy failure payload", async () => {
     const registry = new ToolRegistry();
     const service = createPluginToolService({ registry });
