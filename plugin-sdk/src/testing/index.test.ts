@@ -25,6 +25,45 @@ const baseManifest: TestHostManifest = {
 };
 
 describe("createTestHost", () => {
+  it("aborts the signal a model stand-in receives when the host is deactivated", async () => {
+    let received: AbortSignal | undefined;
+    let ctx!: PluginContext;
+    const host = createTestHost({
+      manifest: baseManifest,
+      model: {
+        generate: (req) => new Promise((resolve) => {
+          received = req.signal;
+          req.signal?.addEventListener("abort", () => resolve({ text: "stopped" }), { once: true });
+        }),
+      },
+    });
+    await host.activate(definePlugin({ activate(c: PluginContext) { ctx = c; } }));
+    const pending = ctx.model.generate({ prompt: "hi" });
+    await Promise.resolve();
+    expect(received?.aborted).toBe(false);
+    await host.deactivate("disabled");
+    expect(received?.aborted).toBe(true);
+    await expect(pending).resolves.toEqual({ text: "stopped" });
+  });
+
+  it("aborts a channel started during an activation that then fails", async () => {
+    let channelSignal: AbortSignal | undefined;
+    const host = createTestHost({ manifest: baseManifest });
+    await expect(host.activate(definePlugin({
+      async activate(ctx: PluginContext) {
+        ctx.channels.register({
+          id: "chat_bridge",
+          start: async (_host, signal) => { channelSignal = signal; },
+          stop: async () => {},
+          send: async () => ({ externalMessageId: "x" }),
+        });
+        await host.startChannel("chat_bridge");
+        throw new Error("setup failed");
+      },
+    }))).rejects.toThrow("setup failed");
+    expect(channelSignal?.aborted).toBe(true);
+  });
+
   it("clears listeners from a failed activation so a later activation does not call them", async () => {
     const stale = vi.fn();
     const host = createTestHost({ manifest: baseManifest });
