@@ -40,6 +40,7 @@ export type AgentLoopRun = {
   toolOutputs: ToolOutputRef[];
   /** Receipts of inserted queue messages already in `messages`; saved with every checkpoint. */
   insertions: RunInsertionReceipt[];
+  pluginContext?: { loaded: boolean; value?: string };
   messages: ChatMessage[];
   allToolSpecs: ToolSpec[];
   streamController: StreamController;
@@ -142,9 +143,10 @@ async function runAgentLoopRounds(run: AgentLoopRun): Promise<AgentLoopResult> {
     if (firstPoll) {
       const inserted = await acceptAdjustments(run, firstPoll);
       if (typeof inserted !== "number") return inserted;
+      if (inserted > 0 && run.pluginContext) run.pluginContext.loaded = false;
     }
     const layers = host.collectTurnPluginContext
-      ? await buildRoundPromptLayersWithPluginContext(host, run.rounds)
+      ? await buildRoundPromptLayersWithPluginContext(run)
       : buildRoundPromptLayers(host);
     const round = `round-${run.rounds}`;
     host.onEvent?.({ type: "round_start", roundId: round });
@@ -197,7 +199,10 @@ async function runAgentLoopRounds(run: AgentLoopRun): Promise<AgentLoopResult> {
       run.rounds++;
     });
     if (typeof lateInsertions !== "number") return lateInsertions;
-    if (lateInsertions > 0) continue;
+    if (lateInsertions > 0) {
+      if (run.pluginContext) run.pluginContext.loaded = false;
+      continue;
+    }
     const reply = run.streamController.commitProgressBuffer() + suffix;
     host.onEvent?.({ type: "round_end", roundId: round });
     host.onEvent?.({ type: "final_answer", content: reply });
@@ -248,14 +253,18 @@ function buildRoundPromptLayers(input: AgentLoopInput, turnPluginContext?: strin
     ...(turnPluginContext?.trim() ? { runtimeContext: turnPluginContext.trim() } : {}),
   };
 }
-async function buildRoundPromptLayersWithPluginContext(input: AgentLoopInput, round: number): Promise<PromptLayers> {
-  let turnPluginContext: string | undefined;
-  try {
-    turnPluginContext = await input.collectTurnPluginContext!({ round, signal: input.signal });
-  } catch (cause) {
-    logger.warn(LogTag.Plugins, "per-turn plugin context collection failed, skipped:", cause);
+async function buildRoundPromptLayersWithPluginContext(run: AgentLoopRun): Promise<PromptLayers> {
+  const host = run.input;
+  if (!run.pluginContext?.loaded) {
+    let turnPluginContext: string | undefined;
+    try {
+      turnPluginContext = await host.collectTurnPluginContext!({ round: run.rounds, signal: host.signal });
+    } catch (cause) {
+      logger.warn(LogTag.Plugins, "run plugin context collection failed, skipped:", cause);
+    }
+    run.pluginContext = { loaded: true, value: turnPluginContext };
   }
-  return buildRoundPromptLayers(input, turnPluginContext);
+  return buildRoundPromptLayers(host, run.pluginContext.value);
 }
 function compactIfNeeded(run: AgentLoopRun, promptLayers: PromptLayers): Promise<void> | undefined {
   if (run.input.memoryRun) return undefined;

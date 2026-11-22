@@ -358,9 +358,9 @@ describe("G37-2 Per-turn plugin context & untrusted boundary", () => {
     expect(runtimeMsg).toContain("正在播放：星茶会");
   });
 
-  it("queries plugin context before EVERY turn sent to the model in runAgentLoop", async () => {
+  it("queries plugin context once per run across 3 model turns, and refreshes when a queued user message is inserted", async () => {
     const service = createPluginContextService();
-    let turnNumber = 0;
+    let provideCount = 0;
     service.registerProvider(
       makeManifest("dev.firefly.turn", "轮次上下文", "turn_ctx", ["work"], ["user"]),
       { id: "turn_ctx", modes: ["work"], sources: ["user"] },
@@ -371,8 +371,8 @@ describe("G37-2 Per-turn plugin context & untrusted boundary", () => {
             id: "turn_ctx",
             turn: { sessionId: "loop-s1", mode: "work", source: "user" },
           });
-          turnNumber += 1;
-          return { heading: "Turn", content: `turn-${turnNumber}-data` };
+          provideCount += 1;
+          return { heading: "RunCtx", content: `pull-${provideCount}-data` };
         },
       },
     );
@@ -380,24 +380,25 @@ describe("G37-2 Per-turn plugin context & untrusted boundary", () => {
     const capturedTurns: Array<Array<{ role: string; content: unknown }>> = [];
     sdkMock.stream.mockImplementation(async ({ request }: { request: { messages: Array<{ role: string; content: unknown }> } }) => {
       capturedTurns.push(request.messages);
-      const isFirst = capturedTurns.length === 1;
-      return isFirst
-        ? {
-            text: "",
-            assistantMessage: {
-              role: "assistant",
-              content: "",
-              toolCalls: [{ id: "tc-1", name: "echo_tool", arguments: "{}" }],
-            },
-            toolCalls: [{ id: "tc-1", name: "echo_tool", arguments: "{}" }],
-            finishReason: "tool_calls",
-          }
-        : {
-            text: "All done",
-            assistantMessage: { role: "assistant", content: "All done" },
-            toolCalls: [],
-            finishReason: "stop",
-          };
+      const turn = capturedTurns.length;
+      if (turn === 1 || turn === 2) {
+        return {
+          text: "",
+          assistantMessage: {
+            role: "assistant",
+            content: "",
+            toolCalls: [{ id: `tc-${turn}`, name: "echo_tool", arguments: "{}" }],
+          },
+          toolCalls: [{ id: `tc-${turn}`, name: "echo_tool", arguments: "{}" }],
+          finishReason: "tool_calls",
+        };
+      }
+      return {
+        text: "All done",
+        assistantMessage: { role: "assistant", content: "All done" },
+        toolCalls: [],
+        finishReason: "stop",
+      };
     });
 
     const layers = buildAgentLoopPromptLayers({
@@ -413,7 +414,7 @@ describe("G37-2 Per-turn plugin context & untrusted boundary", () => {
         const res = await service.collectContext({ sessionId: "loop-s1", mode: "work", source: "user", signal });
         return res.promptText;
       },
-      messages: [{ role: "user", content: "Run two turns" }],
+      messages: [{ role: "user", content: "Run three turns" }],
       tools: [
         {
           id: "echo_tool",
@@ -435,13 +436,70 @@ describe("G37-2 Per-turn plugin context & untrusted boundary", () => {
     });
 
     expect(result.finalAnswer).toBe("All done");
-    expect(capturedTurns).toHaveLength(2);
-    expect(JSON.stringify(capturedTurns[0])).toContain("turn-1-data");
-    expect(JSON.stringify(capturedTurns[0])).not.toContain("turn-2-data");
-    expect(JSON.stringify(capturedTurns[1])).toContain("turn-2-data");
-    expect(JSON.stringify(capturedTurns[1])).not.toContain("turn-1-data");
-    // System prompt carries the untrusted external-data policy on every turn.
+    expect(capturedTurns).toHaveLength(3);
+    expect(provideCount).toBe(1);
+    for (const messages of capturedTurns) {
+      expect(JSON.stringify(messages)).toContain("pull-1-data");
+      expect(JSON.stringify(messages)).not.toContain("pull-2-data");
+    }
     expect(String(capturedTurns[0][0].content)).toContain("<external-data");
+
+    // When a queued user message is inserted mid-run, plugin context is pulled again.
+    provideCount = 0;
+    const queuedTurns: Array<Array<{ role: string; content: unknown }>> = [];
+    let pollStep = 0;
+    sdkMock.stream.mockImplementation(async ({ request }: { request: { messages: Array<{ role: string; content: unknown }> } }) => {
+      queuedTurns.push(request.messages);
+      if (queuedTurns.length === 1) {
+        return {
+          text: "First answer",
+          assistantMessage: { role: "assistant", content: "First answer" },
+          toolCalls: [],
+          finishReason: "stop",
+        };
+      }
+      return {
+        text: "Updated answer",
+        assistantMessage: { role: "assistant", content: "Updated answer" },
+        toolCalls: [],
+        finishReason: "stop",
+      };
+    });
+
+    const queuedResult = await runAgentLoop({
+      systemPrompt: layers.stablePrefix,
+      promptLayers: { stablePrefix: layers.stablePrefix, mode: "work" },
+      collectTurnPluginContext: async ({ signal }) => {
+        const res = await service.collectContext({ sessionId: "loop-s1", mode: "work", source: "user", signal });
+        return res.promptText;
+      },
+      pollRunAdjustments: async () => {
+        pollStep += 1;
+        // pollRunAdjustments is called once before Turn 1 and once after Turn 1 completes (lateInsertions).
+        if (pollStep === 2) {
+          return {
+            delivered: [{ id: "adj-1", revision: 1, rawContent: "Also check the latest track" }],
+          };
+        }
+        return { delivered: [] };
+      },
+      messages: [{ role: "user", content: "Initial message" }],
+      tools: [],
+      vendorConfig: {
+        provider: "OpenAI",
+        baseUrl: "https://example.invalid/v1",
+        model: "gpt-test",
+        apiKey: "test-key",
+        explicitTransport: "openai",
+      },
+      config: { maxRounds: 5 },
+    });
+
+    expect(queuedResult.finalAnswer).toBe("Updated answer");
+    expect(queuedTurns).toHaveLength(2);
+    expect(provideCount).toBe(2);
+    expect(JSON.stringify(queuedTurns[0])).toContain("pull-1-data");
+    expect(JSON.stringify(queuedTurns[1])).toContain("pull-2-data");
   });
 
   it("wires collectTurnPluginContext through buildAgentRunOptions for chat and work modes", async () => {
