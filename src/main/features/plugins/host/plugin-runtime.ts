@@ -123,7 +123,7 @@ export async function startPluginRuntime(deps: PluginRuntimeDeps): Promise<Plugi
   const marketplace = createPluginMarketplaceService({
     registryUrls: MARKET_REGISTRY_URLS, bundledDir: path.join(__dirname, "..", "..", "..", "..", "plugin-marketplace"),
     zipUrlPrefixes: MARKET_ZIP_URL_PREFIXES, cacheDir: path.join(app.getPath("userData"), "plugin-market-cache"),
-    installZip: (archive, options) => plugins.installZip(archive, options),
+    installPackage: async () => ({ ok: false, installation: "rejected", error: "Legacy 0.x marketplace retired" }),
   });
   registerPluginMarketplaceIpc({ ipc: deps.ipc, market: marketplace,
     getHostWebContents: () => deps.getMarketplaceHostWebContents?.() ?? null });

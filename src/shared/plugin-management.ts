@@ -38,17 +38,28 @@ export type PluginOverview = {
     issues: PluginScanIssue[];
     plugins: PluginListEntry[];
 };
+export type MarketToolSummary = {
+    modes: string[];
+    name: string;
+    risk: string[];
+    title: string;
+};
 export type MarketPluginEntry = {
     author: string;
     capabilities?: string[];
     compatible?: boolean;
     description: string;
-    downloads: number;
+    downloads?: number;
     homepage?: string;
     id: string;
+    license?: string;
     name: string;
+    native?: boolean;
+    permissions?: string[];
     pluginApiVersion?: number;
+    sdk?: string;
     source?: "bundled" | "remote";
+    tools?: MarketToolSummary[];
     version: string;
 };
 export type MarketSourceStatus = {
@@ -64,7 +75,7 @@ export type MarketListResult = {
     sources?: MarketSourceStatus[];
 };
 export type MarketInstallResult = {
-    activation?: "not-requested" | "restart-required" | "running" | "failed";
+    activation?: "not-requested" | "restart-required" | "running" | "failed" | "rolled-back";
     installation?: "committed";
     ok: true;
     overview?: PluginOverview;
@@ -74,7 +85,7 @@ export type MarketInstallResult = {
         version: string;
     };
 } | {
-    activation?: "not-requested" | "restart-required" | "running" | "failed";
+    activation?: "not-requested" | "restart-required" | "running" | "failed" | "rolled-back";
     error: string;
     installation?: "committed" | "rejected";
     ok: false;

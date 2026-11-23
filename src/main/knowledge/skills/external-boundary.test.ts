@@ -29,11 +29,9 @@ const hash = (file: string) => createHash("sha256").update(fs.readFileSync(path.
 // Layer regroup (2026-11-12): these files moved under src/main/<layer>/ and only their relative import paths changed;
 // each diff against the previous preimage was checked to contain import lines only before the hashes were refreshed.
 const unchangedBoundaries = {
-  // Reviewed plugin lifecycle update: host-owned provenance and install/activation
-  // outcomes only. Exact catalog and repository rename prefixes are independently asserted below.
-  // Reviewed marketplace move: the catalog and Release prefix now point only at Firefly-0423/firefly-plugins; size, timeout,
-  // redirect, SHA-256 and disabled-install rules are unchanged.
-  "src/main/features/plugins/host/plugin-marketplace.ts": "38fe0edc715e9150042bc2166f6a84cebb374cf11525c3506f8374bf66ac8a7e",
+  // Reviewed plugin lifecycle update: apiVersion 2 registry format (SDK 1.2.0 .ffplugin packages, reverse-domain IDs,
+  // sdk SemVer compatibility, native:false enforcement). Catalog/Release prefix, size, timeout, redirect, and SHA-256 rules are unchanged.
+  "src/main/features/plugins/host/plugin-marketplace.ts": "80aa174339ed39fc92162f9ed43ac657de345cac38f747b2e78019b6111460a0",
   "src/main/platform/browser/browser-request-policy.ts": "9ce32fdba4722e49b7c96d27ad7a2058fae3d62a4186d44aac98e49d7e62bdf1",
   // Reviewed window-browser tools change: browser-startup-config only forwards the optional acceptDownload callback, and
   // electron-browser-guest only attaches the per-page tools object. No navigation, network or sandbox setting changed here;
