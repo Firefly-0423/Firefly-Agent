@@ -194,19 +194,21 @@ const CHANNEL_MAPPING_CASES: readonly MappingCase[] = [
   { path: "settings.beginScreenshotHotkeyCapture", op: "invoke", channel: IPC.SCREENSHOT_HOTKEY_CAPTURE_START, callArgs: [], expectedArgs: [] },
   { path: "settings.endScreenshotHotkeyCapture", op: "invoke", channel: IPC.SCREENSHOT_HOTKEY_CAPTURE_END, callArgs: [], expectedArgs: [] },
 
-  // plugins & pluginPanel (12)
+  // plugins (14)
   { path: "plugins.list", op: "invoke", channel: IPC.PLUGINS_LIST, callArgs: [], expectedArgs: [] },
   { path: "plugins.setEnabled", op: "invoke", channel: IPC.PLUGINS_SET_ENABLED, callArgs: ["plug-1", true], expectedArgs: ["plug-1", true] },
+  { path: "plugins.setPermission", op: "invoke", channel: IPC.PLUGINS_SET_PERMISSION, callArgs: ["plug-1", "secrets", false], expectedArgs: ["plug-1", "secrets", false] },
+  { path: "plugins.setModelRateLimit", op: "invoke", channel: IPC.PLUGINS_SET_MODEL_RATE_LIMIT, callArgs: ["plug-1", 20], expectedArgs: ["plug-1", 20] },
   { path: "plugins.open", op: "invoke", channel: IPC.PLUGINS_OPEN, callArgs: ["plug-1"], expectedArgs: ["plug-1"] },
   { path: "plugins.rescan", op: "invoke", channel: IPC.PLUGINS_RESCAN, callArgs: [], expectedArgs: [] },
   { path: "plugins.importZip", op: "invoke", channel: IPC.PLUGINS_IMPORT_ZIP, callArgs: [], expectedArgs: [] },
-  { path: "plugins.uninstall", op: "invoke", channel: IPC.PLUGINS_UNINSTALL, callArgs: ["plug-1"], expectedArgs: ["plug-1"] },
+  { path: "plugins.importFolder", op: "invoke", channel: IPC.PLUGINS_IMPORT_FOLDER, callArgs: [], expectedArgs: [] },
+  { path: "plugins.uninstall", op: "invoke", channel: IPC.PLUGINS_UNINSTALL, callArgs: ["plug-1", { deleteSecrets: false, deleteData: true }], expectedArgs: ["plug-1", { deleteSecrets: false, deleteData: true }] },
   { path: "plugins.marketList", op: "invoke", channel: IPC.PLUGINS_MARKET_LIST, callArgs: ["zh-CN"], expectedArgs: ["zh-CN"] },
   { path: "plugins.marketInstall", op: "invoke", channel: IPC.PLUGINS_MARKET_INSTALL, callArgs: ["plug-1"], expectedArgs: ["plug-1"] },
   { path: "plugins.getV2Borrowing", op: "invoke", channel: IPC.PLUGINS_V2_BORROWING_GET, callArgs: [], expectedArgs: [] },
   { path: "plugins.stopV2Borrowing", op: "invoke", channel: IPC.PLUGINS_V2_BORROWING_STOP, callArgs: [{ id: "b-1" }], expectedArgs: [{ id: "b-1" }] },
   { path: "plugins.resolveV2Confirm", op: "invoke", channel: IPC.PLUGINS_V2_CONFIRM_RESOLVE, callArgs: ["c-1", true], expectedArgs: [{ id: "c-1", allowed: true }] },
-  { path: "pluginPanel.invoke", op: "invoke", channel: IPC.PLUGINS_PANEL_INVOKE, callArgs: ["plug-1", "refresh", { force: true }], expectedArgs: ["plug-1", "refresh", { force: true }] },
 
   // fireflyScheduler (8)
   { path: "fireflyScheduler.list", op: "invoke", channel: IPC.SCHEDULER_LIST, callArgs: [], expectedArgs: [] },
@@ -359,10 +361,10 @@ describe("preload IPC channel and argument mapping", () => {
   it("accounts for every non-listener invoke/send method across all exposed APIs", () => {
     const mapped = CHANNEL_MAPPING_CASES.map((entry) => entry.path);
     expect(new Set(mapped).size).toBe(mapped.length);
-    expect(mapped).toHaveLength(222);
+    expect(mapped).toHaveLength(224);
 
     const allExposedFunctions = collectLeafFunctionPaths(harness.exposed);
-    expect(allExposedFunctions).toHaveLength(261);
+    expect(allExposedFunctions).toHaveLength(263);
 
     const nonTableFunctions = allExposedFunctions.filter(
       (methodPath) => methodPath === "chat.ingestDroppedFiles" || /\.on[A-Z]/.test(methodPath),

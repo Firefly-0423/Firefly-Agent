@@ -1,32 +1,67 @@
-export type PluginRuntimeStatus = "disabled" | "starting" | "running" | "stopping" | "failed";
+export type PluginRuntimeStatus = "disabled" | "starting" | "enabled" | "running" | "stopping" | "restarting" | "disabled-fault" | "failed";
+export type PluginDeclaredTool = {
+    modes: string[];
+    name: string;
+    risk: string[];
+    title: string;
+};
+export type PluginDeclaredContext = {
+    id: string;
+    modes: string[];
+    sources: string[];
+    title: string;
+};
+export type PluginDeclaredChannel = {
+    id: string;
+    title: string;
+};
+export type PluginDeclaredWindow = {
+    entry: string;
+    height?: number;
+    id: string;
+    title: string;
+    width?: number;
+};
 export type PluginListEntry = {
     activeVersion?: string | null;
     apiVersion: number;
     author: string;
     canOpen: boolean;
+    channels?: PluginDeclaredChannel[];
     configuredEnabled: boolean;
+    context?: PluginDeclaredContext[];
     defaultEnabled: boolean;
     description: string;
     enabled: boolean;
     entry: string;
     error?: string;
+    grantedPermissions?: string[];
+    hasDataDir?: boolean;
+    hasSecrets?: boolean;
     hasUnregister: boolean;
     icon?: string;
     id: string;
     installedVersion?: string;
+    modelRateLimit?: number;
     name: string;
+    native?: boolean;
     origin?: "local" | "market";
     path: string;
     pendingVersion?: string | null;
+    permissions?: string[];
     restartRequired?: boolean;
+    revision?: number;
+    sdk?: string;
     selectedVersion?: string | null;
     settingsPanel?: string;
     settingsSection?: "channels" | "plugins";
     source: "builtin" | "user";
     sourceId?: string;
-    sourceKind?: "bundled" | "curated-market" | "local-zip" | "legacy-unknown";
+    sourceKind?: "bundled" | "curated-market" | "local-zip" | "local-package" | "local-folder" | "legacy-unknown";
     status: PluginRuntimeStatus;
+    tools?: PluginDeclaredTool[];
     version: string;
+    windows?: PluginDeclaredWindow[];
 };
 export type PluginScanIssue = {
     message: string;
@@ -107,21 +142,27 @@ export type PluginV2BorrowingEntry = {
     pluginId: string;
     pluginName: string;
 };
+export type UninstallPluginOptions = {
+    deleteData?: boolean;
+    deleteSecrets?: boolean;
+};
+export type PluginImportOutcome = {
+    activation?: "not-requested" | "restart-required" | "running" | "failed" | "rolled-back";
+    canceled?: boolean;
+    error?: string;
+    installation?: "committed" | "rejected";
+    ok: boolean;
+    overview?: PluginOverview;
+    plugin?: {
+        id: string;
+        name: string;
+        version: string;
+    };
+};
 export type PluginManagementApi = {
     getV2Borrowing?(): Promise<{ entries: PluginV2BorrowingEntry[] }>;
-    importZip(): Promise<{
-        activation?: "not-requested" | "restart-required" | "running" | "failed";
-        canceled?: boolean;
-        error?: string;
-        installation?: "committed" | "rejected";
-        ok: boolean;
-        overview?: PluginOverview;
-        plugin?: {
-            id: string;
-            name: string;
-            version: string;
-        };
-    }>;
+    importFolder?(): Promise<PluginImportOutcome>;
+    importZip(): Promise<PluginImportOutcome>;
     list(): Promise<PluginOverview | PluginListEntry[]>;
     marketInstall(id: string): Promise<MarketInstallResult>;
     marketList(preferred?: string): Promise<MarketListResult>;
@@ -138,14 +179,22 @@ export type PluginManagementApi = {
     setEnabled(id: string, enabled: boolean): Promise<{
         error?: string;
         ok: boolean;
+        overview?: PluginOverview;
     }>;
-    stopV2Borrowing?(filter?: { id?: string; pluginId?: string }): Promise<{ ok: boolean; stopped: number }>;
-    uninstall(id: string): Promise<{
+    setModelRateLimit?(id: string, limit: number): Promise<{
         error?: string;
         ok: boolean;
         overview?: PluginOverview;
     }>;
-};
-export type PluginPanelApi = {
-    invoke(pluginId: string, channel: string, args: unknown[]): Promise<unknown>;
+    setPermission?(id: string, permission: string, granted: boolean): Promise<{
+        error?: string;
+        ok: boolean;
+        overview?: PluginOverview;
+    }>;
+    stopV2Borrowing?(filter?: { id?: string; pluginId?: string }): Promise<{ ok: boolean; stopped: number }>;
+    uninstall(id: string, options?: UninstallPluginOptions): Promise<{
+        error?: string;
+        ok: boolean;
+        overview?: PluginOverview;
+    }>;
 };

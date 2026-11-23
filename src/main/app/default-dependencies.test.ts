@@ -698,7 +698,6 @@ describe("core phase", () => {
     );
 
     await startedPlugins.stop();
-    expect(m.pluginManager.stop).toHaveBeenCalled();
     expect(m.pluginV2.stopAll).toHaveBeenCalledWith("quit");
     expect(m.pluginV2.dispose).toHaveBeenCalled();
   });

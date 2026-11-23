@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import path from "node:path";
 import { app, dialog, safeStorage, type WebContents } from "electron";
 import type { IpcScope } from "../base/ipc/ipc-scope";
 import { getStorageContext } from "../base/storage/storage-context";
@@ -11,6 +12,17 @@ import type { BuildOptionsFn } from "../agent/runtime/run-input-types";
 import * as chatsStore from "../features/sessions/chats-store";
 import type { PluginSchedulerStorePort } from "../../plugins/v2/schedules";
 import type { ServicePermission } from "../../plugins/v2/services";
+import {
+  notifyPluginOverviewChanged,
+  registerPluginManagementIpc,
+} from "../features/plugins/host/plugin-management-ipc";
+import type { PluginIpcHosts } from "../features/plugins/host/plugin-management-ipc-guard";
+import {
+  createPluginMarketplaceService,
+  MARKET_REGISTRY_URLS,
+  MARKET_ZIP_URL_PREFIXES,
+} from "../features/plugins/host/plugin-marketplace";
+import { registerPluginMarketplaceIpc } from "../features/plugins/host/plugin-marketplace-ipc";
 import {
   createPluginV2HostController,
   type PluginV2BorrowingEntry,
@@ -25,6 +37,8 @@ export interface PluginV2BootstrapDeps {
   buildRunOptions: BuildOptionsFn;
   schedulerStore: PluginSchedulerStorePort;
   getChatWebContents: () => WebContents | null;
+  getPanelWebContents?: () => WebContents | null;
+  onRunningStateChange?: (pluginId: string, running: boolean) => void;
 }
 
 const CONFIRM_TEXT: Record<"sessions.read" | "workspace.read" | "model.run", (name: string) => string> = {
@@ -118,6 +132,10 @@ export async function startPluginV2Bootstrap(deps: PluginV2BootstrapDeps): Promi
   };
 
   let controller!: PluginV2HostController;
+  const hosts: PluginIpcHosts = {
+    getManagementHost: () => deps.getChatWebContents(),
+    getPanelHost: () => deps.getPanelWebContents?.() ?? null,
+  };
 
   controller = createPluginV2HostController({
     dataRoot: storage.dataRoot,
@@ -146,6 +164,8 @@ export async function startPluginV2Bootstrap(deps: PluginV2BootstrapDeps): Promi
     },
     onWorkspaceBindingChanged: (listener) => chatsStore.onWorkspaceBindingChanged?.(listener) ?? (() => {}),
     confirmFirstUse,
+    onOverviewChanged: () => notifyPluginOverviewChanged(controller, hosts),
+    onRunningStateChange: deps.onRunningStateChange,
     onBorrowingChanged: (entries: PluginV2BorrowingEntry[]) => {
       sendToChat(IPC.PLUGINS_V2_BORROWING_CHANGED, { entries });
     },
@@ -162,6 +182,39 @@ export async function startPluginV2Bootstrap(deps: PluginV2BootstrapDeps): Promi
         },
       });
     },
+  });
+
+  registerPluginManagementIpc({
+    ipc: deps.ipc,
+    hosts,
+    controller,
+    selectPluginPackage: async () => {
+      const selection = await dialog.showOpenDialog({
+        title: "导入流萤插件包",
+        properties: ["openFile"],
+        filters: [{ name: "流萤插件包", extensions: ["ffplugin", "zip"] }],
+      });
+      return selection.canceled ? undefined : selection.filePaths[0];
+    },
+    selectPluginFolder: async () => {
+      const selection = await dialog.showOpenDialog({
+        title: "选择本地插件文件夹",
+        properties: ["openDirectory"],
+      });
+      return selection.canceled ? undefined : selection.filePaths[0];
+    },
+  });
+
+  const marketplace = createPluginMarketplaceService({
+    registryUrls: MARKET_REGISTRY_URLS,
+    zipUrlPrefixes: MARKET_ZIP_URL_PREFIXES,
+    cacheDir: path.join(storage.dataRoot, "plugin-market-cache"),
+    installPackage: (packagePath, opts) => controller.importFromPath(packagePath, opts),
+  });
+  registerPluginMarketplaceIpc({
+    ipc: deps.ipc,
+    market: marketplace,
+    getHostWebContents: () => deps.getChatWebContents(),
   });
 
   deps.ipc.handle(IPC.PLUGINS_V2_BORROWING_GET, () => ({

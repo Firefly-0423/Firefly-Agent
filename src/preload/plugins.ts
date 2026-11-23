@@ -2,10 +2,10 @@ import type {} from "electron";
 import { IPC } from "../shared/ipc-channels";
 import type {
     PluginOverview,
-    PluginPanelApi,
     PluginV2BorrowingEntry,
     PluginV2ConfirmRequest,
     PluginV2ConfirmSettled,
+    UninstallPluginOptions,
 } from "../shared/plugin-management";
 
 export interface PluginsIpcRenderer {
@@ -55,6 +55,12 @@ export function createPluginsApi(ipcRenderer: PluginsIpcRenderer) {
         setEnabled: (entityId: string, active: boolean) => {
             return ipcRenderer.invoke(IPC.PLUGINS_SET_ENABLED, entityId, active);
         },
+        setPermission: (entityId: string, permission: string, granted: boolean) => {
+            return ipcRenderer.invoke(IPC.PLUGINS_SET_PERMISSION, entityId, permission, granted);
+        },
+        setModelRateLimit: (entityId: string, limit: number) => {
+            return ipcRenderer.invoke(IPC.PLUGINS_SET_MODEL_RATE_LIMIT, entityId, limit);
+        },
         open: (entityId: string) => {
             return ipcRenderer.invoke(IPC.PLUGINS_OPEN, entityId);
         },
@@ -64,22 +70,17 @@ export function createPluginsApi(ipcRenderer: PluginsIpcRenderer) {
         importZip: () => {
             return ipcRenderer.invoke(IPC.PLUGINS_IMPORT_ZIP);
         },
-        uninstall: (entityId: string) => {
-            return ipcRenderer.invoke(IPC.PLUGINS_UNINSTALL, entityId);
+        importFolder: () => {
+            return ipcRenderer.invoke(IPC.PLUGINS_IMPORT_FOLDER);
+        },
+        uninstall: (entityId: string, options?: UninstallPluginOptions) => {
+            return ipcRenderer.invoke(IPC.PLUGINS_UNINSTALL, entityId, options);
         },
         marketList: (preferred?: string) => {
             return ipcRenderer.invoke(IPC.PLUGINS_MARKET_LIST, preferred);
         },
         marketInstall: (entityId: string) => {
             return ipcRenderer.invoke(IPC.PLUGINS_MARKET_INSTALL, entityId);
-        },
-    };
-}
-
-export function createPluginPanelApi(ipcRenderer: PluginsIpcRenderer): PluginPanelApi {
-    return {
-        invoke: (pluginId, channelName, values) => {
-            return ipcRenderer.invoke(IPC.PLUGINS_PANEL_INVOKE, pluginId, channelName, values);
         },
     };
 }

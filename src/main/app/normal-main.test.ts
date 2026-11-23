@@ -16,7 +16,6 @@ vi.mock("./application", () => ({ createApplication: () => ({
   start: () => mocks.start(), handleFatalStartup: (error: unknown) => mocks.fatal(error),
 }) }));
 vi.mock("./default-dependencies", () => ({ createDefaultApplicationDependencies: () => ({}) }));
-vi.mock("../features/plugins/panel/plugin-panel-protocol", () => ({ registerPluginPanelScheme() {} }));
 vi.mock("../platform/windows/external-link", () => ({ installGlobalNavigationGuard() {} }));
 vi.mock("../base/logging/logger", () => ({ initializeMainFileLogging() {}, logger: { warn: (...args: unknown[]) => mocks.log(...args) }, LogTag: { Runtime: "Runtime" } }));
 vi.mock("../memory/sources/native-history-coverage", () => ({ selectCachedHistoryCoverage: () => mocks.select(), measureHistoryPresence: (...args: unknown[]) => mocks.measure(...args as []) }));

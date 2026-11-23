@@ -39,8 +39,6 @@ import "../memory/legacy/rag-recall-source";
 import { addL2MemoryVector, deleteUserMemoryVectors, flushRAGStore, flushRAGStoreSync, getEntriesBySource, initRAG, isUserMemoryVectorStoreReady, } from "../knowledge/rag";
 import { getEmbeddingProvider } from "../knowledge/rag/embedding";
 import { toolRegistry } from "../tooling/registry/tool-registry";
-import { pluginPromptRegistry } from "../../plugins/prompts";
-import type { PluginManager } from "../../plugins/manager";
 import { setLive2dWorkSignalSender } from "../agent/runtime/live2d-work-signal";
 import { registerAllTools } from "../agent/tools/tool-registration";
 import { LspManager } from "../platform/lsp/manager";
@@ -93,7 +91,6 @@ import type { SchedulerSubsystem } from "../features/scheduler/bootstrap";
 import { createChannelsSubsystem } from "../features/channels/bootstrap";
 import { createLifecyclePublisher } from "../agent/runtime/lifecycle-publisher";
 import { createPendingTurnLifecycle } from "../features/plugins/host/pending-turn-lifecycle";
-import { startPluginRuntime } from "../features/plugins/host/plugin-runtime";
 import { forwardHostEventToPluginV2, startPluginV2Bootstrap } from "./plugin-v2-bootstrap";
 import type { PluginV2HostController } from "../features/plugins/host/plugin-v2-services";
 import { createAgentRuntime } from "../agent/runtime/agent-runtime";
@@ -387,7 +384,6 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
   let workspaceFiles: ReturnType<typeof registerWorkspaceFilesIpc> | undefined;
   let desktopAsr: ReturnType<typeof registerDesktopAsrIpc> | undefined;
   // Agent Runtime 比插件管理器先构造，这里用一个可后填的引用在运行期转发宿主事件
-  let pluginManager: PluginManager | undefined;
   let pluginV2: PluginV2HostController | undefined;
 
   const hasSwitch = (name: string): boolean => app.commandLine?.hasSwitch(name) === true;
@@ -405,11 +401,11 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
   });
   app.once("will-quit", () => memoryOnlineEntry?.cancel());
 
-  const forwardToPlugins = (event: Parameters<PluginManager["publishHostEvent"]>[0], payload: Parameters<PluginManager["publishHostEvent"]>[1]) => {
+  const forwardToPlugins = (event: string, payload: unknown): Promise<void> => {
     if (pluginV2) {
-      forwardHostEventToPluginV2(pluginV2, String(event), payload);
+      forwardHostEventToPluginV2(pluginV2, event, payload);
     }
-    return pluginManager ? pluginManager.publishHostEvent(event, payload) : Promise.resolve();
+    return Promise.resolve();
   };
 
   // 插件系统就绪之前发布的事件没人监听，直接丢弃
@@ -974,7 +970,7 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
             ...(defaultMemory ? { defaultMemory:defaultMemory } : {}),
             publishToolFinished: (event) => lifecyclePublisher.publishToolFinished(event),
             publishPluginHostEvent: forwardToPlugins,
-            buildPluginPromptContext: (input) => pluginPromptRegistry.build(input),
+            buildPluginPromptContext: async () => "",
             collectTurnPluginContext: (input) => pluginV2 ? pluginV2.collectTurnPluginContext(input) : Promise.resolve(""),
             socialAtomStore: services.social.store,
             chatsStore,
@@ -999,38 +995,21 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
           }),
 
         startPlugins: async (services, scheduler: SchedulerSubsystem, runtime) => {
-          pluginManager = await startPluginRuntime({
-            llmClient: services.llm,
-            ipc: shell.ipc,
-            schedulerStore: scheduler.store,
-            agentRuntime: runtime,
-            // 插件启停后让调度引擎重新归一化逾期任务并重排计时器（不补跑）
-            onPluginRunningStateChange: () => scheduler.engine.refreshPluginTasks(),
-            // 面板宿主窗口目前就是设置窗口；settingsWindow 是 CJS 的 live-binding，必须在请求时再读
-            getPanelHostWebContents: () => settingsWindow?.webContents ?? null,
-            getMarketplaceHostWebContents: () => reactChatWindow?.webContents ?? null,
-          });
           pluginV2 = await startPluginV2Bootstrap({
             ipc: shell.ipc,
             llmClient: services.llm,
             buildRunOptions: runtime.buildOptions,
             schedulerStore: scheduler.store,
             getChatWebContents: () => reactChatWindow?.webContents ?? null,
+            getPanelWebContents: () => settingsWindow?.webContents ?? null,
+            onRunningStateChange: () => scheduler.engine.refreshPluginTasks(),
           });
-          const stopV1 = typeof pluginManager.stop === "function" ? pluginManager.stop.bind(pluginManager) : async () => {};
-          return Object.create(pluginManager, {
-            stop: {
-              value: async () => {
-                await Promise.allSettled([
-                  stopV1(),
-                  (async () => {
-                    await pluginV2?.stopAll("quit");
-                    pluginV2?.dispose();
-                  })(),
-                ]);
-              },
+          return {
+            stop: async () => {
+              await pluginV2?.stopAll("quit");
+              pluginV2?.dispose();
             },
-          }) as PluginManager;
+          };
         },
 
         createScheduler: (runtime) =>
@@ -1041,7 +1020,7 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
             ipc: shell.ipc,
             publishLifecycle: lifecyclePublisher,
             // 插件任务只有所属插件在运行时才可触发，用户任务不受影响
-            canRunTask: (task) => !task.ownerPluginId || (pluginManager?.isRunning(task.ownerPluginId) ?? false),
+            canRunTask: (task) => !task.ownerPluginId || pluginV2?.status(task.ownerPluginId) === "enabled",
           }),
 
         registerCoreIpc: (input) => {
