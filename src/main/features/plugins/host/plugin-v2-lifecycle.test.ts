@@ -327,4 +327,91 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
 
     controller.dispose();
   });
+
+  it("closes open plugin UI windows on permission revocation, disable, fault, and stopAll", async () => {
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    let nextWcId = 500;
+    const closedCounts = new Map<string, number>();
+    const controller = createPluginV2HostController({
+      dataRoot,
+      stateFile: path.join(dataRoot, "plugin-state.json"),
+      scheduleStateFile: path.join(dataRoot, "plugin-schedules-state.json"),
+      safeStorage: createFakeSafeStorage(),
+      schedulerStore: {
+        listTasksByOwner: () => [],
+        createTask: vi.fn() as never,
+        updateTask: vi.fn() as never,
+        deleteTask: vi.fn(() => true),
+        deleteTasksByOwner: vi.fn(() => 0),
+      },
+      llmClient: { chatNonStream: vi.fn() as never },
+      buildRunOptions: vi.fn() as never,
+      loadModelSettings: () => ({} as never),
+      loadGeneralSettings: () => ({}),
+      listSessions: () => [],
+      getSession: () => null,
+      getActiveChatTarget: () => null,
+      confirmFirstUse: async () => true,
+      createHostManager: harness.createHostManager,
+      createPluginWindow: (opts) => {
+        let destroyed = false;
+        const listeners = new Set<() => void>();
+        return {
+          webContentsId: nextWcId++,
+          show: () => {},
+          focus: () => {},
+          close: () => {
+            if (destroyed) return;
+            destroyed = true;
+            closedCounts.set(opts.pluginId, (closedCounts.get(opts.pluginId) ?? 0) + 1);
+            for (const fn of [...listeners]) fn();
+          },
+          isDestroyed: () => destroyed,
+          sendMessage: () => {},
+          onClosed: (fn) => {
+            listeners.add(fn);
+            return () => listeners.delete(fn);
+          },
+          load: async () => {},
+        };
+      },
+    });
+
+    const manifest = {
+      schemaVersion: 1 as const,
+      id: "dev.firefly.uiwin",
+      name: "UI Win",
+      version: "1.0.0",
+      sdk: "^1.2.0",
+      main: "index.mjs",
+      permissions: ["ui.windows" as const],
+      ui: { windows: [{ id: "panel", entry: "ui/panel.html", title: "Panel" }] },
+    };
+    const pkgDir = path.join(dataRoot, "plugins", "dev.firefly.uiwin", "1.0.0");
+    mkdirSync(path.join(pkgDir, "ui"), { recursive: true });
+    writeFileSync(path.join(pkgDir, "index.mjs"), "export default { activate() {} };\n", "utf8");
+    writeFileSync(path.join(pkgDir, "ui", "panel.html"), "<html></html>", "utf8");
+    controller.installPlugin(manifest, pkgDir);
+
+    await controller.enablePlugin("dev.firefly.uiwin");
+    await controller.openPluginWindow("dev.firefly.uiwin");
+    expect(controller.listOpenWindows("dev.firefly.uiwin")).toEqual(["panel"]);
+
+    // Revoking ui.windows closes open windows and blocks re-opening
+    controller.revokePermission("dev.firefly.uiwin", "ui.windows");
+    expect(controller.listOpenWindows("dev.firefly.uiwin")).toEqual([]);
+    expect(closedCounts.get("dev.firefly.uiwin")).toBe(1);
+    await expect(controller.openPluginWindow("dev.firefly.uiwin")).rejects.toMatchObject({ code: "ERR_PERMISSION" });
+
+    // Re-grant and open, then disablePlugin closes windows
+    controller.grantPermission("dev.firefly.uiwin", "ui.windows");
+    await controller.openPluginWindow("dev.firefly.uiwin");
+    expect(controller.listOpenWindows("dev.firefly.uiwin")).toEqual(["panel"]);
+    await controller.disablePlugin("dev.firefly.uiwin");
+    expect(controller.listOpenWindows("dev.firefly.uiwin")).toEqual([]);
+    expect(closedCounts.get("dev.firefly.uiwin")).toBe(2);
+
+    await controller.stopAll("quit");
+    controller.dispose();
+  });
 });
