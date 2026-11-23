@@ -80,7 +80,24 @@ export type MarketInstallResult = {
     ok: false;
     overview?: PluginOverview;
 };
+export type PluginV2ConfirmPermission = "sessions.read" | "workspace.read" | "model.run";
+export type PluginV2ConfirmRequest = {
+    id: string;
+    permission: PluginV2ConfirmPermission;
+    pluginId: string;
+    pluginName: string;
+};
+export type PluginV2ConfirmSettled = {
+    id: string;
+    reason: "answered" | "cancelled";
+};
+export type PluginV2BorrowingEntry = {
+    id: string;
+    pluginId: string;
+    pluginName: string;
+};
 export type PluginManagementApi = {
+    getV2Borrowing?(): Promise<{ entries: PluginV2BorrowingEntry[] }>;
     importZip(): Promise<{
         activation?: "not-requested" | "restart-required" | "running" | "failed";
         canceled?: boolean;
@@ -98,15 +115,20 @@ export type PluginManagementApi = {
     marketInstall(id: string): Promise<MarketInstallResult>;
     marketList(preferred?: string): Promise<MarketListResult>;
     onChanged?(callback: (overview: PluginOverview) => void): () => void;
+    onV2BorrowingChanged?(callback: (payload: { entries: PluginV2BorrowingEntry[] }) => void): () => void;
+    onV2ConfirmRequest?(callback: (request: PluginV2ConfirmRequest) => void): () => void;
+    onV2ConfirmSettled?(callback: (settled: PluginV2ConfirmSettled) => void): () => void;
     open(id: string): Promise<{
         error?: string;
         ok: boolean;
     }>;
     rescan(): Promise<PluginOverview>;
+    resolveV2Confirm?(id: string, allowed: boolean): Promise<{ ok: boolean }>;
     setEnabled(id: string, enabled: boolean): Promise<{
         error?: string;
         ok: boolean;
     }>;
+    stopV2Borrowing?(filter?: { id?: string; pluginId?: string }): Promise<{ ok: boolean; stopped: number }>;
     uninstall(id: string): Promise<{
         error?: string;
         ok: boolean;
