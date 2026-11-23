@@ -10,7 +10,7 @@ export interface StorageContext {
   readonly logsRoot: string;
   readonly sessionRoot: string;
   readonly memory: Readonly<{ dataRoot: string; indexRoot: string; tempRoot: string }>;
-  readonly files: Readonly<{ mcp: string; tokenUsage: string; contentManifest: string; historyBudgetStats: string; chatWindowState: string; skillDescriptionsZh: string; mainLog: string }>;
+  readonly files: Readonly<{ mcp: string; tokenUsage: string; contentManifest: string; historyBudgetStats: string; chatWindowState: string; skillDescriptionsZh: string; pluginState: string; mainLog: string }>;
 }
 /** Logical ownership only: config/data/state retain the existing production layout. */
 export function createStorageContext(profile: RuntimeProfile): StorageContext {
@@ -46,6 +46,7 @@ export function createStorageContext(profile: RuntimeProfile): StorageContext {
       get historyBudgetStats() { return ownedFile(profile.userData, "memory-history-budget.json"); },
       get chatWindowState() { return ownedFile(profile.userData, "chat-window-state.json"); },
       get skillDescriptionsZh() { return ownedFile(profile.userData, "skill-descriptions-zh.json"); },
+      get pluginState() { return ownedFile(profile.userData, "plugin-state.json"); },
       get mainLog() { return ownedFile(profile.logs, "firefly.log"); },
     }),
   });
