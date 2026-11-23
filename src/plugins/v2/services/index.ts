@@ -102,7 +102,13 @@ function eventDto(input: unknown, pluginId: string, types: Set<string>) {
 
 /** Composition entry for HostDependencies.configureRpc. No v0 host or installation data is consulted. */
 export function createPluginHostServices(deps: ServiceDependencies) {
-  const pending = new Map<string, Promise<boolean>>();
+  type PendingConfirmation = {
+    controller: AbortController;
+    promise: Promise<boolean>;
+    waiters: Set<symbol>;
+    settled: boolean;
+  };
+  const pending = new Map<string, PendingConfirmation>();
   const disposers = new Set<() => void>();
   const limit = createRateLimiter(deps.modelLimitPerMinute);
   let disposed = false;
@@ -126,10 +132,22 @@ export function createPluginHostServices(deps: ServiceDependencies) {
         for (const stop of eventStops) stop();
       }
     });
-    function begin(required: ServicePermission, signal: AbortSignal, bindContext = true) {
+    type Operation = {
+      access: ServiceAccess;
+      ctx: ServiceContext;
+      signal: AbortSignal;
+      controller: AbortController;
+      guard: () => void;
+      wait: <T>(promise: Promise<T>) => Promise<T>;
+      cleanup: () => void;
+    };
+    type OptionalContextOperation = Omit<Operation, "ctx"> & { ctx: ServiceContext | null };
+    function begin(required: ServicePermission, signal: AbortSignal, bindContext?: true): Operation;
+    function begin(required: ServicePermission, signal: AbortSignal, bindContext: boolean, requireContext: false): OptionalContextOperation;
+    function begin(required: ServicePermission, signal: AbortSignal, bindContext = true, requireContext = true): Operation | OptionalContextOperation {
       const access = check(required), ctx = deps.context(pluginId);
-      if (!ctx) throw unavailable();
-      const snapshot = { ...ctx };
+      if (!ctx && requireContext) throw unavailable();
+      const snapshot = ctx ? { ...ctx } : null;
       const revision = access.revision;
       const controller = new AbortController();
       const abort = () => controller.abort();
@@ -138,7 +156,7 @@ export function createPluginHostServices(deps: ServiceDependencies) {
       const guard = () => {
         const current = check(required);
         if (current.revision !== revision) throw permission();
-        if (bindContext && !contextEqual(snapshot, deps.context(pluginId))) throw unavailable();
+        if (bindContext && snapshot && !contextEqual(snapshot, deps.context(pluginId))) throw unavailable();
         if (closed || controller.signal.aborted) throw cancelled();
       };
       active.set(controller, guard);
@@ -151,21 +169,39 @@ export function createPluginHostServices(deps: ServiceDependencies) {
       return { access, ctx: snapshot, signal: controller.signal, controller, guard, wait,
         cleanup: () => { signal.removeEventListener("abort", abort); active.delete(controller); } };
     }
-    type Operation = ReturnType<typeof begin>;
-    async function confirm(required: ServicePermission, op: Operation) {
-      const key = `${pluginId}:${op.access.revision}:${op.ctx.revision}`;
+    async function confirm(required: ServicePermission, op: Operation | OptionalContextOperation) {
+      const key = `${pluginId}:${op.access.revision}:${op.ctx?.revision ?? "unbound"}`;
       if (deps.confirmations.get(pluginId, required) === op.access.revision) { op.guard(); return; }
       const pendingKey = `${key}:${required}`;
-      let request = pending.get(pendingKey);
-      if (!request) {
-        request = deps.confirm({ pluginId, pluginName: op.access.name, permission: required, signal: op.signal });
-        pending.set(pendingKey, request);
-        void request.finally(() => { if (pending.get(pendingKey) === request) pending.delete(pendingKey); }).catch(() => {});
+      let entry = pending.get(pendingKey);
+      if (!entry) {
+        const controller = new AbortController();
+        entry = {
+          controller,
+          promise: deps.confirm({ pluginId, pluginName: op.access.name, permission: required, signal: controller.signal }),
+          waiters: new Set(),
+          settled: false,
+        };
+        pending.set(pendingKey, entry);
+        void entry.promise.finally(() => {
+          entry!.settled = true;
+          if (pending.get(pendingKey) === entry) pending.delete(pendingKey);
+        }).catch(() => {});
       }
-      const accepted = await op.wait(request);
-      op.guard();
-      if (!accepted) throw new PluginError("ERR_REJECTED", "User declined plugin access");
-      deps.confirmations.set(pluginId, required, op.access.revision);
+      const waiter = Symbol();
+      entry.waiters.add(waiter);
+      try {
+        const accepted = await op.wait(entry.promise);
+        op.guard();
+        if (!accepted) throw new PluginError("ERR_REJECTED", "User declined plugin access");
+        deps.confirmations.set(pluginId, required, op.access.revision);
+      } finally {
+        entry.waiters.delete(waiter);
+        if (!entry.waiters.size && !entry.settled && pending.get(pendingKey) === entry) {
+          pending.delete(pendingKey);
+          entry.controller.abort();
+        }
+      }
     }
     function register<M extends keyof PluginToHostParams>(method: M, required: ServicePermission, action: (params: PluginToHostParams[M], op: Operation) => Promise<PluginToHostResults[M]>, needsConfirmation = false) {
       unregister.push(rpc.handle(method, async (params, { signal }) => {
@@ -319,12 +355,19 @@ export function createPluginHostServices(deps: ServiceDependencies) {
       })();
     }));
     unregister.push(rpc.handle(P.modelRun, (input, { signal }) => streamModel(P.modelRun, input as PluginToHostParams["model.run"], signal)));
-    register(P.workspaceInfo, "workspace.read", async (input, op) => {
-      const params = object(input ?? {}, ["sessionId"]);
-      if (params.sessionId !== undefined && params.sessionId !== op.ctx.sessionId) throw permission();
-      // Path is intentionally disclosed only for the approved, currently bound workspace.
-      return { sessionId: op.ctx.sessionId, mode: op.ctx.mode, root: op.ctx.workspaceRoot, name: op.ctx.workspaceName === null ? null : deps.redact(op.ctx.workspaceName, op.ctx) };
-    }, true);
+    unregister.push(rpc.handle(P.workspaceInfo, (input, { signal }) => {
+      return (async (): Promise<PluginToHostResults["workspace.info"]> => {
+        const op = begin("workspace.read", signal, true, false);
+        try {
+          const params = object(input ?? {}, ["sessionId"]);
+          if (params.sessionId !== undefined && op.ctx?.sessionId !== params.sessionId) throw permission();
+          op.guard(); await confirm("workspace.read", op); op.guard();
+          if (!op.ctx) return null;
+          // Path is intentionally disclosed only for the approved, currently bound workspace.
+          return { sessionId: op.ctx.sessionId, mode: op.ctx.mode, root: op.ctx.workspaceRoot, name: op.ctx.workspaceName === null ? null : deps.redact(op.ctx.workspaceName, op.ctx) };
+        } finally { op.cleanup(); }
+      })();
+    }));
     unregister.push(rpc.handle(P.eventsSubscribe, (input, { signal }) => {
       check("events");
       const params = object(input ?? {}, ["type"]);
@@ -386,7 +429,7 @@ export function createPluginHostServices(deps: ServiceDependencies) {
     unregister.push(rpc.handle(P.workspaceWatch, (input, { signal }) => {
       object(input ?? {}, []);
       return (async function* (): AsyncIterable<PluginToHostStreamChunks["workspace.watch"]> {
-        const op = begin("workspace.read", signal, false);
+        const op = begin("workspace.read", signal, false, false);
         let unsubscribe = () => {};
         let wake = () => {}, dirty = false;
         const changed = () => { dirty = true; wake(); };
@@ -413,5 +456,13 @@ export function createPluginHostServices(deps: ServiceDependencies) {
     };
     disposers.add(dispose); return dispose;
   }
-  return { configureRpc, dispose() { disposed = true; for (const dispose of [...disposers]) dispose(); pending.clear(); } };
+  return {
+    configureRpc,
+    dispose() {
+      disposed = true;
+      for (const dispose of [...disposers]) dispose();
+      for (const entry of pending.values()) entry.controller.abort();
+      pending.clear();
+    },
+  };
 }

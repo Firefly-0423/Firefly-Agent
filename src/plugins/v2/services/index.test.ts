@@ -272,6 +272,33 @@ describe("host services over RPC", () => {
     expect(await first).toMatchObject({ code: "ERR_UNAVAILABLE" });
     expect(await second).toEqual({ sessionId: "current", mode: "chat", root: null, name: null }); f.close();
   });
+  it("keeps a shared confirmation alive when one waiting request is cancelled", async () => {
+    const f = fixture(); let resolve!: (accepted: boolean) => void;
+    vi.mocked(f.deps.confirm).mockImplementation(() => new Promise<boolean>(done => { resolve = done; }));
+    const firstAbort = new AbortController();
+    const first = f.client.call(P.sessionsList, {}, { signal: firstAbort.signal }).catch(error => error);
+    const second = f.client.call(P.sessionsMessages, { sessionId: "current" });
+    await vi.waitFor(() => expect(f.deps.confirm).toHaveBeenCalledTimes(1));
+    firstAbort.abort();
+    await expect(first).resolves.toMatchObject({ code: "ERR_CANCELLED" });
+    resolve(true);
+    await expect(second).resolves.toEqual({ items: [{ id: "m", role: "user", content: "hello", createdAt: 1 }] });
+    expect(f.deps.confirm).toHaveBeenCalledTimes(1);
+    f.close();
+  });
+  it("allows workspace info and watch to start before a session binding exists", async () => {
+    const f = fixture(), context = f.context;
+    const contextLookup = vi.spyOn(f.deps, "context").mockReturnValue(null);
+    expect(await f.client.call(P.workspaceInfo, {})).toBeNull();
+    const stream = f.client.stream(P.workspaceWatch, {})[Symbol.asyncIterator]();
+    const next = stream.next();
+    await vi.waitFor(() => expect(f.deps.watchWorkspace).toHaveBeenCalledTimes(1));
+    contextLookup.mockReturnValue(context);
+    f.workspaceChange();
+    await expect(next).resolves.toEqual({ done: false, value: { sessionId: "current", mode: "chat", root: null, name: null } });
+    await stream.return?.();
+    f.close();
+  });
   it.each([
     [P.modelGenerate, "model.generate", { prompt: "hi" }],
     [P.modelRun, "model.run", { objective: "hi", mode: "chat" }],
