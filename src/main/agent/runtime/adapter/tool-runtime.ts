@@ -42,6 +42,39 @@ type ToolRuntimeInput = {
   signal: AbortSignal;
 };
 
+const DESCRIBE_APPROVAL_TIMEOUT_MS = 1_000;
+
+async function resolvePluginApprovalTarget(
+  tool: ToolDefinition,
+  args: Record<string, unknown>,
+  signal: AbortSignal,
+): Promise<string | undefined> {
+  if (!tool.describeApproval || signal.aborted) return undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  signal.addEventListener("abort", onAbort, { once: true });
+  try {
+    const described = await Promise.race([
+      Promise.resolve(tool.describeApproval(args, controller.signal)).catch(() => null),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => {
+          controller.abort();
+          resolve(null);
+        }, DESCRIBE_APPROVAL_TIMEOUT_MS);
+        timer.unref?.();
+      }),
+    ]);
+    if (!described || typeof described.summary !== "string" || !described.summary.trim()) return undefined;
+    const summary = described.summary.trim();
+    const target = typeof described.target === "string" ? described.target.trim() : "";
+    return target ? `${summary} — ${target}` : summary;
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+    signal.removeEventListener("abort", onAbort);
+  }
+}
+
 export function prepareToolRuntime(input: ToolRuntimeInput): PreparedToolRuntime {
   const { options, prepared } = input;
   const owner = new AbortController();
@@ -69,18 +102,23 @@ export function prepareToolRuntime(input: ToolRuntimeInput): PreparedToolRuntime
     }
     if (policyForTool(fileAccessLevel, policyTarget) === "deny") return false;
     if (options.permissionMode === "allow_all") return true;
+    const policies = [policyForTool(fileAccessLevel, policyTarget), policyForTool(getCurrentLevel(), policyTarget)];
     if (!runId) {
-      const policies = [policyForTool(fileAccessLevel, policyTarget), policyForTool(getCurrentLevel(), policyTarget)];
       // 与权限宿主取更严判定的规则一致：只有真正要问用户的审批才需要所属运行。
       if (!policies.includes("deny") && policies.includes("ask")) return false;
     }
     const requestSignal = invocationSignal && invocationSignal !== signal ? AbortSignal.any([signal, invocationSignal]) : signal;
+    const needsPrompt = !policies.includes("deny") && policies.includes("ask");
+    const approvalTarget = needsPrompt
+      ? await resolvePluginApprovalTarget(tool, args, requestSignal)
+      : undefined;
     const decision = await checkPermission({
       toolId,
       toolName: tool.name,
       toolDescription: tool.description,
       args,
       risk,
+      ...(approvalTarget ? { approvalTarget } : {}),
       ...(tool.risks?.length ? { risks: tool.risks } : {}),
       ...(tool.pluginMeta ? { isPlugin: true, declaredBy: tool.pluginMeta.pluginName } : {}),
       runId,
