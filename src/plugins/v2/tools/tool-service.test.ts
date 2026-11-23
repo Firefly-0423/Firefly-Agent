@@ -900,7 +900,18 @@ describe("G37-1 Plugin tools: registration, modes, schema validation, approval &
 
     answerApproval(req.id, false);
     expect(await pending).toBe(false);
-    expect(hostCall).not.toHaveBeenCalled();
+    expect(hostCall).toHaveBeenCalledWith(
+      "dev.firefly.runtime",
+      HOST_TO_PLUGIN_METHODS.toolDescribeApproval,
+      { name: "exec_task", args: { task: "build" } },
+      expect.objectContaining({ timeoutMs: 1_000 }),
+    );
+    expect(hostCall).not.toHaveBeenCalledWith(
+      expect.anything(),
+      HOST_TO_PLUGIN_METHODS.toolExecute,
+      expect.anything(),
+      expect.anything(),
+    );
   });
 
   it("settles post-dispatch timeout, mid-execution cancellation, and ERR_UNAVAILABLE as unknown, while pre-dispatch abort settles as not_executed", async () => {

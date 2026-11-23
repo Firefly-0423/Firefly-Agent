@@ -109,7 +109,7 @@ export function prepareToolRuntime(input: ToolRuntimeInput): PreparedToolRuntime
     }
     const requestSignal = invocationSignal && invocationSignal !== signal ? AbortSignal.any([signal, invocationSignal]) : signal;
     const needsPrompt = !policies.includes("deny") && policies.includes("ask");
-    const approvalTarget = needsPrompt
+    const approvalTarget = needsPrompt && tool.describeApproval
       ? await resolvePluginApprovalTarget(tool, args, requestSignal)
       : undefined;
     const decision = await checkPermission({
