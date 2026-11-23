@@ -46,7 +46,7 @@ test("bundled catalog lists every plugin with a checksummed disabled API v1 pack
   // Compatibility for callers that only know the first plugin.
   assert.equal(result.zipPath, path.join(outDir, zipName("text-stats")));
   assert.equal(result.sha256, registry.plugins[0].sha256);
-  const schema = await json(path.join(repoRoot, "src/plugins/manifest.schema.json"));
+  const schema = await json(path.join(repoRoot, "scripts/plugin-marketplace/example-manifest.schema.json"));
   const validate = new Ajv({ strict: false }).compile(schema);
   const seenHashes = new Set();
   for (const entry of registry.plugins) {
@@ -203,7 +203,7 @@ test("public CLI explicitly reports preparation without claiming hosted availabi
 async function sourceFixture(t) {
   const root = await mkdtemp(path.join(repoRoot, "scripts/plugin-marketplace/.test-source-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  for (const file of ["scripts/plugin-marketplace/build.mjs", "src/plugins/manifest.schema.json", "src/shared/version.ts", "src/plugins/api.ts"]) {
+  for (const file of ["scripts/plugin-marketplace/build.mjs", "scripts/plugin-marketplace/example-manifest.schema.json", "src/shared/version.ts"]) {
     await mkdir(path.dirname(path.join(root, file)), { recursive: true });
     await cp(path.join(repoRoot, file), path.join(root, file));
   }

@@ -6,7 +6,7 @@ export default defineConfig({
     environment: "node",
     reporters: ["default", new ArchiveReporter()],
     include: [
-      "src/plugins/**/*.test.ts",
+      "src/plugins/v2/**/*.test.ts",
       "src/main/**/*.test.ts",
       "src/renderer/**/*.test.ts",
       "src/shared/**/*.test.ts",

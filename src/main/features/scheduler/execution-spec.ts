@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { PluginScheduledExecutionSpec } from "../../../plugins/api";
+import type { PluginScheduledExecutionSpec } from "../../../shared/plugin-host-events";
 import type { ScheduleConfig, ScheduledTask, ScheduledTaskPatch } from "../../platform/schedule/schedule-types";
 
 // 指纹依赖这里的键序；只选执行所需字段。

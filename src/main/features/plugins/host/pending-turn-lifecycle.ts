@@ -1,4 +1,4 @@
-import type { PluginPromptMode, PluginTurnStatus } from "../../../../plugins/api";
+import type { PluginPromptMode, PluginTurnStatus } from "../../../../shared/plugin-host-events";
 import type { LifecyclePublisher } from "../../../agent/runtime/lifecycle-publisher";
 
 /** 桌面轮次开始时已知的标识信息。 */

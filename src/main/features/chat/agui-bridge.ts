@@ -51,7 +51,7 @@ import { cancelPendingQuizzesForRun, takeQuizEvidenceForRun } from "../../agent/
 import { approvePlan, getPlanPath, moveToReview, supplementPlan } from "../../agent/tools/plan-mode";
 import { buildPlanReviewCard, buildPlanSupplementCard } from "../../agent/loop/plan-tools";
 import type { AskUserAnswer } from "../../../shared/ask-clarification";
-import type { PluginPromptMode, PluginTurnCompletedEvent } from "../../../plugins/types";
+import type { PluginPromptMode, PluginTurnCompletedEvent } from "../../../shared/plugin-host-events";
 import { runWithUsageAttribution } from "../../base/storage/usage-attribution";
 // 桌面运行的输入、归属与结算都在 Main 内维护。
 import type { AguiRunInput, BuildOptionsFn, MainBuildOptionsContext } from "../../agent/runtime/run-input-types";

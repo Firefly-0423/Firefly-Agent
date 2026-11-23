@@ -9,7 +9,7 @@ import type { CoreDependencies } from "../../app/core-bootstrap";
 import type { ShellDependencies } from "../../app/shell-bootstrap";
 import type { ExternalHostSession, ExternalSkillReview } from "./external-types";
 const m = vi.hoisted(() => ({ exposed: new Map<string, any>(), handlers: new Map<string, any>(), event: null as any,
-  dangerous: { installerPrepare: vi.fn(), installerCommit: vi.fn(), pluginInstall: vi.fn(), mcpAdd: vi.fn(), connectorCreate: vi.fn(), channelRegister: vi.fn(), permissionSet: vi.fn(), browserGrant: vi.fn() },
+  dangerous: { mcpAdd: vi.fn(), connectorCreate: vi.fn(), channelRegister: vi.fn(), permissionSet: vi.fn(), browserGrant: vi.fn() },
   invoke: vi.fn(async (channel: string, payload: unknown): Promise<any> => { const handler = m.handlers.get(channel); if (!handler) throw Error("UNREGISTERED_TEST_IPC:" + channel); return handler(m.event, payload); }),
   storage: null as any, chat: null as any, core: null as CoreDependencies | null, shell: null as ShellDependencies | null, windowOptions: null as any,
   events: [] as string[], reviews: [] as ExternalSkillReview[], hosts: [] as ExternalHostSession[], resources: new Map<string, { phase: string; dispose: () => Promise<void> | void }>(),
@@ -20,8 +20,6 @@ vi.mock("electron", () => ({ app: m.app, BrowserWindow: { getAllWindows: () => [
   contextBridge: { exposeInMainWorld: (name: string, value: any) => m.exposed.set(name, value) },
   ipcRenderer: { invoke: m.invoke, on: vi.fn(), off: vi.fn(), removeListener: vi.fn(), send: vi.fn() }, webUtils: { getPathForFile: vi.fn() } }));
 vi.mock("../../../preload/music", () => ({ exposeMusicApi: vi.fn() }));
-vi.mock("../../../plugins/installer", () => ({ preparePluginZip: m.dangerous.installerPrepare, commitPreparedPlugin: m.dangerous.installerCommit }));
-vi.mock("../../../plugins/manager", () => ({ PluginManager: class { installZip = m.dangerous.pluginInstall; } }));
 vi.mock("../../platform/permission/permission", () => ({ setCurrentLevel: m.dangerous.permissionSet }));
 vi.mock("../../platform/browser/browser-authorization-domain", () => ({ createBrowserAuthorizationDomainRegistry: m.dangerous.browserGrant }));
 vi.mock("../../features/channels/manager", () => ({ channelManager: { register: m.dangerous.channelRegister } }));
@@ -65,7 +63,6 @@ vi.mock("../../memory/legacy/rag-recall-source", () => ({}));
 vi.mock("../rag", () => ({ addL2MemoryVector: vi.fn(), deleteUserMemoryVectors: vi.fn(), flushRAGStore: vi.fn(), flushRAGStoreSync: vi.fn(), getEntriesBySource: vi.fn(), initRAG: vi.fn(), isUserMemoryVectorStoreReady: vi.fn() }));
 vi.mock("../rag/embedding", () => ({ getEmbeddingProvider: vi.fn() }));
 vi.mock("../../tooling/registry/tool-registry", () => ({ toolRegistry: vi.fn() }));
-vi.mock("../../../plugins/prompts", () => ({ pluginPromptRegistry: vi.fn() }));
 vi.mock("../../agent/tools/built-in-tools", () => ({}));
 vi.mock("../../agent/tools/tool-registration", () => ({ registerAllTools: vi.fn() }));
 vi.mock("../../platform/lsp/manager", () => ({ LspManager: vi.fn() }));
@@ -100,7 +97,7 @@ vi.mock("../../base/identity/locale-context", () => ({ updateLocaleContext: vi.f
 vi.mock("../../features/scheduler/bootstrap", () => ({ createSchedulerSubsystem: vi.fn() }));
 vi.mock("../../features/channels/bootstrap", () => ({ createChannelsSubsystem: m.dangerous.connectorCreate }));
 vi.mock("../../agent/runtime/lifecycle-publisher", () => ({ createLifecyclePublisher: vi.fn() }));
-vi.mock("../../features/plugins/host/plugin-runtime", () => ({ startPluginRuntime: vi.fn() }));
+vi.mock("../../app/plugin-v2-bootstrap", () => ({ startPluginV2Bootstrap: vi.fn(async () => ({ controller: { status: () => "disabled", uninstallPlugin: vi.fn(), getTurnContextContributors: () => [] }, dispose: vi.fn() })) }));
 vi.mock("../../agent/runtime/agent-runtime", () => ({ createAgentRuntime: vi.fn() }));
 vi.mock("../../features/proactive/proactive-lifecycle", () => ({ createProactiveLifecycle: vi.fn() }));
 vi.mock("../../agent/services/social-context/social-context-service", () => ({ createSocialContextService: vi.fn() }));

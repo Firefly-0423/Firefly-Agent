@@ -9,7 +9,7 @@ import JSZip from "jszip";
 // Node 24 can require the host's erasable TypeScript contracts without bundling.
 const require = createRequire(import.meta.url);
 const { SEMVER_PATTERN } = require("../../src/shared/version.ts");
-const { CURRENT_PLUGIN_API_VERSION } = require("../../src/plugins/api.ts");
+const CURRENT_PLUGIN_API_VERSION = 1;
 
 const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
 const defaultOutDir = path.join(repoRoot, "resources", "plugin-marketplace");
@@ -107,7 +107,7 @@ async function packPlugin(files) {
  */
 export async function buildMarketplace(options = {}) {
   const { outDir, publicMode, repository, tag, registryRef } = validateOptions(options);
-  const schema = JSON.parse(await readFile(path.join(repoRoot, "src/plugins/manifest.schema.json"), "utf8"));
+  const schema = JSON.parse(await readFile(path.join(repoRoot, "scripts/plugin-marketplace/example-manifest.schema.json"), "utf8"));
   const validate = new Ajv({ strict: false }).compile(schema);
   const releasePrefix = publicMode ? `https://github.com/${repository}/releases/download/` : undefined;
   const built = [];

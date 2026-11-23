@@ -53,7 +53,6 @@ vi.mock("../memory/legacy/rag-recall-source", () => ({}));
 vi.mock("../knowledge/rag", () => ({ addL2MemoryVector: vi.fn(), deleteUserMemoryVectors: vi.fn(), flushRAGStore: vi.fn(), flushRAGStoreSync: vi.fn(), getEntriesBySource: vi.fn(), initRAG: vi.fn(), isUserMemoryVectorStoreReady: vi.fn() }));
 vi.mock("../knowledge/rag/embedding", () => ({ getEmbeddingProvider: vi.fn() }));
 vi.mock("../tooling/registry/tool-registry", () => ({ toolRegistry: vi.fn() }));
-vi.mock("../../plugins/prompts", () => ({ pluginPromptRegistry: vi.fn() }));
 vi.mock("../agent/tools/built-in-tools", () => ({}));
 vi.mock("../agent/tools/tool-registration", () => ({ registerAllTools: vi.fn() }));
 vi.mock("../platform/lsp/manager", () => ({ LspManager: vi.fn() }));
@@ -88,7 +87,7 @@ vi.mock("../base/identity/locale-context", () => ({ updateLocaleContext: vi.fn()
 vi.mock("../features/scheduler/bootstrap", () => ({ createSchedulerSubsystem: vi.fn() }));
 vi.mock("../features/channels/bootstrap", () => ({ createChannelsSubsystem: vi.fn() }));
 vi.mock("../agent/runtime/lifecycle-publisher", () => ({ createLifecyclePublisher: vi.fn() }));
-vi.mock("../features/plugins/host/plugin-runtime", () => ({ startPluginRuntime: vi.fn() }));
+vi.mock("./plugin-v2-bootstrap", () => ({ startPluginV2Bootstrap: vi.fn(async () => ({ controller: { status: () => "disabled", uninstallPlugin: vi.fn(), getTurnContextContributors: () => [] }, dispose: vi.fn() })) }));
 vi.mock("../agent/runtime/agent-runtime", () => ({ createAgentRuntime: vi.fn() }));
 vi.mock("../features/proactive/proactive-lifecycle", () => ({ createProactiveLifecycle: vi.fn() }));
 vi.mock("../agent/services/social-context/social-context-service", () => ({ createSocialContextService: vi.fn() }));

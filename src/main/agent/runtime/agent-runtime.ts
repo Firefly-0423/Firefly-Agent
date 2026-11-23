@@ -63,7 +63,7 @@ import type {
   PluginTurnCompletedEvent,
   PluginPromptBuildInput,
   PluginPromptMode,
-} from "../../../plugins/types";
+} from "../../../shared/plugin-host-events";
 
 export type AgentRuntimeDeps = {
   publishToolFinished?: (event: ToolFinishedInput) => void;

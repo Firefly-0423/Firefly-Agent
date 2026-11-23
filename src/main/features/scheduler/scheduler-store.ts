@@ -4,7 +4,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import { app } from "electron";
-import type { PluginPromptMode } from "../../../plugins/api";
+import type { PluginPromptMode } from "../../../shared/plugin-host-events";
 import { AtomicJsonStore } from "../../base/storage/atomic-json-store";
 import { computeInitialNextFireAt, normalizeOverdueNextFireAt } from "./schedule-calculator";
 import type { NewScheduledTaskInput, ScheduledTask, ScheduledTaskHistoryEntry, ScheduledTaskPatch, ScheduleConfig, SchedulerToolMode, } from "../../platform/schedule/schedule-types";

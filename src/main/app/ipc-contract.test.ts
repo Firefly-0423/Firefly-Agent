@@ -22,7 +22,7 @@ function scan(folder: string): IpcChannelUse[] {
     );
 }
 const preload = scan(join(root, "src/preload"));
-const main = ["src/main", "src/plugins"].flatMap(folder => scan(join(root, folder)));
+const main = ["src/main", "src/plugins/v2"].flatMap(folder => scan(join(root, folder)));
 const uses = (all: IpcChannelUse[], kind: IpcChannelUseKind) => all.filter(use => use.kind === kind);
 const keys = (all: IpcChannelUse[]) => [...new Set(all.map(use => use.channel))].sort();
 describe("IPC production wiring", () => {

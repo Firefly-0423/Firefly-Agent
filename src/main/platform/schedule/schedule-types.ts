@@ -1,4 +1,4 @@
-import type { PluginPromptMode } from "../../../plugins/api";
+import type { PluginPromptMode } from "../../../shared/plugin-host-events";
 
 export type ScheduleConfig =
   | { kind: "cron"; expression: string; timezone?: string }

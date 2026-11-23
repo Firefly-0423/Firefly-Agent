@@ -37,7 +37,7 @@ async function toolFixture(t) {
 test("text-stats manifest matches the actual host schema and disabled API v1 contract", () => {
   assert.ok(existsSync(manifestPath), "text-stats manifest must exist");
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-  const schema = JSON.parse(readFileSync(new URL("../../src/plugins/manifest.schema.json", import.meta.url), "utf8"));
+  const schema = JSON.parse(readFileSync(new URL("./example-manifest.schema.json", import.meta.url), "utf8"));
   const validate = new Ajv({ strict: false }).compile(schema);
   assert.equal(validate(manifest), true, JSON.stringify(validate.errors));
   assert.equal(manifest.id, "text-stats");

@@ -18,7 +18,7 @@ export function readManifest(id) {
 }
 
 export function manifestErrors(manifest) {
-  const schema = JSON.parse(readFileSync(new URL("../../src/plugins/manifest.schema.json", import.meta.url), "utf8"));
+  const schema = JSON.parse(readFileSync(new URL("./example-manifest.schema.json", import.meta.url), "utf8"));
   const validate = new Ajv({ strict: false }).compile(schema);
   return validate(manifest) ? [] : validate.errors;
 }
