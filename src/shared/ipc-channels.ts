@@ -179,6 +179,11 @@ export const IPC = {
   PLUGINS_V2_CONFIRM_REQUEST: "plugins-v2:confirm-request",
   PLUGINS_V2_CONFIRM_RESOLVE: "plugins-v2:confirm-resolve",
   PLUGINS_V2_CONFIRM_SETTLED: "plugins-v2:confirm-settled",
+  PLUGIN_WINDOW_CLOSE: "plugin-window:close",
+  PLUGIN_WINDOW_GET_STATE: "plugin-window:get-state",
+  PLUGIN_WINDOW_INVOKE: "plugin-window:invoke",
+  PLUGIN_WINDOW_MESSAGE: "plugin-window:message",
+  PLUGIN_WINDOW_READY: "plugin-window:ready",
   // ---- POP ----
   POP_QUIZ_REQUEST: "pop-quiz:request",
   POP_QUIZ_RESOLVE: "pop-quiz:resolve",
