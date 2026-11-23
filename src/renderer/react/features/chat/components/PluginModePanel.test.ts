@@ -10,13 +10,14 @@ import { PluginModePanel, pluginToggleTarget, resolveMarketAction } from "./Plug
 
 const installed = (patch: Partial<PluginListEntry> = {}): PluginListEntry => ({
   id: "archive-toolkit", name: "Archive toolkit", description: "Browse local archives", author: "Desk Tools",
-  version: "4.2.0", entry: "archive.cjs", apiVersion: 1, source: "user", path: "D:\\Extensions\\archive-toolkit",
+  version: "4.2.0", entry: "dist/main.js", apiVersion: 2, source: "user", path: "D:\\Extensions\\archive-toolkit",
   defaultEnabled: false, configuredEnabled: true, enabled: true, status: "running", hasUnregister: true,
-  canOpen: true, icon: "data:image/png;base64,AQID", ...patch,
+  canOpen: true, icon: "data:image/png;base64,AQID", revision: 1, modelRateLimit: 10,
+  permissions: ["workspace.read", "model.run"], grantedPermissions: ["workspace.read"], ...patch,
 });
 const catalog = (patch: Partial<MarketPluginEntry> = {}): MarketPluginEntry => ({
   id: "catalog-toolkit", name: "Catalog toolkit", description: "Organize local documents", author: "Catalog Team",
-  version: "4.6.0", downloads: 31, ...patch,
+  version: "4.6.0", sdk: ">=1.2.0 <2.0.0", pluginApiVersion: 2, downloads: 31, ...patch,
 });
 function latch<T>() {
   let resolve!: (value: T) => void, reject!: (error: Error) => void;
@@ -27,9 +28,13 @@ function service(plugins: PluginListEntry[] = []): PluginManagementApi {
   return {
     list: vi.fn().mockResolvedValue({ plugins, issues: [] }),
     rescan: vi.fn().mockResolvedValue({ plugins, issues: [] }),
-    setEnabled: vi.fn().mockResolvedValue({ ok: true }), open: vi.fn().mockResolvedValue({ ok: true }),
+    setEnabled: vi.fn().mockResolvedValue({ ok: true }),
+    setPermission: vi.fn().mockResolvedValue({ ok: true }),
+    setModelRateLimit: vi.fn().mockResolvedValue({ ok: true }),
+    open: vi.fn().mockResolvedValue({ ok: true }),
     uninstall: vi.fn().mockResolvedValue({ ok: true, overview: { plugins: [], issues: [] } }),
     importZip: vi.fn().mockResolvedValue({ ok: false, canceled: true }),
+    importFolder: vi.fn().mockResolvedValue({ ok: false, canceled: true }),
     marketList: vi.fn().mockResolvedValue({ ok: true, plugins: [catalog()] }),
     marketInstall: vi.fn().mockResolvedValue({ ok: false, error: "Package rejected" }),
   };
@@ -71,7 +76,7 @@ test("renders installed plugin identity, metadata and ordered action buttons", a
   await mount(service([installed()]));
   for (const text of ["Archive toolkit", "Browse local archives", "开发者：Desk Tools"]) expect(host.textContent).toContain(text);
   expect(host.querySelector<HTMLImageElement>(".plugin-card-ui__icon img")?.src).toContain("data:image/png");
-  expect(actionButtons().map(node => node.textContent)).toStrictEqual(["打开", "停用", "删除"]);
+  expect(actionButtons().map(node => node.textContent?.trim())).toStrictEqual(["打开", "设置", "停用", "卸载"]);
 });
 
 test.each([false, true])("distinguishes pending restart from failed activation; failed=%s", async (failed) => {
@@ -87,20 +92,43 @@ test.each([false, true])("distinguishes pending restart from failed activation; 
   }
 });
 
-test("hides interface actions for headless plugins and enables disabled plugins through the API", async () => {
-  const api = service([installed({ canOpen: false, configuredEnabled: false, enabled: false, status: "disabled" })]);
+test("hides interface actions for headless plugins and opens enable trust confirmation before enabling", async () => {
+  const api = service([installed({
+    canOpen: false, configuredEnabled: false, enabled: false, status: "disabled", native: true,
+    tools: [{ name: "scan", title: "Scan", risk: ["read"], modes: ["chat"] }],
+    context: [{ id: "repo", title: "Repo Info", modes: ["chat"], sources: ["files"] }],
+    channels: [{ id: "alerts", title: "Alerts" }],
+    permissions: ["workspace.read", "model.run"],
+  })]);
   await mount(api);
-  expect(actionButtons().map(node => node.textContent)).toStrictEqual(["启用", "删除"]);
-  await click(actionButtons()[0]);
+  expect(actionButtons().map(node => node.textContent?.trim())).toStrictEqual(["设置", "启用", "卸载"]);
+  await click(actionButtons()[1]);
+  expect(api.setEnabled).not.toHaveBeenCalled();
+  const dialog = host.querySelector('[role="dialog"]')!;
+  expect(dialog).not.toBeNull();
+  for (const text of [
+    "启用即信任该插件的代码",
+    "高风险警告",
+    "native: true",
+    "Scan (scan)",
+    "Repo Info (repo)",
+    "Alerts (alerts)",
+    "workspace.read",
+    "model.run",
+  ]) expect(dialog.textContent).toContain(text);
+  const confirmBtn = Array.from(dialog.querySelectorAll("button")).find(b => b.textContent === "信任并启用")!;
+  await click(confirmBtn);
   expect(api.setEnabled).toHaveBeenCalledExactlyOnceWith("archive-toolkit", true);
   expect(api.list).toHaveBeenCalledTimes(2);
   expect(pluginToggleTarget(installed({ status: "failed" }))).toBe(true);
+  expect(pluginToggleTarget(installed({ status: "disabled-fault" }))).toBe(true);
+  expect(pluginToggleTarget(installed({ status: "enabled" }))).toBe(false);
   expect(pluginToggleTarget(installed({ status: "running" }))).toBe(false);
 });
 
-test("a running headless plugin exposes only disable and delete", async () => {
+test("a running headless plugin exposes settings, disable, and uninstall", async () => {
   await mount(service([installed({ canOpen: false })]));
-  expect(actionButtons().map(node => node.textContent)).toStrictEqual(["停用", "删除"]);
+  expect(actionButtons().map(node => node.textContent?.trim())).toStrictEqual(["设置", "停用", "卸载"]);
 });
 
 test("protects built-in plugins from deletion", async () => {
@@ -111,20 +139,81 @@ test("protects built-in plugins from deletion", async () => {
   expect(remove.title).toBe("内置插件不可删除");
 });
 
-test.each([true, false])("uninstalls only after a dangerous confirmation resolves to %s", async (accept) => {
-  const decision = latch<boolean>();
-  feedback.confirm.mockReturnValue(decision.promise);
+test.each([true, false])("uninstall dialog preserves secrets and data by default unless checked; deleteExtras=%s", async (deleteExtras) => {
   const api = service([installed()]);
   await mount(api);
   const remove = actionButtons().at(-1)!;
   expect(remove.disabled).toBe(false);
   await click(remove);
-  expect(feedback.confirm).toHaveBeenCalledTimes(1);
-  expect(feedback.confirm).toHaveBeenCalledWith(expect.objectContaining({ title: "删除", dangerous: true }));
   expect(api.uninstall).not.toHaveBeenCalled();
-  await React.act(async () => decision.resolve(accept));
-  if (accept) expect(api.uninstall).toHaveBeenCalledExactlyOnceWith("archive-toolkit");
-  else expect(api.uninstall).not.toHaveBeenCalled();
+  const dialog = host.querySelector('[role="dialog"]')!;
+  expect(dialog).not.toBeNull();
+  const checkboxes = Array.from(dialog.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'));
+  expect(checkboxes).toHaveLength(2);
+  expect(checkboxes.every(box => !box.checked)).toBe(true);
+  if (deleteExtras) {
+    await React.act(async () => { checkboxes[0].click(); checkboxes[1].click(); });
+  }
+  const confirmBtn = Array.from(dialog.querySelectorAll("button")).find(b => b.textContent === "卸载")!;
+  await click(confirmBtn);
+  if (deleteExtras) {
+    expect(api.uninstall).toHaveBeenCalledExactlyOnceWith("archive-toolkit", { deleteSecrets: true, deleteData: true });
+  } else {
+    expect(api.uninstall).toHaveBeenCalledExactlyOnceWith("archive-toolkit");
+  }
+});
+
+test("settings modal shows disabled-fault status, toggles permissions immediately, and validates 1..60 rate limit", async () => {
+  const initial = installed({ status: "disabled-fault", error: "Activation timeout", revision: 2, modelRateLimit: 10 });
+  const updated = installed({ status: "disabled-fault", revision: 3, grantedPermissions: ["workspace.read", "model.run"], modelRateLimit: 25 });
+  const api = service([initial]);
+  vi.mocked(api.setPermission!).mockResolvedValue({ ok: true, overview: { plugins: [updated], issues: [] } });
+  vi.mocked(api.setModelRateLimit!).mockResolvedValue({ ok: true, overview: { plugins: [updated], issues: [] } });
+
+  await mount(api);
+  expect(host.textContent).toContain("已停用（异常）");
+  const settingsBtn = actionButtons().find(b => b.textContent?.includes("设置"))!;
+  await click(settingsBtn);
+
+  const dialog = host.querySelector('[role="dialog"]')!;
+  expect(dialog.textContent).toContain("已停用（异常）");
+  expect(dialog.textContent).toContain("配置修订：r2");
+  const permBoxes = Array.from(dialog.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'));
+  expect(permBoxes.map(b => b.checked)).toStrictEqual([true, false]);
+
+  await React.act(async () => { permBoxes[1].click(); });
+  expect(api.setPermission).toHaveBeenCalledExactlyOnceWith("archive-toolkit", "model.run", true);
+  expect(host.querySelector('[role="dialog"]')!.textContent).toContain("配置修订：r3");
+
+  const rateInput = host.querySelector<HTMLInputElement>("#plugin-rate-limit-input")!;
+  const saveRateBtn = Array.from(host.querySelector('[role="dialog"]')!.querySelectorAll("button"))
+    .find(b => b.textContent === "应用限制")!;
+
+  await React.act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(rateInput, "61");
+    rateInput.dispatchEvent(new Event("input", { bubbles: true }));
+    rateInput.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await click(saveRateBtn);
+  expect(host.querySelector('[role="dialog"]')!.textContent).toContain("速率限制必须在 1 到 60 之间");
+  expect(api.setModelRateLimit).not.toHaveBeenCalled();
+
+  await React.act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(rateInput, "25");
+    rateInput.dispatchEvent(new Event("input", { bubbles: true }));
+    rateInput.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await click(saveRateBtn);
+  expect(api.setModelRateLimit).toHaveBeenCalledExactlyOnceWith("archive-toolkit", 25);
+});
+
+test("supports importing local folder via action button", async () => {
+  const api = service([installed()]);
+  await mount(api);
+  const folderBtn = buttons().find(b => b.textContent === "导入文件夹")!;
+  expect(folderBtn).toBeDefined();
+  await click(folderBtn);
+  expect(api.importFolder).toHaveBeenCalledTimes(1);
 });
 
 test("loads the market on entry and restores installed management on return", async () => {
@@ -194,10 +283,10 @@ test.each([
   vi.mocked(api.marketInstall).mockResolvedValue({ ok: true, plugin: { id: "catalog-toolkit", name: "Catalog toolkit", version: "4.6.0" } });
   await mount(api); await nav(true); await click(actionButtons()[0]);
   const state = kind === "new" ? "首次安装后默认停用，请确认来源可信后再启用。"
-    : configured ? "当前插件配置为启用。将保留启用设置，完整重启应用后才会尝试运行新版本。"
+    : configured ? "当前插件配置为启用。将保留启用设置并尝试切换至新版本，失败时自动回滚。"
       : "当前插件配置为停用。将保留停用设置，需从已安装列表手动启用。";
-  const transition = kind === "market" ? "更新包将独立保存，当前运行版本继续使用；完整重启应用后再切换。"
-    : kind === "local" ? "替换包将独立保存，当前运行版本继续使用；完整重启应用后再切换。" : "";
+  const transition = kind === "market" ? "新版本包将安装并切换；若新版本启动失败将自动回滚到旧版本。"
+    : kind === "local" ? "新版本包将安装并切换；若新版本启动失败将自动回滚到当前版本。" : "";
   expect(feedback.confirm).toHaveBeenCalledExactlyOnceWith({
     title: label, confirmText: label, cancelText: "取消", dangerous: true,
     message: [`确定${label} Catalog toolkit v4.6.0 吗？`, state, transition, "声明的能力：filesystem, network", warning].filter(Boolean).join("\n\n"),
@@ -207,7 +296,7 @@ test.each([
   if (kind === "local") expect(message).not.toContain("当前版本会停止运行");
   if (kind !== "new") {
     expect(message).not.toContain("安装完成后插件处于停用状态");
-    expect(host.querySelector(".plugin-panel__notices")?.textContent).toContain(configured ? "保留启用设置" : "保留停用设置");
+    expect(host.querySelector(".plugin-panel__notices")?.textContent).toContain(configured ? "已尝试启用新版本" : "保留停用设置");
     expect(host.querySelector(".plugin-panel__notices")?.textContent).toContain("Catalog toolkit");
     expect(host.querySelector(".plugin-panel__notices")?.textContent).not.toContain("默认停用");
   } else {
@@ -253,22 +342,22 @@ test.each(["revisit", "unmount"] as const)("invalidates confirmation on %s", asy
   if (leave === "revisit") expect(actionButtons()[0].disabled).toBe(false);
 });
 
-test("disables incompatible packages and shows inspectable native details", async () => {
+test("disables incompatible packages and shows inspectable v2 details", async () => {
   const api = service();
-  vi.mocked(api.marketList).mockResolvedValue({ ok: true, plugins: [catalog({ compatible: false, pluginApiVersion: 99 })] });
+  vi.mocked(api.marketList).mockResolvedValue({ ok: true, plugins: [catalog({ compatible: false, sdk: "^99.0.0", pluginApiVersion: 2 })] });
   await mount(api); await nav(true);
   expect(host.textContent).toContain("不兼容");
-  expect(host.textContent).toContain("插件 API：99");
+  expect(host.textContent).toContain("目标 SDK：^99.0.0");
   expect(actionButtons()[0].disabled).toBe(true);
   await click(actionButtons()[0]);
   expect(feedback.confirm).not.toHaveBeenCalled();
   expect(api.marketInstall).not.toHaveBeenCalled();
-  vi.mocked(api.marketList).mockResolvedValue({ ok: true, plugins: [catalog({ compatible: true, pluginApiVersion: 1, capabilities: ["network"], source: "remote" })] });
+  vi.mocked(api.marketList).mockResolvedValue({ ok: true, plugins: [catalog({ compatible: true, sdk: ">=1.2.0 <2.0.0", permissions: ["workspace.read"], license: "MIT", capabilities: ["network"], source: "remote" })] });
   await click(refresh());
   const details = host.querySelector("details")!;
   expect(details).not.toBeNull();
   expect(details.querySelector("summary")?.textContent).toBe("插件详情");
-  for (const text of ["catalog-toolkit", "插件 API：1", "声明的能力：network", "不代表沙箱隔离"]) expect(details.textContent).toContain(text);
+  for (const text of ["catalog-toolkit", "目标 SDK：>=1.2.0 <2.0.0", "声明的权限：workspace.read", "许可证：MIT", "声明的能力：network", "不代表沙箱隔离"]) expect(details.textContent).toContain(text);
   expect(host.textContent).toContain("兼容当前应用");
 });
 
