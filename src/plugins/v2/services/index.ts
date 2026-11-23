@@ -1,5 +1,5 @@
 import type { PluginRpc } from "../../../shared/plugin-rpc";
-import { PluginError, PLUGIN_TO_HOST_METHODS as P } from "../../../shared/plugin-protocol";
+import { PluginError, PLUGIN_TO_HOST_METHODS as P, type PluginToHostParams, type PluginToHostResults, type PluginToHostStreamChunks, type ProtocolRunEvent, type ProtocolPage } from "../../../shared/plugin-protocol";
 import { createRateLimiter } from "./rate-limit";
 
 export type Mode = "chat" | "work" | "code";
@@ -38,14 +38,21 @@ export interface ServiceDependencies {
   confirm(request: { pluginId: string; pluginName: string; permission: ServicePermission; signal: AbortSignal }): Promise<boolean>;
   currentModel(): Promise<object | null>;
   generate(request: GenerateRequest, profile: object, signal: AbortSignal): Promise<GenerateResult>;
+  generateStream(request: GenerateRequest, profile: object, signal: AbortSignal): AsyncIterable<PluginToHostStreamChunks["model.generate"]>;
+  watchWorkspace(pluginId: string, listener: () => void): () => void;
   /** Adapter enters the normal run controller and its permission/approval path. Never call a raw agent loop. */
-  run(request: RunRequest, profile: object, signal: AbortSignal): Promise<RunResult>;
+  run(request: RunRequest, profile: object, signal: AbortSignal, onEvent: (event: ProtocolRunEvent) => void): Promise<RunResult>;
   /** Show plugin borrowing indication and wire its stop button to cancel. Dispose hides indication. */
   borrowing(request: { pluginId: string; pluginName: string; cancel(): void }): () => void;
   sessions(context: ServiceContext, signal: AbortSignal): Promise<readonly PublicSession[]>;
   messages(sessionId: string, context: ServiceContext, signal: AbortSignal): Promise<readonly PublicMessage[]>;
   /** Host must remove real secrets and paths outside context. Regex alone is insufficient. */
   redact(text: string, context: ServiceContext): string;
+  /** Per-stream redactor must retain undecidable suffixes across pushes and emit only safe text.
+   * finish releases the sanitized tail; callers never flush after cancellation or access loss.
+   * Wiring must fail closed when no streaming secret/path redactor is available.
+   */
+  createStreamRedactor(context: ServiceContext): { push(text: string): string; finish(): string };
   /** Events include trusted sessionId/pluginId scope metadata, stripped before delivery. */
   subscribe(listener: (event: unknown) => void): () => void;
   modelLimitPerMinute?(pluginId: string): number;
@@ -68,13 +75,13 @@ function text(value: unknown, max = 100_000): string {
 function contextEqual(a: ServiceContext, b: ServiceContext | null) {
   return b !== null && a.revision === b.revision && a.sessionId === b.sessionId && a.workspaceRoot === b.workspaceRoot && a.mode === b.mode && a.workspaceName === b.workspaceName;
 }
-function page<T>(items: readonly T[], params: Record<string, unknown>) {
+function page<T>(items: readonly T[], params: Record<string, unknown>): ProtocolPage<T> {
   const limit = params.limit ?? 50;
   if (!Number.isInteger(limit) || (limit as number) < 1 || (limit as number) > 100) throw invalid();
   const cursor = params.cursor ?? "0";
   if (typeof cursor !== "string" || !/^(0|[1-9][0-9]{0,8})$/.test(cursor)) throw invalid();
   const offset = Number(cursor), end = offset + (limit as number);
-  return { items: items.slice(offset, end), nextCursor: end < items.length ? String(end) : null };
+  return { items: items.slice(offset, end), ...(end < items.length ? { nextCursor: String(end) } : {}) };
 }
 function eventDto(input: unknown, pluginId: string, types: Set<string>) {
   if (!input || typeof input !== "object") return null;
@@ -101,7 +108,7 @@ export function createPluginHostServices(deps: ServiceDependencies) {
   let disposed = false;
   function configureRpc(pluginId: string, rpc: PluginRpc): () => void {
     if (disposed) throw unavailable();
-    const active = new Set<AbortController>();
+    const active = new Map<AbortController, () => void>();
     const eventStops = new Set<() => void>();
     const unregister: Array<() => void> = [];
     let closed = false;
@@ -113,13 +120,13 @@ export function createPluginHostServices(deps: ServiceDependencies) {
     };
     const changed = deps.onAccessChange(pluginId, () => {
       // Context-bound operations stop on rebind; event streams only stop on permission loss.
-      for (const controller of active) controller.abort();
+      for (const [controller, validate] of active) { try { validate(); } catch { controller.abort(); } }
       const access = deps.access(pluginId);
       if (!access?.declared.includes("events") || !access.granted.has("events")) {
         for (const stop of eventStops) stop();
       }
     });
-    function begin(required: ServicePermission, signal: AbortSignal) {
+    function begin(required: ServicePermission, signal: AbortSignal, bindContext = true) {
       const access = check(required), ctx = deps.context(pluginId);
       if (!ctx) throw unavailable();
       const snapshot = { ...ctx };
@@ -128,13 +135,13 @@ export function createPluginHostServices(deps: ServiceDependencies) {
       const abort = () => controller.abort();
       signal.addEventListener("abort", abort, { once: true });
       if (signal.aborted) abort();
-      active.add(controller);
       const guard = () => {
         const current = check(required);
         if (current.revision !== revision) throw permission();
-        if (!contextEqual(snapshot, deps.context(pluginId))) throw unavailable();
+        if (bindContext && !contextEqual(snapshot, deps.context(pluginId))) throw unavailable();
         if (closed || controller.signal.aborted) throw cancelled();
       };
+      active.set(controller, guard);
       const wait = <T>(promise: Promise<T>): Promise<T> => new Promise((resolve, reject) => {
         const onAbort = () => { try { guard(); } catch (error) { reject(error); } };
         controller.signal.addEventListener("abort", onAbort, { once: true });
@@ -160,14 +167,14 @@ export function createPluginHostServices(deps: ServiceDependencies) {
       if (!accepted) throw new PluginError("ERR_REJECTED", "User declined plugin access");
       deps.confirmations.set(pluginId, required, op.access.revision);
     }
-    function register(method: string, required: ServicePermission, action: (params: unknown, op: Operation) => Promise<unknown>, needsConfirmation = false) {
+    function register<M extends keyof PluginToHostParams>(method: M, required: ServicePermission, action: (params: PluginToHostParams[M], op: Operation) => Promise<PluginToHostResults[M]>, needsConfirmation = false) {
       unregister.push(rpc.handle(method, async (params, { signal }) => {
         const op = begin(required, signal);
         try {
           op.guard();
           if (needsConfirmation) await confirm(required, op);
           op.guard();
-          const result = await action(params, op); op.guard(); return result;
+          const result = await action(params as PluginToHostParams[M], op); op.guard(); return result;
         } finally { op.cleanup(); }
       }));
     }
@@ -180,16 +187,16 @@ export function createPluginHostServices(deps: ServiceDependencies) {
       page([], params);
       if (params.mode !== undefined && !modes.has(String(params.mode))) throw invalid();
       const rows = (await scopedSessions(op)).filter(row => params.mode === undefined || row.mode === params.mode);
-      return page(rows.map(row => ({ id: row.id, mode: row.mode, title: deps.redact(row.title, op.ctx), createdAt: row.createdAt, updatedAt: row.updatedAt })), params);
+      return page(rows.map(row => ({ id: row.id, mode: row.mode, title: deps.redact(row.title, op.ctx), updatedAt: row.updatedAt })), params);
     }, true);
     register(P.sessionsMessages, "sessions.read", async (input, op) => {
       const params = object(input, ["sessionId", "cursor", "limit"]); const id = text(params.sessionId, 256); page([], params);
       if (!(await scopedSessions(op)).some(row => row.id === id)) throw permission();
       const rows = await op.wait(deps.messages(id, op.ctx, op.signal)); op.guard();
-      return page(rows.filter(row => (row.role === "user" || row.role === "assistant") && (!row.pluginId || row.pluginId === pluginId)).map(row => ({ id: row.id, role: row.role, text: deps.redact(row.text, op.ctx), at: row.at })), params);
+      return page(rows.filter(row => (row.role === "user" || row.role === "assistant") && (!row.pluginId || row.pluginId === pluginId)).map(row => ({ id: row.id, role: row.role, content: deps.redact(row.text, op.ctx), createdAt: row.at })), params);
     }, true);
-    const model = async (input: unknown, op: Operation, run: boolean) => {
-      const params = object(input, run ? ["objective", "mode", "sessionId", "allowPartners"] : ["prompt", "system", "maxOutputTokens", "schema"]);
+    const prepareModel = async (input: unknown, op: Operation, run: boolean) => {
+      const params = object(input, run ? ["objective", "mode", "sessionId", "allowPartners"] : ["prompt", "system", "maxOutputTokens", "schema", "stream"]);
       let request: GenerateRequest | RunRequest;
       if (run) {
         const objective = text(params.objective);
@@ -197,6 +204,7 @@ export function createPluginHostServices(deps: ServiceDependencies) {
         if (params.sessionId !== undefined && params.sessionId !== op.ctx.sessionId) throw permission();
         request = { objective, mode: params.mode as Mode, allowPartners: params.allowPartners === true, sessionId: op.ctx.sessionId, source: "plugin", pluginId, pluginName: op.access.name };
       } else {
+        if (params.stream !== undefined && typeof params.stream !== "boolean") throw invalid();
         request = { prompt: text(params.prompt) };
         if (params.system !== undefined) request.system = text(params.system);
         if (params.maxOutputTokens !== undefined) {
@@ -211,19 +219,106 @@ export function createPluginHostServices(deps: ServiceDependencies) {
       const profile = await op.wait(deps.currentModel()); op.guard(); if (!profile) throw unavailable();
       limit(pluginId);
       const hide = deps.borrowing({ pluginId, pluginName: op.access.name, cancel: () => op.controller.abort() });
-      try {
-        op.guard();
-        if (run) {
-          const result = await op.wait(deps.run(request as RunRequest, profile, op.signal)); op.guard();
-          if (result.sessionId !== op.ctx.sessionId) throw permission();
-          return { runId: result.runId, sessionId: result.sessionId, reply: deps.redact(result.reply, op.ctx) };
-        }
-        const result = await op.wait(deps.generate(request as GenerateRequest, profile, op.signal)); op.guard();
-        return { text: deps.redact(result.text, op.ctx), ...(result.usage ? { usage: { inputTokens: result.usage.inputTokens, outputTokens: result.usage.outputTokens } } : {}) };
-      } finally { hide(); }
+      return { request, profile, hide };
     };
-    register(P.modelGenerate, "model.generate", (params, op) => model(params, op, false));
-    register(P.modelRun, "model.run", (params, op) => model(params, op, true), true);
+    const runResult = (result: RunResult, op: Operation): PluginToHostResults["model.run"] => {
+      op.guard();
+      if (result.sessionId !== op.ctx.sessionId) throw permission();
+      return { runId: result.runId, sessionId: result.sessionId, reply: deps.redact(result.reply, op.ctx) };
+    };
+    function streamModel<M extends "model.generate" | "model.run">(method: M, input: PluginToHostParams[M], signal: AbortSignal): AsyncIterable<PluginToHostStreamChunks[M]> {
+      return (async function* () {
+        const isRun = method === P.modelRun;
+        const op = begin(isRun ? "model.run" : "model.generate", signal);
+        let hide = () => {};
+        try {
+          op.guard();
+          if (isRun) await confirm("model.run", op);
+          op.guard();
+          const prepared = await prepareModel(input, op, isRun);
+          hide = prepared.hide;
+          op.guard();
+          const redactor = deps.createStreamRedactor(op.ctx);
+          if (!isRun) {
+            const iterator = deps.generateStream(prepared.request as GenerateRequest, prepared.profile, op.signal)[Symbol.asyncIterator]();
+            try {
+              while (true) {
+                const next = await op.wait(iterator.next()); op.guard();
+                if (next.done) break;
+                const delta = redactor.push(next.value.delta); op.guard();
+                if (delta) yield { delta } as PluginToHostStreamChunks[M];
+              }
+            } finally {
+              // A provider which ignores cancellation must not prevent RPC cleanup.
+              void Promise.resolve(iterator.return?.()).catch(() => {});
+            }
+            op.guard(); const tail = redactor.finish(); op.guard();
+            if (tail) yield { delta: tail } as PluginToHostStreamChunks[M];
+          } else {
+            const queue: ProtocolRunEvent[] = [];
+            let wake = () => {}, done = false;
+            let result: RunResult | undefined, failure: unknown;
+            const emit = (event: ProtocolRunEvent) => {
+              try {
+                op.guard();
+                if (queue.length >= 100) throw new PluginError("ERR_UNAVAILABLE", "Run event queue overflow");
+                let dto: ProtocolRunEvent;
+                switch (event.type) {
+                  case "run.started":
+                    if (event.sessionId !== op.ctx.sessionId) throw permission();
+                    dto = { type: event.type, runId: event.runId, sessionId: event.sessionId, mode: event.mode, at: event.at }; break;
+                  case "run.ended":
+                    if (event.sessionId !== op.ctx.sessionId) throw permission();
+                    dto = { type: event.type, runId: event.runId, sessionId: event.sessionId, outcome: event.outcome, at: event.at }; break;
+                  case "text.delta": {
+                    const delta = redactor.push(event.delta);
+                    if (!delta) return;
+                    dto = { type: event.type, delta }; break;
+                  }
+                  case "tool.started": dto = { type: event.type, callId: event.callId, tool: event.tool }; break;
+                  case "tool.completed": dto = { type: event.type, callId: event.callId, tool: event.tool, status: event.status }; break;
+                  default: throw invalid();
+                }
+                queue.push(dto); wake();
+              } catch (error) { failure ??= error; queue.length = 0; op.controller.abort(); wake(); }
+            };
+            void op.wait(deps.run(prepared.request as RunRequest, prepared.profile, op.signal, emit)).then(
+              value => { result = value; }, error => { failure ??= error; },
+            ).finally(() => { done = true; wake(); });
+            while (!done || queue.length) {
+              if (failure) throw failure;
+              op.guard();
+              if (queue.length) yield queue.shift()! as PluginToHostStreamChunks[M];
+              else await new Promise<void>(resolve => { wake = resolve; });
+            }
+            if (failure) throw failure;
+            op.guard();
+            if (!result) throw unavailable();
+            const tail = redactor.finish(); op.guard();
+            if (tail) yield { type: "text.delta", delta: tail } as PluginToHostStreamChunks[M];
+            op.guard();
+            yield { type: "run.result", result: runResult(result, op) } as PluginToHostStreamChunks[M];
+          }
+          op.guard();
+        } finally { op.controller.abort(); hide(); op.cleanup(); }
+      })();
+    }
+    unregister.push(rpc.handle(P.modelGenerate, (input, { signal }) => {
+      const params = object(input, ["prompt", "system", "maxOutputTokens", "schema", "stream"]);
+      if (params.stream === true) return streamModel(P.modelGenerate, params as unknown as PluginToHostParams["model.generate"], signal);
+      return (async (): Promise<PluginToHostResults["model.generate"]> => {
+        const op = begin("model.generate", signal);
+        let hide = () => {};
+        try {
+          op.guard();
+          const prepared = await prepareModel(params, op, false); hide = prepared.hide;
+          op.guard();
+          const result = await op.wait(deps.generate(prepared.request as GenerateRequest, prepared.profile, op.signal)); op.guard();
+          return { text: deps.redact(result.text, op.ctx), ...(result.usage ? { usage: { inputTokens: result.usage.inputTokens, outputTokens: result.usage.outputTokens } } : {}) };
+        } finally { hide(); op.cleanup(); }
+      })();
+    }));
+    unregister.push(rpc.handle(P.modelRun, (input, { signal }) => streamModel(P.modelRun, input as PluginToHostParams["model.run"], signal)));
     register(P.workspaceInfo, "workspace.read", async (input, op) => {
       const params = object(input ?? {}, ["sessionId"]);
       if (params.sessionId !== undefined && params.sessionId !== op.ctx.sessionId) throw permission();
@@ -232,10 +327,10 @@ export function createPluginHostServices(deps: ServiceDependencies) {
     }, true);
     unregister.push(rpc.handle(P.eventsSubscribe, (input, { signal }) => {
       check("events");
-      const params = object(input ?? {}, ["types"]);
+      const params = object(input ?? {}, ["type"]);
       const allowed = ["run.started", "run.ended", "tool.completed", "schedule.completed"];
-      if (params.types !== undefined && (!Array.isArray(params.types) || params.types.length === 0 || params.types.some(t => !allowed.includes(t)))) { throw invalid(); }
-      const types = new Set<string>(params.types as string[] ?? allowed);
+      if (typeof params.type !== "string" || !allowed.includes(params.type)) throw invalid();
+      const types = new Set([params.type]);
       return (async function* () {
         check("events");
         const queue: unknown[] = [];
@@ -288,9 +383,31 @@ export function createPluginHostServices(deps: ServiceDependencies) {
         }
       })();
     }));
+    unregister.push(rpc.handle(P.workspaceWatch, (input, { signal }) => {
+      object(input ?? {}, []);
+      return (async function* (): AsyncIterable<PluginToHostStreamChunks["workspace.watch"]> {
+        const op = begin("workspace.read", signal, false);
+        let unsubscribe = () => {};
+        let wake = () => {}, dirty = false;
+        const changed = () => { dirty = true; wake(); };
+        const abort = () => wake();
+        op.signal.addEventListener("abort", abort);
+        try {
+          op.guard(); await confirm("workspace.read", op); op.guard();
+          unsubscribe = deps.watchWorkspace(pluginId, changed);
+          while (true) {
+            op.guard();
+            if (!dirty) await new Promise<void>(resolve => { wake = resolve; });
+            op.guard(); dirty = false;
+            const ctx = deps.context(pluginId);
+            yield ctx ? { sessionId: ctx.sessionId, mode: ctx.mode, root: ctx.workspaceRoot, name: ctx.workspaceName === null ? null : deps.redact(ctx.workspaceName, ctx) } : null;
+          }
+        } finally { unsubscribe(); op.signal.removeEventListener("abort", abort); op.cleanup(); }
+      })();
+    }));
     const dispose = () => {
       if (closed) return; closed = true;
-      for (const controller of active) controller.abort();
+      for (const controller of active.keys()) controller.abort();
       for (const stop of eventStops) stop();
       changed(); unregister.forEach(stop => stop()); disposers.delete(dispose);
     };
