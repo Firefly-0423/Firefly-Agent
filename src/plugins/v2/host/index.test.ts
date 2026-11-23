@@ -68,6 +68,14 @@ function setup(failChannel = false, forceKill = vi.fn(), configureRpc?: () => ((
 }
 afterEach(() => { vi.useRealTimers(); });
 describe("plugin host", () => {
+  it("marks a dispatched channel send unknown when disable closes its port without a result", async () => {
+    const { manager, children } = setup(); await manager.start("p");
+    const sent = manager.call("p", "channel.send", { id: "inbox", message: { chat: { type: "private", id: "u" }, text: "hello" } });
+    await Promise.resolve(); await manager.stop("p");
+    await expect(sent).resolves.toEqual({ status: "unknown", reason: "Plugin process stopped during channel send" });
+    expect(children[0].frames.filter(frame => frame.method === "channel.send")).toHaveLength(1);
+    expect(manager.status("p")).toBe("disabled");
+  });
   it("disposes service registrations exactly once on stop and crash before restarting", async () => {
     vi.useFakeTimers();
     const cleanup = vi.fn(); const configure = vi.fn(() => cleanup);

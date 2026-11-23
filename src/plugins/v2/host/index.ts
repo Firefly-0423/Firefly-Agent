@@ -148,6 +148,7 @@ export class PluginHostManager {
     catch (error) {
       if (runtime.crashed && method === HOST_TO_PLUGIN_METHODS.toolExecute) return { status: "unknown", reason: "Plugin process exited during tool execution" };
       if (runtime.crashed && method === HOST_TO_PLUGIN_METHODS.channelSend) return { status: "unknown", reason: "Plugin process exited during channel send" };
+      if (runtime.finished && method === HOST_TO_PLUGIN_METHODS.channelSend) return { status: "unknown", reason: "Plugin process stopped during channel send" };
       throw error;
     }
   }
