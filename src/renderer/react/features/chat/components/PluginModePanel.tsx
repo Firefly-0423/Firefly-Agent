@@ -409,7 +409,7 @@ function InstalledCard({ plugin, state, t }: { plugin: PluginListEntry; state: C
   const transitioning = isTransitioningStatus(plugin.status);
   const active = isActiveStatus(plugin.status);
   const faulted = plugin.status === "failed" || plugin.status === "disabled-fault";
-  const canOpen = plugin.status === "running" && plugin.canOpen;
+  const canOpen = (plugin.status === "running" || plugin.status === "enabled") && plugin.canOpen;
   const canDelete = plugin.source === "user" && !transitioning;
   const showSettings = plugin.apiVersion >= 2 || Boolean(plugin.permissions?.length) || plugin.modelRateLimit !== undefined;
   const toggleText = faulted ? t("common.retry") : active ? t("pluginPanel.disable") : t("pluginPanel.enable");

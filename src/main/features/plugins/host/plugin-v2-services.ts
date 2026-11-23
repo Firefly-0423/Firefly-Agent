@@ -66,6 +66,13 @@ import {
   type PluginToolService,
 } from "../../../../plugins/v2/tools";
 import {
+  createElectronPluginWindowFactory,
+  createPluginUiService,
+  type CreatePluginWindowOptions,
+  type PluginUiService,
+  type PluginUiWindowInstance,
+} from "../../../../plugins/v2/ui";
+import {
   createPluginStreamRedactor,
   redactPluginText,
   type RedactionSettingsSource,
@@ -114,6 +121,8 @@ export interface PluginV2HostDependencies {
   onOverviewChanged?: () => void;
   onRunningStateChange?: (pluginId: string, running: boolean) => void;
   createHostManager?: (deps: HostDependencies) => PluginHostManager;
+  createPluginWindow?: (options: CreatePluginWindowOptions) => PluginUiWindowInstance;
+  pluginWindowPreloadPath?: string;
 }
 
 export interface PluginV2ImportOptions {
@@ -239,6 +248,10 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
 
   const unsubState = stateStore.onChange((pluginId) => {
     notifyAccessFor(pluginId);
+    uiService.notifyAccessChanged(pluginId);
+    if (!stateStore.isEnabled(pluginId) || !stateStore.hasPermission(pluginId, "ui.windows")) {
+      uiService.closePluginWindows(pluginId);
+    }
   });
   const unsubTarget = deps.onActiveTargetInvalidated?.(() => notifyAllContextChanged());
   const unsubWorkspace = deps.onWorkspaceBindingChanged?.((sessionId) => {
@@ -274,6 +287,30 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
       return await hostManagerRef.call<T>(id, method, params, opts) as T;
     },
   };
+
+  const windowFactory = deps.createPluginWindow
+    ?? createElectronPluginWindowFactory(
+      deps.pluginWindowPreloadPath ? { preloadPath: deps.pluginWindowPreloadPath } : {},
+    );
+
+  const uiService: PluginUiService = createPluginUiService({
+    resolvePlugin(pluginId) {
+      const stored = stateStore.get(pluginId);
+      if (!stored) return null;
+      const installDir = path.resolve(
+        stored.installDir ?? path.join(deps.dataRoot, "plugins", pluginId, stored.version),
+      );
+      const status = hostManagerRef?.status(pluginId) ?? "disabled";
+      return {
+        packageRoot: installDir,
+        manifest: stored.manifest,
+        isEnabled: stored.enabled && (status === "enabled" || status === "starting"),
+        hasWindowsPermission: stateStore.hasPermission(pluginId, "ui.windows"),
+      };
+    },
+    sendToPlugin: (pluginId, method, params) => hostAdapter.call(pluginId, method, params),
+    createWindow: windowFactory,
+  });
 
   const resolveContext = (): ServiceContext | null => {
     const active = deps.getActiveChatTarget();
@@ -603,8 +640,10 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
       rpc,
     );
     const offServices = hostServices.configureRpc(id, rpc);
+    const offUi = uiService.bindRpc(id, rpc);
 
     return () => {
+      offUi();
       offServices();
       offSchedules();
       offSecrets();
@@ -655,15 +694,20 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
   const offHostStatus = hostManager.onStatusChange(({ id, status }) => {
     if (status === "enabled") {
       lastErrors.delete(id);
-    } else if (status === "disabled-fault" && !suppressingFaultSync) {
-      if (!lastErrors.has(id)) {
-        lastErrors.set(id, "插件进程多次异常退出，已自动停用");
+    } else {
+      if (status === "disabled" || status === "disabled-fault" || status === "stopping" || status === "restarting") {
+        uiService.closePluginWindows(id);
       }
-      if (stateStore.isEnabled(id)) {
-        try {
-          stateStore.disable(id);
-        } catch {
-          /* Persisting fault disable cannot interrupt host status updates. */
+      if (status === "disabled-fault" && !suppressingFaultSync) {
+        if (!lastErrors.has(id)) {
+          lastErrors.set(id, "插件进程多次异常退出，已自动停用");
+        }
+        if (stateStore.isEnabled(id)) {
+          try {
+            stateStore.disable(id);
+          } catch {
+            /* Persisting fault disable cannot interrupt host status updates. */
+          }
         }
       }
     }
@@ -673,6 +717,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
 
   const stopPlugin = async (id: string, reason: StopReason = "disabled"): Promise<void> => {
     startedPluginIds.delete(id);
+    uiService.closePluginWindows(id);
     await hostManager.stop(id, reason);
   };
 
@@ -733,6 +778,24 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
     secretsService,
     scheduleService,
     hostServices,
+    uiService,
+    async openPluginWindow(id: string, windowId?: string): Promise<void> {
+      const stored = stateStore.get(id);
+      if (!stored) {
+        throw new PluginError("ERR_UNAVAILABLE", `Plugin "${id}" is not installed`);
+      }
+      const targetId = windowId ?? stored.manifest.ui?.windows?.[0]?.id;
+      if (!targetId) {
+        throw new PluginError("ERR_UNDECLARED", `Plugin "${id}" has no declared UI windows`);
+      }
+      await uiService.openWindow(id, targetId);
+    },
+    closePluginWindows(id: string): number {
+      return uiService.closePluginWindows(id);
+    },
+    listOpenWindows(id: string): string[] {
+      return uiService.listOpenWindowIds(id);
+    },
     onContextChanged(): void {
       notifyAllContextChanged();
     },
@@ -1036,6 +1099,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
       unsubState();
       unsubTarget?.();
       unsubWorkspace?.();
+      uiService.closeAllWindows();
       hostServices.dispose();
       hostEventListeners.clear();
       borrowingMap.clear();

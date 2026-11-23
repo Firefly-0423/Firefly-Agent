@@ -5,13 +5,16 @@ import { pathToFileURL } from "url";
 import { getUiFontResponseHeaders, isSafeUiFontRequest } from "../platform/protocols/ui-font-protocol";
 import { getStickersDir } from "../knowledge/stickers/sticker-storage";
 import { parseLocalStickerFileFromUrl, resolveLocalStickerPath } from "../knowledge/stickers/sticker-protocol";
+import { PLUGIN_UI_SCHEME } from "../../plugins/v2/ui/assets";
 
 export function registerPrivilegedSchemes(): void {
   const stickerPrivileges = { standard: true, secure: true, supportFetchAPI: true, stream: true };
   const fontPrivileges = { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true };
+  const pluginUiPrivileges = { standard: true, secure: true, supportFetchAPI: true, stream: true };
   protocol.registerSchemesAsPrivileged([
     { scheme: "local-sticker", privileges: stickerPrivileges },
     { scheme: "local-font", privileges: fontPrivileges },
+    { scheme: PLUGIN_UI_SCHEME, privileges: pluginUiPrivileges },
   ]);
 }
 

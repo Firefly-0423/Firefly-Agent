@@ -21,6 +21,7 @@ export interface PluginManagementIpcDeps {
     | "setModelRateLimit"
     | "importFromPath"
     | "uninstallPlugin"
+    | "openPluginWindow"
   >;
   selectPluginPackage: () => Promise<string | undefined>;
   selectPluginFolder: () => Promise<string | undefined>;
@@ -51,7 +52,7 @@ export function snapshotToListEntry(snap: PluginV2Snapshot): PluginListEntry {
     enabled: snap.enabled,
     status: snap.status,
     hasUnregister: true,
-    canOpen: false,
+    canOpen: Boolean(snap.manifest.ui?.windows?.length),
     grantedPermissions: [...snap.grantedPermissions],
     revision: snap.revision,
     modelRateLimit: snap.modelRateLimit,
@@ -207,6 +208,16 @@ export function registerPluginManagementIpc(deps: PluginManagementIpcDeps): void
 
   ipc.handle(
     IPC.PLUGINS_OPEN,
-    guardPluginIpcHandler(IPC.PLUGINS_OPEN, hosts, () => ({ ok: false, error: "独立窗口尚未启用" })),
+    guardPluginIpcHandler(IPC.PLUGINS_OPEN, hosts, async ([id]) => {
+      if (typeof id !== "string" || !id) {
+        return { ok: false, error: "参数格式非法" };
+      }
+      try {
+        await controller.openPluginWindow(id);
+        return { ok: true };
+      } catch (error) {
+        return { ok: false, error: errorMessage(error) };
+      }
+    }),
   );
 }

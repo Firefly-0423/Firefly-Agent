@@ -36,6 +36,7 @@ describe("registerPluginManagementIpc", () => {
     setModelRateLimit: ReturnType<typeof vi.fn>;
     importFromPath: ReturnType<typeof vi.fn>;
     uninstallPlugin: ReturnType<typeof vi.fn>;
+    openPluginWindow: ReturnType<typeof vi.fn>;
   };
   let selectPluginPackage: ReturnType<typeof vi.fn>;
   let selectPluginFolder: ReturnType<typeof vi.fn>;
@@ -52,6 +53,7 @@ describe("registerPluginManagementIpc", () => {
       setModelRateLimit: vi.fn(() => ({} as never)),
       importFromPath: vi.fn(async () => ({ ok: true as const, installation: "committed" as const, activation: "not-requested" as const, plugin: { id: "dev.firefly.a", name: "A", version: "1.0.0" } })),
       uninstallPlugin: vi.fn(async () => undefined),
+      openPluginWindow: vi.fn(async () => undefined),
     };
     selectPluginPackage = vi.fn(async () => "C:\\pkg.ffplugin");
     selectPluginFolder = vi.fn(async () => "C:\\plugin-dir");
@@ -103,5 +105,8 @@ describe("registerPluginManagementIpc", () => {
 
     await handlers.get(IPC.PLUGINS_UNINSTALL)!(trusted, "dev.firefly.a", { deleteSecrets: false, deleteData: true });
     expect(controller.uninstallPlugin).toHaveBeenCalledWith("dev.firefly.a", { deleteSecrets: false, deleteData: true });
+
+    await expect(handlers.get(IPC.PLUGINS_OPEN)!(trusted, "dev.firefly.a")).resolves.toEqual({ ok: true });
+    expect(controller.openPluginWindow).toHaveBeenCalledWith("dev.firefly.a");
   });
 });
