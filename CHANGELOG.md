@@ -1,6 +1,6 @@
 # 更新日志 / Changelog
 
-- 适用版本：`v1.2.0`（仅涵盖 `v1.1.4` 之后合入 `dev/firefly-1.2.0` 的更新，已核对至合入的 #131；不包含此前已归入 1.1.x 阶段或未合入 `dev` 的历史条目）。
+- 适用版本：`v1.2.0`（仅涵盖 `v1.1.4` 之后合入 `dev/firefly-1.2.0` 的更新，已核对至合入的 #132；不包含此前已归入 1.1.x 阶段或未合入 `dev` 的历史条目）。
 
 ---
 
@@ -50,6 +50,8 @@
 - **设置页可用 Esc 关闭模型候选，放弃编辑会重置提示（#120）**。
 
 ### 插件 SDK
+
+- **插件可申请模型和只读数据能力（#132）**：宿主支持文本生成和完整运行，默认每个插件两项模型能力合计每分钟 10 次。会话和工作区访问需要授权，工作区接口只给绑定信息。应用中的启用入口仍待接线。
 
 - **插件开发与授权（#129、#131）**：SDK 提供插件公开接口、测试宿主和运行入口。插件工具按风险和授权使用，插件提供的上下文按不可信资料处理。实际启用和能力开放仍以应用接线及实机验收为准。
 
@@ -111,6 +113,8 @@
 - **Model picker and discard behavior in Settings (#120).** Escape closes the picker, and discarding edits resets the status.
 
 ### Plugin SDK
+
+- **Model and read-only data services for plugins (#132).** The host supports text generation and full runs, with a shared default limit of 10 model requests per plugin per minute. Session and workspace access require consent. Workspace APIs expose binding information. Desktop integration is pending.
 
 - **Plugin development and consent (#129, #131).** The SDK adds public APIs, a test host, and a plugin runtime. Tool access depends on risk and user consent; plugin context is treated as untrusted data. Availability depends on desktop integration and acceptance testing.
 
