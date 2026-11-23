@@ -21,6 +21,9 @@ export type PluginStateReadStatus = "ok" | "missing" | "corrupted";
 const CONFIRMATION_PERMISSIONS = new Set<string>(["sessions.read", "workspace.read", "model.run"]);
 const MANIFEST_PERMISSION_SET = new Set<string>(PLUGIN_PERMISSIONS);
 
+export type PluginOrigin = "local" | "market";
+export type PluginSourceKind = "curated-market" | "bundled" | "local-package" | "local-folder";
+
 export interface StoredPluginState {
   version: string;
   main: string;
@@ -31,6 +34,9 @@ export interface StoredPluginState {
   revision: number;
   confirmations: Partial<Record<ConfirmationPermission, number>>;
   modelRateLimit: number;
+  origin?: PluginOrigin;
+  sourceKind?: PluginSourceKind;
+  sourceId?: string;
 }
 
 export interface PluginStateDocument {
@@ -48,6 +54,9 @@ export interface InstallPluginStateInput {
   installDir?: string;
   enabled?: boolean;
   grantedPermissions?: readonly string[];
+  origin?: PluginOrigin;
+  sourceKind?: PluginSourceKind;
+  sourceId?: string;
 }
 
 export function toolGrantKey(toolName: string): string {
@@ -92,6 +101,17 @@ function isValidStoredPluginState(id: string, value: unknown): value is StoredPl
     if (!CONFIRMATION_PERMISSIONS.has(key) || !isValidRevision(rev)) return false;
   }
   if (!isValidRateLimit(value.modelRateLimit)) return false;
+  if (value.origin !== undefined && value.origin !== "local" && value.origin !== "market") return false;
+  if (
+    value.sourceKind !== undefined
+    && value.sourceKind !== "curated-market"
+    && value.sourceKind !== "bundled"
+    && value.sourceKind !== "local-package"
+    && value.sourceKind !== "local-folder"
+  ) {
+    return false;
+  }
+  if (value.sourceId !== undefined && (typeof value.sourceId !== "string" || value.sourceId.trim().length === 0)) return false;
   return true;
 }
 
@@ -256,9 +276,50 @@ export function createPluginStateStore(options: PluginStateStoreOptions = {}) {
           revision: nextRevision,
           confirmations: upgraded ? {} : structuredClone(existing?.confirmations ?? {}),
           modelRateLimit: existing?.modelRateLimit ?? DEFAULT_MODEL_RATE_LIMIT,
+          ...(input.origin !== undefined
+            ? { origin: input.origin }
+            : existing?.origin !== undefined
+              ? { origin: existing.origin }
+              : {}),
+          ...(input.sourceKind !== undefined
+            ? { sourceKind: input.sourceKind }
+            : existing?.sourceKind !== undefined
+              ? { sourceKind: existing.sourceKind }
+              : {}),
+          ...(input.sourceId !== undefined
+            ? { sourceId: input.sourceId }
+            : existing?.sourceId !== undefined
+              ? { sourceId: existing.sourceId }
+              : {}),
         };
         draft.plugins[id] = next;
         return cloneState(next);
+      });
+    },
+    restoreSnapshot(snapshot: StoredPluginState): StoredPluginState {
+      const manifest = structuredClone(snapshot.manifest);
+      const id = manifest.id;
+      return mutate(id, (draft) => {
+        const current = draft.plugins[id];
+        const nextRevision = Math.max(current?.revision ?? 0, snapshot.revision) + 1;
+        const restored: StoredPluginState = {
+          version: manifest.version,
+          main: manifest.main,
+          ...(snapshot.installDir !== undefined ? { installDir: snapshot.installDir } : {}),
+          manifest,
+          enabled: snapshot.enabled,
+          grantedPermissions: normalizeGrantedPermissions(manifest, snapshot.grantedPermissions),
+          revision: nextRevision,
+          confirmations: {},
+          modelRateLimit: isValidRateLimit(snapshot.modelRateLimit)
+            ? snapshot.modelRateLimit
+            : DEFAULT_MODEL_RATE_LIMIT,
+          ...(snapshot.origin !== undefined ? { origin: snapshot.origin } : {}),
+          ...(snapshot.sourceKind !== undefined ? { sourceKind: snapshot.sourceKind } : {}),
+          ...(snapshot.sourceId !== undefined ? { sourceId: snapshot.sourceId } : {}),
+        };
+        draft.plugins[id] = restored;
+        return cloneState(restored);
       });
     },
     enable(pluginId: string, opts?: { grantedPermissions?: readonly string[] }): StoredPluginState {
