@@ -16,32 +16,8 @@ export const UNATTENDED_APPROVAL_RISKS: ReadonlySet<ToolRisk> = new Set<ToolRisk
   "input-control",
 ]);
 
-export type PluginErrorCode =
-  | "ERR_UNDECLARED"
-  | "ERR_PERMISSION"
-  | "ERR_REJECTED"
-  | "ERR_CANCELLED"
-  | "ERR_TIMEOUT"
-  | "ERR_INVALID_ARGUMENT"
-  | "ERR_RATE_LIMITED"
-  | "ERR_UNAVAILABLE"
-  | "ERR_INTERNAL";
-
-export class PluginScheduleError extends Error {
-  readonly code: PluginErrorCode;
-  readonly retryable: boolean;
-
-  constructor(
-    code: PluginErrorCode,
-    message: string,
-    options?: { retryable?: boolean; cause?: unknown },
-  ) {
-    super(message, options?.cause !== undefined ? { cause: options.cause } : undefined);
-    this.name = "PluginScheduleError";
-    this.code = code;
-    this.retryable = options?.retryable ?? false;
-  }
-}
+import type { PluginErrorCode } from "../../../shared/plugin-protocol";
+export { PluginError, type PluginErrorCode } from "../../../shared/plugin-protocol";
 
 export type Schedule =
   | { kind: "cron"; expression: string; timezone?: string }

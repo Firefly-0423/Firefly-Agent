@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { win32 } from "node:path";
 import { createRpcEndpoint, type PluginRpc } from "../../../shared/plugin-rpc";
-import { PluginError, type Frame } from "../../../shared/plugin-protocol";
+import { HOST_TO_PLUGIN_METHODS, PluginError, type Frame } from "../../../shared/plugin-protocol";
 
 export type PluginHostStatus = "disabled" | "starting" | "enabled" | "stopping" | "restarting" | "disabled-fault";
 export type StopReason = "disabled" | "quit" | "upgrade" | "fault";
@@ -19,7 +19,16 @@ export interface HostChild {
   postMessage(message: unknown, ports: HostPort[]): void;
   kill(): boolean;
 }
-export interface PluginDefinition { entry: string; dataDir: string; memoryLimitMb?: number }
+export interface PluginDefinition {
+  /** Compiled runtime host entry (`dist/main/plugins/v2/runtime/main.js`). */
+  entry: string;
+  /** Absolute path to the plugin entry module read by the host from the installed manifest. */
+  main: string;
+  version: string;
+  permissions: readonly string[];
+  dataDir: string;
+  memoryLimitMb?: number;
+}
 export interface HostDependencies {
   resolvePlugin(id: string): PluginDefinition;
   fork(entry: string, args: string[], options: { cwd: string; env: NodeJS.ProcessEnv; serviceName: string; stdio: "ignore" }): HostChild;
@@ -115,7 +124,7 @@ export class PluginHostManager {
     runtime.rejectStartup(unavailable());
     if (runtime.startupTimer) clearTimeout(runtime.startupTimer);
     const stopped = (async () => {
-      try { await runtime.rpc.call("deactivate", reason, { timeoutMs: 5000 }); } catch { /* Grace expired or plugin already exited. */ }
+      try { await runtime.rpc.call(HOST_TO_PLUGIN_METHODS.deactivate, reason, { timeoutMs: 5000 }); } catch { /* Grace expired or plugin already exited. */ }
       this.finish(record, runtime, true);
       this.setStatus(id, record, "disabled");
     })();
@@ -129,7 +138,7 @@ export class PluginHostManager {
     if (record?.state !== "enabled" || !runtime) throw unavailable();
     try { return await runtime.rpc.call<T>(method, params, opts); }
     catch (error) {
-      if (runtime.crashed && method === "tool.execute") return { status: "unknown", reason: "Plugin process exited during tool execution" };
+      if (runtime.crashed && method === HOST_TO_PLUGIN_METHODS.toolExecute) return { status: "unknown", reason: "Plugin process exited during tool execution" };
       throw error;
     }
   }
@@ -174,8 +183,18 @@ export class PluginHostManager {
           try {
             port1.start();
             startedChild.postMessage({ type: "firefly-plugin-port" }, [port2]);
-            void rpc.call("activate", { id, dataDir: definition.dataDir }, { timeoutMs: Math.max(1, deadline - Date.now()) }).then(() => resolveStartup(), rejectStartup);
-          } catch { rejectStartup(new PluginError("ERR_INTERNAL", "Failed to connect plugin process")); }
+            void rpc.call(
+              HOST_TO_PLUGIN_METHODS.activate,
+              {
+                id,
+                dataDir: definition.dataDir,
+                main: definition.main,
+                version: definition.version,
+                permissions: [...definition.permissions],
+              },
+              { timeoutMs: Math.max(1, deadline - Date.now()) },
+            ).then(() => resolveStartup(), rejectStartup);
+          } catch (cause) { rejectStartup(new PluginError("ERR_INTERNAL", "Failed to connect plugin process", { cause })); }
         },
       };
       runtime = active; record.runtime = active;
@@ -201,7 +220,7 @@ export class PluginHostManager {
         child?.kill();
         if (record.state === "starting") this.setStatus(id, record, "disabled-fault");
       }
-      throw error instanceof PluginError ? error : new PluginError("ERR_INTERNAL", "Failed to start plugin process");
+      throw error instanceof PluginError ? error : new PluginError("ERR_INTERNAL", "Failed to start plugin process", { cause: error });
     }
   }
   private finish(record: RecordState, runtime: Runtime, kill: boolean): void {

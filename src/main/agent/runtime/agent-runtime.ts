@@ -37,6 +37,7 @@ import type { SocialAtom, SocialExtractionInput } from "../../knowledge/social/t
 import type { ToolDefinition, ToolModeOverrides } from "../../tooling/registry/tool-registry";
 import { RETIRED_MEMORY_TOOL_IDS } from "../../tooling/registry/retired-memory-tools";
 import type { ConversationMode } from "../../../shared/chat-types";
+import type { PluginRunSource } from "../../../shared/plugin-manifest";
 import {
   buildAgentRunOptions,
   onAgentRunFinished,
@@ -68,6 +69,7 @@ export type AgentRuntimeDeps = {
   publishToolFinished?: (event: ToolFinishedInput) => void;
   publishPluginHostEvent: <T>(event: string, payload: T) => Promise<void>;
   buildPluginPromptContext: (input: PluginPromptBuildInput) => Promise<string>;
+  collectTurnPluginContext?: (input: { source: PluginRunSource; mode: ConversationMode; sessionId: string; signal?: AbortSignal }) => Promise<string>;
   socialAtomStore: { listActive: (conversationId: string, now: number) => SocialAtom[] };
   chatsStore: { getWorkspaceBinding: (conversationId: string) => { workspaceRoot: string; displayName: string; boundAt: number } | undefined };
   socialContextScheduler: { schedule: (input: SocialExtractionInput) => void };
@@ -204,6 +206,7 @@ export function createAgentRuntime(rawDeps: AgentRuntimeDeps): AgentRuntime {
       },
       getWorkspaceBinding: (conversation: string) => rawDeps.chatsStore.getWorkspaceBinding(conversation),
       buildPluginPromptContext: (request) => rawDeps.buildPluginPromptContext(request),
+      ...(rawDeps.collectTurnPluginContext ? { collectTurnPluginContext: rawDeps.collectTurnPluginContext } : {}),
       buildModelContext: (conversationId, retainTokens) => buildModelContext({
         store: getConversationTranscriptStore(app.getPath("userData")), conversationId, retainTokens, runReader: (runs => ({ get: (runId: string) => runs.evidence(runId) }))(getAgentRunStore(app.getPath("userData"))),
       }),
@@ -305,9 +308,12 @@ export function createAgentRuntime(rawDeps: AgentRuntimeDeps): AgentRuntime {
       const mode = task.mode ?? "work";
       const history = [{ role: "user" as const, content: task.prompt }];
       const skills = mode === "chat" ? [] : rawDeps.skillRegistry.getEnabledForMode(mode, general.skillModeOverrides);
+      const v2Context = rawDeps.collectTurnPluginContext
+        ? await rawDeps.collectTurnPluginContext({ source: "schedule", mode, sessionId: `scheduler-${task.id}` }).catch(() => "")
+        : "";
       const prefix = [buildModePrompt(mode), buildEnvironmentContext({ provider: configuration.provider, model: configuration.model, multimodal: configuration.multimodal }, profile),
         buildSkillCatalog(skills), await (rawDeps.defaultMemory ? buildWorldbookContext : buildAlwaysOnContext)(task.prompt, history),
-        await rawDeps.buildPluginPromptContext({ source: "scheduler", mode, userText: task.prompt })].join("\n\n---\n\n");
+        await rawDeps.buildPluginPromptContext({ source: "scheduler", mode, userText: task.prompt }), v2Context].filter(Boolean).join("\n\n---\n\n");
       return {
         ...(modelProfile ? { modelProfileId: modelProfile.id } : {}), ...(background ? { backgroundMemory: background } : {}),
         settings: { provider: configuration.provider, baseUrl: configuration.baseUrl, model: configuration.model, apiKey: configuration.apiKey,

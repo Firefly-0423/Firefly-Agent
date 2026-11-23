@@ -118,3 +118,7 @@ describe("task tool summaries and run errors", () => {
     expect(fireNowErrorMessage({}, t)).toBe("scheduledPanel.errors.runFailed");
   });
 });
+
+it("describes native cron with its expression and timezone", () => {
+  expect(describeSchedule({ kind: "cron", expression: "*/15 * * * *", timezone: "UTC" }, t)).toBe("Cron */15 * * * * (UTC)");
+});

@@ -35,7 +35,7 @@ import { buildStickerEmbeddingQuery } from "../../knowledge/stickers/sticker-que
 import { stickerMoodGuard } from "../../knowledge/stickers/sticker-mood";
 import type { StickerEmbeddingEntry } from "../../knowledge/stickers/sticker-embedder";
 import { isPlanReadOnly, getPlanState } from "../tools/plan-mode";
-import { policyFor } from "../../platform/permission/permission-policy";
+import { policyForTool } from "../../platform/permission/permission-policy";
 import { resolveTranscriptRetainTokens, type MaterializedTranscript } from "../loop/conversation-transcript-context";
 import { DEFAULT_CONTEXT_WINDOW_TOKENS } from "../../../shared/context-window";
 import type { UncertainEffect } from "../loop/types";
@@ -43,6 +43,7 @@ import { logger, LogTag } from "../../base/logging/logger";
 
 export type BuildOptionsDeps = {
   buildPluginPromptContext?: (input: { source: "conversation" | "plugin-agent"; mode: ConversationMode; userText: string; conversationId?: string; channel?: string; }) => Promise<string>;
+  collectTurnPluginContext?: (input: { source: "user" | "schedule" | "plugin" | "channel"; mode: ConversationMode; sessionId: string; signal?: AbortSignal }) => Promise<string>;
   getWorkspaceBinding?: (conversationId: string) => { workspaceRoot: string; displayName: string; boundAt: number } | undefined;
   buildChatSocialContext?: (input: { conversationId: string; query: string; }) => Promise<{ contextBlock: string; retrievedAtoms: SocialAtom[]; }>;
   captionImageForFallback?: (filePath: string) => Promise<{ ok: boolean; caption?: string; error?: string }>;
@@ -305,12 +306,16 @@ export async function buildAgentRunOptions(input: AguiRunInput, deps: BuildOptio
       + "模型文字和历史读取均不能替代本轮 Main 读取证据；失败或未读时应明确说明。" : "";
   const mode: ConversationMode = input.mode ?? (chatting ? "chat" : "work");
   if (mode !== "chat" && mode !== "work" && mode !== "code") throw new Error("INVALID_CONVERSATION_MODE");
+  const contextSourceKind: "user" | "plugin" | "channel" = input.promptSource === "plugin-agent" ? "plugin" : input.channel ? "channel" : "user";
   let pluginContext = "";
   try { pluginContext = await deps.buildPluginPromptContext?.({ source: input.promptSource ?? "conversation", mode, userText: query, conversationId: conversation, channel: input.promptChannel ?? input.channel }) ?? ""; }
   catch (failure) { console.warn("[plugins] 构建插件提示词上下文失败，已跳过", failure); }
   const modeTools = deps.toolRegistry.getEnabledToolsForMode(mode, style.toolModeOverrides);
   const planning = (mode === "code" || mode === "chat") && isPlanReadOnly(conversation);
-  const allowedDuringPlan = (definition: ToolDefinition): boolean => { const risk = definition.risk ?? "safe"; return risk !== "shell" && policyFor("read-only", risk) === "allow"; };
+  const allowedDuringPlan = (definition: ToolDefinition): boolean => {
+    const risk = definition.risk ?? "safe";
+    return risk !== "shell" && policyForTool("read-only", { risk, risks: definition.risks, isPlugin: Boolean(definition.pluginMeta) }) === "allow";
+  };
   const planTools = planning ? (modeTools as readonly ToolDefinition[]).filter(allowedDuringPlan) : modeTools;
   let skills = mode === "chat" ? [] : deps.skillRegistry.getEnabledForMode(mode, style.skillModeOverrides);
   let catalog = deps.buildSkillCatalog(skills);
@@ -333,7 +338,7 @@ export async function buildAgentRunOptions(input: AguiRunInput, deps: BuildOptio
   const slash = deps.resolveSlashActivation(slim, slashMode, style.skillModeOverrides);
   const general = deps.loadGeneralSettings();
   const backend = ((general as Record<string, unknown>).searchEngine as string ?? "off") as SearchBackend;
-  const opted = chatting && style.chatToolsEnabled === true ? (planTools as readonly ToolDefinition[]).filter((definition) => style.toolModeOverrides?.[definition.id]?.chat === true) : [];
+  const opted = chatting && style.chatToolsEnabled === true ? (planTools as readonly ToolDefinition[]).filter((definition) => !definition.pluginMeta && style.toolModeOverrides?.[definition.id]?.chat === true) : [];
   const searchFiltered = chatting ? filterToolsBySearchBackend(opted as unknown as Array<{ id: string }>, backend)
     : filterToolsBySearchBackend(planTools as unknown as Array<{ id: string }>, backend);
   const fallback: RunCapabilities = { mode, tools: searchFiltered as unknown as ToolDefinition[], toolIds: new Set(searchFiltered.map((definition) => definition.id)),
@@ -359,6 +364,16 @@ export async function buildAgentRunOptions(input: AguiRunInput, deps: BuildOptio
     + (workspace ? `\n\n[当前项目工作区]\n可信根目录：${workspace}` + (metadata?.projectName ? `\n项目名称：${metadata.projectName}` : "")
       + `\ngit 仓库：${metadata?.isGitRepo ? "是" : "否"}` + "\n所有本地文件的读取、创建与生成都必须以此目录为根；不得写入桌面、下载目录或其他目录。" : "");
   const soulSystem = (channel ? channel + "\n\n" : "") + soulBase;
+  // One collection path per run: a Chat run without tools uses the plain chat loop, so plugin context is
+  // folded into the runtime context here; any run that enters the agent loop collects it there instead,
+  // where a queued insertion can refresh it.
+  const usesAgentLoop = mode !== "chat" || tools.length > 0;
+  if (!usesAgentLoop && deps.collectTurnPluginContext) {
+    try {
+      const v2Context = await deps.collectTurnPluginContext({ source: contextSourceKind, mode, sessionId: conversation });
+      if (v2Context.trim()) pluginContext = [pluginContext, v2Context].filter(Boolean).join("\n\n");
+    } catch (failure) { logger.warn(LogTag.Plugins, "per-turn plugin context collection failed, skipped:", failure); }
+  }
   const runtimeContext = [environment, timed.timeContext, social, injectedSoul, slash, tone, background, relationship, attachments, grant ? "" : workDocuments, pluginContext]
     .filter((section): section is string => Boolean(section?.trim())).join("\n\n---\n\n");
   const route = resolveImageRoute("attachment", model);
@@ -424,6 +439,9 @@ export async function buildAgentRunOptions(input: AguiRunInput, deps: BuildOptio
         assistantTurnId: input.assistantTurnId, retrievedAtoms: atoms, now: Date.now() } } : {}),
       ...(recovery ? { recoveryContext: recovery } : {}), ...(captionFallback ? { imageCaptionFallback: captionFallback } : {}),
       tools: [...tools], capabilities: { ...capabilities, tools, toolIds: new Set(tools.map((definition) => definition.id)) },
+      ...(deps.collectTurnPluginContext && usesAgentLoop ? {
+        collectTurnPluginContext: ({ signal }) => deps.collectTurnPluginContext!({ source: contextSourceKind, mode, sessionId: conversation, signal }),
+      } : {}),
       ...(routes.length > 0 ? { availableSkills: routes } : {}), resolvedWorkspaceRoot: workspace,
     },
     latestUserText: query,

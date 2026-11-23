@@ -58,6 +58,7 @@ export type FireflyRunOptions = {
   soulSystemBaseContent: string;
   skillLayerContent?: string;
   toolSystemContent: string;
+  collectTurnPluginContext?: (input: { round: number; signal?: AbortSignal }) => Promise<string | undefined>;
   imageCaptionFallback?: () => Promise<ChatMessage[]>;
   permissionMode?: "normal" | "allow_all";
   interactiveTools?: boolean;

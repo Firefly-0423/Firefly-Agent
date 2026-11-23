@@ -4,7 +4,7 @@ import type { ApprovalOrigin } from "../../../../shared/permission-approval";
 import type { ToolDefinition } from "../../../tooling/registry/tool-registry";
 import { toolRegistry } from "../../../tooling/registry/tool-registry";
 import { checkPermission, getCurrentLevel, type ToolRiskLevel } from "../../../platform/permission/permission";
-import { policyFor } from "../../../platform/permission/permission-policy";
+import { policyForTool } from "../../../platform/permission/permission-policy";
 import { isPlanReadOnly } from "../../tools/plan-mode";
 import { contextRefRegistry, extractLastUserQuery, type ToolContext } from "../../../tooling/registry/tool-context";
 import type { AgentLoopInput } from "../../loop/index";
@@ -56,25 +56,38 @@ export function prepareToolRuntime(input: ToolRuntimeInput): PreparedToolRuntime
     invocationSignal?: AbortSignal,
     origin?: ApprovalOrigin,
   ): Promise<boolean> => {
-    const tool = toolRegistry.getById(toolId);
+    const tool = tools.find(candidate => candidate.id === toolId) ?? toolRegistry.getById(toolId);
     if (!tool) return false;
     const risk: ToolRiskLevel = (tool as ToolDefinition & { risk?: ToolRiskLevel }).risk ?? "safe";
+    const policyTarget = { risk, risks: tool.risks, isPlugin: Boolean(tool.pluginMeta) };
     const blockedByPlan = (): boolean => isPlanReadOnly(threadId)
-      && (risk === "shell" || policyFor("read-only", risk) !== "allow");
+      && (risk === "shell" || policyForTool("read-only", policyTarget) !== "allow");
     // 计划限制先于显式免审批授权，并使用父会话实时状态，覆盖会话中途进入计划模式。
     if (blockedByPlan()) {
       logger.info(LogTag.Runtime, `plan: read-only enforcement blocked tool=${toolId} risk=${risk}`);
       return false;
     }
-    if (policyFor(fileAccessLevel, risk) === "deny") return false;
+    if (policyForTool(fileAccessLevel, policyTarget) === "deny") return false;
     if (options.permissionMode === "allow_all") return true;
     if (!runId) {
-      const policies = [policyFor(fileAccessLevel, risk), policyFor(getCurrentLevel(), risk)];
+      const policies = [policyForTool(fileAccessLevel, policyTarget), policyForTool(getCurrentLevel(), policyTarget)];
       // 与权限宿主取更严判定的规则一致：只有真正要问用户的审批才需要所属运行。
       if (!policies.includes("deny") && policies.includes("ask")) return false;
     }
     const requestSignal = invocationSignal && invocationSignal !== signal ? AbortSignal.any([signal, invocationSignal]) : signal;
-    const decision = await checkPermission({ toolId, toolName: tool.name, toolDescription: tool.description, args, risk, runId, origin, signal: requestSignal, level: fileAccessLevel });
+    const decision = await checkPermission({
+      toolId,
+      toolName: tool.name,
+      toolDescription: tool.description,
+      args,
+      risk,
+      ...(tool.risks?.length ? { risks: tool.risks } : {}),
+      ...(tool.pluginMeta ? { isPlugin: true, declaredBy: tool.pluginMeta.pluginName } : {}),
+      runId,
+      origin,
+      signal: requestSignal,
+      level: fileAccessLevel,
+    });
     // 等待用户审批期间也可能进入计划讨论，批准单次工具不能解除计划限制。
     return decision.allowed && !blockedByPlan();
   };
@@ -85,14 +98,15 @@ export function prepareToolRuntime(input: ToolRuntimeInput): PreparedToolRuntime
     const tool = tools.find(candidate => candidate.id === toolId) ?? toolRegistry.getById(toolId);
     if (!tool) return false;
     const risk = tool.risk ?? "safe";
-    if (isPlanReadOnly(threadId) && (risk === "shell" || policyFor("read-only", risk) !== "allow")) return false;
+    const policyTarget = { risk, risks: tool.risks, isPlugin: Boolean(tool.pluginMeta) };
+    if (isPlanReadOnly(threadId) && (risk === "shell" || policyForTool("read-only", policyTarget) !== "allow")) return false;
     if (options.permissionMode === "allow_all") return true;
-    const policies = [policyFor(fileAccessLevel, risk), policyFor(getCurrentLevel(), risk)];
+    const policies = [policyForTool(fileAccessLevel, policyTarget), policyForTool(getCurrentLevel(), policyTarget)];
     return !policies.includes("deny") && (!policies.includes("ask") || approvalRequired);
   };
   const conversationId = options.conversationId ?? "default";
   const toolContext: ToolContext = {
-    userQuery: extractLastUserQuery(options.messages), conversationId, runId, contextRefs: contextRefRegistry,
+    userQuery: extractLastUserQuery(options.messages), conversationId, runId, caller: "firefly", contextRefs: contextRefRegistry,
     signal, resolvedWorkspaceRoot: options.resolvedWorkspaceRoot, mode: options.conversationMode,
     workReadScopes: options.workReadScopes, allowedSkillIds: options.capabilities?.skillIds,
     permissionMode: options.permissionMode, fileAccessLevel, revalidateToolPermission,

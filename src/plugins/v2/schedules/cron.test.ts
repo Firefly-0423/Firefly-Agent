@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeNextCronFireAt,
   parseCronExpression,
-  PluginScheduleError,
+  PluginError,
   validateAndConvertSchedule,
   validateTimezone,
 } from "./index";
@@ -30,20 +30,20 @@ describe("cron parsing and validation", () => {
     ["reversed range", "0 17-9 * * *"],
     ["non-numeric token", "abc 9 * * *"],
   ])("rejects invalid cron expression (%s) with ERR_INVALID_ARGUMENT", (_label, expr) => {
-    expect(() => parseCronExpression(expr)).toThrowError(PluginScheduleError);
+    expect(() => parseCronExpression(expr)).toThrowError(PluginError);
     try {
       parseCronExpression(expr);
       expect.unreachable();
     } catch (error) {
-      expect((error as PluginScheduleError).code).toBe("ERR_INVALID_ARGUMENT");
+      expect((error as PluginError).code).toBe("ERR_INVALID_ARGUMENT");
     }
   });
 
   it("validates IANA timezones and rejects unknown ones", () => {
     expect(() => validateTimezone("Asia/Shanghai")).not.toThrow();
     expect(() => validateTimezone("America/New_York")).not.toThrow();
-    expect(() => validateTimezone("Invalid/Timezone")).toThrowError(PluginScheduleError);
-    expect(() => validateTimezone("   ")).toThrowError(PluginScheduleError);
+    expect(() => validateTimezone("Invalid/Timezone")).toThrowError(PluginError);
+    expect(() => validateTimezone("   ")).toThrowError(PluginError);
   });
 
   it("computes the next fire timestamp in a specified timezone", () => {
@@ -62,7 +62,7 @@ describe("cron parsing and validation", () => {
 
   it("rejects impossible calendar dates such as Feb 30", () => {
     expect(() => computeNextCronFireAt("0 9 30 2 *", new Date("2032-01-01T00:00:00.000Z"), "UTC")).toThrowError(
-      PluginScheduleError,
+      PluginError,
     );
   });
 });
@@ -75,42 +75,36 @@ describe("validateAndConvertSchedule", () => {
       validateAndConvertSchedule({ kind: "once", at: now.getTime() + 60_000 }, now),
     ).toEqual({
       storeSchedule: { kind: "once", runAt: "2032-03-10T10:01:00.000Z" },
-      requiresCronRearm: false,
     });
 
     expect(
       validateAndConvertSchedule({ kind: "interval", minutes: 30 }, now),
     ).toEqual({
       storeSchedule: { kind: "interval", every: 30, unit: "minutes" },
-      requiresCronRearm: false,
     });
 
     expect(
       validateAndConvertSchedule({ kind: "interval", minutes: 2880 }, now),
     ).toEqual({
       storeSchedule: { kind: "interval", every: 48, unit: "hours" },
-      requiresCronRearm: false,
     });
 
     expect(
       validateAndConvertSchedule({ kind: "cron", expression: "30 9 * * *" }, now),
     ).toEqual({
-      storeSchedule: { kind: "daily", timeOfDay: "09:30" },
-      requiresCronRearm: false,
+      storeSchedule: { kind: "cron", expression: "30 9 * * *" },
     });
 
     expect(
       validateAndConvertSchedule({ kind: "cron", expression: "15 8 * * 7" }, now),
     ).toEqual({
-      storeSchedule: { kind: "weekly", dayOfWeek: 0, timeOfDay: "08:15" },
-      requiresCronRearm: false,
+      storeSchedule: { kind: "cron", expression: "15 8 * * 7" },
     });
 
     expect(
       validateAndConvertSchedule({ kind: "cron", expression: "*/15 * * * *", timezone: "UTC" }, now),
     ).toEqual({
-      storeSchedule: { kind: "once", runAt: "2032-03-10T10:15:00.000Z" },
-      requiresCronRearm: true,
+      storeSchedule: { kind: "cron", expression: "*/15 * * * *", timezone: "UTC" },
     });
   });
 
@@ -128,8 +122,8 @@ describe("validateAndConvertSchedule", () => {
       validateAndConvertSchedule(schedule as never, now);
       expect.unreachable();
     } catch (error) {
-      expect(error).toBeInstanceOf(PluginScheduleError);
-      expect((error as PluginScheduleError).code).toBe("ERR_INVALID_ARGUMENT");
+      expect(error).toBeInstanceOf(PluginError);
+      expect((error as PluginError).code).toBe("ERR_INVALID_ARGUMENT");
     }
   });
 });

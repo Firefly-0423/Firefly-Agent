@@ -10,6 +10,7 @@ export class ToolExecutionError extends Error {
     readonly code: string, detail: string,
     readonly category: ToolErrorCategory, readonly retryable = false,
     readonly effectState: ToolEffectState = "not_applied",
+    readonly toolExecuted?: false,
   ) {
     super(detail);
   }

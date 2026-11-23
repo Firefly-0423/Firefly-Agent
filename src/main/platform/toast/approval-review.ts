@@ -42,7 +42,9 @@ export function createApprovalReview(deps: ApprovalReviewDeps) {
     if (!request) return { state: "expired", approvalId };
     const shared = {
       approvalId, toolName: request.toolName, toolId: request.toolId,
+      ...(request.declaredBy ? { declaredBy: request.declaredBy } : {}),
       ...(request.agentId ? { agentId: request.agentId } : {}),
+      ...(request.agentName ? { agentName: request.agentName } : {}),
       args: summarizeApprovalArguments(request.args),
     };
     // 没有运行 ID 的审批不属于任何会话；主进程确认不了它来自独立的审批入口，只显示，不能批准。

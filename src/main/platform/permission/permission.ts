@@ -6,7 +6,7 @@ import * as path from "path";
 import { IPC } from "../../../shared/ipc-channels";
 import { createAbortError } from "../../base/utils/abort-utils";
 import { logger, LogTag } from "../../base/logging/logger";
-import { policyFor, type AgentFileAccessLevel, type ToolRiskLevel } from "./permission-policy";
+import { policyFor, policyForTool, stricterVerdict, type AgentFileAccessLevel, type ToolRiskLevel } from "./permission-policy";
 import { toastEvents } from "../interaction/toast-events";
 import type { ApprovalOrigin, ApprovalRequest, ApprovalSettleReason, ApprovalSettledPayload } from "../../../shared/permission-approval";
 
@@ -223,15 +223,6 @@ export function registerPermissionIpc(ipcOption?: IpcScope): void {
 
 // ── 判定入口 ────────────────────────────────────────────────
 
-type Verdict = ReturnType<typeof policyFor>;
-
-/** 两个判定取更严的一个：deny 优先，其次 ask。 */
-function stricter(a: Verdict, b: Verdict): Verdict {
-  if (a === "deny" || b === "deny") return "deny";
-  if (a === "ask" || b === "ask") return "ask";
-  return "allow";
-}
-
 export interface PermissionCheckInput {
   signal?: AbortSignal;
   /** 工具调用 / 子 agent 归属，原样带到审批卡片上。 */
@@ -241,6 +232,10 @@ export interface PermissionCheckInput {
   /** 会话创建时记录的档位快照，只会让结果更严。 */
   level?: AgentFileAccessLevel;
   risk: ToolRiskLevel;
+  risks?: readonly ToolRiskLevel[];
+  isPlugin?: boolean;
+  declaredBy?: string;
+  approvalTarget?: string;
   args: Record<string, unknown>;
   toolDescription: string;
   toolName: string;
@@ -260,26 +255,39 @@ export interface PermissionCheckResult {
 export async function checkPermission(input: PermissionCheckInput): Promise<PermissionCheckResult> {
   const { signal, risk } = input;
   if (signal?.aborted) throw createAbortError();
+  const target = { risk, risks: input.risks, isPlugin: input.isPlugin };
   const global = activeLevel;
-  const verdict = stricter(policyFor(global, risk), policyFor(input.level ?? global, risk));
-  logger.info(LogTag.Permission, "checkPermission:", input.toolId, "risk=" + risk, "level=" + global, "→", verdict);
+  const verdict = stricterVerdict(policyForTool(global, target), policyForTool(input.level ?? global, target));
+  const riskLabel = input.risks?.length ? input.risks.join(",") : risk;
+  logger.info(LogTag.Permission, "checkPermission:", input.toolId, "risk=" + riskLabel, "level=" + global, "→", verdict);
 
   if (verdict === "allow") return { allowed: true };
   if (verdict === "deny") {
     return {
       allowed: false,
-      reason: `当前档位「${ACCESS_LEVEL_LABEL[global]}」不允许此操作（risk=${risk}）。请到设置 → 流萤 → 本地文件权限提升档位。`,
+      reason: `当前档位「${ACCESS_LEVEL_LABEL[global]}」不允许此操作（risk=${riskLabel}）。请到设置 → 流萤 → 本地文件权限提升档位。`,
     };
   }
 
   const { toolId, toolName, toolDescription, args, runId } = input;
-  const approved = await requestApproval({ toolId, toolName, toolDescription, args, risk, runId, ...input.origin }, signal);
+  const approved = await requestApproval({
+    toolId,
+    toolName,
+    toolDescription,
+    args,
+    risk,
+    ...(input.risks?.length ? { risks: [...input.risks] } : {}),
+    ...(input.declaredBy ? { declaredBy: input.declaredBy } : {}),
+    ...(input.approvalTarget ? { approvalTarget: input.approvalTarget } : {}),
+    runId,
+    ...input.origin,
+  }, signal);
   if (signal?.aborted) throw createAbortError();
   if (!approved) return { allowed: false, reason: "用户拒绝了此次操作。" };
 
   // 等待期间档位可能被收紧，已批准的审批不能把它放回去
   const nowGlobal = activeLevel;
-  if (policyFor(nowGlobal, risk) === "deny" || policyFor(input.level ?? nowGlobal, risk) === "deny") {
+  if (policyForTool(nowGlobal, target) === "deny" || policyForTool(input.level ?? nowGlobal, target) === "deny") {
     return { allowed: false, reason: "等待审批期间权限已收紧，此次操作未执行。" };
   }
   return { allowed: true };

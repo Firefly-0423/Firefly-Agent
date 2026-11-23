@@ -1,10 +1,11 @@
 // 校验 @firefly_wu/plugin-sdk 的打包质量，共六项：
-//   1. manifest.schema.json 与 PluginManifestInput 类型没有漂移（generate-schema --check）
-//   2. 包内 vendored 的 api.ts 与宿主的 src/plugins/api.ts 逐字节一致
+//   1. dist/firefly.plugin.schema.json 与 src/shared/plugin-manifest/manifest.schema.json 一致
+//   2. 1.2.0 源码不再保留 0.x 遗留文件（api.ts、validate-manifest.ts）
 //   3. npm pack --dry-run 列出的文件只有 dist、package.json、README.md（以及 LICENSE）
 //   4. 产物（d.ts 与 js）里没有指向 src/main、src/renderer 等内部路径的模块引用
-//   5. CJS 与 ESM 两种入口都能加载，并导出关键常量
+//   5. CJS 与 ESM 两种入口都能加载，并导出 1.2.0 公开 API 与 createTestHost
 //   6. bin 声明的 firefly-plugin 命令行在打包清单里，且能校验并打包一个最小插件、拒绝一个不合法的插件
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -21,11 +22,8 @@ function fail(message) {
   process.exit(1);
 }
 
-// 打包检查一律用真正的 npm（外部插件作者就是这样用的）；pnpm run 下 npm_execpath 指向 pnpm，见 npm-cli.mjs。
-// 一律用 node 去执行这个 js 入口，避免 Windows 上派生 .cmd 的已知问题
 const npmEntry = npmCliEntry();
 
-/** 递归列出目录下的所有文件。 */
 async function listFiles(dir) {
   const nested = await Promise.all(
     (await readdir(dir, { withFileTypes: true })).map((entry) => {
@@ -36,23 +34,25 @@ async function listFiles(dir) {
   return nested.flat();
 }
 
-function checkSchemaInSync() {
-  const generator = path.join(repoRoot, "scripts/plugin-sdk/generate-schema.mjs");
-  execFileSync(process.execPath, [generator, "--check"], { cwd: repoRoot, stdio: "inherit" });
+async function checkManifestSchemaInSync() {
+  const [source, dist] = await Promise.all([
+    readFile(path.join(repoRoot, "src/shared/plugin-manifest/manifest.schema.json"), "utf8"),
+    readFile(path.join(sdkRoot, "dist/firefly.plugin.schema.json"), "utf8"),
+  ]);
+  if (source !== dist) {
+    fail("dist/firefly.plugin.schema.json 与 src/shared/plugin-manifest/manifest.schema.json 不一致，请运行 pnpm run build:plugin-sdk");
+  }
 }
 
-async function checkVendoredApi() {
-  const [host, vendored] = await Promise.all([
-    readFile(path.join(repoRoot, "src/plugins/api.ts"), "utf8"),
-    readFile(path.join(sdkRoot, "src/api.ts"), "utf8"),
-  ]);
-  if (host !== vendored) {
-    fail("plugin-sdk/src/api.ts 与 src/plugins/api.ts 不一致，请运行 npm run build:plugin-sdk");
+function checkNoLegacySources() {
+  for (const legacy of ["src/api.ts", "src/validate-manifest.ts", "src/manifest.schema.json"]) {
+    if (existsSync(path.join(sdkRoot, legacy))) {
+      fail(`plugin-sdk/${legacy} 为 0.x 遗留文件，应移除`);
+    }
   }
 }
 
 function checkPackedFiles() {
-  // 用 --json 读结构化清单：文本输出的文件列表写在 stderr，按 stdout 解析会得到空列表而误判通过。
   const listing = execFileSync(process.execPath, [npmEntry, "pack", "--dry-run", "--json"], {
     cwd: sdkRoot,
     encoding: "utf8",
@@ -84,18 +84,38 @@ async function checkEntryPoints() {
   const cjsMain = requireFromDist(path.join(sdkRoot, "dist/index.js"));
   const cjsTesting = requireFromDist(path.join(sdkRoot, "dist/testing/index.js"));
 
-  const mainExports = ["CURRENT_PLUGIN_API_VERSION", "PLUGIN_CAPABILITIES", "PLUGIN_HOST_ERROR_CODES", "validateManifestData"];
-  for (const name of mainExports) {
+  for (const name of ["PLUGIN_ERROR_CODES", "PluginError", "definePlugin"]) {
     if (!(name in cjsMain)) fail(`CJS 主入口缺少导出: ${name}`);
   }
-  const testingExports = ["createMockPluginContext", "assertPluginTool", "assertValidManifest"];
-  for (const name of testingExports) {
+  for (const name of ["createTestHost", "evaluateToolPermission"]) {
     if (!(name in cjsTesting)) fail(`CJS testing 入口缺少导出: ${name}`);
   }
 
   const esmMain = await import(pathToFileURL(path.join(sdkRoot, "dist/esm/index.mjs")).href);
-  if (esmMain.CURRENT_PLUGIN_API_VERSION !== cjsMain.CURRENT_PLUGIN_API_VERSION) {
-    fail("ESM 与 CJS 主入口的 API 版本常量不一致");
+  const esmTesting = await import(pathToFileURL(path.join(sdkRoot, "dist/esm/testing/index.mjs")).href);
+  if (JSON.stringify(esmMain.PLUGIN_ERROR_CODES) !== JSON.stringify(cjsMain.PLUGIN_ERROR_CODES)) {
+    fail("ESM 与 CJS 主入口的 PLUGIN_ERROR_CODES 不一致");
+  }
+  if (typeof esmMain.definePlugin !== "function") fail("ESM 主入口缺少 definePlugin");
+  if (typeof esmTesting.createTestHost !== "function") fail("ESM testing 入口缺少 createTestHost");
+
+  // testing 入口抛出的 PluginError 必须是主入口导出的同一个构造器，插件才能用 instanceof 区分错误。
+  // The CJS and ESM bundles each carry their own PluginError class, like the SDK a plugin bundles and the
+  // host runtime do; instanceof must still hold across copies.
+  if (!(new esmMain.PluginError("ERR_PERMISSION", "x") instanceof cjsMain.PluginError)
+    || !(new cjsMain.PluginError("ERR_PERMISSION", "x") instanceof esmMain.PluginError)) {
+    fail("不同打包副本的 PluginError 之间 instanceof 不成立");
+  }
+  for (const [label, main, testing] of [["CJS", cjsMain, cjsTesting], ["ESM", esmMain, esmTesting]]) {
+    const host = testing.createTestHost({ manifest: { id: "dev.firefly.verify", name: "verify", version: "1.0.0", permissions: [] } });
+    let caught;
+    await host.activate({
+      async activate(ctx) {
+        try { await ctx.secrets.get("token"); } catch (error) { caught = error; }
+      },
+    });
+    if (caught?.code !== "ERR_UNDECLARED") fail(`${label} testing 入口：未声明的 secrets 调用没有得到 ERR_UNDECLARED`);
+    if (!(caught instanceof main.PluginError)) fail(`${label} testing 入口抛出的 PluginError 不是主入口导出的构造器`);
   }
 }
 
@@ -140,8 +160,8 @@ async function checkCli() {
   }
 }
 
-checkSchemaInSync();
-await checkVendoredApi();
+await checkManifestSchemaInSync();
+checkNoLegacySources();
 checkPackedFiles();
 await checkNoInternalReferences();
 await checkEntryPoints();

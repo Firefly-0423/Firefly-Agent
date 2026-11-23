@@ -61,9 +61,11 @@ async function runChildSessionInner(input: {
   const controller = new AbortController();
   const signal = parent.signal ? AbortSignal.any([parent.signal, controller.signal]) : controller.signal;
   const coordinator = parent.executionCoordinator;
+  const partnerName = lease?.nickname ?? session.agent.id;
   const toolContext: ToolContext = {
     userQuery: input.prompt, conversationId: parent.parentConversationId, runId: session.childRunId,
     ownerSessionId: session.id,
+    caller: { partnerId: session.agent.id, partnerName },
     signal, resolvedWorkspaceRoot: parent.resolvedWorkspaceRoot, mode: parent.mode,
     allowedSkillIds: parent.capabilities?.skillIds, permissionMode: parent.permissionMode,
     fileAccessLevel: parent.fileAccessLevel,
@@ -155,7 +157,7 @@ async function runChildSessionInner(input: {
       onToolLifecycle: event => runStore?.recordTool(session.childRunId, { toolCallId: event.toolCallId, toolName: event.toolName, sideEffect: event.toolSideEffect, status: event.status }),
       onCompactionLifecycle: event => runStore?.recordCompaction(session.childRunId, event),
       checkPermission: parent.checkPermission && ((toolId, args, signal, origin) => parent.checkPermission!(
-        toolId, args, signal, { ...origin, agentId: session.agent.id, childRunId: session.childRunId },
+        toolId, args, signal, { ...origin, agentId: session.agent.id, ...(lease?.nickname ? { agentName: lease.nickname } : {}), childRunId: session.childRunId },
       )), includeInteractiveTools: parent.includeInteractiveTools,
       allowedBuiltinToolIds: new Set(["update_todo", "read_tool_result"]),
       onEvent: event => {

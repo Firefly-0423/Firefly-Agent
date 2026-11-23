@@ -9,7 +9,7 @@ import { createSchedulerStore } from "../../../main/features/scheduler/scheduler
 import type { ScheduledRunResult, ScheduledTask } from "../../../main/platform/schedule/schedule-types";
 import {
   createPluginScheduleService,
-  PluginScheduleError,
+  PluginError,
   type ScheduleProposalSpec,
   type ToolRisk,
   type UnattendedApprovalNotification,
@@ -122,8 +122,8 @@ describe("PluginSchedulesService (v2)", () => {
       await promise;
       expect.unreachable(`Expected error ${expectedCode}, but resolved`);
     } catch (error) {
-      expect(error).toBeInstanceOf(PluginScheduleError);
-      expect((error as PluginScheduleError).code).toBe(expectedCode);
+      expect(error).toBeInstanceOf(PluginError);
+      expect((error as PluginError).code).toBe(expectedCode);
     }
   }
 
@@ -163,11 +163,11 @@ describe("PluginSchedulesService (v2)", () => {
       expect(store.getTasks()).toHaveLength(0);
       expect(service.listPendingProposals()).toHaveLength(0);
 
-      expect(() => service.confirmProposal(proposed.taskId)).toThrowError(PluginScheduleError);
+      expect(() => service.confirmProposal(proposed.taskId)).toThrowError(PluginError);
       try {
         service.confirmProposal(proposed.taskId);
       } catch (error) {
-        expect((error as PluginScheduleError).code).toBe("ERR_REJECTED");
+        expect((error as PluginError).code).toBe("ERR_REJECTED");
       }
 
       currentNow = new Date(BASE_TIME.getTime() + 60 * 60_000);
@@ -451,7 +451,7 @@ describe("PluginSchedulesService (v2)", () => {
       expect(service.listPendingRunApprovals()).toHaveLength(0);
 
       await expectErrorCode(service.approveRun(pending.runId), "ERR_INVALID_ARGUMENT");
-      expect(() => service.rejectRun(pending.runId)).toThrowError(PluginScheduleError);
+      expect(() => service.rejectRun(pending.runId)).toThrowError(PluginError);
       expect(runAgentMock).toHaveBeenCalledTimes(1);
     });
 
@@ -572,6 +572,7 @@ describe("PluginSchedulesService (v2)", () => {
       const [task] = store.getTasks();
       expect(task.pluginUserEnabled).not.toBe(false);
       expect(task.nextFireAt).toBe("2032-03-10T10:30:00.000Z");
+      expect(task.schedule).toEqual({ kind: "cron", expression: "*/15 * * * *", timezone: "UTC" });
       currentNow = new Date("2032-03-10T10:30:00.000Z");
       await vi.advanceTimersByTimeAsync(10 * 60_000);
       expect(runAgentTask).toHaveBeenCalledTimes(1);
@@ -683,6 +684,7 @@ describe("PluginSchedulesService (v2)", () => {
       const [task] = store.getTasks();
       expect(task.pluginUserEnabled).not.toBe(false);
       expect(task.nextFireAt).toBe("2032-03-10T10:45:00.000Z");
+      expect(task.schedule).toEqual({ kind: "cron", expression: "*/15 * * * *", timezone: "UTC" });
     });
 
     it("confirming a task update cancels a run still waiting for approval of the old specification", async () => {
@@ -730,6 +732,7 @@ describe("PluginSchedulesService (v2)", () => {
       const [skipped] = store.getTasks();
       expect(skipped.pluginUserEnabled).not.toBe(false);
       expect(skipped.nextFireAt).toBe("2032-03-10T10:30:00.000Z");
+      expect(skipped.schedule).toEqual({ kind: "cron", expression: "*/15 * * * *", timezone: "UTC" });
 
       pluginRunning = true;
       currentNow = new Date("2032-03-10T10:30:00.000Z");
@@ -756,7 +759,7 @@ describe("PluginSchedulesService (v2)", () => {
       // Fail the next state save deterministically on every OS (a read-only file does not stop an atomic rename on POSIX).
       const failSave = failNextPluginStateSave();
       try {
-        expect(() => service.confirmProposal(proposed.taskId)).toThrow(PluginScheduleError);
+        expect(() => service.confirmProposal(proposed.taskId)).toThrow(PluginError);
         expect(store.getTasks()).toEqual([]);
       } finally {
         failSave.mockRestore();
@@ -818,6 +821,7 @@ describe("PluginSchedulesService (v2)", () => {
       const resumed = store.getTasks().find(task => task.id === id)!;
       expect(resumed.pluginUserEnabled).toBe(true);
       expect(resumed.nextFireAt).toBe("2032-03-10T10:30:00.000Z");
+      expect(resumed.schedule).toEqual({ kind: "cron", expression: "*/15 * * * *", timezone: "UTC" });
     });
 
     it("an approved run still records its result after another operation's save failed meanwhile", async () => {
@@ -949,7 +953,7 @@ describe("PluginSchedulesService (v2)", () => {
       service.confirmProposal(proposed.taskId);
 
       const spy = vi.spyOn(store, "deleteTasksByOwner").mockImplementationOnce(() => { throw new Error("disk full"); });
-      expect(() => service.uninstallPlugin("dev.firefly.reminder")).toThrow(PluginScheduleError);
+      expect(() => service.uninstallPlugin("dev.firefly.reminder")).toThrow(PluginError);
       spy.mockRestore();
 
       currentNow = new Date("2032-03-10T10:05:00.000Z");
@@ -1147,7 +1151,7 @@ describe("PluginSchedulesService (v2)", () => {
       service.confirmProposal(proposed.taskId);
 
       expect(() => service.suspendUnattendedRun(proposed.taskId, ["network"])).toThrowError(
-        PluginScheduleError,
+        PluginError,
       );
 
       const suspended = service.suspendUnattendedRun(

@@ -575,8 +575,9 @@ export interface PluginWorkspaceService {
 
 // ───────────────────────── 宿主服务：定时任务 ─────────────────────────
 
-/** 任务计划：一次性、每日、每周（0 表示周日）或固定间隔。 */
+/** 调度读取和执行规格；cron 由 SDK 1.2.0 提议并确认，旧插件创建/改期不接受 cron。 */
 export type PluginScheduleConfig =
+  | { kind: "cron"; expression: string; timezone?: string }
   | { kind: "interval"; every: number; unit: "minutes" | "hours" }
   | { kind: "weekly"; dayOfWeek: 0 | 1 | 2 | 3 | 4 | 5 | 6; timeOfDay: string }
   | { kind: "daily"; timeOfDay: string }

@@ -10,7 +10,7 @@ export {
   type PluginScheduleService,
 } from "./schedule-service";
 export {
-  PluginScheduleError,
+  PluginError,
   UNATTENDED_APPROVAL_RISKS,
   type Disposable,
   type Mode,

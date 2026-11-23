@@ -10,9 +10,9 @@ import type {
   ScheduledTask,
   ScheduledTaskPatch,
 } from "../../../main/platform/schedule/schedule-types";
-import { computeNextCronFireAt, validateAndConvertSchedule } from "./cron";
+import { validateAndConvertSchedule } from "./cron";
 import {
-  PluginScheduleError,
+  PluginError,
   UNATTENDED_APPROVAL_RISKS,
   type Disposable,
   type Mode,
@@ -45,7 +45,6 @@ interface PluginTaskMetadata {
   schedule: Schedule;
   action: ScheduleAction;
   requiredRisks: ToolRisk[];
-  requiresCronRearm: boolean;
 }
 
 interface PersistedScheduleState {
@@ -75,18 +74,6 @@ function isPersistedState(value: unknown): value is PersistedScheduleState {
   );
 }
 
-/** True when `runAt` is an instant the cron schedule fires at. */
-function isCronOccurrence(schedule: Schedule, runAt: string): boolean {
-  if (schedule.kind !== "cron") return false;
-  const at = Date.parse(runAt);
-  if (!Number.isFinite(at)) return false;
-  try {
-    return computeNextCronFireAt(schedule.expression, new Date(at - 1), schedule.timezone).getTime() === at;
-  } catch {
-    return false;
-  }
-}
-
 function cloneValue<T>(value: T): T {
   return value === undefined ? undefined as T : structuredClone(value);
 }
@@ -94,12 +81,12 @@ function cloneValue<T>(value: T): T {
 function normalizeRisks(risks: unknown): ToolRisk[] {
   if (risks === undefined) return [];
   if (!Array.isArray(risks)) {
-    throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "requiredRisks must be an array");
+    throw new PluginError("ERR_INVALID_ARGUMENT", "requiredRisks must be an array");
   }
   const seen = new Set<ToolRisk>();
   for (const risk of risks) {
     if (typeof risk !== "string" || !ALLOWED_PLUGIN_RISKS.has(risk as ToolRisk)) {
-      throw new PluginScheduleError(
+      throw new PluginError(
         "ERR_INVALID_ARGUMENT",
         `Invalid plugin schedule tool risk: ${String(risk)}`,
       );
@@ -112,22 +99,22 @@ function normalizeRisks(risks: unknown): ToolRisk[] {
 function normalizeToolIds(toolIds: unknown): string[] {
   if (toolIds === undefined) return [];
   if (!Array.isArray(toolIds) || toolIds.some((id) => typeof id !== "string")) {
-    throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "allowedToolIds must be an array of strings");
+    throw new PluginError("ERR_INVALID_ARGUMENT", "allowedToolIds must be an array of strings");
   }
   return Array.from(new Set(toolIds.map((id) => id.trim()).filter(Boolean)));
 }
 
 function normalizeAction(action: unknown): ScheduleAction {
   if (!action || typeof action !== "object") {
-    throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "Schedule action must be an object");
+    throw new PluginError("ERR_INVALID_ARGUMENT", "Schedule action must be an object");
   }
   const candidate = action as Partial<ScheduleAction>;
   if (candidate.type === "run") {
     if (typeof candidate.prompt !== "string" || candidate.prompt.trim().length === 0) {
-      throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "Run action prompt must be non-empty");
+      throw new PluginError("ERR_INVALID_ARGUMENT", "Run action prompt must be non-empty");
     }
     if (typeof candidate.mode !== "string" || !ALLOWED_MODES.has(candidate.mode as Mode)) {
-      throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `Invalid run mode: ${String(candidate.mode)}`);
+      throw new PluginError("ERR_INVALID_ARGUMENT", `Invalid run mode: ${String(candidate.mode)}`);
     }
     return {
       type: "run",
@@ -142,12 +129,12 @@ function normalizeAction(action: unknown): ScheduleAction {
       try {
         payload = JSON.parse(JSON.stringify(candidate.payload));
       } catch (cause) {
-        throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "Callback payload must be JSON-serializable", { cause });
+        throw new PluginError("ERR_INVALID_ARGUMENT", "Callback payload must be JSON-serializable", { cause });
       }
     }
     return payload === undefined ? { type: "callback" } : { type: "callback", payload };
   }
-  throw new PluginScheduleError(
+  throw new PluginError(
     "ERR_INVALID_ARGUMENT",
     `Unsupported schedule action type: ${String((action as { type?: unknown }).type)}`,
   );
@@ -155,10 +142,10 @@ function normalizeAction(action: unknown): ScheduleAction {
 
 function normalizeProposalSpec(spec: ScheduleProposalSpec, now: Date): ScheduleProposalSpec {
   if (!spec || typeof spec !== "object") {
-    throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "Schedule proposal spec must be an object");
+    throw new PluginError("ERR_INVALID_ARGUMENT", "Schedule proposal spec must be an object");
   }
   if (typeof spec.title !== "string" || spec.title.trim().length === 0) {
-    throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "Schedule title must be a non-empty string");
+    throw new PluginError("ERR_INVALID_ARGUMENT", "Schedule title must be a non-empty string");
   }
   validateAndConvertSchedule(spec.schedule, now, { checkOnceInFuture: true });
   const action = normalizeAction(spec.action);
@@ -176,7 +163,7 @@ function normalizeProposalSpec(spec: ScheduleProposalSpec, now: Date): ScheduleP
 
 function ensureNonEmptyId(id: unknown, label: string): string {
   if (typeof id !== "string" || id.trim().length === 0) {
-    throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `${label} must be a non-empty string`);
+    throw new PluginError("ERR_INVALID_ARGUMENT", `${label} must be a non-empty string`);
   }
   return id;
 }
@@ -218,7 +205,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     } catch (cause) {
       // Never keep an unsaved change in memory: go back to the last state on disk.
       state = backingFile.read(emptyState());
-      throw new PluginScheduleError("ERR_INTERNAL", "Failed to persist plugin schedule state", { cause });
+      throw new PluginError("ERR_INTERNAL", "Failed to persist plugin schedule state", { cause });
     }
   }
 
@@ -267,12 +254,12 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     const { ownerPluginId, hasStoreTask, hasProposal } = resolveOwnership(taskId);
     if (!hasStoreTask && !hasProposal) {
       if (missingIsError) {
-        throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `Schedule task not found: ${taskId}`);
+        throw new PluginError("ERR_INVALID_ARGUMENT", `Schedule task not found: ${taskId}`);
       }
       return false;
     }
     if (ownerPluginId !== pluginId) {
-      throw new PluginScheduleError(
+      throw new PluginError(
         "ERR_PERMISSION",
         `Plugin "${pluginId}" does not own schedule task "${taskId}"`,
       );
@@ -287,7 +274,9 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       (record) => record.taskId === v2TaskId && record.status === "pending_approval",
     );
     const enabled = isPluginTaskEffectivelyEnabled(task);
-    const fallbackSchedule: Schedule = task.schedule.kind === "once"
+    const fallbackSchedule: Schedule = task.schedule.kind === "cron"
+      ? task.schedule
+      : task.schedule.kind === "once"
       ? { kind: "once", at: Date.parse(task.schedule.runAt) }
       : task.schedule.kind === "interval"
         ? {
@@ -430,66 +419,12 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     }
 
     if (!options.runAgentTask) {
-      throw new PluginScheduleError("ERR_UNAVAILABLE", "No agent run delegate configured for schedule execution");
+      throw new PluginError("ERR_UNAVAILABLE", "No agent run delegate configured for schedule execution");
     }
     return options.runAgentTask(task, appointment, requestedByUser);
   }
 
-  function rearmCronTaskIfNeeded(
-    task: ScheduledTask,
-    meta: PluginTaskMetadata | undefined,
-    appointment: Date,
-  ): void {
-    if (!meta || !meta.requiresCronRearm || meta.schedule.kind !== "cron") return;
-    // Callers may hold a snapshot taken before an earlier re-arm in the same run; decide on the stored task.
-    task = store.getTasks().find(candidate => candidate.id === task.id) ?? task;
-    // The user may have changed the plan in the scheduler panel. Only a one-shot appointment that this service
-    // set is still the cron's; anything else means the user took over, so stop re-arming.
-    // Judged from the stored plan alone (no second file that could be out of date): a one-shot at an instant the
-    // cron expression produces is still the cron's.
-    if (task.schedule.kind !== "once" || !isCronOccurrence(meta.schedule, task.schedule.runAt)) {
-      meta.requiresCronRearm = false;
-      try { persistState(); } catch { /* The flag is re-derived as false on the next check anyway. */ }
-      return;
-    }
-    const anchor = new Date(Math.max(appointment.getTime(), clock().getTime()));
-    const nextFire = computeNextCronFireAt(meta.schedule.expression, anchor, meta.schedule.timezone);
-    const nextSchedule = { kind: "once" as const, runAt: nextFire.toISOString() };
-    const nextFingerprint = computeExecutionSpecFingerprint({
-      schedule: nextSchedule,
-      prompt: task.prompt,
-      mode: task.mode ?? "work",
-      allowedToolIds: task.allowedToolIds,
-    });
-    store.updateTask(task.id, {
-      schedule: nextSchedule,
-      nextFireAt: nextFire.toISOString(),
-      pluginUserEnabled: true,
-      approvalFingerprint: nextFingerprint,
-    });
-  }
-
-  /**
-   * Re-arm cron tasks whose stored one-shot appointment passed while the app was closed. Must run before the
-   * engine's overdue handling (start and refresh), which would otherwise disable them as expired one-shots.
-   * Paused tasks stay paused.
-   */
-  function reconcileCronTasks(): number {
-    const now = clock();
-    let rearmed = 0;
-    for (const meta of Object.values(state.metadata)) {
-      if (!meta.requiresCronRearm || meta.schedule.kind !== "cron") continue;
-      const task = store.getTasks().find(candidate => candidate.id === meta.storeTaskId);
-      if (!task || task.pluginUserEnabled === false || task.schedule.kind !== "once") continue;
-      if (new Date(task.schedule.runAt).getTime() > now.getTime()) continue;
-      rearmCronTaskIfNeeded(task, meta, now);
-      rearmed += 1;
-    }
-    return rearmed;
-  }
-
   function refreshEngine(): void {
-    reconcileCronTasks();
     options.refreshEngine?.();
   }
 
@@ -542,10 +477,10 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
 
     function assertActiveAndPermitted(): void {
       if (clientOptions?.signal?.aborted) {
-        throw new PluginScheduleError("ERR_CANCELLED", `Plugin "${ownerPluginId}" is stopped`);
+        throw new PluginError("ERR_CANCELLED", `Plugin "${ownerPluginId}" is stopped`);
       }
       if (clientOptions?.hasPermission && !clientOptions.hasPermission()) {
-        throw new PluginScheduleError(
+        throw new PluginError(
           "ERR_PERMISSION",
           `Plugin "${ownerPluginId}" does not hold "schedules" permission`,
         );
@@ -585,7 +520,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
         assertActiveAndPermitted();
         ensureNonEmptyId(taskId, "taskId");
         if (!patch || typeof patch !== "object") {
-          throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "Update patch must be an object");
+          throw new PluginError("ERR_INVALID_ARGUMENT", "Update patch must be an object");
         }
         assertPluginOwnsTarget(ownerPluginId, taskId, true);
 
@@ -668,7 +603,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
             removed = true;
           }
         } catch (cause) {
-          throw new PluginScheduleError("ERR_INTERNAL", "Failed to delete scheduled task", { cause });
+          throw new PluginError("ERR_INTERNAL", "Failed to delete scheduled task", { cause });
         }
         for (const [proposalId, proposal] of Object.entries(state.proposals)) {
           if (proposal.taskId === taskId && proposal.pluginId === ownerPluginId) {
@@ -719,7 +654,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       onTrigger(fn) {
         assertActiveAndPermitted();
         if (typeof fn !== "function") {
-          throw new PluginScheduleError("ERR_INVALID_ARGUMENT", "onTrigger listener must be a function");
+          throw new PluginError("ERR_INVALID_ARGUMENT", "onTrigger listener must be a function");
         }
         let listeners = triggerListeners.get(ownerPluginId);
         if (!listeners) {
@@ -760,13 +695,13 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     if (!proposal) {
       const latest = findLatestProposalForTask(taskId);
       if (latest?.status === "rejected") {
-        throw new PluginScheduleError("ERR_REJECTED", `Proposal for task "${taskId}" was already rejected`);
+        throw new PluginError("ERR_REJECTED", `Proposal for task "${taskId}" was already rejected`);
       }
-      throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `No pending proposal found for task "${taskId}"`);
+      throw new PluginError("ERR_INVALID_ARGUMENT", `No pending proposal found for task "${taskId}"`);
     }
 
     const now = clock();
-    const { storeSchedule, requiresCronRearm } = validateAndConvertSchedule(
+    const { storeSchedule } = validateAndConvertSchedule(
       proposal.spec.schedule,
       now,
       { checkOnceInFuture: true },
@@ -809,7 +744,6 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
         schedule: cloneValue(proposal.spec.schedule),
         action: cloneValue(proposal.spec.action),
         requiredRisks,
-        requiresCronRearm,
       };
       state.metadata[proposal.taskId] = meta;
       state.proposals[proposal.proposalId] = {
@@ -828,7 +762,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
 
     const existingTask = findStoreTaskByAnyId(proposal.taskId);
     if (!existingTask || existingTask.ownerPluginId !== proposal.pluginId) {
-      throw new PluginScheduleError(
+      throw new PluginError(
         "ERR_INVALID_ARGUMENT",
         `Target task "${proposal.taskId}" no longer exists for update confirmation`,
       );
@@ -869,7 +803,6 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       schedule: cloneValue(proposal.spec.schedule),
       action: cloneValue(proposal.spec.action),
       requiredRisks,
-      requiresCronRearm,
     };
     state.metadata[proposal.taskId] = meta;
     state.proposals[proposal.proposalId] = {
@@ -892,9 +825,9 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     if (!proposal) {
       const latest = findLatestProposalForTask(taskId);
       if (latest?.status === "rejected") {
-        throw new PluginScheduleError("ERR_REJECTED", `Proposal for task "${taskId}" was already rejected`);
+        throw new PluginError("ERR_REJECTED", `Proposal for task "${taskId}" was already rejected`);
       }
-      throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `No pending proposal found for task "${taskId}"`);
+      throw new PluginError("ERR_INVALID_ARGUMENT", `No pending proposal found for task "${taskId}"`);
     }
 
     const updated: ScheduleProposal = {
@@ -925,25 +858,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       return await runScheduledTaskOnce(task, appointment, requestedByUser);
     } finally {
       runningTasks.delete(task.id);
-      rearmCronStoppedDuringRun(task.id);
     }
-  }
-
-  /**
-   * A cron appointment that comes due while the previous run is still going is skipped by the engine, which
-   * first disables the stored one-shot. Once the run ends, re-arm such a task from now. A task the user paused
-   * keeps a future appointment, so it is left alone.
-   */
-  function rearmCronStoppedDuringRun(storeTaskId: string): void {
-    const meta = findMetadataByAnyId(storeTaskId);
-    if (!meta?.requiresCronRearm || meta.schedule.kind !== "cron") return;
-    const current = store.getTasks().find(candidate => candidate.id === meta.storeTaskId);
-    // Two ways to end up with no appointment: the engine stopped the one-shot (disabled), or the user resumed a
-    // paused task after its stored time passed and the store cleared the expired appointment (enabled).
-    if (!current || current.nextFireAt !== null || current.schedule.kind !== "once") return;
-    const now = clock();
-    if (new Date(current.schedule.runAt).getTime() > now.getTime()) return;
-    rearmCronTaskIfNeeded(current, meta, now);
   }
 
   async function runScheduledTaskOnce(
@@ -953,15 +868,13 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
   ): Promise<ScheduledRunResult> {
     if (!task.ownerPluginId) {
       if (!options.runAgentTask) {
-        throw new PluginScheduleError("ERR_UNAVAILABLE", "No agent run delegate configured");
+        throw new PluginError("ERR_UNAVAILABLE", "No agent run delegate configured");
       }
       return options.runAgentTask(task, appointment, requestedByUser);
     }
 
     const meta = findMetadataByAnyId(task.id);
     const v2TaskId = meta?.taskId ?? task.id;
-
-    rearmCronTaskIfNeeded(task, meta, appointment);
 
     const risks = collectTaskRisks(task, meta);
     const blockingRisks = risks.filter((risk) => UNATTENDED_APPROVAL_RISKS.has(risk));
@@ -988,14 +901,14 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     const normalized = normalizeRisks(risks);
     const blocking = normalized.filter((risk) => UNATTENDED_APPROVAL_RISKS.has(risk));
     if (blocking.length === 0) {
-      throw new PluginScheduleError(
+      throw new PluginError(
         "ERR_INVALID_ARGUMENT",
         "Unattended approval suspension requires at least one privileged risk (fs-write, shell, input-control)",
       );
     }
     const task = findStoreTaskByAnyId(taskId);
     if (!task || !task.ownerPluginId) {
-      throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `Plugin task not found: ${taskId}`);
+      throw new PluginError("ERR_INVALID_ARGUMENT", `Plugin task not found: ${taskId}`);
     }
     const meta = findMetadataByAnyId(taskId);
     return createApprovalSuspension(task, meta?.taskId ?? task.id, clock(), blocking, reason);
@@ -1022,16 +935,16 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     ensureNonEmptyId(runId, "runId");
     const record = state.approvals[runId];
     if (!record) {
-      throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `Run approval not found: ${runId}`);
+      throw new PluginError("ERR_INVALID_ARGUMENT", `Run approval not found: ${runId}`);
     }
     if (record.status === "rejected") {
-      throw new PluginScheduleError("ERR_REJECTED", `Run "${runId}" was already rejected`);
+      throw new PluginError("ERR_REJECTED", `Run "${runId}" was already rejected`);
     }
     if (record.status === "cancelled") {
-      throw new PluginScheduleError("ERR_CANCELLED", record.error ?? `Run "${runId}" was cancelled`);
+      throw new PluginError("ERR_CANCELLED", record.error ?? `Run "${runId}" was cancelled`);
     }
     if (record.status !== "pending_approval") {
-      throw new PluginScheduleError(
+      throw new PluginError(
         "ERR_INVALID_ARGUMENT",
         `Run "${runId}" is already settled with status "${record.status}"`,
       );
@@ -1042,7 +955,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       record.status = "cancelled";
       record.settledAt = clock().toISOString();
       persistState();
-      throw new PluginScheduleError(
+      throw new PluginError(
         "ERR_CANCELLED",
         `Plugin task "${record.taskId}" is no longer available`,
       );
@@ -1050,16 +963,16 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
 
     // An approved run shares the task's exclusive slot with scheduled runs; while busy it stays pending.
     if (runningTasks.has(task.id)) {
-      throw new PluginScheduleError("ERR_UNAVAILABLE", `Task "${record.taskId}" is running; approve again when it finishes`, { retryable: true });
+      throw new PluginError("ERR_UNAVAILABLE", `Task "${record.taskId}" is running; approve again when it finishes`, true);
     }
     const meta = findMetadataByAnyId(record.taskId);
     if (meta?.action.type === "callback") {
       const listeners = triggerListeners.get(record.pluginId);
       if (!listeners || !Array.from(listeners).some(listener => !listenerSignals.get(listener)?.aborted)) {
-        throw new PluginScheduleError(
+        throw new PluginError(
           "ERR_UNAVAILABLE",
           `No active callback listener for plugin "${record.pluginId}"; approve again when it registers one`,
-          { retryable: true },
+          true,
         );
       }
     }
@@ -1085,7 +998,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       // State may have been reloaded after a failed save, or the approval may have been removed.
       const settled = state.approvals[runId];
       if (!settled) {
-        throw new PluginScheduleError("ERR_CANCELLED", `Run approval "${runId}" was removed before settlement`);
+        throw new PluginError("ERR_CANCELLED", `Run approval "${runId}" was removed before settlement`);
       }
       settled.status = result.ok ? "completed" : "failed";
       if (!result.ok && result.error) {
@@ -1112,16 +1025,16 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     ensureNonEmptyId(runId, "runId");
     const record = state.approvals[runId];
     if (!record) {
-      throw new PluginScheduleError("ERR_INVALID_ARGUMENT", `Run approval not found: ${runId}`);
+      throw new PluginError("ERR_INVALID_ARGUMENT", `Run approval not found: ${runId}`);
     }
     if (record.status === "rejected") {
-      throw new PluginScheduleError("ERR_REJECTED", `Run "${runId}" was already rejected`);
+      throw new PluginError("ERR_REJECTED", `Run "${runId}" was already rejected`);
     }
     if (record.status === "cancelled") {
-      throw new PluginScheduleError("ERR_CANCELLED", record.error ?? `Run "${runId}" was cancelled`);
+      throw new PluginError("ERR_CANCELLED", record.error ?? `Run "${runId}" was cancelled`);
     }
     if (record.status !== "pending_approval") {
-      throw new PluginScheduleError(
+      throw new PluginError(
         "ERR_INVALID_ARGUMENT",
         `Run "${runId}" is already settled with status "${record.status}"`,
       );
@@ -1161,7 +1074,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     try {
       removedTasks = store.deleteTasksByOwner(ownerPluginId);
     } catch (cause) {
-      throw new PluginScheduleError("ERR_INTERNAL", "Failed to delete the plugin's scheduled tasks", { cause });
+      throw new PluginError("ERR_INTERNAL", "Failed to delete the plugin's scheduled tasks", { cause });
     }
 
     let removedProposals = 0;
@@ -1222,23 +1135,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     persistState();
   }
 
-  // The host creates this service before starting the scheduler engine, so overdue cron tasks are re-armed first.
-  reconcileCronTasks();
-  // The engine also stops a cron one-shot when it skips it (plugin not running, previous run still going).
-  // Re-arm those whenever the task list changes; re-arming itself changes it, so guard against re-entry.
-  let sweeping = false;
-  store.onChange?.(() => {
-    if (sweeping) return;
-    sweeping = true;
-    try {
-      for (const meta of Object.values(state.metadata)) rearmCronStoppedDuringRun(meta.storeTaskId);
-    } finally {
-      sweeping = false;
-    }
-  });
-
   return {
-    reconcileCronTasks,
     forPlugin,
     listPendingProposals,
     confirmProposal,
