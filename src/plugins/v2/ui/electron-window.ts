@@ -64,6 +64,9 @@ function getIsolatedPluginSession(pluginId: string, packageRoot: string): Sessio
     createPluginUiProtocolHandler((requestedId) => pluginPackageRoots.get(requestedId), pluginId),
   );
 
+  ses.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
+  ses.setPermissionCheckHandler(() => false);
+
   ses.webRequest.onBeforeRequest((details, callback) => {
     const isSafeInlineImage =
       (details.url.startsWith("data:") || details.url.startsWith("blob:"))

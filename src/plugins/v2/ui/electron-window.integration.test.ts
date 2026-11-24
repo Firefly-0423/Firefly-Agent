@@ -257,6 +257,35 @@ app.whenReady().then(async () => {
     assert.equal(envCheck.csp, STRICT_PLUGIN_UI_CSP);
     assert.equal(envCheck.externalBlocked, true);
 
+    // 1b. Verify isolated session denies all permission requests and checks (media & notifications).
+    const permCheck = await winA.webContents.executeJavaScript(\`
+      (async () => {
+        const notifReq = await Notification.requestPermission();
+        const notifQuery = await navigator.permissions.query({ name: "notifications" });
+        const micQuery = await navigator.permissions.query({ name: "microphone" });
+        let mediaErrorName = null;
+        let mediaGranted = false;
+        try {
+          await navigator.mediaDevices.getUserMedia({ audio: true });
+          mediaGranted = true;
+        } catch (err) {
+          mediaErrorName = err && err.name ? err.name : String(err);
+        }
+        return {
+          notifReq,
+          notifCheck: notifQuery.state,
+          micCheck: micQuery.state,
+          mediaGranted,
+          mediaErrorName,
+        };
+      })()
+    \`);
+    assert.equal(permCheck.notifReq, "denied");
+    assert.equal(permCheck.notifCheck, "denied");
+    assert.equal(permCheck.micCheck, "denied");
+    assert.equal(permCheck.mediaGranted, false);
+    assert.equal(permCheck.mediaErrorName, "NotAllowedError");
+
     // 2. Verify top-level navigation and window.open are blocked, and loading external URL / file: escape is rejected.
     await winA.webContents.executeJavaScript(\`
       window.__POPUP_RESULT__ = window.open("https://example.com/");
