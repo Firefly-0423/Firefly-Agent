@@ -87,6 +87,9 @@ export function createPluginSchedulerService(options: PluginSchedulerServiceOpti
    * 因为更新元数据时保留的旧计划可能已经过期，不应阻止改标题。
    */
   function ensureSpec(spec: PluginScheduledExecutionSpec, isNewPlan: boolean): void {
+    if (isNewPlan && spec.schedule?.kind === "cron") {
+      throw pluginHostError("E_INVALID_ARGUMENT", "Cron schedules require SDK 1.2.0 proposal confirmation");
+    }
     if (typeof spec.prompt !== "string" || spec.prompt.trim().length === 0) {
       throw pluginHostError("E_INVALID_ARGUMENT", "提示词不能为空");
     }

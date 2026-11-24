@@ -27,29 +27,10 @@ function toUnpackedSrtWinPath(p: string): string {
   if (!p.includes(segment)) return p;
   return p.replace(segment, `${path.sep}app.asar.unpacked${path.sep}`);
 }
-function detectProjectRoot(cwd: string): string {
-  const origin = path.resolve(cwd);
-  let directory = origin;
-  for (let depth = 0; depth < 20; depth += 1) {
-    const git = fs.existsSync(path.join(directory, ".git"));
-    const manifest = fs.existsSync(path.join(directory, "package.json"));
-    const typescript = fs.existsSync(path.join(directory, "tsconfig.json"));
-    if (git || manifest || typescript) {
-      const markers = [git && ".git", manifest && "package.json", typescript && "tsconfig.json"].filter(Boolean).join(",");
-      logger.info(LogTag.Runtime, `[Sandbox] detectProjectRoot: ${origin} → ${directory} (found ${markers})`);
-      return directory;
-    }
-    const parent = path.dirname(directory);
-    if (parent === directory) break;
-    directory = parent;
-  }
-  logger.info(LogTag.Runtime, `[Sandbox] detectProjectRoot: no project marker found from ${origin}, fallback to cwd`);
-  return path.resolve(cwd);
-}
 function buildFilesystemConfigForLevel(cwd: string, level: AgentFileAccessLevel): { filesystem: any } | null {
   logger.info(LogTag.Runtime, `[Sandbox] buildFilesystemConfigForLevel: level=${level} cwd=${cwd}`);
   switch (level) {
-    case "project-read-only": case "read-only": case "scoped":
+    case "read-only":
       logger.info(LogTag.Runtime, `[Sandbox] fs config [${level}]: per-exec denies only; grants were applied at session initialization`);
       return { filesystem: { denyRead: [], denyWrite: [] } };
     case "per-action":
@@ -60,11 +41,10 @@ function buildFilesystemConfigForLevel(cwd: string, level: AgentFileAccessLevel)
       return null;
   }
 }
-export function resolveSandboxSessionFilesystem(level: AgentFileAccessLevel, workspaceRoot: string): { allowRead?: string[]; allowWrite: string[]; denyRead: string[]; denyWrite: string[]; disabled?: boolean } {
+export function resolveSandboxSessionFilesystem(level: AgentFileAccessLevel, workspaceRoot: string): { allowWrite: string[]; denyRead: string[]; denyWrite: string[]; disabled?: boolean } {
   switch (level) {
-    case "project-read-only": return { allowRead: [workspaceRoot], allowWrite: [], denyRead: [], denyWrite: [] };
     case "read-only": return { allowWrite: [], denyRead: [], denyWrite: [] };
-    case "scoped": case "per-action": return { allowWrite: [workspaceRoot], denyRead: [], denyWrite: [] };
+    case "per-action": return { allowWrite: [workspaceRoot], denyRead: [], denyWrite: [] };
     case "full": return { allowWrite: [], denyRead: [], denyWrite: [], disabled: true };
   }
 }
@@ -108,8 +88,7 @@ export async function ensureSandboxReady(cwd: string = process.cwd(), level: Age
     logger.info(LogTag.Runtime, `[Sandbox] ensureSandboxReady: skip (sandboxDisabled=${disabled} isWindows=${isWindows()})`);
     return false;
   }
-  const root = trustedWorkspaceRoot ? path.resolve(trustedWorkspaceRoot)
-    : level === "project-read-only" ? detectProjectRoot(cwd) : path.resolve(cwd);
+  const root = trustedWorkspaceRoot ? path.resolve(trustedWorkspaceRoot) : path.resolve(cwd);
   const identity = JSON.stringify({ level, workspaceRoot: root });
   if (ready && activeSession === identity) { logger.info(LogTag.Runtime, "[Sandbox] ensureSandboxReady: already ready"); return true; }
   if (!runtime || !windowsRuntime) {

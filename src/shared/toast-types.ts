@@ -36,10 +36,10 @@ export type ToastApprovalArgument = { key: string; value: string };
  * expired：已结算、已取消、原运行已结束或已被接管。
  */
 export type ToastApprovalDetail =
-  | { state: "pending"; approvalId: string; toolName: string; toolId: string; agentId?: string;
+  | { state: "pending"; approvalId: string; toolName: string; toolId: string; declaredBy?: string; agentId?: string; agentName?: string;
     session: { id: string; title?: string }; args: ToastApprovalArgument[] }
-  | { state: "runless"; approvalId: string; toolName: string; toolId: string; agentId?: string; args: ToastApprovalArgument[] }
-  | { state: "unverified"; approvalId: string; toolName: string; toolId: string; agentId?: string; args: ToastApprovalArgument[] }
+  | { state: "runless"; approvalId: string; toolName: string; toolId: string; declaredBy?: string; agentId?: string; agentName?: string; args: ToastApprovalArgument[] }
+  | { state: "unverified"; approvalId: string; toolName: string; toolId: string; declaredBy?: string; agentId?: string; agentName?: string; args: ToastApprovalArgument[] }
   | { state: "expired"; approvalId: string };
 
 /** 主进程维护并推给渲染页的 toast 条目 */

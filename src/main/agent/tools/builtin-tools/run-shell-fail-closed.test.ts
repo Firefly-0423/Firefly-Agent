@@ -8,7 +8,7 @@ vi.mock("../../sandbox/sandbox-exec", () => ({
   wrapWithSandbox: boundary.wrap, isSandboxReady: () => true, ensureSandboxReady: async () => true,
   initSandbox: async () => undefined, resetSandbox: async () => undefined,
 }));
-vi.mock("../../../platform/permission/permission", () => ({ getCurrentLevel: () => "scoped" }));
+vi.mock("../../../platform/permission/permission", () => ({ getCurrentLevel: () => "read-only" }));
 vi.mock("child_process", async (original) => {
   const native = await original<typeof import("child_process")>();
   return { ...native, spawn: (...args: Parameters<typeof native.spawn>) => { boundary.spawn(...args); return native.spawn(...args); } };

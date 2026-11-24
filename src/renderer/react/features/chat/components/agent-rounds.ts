@@ -85,35 +85,7 @@ export function createRoundProcessMessage(id: string, content: string, afterTool
   return message;
 }
 
-export function startAgentRound(rounds: readonly AgentRoundRecord[], roundId: string, startedAt = Date.now()): AgentRoundRecord[] {
-  const alreadyStarted = rounds.some(({ id }) => id === roundId);
-  const next = [...rounds];
-  if (!alreadyStarted) {
-    next.push({ id: roundId, status: "running", startedAt });
-  }
-  return next;
-}
-
-export function finishAgentRound(rounds: readonly AgentRoundRecord[], roundId: string, completedAt = Date.now()): AgentRoundRecord[] {
-  return rounds.map((record) => {
-    if (record.id !== roundId) { return record; }
-    return { ...record, status: "completed", completedAt };
-  });
-}
-
-export interface AgentRoundBoundaryState {
-  rounds: AgentRoundRecord[]; activeRoundId?: string;
-}
-
-export function applyAgentRoundBoundary(state: AgentRoundBoundaryState, action: "start" | "end", roundId: string, now = Date.now()): AgentRoundBoundaryState {
-  switch (action) {
-    case "start": return { rounds: startAgentRound(state.rounds, roundId, now), activeRoundId: roundId };
-    default: return {
-      rounds: finishAgentRound(state.rounds, roundId, now),
-      activeRoundId: state.activeRoundId === roundId ? undefined : state.activeRoundId,
-    };
-  }
-}
+export { startAgentRound, finishAgentRound, applyAgentRoundBoundary, type AgentRoundBoundaryState } from "../../../../../shared/run-display";
 
 /** One fact per summary line: both search tools share "searched N times". */
 export function summarizeToolFacts(records: readonly ToolExecutionRecord[]): string[] {

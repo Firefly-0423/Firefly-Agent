@@ -144,6 +144,11 @@ export class SchedulerEngine {
                 continue;
             }
             const rescheduled = normalizeOverdueNextFireAt(job.schedule, appointment, instant);
+            if (job.schedule.kind === "cron" && !rescheduled) {
+                repository.updateTask(job.id, this.stoppedJobPatch(job));
+                this.appendSkip(job, instant, "schedule has no future occurrence");
+                continue;
+            }
             repository.updateTask(job.id, { nextFireAt: rescheduled ? rescheduled.toISOString() : null });
         }
     }
@@ -197,6 +202,12 @@ export class SchedulerEngine {
                 const upcoming = successor && successor.getTime() <= instant.getTime()
                     ? normalizeOverdueNextFireAt(job.schedule, successor, instant)
                     : successor;
+
+                if (job.schedule.kind === "cron" && !upcoming) {
+                    repository.updateTask(job.id, this.stoppedJobPatch(job));
+                    this.appendSkip(job, appointment, "schedule has no future occurrence");
+                    continue;
+                }
                 if (job.schedule.kind === "once") {
                     repository.updateTask(job.id, {
                         ...this.stoppedJobPatch(job),

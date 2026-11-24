@@ -18,6 +18,15 @@ export function createBrowserWorkspaceTool(execute: BrowserWorkspaceExecutor): T
     async execute(args, context) {
       const result = await execute(args, context);
       if (!result.ok) {
+        if (result.code === "observe_required") {
+          throw new ToolExecutionError(
+            "BROWSER_OBSERVE_REQUIRED",
+            "右侧浏览器：observe_required（页面已在后台、视口变化或旧快照失效）。请在页面可见时先调用 observe，用新的 snapshotId 再操作。",
+            "semantic_failure",
+            false,
+            "not_applied",
+          );
+        }
         const denied = ["permission_denied", "blocked_url", "owner_mismatch", "closed"].includes(result.code);
         throw new ToolExecutionError(`BROWSER_${result.code.toUpperCase()}`, `右侧浏览器：${result.code}。请使用当前页面和已确认的范围；授权只能由用户在右侧完成。`, denied ? "permission_denied" : "semantic_failure", false,
           args.operation === "observe" || ["permission_denied", "blocked_url", "closed"].includes(result.code) ? "not_applied" : "unknown");

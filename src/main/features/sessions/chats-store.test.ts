@@ -287,3 +287,53 @@ describe("temporary conversation lifetime", () => {
         expect(fs.readFileSync(indexPath(), "utf8")).toEqual("broken-index");
     });
 });
+
+
+describe("registered run identities", () => {
+    it("persists identity before execution and reports interrupted after reloading", async () => {
+        let store = await ready();
+        const session = store.createSession({ mode: "chat" });
+        const identity = { profileId: store.RUN_PRESENTATION_PROFILE_ID, sessionId: session.id, assistantTurnId: "assistant", runId: "run-one" };
+        expect(store.registerRun(identity)).toBe(true);
+        expect(store.getRunStatus(session.id, "assistant")).toEqual({ sessionId: session.id, assistantTurnId: "assistant", runId: "run-one", seq: 1, phase: "running" });
+        expect(store.getSession(session.id)?.messages).toEqual([{ id: "assistant", role: "model", content: "", at: expect.any(Number) }]);
+        expect(store.registerRun({ ...identity, runId: "run-other" })).toBe(false);
+        vi.resetModules(); store = await ready();
+        expect(store.getRunStatus(session.id, "assistant")).toEqual({ sessionId: session.id, assistantTurnId: "assistant", runId: "run-one", seq: 2, phase: "interrupted" });
+        expect(store.getRunStatus(session.id, "unknown")).toBeUndefined();
+    });
+    it("does not guess a run from legacy snapshots without a trusted mapping", async () => {
+        const store = await ready();
+        const session = store.createSession({ mode: "chat", initialMessages: [{ ...message("legacy", "old answer", "model"), runSnapshot: { runId: "legacy-run", status: "terminal", terminalStatus: "success", updatedAt: 1 } }] });
+        expect(store.getRunStatus(session.id, "legacy")).toBeUndefined();
+        expect(store.getRunStatus(session.id, "missing")).toBeUndefined();
+    });
+    it("reports an unfinished settlement interrupted after restart without durable final evidence", async () => {
+        let store = await ready();
+        const session = store.createSession({ mode: "chat" });
+        const identity = { profileId: store.RUN_PRESENTATION_PROFILE_ID, sessionId: session.id, assistantTurnId: "assistant", runId: "run" };
+        store.registerRun(identity);
+        expect(store.updateRunPresentation(identity, "settling", 2)).toBe(true);
+        expect(store.getRunStatus(session.id, "assistant")?.phase).toBe("settling");
+        vi.resetModules(); store = await ready();
+        expect(store.getRunStatus(session.id, "assistant")).toEqual({ sessionId: session.id, assistantTurnId: "assistant", runId: "run", seq: 3, phase: "interrupted" });
+    });
+    it("keeps temporary run registration off disk and rejects user row and profile mismatches", async () => {
+        const store = await ready();
+        const session = store.createSession({ mode: "chat", temporary: true, initialMessages: [message("user", "hello"), message("old-assistant", "already answered", "model")] });
+        const identity = { profileId: store.RUN_PRESENTATION_PROFILE_ID, sessionId: session.id, assistantTurnId: "assistant", runId: "run-one" };
+        expect(store.registerRun({ ...identity, assistantTurnId: "user" })).toBe(false);
+        expect(store.registerRun({ ...identity, assistantTurnId: "old-assistant" })).toBe(false);
+        expect(store.registerRun({ ...identity, profileId: "other-profile" })).toBe(false);
+        expect(store.registerRun(identity)).toBe(true);
+        expect(fs.existsSync(join(profile.root, "firefly-chats", "sessions", `${session.id}.json`))).toBe(false);
+    });
+    it("does not expose a running identity after registration cannot be persisted", async () => {
+        const store = await ready();
+        const session = store.createSession({ mode: "chat" });
+        fs.mkdirSync(join(profile.root, "firefly-chats", "sessions", `${session.id}.json.tmp`));
+        expect(() => store.registerRun({ profileId: store.RUN_PRESENTATION_PROFILE_ID, sessionId: session.id, assistantTurnId: "assistant", runId: "run-one" })).toThrow();
+        expect(store.getRunStatus(session.id, "assistant")).toBeUndefined();
+        expect(store.getSession(session.id)?.messages).toEqual([]);
+    });
+});

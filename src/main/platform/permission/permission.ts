@@ -6,7 +6,7 @@ import * as path from "path";
 import { IPC } from "../../../shared/ipc-channels";
 import { createAbortError } from "../../base/utils/abort-utils";
 import { logger, LogTag } from "../../base/logging/logger";
-import { policyFor, type AgentFileAccessLevel, type ToolRiskLevel } from "./permission-policy";
+import { policyFor, policyForTool, stricterVerdict, type AgentFileAccessLevel, type ToolRiskLevel } from "./permission-policy";
 import { toastEvents } from "../interaction/toast-events";
 import type { ApprovalOrigin, ApprovalRequest, ApprovalSettleReason, ApprovalSettledPayload } from "../../../shared/permission-approval";
 
@@ -17,17 +17,25 @@ export type { ApprovalRequest, ApprovalSettledPayload, ApprovalSettleReason };
 const TAG = "[Permission]";
 
 export const ACCESS_LEVEL_LABEL: Record<AgentFileAccessLevel, string> = {
-  "read-only": "只读", scoped: "指定目录", full: "完全访问",
-  "project-read-only": "完全只读", "per-action": "每次审批",
+  "read-only": "只读",
+  "per-action": "每次审批",
+  "full": "完全访问",
 };
+
+export const DEFAULT_ACCESS_LEVEL: AgentFileAccessLevel = "read-only";
 
 function isValidLevel(value: unknown): value is AgentFileAccessLevel {
   return typeof value === "string" && Object.prototype.hasOwnProperty.call(ACCESS_LEVEL_LABEL, value);
 }
 
+/** 将落盘或外部传入的档位值归一化为受支持的三档之一；旧档位与非法值回落到默认档位。 */
+export function normalizeAccessLevel(value: unknown): AgentFileAccessLevel {
+  return isValidLevel(value) ? value : DEFAULT_ACCESS_LEVEL;
+}
+
 // ── 档位：内存值 + userData 下的 JSON 文件 ──────────────────
 
-let activeLevel: AgentFileAccessLevel = "read-only";
+let activeLevel: AgentFileAccessLevel = DEFAULT_ACCESS_LEVEL;
 
 export function getCurrentLevel(): AgentFileAccessLevel {
   return activeLevel;
@@ -52,23 +60,26 @@ export function setCurrentLevel(level: AgentFileAccessLevel): void {
   writeLevelFile(level);
 }
 
-/** 启动时读回上次的档位；文件缺失或内容不合法时保持默认。需在 app ready 之后调用。 */
+/** 启动时读回上次的档位；文件缺失、旧档位或内容不合法时回落到默认档位。需在 app ready 之后调用。 */
 export function initPermissionFromDisk(): void {
   try {
     const source = levelFilePath();
     if (!fs.existsSync(source)) {
+      activeLevel = DEFAULT_ACCESS_LEVEL;
       logger.info(LogTag.Permission, "没有已保存的档位，沿用默认 read-only");
       return;
     }
     const saved = JSON.parse(fs.readFileSync(source, "utf8")) as { level?: unknown } | null;
     const candidate = saved?.level;
     if (!isValidLevel(candidate)) {
-      console.warn(TAG, "已保存的档位无法识别，沿用默认");
+      activeLevel = DEFAULT_ACCESS_LEVEL;
+      console.warn(TAG, "已保存的档位无法识别，回落到默认 read-only");
       return;
     }
     activeLevel = candidate;
     logger.info(LogTag.Permission, "loaded level from disk:", activeLevel);
   } catch (err) {
+    activeLevel = DEFAULT_ACCESS_LEVEL;
     console.error(TAG, "读取档位文件失败:", err);
   }
 }
@@ -212,15 +223,6 @@ export function registerPermissionIpc(ipcOption?: IpcScope): void {
 
 // ── 判定入口 ────────────────────────────────────────────────
 
-type Verdict = ReturnType<typeof policyFor>;
-
-/** 两个判定取更严的一个：deny 优先，其次 ask。 */
-function stricter(a: Verdict, b: Verdict): Verdict {
-  if (a === "deny" || b === "deny") return "deny";
-  if (a === "ask" || b === "ask") return "ask";
-  return "allow";
-}
-
 export interface PermissionCheckInput {
   signal?: AbortSignal;
   /** 工具调用 / 子 agent 归属，原样带到审批卡片上。 */
@@ -230,6 +232,10 @@ export interface PermissionCheckInput {
   /** 会话创建时记录的档位快照，只会让结果更严。 */
   level?: AgentFileAccessLevel;
   risk: ToolRiskLevel;
+  risks?: readonly ToolRiskLevel[];
+  isPlugin?: boolean;
+  declaredBy?: string;
+  approvalTarget?: string;
   args: Record<string, unknown>;
   toolDescription: string;
   toolName: string;
@@ -249,26 +255,39 @@ export interface PermissionCheckResult {
 export async function checkPermission(input: PermissionCheckInput): Promise<PermissionCheckResult> {
   const { signal, risk } = input;
   if (signal?.aborted) throw createAbortError();
+  const target = { risk, risks: input.risks, isPlugin: input.isPlugin };
   const global = activeLevel;
-  const verdict = stricter(policyFor(global, risk), policyFor(input.level ?? global, risk));
-  logger.info(LogTag.Permission, "checkPermission:", input.toolId, "risk=" + risk, "level=" + global, "→", verdict);
+  const verdict = stricterVerdict(policyForTool(global, target), policyForTool(input.level ?? global, target));
+  const riskLabel = input.risks?.length ? input.risks.join(",") : risk;
+  logger.info(LogTag.Permission, "checkPermission:", input.toolId, "risk=" + riskLabel, "level=" + global, "→", verdict);
 
   if (verdict === "allow") return { allowed: true };
   if (verdict === "deny") {
     return {
       allowed: false,
-      reason: `当前档位「${ACCESS_LEVEL_LABEL[global]}」不允许此操作（risk=${risk}）。请到设置 → 流萤 → 本地文件权限提升档位。`,
+      reason: `当前档位「${ACCESS_LEVEL_LABEL[global]}」不允许此操作（risk=${riskLabel}）。请到设置 → 流萤 → 本地文件权限提升档位。`,
     };
   }
 
   const { toolId, toolName, toolDescription, args, runId } = input;
-  const approved = await requestApproval({ toolId, toolName, toolDescription, args, risk, runId, ...input.origin }, signal);
+  const approved = await requestApproval({
+    toolId,
+    toolName,
+    toolDescription,
+    args,
+    risk,
+    ...(input.risks?.length ? { risks: [...input.risks] } : {}),
+    ...(input.declaredBy ? { declaredBy: input.declaredBy } : {}),
+    ...(input.approvalTarget ? { approvalTarget: input.approvalTarget } : {}),
+    runId,
+    ...input.origin,
+  }, signal);
   if (signal?.aborted) throw createAbortError();
   if (!approved) return { allowed: false, reason: "用户拒绝了此次操作。" };
 
   // 等待期间档位可能被收紧，已批准的审批不能把它放回去
   const nowGlobal = activeLevel;
-  if (policyFor(nowGlobal, risk) === "deny" || policyFor(input.level ?? nowGlobal, risk) === "deny") {
+  if (policyForTool(nowGlobal, target) === "deny" || policyForTool(input.level ?? nowGlobal, target) === "deny") {
     return { allowed: false, reason: "等待审批期间权限已收紧，此次操作未执行。" };
   }
   return { allowed: true };

@@ -67,7 +67,7 @@ export async function executeToolDefinition(
     const response = await (invocationUsage
       ? runWithUsageAttribution(invocationUsage, () => definition.execute(input, runContext))
       : definition.execute(input, runContext));
-    const failure = legacyOutcome(response);
+    const failure = definition.explicitOutcome ? undefined : legacyOutcome(response);
     return finish(failure ?? { status: "succeeded", output: response });
   } catch (caught) {
     if (isAbortError(caught)) throw caught;
@@ -75,6 +75,7 @@ export async function executeToolDefinition(
       return finish({
         status: "failed", output: caught.message, errorCode: caught.code,
         category: caught.category, retryable: caught.retryable, effectState: caught.effectState,
+        ...(caught.toolExecuted === false ? { toolExecuted: false } : {}),
       });
     }
     const detail = caught instanceof Error ? caught.message : String(caught);

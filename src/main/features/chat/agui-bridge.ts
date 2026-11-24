@@ -1,3 +1,7 @@
+import { RunDisplayAccumulator } from "../../../shared/run-display-accumulator";
+import type { RunPresentationIdentity } from "../../../shared/run-status";
+import { activeChatTargetRegistry } from "../../platform/interaction/active-chat-target";
+import { queryRunStatus } from "./run-status-query";
 import { publicRunFailure } from "../../../shared/run-failure";
 import {readMainAttachmentGrant,type MainAttachmentGrant} from "../../memory/context/main-attachment-projection";
 import type {MainDesktopMemory} from "../../agent/memory-runtime/main-desktop-memory";
@@ -76,6 +80,7 @@ export interface AguiConversationLifecycle {
   onUserMessage(): void;
   onConversationStarted(): void;
   onConversationEnded(): void;
+  onConversationRunEnded?(conversationId: string, runId: string): void;
 }
 
 interface SessionActiveRun {
@@ -248,6 +253,9 @@ function startPlanReviewFlow(params: {
 import { fireflyEnvironment } from "../../../shared/firefly-environment";
 import { logger, LogTag } from "../../base/logging/logger";
 
+/** Streaming checkpoints rewrite the whole session file synchronously on Main; tool results still save at once. */
+const RUN_CHECKPOINT_THROTTLE_MS = 1000;
+
 export function registerAgUiIpc(
   buildOptions: BuildOptionsFn,
   onRunFinished: OnRunFinishedFn,
@@ -267,10 +275,12 @@ export function registerAgUiIpc(
   optionBuilder = buildOptions;
   resolveChatWindow = getChatWindow;
 
+  const mainOwnedRuns = new Set<string>();
   if (pendingTurns) {
     routes.on(IPC.AGUI_RUN_PERSISTED, (_notice, data: unknown) => {
       const confirmation = data as { runId?: unknown; finalMessageId?: unknown };
       if (typeof confirmation?.runId !== "string" || !confirmation.runId) return;
+      if (mainOwnedRuns.has(confirmation.runId)) return;
       pendingTurns.confirmPersistence(confirmation.runId, {
         ...(typeof confirmation.finalMessageId === "string" && confirmation.finalMessageId
           ? { finalMessageId: confirmation.finalMessageId } : {}),
@@ -288,6 +298,11 @@ export function registerAgUiIpc(
       updatedAt: checkpoint.updatedAt,
     } : null;
   });
+
+  routes.handle(IPC.AGUI_RUN_STATUS, (invocation: IpcMainInvokeEvent, payload: unknown) => queryRunStatus(invocation, payload, {
+    window: resolveChatWindow(), target: activeChatTargetRegistry.getActive(),
+    getSession: chatsStore.getSession, getStatus: chatsStore.getRunStatus,
+  }));
 
   const finishTurn = onRunFinished;
   routes.handle(IPC.AGUI_RUN, async (invocation: IpcMainInvokeEvent, payload: unknown) => perf.withTurn(async (telemetry) => {
@@ -314,10 +329,16 @@ export function registerAgUiIpc(
       }
       return recipients;
     };
+    let display: RunDisplayAccumulator | undefined;
+    let recordDisplayProgress: ((event: unknown) => void) | undefined;
     const emit = (packet: unknown): void => {
       const stamped = packet && typeof packet === "object"
         ? { ...(packet as Record<string, unknown>), runId: (packet as { runId?: unknown }).runId ?? executionId }
         : packet;
+      if (stamped && typeof stamped === "object") {
+        display?.accept(stamped);
+        recordDisplayProgress?.(stamped);
+      }
       for (const recipient of runRecipients()) {
         try {
           if (isControlled && (packet as { type?: string })?.type === "TEXT_MESSAGE_START") {
@@ -427,6 +448,7 @@ export function registerAgUiIpc(
       try { chatsStore.resetPendingAdjustByRun(conversationId, executionId); } catch { /* 保留原失败原因 */ }
       relinquish?.();
       relinquish = null;
+      lifecycle?.onConversationRunEnded?.(conversationId, executionId);
       lifecycle?.onConversationEnded();
     };
     const contextSource = resolveTranscriptContextSource();
@@ -558,6 +580,22 @@ export function registerAgUiIpc(
       (closed) => { emit({ type: "CUSTOM", name: "firefly.choice.dismiss", value: closed, threadId: threadKey, runId: executionId }); },
       { runId: executionId, revision: 1 },
     );
+    if (request.assistantTurnId) {
+      try {
+        if (!chatsStore.registerRun({ profileId: chatsStore.RUN_PRESENTATION_PROFILE_ID, sessionId: conversationId, assistantTurnId: request.assistantTurnId, runId: executionId }, request.userTurnId)) {
+          throw new Error("AGUI_RUN_IDENTITY_DENIED");
+        }
+      } catch (failure) { abandonPreparedRun(); throw failure; }
+    }
+    const identity: RunPresentationIdentity | undefined = request.assistantTurnId ? {
+      profileId: chatsStore.RUN_PRESENTATION_PROFILE_ID, sessionId: conversationId,
+      assistantTurnId: request.assistantTurnId, runId: executionId,
+    } : undefined;
+    if (identity) {
+      mainOwnedRuns.add(executionId);
+      const seed = chatsStore.getSession(conversationId)?.messages.find(row => row.id === identity.assistantTurnId);
+      display = new RunDisplayAccumulator(seed ?? { id: identity.assistantTurnId, role: "model", content: "", at: beganAt }, executionId);
+    }
     const learningSpace = openKnowledgeWorkspace(conversationMode, storedSession.workspaceBinding?.workspaceRoot);
     const threadKey = `thread-${Date.now()}`;
     const runner = new FireflyAgent({ threadId: threadKey, description: "流萤主聊天" });
@@ -574,8 +612,8 @@ export function registerAgUiIpc(
         runTimeoutMs: runOptions.timeoutMs,
       });
       const disposePendingTurn = (): void => { pendingTurns?.disposeEntry(executionId); };
-      origin.once("destroyed", disposePendingTurn);
-      origin.once("did-start-navigation", disposePendingTurn);
+      if (!identity) origin.once("destroyed", disposePendingTurn);
+      if (!identity) origin.once("did-start-navigation", disposePendingTurn);
       unwatchOrigin = () => {
         origin.removeListener("destroyed", disposePendingTurn);
         origin.removeListener("did-start-navigation", disposePendingTurn);
@@ -593,9 +631,36 @@ export function registerAgUiIpc(
       unwatchOrigin?.();
       unwatchOrigin = null;
     };
+    let checkpointTimer: ReturnType<typeof setTimeout> | undefined;
+    const clearCheckpoint = (): void => {
+      if (checkpointTimer !== undefined) clearTimeout(checkpointTimer);
+      checkpointTimer = undefined;
+    };
+    const saveCheckpoint = (): void => {
+      clearCheckpoint();
+      if (!identity || !display || ended || gate.isSettled()) return;
+      try {
+        chatsStore.writeRunCheckpoint(identity, display.checkpoint(Date.now(), !runOptions.controlledResponses));
+      } catch (failure) {
+        logger.warn(LogTag.AgUiBridge, "run display checkpoint write failed", failure);
+      }
+    };
+    if (identity) recordDisplayProgress = (event) => {
+      if (ended || gate.isSettled()) return;
+      const { type, name } = event as { type?: string; name?: string };
+      if (type === "TOOL_CALL_RESULT") { saveCheckpoint(); return; }
+      if (checkpointTimer === undefined && (type === "TEXT_MESSAGE_CONTENT" || type?.startsWith("REASONING_MESSAGE_")
+        || type === "TOOL_CALL_START" || type === "TOOL_CALL_ARGS"
+        || type === "CUSTOM" && ["firefly.round", "firefly.process_text", "firefly.candidate_text", "firefly.todo", "firefly.task"].includes(name ?? ""))) {
+        checkpointTimer = setTimeout(saveCheckpoint, RUN_CHECKPOINT_THROTTLE_MS);
+        checkpointTimer.unref?.();
+      }
+    };
     const endLifecycle = (): void => {
+      clearCheckpoint();
       if (ended) return;
       ended = true;
+      mainOwnedRuns.delete(executionId);
       try {
         chatsStore.resetPendingAdjustByRun(conversationId, executionId);
       } catch (failure) {
@@ -603,9 +668,35 @@ export function registerAgUiIpc(
       }
       relinquish?.();
       relinquish = null;
+      lifecycle?.onConversationRunEnded?.(conversationId, executionId);
       lifecycle?.onConversationEnded();
     };
 
+    const persistMainTerminal = (): void => {
+      if (!identity || !display) { endLifecycle(); return; }
+      const outcome = gate.get();
+      if (!outcome) {
+        logger.warn(LogTag.AgUiBridge, "run display settlement missing; releasing lifecycle");
+        endLifecycle();
+        return;
+      }
+      const frozen = display.freeze(outcome);
+      chatsStore.retryRunTerminal(identity, frozen, (saved) => {
+        if (saved) {
+          pendingTurns?.confirmPersistence(executionId, { finalMessageId: identity.assistantTurnId });
+          broadcastChatsChanged();
+        } else {
+          pendingTurns?.disposeEntry(executionId);
+        }
+        endLifecycle();
+      });
+    };
+    const beginMainSettlement = (): void => {
+      clearCheckpoint();
+      if (!identity) return;
+      try { chatsStore.beginRunSettlement(identity); } catch { /* commit retries the durable barrier */ }
+      broadcastChatsChanged();
+    };
     let thoughtStream: ThinkStreamFilter | null = null;
     let clockStream: ChatTimeStreamPrefixFilter | null = null;
     const filterPolicy: ThinkFilterMode = "leading-only";
@@ -662,6 +753,7 @@ export function registerAgUiIpc(
               }
             }
             if (!gate.trySettle(outcome)) return;
+            beginMainSettlement();
             if (outcome.status === "runtime_error") {
               const safe = publicRunFailure({ code: outcome.reason });
               emit({
@@ -748,9 +840,10 @@ export function registerAgUiIpc(
             });
           }
           cleanupRunState();
-          endLifecycle();
+          persistMainTerminal();
           return;
         }
+        beginMainSettlement();
         pendingTurns?.settleTerminal(executionId, {
           status: "runtime_error", durationMs: Date.now() - beganAt,
         });
@@ -759,7 +852,7 @@ export function registerAgUiIpc(
           threadId: threadKey, runId: executionId,
         });
         cleanupRunState();
-        endLifecycle();
+        persistMainTerminal();
       },
       complete: async () => {
         telemetry.mark("agent_run_complete");
@@ -779,6 +872,7 @@ export function registerAgUiIpc(
           }
           deferredTerminal = { type: "RUN_FINISHED", threadId: threadKey, runId: executionId, result: fallback };
         }
+        beginMainSettlement();
         const finalState = gate.get();
         const succeeded = finalState?.status === "success";
         if (finalState) {
@@ -853,7 +947,7 @@ export function registerAgUiIpc(
         if (conversationMode === "code" && succeeded) {
           startPlanReviewFlow({ sessionId: conversationId, threadId: threadKey, runId: executionId, send: emit });
         }
-        endLifecycle();
+        persistMainTerminal();
         telemetry.dump();
       },
     });
@@ -862,7 +956,7 @@ export function registerAgUiIpc(
         subscription: streamSubscription, endLifecycle, abortController: abortSource, cancel: cancelRun,
       });
     }
-    return { success: true, runId: executionId };
+    return { success: true, runId: executionId, ...(identity ? { mainOwnsTerminal: true } : {}) };
   }));
 
   routes.handle(IPC.AGUI_CANCEL, (_notice, runId?: string) => {

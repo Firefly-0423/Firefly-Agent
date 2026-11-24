@@ -4,13 +4,13 @@ import type {
   RunActivityRecord, TaskDelegationDisplayRecord, ToolExecutionRecord, WorkReadReport,
 } from "../../../../../../shared/chat-types";
 import { isContextUsageSnapshot, type ContextUsageSnapshot } from "../../../../../../shared/context-usage";
-import { normalizeToolTaskResult } from "../../../../../../shared/task-result-evidence";
+import { reduceDisplayAnswer, reduceToolDisplay, displayTerminal, finishDisplayAnswer } from "../../../../../../shared/run-display";
 import type { TodoItem } from "../../../../../../shared/todo-types";
 import type { ChatMessageItem } from "../../components/ChatMessageList";
 import type { ComposerAttachment } from "../../components/ChatComposer";
 import {
-  isFormalAnswerCommitted, normalizeChoiceInteraction, normalizeTaskPlanPresentation, resolveRunFinishedStage,
-  resolveTerminalContent, shouldClearComposerInteractionForTerminal, type ComposerInteraction,
+  normalizeChoiceInteraction, normalizeTaskPlanPresentation, resolveRunFinishedStage,
+  shouldClearComposerInteractionForTerminal, type ComposerInteraction,
 } from "../../components/run-presentation";
 import { applyAgentRoundBoundary, createRoundProcessMessage } from "../../components/agent-rounds";
 import { applyTaskDelegationEvent, normalizeTaskDelegationEvent } from "../../components/task-delegations";
@@ -26,6 +26,8 @@ type CheckpointPhase = "running" | "waiting_user" | "terminal" | "interrupted";
 /** A terminal snapshot is written at most this many times; the waits between attempts follow. */
 const TERMINAL_SAVE_ATTEMPTS = 3;
 const TERMINAL_SAVE_RETRY_MS = [100, 300] as const;
+const MAIN_SETTLEMENT_POLL_MS = 250;
+const MAIN_SETTLEMENT_WAIT_MS = 15_000;
 type PublicText = [key: string, content: string, publish: (chunk: string) => void];
 
 export type AgentRunInput = {
@@ -66,7 +68,7 @@ export type AgentRunDeps = {
 export class AgentRunController {
   private readonly request: AgentRunInput;
   private readonly ports: AgentRunDeps;
-  private answerText = "";
+  private answer = { text: "", closed: false };
   private finishStatus: string | undefined;
   private ended = false;
   private readEvidence: WorkReadReport | undefined;
@@ -78,7 +80,6 @@ export class AgentRunController {
   private roundKey: string | undefined;
   private nextProcessNumber = 0;
   private timelineNumber = 0;
-  private answerClosed = false;
   private revealStopped = false;
   private revealSteps: Promise<void> = Promise.resolve();
   private readonly textReveal = new PacedTextReveal(() => this.request.targetMode !== "chat" && !prefersReducedMotion());
@@ -100,6 +101,7 @@ export class AgentRunController {
   private tools: ToolExecutionRecord[] = [];
   private started = false;
   private accepted = false;
+  private mainOwnsTerminal = false;
   private activity: RunActivityRecord | undefined;
   private todos: TodoItem[] = [];
   private savedAnswer = "";
@@ -167,6 +169,7 @@ export class AgentRunController {
         imageAttachments: this.request.attachments.filter((file) => file.kind === "image" && file.filePath)
           .map((file) => ({ name: file.name, filePath: file.filePath!, mime: file.mime })),
       });
+      this.mainOwnsTerminal = acknowledgement.success && acknowledgement.mainOwnsTerminal === true;
       if (!acknowledgement.success) throw new Error(acknowledgement.error ?? t("chatPage.errorModelRequestStartFailed"));
       if (incumbent) this.ports.host.setModeBusy(this.request.targetMode, true);
       this.ports.registries.activeRuns.current = {
@@ -206,11 +209,10 @@ export class AgentRunController {
       const terminalFailure = await this.settlement;
       if (terminalFailure) throw terminalFailure;
       await this.revealSteps;
-      const committed = isFormalAnswerCommitted(this.answerText, this.finishStatus, this.answerClosed);
+      const { committed, content: finalText } = finishDisplayAnswer(this.answer.text, this.finishStatus, this.answer.closed);
       if (!committed) this.moveCandidateToInterruptedProcess();
       else this.resetCandidateState();
       this.completeRunActivity(!committed);
-      const finalText = committed ? resolveTerminalContent(this.answerText, this.finishStatus) : "";
       this.savedAnswer = finalText;
       this.patch({
         content: finalText, runStage: resolveRunFinishedStage({ status: this.finishStatus }), transientText: undefined,
@@ -257,11 +259,13 @@ export class AgentRunController {
         tool: "chatPage.errorToolFailedWith", runtime: "chatPage.errorRuntimeFailedWith",
       } as const;
       // Only a failure Main classified as a dropped connection or a silent provider is the network; an HTTP
-      // rejection (bad key, bad request) keeps the generic model notice. The code stays for support.
-      const network = {
+      // rejection (bad key, bad request) keeps the generic model notice. A Chat attachment too long to read
+      // without an index tells the user to switch to Work. The code stays for support.
+      const plainNotices = {
         E_MODEL_CONNECTION_LOST: "chatPage.errorNetworkInterrupted", E_MODEL_REQUEST_TIMEOUT: "chatPage.errorModelTimedOut",
-      } as Partial<Record<string, "chatPage.errorNetworkInterrupted" | "chatPage.errorModelTimedOut">>;
-      const plain = network[publicFailure.code];
+        MEMORY_ATTACHMENT_NEEDS_WORK_MODE: "chatPage.errorAttachmentNeedsWorkMode",
+      } as Partial<Record<string, "chatPage.errorNetworkInterrupted" | "chatPage.errorModelTimedOut" | "chatPage.errorAttachmentNeedsWorkMode">>;
+      const plain = plainNotices[publicFailure.code];
       const notice = plain ? t(plain, { code: publicFailure.code }) : t(labels[publicFailure.source], { message: publicFailure.code });
       this.moveCandidateToInterruptedProcess();
       this.progressEntries = [...this.progressEntries, createRoundProcessMessage(
@@ -305,9 +309,38 @@ export class AgentRunController {
    * store returns the session holding this exact snapshot. Otherwise the answer stays on screen with a notice.
    */
   private async settleTerminalSave(): Promise<void> {
+    if (this.mainOwnsTerminal) {
+      if (this.saveTimer !== undefined) { window.clearTimeout(this.saveTimer); this.saveTimer = undefined; }
+      await this.saves.catch(() => null);
+      await this.waitForMainSettlement();
+      await this.refreshCanonicalSettlement();
+      return;
+    }
     if (!await this.persistTerminal()) { this.showTerminalSaveFailure(); return; }
     await this.refreshCanonicalSettlement();
     this.reportRunPersisted();
+  }
+
+  /**
+   * Main keeps the session's run guard until its terminal write lands, retrying a failed write. Releasing the
+   * controller (and resuming the queue) before that would start the next queued message into SESSION_RUN_ACTIVE.
+   * Wait, bounded, until Main no longer reports this turn as running or settling.
+   */
+  private async waitForMainSettlement(): Promise<void> {
+    const query = this.ports.api?.getRunStatus;
+    if (typeof query !== "function") return;
+    const runId = this.ports.registries.activeRuns.current[this.request.sessionId]?.runId;
+    const deadline = Date.now() + MAIN_SETTLEMENT_WAIT_MS;
+    for (;;) {
+      try {
+        const statuses = await query({ sessionId: this.request.sessionId,
+          candidates: [{ assistantTurnId: this.request.assistantId, ...(runId ? { runId } : {}) }] });
+        const phase = statuses.find(item => item.assistantTurnId === this.request.assistantId)?.phase;
+        if (phase !== "running" && phase !== "settling") return;
+      } catch { return; }
+      if (Date.now() >= deadline) return;
+      await new Promise<void>((resume) => { window.setTimeout(resume, MAIN_SETTLEMENT_POLL_MS); });
+    }
   }
 
   /** Writes one frozen terminal snapshot, retrying it after a thrown failure; a reply without the message is final. */
@@ -378,6 +411,7 @@ export class AgentRunController {
   }
 
   private checkpointRun(status: CheckpointPhase, immediate = false): Promise<ChatSession | null> {
+    if (this.mainOwnsTerminal) return this.saves;
     if (this.saveTimer !== undefined) {
       window.clearTimeout(this.saveTimer);
       this.saveTimer = undefined;
@@ -388,18 +422,6 @@ export class AgentRunController {
       void this.writeCheckpoint(status);
     }, 350);
     return this.saves;
-  }
-
-  private updateRunTool(toolId: string, patch: Partial<ToolExecutionRecord>) {
-    const found = this.tools.findIndex((entry) => entry.id === toolId);
-    if (found === -1) {
-      this.tools = [...this.tools, {
-        id: toolId, name: patch.name ?? t("chatPage.toolCallFallbackName"), displayName: patch.displayName,
-        status: patch.status ?? "running", result: patch.result, argsText: patch.argsText,
-        changes: patch.changes, roundId: patch.roundId ?? this.roundKey, seq: this.nextSeq(),
-      }];
-    } else this.tools = this.tools.map((entry, offset) => offset === found ? { ...entry, ...patch } : entry);
-    this.patch({ toolExecutions: this.tools });
   }
 
   private enqueuePublicTextReveal(key: string, content: string, publish: (chunk: string) => void) {
@@ -718,51 +740,36 @@ export class AgentRunController {
         if (phase) this.patch({ runStage: phase });
         break;
       }
-      case "TOOL_CALL_START": {
-        if (!event.toolCallId) break;
-        const caption = event.toolCallDisplayName ?? event.toolCallName ?? t("chatPage.toolCallFallbackName");
-        this.updateRunTool(event.toolCallId, {
-          name: event.toolCallName ?? t("chatPage.toolCallFallbackName"),
-          displayName: event.toolCallDisplayName, status: "running", roundId: this.roundKey,
-        });
-        this.patch({ runStage: { kind: "executing", detail: caption } });
+      case "TOOL_CALL_START":
+      case "TOOL_CALL_ARGS":
+      case "TOOL_CALL_RESULT":
+      case "TOOL_CALL_END": {
+        const fallback = t("chatPage.toolCallFallbackName");
+        const update = reduceToolDisplay(this.tools, event, this.roundKey, this.timelineNumber, fallback);
+        if (!update) break;
+        this.tools = update.records;
+        this.timelineNumber = update.nextSeq;
+        this.patch({ toolExecutions: this.tools });
+        if (event.type === "TOOL_CALL_START") this.patch({ runStage: { kind: "executing", detail: event.toolCallDisplayName ?? event.toolCallName ?? fallback } });
+        if (event.type === "TOOL_CALL_RESULT") void this.checkpointRun("running", true);
         break;
       }
-      case "TOOL_CALL_ARGS": {
-        if (!event.toolCallId || !event.delta) break;
-        const prior = this.tools.find((entry) => entry.id === event.toolCallId)?.argsText ?? "";
-        this.updateRunTool(event.toolCallId, { argsText: prior + event.delta, roundId: this.roundKey });
-        break;
-      }
-      case "TOOL_CALL_RESULT": {
-        if (!event.toolCallId) break;
-        this.updateRunTool(event.toolCallId, {
-          status: event.status === "failed" ? "error" : "success", result: (event.content ?? "").slice(0, 4000),
-          changes: event.changes, taskResult: this.tools.find((entry) => entry.id === event.toolCallId)?.name === "delegate_agent"
-            ? normalizeToolTaskResult(event.taskResult, event.runId) : undefined,
-        });
-        void this.checkpointRun("running", true);
-        break;
-      }
-      case "TOOL_CALL_END":
-        if (event.toolCallId) this.updateRunTool(event.toolCallId, {});
-        break;
       case "TEXT_MESSAGE_START":
         this.patch({ loading: false, reasoningStreaming: false, responseStarted: true, streaming: true, runStage: { kind: "responding" } });
         break;
       case "TEXT_MESSAGE_CONTENT":
         if (!event.delta) break;
-        if (this.previewText) this.answerText += event.delta;
+        if (this.previewText) this.answer = reduceDisplayAnswer(this.answer, event);
         else this.enqueuePublicTextReveal("answer", event.delta, (chunk) => {
-          this.answerText += chunk;
-          this.patch({ content: this.answerText, loading: false, streaming: true, responseStarted: true });
+          this.answer = reduceDisplayAnswer(this.answer, { type: "TEXT_MESSAGE_CONTENT", delta: chunk });
+          this.patch({ content: this.answer.text, loading: false, streaming: true, responseStarted: true });
           void this.checkpointRun("running");
         });
         break;
       case "TEXT_MESSAGE_END":
-        if (this.previewText) this.answerClosed = true;
+        if (this.previewText) this.answer = reduceDisplayAnswer(this.answer, event);
         else this.chainReveal(() => {
-          this.answerClosed = true;
+          this.answer = reduceDisplayAnswer(this.answer, event);
           this.patch({ streaming: false });
         });
         break;
@@ -772,11 +779,11 @@ export class AgentRunController {
       case "RUN_FINISHED": {
         this.ensureWorkReadReport();
         this.ended = true;
-        const terminal = event.result;
-        this.finishStatus = terminal?.status;
+        const terminal = displayTerminal({ ...event, type: event.type });
+        this.finishStatus = terminal.status;
         if (this.finishStatus !== "success") this.failPlan(this.finishStatus === "cancelled" ? "cancelled" : "failed");
         if (this.finishStatus !== "success") { this.cancelPublicReveal(); this.abortCandidateReveal(); }
-        const phase = resolveRunFinishedStage(terminal);
+        const phase = terminal.stage;
         this.patch({ runStage: phase });
         const owner = this.ports.registries.activeRuns.current[this.request.sessionId]?.runId;
         if (shouldClearComposerInteractionForTerminal(owner, event.runId)) this.ports.host.clearInteraction(this.request.sessionId);
@@ -790,10 +797,11 @@ export class AgentRunController {
         this.cancelPublicReveal();
         this.abortCandidateReveal();
         this.completeRunActivity(true);
-        this.patch({ runStage: { kind: "failed" } });
+        const terminal = displayTerminal({ ...event, type: event.type });
+        this.patch({ runStage: terminal.stage });
         const owner = this.ports.registries.activeRuns.current[this.request.sessionId]?.runId;
         if (shouldClearComposerInteractionForTerminal(owner, event.runId)) this.ports.host.clearInteraction(this.request.sessionId);
-        const failure = publicRunFailure({ code: event.code, message: event.message });
+        const failure = terminal.failure;
         this.settle(Object.assign(new Error(failure.code), failure));
         break;
       }

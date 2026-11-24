@@ -1,96 +1,50 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
-import { assertWorkspaceBoundary } from "./workspace-boundary";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { assertWorkspaceBoundary, assertWorkspacePathFallback } from "./workspace-boundary";
 import type { ToolContext } from "../../tooling/registry/tool-context";
+import type { AgentFileAccessLevel } from "../../platform/permission/permission-policy";
 
-// Controlled canonical-path results cover failure branches even on Windows hosts
-// that forbid creating reparse points. Real junction integration lives next door.
-vi.mock("fs", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("fs")>();
-  return { ...actual, realpathSync: vi.fn(actual.realpathSync), lstatSync: vi.fn(actual.lstatSync) };
-});
-
-// 实时全局档位固定为 full：这里只验证快照档位本身的规范路径判断。
+const live = vi.hoisted(() => ({ level: "full" as AgentFileAccessLevel }));
 vi.mock("../../platform/permission/permission", async (importOriginal) => ({
   ...await importOriginal<typeof import("../../platform/permission/permission")>(),
-  getCurrentLevel: () => "full",
+  getCurrentLevel: () => live.level,
 }));
 
-let fixture: string;
-let root: string;
-let alias: string;
-let outside: string;
-let ctx: ToolContext;
 beforeEach(() => {
-  fixture = fs.mkdtempSync(path.join(os.tmpdir(), "workspace-boundary-unit-"));
-  root = path.join(fixture, "project");
-  alias = path.join(root, "alias");
-  outside = path.join(fixture, "other");
-  fs.mkdirSync(alias, { recursive: true });
-  fs.mkdirSync(outside);
-  ctx = { userQuery: "boundary", fileAccessLevel: "scoped", resolvedWorkspaceRoot: root };
-});
-afterEach(() => {
-  vi.mocked(fs.realpathSync).mockRestore();
-  vi.mocked(fs.lstatSync).mockRestore();
-  fs.rmSync(fixture, { recursive: true, force: true });
+  live.level = "full";
 });
 
-describe("canonical workspace validation", () => {
-  it("checks the canonical ancestor before allowing creation of missing descendants", async () => {
-    const actual = await vi.importActual<typeof import("fs")>("fs");
-    vi.mocked(fs.realpathSync).mockImplementation((file) => actual.realpathSync(file === alias ? outside : file));
-    expect(() => assertWorkspaceBoundary(path.join(alias, "new", "deep", "file.txt"), "write", ctx))
-      .toThrowError(expect.objectContaining({ code: "E_WORKSPACE_BOUNDARY" }));
-    expect(() => assertWorkspaceBoundary(path.join(alias, "secret.txt"), "read", { ...ctx, fileAccessLevel: "project-read-only" }))
-      .toThrowError(expect.objectContaining({ code: "E_WORKSPACE_BOUNDARY" }));
-    expect(fs.readdirSync(outside)).toEqual([]);
+describe("three-level workspace boundary check", () => {
+  const ctx = (level?: AgentFileAccessLevel, extra: Partial<ToolContext> = {}): ToolContext => ({
+    userQuery: "boundary",
+    ...(level ? { fileAccessLevel: level } : {}),
+    ...extra,
   });
 
-  it("allows canonical internal ancestors and a canonical workspace alias while rejecting outside targets", async () => {
-    const actual = await vi.importActual<typeof import("fs")>("fs");
-    vi.mocked(fs.realpathSync).mockImplementation((file) => actual.realpathSync(file === alias ? root : file));
-    expect(assertWorkspaceBoundary(path.join(alias, "new", "file.txt"), "write", ctx)).toBeUndefined();
-    expect(assertWorkspaceBoundary(path.join(root, "new.txt"), "write", { ...ctx, resolvedWorkspaceRoot: alias })).toBeUndefined();
-    expect(vi.mocked(fs.realpathSync)).toHaveBeenCalledWith(alias);
-    expect(vi.mocked(fs.realpathSync)).toHaveBeenCalledWith(root);
-    const outsideTarget = path.join(outside, "secret.txt");
-    expect(() => assertWorkspaceBoundary(outsideTarget, "write", ctx))
-      .toThrowError(expect.objectContaining({ code: "E_WORKSPACE_BOUNDARY", category: "permission_denied" }));
-    expect(() => assertWorkspaceBoundary(outsideTarget, "write", { ...ctx, resolvedWorkspaceRoot: alias }))
-      .toThrowError(expect.objectContaining({ code: "E_WORKSPACE_BOUNDARY", category: "permission_denied" }));
-    expect(actual.existsSync(outsideTarget)).toBe(false);
+  it("denies writes under read-only snapshot or live read-only level", () => {
+    expect(() => assertWorkspaceBoundary("/tmp/a.txt", "write", ctx("read-only")))
+      .toThrowError(expect.objectContaining({ code: "E_FILESYSTEM_READ_ONLY", category: "permission_denied" }));
+
+    live.level = "read-only";
+    expect(() => assertWorkspaceBoundary("/tmp/a.txt", "write", ctx("full")))
+      .toThrowError(expect.objectContaining({ code: "E_FILESYSTEM_READ_ONLY", category: "permission_denied" }));
   });
 
-  it("never falls back past an existing ancestor whose realpath fails (including dangling links)", async () => {
-    const actual = await vi.importActual<typeof import("fs")>("fs");
-    vi.mocked(fs.realpathSync).mockImplementation((file) => {
-      if (file === alias) throw Object.assign(new Error("dangling link"), { code: "ENOENT" });
-      return actual.realpathSync(file);
-    });
-    expect(() => assertWorkspaceBoundary(path.join(alias, "new.txt"), "write", ctx))
-      .toThrowError(expect.objectContaining({ code: "E_WORKSPACE_BOUNDARY" }));
+  it("preserves unknown effectState when fallback catches read-only write denial", () => {
+    expect(() => assertWorkspacePathFallback("/tmp/a.txt", "write", ctx("read-only"), "unknown"))
+      .toThrowError(expect.objectContaining({ code: "E_FILESYSTEM_READ_ONLY", effectState: "unknown" }));
   });
 
-  it("fails closed for an inaccessible target instead of treating it as a missing file", async () => {
-    const actual = await vi.importActual<typeof import("fs")>("fs");
-    const file = path.join(root, "unreadable.txt");
-    vi.mocked(fs.lstatSync).mockImplementation((entry) => {
-      if (entry === file) throw Object.assign(new Error("denied"), { code: "EACCES" });
-      return actual.lstatSync(entry);
-    });
-    expect(() => assertWorkspaceBoundary(file, "write", ctx))
-      .toThrowError(expect.objectContaining({ code: "E_WORKSPACE_BOUNDARY" }));
-  });
-
-  it("fails closed for missing, relative or non-directory workspace roots", () => {
-    const file = path.join(fixture, "root-file.txt");
-    fs.writeFileSync(file, "original");
-    for (const invalidRoot of [path.join(fixture, "missing"), "relative-project", file]) {
-      expect(() => assertWorkspaceBoundary(path.join(root, "new.txt"), "write", { ...ctx, resolvedWorkspaceRoot: invalidRoot }))
-        .toThrowError(expect.objectContaining({ category: "permission_denied" }));
+  it("allows reads for all three levels and writes for per-action and full", () => {
+    for (const level of ["read-only", "per-action", "full"] as const) {
+      expect(assertWorkspaceBoundary("/tmp/a.txt", "read", ctx(level))).toBeUndefined();
     }
+    for (const level of ["per-action", "full"] as const) {
+      expect(assertWorkspaceBoundary("/tmp/a.txt", "write", ctx(level))).toBeUndefined();
+    }
+  });
+
+  it("does not intersect live read-only for allow_all runs", () => {
+    live.level = "read-only";
+    expect(assertWorkspaceBoundary("/tmp/a.txt", "write", ctx("full", { permissionMode: "allow_all" }))).toBeUndefined();
   });
 });

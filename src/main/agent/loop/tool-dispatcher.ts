@@ -23,7 +23,7 @@ import { shellJobTool } from "../tools/builtin-tools/shell-job-tool";
 import type { DelegationScope } from "./run-ports";
 import { isAbortError, raceWithSignal } from "../../base/utils/abort-utils";
 import type { LeafPermit } from "../../tooling/execution/execution-coordinator";
-import { policyFor } from "../../platform/permission/permission-policy";
+import { policyForTool } from "../../platform/permission/permission-policy";
 import { createToolInvocationContext } from "../../tooling/registry/tool-context";
 
 export type TruncationConfig = { tailChars: number; headChars: number; thresholdChars: number };
@@ -58,15 +58,19 @@ export type ToolDispatchResult = ToolObservation & { rawResult?: ToolCallResult 
 function cancelledBeforeDispatch(call: ToolCall): ToolDispatchResult {
   return { outcome: "not_executed", category: "runtime_safety", tool: call.name, message: "aborted_before_dispatch" };
 }
+function toolPolicyTarget(tool: ToolDefinition) {
+  return { risk: tool.risk, risks: tool.risks, isPlugin: Boolean(tool.pluginMeta) };
+}
 function revalidateToolPermission(ctx: ToolDispatchContext, tool: ToolDefinition, args: Record<string, unknown>, approvalRequired: boolean): boolean {
   if (ctx.toolContext?.revalidateToolPermission) return ctx.toolContext.revalidateToolPermission(tool.id, args, approvalRequired);
   const risk = tool.risk ?? "safe";
+  const target = toolPolicyTarget(tool);
   if (ctx.toolContext?.conversationId && isPlanReadOnly(ctx.toolContext.conversationId)
-    && (risk === "shell" || policyFor("read-only", risk) !== "allow")) return false;
+    && (risk === "shell" || policyForTool("read-only", target) !== "allow")) return false;
   if (ctx.toolContext?.permissionMode === "allow_all") return true;
   if (!ctx.checkPermission) return true;
   const level = getCurrentLevel();
-  const decisions = [policyFor(level, risk), policyFor(ctx.toolContext?.fileAccessLevel ?? level, risk)];
+  const decisions = [policyForTool(level, target), policyForTool(ctx.toolContext?.fileAccessLevel ?? level, target)];
   return !decisions.includes("deny") && (!decisions.includes("ask") || approvalRequired);
 }
 export async function dispatchToolCall(call: ToolCall, ctx: ToolDispatchContext): Promise<ToolDispatchResult> {
@@ -105,12 +109,34 @@ export async function dispatchToolCall(call: ToolCall, ctx: ToolDispatchContext)
   if (uncertain) return { outcome: "not_executed", category: "runtime_safety", tool: call.name,
     message: `该副作用已有一次未确认结果（${uncertain?.id ?? "unknown"}），在 reconcile 或 ask 用户前不能重复执行` };
   if (!definition) return { outcome: "failure", category: "not_found", tool: call.name, message: `工具 "${call.name}" 未注册` };
+  if (definition.validateArgs) {
+    const checked = definition.validateArgs(parsed);
+    if (!checked.valid) {
+      const detail = `ERR_INVALID_ARGUMENT: ${checked.message}`;
+      return {
+        outcome: "not_executed",
+        category: "invalid_arguments",
+        tool: call.name,
+        message: detail,
+        rawResult: {
+          toolId: definition.id,
+          args: parsed,
+          status: "failed",
+          output: detail,
+          errorCode: "ERR_INVALID_ARGUMENT",
+          category: "invalid_arguments",
+          effectState: "not_applied",
+          toolExecuted: false,
+        },
+      };
+    }
+  }
   let approvalRequired = false;
   if (ctx.checkPermission) {
     const level = getCurrentLevel();
-    const risk = definition.risk ?? "safe";
+    const target = toolPolicyTarget(definition);
     approvalRequired = ctx.toolContext?.permissionMode !== "allow_all"
-      && (policyFor(level, risk) === "ask" || policyFor(ctx.toolContext?.fileAccessLevel ?? level, risk) === "ask");
+      && (policyForTool(level, target) === "ask" || policyForTool(ctx.toolContext?.fileAccessLevel ?? level, target) === "ask");
     let permitted: boolean;
     try {
       const signal = ctx.toolContext?.signal;
@@ -135,6 +161,7 @@ export async function dispatchToolCall(call: ToolCall, ctx: ToolDispatchContext)
     if (!revalidateToolPermission(ctx, definition, parsed, approvalRequired)) return denied();
     const context = ctx.toolContext ? createToolInvocationContext(ctx.toolContext, {
       ...(owner && scope ? { execution: { coordinator: owner.coordinator, scope, ...(permit ? { permit } : {}) } } : {}),
+      toolCallId: call.id,
       authorizedToolCall: ctx.checkPermission ? { toolId: definition.id, args: parsed, approvalRequired } : undefined,
     }) : undefined;
     ctx.onExecutionStarted?.();
@@ -158,6 +185,7 @@ export async function dispatchToolCall(call: ToolCall, ctx: ToolDispatchContext)
   const effect = resolveSideEffect(definition, parsed);
   const projected = truncateOutput(executed.output, limits, call.id);
   const outcome: ToolObservation["outcome"] = executed.status === "succeeded" ? "success"
+    : executed.toolExecuted === false ? "not_executed"
     : executed.effectState === "unknown" && effect === "non_idempotent_side_effect" ? "unknown" : "failure";
   if (outcome === "unknown") {
     const effectId = `${ctx.toolContext?.runId ?? "unknown-run"}:${call.id}`;

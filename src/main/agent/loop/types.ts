@@ -138,6 +138,7 @@ export type AgentLoopInput = {
   messages: ChatMessage[];
   usageParts?: { skillLayerContent?: string; toolLayerContent: string; personaContent: string };
   promptLayers?: import("../../model/prompt/prompt-layers").PromptLayers;
+  collectTurnPluginContext?: (input: { round: number; signal?: AbortSignal }) => Promise<string | undefined>;
   systemPrompt: string;
   memoryRun?: import("./run-ports").MainMemoryRun;
 };

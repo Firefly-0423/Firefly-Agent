@@ -46,7 +46,7 @@ vi.mock("electron", () => ({
 }));
 
 const EXPECTED_NAMESPACE_KEYS: Record<string, readonly string[]> = {
-  agui: ["cancel", "getInterruptedRun", "onEvent", "reportRunPersisted", "run"],
+  agui: ["cancel", "getInterruptedRun", "getRunStatus", "onEvent", "reportRunPersisted", "run"],
   appUpdate: ["download", "getState", "install", "onStateChanged"],
   chat: [
     "captionImage",

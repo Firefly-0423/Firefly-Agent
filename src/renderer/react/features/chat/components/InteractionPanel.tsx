@@ -106,7 +106,8 @@ export function PermissionPanel({ interaction, disabled = false, onDecision }: P
     <div className="ff-interaction-panel__heading"><span className="ff-interaction-panel__status">{t("interaction.permissionTitle")}</span></div>
     <p className="ff-interaction-panel__question">{interaction.summary}</p>
     <dl className="ff-interaction-panel__metadata">
-      {interaction.agentId && <><dt>{t("interaction.agentLabel")}</dt><dd title={interaction.agentId}>{interaction.agentId}</dd></>}
+      {interaction.declaredBy && <><dt>{t("interaction.pluginDeclaredLabel")}</dt><dd title={interaction.declaredBy}>{t("interaction.pluginDeclaredValue", { name: interaction.declaredBy })}</dd></>}
+      {interaction.agentId && <><dt>{t("interaction.agentLabel")}</dt><dd title={interaction.agentId}>{interaction.agentName ? `${interaction.agentName} (${interaction.agentId})` : interaction.agentId}</dd></>}
       {interaction.workspaceName && <><dt>{t("interaction.workspaceLabel")}</dt><dd>{interaction.workspaceName}</dd></>}
       {interaction.targetPath && <><dt>{t("interaction.targetLabel")}</dt><dd title={interaction.targetPath}>{interaction.targetPath}</dd></>}
     </dl>

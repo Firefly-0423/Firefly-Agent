@@ -279,3 +279,28 @@ describe("authenticated Main user admission", () => {
         }
     });
 });
+
+
+it("does not expose Main run identity records in reads or mutation replies", async () => {
+    const store = await register();
+    const session = invoke(IPC.CHATS_CREATE, { mode: "chat" });
+    expect(store.registerRun({ profileId: store.RUN_PRESENTATION_PROFILE_ID, sessionId: session.id, assistantTurnId: "assistant", runId: "run" })).toBe(true);
+    const reply = await invoke(IPC.CHATS_GET, session.id);
+    expect(reply).not.toHaveProperty("runPresentations");
+    const changed = await invoke(IPC.CHATS_APPEND, { id: session.id, message: { id: "user", role: "user", content: "hello", at: 1 } });
+    expect(changed).not.toHaveProperty("runPresentations");
+    expect(store.getSession(session.id)?.runPresentations).toBeDefined();
+});
+
+it("tells the page which turns Main still runs or settles, and stops once the run is finished", async () => {
+    const store = await register();
+    const session = invoke(IPC.CHATS_CREATE, { mode: "chat", initialMessages: [{ id: "u", role: "user", content: "hi", at: 1 }, { id: "assistant", role: "model", content: "", at: 2 }] });
+    const identity = { profileId: store.RUN_PRESENTATION_PROFILE_ID, sessionId: session.id, assistantTurnId: "assistant", runId: "run" };
+    expect(store.registerRun(identity)).toBe(true);
+    expect((await invoke(IPC.CHATS_GET, session.id)).activeRunTurnIds).toEqual(["assistant"]);
+    expect(store.beginRunSettlement(identity)).toBe(true);
+    expect((await invoke(IPC.CHATS_GET, session.id)).activeRunTurnIds).toEqual(["assistant"]);
+    const final = { id: "assistant", role: "model" as const, content: "done", at: 2, runSnapshot: { runId: "run", status: "terminal" as const, terminalStatus: "success" as const, updatedAt: 3 } };
+    expect(store.commitRunTerminal(identity, final)).toBe(true);
+    expect(await invoke(IPC.CHATS_GET, session.id)).not.toHaveProperty("activeRunTurnIds");
+});

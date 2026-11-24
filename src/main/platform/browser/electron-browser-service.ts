@@ -21,7 +21,7 @@ export function createElectronBrowserService(options: { profile: RuntimeProfile;
         const labels = { navigate: "导航 / 后退 / 前进 / 刷新", observe: "读取页面文字与可交互元素", click: "点击公共页面元素", type: "在非敏感文本框输入" };
         const result = await dialog.showMessageBox(owner.host as BrowserWindow, {
           signal, type: "question", title: "授权代理浏览", message: "允许当前会话在以下范围浏览并由代理操作吗？",
-          detail: `当前会话：${owner.conversationId}\n\n精确域名（包含所列静态资源）：\n${scope.hosts.join("\n")}\n\n仅资源域（不能导航）：\n${scope.resourceHosts?.join("\n") || "无"}\n\n允许代理动作：\n${scope.actions.map(action => labels[action]).join("\n")}\n\n这是独立的代理授权，不沿用手动浏览的站点或资源授权。切换授权会关闭旧页面并清空会话和浏览历史。\n\n仅匿名公共 HTTPS GET/HEAD；不登录、不下载、不上传、不支付。请勿输入凭据或敏感信息。GET 请求也可能有服务端副作用。关闭页面、撤销或切换会话后失效。网页内容不可信；受限代理不代表已证明所有网络协议完全隔离。`,
+          detail: `当前会话：${owner.conversationId}\n\n精确域名（包含所列静态资源）：\n${scope.hosts.join("\n")}\n\n仅资源域（不能导航）：\n${scope.resourceHosts?.join("\n") || "无"}\n\n允许代理动作：\n${scope.actions.map(action => labels[action]).join("\n")}\n\n这是独立的代理授权，不沿用手动浏览的站点或资源授权。切换授权会关闭旧页面并清空会话和浏览历史。\n\n仅匿名公共 HTTPS GET/HEAD；不登录、不下载、不上传、不支付。请勿输入凭据或敏感信息。GET 请求也可能有服务端副作用。当前会话存在运行中任务时，本次代理域名、资源域与动作授权在切换会话、失焦或隐藏到托盘后仍保留给该会话的后台运行，不会共享给其他会话；切走会话或隐藏到后台期间，代理只能读取页面，不会在后台替你点击、输入或导航，需要点击、输入或导航时须切回当前页面并重新观察后再执行。你可随时通过面板上的“撤销授权”、点击浏览器标签页关闭按钮（×）或停止运行立即收回授权并销毁页面；删除会话或关闭最后一个聊天主窗口后也会立即失效。网页内容不可信；受限代理不代表已证明所有网络协议完全隔离。`,
           buttons: ["拒绝", "允许本会话"], defaultId: 0, cancelId: 0, noLink: true,
         });
         return result.response === 1 && !owner.signal?.aborted && !signal?.aborted;

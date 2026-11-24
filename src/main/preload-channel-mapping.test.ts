@@ -113,6 +113,7 @@ const CHANNEL_MAPPING_CASES: readonly MappingCase[] = [
   { path: "agui.run", op: "invoke", channel: IPC.AGUI_RUN, callArgs: [{ messages: [], sessionId: "s-1" }], expectedArgs: [{ messages: [], sessionId: "s-1" }] },
   { path: "agui.cancel", op: "invoke", channel: IPC.AGUI_CANCEL, callArgs: ["run-1"], expectedArgs: ["run-1"] },
   { path: "agui.reportRunPersisted", op: "send", channel: IPC.AGUI_RUN_PERSISTED, callArgs: [{ runId: "run-1", finalMessageId: "m-1" }], expectedArgs: [{ runId: "run-1", finalMessageId: "m-1" }] },
+  { path: "agui.getRunStatus", op: "invoke", channel: IPC.AGUI_RUN_STATUS, callArgs: [{ sessionId: "s-1", candidates: [{ assistantTurnId: "m-1" }] }], expectedArgs: [{ sessionId: "s-1", candidates: [{ assistantTurnId: "m-1" }] }] },
   { path: "agui.getInterruptedRun", op: "invoke", channel: IPC.AGENT_RUN_GET_INTERRUPTED, callArgs: ["s-1"], expectedArgs: ["s-1"] },
 
   // fireflyTheme, fireflyFont, fireflyAppearance (4)
@@ -355,10 +356,10 @@ describe("preload IPC channel and argument mapping", () => {
   it("accounts for every non-listener invoke/send method across all exposed APIs", () => {
     const mapped = CHANNEL_MAPPING_CASES.map((entry) => entry.path);
     expect(new Set(mapped).size).toBe(mapped.length);
-    expect(mapped).toHaveLength(218);
+    expect(mapped).toHaveLength(219);
 
     const allExposedFunctions = collectLeafFunctionPaths(harness.exposed);
-    expect(allExposedFunctions).toHaveLength(254);
+    expect(allExposedFunctions).toHaveLength(255);
 
     const nonTableFunctions = allExposedFunctions.filter(
       (methodPath) => methodPath === "chat.ingestDroppedFiles" || /\.on[A-Z]/.test(methodPath),

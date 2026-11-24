@@ -280,6 +280,7 @@ export function initProfileDraftController(deps: { inputModalities: InputModalit
         apiState.editorOpen = false;
         applyEditingStateUI();
         renderProfileList();
+        setSaveStatus(t("settings.status.waiting"));
         const origin = Array.from(profileList.querySelectorAll<HTMLButtonElement>('[data-profile-action="edit"]'))
           .find(button => button.closest<HTMLElement>('[data-profile-id]')?.dataset.profileId === originId);
         (origin ?? document.getElementById("add-profile-btn"))?.focus();

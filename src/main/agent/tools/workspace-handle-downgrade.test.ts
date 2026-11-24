@@ -8,7 +8,7 @@ const { state, registry } = vi.hoisted(() => ({ state: { root: "", data: "", lev
 vi.mock("fs", async original => {
   const actual = await original<typeof import("fs")>(); const wrapped = { ...actual } as Record<string, unknown>;
   for (const name of ["openSync", "readFileSync", "statSync"] as const) wrapped[name] = (...args: unknown[]) => {
-    if (state.level === "project-read-only" && typeof args[0] === "string" && args[0].startsWith(state.root + path.sep)) {
+    if (state.level === "read-only" && typeof args[0] === "string" && args[0].startsWith(state.root + path.sep)) {
       state.deniedCalls.push(name); throw Error("path I/O after downgrade");
     }
     return (actual[name] as (...a: unknown[]) => unknown)(...args);
@@ -43,14 +43,14 @@ function context(onFact: (fact: { state: string }) => void): ToolContext {
 }
 it("a subscriber downgrade stops str_replace before its unrestricted review capture", async () => {
   const tracker = getRunReviewTracker(state.data), capture = vi.spyOn(tracker, "captureBefore");
-  const ctx = context(fact => { if (fact.state === "not_applied") state.level = "project-read-only"; });
+  const ctx = context(fact => { if (fact.state === "not_applied") state.level = "read-only"; });
   await expect(registry.get("str_replace")!.execute({ file_path: path.join(state.root, "file.txt"), old_string: "original", new_string: "updated" }, ctx))
     .rejects.toMatchObject({ category: "permission_denied", effectState: "not_applied" });
   expect(capture).not.toHaveBeenCalled(); expect(state.deniedCalls).toEqual([]);
 });
 it.each(["write_file", "str_replace"])("%s never stats by path after an applied-evidence subscriber downgrades it", async id => {
   const facts: Array<{ state: string }> = [];
-  const ctx = context(fact => { facts.push(fact); if (fact.state === "applied") state.level = "project-read-only"; });
+  const ctx = context(fact => { facts.push(fact); if (fact.state === "applied") state.level = "read-only"; });
   const file = path.join(state.root, "file.txt"), args = id === "write_file" ? { path: file, content: "updated" } : { file_path: file, old_string: "original", new_string: "updated" };
   await expect(registry.get(id)!.execute(args, ctx)).rejects.toMatchObject({ category: "permission_denied", effectState: "unknown" });
   expect(state.deniedCalls).toEqual([]); expect(facts.at(-1)?.state).toBe("applied");

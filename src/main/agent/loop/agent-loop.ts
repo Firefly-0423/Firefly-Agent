@@ -7,6 +7,7 @@ import { INITIAL_AGENT_LOOP_CACHE_STATE, DEFAULT_AGENT_LOOP_CONFIG } from "./typ
 import { getAgentLoopBuiltinToolSpecs } from "./builtin-tools";
 import type { ToolDispatchContext } from "./tool-dispatcher";
 import { computeTokenBudget, compressForAgentLoop, type TokenBudget } from "./compaction";
+import { estimateTokens } from "./context-manager";
 import { emitContextUsage, emitCacheDiagnostic } from "./agent-loop-observability";
 import { StreamController } from "./stream-controller";
 import { TimeoutClock } from "./timeout-clock";
@@ -40,6 +41,7 @@ export type AgentLoopRun = {
   toolOutputs: ToolOutputRef[];
   /** Receipts of inserted queue messages already in `messages`; saved with every checkpoint. */
   insertions: RunInsertionReceipt[];
+  pluginContext?: { loaded: boolean; value?: string };
   messages: ChatMessage[];
   allToolSpecs: ToolSpec[];
   streamController: StreamController;
@@ -142,8 +144,11 @@ async function runAgentLoopRounds(run: AgentLoopRun): Promise<AgentLoopResult> {
     if (firstPoll) {
       const inserted = await acceptAdjustments(run, firstPoll);
       if (typeof inserted !== "number") return inserted;
+      if (inserted > 0 && run.pluginContext) run.pluginContext.loaded = false;
     }
-    const layers = buildRoundPromptLayers(host);
+    const layers = host.collectTurnPluginContext
+      ? await buildRoundPromptLayersWithPluginContext(run)
+      : buildRoundPromptLayers(host);
     const round = `round-${run.rounds}`;
     host.onEvent?.({ type: "round_start", roundId: round });
     // 无需压缩时同步穿过这里，首次模型调用不增加等待点。
@@ -195,7 +200,10 @@ async function runAgentLoopRounds(run: AgentLoopRun): Promise<AgentLoopResult> {
       run.rounds++;
     });
     if (typeof lateInsertions !== "number") return lateInsertions;
-    if (lateInsertions > 0) continue;
+    if (lateInsertions > 0) {
+      if (run.pluginContext) run.pluginContext.loaded = false;
+      continue;
+    }
     const reply = run.streamController.commitProgressBuffer() + suffix;
     host.onEvent?.({ type: "round_end", roundId: round });
     host.onEvent?.({ type: "final_answer", content: reply });
@@ -238,16 +246,44 @@ function materializeInitialContext(run: AgentLoopRun): void {
     kind: host.initialInternalContext?.kind ?? "run_start", revision: revision + 1, runId: host.runId ?? "harness-run", content: facts.join("\n\n---\n\n"),
   }));
 }
-function buildRoundPromptLayers(input: AgentLoopInput): PromptLayers {
-  return { stablePrefix: input.promptLayers?.stablePrefix ?? input.systemPrompt,
+function buildRoundPromptLayers(input: AgentLoopInput, turnPluginContext?: string): PromptLayers {
+  return {
+    stablePrefix: input.promptLayers?.stablePrefix ?? input.systemPrompt,
     ...(input.promptLayers?.sessionPrefix ? { sessionPrefix: input.promptLayers.sessionPrefix } : {}),
-    ...(input.promptLayers?.mode ? { mode: input.promptLayers.mode } : {}) };
+    ...(input.promptLayers?.mode ? { mode: input.promptLayers.mode } : {}),
+    ...(turnPluginContext?.trim() ? { runtimeContext: turnPluginContext.trim() } : {}),
+  };
+}
+const PLUGIN_CONTEXT_WINDOW_SHARE = 0.25;
+async function buildRoundPromptLayersWithPluginContext(run: AgentLoopRun): Promise<PromptLayers> {
+  const host = run.input;
+  if (!run.pluginContext?.loaded) {
+    let turnPluginContext: string | undefined;
+    try {
+      turnPluginContext = await host.collectTurnPluginContext!({ round: run.rounds, signal: host.signal });
+    } catch (cause) {
+      logger.warn(LogTag.Plugins, "run plugin context collection failed, skipped:", cause);
+    }
+    // Compaction can shrink history but not plugin context; a block that would take more than a quarter
+    // of the window is skipped for this run rather than pushing the request over the limit.
+    const cap = Math.floor(run.config.contextWindowTokens * PLUGIN_CONTEXT_WINDOW_SHARE);
+    if (turnPluginContext && estimateTokens(turnPluginContext) > cap) {
+      logger.warn(LogTag.Plugins, `run plugin context skipped: estimated ${estimateTokens(turnPluginContext)} tokens exceeds ${cap}`);
+      turnPluginContext = undefined;
+    }
+    run.pluginContext = { loaded: true, value: turnPluginContext };
+  }
+  return buildRoundPromptLayers(host, run.pluginContext.value);
 }
 function compactIfNeeded(run: AgentLoopRun, promptLayers: PromptLayers): Promise<void> | undefined {
   if (run.input.memoryRun) return undefined;
   const limits = run.config;
   const system = buildStableSystemPrefix(promptLayers);
-  const budget = computeTokenBudget(system, run.allToolSpecs, run.messages, limits.contextWindowTokens,
+  // Runtime context (plugin context) is sent with every request, so it counts toward the budget too.
+  const runtime = promptLayers.runtimeContext?.trim();
+  const budget = computeTokenBudget(runtime ? `${system}
+
+${runtime}` : system, run.allToolSpecs, run.messages, limits.contextWindowTokens,
     limits.reservedOutputTokens, limits.safetyMarginTokens, limits.compactionThreshold);
   return budget.needsCompaction ? runCompaction(run, system, budget) : undefined;
 }

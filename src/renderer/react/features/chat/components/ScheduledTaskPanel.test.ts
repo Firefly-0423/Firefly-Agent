@@ -557,3 +557,12 @@ describe("ScheduledTaskPanel — live refresh", () => {
     expect(api.list.mock.calls.length).toBe(afterMount + 3);
   });
 });
+
+it("shows native cron read-only without offering an editor that could change its schedule", async () => {
+  const cronTask: ScheduledTask = { ...DAILY_TASK, schedule: { kind: "cron", expression: "*/15 * * * *", timezone: "UTC" } };
+  const api = installScheduler({ list: vi.fn(async () => ({ ok: true, value: [cronTask] })) });
+  await renderPanel();
+  expect(text()).toContain("Cron */15 * * * * (UTC)");
+  expect([...container.querySelectorAll("button")].some(button => button.textContent?.trim() === "编辑")).toBe(false);
+  expect(api.update).not.toHaveBeenCalled();
+});

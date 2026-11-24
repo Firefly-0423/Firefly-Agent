@@ -23,6 +23,7 @@ export function formatSchedulerDate(value: string | null | undefined): string {
 
 export function describeSchedule(schedule: ScheduleConfig): string {
   switch (schedule.kind) {
+    case "cron": return `Cron ${schedule.expression}${schedule.timezone ? ` (${schedule.timezone})` : ""}`;
     case "once": return "仅一次 " + formatSchedulerDate(schedule.runAt);
     case "daily": return "每天 " + schedule.timeOfDay;
     case "weekly": {

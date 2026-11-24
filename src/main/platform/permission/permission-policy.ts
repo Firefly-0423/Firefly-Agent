@@ -2,19 +2,35 @@
 // 验证流水线等核心模块可以直接引用而不必拉起权限宿主。
 import type { ToolRiskLevel } from "../../../shared/permission-approval";
 
-export type AgentFileAccessLevel = "project-read-only" | "read-only" | "scoped" | "per-action" | "full";
+export type AgentFileAccessLevel = "read-only" | "per-action" | "full";
 
 // 风险类型的权威定义在 shared，这里转出，旧的引用路径继续可用。
 export type { ToolRiskLevel };
 
 type Verdict = "allow" | "ask" | "deny";
 
-// 受限档位各自直接放行的风险。shell 在所有受限档位都列入：
-// 真正的文件系统边界由沙箱按档位收口，这里不再充当 shell 的闸门。
+export type PolicyVerdict = Verdict;
+
+export interface ToolPolicyTarget {
+  risk?: ToolRiskLevel;
+  risks?: readonly ToolRiskLevel[];
+  isPlugin?: boolean;
+}
+
+const VERDICT_RANK: Record<PolicyVerdict, number> = {
+  allow: 0,
+  ask: 1,
+  deny: 2,
+};
+
+export function stricterVerdict(a: PolicyVerdict, b: PolicyVerdict): PolicyVerdict {
+  return VERDICT_RANK[b] > VERDICT_RANK[a] ? b : a;
+}
+
+// 受限档位直接放行的风险。shell 在 read-only 档位列入：
+// 真正的文件系统边界由沙箱按档位收口，这里不再充当内置 shell 的闸门。
 const OPEN_RISKS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
-  ["project-read-only", new Set(["fs-read", "network", "shell"])],
   ["read-only", new Set(["fs-read", "network", "shell"])],
-  ["scoped", new Set(["fs-read", "fs-write", "network", "shell"])],
 ]);
 
 export function policyFor(level: AgentFileAccessLevel, risk: ToolRiskLevel): Verdict {
@@ -23,4 +39,33 @@ export function policyFor(level: AgentFileAccessLevel, risk: ToolRiskLevel): Ver
   if (level === "per-action") return "ask";
   // 受限档位按清单放行；清单外的风险，以及无法识别的档位，一律拒绝。
   return OPEN_RISKS.get(level)?.has(risk) ? "allow" : "deny";
+}
+
+/**
+ * 判定单条风险对插件工具的策略（规格 §7.2）：
+ * 插件进程不在内置命令沙箱中，声明 shell 时在 read-only 档位改为 ask。
+ * 插件工具不允许声明 safe（若误传则拒绝）。
+ */
+export function policyForPluginRisk(level: AgentFileAccessLevel, risk: ToolRiskLevel): PolicyVerdict {
+  if (risk === "safe") return "deny";
+  if (risk === "shell" && level === "read-only") return "ask";
+  return policyFor(level, risk);
+}
+
+/**
+ * 对工具（单风险或插件多风险组合）按给定档位求最严格判定（deny > ask > allow）。
+ */
+export function policyForTool(level: AgentFileAccessLevel, target: ToolPolicyTarget): PolicyVerdict {
+  const risks = target.risks && target.risks.length > 0
+    ? target.risks
+    : target.isPlugin
+      ? []
+      : [target.risk ?? "safe"];
+  if (target.isPlugin && risks.length === 0) return "deny";
+  let strictest: PolicyVerdict = "allow";
+  for (const risk of risks) {
+    const verdict = target.isPlugin ? policyForPluginRisk(level, risk) : policyFor(level, risk);
+    strictest = stricterVerdict(strictest, verdict);
+  }
+  return strictest;
 }

@@ -3,7 +3,7 @@ import * as path from "path";
 import crypto from "node:crypto";
 import { Worker, isMainThread, parentPort } from "worker_threads";
 import { iterateDocumentChunks } from "./chunk";
-import { createLocalEmbeddingProvider, createOpenAIEmbeddingProvider, type EmbeddingWorkerConfig } from "./embedding";
+import { createLocalEmbeddingProvider, createOpenAIEmbeddingProvider, EMBEDDING_PROVIDER_UNAVAILABLE, type EmbeddingWorkerConfig } from "./embedding";
 import { DocumentTextError, extractDocumentText, isExtractedDocumentExt, legacyDocumentReason } from "./document-text";
 import { isBinary, isUnsupportedExt, SMALL_THRESHOLD } from "./file-ingest";
 import type { DocumentIndexJobResult, QueuedDocumentIndexJob } from "./document-index-queue";
@@ -336,7 +336,7 @@ async function runWorkerThread(): Promise<void> {
   const handleEmbed = async (message: WorkerEmbedMessage) => {
     if (!doc) throw new Error("document worker has no prepared document");
     const provider = embeddingProviderFor(message.embedding);
-    if (!provider) throw new Error("Embedding provider is not available");
+    if (!provider) throw new Error(EMBEDDING_PROVIDER_UNAVAILABLE);
 
     const abort = () => {
       doc = null;

@@ -43,7 +43,12 @@ const unchangedBoundaries = {
   // certificate denial and fixed isolated-world scripts retain their boundaries.
   // See docs/browser-reference-audit.md (boundary preimage review).
   "src/main/platform/browser/electron-browser-guest.ts": "bde77619d13add92b14d9754fd244bb312821ee3b7e7aaae49847672438502d7",
-  "src/main/platform/permission/permission-policy.ts": "79d8456fce1598dd91651f7b86508824569941ec96cb563ef6c73f85bedab801",
+  // Three-level permissions (2026-11-21, docs/superpowers/specs/plugin-sdk-1-2-0.md §7.2): removed legacy
+  // project-read-only and scoped levels from AgentFileAccessLevel, keeping read-only, per-action, and full,
+  // and falling back legacy persisted values to default read-only.
+  // Plugin tools policy (2026-11-22, Spec §7.2): added policyForPluginRisk (shell under read-only -> ask,
+  // safe -> deny) and policyForTool (strictest verdict over declared multi-risk lists); built-in policyFor is unchanged.
+  "src/main/platform/permission/permission-policy.ts": "db2e3e097f656f618275f9de216c89cdf761644238329c74a3231c5ecbd8e3af",
   // Reimplemented from observable behavior with identical allow/ask/deny decisions; verified by the policyFor decision-table
   // test (permission-policy.matrix.test.ts) and the approval contract tests (permission.contract.test.ts, permission.test.ts).
   // The only difference is stricter: an unrecognised session level now denies instead of yielding no decision.
@@ -52,7 +57,9 @@ const unchangedBoundaries = {
   // approval without a run id can show its source; the allow/ask/deny decision and the approval round trip are unchanged.
   // Toast approval review (2026-11-16): the waiter keeps its original request, getPendingApproval reads it and
   // answerApproval is the single answering path the chat channel now uses too; no decision or settlement rule changed.
-  "src/main/platform/permission/permission.ts": "7df6660975af5153c541cdfb918f18177cdd255e2376704a7300b4726b6aa3e4",
+  // Plugin tool approval (2026-11-22, Spec §7.2 & §14 item 5): checkPermission evaluates policyForTool for plugin
+  // multi-risk / shell-asks-in-read-only rules and forwards declaredBy/risks/approvalTarget onto the approval card.
+  "src/main/platform/permission/permission.ts": "3c0bdae45cffcc6359d1043a09a80823b6dbce25922fbb9d7d740a8968588a36",
   "src/main/platform/permission/bootstrap.ts": "765b21f85aa5f048ebed87c0fb0cf53c7fa3059f34dc3451521d4a58fc523ce1",
 } as const;
 it.each(Object.entries(unchangedBoundaries))("no_execution_or_permission_expansion: %s exactly matches approved boundary preimage", (file, expected) => { expect(hash(file)).toBe(expected); });

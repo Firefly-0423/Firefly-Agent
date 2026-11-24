@@ -377,10 +377,10 @@ function ScheduledTaskCard({ task, pluginRunning, history, onRun, onEdit, onTogg
           <Play size={13} strokeWidth={1.8} aria-hidden="true" />
           <span>{t("scheduledPanel.runNow")}</span>
         </button>
-        <button type="button" className="scheduled-btn" onClick={onEdit}>
+        {task.schedule.kind !== "cron" && <button type="button" className="scheduled-btn" onClick={onEdit}>
           <Pencil size={13} strokeWidth={1.8} aria-hidden="true" />
           <span>{t("scheduledPanel.edit")}</span>
-        </button>
+        </button>}
         <button type="button" className="scheduled-btn" onClick={onHistory} aria-expanded={Boolean(history)}>
           <History size={13} strokeWidth={1.8} aria-hidden="true" />
           <span>{t("scheduledPanel.history")}</span>

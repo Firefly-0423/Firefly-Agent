@@ -480,15 +480,30 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
     binding: ReturnType<typeof registerBrowserHostOwner>;
     manualBinding: ReturnType<typeof registerManualBrowserHostOwner>;
   };
-  let browserHost: BrowserHost | undefined;
+  const browserHosts = new Map<BrowserWindow, BrowserHost>();
 
-  // 当前宿主窗口仍然存活，且（若指定了 owner）确实属于它时才返回
-  const liveHostFor = (accept: (win: BrowserWindow) => boolean = () => true) => {
-    const host = browserHost;
-    if (!host) return undefined;
-    if (!accept(host.window)) return undefined;
-    if (host.window.isDestroyed() || host.window.webContents.isDestroyed()) return undefined;
-    return host;
+  const liveBrowserHosts = (): BrowserHost[] => {
+    const live: BrowserHost[] = [];
+    for (const [win, host] of browserHosts) {
+      if (win.isDestroyed() || win.webContents.isDestroyed()) {
+        browserHosts.delete(win);
+        continue;
+      }
+      live.push(host);
+    }
+    return live;
+  };
+
+  // 当前宿主窗口仍然存活，且满足筛选条件时返回
+  const liveHostFor = (accept: (win: BrowserWindow) => boolean = () => true) =>
+    liveBrowserHosts().find((host) => accept(host.window));
+
+  // 统一裁决聊天主窗关闭时受影响的浏览器租约：只收回租约与页面，不中止智能体运行本身
+  const collectHostCloseDecision = (closingHost: unknown): { revokeAllLeases?: boolean; affectedConversations?: readonly string[] } => {
+    const closing = [...browserHosts.values()].find((entry) => entry.window === closingHost);
+    const remaining = liveBrowserHosts().filter((entry) => entry.window !== closingHost);
+    if (remaining.length === 0) return { revokeAllLeases: true };
+    return { affectedConversations: closing?.binding.listLeasedConversations?.() ?? [] };
   };
 
   const getBrowserService = () => {
@@ -497,9 +512,15 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
       profile: getStorageContext().profile,
       onChanged: (owner, page) => {
         const host = liveHostFor((win) => win === owner.host);
-        if (host) host.window.webContents.send(IPC.BROWSER_CHANGED, page);
+        if (!host) return;
+        const currentOwner = host.binding.getCurrentOwner?.();
+        if (!currentOwner || currentOwner.conversationId !== page.conversationId || currentOwner.generation !== owner.generation) {
+          return;
+        }
+        host.window.webContents.send(IPC.BROWSER_CHANGED, page);
       },
     });
+    created?.setHostClosePolicy?.(collectHostCloseDecision);
     browserService = created;
     app.once("will-quit", installBrowserServiceLifecycle(app, created, shutdown, "browser-service"));
     return created;
@@ -574,14 +595,20 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
 
   const bindBrowserHost = (window: BrowserWindow): void => {
     externalSkillsIpc?.refreshHost();
-    browserHost?.binding.dispose();
-    browserHost?.manualBinding.dispose();
+    const existing = browserHosts.get(window);
+    if (existing) {
+      existing.binding.dispose();
+      existing.manualBinding.dispose();
+      browserHosts.delete(window);
+    }
     const binding = registerBrowserHostOwner({
       host: window,
       profile: getStorageContext().profile,
       targets: activeChatTargetRegistry,
       service: getBrowserService(),
       readSession: chatsStore.getSession,
+      validateSession: (id) => chatsStore.getSession(id) !== null,
+      isRunActive: isActiveConversationRun,
     });
     const manualBinding = registerManualBrowserHostOwner({
       host: window,
@@ -589,12 +616,16 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
       service: getManualBrowserWorkspace(),
     });
     const current: BrowserHost = { window, binding, manualBinding };
-    browserHost = current;
+    browserHosts.set(window, current);
     window.once("closed", () => {
       externalSkillsIpc?.refreshHost();
+      const decision = collectHostCloseDecision(window);
+      browserHosts.delete(window);
+      if (decision.revokeAllLeases) {
+        browserService?.revokeAllLeases?.();
+      }
       binding.dispose();
       manualBinding.dispose();
-      if (browserHost === current) browserHost = undefined;
     });
   };
 
@@ -730,7 +761,14 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
       runtime.buildOptions,
       (result, latestUserText, context) => runtime.onRunFinished(result, latestUserText, context),
       () => reactChatWindow,
-      services.proactive.proactiveConversationLifecycle,
+      {
+        ...services.proactive.proactiveConversationLifecycle,
+        onConversationRunEnded: (conversationId, runId) => {
+          for (const host of liveBrowserHosts()) {
+            host.binding.releaseRunLease(conversationId, runId);
+          }
+        },
+      },
       ipc,
       pendingTurnLifecycle,
       desktopMemory ?? undefined,
@@ -809,7 +847,7 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
             windowManager,
             onActiveTargetChanged: () => {
               desktopAsr?.cancelAll();
-              browserHost?.binding.refresh();
+              for (const host of liveBrowserHosts()) host.binding.refresh();
               desktopMemory?.refresh();
             },
           });
@@ -875,7 +913,25 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
             codeGitService: services.git,
             lspManager: services.lsp,
             browserWorkspace: createBrowserWorkspaceExecutor({
-              currentOwner: () => browserHost?.binding.getCurrentOwner() ?? null,
+              currentOwner: (conversationId) => {
+                for (const host of liveBrowserHosts()) {
+                  const owner = host.binding.getCurrentOwner?.();
+                  if (!owner) continue;
+                  if (conversationId === undefined || owner.conversationId === conversationId) return owner;
+                }
+                return null;
+              },
+              getRunLease: (conversationId, runId) => {
+                for (const host of liveBrowserHosts()) {
+                  const lease = host.binding.getRunLease(conversationId, runId);
+                  if (lease) return lease;
+                }
+                return null;
+              },
+              retainRunLease: (owner, input) => {
+                const host = liveHostFor((win) => win === owner.host);
+                return host?.binding.retainRunLease(owner, input) ?? null;
+              },
               service: getBrowserService,
               isRunCurrent: isActiveConversationRun,
             }),

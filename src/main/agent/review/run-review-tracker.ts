@@ -7,7 +7,6 @@ import { structuredPatch } from "diff";
 import type { WorkspaceSnapshot } from "../tools/workspace-handle";
 import type { WorkspaceIdentity } from "../tools/workspace-handle";
 import type { ToolContext } from "../../tooling/registry/tool-context";
-import { getCurrentLevel } from "../../platform/permission/permission";
 import { readWorkspaceReviewSource, reviewIdentityKey } from "./workspace-review-source";
 import type {
   ReviewSnapshot,
@@ -115,9 +114,7 @@ export class RunReviewTracker {
     throw new Error("Review alias cycle");
   }
   private usesCapturedAfter(runId: string): boolean {
-    const journal = this.readJournal(runId);
-    return journal.some(event => event.type === "handle-after") || journal.some(event => event.type === "capture" && event.fileAccessLevel !== undefined &&
-      (event.fileAccessLevel === "project-read-only" || (event.permissionMode !== "allow_all" && getCurrentLevel() === "project-read-only")));
+    return this.readJournal(runId).some(event => event.type === "handle-after");
   }
   private resolveObservationPath(runId: string, file: string, snapshot?: WorkspaceSnapshot): string {
     const requested = path.resolve(file), mapped = this.aliasTarget(runId, requested);

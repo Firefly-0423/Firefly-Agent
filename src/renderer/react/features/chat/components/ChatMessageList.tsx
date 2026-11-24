@@ -45,6 +45,7 @@ export interface ChatMessageItem {
   content: string; transientText?: string; reasoning?: string;
   reasoningBlocks?: ReasoningBlock[]; processMessages?: ProcessMessageRecord[]; agentRounds?: AgentRoundRecord[];
   taskDelegations?: TaskDelegationDisplayRecord[]; reasoningStreaming?: boolean; responseStarted?: boolean;
+  runStatusNotice?: string;
   streaming?: boolean; loading?: boolean; waitingForFirstEvent?: boolean;
   ttsCacheKey?: string; ttsCacheVersion?: string; sticker?: string | null;
   toolExecutions?: ToolExecutionRecord[]; runActivity?: RunActivityRecord; runStage?: AgentRunStage;
@@ -296,6 +297,7 @@ export function RunActivityDetail({ live = false, agentRounds = [], reasoningBlo
 type ActivityContentProps = {
   activityId: string; activity: RunActivityRecord; reasoningBlocks: ReasoningBlock[];
   processMessages: ProcessMessageRecord[]; agentRounds: AgentRoundRecord[]; taskDelegations: TaskDelegationDisplayRecord[];
+  runStatusNotice?: string;
   tools: ToolExecutionRecord[]; stage?: AgentRunStage; taskPlan?: TaskPlanPresentation;
   insertionBubbles?: RunInsertionContent[];
   expanded: boolean; onExpand: (expanded: boolean) => void;
@@ -311,20 +313,21 @@ export function finishedRunFacts(tools: readonly ToolExecutionRecord[]): string[
 const UNSUCCESSFUL_STAGES: ReadonlySet<AgentRunStage["kind"]> = new Set(["cancelled", "timeout", "failed"]);
 function RunActivityContent(props: ActivityContentProps) {
   const { t } = useTranslation();
-  const time = useRunActivityNow(props.activity.completedAt === undefined);
+  const time = useRunActivityNow(!props.runStatusNotice && props.activity.completedAt === undefined);
   const state = resolveRunActivitySnapshot(props.activity, time);
-  const previous = useRef(state.processing);
+  const processing = state.processing && !props.runStatusNotice;
+  const previous = useRef(processing);
   useEffect(() => {
-    if (shouldAutoCollapseRunActivity(previous.current, state.processing, props.activity.keepExpanded)) { props.onExpand(false); }
-    previous.current = state.processing;
-  }, [props.activity.keepExpanded, props.onExpand, state.processing]);
-  const caption = state.processing ? t("messageList.activityProcessingTitle", { elapsed: formatElapsed(state.processingMs) })
-    : [t("messageList.activityProcessedTitle", { elapsed: formatElapsed(state.processingMs) }), ...finishedRunFacts(props.tools)].join(" · ");
-  return <section className={`ff-run-activity${state.processing ? " is-processing" : " is-complete"}`}>
+    if (shouldAutoCollapseRunActivity(previous.current, processing, props.activity.keepExpanded)) { props.onExpand(false); }
+    previous.current = processing;
+  }, [props.activity.keepExpanded, props.onExpand, processing]);
+  const caption = props.runStatusNotice ?? (state.processing ? t("messageList.activityProcessingTitle", { elapsed: formatElapsed(state.processingMs) })
+    : [t("messageList.activityProcessedTitle", { elapsed: formatElapsed(state.processingMs) }), ...finishedRunFacts(props.tools)].join(" · "));
+  return <section className={`ff-run-activity${processing ? " is-processing" : " is-complete"}`}>
     <div className="ff-run-activity__header">
       <span className="ff-run-activity__title">
-        {state.processing && <span className="ff-run-activity__art" aria-hidden="true"><DotSpinner /></span>}
-        <span>{caption}</span>{props.stage && (state.processing || UNSUCCESSFUL_STAGES.has(props.stage.kind)) && <RunStageIndicator stage={props.stage} dot={false} />}
+        {processing && <span className="ff-run-activity__art" aria-hidden="true"><DotSpinner /></span>}
+        <span>{caption}</span>{props.stage && (processing || UNSUCCESSFUL_STAGES.has(props.stage.kind)) && <RunStageIndicator stage={props.stage} dot={false} />}
       </span>
       <button type="button" className="ff-run-activity__toggle" onClick={() => props.onExpand(!props.expanded)}
         aria-expanded={props.expanded} aria-controls={`${props.activityId}-details`}
@@ -337,7 +340,7 @@ function RunActivityContent(props: ActivityContentProps) {
     {props.expanded && <div className="ff-run-activity__expanded" id={`${props.activityId}-details`}>
       {/* The header's hairline already separates it from the steps; a divider only sets a plan apart from them. */}
       {props.taskPlan && <><TaskPlanCard plan={props.taskPlan} /><div className="ff-run-activity__divider" /></>}
-      <RunActivityDetail live={state.processing} agentRounds={props.agentRounds} reasoningBlocks={props.reasoningBlocks}
+      <RunActivityDetail live={processing} agentRounds={props.agentRounds} reasoningBlocks={props.reasoningBlocks}
         processMessages={props.processMessages} taskDelegations={props.taskDelegations} tools={props.tools} insertionBubbles={props.insertionBubbles}
         interrupted={Boolean(props.activity.keepExpanded && props.activity.completedAt !== undefined)} />
     </div>}
@@ -505,6 +508,7 @@ type RoleInfo = { extraInfo?: {
   messageId?: string; stickerUrl?: string; stickerUnavailable?: string; attachments?: ChatMessageAttachment[];
   channelSource?: ChatMessageChannelSource; streaming?: boolean; reviewRunId?: string;
   reasoningId?: string; reasoning?: string; reasoningStreaming?: boolean; state?: string;
+  runStatusNotice?: string;
   activityId?: string; activity?: RunActivityRecord; reasoningBlocks?: ReasoningBlock[];
   processMessages?: ProcessMessageRecord[]; agentRounds?: AgentRoundRecord[]; taskDelegations?: TaskDelegationDisplayRecord[];
   tools?: ToolExecutionRecord[]; runStage?: AgentRunStage; taskPlan?: TaskPlanPresentation; weather?: WeatherData; runId?: string;
@@ -578,7 +582,7 @@ function createRoles(
         processMessages={info.extraInfo?.processMessages ?? []} agentRounds={info.extraInfo?.agentRounds ?? []}
         taskDelegations={info.extraInfo?.taskDelegations ?? []} tools={info.extraInfo?.tools ?? []}
         insertionBubbles={info.extraInfo?.insertionBubbles}
-        stage={info.extraInfo?.runStage} taskPlan={info.extraInfo?.taskPlan}
+        runStatusNotice={info.extraInfo?.runStatusNotice} stage={info.extraInfo?.runStage} taskPlan={info.extraInfo?.taskPlan}
         expanded={resolveRunActivityExpanded(reasoningExpanded, id, record)} onExpand={(open) => onReasoningExpand(id, open)} />;
     },
   };
@@ -620,7 +624,7 @@ function appendMessageActivity(items: BubbleItemType[], message: ChatMessageItem
     role: "activity",
     content: "", avatar: createElement(FireflyMessageAvatar),
     extraInfo: {
-      activityId: `${message.id}-activity`, activity: message.runActivity, reasoningBlocks: blocks,
+      runStatusNotice: message.runStatusNotice, activityId: `${message.id}-activity`, activity: message.runActivity, reasoningBlocks: blocks,
       processMessages: message.processMessages ?? [], agentRounds: message.agentRounds ?? [],
       taskDelegations: message.taskDelegations ?? [], tools, runStage: message.runStage, taskPlan: message.taskPlan,
       insertionBubbles: message.insertionBubbles?.map(bubble => ({ ...bubble, ...userSticker(bubble, stickers) })),
@@ -678,6 +682,9 @@ function convertMessage(message: ChatMessageItem, enabledStickers: readonly Enab
   const activityVisible = Boolean(message.runActivity) && (processing || hasProcess);
   if (message.runActivity) { appendMessageActivity(items, message, blocks, tools, activityVisible, enabledStickers); }
   else { appendMessageSteps(items, message, blocks, tools); }
+  if (message.runStatusNotice && !message.runActivity) {
+    items.push({ key: `${message.id}-run-status`, role: "system", content: message.runStatusNotice });
+  }
   if (message.weather) { items.push({ key: `${message.id}-weather`, role: "weather", content: "", extraInfo: { weather: message.weather } }); }
   if (message.sSettlement && message.sSettlement.state !== "success") {
     items.push({ key: `${message.id}-s-audit`, role: "sAudit", content: message.sSettlement.originalText, extraInfo: { state: message.sSettlement.state } });
