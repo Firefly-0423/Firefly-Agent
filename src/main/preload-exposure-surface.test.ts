@@ -148,6 +148,7 @@ const EXPECTED_NAMESPACE_KEYS: Record<string, readonly string[]> = {
   pluginPanel: ["invoke"],
   plugins: [
     "getV2Borrowing",
+    "getV2Confirms",
     "importZip",
     "list",
     "marketInstall",

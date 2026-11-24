@@ -41,6 +41,9 @@ export function createPluginsApi(ipcRenderer: PluginsIpcRenderer) {
             ipcRenderer.on(IPC.PLUGINS_V2_CONFIRM_REQUEST, forwardEvent);
             return () => ipcRenderer.removeListener(IPC.PLUGINS_V2_CONFIRM_REQUEST, forwardEvent);
         },
+        getV2Confirms: () => {
+            return ipcRenderer.invoke(IPC.PLUGINS_V2_CONFIRM_GET) as Promise<{ requests: PluginV2ConfirmRequest[] }>;
+        },
         resolveV2Confirm: (id: string, allowed: boolean) => {
             return ipcRenderer.invoke(IPC.PLUGINS_V2_CONFIRM_RESOLVE, { id, allowed }) as Promise<{ ok: boolean }>;
         },

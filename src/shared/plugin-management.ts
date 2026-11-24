@@ -98,6 +98,7 @@ export type PluginV2BorrowingEntry = {
 };
 export type PluginManagementApi = {
     getV2Borrowing?(): Promise<{ entries: PluginV2BorrowingEntry[] }>;
+    getV2Confirms?(): Promise<{ requests: PluginV2ConfirmRequest[] }>;
     importZip(): Promise<{
         activation?: "not-requested" | "restart-required" | "running" | "failed";
         canceled?: boolean;

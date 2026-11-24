@@ -174,6 +174,7 @@ export const IPC = {
   PLUGINS_V2_BORROWING_CHANGED: "plugins-v2:borrowing-changed",
   PLUGINS_V2_BORROWING_GET: "plugins-v2:borrowing-get",
   PLUGINS_V2_BORROWING_STOP: "plugins-v2:borrowing-stop",
+  PLUGINS_V2_CONFIRM_GET: "plugins-v2:confirm-get",
   PLUGINS_V2_CONFIRM_REQUEST: "plugins-v2:confirm-request",
   PLUGINS_V2_CONFIRM_RESOLVE: "plugins-v2:confirm-resolve",
   PLUGINS_V2_CONFIRM_SETTLED: "plugins-v2:confirm-settled",
