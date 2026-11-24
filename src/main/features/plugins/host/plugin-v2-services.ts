@@ -133,6 +133,12 @@ function buildGenerateMessages(request: { prompt: string; system?: string }): Ar
   return messages;
 }
 
+export function mapPluginModelRunOutcome(status: string | undefined): "completed" | "cancelled" | "failed" {
+  if (status === "success") return "completed";
+  if (status === "cancelled") return "cancelled";
+  return "failed";
+}
+
 export function createPluginV2HostController(deps: PluginV2HostDependencies) {
   const stateStore: PluginStateStore = createPluginStateStore({
     ...(deps.stateFile ? { stateFile: deps.stateFile } : {}),
@@ -357,6 +363,9 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
       return () => { workspaceWatchers.delete(listener); };
     },
     async run(request, _profile, signal, onEvent) {
+      if (signal.aborted) {
+        throw new PluginError("ERR_CANCELLED", "Plugin model run cancelled");
+      }
       const runId = `plugin-run-${randomUUID()}`;
       const built = await deps.buildRunOptions({
         sessionId: request.sessionId,
@@ -366,6 +375,9 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
         promptSource: "plugin-agent",
         messages: [{ role: "user", content: request.objective }],
       });
+      if (signal.aborted) {
+        throw new PluginError("ERR_CANCELLED", "Plugin model run cancelled");
+      }
       const runOptions = {
         ...built.options,
         runId,
@@ -383,7 +395,19 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
       let streamedReply = "";
 
       return new Promise((resolve, reject) => {
-        const sub = agent.runWithEvents(runOptions).subscribe({
+        let settled = false;
+        let sub: { unsubscribe(): void } | undefined;
+        const onAbort = () => {
+          if (settled) return;
+          settled = true;
+          signal.removeEventListener("abort", onAbort);
+          sub?.unsubscribe();
+          cancelPendingApprovalsForRun(runId);
+          reject(new PluginError("ERR_CANCELLED", "Plugin model run cancelled"));
+        };
+        signal.addEventListener("abort", onAbort, { once: true });
+
+        sub = agent.runWithEvents(runOptions).subscribe({
           next(packet: BaseEvent) {
             try {
               switch (packet.type) {
@@ -427,12 +451,11 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
                 }
                 case "RUN_FINISHED": {
                   const status = (packet as { result?: { status?: string } }).result?.status;
-                  const outcome = status === "cancelled" ? "cancelled" : status === "runtime_error" ? "failed" : "completed";
                   onEvent({
                     type: "run.ended",
                     runId,
                     sessionId: request.sessionId,
-                    outcome,
+                    outcome: mapPluginModelRunOutcome(status),
                     at: Date.now(),
                   });
                   break;
@@ -443,10 +466,16 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
             }
           },
           error(failure) {
+            if (settled) return;
+            settled = true;
+            signal.removeEventListener("abort", onAbort);
             cancelPendingApprovalsForRun(runId);
             reject(failure);
           },
           complete() {
+            if (settled) return;
+            settled = true;
+            signal.removeEventListener("abort", onAbort);
             cancelPendingApprovalsForRun(runId);
             resolve({
               runId,
@@ -455,11 +484,9 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
             });
           },
         });
-        signal.addEventListener("abort", () => {
-          sub.unsubscribe();
-          cancelPendingApprovalsForRun(runId);
-          reject(new PluginError("ERR_CANCELLED", "Plugin model run cancelled"));
-        }, { once: true });
+        if (signal.aborted && !settled) {
+          onAbort();
+        }
       });
     },
     borrowing(request) {
