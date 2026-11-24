@@ -15,10 +15,13 @@ function fixture() {
   const run = vi.fn(async (_request: ChannelRunRequest) => ({ reply: "answer" }));
   const approveLocally = vi.fn(async () => false);
   const recordSend = vi.fn();
+  const recordRun = vi.fn();
   const call = vi.fn(async (_id: string, method: string, _params: unknown) => method === "channel.send" ? { externalMessageId: "out1" } : undefined);
-  const service = createPluginChannelService({ runner: { run }, tools: () => tools, approveLocally, recordSend });
+  const service = createPluginChannelService({ runner: { run }, tools: () => tools, approveLocally, recordSend, recordRun });
+  const accept = service.deliver;
+  service.deliver = async (...args) => { const result = await accept(...args); await service.whenIdle(); return result; };
   service.registerChannel(manifest, { id: "inbox" }, { call });
-  return { service, run, approveLocally, recordSend, call, executeRead, executeShell, tools };
+  return { service, accept, run, approveLocally, recordSend, recordRun, call, executeRead, executeShell, tools };
 }
 describe("plugin channel host", () => {
   it("composes host status and stop hooks with RPC setup, uses the live port for stop and disconnects on crashes", async () => {
@@ -76,12 +79,14 @@ describe("plugin channel host", () => {
     const f = fixture(); await f.service.startPlugin(manifest.id);
     let finish!: (value: { reply: string }) => void;
     f.run.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
-    const delivering = f.service.deliver(manifest.id, { id: "inbox", message: message() });
+    const delivering = f.accept(manifest.id, { id: "inbox", message: message() });
+    await delivering;
     const request = f.run.mock.calls[0][0];
     await f.service.stopPlugin(manifest.id);
     expect(request.signal.aborted).toBe(true);
     await expect(request.dispatchTool("read", {})).rejects.toMatchObject({ code: "ERR_UNAVAILABLE" });
-    await expect(delivering).rejects.toMatchObject({ code: "ERR_UNAVAILABLE" });
+    await f.service.whenIdle();
+    expect(f.recordRun.mock.calls[0][0]).toMatchObject({ outcome: "failed", code: "ERR_UNAVAILABLE" });
     finish({ reply: "late" }); await Promise.resolve();
     expect(f.executeRead).not.toHaveBeenCalled();
     expect(f.call.mock.calls.filter(c => c[1] === "channel.send")).toEqual([]);
@@ -100,7 +105,8 @@ describe("plugin channel host", () => {
       await expect(request.dispatchTool("read", {})).rejects.toMatchObject({ code: "ERR_CANCELLED" });
       return { reply: "done" };
     });
-    await expect(f.service.deliver(manifest.id, { id: "inbox", message: message() })).rejects.toMatchObject({ code: "ERR_CANCELLED" });
+    await expect(f.service.deliver(manifest.id, { id: "inbox", message: message() })).resolves.toMatchObject({ accepted: true });
+    expect(f.recordRun.mock.calls[0][0]).toMatchObject({ outcome: "failed", code: "ERR_CANCELLED" });
     expect(f.executeRead).not.toHaveBeenCalled();
   });
   it("rejects undeclared registration without creating a session", async () => {

@@ -10,7 +10,7 @@ it("connects the SDK channel adapter to host registration, state, delivery, repl
   const host = createRpcEndpoint(transport(0)), plugin = createRpcEndpoint(transport(1));
   const manifest = { id: "dev.test.channel", name: "Channel", channels: [{ id: "inbox", title: "Inbox" }] } as PluginManifestV1;
   const recordSend = vi.fn(), run = vi.fn(async () => ({ reply: "reply" }));
-  const service = createPluginChannelService({ runner: { run }, tools: () => [], approveLocally: async () => false, recordSend });
+  const service = createPluginChannelService({ runner: { run }, tools: () => [], approveLocally: async () => false, recordSend, recordRun: vi.fn() });
   const unbind = service.bindRpc(manifest, host, { call: (_id, method, params, opts) => host.call(method, params, opts) });
   const runtime = createPluginContextProxy({ id: manifest.id, version: "1.0.0", dataDir: "/unused", permissions: [], signal: new AbortController().signal, rpc: plugin });
   let channel!: Parameters<RuntimeChannelAdapter["start"]>[0];
@@ -23,6 +23,7 @@ it("connects the SDK channel adapter to host registration, state, delivery, repl
     await service.startPlugin(manifest.id); await Promise.resolve();
     expect(service.getState(manifest.id, "inbox")).toEqual({ state: "connected" });
     await expect(channel.deliver(inbound)).resolves.toEqual({ accepted: true, sessionId: 'channel:["dev.test.channel","inbox","private","user",null]' });
+    await service.whenIdle();
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0][0]).toEqual({ chat: inbound.chat, text: "reply", replyToExternalMessageId: "in1" });
     expect(recordSend).toHaveBeenCalledWith({ pluginId: manifest.id, channelId: "inbox", result: { status: "succeeded", externalMessageId: "out1" } });

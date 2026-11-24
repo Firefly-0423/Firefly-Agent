@@ -8,6 +8,7 @@ import type { PluginHostManager } from "../host";
 export const MAX_ATTACHMENTS = 8;
 export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 export const MAX_MESSAGE_CHARS = 64_000;
+export const MAX_PENDING_CHANNEL_MESSAGES = 20;
 export interface ChannelTool {
   id: string; description: string; parameters: Record<string, unknown>; risks: readonly PluginToolRisk[];
   execute(args: Record<string, unknown>, signal: AbortSignal): Promise<unknown>;
@@ -27,6 +28,7 @@ export interface ChannelServiceDependencies {
   approveLocally(request: { sessionId: string; summary: string; signal: AbortSignal }): Promise<boolean>;
   /** Trusted host record; unknown outcomes must remain visible and must never be retried automatically. */
   recordSend(event: { pluginId: string; channelId: string; result: ChannelSendResult }): void;
+  recordRun(event: { pluginId: string; channelId: string; sessionId: string; outcome: "succeeded" | "failed"; code?: string }): void;
 }
 export interface ChannelHost {
   call<T = unknown>(pluginId: string, method: string, params: unknown, options?: { signal?: AbortSignal; timeoutMs?: number }): Promise<T | { status: "unknown"; reason: string }>;
@@ -74,6 +76,7 @@ function inbound(value: unknown): ProtocolInboundMessage {
 export function createPluginChannelService(deps: ChannelServiceDependencies) {
   const entries = new Map<string, Entry>(), modes = new Map<string, "chat" | "work">();
   const conversationRuns = new Map<string, Set<AbortController>>();
+  const queues = new Map<string, { tail: Promise<void>; size: number }>();
   const key = (pluginId: string, id: string) => JSON.stringify([pluginId, id]);
   const conversation = (pluginId: string, id: string, target: ProtocolChannelChat) => JSON.stringify([pluginId, id, target.type, target.id, target.threadId ?? null]);
   function get(pluginId: string, id: string): Entry {
@@ -132,11 +135,34 @@ export function createPluginChannelService(deps: ChannelServiceDependencies) {
     const message = inbound(params.message), generation = entry.generation;
     const sessionId = `channel:${conversation(pluginId, entry.id, message.chat)}`;
     const mode = modes.get(sessionId) ?? "chat";
+    if (signal?.aborted) throw new PluginError("ERR_CANCELLED", "Channel admission cancelled");
+    let queue = queues.get(sessionId);
+    if (queue && queue.size >= MAX_PENDING_CHANNEL_MESSAGES) throw new PluginError("ERR_RATE_LIMITED", "Channel conversation queue is full");
+    if (!queue) { queue = { tail: Promise.resolve(), size: 0 }; queues.set(sessionId, queue); }
     const controller = new AbortController(); entry.runs.add(controller);
     let sessionRuns = conversationRuns.get(sessionId);
     if (!sessionRuns) { sessionRuns = new Set(); conversationRuns.set(sessionId, sessionRuns); }
     sessionRuns.add(controller);
-    const combined = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
+    queue.size++;
+    const current = queue;
+    current.tail = current.tail.then(async () => {
+      try {
+        await runDelivery(entry, message, sessionId, mode, generation, controller);
+        recordRun("succeeded");
+      } catch (error) { recordRun("failed", error instanceof PluginError ? error.code : "ERR_INTERNAL"); }
+      finally {
+        entry.runs.delete(controller); sessionRuns.delete(controller);
+        if (!sessionRuns.size && conversationRuns.get(sessionId) === sessionRuns) conversationRuns.delete(sessionId);
+      }
+    }).finally(() => { current.size--; if (!current.size && queues.get(sessionId) === current) queues.delete(sessionId); });
+    function recordRun(outcome: "succeeded" | "failed", code?: string) {
+      try { deps.recordRun({ pluginId, channelId: entry.id, sessionId, outcome, ...(code ? { code } : {}) }); } catch { /* Observer failures cannot retry an admitted message. */ }
+    }
+    return { accepted: true, sessionId };
+  }
+  async function runDelivery(entry: Entry, message: ProtocolInboundMessage, sessionId: string, mode: "chat" | "work", generation: number, controller: AbortController) {
+    const pluginId = entry.pluginId;
+    const combined = controller.signal;
     let finished = false;
     const check = () => { guard(entry, generation); if (finished || combined.aborted) throw new PluginError("ERR_CANCELLED", "Channel run cancelled"); };
     const wait = <T>(promise: Promise<T>): Promise<T> => new Promise((resolve, reject) => {
@@ -145,12 +171,12 @@ export function createPluginChannelService(deps: ChannelServiceDependencies) {
       promise.then(resolve, reject).finally(() => combined.removeEventListener("abort", abort));
       if (combined.aborted) abort();
     });
-    const allowed = new Map<string, ChannelTool>();
-    if (mode === "work") for (const candidate of deps.tools()) {
-      if (candidate.risks.length > 0 && candidate.risks.every(risk => risk === "fs-read")) allowed.set(candidate.id, { ...candidate, risks: [...candidate.risks] });
-    }
     try {
       check();
+      const allowed = new Map<string, ChannelTool>();
+      if (mode === "work") for (const candidate of deps.tools()) {
+        if (candidate.risks.length > 0 && candidate.risks.every(risk => risk === "fs-read")) allowed.set(candidate.id, { ...candidate, risks: [...candidate.risks] });
+      }
       const result = await wait(deps.runner.run({ sessionId, mode, source: "channel", signal: combined,
         untrustedAttachments: message.attachments ?? [],
         content: wrapExternalData({ source: "channel", content: message.text }), system: EXTERNAL_DATA_UNTRUSTED_POLICY,
@@ -165,10 +191,8 @@ export function createPluginChannelService(deps: ChannelServiceDependencies) {
       }));
       check();
       await send(pluginId, entry.id, { chat: message.chat, text: result.reply, replyToExternalMessageId: message.externalMessageId });
-      return { accepted: true, sessionId };
     } finally {
-      finished = true; controller.abort(); entry.runs.delete(controller); sessionRuns.delete(controller);
-      if (!sessionRuns.size) conversationRuns.delete(sessionId);
+      finished = true; controller.abort();
     }
   }
   function reportState(pluginId: string, input: unknown) {
@@ -207,6 +231,7 @@ export function createPluginChannelService(deps: ChannelServiceDependencies) {
     };
   }
   return { registerChannel, startPlugin, stopPlugin, send, deliver, reportState, bindRpc, bindHost,
+    whenIdle: async () => { await Promise.all([...queues.values()].map(queue => queue.tail)); },
     getState: (pluginId: string, id: string) => ({ ...get(pluginId, id).state }),
     setConversationMode(pluginId: string, id: string, target: ProtocolChannelChat, mode: "chat" | "work") {
       get(pluginId, id); if (mode !== "chat" && mode !== "work") throw invalid();

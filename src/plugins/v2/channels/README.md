@@ -8,7 +8,7 @@ cannot select a mode, tool set, runner, permission grant or approval response.
 ## Composition contract
 
 The application must inject an explicitly trusted `runner.run`, `tools`,
-`approveLocally` and `recordSend`. There is no default runner or approval grant.
+`approveLocally`, `recordSend` and `recordRun`. There is no default runner or approval grant.
 `approveLocally` must use the Firefly local approval UI and honor cancellation;
 it must never use an external-platform reply to resolve a pending approval.
 `recordSend` must persist or display delivery outcomes, including `unknown`.
@@ -62,6 +62,16 @@ only `tool.execute` and `channel.send` use crash uncertainty. The `recordSend`
 callback observes automatic replies as well as explicit host sends.
 `channels.deliver`'s `accepted` flag means the host accepted the incoming message;
 it does not claim external delivery of its reply.
+
+Admission returns immediately after validation. Each conversation has a FIFO
+queue bounded at 20 admitted messages, including the active one; overflow is
+`ERR_RATE_LIMITED`. A message runs only after the preceding reply send settles.
+Background work is independent of the admission RPC signal after acceptance;
+disable, mode changes and plugin stop still cancel active and queued messages.
+`recordRun` records background failures locally without sending an error reply.
+`whenIdle()` waits for currently admitted queues, for bounded tests or shutdown.
+Work selections are memory-only; a process restart defaults every chat to Chat.
+Persistence belongs to the future channel-settings UI.
 
 ## Existing channels and verification boundary
 
