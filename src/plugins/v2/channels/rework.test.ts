@@ -86,3 +86,34 @@ it("bounds each conversation at twenty admitted messages and discards queued mes
   expect(f.run).toHaveBeenCalledTimes(1); expect(f.call.mock.calls.filter(c => c[1] === "channel.send")).toHaveLength(0);
   expect(f.recordRun).toHaveBeenCalledTimes(20);
 });
+
+function fakeRpc() {
+  const handlers = new Map<string, (params: unknown, context: { signal: AbortSignal }) => unknown>();
+  return {
+    rpc: { handle: (method: string, handler: (params: unknown, context: { signal: AbortSignal }) => unknown) => { handlers.set(method, handler); return () => { handlers.delete(method); }; } } as never,
+    invoke: (method: string, params: unknown) => handlers.get(method)!(params, { signal: new AbortController().signal }),
+  };
+}
+it("drops channels a previous activation registered so a later activation only starts what it registers", async () => {
+  const twoChannels = { id: "test.plugin", channels: [{ id: "old" }, { id: "keep" }] } as PluginManifestV1;
+  const call = vi.fn(async (_id: string, _method: string, _params: unknown) => undefined);
+  const service = createPluginChannelService({ runner: { run: async () => ({ reply: "" }) }, tools: () => [], approveLocally: async () => false, recordSend: vi.fn(), recordRun: vi.fn(), redactOutbound: text => text });
+  const first = fakeRpc();
+  const offFirst = service.bindRpc(twoChannels, first.rpc, { call }, () => true);
+  await first.invoke("channels.register", { id: "old" });
+  await first.invoke("channels.register", { id: "keep" });
+  offFirst();
+  call.mockClear();
+
+  const second = fakeRpc();
+  const offSecond = service.bindRpc(twoChannels, second.rpc, { call }, () => true);
+  await second.invoke("channels.register", { id: "keep" });
+  expect(call.mock.calls.filter(c => c[1] === "channel.start").map(c => c[2])).toEqual([{ id: "keep" }]);
+  expect(service.getState("test.plugin", "keep")).toEqual({ state: "connecting" });
+  expect(() => service.getState("test.plugin", "old")).toThrow(expect.objectContaining({ code: "ERR_UNDECLARED" }));
+
+  offFirst();
+  expect(service.getState("test.plugin", "keep")).toEqual({ state: "connecting" });
+  offSecond();
+  expect(() => service.getState("test.plugin", "keep")).toThrow(expect.objectContaining({ code: "ERR_UNDECLARED" }));
+});

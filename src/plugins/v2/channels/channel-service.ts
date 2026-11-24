@@ -221,7 +221,15 @@ export function createPluginChannelService(deps: ChannelServiceDependencies) {
     }),
       rpc.handle("channels.reportState", params => reportState(manifest.id, params)),
       rpc.handle("channels.deliver", (params, { signal }) => deliver(manifest.id, params, signal))];
-    return () => { off.forEach(stop => stop()); for (const entry of owned) disconnect(entry); owned.clear(); };
+    return () => {
+      off.forEach(stop => stop());
+      for (const entry of owned) {
+        disconnect(entry);
+        // A later activation may have re-registered the same id; only drop the entry this activation owns.
+        if (entries.get(key(entry.pluginId, entry.id)) === entry) entries.delete(key(entry.pluginId, entry.id));
+      }
+      owned.clear();
+    };
   }
   /** Returned configureRpc can be composed with other service registrations and their disposers. */
   function bindHost(host: Pick<PluginHostManager, "call" | "status" | "onStatusChange" | "onBeforeStop">, resolveManifest: (id: string) => PluginManifestV1) {
