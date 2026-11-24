@@ -1,237 +1,433 @@
-# Firefly 插件开发指南
+# Firefly 1.2.0 插件开发指南
 
-本文面向插件开发者，介绍如何从零创建、测试、打包并安装一个 Firefly 插件。权限与信任模型、存储规范及目录发布流程见 [plugin-authoring.md](./plugin-authoring.md)。
+本文面向插件开发者，完整说明 Firefly 1.2.0 插件的项目结构、`firefly.plugin.json` 逐字段规范、`ctx.*` 全部接口与协议错误码、#133 官方示例拆解，以及使用 `createTestHost()` 测试与 `firefly-plugin` CLI 打包的完整流程。安全模型与权限策略细节见 [plugin-authoring.md](./plugin-authoring.md)。
 
-> **当前 SDK 版本基线**：`@firefly_wu/plugin-sdk` **`0.2.1`**（`plugin-sdk/package.json`），对应宿主插件契约 **`CURRENT_PLUGIN_API_VERSION = 1`**（`plugin-sdk/src/api.ts`）。关于 1.2.0 设计规格中已规划但当前尚未实现的接口，见文末「[1.2.0 规划中，尚未提供](#120-规划中尚未提供)」。
+> **SDK 1.2.0 基线**：`@firefly_wu/plugin-sdk` **`1.2.0`**（`plugin-sdk/package.json`），对应清单 `schemaVersion: 1`（`firefly.plugin.json`）。本文只记录已合入主分支或已在 PR 中的能力；**外部聊天渠道（`channels` / `ctx.channels`）将在 C12 中接入，当前标为「即将提供」**。
 
-## 1. 安装 SDK 与最小目录结构
+---
 
-从 npm 或本地 tarball 安装 SDK（`plugin-sdk/README.md`）：
+## 1. 安装 SDK 与包目录结构
 
 ```bash
 npm install @firefly_wu/plugin-sdk
 ```
 
-若在本仓库基于源码构建本地 SDK 包（`examples/README.md`）：
+在本仓库源码下构建并本地安装 tarball：
 
 ```bash
 pnpm run build:plugin-sdk
 npm pack ./plugin-sdk
-# 在插件项目目录安装生成的 tarball
-npm install /path/to/firefly_wu-plugin-sdk-<版本>.tgz
+npm install /path/to/firefly_wu-plugin-sdk-1.2.0.tgz
 ```
 
-一个最小插件目录（例如 `my-plugin/`）直接放在 ZIP 根目录或唯一顶层子目录中：
+一个标准的 1.2.0 插件包目录结构如下：
 
 ```text
 my-plugin/
-├── manifest.json   # 必填：插件清单
-├── index.cjs       # 必填：entry 指定的入口文件（.cjs / .js / .mjs）
-├── icon.png        # 可选：icon 字段声明的图标（<= 2 MiB）
-└── panel.html      # 可选：settingsPanel 字段声明的设置页 HTML（<= 1 MiB）
+├── firefly.plugin.json   # 必填：1.2.0 插件清单
+├── index.mjs             # 必填：main 指定的入口文件（.mjs 或 .cjs）
+├── icon.png              # 可选：icon 字段声明的图标相对路径
+└── ui/
+    ├── settings.html     # 可选：ui.settings.entry 声明的设置面板
+    └── radar.html        # 可选：ui.windows[].entry 声明的独立窗口
 ```
 
-## 2. 编写 `manifest.json`
+**包边界规则**（`src/plugins/v2/package/boundary.ts`）：
+- `main`、`icon`、`ui.settings.entry`、`ui.windows[].entry` 必须为包根目录以内的相对路径，不允许 `..`、绝对路径、盘符、UNC 路径或指向包外的符号链接。
+- 包内禁止任何符号链接或 Windows junction。
+- `native` 不为 `true` 时，包内不得出现 `.node` 或 `.dll` 文件；且入口若运行在离线/第三方环境中，除 `@firefly_wu/plugin-sdk`（仅类型或随包携带的 ESM/CJS 运行时）外，第三方运行时依赖需随插件包一并打包（或通过 `node_modules` 随包分发且不含符号链接）。
 
-`manifest.json` 的结构由 `plugin-sdk/src/manifest.schema.json` 约束，宿主在 `src/plugins/loader.ts`（`inspectPluginDir`）与 SDK 的 `validateManifestData`（`plugin-sdk/src/validate-manifest.ts`）共同执行校验（Schema `additionalProperties: false`，不允许额外未知字段）：
+---
+
+## 2. 清单 `firefly.plugin.json` 逐字段说明
+
+清单结构由 [manifest.schema.json](../../src/shared/plugin-manifest/manifest.schema.json) 与校验器（`src/shared/plugin-manifest/validate.ts`）共同约束。**所有对象均启用 `additionalProperties: false`**，任何未定义字段都会触发 `unknown_field` 错误。
+
+### 2.1 顶层字段
 
 | 字段 | 必填 | 类型 / 约束 | 说明 |
 | --- | --- | --- | --- |
-| `apiVersion` | 是 | `1`（`CURRENT_PLUGIN_API_VERSION`） | 不等于 `1` 会被加载器拒绝 |
-| `id` | 是 | 字符串，正则 `/^[a-z0-9]+(-[a-z0-9]+)*$/` | 全局唯一小写连字符 ID（如 `weather-tool`） |
-| `name` | 是 | 非空字符串 | 展示给用户的插件名称 |
-| `version` | 是 | 合法 SemVer 字符串 | 如 `0.1.0`、`1.0.1` |
-| `description` | 是 | 字符串 | 插件说明 |
-| `author` | 是 | 字符串 | 作者署名 |
-| `entry` | 是 | `.cjs` / `.js` / `.mjs` 裸文件名 | 只能是插件目录内的单文件名，禁止路径分隔符与指向目录外的符号链接 |
-| `deps` | 否 | `PluginCapability[]` | 可选值：`"conversations"`、`"scheduler"`、`"llm"`、`"secrets"`、`"workspace"`、`"channels"` |
-| `icon` | 否 | 图片裸文件名（`.png`/`.jpg`/`.jpeg`/`.webp`/`.svg`） | 须位于插件目录内且 `<= 2 MiB` |
-| `settingsPanel` | 否 | `.html` 裸文件名 | 须位于插件目录内且 `<= 1 MiB`；存在且插件正在运行时才挂载 |
-| `settingsSection` | 否 | `"channels"` \| `"plugins"` | 面板挂载分区，缺省挂到 `"plugins"` |
-| `defaultEnabled` | 否 | 布尔值 | 仅对随应用内置的插件生效；**用户自行安装的插件首次安装一律默认停用**（`plugin-sdk/LIFECYCLE.md`、`plugin-sdk/src/api.ts`） |
+| `schemaVersion` | **是** | 常量 `1` | 必须为数字 `1`；否则报 `schema_version_unsupported` |
+| `id` | **是** | 字符串，6–64 字符，正则 `^[a-z0-9]+(\.[a-z0-9-]+){2,}$` | 反向域名唯一标识，例如 `dev.firefly.weather` |
+| `name` | **是** | 非空白字符串 | 展示给用户的插件名称 |
+| `version` | **是** | 合法 SemVer 字符串 | 如 `1.0.0`、`1.2.0-beta.1` |
+| `sdk` | **是** | 合法 SemVer 范围字符串 | 插件要求的宿主版本范围，如 `^1.2.0`；宿主版本不满足时报 `sdk_unsatisfied` |
+| `main` | **是** | 相对路径，必须以 `.mjs` 或 `.cjs` 结尾 | 插件入口模块路径 |
+| `description` | 否 | 非空白字符串 | 插件简介 |
+| `author` | 否 | 对象 `{ name, email?, url? }` | 存在时 `author.name` 必填且非空白；`email` / `url` 可选非空白 |
+| `license` | 否 | 非空白字符串 | 许可证标识，如 `"MIT"` |
+| `icon` | 否 | 相对路径（非空白字符串） | 包内图标文件路径 |
+| `platforms` | 否 | 非空枚举数组：`"win32" \| "darwin" \| "linux"` | 限定支持的操作系统平台 |
+| `native` | 否 | 布尔值 | 包含 `.node` / `.dll` 原生模块时必须为 `true`；线上目录禁止 `native: true` |
+| `tools` | 否 | `ToolManifest[]` | 静态声明插件注册的全部工具，名称不可重复 |
+| `context` | 否 | `ContextManifest[]` | 静态声明插件注册的全部上下文 Provider，id 不可重复 |
+| `channels` | 否 | `ChannelManifest[]` | **即将提供（C12 接入中）**；静态声明渠道适配器，id 不可重复 |
+| `permissions` | 否 | `PluginPermission[]` | 允许的权限枚举见下表 |
+| `ui` | 否 | `{ settings?, windows? }` | 声明设置面板与独立窗口 |
 
-示例（参考 `examples/weather-tool/manifest.json`）：
+### 2.2 嵌套对象字段
 
-```json
-{
-  "apiVersion": 1,
-  "id": "my-plugin",
-  "name": "我的示例插件",
-  "version": "0.1.0",
-  "description": "演示工具与宿主服务的最小插件。",
-  "author": "示例作者",
-  "entry": "index.cjs",
-  "defaultEnabled": false,
-  "deps": ["secrets"]
-}
-```
+- **`tools[]`**：
+  - `name`（必填，非空白，数组内唯一）：工具名，运行时 `ctx.tools.register({ name })` 必须一致。
+  - `title`（必填，非空白）：界面展示标题。
+  - `risk`（必填，非空数组）：元素只能是 `"fs-read" | "fs-write" | "shell" | "network" | "input-control"`；**禁止 `"safe"`**（错误码 `risk_safe_forbidden`）。
+  - `modes`（必填，非空数组）：元素只能是 `"work" | "code"`（Chat 模式不挂载插件工具）。
+- **`context[]`**：
+  - `id`（必填，非空白，数组内唯一）：Provider ID。
+  - `title`（必填，非空白）：展示标题。
+  - `modes`（必填，非空数组）：元素为 `"chat" | "work" | "code"`。
+  - `sources`（必填，非空数组）：元素为 `"user" | "schedule" | "plugin" | "channel"`。
+- **`channels[]`** *(即将提供，C12)*：
+  - `id`（必填，非空白，数组内唯一）、`title`（必填，非空白）。
+- **`permissions[]`**：
+  - 枚举值：`"model.generate"`、`"model.run"`、`"events"`、`"sessions.read"`、`"workspace.read"`、`"schedules"`、`"secrets"`、`"ui.windows"`。
+- **`ui.settings`**：
+  - `entry`（必填，相对路径）、`title`（必填，非空白）。
+- **`ui.windows[]`**：
+  - `id`（必填，非空白，数组内唯一）、`entry`（必填，相对路径）、`title`（必填，非空白）、`width`（可选正整数 `>= 1`）、`height`（可选正整数 `>= 1`）。
 
-## 3. 插件入口与生命周期
+> **0.x 遗留字段拒绝规则**：只要顶层出现 `apiVersion`、`entry`、`deps`、`hooks`、`settingsPanel`、`settingsSection`、`defaultEnabled` 中任一字段，校验器立即返回 `legacy_manifest`（`"这是 0.x 插件，1.2.0 不再支持"`）。
 
-入口模块导出一个满足 `FireflyPlugin`（`plugin-sdk/src/api.ts`）的对象（CJS 可同时写 `module.exports = plugin; module.exports.default = plugin;`，见 `examples/system-status/index.cjs`；ESM 通过 `export default plugin` 导出）：
+---
 
-```ts
-import type { FireflyPlugin, PluginContext } from "@firefly_wu/plugin-sdk";
+## 3. 插件入口与生命周期（`definePlugin`）
 
-const plugin: FireflyPlugin = {
-  async register(ctx: PluginContext) {
-    // 注册工具、提示词 Provider、IPC、事件监听与清理回调
-  },
-
-  async open() {
-    // 可选：用户在插件面板点击「打开」时调用（如打开独立窗口）
-  },
-
-  async unregister() {
-    // 可选：插件停止或卸载前调用的收尾钩子
-  },
-};
-
-export default plugin;
-```
-
-停止与清理顺序（依据 `src/plugins/manager.ts` 与 `examples/README.md`）：
-
-1. 宿主先触发 `beginStop()`，此时 `ctx.signal` 变为已中止，后续调用注册类接口会直接抛出“插件停止后不能再……”错误。
-2. 调用插件导出的 `unregister()`（若已定义）。
-3. 调用 `ctx.dispose()`，按**逆序**依次执行通过 `ctx.onDispose()` 登记的清理回调（每个最多执行一次）。
-
-> **注意**：不要在 `unregister()` 中提前清空模块作用域变量，又在 `onDispose()` 中把该变量写入 `ctx.storage`（参见 `examples/README.md`「当前源码限制」记录的既有教训）。需要持久化的状态应在写入发生时保存或先落盘后再清内存状态。
-
-此外，变更 `.mjs` 入口的子模块或更换版本后应通过完整重启应用生效，不要依赖页面刷新（`plugin-sdk/LIFECYCLE.md`）。
-
-## 4. 使用 `plugin-sdk` 提供的能力
-
-`@firefly_wu/plugin-sdk`（`plugin-sdk/src/index.ts`）导出以下可用成员：
-
-- 来自 `plugin-sdk/src/api.ts`：全部契约类型（如 `FireflyPlugin`、`PluginContext`、`PluginTool`、`PluginPromptProvider`、`PluginChannelAdapter`、`PluginDeps` 等）与常量/守卫函数 `CURRENT_PLUGIN_API_VERSION`、`PLUGIN_CAPABILITIES`、`PLUGIN_HOST_ERROR_CODES`、`isPluginHostError`。
-- 来自 `plugin-sdk/src/validate-manifest.ts`：`validateManifestData`、`ManifestValidationResult`。
-
-### 4.1 注册工具（`ctx.registerTool`）
-
-- 工具 `id` **必须**以 `${pluginId}_` 开头（`src/plugins/context.ts`、`plugin-sdk/src/testing/index.ts`）。
-- `inputSchema` 顶层必须是 `{ type: "object", properties: { ... }, required?: [...] }`。
-- `execute(args, ctx)` 返回字符串（`Promise<string>`）；若声明 `needsContext: true`，宿主会传入 `PluginToolContext`（含 `userQuery`、`conversationId`、`runId`、`signal`、`resolvedWorkspaceRoot`、`mode`、`permissionMode`）。
-- 建议显式声明 `risk`（`PluginToolRisk`）、`modes`（`Array<"code" | "work">`）、`effectKind`、`verificationPolicy` 与 `ledgerPolicy`（`"bypass"` 表示不按参数缓存结果）。关于为何新插件不要使用 `"safe"`，见 [plugin-authoring.md](./plugin-authoring.md)。
-
-### 4.2 注册提示词 Provider（`ctx.registerPromptProvider`）
-
-用于每轮按需补充动态上下文片段（不修改核心提示词文件）：
+入口模块通过 `definePlugin` 导出 `activate(ctx)` 与可选的 `deactivate(reason)`：
 
 ```ts
-ctx.registerPromptProvider({
-  id: "memory-context", // 框架自动补全前缀 plugin:<pluginId>:
-  modes: ["chat", "work"],
-  sources: ["conversation", "scheduler"], // 若想参与插件无头循环，须显式包含 "plugin-agent"
-  provide(input) {
-    if (input.signal.aborted) return "";
-    return `当前会话模式：${input.mode}`;
+import { definePlugin, type DeactivateReason, type PluginContext } from "@firefly_wu/plugin-sdk";
+
+const disposables: Array<{ dispose(): void }> = [];
+
+export default definePlugin({
+  async activate(ctx: PluginContext) {
+    // ctx.id, ctx.version, ctx.dataDir, ctx.signal, ctx.has(permission)
+  },
+  async deactivate(reason: DeactivateReason) {
+    // reason: "disabled" | "quit" | "upgrade" | "fault"
+    while (disposables.length > 0) disposables.pop()?.dispose();
   },
 });
 ```
 
-注意事项（`plugin-sdk/README.md`、`plugin-sdk/src/api.ts`）：
+`PluginContext` 基础只读属性与方法：
+- `ctx.id: string`、`ctx.version: string`、`ctx.dataDir: string`（插件私有持久化目录）、`ctx.signal: AbortSignal`（停用或异常退出时中止）。
+- `ctx.has(permission: string): boolean`：检查权限是否已声明且当前仍处于授予状态（用户在设置页撤销权限后会变为 `false`）。
 
-- `sources` 可选值为 `"conversation"`、`"scheduler"`、`"plugin-agent"`；省略时仅作用于 `"conversation"` 与 `"scheduler"`。
-- 返回空字符串 `""` 表示本轮不追加。只应放简短事实性上下文，不要拼接覆盖系统规则的指令。
+宿主向插件发起的生命周期 RPC 方法（`HostToPluginParams` / `HostToPluginResults`）：
 
-### 4.3 订阅与发布事件（`ctx.events`）
+| 协议方法 | 请求参数 | 返回值 | 说明 |
+| --- | --- | --- | --- |
+| `activate` | `{ id, dataDir, main, version, permissions }` | `void` | 激活入口，超时上限 10 秒 |
+| `deactivate` | `reason` 或 `{ reason }`（`"disabled" \| "quit" \| "upgrade" \| "fault"`） | `void` | 优雅停用，宽限窗口 5 秒 |
 
-- **订阅**：`ctx.events.on(event, listener)` 需使用完整命名空间 `host:*` 或 `plugin:<id>:*`，返回退订函数。单个监听器异步超时为 `5000ms`（`PLUGIN_EVENT_LISTENER_TIMEOUT_MS`，`src/plugins/events.ts`）。
-- **常用宿主事件**：
-  - `host:turn:started`（`PluginTurnStartedEvent`）与 `host:turn:finished`（`PluginTurnFinishedEvent`，按 `source: "desktop" | "channel" | "scheduler"` 收窄字段；`desktop` 分支只有在最终 assistant 消息落盘后才会带 `finalMessageId`）
-  - `host:turn:completed`（`PluginTurnCompletedEvent`，仅含元数据）
-  - `host:tool:finished`（`PluginToolFinishedEvent`）与 `host:scheduler:finished`（`PluginSchedulerFinishedEvent`）
-  - 生命周期事件 `host:plugins:ready`、`host:plugins:stopping`（`src/plugins/manager.ts`）
-- **发布自定义事件**：`await ctx.events.emit("updated", payload)` 会自动补全为 `plugin:<pluginId>:updated`（主题段须满足 `/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/`）。
+---
 
-### 4.4 注册 IPC 与设置面板（`ctx.registerIpc` + `settingsPanel`）
+## 4. `ctx.*` 接口契约全览（对齐 `plugin-protocol.ts`）
 
-- `ctx.registerIpc(channel, handler)` 自动加上命名空间 `plugin:${pluginId}:${channel}`（本地段须匹配 `/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/`，`src/plugins/context.ts`）。
-- 若清单声明 `settingsPanel: "panel.html"`，宿主通过 `firefly-plugin://<pluginId>/panel.html` 加载（`src/main/features/plugins/panel/plugin-panel-protocol.ts`）。
-- 面板 HTML 中引入 `<script src="/.firefly/panel-bridge.js"></script>` 后，即可通过 `window.FireflyPanel.invoke(channel, ...args)` 调用对应 `registerIpc` 通道，并通过 `window.FireflyPanel.onTheme(cb)` / `window.FireflyPanel.ready()` 同步主题与面板高度（`src/main/features/plugins/panel/panel-bridge.js`、`examples/system-status/panel.html`）。
+以下参数、返回值、流式分片（`PluginToHostStreamChunks`）与错误码严格对应 [src/shared/plugin-protocol.ts](../../src/shared/plugin-protocol.ts) 的三张类型表与 `plugin-sdk/src/types.ts`。
 
-### 4.5 私有存储与宿主服务（`ctx.storage` & `ctx.deps`）
+### 4.1 `ctx.tools` — 工具注册与四态返回
 
-- **`ctx.storage`**（无需 `deps` 声明）：`get<T>(key)`、`set<T>(key, value)`、`rootDir()`。注意持久化通过 `JSON.stringify` / `JSON.parse` 执行（`src/plugins/storage.ts`），不要直接存 `Map` / `Set`（参见 `examples/README.md`）。
-- **`ctx.deps`**（必须在 `manifest.json` 的 `deps` 数组声明，否则对应字段为 `undefined`）：
-  - `"secrets"` → `ctx.deps.secrets`: `get(key)`、`set(key, value)`、`delete(key)`（见 `examples/weather-tool/index.ts`）。
-  - `"llm"` → `ctx.deps.llm`: `generateText(messages, options?)`（`maxTokens` 1–8192 默认 1024，`timeoutMs` 1000–300000），可选 `runGoal?(options)` 无头目标循环（旧宿主可能缺省，插件需准备兼容回退）。
-  - `"conversations"` → `ctx.deps.conversations`: 只读 `list({ cursor?, limit? })` 与 `getMessages({ conversationId, cursor?, limit?, fromMessageId?, throughMessageId? })`（长记忆插件应使用事件中的 `inputMessageId` / `finalMessageId` 固定边界并循环游标分页）。
-  - `"workspace"` → `ctx.deps.workspace`: `getBinding(conversationId)`（只读已绑定工作区根目录与展示名）。
-  - `"scheduler"` → `ctx.deps.scheduler`: `listTasks()`、`getHistory(id, limit?)`、`createTask(input)`、`updateTask(id, patch)`、`deleteTask(id)`。只能操作本插件创建的任务，新建任务默认为停用状态且必须明确指定 `allowedToolIds`；修改执行规格（`schedule`、`prompt`、`mode`、`allowedToolIds`）会自动撤销既有用户授权（见 `examples/scheduled-automation/index.ts`）。
-  - `"channels"` → `ctx.deps.channels`: 只读 `has(id)`；注册消息渠道适配器通过 `ctx.registerChannelAdapter(adapter)` 完成（`PluginChannelAdapter`）。
-- **错误判断**：宿主服务失败时抛出 `PluginHostError`，插件应通过 `isPluginHostError(err)` 检查 `err.code`（`E_CAPABILITY_UNAVAILABLE`、`E_INVALID_ARGUMENT`、`E_NOT_FOUND`、`E_NOT_OWNER`、`E_STORAGE_UNAVAILABLE`、`E_NO_ACTIVE_INPUT_TARGET`、`E_PLUGIN_STOPPING`、`E_INTERNAL`），避免硬编码解析错误文案 `message`。
+| 方向 / 方法 | 参数类型 | 返回 / 行为 |
+| --- | --- | --- |
+| `ctx.tools.register(tool)` | `ToolDefinition<A>`: `{ name, description, parameters: JSONSchemaObject, describeApproval?(args), execute(args, call) }` | 触发 `tools.register` RPC；返回 `Disposable`（`dispose()` 触发 `tools.unregister`）。`name` 必须在清单 `tools` 中声明，否则报 `ERR_UNDECLARED` |
+| `call.progress(message, percent?)` | `{ callId, message, percent? }` | 触发 `tools.progress` 通知宿主刷新执行进度 |
+| `tool.describeApproval` *(Host → Plugin)* | `{ name, args }` | 返回 `{ summary, target? } \| null`（未实现时返回 `null`，由宿主使用默认文案） |
+| `tool.execute` *(Host → Plugin)* | `{ name, args, callId, sessionId, mode: "work" \| "code", caller: "firefly" \| { partnerId, partnerName } }` | 返回 `ToolResult`（`succeeded` / `failed` / `unknown` / `not_executed`） |
 
-## 5. 本地测试
+注意事项：
+- `parameters` 仅支持局部 `#/$defs/...` 与 `#/definitions/...` 引用（不可递归），`type: "object"`。
+- 每次工具调用默认超时 **60,000 ms**；若插件进程在调用期间崩溃，宿主向模型返回 `{ status: "unknown", reason: "Plugin process exited during tool execution" }`。
 
-`@firefly_wu/plugin-sdk/testing`（`plugin-sdk/src/testing/index.ts`）提供脱离宿主的契约检查与上下文替身：
+### 4.2 `ctx.context` — 上下文 Provider
 
-- `assertValidManifest(data)`：使用与宿主一致的 JSON Schema 检查字段结构、类型与枚举。
-- `assertPluginTool(tool, pluginId)`：校验工具 ID 是否以 `${pluginId}_` 开头、`name`/`description`、`inputSchema.type === "object"` 与 `execute` 函数。
-- `createMockPluginContext({ pluginId?, deps? })`：返回 `MockPluginContext`，记录注册的工具、Prompt Provider、IPC 通道、发出的事件、订阅记录与清理回调，并提供 `dispose()` 触发 `signal` 并逆序执行 `cleanups`。
+| 方向 / 方法 | 参数类型 | 返回值 |
+| --- | --- | --- |
+| `ctx.context.register(provider)` | `ContextProviderDefinition`: `{ id, modes: Mode[], sources: RunSource[], provide(req) }` | 触发 `context.register`，返回 `Disposable`（`dispose()` 触发 `context.unregister`）。`id`、`modes`、`sources` 必须为清单 `context` 声明的子集（否则 `ERR_UNDECLARED`） |
+| `context.provide` *(Host → Plugin)* | `{ id, sessionId, mode: "chat" \| "work" \| "code", source: "user" \| "schedule" \| "plugin" \| "channel" }` | 返回 `{ heading, content } \| null` |
 
-典型单元测试结构（参考 `scripts/plugin-sdk/smoke-examples.mjs` 与 `plugin-sdk/src/testing/index.test.ts`）：
+约束：单次 `provide` 超时 **1,500 ms**，单 Provider 最多保留 **16,000** 字符，所有 Provider 合计最多 **32,000** 字符，内容以外部数据边界标签包裹送入模型。
 
-```ts
-import { assertPluginTool, assertValidManifest, createMockPluginContext } from "@firefly_wu/plugin-sdk/testing";
-import manifest from "./manifest.json";
-import plugin from "./index";
+### 4.3 `ctx.channels` — 外部聊天渠道 *(即将提供，C12)*
 
-assertValidManifest(manifest);
-const ctx = createMockPluginContext({ pluginId: manifest.id, deps: { /* 按需要注入假服务 */ } });
-await plugin.register(ctx);
-for (const tool of ctx.tools) assertPluginTool(tool, manifest.id);
-await plugin.unregister?.();
-await ctx.dispose();
+> **状态说明**：协议与 SDK 类型已定义，桌面端 C12 渠道宿主接线**即将提供**，当前桌面主应用尚未启用渠道运行路径。
+
+协议契约预留如下（供参考）：
+- `ctx.channels.register(adapter: ChannelAdapter)`：触发 `channels.register`（需在 `manifest.channels` 声明 `id`）。
+- `ChannelHost` 回调：`reportState(s: { state: "disconnected" \| "connecting" \| "connected" \| "error", detail? })`（`channels.reportState`）与 `deliver(msg: InboundMessage)` → `{ accepted: boolean; sessionId?: string }`（`channels.deliver`）。
+- 宿主调用插件：`channel.start` (`{ id }`)、`channel.stop` (`{ id }`)、`channel.send` (`{ id, message: OutboundMessage }`) → `{ externalMessageId: string }`。
+
+### 4.4 `ctx.model` — 调用宿主模型与子代理
+
+| 方法 | 所需权限 | 参数 | 返回 / 流式分片 |
+| --- | --- | --- | --- |
+| `ctx.model.generate(req)` | `"model.generate"` | `{ prompt, system?, maxOutputTokens?, schema?, signal? }` | `Promise<{ text: string; usage?: { inputTokens, outputTokens } }>` |
+| `ctx.model.generateStream(req)` | `"model.generate"` | 同上（底层 `model.generate` 带 `stream: true`） | `AsyncIterable<{ delta: string }>` |
+| `ctx.model.run(req)` | `"model.run"`（**含首次确认**） | `{ objective, mode: Mode, sessionId?, allowPartners?, signal? }` | `{ events: AsyncIterable<RunEvent>, result: Promise<{ runId, sessionId, reply }> }` |
+
+- `model.run` 的 `RunEvent` 分片类型：`run.started`、`text.delta`、`tool.started`、`tool.completed`、`run.ended`（协议底层最后附带 `{ type: "run.result", result }` 分片）。
+- `generate` / `generateStream` / `run` 共享每分钟滑动窗口限频（默认 **10 次/分钟**，可配置 1–60，超限抛出 `ERR_RATE_LIMITED`，`retryable: true`）。
+- 模型输出与流式分片均经宿主脱敏器处理。
+
+### 4.5 `ctx.events` — 宿主事件订阅
+
+- **权限**：`"events"`。
+- **方法**：`ctx.events.on(type, fn): Disposable`（对应 `events.subscribe` 流）。
+- **支持事件与载荷**：
+  - `"run.started"`：`{ type, runId, sessionId, mode, source, at }`
+  - `"run.ended"`：`{ type, runId, sessionId, outcome: "completed" \| "cancelled" \| "failed", at }`
+  - `"tool.completed"`：`{ type, runId, tool, status: ToolResult["status"], durationMs, at }`
+  - `"schedule.completed"`：`{ type, taskId, outcome: "completed" \| "cancelled" \| "failed", at }`
+- 订阅仅包含脱敏后的元数据，单订阅队列上限 **100** 条（溢出丢弃最旧记录），撤销权限后以 `ERR_PERMISSION` 结束流。
+
+### 4.6 `ctx.sessions` 与 `ctx.workspace` — 会话与工作区只读
+
+| 接口 | 所需权限 | 参数 | 返回值 / 分片 |
+| --- | --- | --- | --- |
+| `ctx.sessions.list(o?)` | `"sessions.read"`（**首次确认**） | `{ cursor?, limit?, mode? }` | `Promise<Page<SessionSummary>>`（`{ items: [{ id, title, mode, updatedAt }], nextCursor? }`） |
+| `ctx.sessions.messages(sessionId, o?)` | `"sessions.read"`（**首次确认**） | `sessionId`, `{ cursor?, limit? }` | `Promise<Page<MessageRecord>>`（`{ items: [{ id, role, content, createdAt }], nextCursor? }`） |
+| `ctx.workspace.current(sessionId?)` | `"workspace.read"`（**首次确认**） | `sessionId?` | `Promise<{ sessionId, mode, root: string \| null, name: string \| null } \| null>` |
+| `ctx.workspace.onChange(fn)` | `"workspace.read"`（**首次确认**） | `(info: WorkspaceInfo \| null) => void` | `Disposable`（`workspace.watch` 流） |
+
+- `sessions.list` / `sessions.messages` 的 `limit` 范围为 **1–100**（默认 50），仅返回当前绑定工作区内的公开脱敏消息。
+
+### 4.7 `ctx.schedules` — 定时任务提议与回调
+
+所需权限：`"schedules"`。
+
+| 方法 | 参数 | 返回值 / 流式分片 |
+| --- | --- | --- |
+| `propose(spec)` | `{ title, schedule: Schedule, action: ScheduleAction }` | `Promise<{ taskId: string; status: "pending_approval" }>` |
+| `update(taskId, patch)` | `taskId`, `Partial<ScheduleProposalSpec>` | `Promise<{ status: "pending_approval" }>` |
+| `remove(taskId)` | `taskId: string` | `Promise<boolean>` |
+| `list()` | — | `Promise<TaskRecord[]>`（`status`: `"pending_approval" \| "active" \| "paused"`） |
+| `onTrigger(fn)` | `(e: { taskId, payload?, signal }) => Promise<void>` | `Disposable`（对应 `schedules.onTrigger` 流，chunk 为 `{ taskId, payload? }`） |
+
+- `Schedule` 支持三种形式：`{ kind: "cron", expression, timezone? }`、`{ kind: "once", at }`、`{ kind: "interval", minutes }`。
+- `ScheduleAction` 支持 `{ type: "run", prompt, mode }` 或 `{ type: "callback", payload? }`（`payload` 须可 JSON 序列化）。
+
+### 4.8 `ctx.secrets` — 加密凭据存储
+
+所需权限：`"secrets"`。
+
+| 方法 | 参数 | 返回值 |
+| --- | --- | --- |
+| `set(key, value)` | `key: string`, `value: string` | `Promise<void>` |
+| `get(key)` | `key: string` | `Promise<string \| null>` |
+| `delete(key)` | `key: string` | `Promise<boolean>` |
+| `keys()` | — | `Promise<string[]>` |
+
+底层基于 Electron `safeStorage` 加密；加密不可用时统一抛出 `ERR_UNAVAILABLE`。
+
+### 4.9 `ctx.ui` — 设置面板与独立窗口
+
+| 方法 | 权限要求 | 参数 | 返回值 / 行为 |
+| --- | --- | --- | --- |
+| `openWindow(id, state?)` | `"ui.windows"` + 清单 `ui.windows` 声明 | `id: string`, `state?: unknown` | `Promise<{ close(): Promise<void>, post(msg): Promise<void> }>`（对应 `ui.openWindow` / `ui.closeWindow` / `ui.post`） |
+| `onMessage(fn)` | 清单声明 `ui.settings`、`ui.windows` 或 `"ui.windows"` | `(e: { from: UiTarget, method, params }) => Promise<unknown>` | `Disposable`（监听 `ui.onMessage` 流并响应 `ui.message` 请求） |
+| `post(to, msg)` | 同上 | `to: { kind: "window" \| "settings", id }`, `msg: unknown` | `Promise<void>`（主动向面板或窗口推送消息） |
+
+在插件的 `ui/settings.html` 或独立窗口页面脚本中，宿主注入受限桥 `window.fireflyPlugin`（例如 `await window.fireflyPlugin.invoke(method, params)`），可直接调用插件通过 `ctx.ui.onMessage` 注册的方法。
+
+### 4.10 协议错误码一览（`PLUGIN_ERROR_CODES`）
+
+`PluginError` 自带 `code: PluginErrorCode`、`message: string`、`retryable: boolean`（支持跨包边界 `instanceof PluginError`）：
+
+| 错误码 | 典型含义 | 常见触发场景 |
+| --- | --- | --- |
+| `ERR_UNDECLARED` | 未在清单声明 | 调用未在 `permissions` 声明的能力；注册未在 `tools`/`context`/`ui.windows` 声明的条目 |
+| `ERR_PERMISSION` | 权限被拒绝或撤销 | 用户撤销权限、拒绝首次调用确认、确认 120s 超时、或 `sessions.messages` 越权访问其他 `sessionId` |
+| `ERR_REJECTED` | 被宿主或审批拒绝 | 工具审批被用户拒绝、或输入策略明确拒绝请求 |
+| `ERR_CANCELLED` | 请求已取消 | `AbortSignal` 已中止、插件停用中、或用户点击「停止借用模型」 |
+| `ERR_TIMEOUT` | 操作超时 | 进程激活超时（10s）、上下文收集超时（1.5s）、工具或模型调用超时（`retryable` 视调用而定） |
+| `ERR_INVALID_ARGUMENT` | 参数校验失败 | RPC 入参多余未知字段、非法页码/limit、空 key、非法 JSON Schema |
+| `ERR_RATE_LIMITED` | 触发限频 | `model.generate` / `model.run` 超过每分钟配额（`retryable: true`） |
+| `ERR_UNAVAILABLE` | 宿主服务或进程不可用 | 模型未配置、`safeStorage` 不可用、插件进程已退出、旧激活句柄失效、或上游网络临时不可用（网络错误 `retryable: true`） |
+| `ERR_INTERNAL` | 内部错误 | 未预期的序列化、存储或内部异常 |
+
+---
+
+## 5. 官方示例插件参考（PR #133）
+
+仓库 `plugin-sdk/examples/`（来自 PR #133）提供两个完整可运行的 1.2.0 示例插件：
+
+1. **天气查询（`plugin-sdk/examples/dev.firefly.weather`）**：
+   - 清单声明 `secrets` 权限、`network` 风险工具 `get_weather`（`modes: ["work", "code"]`）以及设置面板 `ui.settings`（`ui/settings.html` + `ui/settings.js`）。
+   - 展示：入参校验失败先返回 `not_executed`（不触碰密钥或网络）、`ctx.secrets` 读写 API Key、超时/网络故障返回 `failed`（`retryable`）、取消返回 `not_executed`，以及设置页通过 `window.fireflyPlugin.invoke` 与 `ctx.ui.onMessage` 交互。
+2. **定时提醒（`plugin-sdk/examples/dev.firefly.reminder`）**：
+   - 清单声明 `schedules` 与 `model.generate` 权限，以及 `create_daily_reminder`（`fs-write`）和 `list_reminders`（`fs-read`）两个工具。
+   - 展示：`ctx.schedules.propose` 创建 `pending_approval` 的每日 `callback` 任务、`ctx.schedules.onTrigger` 触发回调时二次检查 `status === "active"` 并调用 `ctx.model.generate` 生成提醒文本。
+
+下面是一个结合工具、上下文 Provider 与状态清理的完整可测插件与清单示例：
+
+<!-- doc-example: manifest id=guide-notes -->
+```json
+{
+  "schemaVersion": 1,
+  "id": "dev.firefly.notes",
+  "name": "随手记示例",
+  "version": "1.0.0",
+  "sdk": "^1.2.0",
+  "description": "演示工具、上下文 Provider 与 secrets 协同工作。",
+  "author": {
+    "name": "Firefly-0423"
+  },
+  "license": "MIT",
+  "main": "index.mjs",
+  "native": false,
+  "permissions": ["secrets", "events"],
+  "tools": [
+    {
+      "name": "save_note",
+      "title": "保存笔记",
+      "risk": ["fs-write"],
+      "modes": ["work", "code"]
+    }
+  ],
+  "context": [
+    {
+      "id": "recent_note",
+      "title": "最近笔记",
+      "modes": ["chat", "work", "code"],
+      "sources": ["user", "schedule"]
+    }
+  ]
+}
 ```
 
-> **Mock 已知局限**（`plugin-sdk/README.md`、`examples/README.md`）：
-> 1. `ctx.dispose()` 只中止信号并逆序执行 `onDispose` 回调，**不会代调 `plugin.unregister()`**，测试中若要覆盖停止路径须显式先调 `unregister()`。
-> 2. Mock 存储使用内存 `Map` 保存对象引用，不做 `JSON.stringify` 序列化（无法替真实宿主暴露 `Map` 序列化丢失等问题）。
-> 3. `registerChannelAdapter()` / `unregisterChannelAdapter()` 与真实 Electron 窗口、宿主格式检查（如 `id` 正则、SemVer、入口文件存在性、ZIP 边界）均需真实宿主验收。
+<!-- doc-example: plugin id=guide-notes -->
+```ts
+import { definePlugin, type PluginContext } from "@firefly_wu/plugin-sdk";
 
-在本仓库内可执行以下插件验证命令（`package.json`、`examples/README.md`）：
+export function createNotesPlugin() {
+  const disposables: Array<{ dispose(): void }> = [];
+  let lastNote = "";
 
-- `pnpm run check:plugin-sdk`：构建 SDK 并校验导出包内容。
-- `pnpm run test:plugin-examples`：打包 SDK tarball，在临时目录编译 4 个 TS 示例并通过 `scripts/plugin-sdk/smoke-examples.mjs` 冒烟验证。
-- `pnpm run test:plugin-marketplace`：验证离线目录构建与插件市场测试。
-- `pnpm run check:plugin-schema`：检查 `plugin-sdk/src/manifest.schema.json` 与 `api.ts` 类型定义是否同步。
+  return definePlugin({
+    activate(ctx: PluginContext) {
+      disposables.push(
+        ctx.tools.register({
+          name: "save_note",
+          description: "保存一条短笔记到内存与加密存储。",
+          parameters: {
+            type: "object",
+            properties: {
+              text: { type: "string", minLength: 1 },
+            },
+            required: ["text"],
+            additionalProperties: false,
+          },
+          describeApproval(args) {
+            return { summary: "保存一条短笔记", target: String(args.text ?? "").slice(0, 20) };
+          },
+          async execute(args, call) {
+            if (call.signal.aborted) {
+              return { status: "not_executed", reason: "已取消" };
+            }
+            const text = typeof args.text === "string" ? args.text.trim() : "";
+            if (!text) {
+              return { status: "not_executed", reason: "text 不能为空" };
+            }
+            if (!ctx.has("secrets")) {
+              return { status: "failed", error: "缺少 secrets 权限", retryable: false };
+            }
+            await ctx.secrets.set("latest_note", text);
+            lastNote = text;
+            return { status: "succeeded", output: { saved: true, length: text.length }, summary: "已保存笔记" };
+          },
+        }),
+      );
 
-## 6. 打包与本地安装
+      disposables.push(
+        ctx.context.register({
+          id: "recent_note",
+          modes: ["chat", "work", "code"],
+          sources: ["user", "schedule"],
+          async provide(req) {
+            if (req.signal.aborted || !lastNote) return null;
+            return { heading: "最近笔记", content: lastNote };
+          },
+        }),
+      );
+    },
 
-1. **处理运行时依赖**：
-   - 若插件入口**仅**使用 `import type` 引用 `@firefly_wu/plugin-sdk`（参考 `examples/weather-tool/index.ts`），编译后的 `.cjs` / `.js` / `.mjs` 不需要带第三方运行包。
-   - 若入口**实际导入** SDK 函数或常量（如 `isPluginHostError`、`validateManifestData`、`PLUGIN_CAPABILITIES` 等），**必须**将运行时代码及其依赖（如 `ajv`）随入口一并打包进插件目录（`plugin-sdk/README.md`、`examples/README.md`）。
-2. **ZIP 包约束**（`src/plugins/installer.ts` `PLUGIN_ZIP_LIMITS` 与路径校验）：
-   - 必须为 `.zip` 扩展名，非加密 ZIP。
-   - `manifest.json` 必须位于 ZIP 根目录，或位于唯一的顶层子目录内（忽略 `__MACOSX`）。
-   - 条目数 `<= 2000`，压缩包总大小 `<= 50 MiB`，单文件解压后 `<= 50 MiB`，总解压大小 `<= 200 MiB`；超过 `1 MiB` 的条目压缩比不得高于 `200`。
-   - 禁止符号链接（symlink）、路径穿越（`..` / 绝对路径 / 盘符）、大小写冲突重复路径、Windows 保留文件名，且禁止包含宿主保留文件 `firefly-market.json`。
-3. **安装与生效**：
-   - 打开聊天窗口的插件面板导入 ZIP；首次导入后默认为**停用**状态，确认可信后手动启用。
-   - 若替换或更新已安装插件，新版本写入独立版本目录，**需完整退出整个应用并重新启动**才会尝试切换到新版本（关闭聊天窗口不等于完整重启，`plugin-sdk/LIFECYCLE.md`）。
+    deactivate() {
+      while (disposables.length > 0) disposables.pop()?.dispose();
+    },
+  });
+}
 
-## 7. 常见错误排查
+export default createNotesPlugin();
+```
 
-| 错误或现象 | 常见原因与排查方向 |
-| --- | --- |
-| `宿主未提供已声明的依赖: <name>` | `deps` 写了不受支持的字段，或精简测试环境未注入对应宿主服务（`src/plugins/context.ts`） |
-| `E_CAPABILITY_UNAVAILABLE` / `deps.<x>` 为 `undefined` | 忘记在 `manifest.json` 的 `deps` 数组中声明对应能力，或对应服务当前不可用 |
-| `工具 id 必须以 "<pluginId>_" 开头` | 工具 `id` 命名未加 `<pluginId>_` 前缀 |
-| `manifest` 结构或路径校验失败 | 存在未在 Schema 定义的多余字段、`apiVersion !== 1`、`id` 非小写连字符、`entry` 写了子路径（如 `dist/index.js`）或扩展名非 `.cjs`/`.js`/`.mjs` |
-| ZIP 导入报错被拒 | 未将 `manifest.json` 放在根目录或唯一顶层目录、含符号链接、`firefly-market.json`、超限或大小写重复路径（`src/plugins/installer.ts`） |
-| 导入 SDK 运行时函数后在宿主报模块找不到 | TS 编译未把 `@firefly_wu/plugin-sdk` / `ajv` 打包进插件目录，仅直接复制了裸 `index.js`（`examples/README.md`） |
-| 安装更新后仍运行旧代码 / 修改 `.mjs` 子模块未生效 | 宿主不热切换正在运行的插件目录，且 ESM 模块缓存需完整退出并重启应用才失效（`plugin-sdk/LIFECYCLE.md`） |
-| 停用重启后 `ctx.storage` 变成空值或丢方法 | 存了 `Map` 等非 JSON 原生对象（恢复后变普通对象），或在 `unregister()` 先清状态后才在 `onDispose()` 写盘（`examples/README.md`） |
+---
 
-## 1.2.0 规划中，尚未提供
+## 6. 使用 `createTestHost()` 编写自动化测试
 
-仓库中存在设计规格文档 [plugin-sdk-1-2-0.md](../superpowers/specs/plugin-sdk-1-2-0.md)（状态：设计规格），规划对插件系统进行不兼容 0.x 的全新重构。**以下 1.2.0 能力在当前源码（`plugin-sdk/package.json` `0.2.1` 与 `plugin-sdk/src/`）中均尚未提供，切勿在当前插件中使用**：
+使用 `@firefly_wu/plugin-sdk/testing` 在无 Electron 环境下覆盖工具调用、上下文注入、权限档位与权限撤销：
 
-- **包版本与工具链**：`@firefly_wu/plugin-sdk@1.2.0`、`bin` 命令 `firefly-plugin validate` / `firefly-plugin pack`（`.ffplugin` 包格式）目前均不存在（当前 `plugin-sdk/package.json` 无 `bin` 字段）。
-- **新入口与错误处理**：`definePlugin`、`PluginError` / `PluginErrorCode`（`ERR_UNDECLARED`、`ERR_PERMISSION`、`ERR_RATE_LIMITED` 等）、新 `PluginContext` 布局（`ctx.version`、`ctx.dataDir`、`ctx.has()`、`ctx.tools`、`ctx.context`、`ctx.channels`、`ctx.model`、`ctx.sessions`、`ctx.workspace`、`ctx.schedules`、`ctx.secrets`、`ctx.ui`）及工具结构化四态返回值 `ToolResult` / `ToolCall.progress()` 均未实现。
-- **新清单 `firefly.plugin.json`**：`schemaVersion: 1`、反向域名 `id`（`^[a-z0-9]+(\.[a-z0-9-]+){2,}$`）、`sdk`、`native` 标识、`permissions` 声明数组、工具 `risk` 必填且禁止 `"safe"`、独立窗口列表 `ui.windows` 等规则尚未接入当前加载器（当前仍读 `manifest.json` 与 `apiVersion: 1`）。
-- **进程隔离与窗口桥**：基于 Electron `utilityProcess` 的独立插件进程、512 MB 内存轮询上限、60 秒 3 次崩溃熔断、`MessagePortMain` 通信帧、以及独立窗口桥 `window.fireflyPlugin` 均未实现；当前设置面板桥为 `/.firefly/panel-bridge.js`（`window.FireflyPanel`），插件代码仍在主进程运行。
-- **测试替身 `createTestHost()`**：`@firefly_wu/plugin-sdk/testing` 当前仅导出 `createMockPluginContext`、`assertPluginTool`、`assertValidManifest`，尚无 `createTestHost()`。
-- **权限、限频与数据边界收紧**：删去 `project-read-only`/`scoped` 旧档位值、插件 `shell` 在 `read-only` 档位改为询问、渠道 Work 仅放行 `fs-read`、模型调用每分钟默认 10 次限频与界面借用提示，以及切换到 `%APPDATA%\Firefly-1.2.0` 不迁移旧版 0.x 插件等事项均尚在规划或待实施阶段。
+<!-- doc-example: test id=guide-notes manifest=guide-notes plugin=guide-notes -->
+```ts
+import { expect } from "vitest";
+import { createTestHost } from "@firefly_wu/plugin-sdk/testing";
+
+export async function verifyGuideNotesPlugin(manifest: any, plugin: any) {
+  const host = createTestHost({
+    manifest,
+    mode: "work",
+    level: "per-action",
+    approvalDecision: "allow",
+  });
+
+  await host.activate(plugin);
+
+  // 未保存前上下文返回 null
+  await expect(host.provideContext("recent_note", { mode: "work", source: "user" })).resolves.toBeNull();
+
+  // 执行工具并校验 secrets 写入与上下文产出
+  const res = await host.callTool("save_note", { text: "1.2.0 文档已完成" });
+  expect(res.status).toBe("succeeded");
+  expect(host.secrets.get("latest_note")).toBe("1.2.0 文档已完成");
+
+  const provided = await host.provideContext("recent_note", { mode: "work", source: "user" });
+  expect(provided).toEqual({ heading: "最近笔记", content: "1.2.0 文档已完成" });
+
+  // 在 read-only 档位下，fs-write 工具被权限策略拒绝（not_executed）
+  host.setLevel("read-only");
+  await expect(host.callTool("save_note", { text: "应被拒绝" })).resolves.toMatchObject({
+    status: "not_executed",
+  });
+
+  // 恢复 full 档位后撤销 secrets 权限，验证 failed 结果
+  host.setLevel("full");
+  host.revokePermission("secrets");
+  await expect(host.callTool("save_note", { text: "无权限" })).resolves.toMatchObject({
+    status: "failed",
+    retryable: false,
+  });
+
+  await host.deactivate("disabled");
+}
+```
+
+---
+
+## 7. 校验、打包与安装 `.ffplugin`
+
+1. **校验插件目录**：
+
+```bash
+npx firefly-plugin validate ./my-plugin --host-version 1.2.0
+```
+
+2. **打包为 `.ffplugin`（确定性 ZIP 归档）**：
+
+```bash
+npx firefly-plugin pack ./my-plugin -o ./dist/my-plugin-1.0.0.ffplugin
+```
+
+3. **在 Firefly 1.2.0 中导入与启用**：
+   - 在设置页插件管理中导入生成的 `.ffplugin` 文件。
+   - 新导入的插件默认为**停用**状态，须确认信任提示与权限列表后手动启用。
+   - 启用后如涉及 `sessions.read`、`workspace.read`、`model.run`，会在首次调用时弹出单独确认框；在设置页撤销权限会立即生效。
