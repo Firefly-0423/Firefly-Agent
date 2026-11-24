@@ -8,7 +8,7 @@ cannot select a mode, tool set, runner, permission grant or approval response.
 ## Composition contract
 
 The application must inject an explicitly trusted `runner.run`, `tools`,
-`approveLocally`, `recordSend` and `recordRun`. There is no default runner or approval grant.
+`approveLocally`, `recordSend`, `recordRun` and `redactOutbound`. There is no default runner or approval grant.
 `approveLocally` must use the Firefly local approval UI and honor cancellation;
 it must never use an external-platform reply to resolve a pending approval.
 `recordSend` must persist or display delivery outcomes, including `unknown`.
@@ -72,6 +72,19 @@ disable, mode changes and plugin stop still cancel active and queued messages.
 `whenIdle()` waits for currently admitted queues, for bounded tests or shutdown.
 Work selections are memory-only; a process restart defaults every chat to Chat.
 Persistence belongs to the future channel-settings UI.
+
+All sends, including explicit host sends, pass through mandatory `redactOutbound`
+before any plugin RPC. There is no identity fallback. G38 application composition
+must adapt `redactPluginText` from
+`src/main/features/plugins/host/plugin-v2-redaction.ts` on `feat/plugin-v2-wiring`,
+supplying its current protected directories and secrets. This package establishes
+the interface; it does not copy or silently replace that application redactor.
+
+Sends have an explicit 30-second deadline. Trusted `RpcOptions.onPosted` runs
+after successful transport posting and never crosses the wire. Timeout,
+cancellation or unavailability after posting is recorded as `unknown`; the same
+errors before posting remain rejections. Neither outcome triggers a retry.
+Host adapters must forward RpcOptions unchanged, including `onPosted`.
 
 ## Existing channels and verification boundary
 

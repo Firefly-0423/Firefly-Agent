@@ -30,6 +30,7 @@ export interface ChannelServiceDependencies {
   /** Trusted host record; unknown outcomes must remain visible and must never be retried automatically. */
   recordSend(event: { pluginId: string; channelId: string; result: ChannelSendResult }): void;
   recordRun(event: { pluginId: string; channelId: string; sessionId: string; outcome: "succeeded" | "failed"; code?: string }): void;
+  redactOutbound(text: string): string;
 }
 export interface ChannelHost {
   call<T = unknown>(pluginId: string, method: string, params: unknown, options?: RpcOptions): Promise<T | { status: "unknown"; reason: string }>;
@@ -121,10 +122,12 @@ export function createPluginChannelService(deps: ChannelServiceDependencies) {
   }
   async function send(pluginId: string, id: string, message: ProtocolOutboundMessage, options?: Pick<RpcOptions, "signal">): Promise<ChannelSendResult> {
     const entry = get(pluginId, id); guard(entry);
+    const outbound = { ...message, text: deps.redactOutbound(message.text) };
+    if (typeof outbound.text !== "string") throw new PluginError("ERR_INTERNAL", "Outbound redactor returned invalid text");
     let posted = false;
     let result: HostToPluginResults["channel.send"] | { status: "unknown"; reason: string };
     try {
-      result = await entry.host.call<HostToPluginResults["channel.send"]>(pluginId, "channel.send", { id, message } satisfies HostToPluginParams["channel.send"],
+      result = await entry.host.call<HostToPluginResults["channel.send"]>(pluginId, "channel.send", { id, message: outbound } satisfies HostToPluginParams["channel.send"],
         { timeoutMs: CHANNEL_SEND_TIMEOUT_MS, ...(options?.signal ? { signal: options.signal } : {}), onPosted: () => { posted = true; } });
     } catch (error) {
       if (!posted || !(error instanceof PluginError) || !["ERR_TIMEOUT", "ERR_CANCELLED", "ERR_UNAVAILABLE"].includes(error.code)) throw error;

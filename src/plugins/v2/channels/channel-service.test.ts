@@ -17,7 +17,7 @@ function fixture() {
   const recordSend = vi.fn();
   const recordRun = vi.fn();
   const call = vi.fn(async (_id: string, method: string, _params: unknown) => method === "channel.send" ? { externalMessageId: "out1" } : undefined);
-  const service = createPluginChannelService({ runner: { run }, tools: () => tools, approveLocally, recordSend, recordRun });
+  const service = createPluginChannelService({ runner: { run }, tools: () => tools, approveLocally, recordSend, recordRun, redactOutbound: text => text });
   const accept = service.deliver;
   service.deliver = async (...args) => { const result = await accept(...args); await service.whenIdle(); return result; };
   service.registerChannel(manifest, { id: "inbox" }, { call });

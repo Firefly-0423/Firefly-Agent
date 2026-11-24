@@ -8,11 +8,29 @@ function fixture() {
   const run = vi.fn(async (_request: ChannelRunRequest) => ({ reply: "answer" }));
   const call = vi.fn(async (_id: string, method: string) => method === "channel.send" ? { externalMessageId: "out" } : undefined);
   const recordRun = vi.fn(), recordSend = vi.fn();
-  const service = createPluginChannelService({ runner: { run }, tools: () => [], approveLocally: async () => false, recordSend, recordRun });
+  const redactOutbound = vi.fn((text: string) => text.replaceAll("sk-fixture-secret", "[secret]").replaceAll("C:\\Private\\secret.txt", "[path]"));
+  const service = createPluginChannelService({ runner: { run }, tools: () => [], approveLocally: async () => false, recordSend, recordRun, redactOutbound });
   service.registerChannel(manifest, { id: "inbox" }, { call });
-  return { service, run, call, recordRun, recordSend };
+  return { service, run, call, recordRun, recordSend, redactOutbound };
 }
 afterEach(() => vi.useRealTimers());
+it("redacts both model replies and explicit host sends before they cross the plugin boundary", async () => {
+  const f = fixture(); await f.service.startPlugin(manifest.id);
+  const raw = "key=sk-fixture-secret path=C:\\Private\\secret.txt";
+  f.run.mockResolvedValue({ reply: raw });
+  await f.service.deliver(manifest.id, message()); await f.service.whenIdle();
+  await f.service.send(manifest.id, "inbox", { chat: { type: "private", id: "user" }, text: raw });
+  const sent = f.call.mock.calls.filter(c => c[1] === "channel.send");
+  expect(sent).toHaveLength(2);
+  for (const call of sent) expect(call[2].message.text).toBe("key=[secret] path=[path]");
+  expect(JSON.stringify(sent)).not.toContain("sk-fixture-secret"); expect(JSON.stringify(sent)).not.toContain("Private");
+  expect(f.redactOutbound).toHaveBeenCalledTimes(2);
+});
+it("never posts an outbound message when the mandatory redactor fails", async () => {
+  const f = fixture(); await f.service.startPlugin(manifest.id); f.redactOutbound.mockImplementation(() => { throw Error("redaction unavailable"); });
+  await expect(f.service.send(manifest.id, "inbox", { chat: { type: "private", id: "u" }, text: "secret" })).rejects.toThrow("redaction unavailable");
+  expect(f.call.mock.calls.filter(c => c[1] === "channel.send")).toEqual([]); expect(f.recordSend).not.toHaveBeenCalled();
+});
 it.each(["ERR_TIMEOUT", "ERR_CANCELLED", "ERR_UNAVAILABLE", "ERR_PERMISSION"] as const)("classifies %s only after posting and records a single send attempt", async code => {
   const f = fixture(); await f.service.startPlugin(manifest.id);
   f.call.mockImplementation(async (_id, _method, _params, options) => { options?.onPosted?.(); throw new PluginError(code, "synthetic"); });

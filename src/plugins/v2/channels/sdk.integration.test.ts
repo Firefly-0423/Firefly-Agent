@@ -10,7 +10,7 @@ it("connects the SDK channel adapter to host registration, state, delivery, repl
   const host = createRpcEndpoint(transport(0)), plugin = createRpcEndpoint(transport(1));
   const manifest = { id: "dev.test.channel", name: "Channel", channels: [{ id: "inbox", title: "Inbox" }] } as PluginManifestV1;
   const recordSend = vi.fn(), run = vi.fn(async () => ({ reply: "reply" }));
-  const service = createPluginChannelService({ runner: { run }, tools: () => [], approveLocally: async () => false, recordSend, recordRun: vi.fn() });
+  const service = createPluginChannelService({ runner: { run }, tools: () => [], approveLocally: async () => false, recordSend, recordRun: vi.fn(), redactOutbound: text => text });
   const unbind = service.bindRpc(manifest, host, { call: (_id, method, params, opts) => host.call(method, params, opts) });
   const runtime = createPluginContextProxy({ id: manifest.id, version: "1.0.0", dataDir: "/unused", permissions: [], signal: new AbortController().signal, rpc: plugin });
   let channel!: Parameters<RuntimeChannelAdapter["start"]>[0];
