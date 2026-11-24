@@ -1,51 +1,40 @@
-# 用户插件安装、更新与恢复
+# Firefly 1.2.0 插件运行生命周期与隔离说明
 
-本说明对应主应用注入 `PluginVersionStore` 的用户插件流程。API v1 和插件 `register/unregister` 接口不变。插件仍以应用权限在主进程执行 Node.js；目录隔离、摘要和来源记录都不是执行沙箱。
+本文说明 Firefly 1.2.0 插件宿主（`src/plugins/v2/host`）如何管理已安装插件的进程生命周期、状态迁移、超时熔断与隔离边界。插件开发接口见 [README.md](./README.md) 与 [插件开发指南](../docs/plugins/plugin-dev-guide.md)。
 
-## 安装与版本
+> **与 0.x / 1.1.x 的差异**：早期的 `apiVersion: 1`、`register/unregister`、主进程直跑 Node 代码与 `plugins/` + `plugin-install-state/` 机制已在 1.2.0 中废弃；1.2.0 不读取、不迁移 1.1.x 的 `plugins/`、`plugin-data/` 与 0.x 插件（历史 1.1.x 验收记录见 [docs/plugin-lifecycle-validation.md](../docs/plugin-lifecycle-validation.md)）。
 
-- 首次安装默认停用，不执行插件代码。用户确认可信后单独启用。
-- 更新包保存到独立版本目录，当前实例继续使用原目录。更新不热加载；退出整个应用并重新启动后才尝试切换，关闭聊天窗口不等于重启。
-- 列表分别显示已安装、实际运行和待生效版本。安装完成不代表激活成功。一次只接受一个待生效版本。
-- 禁用插件的更新在重启后仍保留未验证候选，直到用户首次启用且注册成功；首次启用失败会恢复旧选择。已完成重启的禁用候选可以直接启用，不必再次重启。
-- 卸载停止插件并清理归属任务，移除启动选择；已加载代码目录留到下一次完整启动时清理。私有数据与 secrets 保留。同进程卸载重装不能绕过重启要求。
-- 市场按宿主已验证目录快照记录来源与 ZIP SHA；本地 ZIP 记为本地来源。禁止不同已知来源静默接管同一 ID。本地 ZIP 或随附离线插件转为在线目录来源时，必须先通过包校验，再在宿主原生替换对话框中明确确认来源变更；授权绑定旧选择、旧/新来源与新 ZIP 摘要，仅暂存候选，失败仍恢复旧来源。不同在线目录之间的来源转换不受此授权放行。旧来源信息不完整时标为“历史安装，来源未核实”，不会自动当成官方来源。
+## 进程隔离与启动环境
 
-## 宿主存储
+- 已启用插件运行在独立的 Electron `utilityProcess` 中，宿主通过 `MessageChannelMain` 建立 `MessagePort` 二进制帧 RPC 通道（`src/shared/plugin-rpc.ts`）。
+- 子进程启动使用精简环境变量（`cleanPluginEnvironment`）：仅保留系统加载所需的 `SystemRoot`/`PATH` 与可写临时目录 `TEMP`/`TMP`，**不继承宿主的 `NODE_OPTIONS`、代理变量、应用设置或系统凭据**。
+- **进程隔离不是安全沙箱**：插件进程仍具备 Node.js 文件系统与网络访问能力；隔离保护的是宿主稳定性与宿主私有数据。因此安装后默认停用，启用须由用户确认可信。
 
-相对 userData：
+## 状态机与转换
 
-| 路径 | 用途 |
-|---|---|
-| `plugin-packages/<SHA256(pluginId)>/<UUID>/` | 独立代码版本；宿主不就地覆盖 |
-| `plugin-install-state/<id>.json` | v2 权威状态：selected、pending、previous、phase、revision |
-| `plugin-install-state/<id>.json.pending` | 复制前落盘的回收标记；首次提交失败或复制中断也能被下一次启动发现 |
-| `plugin-install-metadata/` | 保留原 v1 来源信息用于诊断，不作为新版本的选择依据 |
-| `plugins/<原目录名>/` | 旧代码位置，目录名不一定等于 ID；迁移时复制而不移动，v2 记录建立后不再重复加载 |
-| `plugin-data/<id>/` | 既有私有数据，版本切换与卸载不删除 |
+宿主为每个插件维护以下六种状态（`PluginHostStatus`）：
 
-迁移在执行旧插件前完成，保持 ID、启用设置和数据路径。代码树摘要与 ZIP 摘要分别记录；前者不能冒充原始 ZIP 的 SHA。记录不保存可执行绝对路径，读写与清理拒绝路径穿越和链接。
+| 状态 | 含义 |
+| --- | --- |
+| `disabled` | 停用状态（首次安装默认状态，或用户手动停用 / 正常停止完成） |
+| `starting` | 正在拉起 `utilityProcess` 并等待 `activate(ctx)` 完成 |
+| `enabled` | 激活成功，正在运行并响应宿主调用 |
+| `stopping` | 正在向插件发送 `deactivate(reason)` 并等待资源释放 |
+| `restarting` | 意外退出后的退避重启等待期 |
+| `disabled-fault` | 启动失败、内存超限或熔断后的故障停用状态，需用户或宿主显式恢复 |
 
-每个 ID 保留正式版本、一个前版本及一个待切换版本。仅在该进程尚未加载该 ID 的启动阶段清理无引用目录。磁盘异常时保留状态及目录供诊断，不执行无引用包。
+停止原因（`DeactivateReason`）包括：`"disabled"`（用户停用）、`"quit"`（应用退出）、`"upgrade"`（版本升级）、`"fault"`（异常终止）。
 
-迁移记录保存原目录名和树摘要；卸载清理旧目录前再次验证 ID 和摘要。目录已改变时保留并报告人工清理要求，不按 ID 猜测目录。缺少迁移身份的早期 v2 记录也不会触发旧目录删除。
+## 超时、内存上限与崩溃熔断
 
-**不要将迁移后的配置目录直接交给旧版应用使用。** 旧版不知道 v2 选择记录，可能重新读取遗留代码目录。降级前应退出应用并备份整个配置目录，使用独立旧版配置副本；不得只删除 v2 记录来“恢复”。
+- **启动激活超时**：拉起进程并执行 `activate(ctx)` 的总预算为 **10 秒**（`10_000 ms`），超时抛出 `ERR_TIMEOUT` 并转入 `disabled-fault`。
+- **优雅停用窗口**：`stop()` 向插件发送 `deactivate(reason)`，最多等待 **5 秒**（`5_000 ms`），随后关闭 RPC 与端口；若进程未主动退出，经 `750 ms` 宽限期后强制终止子进程。
+- **内存监控**：宿主每秒（`1_000 ms`）轮询 `app.getAppMetrics()` 检查插件进程工作集大小，默认上限为 **512 MiB**（`memoryLimitMb ?? 512`），超限立即终止并按崩溃处理。
+- **自动重启与熔断**：非正常退出时按 `1 秒 → 5 秒 → 30 秒` 退避自动重启；若 **60 秒内累计崩溃达到 3 次**，触发熔断并进入 `disabled-fault`，不再自动拉起。
+- **工具调用中断**：若工具执行期间插件进程意外退出，宿主向模型返回 `{ status: "unknown", reason: "Plugin process exited during tool execution" }`，触发不确定副作用保护且禁止自动重试。
 
-## 失败边界
+## 数据目录与包校验边界
 
-启动候选版本前持久化 `activating`；注册成功后才提交选择。注册失败、超时或提交期间取消会停止 Context、有限等待清理，并恢复原选择；当次进程不重新加载旧代码。下一次完整启动才恢复旧版本。发现上次遗留 `activating` 时保守恢复，不反复尝试候选包。
-
-包已保存而选择记录提交失败会返回 `installation: committed`、`activation: failed`，不能报告为完全未安装或正在运行。记录无法恢复时需要人工检查，不能删除目录或反复启用尝试。
-
-这里恢复的是宿主选择与所登记的资源。网络请求、外部文件写入及插件私有数据迁移无法撤销。插件应让数据迁移向后兼容，并在 `register` 失败及取消时释放自行创建的资源。同步死循环不能由同进程超时中断。
-
-主应用的管理 IPC 校验实时宿主、主 frame 及预期页面。普通设置保存不能写入 `plugins` 映射。设置面板只对实际运行实例开放；停用、失败或移除会销毁 iframe，拒绝旧桥消息。
-
-## 开发与验证
-
-更改入口或 ESM 子模块后重新打包 ZIP，导入并完整重启应用；不要依赖刷新按钮清除 ESM 子模块缓存。开发者也不应直接修改宿主管理的版本目录，摘要不一致将拒绝加载。
-
-`PluginManager` 的低层嵌入接口仍支持未注入版本存储的旧行为，仅用于兼容既有嵌入与旧测试。主应用 `startPluginRuntime` 始终注入版本存储；新的宿主集成必须如此配置。版本行为以 `manager-versions.test.ts` 的新进程测试为准。
-
-在线 registry 固定为本仓库 `plugin-catalog` 分支的目录；ZIP 仅允许本仓库 Release 路径，兼容 `Firefly_Agent` 到 `Firefly-Agent` 的改名跳转。具体地址与发布步骤见 [目录发布说明](../../docs/plugin-catalog-publishing.md)。这些规则不代表任意外部仓库插件均可安装，也不表示 SDK 已发布到 npm。
+- 每个插件获得独立的 `ctx.dataDir`（位于 Firefly 1.2.0 独立数据根下，Windows 默认 `%APPDATA%\Firefly-1.2.0`）。
+- 敏感凭据通过 `ctx.secrets` 由主进程调用 Electron `safeStorage` 加密存储，系统加密不可用时拒绝降级明文（`ERR_UNAVAILABLE`）。
+- 安装包校验拒绝路径穿越、`..`、包内符号链接与 Windows junction；未声明 `native: true` 时禁止携带 `.node` / `.dll` 原生模块。
