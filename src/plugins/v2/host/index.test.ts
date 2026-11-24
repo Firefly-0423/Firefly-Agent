@@ -68,6 +68,16 @@ function setup(failChannel = false, forceKill = vi.fn(), configureRpc?: () => ((
 }
 afterEach(() => { vi.useRealTimers(); });
 describe("plugin host", () => {
+  it("keeps a pre-aborted channel send cancelled when the process concurrently exits before posting", async () => {
+    vi.useFakeTimers(); const { manager, children } = setup(); await manager.start("p");
+    const controller = new AbortController(); controller.abort(); const onPosted = vi.fn();
+    const sent = manager.call("p", "channel.send", {}, { signal: controller.signal, onPosted });
+    children[0].emit("exit", 1);
+    await expect(sent).rejects.toMatchObject({ code: "ERR_CANCELLED" });
+    expect(onPosted).not.toHaveBeenCalled();
+    expect(children[0].frames.filter(frame => frame.method === "channel.send")).toEqual([]);
+    await manager.stop("p");
+  });
   it("marks a dispatched channel send unknown when disable closes its port without a result", async () => {
     const { manager, children } = setup(); await manager.start("p");
     const sent = manager.call("p", "channel.send", { id: "inbox", message: { chat: { type: "private", id: "u" }, text: "hello" } });

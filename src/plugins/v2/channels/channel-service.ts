@@ -1,6 +1,6 @@
 import type { PluginManifestV1, PluginToolRisk } from "../../../shared/plugin-manifest";
 import { PluginError, type HostToPluginParams, type HostToPluginResults, type ProtocolChannelAttachment, type ProtocolChannelChat, type ProtocolChannelState, type ProtocolInboundMessage, type ProtocolOutboundMessage } from "../../../shared/plugin-protocol";
-import type { PluginRpc } from "../../../shared/plugin-rpc";
+import type { PluginRpc, RpcOptions } from "../../../shared/plugin-rpc";
 import { EXTERNAL_DATA_UNTRUSTED_POLICY } from "../../../shared/external-data-policy";
 import { wrapExternalData } from "../context/boundary";
 import type { PluginHostManager } from "../host";
@@ -9,6 +9,7 @@ export const MAX_ATTACHMENTS = 8;
 export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 export const MAX_MESSAGE_CHARS = 64_000;
 export const MAX_PENDING_CHANNEL_MESSAGES = 20;
+export const CHANNEL_SEND_TIMEOUT_MS = 30_000;
 export interface ChannelTool {
   id: string; description: string; parameters: Record<string, unknown>; risks: readonly PluginToolRisk[];
   execute(args: Record<string, unknown>, signal: AbortSignal): Promise<unknown>;
@@ -31,7 +32,7 @@ export interface ChannelServiceDependencies {
   recordRun(event: { pluginId: string; channelId: string; sessionId: string; outcome: "succeeded" | "failed"; code?: string }): void;
 }
 export interface ChannelHost {
-  call<T = unknown>(pluginId: string, method: string, params: unknown, options?: { signal?: AbortSignal; timeoutMs?: number }): Promise<T | { status: "unknown"; reason: string }>;
+  call<T = unknown>(pluginId: string, method: string, params: unknown, options?: RpcOptions): Promise<T | { status: "unknown"; reason: string }>;
 }
 export type ChannelSendResult = { status: "succeeded"; externalMessageId: string } | { status: "unknown"; reason: string };
 interface Entry { pluginId: string; id: string; host: ChannelHost; state: ProtocolChannelState; active: boolean; generation: number; runs: Set<AbortController> }
@@ -118,9 +119,17 @@ export function createPluginChannelService(deps: ChannelServiceDependencies) {
     }
     await Promise.allSettled(stops);
   }
-  async function send(pluginId: string, id: string, message: ProtocolOutboundMessage): Promise<ChannelSendResult> {
+  async function send(pluginId: string, id: string, message: ProtocolOutboundMessage, options?: Pick<RpcOptions, "signal">): Promise<ChannelSendResult> {
     const entry = get(pluginId, id); guard(entry);
-    const result = await entry.host.call<HostToPluginResults["channel.send"]>(pluginId, "channel.send", { id, message } satisfies HostToPluginParams["channel.send"]);
+    let posted = false;
+    let result: HostToPluginResults["channel.send"] | { status: "unknown"; reason: string };
+    try {
+      result = await entry.host.call<HostToPluginResults["channel.send"]>(pluginId, "channel.send", { id, message } satisfies HostToPluginParams["channel.send"],
+        { timeoutMs: CHANNEL_SEND_TIMEOUT_MS, ...(options?.signal ? { signal: options.signal } : {}), onPosted: () => { posted = true; } });
+    } catch (error) {
+      if (!posted || !(error instanceof PluginError) || !["ERR_TIMEOUT", "ERR_CANCELLED", "ERR_UNAVAILABLE"].includes(error.code)) throw error;
+      result = { status: "unknown", reason: `Channel send ended after posting: ${error.code}` };
+    }
     if (result && "status" in result && result.status === "unknown") { recordSend(pluginId, id, result); return result; }
     if (!result || !("externalMessageId" in result)) throw invalid();
     const sent: ChannelSendResult = { status: "succeeded", externalMessageId: text(result.externalMessageId) };
@@ -190,7 +199,7 @@ export function createPluginChannelService(deps: ChannelServiceDependencies) {
         requestApproval: async request => { check(); const result = await wait(deps.approveLocally({ sessionId, summary: text(request.summary, 4096), signal: combined })); check(); return result; },
       }));
       check();
-      await send(pluginId, entry.id, { chat: message.chat, text: result.reply, replyToExternalMessageId: message.externalMessageId });
+      await send(pluginId, entry.id, { chat: message.chat, text: result.reply, replyToExternalMessageId: message.externalMessageId }, { signal: combined });
     } finally {
       finished = true; controller.abort();
     }

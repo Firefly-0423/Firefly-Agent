@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { createPluginChannelService, type ChannelRunRequest } from "./channel-service";
 import type { PluginManifestV1 } from "../../../shared/plugin-manifest";
+import { PluginError } from "../../../shared/plugin-protocol";
 const manifest = { id: "test.plugin", channels: [{ id: "inbox" }] } as PluginManifestV1;
 const message = (text = "first") => ({ id: "inbox", message: { externalMessageId: text, chat: { type: "private", id: "user" }, sender: { id: "user" }, text, timestamp: 1 } });
 function fixture() {
@@ -12,6 +13,21 @@ function fixture() {
   return { service, run, call, recordRun, recordSend };
 }
 afterEach(() => vi.useRealTimers());
+it.each(["ERR_TIMEOUT", "ERR_CANCELLED", "ERR_UNAVAILABLE", "ERR_PERMISSION"] as const)("classifies %s only after posting and records a single send attempt", async code => {
+  const f = fixture(); await f.service.startPlugin(manifest.id);
+  f.call.mockImplementation(async (_id, _method, _params, options) => { options?.onPosted?.(); throw new PluginError(code, "synthetic"); });
+  const sending = f.service.send(manifest.id, "inbox", { chat: { type: "private", id: "u" }, text: "hi" });
+  if (code === "ERR_PERMISSION") { await expect(sending).rejects.toMatchObject({ code }); expect(f.recordSend).not.toHaveBeenCalled(); }
+  else { await expect(sending).resolves.toMatchObject({ status: "unknown" }); expect(f.recordSend).toHaveBeenCalledTimes(1); }
+  expect(f.call.mock.calls.filter(c => c[1] === "channel.send")).toHaveLength(1);
+  expect(f.call.mock.calls.at(-1)![3]).toMatchObject({ timeoutMs: 30_000 });
+});
+it.each(["ERR_TIMEOUT", "ERR_CANCELLED", "ERR_UNAVAILABLE"] as const)("keeps pre-post %s rejection without unknown audit", async code => {
+  const f = fixture(); await f.service.startPlugin(manifest.id);
+  f.call.mockImplementation(async () => { throw new PluginError(code, "before post"); });
+  await expect(f.service.send(manifest.id, "inbox", { chat: { type: "private", id: "u" }, text: "hi" })).rejects.toMatchObject({ code });
+  expect(f.recordSend).not.toHaveBeenCalled(); expect(f.call.mock.calls.filter(c => c[1] === "channel.send")).toHaveLength(1);
+});
 it("accepts immediately and runs a thirty-second reply independently of the incoming request lifetime", async () => {
   vi.useFakeTimers(); const f = fixture(); await f.service.startPlugin(manifest.id);
   f.run.mockImplementation(async request => { await new Promise(resolve => setTimeout(resolve, 30_000)); expect(request.signal.aborted).toBe(false); return { reply: "late" }; });

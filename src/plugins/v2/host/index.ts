@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { win32 } from "node:path";
-import { createRpcEndpoint, type PluginRpc } from "../../../shared/plugin-rpc";
+import { createRpcEndpoint, type PluginRpc, type RpcOptions } from "../../../shared/plugin-rpc";
 import { HOST_TO_PLUGIN_METHODS, PluginError, type Frame } from "../../../shared/plugin-protocol";
 
 export type PluginHostStatus = "disabled" | "starting" | "enabled" | "stopping" | "restarting" | "disabled-fault";
@@ -141,14 +141,15 @@ export class PluginHostManager {
     return stopped;
   }
 
-  async call<T = unknown>(id: string, method: string, params: unknown, opts?: { signal?: AbortSignal; timeoutMs?: number }): Promise<T | { status: "unknown"; reason: string }> {
+  async call<T = unknown>(id: string, method: string, params: unknown, opts?: RpcOptions): Promise<T | { status: "unknown"; reason: string }> {
     const record = this.records.get(id), runtime = record?.runtime;
     if (record?.state !== "enabled" || !runtime) throw unavailable();
-    try { return await runtime.rpc.call<T>(method, params, opts); }
+    let posted = false;
+    try { return await runtime.rpc.call<T>(method, params, { ...opts, onPosted: () => { posted = true; opts?.onPosted?.(); } }); }
     catch (error) {
       if (runtime.crashed && method === HOST_TO_PLUGIN_METHODS.toolExecute) return { status: "unknown", reason: "Plugin process exited during tool execution" };
-      if (runtime.crashed && method === HOST_TO_PLUGIN_METHODS.channelSend) return { status: "unknown", reason: "Plugin process exited during channel send" };
-      if (runtime.finished && method === HOST_TO_PLUGIN_METHODS.channelSend) return { status: "unknown", reason: "Plugin process stopped during channel send" };
+      if (posted && runtime.crashed && method === HOST_TO_PLUGIN_METHODS.channelSend) return { status: "unknown", reason: "Plugin process exited during channel send" };
+      if (posted && runtime.finished && method === HOST_TO_PLUGIN_METHODS.channelSend) return { status: "unknown", reason: "Plugin process stopped during channel send" };
       throw error;
     }
   }
