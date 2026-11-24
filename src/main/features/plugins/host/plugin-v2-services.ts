@@ -133,6 +133,40 @@ function buildGenerateMessages(request: { prompt: string; system?: string }): Ar
   return messages;
 }
 
+function resolveGenerateTimeoutMs(profile: ModelSettings): number {
+  return Math.max(1_000, Math.min(GENERATE_TIMEOUT_MS, (profile.chatRequestTimeoutSec || 120) * 1000));
+}
+
+function raceWithSignal<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) {
+    return Promise.reject(new DOMException("Aborted", "AbortError"));
+  }
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const onAbort = () => {
+      if (settled) return;
+      settled = true;
+      signal.removeEventListener("abort", onAbort);
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        if (settled) return;
+        settled = true;
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error) => {
+        if (settled) return;
+        settled = true;
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
+}
+
 export function mapPluginModelRunOutcome(status: string | undefined): "completed" | "cancelled" | "failed" {
   if (status === "success") return "completed";
   if (status === "cancelled") return "cancelled";
@@ -273,7 +307,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
     },
     async generate(request, profileObj, signal) {
       const profile = profileObj as ModelSettings;
-      const timeoutMs = Math.max(1_000, Math.min(GENERATE_TIMEOUT_MS, (profile.chatRequestTimeoutSec || 120) * 1000));
+      const timeoutMs = resolveGenerateTimeoutMs(profile);
       const messages = buildGenerateMessages(request);
       try {
         const response = await runWithUsageAttribution({ feature: "plugin" }, () =>
@@ -302,7 +336,11 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
       }
     },
     async *generateStream(request, profileObj, signal) {
+      if (signal.aborted) {
+        throw new PluginError("ERR_CANCELLED", "Model stream cancelled");
+      }
       const profile = profileObj as ModelSettings;
+      const timeoutMs = resolveGenerateTimeoutMs(profile);
       const vendor = vendorConfigFromSettings(profile);
       const protocol = getAdapterForConfig(vendor);
       const built = protocol.buildStreamRequest({
@@ -314,49 +352,93 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
           ? { structuredOutput: { mode: "json_schema" as const, name: "plugin_output", schema: request.schema, strict: false } }
           : {}),
       }, vendor);
-      const reply = await runWithUsageAttribution({ feature: "plugin" }, () =>
-        fetch(built.url, {
-          method: "POST",
-          signal,
-          headers: built.headers,
-          body: built.body,
-        }),
-      );
-      if (!reply.ok || !reply.body) {
-        throw new PluginError("ERR_UNAVAILABLE", `Model stream failed: HTTP ${reply.status}`, true);
-      }
-      recordRequest(profile.model);
-      const visibility = createVisibleStreamFilter();
-      let hasMetering = false;
-      let inputPeak = 0;
-      let outputPeak = 0;
-      let cachePeak: number | undefined;
-      let cacheWritePeak: number | undefined;
 
-      for await (const frame of createSseReader(protocol, reply.body)) {
-        if (signal.aborted) break;
-        const delta = protocol.parseStreamEvent(frame);
-        if (!delta) continue;
-        if (delta.deltaText) {
-          const visible = visibility.push(delta.deltaText);
-          if (visible) yield { delta: visible };
+      const streamController = new AbortController();
+      let timedOut = false;
+      const timer = setTimeout(() => {
+        timedOut = true;
+        streamController.abort();
+      }, timeoutMs);
+      const onCallerAbort = () => streamController.abort();
+      signal.addEventListener("abort", onCallerAbort, { once: true });
+
+      let iterator: AsyncIterator<unknown> | undefined;
+      try {
+        const reply = await raceWithSignal(
+          runWithUsageAttribution({ feature: "plugin" }, () =>
+            fetch(built.url, {
+              method: "POST",
+              signal: streamController.signal,
+              headers: built.headers,
+              body: built.body,
+            }),
+          ),
+          streamController.signal,
+        );
+        if (!reply.ok || !reply.body) {
+          throw new PluginError("ERR_UNAVAILABLE", `Model stream failed: HTTP ${reply.status}`, true);
         }
-        if (delta.usage) {
-          hasMetering = true;
-          inputPeak = Math.max(inputPeak, delta.usage.input ?? 0);
-          outputPeak = Math.max(outputPeak, delta.usage.output ?? 0);
-          if (delta.usage.cachedInput !== undefined) cachePeak = Math.max(cachePeak ?? 0, delta.usage.cachedInput);
-          if (delta.usage.cacheCreation !== undefined) cacheWritePeak = Math.max(cacheWritePeak ?? 0, delta.usage.cacheCreation);
+        recordRequest(profile.model);
+        const visibility = createVisibleStreamFilter();
+        let hasMetering = false;
+        let inputPeak = 0;
+        let outputPeak = 0;
+        let cachePeak: number | undefined;
+        let cacheWritePeak: number | undefined;
+
+        const sseIterator = createSseReader(protocol, reply.body)[Symbol.asyncIterator]();
+        iterator = sseIterator;
+        for (;;) {
+          if (timedOut) {
+            throw new PluginError("ERR_TIMEOUT", "Model stream timed out", true);
+          }
+          if (signal.aborted) {
+            throw new PluginError("ERR_CANCELLED", "Model stream cancelled");
+          }
+          const step = await raceWithSignal(sseIterator.next(), streamController.signal);
+          if (step.done) break;
+          const delta = protocol.parseStreamEvent(step.value);
+          if (!delta) continue;
+          if (delta.deltaText) {
+            const visible = visibility.push(delta.deltaText);
+            if (visible) yield { delta: visible };
+          }
+          if (delta.usage) {
+            hasMetering = true;
+            inputPeak = Math.max(inputPeak, delta.usage.input ?? 0);
+            outputPeak = Math.max(outputPeak, delta.usage.output ?? 0);
+            if (delta.usage.cachedInput !== undefined) cachePeak = Math.max(cachePeak ?? 0, delta.usage.cachedInput);
+            if (delta.usage.cacheCreation !== undefined) cacheWritePeak = Math.max(cacheWritePeak ?? 0, delta.usage.cacheCreation);
+          }
+          if (delta.done) break;
         }
-        if (delta.done) break;
+        if (timedOut) {
+          throw new PluginError("ERR_TIMEOUT", "Model stream timed out", true);
+        }
+        if (signal.aborted) {
+          throw new PluginError("ERR_CANCELLED", "Model stream cancelled");
+        }
+        if (hasMetering) {
+          void runWithUsageAttribution({ feature: "plugin" }, () => {
+            recordUsage(inputPeak, outputPeak, 1, cachePeak, profile.model, cacheWritePeak);
+          });
+        }
+        const tail = visibility.flush();
+        if (tail) yield { delta: tail };
+      } catch (error) {
+        if (error instanceof PluginError) throw error;
+        if (timedOut) {
+          throw new PluginError("ERR_TIMEOUT", "Model stream timed out", true, error);
+        }
+        if (signal.aborted || isAbortError(error)) {
+          throw new PluginError("ERR_CANCELLED", "Model stream cancelled", { cause: error });
+        }
+        throw new PluginError("ERR_UNAVAILABLE", "Model stream failed", true, error);
+      } finally {
+        clearTimeout(timer);
+        signal.removeEventListener("abort", onCallerAbort);
+        await iterator?.return?.().catch(() => {});
       }
-      if (hasMetering) {
-        void runWithUsageAttribution({ feature: "plugin" }, () => {
-          recordUsage(inputPeak, outputPeak, 1, cachePeak, profile.model, cacheWritePeak);
-        });
-      }
-      const tail = visibility.flush();
-      if (tail) yield { delta: tail };
     },
     watchWorkspace(_pluginId, listener) {
       workspaceWatchers.add(listener);

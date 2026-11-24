@@ -64,6 +64,11 @@ vi.mock("../../../platform/permission/permission", () => ({
   cancelPendingApprovalsForRun: mocks.cancelPendingApprovalsForRun,
 }));
 
+vi.mock("../../../base/storage/token-usage-store", () => ({
+  recordRequest: vi.fn(),
+  recordUsage: vi.fn(),
+}));
+
 import { createPluginV2HostController, mapPluginModelRunOutcome } from "./plugin-v2-services";
 
 function createTestSettings(chatRequestTimeoutSec = 60): ModelSettings {
@@ -175,6 +180,7 @@ describe("plugin-v2-services model.run (A2)", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
     vi.useRealTimers();
   });
@@ -321,6 +327,192 @@ describe("plugin-v2-services model.run (A2)", () => {
       for (const set of activeListeners.values()) {
         expect(set.size).toBe(0);
       }
+    } finally {
+      fixture.cleanup();
+    }
+  });
+});
+
+function sseFrame(text: string): Uint8Array {
+  return new TextEncoder().encode(
+    `data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\n`,
+  );
+}
+
+describe("plugin-v2-services model.generate stream (A3)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("throws ERR_CANCELLED on mid-stream abort without duplicating already-pushed deltas", async () => {
+    const fixture = createControllerFixture();
+    try {
+      let emitSecondChunk!: () => void;
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(sseFrame("Hello world from stream! "));
+          emitSecondChunk = () => controller.enqueue(sseFrame("World"));
+        },
+      });
+      vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+
+      const ac = new AbortController();
+      const iter = fixture.clientRpc.stream<{ delta: string }>(
+        PLUGIN_TO_HOST_METHODS.modelGenerate,
+        { prompt: "hi", stream: true },
+        { signal: ac.signal, timeoutMs: 200_000 },
+      )[Symbol.asyncIterator]();
+
+      const first = await iter.next();
+      expect(first.done).toBe(false);
+      const emittedFirst = (first.value as { delta: string }).delta;
+      expect(emittedFirst.length).toBeGreaterThan(0);
+
+      const pendingSecond = iter.next();
+      ac.abort();
+      await expect(pendingSecond).rejects.toMatchObject({ code: "ERR_CANCELLED" });
+      expect(typeof emitSecondChunk).toBe("function");
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("converts fetch network errors to ERR_UNAVAILABLE with retryable: true", async () => {
+    const fixture = createControllerFixture();
+    try {
+      vi.stubGlobal("fetch", vi.fn(async () => {
+        throw new TypeError("socket hang up");
+      }));
+
+      const iter = fixture.clientRpc.stream<{ delta: string }>(
+        PLUGIN_TO_HOST_METHODS.modelGenerate,
+        { prompt: "hi", stream: true },
+      )[Symbol.asyncIterator]();
+
+      await expect(iter.next()).rejects.toMatchObject({
+        code: "ERR_UNAVAILABLE",
+        retryable: true,
+      });
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("converts non-2xx HTTP responses to ERR_UNAVAILABLE with retryable: true", async () => {
+    const fixture = createControllerFixture();
+    try {
+      vi.stubGlobal("fetch", vi.fn(async () => new Response("upstream error", { status: 503 })));
+
+      const iter = fixture.clientRpc.stream<{ delta: string }>(
+        PLUGIN_TO_HOST_METHODS.modelGenerate,
+        { prompt: "hi", stream: true },
+      )[Symbol.asyncIterator]();
+
+      await expect(iter.next()).rejects.toMatchObject({
+        code: "ERR_UNAVAILABLE",
+        retryable: true,
+      });
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("converts mid-stream read errors to ERR_UNAVAILABLE without duplicating pushed deltas", async () => {
+    const fixture = createControllerFixture();
+    try {
+      let streamController!: ReadableStreamDefaultController<Uint8Array>;
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          streamController = controller;
+          controller.enqueue(sseFrame("chunk-1-from-stream "));
+        },
+      });
+      vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+
+      const chunks: string[] = [];
+      const iter = fixture.clientRpc.stream<{ delta: string }>(
+        PLUGIN_TO_HOST_METHODS.modelGenerate,
+        { prompt: "hi", stream: true },
+      )[Symbol.asyncIterator]();
+
+      const first = await iter.next();
+      if (!first.done) chunks.push(first.value.delta);
+      expect(chunks).toHaveLength(1);
+      expect(chunks[0]).toContain("chunk-1");
+
+      streamController.error(new Error("connection reset"));
+      await expect(iter.next()).rejects.toMatchObject({
+        code: "ERR_UNAVAILABLE",
+        retryable: true,
+      });
+      expect(chunks).toHaveLength(1);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("enforces chatRequestTimeoutSec timeout with ERR_TIMEOUT and does not duplicate deltas", async () => {
+    vi.useFakeTimers();
+    const fixture = createControllerFixture({ chatRequestTimeoutSec: 45 });
+    try {
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(sseFrame("chunk-1-from-stream "));
+          // Leave stream open to trigger timeout on next read.
+        },
+      });
+      vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+
+      const chunks: string[] = [];
+      const iter = fixture.clientRpc.stream<{ delta: string }>(
+        PLUGIN_TO_HOST_METHODS.modelGenerate,
+        { prompt: "hi", stream: true },
+        { timeoutMs: 200_000 },
+      )[Symbol.asyncIterator]();
+
+      const first = await iter.next();
+      if (!first.done) chunks.push(first.value.delta);
+      expect(chunks).toHaveLength(1);
+      expect(chunks[0]).toContain("chunk-1");
+
+      let caughtError: unknown;
+      const secondPromise = iter.next().catch((err) => { caughtError = err; });
+
+      await vi.advanceTimersByTimeAsync(44_999);
+      expect(caughtError).toBeUndefined();
+
+      await vi.advanceTimersByTimeAsync(1);
+      await secondPromise;
+      expect(caughtError).toMatchObject({ code: "ERR_TIMEOUT" });
+      expect(chunks).toHaveLength(1);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("clamps chatRequestTimeoutSec to the 120s non-stream ceiling", async () => {
+    vi.useFakeTimers();
+    const fixture = createControllerFixture({ chatRequestTimeoutSec: 300 });
+    try {
+      vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(() => {})));
+
+      const iter = fixture.clientRpc.stream<{ delta: string }>(
+        PLUGIN_TO_HOST_METHODS.modelGenerate,
+        { prompt: "hi", stream: true },
+        { timeoutMs: 200_000 },
+      )[Symbol.asyncIterator]();
+
+      let caughtError: unknown;
+      const pending = iter.next().catch((err) => { caughtError = err; });
+
+      await vi.advanceTimersByTimeAsync(119_999);
+      expect(caughtError).toBeUndefined();
+
+      await vi.advanceTimersByTimeAsync(1);
+      await pending;
+      expect(caughtError).toMatchObject({ code: "ERR_TIMEOUT" });
     } finally {
       fixture.cleanup();
     }
