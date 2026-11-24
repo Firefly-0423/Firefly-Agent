@@ -37,7 +37,11 @@ formEl?.addEventListener("submit", async (event) => {
 
 clearBtn?.addEventListener("click", async () => {
   try {
-    await callPlugin("clear_api_key");
+    const res = await callPlugin("clear_api_key");
+    if (!res.ok) {
+      statusEl.textContent = res.error ?? "清除失败";
+      return;
+    }
     inputEl.value = "";
     statusEl.textContent = "已清除 API Key（使用 Open-Meteo）";
   } catch (error) {
