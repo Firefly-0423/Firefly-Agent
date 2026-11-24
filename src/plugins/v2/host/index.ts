@@ -39,7 +39,7 @@ export interface HostDependencies {
   memoryPollMs?: number;
   /** Last resort when the child is still alive after a termination request (POSIX kill() is only SIGTERM). */
   forceKill?(pid: number): void;
-  configureRpc?(id: string, rpc: PluginRpc): void;
+  configureRpc?(id: string, rpc: PluginRpc): void | (() => void);
 }
 
 /** No host PATH, NODE_OPTIONS, proxy, app settings or credentials cross this boundary.
@@ -61,6 +61,7 @@ interface Runtime {
   child: HostChild;
   rpc: PluginRpc;
   ports: HostPort[];
+  disposeServices?: () => void;
   crashed: boolean;
   finished: boolean;
   exit: () => void;
@@ -204,7 +205,8 @@ export class PluginHostManager {
         // Electron reports workingSetSize in KiB, while configuration uses MiB.
         if (metric && metric.memory.workingSetSize > limit * 1024) this.crash(id, record, active, true);
       }, this.dependencies.memoryPollMs ?? 1000);
-      this.dependencies.configureRpc?.(id, rpc);
+      const disposeServices = this.dependencies.configureRpc?.(id, rpc);
+      if (disposeServices) active.disposeServices = disposeServices;
       await activated;
       if (active.finished || record.state !== "starting") throw unavailable();
       clearTimeout(active.startupTimer);
@@ -226,6 +228,7 @@ export class PluginHostManager {
     runtime.finished = true;
     clearTimeout(runtime.startupTimer); clearInterval(runtime.memoryTimer);
     runtime.child.removeListener("spawn", runtime.spawn); runtime.child.removeListener("exit", runtime.exit);
+    try { runtime.disposeServices?.(); } catch { /* Service cleanup cannot prevent process cleanup. */ }
     runtime.rpc.close(unavailable());
     for (const port of runtime.ports) port.close();
     if (record.runtime === runtime) record.runtime = undefined;
