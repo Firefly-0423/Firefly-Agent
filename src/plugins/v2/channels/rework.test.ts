@@ -14,6 +14,15 @@ function fixture() {
   return { service, run, call, recordRun, recordSend, redactOutbound };
 }
 afterEach(() => vi.useRealTimers());
+it("records background failures locally without sending their contents externally", async () => {
+  const f = fixture(); await f.service.startPlugin(manifest.id);
+  f.run.mockRejectedValue(Error("sensitive local failure"));
+  await expect(f.service.deliver(manifest.id, message())).resolves.toMatchObject({ accepted: true });
+  await f.service.whenIdle();
+  expect(f.recordRun).toHaveBeenCalledWith({ pluginId: manifest.id, channelId: "inbox", sessionId: 'channel:["test.plugin","inbox","private","user",null]', outcome: "failed", code: "ERR_INTERNAL" });
+  expect(f.call.mock.calls.filter(c => c[1] === "channel.send")).toEqual([]);
+  expect(JSON.stringify(f.recordRun.mock.calls)).not.toContain("sensitive local failure");
+});
 it("redacts both model replies and explicit host sends before they cross the plugin boundary", async () => {
   const f = fixture(); await f.service.startPlugin(manifest.id);
   const raw = "key=sk-fixture-secret path=C:\\Private\\secret.txt";
