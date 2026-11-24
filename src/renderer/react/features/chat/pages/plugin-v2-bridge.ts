@@ -16,6 +16,7 @@ export interface PluginV2BridgeOptions {
   api: Pick<
     PluginManagementApi,
     | "getV2Borrowing"
+    | "getV2Confirms"
     | "onV2BorrowingChanged"
     | "onV2ConfirmRequest"
     | "onV2ConfirmSettled"
@@ -29,6 +30,33 @@ export interface PluginV2BridgeOptions {
 export function attachPluginV2Listeners(options: PluginV2BridgeOptions): () => void {
   let disposed = false;
   const settledIds = new Set<string>();
+  const promptedIds = new Set<string>();
+
+  const presentConfirm = (request: PluginV2ConfirmRequest) => {
+    if (disposed || !request?.id || settledIds.has(request.id) || promptedIds.has(request.id)) return;
+    const messageKey = CONFIRM_KEY_BY_PERMISSION[request.permission];
+    if (!messageKey) return;
+    promptedIds.add(request.id);
+    const message = options.translate(messageKey, { name: request.pluginName });
+    void options.confirm({
+      title: options.translate("workspaceNotices.pluginConfirmTitle"),
+      message,
+      confirmText: options.translate("workspaceNotices.pluginConfirmAllow"),
+      cancelText: options.translate("workspaceNotices.pluginConfirmDeny"),
+      tone: "warning",
+    })
+      .then((allowed) => {
+        if (disposed || settledIds.has(request.id)) return;
+        settledIds.add(request.id);
+        return options.api.resolveV2Confirm?.(request.id, allowed);
+      })
+      .catch(() => {
+        if (!disposed && !settledIds.has(request.id)) {
+          settledIds.add(request.id);
+          void options.api.resolveV2Confirm?.(request.id, false);
+        }
+      });
+  };
 
   void options.api.getV2Borrowing?.()
     .then((result) => {
@@ -49,28 +77,17 @@ export function attachPluginV2Listeners(options: PluginV2BridgeOptions): () => v
   });
 
   const offConfirm = options.api.onV2ConfirmRequest?.((request: PluginV2ConfirmRequest) => {
-    if (disposed || !request?.id || settledIds.has(request.id)) return;
-    const messageKey = CONFIRM_KEY_BY_PERMISSION[request.permission];
-    const message = options.translate(messageKey, { name: request.pluginName });
-    void options.confirm({
-      title: options.translate("workspaceNotices.pluginConfirmTitle"),
-      message,
-      confirmText: options.translate("workspaceNotices.pluginConfirmAllow"),
-      cancelText: options.translate("workspaceNotices.pluginConfirmDeny"),
-      tone: "warning",
-    })
-      .then((allowed) => {
-        if (disposed || settledIds.has(request.id)) return;
-        settledIds.add(request.id);
-        return options.api.resolveV2Confirm?.(request.id, allowed);
-      })
-      .catch(() => {
-        if (!disposed && !settledIds.has(request.id)) {
-          settledIds.add(request.id);
-          void options.api.resolveV2Confirm?.(request.id, false);
-        }
-      });
+    presentConfirm(request);
   });
+
+  void options.api.getV2Confirms?.()
+    .then((result) => {
+      if (disposed || !Array.isArray(result?.requests)) return;
+      for (const request of result.requests) {
+        presentConfirm(request);
+      }
+    })
+    .catch(() => {});
 
   return () => {
     disposed = true;

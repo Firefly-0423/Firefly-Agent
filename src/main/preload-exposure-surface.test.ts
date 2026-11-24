@@ -147,6 +147,7 @@ const EXPECTED_NAMESPACE_KEYS: Record<string, readonly string[]> = {
   openInApp: ["listApps", "open"],
   plugins: [
     "getV2Borrowing",
+    "getV2Confirms",
     "importFolder",
     "importZip",
     "list",

@@ -13,6 +13,7 @@ function createBridgeHarness() {
   let settledCb: ((settled: PluginV2ConfirmSettled) => void) | undefined;
   const api = {
     getV2Borrowing: vi.fn(async () => ({ entries: [] as PluginV2BorrowingEntry[] })),
+    getV2Confirms: vi.fn(async () => ({ requests: [] as PluginV2ConfirmRequest[] })),
     onV2BorrowingChanged: vi.fn((cb: typeof borrowingCb) => {
       borrowingCb = cb;
       return () => { borrowingCb = undefined; };
@@ -113,6 +114,44 @@ describe("attachPluginV2Listeners", () => {
 
     harness.emitBorrowing([]);
     expect(onBorrowingChange).toHaveBeenLastCalledWith([]);
+    dispose();
+  });
+
+  test("fetches pending confirmations on attach and deduplicates against live and settled events", async () => {
+    const harness = createBridgeHarness();
+    const pendingReq: PluginV2ConfirmRequest = {
+      id: "c-pending",
+      pluginId: "p1",
+      pluginName: "Demo",
+      permission: "sessions.read",
+    };
+    const settledReq: PluginV2ConfirmRequest = {
+      id: "c-settled",
+      pluginId: "p1",
+      pluginName: "Demo",
+      permission: "workspace.read",
+    };
+    let resolvePendingList!: (value: { requests: PluginV2ConfirmRequest[] }) => void;
+    harness.api.getV2Confirms.mockImplementationOnce(
+      () => new Promise<{ requests: PluginV2ConfirmRequest[] }>((resolve) => { resolvePendingList = resolve; }),
+    );
+    const confirm = vi.fn().mockResolvedValue(true);
+
+    const dispose = attachPluginV2Listeners({
+      api: harness.api,
+      confirm,
+      onBorrowingChange: vi.fn(),
+      translate: t,
+    });
+
+    // Live push for c-pending and settlement for c-settled arrive before getV2Confirms resolves.
+    harness.emitConfirm(pendingReq);
+    harness.emitSettled({ id: "c-settled", reason: "cancelled" });
+    resolvePendingList({ requests: [pendingReq, settledReq] });
+
+    await vi.waitFor(() => expect(harness.api.resolveV2Confirm).toHaveBeenCalledTimes(1));
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(harness.api.resolveV2Confirm).toHaveBeenCalledWith("c-pending", true);
     dispose();
   });
 });
