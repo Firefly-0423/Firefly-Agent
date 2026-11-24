@@ -39,7 +39,10 @@ export interface PluginV2BootstrapDeps {
   getChatWebContents: () => WebContents | null;
   getPanelWebContents?: () => WebContents | null;
   onRunningStateChange?: (pluginId: string, running: boolean) => void;
+  confirmTimeoutMs?: number;
 }
+
+const DEFAULT_CONFIRM_TIMEOUT_MS = 120_000;
 
 const CONFIRM_TEXT: Record<"sessions.read" | "workspace.read" | "model.run", (name: string) => string> = {
   "sessions.read": (name) => `插件〔${name}〕想要读取会话记录，是否允许？`,
@@ -53,7 +56,8 @@ function isConfirmationPermission(permission: ServicePermission): permission is 
 
 export async function startPluginV2Bootstrap(deps: PluginV2BootstrapDeps): Promise<PluginV2HostController> {
   const storage = getStorageContext();
-  const pendingConfirms = new Map<string, { resolve: (allowed: boolean) => void }>();
+  const confirmTimeoutMs = deps.confirmTimeoutMs ?? DEFAULT_CONFIRM_TIMEOUT_MS;
+  const pendingConfirms = new Map<string, { request: PluginV2ConfirmRequest; resolve: (allowed: boolean) => void }>();
 
   const sendToChat = (channel: string, payload: unknown): boolean => {
     const target = deps.getChatWebContents();
@@ -65,6 +69,10 @@ export async function startPluginV2Bootstrap(deps: PluginV2BootstrapDeps): Promi
       return false;
     }
   };
+
+  deps.ipc.handle(IPC.PLUGINS_V2_CONFIRM_GET, () => ({
+    requests: [...pendingConfirms.values()].map((entry) => entry.request),
+  }));
 
   deps.ipc.handle(IPC.PLUGINS_V2_CONFIRM_RESOLVE, (_event, payload: unknown) => {
     const record = payload as { id?: unknown; allowed?: unknown } | null;
@@ -98,9 +106,11 @@ export async function startPluginV2Bootstrap(deps: PluginV2BootstrapDeps): Promi
     if (delivered) {
       return new Promise<boolean>((resolve) => {
         let settled = false;
+        let timer: ReturnType<typeof setTimeout> | undefined;
         const finish = (allowed: boolean, reason: "answered" | "cancelled") => {
           if (settled) return;
           settled = true;
+          if (timer !== undefined) clearTimeout(timer);
           request.signal.removeEventListener("abort", onAbort);
           pendingConfirms.delete(id);
           if (reason === "cancelled") {
@@ -109,7 +119,11 @@ export async function startPluginV2Bootstrap(deps: PluginV2BootstrapDeps): Promi
           resolve(allowed);
         };
         const onAbort = () => finish(false, "cancelled");
-        pendingConfirms.set(id, { resolve: (allowed) => finish(allowed, "answered") });
+        pendingConfirms.set(id, {
+          request: payload,
+          resolve: (allowed) => finish(allowed, "answered"),
+        });
+        timer = setTimeout(() => finish(false, "cancelled"), confirmTimeoutMs);
         request.signal.addEventListener("abort", onAbort, { once: true });
       });
     }

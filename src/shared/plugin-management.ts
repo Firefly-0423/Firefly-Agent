@@ -161,6 +161,7 @@ export type PluginImportOutcome = {
 };
 export type PluginManagementApi = {
     getV2Borrowing?(): Promise<{ entries: PluginV2BorrowingEntry[] }>;
+    getV2Confirms?(): Promise<{ requests: PluginV2ConfirmRequest[] }>;
     importFolder?(): Promise<PluginImportOutcome>;
     importZip(): Promise<PluginImportOutcome>;
     list(): Promise<PluginOverview | PluginListEntry[]>;
