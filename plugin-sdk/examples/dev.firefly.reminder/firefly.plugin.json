@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "dev.firefly.reminder",
+  "name": "定时提醒",
+  "version": "1.0.0",
+  "sdk": "^1.2.0",
+  "description": "提议每日重复定时提醒，并在用户确认且到点触发时调用宿主模型生成提醒语。",
+  "author": {
+    "name": "Firefly-0423"
+  },
+  "license": "MIT",
+  "main": "index.mjs",
+  "native": false,
+  "permissions": [
+    "schedules",
+    "model.generate"
+  ],
+  "tools": [
+    {
+      "name": "create_daily_reminder",
+      "title": "创建每日提醒",
+      "risk": [
+        "fs-write"
+      ],
+      "modes": [
+        "work",
+        "code"
+      ]
+    },
+    {
+      "name": "list_reminders",
+      "title": "查看提醒列表",
+      "risk": [
+        "fs-read"
+      ],
+      "modes": [
+        "work",
+        "code"
+      ]
+    }
+  ]
+}
