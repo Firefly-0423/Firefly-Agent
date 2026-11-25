@@ -184,6 +184,25 @@ function trailingPathStartIndex(buffer: string, protectedRoots: readonly string[
   return holdFrom;
 }
 
+/** Moves a cut point back to the start of any complete sensitive value it would otherwise split. */
+function avoidSplittingMatches(buffer: string, cut: number, values: readonly string[]): number {
+  let adjusted = cut;
+  let moved = true;
+  while (moved) {
+    moved = false;
+    for (const value of values) {
+      if (!value) continue;
+      for (let at = buffer.indexOf(value); at !== -1 && at < adjusted; at = buffer.indexOf(value, at + 1)) {
+        if (at + value.length > adjusted) {
+          adjusted = at;
+          moved = true;
+        }
+      }
+    }
+  }
+  return adjusted;
+}
+
 /**
  * Stateful per-stream redactor that retains undecidable trailing suffixes across chunks
  * so split secrets or foreign paths are never emitted before full evaluation.
@@ -202,7 +221,11 @@ export function createPluginStreamRedactor(
       buffer += text;
       const secrets = collectHostSecrets(source);
       const secretHold = trailingSecretPrefixLength(buffer, secrets);
-      const holdFrom = Math.min(buffer.length - secretHold, trailingPathStartIndex(buffer, protectedRoots));
+      const holdFrom = avoidSplittingMatches(
+        buffer,
+        Math.min(buffer.length - secretHold, trailingPathStartIndex(buffer, protectedRoots)),
+        [...secrets, ...protectedRoots],
+      );
       if (holdFrom <= 0) return "";
       const safe = buffer.slice(0, holdFrom);
       buffer = buffer.slice(holdFrom);

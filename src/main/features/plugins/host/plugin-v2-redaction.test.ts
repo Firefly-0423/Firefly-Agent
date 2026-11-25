@@ -52,6 +52,17 @@ describe("plugin-v2 redaction", () => {
     expect(redactor.finish()).toBe("");
   });
 
+  it.each([
+    ["one chunk", ["token=sk-test-s"]],
+    ["split inside the overlap", ["token=sk-test-", "s"]],
+    ["split before the secret", ["token=", "sk-test-s more"]],
+  ])("never splits a complete credential whose tail is also its prefix (%s)", (_label, chunks) => {
+    const redactor = createPluginStreamRedactor({ workspaceRoot }, { ...source, extraSecrets: ["sk-test-s"] });
+    const output = chunks.map((chunk) => redactor.push(chunk)).join("") + redactor.finish();
+    expect(output).toContain("[REDACTED]");
+    expect(output).not.toContain("sk-test-s");
+  });
+
   it("flushes safe buffered tail on finish() only", () => {
     const redactor = createPluginStreamRedactor({ workspaceRoot }, source);
     expect(redactor.push("note C")).toBe("note ");
