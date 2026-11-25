@@ -175,23 +175,23 @@
   --ff-caution: #d9652b;
   --ff-caution-soft: rgba(217, 101, 43, 0.1);
   --ff-caution-soft-hover: rgba(217, 101, 43, 0.16);
-  --ff-dark-card-bg: #1f332c;
-  --ff-dark-card-border: #2f4840;
-  --ff-dark-composer-border: #2a4038;
-  --ff-dark-composer-border-hover: #36524a;
-  --ff-dark-ink-bg-1: #152420;
-  --ff-dark-ink-card: #1d302a;
-  --ff-dark-ink-card-alt: #21302a;
-  --ff-dark-main-active: #323836;
-  --ff-dark-main-bg: #1b1e1d;
-  --ff-dark-main-card: #232726;
-  --ff-dark-main-card-hover: #363c3a;
-  --ff-dark-main-composer-border: #313735;
-  --ff-dark-main-hover: #2a2f2d;
-  --ff-dark-main-user-bubble: #2b3532;
-  --ff-dark-popover-border: #3b4240;
-  --ff-dark-popover-border-hover: #4a524f;
-  --ff-dark-user-bubble: #284239;
+  --ff-dark-card-bg: #1a1a1a;
+  --ff-dark-card-border: #2a2a2a;
+  --ff-dark-composer-border: #2a2a2a;
+  --ff-dark-composer-border-hover: #3a3a3a;
+  --ff-dark-ink-bg-1: #0a0a0a;
+  --ff-dark-ink-card: #1a1a1a;
+  --ff-dark-ink-card-alt: #222222;
+  --ff-dark-main-active: #2a2a2a;
+  --ff-dark-main-bg: #1a1a1a;
+  --ff-dark-main-card: #1a1a1a;
+  --ff-dark-main-card-hover: #2a2a2a;
+  --ff-dark-main-composer-border: #2a2a2a;
+  --ff-dark-main-hover: #242424;
+  --ff-dark-main-user-bubble: #232323;
+  --ff-dark-popover-border: #2a2a2a;
+  --ff-dark-popover-border-hover: #3a3a3a;
+  --ff-dark-user-bubble: #232323;
   --ff-fg-fallback: #1f1f1f;
   --ff-file-type-code: #3b82c4;
   --ff-file-type-data: #d98a2b;
@@ -452,4 +452,22 @@
   --rb-border-default: #e2e4ea;
   --rb-border-subtle: rgba(127, 127, 140, 0.25);
   --rb-surface-soft: #f5f5f5;
+}
+
+:root[data-ui-theme="firefly-dark"] {
+  --ff-mint-200: #a9ead0;
+  --ff-mint-300: #8fe0bc;
+  --ff-mint-400: #7bd8ae;
+  --ff-mint-soft-14: rgba(123, 216, 174, 0.14);
+  --ff-mint-soft-16: rgba(123, 216, 174, 0.16);
+  --ff-mint-soft-26: rgba(123, 216, 174, 0.26);
+  --ff-mint-soft-28: rgba(123, 216, 174, 0.28);
+  --ff-palette-0b2b22: #181818;
+  --ff-palette-0c1714: #121212;
+  --ff-palette-13221d: #181818;
+  --ff-palette-152420-95: rgba(10, 10, 10, 0.95);
+  --ff-palette-192a24-98: rgba(18, 18, 18, 0.98);
+  --ff-palette-1b2c26-97: rgba(24, 24, 24, 0.97);
+  --ff-palette-1d302a-96: rgba(24, 24, 24, 0.96);
+  --ff-palette-20342d: #1e1e1e;
 }
