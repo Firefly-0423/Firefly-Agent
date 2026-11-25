@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { win32 } from "node:path";
-import { createRpcEndpoint, type PluginRpc } from "../../../shared/plugin-rpc";
+import { createRpcEndpoint, type PluginRpc, type RpcOptions } from "../../../shared/plugin-rpc";
 import { HOST_TO_PLUGIN_METHODS, PluginError, type Frame } from "../../../shared/plugin-protocol";
 
 export type PluginHostStatus = "disabled" | "starting" | "enabled" | "stopping" | "restarting" | "disabled-fault";
@@ -86,7 +86,14 @@ const TERMINATE_GRACE_MS = 750;
 export class PluginHostManager {
   private readonly records = new Map<string, RecordState>();
   private readonly listeners = new Set<(event: { id: string; status: PluginHostStatus }) => void>();
+  private readonly stopListeners = new Set<(id: string, rpc: PluginRpc) => Promise<void>>();
   constructor(private readonly dependencies: HostDependencies) {}
+
+  /** Runs while the port is alive, before deactivate. Services must use bounded RPC calls. */
+  onBeforeStop(listener: (id: string, rpc: PluginRpc) => Promise<void>): () => void {
+    this.stopListeners.add(listener);
+    return () => { this.stopListeners.delete(listener); };
+  }
 
   onStatusChange(listener: (event: { id: string; status: PluginHostStatus }) => void): () => void {
     this.listeners.add(listener);
@@ -124,6 +131,7 @@ export class PluginHostManager {
     runtime.rejectStartup(unavailable());
     if (runtime.startupTimer) clearTimeout(runtime.startupTimer);
     const stopped = (async () => {
+      await Promise.allSettled([...this.stopListeners].map(listener => Promise.resolve().then(() => listener(id, runtime.rpc))));
       try { await runtime.rpc.call(HOST_TO_PLUGIN_METHODS.deactivate, reason, { timeoutMs: 5000 }); } catch { /* Grace expired or plugin already exited. */ }
       this.finish(record, runtime, true);
       this.setStatus(id, record, "disabled");
@@ -133,12 +141,15 @@ export class PluginHostManager {
     return stopped;
   }
 
-  async call<T = unknown>(id: string, method: string, params: unknown, opts?: { signal?: AbortSignal; timeoutMs?: number }): Promise<T | { status: "unknown"; reason: string }> {
+  async call<T = unknown>(id: string, method: string, params: unknown, opts?: RpcOptions): Promise<T | { status: "unknown"; reason: string }> {
     const record = this.records.get(id), runtime = record?.runtime;
     if (record?.state !== "enabled" || !runtime) throw unavailable();
-    try { return await runtime.rpc.call<T>(method, params, opts); }
+    let posted = false;
+    try { return await runtime.rpc.call<T>(method, params, { ...opts, onPosted: () => { posted = true; opts?.onPosted?.(); } }); }
     catch (error) {
       if (runtime.crashed && method === HOST_TO_PLUGIN_METHODS.toolExecute) return { status: "unknown", reason: "Plugin process exited during tool execution" };
+      if (posted && runtime.crashed && method === HOST_TO_PLUGIN_METHODS.channelSend) return { status: "unknown", reason: "Plugin process exited during channel send" };
+      if (posted && runtime.finished && method === HOST_TO_PLUGIN_METHODS.channelSend) return { status: "unknown", reason: "Plugin process stopped during channel send" };
       throw error;
     }
   }
