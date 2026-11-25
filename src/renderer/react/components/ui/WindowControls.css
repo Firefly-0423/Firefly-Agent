@@ -30,7 +30,7 @@
 .ff-page .ff-winbtn:focus-visible { outline-offset: -3px; }
 
 /* Close: the standard window red, never the soft pink of the danger text colour. */
-.ff-winbtn--close:hover { background: #c42b1c; color: #fff; }
-.ff-winbtn--close:active { background: #c84031; color: rgba(255, 255, 255, 0.85); }
+.ff-winbtn--close:hover { background: var(--ff-win-close-hover); color: var(--ff-white); }
+.ff-winbtn--close:active { background: var(--ff-win-close-active); color: var(--ff-white-alpha-85); }
 
 @media (prefers-reduced-motion: reduce) { .ff-winbtn { transition: none; } }

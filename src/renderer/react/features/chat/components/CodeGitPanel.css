@@ -1,4 +1,4 @@
-.ff-code-git { position:fixed; z-index:1000; width:260px; height:min(390px,calc(100vh - 96px)); min-height:min(290px,calc(100vh - 96px)); display:flex; flex-direction:column; overflow:hidden; border-radius: 12px; background:var(--ff-surface); box-shadow:0 8px 28px rgba(0,0,0,.10); color:var(--ff-text); font-family:var(--rb-font-sans); }
+.ff-code-git { position:fixed; z-index:1000; width:260px; height:min(390px,calc(100vh - 96px)); min-height:min(290px,calc(100vh - 96px)); display:flex; flex-direction:column; overflow:hidden; border-radius: 12px; background:var(--ff-surface); box-shadow:0 8px 28px var(--ff-black-alpha-10); color:var(--ff-text); font-family:var(--rb-font-sans); }
 .ff-code-git--collapsed { height:auto; min-height:0; }
 .ff-code-git--collapsed .ff-code-git__body { max-height:0; padding-top:0; padding-bottom:0; opacity:0; pointer-events:none; overflow:hidden; }
 .ff-code-git__dragbar { width:100%; height:28px; flex:0 0 auto; position:relative; display:flex; align-items:center; justify-content:center; padding:0 10px; border:0; background:transparent; cursor:grab; }
