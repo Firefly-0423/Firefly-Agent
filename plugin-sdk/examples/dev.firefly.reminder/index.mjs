@@ -1,7 +1,7 @@
 /**
  * @file Firefly 1.2.0 SDK example: dev.firefly.reminder
  * Demonstrates `ctx.schedules.propose` (returning `pending_approval`), `ctx.schedules.list`,
- * and `ctx.schedules.onTrigger` invoking `ctx.model.generate` when approved and not cancelled.
+ * and `ctx.schedules.onTrigger` generating and showing a notification when approved and not cancelled.
  */
 
 const TIME_OF_DAY_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -173,12 +173,12 @@ export function createReminderPlugin(options = {}) {
       if (ctx.has("schedules")) {
         const triggerDisp = ctx.schedules.onTrigger(async (event) => {
           if (event.signal.aborted) return;
-          if (!ctx.has("schedules") || !ctx.has("model.generate")) return;
+          if (!ctx.has("schedules") || !ctx.has("model.generate") || !ctx.has("notifications")) return;
 
           // Defense-in-depth: never generate a reminder if the task is still pending_approval.
           const tasks = await ctx.schedules.list();
           const task = tasks.find((t) => t.taskId === event.taskId);
-          if (task && task.status !== "active") {
+          if (!task || task.status !== "active") {
             return;
           }
           if (event.signal.aborted) return;
@@ -197,6 +197,18 @@ export function createReminderPlugin(options = {}) {
             signal: event.signal,
           });
           if (event.signal.aborted) return;
+
+          try {
+            const notification = await ctx.notifications.show({
+              title: [...task.title].slice(0, 64).join(""),
+              body: [...generated.text.trim()].slice(0, 256).join(""),
+            });
+            if (!notification.shown) return;
+          } catch (error) {
+            // Permission can be revoked while the model is generating; skip that reminder quietly.
+            if (error?.code === "ERR_PERMISSION" || error?.code === "ERR_UNDECLARED") return;
+            throw error;
+          }
 
           const record = { taskId: event.taskId, text: generated.text.trim(), topic };
           deliveries.push(record);
