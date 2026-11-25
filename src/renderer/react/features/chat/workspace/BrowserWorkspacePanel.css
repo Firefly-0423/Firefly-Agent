@@ -5,7 +5,7 @@
   min-width: 0;
   min-height: 0;
   height: 100%;
-  color: var(--ff-text, #403840);
+  color: var(--ff-text, var(--ff-palette-403840));
   background: var(--ff-bg-workspace, var(--ff-surface));
 }
 
@@ -32,7 +32,7 @@
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: var(--ff-text-muted, #828396);
+  color: var(--ff-text-muted, var(--ff-palette-828396));
   font: inherit;
   cursor: pointer;
   transition: background-color 150ms ease, color 150ms ease, opacity 150ms ease;
@@ -40,7 +40,7 @@
 .ff-browser-workspace__toolbar button:hover:enabled { background: var(--ff-bg-hover); color: var(--ff-text); }
 .ff-browser-workspace__toolbar button:active:enabled { background: var(--ff-bg-active); }
 .ff-browser-workspace__toolbar button:disabled { opacity: 0.35; cursor: default; }
-.ff-browser-workspace__toolbar button:focus-visible { outline: 2px solid var(--ff-accent, #6b9982); outline-offset: 2px; }
+.ff-browser-workspace__toolbar button:focus-visible { outline: 2px solid var(--ff-accent, var(--ff-palette-6b9982)); outline-offset: 2px; }
 /* Back and forward share one outlined pill; reload, download and more are separate round buttons. */
 .ff-browser-workspace__nav {
   display: inline-flex;
@@ -66,7 +66,7 @@
 
 /* The address field is the pill itself: the input carries the rounded fill, the submit arrow sits inside it. */
 .ff-browser-workspace__address { position: relative; display: flex; flex: 1 1 0; min-width: 0; height: 36px; border-radius: 18px; }
-.ff-browser-workspace__address:focus-within { outline: 2px solid var(--ff-accent, #6b9982); outline-offset: 1px; }
+.ff-browser-workspace__address:focus-within { outline: 2px solid var(--ff-accent, var(--ff-palette-6b9982)); outline-offset: 1px; }
 .ff-browser-workspace__toolbar .ff-browser-workspace__address input {
   flex: 1 1 auto;
   width: 100%;
@@ -97,7 +97,7 @@
   margin-top: -12px;
   padding: 0;
   border-radius: 50%;
-  color: var(--ff-text-muted, #828396);
+  color: var(--ff-text-muted, var(--ff-palette-828396));
 }
 .ff-browser-workspace__toolbar .ff-browser-workspace__address button:hover:enabled { background: var(--ff-bg-active); }
 .ff-browser-workspace__toolbar .ff-browser-workspace__address button:disabled { opacity: 0.25; }
@@ -111,7 +111,7 @@
   min-width: 0;
   padding: 0 12px 6px;
   background: var(--ff-bg-workspace, var(--ff-surface));
-  color: var(--ff-text-muted, #828396);
+  color: var(--ff-text-muted, var(--ff-palette-828396));
   font-size: var(--ff-fs-caption);
 }
 .ff-browser-workspace__location [data-browser-committed-url] {
@@ -124,13 +124,13 @@
 
 .ff-browser-workspace__notice { margin: 0; padding: 7px 12px; background: var(--ff-bg-workspace, var(--ff-surface)); color: var(--ff-text-secondary, var(--ff-text)); font-size: var(--ff-fs-caption); }
 .ff-browser-workspace__notice.is-error {
-  color: var(--ff-danger, #9e3838);
-  background: color-mix(in srgb, var(--ff-danger, #c0392b) 12%, var(--ff-bg-workspace, var(--ff-surface)));
+  color: var(--ff-danger, var(--ff-palette-9e3838));
+  background: color-mix(in srgb, var(--ff-danger, var(--ff-palette-c0392b)) 12%, var(--ff-bg-workspace, var(--ff-surface)));
 }
 .ff-browser-workspace__viewport { position: relative; flex: 1; min-height: 0; overflow: hidden; }
 /* The page, frozen, while a menu hides the native page behind it. */
 .ff-browser-workspace__snapshot { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top left; pointer-events: none; user-select: none; }
-.ff-browser-workspace__empty { padding: 20px; text-align: center; color: var(--ff-text-muted, #828396); }
+.ff-browser-workspace__empty { padding: 20px; text-align: center; color: var(--ff-text-muted, var(--ff-palette-828396)); }
 .ff-browser-tab { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; }
 .ff-browser-tab > .ff-browser-workspace { flex: 1; }
 
@@ -147,7 +147,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--ff-border, #dfe1e8);
+  border-bottom: 1px solid var(--ff-border, var(--ff-slate-200));
   background: var(--ff-bg-workspace, var(--ff-surface));
   font-size: var(--ff-fs-caption);
   line-height: 1.6;
@@ -171,7 +171,7 @@
 .ff-browser-permission__mode {
   border-color: color-mix(in srgb, var(--ff-accent) 35%, transparent);
   background: color-mix(in srgb, var(--ff-accent) 12%, transparent);
-  color: var(--ff-accent, #6b9982);
+  color: var(--ff-accent, var(--ff-palette-6b9982));
 }
 .ff-browser-permission__status { background: var(--ff-surface); color: var(--ff-text-secondary); }
 .ff-browser-permission__status > span { width: 7px; height: 7px; border-radius: 50%; background: var(--ff-text-muted); }
@@ -318,12 +318,12 @@
   position: absolute;
   inset: auto 0 0 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, var(--ff-accent, #6b9982), transparent) 0 0 / 40% 100% no-repeat;
+  background: linear-gradient(90deg, transparent, var(--ff-accent, var(--ff-palette-6b9982)), transparent) 0 0 / 40% 100% no-repeat;
   animation: ff-browser-load 1.1s ease-in-out infinite;
 }
 @keyframes ff-browser-load { from { background-position: -40% 0; } to { background-position: 140% 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .ff-browser-workspace__toolbar[data-browser-busy]::after { animation: none; background: var(--ff-accent, #6b9982); opacity: 0.5; }
+  .ff-browser-workspace__toolbar[data-browser-busy]::after { animation: none; background: var(--ff-accent, var(--ff-palette-6b9982)); opacity: 0.5; }
   .ff-browser-workspace__toolbar button,
   .ff-browser-workspace__address input,
   .ff-browser-permission__toggle,
@@ -336,7 +336,7 @@
 .ff-browser-permission button:focus-visible,
 .ff-browser-workspace__state button:focus-visible,
 .ff-browser-workspace__toolbar button:focus-visible,
-.ff-browser-workspace__address input:focus-visible { outline: 2px solid var(--ff-accent, #6b9982); outline-offset: 2px; }
+.ff-browser-workspace__address input:focus-visible { outline: 2px solid var(--ff-accent, var(--ff-palette-6b9982)); outline-offset: 2px; }
 
 /* Custom colours: the light-only address field and hover surfaces take the user's paired tokens. */
 :root[data-ui-colors] .ff-browser-workspace__address input {

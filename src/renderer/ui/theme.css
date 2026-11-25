@@ -252,7 +252,7 @@
 }
 
 [data-ui-theme="pearl-white"] .disclaimer-section a {
-  border-bottom-color: rgba(68, 70, 79, 0.34);
+  border-bottom-color: var(--ff-palette-44464f-34);
 }
 
 [data-ui-theme="pearl-white"] .disclaimer-section a:hover {
@@ -277,9 +277,9 @@
 
 [data-ui-theme="pearl-white"] .plugin-switch span::after,
 [data-ui-theme="pearl-white"] .switch__thumb {
-  box-shadow: 0 1px 3px rgba(61, 62, 85, 0.28);
+  box-shadow: 0 1px 3px var(--ff-palette-3d3e55-28);
   border: 0;
-  background: #ffffff;
+  background: var(--ff-white);
 }
 
 [data-ui-theme="pearl-white"] .plugin-switch input:checked + span,
@@ -291,9 +291,9 @@
 
 [data-ui-theme="pearl-white"] .plugin-switch input:checked + span::after,
 [data-ui-theme="pearl-white"] .switch input:checked + .switch__track .switch__thumb {
-  box-shadow: 0 1px 3px rgba(61, 62, 85, 0.28);
+  box-shadow: 0 1px 3px var(--ff-palette-3d3e55-28);
   border: 0;
-  background: #ffffff;
+  background: var(--ff-white);
 }
 
 [data-ui-theme="pearl-white"] .plugin-switch:hover span,
@@ -303,7 +303,7 @@
 }
 
 [data-ui-theme="pearl-white"] input[type="range"] {
-  accent-color: #4d4e69;
+  accent-color: var(--ff-slate-600);
 }
 
 [data-ui-theme="pearl-white"] .tts-field input[type="range"],
@@ -311,10 +311,10 @@
 [data-ui-theme="pearl-white"] .range-row input[type="range"] {
   outline: none;
   height: 7px;
-  box-shadow: inset 0 1px 2px rgba(31, 35, 48, 0.08);
+  box-shadow: inset 0 1px 2px var(--ff-palette-1f2330-8);
   border-radius: 12px;
-  border: 1px solid #a7a8af;
-  background: linear-gradient(90deg, #e1e1e5, #ededef);
+  border: 1px solid var(--ff-slate-400);
+  background: linear-gradient(90deg, var(--ff-slate-150), var(--ff-slate-120));
   -webkit-appearance: none;
   appearance: none;
 }
@@ -334,10 +334,10 @@
   margin-top: -6px;
   height: 18px;
   cursor: pointer;
-  box-shadow: 0 2px 7px rgba(68, 70, 79, 0.18);
+  box-shadow: 0 2px 7px var(--ff-palette-44464f-18);
   border-radius: 50%;
-  border: 1px solid #a7a8af;
-  background: #ffffff;
+  border: 1px solid var(--ff-slate-400);
+  background: var(--ff-white);
   -webkit-appearance: none;
 }
 
@@ -346,8 +346,8 @@
 [data-ui-theme="pearl-white"] .range-row input[type="range"]::-moz-range-track {
   height: 7px;
   border-radius: 12px;
-  border: 1px solid #a7a8af;
-  background: #ededef;
+  border: 1px solid var(--ff-slate-400);
+  background: var(--ff-slate-120);
 }
 
 [data-ui-theme="pearl-white"] .tts-field input[type="range"]::-moz-range-progress,
@@ -355,7 +355,7 @@
 [data-ui-theme="pearl-white"] .range-row input[type="range"]::-moz-range-progress {
   height: 7px;
   border-radius: 12px;
-  background: #4d4e69;
+  background: var(--ff-slate-600);
 }
 
 [data-ui-theme="pearl-white"] .tts-field input[type="range"]::-moz-range-thumb,
@@ -364,10 +364,10 @@
   width: 18px;
   height: 18px;
   cursor: pointer;
-  box-shadow: 0 2px 7px rgba(68, 70, 79, 0.18);
+  box-shadow: 0 2px 7px var(--ff-palette-44464f-18);
   border-radius: 50%;
-  border: 1px solid #a7a8af;
-  background: #ffffff;
+  border: 1px solid var(--ff-slate-400);
+  background: var(--ff-white);
 }
 
 [data-ui-theme="pearl-white"] .range-val {
@@ -459,7 +459,7 @@
 
 [data-ui-theme="pearl-white"] .language-option.is-active,
 [data-ui-theme="pearl-white"] .option-block.is-active {
-  color: #ffffff;
+  color: var(--ff-white);
   box-shadow: none;
   border-color: var(--rb-pink-500);
   background: var(--rb-pink-500);
@@ -467,9 +467,9 @@
 
 [data-ui-theme="pearl-white"] .language-option.is-active:not(:disabled):hover,
 [data-ui-theme="pearl-white"] .option-block.is-active:not(:disabled):hover {
-  color: #ffffff;
-  border-color: #5d5e7b;
-  background: #5d5e7b;
+  color: var(--ff-white);
+  border-color: var(--ff-slate-550);
+  background: var(--ff-slate-550);
 }
 
 [data-ui-theme="pearl-white"] .sticker-file-btn,
@@ -485,7 +485,7 @@
 [data-ui-theme="pearl-white"] .settings-btn:hover,
 [data-ui-theme="pearl-white"] .btn-primary:hover:not(:disabled),
 [data-ui-theme="pearl-white"] .save-btn:hover:not(:disabled) {
-  box-shadow: 0 6px 20px rgba(68, 70, 79, 0.28);
+  box-shadow: 0 6px 20px var(--ff-palette-44464f-28);
   background: var(--rb-pink-600);
 }
 
@@ -495,9 +495,9 @@
 }
 
 [data-ui-theme="pearl-white"] .profile__online {
-  color: #15803d;
-  border-color: rgba(34, 197, 94, 0.24);
-  background: rgba(220, 252, 231, 0.72);
+  color: var(--ff-status-ok-text);
+  border-color: var(--ff-palette-22c55e-24);
+  background: var(--ff-palette-dcfce7-72);
 }
 
 [data-ui-theme="pearl-white"] .profile__online.is-offline {
@@ -558,7 +558,7 @@
 [data-ui-theme="pearl-white"] .field input:focus:not(:disabled) {
   outline: none;
   border-color: var(--rb-pink-500);
-  box-shadow: 0 0 0 3px rgba(68, 70, 79, 0.18);
+  box-shadow: 0 0 0 3px var(--ff-palette-44464f-18);
 }
 
 [data-ui-theme="pearl-white"] .tts-field select option {
@@ -581,12 +581,12 @@
 }
 
 [data-ui-theme="pearl-white"] .save-status.is-ok {
-  color: #15803d;
+  color: var(--ff-status-ok-text);
 }
 
 [data-ui-theme="pearl-white"] .sticker-add-modal__error,
 [data-ui-theme="pearl-white"] .save-status.is-error {
-  color: #b91c1c;
+  color: var(--ff-status-err-text);
 }
 
 [data-ui-theme="pearl-white"] .rag-model-card.is-active {
@@ -702,15 +702,15 @@
 }
 
 [data-ui-theme="pearl-white"] .channels-feedback--ok {
-  color: #15803d;
+  color: var(--ff-status-ok-text);
 }
 
 [data-ui-theme="pearl-white"] .channels-feedback--err {
-  color: #b91c1c;
+  color: var(--ff-status-err-text);
 }
 
 [data-ui-theme="pearl-white"] .channels-feedback--info {
-  color: #92400e;
+  color: var(--ff-status-warn-text);
 }
 
 [data-ui-theme="pearl-white"] .channels-qr-modal__card {
@@ -742,7 +742,7 @@
 }
 
 [data-ui-theme="pearl-white"] .scheduler-editor {
-  background: rgba(29, 29, 31, 0.18);
+  background: var(--ff-palette-1d1d1f-18);
   backdrop-filter: blur(6px);
 }
 
@@ -788,9 +788,9 @@
 }
 
 [data-ui-theme="pearl-white"] .scheduler-badge {
-  color: #15803d;
-  border-color: rgba(34, 197, 94, 0.24);
-  background: rgba(220, 252, 231, 0.78);
+  color: var(--ff-status-ok-text);
+  border-color: var(--ff-palette-22c55e-24);
+  background: var(--ff-palette-dcfce7-78);
 }
 
 [data-ui-theme="pearl-white"] .scheduler-badge.is-disabled {
@@ -830,7 +830,7 @@
 }
 
 [data-ui-theme="pearl-white"] .ff-modal-overlay {
-  background: rgba(29, 29, 31, 0.22);
+  background: var(--ff-palette-1d1d1f-22);
 }
 
 [data-ui-theme="pearl-white"] .ff-modal__icon {
