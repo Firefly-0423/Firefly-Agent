@@ -69,8 +69,24 @@ export type PluginScanIssue = {
     root: string;
     source: "builtin" | "user";
 };
+export type UninstallCleanupOutcome = "kept" | "deleted" | "delete_failed";
+export type UninstallCleanupResult = {
+    data: UninstallCleanupOutcome;
+    dataError?: string;
+    secrets: UninstallCleanupOutcome;
+    secretsError?: string;
+};
+export type PendingPluginCleanup = {
+    data: UninstallCleanupOutcome;
+    dataError?: string;
+    id: string;
+    name: string;
+    secrets: UninstallCleanupOutcome;
+    secretsError?: string;
+};
 export type PluginOverview = {
     issues: PluginScanIssue[];
+    pendingCleanups?: PendingPluginCleanup[];
     plugins: PluginListEntry[];
 };
 export type MarketToolSummary = {
@@ -194,6 +210,7 @@ export type PluginManagementApi = {
     }>;
     stopV2Borrowing?(filter?: { id?: string; pluginId?: string }): Promise<{ ok: boolean; stopped: number }>;
     uninstall(id: string, options?: UninstallPluginOptions): Promise<{
+        cleanup?: UninstallCleanupResult;
         error?: string;
         ok: boolean;
         overview?: PluginOverview;

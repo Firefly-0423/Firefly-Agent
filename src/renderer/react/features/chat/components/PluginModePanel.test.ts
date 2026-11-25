@@ -450,3 +450,46 @@ test("reports an installation rejection with the service error intact", async ()
   await mount(api); await nav(true); await click(actionButtons()[0]);
   expect(host.textContent).toContain("安装失败：Package rejected");
 });
+
+test("displays partial uninstall cleanup failures truthfully and supports retrying failed cleanup (D4)", async () => {
+  const pending = {
+    id: "archive-toolkit",
+    name: "Archive toolkit",
+    secrets: "delete_failed" as const,
+    secretsError: "keyring locked",
+    data: "deleted" as const,
+  };
+  const api = service([installed()]);
+  vi.mocked(api.uninstall)
+    .mockResolvedValueOnce({
+      ok: false,
+      cleanup: { secrets: "delete_failed", secretsError: "keyring locked", data: "deleted" },
+      error: "凭据删除失败（keyring locked）",
+      overview: { plugins: [], issues: [], pendingCleanups: [pending] },
+    })
+    .mockResolvedValueOnce({
+      ok: true,
+      cleanup: { secrets: "deleted", data: "deleted" },
+      overview: { plugins: [], issues: [] },
+    });
+
+  await mount(api);
+  await click(actionButtons().at(-1)!);
+  const dialog = host.querySelector('[role="dialog"]')!;
+  const checkboxes = Array.from(dialog.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'));
+  await React.act(async () => { checkboxes[0].click(); checkboxes[1].click(); });
+  const confirmBtn = Array.from(dialog.querySelectorAll("button")).find(b => b.textContent === "卸载")!;
+  await click(confirmBtn);
+
+  expect(host.textContent).toContain("卸载失败");
+  expect(host.textContent).toContain("凭据 删除失败（需重试）");
+  expect(host.textContent).toContain("数据目录 已删除");
+  expect(host.textContent).toContain("keyring locked");
+
+  const retryBtn = buttons().find(b => b.textContent === "重试清理")!;
+  expect(retryBtn).toBeDefined();
+  await click(retryBtn);
+
+  expect(api.uninstall).toHaveBeenNthCalledWith(2, "archive-toolkit", { deleteSecrets: true, deleteData: false });
+  expect(host.textContent).not.toContain("删除失败（需重试）");
+});

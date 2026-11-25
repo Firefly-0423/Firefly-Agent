@@ -22,7 +22,7 @@ export interface PluginManagementIpcDeps {
     | "importFromPath"
     | "uninstallPlugin"
     | "openPluginWindow"
-  >;
+  > & Partial<Pick<PluginV2HostController, "listPendingCleanups">>;
   selectPluginPackage: () => Promise<string | undefined>;
   selectPluginFolder: () => Promise<string | undefined>;
 }
@@ -87,16 +87,18 @@ export function snapshotToListEntry(snap: PluginV2Snapshot): PluginListEntry {
 }
 
 export function buildPluginOverview(
-  controller: Pick<PluginV2HostController, "listPlugins">,
+  controller: Pick<PluginV2HostController, "listPlugins"> & Partial<Pick<PluginV2HostController, "listPendingCleanups">>,
 ): PluginOverview {
+  const pendingCleanups = controller.listPendingCleanups?.() ?? [];
   return {
     plugins: controller.listPlugins().map(snapshotToListEntry),
     issues: [],
+    ...(pendingCleanups.length > 0 ? { pendingCleanups } : {}),
   };
 }
 
 export function notifyPluginOverviewChanged(
-  controller: Pick<PluginV2HostController, "listPlugins">,
+  controller: Pick<PluginV2HostController, "listPlugins"> & Partial<Pick<PluginV2HostController, "listPendingCleanups">>,
   hosts: PluginIpcHosts,
 ): void {
   const overview = buildPluginOverview(controller);
@@ -195,11 +197,16 @@ export function registerPluginManagementIpc(deps: PluginManagementIpcDeps): void
         ? rawOptions as UninstallPluginOptions
         : {};
       try {
-        await controller.uninstallPlugin(id, {
-          deleteSecrets: Boolean(optsRecord.deleteSecrets),
-          deleteData: Boolean(optsRecord.deleteData),
+        const result = await controller.uninstallPlugin(id, {
+          ...(optsRecord.deleteSecrets !== undefined ? { deleteSecrets: Boolean(optsRecord.deleteSecrets) } : {}),
+          ...(optsRecord.deleteData !== undefined ? { deleteData: Boolean(optsRecord.deleteData) } : {}),
         });
-        return { ok: true, overview: overview() };
+        return {
+          ok: result.ok,
+          cleanup: result.cleanup,
+          ...(result.error ? { error: result.error } : {}),
+          overview: overview(),
+        };
       } catch (error) {
         return { ok: false, error: errorMessage(error), overview: overview() };
       }

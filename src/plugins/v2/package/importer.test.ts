@@ -1,8 +1,9 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import * as fsPromises from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import JSZip from "jszip";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { importPluginPackage } from "./importer";
 import { packPackage } from "./pack";
 import {
@@ -193,5 +194,239 @@ describe("importPluginPackage", () => {
       expect(["path_symlink_escape", "symlink_not_allowed"]).toContain(res.errors[0].code);
     }
     expect(readdirSync(pluginsRoot)).toEqual([]);
+  });
+
+  it("refuses allowOverwrite=false without creating staging or touching existing version (D7)", async () => {
+    const pluginId = "dev.firefly.nooverwrite";
+    const v1Folder = createPackage(path.join(root, "src-v1"), {
+      manifest: goodManifest({ id: pluginId, version: "1.0.0" }),
+      files: {
+        "dist/index.mjs": "export default { version: 'v1-original' };\n",
+        "assets/icon.png": "png",
+        "ui/settings.html": "<!doctype html>v1",
+      },
+    });
+    const first = await importPluginPackage(v1Folder, { pluginsRoot });
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    await first.commit();
+
+    const v1Duplicate = createPackage(path.join(root, "src-v1-dup"), {
+      manifest: goodManifest({ id: pluginId, version: "1.0.0" }),
+      files: {
+        "dist/index.mjs": "export default { version: 'v1-overwrite-attempt' };\n",
+        "assets/icon.png": "png",
+        "ui/settings.html": "<!doctype html>v1-new",
+      },
+    });
+
+    const mkdirSpy = vi.fn(fsPromises.mkdir);
+    const rejected = await importPluginPackage(v1Duplicate, {
+      pluginsRoot,
+      allowOverwrite: false,
+      fs: { mkdir: mkdirSpy },
+    });
+    expect(rejected.ok).toBe(false);
+    if (!rejected.ok) {
+      expect(rejected.errors[0].code).toBe("invalid_value");
+    }
+    expect(mkdirSpy).not.toHaveBeenCalled();
+
+    const pluginIdDir = path.join(pluginsRoot, pluginId);
+    expect(readdirSync(pluginIdDir)).toEqual(["1.0.0"]);
+    expect(readFileSync(path.join(pluginIdDir, "1.0.0", "dist", "index.mjs"), "utf8")).toContain("v1-original");
+  });
+
+  it("cleans staging in finally if target appears mid-import with allowOverwrite=false (D7)", async () => {
+    const pluginId = "dev.firefly.raceoverwrite";
+    const pkgFolder = createPackage(path.join(root, "src-race"), {
+      manifest: goodManifest({ id: pluginId, version: "1.0.0" }),
+      files: {
+        "dist/index.mjs": "export default { version: 'new' };\n",
+        "assets/icon.png": "png",
+        "ui/settings.html": "<!doctype html>",
+      },
+    });
+
+    const targetDir = path.join(pluginsRoot, pluginId, "1.0.0");
+    let lstatCount = 0;
+    const rejected = await importPluginPackage(pkgFolder, {
+      pluginsRoot,
+      allowOverwrite: false,
+      fs: {
+        async lstat(target, ...rest) {
+          if (path.resolve(String(target)) === path.resolve(targetDir)) {
+            lstatCount += 1;
+            // First two checks (pre-check & after mkdir pluginIdDir): missing.
+            // After staging copy completes: simulate concurrent creation of targetDir.
+            if (lstatCount >= 5) {
+              mkdirSync(targetDir, { recursive: true });
+              writeFileSync(path.join(targetDir, "marker.txt"), "concurrent-original", "utf8");
+            }
+          }
+          return await fsPromises.lstat(target, ...rest);
+        },
+      },
+    });
+
+    expect(rejected.ok).toBe(false);
+    if (!rejected.ok) {
+      expect(rejected.errors[0].code).toBe("invalid_value");
+    }
+    const pluginIdDir = path.join(pluginsRoot, pluginId);
+    expect(readdirSync(pluginIdDir)).toEqual(["1.0.0"]);
+    expect(readFileSync(path.join(targetDir, "marker.txt"), "utf8")).toBe("concurrent-original");
+  });
+
+  // Skip cleanly on environments that disallow directory junctions/symlinks.
+  it.skipIf(!CAN_LINK_DIRECTORY)(
+    "rejects symlinked/junctioned pluginsRoot, parent, pluginIdDir, and targetDir without touching out-of-bounds targets (D1)",
+    async () => {
+      const outside = path.join(root, "outside-target");
+      mkdirSync(outside, { recursive: true });
+      writeFileSync(path.join(outside, "untouched.txt"), "keep-me", "utf8");
+
+      const pkg = createPackage(path.join(root, "src-valid"), {
+        manifest: goodManifest({ id: "dev.firefly.junc", version: "1.0.0" }),
+      });
+
+      // 1. pluginsRoot itself is a junction
+      const linkedPluginsRoot = path.join(root, "linked-plugins-root");
+      linkDirectory(outside, linkedPluginsRoot);
+      const resRoot = await importPluginPackage(pkg, { pluginsRoot: linkedPluginsRoot });
+      expect(resRoot.ok).toBe(false);
+      if (!resRoot.ok) expect(resRoot.errors[0].code).toBe("symlink_not_allowed");
+      expect(readdirSync(outside)).toEqual(["untouched.txt"]);
+
+      // 2. Parent of non-existent pluginsRoot is a junction
+      const linkedParent = path.join(root, "linked-parent");
+      linkDirectory(outside, linkedParent);
+      const nestedPluginsRoot = path.join(linkedParent, "nested-plugins");
+      const resParent = await importPluginPackage(pkg, { pluginsRoot: nestedPluginsRoot });
+      expect(resParent.ok).toBe(false);
+      if (!resParent.ok) expect(resParent.errors[0].code).toBe("symlink_not_allowed");
+      expect(existsSync(path.join(outside, "nested-plugins"))).toBe(false);
+      expect(readdirSync(outside)).toEqual(["untouched.txt"]);
+
+      // 3. pluginIdDir (<pluginsRoot>/<id>) is a junction
+      const rootWithPluginLink = path.join(root, "plugins-with-id-link");
+      mkdirSync(rootWithPluginLink, { recursive: true });
+      linkDirectory(outside, path.join(rootWithPluginLink, "dev.firefly.junc"));
+      const resPluginDir = await importPluginPackage(pkg, { pluginsRoot: rootWithPluginLink });
+      expect(resPluginDir.ok).toBe(false);
+      if (!resPluginDir.ok) expect(resPluginDir.errors[0].code).toBe("symlink_not_allowed");
+      expect(readdirSync(outside)).toEqual(["untouched.txt"]);
+
+      // 4. targetDir (<pluginsRoot>/<id>/<version>) is a junction (both allowOverwrite true and false)
+      const rootWithTargetLink = path.join(root, "plugins-with-version-link");
+      mkdirSync(path.join(rootWithTargetLink, "dev.firefly.junc"), { recursive: true });
+      linkDirectory(outside, path.join(rootWithTargetLink, "dev.firefly.junc", "1.0.0"));
+      for (const allowOverwrite of [true, false]) {
+        const resTarget = await importPluginPackage(pkg, { pluginsRoot: rootWithTargetLink, allowOverwrite });
+        expect(resTarget.ok).toBe(false);
+        if (!resTarget.ok) expect(resTarget.errors[0].code).toBe("symlink_not_allowed");
+        expect(readFileSync(path.join(outside, "untouched.txt"), "utf8")).toBe("keep-me");
+        expect(readdirSync(outside)).toEqual(["untouched.txt"]);
+        expect(readdirSync(path.join(rootWithTargetLink, "dev.firefly.junc"))).toEqual(["1.0.0"]);
+      }
+    },
+  );
+
+  it("blocks TOCTOU symlink swaps during publish, commit, and rollback via I/O seam (D1)", async () => {
+    const pkg = createPackage(path.join(root, "src-toctou"), {
+      manifest: goodManifest({ id: "dev.firefly.toctou", version: "1.0.0" }),
+    });
+    const targetDir = path.join(pluginsRoot, "dev.firefly.toctou", "1.0.0");
+
+    // 1. Target becomes symlink right before publish rename
+    let renameCalled = false;
+    let cpDone = false;
+    const publishRejected = await importPluginPackage(pkg, {
+      pluginsRoot,
+      fs: {
+        async cp(src, dst, opts) {
+          cpDone = true;
+          return fsPromises.cp(src, dst, opts);
+        },
+        async lstat(target, ...rest) {
+          const info = await fsPromises.lstat(target, ...rest);
+          return info;
+        },
+        async rename(oldPath, newPath) {
+          renameCalled = true;
+          return fsPromises.rename(oldPath, newPath);
+        },
+      },
+    });
+    // Baseline succeeds when no swap occurs
+    expect(cpDone).toBe(true);
+    expect(renameCalled).toBe(true);
+    expect(publishRejected.ok).toBe(true);
+    if (publishRejected.ok) await publishRejected.commit();
+
+    // Now inject symlink report on targetDir after copy completes (before backup/publish)
+    let targetIsSwapped = false;
+    const rmSpy = vi.fn(fsPromises.rm);
+    const renameSpy = vi.fn(fsPromises.rename);
+    const swappedRes = await importPluginPackage(pkg, {
+      pluginsRoot,
+      fs: {
+        async cp(src, dst, opts) {
+          const out = await fsPromises.cp(src, dst, opts);
+          targetIsSwapped = true;
+          return out;
+        },
+        async lstat(target, ...rest) {
+          const info = await fsPromises.lstat(target, ...rest);
+          if (targetIsSwapped && path.resolve(String(target)) === path.resolve(targetDir)) {
+            return {
+              ...info,
+              isSymbolicLink: () => true,
+              isDirectory: () => false,
+            } as unknown as Awaited<ReturnType<typeof fsPromises.lstat>>;
+          }
+          return info;
+        },
+        rm: rmSpy,
+        rename: renameSpy,
+      },
+    });
+    expect(swappedRes.ok).toBe(false);
+    if (!swappedRes.ok) {
+      expect(swappedRes.errors[0].code).toBe("symlink_not_allowed");
+    }
+    expect(renameSpy).not.toHaveBeenCalled();
+    expect(readdirSync(path.join(pluginsRoot, "dev.firefly.toctou"))).toEqual(["1.0.0"]);
+
+    // 2. Target becomes symlink before rollback() -> rollback rejects without calling rm/rename on symlink
+    let hijackRollback = false;
+    const rollbackRmSpy = vi.fn(fsPromises.rm);
+    const rollbackRenameSpy = vi.fn(fsPromises.rename);
+    const handle = await importPluginPackage(pkg, {
+      pluginsRoot,
+      fs: {
+        async lstat(target, ...rest) {
+          const info = await fsPromises.lstat(target, ...rest);
+          if (hijackRollback && path.resolve(String(target)) === path.resolve(targetDir)) {
+            return {
+              ...info,
+              isSymbolicLink: () => true,
+              isDirectory: () => false,
+            } as unknown as Awaited<ReturnType<typeof fsPromises.lstat>>;
+          }
+          return info;
+        },
+        rm: rollbackRmSpy,
+        rename: rollbackRenameSpy,
+      },
+    });
+    expect(handle.ok).toBe(true);
+    if (!handle.ok) return;
+    rollbackRmSpy.mockClear();
+    rollbackRenameSpy.mockClear();
+    hijackRollback = true;
+    await expect(handle.rollback()).rejects.toThrow(/符号链接|junction/);
+    expect(rollbackRmSpy).not.toHaveBeenCalled();
+    expect(rollbackRenameSpy).not.toHaveBeenCalled();
   });
 });
