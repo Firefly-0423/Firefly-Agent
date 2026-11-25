@@ -63,6 +63,18 @@ describe("plugin-v2 redaction", () => {
     expect(output).not.toContain("sk-test-s");
   });
 
+  it.each([
+    ["posix path after =", ["file=/ho", "me/alice/secret.env"], "file=[REDACTED_PATH]", "/home/alice"],
+    ["windows path after =", ["file=E:", "\\Users\\alice\\secret.env"], "file=[REDACTED_PATH]", "Users\\alice"],
+    ["windows drive letter after =", ["file=E", ":\\Users\\alice\\secret.env"], "file=[REDACTED_PATH]", "Users\\alice"],
+    ["posix path after (", ["open(/ho", "me/alice/secret.env"], "open([REDACTED_PATH]", "/home/alice"],
+  ])("holds a path that starts after an assignment-style prefix across chunks (%s)", (_label, chunks, expected, leaked) => {
+    const redactor = createPluginStreamRedactor({ workspaceRoot }, source);
+    const output = chunks.map((chunk) => redactor.push(chunk)).join("") + redactor.finish();
+    expect(output).toBe(expected);
+    expect(output).not.toContain(leaked);
+  });
+
   it("flushes safe buffered tail on finish() only", () => {
     const redactor = createPluginStreamRedactor({ workspaceRoot }, source);
     expect(redactor.push("note C")).toBe("note ");

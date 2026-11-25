@@ -23,6 +23,8 @@ const UNC_PATH_REGEX = /\\\\[^\s"'`<>|)\],;]+(?:\\[^\s"'`<>|)\],;]*)*/g;
 const POSIX_ROOT_PATH_REGEX = /(^|[\s"'`(=,:])(\/(?:Users|home|etc|var|tmp|opt|root|mnt|Volumes|private|System|Library)\b[^\s"'`<>|)\],;]*)/g;
 
 const TRAILING_PATH_DELIMITERS = /[\s"'`<>|)\],;]/;
+/** Characters the path patterns also accept right before a path, inside a token. */
+const PATH_PREFIX_CHARS = /[=(:]/;
 const POSIX_ROOT_NAMES = [
   "/Users", "/home", "/etc", "/var", "/tmp", "/opt",
   "/root", "/mnt", "/Volumes", "/private", "/System", "/Library",
@@ -158,15 +160,19 @@ function trailingPathStartIndex(buffer: string, protectedRoots: readonly string[
     if (TRAILING_PATH_DELIMITERS.test(buffer[i])) break;
     tokenStart = i;
   }
-  const tailToken = buffer.slice(tokenStart);
-  if (tailToken.length > 0) {
-    const looksWindowsDrive = /^[A-Za-z](?::(?:[\\/].*)?)?$/.test(tailToken);
-    const looksUnc = /^\\+(?:.*)?$/.test(tailToken);
-    const looksPosixRoot = tailToken.startsWith("/") && POSIX_ROOT_NAMES.some((root) =>
-      root.startsWith(tailToken) || tailToken.startsWith(root),
+  // A path can begin at the token start or right after a prefix the full-text patterns accept
+  // (`file=/home/...`, `open(E:\...`), so test each such start, earliest first.
+  for (let start = tokenStart; start < buffer.length; start++) {
+    if (start > tokenStart && !PATH_PREFIX_CHARS.test(buffer[start - 1]) && buffer[start] !== "\\") continue;
+    const candidate = buffer.slice(start);
+    const looksWindowsDrive = /^[A-Za-z](?::(?:[\\/].*)?)?$/.test(candidate);
+    const looksUnc = /^\\+(?:.*)?$/.test(candidate);
+    const looksPosixRoot = candidate.startsWith("/") && POSIX_ROOT_NAMES.some((root) =>
+      root.startsWith(candidate) || candidate.startsWith(root),
     );
     if (looksWindowsDrive || looksUnc || looksPosixRoot) {
-      holdFrom = Math.min(holdFrom, tokenStart);
+      holdFrom = Math.min(holdFrom, start);
+      break;
     }
   }
 
