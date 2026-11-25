@@ -199,6 +199,16 @@ it("uses the canonical Main registry and injects the same coordinator into the c
       revalidateToolPermission: second.toolContext.revalidateToolPermission,
     }) }));
     expect(prepareRuntime("chat").agentExecutor).toBeUndefined();
+    createAgentExecutor.mockClear();
+    const noPartners = prepareToolRuntime({
+      options: { conversationId: "synthetic-plugin", conversationMode: "work", allowDelegation: false,
+        settings: { provider: "synthetic", baseUrl: "", model: "model", apiKey: "" }, messages: [] } as never,
+      signal: new AbortController().signal,
+      prepared: { threadId: "synthetic-plugin", runId: "plugin-run", systemPrompt: "system", vendorConfig: {}, tools: [], runStore: {} } as never,
+      sendBaseEvent: vi.fn(),
+    });
+    expect(noPartners.agentExecutor).toBeUndefined();
+    expect(createAgentExecutor).not.toHaveBeenCalled();
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

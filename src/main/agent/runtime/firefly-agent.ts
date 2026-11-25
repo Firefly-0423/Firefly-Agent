@@ -62,6 +62,8 @@ export type FireflyRunOptions = {
   imageCaptionFallback?: () => Promise<ChatMessage[]>;
   permissionMode?: "normal" | "allow_all";
   interactiveTools?: boolean;
+  /** false keeps the run from delegating to partners: no agent executor and no delegate_agent tool. */
+  allowDelegation?: boolean;
   capabilities?: RunCapabilities;
   tools?: ToolDefinition[];
   timeoutMs: number;

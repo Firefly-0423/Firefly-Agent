@@ -156,7 +156,7 @@ export function prepareToolRuntime(input: ToolRuntimeInput): PreparedToolRuntime
   const toolOutputStore = new FileToolOutputStore(app.getPath("userData"));
   // 只有 work/code 模式允许派生任务；chat 模式不创建 TaskSession，避免出现不可见的后台执行。
   const profiles = createSpecialistProfiles(options.conversationMode ?? "chat", tools, options.capabilities?.skills ?? []);
-  const agentExecutor = options.conversationMode === "work" || options.conversationMode === "code"
+  const agentExecutor = options.allowDelegation !== false && (options.conversationMode === "work" || options.conversationMode === "code")
     ? createAgentExecutor({
       profiles,
       modelSettings: loadModelSettings(),
