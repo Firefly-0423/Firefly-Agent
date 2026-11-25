@@ -7,6 +7,7 @@ import {
   type PluginManifestV1,
   type PluginPermission,
 } from "../../../shared/plugin-manifest";
+import type { PendingPluginCleanup } from "../../../shared/plugin-management";
 import { PluginError } from "../../../shared/plugin-protocol";
 import type { ServicePermission } from "../services";
 
@@ -42,6 +43,7 @@ export interface StoredPluginState {
 export interface PluginStateDocument {
   schemaVersion: 1;
   plugins: Record<string, StoredPluginState>;
+  pendingCleanups?: Record<string, PendingPluginCleanup>;
 }
 
 export interface PluginStateStoreOptions {
@@ -115,11 +117,30 @@ function isValidStoredPluginState(id: string, value: unknown): value is StoredPl
   return true;
 }
 
+function isValidCleanupOutcome(value: unknown): boolean {
+  return value === "kept" || value === "deleted" || value === "delete_failed";
+}
+
+function isValidPendingCleanup(id: string, value: unknown): value is PendingPluginCleanup {
+  if (!isPlainRecord(value)) return false;
+  if (value.id !== id) return false;
+  if (typeof value.name !== "string" || value.name.trim().length === 0) return false;
+  if (!isValidCleanupOutcome(value.secrets) || !isValidCleanupOutcome(value.data)) return false;
+  if (value.secretsError !== undefined && typeof value.secretsError !== "string") return false;
+  if (value.dataError !== undefined && typeof value.dataError !== "string") return false;
+  return true;
+}
+
 export function isValidPluginStateDocument(value: unknown): value is PluginStateDocument {
   if (!isPlainRecord(value)) return false;
   if (value.schemaVersion !== PLUGIN_STATE_SCHEMA_VERSION) return false;
   if (!isPlainRecord(value.plugins)) return false;
-  return Object.entries(value.plugins).every(([id, entry]) => isValidStoredPluginState(id, entry));
+  if (!Object.entries(value.plugins).every(([id, entry]) => isValidStoredPluginState(id, entry))) return false;
+  if (value.pendingCleanups !== undefined) {
+    if (!isPlainRecord(value.pendingCleanups)) return false;
+    if (!Object.entries(value.pendingCleanups).every(([id, entry]) => isValidPendingCleanup(id, entry))) return false;
+  }
+  return true;
 }
 
 function declaredGrantableKeys(manifest: PluginManifestV1): Set<string> {
@@ -303,6 +324,12 @@ export function createPluginStateStore(options: PluginStateStoreOptions = {}) {
               : {}),
         };
         draft.plugins[id] = next;
+        if (draft.pendingCleanups?.[id]) {
+          delete draft.pendingCleanups[id];
+          if (Object.keys(draft.pendingCleanups).length === 0) {
+            delete draft.pendingCleanups;
+          }
+        }
         return cloneState(next);
       });
     },
@@ -436,6 +463,31 @@ export function createPluginStateStore(options: PluginStateStoreOptions = {}) {
         const existed = Boolean(draft.plugins[pluginId]);
         delete draft.plugins[pluginId];
         return existed;
+      });
+    },
+    listPendingCleanups(): PendingPluginCleanup[] {
+      return Object.values(document.pendingCleanups ?? {}).map((entry) => structuredClone(entry));
+    },
+    getPendingCleanup(pluginId: string): PendingPluginCleanup | undefined {
+      const entry = document.pendingCleanups?.[pluginId];
+      return entry ? structuredClone(entry) : undefined;
+    },
+    setPendingCleanup(cleanup: PendingPluginCleanup): PendingPluginCleanup {
+      return mutate(cleanup.id, (draft) => {
+        draft.pendingCleanups ??= {};
+        draft.pendingCleanups[cleanup.id] = structuredClone(cleanup);
+        return structuredClone(cleanup);
+      });
+    },
+    clearPendingCleanup(pluginId: string): boolean {
+      if (!document.pendingCleanups?.[pluginId]) return false;
+      return mutate(pluginId, (draft) => {
+        if (!draft.pendingCleanups?.[pluginId]) return false;
+        delete draft.pendingCleanups[pluginId];
+        if (Object.keys(draft.pendingCleanups).length === 0) {
+          delete draft.pendingCleanups;
+        }
+        return true;
       });
     },
   };

@@ -51,7 +51,7 @@ describe("registerPluginManagementIpc", () => {
       revokePermission: vi.fn(() => ({} as never)),
       setModelRateLimit: vi.fn(() => ({} as never)),
       importFromPath: vi.fn(async () => ({ ok: true as const, installation: "committed" as const, activation: "not-requested" as const, plugin: { id: "dev.firefly.a", name: "A", version: "1.0.0" } })),
-      uninstallPlugin: vi.fn(async () => undefined),
+      uninstallPlugin: vi.fn(async () => ({ ok: true, uninstalled: true, cleanup: { secrets: "kept", data: "kept" } })),
     };
     selectPluginPackage = vi.fn(async () => "C:\\pkg.ffplugin");
     selectPluginFolder = vi.fn(async () => "C:\\plugin-dir");
@@ -101,7 +101,11 @@ describe("registerPluginManagementIpc", () => {
     await handlers.get(IPC.PLUGINS_SET_MODEL_RATE_LIMIT)!(trusted, "dev.firefly.a", 30);
     expect(controller.setModelRateLimit).toHaveBeenCalledWith("dev.firefly.a", 30);
 
-    await handlers.get(IPC.PLUGINS_UNINSTALL)!(trusted, "dev.firefly.a", { deleteSecrets: false, deleteData: true });
+    const uninstallRes = await handlers.get(IPC.PLUGINS_UNINSTALL)!(trusted, "dev.firefly.a", { deleteSecrets: false, deleteData: true });
     expect(controller.uninstallPlugin).toHaveBeenCalledWith("dev.firefly.a", { deleteSecrets: false, deleteData: true });
+    expect(uninstallRes).toMatchObject({
+      ok: true,
+      cleanup: { secrets: "kept", data: "kept" },
+    });
   });
 });

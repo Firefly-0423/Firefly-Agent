@@ -17,6 +17,11 @@ import type { BuildOptionsFn } from "../../../agent/runtime/run-input-types";
 import { cancelPendingApprovalsForRun } from "../../../platform/permission/permission";
 import type { ToolRegistry } from "../../../tooling/registry/tool-registry";
 import type { ChatSession, ChatSessionMeta, ConversationMode } from "../../../../shared/chat-types";
+import type {
+  PendingPluginCleanup,
+  UninstallCleanupOutcome,
+  UninstallCleanupResult,
+} from "../../../../shared/plugin-management";
 import type { PluginManifestV1, PluginRunSource } from "../../../../shared/plugin-manifest";
 import {
   PluginError,
@@ -137,6 +142,13 @@ export type PluginV2ImportResult =
       activation?: "rolled-back" | "failed";
       error: string;
     };
+
+export type PluginV2UninstallResult = {
+  ok: boolean;
+  uninstalled: boolean;
+  cleanup: UninstallCleanupResult;
+  error?: string;
+};
 
 export interface PluginV2Snapshot {
   id: string;
@@ -863,6 +875,38 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
     });
   };
 
+  const removeDirStrict = async (targetDir: string, expectedBaseDir: string): Promise<void> => {
+    const resolvedTarget = path.resolve(targetDir);
+    const resolvedBase = path.resolve(expectedBaseDir);
+    const lstatFn = deps.packageFs?.lstat ?? fs.promises.lstat;
+    const rmFn = deps.packageFs?.rm ?? fs.promises.rm;
+    if (resolvedTarget === resolvedBase || !within(resolvedBase, resolvedTarget)) {
+      throw new PluginError("ERR_INVALID_ARGUMENT", "插件数据目录路径越界");
+    }
+    try {
+      const baseStat = await lstatFn(resolvedBase);
+      if (baseStat.isSymbolicLink() || !baseStat.isDirectory()) {
+        throw new PluginError("ERR_INTERNAL", "插件数据根目录不能是符号链接或 junction");
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException | undefined)?.code === "ENOENT") return;
+      throw error;
+    }
+    try {
+      const targetStat = await lstatFn(resolvedTarget);
+      if (targetStat.isSymbolicLink()) {
+        throw new PluginError("ERR_INTERNAL", "插件数据目录不能是符号链接或 junction");
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException | undefined)?.code === "ENOENT") return;
+      throw error;
+    }
+    await rmFn(resolvedTarget, { recursive: true, force: true });
+    if (fs.existsSync(resolvedTarget)) {
+      throw new PluginError("ERR_INTERNAL", `未能删除插件数据目录: ${resolvedTarget}`);
+    }
+  };
+
   return {
     stateStore,
     hostManager,
@@ -903,6 +947,9 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
     },
     listPlugins(): PluginV2Snapshot[] {
       return stateStore.list().map(toSnapshot);
+    },
+    listPendingCleanups(): PendingPluginCleanup[] {
+      return stateStore.listPendingCleanups();
     },
     getPlugin(id: string): PluginV2Snapshot | undefined {
       const stored = stateStore.get(id);
@@ -1207,26 +1254,93 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
     async uninstallPlugin(
       id: string,
       options: { deleteSecrets?: boolean; deleteData?: boolean } = {},
-    ): Promise<void> {
+    ): Promise<PluginV2UninstallResult> {
       const existing = stateStore.get(id);
-      await stopPlugin(id, "disabled");
-      scheduleService.uninstallPlugin(id);
+      const pending = stateStore.getPendingCleanup(id);
+      const pluginName = existing?.manifest.name ?? pending?.name ?? id;
+
+      if (existing) {
+        await stopPlugin(id, "disabled");
+        scheduleService.uninstallPlugin(id);
+        await removeDirIfSafe(path.join(pluginsRoot, id), pluginsRoot);
+        if (existing.installDir) {
+          await removeDirIfSafe(existing.installDir, pluginsRoot);
+        }
+        faultedIds.delete(id);
+        stateStore.uninstall(id);
+        lastErrors.delete(id);
+      }
+
+      let secretsOutcome: UninstallCleanupOutcome = options.deleteSecrets
+        ? "deleted"
+        : (options.deleteSecrets === undefined && pending ? pending.secrets : "kept");
+      let secretsError: string | undefined = secretsOutcome === "delete_failed" ? pending?.secretsError : undefined;
+
       if (options.deleteSecrets) {
-        await secretsService.deleteAll(id).catch((err) => {
+        try {
+          await secretsService.deleteAll(id);
+          secretsOutcome = "deleted";
+          secretsError = undefined;
+        } catch (err) {
           logger.warn(LogTag.Plugins, "Failed to delete plugin secrets on uninstall", err);
-        });
+          secretsOutcome = "delete_failed";
+          secretsError = err instanceof Error ? err.message : String(err);
+        }
       }
+
+      let dataOutcome: UninstallCleanupOutcome = options.deleteData
+        ? "deleted"
+        : (options.deleteData === undefined && pending ? pending.data : "kept");
+      let dataError: string | undefined = dataOutcome === "delete_failed" ? pending?.dataError : undefined;
+
       if (options.deleteData) {
-        await removeDirIfSafe(path.join(deps.dataRoot, "plugin-data", id), path.join(deps.dataRoot, "plugin-data"));
+        try {
+          await removeDirStrict(path.join(deps.dataRoot, "plugin-data", id), path.join(deps.dataRoot, "plugin-data"));
+          dataOutcome = "deleted";
+          dataError = undefined;
+        } catch (err) {
+          logger.warn(LogTag.Plugins, "Failed to delete plugin data on uninstall", err);
+          dataOutcome = "delete_failed";
+          dataError = err instanceof Error ? err.message : String(err);
+        }
       }
-      await removeDirIfSafe(path.join(pluginsRoot, id), pluginsRoot);
-      if (existing?.installDir) {
-        await removeDirIfSafe(existing.installDir, pluginsRoot);
+
+      const cleanup: UninstallCleanupResult = {
+        secrets: secretsOutcome,
+        ...(secretsError ? { secretsError } : {}),
+        data: dataOutcome,
+        ...(dataError ? { dataError } : {}),
+      };
+
+      const hasFailure = secretsOutcome === "delete_failed" || dataOutcome === "delete_failed";
+      if (hasFailure) {
+        stateStore.setPendingCleanup({
+          id,
+          name: pluginName,
+          ...cleanup,
+        });
+        const errorParts = [
+          secretsOutcome === "delete_failed" ? `凭据删除失败（${secretsError ?? "未知错误"}）` : "",
+          dataOutcome === "delete_failed" ? `数据目录删除失败（${dataError ?? "未知错误"}）` : "",
+        ].filter(Boolean);
+        deps.onOverviewChanged?.();
+        return {
+          ok: false,
+          uninstalled: Boolean(existing || pending),
+          cleanup,
+          error: errorParts.join("；"),
+        };
       }
-      faultedIds.delete(id);
-      stateStore.uninstall(id);
-      lastErrors.delete(id);
+
+      if (pending) {
+        stateStore.clearPendingCleanup(id);
+      }
       deps.onOverviewChanged?.();
+      return {
+        ok: true,
+        uninstalled: Boolean(existing || pending),
+        cleanup,
+      };
     },
     status(id: string): PluginHostStatus {
       return resolveStatus(id);

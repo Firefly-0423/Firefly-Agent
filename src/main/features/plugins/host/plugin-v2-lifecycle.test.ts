@@ -1,5 +1,6 @@
+import { execSync } from "node:child_process";
 import { EventEmitter } from "node:events";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import * as fsPromises from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -452,7 +453,12 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
     expect(existsSync(secretsFile)).toBe(true);
 
     // Uninstall keeping secrets and data
-    await controller.uninstallPlugin("dev.firefly.keepsec", { deleteSecrets: false, deleteData: false });
+    const keepResult = await controller.uninstallPlugin("dev.firefly.keepsec", { deleteSecrets: false, deleteData: false });
+    expect(keepResult).toEqual({
+      ok: true,
+      uninstalled: true,
+      cleanup: { secrets: "kept", data: "kept" },
+    });
 
     expect(deleteTasksSpy).toHaveBeenCalledWith("dev.firefly.keepsec");
     expect(existsSync(path.join(dataRoot, "plugins", "dev.firefly.keepsec"))).toBe(false);
@@ -461,28 +467,171 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
     expect(existsSync(pluginDataDir)).toBe(true);
     expect(await controller.secretsService.get("dev.firefly.keepsec", "api_key")).toBe("super-secret");
 
-    // Reinstall & uninstall deleting secrets and data
+    // Reinstall & uninstall deleting secrets and data; verify old grants are not reused
     await controller.importFromPath(pkgPath);
-    await controller.uninstallPlugin("dev.firefly.keepsec", { deleteSecrets: true, deleteData: true });
+    const reinstalled = controller.stateStore.get("dev.firefly.keepsec")!;
+    expect(reinstalled.enabled).toBe(false);
+    expect(reinstalled.grantedPermissions).toEqual([]);
+    expect(reinstalled.revision).toBe(1);
+
+    const deleteResult = await controller.uninstallPlugin("dev.firefly.keepsec", { deleteSecrets: true, deleteData: true });
+    expect(deleteResult).toEqual({
+      ok: true,
+      uninstalled: true,
+      cleanup: { secrets: "deleted", data: "deleted" },
+    });
     expect(existsSync(secretsFile)).toBe(false);
     expect(existsSync(pluginDataDir)).toBe(false);
 
     controller.dispose();
   });
 
-  it("marks activation failure as disabled-fault and updates permissions/rate-limit immediately", async () => {
+  it("reports partial uninstall cleanup failures, preserves retry metadata, and never reuses old grants on reinstall (D4)", async () => {
+    let failDataRm = false;
+    const pluginDataDir = path.join(dataRoot, "plugin-data", "dev.firefly.partialclean");
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const { controller } = makeController(harness, undefined, {
+      packageFs: {
+        async rm(target, opts) {
+          if (failDataRm && path.resolve(String(target)) === path.resolve(pluginDataDir)) {
+            throw new Error("EBUSY data dir");
+          }
+          return fsPromises.rm(target, opts);
+        },
+      },
+    });
+
+    const pkgPath = await writeArchivePlugin({
+      id: "dev.firefly.partialclean",
+      version: "1.0.0",
+      permissions: ["secrets", "schedules"],
+    });
+    await controller.importFromPath(pkgPath);
+    await controller.enablePlugin("dev.firefly.partialclean");
+    controller.setModelRateLimit("dev.firefly.partialclean", 33);
+    expect(controller.stateStore.get("dev.firefly.partialclean")!.grantedPermissions.length).toBeGreaterThan(0);
+
+    await controller.secretsService.set("dev.firefly.partialclean", "token", "secret-val");
+    const secretsFile = resolvePluginSecretsFile("dev.firefly.partialclean", dataRoot);
+    mkdirSync(pluginDataDir, { recursive: true });
+    writeFileSync(path.join(pluginDataDir, "state.txt"), "keep", "utf8");
+
+    // 1. Inject secrets deletion failure while data deletion succeeds
+    const deleteAllSpy = vi.spyOn(controller.secretsService, "deleteAll").mockRejectedValueOnce(new Error("keyring locked"));
+    const partialSecretsRes = await controller.uninstallPlugin("dev.firefly.partialclean", {
+      deleteSecrets: true,
+      deleteData: true,
+    });
+    expect(partialSecretsRes.ok).toBe(false);
+    expect(partialSecretsRes.uninstalled).toBe(true);
+    expect(partialSecretsRes.cleanup).toEqual({
+      secrets: "delete_failed",
+      secretsError: "keyring locked",
+      data: "deleted",
+    });
+    expect(partialSecretsRes.error).toContain("keyring locked");
+    expect(existsSync(secretsFile)).toBe(true);
+    expect(existsSync(pluginDataDir)).toBe(false);
+    expect(controller.stateStore.get("dev.firefly.partialclean")).toBeUndefined();
+    expect(controller.listPendingCleanups()).toEqual([
+      {
+        id: "dev.firefly.partialclean",
+        name: "Sample Plugin",
+        secrets: "delete_failed",
+        secretsError: "keyring locked",
+        data: "deleted",
+      },
+    ]);
+
+    // Retry succeeds and clears pending cleanup
+    deleteAllSpy.mockRestore();
+    const retrySecretsRes = await controller.uninstallPlugin("dev.firefly.partialclean", { deleteSecrets: true });
+    expect(retrySecretsRes).toEqual({
+      ok: true,
+      uninstalled: true,
+      cleanup: { secrets: "deleted", data: "deleted" },
+    });
+    expect(existsSync(secretsFile)).toBe(false);
+    expect(controller.listPendingCleanups()).toEqual([]);
+
+    // 2. Reinstall same ID: verify zero reused grants, rate limit reset, disabled by default
+    await controller.importFromPath(pkgPath);
+    const fresh = controller.stateStore.get("dev.firefly.partialclean")!;
+    expect(fresh.enabled).toBe(false);
+    expect(fresh.grantedPermissions).toEqual([]);
+    expect(fresh.modelRateLimit).toBe(10);
+    expect(fresh.revision).toBe(1);
+
+    // 3. Inject plugin-data directory deletion failure while secrets deletion succeeds
+    await controller.secretsService.set("dev.firefly.partialclean", "token", "secret-val-2");
+    mkdirSync(pluginDataDir, { recursive: true });
+    writeFileSync(path.join(pluginDataDir, "locked.txt"), "busy", "utf8");
+    failDataRm = true;
+
+    const partialDataRes = await controller.uninstallPlugin("dev.firefly.partialclean", {
+      deleteSecrets: true,
+      deleteData: true,
+    });
+    expect(partialDataRes.ok).toBe(false);
+    expect(partialDataRes.cleanup).toEqual({
+      secrets: "deleted",
+      data: "delete_failed",
+      dataError: "EBUSY data dir",
+    });
+    expect(existsSync(secretsFile)).toBe(false);
+    expect(existsSync(pluginDataDir)).toBe(true);
+    expect(controller.listPendingCleanups()).toEqual([
+      {
+        id: "dev.firefly.partialclean",
+        name: "Sample Plugin",
+        secrets: "deleted",
+        data: "delete_failed",
+        dataError: "EBUSY data dir",
+      },
+    ]);
+
+    // Retry data cleanup succeeds
+    failDataRm = false;
+    const retryDataRes = await controller.uninstallPlugin("dev.firefly.partialclean", { deleteData: true });
+    expect(retryDataRes).toEqual({
+      ok: true,
+      uninstalled: true,
+      cleanup: { secrets: "deleted", data: "deleted" },
+    });
+    expect(existsSync(pluginDataDir)).toBe(false);
+    expect(controller.listPendingCleanups()).toEqual([]);
+
+    controller.dispose();
+  });
+
+  it("marks activation failure as disabled-fault and updates permissions/rate-limit immediately (D8)", async () => {
     const harness = createFakeHostHarness(() => ({ ok: false, error: "Activation timed out" }));
     const { controller } = makeController(harness);
 
     const pkgPath = await writeArchivePlugin({ id: "dev.firefly.faulty", version: "1.0.0" });
     await controller.importFromPath(pkgPath);
 
-    await expect(controller.enablePlugin("dev.firefly.faulty")).rejects.toThrow();
+    await expect(controller.enablePlugin("dev.firefly.faulty")).rejects.toMatchObject({
+      code: "ERR_INTERNAL",
+      message: "Activation timed out",
+    });
+    expect(harness.launched).toHaveLength(1);
+    expect(harness.launched[0].killCount).toBe(1);
     expect(controller.status("dev.firefly.faulty")).toBe("disabled-fault");
     expect(controller.stateStore.isEnabled("dev.firefly.faulty")).toBe(false);
     const snap = controller.getPlugin("dev.firefly.faulty")!;
     expect(snap.status).toBe("disabled-fault");
+    expect(snap.enabled).toBe(false);
+    expect(snap.grantedPermissions).toEqual(["schedules", "secrets", "tool:ping"]);
     expect(snap.error).toContain("Activation timed out");
+
+    const diskAfterFault = JSON.parse(readFileSync(controller.stateStore.filePath, "utf8"));
+    expect(diskAfterFault.plugins["dev.firefly.faulty"]).toMatchObject({
+      version: "1.0.0",
+      enabled: false,
+      grantedPermissions: ["schedules", "secrets", "tool:ping"],
+      modelRateLimit: 10,
+    });
 
     // Permission toggle increments revision and rate limit enforces 1..60
     const rev1 = controller.stateStore.get("dev.firefly.faulty")!.revision;
@@ -491,9 +640,80 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
     const rev3 = controller.grantPermission("dev.firefly.faulty", "secrets").revision;
     expect(rev3).toBeGreaterThan(rev2);
     expect(controller.setModelRateLimit("dev.firefly.faulty", 42).modelRateLimit).toBe(42);
-    expect(() => controller.setModelRateLimit("dev.firefly.faulty", 0)).toThrow();
-    expect(() => controller.setModelRateLimit("dev.firefly.faulty", 61)).toThrow();
+    const beforeInvalid = JSON.parse(readFileSync(controller.stateStore.filePath, "utf8")).plugins["dev.firefly.faulty"];
+
+    expect(() => controller.setModelRateLimit("dev.firefly.faulty", 0)).toThrow(
+      expect.objectContaining({ code: "ERR_INVALID_ARGUMENT" }),
+    );
+    expect(() => controller.setModelRateLimit("dev.firefly.faulty", 61)).toThrow(
+      expect.objectContaining({ code: "ERR_INVALID_ARGUMENT" }),
+    );
+    expect(() => controller.setModelRateLimit("dev.firefly.faulty", 10.5)).toThrow(
+      expect.objectContaining({ code: "ERR_INVALID_ARGUMENT" }),
+    );
+
+    expect(controller.stateStore.getModelRateLimit("dev.firefly.faulty")).toBe(42);
+    const afterInvalid = JSON.parse(readFileSync(controller.stateStore.filePath, "utf8")).plugins["dev.firefly.faulty"];
+    expect(afterInvalid).toEqual(beforeInvalid);
 
     controller.dispose();
   });
+
+  it.skipIf(process.platform !== "win32")(
+    "handles Windows 8.3 short paths consistently and still blocks junction escapes via short aliases",
+    async (ctx) => {
+      const longDir = path.join(root, "very_long_plugin_source_directory");
+      mkdirSync(path.join(longDir, "dist"), { recursive: true });
+      writeFileSync(path.join(longDir, "firefly.plugin.json"), JSON.stringify({
+        schemaVersion: 1,
+        id: "dev.firefly.short83",
+        name: "Short83",
+        version: "1.0.0",
+        sdk: "^1.2.0",
+        main: "dist/index.mjs",
+      }));
+      writeFileSync(path.join(longDir, "dist", "index.mjs"), "export default { ok: true };\n");
+
+      const shortDir = execSync(`cmd.exe /c for %I in ("${longDir}") do @echo %~sI`, {
+        encoding: "utf8",
+      }).trim();
+      if (!shortDir || shortDir === longDir) {
+        ctx.skip("Volume does not generate 8.3 short names for temp fixtures");
+        return;
+      }
+
+      const harness = createFakeHostHarness(() => ({ ok: true }));
+      const { controller } = makeController(harness);
+      const imported = await controller.importFromPath(shortDir);
+      expect(imported.ok).toBe(true);
+      expect(existsSync(path.join(dataRoot, "plugins", "dev.firefly.short83", "1.0.0", "dist", "index.mjs"))).toBe(true);
+
+      // Verify a junction with a long name cannot bypass boundary checks when referenced by its 8.3 short alias
+      const outsideDir = path.join(root, "outside_83_secret");
+      mkdirSync(outsideDir, { recursive: true });
+      writeFileSync(path.join(outsideDir, "evil.mjs"), "export default {};\n");
+      const badLongDir = path.join(root, "bad_short_junction_pkg");
+      mkdirSync(badLongDir, { recursive: true });
+      const junctionDir = path.join(badLongDir, "escaped_long_folder");
+      symlinkSync(outsideDir, junctionDir, "junction");
+      const shortJunctionName = path.basename(
+        execSync(`cmd.exe /c for %I in ("${junctionDir}") do @echo %~sI`, {
+          encoding: "utf8",
+        }).trim(),
+      );
+      writeFileSync(path.join(badLongDir, "firefly.plugin.json"), JSON.stringify({
+        schemaVersion: 1,
+        id: "dev.firefly.bad83",
+        name: "Bad83",
+        version: "1.0.0",
+        sdk: "^1.2.0",
+        main: `${shortJunctionName}/evil.mjs`,
+      }));
+      const badRes = await controller.importFromPath(badLongDir);
+      expect(badRes.ok).toBe(false);
+      expect(existsSync(path.join(dataRoot, "plugins", "dev.firefly.bad83"))).toBe(false);
+
+      controller.dispose();
+    },
+  );
 });
