@@ -711,6 +711,15 @@
     "builtinCannotDelete": "Built-in plugins can't be deleted",
     "catalogReadAt": "Catalog read at: {{time}}",
     "delete": "Uninstall",
+    "deleteCleanup": {
+      "data": "plugin data",
+      "delete_failed": "delete failed (retry needed)",
+      "deleted": "deleted",
+      "kept": "kept",
+      "pendingSummary": "\"{{name}}\" ({{id}}) was uninstalled, but cleanup is incomplete: secrets {{secretsStatus}}; plugin data {{dataStatus}}{{errorSuffix}}.",
+      "retry": "Retry cleanup",
+      "secrets": "secrets"
+    },
     "deleteConfirm": "Uninstall user plugin \"{{name}}\"?",
     "deleteDesc": "Stops the plugin, removes its scheduled tasks, and deletes its plugin files directory.",
     "deleteDataOption": "Also delete plugin data directory (plugin-data)",

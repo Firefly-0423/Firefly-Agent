@@ -164,4 +164,42 @@ describe("PluginStateStore", () => {
     const reloaded = createPluginStateStore({ stateFile });
     expect(reloaded.getModelRateLimit(manifest.id)).toBe(42);
   });
+
+  it("rebinds still-granted prior confirmations on restoreSnapshot while leaving ungranted or new permissions unconfirmed (D3)", () => {
+    const root = createTempDir();
+    const stateFile = path.join(root, "plugin-state.json");
+    const store = createPluginStateStore({ stateFile });
+    const v1 = makeManifest({
+      version: "1.0.0",
+      permissions: ["sessions.read", "workspace.read", "model.run"],
+    });
+    store.install({ manifest: v1 });
+    const enabledV1 = store.enable(v1.id, { grantedPermissions: ["sessions.read", "model.run"] });
+    store.confirmations.set(v1.id, "sessions.read", enabledV1.revision);
+    // Simulate a stale confirmation entry in snapshot for an ungranted permission.
+    const snapshot = store.get(v1.id)!;
+    snapshot.confirmations.workspace = undefined as never;
+    snapshot.confirmations["workspace.read"] = enabledV1.revision;
+
+    // Upgrade to v2 adding new confirmation-gated permission and bumping revision
+    const v2 = makeManifest({
+      version: "2.0.0",
+      permissions: ["sessions.read", "workspace.read", "model.run"],
+    });
+    const upgraded = store.install({ manifest: v2, grantedPermissions: ["sessions.read", "workspace.read", "model.run"] });
+    expect(upgraded.revision).toBeGreaterThan(enabledV1.revision);
+    expect(store.confirmations.get(v1.id, "sessions.read")).toBeUndefined();
+
+    // Roll back to v1 snapshot
+    const restored = store.restoreSnapshot(snapshot);
+    expect(restored.version).toBe("1.0.0");
+    expect(restored.revision).toBeGreaterThan(upgraded.revision);
+    expect(store.confirmations.get(v1.id, "sessions.read")).toBe(restored.revision);
+    expect(store.confirmations.get(v1.id, "model.run")).toBeUndefined();
+    expect(store.confirmations.get(v1.id, "workspace.read")).toBeUndefined();
+
+    const reloaded = createPluginStateStore({ stateFile });
+    expect(reloaded.confirmations.get(v1.id, "sessions.read")).toBe(restored.revision);
+    expect(reloaded.confirmations.get(v1.id, "model.run")).toBeUndefined();
+  });
 });

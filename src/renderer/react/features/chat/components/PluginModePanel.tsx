@@ -5,10 +5,12 @@ import type {
   MarketListResult,
   MarketPluginEntry,
   MarketSourceStatus,
+  PendingPluginCleanup,
   PluginListEntry,
   PluginManagementApi,
   PluginOverview,
   PluginRuntimeStatus,
+  UninstallCleanupResult,
   UninstallPluginOptions,
 } from "../../../../../shared/plugin-management";
 import { isNewerVersion } from "../../../../../shared/version";
@@ -43,6 +45,17 @@ const STATUS_ORDER: Record<PluginRuntimeStatus, number> = {
   disabled: 7,
 };
 const causeText = (cause: unknown) => cause instanceof Error ? cause.message : String(cause);
+const formatCleanupFailure = (
+  cleanup: UninstallCleanupResult | undefined,
+  error: string | undefined,
+  t: Translate,
+) => {
+  if (!cleanup) {
+    return t("pluginPanel.deleteFailed", { error: error ?? t("pluginPanel.unknownError") });
+  }
+  const summary = `${t("pluginPanel.deleteCleanup.secrets")}: ${t(`pluginPanel.deleteCleanup.${cleanup.secrets}`)}；${t("pluginPanel.deleteCleanup.data")}: ${t(`pluginPanel.deleteCleanup.${cleanup.data}`)}`;
+  return t("pluginPanel.deleteFailed", { error: error ? `${summary}（${error}）` : summary });
+};
 const isActiveStatus = (status: PluginRuntimeStatus) => status === "running" || status === "enabled";
 const isTransitioningStatus = (status: PluginRuntimeStatus) =>
   status === "starting" || status === "stopping" || status === "restarting";
@@ -303,12 +316,30 @@ function usePluginController(api: PluginManagementApi | undefined, t: Translate,
     try {
       const hasOptions = Boolean(options.deleteSecrets || options.deleteData);
       const response = hasOptions ? await api!.uninstall(plugin.id, options) : await api!.uninstall(plugin.id);
-      if (!response.ok) setInstalledFailure(t("pluginPanel.deleteFailed", { error: response.error ?? t("pluginPanel.unknownError") }));
-      else if (response.overview) replaceInstalledCatalogue(normalizePluginOverview(response.overview));
+      if (response.overview) replaceInstalledCatalogue(normalizePluginOverview(response.overview));
       else await reloadInstalled();
+      if (!response.ok) {
+        setInstalledFailure(formatCleanupFailure(response.cleanup, response.error, t));
+      }
     } catch (cause) { setInstalledFailure(t("pluginPanel.deleteFailed", { error: causeText(cause) })); }
     finally { endInstalled(false); }
   }, [api, pendingUninstallPlugin, reloadInstalled, t]);
+
+  const retryCleanup = useCallback(async (item: PendingPluginCleanup) => {
+    if (!beginInstalled({ card: `${item.id}:cleanup` })) return;
+    try {
+      const response = await api!.uninstall(item.id, {
+        deleteSecrets: item.secrets === "delete_failed",
+        deleteData: item.data === "delete_failed",
+      });
+      if (response.overview) replaceInstalledCatalogue(normalizePluginOverview(response.overview));
+      else await reloadInstalled();
+      if (!response.ok) {
+        setInstalledFailure(formatCleanupFailure(response.cleanup, response.error, t));
+      }
+    } catch (cause) { setInstalledFailure(t("pluginPanel.deleteFailed", { error: causeText(cause) })); }
+    finally { endInstalled(false); }
+  }, [api, reloadInstalled, t]);
 
   const setPermission = useCallback(async (pluginId: string, permission: string, granted: boolean): Promise<string | null> => {
     if (!api?.setPermission) return t("pluginPanel.apiUnavailable");
@@ -387,6 +418,7 @@ function usePluginController(api: PluginManagementApi | undefined, t: Translate,
     openPlugin: openInstalled,
     togglePlugin: changeEnabled,
     deletePlugin: removeInstalled,
+    retryCleanup,
     switchView: changeView,
   };
 }
@@ -691,9 +723,25 @@ function renderMarketView({ state, api, t }: { state: Controller; api: PluginMan
 }
 function renderInstalledView({ state, api, t }: { state: Controller; api: PluginManagementApi | undefined; t: Translate }) {
   const { error, overview, loading } = state;
+  const pendingCleanups = overview.pendingCleanups ?? [];
   return <>
-    {(error || overview.issues.length > 0) && <div role="status" className="plugin-panel__notices">
+    {(error || overview.issues.length > 0 || pendingCleanups.length > 0) && <div role="status" className="plugin-panel__notices">
       {error && <div className="plugin-panel__notice is-error">{error}</div>}
+      {pendingCleanups.map(item => {
+        const errorDetails = [item.secretsError, item.dataError].filter(Boolean).join("；");
+        return <div key={`cleanup:${item.id}`} className="plugin-panel__notice is-error">
+          <span>{t("pluginPanel.deleteCleanup.pendingSummary", {
+            name: item.name,
+            id: item.id,
+            secretsStatus: t(`pluginPanel.deleteCleanup.${item.secrets}`),
+            dataStatus: t(`pluginPanel.deleteCleanup.${item.data}`),
+            errorSuffix: errorDetails ? `（${errorDetails}）` : "",
+          })}</span>{" "}
+          <button type="button" className="plugin-card-ui__button" disabled={state.anyBusy} onClick={() => void state.retryCleanup(item)}>
+            {t("pluginPanel.deleteCleanup.retry")}
+          </button>
+        </div>;
+      })}
       {overview.issues.map((issue, index) => <div key={`${issue.path ?? issue.root}:${index}`} className="plugin-panel__notice">{issue.message}</div>)}
     </div>}
     {loading ? <div className="plugin-panel__loading">{t("common.loading")}</div> : <div className="plugin-panel__grid">

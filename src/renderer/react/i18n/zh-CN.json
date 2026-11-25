@@ -711,6 +711,15 @@
     "builtinCannotDelete": "内置插件不可删除",
     "catalogReadAt": "目录读取时间：{{time}}",
     "delete": "卸载",
+    "deleteCleanup": {
+      "data": "数据目录",
+      "delete_failed": "删除失败（需重试）",
+      "deleted": "已删除",
+      "kept": "已保留",
+      "pendingSummary": "“{{name}}”（{{id}}）已卸载，但部分清理未完成：凭据 {{secretsStatus}}；数据目录 {{dataStatus}}{{errorSuffix}}。",
+      "retry": "重试清理",
+      "secrets": "凭据"
+    },
     "deleteConfirm": "确定卸载用户插件“{{name}}”吗？",
     "deleteDesc": "将停止插件、移除其创建的定时任务并删除插件安装目录。",
     "deleteDataOption": "同时删除插件数据目录（plugin-data）",
