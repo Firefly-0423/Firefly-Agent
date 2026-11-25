@@ -47,7 +47,7 @@ input.ff-select__source { display: none !important; }
 .ff-select__icon img { display: block; width: 18px; height: 18px; object-fit: contain; }
 .ff-select__icon > .preset-card__logo { display: grid; width: 18px; height: 18px; place-items: center; }
 /* Kimi's mark is white, so it sits on a black tile to stay visible on the light list. */
-.ff-select__icon:has(img[src$="kimi.svg"]) { background: #000; }
+.ff-select__icon:has(img[src$="kimi.svg"]) { background: var(--ff-black); }
 .ff-select__icon img[src$="kimi.svg"] { width: 13px; height: 13px; }
 .ff-select__text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -61,7 +61,7 @@ input.ff-select__source { display: none !important; }
   border: 1px solid var(--rb-border-soft);
   border-radius: 12px;
   background: var(--rb-card-bg, var(--rb-bg-elevated));
-  box-shadow: 0 10px 28px rgba(20, 24, 40, 0.14);
+  box-shadow: 0 10px 28px var(--ff-palette-141828-14);
   animation: ff-select-in 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .ff-select__popup { right: 0; min-width: 100%; }
@@ -156,7 +156,7 @@ input.ff-select__source { display: none !important; }
 .ff-date__day.is-outside { color: var(--rb-text-faint, var(--rb-text-muted)); }
 .ff-date__day.is-today { box-shadow: inset 0 0 0 1px color-mix(in srgb, rgb(var(--rb-accent-rgb)) 45%, transparent); }
 .ff-date__grid:focus-visible .ff-date__day.is-focus { outline: 2px solid rgb(var(--rb-accent-rgb)); outline-offset: -2px; }
-.ff-date__day.is-selected { background: rgb(var(--rb-accent-rgb)); color: #fff; font-weight: 600; }
+.ff-date__day.is-selected { background: rgb(var(--rb-accent-rgb)); color: var(--ff-white); font-weight: 600; }
 .ff-date__day:disabled { opacity: .3; cursor: default; }
 .ff-date__foot { display: flex; justify-content: flex-end; margin-top: 8px; }
 .ff-date__link { padding: 4px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--rb-text-muted); font: inherit; font-size: var(--ff-fs-ui); cursor: pointer; }
@@ -192,8 +192,8 @@ input.ff-select__source { display: none !important; }
 .settings-titlebar__actions .win-btn:hover { background: color-mix(in srgb, var(--rb-text-strong) 7%, transparent); transform: none; box-shadow: none; }
 .settings-titlebar__actions .win-btn:active { background: color-mix(in srgb, var(--rb-text-strong) 11%, transparent); }
 .settings-titlebar__actions .win-btn:focus-visible { outline: 2px solid rgb(var(--rb-accent-rgb)); outline-offset: -3px; }
-.settings-titlebar__actions .win-btn--close:hover { background: #c42b1c; color: #fff; }
-.settings-titlebar__actions .win-btn--close:active { background: #c84031; color: rgba(255, 255, 255, 0.85); }
+.settings-titlebar__actions .win-btn--close:hover { background: var(--ff-win-close-hover); color: var(--ff-white); }
+.settings-titlebar__actions .win-btn--close:active { background: var(--ff-win-close-active); color: var(--ff-white-alpha-85); }
 @media (prefers-reduced-motion: reduce) { .settings-titlebar__actions .win-btn { transition: none; } }
 /* ===== Appearance → 高级, after Codex =====
    The summary reads "高级 ›" on the left with "重置为默认设置" on the right; the options inside are grouped into small
@@ -214,7 +214,7 @@ input.ff-select__source { display: none !important; }
   transition: background-color 150ms ease, color 150ms ease;
 }
 .appearance-seg__option:hover { color: var(--rb-text-default); }
-.appearance-seg__option.is-active { background: var(--rb-hover-light, rgba(127, 127, 127, 0.12)); color: var(--rb-text-strong); }
+.appearance-seg__option.is-active { background: var(--rb-hover-light, var(--ff-surface-muted)); color: var(--rb-text-strong); }
 #appearance-form #code-font-select { min-width: 150px; }
 /* ===== RAG / 文档导入 =====
    Model choices read as one-line rows like the model settings page: name and description on the left, status on the
@@ -236,7 +236,7 @@ input.ff-select__source { display: none !important; }
 .settings-shell .rag-model-card:hover { border-color: var(--rb-border-strong); background: var(--rb-card-bg); }
 .settings-shell .rag-model-card__title { grid-area: title; }
 .settings-shell .rag-model-card__desc { grid-area: desc; font-size: var(--ff-fs-caption); line-height: 1.5; }
-.settings-shell .rag-model-card > em { grid-area: status; margin: 0; padding: 2px 9px; border-radius: 999px; background: var(--rb-hover-light, rgba(127, 127, 127, 0.1)); font-size: var(--ff-fs-caption); white-space: nowrap; }
+.settings-shell .rag-model-card > em { grid-area: status; margin: 0; padding: 2px 9px; border-radius: 999px; background: var(--rb-hover-light, var(--ff-palette-7f7f7f-10)); font-size: var(--ff-fs-caption); white-space: nowrap; }
 :root .settings-shell .rag-model-card.is-active {
   border-color: rgba(var(--ff-glow-rgb), 0.55);
   background: color-mix(in srgb, var(--ff-glow) 6%, var(--rb-card-bg));
@@ -265,7 +265,7 @@ input.ff-select__source { display: none !important; }
 #appearance-form .appearance-code__theme :is(select, .ff-select, .ff-select__button) { width: 100%; }
 @media (max-width: 720px) { #appearance-form .appearance-code__themes { grid-template-columns: minmax(0, 1fr); } }
 .code-theme-preview {
-  overflow: hidden; padding: 8px 0; border: 1px solid var(--rb-border-default, #e2e4ea); border-radius: 8px;
+  overflow: hidden; padding: 8px 0; border: 1px solid var(--rb-border-default, var(--rb-border-default)); border-radius: 8px;
   font: 400 var(--ff-fs-ui)/1.6 var(--rb-font-mono, ui-monospace, Consolas, monospace); white-space: pre;
 }
 .code-theme-preview[data-scheme="dark"] { border-color: transparent; }
@@ -273,9 +273,9 @@ input.ff-select__source { display: none !important; }
 .code-theme-preview__no { width: 2.2em; flex: none; padding-right: 10px; text-align: right; opacity: 0.45; }
 .code-theme-preview__sign { width: 1.4em; flex: none; opacity: 0.7; }
 .code-theme-preview__code { min-width: 0; overflow: hidden; text-overflow: clip; }
-.code-theme-preview__line.is-remove { background: rgba(229, 83, 75, 0.14); }
-.code-theme-preview__line.is-add { background: rgba(46, 160, 67, 0.15); }
-.code-theme-preview[data-scheme="dark"] .code-theme-preview__line.is-remove { background: rgba(248, 81, 73, 0.2); }
-.code-theme-preview[data-scheme="dark"] .code-theme-preview__line.is-add { background: rgba(63, 185, 80, 0.2); }
-.code-theme-preview__line:is(.is-remove) .code-theme-preview__sign { color: #e5534b; opacity: 1; }
-.code-theme-preview__line:is(.is-add) .code-theme-preview__sign { color: #2ea043; opacity: 1; }
+.code-theme-preview__line.is-remove { background: var(--ff-palette-e5534b-14); }
+.code-theme-preview__line.is-add { background: var(--ff-palette-2ea043-15); }
+.code-theme-preview[data-scheme="dark"] .code-theme-preview__line.is-remove { background: var(--ff-palette-f85149-20); }
+.code-theme-preview[data-scheme="dark"] .code-theme-preview__line.is-add { background: var(--ff-palette-3fb950-20); }
+.code-theme-preview__line:is(.is-remove) .code-theme-preview__sign { color: var(--ff-palette-e5534b); opacity: 1; }
+.code-theme-preview__line:is(.is-add) .code-theme-preview__sign { color: var(--ff-palette-2ea043); opacity: 1; }

@@ -82,7 +82,7 @@
 
 .ff-composer .ant-sender-actions-btn {
   background: var(--ff-accent);
-  color: #fff;
+  color: var(--ff-white);
   border-radius: 50%;
   height: 38px;
   width: 38px;
@@ -355,8 +355,8 @@
 }
 
 .ff-composer__attachment--sticker button {
-  color: #fff;
-  background: rgb(0 0 0 / 52%);
+  color: var(--ff-white);
+  background: var(--ff-black-alpha-52);
   border-radius: 50%;
   right: 3px;
   top: 3px;
@@ -370,8 +370,8 @@
 }
 
 .ff-composer__attachment.is-image button {
-  color: #fff;
-  background: rgb(0 0 0 / 52%);
+  color: var(--ff-white);
+  background: var(--ff-black-alpha-52);
   border-radius: 50%;
   right: 3px;
   top: 3px;
@@ -520,13 +520,13 @@
 .ff-composer-stack.is-centered .ff-composer-shell { transform: none; }
 .ff-composer-shell {
   transition: border-color 160ms ease, box-shadow 160ms ease;
-  box-shadow: 0 2px 16px rgba(31, 35, 48, 0.06);
+  box-shadow: 0 2px 16px var(--ff-palette-1f2330-6);
   background: var(--ff-surface, var(--ff-surface));
   border-radius: 22px;
-  border: 1px solid var(--ff-border, rgba(31, 35, 48, 0.09));
+  border: 1px solid var(--ff-border, var(--ff-palette-1f2330-9));
 }
 .ff-composer-shell:hover { border-color: var(--ff-text-muted); }
-.ff-composer-shell:focus-within { border-color: var(--ff-text-secondary); box-shadow: 0 6px 26px rgba(31, 35, 48, 0.1); }
+.ff-composer-shell:focus-within { border-color: var(--ff-text-secondary); box-shadow: 0 6px 26px var(--ff-palette-1f2330-10); }
 .ff-composer.ant-sender,
 .ff-composer.ant-sender:hover,
 .ff-composer.ant-sender:focus-within { border: 0; border-radius: 22px 22px 0 0; background: transparent; box-shadow: none; }
@@ -539,7 +539,7 @@
 .ff-composer__footer-button,
 .ff-composer__agent-button { padding: 0 8px; border-radius: 8px; color: var(--ff-text-secondary, var(--ff-text-secondary)); font-weight: 500; }
 .ff-composer__footer-button:hover:not(:disabled),
-.ff-composer__agent-button:hover { background: var(--ff-bg-hover, rgba(0, 0, 0, 0.05)); }
+.ff-composer__agent-button:hover { background: var(--ff-bg-hover, var(--ff-black-alpha-5)); }
 .ff-composer__icon-button { border-radius: 8px; }
 .ff-composer .ant-sender-actions-btn { width: 34px; height: 34px; }
 :root[data-ui-colors] .ff-composer-shell { background: var(--ff-surface); border-color: var(--ff-border); }
@@ -547,8 +547,8 @@
 
 /* Dictation is explicit and writes only to the draft. */
 .ff-composer__dictation { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; min-width: 0; }
-.ff-composer__dictation-error { color: var(--color-danger, #bf3d3d); font-size: var(--ff-fs-caption); max-width: 260px; overflow-wrap: anywhere; }
-.ff-composer__dictation [aria-pressed="true"] { color: var(--color-danger, #bf3d3d); }
+.ff-composer__dictation-error { color: var(--color-danger, var(--color-danger)); font-size: var(--ff-fs-caption); max-width: 260px; overflow-wrap: anywhere; }
+.ff-composer__dictation [aria-pressed="true"] { color: var(--color-danger, var(--color-danger)); }
 
 /* ===== One-row composer: [+] [permission] .... [context] [model · effort] [mic] [send] ===== */
 .ff-composer__prefix-actions { flex-wrap: nowrap; gap: 2px; min-width: 0; }
@@ -601,8 +601,8 @@
 
 /* Permission chip: neutral by default, warm when the agent has full access. */
 .ff-permission-control { border-radius: 8px; }
-.ff-permission-control.is-full { background: rgba(217, 101, 43, 0.1); }
-.ff-permission-control.is-full:hover:not(:disabled) { background: rgba(217, 101, 43, 0.16); color: #d9652b; }
+.ff-permission-control.is-full { background: var(--ff-caution-soft); }
+.ff-permission-control.is-full:hover:not(:disabled) { background: var(--ff-caution-soft-hover); color: var(--ff-caution); }
 .ff-composer__project-strip svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .ff-composer__project-strip .ff-composer__code-folder-icon,
 .ff-composer__project-strip .ff-composer__terminal-folder-icon { stroke-width: 3.4; }
@@ -643,7 +643,7 @@
 /* Full access: no warm block or ring, just the label; the shield icon alone keeps the warm hint. */
 .ff-composer .ff-permission-control.is-full { background: transparent; color: var(--ff-text-secondary); box-shadow: none; }
 .ff-composer .ff-permission-control.is-full:hover:not(:disabled) { background: var(--ff-bg-hover); color: var(--ff-text); }
-.ff-composer .ff-permission-control.is-full > svg:first-child { color: #d9652b; }
+.ff-composer .ff-permission-control.is-full > svg:first-child { color: var(--ff-caution); }
 /* The model button: plain text like the rest, the effort a shade lighter. */
 .ff-composer__suffix .ff-model-effort { border: 0; background: transparent; }
 .ff-composer .ant-sender-actions-btn { width: 32px; height: 32px; border-radius: 50%; }
@@ -691,11 +691,11 @@
 
 /* Send in dark: a soft translucent mint with a mint arrow instead of a bright solid disc. */
 :root[data-ui-theme="firefly-dark"] .ff-composer .ant-sender-actions-btn:not(:disabled) {
-  box-shadow: inset 0 0 0 1px rgba(123, 216, 174, 0.28);
-  color: #8fe0bc;
-  background: rgba(123, 216, 174, 0.16);
+  box-shadow: inset 0 0 0 1px var(--ff-mint-soft-28);
+  color: var(--ff-mint-300);
+  background: var(--ff-mint-soft-16);
 }
-:root[data-ui-theme="firefly-dark"] .ff-composer .ant-sender-actions-btn:not(:disabled):hover { background: rgba(123, 216, 174, 0.26); color: #a9ead0; }
+:root[data-ui-theme="firefly-dark"] .ff-composer .ant-sender-actions-btn:not(:disabled):hover { background: var(--ff-mint-soft-26); color: var(--ff-mint-200); }
 
 /* Under the docked composer: permission on the left, model and effort, collapse and move on the right, quiet text
    buttons. The row is part of the composer's height, so narrow layouts and the drag bounds include it; the composer
@@ -726,7 +726,7 @@
 .ff-composer__below .ff-composer__footer-button { min-height: 24px; height: 24px; padding: 0 8px; border-radius: 8px; font-size: var(--ff-fs-ui); }
 /* Full access in the row is said by its colour alone, like read-only: no tinted block behind it. */
 .ff-composer__below .ff-permission-control.is-full,
-.ff-composer__below .ff-permission-control.is-full:hover:not(:disabled) { background: transparent; box-shadow: none; color: #d9652b; }
+.ff-composer__below .ff-permission-control.is-full:hover:not(:disabled) { background: transparent; box-shadow: none; color: var(--ff-caution); }
 
 /* Stop button icon (ComposerStopIcon): sized like antd X's loading icon; the arc turns on the compositor. */
 .ff-composer__stop-icon {

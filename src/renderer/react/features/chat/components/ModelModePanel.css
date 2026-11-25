@@ -183,13 +183,13 @@
 .model-card__pill.is-on {
   background: var(--ff-accent, var(--ff-accent-solid));
   border-color: var(--ff-accent, var(--ff-accent));
-  color: #fff;
+  color: var(--ff-white);
   cursor: default;
 }
 
 .model-card__delete:hover {
-  background: rgba(255, 69, 58, 0.08);
-  color: #ff453a;
+  background: var(--ff-status-err-coral-soft);
+  color: var(--ff-status-err-coral);
 }
 
 @media (max-width: 760px) {
