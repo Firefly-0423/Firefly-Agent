@@ -39,7 +39,7 @@ export function createPluginNotifications(deps: PluginNotificationDependencies) 
   function configureRpc(pluginId: string, rpc: PluginRpc): () => void {
     if (disposed) throw new PluginError("ERR_UNAVAILABLE", "Notification service is disposed");
     let closed = false;
-    const active = new Set<{ check(): void; stop(error?: PluginError): void }>();
+    const active = new Set<{ check(): void; stop(error?: PluginError, closeNative?: boolean): void }>();
     const check = (revision?: number) => {
       const access = deps.access(pluginId);
       if (!access) throw permission();
@@ -75,7 +75,7 @@ export function createPluginNotifications(deps: PluginNotificationDependencies) 
           notification.removeListener("failed", failed);
           if (error) reject(error); else resolve({ shown });
         };
-        const stop = (error?: PluginError) => {
+        const stop = (error?: PluginError, closeNative = true) => {
           if (stopped) return;
           stopped = true;
           finish(false, error);
@@ -83,7 +83,9 @@ export function createPluginNotifications(deps: PluginNotificationDependencies) 
           active.delete(operation);
           notification.removeListener("click", click);
           notification.removeListener("close", close);
-          try { notification.close(); } catch { /* Platform teardown must not retain plugin listeners. */ }
+          if (closeNative) {
+            try { notification.close(); } catch { /* Platform teardown must not retain plugin listeners. */ }
+          }
         };
         const show = () => {
           try { guard(); finish(true); } catch { stop(permission()); }
@@ -101,8 +103,9 @@ export function createPluginNotifications(deps: PluginNotificationDependencies) 
         notification.on("show", show); notification.on("failed", failed);
         notification.on("close", close); notification.on("click", click);
         signal.addEventListener("abort", abort, { once: true });
-        // Bound native references even on platforms that never emit close.
-        displayExpiry = setTimeout(() => stop(), 5 * 60_000);
+        // Bound native references even on platforms that never emit close. Only release the listeners:
+        // closing here would also remove a shown reminder from the Windows Action Center.
+        displayExpiry = setTimeout(() => stop(undefined, false), 5 * 60_000);
         try { guard(); notification.show(); } catch (error) { stop(error instanceof PluginError ? error : undefined); }
       });
     });

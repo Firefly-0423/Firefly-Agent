@@ -31,6 +31,20 @@ function fixture() {
 }
 afterEach(() => vi.useRealTimers());
 describe("plugin notification RPC", () => {
+  it("keeps a shown notification in the system list after five minutes but stops reacting to clicks", async () => {
+    vi.useFakeTimers(); const f = fixture();
+    try {
+      const result = f.show(); f.notices[0].emit("show");
+      await expect(result).resolves.toEqual({ shown: true });
+      await vi.advanceTimersByTimeAsync(5 * 60_000 - 1);
+      expect(f.notices[0].listenerCount("click")).toBe(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(f.notices[0].close).not.toHaveBeenCalled();
+      expect(f.notices[0].listenerCount("click")).toBe(0);
+      f.notices[0].emit("click");
+      expect(f.deps.focusMainWindow).not.toHaveBeenCalled();
+    } finally { f.close(); }
+  });
   it.each([
     [[], [], "ERR_UNDECLARED"],
     [["notifications"], [], "ERR_PERMISSION"],
