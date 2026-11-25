@@ -208,6 +208,16 @@ export function createPluginStateStore(options: PluginStateStoreOptions = {}) {
       const entry = document.plugins[pluginId];
       return entry ? cloneState(entry) : undefined;
     },
+    verifyOnDisk(pluginId: string): StoredPluginState | undefined {
+      try {
+        if (!fs.existsSync(stateFile)) return undefined;
+        const onDisk = atomicStore.read(emptyDocument());
+        const entry = onDisk.plugins[pluginId];
+        return entry ? cloneState(entry) : undefined;
+      } catch {
+        return undefined;
+      }
+    },
     isEnabled(pluginId: string): boolean {
       return document.plugins[pluginId]?.enabled === true;
     },
@@ -302,15 +312,27 @@ export function createPluginStateStore(options: PluginStateStoreOptions = {}) {
       return mutate(id, (draft) => {
         const current = draft.plugins[id];
         const nextRevision = Math.max(current?.revision ?? 0, snapshot.revision) + 1;
+        const grantedPermissions = normalizeGrantedPermissions(manifest, snapshot.grantedPermissions);
+        const grantedSet = new Set(grantedPermissions);
+        const restoredConfirmations: Partial<Record<ConfirmationPermission, number>> = {};
+        for (const [permission, rev] of Object.entries(snapshot.confirmations ?? {})) {
+          if (
+            CONFIRMATION_PERMISSIONS.has(permission)
+            && rev === snapshot.revision
+            && grantedSet.has(permission)
+          ) {
+            restoredConfirmations[permission as ConfirmationPermission] = nextRevision;
+          }
+        }
         const restored: StoredPluginState = {
           version: manifest.version,
           main: manifest.main,
           ...(snapshot.installDir !== undefined ? { installDir: snapshot.installDir } : {}),
           manifest,
           enabled: snapshot.enabled,
-          grantedPermissions: normalizeGrantedPermissions(manifest, snapshot.grantedPermissions),
+          grantedPermissions,
           revision: nextRevision,
-          confirmations: {},
+          confirmations: restoredConfirmations,
           modelRateLimit: isValidRateLimit(snapshot.modelRateLimit)
             ? snapshot.modelRateLimit
             : DEFAULT_MODEL_RATE_LIMIT,

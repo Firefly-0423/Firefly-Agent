@@ -1,10 +1,13 @@
 import { EventEmitter } from "node:events";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import * as fsPromises from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import JSZip from "jszip";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AtomicJsonStore } from "../../../base/storage/atomic-json-store";
 import { HOST_TO_PLUGIN_METHODS, type Frame } from "../../../../shared/plugin-protocol";
+import type { ImporterFsOps } from "../../../../plugins/v2/package/importer";
 import { resolvePluginSecretsFile } from "../../../../plugins/v2/secrets/paths";
 import type { SafeStorageLike } from "../../../../plugins/v2/secrets";
 import { createPluginV2HostController } from "./plugin-v2-services";
@@ -140,7 +143,11 @@ function createFakeHostHarness(activateBehavior: (mainPath: string, version: str
   return { launched, createHostManager };
 }
 
-function makeController(harness: ReturnType<typeof createFakeHostHarness>, deleteTasksSpy = vi.fn(() => 2)) {
+function makeController(
+  harness: ReturnType<typeof createFakeHostHarness>,
+  deleteTasksSpy = vi.fn(() => 2),
+  extra: { packageFs?: Partial<ImporterFsOps> } = {},
+) {
   const controller = createPluginV2HostController({
     dataRoot,
     stateFile: path.join(dataRoot, "plugin-state.json"),
@@ -162,6 +169,7 @@ function makeController(harness: ReturnType<typeof createFakeHostHarness>, delet
     getActiveChatTarget: () => null,
     confirmFirstUse: async () => true,
     createHostManager: harness.createHostManager,
+    ...(extra.packageFs ? { packageFs: extra.packageFs } : {}),
   });
   return { controller, deleteTasksSpy };
 }
@@ -225,43 +233,204 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
     controller.dispose();
   });
 
-  it("rolls back and re-enables old version when upgraded version fails activation", async () => {
+  it("rolls back and re-enables old version when upgraded version fails activation, rebinding prior confirmations (D3)", async () => {
     const harness = createFakeHostHarness((_mainPath, version) =>
       version === "2.0.0" ? { ok: false, error: "v2 activation boom" } : { ok: true },
     );
     const { controller } = makeController(harness);
-    const v1Path = await writeArchivePlugin({ id: "dev.firefly.up", version: "1.0.0" });
+    const v1Path = await writeArchivePlugin({
+      id: "dev.firefly.up",
+      version: "1.0.0",
+      permissions: ["sessions.read", "model.run", "secrets", "schedules"],
+      mainCode: "export default { version: '1.0.0', activate() {} };\n",
+    });
     expect((await controller.importFromPath(v1Path)).ok).toBe(true);
 
     await controller.enablePlugin("dev.firefly.up");
     controller.setModelRateLimit("dev.firefly.up", 25);
-    const revBeforeUpgrade = controller.stateStore.get("dev.firefly.up")!.revision;
+    const beforeUpgrade = controller.stateStore.get("dev.firefly.up")!;
+    controller.stateStore.confirmations.set("dev.firefly.up", "sessions.read", beforeUpgrade.revision);
     expect(controller.status("dev.firefly.up")).toBe("enabled");
 
-    const v2Path = await writeArchivePlugin({ id: "dev.firefly.up", version: "2.0.0" });
+    const v1DataDir = path.join(dataRoot, "plugin-data", "dev.firefly.up");
+    mkdirSync(v1DataDir, { recursive: true });
+    writeFileSync(path.join(v1DataDir, "prefs.json"), '{"keep":true}', "utf8");
+
+    const v2Path = await writeArchivePlugin({
+      id: "dev.firefly.up",
+      version: "2.0.0",
+      permissions: ["sessions.read", "workspace.read", "model.run", "secrets", "schedules"],
+      mainCode: "export default { version: '2.0.0', activate() {} };\n",
+    });
     const upgradeRes = await controller.importFromPath(v2Path);
-    expect(upgradeRes.ok).toBe(false);
+    expect(upgradeRes).toEqual({
+      ok: false,
+      installation: "rejected",
+      activation: "rolled-back",
+      error: expect.stringContaining("v1.0.0"),
+    });
     if (!upgradeRes.ok) {
-      expect(upgradeRes.activation).toBe("rolled-back");
-      expect(upgradeRes.error).toContain("v1.0.0");
       expect(upgradeRes.error).toContain("v2 activation boom");
     }
 
-    // Old version is restored, re-enabled, and rate limit preserved; failed v2 dir removed
+    // Old version is restored, re-enabled, grants/confirmations/rate limit preserved, failed v2 removed
     expect(controller.status("dev.firefly.up")).toBe("enabled");
     const restored = controller.stateStore.get("dev.firefly.up")!;
     expect(restored.version).toBe("1.0.0");
     expect(restored.enabled).toBe(true);
     expect(restored.modelRateLimit).toBe(25);
-    expect(restored.revision).toBeGreaterThan(revBeforeUpgrade);
+    expect(restored.revision).toBeGreaterThan(beforeUpgrade.revision);
+    expect(restored.grantedPermissions).toEqual(beforeUpgrade.grantedPermissions);
+    expect(restored.grantedPermissions).not.toContain("workspace.read");
+    expect(controller.stateStore.confirmations.get("dev.firefly.up", "sessions.read")).toBe(restored.revision);
+    expect(controller.stateStore.confirmations.get("dev.firefly.up", "model.run")).toBeUndefined();
+    expect(controller.stateStore.confirmations.get("dev.firefly.up", "workspace.read")).toBeUndefined();
+
+    const diskState = JSON.parse(readFileSync(controller.stateStore.filePath, "utf8"));
+    expect(diskState.plugins["dev.firefly.up"].version).toBe("1.0.0");
+    expect(diskState.plugins["dev.firefly.up"].revision).toBe(restored.revision);
+    expect(diskState.plugins["dev.firefly.up"].confirmations["sessions.read"]).toBe(restored.revision);
+
     expect(existsSync(path.join(dataRoot, "plugins", "dev.firefly.up", "1.0.0"))).toBe(true);
+    expect(readFileSync(path.join(dataRoot, "plugins", "dev.firefly.up", "1.0.0", "index.mjs"), "utf8")).toContain("1.0.0");
+    expect(readFileSync(path.join(v1DataDir, "prefs.json"), "utf8")).toBe('{"keep":true}');
     expect(existsSync(path.join(dataRoot, "plugins", "dev.firefly.up", "2.0.0"))).toBe(false);
 
-    // Old process stopped with reason "upgrade", then v2 attempted, then old restarted
+    // Old process stopped with reason "upgrade", v2 attempted and stopped, then old restarted
     expect(harness.launched[0].stopReasons).toEqual(["upgrade"]);
+    expect(harness.launched[1].killCount).toBeGreaterThanOrEqual(1);
     expect(harness.launched.map((c) => c.version)).toEqual(["1.0.0", "2.0.0", "1.0.0"]);
 
     await controller.stopAll("quit");
+    controller.dispose();
+  });
+
+  it("fault-injects state write failure during upgrade rollback and marks disabled-fault without restarting old (D2)", async () => {
+    const harness = createFakeHostHarness((_mainPath, version) =>
+      version === "2.0.0" ? { ok: false, error: "v2 boom" } : { ok: true },
+    );
+    const { controller } = makeController(harness);
+    const v1Path = await writeArchivePlugin({ id: "dev.firefly.failstate", version: "1.0.0" });
+    await controller.importFromPath(v1Path);
+    await controller.enablePlugin("dev.firefly.failstate");
+
+    const origWrite = AtomicJsonStore.prototype.write;
+    let writeCalls = 0;
+    vi.spyOn(AtomicJsonStore.prototype, "write").mockImplementation(function (this: AtomicJsonStore<unknown>, data: unknown) {
+      writeCalls += 1;
+      // 1st write inside upgrade: v2 stateStore.install; 2nd write: restoreSnapshot -> fail it!
+      if (writeCalls === 2) {
+        throw new Error("injected state write failure");
+      }
+      return origWrite.call(this, data);
+    });
+
+    const v2Path = await writeArchivePlugin({ id: "dev.firefly.failstate", version: "2.0.0" });
+    const res = await controller.importFromPath(v2Path);
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.activation).toBe("failed");
+      expect(res.error).toContain("已停用（异常）");
+    }
+
+    // File rollback still ran despite state write failure; old version was NOT restarted
+    expect(existsSync(path.join(dataRoot, "plugins", "dev.firefly.failstate", "2.0.0"))).toBe(false);
+    expect(existsSync(path.join(dataRoot, "plugins", "dev.firefly.failstate", "1.0.0"))).toBe(true);
+    expect(harness.launched.map((c) => c.version)).toEqual(["1.0.0", "2.0.0"]);
+    expect(harness.launched[1].killCount).toBeGreaterThanOrEqual(1);
+    expect(controller.status("dev.firefly.failstate")).toBe("disabled-fault");
+    expect(controller.getPlugin("dev.firefly.failstate")?.status).toBe("disabled-fault");
+    expect(controller.stateStore.isEnabled("dev.firefly.failstate")).toBe(false);
+    const diskState = JSON.parse(readFileSync(controller.stateStore.filePath, "utf8"));
+    expect(diskState.plugins["dev.firefly.failstate"].enabled).toBe(false);
+
+    controller.dispose();
+  });
+
+  it("fault-injects removing new package failure during upgrade rollback and marks disabled-fault (D2)", async () => {
+    const harness = createFakeHostHarness((_mainPath, version) =>
+      version === "2.0.0" ? { ok: false, error: "v2 boom" } : { ok: true },
+    );
+    const v2Dir = path.join(dataRoot, "plugins", "dev.firefly.failrm", "2.0.0");
+    const { controller } = makeController(harness, undefined, {
+      packageFs: {
+        async rm(target, opts) {
+          if (path.resolve(String(target)) === path.resolve(v2Dir)) {
+            throw new Error("EBUSY removing v2");
+          }
+          return fsPromises.rm(target, opts);
+        },
+      },
+    });
+    const v1Path = await writeArchivePlugin({ id: "dev.firefly.failrm", version: "1.0.0" });
+    await controller.importFromPath(v1Path);
+    await controller.enablePlugin("dev.firefly.failrm");
+
+    const v2Path = await writeArchivePlugin({ id: "dev.firefly.failrm", version: "2.0.0" });
+    const res = await controller.importFromPath(v2Path);
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.activation).toBe("failed");
+      expect(res.error).toContain("EBUSY removing v2");
+    }
+
+    expect(existsSync(v2Dir)).toBe(true);
+    expect(harness.launched.map((c) => c.version)).toEqual(["1.0.0", "2.0.0"]);
+    expect(controller.status("dev.firefly.failrm")).toBe("disabled-fault");
+    expect(controller.getPlugin("dev.firefly.failrm")?.status).toBe("disabled-fault");
+    expect(controller.stateStore.isEnabled("dev.firefly.failrm")).toBe(false);
+    const diskState = JSON.parse(readFileSync(controller.stateStore.filePath, "utf8"));
+    expect(diskState.plugins["dev.firefly.failrm"].enabled).toBe(false);
+
+    controller.dispose();
+  });
+
+  it("fault-injects restoring backup failure during same-version overwrite rollback and marks disabled-fault (D2)", async () => {
+    let failAttempt = false;
+    const harness = createFakeHostHarness(() =>
+      failAttempt ? { ok: false, error: "overwrite activation boom" } : { ok: true },
+    );
+    const { controller } = makeController(harness, undefined, {
+      packageFs: {
+        async rename(oldPath, newPath) {
+          if (failAttempt && path.basename(String(oldPath)).startsWith(".backup-")) {
+            throw new Error("EPERM restoring backup");
+          }
+          return fsPromises.rename(oldPath, newPath);
+        },
+      },
+    });
+    const v1First = await writeArchivePlugin({
+      id: "dev.firefly.failbackup",
+      version: "1.0.0",
+      mainCode: "export default { build: 'first' };\n",
+    });
+    await controller.importFromPath(v1First);
+    await controller.enablePlugin("dev.firefly.failbackup");
+
+    failAttempt = true;
+    const v1Overwrite = await writeArchivePlugin({
+      id: "dev.firefly.failbackup",
+      version: "1.0.0",
+      mainCode: "export default { build: 'second' };\n",
+    });
+    const res = await controller.importFromPath(v1Overwrite);
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.activation).toBe("failed");
+      expect(res.error).toContain("EPERM restoring backup");
+    }
+
+    const pluginIdDir = path.join(dataRoot, "plugins", "dev.firefly.failbackup");
+    expect(existsSync(path.join(pluginIdDir, "1.0.0"))).toBe(false);
+    expect(readdirSync(pluginIdDir).some((name) => name.startsWith(".backup-"))).toBe(true);
+    expect(harness.launched).toHaveLength(2);
+    expect(controller.status("dev.firefly.failbackup")).toBe("disabled-fault");
+    expect(controller.getPlugin("dev.firefly.failbackup")?.status).toBe("disabled-fault");
+    expect(controller.stateStore.isEnabled("dev.firefly.failbackup")).toBe(false);
+    const diskState = JSON.parse(readFileSync(controller.stateStore.filePath, "utf8"));
+    expect(diskState.plugins["dev.firefly.failbackup"].enabled).toBe(false);
+
     controller.dispose();
   });
 

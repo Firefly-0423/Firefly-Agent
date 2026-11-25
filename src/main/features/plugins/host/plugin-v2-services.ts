@@ -32,7 +32,7 @@ import {
   type PluginHostStatus,
   type StopReason,
 } from "../../../../plugins/v2/host";
-import { importPluginPackage, PLUGIN_HOST_VERSION } from "../../../../plugins/v2/package/importer";
+import { importPluginPackage, PLUGIN_HOST_VERSION, type ImporterFsOps } from "../../../../plugins/v2/package/importer";
 import {
   bindPluginScheduleRpc,
   createPluginScheduleService,
@@ -114,6 +114,7 @@ export interface PluginV2HostDependencies {
   onOverviewChanged?: () => void;
   onRunningStateChange?: (pluginId: string, running: boolean) => void;
   createHostManager?: (deps: HostDependencies) => PluginHostManager;
+  packageFs?: Partial<ImporterFsOps>;
 }
 
 export interface PluginV2ImportOptions {
@@ -133,7 +134,7 @@ export type PluginV2ImportResult =
   | {
       ok: false;
       installation: "rejected";
-      activation?: "rolled-back";
+      activation?: "rolled-back" | "failed";
       error: string;
     };
 
@@ -240,6 +241,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
   const hostVersion = deps.hostVersion ?? PLUGIN_HOST_VERSION;
   const pluginsRoot = path.join(deps.dataRoot, "plugins");
   const lastErrors = new Map<string, string>();
+  const faultedIds = new Set<string>();
   let suppressingFaultSync = false;
 
   let contextRevision = 1;
@@ -761,10 +763,18 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
       });
   hostManagerRef = hostManager;
 
+  const resolveStatus = (id: string): PluginHostStatus => {
+    const status = hostManager.status(id);
+    if (status === "disabled" && faultedIds.has(id)) return "disabled-fault";
+    return status;
+  };
+
   const offHostStatus = hostManager.onStatusChange(({ id, status }) => {
     if (status === "enabled") {
+      faultedIds.delete(id);
       lastErrors.delete(id);
     } else if (status === "disabled-fault" && !suppressingFaultSync) {
+      faultedIds.add(id);
       if (!lastErrors.has(id)) {
         lastErrors.set(id, "插件进程多次异常退出，已自动停用");
       }
@@ -783,6 +793,25 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
   const stopPlugin = async (id: string, reason: StopReason = "disabled"): Promise<void> => {
     startedPluginIds.delete(id);
     await hostManager.stop(id, reason);
+  };
+
+  const verifyRestoredFilesOnDisk = (
+    expectedDir: string,
+    expectedMain: string,
+    removedNewDir?: string,
+  ): boolean => {
+    try {
+      const dirStat = fs.lstatSync(expectedDir);
+      if (dirStat.isSymbolicLink() || !dirStat.isDirectory()) return false;
+      const mainPath = path.resolve(expectedDir, expectedMain);
+      if (!within(expectedDir, mainPath)) return false;
+      const mainStat = fs.lstatSync(mainPath);
+      if (mainStat.isSymbolicLink() || !mainStat.isFile()) return false;
+      if (removedNewDir && fs.existsSync(removedNewDir)) return false;
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const toSnapshot = (stored: StoredPluginState): PluginV2Snapshot => {
@@ -807,7 +836,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
       native: stored.manifest.native === true,
       manifest: structuredClone(stored.manifest),
       enabled: stored.enabled,
-      status: hostManager.status(id),
+      status: resolveStatus(id),
       grantedPermissions: [...stored.grantedPermissions],
       revision: stored.revision,
       modelRateLimit: stored.modelRateLimit,
@@ -891,6 +920,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
           pluginsRoot,
           hostVersion,
           allowOverwrite: true,
+          ...(deps.packageFs ? { fs: deps.packageFs } : {}),
         });
       } catch (error) {
         return {
@@ -945,6 +975,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
             error: error instanceof Error ? error.message : String(error),
           };
         }
+        faultedIds.delete(manifest.id);
         lastErrors.delete(manifest.id);
         deps.onOverviewChanged?.();
         return {
@@ -982,6 +1013,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
             error: error instanceof Error ? error.message : String(error),
           };
         }
+        faultedIds.delete(manifest.id);
         lastErrors.delete(manifest.id);
         deps.onOverviewChanged?.();
         return {
@@ -992,7 +1024,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
         };
       }
 
-      // Upgrade while active: stop old -> activate new -> on failure roll back & re-enable old.
+      // Upgrade while active: stop old -> activate new -> on failure transactionally roll back files + state before restarting old.
       suppressingFaultSync = true;
       try {
         await stopPlugin(manifest.id, "upgrade");
@@ -1009,30 +1041,107 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
       } catch (upgradeError) {
         const reason = upgradeError instanceof Error ? upgradeError.message : String(upgradeError);
         await stopPlugin(manifest.id, "upgrade").catch(() => {});
-        stateStore.restoreSnapshot(existing);
-        await imported.rollback().catch(() => {});
-        let rollbackError: string | undefined;
+
+        let fileRollbackError: string | undefined;
         try {
-          startedPluginIds.add(manifest.id);
-          await hostManager.start(manifest.id);
+          await imported.rollback();
         } catch (err) {
-          rollbackError = err instanceof Error ? err.message : String(err);
-          stateStore.disable(manifest.id);
-        } finally {
-          suppressingFaultSync = false;
+          fileRollbackError = err instanceof Error ? err.message : String(err);
         }
-        const message = rollbackError
-          ? `新版本启动失败（${reason}），且旧版本恢复失败（${rollbackError}）`
-          : `新版本启动失败，已回滚至 v${existing.version}：${reason}`;
+
+        let stateRollbackError: string | undefined;
+        let restoredState: StoredPluginState | undefined;
+        try {
+          restoredState = stateStore.restoreSnapshot(existing);
+        } catch (err) {
+          stateRollbackError = err instanceof Error ? err.message : String(err);
+        }
+
+        const removedNewDir = path.resolve(installDir) !== oldInstallDir ? path.resolve(installDir) : undefined;
+        const filesVerified = !fileRollbackError && verifyRestoredFilesOnDisk(
+          oldInstallDir,
+          existing.main,
+          removedNewDir,
+        );
+        const diskState = !stateRollbackError && restoredState
+          ? stateStore.verifyOnDisk(manifest.id)
+          : undefined;
+        const stateVerified = Boolean(
+          restoredState
+          && diskState
+          && diskState.version === existing.version
+          && diskState.main === existing.main
+          && diskState.enabled === existing.enabled
+          && diskState.revision === restoredState.revision,
+        );
+
+        if (!fileRollbackError && !stateRollbackError && filesVerified && stateVerified) {
+          let restartError: string | undefined;
+          try {
+            startedPluginIds.add(manifest.id);
+            await hostManager.start(manifest.id);
+          } catch (err) {
+            restartError = err instanceof Error ? err.message : String(err);
+          }
+          if (!restartError) {
+            faultedIds.delete(manifest.id);
+            suppressingFaultSync = false;
+            const message = `新版本启动失败，已回滚至 v${existing.version}：${reason}`;
+            lastErrors.set(manifest.id, message);
+            deps.onOverviewChanged?.();
+            return {
+              ok: false,
+              installation: "rejected",
+              activation: "rolled-back",
+              error: message,
+            };
+          }
+          if (stateStore.isEnabled(manifest.id)) {
+            try {
+              stateStore.disable(manifest.id);
+            } catch {
+              /* Best-effort persist fault disable when old version fails to restart. */
+            }
+          }
+          faultedIds.add(manifest.id);
+          suppressingFaultSync = false;
+          const message = `新版本启动失败（${reason}），且旧版本恢复失败（${restartError}）`;
+          lastErrors.set(manifest.id, message);
+          deps.onRunningStateChange?.(manifest.id, false);
+          deps.onOverviewChanged?.();
+          return {
+            ok: false,
+            installation: "rejected",
+            activation: "failed",
+            error: message,
+          };
+        }
+
+        if (stateStore.isEnabled(manifest.id)) {
+          try {
+            stateStore.disable(manifest.id);
+          } catch {
+            /* Preserve rollback failure diagnostics if state store write also fails. */
+          }
+        }
+        faultedIds.add(manifest.id);
+        suppressingFaultSync = false;
+        const rollbackProblems = [
+          fileRollbackError ? `文件回滚失败（${fileRollbackError}）` : (!filesVerified ? "旧版本文件校验未通过" : ""),
+          stateRollbackError ? `状态回滚失败（${stateRollbackError}）` : (!stateVerified ? "插件状态文件校验未通过" : ""),
+        ].filter(Boolean).join("；");
+        const message = `新版本启动失败（${reason}），且回滚未完成（${rollbackProblems}），已停用（异常）`;
         lastErrors.set(manifest.id, message);
+        deps.onRunningStateChange?.(manifest.id, false);
         deps.onOverviewChanged?.();
         return {
           ok: false,
           installation: "rejected",
-          activation: "rolled-back",
+          activation: "failed",
           error: message,
         };
       }
+      faultedIds.delete(manifest.id);
       suppressingFaultSync = false;
 
       await imported.commit();
@@ -1049,6 +1158,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
       };
     },
     async enablePlugin(id: string, opts?: { grantedPermissions?: readonly string[] }): Promise<StoredPluginState> {
+      faultedIds.delete(id);
       lastErrors.delete(id);
       const updated = stateStore.enable(id, opts);
       startedPluginIds.add(id);
@@ -1056,6 +1166,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
         await hostManager.start(id);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
+        faultedIds.add(id);
         lastErrors.set(id, message);
         if (stateStore.isEnabled(id)) {
           try {
@@ -1071,6 +1182,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
       return stateStore.get(id) ?? updated;
     },
     async disablePlugin(id: string): Promise<StoredPluginState> {
+      faultedIds.delete(id);
       const updated = stateStore.disable(id);
       await stopPlugin(id, "disabled");
       lastErrors.delete(id);
@@ -1111,12 +1223,13 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
       if (existing?.installDir) {
         await removeDirIfSafe(existing.installDir, pluginsRoot);
       }
+      faultedIds.delete(id);
       stateStore.uninstall(id);
       lastErrors.delete(id);
       deps.onOverviewChanged?.();
     },
     status(id: string): PluginHostStatus {
-      return hostManager.status(id);
+      return resolveStatus(id);
     },
     async startEnabled(): Promise<void> {
       const enabled = stateStore.list().filter((entry) => entry.enabled);
