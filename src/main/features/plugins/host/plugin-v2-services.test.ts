@@ -223,6 +223,31 @@ describe("plugin-v2-services model.run (A2)", () => {
     }
   });
 
+  it.each([
+    [undefined, false],
+    [false, false],
+    [true, true],
+  ] as const)("starts a plugin run without the desktop memory run and with allowPartners=%s -> allowDelegation=%s", async (allowPartners, delegation) => {
+    const openMemoryRun = vi.fn();
+    const buildRunOptions = vi.fn(async () => ({ options: { tools: [{ id: "delegate_agent" }, { id: "read_file" }], openMemoryRun, controlledResponses: vi.fn() } }));
+    const fixture = createControllerFixture({ buildRunOptions });
+    try {
+      mocks.setRunFactory(() => ({ lastResult: { reply: "ok" }, run(sub) { sub.complete(); return () => {}; } }));
+      for await (const _chunk of fixture.clientRpc.stream(
+        PLUGIN_TO_HOST_METHODS.modelRun,
+        { objective: "plan", mode: "work", sessionId: "s-1", ...(allowPartners === undefined ? {} : { allowPartners }) },
+      )) { /* drain */ }
+      const options = mocks.agentInstances.at(-1)?.options as Record<string, unknown>;
+      expect(options).not.toHaveProperty("openMemoryRun");
+      expect(options).not.toHaveProperty("controlledResponses");
+      expect(options.allowDelegation).toBe(delegation);
+      expect((options.tools as Array<{ id: string }>).map((tool) => tool.id)).toEqual(delegation ? ["delegate_agent", "read_file"] : ["read_file"]);
+      expect(openMemoryRun).not.toHaveBeenCalled();
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("rejects immediately without starting agent when signal is already aborted", async () => {
     const buildRunOptions = vi.fn(async () => ({ options: { tools: [] } }));
     const fixture = createControllerFixture({ buildRunOptions });

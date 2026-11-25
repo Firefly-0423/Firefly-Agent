@@ -460,11 +460,15 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
       if (signal.aborted) {
         throw new PluginError("ERR_CANCELLED", "Plugin model run cancelled");
       }
+      // A plugin run is not a desktop user turn: it never opens the desktop memory run (that needs the session's
+      // run admission and a transcript sink bound to this run id), like scheduled tasks.
+      const { openMemoryRun: _openMemoryRun, controlledResponses: _controlledResponses, ...buildable } = built.options;
       const runOptions = {
-        ...built.options,
+        ...buildable,
         runId,
         signal,
         interactiveTools: false,
+        allowDelegation: request.allowPartners === true,
         ...(request.allowPartners ? {} : {
           tools: (built.options.tools ?? []).filter((tool) => tool.id !== "delegate_agent"),
         }),
