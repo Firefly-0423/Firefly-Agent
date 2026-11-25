@@ -14,6 +14,7 @@ export type PluginPermission =
   | "sessions.read"
   | "workspace.read"
   | "schedules"
+  | "notifications"
   | "secrets"
   | "ui.windows";
 
@@ -323,6 +324,20 @@ export interface Schedules {
 
 // ───────────────────────── §6.8 Secrets & UI ─────────────────────────
 
+export interface NotificationRequest {
+  title: string;
+  body: string;
+}
+
+export interface NotificationResult {
+  shown: boolean;
+}
+
+export interface Notifications {
+  /** Requires notifications permission. Plain text, 64/256 Unicode code points, at most 5 per minute. */
+  show(notification: NotificationRequest): Promise<NotificationResult>;
+}
+
 export interface Secrets {
   set(key: string, value: string): Promise<void>;
   get(key: string): Promise<string | null>;
@@ -368,6 +383,7 @@ export interface PluginContext {
   readonly sessions: Sessions;
   readonly workspace: Workspace;
   readonly schedules: Schedules;
+  readonly notifications: Notifications;
   readonly secrets: Secrets;
   readonly ui: Ui;
 }

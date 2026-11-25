@@ -49,7 +49,7 @@ export const PLUGIN_TO_HOST_METHODS = {
   toolsRegister: 'tools.register', toolsUnregister: 'tools.unregister', toolsProgress: 'tools.progress',
   contextRegister: 'context.register', contextUnregister: 'context.unregister',
   channelsRegister: 'channels.register', channelsReportState: 'channels.reportState', channelsDeliver: 'channels.deliver',
-  modelGenerate: 'model.generate', modelRun: 'model.run',
+  modelGenerate: 'model.generate', modelRun: 'model.run', notificationsShow: 'notifications.show',
   eventsSubscribe: 'events.subscribe', sessionsList: 'sessions.list', sessionsMessages: 'sessions.messages',
   workspaceInfo: 'workspace.info', workspaceWatch: 'workspace.watch',
   schedulesPropose: 'schedules.propose', schedulesUpdate: 'schedules.update', schedulesRemove: 'schedules.remove', schedulesList: 'schedules.list', schedulesOnTrigger: 'schedules.onTrigger',
@@ -104,6 +104,14 @@ export interface ProtocolOutboundMessage {
   text: string
   replyToExternalMessageId?: string
   attachments?: ProtocolChannelAttachment[]
+}
+
+export interface ProtocolNotificationParams {
+  title: string
+  body: string
+}
+export interface ProtocolNotificationResult {
+  shown: boolean
 }
 
 export interface ProtocolModelGenerateParams {
@@ -232,6 +240,7 @@ export interface HostToPluginResults {
 }
 
 export interface PluginToHostParams {
+  'notifications.show': ProtocolNotificationParams
   'tools.register': { name: string; description: string; parameters: Record<string, unknown> }
   'tools.unregister': { name: string }
   'tools.progress': { callId: string; message: string; percent?: number }
@@ -263,6 +272,7 @@ export interface PluginToHostParams {
 }
 
 export interface PluginToHostResults {
+  'notifications.show': ProtocolNotificationResult
   'tools.register': void
   'tools.unregister': void
   'tools.progress': void
