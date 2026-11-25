@@ -1,4 +1,5 @@
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import * as fsPromises from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -197,6 +198,121 @@ describe("plugin v2 UI asset protocol & CSP", () => {
 
     expect(() => buildPluginWindowUrl("dev.firefly.alpha", "../outside.html")).toThrow(PluginError);
     expect(() => buildPluginWindowUrl("dev.firefly.alpha", "C:\\outside.html")).toThrow(PluginError);
+  });
+
+  it("rejects symlinked/junctioned packageRoot or ancestors without opening asset files (D5)", async () => {
+    const outsideDir = path.join(tempRoot, "outside-pkg");
+    mkdirSync(path.join(outsideDir, "ui"), { recursive: true });
+    writeFileSync(path.join(outsideDir, "ui", "panel.html"), "<html>secret</html>", "utf8");
+
+    const linkedRoot = path.join(tempRoot, "linked-pkg-root");
+    symlinkSync(outsideDir, linkedRoot, process.platform === "win32" ? "junction" : "dir");
+
+    const openSpy = vi.fn(fsPromises.open);
+    const res1 = await resolvePluginUiAsset(
+      `${PLUGIN_UI_SCHEME}://dev.firefly.alpha/ui/panel.html`,
+      "dev.firefly.alpha",
+      linkedRoot,
+      { fs: { open: openSpy } },
+    );
+    expect(res1.status).toBe(403);
+    expect("body" in res1).toBe(false);
+    expect(openSpy).not.toHaveBeenCalled();
+
+    const linkedParent = path.join(tempRoot, "linked-parent");
+    symlinkSync(outsideDir, linkedParent, process.platform === "win32" ? "junction" : "dir");
+    mkdirSync(path.join(outsideDir, "nested", "ui"), { recursive: true });
+    writeFileSync(path.join(outsideDir, "nested", "ui", "panel.html"), "<html>nested</html>", "utf8");
+    const res2 = await resolvePluginUiAsset(
+      `${PLUGIN_UI_SCHEME}://dev.firefly.alpha/ui/panel.html`,
+      "dev.firefly.alpha",
+      path.join(linkedParent, "nested"),
+      { fs: { open: openSpy } },
+    );
+    expect(res2.status).toBe(403);
+    expect("body" in res2).toBe(false);
+    expect(openSpy).not.toHaveBeenCalled();
+  });
+
+  it("returns zero bytes when target file or ancestor is replaced between validation and open/fstat (D5)", async () => {
+    const pkgRoot = path.join(tempRoot, "pkg-toctou");
+    const uiDir = path.join(pkgRoot, "ui");
+    mkdirSync(uiDir, { recursive: true });
+    const panelPath = path.join(uiDir, "panel.html");
+    const decoyPath = path.join(tempRoot, "decoy.html");
+    writeFileSync(panelPath, "<html>original</html>", "utf8");
+    writeFileSync(decoyPath, "<html>attacker-payload</html>", "utf8");
+
+    // 1. Replace file right before open() (inode mismatch between lstat and handle.stat)
+    const readFileSpy = vi.fn();
+    const closeSpy = vi.fn(async () => {});
+    const handler = createPluginUiProtocolHandler(
+      (id) => (id === "dev.firefly.alpha" ? pkgRoot : undefined),
+      "dev.firefly.alpha",
+      {
+        fs: {
+          async open() {
+            const decoyHandle = await fsPromises.open(decoyPath, "r");
+            const origStat = decoyHandle.stat.bind(decoyHandle);
+            return {
+              stat: origStat,
+              readFile: readFileSpy,
+              close: async () => {
+                await decoyHandle.close();
+                await closeSpy();
+              },
+            } as unknown as Awaited<ReturnType<typeof fsPromises.open>>;
+          },
+        },
+      },
+    );
+
+    const res = await handler(new Request(`${PLUGIN_UI_SCHEME}://dev.firefly.alpha/ui/panel.html`));
+    expect(res.status).toBe(403);
+    expect((await res.arrayBuffer()).byteLength).toBe(0);
+    expect(readFileSpy).not.toHaveBeenCalled();
+    expect(closeSpy).toHaveBeenCalledTimes(1);
+
+    // 2. Replace ancestor into symlink between open() and post-open re-check
+    let openedOnce = false;
+    const readFileSpy2 = vi.fn();
+    const closeSpy2 = vi.fn(async () => {});
+    const resAfterOpen = await resolvePluginUiAsset(
+      `${PLUGIN_UI_SCHEME}://dev.firefly.alpha/ui/panel.html`,
+      "dev.firefly.alpha",
+      pkgRoot,
+      {
+        fs: {
+          async lstat(target, opts) {
+            const info = await fsPromises.lstat(target, opts);
+            if (openedOnce && path.resolve(String(target)) === path.resolve(uiDir)) {
+              return {
+                ...info,
+                isSymbolicLink: () => true,
+                isDirectory: () => false,
+              } as unknown as Awaited<ReturnType<typeof fsPromises.lstat>>;
+            }
+            return info;
+          },
+          async open(target, flags) {
+            const realHandle = await fsPromises.open(target, flags);
+            openedOnce = true;
+            return {
+              stat: realHandle.stat.bind(realHandle),
+              readFile: readFileSpy2,
+              close: async () => {
+                await realHandle.close();
+                await closeSpy2();
+              },
+            } as unknown as Awaited<ReturnType<typeof fsPromises.open>>;
+          },
+        },
+      },
+    );
+    expect(resAfterOpen.status).toBe(403);
+    expect("body" in resAfterOpen).toBe(false);
+    expect(readFileSpy2).not.toHaveBeenCalled();
+    expect(closeSpy2).toHaveBeenCalledTimes(1);
   });
 });
 

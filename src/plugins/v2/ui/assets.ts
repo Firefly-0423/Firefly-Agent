@@ -1,8 +1,21 @@
-import { lstat, readFile, realpath, stat } from "node:fs/promises";
+import { constants } from "node:fs";
+import { lstat, open, realpath } from "node:fs/promises";
 import path from "node:path";
 import { checkRelativePathShape } from "../../../shared/plugin-manifest";
 import { PluginError } from "../../../shared/plugin-protocol";
 import { escapesRoot } from "../package/boundary";
+
+export interface AssetFsOps {
+  lstat: typeof lstat;
+  open: typeof open;
+  realpath: typeof realpath;
+}
+
+const DEFAULT_ASSET_FS: AssetFsOps = {
+  lstat,
+  open,
+  realpath,
+};
 
 export const PLUGIN_UI_SCHEME = "firefly-plugin-ui";
 
@@ -149,61 +162,121 @@ export function buildPluginWindowUrl(pluginId: string, entryRelativePath: string
   return `${PLUGIN_UI_SCHEME}://${pluginId}/${encodedPath}`;
 }
 
-async function hasSymlinkSegment(root: string, segments: readonly string[]): Promise<boolean> {
-  let current = root;
-  for (const segment of segments) {
+function normalizeCompare(targetPath: string): string {
+  return process.platform === "win32" ? targetPath.toLowerCase() : targetPath;
+}
+
+function isMissingError(error: unknown): boolean {
+  return (error as NodeJS.ErrnoException | undefined)?.code === "ENOENT";
+}
+
+type DirectoryChainResult =
+  | { ok: true; canonical: string }
+  | { ok: false; status: 403 | 404 };
+
+async function validateDirectoryChain(
+  targetDir: string,
+  fsOps: AssetFsOps,
+): Promise<DirectoryChainResult> {
+  const resolved = path.resolve(targetDir);
+  const parsedRoot = path.parse(resolved).root;
+  const parts = path.relative(parsedRoot, resolved).split(path.sep).filter(Boolean);
+
+  let current = parsedRoot;
+  for (const segment of parts) {
     current = path.join(current, segment);
-    const info = await lstat(current);
-    if (info.isSymbolicLink()) return true;
+    let info;
+    try {
+      info = await fsOps.lstat(current, { bigint: true });
+    } catch (error) {
+      return { ok: false, status: isMissingError(error) ? 404 : 403 };
+    }
+    if (info.isSymbolicLink() || !info.isDirectory()) {
+      return { ok: false, status: 403 };
+    }
   }
-  return false;
+
+  let canonical: string;
+  try {
+    canonical = await fsOps.realpath(resolved);
+  } catch (error) {
+    return { ok: false, status: isMissingError(error) ? 404 : 403 };
+  }
+  return { ok: true, canonical };
+}
+
+type RelativeSegmentsResult =
+  | { ok: true; filePath: string; fileStat: Awaited<ReturnType<typeof lstat>> & { dev: bigint; ino: bigint } }
+  | { ok: false; status: 403 | 404 };
+
+async function validateRelativeSegments(
+  root: string,
+  segments: readonly string[],
+  fsOps: AssetFsOps,
+): Promise<RelativeSegmentsResult> {
+  let current = root;
+  for (let i = 0; i < segments.length; i += 1) {
+    current = path.join(current, segments[i]);
+    let info;
+    try {
+      info = await fsOps.lstat(current, { bigint: true });
+    } catch (error) {
+      return { ok: false, status: isMissingError(error) ? 404 : 403 };
+    }
+    if (info.isSymbolicLink()) {
+      return { ok: false, status: 403 };
+    }
+    const isLast = i === segments.length - 1;
+    if (isLast) {
+      if (!info.isFile()) {
+        return { ok: false, status: 404 };
+      }
+      return {
+        ok: true,
+        filePath: current,
+        fileStat: info as Awaited<ReturnType<typeof lstat>> & { dev: bigint; ino: bigint },
+      };
+    }
+    if (!info.isDirectory()) {
+      return { ok: false, status: 404 };
+    }
+  }
+  return { ok: false, status: 404 };
 }
 
 export async function resolvePluginUiAsset(
   rawUrl: string,
   expectedPluginId: string,
   packageRoot: string,
+  options: { fs?: Partial<AssetFsOps> } = {},
 ): Promise<PluginUiAssetResponse> {
+  const fsOps: AssetFsOps = { ...DEFAULT_ASSET_FS, ...options.fs };
   const parts = parsePluginUiUrlParts(rawUrl, expectedPluginId);
   if (!parts) {
     return { status: 403, headers: buildPluginUiResponseHeaders() };
   }
 
-  let canonicalRoot: string;
-  try {
-    canonicalRoot = await realpath(packageRoot);
-  } catch {
-    return { status: 404, headers: buildPluginUiResponseHeaders() };
+  const rootCheck = await validateDirectoryChain(packageRoot, fsOps);
+  if (!rootCheck.ok) {
+    return { status: rootCheck.status, headers: buildPluginUiResponseHeaders() };
+  }
+  const canonicalRoot = rootCheck.canonical;
+
+  const initialSegments = await validateRelativeSegments(canonicalRoot, parts, fsOps);
+  if (!initialSegments.ok) {
+    return { status: initialSegments.status, headers: buildPluginUiResponseHeaders() };
   }
 
-  try {
-    if (await hasSymlinkSegment(canonicalRoot, parts)) {
-      return { status: 403, headers: buildPluginUiResponseHeaders() };
-    }
-  } catch {
-    return { status: 404, headers: buildPluginUiResponseHeaders() };
-  }
-
-  const candidate = path.join(canonicalRoot, ...parts);
+  const candidate = initialSegments.filePath;
   let canonicalFile: string;
   try {
-    canonicalFile = await realpath(candidate);
-  } catch {
-    return { status: 404, headers: buildPluginUiResponseHeaders() };
+    canonicalFile = await fsOps.realpath(candidate);
+  } catch (error) {
+    return { status: isMissingError(error) ? 404 : 403, headers: buildPluginUiResponseHeaders() };
   }
 
-  if (!isInsideRoot(canonicalRoot, canonicalFile)) {
+  if (!isInsideRoot(normalizeCompare(canonicalRoot), normalizeCompare(canonicalFile))) {
     return { status: 403, headers: buildPluginUiResponseHeaders() };
-  }
-
-  let fileStat: Awaited<ReturnType<typeof stat>>;
-  try {
-    fileStat = await stat(canonicalFile);
-  } catch {
-    return { status: 404, headers: buildPluginUiResponseHeaders() };
-  }
-  if (!fileStat.isFile()) {
-    return { status: 404, headers: buildPluginUiResponseHeaders() };
   }
 
   const contentType = MIME_BY_EXTENSION[path.extname(canonicalFile).toLowerCase()];
@@ -211,37 +284,71 @@ export async function resolvePluginUiAsset(
     return { status: 403, headers: buildPluginUiResponseHeaders() };
   }
 
-  const body = await readFile(canonicalFile);
-  return {
-    status: 200,
-    contentType,
-    headers: buildPluginUiResponseHeaders(contentType),
-    body,
-  };
+  const expectedStat = initialSegments.fileStat;
+  let handle: Awaited<ReturnType<typeof open>> | undefined;
+  try {
+    try {
+      handle = await fsOps.open(candidate, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+    } catch (error) {
+      return { status: isMissingError(error) ? 404 : 403, headers: buildPluginUiResponseHeaders() };
+    }
+
+    const openedStat = await handle.stat({ bigint: true });
+    if (!openedStat.isFile()) {
+      return { status: 403, headers: buildPluginUiResponseHeaders() };
+    }
+    if (openedStat.dev !== expectedStat.dev || openedStat.ino !== expectedStat.ino) {
+      return { status: 403, headers: buildPluginUiResponseHeaders() };
+    }
+
+    const recheckedRoot = await validateDirectoryChain(packageRoot, fsOps);
+    if (!recheckedRoot.ok || normalizeCompare(recheckedRoot.canonical) !== normalizeCompare(canonicalRoot)) {
+      return { status: 403, headers: buildPluginUiResponseHeaders() };
+    }
+    const recheckedSegments = await validateRelativeSegments(recheckedRoot.canonical, parts, fsOps);
+    if (
+      !recheckedSegments.ok
+      || recheckedSegments.fileStat.dev !== openedStat.dev
+      || recheckedSegments.fileStat.ino !== openedStat.ino
+    ) {
+      return { status: 403, headers: buildPluginUiResponseHeaders() };
+    }
+
+    const body = await handle.readFile();
+    return {
+      status: 200,
+      contentType,
+      headers: buildPluginUiResponseHeaders(contentType),
+      body,
+    };
+  } finally {
+    await handle?.close().catch(() => {});
+  }
 }
 
 export function createPluginUiProtocolHandler(
   resolvePackageRoot: (pluginId: string) => string | undefined,
   expectedPluginId?: string,
+  options: { fs?: Partial<AssetFsOps> } = {},
 ): (request: Request) => Promise<Response> {
   return async (request: Request): Promise<Response> => {
     let parsed: URL;
     try {
       parsed = new URL(request.url);
     } catch {
-      return new Response("Forbidden", { status: 403, headers: buildPluginUiResponseHeaders() });
+      return new Response(null, { status: 403, headers: buildPluginUiResponseHeaders() });
     }
     const targetPluginId = expectedPluginId ?? parsed.hostname;
     if (parsed.hostname !== targetPluginId) {
-      return new Response("Forbidden", { status: 403, headers: buildPluginUiResponseHeaders() });
+      return new Response(null, { status: 403, headers: buildPluginUiResponseHeaders() });
     }
     const packageRoot = resolvePackageRoot(targetPluginId);
     if (!packageRoot) {
-      return new Response("Forbidden", { status: 403, headers: buildPluginUiResponseHeaders() });
+      return new Response(null, { status: 403, headers: buildPluginUiResponseHeaders() });
     }
-    const asset = await resolvePluginUiAsset(request.url, targetPluginId, packageRoot);
+    const asset = await resolvePluginUiAsset(request.url, targetPluginId, packageRoot, options);
     if (asset.status !== 200) {
-      return new Response(asset.status === 403 ? "Forbidden" : "Not Found", {
+      return new Response(null, {
         status: asset.status,
         headers: asset.headers,
       });
