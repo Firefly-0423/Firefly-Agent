@@ -13,7 +13,8 @@
   "native": false,
   "permissions": [
     "schedules",
-    "model.generate"
+    "model.generate",
+    "notifications"
   ],
   "tools": [
     {

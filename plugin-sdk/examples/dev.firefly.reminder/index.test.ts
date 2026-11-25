@@ -9,6 +9,29 @@ const manifest = JSON.parse(
 ) as TestHostManifest;
 
 describe("dev.firefly.reminder example plugin", () => {
+  it.each([false, true])('does not notify or surface permission errors when notifications are revoked (during model: %s)', async duringModel => {
+    let host!: ReturnType<typeof createTestHost>;
+    host = createTestHost({ manifest, level: 'full', model: { generate: async () => {
+      if (duringModel) host.revokePermission('notifications');
+      return { text: '提醒文字' };
+    } } });
+    await host.activate(createReminderPlugin());
+    const proposed = await host.callTool('create_daily_reminder', { title: '提醒', topic: '喝水', timeOfDay: '09:00' });
+    const taskId = (proposed as { output: { taskId: string } }).output.taskId;
+    host.approveSchedule(taskId);
+    if (!duringModel) host.revokePermission('notifications');
+    await expect(host.triggerSchedule(taskId)).resolves.toBeUndefined();
+    expect(host.notifications).toEqual([]);
+  });
+
+  it('ignores a trigger for an unknown task instead of generating or notifying', async () => {
+    const generate = vi.fn(async () => ({ text: '不应展示' }));
+    const host = createTestHost({ manifest, model: { generate } });
+    await host.activate(createReminderPlugin());
+    await host.triggerSchedule('unknown');
+    expect(generate).not.toHaveBeenCalled();
+    expect(host.notifications).toEqual([]);
+  });
   it("proposes a daily callback schedule as pending_approval and generates reminder text only after approval and trigger", async () => {
     const generateMock = vi.fn(async () => ({
       text: "早安！记得喝一杯温水，开启元气满满的一天。",
@@ -46,6 +69,7 @@ describe("dev.firefly.reminder example plugin", () => {
     await host.triggerSchedule(output.taskId, { topic: "提醒用户喝一杯温水" });
     expect(generateMock).not.toHaveBeenCalled();
     expect(host.calls.filter((call) => call.method === "model.generate")).toHaveLength(0);
+    expect(host.notifications).toEqual([]);
 
     const listedBefore = await host.callTool("list_reminders", {});
     expect(listedBefore).toMatchObject({
@@ -58,6 +82,7 @@ describe("dev.firefly.reminder example plugin", () => {
     await host.triggerSchedule(output.taskId, { topic: "提醒用户喝一杯温水" });
     expect(generateMock).toHaveBeenCalledTimes(1);
     expect(generateMock.mock.calls[0][0].prompt).toContain("提醒用户喝一杯温水");
+    expect(host.notifications).toEqual([{ title: "〔定时提醒〕喝水提醒", body: "早安！记得喝一杯温水，开启元气满满的一天。" }]);
     expect(delivered).toEqual([
       {
         taskId: output.taskId,

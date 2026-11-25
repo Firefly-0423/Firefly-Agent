@@ -89,7 +89,7 @@
 5. `tools[].risk` 取自 Firefly 实际的风险类型（`src/shared/permission-approval.ts` 的 `ToolRiskLevel`）中的 `fs-read`、`fs-write`、`shell`、`network`、`input-control`，至少一项。插件工具**不允许**声明 `safe`（§7.3）。
 6. `tools[].modes` 只能是 `work`、`code` 的子集；Chat 模式不挂插件工具。
 7. `native: true` 的包不能进入线上目录；本地安装可以，启用时显示高风险提示（§9）。
-8. `permissions` 取值：`model.generate`、`model.run`、`events`、`sessions.read`、`workspace.read`、`schedules`、`secrets`、`ui.windows`。注册 `tools` / `context` / `channels` 由对应数组声明，不另列权限。
+8. `permissions` 取值：`model.generate`、`model.run`、`events`、`sessions.read`、`workspace.read`、`schedules`、`secrets`、`ui.windows`、`notifications`。注册 `tools` / `context` / `channels` 由对应数组声明，不另列权限。
 
 ## 5. 运行模型
 
@@ -299,7 +299,7 @@ export interface Schedules {
 
 `propose` 立即返回 `pending_approval`，不阻塞当前回复；用户在任务面板确认后才生效，改期同样要确认。到点无人值守时，若运行需要 `fs-write`、`shell`、`input-control`，挂起并发桌面通知等用户批准。
 
-### 6.8 密钥与界面
+### 6.8 密钥、界面与通知
 
 ```ts
 export interface Secrets {
@@ -318,12 +318,24 @@ export interface Ui {
 
 密钥由宿主用 Electron `safeStorage`（Windows 上是 DPAPI）加密，按插件 id 隔离，与 Firefly 自己的模型密钥分开存放。
 
+插件可用 `ctx.notifications.show({ title, body })` 请求显示桌面通知，返回
+`Promise<{ shown: boolean }>`。只接受纯文本。去除控制字符后，标题和正文分别限
+64 和 256 个 Unicode 码点。非法参数返回 `ERR_INVALID_ARGUMENT`。宿主为标题
+加上已安装插件的名称，点击仅激活 Firefly 主窗口。每插件每分钟最多五次，超出
+返回 `ERR_RATE_LIMITED`。请求不包含链接动作、按钮或自定义图标。
+
+系统不支持或未确认显示时返回 `{ shown: false }`。停用时撤下待显示通知；
+显示前重新核对权限。系统层抑制由操作系统处理，不能把宿主提交成功解释为
+用户已经看见。
+
 ## 7. 权限与审批
 
 ### 7.1 三层
 
 1. **清单边界**：未声明的能力和工具直接 `ERR_UNDECLARED`。
 2. **用户授予**：安装后默认停用。启用时列出清单里的工具、上下文、渠道和 `permissions`，并写明“启用即信任该插件的代码”（§5.1）；用户确认后启用。`sessions.read`、`workspace.read`、`model.run` 在首次调用时再单独确认一次。设置页可逐项撤销，撤销立即生效，之后的调用返回 `ERR_PERMISSION`。
+   `notifications` 在启用确认中授予，无额外首次确认；未声明返回
+   `ERR_UNDECLARED`，未授权或撤销后返回 `ERR_PERMISSION`。
 3. **每次调用的审批**：插件工具与内置工具走同一条路径（`checkPermission` / `policyFor`，`src/main/platform/permission/permission-policy.ts`）。
 
 ### 7.2 与三个权限档位的对应
