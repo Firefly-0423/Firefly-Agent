@@ -471,6 +471,10 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
         ...buildable,
         runId,
         signal,
+        // buildRunOptions does not set the conversation mode (the desktop bridge and scheduler add it themselves);
+        // without it partner delegation and the code-mode plan path never switch on.
+        conversationMode: request.mode,
+        executionMode: request.mode === "chat" ? "chat" as const : "work" as const,
         interactiveTools: false,
         // Plugin runs are not registered with the desktop run bridge, so no one could answer an approval card:
         // actions that need approval are refused at once instead of waiting until cancel or timeout.

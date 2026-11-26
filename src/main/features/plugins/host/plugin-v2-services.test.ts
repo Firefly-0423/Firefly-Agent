@@ -249,6 +249,28 @@ describe("plugin-v2-services model.run (A2)", () => {
     }
   });
 
+  it.each([
+    ["chat", "chat"],
+    ["work", "work"],
+    ["code", "work"],
+  ] as const)("runs a %s request with that conversationMode and executionMode=%s", async (mode, executionMode) => {
+    // Production buildRunOptions returns no conversationMode; the plugin host must set it like the desktop does.
+    const buildRunOptions = vi.fn(async () => ({ options: { tools: [] } }));
+    const fixture = createControllerFixture({ buildRunOptions });
+    try {
+      mocks.setRunFactory(() => ({ lastResult: { reply: "ok" }, run(sub) { sub.complete(); return () => {}; } }));
+      for await (const _chunk of fixture.clientRpc.stream(
+        PLUGIN_TO_HOST_METHODS.modelRun,
+        { objective: "plan", mode, sessionId: "s-1" },
+      )) { /* drain */ }
+      const options = mocks.agentInstances.at(-1)?.options as Record<string, unknown>;
+      expect({ conversationMode: options.conversationMode, executionMode: options.executionMode })
+        .toEqual({ conversationMode: mode, executionMode });
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("rejects immediately without starting agent when signal is already aborted", async () => {
     const buildRunOptions = vi.fn(async () => ({ options: { tools: [] } }));
     const fixture = createControllerFixture({ buildRunOptions });
