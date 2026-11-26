@@ -684,16 +684,20 @@ describe("plugin schedule proposals", () => {
     expect(buttonByText("拒绝").disabled).toBe(false);
   });
 
-  it("shows the error message on failure and keeps the proposal on screen", async () => {
+  it.each([
+    ["ERR_INVALID_ARGUMENT", "这条提案已经处理过或不存在了。"],
+    ["ERR_REJECTED", "这条提案已经被拒绝了。"],
+    [undefined, "No pending proposal found"],
+  ])("shows a readable message for code %s and keeps the proposal on screen", async (code, expected) => {
     installWithProposals([CALLBACK_PROPOSAL], {
-      confirmPluginProposal: vi.fn(async () => ({ ok: false, error: "No pending proposal found", code: "ERR_INVALID_ARGUMENT" })),
+      confirmPluginProposal: vi.fn(async () => ({ ok: false, error: "No pending proposal found", ...(code ? { code } : {}) })),
     });
     await renderPanel();
 
     await click(buttonByText("确认"));
 
     const alert = container.querySelector(".scheduled-pending [role='alert']");
-    expect(alert?.textContent).toBe("No pending proposal found");
+    expect(alert?.textContent).toBe(expected);
     expect(container.querySelectorAll(".scheduled-pending article")).toHaveLength(1);
   });
 

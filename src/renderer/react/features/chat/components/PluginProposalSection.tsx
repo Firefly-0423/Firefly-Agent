@@ -33,7 +33,12 @@ export function PluginProposalSection({ proposals, api, onResolved }: PluginProp
     try {
       if (!call) throw new Error(t("scheduledPanel.apiUnavailable"));
       const result: SchedulerResult<boolean> = await call(proposal.taskId);
-      if (!result.ok) throw new Error(result.error ?? t("scheduledPanel.pending.failed"));
+      if (!result.ok) {
+        // The service's messages are English and name internal ids; known codes get a plain sentence.
+        if (result.code === "ERR_REJECTED") throw new Error(t("scheduledPanel.pending.alreadyRejected"));
+        if (result.code === "ERR_INVALID_ARGUMENT") throw new Error(t("scheduledPanel.pending.notPending"));
+        throw new Error(result.error ?? t("scheduledPanel.pending.failed"));
+      }
       onResolved();
     } catch (err) {
       const message = err instanceof Error ? err.message : t("scheduledPanel.pending.failed");

@@ -965,6 +965,7 @@
     "noToolsAvailable": "No tools available.",
     "noToolsModelOnly": "None (model only)",
     "pending": {
+      "alreadyRejected": "This proposal was already rejected.",
       "actionCallback": "Plugin callback",
       "actionRun": "Run prompt in {{mode}} mode: {{prompt}}",
       "changeAction": "Action: {{from}} -> {{to}}",
@@ -978,6 +979,7 @@
       "kindCreate": "New task",
       "kindUpdate": "Change to an existing task",
       "noChanges": "Same as the current task",
+      "notPending": "This proposal was already handled or no longer exists.",
       "originalMissing": "The original task no longer exists, so this change cannot be applied",
       "reject": "Reject",
       "scheduleLine": "Schedule: {{value}}",

@@ -68,7 +68,7 @@ function eventTaskId(raw: unknown): string | undefined {
 /** Sent by the main process when a plugin schedule proposal was created, changed, confirmed or rejected. */
 const PLUGIN_PROPOSALS_CHANGED_EVENT = "scheduler.plugin_proposals_changed";
 
-function isRunBoundaryEvent(raw: unknown): boolean {
+function shouldReloadOnSchedulerEvent(raw: unknown): boolean {
   const event = raw as { type?: string; name?: string } | null;
   if (!event) return false;
   if (event.type === "CUSTOM" && event.name === PLUGIN_PROPOSALS_CHANGED_EVENT) return true;
@@ -152,7 +152,7 @@ export function ScheduledTaskPanel() {
   useEffect(() => {
     const refreshAll = () => void reload("all");
     const off = (window as ChatWindowWithScheduler).schedulerEvents?.onEvent((event) => {
-      if (!isRunBoundaryEvent(event)) return;
+      if (!shouldReloadOnSchedulerEvent(event)) return;
       const taskId = eventTaskId(event);
       void reload(taskId ? { taskId } : "all");
     });

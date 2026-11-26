@@ -965,6 +965,7 @@
     "noToolsAvailable": "暂无可选工具。",
     "noToolsModelOnly": "无（仅模型自身能力）",
     "pending": {
+      "alreadyRejected": "这条提案已经被拒绝了。",
       "actionCallback": "插件回调",
       "actionRun": "以{{mode}}模式运行提示词：{{prompt}}",
       "changeAction": "动作：{{from}} -> {{to}}",
@@ -978,6 +979,7 @@
       "kindCreate": "新建任务",
       "kindUpdate": "修改已有任务",
       "noChanges": "与当前任务相同",
+      "notPending": "这条提案已经处理过或不存在了。",
       "originalMissing": "原任务已不存在，此变更无法应用",
       "reject": "拒绝",
       "scheduleLine": "计划：{{value}}",
