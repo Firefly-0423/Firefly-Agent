@@ -405,6 +405,34 @@ describe("plugin-v2-services model.generate stream (A3)", () => {
     }
   });
 
+  it("turns an in-stream provider error into ERR_UNAVAILABLE without leaking the upstream message", async () => {
+    const fixture = createControllerFixture();
+    try {
+      const enc = new TextEncoder();
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(sseFrame("partial answer "));
+          controller.enqueue(enc.encode(`data: ${JSON.stringify({ error: { message: "upstream overloaded sk-secret-1234" } })}\n\n`));
+          controller.enqueue(enc.encode("data: [DONE]\n\n"));
+          controller.close();
+        },
+      });
+      vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+      const received: string[] = [];
+      const run = async () => {
+        for await (const chunk of fixture.clientRpc.stream<{ delta: string }>(PLUGIN_TO_HOST_METHODS.modelGenerate, { prompt: "hi", stream: true })) {
+          received.push(chunk.delta);
+        }
+      };
+      const error = await run().then(() => undefined, (err: unknown) => err as { code?: string; message?: string });
+      expect(error).toMatchObject({ code: "ERR_UNAVAILABLE" });
+      expect(error?.message).not.toContain("overloaded");
+      expect(error?.message).not.toContain("sk-secret");
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("converts fetch network errors to ERR_UNAVAILABLE with retryable: true", async () => {
     const fixture = createControllerFixture();
     try {

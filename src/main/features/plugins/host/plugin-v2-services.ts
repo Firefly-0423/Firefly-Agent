@@ -399,6 +399,10 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
           if (step.done) break;
           const delta = protocol.parseStreamEvent(step.value);
           if (!delta) continue;
+          if (delta.error) {
+            // The provider failed after HTTP 200. Its message can carry upstream details, so it never reaches the plugin.
+            throw new PluginError("ERR_UNAVAILABLE", "Model provider reported an error mid-stream", true);
+          }
           if (delta.deltaText) {
             const visible = visibility.push(delta.deltaText);
             if (visible) yield { delta: visible };
