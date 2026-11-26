@@ -474,6 +474,76 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
     controller.dispose();
   });
 
+  it("keeps the old files in place until the running old instance has stopped during a same-version overwrite", async () => {
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const { controller } = makeController(harness);
+    const pluginId = "dev.firefly.stopfirst";
+    const installedMain = path.join(dataRoot, "plugins", pluginId, "1.0.0", "index.mjs");
+    await controller.importFromPath(await writeArchivePlugin({
+      id: pluginId,
+      version: "1.0.0",
+      mainCode: "export default { build: 'old' };\n",
+    }));
+    await controller.enablePlugin(pluginId);
+
+    const filesSeenAtStop: string[] = [];
+    const realStop = harness.managers[0].stop.bind(harness.managers[0]);
+    vi.spyOn(harness.managers[0], "stop").mockImplementation(async (id, reason) => {
+      filesSeenAtStop.push(readFileSync(installedMain, "utf8"));
+      return realStop(id, reason);
+    });
+
+    const res = await controller.importFromPath(await writeArchivePlugin({
+      id: pluginId,
+      version: "1.0.0",
+      mainCode: "export default { build: 'new' };\n",
+    }));
+
+    expect(res).toMatchObject({ ok: true, activation: "running" });
+    expect(filesSeenAtStop).toEqual(["export default { build: 'old' };\n"]);
+    expect(readFileSync(installedMain, "utf8")).toContain("'new'");
+    expect(readdirSync(path.join(dataRoot, "plugins", pluginId))).toEqual(["1.0.0"]);
+
+    await controller.stopAll("quit");
+    controller.dispose();
+  });
+
+  it("keeps the old files and restarts the old instance when stopping it fails during a same-version overwrite", async () => {
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const { controller } = makeController(harness);
+    const pluginId = "dev.firefly.stopfails";
+    const installedMain = path.join(dataRoot, "plugins", pluginId, "1.0.0", "index.mjs");
+    await controller.importFromPath(await writeArchivePlugin({
+      id: pluginId,
+      version: "1.0.0",
+      mainCode: "export default { build: 'old' };\n",
+    }));
+    await controller.enablePlugin(pluginId);
+
+    const realStop = harness.managers[0].stop.bind(harness.managers[0]);
+    let stopCalls = 0;
+    vi.spyOn(harness.managers[0], "stop").mockImplementation(async (id, reason) => {
+      stopCalls += 1;
+      if (stopCalls === 1) throw new Error("stop boom");
+      return realStop(id, reason);
+    });
+
+    const res = await controller.importFromPath(await writeArchivePlugin({
+      id: pluginId,
+      version: "1.0.0",
+      mainCode: "export default { build: 'new' };\n",
+    }));
+
+    expect(res).toMatchObject({ ok: false, installation: "rejected", activation: "rolled-back" });
+    expect(readFileSync(installedMain, "utf8")).toContain("'old'");
+    expect(readdirSync(path.join(dataRoot, "plugins", pluginId))).toEqual(["1.0.0"]);
+    expect(controller.stateStore.isEnabled(pluginId)).toBe(true);
+    expect(controller.status(pluginId)).toBe("enabled");
+
+    await controller.stopAll("quit");
+    controller.dispose();
+  });
+
   it("restores files and the previous state record when committing a disabled same-version overwrite fails", async () => {
     let failCommit = false;
     const harness = createFakeHostHarness(() => ({ ok: true }));

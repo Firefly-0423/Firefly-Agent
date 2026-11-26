@@ -995,6 +995,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
           pluginsRoot,
           hostVersion,
           allowOverwrite: true,
+          deferSwap: true,
           ...(deps.packageFs ? { fs: deps.packageFs } : {}),
         });
       } catch (error) {
@@ -1041,6 +1042,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
 
       if (!existing) {
         try {
+          await imported.swap?.();
           stateStore.install({
             manifest,
             installDir,
@@ -1077,6 +1079,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
 
       if (!wasActive) {
         try {
+          await imported.swap?.();
           stateStore.install({
             manifest,
             installDir,
@@ -1115,6 +1118,8 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
       suppressingFaultSync.add(manifest.id);
       try {
         await stopPlugin(manifest.id, "upgrade");
+        // Swap only after the old instance has stopped, so it never observes the new files.
+        await imported.swap?.();
         stateStore.install({
           manifest,
           installDir,
