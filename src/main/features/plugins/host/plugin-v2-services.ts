@@ -22,7 +22,9 @@ import {
   PluginError,
   type ProtocolHostEvent,
   type ProtocolRunEvent,
+  type ProtocolToolResult,
 } from "../../../../shared/plugin-protocol";
+import type { ToolCallOutcome } from "../../../../shared/tool-call-outcome";
 import type { PluginRpc } from "../../../../shared/plugin-rpc";
 import { createPluginContextService, type PluginContextService } from "../../../../plugins/v2/context";
 import {
@@ -166,6 +168,14 @@ function raceWithSignal<T>(promise: Promise<T>, signal: AbortSignal): Promise<T>
     );
   });
 }
+
+/** The agent loop's tool outcome → the plugin protocol's four tool states. */
+const PLUGIN_TOOL_STATUS = {
+  success: "succeeded",
+  failure: "failed",
+  unknown: "unknown",
+  not_executed: "not_executed",
+} as const satisfies Record<ToolCallOutcome, ProtocolToolResult["status"]>;
 
 export function mapPluginModelRunOutcome(status: string | undefined): "completed" | "cancelled" | "failed" {
   if (status === "success") return "completed";
@@ -504,7 +514,17 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
         };
         signal.addEventListener("abort", onAbort, { once: true });
 
-        sub = agent.runWithEvents(runOptions).subscribe({
+        // tool.completed comes from the loop's own outcome: the AG-UI TOOL_CALL_RESULT folds `unknown` and
+        // `not_executed` into "failed", and a plugin needs to tell "never ran" from "may have had effects".
+        const onToolFinished: NonNullable<typeof runOptions.onToolFinished> = (finished) => {
+          onEvent({
+            type: "tool.completed",
+            callId: finished.toolCallId,
+            tool: toolNames.get(finished.toolCallId) ?? finished.toolId,
+            status: PLUGIN_TOOL_STATUS[finished.status],
+          });
+        };
+        sub = agent.runWithEvents({ ...runOptions, onToolFinished }).subscribe({
           next(packet: BaseEvent) {
             try {
               switch (packet.type) {
@@ -530,19 +550,6 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
                   if (ev.toolCallId && ev.toolCallName) {
                     toolNames.set(ev.toolCallId, ev.toolCallName);
                     onEvent({ type: "tool.started", callId: ev.toolCallId, tool: ev.toolCallName });
-                  }
-                  break;
-                }
-                case "TOOL_CALL_RESULT": {
-                  const ev = packet as { toolCallId?: string; status?: string };
-                  if (ev.toolCallId) {
-                    const tool = toolNames.get(ev.toolCallId) ?? "unknown";
-                    onEvent({
-                      type: "tool.completed",
-                      callId: ev.toolCallId,
-                      tool,
-                      status: ev.status === "success" ? "succeeded" : "failed",
-                    });
                   }
                   break;
                 }

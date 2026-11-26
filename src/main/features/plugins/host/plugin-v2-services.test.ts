@@ -223,6 +223,43 @@ describe("plugin-v2-services model.run (A2)", () => {
     }
   });
 
+  it("reports each tool's real outcome (succeeded / failed / unknown / not_executed) once per call", async () => {
+    const fixture = createControllerFixture();
+    try {
+      const outcomes = [["c1", "success"], ["c2", "failure"], ["c3", "unknown"], ["c4", "not_executed"]] as const;
+      mocks.setRunFactory((options: { onToolFinished?: (event: unknown) => void }) => ({
+        lastResult: { reply: "done" },
+        run(sub) {
+          sub.next({ type: "RUN_STARTED" });
+          for (const [id, status] of outcomes) {
+            sub.next({ type: "TOOL_CALL_START", toolCallId: id, toolCallName: `tool_${id}` });
+            options.onToolFinished?.({ runId: "r", toolCallId: id, toolId: `tool_${id}`, status, risk: "safe" });
+            // The AG-UI result event folds unknown/not_executed into "failed"; it must not produce a second report.
+            sub.next({ type: "TOOL_CALL_RESULT", toolCallId: id, status: status === "success" ? "success" : "failed" });
+          }
+          sub.next({ type: "RUN_FINISHED", result: { status: "completed" } });
+          sub.complete();
+          return () => {};
+        },
+      }));
+      const completed: Array<{ callId: string; tool: string; status: string }> = [];
+      for await (const chunk of fixture.clientRpc.stream<{ type: string; callId: string; tool: string; status: string }>(
+        PLUGIN_TO_HOST_METHODS.modelRun,
+        { objective: "tools", mode: "work", sessionId: "s-1" },
+      )) {
+        if (chunk.type === "tool.completed") completed.push({ callId: chunk.callId, tool: chunk.tool, status: chunk.status });
+      }
+      expect(completed).toEqual([
+        { callId: "c1", tool: "tool_c1", status: "succeeded" },
+        { callId: "c2", tool: "tool_c2", status: "failed" },
+        { callId: "c3", tool: "tool_c3", status: "unknown" },
+        { callId: "c4", tool: "tool_c4", status: "not_executed" },
+      ]);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it.each([
     [undefined, false],
     [false, false],
