@@ -11,6 +11,7 @@ import type {
   ScheduledTaskPatch,
 } from "../../../main/platform/schedule/schedule-types";
 import { validateAndConvertSchedule } from "./cron";
+import { computeProposalRevision } from "./proposal-revision";
 import {
   PluginError,
   UNATTENDED_APPROVAL_RISKS,
@@ -705,7 +706,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     return toTaskRecordFromStore(task, findMetadataByAnyId(taskId));
   }
 
-  function confirmProposal(taskId: string): TaskRecord {
+  function confirmProposal(taskId: string, expectedRevision?: string): TaskRecord {
     ensureNonEmptyId(taskId, "taskId");
     const proposal = findPendingProposalForTask(taskId);
     if (!proposal) {
@@ -714,6 +715,10 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
         throw new PluginError("ERR_REJECTED", `Proposal for task "${taskId}" was already rejected`);
       }
       throw new PluginError("ERR_INVALID_ARGUMENT", `No pending proposal found for task "${taskId}"`);
+    }
+    // The user approved the spec they were shown; a plugin edit since then must be reviewed again.
+    if (expectedRevision !== undefined && expectedRevision !== computeProposalRevision(proposal)) {
+      throw new PluginError("ERR_UNAVAILABLE", `Proposal for task "${taskId}" changed since it was reviewed`, true);
     }
 
     const now = clock();

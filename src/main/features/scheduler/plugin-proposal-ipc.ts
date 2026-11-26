@@ -1,12 +1,14 @@
 import { IPC } from "../../../shared/ipc-channels";
 import type { IpcScope } from "../../base/ipc/ipc-scope";
+import { computeProposalRevision } from "../../../plugins/v2/schedules/proposal-revision";
+import { PluginError } from "../../../shared/plugin-protocol";
 import type { Schedule, ScheduleAction, ScheduleProposal, TaskRecord } from "../../../plugins/v2/schedules/types";
 
 /** The part of the plugin schedule service the proposal IPC needs. */
 export interface PluginProposalService {
   listPendingProposals(): ScheduleProposal[];
   getTaskRecord(taskId: string): TaskRecord | undefined;
-  confirmProposal(taskId: string): unknown;
+  confirmProposal(taskId: string, expectedRevision: string): unknown;
   rejectProposal(taskId: string): unknown;
 }
 
@@ -21,6 +23,8 @@ export interface PluginProposalCurrent {
 /** A pending proposal as the renderer sees it. */
 export interface PluginProposalView {
   proposalId: string;
+  /** Fingerprint of the spec shown; confirm must send it back so an edit made after review is not approved unseen. */
+  revision: string;
   taskId: string;
   pluginId: string;
   /** Manifest name; the plugin id when the plugin is no longer installed. */
@@ -58,6 +62,7 @@ function describeProposal(
     : undefined;
   return {
     proposalId: proposal.proposalId,
+    revision: computeProposalRevision(proposal),
     taskId: proposal.taskId,
     pluginId: proposal.pluginId,
     pluginName: resolvePluginName(proposal.pluginId) ?? proposal.pluginId,
@@ -88,9 +93,12 @@ export function registerPluginProposalIpc(
     }
   });
 
-  ipc.handle(IPC.SCHEDULER_PLUGIN_PROPOSALS_CONFIRM, (_event, taskId: string): PluginProposalIpcResult => {
+  ipc.handle(IPC.SCHEDULER_PLUGIN_PROPOSALS_CONFIRM, (_event, taskId: string, revision?: unknown): PluginProposalIpcResult => {
     try {
-      service.confirmProposal(taskId);
+      if (typeof revision !== "string" || revision === "") {
+        throw new PluginError("ERR_INVALID_ARGUMENT", "Confirming a proposal requires the revision that was reviewed");
+      }
+      service.confirmProposal(taskId, revision);
       return { ok: true, value: true };
     } catch (err) {
       return failure(err);

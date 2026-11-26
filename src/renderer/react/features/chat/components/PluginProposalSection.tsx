@@ -27,14 +27,21 @@ export function PluginProposalSection({ proposals, api, onResolved }: PluginProp
   if (proposals.length === 0) return null;
 
   const decide = async (proposal: PluginProposal, decision: "confirm" | "reject") => {
-    const call = decision === "confirm" ? api?.confirmPluginProposal : api?.rejectPluginProposal;
     setBusy((current) => new Set(current).add(proposal.taskId));
     setErrors((current) => withoutKey(current, proposal.taskId));
     try {
-      if (!call) throw new Error(t("scheduledPanel.apiUnavailable"));
-      const result: SchedulerResult<boolean> = await call(proposal.taskId);
+      const request = decision === "confirm"
+        ? api?.confirmPluginProposal?.(proposal.taskId, proposal.revision)
+        : api?.rejectPluginProposal?.(proposal.taskId);
+      if (!request) throw new Error(t("scheduledPanel.apiUnavailable"));
+      const result: SchedulerResult<boolean> = await request;
       if (!result.ok) {
         // The service's messages are English and name internal ids; known codes get a plain sentence.
+        if (result.code === "ERR_UNAVAILABLE") {
+          // The plugin edited the proposal after it was shown: reload so the user reviews the new spec.
+          onResolved();
+          throw new Error(t("scheduledPanel.pending.changedSinceReview"));
+        }
         if (result.code === "ERR_REJECTED") throw new Error(t("scheduledPanel.pending.alreadyRejected"));
         if (result.code === "ERR_INVALID_ARGUMENT") throw new Error(t("scheduledPanel.pending.notPending"));
         throw new Error(result.error ?? t("scheduledPanel.pending.failed"));

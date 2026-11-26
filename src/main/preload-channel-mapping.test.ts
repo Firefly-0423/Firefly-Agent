@@ -219,7 +219,7 @@ const CHANNEL_MAPPING_CASES: readonly MappingCase[] = [
   { path: "fireflyScheduler.getHistory", op: "invoke", channel: IPC.SCHEDULER_GET_HISTORY, callArgs: ["task-1", 10], expectedArgs: ["task-1", 10] },
   { path: "fireflyScheduler.getTools", op: "invoke", channel: IPC.SCHEDULER_GET_TOOLS, callArgs: [], expectedArgs: [] },
   { path: "fireflyScheduler.listPluginProposals", op: "invoke", channel: IPC.SCHEDULER_PLUGIN_PROPOSALS_LIST, callArgs: [], expectedArgs: [] },
-  { path: "fireflyScheduler.confirmPluginProposal", op: "invoke", channel: IPC.SCHEDULER_PLUGIN_PROPOSALS_CONFIRM, callArgs: ["task-1"], expectedArgs: ["task-1"] },
+  { path: "fireflyScheduler.confirmPluginProposal", op: "invoke", channel: IPC.SCHEDULER_PLUGIN_PROPOSALS_CONFIRM, callArgs: ["task-1", "rev-1"], expectedArgs: ["task-1", "rev-1"] },
   { path: "fireflyScheduler.rejectPluginProposal", op: "invoke", channel: IPC.SCHEDULER_PLUGIN_PROPOSALS_REJECT, callArgs: ["task-1"], expectedArgs: ["task-1"] },
 
   // stickerManager (4)

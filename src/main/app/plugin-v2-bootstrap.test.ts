@@ -96,10 +96,10 @@ function createMockIpc() {
   };
   return {
     ipc,
-    invoke: (channel: string, payload?: unknown) => {
+    invoke: (channel: string, ...payload: unknown[]) => {
       const fn = handlers.get(channel);
       if (!fn) throw new Error(`Missing IPC handler for ${channel}`);
-      return Promise.resolve(fn({}, payload));
+      return Promise.resolve(fn({}, ...payload));
     },
   };
 }
@@ -346,9 +346,9 @@ describe("startPluginV2Bootstrap plugin schedule proposals", () => {
     });
 
     await expect(invoke(IPC.SCHEDULER_PLUGIN_PROPOSALS_LIST)).resolves.toEqual({ ok: true, value: [] });
-    await expect(invoke(IPC.SCHEDULER_PLUGIN_PROPOSALS_CONFIRM, "task-1")).resolves.toEqual({ ok: true, value: true });
+    await expect(invoke(IPC.SCHEDULER_PLUGIN_PROPOSALS_CONFIRM, "task-1", "rev-1")).resolves.toEqual({ ok: true, value: true });
     expect(mocks.scheduleService.confirmProposal).toHaveBeenCalledTimes(1);
-    expect(mocks.scheduleService.confirmProposal).toHaveBeenCalledWith("task-1");
+    expect(mocks.scheduleService.confirmProposal).toHaveBeenCalledWith("task-1", "rev-1");
   });
 
   it("pushes a scheduler event to the chat window when the schedule state changes, and skips a closed window", async () => {

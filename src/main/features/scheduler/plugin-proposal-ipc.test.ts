@@ -61,7 +61,14 @@ describe("plugin schedule proposal IPC", () => {
     );
     const call = <T = unknown>(channel: string, ...args: unknown[]) =>
       handlers.get(channel)!({}, ...args) as PluginProposalIpcResult<T>;
-    return { store, service, stateChanged, handlers, call, plugin: service.forPlugin(PLUGIN) };
+    /** Confirms like the panel does: with the revision of the proposal as last listed. */
+    const confirm = (taskId: string) => {
+      const listed = call<PluginProposalView[]>(IPC.SCHEDULER_PLUGIN_PROPOSALS_LIST);
+      const revision = listed.ok ? listed.value.find((p) => p.taskId === taskId)?.revision : undefined;
+      // Not listed (already decided or unknown): the service reports why before it looks at the revision.
+      return call(IPC.SCHEDULER_PLUGIN_PROPOSALS_CONFIRM, taskId, revision ?? "not-listed");
+    };
+    return { store, service, stateChanged, handlers, call, confirm, plugin: service.forPlugin(PLUGIN) };
   }
 
   const tasksFileText = () => fs.readFileSync(path.join(workdir, "scheduled-tasks.json"), "utf8");
@@ -85,6 +92,7 @@ describe("plugin schedule proposal IPC", () => {
       ok: true,
       value: [{
         proposalId: expect.any(String),
+        revision: expect.stringMatching(/^[0-9a-f]{64}$/),
         taskId: proposed.taskId,
         pluginId: PLUGIN,
         pluginName: "Digest plugin",
@@ -107,15 +115,58 @@ describe("plugin schedule proposal IPC", () => {
   });
 
   it("confirm creates the task in the scheduler store and clears the pending list", async () => {
-    const { call, plugin, store } = setup();
+    const { call, confirm, plugin, store } = setup();
     const proposed = await plugin.propose(runSpec());
 
-    expect(call(IPC.SCHEDULER_PLUGIN_PROPOSALS_CONFIRM, proposed.taskId)).toEqual({ ok: true, value: true });
+    expect(confirm(proposed.taskId)).toEqual({ ok: true, value: true });
 
     expect(store.getTasks().map((t) => ({ title: t.title, owner: t.ownerPluginId }))).toEqual([
       { title: "Morning digest", owner: PLUGIN },
     ]);
     expect(call(IPC.SCHEDULER_PLUGIN_PROPOSALS_LIST)).toEqual({ ok: true, value: [] });
+  });
+
+  it("list gives every proposal a revision that changes when the pending spec changes", async () => {
+    const { call, plugin } = setup();
+    const created = await plugin.propose(runSpec());
+    const revisionOf = () => {
+      const listed = call<PluginProposalView[]>(IPC.SCHEDULER_PLUGIN_PROPOSALS_LIST);
+      return listed.ok ? listed.value[0].revision : undefined;
+    };
+    const first = revisionOf();
+    expect(first).toMatch(/^[0-9a-f]{64}$/);
+    expect(revisionOf()).toBe(first);
+
+    await plugin.update(created.taskId, { allowedToolIds: ["shell"] });
+
+    expect(revisionOf()).not.toBe(first);
+  });
+
+  it("confirm with a revision from before the plugin edited the proposal is rejected and saves nothing", async () => {
+    const { call, confirm, plugin, store, stateChanged } = setup();
+    const created = await plugin.propose(runSpec());
+    const reviewed = call<PluginProposalView[]>(IPC.SCHEDULER_PLUGIN_PROPOSALS_LIST);
+    const revision = reviewed.ok ? reviewed.value[0].revision : undefined;
+    await plugin.update(created.taskId, { allowedToolIds: ["shell"] });
+    const changesBefore = stateChanged.mock.calls.length;
+
+    const result = call(IPC.SCHEDULER_PLUGIN_PROPOSALS_CONFIRM, created.taskId, revision);
+
+    expect(result).toMatchObject({ ok: false, code: "ERR_UNAVAILABLE" });
+    expect(store.getTasks()).toEqual([]);
+    expect(stateChanged).toHaveBeenCalledTimes(changesBefore);
+    const relisted = call<PluginProposalView[]>(IPC.SCHEDULER_PLUGIN_PROPOSALS_LIST);
+    expect(relisted.ok && relisted.value.map((p) => p.allowedToolIds)).toEqual([["shell"]]);
+    expect(confirm(created.taskId)).toEqual({ ok: true, value: true });
+    expect(store.getTasks().map((t) => t.allowedToolIds)).toEqual([["shell"]]);
+  });
+
+  it("confirm without a revision is rejected as an invalid argument and saves nothing", async () => {
+    const { call, plugin, store } = setup();
+    const created = await plugin.propose(runSpec());
+
+    expect(call(IPC.SCHEDULER_PLUGIN_PROPOSALS_CONFIRM, created.taskId)).toMatchObject({ ok: false, code: "ERR_INVALID_ARGUMENT" });
+    expect(store.getTasks()).toEqual([]);
   });
 
   it("reject leaves the scheduler store empty and clears the pending list", async () => {
@@ -129,13 +180,13 @@ describe("plugin schedule proposal IPC", () => {
   });
 
   it("confirming twice returns ERR_INVALID_ARGUMENT and does not create a second task", async () => {
-    const { call, plugin, store, stateChanged } = setup();
+    const { call, confirm, plugin, store, stateChanged } = setup();
     const proposed = await plugin.propose(runSpec());
-    call(IPC.SCHEDULER_PLUGIN_PROPOSALS_CONFIRM, proposed.taskId);
+    confirm(proposed.taskId);
     const before = tasksFileText();
     const changesBefore = stateChanged.mock.calls.length;
 
-    const second = call(IPC.SCHEDULER_PLUGIN_PROPOSALS_CONFIRM, proposed.taskId);
+    const second = confirm(proposed.taskId);
 
     expect(second).toMatchObject({ ok: false, code: "ERR_INVALID_ARGUMENT" });
     expect(store.getTasks()).toHaveLength(1);
@@ -155,18 +206,18 @@ describe("plugin schedule proposal IPC", () => {
   });
 
   it("confirming a rejected proposal returns ERR_REJECTED and creates no task", async () => {
-    const { call, plugin, store } = setup();
+    const { call, confirm, plugin, store } = setup();
     const proposed = await plugin.propose(runSpec());
     call(IPC.SCHEDULER_PLUGIN_PROPOSALS_REJECT, proposed.taskId);
 
-    expect(call(IPC.SCHEDULER_PLUGIN_PROPOSALS_CONFIRM, proposed.taskId)).toMatchObject({ ok: false, code: "ERR_REJECTED" });
+    expect(confirm(proposed.taskId)).toMatchObject({ ok: false, code: "ERR_REJECTED" });
     expect(store.getTasks()).toEqual([]);
   });
 
   it("an update proposal carries the current task so the panel can show what changes, and confirm applies it", async () => {
-    const { call, plugin, store } = setup();
+    const { call, confirm, plugin, store } = setup();
     const created = await plugin.propose(runSpec());
-    call(IPC.SCHEDULER_PLUGIN_PROPOSALS_CONFIRM, created.taskId);
+    confirm(created.taskId);
     await plugin.update(created.taskId, { title: "Evening digest", schedule: { kind: "interval", minutes: 120 } });
 
     const listed = call<PluginProposalView[]>(IPC.SCHEDULER_PLUGIN_PROPOSALS_LIST);
@@ -187,15 +238,15 @@ describe("plugin schedule proposal IPC", () => {
     });
     expect(store.getTasks().map((t) => t.title)).toEqual(["Morning digest"]);
 
-    expect(call(IPC.SCHEDULER_PLUGIN_PROPOSALS_CONFIRM, created.taskId)).toEqual({ ok: true, value: true });
+    expect(confirm(created.taskId)).toEqual({ ok: true, value: true });
     expect(store.getTasks().map((t) => t.title)).toEqual(["Evening digest"]);
   });
 
   it("notifies once for each propose, confirm and reject that changed state", async () => {
-    const { call, plugin, stateChanged } = setup();
+    const { call, confirm, plugin, stateChanged } = setup();
     const a = await plugin.propose(runSpec());
     expect(stateChanged).toHaveBeenCalledTimes(1);
-    call(IPC.SCHEDULER_PLUGIN_PROPOSALS_CONFIRM, a.taskId);
+    confirm(a.taskId);
     expect(stateChanged).toHaveBeenCalledTimes(2);
     const b = await plugin.propose(runSpec({ title: "Other" }));
     call(IPC.SCHEDULER_PLUGIN_PROPOSALS_REJECT, b.taskId);

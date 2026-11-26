@@ -54,8 +54,8 @@ export function createSchedulerApi(ipcRenderer: SchedulerIpcRenderer) {
         listPluginProposals: () => {
             return ipcRenderer.invoke(IPC.SCHEDULER_PLUGIN_PROPOSALS_LIST);
         },
-        confirmPluginProposal: (taskId: string) => {
-            return ipcRenderer.invoke(IPC.SCHEDULER_PLUGIN_PROPOSALS_CONFIRM, taskId);
+        confirmPluginProposal: (taskId: string, revision: string) => {
+            return ipcRenderer.invoke(IPC.SCHEDULER_PLUGIN_PROPOSALS_CONFIRM, taskId, revision);
         },
         rejectPluginProposal: (taskId: string) => {
             return ipcRenderer.invoke(IPC.SCHEDULER_PLUGIN_PROPOSALS_REJECT, taskId);

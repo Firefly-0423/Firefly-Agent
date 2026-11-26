@@ -570,6 +570,7 @@ it("shows native cron read-only without offering an editor that could change its
 describe("plugin schedule proposals", () => {
   const CALLBACK_PROPOSAL: PluginProposal = {
     proposalId: "p-1",
+    revision: "rev-p-1",
     taskId: "plugin-task-1",
     pluginId: "dev.firefly.digest",
     pluginName: "Digest plugin",
@@ -583,6 +584,7 @@ describe("plugin schedule proposals", () => {
   const UPDATE_PROPOSAL: PluginProposal = {
     ...CALLBACK_PROPOSAL,
     proposalId: "p-2",
+    revision: "rev-p-2",
     taskId: "plugin-task-2",
     kind: "update",
     title: "Evening digest",
@@ -650,7 +652,7 @@ describe("plugin schedule proposals", () => {
     await click(confirmButton);
 
     expect(api.confirmPluginProposal).toHaveBeenCalledTimes(1);
-    expect(api.confirmPluginProposal).toHaveBeenCalledWith("plugin-task-2");
+    expect(api.confirmPluginProposal).toHaveBeenCalledWith("plugin-task-2", "rev-p-2");
     expect(api.rejectPluginProposal).not.toHaveBeenCalled();
     expect((api.listPluginProposals as ReturnType<typeof vi.fn>).mock.calls.length).toBe(listCalls + 1);
   });
@@ -699,6 +701,24 @@ describe("plugin schedule proposals", () => {
     const alert = container.querySelector(".scheduled-pending [role='alert']");
     expect(alert?.textContent).toBe(expected);
     expect(container.querySelectorAll(".scheduled-pending article")).toHaveLength(1);
+  });
+
+  it("a proposal the plugin edited after review is not confirmed, shows a re-review message and reloads the list", async () => {
+    const edited: PluginProposal = { ...CALLBACK_PROPOSAL, revision: "rev-p-1-edited", action: { type: "run", prompt: "x", mode: "work" }, allowedToolIds: ["shell"] };
+    const api = installWithProposals([CALLBACK_PROPOSAL], {
+      confirmPluginProposal: vi.fn(async () => ({ ok: false, error: "changed", code: "ERR_UNAVAILABLE" })),
+    });
+    await renderPanel();
+    (api.listPluginProposals as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: true, value: [edited] });
+    const listCalls = (api.listPluginProposals as ReturnType<typeof vi.fn>).mock.calls.length;
+
+    await click(buttonByText("确认"));
+
+    expect(api.confirmPluginProposal).toHaveBeenCalledWith("plugin-task-1", "rev-p-1");
+    expect((api.listPluginProposals as ReturnType<typeof vi.fn>).mock.calls.length).toBe(listCalls + 1);
+    expect(container.querySelector(".scheduled-pending [role='alert']")?.textContent)
+      .toBe("这条提案在你查看后被插件修改过，请重新审阅后再确认。");
+    expect(container.textContent).toContain("shell");
   });
 
   it("an update proposal lists only the fields that changed", async () => {

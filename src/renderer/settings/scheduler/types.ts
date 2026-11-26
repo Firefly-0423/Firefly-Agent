@@ -58,7 +58,10 @@ export type PluginProposalAction =
   | { type: "callback"; payload?: unknown };
 
 export interface PluginProposal {
-  proposalId: string; taskId: string; pluginId: string;
+  proposalId: string;
+  /** Fingerprint of the spec shown; sent back on confirm so an edit after review is not approved unseen. */
+  revision: string;
+  taskId: string; pluginId: string;
   /** Plugin display name; the plugin id when the name is unknown. */
   pluginName: string;
   kind: "create" | "update";
@@ -84,6 +87,6 @@ export interface SchedulerApi {
   ) => Reply<ScheduledTaskHistoryEntry[]>;
   getTools: () => Reply<SchedulerToolInfo[]>;
   listPluginProposals?: () => Reply<PluginProposal[]>;
-  confirmPluginProposal?: (taskId: string) => Reply<boolean>;
+  confirmPluginProposal?: (taskId: string, revision: string) => Reply<boolean>;
   rejectPluginProposal?: (taskId: string) => Reply<boolean>;
 }

@@ -965,6 +965,7 @@
     "noToolsAvailable": "No tools available.",
     "noToolsModelOnly": "None (model only)",
     "pending": {
+      "changedSinceReview": "The plugin changed this proposal after you opened it. Review the updated version and confirm again.",
       "alreadyRejected": "This proposal was already rejected.",
       "actionCallback": "Plugin callback",
       "actionRun": "Run prompt in {{mode}} mode: {{prompt}}",
