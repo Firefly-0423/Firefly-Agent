@@ -7,6 +7,7 @@ import {
   type PluginManifestV1,
   type PluginPermission,
 } from "../../../shared/plugin-manifest";
+import type { PendingPluginCleanup } from "../../../shared/plugin-management";
 import { PluginError } from "../../../shared/plugin-protocol";
 import type { ServicePermission } from "../services";
 
@@ -21,6 +22,9 @@ export type PluginStateReadStatus = "ok" | "missing" | "corrupted";
 const CONFIRMATION_PERMISSIONS = new Set<string>(["sessions.read", "workspace.read", "model.run"]);
 const MANIFEST_PERMISSION_SET = new Set<string>(PLUGIN_PERMISSIONS);
 
+export type PluginOrigin = "local" | "market";
+export type PluginSourceKind = "curated-market" | "bundled" | "local-package" | "local-folder";
+
 export interface StoredPluginState {
   version: string;
   main: string;
@@ -31,11 +35,15 @@ export interface StoredPluginState {
   revision: number;
   confirmations: Partial<Record<ConfirmationPermission, number>>;
   modelRateLimit: number;
+  origin?: PluginOrigin;
+  sourceKind?: PluginSourceKind;
+  sourceId?: string;
 }
 
 export interface PluginStateDocument {
   schemaVersion: 1;
   plugins: Record<string, StoredPluginState>;
+  pendingCleanups?: Record<string, PendingPluginCleanup>;
 }
 
 export interface PluginStateStoreOptions {
@@ -48,6 +56,9 @@ export interface InstallPluginStateInput {
   installDir?: string;
   enabled?: boolean;
   grantedPermissions?: readonly string[];
+  origin?: PluginOrigin;
+  sourceKind?: PluginSourceKind;
+  sourceId?: string;
 }
 
 export function toolGrantKey(toolName: string): string {
@@ -92,6 +103,31 @@ function isValidStoredPluginState(id: string, value: unknown): value is StoredPl
     if (!CONFIRMATION_PERMISSIONS.has(key) || !isValidRevision(rev)) return false;
   }
   if (!isValidRateLimit(value.modelRateLimit)) return false;
+  if (value.origin !== undefined && value.origin !== "local" && value.origin !== "market") return false;
+  if (
+    value.sourceKind !== undefined
+    && value.sourceKind !== "curated-market"
+    && value.sourceKind !== "bundled"
+    && value.sourceKind !== "local-package"
+    && value.sourceKind !== "local-folder"
+  ) {
+    return false;
+  }
+  if (value.sourceId !== undefined && (typeof value.sourceId !== "string" || value.sourceId.trim().length === 0)) return false;
+  return true;
+}
+
+function isValidCleanupOutcome(value: unknown): boolean {
+  return value === "kept" || value === "deleted" || value === "delete_failed";
+}
+
+function isValidPendingCleanup(id: string, value: unknown): value is PendingPluginCleanup {
+  if (!isPlainRecord(value)) return false;
+  if (value.id !== id) return false;
+  if (typeof value.name !== "string" || value.name.trim().length === 0) return false;
+  if (!isValidCleanupOutcome(value.secrets) || !isValidCleanupOutcome(value.data)) return false;
+  if (value.secretsError !== undefined && typeof value.secretsError !== "string") return false;
+  if (value.dataError !== undefined && typeof value.dataError !== "string") return false;
   return true;
 }
 
@@ -99,7 +135,12 @@ export function isValidPluginStateDocument(value: unknown): value is PluginState
   if (!isPlainRecord(value)) return false;
   if (value.schemaVersion !== PLUGIN_STATE_SCHEMA_VERSION) return false;
   if (!isPlainRecord(value.plugins)) return false;
-  return Object.entries(value.plugins).every(([id, entry]) => isValidStoredPluginState(id, entry));
+  if (!Object.entries(value.plugins).every(([id, entry]) => isValidStoredPluginState(id, entry))) return false;
+  if (value.pendingCleanups !== undefined) {
+    if (!isPlainRecord(value.pendingCleanups)) return false;
+    if (!Object.entries(value.pendingCleanups).every(([id, entry]) => isValidPendingCleanup(id, entry))) return false;
+  }
+  return true;
 }
 
 function declaredGrantableKeys(manifest: PluginManifestV1): Set<string> {
@@ -188,6 +229,16 @@ export function createPluginStateStore(options: PluginStateStoreOptions = {}) {
       const entry = document.plugins[pluginId];
       return entry ? cloneState(entry) : undefined;
     },
+    verifyOnDisk(pluginId: string): StoredPluginState | undefined {
+      try {
+        if (!fs.existsSync(stateFile)) return undefined;
+        const onDisk = atomicStore.read(emptyDocument());
+        const entry = onDisk.plugins[pluginId];
+        return entry ? cloneState(entry) : undefined;
+      } catch {
+        return undefined;
+      }
+    },
     isEnabled(pluginId: string): boolean {
       return document.plugins[pluginId]?.enabled === true;
     },
@@ -256,9 +307,68 @@ export function createPluginStateStore(options: PluginStateStoreOptions = {}) {
           revision: nextRevision,
           confirmations: upgraded ? {} : structuredClone(existing?.confirmations ?? {}),
           modelRateLimit: existing?.modelRateLimit ?? DEFAULT_MODEL_RATE_LIMIT,
+          ...(input.origin !== undefined
+            ? { origin: input.origin }
+            : existing?.origin !== undefined
+              ? { origin: existing.origin }
+              : {}),
+          ...(input.sourceKind !== undefined
+            ? { sourceKind: input.sourceKind }
+            : existing?.sourceKind !== undefined
+              ? { sourceKind: existing.sourceKind }
+              : {}),
+          ...(input.sourceId !== undefined
+            ? { sourceId: input.sourceId }
+            : existing?.sourceId !== undefined
+              ? { sourceId: existing.sourceId }
+              : {}),
         };
         draft.plugins[id] = next;
+        if (draft.pendingCleanups?.[id]) {
+          delete draft.pendingCleanups[id];
+          if (Object.keys(draft.pendingCleanups).length === 0) {
+            delete draft.pendingCleanups;
+          }
+        }
         return cloneState(next);
+      });
+    },
+    restoreSnapshot(snapshot: StoredPluginState): StoredPluginState {
+      const manifest = structuredClone(snapshot.manifest);
+      const id = manifest.id;
+      return mutate(id, (draft) => {
+        const current = draft.plugins[id];
+        const nextRevision = Math.max(current?.revision ?? 0, snapshot.revision) + 1;
+        const grantedPermissions = normalizeGrantedPermissions(manifest, snapshot.grantedPermissions);
+        const grantedSet = new Set(grantedPermissions);
+        const restoredConfirmations: Partial<Record<ConfirmationPermission, number>> = {};
+        for (const [permission, rev] of Object.entries(snapshot.confirmations ?? {})) {
+          if (
+            CONFIRMATION_PERMISSIONS.has(permission)
+            && rev === snapshot.revision
+            && grantedSet.has(permission)
+          ) {
+            restoredConfirmations[permission as ConfirmationPermission] = nextRevision;
+          }
+        }
+        const restored: StoredPluginState = {
+          version: manifest.version,
+          main: manifest.main,
+          ...(snapshot.installDir !== undefined ? { installDir: snapshot.installDir } : {}),
+          manifest,
+          enabled: snapshot.enabled,
+          grantedPermissions,
+          revision: nextRevision,
+          confirmations: restoredConfirmations,
+          modelRateLimit: isValidRateLimit(snapshot.modelRateLimit)
+            ? snapshot.modelRateLimit
+            : DEFAULT_MODEL_RATE_LIMIT,
+          ...(snapshot.origin !== undefined ? { origin: snapshot.origin } : {}),
+          ...(snapshot.sourceKind !== undefined ? { sourceKind: snapshot.sourceKind } : {}),
+          ...(snapshot.sourceId !== undefined ? { sourceId: snapshot.sourceId } : {}),
+        };
+        draft.plugins[id] = restored;
+        return cloneState(restored);
       });
     },
     enable(pluginId: string, opts?: { grantedPermissions?: readonly string[] }): StoredPluginState {
@@ -353,6 +463,31 @@ export function createPluginStateStore(options: PluginStateStoreOptions = {}) {
         const existed = Boolean(draft.plugins[pluginId]);
         delete draft.plugins[pluginId];
         return existed;
+      });
+    },
+    listPendingCleanups(): PendingPluginCleanup[] {
+      return Object.values(document.pendingCleanups ?? {}).map((entry) => structuredClone(entry));
+    },
+    getPendingCleanup(pluginId: string): PendingPluginCleanup | undefined {
+      const entry = document.pendingCleanups?.[pluginId];
+      return entry ? structuredClone(entry) : undefined;
+    },
+    setPendingCleanup(cleanup: PendingPluginCleanup): PendingPluginCleanup {
+      return mutate(cleanup.id, (draft) => {
+        draft.pendingCleanups ??= {};
+        draft.pendingCleanups[cleanup.id] = structuredClone(cleanup);
+        return structuredClone(cleanup);
+      });
+    },
+    clearPendingCleanup(pluginId: string): boolean {
+      if (!document.pendingCleanups?.[pluginId]) return false;
+      return mutate(pluginId, (draft) => {
+        if (!draft.pendingCleanups?.[pluginId]) return false;
+        delete draft.pendingCleanups[pluginId];
+        if (Object.keys(draft.pendingCleanups).length === 0) {
+          delete draft.pendingCleanups;
+        }
+        return true;
       });
     },
   };

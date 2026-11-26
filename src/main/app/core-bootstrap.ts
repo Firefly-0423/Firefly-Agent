@@ -28,8 +28,11 @@ import type { ChannelsSubsystem } from "../features/channels/bootstrap";
 import type { SchedulerSubsystem } from "../features/scheduler/bootstrap";
 import type { GeneralSettings } from "../platform/settings/general-settings";
 import type { WindowManager } from "../platform/windows/window-manager";
-import type { PluginManager } from "../../plugins/manager";
 import { logger, LogTag } from "../base/logging/logger";
+
+export interface StartedPlugins {
+  stop(): Promise<void>;
+}
 
 export interface CoreServices {
   update: AppUpdateService;
@@ -45,7 +48,7 @@ export interface CoreServices {
 
 export interface CoreResult {
   scheduler: SchedulerSubsystem;
-  plugins: PluginManager;
+  plugins: StartedPlugins;
   channels: ChannelsSubsystem;
   services: CoreServices;
   runtime: AgentRuntime;
@@ -68,7 +71,7 @@ export interface CoreDependencies {
   wireToastCenter(input: { ipc: IpcScope; windowManager: WindowManager }): void;
   registerCoreIpc(input: RegisterCoreIpcInput): void;
   createScheduler(runtime: AgentRuntime, services: CoreServices): SchedulerSubsystem;
-  startPlugins(services: CoreServices, scheduler: SchedulerSubsystem, runtime: AgentRuntime): Promise<PluginManager>;
+  startPlugins(services: CoreServices, scheduler: SchedulerSubsystem, runtime: AgentRuntime): Promise<StartedPlugins>;
   createChannels(runtime: AgentRuntime, services: CoreServices): ChannelsSubsystem;
   createRuntime(services: CoreServices): AgentRuntime;
   initRag(): Promise<void>;

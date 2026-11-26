@@ -56,5 +56,5 @@
 ## 5. 发布与验收流程
 
 - **npm 发布 `@firefly_wu/plugin-sdk`**：见 [plugin-sdk-publishing.md](../plugin-sdk-publishing.md)（`.github/workflows/plugin-sdk-publish.yml`，标签格式 `plugin-sdk-v<version>`，发布前执行 `pnpm run check:plugin-sdk` 与 `pnpm run test:plugin-examples`）。
-- **插件目录与离线包**：见 [plugin-catalog-publishing.md](../plugin-catalog-publishing.md)（独立仓库 `Firefly-0423/firefly-plugins` 与本地校验规则）。
+- **插件目录与离线包**：见 [plugin-catalog-publishing.md](../plugin-catalog-publishing.md)（独立仓库 `Firefly-0423/firefly-plugins` 与本地校验规则）。随应用离线包由 `scripts/plugin-marketplace/build.mjs` 从 `examples/<目录>/` 构建协议 v2 的 `.ffplugin` 包和 `registry.json`，输出到 `resources/plugin-marketplace/`。
 - **进程生命周期与隔离细节**：见 [plugin-sdk/LIFECYCLE.md](../../plugin-sdk/LIFECYCLE.md)（历史 1.1.x 验收参考见 [plugin-lifecycle-validation.md](../plugin-lifecycle-validation.md)）。

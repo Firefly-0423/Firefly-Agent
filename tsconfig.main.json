@@ -23,7 +23,7 @@
     "src/main/features/diagnostics/sim/**"
   ],
   "include": [
-    "src/plugins/**/*.ts",
+    "src/plugins/v2/**/*.ts",
     "src/main/**/*.ts",
     "src/shared/**/*.ts"
   ]

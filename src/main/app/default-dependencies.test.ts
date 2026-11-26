@@ -307,7 +307,6 @@ vi.mock("../tooling/registry/tool-registry", () => ({
   toolRegistry: { register: vi.fn(), unregister: vi.fn(), getById: vi.fn(), getAll: vi.fn(() => []) },
 }));
 vi.mock("../agent/tools/tool-registration", () => ({ registerAllTools: vi.fn() }));
-vi.mock("../../plugins/prompts", () => ({ pluginPromptRegistry: { build: vi.fn() } }));
 vi.mock("../agent/runtime/live2d-work-signal", () => ({ setLive2dWorkSignalSender: vi.fn() }));
 vi.mock("../platform/lsp/manager", () => ({ LspManager: class {} }));
 vi.mock("../agent/sandbox/sandbox-exec", () => ({ initSandbox: vi.fn() }));
@@ -698,7 +697,6 @@ describe("core phase", () => {
     );
 
     await startedPlugins.stop();
-    expect(m.pluginManager.stop).toHaveBeenCalled();
     expect(m.pluginV2.stopAll).toHaveBeenCalledWith("quit");
     expect(m.pluginV2.dispose).toHaveBeenCalled();
   });

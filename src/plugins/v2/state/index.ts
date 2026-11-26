@@ -8,6 +8,8 @@ export {
   toolGrantKey,
   type ConfirmationPermission,
   type InstallPluginStateInput,
+  type PluginOrigin,
+  type PluginSourceKind,
   type PluginStateDocument,
   type PluginStateReadStatus,
   type PluginStateStore,

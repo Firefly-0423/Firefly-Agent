@@ -33,6 +33,7 @@ resources/bin/mpv/
 resources/opencode/
 resources/mingit/
 resources/plugin-marketplace/
+scripts/plugin-marketplace/.test-source-*/
 .cache/mpv/
 .cache/mingit/
 .cache/music-component/

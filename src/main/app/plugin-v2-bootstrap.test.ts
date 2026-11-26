@@ -1,3 +1,4 @@
+import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { IPC } from "../../shared/ipc-channels";
 import type { IpcScope } from "../base/ipc/ipc-scope";
@@ -75,10 +76,35 @@ vi.mock("../platform/interaction/active-chat-target", () => ({
 vi.mock("../tooling/registry/tool-registry", () => ({ toolRegistry: {} }));
 vi.mock("../features/sessions/chats-store", () => ({ listSessions: vi.fn(), getSession: vi.fn() }));
 
+const marketplaceMock = vi.hoisted(() => ({ deps: undefined as undefined | { bundledDir?: string; registryUrls: readonly string[] } }));
+vi.mock("../features/plugins/host/plugin-marketplace", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../features/plugins/host/plugin-marketplace")>();
+  return {
+    ...actual,
+    createPluginMarketplaceService: vi.fn((deps: Parameters<typeof actual.createPluginMarketplaceService>[0]) => {
+      marketplaceMock.deps = deps;
+      return actual.createPluginMarketplaceService(deps);
+    }),
+  };
+});
+
+const notificationsMock = vi.hoisted(() => ({
+  createNotifications: undefined as undefined | ((access: unknown) => unknown),
+  electronDeps: undefined as undefined | Record<string, unknown>,
+  service: { configureRpc: vi.fn(), dispose: vi.fn() },
+}));
+vi.mock("../../plugins/v2/notifications/electron", () => ({
+  createElectronPluginNotifications: vi.fn((deps: Record<string, unknown>) => {
+    notificationsMock.electronDeps = deps;
+    return notificationsMock.service;
+  }),
+}));
+
 vi.mock("../features/plugins/host/plugin-v2-services", () => ({
-  createPluginV2HostController: vi.fn((deps: { confirmFirstUse: typeof mocks.capturedConfirmFirstUse; onScheduleStateChanged?: () => void }) => {
+  createPluginV2HostController: vi.fn((deps: { confirmFirstUse: typeof mocks.capturedConfirmFirstUse; onScheduleStateChanged?: () => void; createNotifications?: (access: unknown) => unknown }) => {
     mocks.capturedConfirmFirstUse = deps.confirmFirstUse;
     mocks.capturedDeps = deps;
+    notificationsMock.createNotifications = deps.createNotifications;
     return { ...mocks.controller, scheduleService: mocks.scheduleService, stateStore: mocks.stateStore };
   }),
 }));
@@ -120,6 +146,47 @@ function createFakeChatWebContents() {
     },
   };
 }
+
+describe("startPluginV2Bootstrap marketplace catalog", () => {
+  it("hands the marketplace the app-owned offline catalog directory next to the compiled main bundle", async () => {
+    const { ipc } = createMockIpc();
+    const { startPluginV2Bootstrap } = await import("./plugin-v2-bootstrap");
+    await startPluginV2Bootstrap({
+      ipc,
+      llmClient: { chatNonStream: vi.fn() },
+      buildRunOptions: vi.fn() as never,
+      schedulerStore: {} as never,
+      getChatWebContents: () => null as never,
+    });
+    // Source and compiled files sit at the same depth (src/main/app, dist/main/main/app): two levels up is the catalog root.
+    expect(marketplaceMock.deps?.bundledDir).toBe(path.join(__dirname, "..", "..", "plugin-marketplace"));
+    expect(marketplaceMock.deps?.registryUrls.length).toBeGreaterThan(0);
+  });
+});
+
+describe("startPluginV2Bootstrap desktop notifications", () => {
+  it("gives the controller an Electron notification factory fed by installed access and the chat window focus callback", async () => {
+    const { ipc } = createMockIpc();
+    const focusMainWindow = vi.fn();
+    const { startPluginV2Bootstrap } = await import("./plugin-v2-bootstrap");
+    await startPluginV2Bootstrap({
+      ipc,
+      llmClient: { chatNonStream: vi.fn() },
+      buildRunOptions: vi.fn() as never,
+      schedulerStore: {} as never,
+      getChatWebContents: () => null as never,
+      focusMainWindow,
+    });
+    expect(notificationsMock.electronDeps).toBeUndefined();
+
+    const access = { access: vi.fn(), onAccessChange: vi.fn() };
+    const service = notificationsMock.createNotifications!(access);
+
+    expect(service).toBe(notificationsMock.service);
+    expect(notificationsMock.electronDeps).toEqual({ ...access, focusMainWindow });
+    expect(notificationsMock.electronDeps).not.toHaveProperty("isEnabled");
+  });
+});
 
 describe("startPluginV2Bootstrap first-use confirmations", () => {
   beforeEach(() => {

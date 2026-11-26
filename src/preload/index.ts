@@ -9,7 +9,7 @@ import { createMemoryAutomationApi, createMemoryPanelApi, createUserApi } from "
 import { createModelConfigApi, createTokenUsageApi } from "./model-config";
 import { exposeMusicApi } from "./music";
 import { createFireflyApi } from "./pet";
-import { createPluginPanelApi, createPluginsApi } from "./plugins";
+import { createPluginsApi } from "./plugins";
 import { createSchedulerApi, createSchedulerEventsApi } from "./scheduler";
 import { createAppUpdateApi, createSidebarApi, createToastApi } from "./window-shell";
 import { createCodeGitApi, createOpenInAppApi, createReviewApi, createWorkspaceFilesApi } from "./workspace";
@@ -28,7 +28,6 @@ contextBridge.exposeInMainWorld("fireflyFont", createFireflyFontApi(ipcRenderer)
 contextBridge.exposeInMainWorld("fireflyAppearance", createFireflyAppearanceApi(ipcRenderer));
 contextBridge.exposeInMainWorld("settings", createSettingsApi(ipcRenderer));
 contextBridge.exposeInMainWorld("plugins", createPluginsApi(ipcRenderer));
-contextBridge.exposeInMainWorld("pluginPanel", createPluginPanelApi(ipcRenderer));
 contextBridge.exposeInMainWorld("fireflyScheduler", createSchedulerApi(ipcRenderer));
 contextBridge.exposeInMainWorld("stickerManager", createStickerManagerApi(ipcRenderer));
 contextBridge.exposeInMainWorld("modelConfig", createModelConfigApi(ipcRenderer));
