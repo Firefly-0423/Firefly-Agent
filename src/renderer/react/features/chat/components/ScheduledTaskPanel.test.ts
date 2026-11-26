@@ -477,6 +477,23 @@ describe("ScheduledTaskPanel — review follow-ups", () => {
     expect(buttonByText("立即运行").disabled).toBe(disabled);
   });
 
+  it("re-reads the task list on a legacy plugin change so a cached pluginRunnable does not go stale", async () => {
+    let runnable = false; let changed: (() => void) | undefined;
+    const list = vi.fn(async () => ({ ok: true, value: [{ ...DAILY_TASK, id: "task-plugin", ownerPluginId: "demo.plugin", pluginRunnable: runnable }] }));
+    installScheduler({ list });
+    (window as unknown as Record<string, unknown>).plugins = {
+      list: vi.fn(async () => ({ plugins: [] })),
+      onChanged: vi.fn((callback: () => void) => { changed = callback; return () => { changed = undefined; }; }),
+    };
+    await renderPanel();
+    expect(buttonByText("立即运行").disabled).toBe(true);
+
+    runnable = true;
+    await act(async () => { changed!(); });
+    await flush();
+    expect(buttonByText("立即运行").disabled).toBe(false);
+  });
+
   it("stops listening to plugin changes when the panel unmounts", async () => {
     installScheduler();
     const off = vi.fn();

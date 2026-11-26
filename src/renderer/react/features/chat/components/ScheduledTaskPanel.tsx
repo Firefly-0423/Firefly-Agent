@@ -157,9 +157,9 @@ export function ScheduledTaskPanel() {
       void reload(taskId ? { taskId } : "all");
     });
     window.addEventListener("focus", refreshAll);
-    // A plugin can start or stop while the panel keeps focus; only the cached run state needs re-reading.
+    // A plugin can start or stop while the panel keeps focus; re-read the list so the host-computed pluginRunnable follows it.
     const offPlugins = (window as ChatWindowWithScheduler).plugins?.onChanged?.(() => {
-      void readPluginRunning().then(setPluginRunning).catch(() => undefined);
+      void reload("none");
     });
     return () => {
       off?.();
