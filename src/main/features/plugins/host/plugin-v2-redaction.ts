@@ -20,15 +20,14 @@ const MIN_SECRET_LENGTH = 4;
 
 const WINDOWS_PATH_REGEX = /(^|[\s"'`(=,;])([A-Za-z]:[\\/][^\s"'`<>|)\],;]*)/g;
 const UNC_PATH_REGEX = /\\\\[^\s"'`<>|)\],;]+(?:\\[^\s"'`<>|)\],;]*)*/g;
-const POSIX_ROOT_PATH_REGEX = /(^|[\s"'`(=,:])(\/(?:Users|home|etc|var|tmp|opt|root|mnt|Volumes|private|System|Library)\b[^\s"'`<>|)\],;]*)/g;
+// Any absolute POSIX path with two or more segments (`/srv/app/x`), plus well-known roots on their own
+// (`/etc`). A `:` counts as a prefix except after a lone drive letter, so `D:/work/x` stays a Windows
+// path; `https://host/...` never matches because its first segment is empty.
+const POSIX_ROOT_PATH_REGEX = /(^|[\s"'`(=,]|(?<!(?:^|[^A-Za-z])[A-Za-z]):)(\/(?:(?:Users|home|etc|var|tmp|opt|root|mnt|Volumes|private|System|Library)\b[^\s"'`<>|)\],;]*|[^\s"'`<>|)\],;/]+\/[^\s"'`<>|)\],;]*))/g;
 
 const TRAILING_PATH_DELIMITERS = /[\s"'`<>|)\],;]/;
 /** Characters the path patterns also accept right before a path, inside a token. */
 const PATH_PREFIX_CHARS = /[=(:]/;
-const POSIX_ROOT_NAMES = [
-  "/Users", "/home", "/etc", "/var", "/tmp", "/opt",
-  "/root", "/mnt", "/Volumes", "/private", "/System", "/Library",
-];
 
 function pushSecret(target: Set<string>, candidate: unknown): void {
   if (typeof candidate !== "string") return;
@@ -183,9 +182,8 @@ function trailingPathStartIndex(buffer: string, protectedRoots: readonly string[
     const candidate = buffer.slice(start);
     const looksWindowsDrive = /^[A-Za-z](?::(?:[\\/].*)?)?$/.test(candidate);
     const looksUnc = /^\\+(?:.*)?$/.test(candidate);
-    const looksPosixRoot = candidate.startsWith("/") && POSIX_ROOT_NAMES.some((root) =>
-      root.startsWith(candidate) || candidate.startsWith(root),
-    );
+    // Any `/...` can still grow into an absolute path (`/sr` + `v/app/x`), so hold it until a delimiter.
+    const looksPosixRoot = candidate.startsWith("/");
     if (looksWindowsDrive || looksUnc || looksPosixRoot) {
       holdFrom = Math.min(holdFrom, start);
       break;

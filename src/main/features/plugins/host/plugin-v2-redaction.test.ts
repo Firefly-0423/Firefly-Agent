@@ -98,6 +98,33 @@ describe("plugin-v2 redaction", () => {
     });
   });
 
+  describe("absolute paths outside the fixed root list", () => {
+    const posixWorkspace = path.posix.join("/opt", "project");
+    const forward = workspaceRoot.split(path.sep).join("/");
+    it.each([
+      ["/srv path", "file=/srv/custom/secret.env end", "file=[REDACTED_PATH] end"],
+      ["/data path", "see /data/private/secret.env", "see [REDACTED_PATH]"],
+      ["https URL", "open https://example.com/a/b now", "open https://example.com/a/b now"],
+      ["slash command", "type /help or /new", "type /help or /new"],
+      ["forward-slash workspace path", `file=${forward}/src/a.ts`, `file=${forward}/src/a.ts`],
+    ])("full text: %s", (_label, text, expected) => {
+      expect(redactPluginText(text, { workspaceRoot }, source)).toBe(expected);
+    });
+
+    it.each([
+      ["/srv split", ["file=/sr", "v/custom/secret.env end"]],
+      ["/data split", ["file=/data/pri", "vate/secret.env end"]],
+    ])("stream: %s", (_label, chunks) => {
+      const redactor = createPluginStreamRedactor({ workspaceRoot }, source);
+      expect(chunks.map((chunk) => redactor.push(chunk)).join("") + redactor.finish()).toBe("file=[REDACTED_PATH] end");
+    });
+
+    it.runIf(process.platform !== "win32")("keeps a POSIX path inside a POSIX workspace", () => {
+      const text = `file=${posixWorkspace}/src/main.ts`;
+      expect(redactPluginText(text, { workspaceRoot: posixWorkspace }, source)).toBe(text);
+    });
+  });
+
   it("flushes safe buffered tail on finish() only", () => {
     const redactor = createPluginStreamRedactor({ workspaceRoot }, source);
     expect(redactor.push("note C")).toBe("note ");
