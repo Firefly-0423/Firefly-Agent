@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "dev.firefly.json-tools",
+  "name": "JSON 工具",
+  "version": "1.0.1",
+  "sdk": "^1.2.0",
+  "description": "离线校验 JSON 是否合法且无损，并按结构比较两段 JSON、报告第一处差异路径。不联网、不读写文件。",
+  "author": {
+    "name": "Firefly-0423（改编自 deepseek-harness，MIT）"
+  },
+  "license": "MIT",
+  "main": "index.mjs",
+  "native": false,
+  "tools": [
+    {
+      "name": "json-tools_validate",
+      "title": "JSON 校验",
+      "risk": [
+        "fs-read"
+      ],
+      "modes": [
+        "work",
+        "code"
+      ]
+    },
+    {
+      "name": "json-tools_compare",
+      "title": "JSON 比较",
+      "risk": [
+        "fs-read"
+      ],
+      "modes": [
+        "work",
+        "code"
+      ]
+    }
+  ]
+}

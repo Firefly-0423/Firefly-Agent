@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import { AtomicJsonStore } from "../../../main/base/storage/atomic-json-store";
 import {
   computeExecutionSpecFingerprint,
@@ -11,6 +12,11 @@ import type {
   ScheduledTaskPatch,
 } from "../../../main/platform/schedule/schedule-types";
 import { validateAndConvertSchedule } from "./cron";
+import { computeProposalRevision } from "./proposal-revision";
+import {
+  UNATTENDED_APPROVAL_UNSUPPORTED_SKIP_REASON,
+  UnattendedApprovalUnsupportedError,
+} from "./unattended-approval-unsupported";
 import {
   PluginError,
   UNATTENDED_APPROVAL_RISKS,
@@ -207,6 +213,15 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       state = backingFile.read(emptyState());
       throw new PluginError("ERR_INTERNAL", "Failed to persist plugin schedule state", { cause });
     }
+    notifyStateChanged();
+  }
+
+  function notifyStateChanged(): void {
+    try {
+      options.onStateChanged?.();
+    } catch {
+      // A failing UI refresh must never turn a saved change into a failed operation.
+    }
   }
 
   function findMetadataByAnyId(id: string): PluginTaskMetadata | undefined {
@@ -267,14 +282,9 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     return true;
   }
 
-  function toTaskRecordFromStore(task: ScheduledTask, meta?: PluginTaskMetadata): TaskRecord {
-    const v2TaskId = meta?.taskId ?? task.id;
-    const pendingProposal = findPendingProposalForTask(v2TaskId);
-    const pendingApproval = Object.values(state.approvals).find(
-      (record) => record.taskId === v2TaskId && record.status === "pending_approval",
-    );
-    const enabled = isPluginTaskEffectivelyEnabled(task);
-    const fallbackSchedule: Schedule = task.schedule.kind === "cron"
+  /** The schedule a store task actually runs on, expressed as a plugin Schedule. */
+  function scheduleFromStore(task: ScheduledTask): Schedule {
+    return task.schedule.kind === "cron"
       ? task.schedule
       : task.schedule.kind === "once"
       ? { kind: "once", at: Date.parse(task.schedule.runAt) }
@@ -289,19 +299,49 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
               kind: "cron",
               expression: `${Number(task.schedule.timeOfDay.slice(3, 5))} ${Number(task.schedule.timeOfDay.slice(0, 2))} * * ${task.schedule.dayOfWeek}`,
             };
+  }
+
+  /**
+   * What the task effectively does now. The SchedulerStore is authoritative because the user can edit
+   * a plugin task there; the plugin metadata only supplies the original representation while it still
+   * matches the store (exact cron timezone etc.) and the callback action, which the store cannot express.
+   */
+  function effectiveScheduleAndAction(task: ScheduledTask, meta?: PluginTaskMetadata): { schedule: Schedule; action: ScheduleAction } {
+    let schedule: Schedule | undefined;
+    if (meta) {
+      try {
+        const { storeSchedule } = validateAndConvertSchedule(meta.schedule, clock(), { checkOnceInFuture: false });
+        if (isDeepStrictEqual(storeSchedule, task.schedule)) schedule = meta.schedule;
+      } catch {
+        // Metadata that no longer converts cannot describe the stored task.
+      }
+    }
+    const storeAction: ScheduleAction = { type: "run", prompt: task.prompt, mode: task.mode ?? "work" };
+    const action = meta?.action.type === "callback"
+      ? meta.action
+      : meta?.action.type === "run"
+        && meta.action.prompt.trim() === task.prompt
+        && meta.action.mode === (task.mode ?? "work")
+        ? meta.action
+        : storeAction;
+    return { schedule: cloneValue(schedule ?? scheduleFromStore(task)), action: cloneValue(action) };
+  }
+
+  function toTaskRecordFromStore(task: ScheduledTask, meta?: PluginTaskMetadata): TaskRecord {
+    const v2TaskId = meta?.taskId ?? task.id;
+    const pendingProposal = findPendingProposalForTask(v2TaskId);
+    const pendingApproval = Object.values(state.approvals).find(
+      (record) => record.taskId === v2TaskId && record.status === "pending_approval",
+    );
+    const enabled = isPluginTaskEffectivelyEnabled(task);
+    const { schedule, action } = effectiveScheduleAndAction(task, meta);
 
     return {
       taskId: v2TaskId,
       pluginId: task.ownerPluginId ?? meta?.pluginId ?? "",
       title: task.title,
-      schedule: cloneValue(meta?.schedule ?? fallbackSchedule),
-      action: cloneValue(
-        meta?.action ?? {
-          type: "run",
-          prompt: task.prompt,
-          mode: task.mode ?? "work",
-        },
-      ),
+      schedule,
+      action,
       status: pendingProposal || pendingApproval ? "pending_approval" : enabled ? "active" : "paused",
       requiredRisks: [...(meta?.requiredRisks ?? [])],
       allowedToolIds: [...task.allowedToolIds],
@@ -334,11 +374,78 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
   function collectTaskRisks(task: ScheduledTask, meta?: PluginTaskMetadata): ToolRisk[] {
     const merged = new Set<ToolRisk>(meta?.requiredRisks ?? []);
     if (options.resolveTaskRisks) {
-      for (const risk of options.resolveTaskRisks(task)) {
+      let resolved: ToolRisk[];
+      try {
+        resolved = options.resolveTaskRisks(task);
+      } catch {
+        // Fail closed: if the effective risks cannot be determined, treat the run as privileged.
+        resolved = ["shell"];
+      }
+      for (const risk of resolved) {
         merged.add(risk);
       }
     }
     return Array.from(merged);
+  }
+
+  function blockingRisksOf(task: ScheduledTask, meta?: PluginTaskMetadata): ToolRisk[] {
+    return collectTaskRisks(task, meta).filter((risk) => UNATTENDED_APPROVAL_RISKS.has(risk));
+  }
+
+  /**
+   * Firefly 1.2.0 cannot approve an unattended run, so a plugin task that would need approval
+   * (declared, registry-derived or unresolved tool risks) must not be confirmed or enabled.
+   * Uses the same resolution as dispatch so what is accepted here is what would run there.
+   */
+  function assertCandidateCanRunUnattended(task: ScheduledTask, meta: PluginTaskMetadata): void {
+    const blocking = blockingRisksOf(task, meta);
+    if (blocking.length > 0) throw new UnattendedApprovalUnsupportedError(blocking);
+  }
+
+  /** For the scheduler IPC: refuse to enable a v2 plugin task (as it would be saved) that would need approval. Other tasks pass. */
+  function assertTaskCanRunUnattended(task: ScheduledTask): void {
+    const meta = findMetadataByAnyId(task.id);
+    if (meta) assertCandidateCanRunUnattended(task, meta);
+  }
+
+  /** A scheduled fire that would need approval: execute nothing, record why, and stop a recurring task. */
+  function refuseUnattendedRun(
+    task: ScheduledTask,
+    v2TaskId: string,
+    appointment: Date,
+  ): ScheduledRunResult {
+    const settledAt = clock().toISOString();
+    let settledApprovals = false;
+    for (const approval of Object.values(state.approvals)) {
+      if (approval.taskId === v2TaskId && approval.status === "pending_approval") {
+        approval.status = "cancelled";
+        approval.reason = UNATTENDED_APPROVAL_UNSUPPORTED_SKIP_REASON;
+        approval.settledAt = settledAt;
+        settledApprovals = true;
+      }
+    }
+    if (settledApprovals) persistState();
+
+    const historyId = `skip-${nextId()}`;
+    store.recordHistory({
+      id: historyId,
+      taskId: task.id,
+      taskTitle: task.title,
+      firedAt: appointment.toISOString(),
+      status: "skipped",
+      reason: UNATTENDED_APPROVAL_UNSUPPORTED_SKIP_REASON,
+      effectiveToolIds: [...task.allowedToolIds],
+    });
+    // A one-shot task was already stopped by the engine; a recurring one would skip the same way every time.
+    if (task.schedule.kind !== "once") {
+      store.updateTask(task.id, { pluginUserEnabled: false, nextFireAt: null });
+    }
+    return {
+      ok: false,
+      error: UNATTENDED_APPROVAL_UNSUPPORTED_SKIP_REASON,
+      historyId,
+      effectiveToolIds: [...task.allowedToolIds],
+    };
   }
 
   async function executeConfirmedAction(
@@ -534,8 +641,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
           : meta
             ? {
                 title: liveTask?.title ?? "",
-                schedule: meta.schedule,
-                action: meta.action,
+                ...(liveTask ? effectiveScheduleAndAction(liveTask, meta) : { schedule: meta.schedule, action: meta.action }),
                 requiredRisks: meta.requiredRisks,
                 allowedToolIds: liveTask?.allowedToolIds ?? [],
               }
@@ -689,7 +795,14 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       .map((proposal) => cloneValue(proposal));
   }
 
-  function confirmProposal(taskId: string): TaskRecord {
+  /** The current record of a task that already exists in the scheduler store, or undefined (e.g. a still-unconfirmed create). */
+  function getTaskRecord(taskId: string): TaskRecord | undefined {
+    const task = findStoreTaskByAnyId(taskId);
+    if (!task) return undefined;
+    return toTaskRecordFromStore(task, findMetadataByAnyId(taskId));
+  }
+
+  function confirmProposal(taskId: string, expectedRevision?: string): TaskRecord {
     ensureNonEmptyId(taskId, "taskId");
     const proposal = findPendingProposalForTask(taskId);
     if (!proposal) {
@@ -698,6 +811,10 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
         throw new PluginError("ERR_REJECTED", `Proposal for task "${taskId}" was already rejected`);
       }
       throw new PluginError("ERR_INVALID_ARGUMENT", `No pending proposal found for task "${taskId}"`);
+    }
+    // The user approved the spec they were shown; a plugin edit since then must be reviewed again.
+    if (expectedRevision !== undefined && expectedRevision !== computeProposalRevision(proposal)) {
+      throw new PluginError("ERR_UNAVAILABLE", `Proposal for task "${taskId}" changed since it was reviewed`, true);
     }
 
     const now = clock();
@@ -719,6 +836,35 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       mode,
       allowedToolIds,
     });
+
+    // Refuse before any write; the proposal stays pending so it can still be rejected or revised.
+    const existing = proposal.kind === "update" ? findStoreTaskByAnyId(proposal.taskId) : undefined;
+    const timestamp = now.toISOString();
+    assertCandidateCanRunUnattended(
+      {
+        id: existing?.id ?? proposal.taskId,
+        enabled: false,
+        toolMode: "allow-list",
+        nextFireAt: null,
+        createdAt: existing?.createdAt ?? timestamp,
+        updatedAt: timestamp,
+        ...existing,
+        ownerPluginId: proposal.pluginId,
+        title: proposal.spec.title,
+        schedule: storeSchedule,
+        prompt,
+        mode,
+        allowedToolIds,
+      },
+      {
+        taskId: proposal.taskId,
+        storeTaskId: existing?.id ?? "",
+        pluginId: proposal.pluginId,
+        schedule: proposal.spec.schedule,
+        action: proposal.spec.action,
+        requiredRisks,
+      },
+    );
 
     if (proposal.kind === "create") {
       const input: NewScheduledTaskInput = {
@@ -876,17 +1022,8 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     const meta = findMetadataByAnyId(task.id);
     const v2TaskId = meta?.taskId ?? task.id;
 
-    const risks = collectTaskRisks(task, meta);
-    const blockingRisks = risks.filter((risk) => UNATTENDED_APPROVAL_RISKS.has(risk));
-
-    if (!requestedByUser && blockingRisks.length > 0) {
-      const suspended = createApprovalSuspension(task, v2TaskId, appointment, blockingRisks);
-      return {
-        ok: false,
-        error: "pending_approval",
-        historyId: suspended.runId,
-        effectiveToolIds: [...task.allowedToolIds],
-      };
+    if (!requestedByUser && blockingRisksOf(task, meta).length > 0) {
+      return refuseUnattendedRun(task, v2TaskId, appointment);
     }
 
     return executeConfirmedAction(v2TaskId, task, meta, appointment, requestedByUser, `run-${nextId()}`);
@@ -1138,9 +1275,11 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
   return {
     forPlugin,
     listPendingProposals,
+    getTaskRecord,
     confirmProposal,
     rejectProposal,
     runScheduledTask,
+    assertTaskCanRunUnattended,
     suspendUnattendedRun,
     listPendingRunApprovals,
     getRunApproval,

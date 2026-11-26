@@ -46,14 +46,14 @@
   --ff-code-comment: var(--ff-code-dark-comment, #7f948a);
   --ff-code-keyword: var(--ff-code-dark-keyword, #c3a6f0);
   --ff-code-function: var(--ff-code-dark-function, #8ec7f0);
-  --ff-code-string: var(--ff-code-dark-string, #7bd8ae);
+  --ff-code-string: var(--ff-code-dark-string, #34d399);
   --ff-code-number: var(--ff-code-dark-number, #e8c36a);
   --ff-code-type: var(--ff-code-dark-type, #e8c36a);
   --ff-code-tag: var(--ff-code-dark-tag, #f2a07b);
   --ff-code-property: var(--ff-code-dark-property, #8ec7f0);
   --ff-code-punctuation: var(--ff-code-dark-punctuation, #a9bdb3);
   --ff-code-deleted: #f2a07b;
-  --ff-code-inserted: #7bd8ae;
+  --ff-code-inserted: #34d399;
 }
 :root:not([data-ui-theme="firefly-dark"])[data-code-light-surface] .ant-codeHighlighter-code { background: var(--ff-code-light-background); }
 :root[data-ui-theme="firefly-dark"][data-code-dark-surface] .ant-codeHighlighter-code { background: var(--ff-code-dark-background); }

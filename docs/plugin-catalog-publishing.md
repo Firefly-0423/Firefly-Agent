@@ -11,15 +11,17 @@
 
 ## 随应用的离线目录
 
-应用还带一份离线目录（网络不可用时显示），由本仓库的 `scripts/plugin-marketplace/build.mjs` 从 `examples/<id>/` 生成，写入 `resources/plugin-marketplace/`。离线目录与线上目录使用同一套打包规则（STORE、固定 1980 时间戳、固定文件列表），相同源码输入生成的包字节一致。下表是本地重新生成的离线包哈希；构建不会更新已托管的目录或 Release：
+应用还带一份离线目录（网络不可用时显示），由本仓库的 `scripts/plugin-marketplace/build.mjs`（`pnpm run build:plugin-marketplace`）从 `examples/<目录>/` 生成，写入 `resources/plugin-marketplace/`，`build:main` 再把它复制到 `dist/main/plugin-marketplace/`，应用以此作为 `bundledDir`。
 
-| 插件 | 版本 | Release tag | ZIP SHA-256 |
+输出是协议 v2：`registry.json` 的 `apiVersion` 为 `2`，每个条目含 `id`、`name`、`version`、`sdk`、`description`、`author`、`license`、`native: false`、`permissions`、`tools`、`capabilities`、`package` 和 `sha256`。`package` 在离线目录里是 `bundled:<包文件名>`，公开模式下是 `<Release 前缀><tag>/<包文件名>`。包是 `<id>-<version>.ffplugin`，由应用自己的 `packPackage`（`src/plugins/v2/package/pack.ts`）打成，清单用 `validateManifest` 校验，所以字节与应用内打包一致；固定条目时间戳和文件列表，相同源码输入生成的包字节一致。每个插件目录含 `firefly.plugin.json`、`index.mjs`、`README.md`、`LICENSE`，另有只供目录条目使用、不进入包的 `catalog.json`。下表是本地重新生成的离线包哈希；构建不会更新已托管的目录或 Release：
+
+| 插件 | 版本 | Release tag | 包 SHA-256 |
 |---|---|---|---|
-| `text-stats` | 1.0.1 | `text-stats-1.0.1` | `7ecf64d2f6f2437c9bbac8ec69faf5b1f9ed7829360f25c38f1c6d851f0ceeab` |
-| `json-tools` | 1.0.1 | `json-tools-1.0.1` | `2518b63cbc3bdbb3fcb9206a42a6f036af989f0925871c6c92514b7ba1940668` |
-| `timezone-tools` | 1.0.1 | `timezone-tools-1.0.1` | `5438ba4a88cda3747b3db159813f582038e042ad6150f5fbd507545f8b3e4ae5` |
-| `code-language` | 1.0.1 | `code-language-1.0.1` | `e89243dedc4b3803162c10b80688c9e49f91165bb56f4a93208b6343783e8e53` |
-| `text-trim` | 1.0.1 | `text-trim-1.0.1` | `a9e3175425a5f0f753808cb6961b70d1413d8e4e84a2edfa95294c23ee1c9a20` |
+| `dev.firefly.text-stats` | 1.0.1 | `dev.firefly.text-stats-1.0.1` | `1a7f8c16adc83229e713dfa403f75a189d6767dfa634dc01475c2abd6fa7d38b` |
+| `dev.firefly.json-tools` | 1.0.1 | `dev.firefly.json-tools-1.0.1` | `209771c3c611efad17b58f360a18c83af9c9c69d6c7d38538da983237713ced6` |
+| `dev.firefly.timezone-tools` | 1.0.1 | `dev.firefly.timezone-tools-1.0.1` | `622e57999ea532a870c0b01b68a96fb79945ae013fed0a3120b2af4576653ea7` |
+| `dev.firefly.code-language` | 1.0.1 | `dev.firefly.code-language-1.0.1` | `87a0ae5e62eac37144b4575e154954ba62cc202cbc8e2373b505bf838f96d689` |
+| `dev.firefly.text-trim` | 1.0.1 | `dev.firefly.text-trim-1.0.1` | `9b3cb52c4321b09ee221ebefdd2bd5c1fb25781183e0acb04f16cdae5737a616` |
 
 ## 发布新插件或新版本
 

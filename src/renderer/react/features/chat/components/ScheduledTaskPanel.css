@@ -476,3 +476,44 @@
     padding-right: 16px;
   }
 }
+
+/* ===== 待确认：插件提出的定时任务提案 ===== */
+.scheduled-pending {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 4px 0 0;
+}
+
+.scheduled-pending__title {
+  margin: 0;
+  font-size: var(--ff-fs-body);
+  font-weight: 600;
+  color: var(--ff-text);
+}
+
+.scheduled-pending__card {
+  border-color: var(--ff-accent, var(--ff-border));
+}
+
+.scheduled-pending__changes {
+  margin: 0;
+  font-size: var(--ff-fs-caption);
+  line-height: 1.5;
+  color: var(--ff-text-muted, var(--ff-text-muted));
+  overflow-wrap: anywhere;
+}
+
+.scheduled-pending__changes ul {
+  margin: 2px 0 0;
+  padding-left: 18px;
+}
+
+.scheduled-pending__changes p {
+  margin: 2px 0 0;
+}
+
+.scheduled-pending .scheduled-state.is-error {
+  padding: 0;
+}

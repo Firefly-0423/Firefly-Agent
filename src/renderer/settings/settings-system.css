@@ -801,7 +801,7 @@ body { font-size: var(--ff-ui-font-size, 16px); }
 :root[data-glass="true"] .settings-shell .settings-titlebar { background: transparent; }
 
 /* ── 深色：流萤墨绿 + 玻璃质感 ─────────────────────────────
- * 选中项、描边、卡片的微光都用流萤的青绿（--rb-pink-400 在深色主题里是 #7bd8ae），不是中性灰。
+ * 选中项、描边、卡片的微光都用流萤的翡翠绿（--rb-pink-400 在深色主题里是 #10b981），不是中性灰。
  * 玻璃模式下：窗口底是一层墨绿渐变（亚克力按系统的浅色着色，所以底色要压得更实，侧栏才不发灰），
  * 顶边一条细高光，内容面板右上角一抹淡绿光，卡片带一层几乎看不见的绿色渐变和顶边高光。 */
 :root[data-ui-theme="firefly-dark"] .settings-shell,

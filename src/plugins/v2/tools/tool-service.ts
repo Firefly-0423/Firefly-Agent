@@ -468,6 +468,8 @@ export function createPluginToolService(options: PluginToolServiceOptions = {}):
       needsContext: true,
       validateArgs,
       describeApproval: async (args: Record<string, unknown>, signal?: AbortSignal) => {
+        // Same live grant check as execution: a plugin that lost this tool never receives its arguments.
+        if (options.canExecute && !options.canExecute(manifest.id, name)) return null;
         const controller = new AbortController();
         const onAbort = () => controller.abort();
         signal?.addEventListener("abort", onAbort, { once: true });

@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "dev.firefly.timezone-tools",
+  "name": "时区工具",
+  "version": "1.0.1",
+  "sdk": "^1.2.0",
+  "description": "离线校验 IANA 时区名，并在时区之间换算时间（处理夏令时空档与重复时刻）。不联网、不读写文件。",
+  "author": {
+    "name": "Firefly-0423（改编自 deepseek-harness，MIT）"
+  },
+  "license": "MIT",
+  "main": "index.mjs",
+  "native": false,
+  "tools": [
+    {
+      "name": "timezone-tools_canonicalize",
+      "title": "时区名校验",
+      "risk": [
+        "fs-read"
+      ],
+      "modes": [
+        "work",
+        "code"
+      ]
+    },
+    {
+      "name": "timezone-tools_convert",
+      "title": "时区换算",
+      "risk": [
+        "fs-read"
+      ],
+      "modes": [
+        "work",
+        "code"
+      ]
+    }
+  ]
+}

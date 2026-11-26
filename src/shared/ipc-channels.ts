@@ -204,6 +204,9 @@ export const IPC = {
   SCHEDULER_GET_HISTORY: "scheduler:get-history",
   SCHEDULER_GET_TOOLS: "scheduler:get-tools",
   SCHEDULER_LIST: "scheduler:list",
+  SCHEDULER_PLUGIN_PROPOSALS_CONFIRM: "scheduler:plugin-proposals:confirm",
+  SCHEDULER_PLUGIN_PROPOSALS_LIST: "scheduler:plugin-proposals:list",
+  SCHEDULER_PLUGIN_PROPOSALS_REJECT: "scheduler:plugin-proposals:reject",
   SCHEDULER_TOGGLE: "scheduler:toggle",
   SCHEDULER_UPDATE: "scheduler:update",
   // ---- SCREENSHOT ----

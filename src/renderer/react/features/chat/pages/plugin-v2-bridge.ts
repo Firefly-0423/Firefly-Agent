@@ -31,6 +31,8 @@ export function attachPluginV2Listeners(options: PluginV2BridgeOptions): () => v
   let disposed = false;
   const settledIds = new Set<string>();
   const promptedIds = new Set<string>();
+  /** Open or queued dialogs, so a host-side settlement can withdraw them. */
+  const dialogs = new Map<string, AbortController>();
 
   const presentConfirm = (request: PluginV2ConfirmRequest) => {
     if (disposed || !request?.id || settledIds.has(request.id) || promptedIds.has(request.id)) return;
@@ -38,13 +40,17 @@ export function attachPluginV2Listeners(options: PluginV2BridgeOptions): () => v
     if (!messageKey) return;
     promptedIds.add(request.id);
     const message = options.translate(messageKey, { name: request.pluginName });
+    const dialog = new AbortController();
+    dialogs.set(request.id, dialog);
     void options.confirm({
       title: options.translate("workspaceNotices.pluginConfirmTitle"),
       message,
       confirmText: options.translate("workspaceNotices.pluginConfirmAllow"),
       cancelText: options.translate("workspaceNotices.pluginConfirmDeny"),
       tone: "warning",
+      signal: dialog.signal,
     })
+      .finally(() => dialogs.delete(request.id))
       .then((allowed) => {
         if (disposed || settledIds.has(request.id)) return;
         settledIds.add(request.id);
@@ -73,7 +79,9 @@ export function attachPluginV2Listeners(options: PluginV2BridgeOptions): () => v
   });
 
   const offSettled = options.api.onV2ConfirmSettled?.((settled) => {
-    if (settled?.id) settledIds.add(settled.id);
+    if (!settled?.id) return;
+    settledIds.add(settled.id);
+    dialogs.get(settled.id)?.abort();
   });
 
   const offConfirm = options.api.onV2ConfirmRequest?.((request: PluginV2ConfirmRequest) => {
@@ -91,6 +99,8 @@ export function attachPluginV2Listeners(options: PluginV2BridgeOptions): () => v
 
   return () => {
     disposed = true;
+    for (const dialog of dialogs.values()) dialog.abort();
+    dialogs.clear();
     offBorrowing?.();
     offSettled?.();
     offConfirm?.();

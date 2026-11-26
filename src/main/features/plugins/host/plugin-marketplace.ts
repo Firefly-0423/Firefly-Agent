@@ -491,8 +491,9 @@ export function createPluginMarketplaceService(deps: PluginMarketplaceDeps) {
           return {
             ok: false,
             error: result.error || "安装插件失败",
-            installation: result.installation,
-            activation: result.activation,
+            // Market imports are never held for replacement confirmation; treat it as a rejection if it ever occurs.
+            installation: "rejected",
+            ...(result.installation === "rejected" && result.activation ? { activation: result.activation } : {}),
           };
         }
         return {

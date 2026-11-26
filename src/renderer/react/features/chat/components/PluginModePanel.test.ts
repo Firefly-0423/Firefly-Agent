@@ -218,6 +218,52 @@ test("supports importing local folder via action button", async () => {
   expect(api.importFolder).toHaveBeenCalledTimes(1);
 });
 
+const needsConfirmation = (): Awaited<ReturnType<NonNullable<PluginManagementApi["importFolder"]>>> => ({
+  ok: false, installation: "needs-confirmation", error: "replace?", confirmToken: "token-1",
+  replace: {
+    current: { name: "Archive toolkit", version: "4.2.0", origin: "market", enabled: true, native: false, grantedPermissions: ["workspace.read"] },
+    incoming: {
+      name: "Archive toolkit dev", version: "5.0.0", origin: "local", native: true, permissions: ["workspace.read", "model.run"],
+      tools: [{ name: "scan", title: "Scan", risk: ["read"], modes: ["work"] }],
+    },
+    addedPermissions: ["model.run"], nativeEscalation: true, packageSha256: "a".repeat(64),
+  },
+});
+
+test.each(["importFolder", "importZip"] as const)("%s asks before replacing and does nothing more when declined", async (method) => {
+  const api = service([installed()]);
+  vi.mocked(api[method]!).mockResolvedValueOnce(needsConfirmation());
+  feedback.confirm.mockResolvedValue(false);
+  await mount(api);
+  await click(method === "importFolder" ? buttons().find(b => b.textContent === "导入文件夹")! : host.querySelector<HTMLButtonElement>(".ff-panel-sidebar__new")!);
+
+  expect(feedback.confirm).toHaveBeenCalledTimes(1);
+  const request = feedback.confirm.mock.calls[0][0];
+  expect(request).toMatchObject({ title: "替换已安装的插件", confirmText: "替换", cancelText: "取消", dangerous: true });
+  for (const text of [
+    "Archive toolkit", "4.2.0", "Archive toolkit dev", "5.0.0",
+    "插件市场", "本地导入", "已启用", "新增权限", "运行模型对话", "Scan (scan)", "高风险警告", "native: true", "新增了原生模块",
+  ]) expect(request.message).toContain(text);
+  expect(api[method]).toHaveBeenCalledTimes(1);
+  expect(api.setEnabled).not.toHaveBeenCalled();
+  expect(host.textContent).not.toContain("导入失败");
+});
+
+test.each(["importFolder", "importZip"] as const)("%s re-calls with the confirmation token once the replacement is accepted", async (method) => {
+  const api = service([installed()]);
+  vi.mocked(api[method]!).mockResolvedValueOnce(needsConfirmation()).mockResolvedValueOnce({
+    ok: true, installation: "committed", activation: "running",
+    plugin: { id: "archive-toolkit", name: "Archive toolkit dev", version: "5.0.0" },
+    overview: { plugins: [installed({ name: "Archive toolkit dev", version: "5.0.0" })], issues: [] },
+  });
+  await mount(api);
+  await click(method === "importFolder" ? buttons().find(b => b.textContent === "导入文件夹")! : host.querySelector<HTMLButtonElement>(".ff-panel-sidebar__new")!);
+
+  expect(api[method]).toHaveBeenCalledTimes(2);
+  expect(vi.mocked(api[method]!).mock.calls).toEqual([[], ["token-1"]]);
+  expect(names()).toEqual(["Archive toolkit dev"]);
+});
+
 test("loads the market on entry and restores installed management on return", async () => {
   const api = service();
   await mount(api);
@@ -566,6 +612,33 @@ test("displays localized permission labels in settings modal and revokes notific
 
   await React.act(async () => { notifBox.click(); });
   expect(api.setPermission).toHaveBeenCalledExactlyOnceWith("archive-toolkit", "notifications", false);
+});
+
+test("settings modal lists a checkbox for every declared tool, checked only when granted, and revokes by the tool key", async () => {
+  const tool = (name: string) => ({ name, title: name, risk: ["network"], modes: ["work"] });
+  const initial = installed({
+    permissions: ["notifications", "tool:ping"],
+    grantedPermissions: ["notifications", "tool:ping"],
+    tools: [tool("ping"), tool("fetch"), tool("search")],
+  });
+  const api = service([initial]);
+
+  await mount(api);
+  await click(actionButtons().find(b => b.textContent?.includes("设置"))!);
+
+  const dialog = host.querySelector('[role="dialog"]')!;
+  const rows = Array.from(dialog.querySelectorAll<HTMLLabelElement>(".plugin-panel__perm-row"));
+  const state = rows.map(row => [row.textContent, row.querySelector<HTMLInputElement>('input[type="checkbox"]')!.checked]);
+  expect(state).toEqual([
+    ["桌面通知", true],
+    ["ping", true],
+    ["fetch", false],
+    ["search", false],
+  ]);
+
+  const fetchBox = rows[2].querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+  await React.act(async () => { fetchBox.click(); });
+  expect(api.setPermission).toHaveBeenCalledExactlyOnceWith("archive-toolkit", "tool:fetch", true);
 });
 
 test("displays localized permission labels in marketplace details and install confirmation", async () => {

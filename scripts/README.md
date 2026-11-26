@@ -13,7 +13,7 @@
 | `plugin-sdk/` | 本地 SDK、清单 schema 与示例验证 | `pnpm run check:plugin-sdk`、`pnpm run check:plugin-schema`、`pnpm run test:plugin-examples` |
 | `testing/` | 完整测试入口、结果归档与进程存活辅助 | `pnpm test`；`node scripts/testing/run-tests.mjs` |
 | `security/` | 已安装依赖的版本与哈希受控安全补丁 | `postinstall` 调用 `git-null-config-backport.mjs` |
-| `plugin-marketplace/` | 离线插件目录与可复现 ZIP 构建、示例回归 | `pnpm run build:plugin-marketplace`、`pnpm run test:plugin-marketplace` |
+| `plugin-marketplace/` | v2 离线插件目录与可复现 `.ffplugin` 构建、示例回归 | `pnpm run build:plugin-marketplace`、`pnpm run test:plugin-marketplace` |
 
 `packaging/prepare-mingit.mjs` 会根据 `vendor/mingit-manifest.json` 下载、校验并解压 MinGit 到 `resources/mingit/`。该目录是本地打包输入，已被 `.gitignore` 忽略。
 

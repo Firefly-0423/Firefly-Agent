@@ -49,21 +49,31 @@ export function createDefaultGeneralSettings(overrides: Partial<GeneralSettings>
     travelEnabled: false,
     musicEnabled: true,
     playwrightMcpEnabled: false,
-    searchEngine: "off",
-    searchBochaKey: "",
-    searchTavilyKey: "",
-    searchMinimaxKey: "",
-    searchAnySearchKey: "",
-    emailEnabled: false,
-    emailSmtpHost: "",
-    emailSmtpPort: 465,
-    emailSmtpSecure: true,
-    emailSmtpUser: "",
-    emailSmtpPass: "",
-    emailFromName: "",
+    ...searchDefaults,
+    ...emailDefaults,
     ...overrides,
   };
 }
+
+/** 联网搜索：默认关闭，各服务的密钥都为空。 */
+const searchDefaults = {
+  searchEngine: "off",
+  searchTavilyKey: "",
+  searchBochaKey: "",
+  searchAnySearchKey: "",
+  searchMinimaxKey: "",
+} as const;
+
+/** 邮件：默认关闭，SMTP 使用 465 端口加密连接，账号信息为空。 */
+const emailDefaults = {
+  emailEnabled: false,
+  emailSmtpSecure: true,
+  emailSmtpPort: 465,
+  emailSmtpHost: "",
+  emailSmtpUser: "",
+  emailSmtpPass: "",
+  emailFromName: "",
+} as const;
 
 export function createDefaultModelSettings(overrides: Partial<ModelSettings> = {}): ModelSettings {
   return {

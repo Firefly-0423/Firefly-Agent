@@ -1,5 +1,5 @@
-import { randomUUID } from "node:crypto";
-import { cp, lstat, mkdir, mkdtemp, readdir, realpath, rename, rm } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { cp, lstat, mkdir, mkdtemp, readdir, readFile, realpath, rename, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { within } from "../../../main/base/identity/runtime-profile";
@@ -50,6 +50,13 @@ export interface ImportedPackageHandle {
   installDir: string;
   files: string[];
   sourceKind: "local-folder" | "local-package";
+  /** SHA-256 over the staged package: every file's relative path and content digest, in path order. */
+  contentSha256: string;
+  /**
+   * Only present with `deferSwap`: moves the staged files into `installDir` (the previous directory,
+   * if any, becomes a backup). Until it runs, `installDir` is untouched and `rollback()` only drops staging.
+   */
+  swap?: () => Promise<void>;
   commit: () => Promise<void>;
   rollback: () => Promise<void>;
 }
@@ -209,6 +216,16 @@ async function copyValidatedFiles(
   }
 }
 
+/** Digest of the staged copy (what would be installed), so a confirmation binds to the exact bytes. */
+async function hashStagedPackage(stagingDir: string, files: readonly string[]): Promise<string> {
+  const hash = createHash("sha256");
+  for (const relative of [...files].sort()) {
+    const content = await readFile(path.join(stagingDir, ...relative.split("/")));
+    hash.update(`${relative}\u0000${createHash("sha256").update(content).digest("hex")};`);
+  }
+  return hash.digest("hex");
+}
+
 async function inspectSourceDir(
   packageDir: string,
   hostVersion: string,
@@ -241,6 +258,8 @@ export async function importPluginPackage(
     pluginsRoot: string;
     hostVersion?: string;
     allowOverwrite?: boolean;
+    /** Validate and stage only; the caller performs the directory swap through `handle.swap()`. */
+    deferSwap?: boolean;
     fs?: Partial<ImporterFsOps>;
   },
 ): Promise<ImportPackageResult> {
@@ -304,6 +323,61 @@ export async function importPluginPackage(
     let backupDir: string | undefined;
     let movedTarget = false;
     let stagingCreated = false;
+    const deferred = options.deferSwap === true;
+    let deferredReturned = false;
+
+    const hierarchy = (...extra: { path: string; label: string }[]) =>
+      assertSafeInstallHierarchy(pluginsRoot, pluginIdDir, fsOps, extra);
+
+    const swapIntoPlace = async (): Promise<void> => {
+      let targetExistsNow = false;
+      try {
+        await fsOps.lstat(targetDir);
+        targetExistsNow = true;
+      } catch (error) {
+        if (!isMissingError(error)) throw error;
+      }
+
+      if (targetExistsNow) {
+        if (options.allowOverwrite === false) {
+          throw new InstallTargetSafetyError("invalid_value", `插件 ${manifest.id}@${manifest.version} 已安装`);
+        }
+        backupDir = path.join(pluginIdDir, `.backup-${randomUUID()}`);
+        await hierarchy(
+          { path: targetDir, label: "插件目标目录" },
+          { path: backupDir, label: "插件备份目录" },
+        );
+        await fsOps.rename(targetDir, backupDir);
+      }
+
+      await hierarchy(
+        { path: stagingDir!, label: "插件暂存目录" },
+        { path: targetDir, label: "插件目标目录" },
+        ...(backupDir ? [{ path: backupDir, label: "插件备份目录" }] : []),
+      );
+      await fsOps.rename(stagingDir!, targetDir);
+      movedTarget = true;
+    };
+
+    const restoreBackupIfNotSwapped = async (): Promise<void> => {
+      if (!movedTarget && backupDir) {
+        await hierarchy(
+          { path: targetDir, label: "插件目标目录" },
+          { path: backupDir, label: "插件备份目录" },
+        )
+          .then(() => fsOps.rename(backupDir!, targetDir))
+          .catch(() => {});
+      }
+    };
+
+    const cleanStagingIfNotSwapped = async (): Promise<void> => {
+      if (stagingDir && stagingCreated && !movedTarget) {
+        await hierarchy({ path: stagingDir, label: "插件暂存目录" })
+          .then(() => fsOps.rm(stagingDir!, { recursive: true, force: true }))
+          .catch(() => {});
+      }
+    };
+
 
     try {
       await assertSafeInstallHierarchy(pluginsRoot, pluginIdDir, fsOps, [
@@ -340,43 +414,36 @@ export async function importPluginPackage(
         { path: targetDir, label: "插件目标目录" },
       ]);
 
-      let targetExistsNow = false;
-      try {
-        await fsOps.lstat(targetDir);
-        targetExistsNow = true;
-      } catch (error) {
-        if (!isMissingError(error)) throw error;
-      }
+      const contentSha256 = await hashStagedPackage(stagingDir, files);
 
-      if (targetExistsNow) {
-        if (options.allowOverwrite === false) {
-          return fail("invalid_value", `插件 ${manifest.id}@${manifest.version} 已安装`);
-        }
-        backupDir = path.join(pluginIdDir, `.backup-${randomUUID()}`);
-        await assertSafeInstallHierarchy(pluginsRoot, pluginIdDir, fsOps, [
-          { path: targetDir, label: "插件目标目录" },
-          { path: backupDir, label: "插件备份目录" },
-        ]);
-        await fsOps.rename(targetDir, backupDir);
-      }
-
-      await assertSafeInstallHierarchy(pluginsRoot, pluginIdDir, fsOps, [
-        { path: stagingDir, label: "插件暂存目录" },
-        { path: targetDir, label: "插件目标目录" },
-        ...(backupDir ? [{ path: backupDir, label: "插件备份目录" }] : []),
-      ]);
-      await fsOps.rename(stagingDir, targetDir);
-      movedTarget = true;
+      if (!deferred) await swapIntoPlace();
 
       let settled = false;
+      deferredReturned = deferred;
       return {
         ok: true,
         manifest,
         installDir: targetDir,
         files,
         sourceKind,
+        contentSha256,
+        ...(deferred
+          ? {
+              async swap() {
+                if (settled || movedTarget) return;
+                try {
+                  await swapIntoPlace();
+                } catch (error) {
+                  await restoreBackupIfNotSwapped();
+                  await cleanStagingIfNotSwapped();
+                  throw error;
+                }
+              },
+            }
+          : {}),
         async commit() {
           if (settled) return;
+          if (deferred && !movedTarget) throw new Error("插件目录尚未切换，不能提交");
           if (backupDir) {
             await assertSafeInstallHierarchy(pluginsRoot, pluginIdDir, fsOps, [
               { path: targetDir, label: "插件目标目录" },
@@ -388,6 +455,11 @@ export async function importPluginPackage(
         },
         async rollback() {
           if (settled) return;
+          if (deferred && !movedTarget) {
+            await cleanStagingIfNotSwapped();
+            settled = true;
+            return;
+          }
           await assertSafeInstallHierarchy(pluginsRoot, pluginIdDir, fsOps, [
             { path: targetDir, label: "插件目标目录" },
             ...(backupDir ? [{ path: backupDir, label: "插件备份目录" }] : []),
@@ -428,26 +500,13 @@ export async function importPluginPackage(
         },
       };
     } catch (error) {
-      if (!movedTarget && backupDir) {
-        await assertSafeInstallHierarchy(pluginsRoot, pluginIdDir, fsOps, [
-          { path: targetDir, label: "插件目标目录" },
-          { path: backupDir, label: "插件备份目录" },
-        ])
-          .then(() => fsOps.rename(backupDir!, targetDir))
-          .catch(() => {});
-      }
+      await restoreBackupIfNotSwapped();
       if (error instanceof InstallTargetSafetyError) {
         return fail(error.code, error.message);
       }
       throw error;
     } finally {
-      if (stagingDir && stagingCreated && !movedTarget) {
-        await assertSafeInstallHierarchy(pluginsRoot, pluginIdDir, fsOps, [
-          { path: stagingDir, label: "插件暂存目录" },
-        ])
-          .then(() => fsOps.rm(stagingDir!, { recursive: true, force: true }))
-          .catch(() => {});
-      }
+      if (!deferredReturned) await cleanStagingIfNotSwapped();
     }
   } finally {
     if (extractDir) {

@@ -1,6 +1,6 @@
 # 代码语言识别（code-language）
 
-Firefly Plugin API v1 插件，版本 1.0.0。首次安装保持停用，需要用户明确启用。
+Firefly 1.2.0 插件包（`.ffplugin`，id `dev.firefly.code-language`），版本 1.0.1。首次安装保持停用，需要用户明确启用。
 
 启用后提供只读工具 `code-language_detect`，按文件名里的扩展名识别语法高亮语言，不读取文件内容。
 

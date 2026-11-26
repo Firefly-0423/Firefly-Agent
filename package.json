@@ -111,7 +111,7 @@
     "build:clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "build:cli": "node scripts/build/cli.mjs",
     "build:history-helpers": "node scripts/build/history-helpers.mjs",
-    "build:main": "node -e \"require('fs').rmSync('dist/main',{recursive:true,force:true})\" && tsc -p tsconfig.main.json",
+    "build:main": "pnpm run build:plugin-marketplace && node -e \"require('fs').rmSync('dist/main',{recursive:true,force:true})\" && tsc -p tsconfig.main.json && node -e \"require('fs').cpSync('resources/plugin-marketplace','dist/main/plugin-marketplace',{recursive:true})\"",
     "build:plugin-marketplace": "node scripts/plugin-marketplace/build.mjs",
     "build:plugin-sdk": "node scripts/plugin-sdk/build-sdk.mjs",
     "build:preload": "tsc -p tsconfig.preload.json",

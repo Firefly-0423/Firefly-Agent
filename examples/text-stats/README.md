@@ -1,6 +1,6 @@
 # 文本统计（text-stats）
 
-Firefly Plugin API v1 插件，版本 1.0.0。首次安装保持停用，需要用户明确启用。
+Firefly 1.2.0 插件包（`.ffplugin`，id `dev.firefly.text-stats`），版本 1.0.1。首次安装保持停用，需要用户明确启用。
 
 启用后可让 Firefly 使用 `text-stats_count` 工具统计给定文本，例如：
 
@@ -8,7 +8,7 @@ Firefly Plugin API v1 插件，版本 1.0.0。首次安装保持停用，需要�
 { "text": "Hello 世界\n第二行" }
 ```
 
-返回 JSON 字符串：
+返回结构化结果（`ToolResult` 的 `output`）：
 
 ```json
 { "characters": 12, "words": 3, "nonEmptyLines": 2 }
@@ -19,10 +19,10 @@ Firefly Plugin API v1 插件，版本 1.0.0。首次安装保持停用，需要�
 - `characters`：Unicode 码点数，包含空格、制表符、回车和换行。一个普通表情通常算一个码点；组合字符、肤色修饰符和家庭表情可能含多个码点。这不是 UTF-16 长度或视觉字形数。
 - `words`：按 JavaScript Unicode 空白分隔的非空片段数。连续中文不做自然语言分词，标点和表情不会单独过滤。
 - `nonEmptyLines`：去掉首尾空白后仍有内容的行数；支持 LF、CRLF、CR、Unicode 行分隔符和段分隔符。
-- 空字符串返回三个零；非字符串参数报错，不隐式转换。
+- 空字符串返回三个零；非字符串参数返回 `not_executed`，不隐式转换。
 
 入口只进行内存内计算，不联网、不读写文件、不启动命令、不持久化或记录输入文本。停用时注销工具；没有计时器、窗口或后台任务。工具本身不保存输入，但宿主可能按其正常会话规则记录工具调用。
 
 插件按 MIT 许可证提供，见随包的 LICENSE。Firefly 插件在主进程运行并拥有宿主权限；本插件的离线实现不代表宿主提供权限沙箱。
 
-构建：在 [firefly-plugins](https://github.com/Firefly-0423/firefly-plugins) 仓库运行 `npm run build`，输出在 `dist/`。生成的 ZIP 也可以在 Firefly 的插件页手动导入。
+构建：运行本仓库的 `pnpm run build:plugin-marketplace`，输出 `.ffplugin` 包和 v2 `registry.json`；生成的包也可以在 Firefly 的插件页手动导入。

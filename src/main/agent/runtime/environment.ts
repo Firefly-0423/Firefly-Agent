@@ -89,7 +89,7 @@ export function buildEnvironmentContext(modelInfo?: ModelInfo, userInfo?: UserIn
     }
     sections.push("", "> 用户时区仅用于时间计算，不代表用户所在地，不得根据时区推断用户所在城市。默认城市仅用于天气等需要定位的工具。", "");
   }
-  sections.push("当用户提到「桌面 / 文档 / 下载」却没给绝对路径时，使用上面这些真实路径拼接，再交给文件类工具；不要写 `~/Desktop` 或硬编码盘符。");
+  sections.push("用户只说“桌面”“文档”“下载”这类位置、没有给出完整路径时，请在上方列出的真实目录后面拼接，再把结果传给文件工具；禁止使用 `~/Desktop` 这类简写，也不要自己假定盘符。");
   const context = sections.join("\n");
   logger.info(LogTag.Runtime, "env:", `level=${access}`, `desktop=${desktopPath ? "resolved" : "?"}`, `mcp=${serverSummary.startsWith("未连接") ? "none" : "active"}`, `vision=${vision}`);
   return context;

@@ -70,11 +70,15 @@ export function createPluginsApi(ipcRenderer: PluginsIpcRenderer) {
         rescan: () => {
             return ipcRenderer.invoke(IPC.PLUGINS_RESCAN);
         },
-        importZip: () => {
-            return ipcRenderer.invoke(IPC.PLUGINS_IMPORT_ZIP);
+        importZip: (confirmToken?: string) => {
+            return confirmToken === undefined
+                ? ipcRenderer.invoke(IPC.PLUGINS_IMPORT_ZIP)
+                : ipcRenderer.invoke(IPC.PLUGINS_IMPORT_ZIP, confirmToken);
         },
-        importFolder: () => {
-            return ipcRenderer.invoke(IPC.PLUGINS_IMPORT_FOLDER);
+        importFolder: (confirmToken?: string) => {
+            return confirmToken === undefined
+                ? ipcRenderer.invoke(IPC.PLUGINS_IMPORT_FOLDER)
+                : ipcRenderer.invoke(IPC.PLUGINS_IMPORT_FOLDER, confirmToken);
         },
         uninstall: (entityId: string, options?: UninstallPluginOptions) => {
             return ipcRenderer.invoke(IPC.PLUGINS_UNINSTALL, entityId, options);

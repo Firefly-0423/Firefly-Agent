@@ -33,10 +33,10 @@ it("edits the dark theme's own set under the dark theme and leaves the light set
  document.documentElement.dataset.uiTheme='firefly-dark';
  const root=fixture();const save=vi.fn(async()=>{});const controls=bindUiColorControls(root,save);controls.load({enabled:true,accent:'#123456'});
  const hex=root.querySelector<HTMLInputElement>('#ui-color-background-hex')!;
- expect(hex.value).toBe('#192a24');
+ expect(hex.value).toBe('#141414');
  hex.value='#101010';hex.dispatchEvent(new Event('change'));await controls.settled();
  expect(save).toHaveBeenLastCalledWith(expect.objectContaining({accent:'#123456',background:'#ffffff',dark:expect.objectContaining({background:'#101010'})}));
  root.querySelector<HTMLButtonElement>('#ui-colors-reset')!.click();await controls.settled();
- expect(save).toHaveBeenLastCalledWith(expect.objectContaining({accent:'#123456',dark:{accent:'#7bd8ae',background:'#192a24',foreground:'#e4eee9'}}));
+ expect(save).toHaveBeenLastCalledWith(expect.objectContaining({accent:'#123456',dark:{accent:'#10b981',background:'#141414',foreground:'#ededed'}}));
  controls.dispose();delete document.documentElement.dataset.uiTheme;
 });

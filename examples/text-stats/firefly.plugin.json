@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "dev.firefly.text-stats",
+  "name": "文本统计",
+  "version": "1.0.1",
+  "sdk": "^1.2.0",
+  "description": "离线统计文本的 Unicode 字符数、空白分隔词数和非空行数，不联网、不读写文件。",
+  "author": {
+    "name": "Firefly-0423"
+  },
+  "license": "MIT",
+  "main": "index.mjs",
+  "native": false,
+  "tools": [
+    {
+      "name": "text-stats_count",
+      "title": "文本统计",
+      "risk": [
+        "fs-read"
+      ],
+      "modes": [
+        "work",
+        "code"
+      ]
+    }
+  ]
+}

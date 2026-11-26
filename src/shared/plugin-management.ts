@@ -162,11 +162,38 @@ export type UninstallPluginOptions = {
     deleteData?: boolean;
     deleteSecrets?: boolean;
 };
+/** What a user must see before a local package replaces an installed plugin. */
+export interface PluginReplaceSummary {
+  current: {
+    name: string;
+    version: string;
+    origin: "local" | "market";
+    enabled: boolean;
+    native: boolean;
+    grantedPermissions: string[];
+  };
+  incoming: {
+    name: string;
+    version: string;
+    origin: "local" | "market";
+    native: boolean;
+    permissions: string[];
+    tools: { name: string; title: string; risk: string[]; modes: string[] }[];
+  };
+  /** Permissions the incoming manifest declares that the installed plugin has not been granted. */
+  addedPermissions: string[];
+  /** The installed plugin has no native code but the incoming package does. */
+  nativeEscalation: boolean;
+  packageSha256: string;
+}
 export type PluginImportOutcome = {
     activation?: "not-requested" | "restart-required" | "running" | "failed" | "rolled-back";
     canceled?: boolean;
     error?: string;
-    installation?: "committed" | "rejected";
+    installation?: "committed" | "rejected" | "needs-confirmation";
+    /** Present with "needs-confirmation": pass it back to importZip / importFolder to confirm exactly this package. */
+    confirmToken?: string;
+    replace?: PluginReplaceSummary;
     ok: boolean;
     overview?: PluginOverview;
     plugin?: {
@@ -178,8 +205,8 @@ export type PluginImportOutcome = {
 export type PluginManagementApi = {
     getV2Borrowing?(): Promise<{ entries: PluginV2BorrowingEntry[] }>;
     getV2Confirms?(): Promise<{ requests: PluginV2ConfirmRequest[] }>;
-    importFolder?(): Promise<PluginImportOutcome>;
-    importZip(): Promise<PluginImportOutcome>;
+    importFolder?(confirmToken?: string): Promise<PluginImportOutcome>;
+    importZip(confirmToken?: string): Promise<PluginImportOutcome>;
     list(): Promise<PluginOverview | PluginListEntry[]>;
     marketInstall(id: string): Promise<MarketInstallResult>;
     marketList(preferred?: string): Promise<MarketListResult>;

@@ -8,9 +8,9 @@
   --ff-glow-rgb: 59, 154, 118;
 }
 :root[data-ui-theme="firefly-dark"] {
-  --ff-glow: var(--ff-accent, #7bd8ae);
-  --ff-glow-soft: var(--ff-accent, #7bd8ae);
-  --ff-glow-rgb: var(--ff-accent-rgb, 123, 216, 174);
+  --ff-glow: var(--ff-accent, #10b981);
+  --ff-glow-soft: var(--ff-accent, #10b981);
+  --ff-glow-rgb: var(--ff-accent-rgb, 16, 185, 129);
 }
 
 :root[data-ui-theme="pearl-white"] {
@@ -79,29 +79,29 @@
 :root[data-ui-theme="firefly-dark"] .ff-message-markdown,
 :root[data-ui-theme="firefly-dark"] .ff-message-markdown :is(p, li, td, blockquote) { font-weight: 360; }
 
-/* Dark theme: the ink green frames the window (sidebar, rail, right panel); the conversation in the middle sits on a
-   neutral deep grey with a faint green cast, so the text area reads calm and the two sides carry the colour. */
+/* Dark theme: a near-black frame (sidebar, rail, right panel) around a slightly lifted neutral panel for the
+   conversation. Greys only; firefly green is kept for accents (focus, selection, send, switches). */
 :root[data-ui-theme="firefly-dark"] .ff-page-main {
-  --ff-bg-workspace: #1b1e1d;
-  --ff-surface: #222625;
-  --ff-bg-subtle: #262a29;
-  --ff-bg-hover: #2a2f2d;
-  --ff-bg-active: #323836;
-  --ff-popover: #262a29;
-  --ff-border: #333937;
+  --ff-bg-workspace: #141414;
+  --ff-surface: #1a1a1a;
+  --ff-bg-subtle: #1e1e1e;
+  --ff-bg-hover: #242424;
+  --ff-bg-active: #2a2a2a;
+  --ff-popover: #1a1a1a;
+  --ff-border: #262626;
   background: var(--ff-bg-workspace);
 }
 :root[data-ui-theme="firefly-dark"] .ff-page-main .ff-overview-card { background: var(--ff-dark-main-card); }
 :root[data-ui-theme="firefly-dark"] .ff-page-main .ff-overview-card:hover { border-color: var(--ff-dark-main-card-hover); }
 :root[data-ui-theme="firefly-dark"] .ff-page-main .ff-composer-shell { border-color: var(--ff-dark-main-composer-border); }
 :root[data-ui-theme="firefly-dark"] .ff-page-main .ff-message--user .ant-bubble-content { background: var(--ff-dark-main-user-bubble); }
-/* The overview cards column is the right-hand side when the panel is closed: it keeps the ink green. */
+/* The overview cards column is the right-hand side when the panel is closed: it shares the frame's near-black. */
 :root[data-ui-theme="firefly-dark"] .ff-page-main .ff-chat-cards {
-  --ff-bg-workspace: #192a24;
-  --ff-surface: #1d302a;
-  --ff-bg-hover: #243a32;
-  --ff-bg-active: #2c463c;
-  --ff-border: #2f4840;
+  --ff-bg-workspace: #0a0a0a;
+  --ff-surface: #1a1a1a;
+  --ff-bg-hover: #242424;
+  --ff-bg-active: #2a2a2a;
+  --ff-border: #262626;
   align-self: stretch;
   background: var(--ff-dark-ink-bg-1);
 }
@@ -135,8 +135,7 @@
   background: linear-gradient(90deg, rgba(var(--ff-glow-rgb), 0.28), rgba(var(--ff-glow-rgb), 0.05));
 }
 
-/* Dark pop-ups and composer, after Codex: the same near-black as the conversation, set apart by a clear hairline
-   rather than a lighter fill or a green frame. */
+/* Dark pop-ups and composer: one step above the conversation panel, set apart by a hairline rather than a green frame. */
 :root[data-ui-theme="firefly-dark"] { --ff-popover: var(--ff-dark-main-bg); }
 :root[data-ui-theme="firefly-dark"] :is(.ant-popover .ant-popover-inner, .ant-dropdown .ant-dropdown-menu, .ant-select-dropdown) {
   background: var(--ff-dark-main-bg);
