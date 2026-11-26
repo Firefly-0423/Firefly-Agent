@@ -6,7 +6,7 @@ import { within } from "../../../base/identity/runtime-profile";
 import { isAbortError } from "../../../base/utils/abort-utils";
 import { logger, LogTag } from "../../../base/logging/logger";
 import { runWithUsageAttribution } from "../../../base/storage/usage-attribution";
-import { recordRequest, recordUsage } from "../../../base/storage/token-usage-store";
+import { recordPluginCall, recordRequest, recordUsage } from "../../../base/storage/token-usage-store";
 import { resolveModelSettingsProfile, type ModelSettings } from "../../../model/config/model-settings";
 import { createSseReader, getAdapterForConfig } from "../../../model/providers";
 import { vendorConfigFromSettings } from "../../../model/providers/vendor-config";
@@ -644,6 +644,9 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
     subscribe(listener) {
       hostEventListeners.add(listener);
       return () => { hostEventListeners.delete(listener); };
+    },
+    onModelCall(pluginId) {
+      recordPluginCall(pluginId);
     },
     modelLimitPerMinute(pluginId) {
       return stateStore.getModelRateLimit(pluginId);

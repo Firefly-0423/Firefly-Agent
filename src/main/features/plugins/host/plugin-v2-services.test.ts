@@ -67,6 +67,7 @@ vi.mock("../../../platform/permission/permission", () => ({
 vi.mock("../../../base/storage/token-usage-store", () => ({
   recordRequest: vi.fn(),
   recordUsage: vi.fn(),
+  recordPluginCall: vi.fn(),
 }));
 
 import { createPluginV2HostController, mapPluginModelRunOutcome } from "./plugin-v2-services";
