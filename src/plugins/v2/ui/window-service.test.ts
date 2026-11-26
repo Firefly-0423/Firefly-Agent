@@ -200,6 +200,23 @@ describe("plugin v2 UI asset protocol & CSP", () => {
     expect(() => buildPluginWindowUrl("dev.firefly.alpha", "C:\\outside.html")).toThrow(PluginError);
   });
 
+  it.each([
+    { segment: "%2f", why: "an encoded slash" },
+    { segment: "%5c", why: "an encoded backslash" },
+    { segment: "ui%00.html", why: "an encoded NUL" },
+    { segment: "C%3a", why: "a Windows drive prefix" },
+    { segment: "%2e", why: "an encoded current directory" },
+    { segment: "%E0%A4%A", why: "malformed percent-encoding" },
+  ])("refuses a path segment with $why", async ({ segment }) => {
+    const url = `${PLUGIN_UI_SCHEME}://dev.firefly.alpha/ui/${segment}/panel.html`;
+    expect(isAllowedPluginUiUrl(url, "dev.firefly.alpha")).toBe(false);
+  });
+
+  it("decodes a segment only once, so a double-encoded dot stays a literal file name", () => {
+    expect(isAllowedPluginUiUrl(`${PLUGIN_UI_SCHEME}://dev.firefly.alpha/ui/%252e/panel.html`, "dev.firefly.alpha")).toBe(true);
+    expect(isAllowedPluginUiUrl(`${PLUGIN_UI_SCHEME}://dev.firefly.alpha/ui/panel%20one.html`, "dev.firefly.alpha")).toBe(true);
+  });
+
   it("rejects symlinked/junctioned packageRoot or ancestors without opening asset files (D5)", async () => {
     const outsideDir = path.join(tempRoot, "outside-pkg");
     mkdirSync(path.join(outsideDir, "ui"), { recursive: true });
