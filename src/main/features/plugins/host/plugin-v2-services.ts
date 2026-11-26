@@ -1005,6 +1005,29 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
   const formatManifestErrors = (errors: ReadonlyArray<{ message: string }>): string =>
     errors.map((entry) => entry.message).filter(Boolean).join("；") || "插件包校验失败";
 
+  /**
+   * Settings writes (grant/revoke/rate limit) do not take the lifecycle lock, so the user may have changed them while an
+   * upgrade ran. When rolling back to the pre-upgrade record keep those choices: a grant revoked meanwhile stays revoked
+   * (restoreSnapshot then drops its confirmation), and the latest rate limit wins. Grants added meanwhile were for the
+   * new manifest and are not carried back.
+   */
+  const withLatestUserChoices = (snapshot: StoredPluginState): StoredPluginState => {
+    const current = stateStore.get(snapshot.manifest.id);
+    if (!current) return snapshot;
+    const stillGranted = new Set(current.grantedPermissions);
+    // A grant the new manifest no longer declares was dropped by install(), not by the user; only a declared one that is
+    // no longer granted was revoked.
+    const declaredNow = new Set<string>([
+      ...(current.manifest.permissions ?? []),
+      ...(current.manifest.tools ?? []).map((tool) => `tool:${tool.name}`),
+    ]);
+    return {
+      ...snapshot,
+      grantedPermissions: snapshot.grantedPermissions.filter((permission) => stillGranted.has(permission) || !declaredNow.has(permission)),
+      modelRateLimit: current.modelRateLimit,
+    };
+  };
+
   const removeDirIfSafe = async (targetDir: string | undefined, expectedBaseDir: string): Promise<void> => {
     if (!targetDir) return;
     const resolvedTarget = path.resolve(targetDir);
@@ -1355,7 +1378,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
           } catch (error) {
             await imported.rollback().catch(() => {});
             // install() already persisted the new manifest; put the previous record back so state matches the rolled-back files.
-            try { stateStore.restoreSnapshot(existing); } catch { /* Best effort: the original error is reported. */ }
+            try { stateStore.restoreSnapshot(withLatestUserChoices(existing)); } catch { /* Best effort: the original error is reported. */ }
             return {
               ok: false,
               installation: "rejected",
@@ -1410,7 +1433,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
           let stateRollbackError: string | undefined;
           let restoredState: StoredPluginState | undefined;
           try {
-            restoredState = stateStore.restoreSnapshot(existing);
+            restoredState = stateStore.restoreSnapshot(withLatestUserChoices(existing));
           } catch (err) {
             stateRollbackError = err instanceof Error ? err.message : String(err);
           }

@@ -334,6 +334,60 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
     controller.dispose();
   });
 
+  it("keeps a permission revoked and a rate limit changed during an upgrade when the upgrade rolls back", async () => {
+    let releaseV2!: () => void;
+    const v2Held = new Promise<void>((resolve) => { releaseV2 = resolve; });
+    const harness = createFakeHostHarness(async (_mainPath, version) => {
+      if (version !== "2.0.0") return { ok: true };
+      await v2Held;
+      return { ok: false, error: "v2 activation boom" };
+    });
+    const { controller } = makeController(harness);
+    const id = "dev.firefly.revokeduring";
+    const permissions = ["sessions.read", "secrets"];
+    expect((await importConfirmed(controller, await writeArchivePlugin({ id, version: "1.0.0", permissions }))).ok).toBe(true);
+    await controller.enablePlugin(id);
+    expect(controller.stateStore.get(id)!.grantedPermissions).toEqual(expect.arrayContaining(permissions));
+
+    const upgrade = importConfirmed(controller, await writeArchivePlugin({ id, version: "2.0.0", permissions }));
+    await vi.waitFor(() => expect(harness.launched.map((c) => c.version)).toContain("2.0.0"));
+    controller.revokePermission(id, "secrets");
+    controller.setModelRateLimit(id, 7);
+    releaseV2();
+    const res = await upgrade;
+
+    expect(res).toMatchObject({ ok: false, activation: "rolled-back" });
+    const restored = controller.stateStore.get(id)!;
+    expect(restored.version).toBe("1.0.0");
+    expect(restored.grantedPermissions).not.toContain("secrets");
+    expect(restored.grantedPermissions).toContain("sessions.read");
+    expect(restored.modelRateLimit).toBe(7);
+    const disk = JSON.parse(readFileSync(controller.stateStore.filePath, "utf8"));
+    expect(disk.plugins[id].grantedPermissions).not.toContain("secrets");
+    expect(controller.stateStore.hasPermission(id, "secrets")).toBe(false);
+
+    await controller.stopAll("quit");
+    controller.dispose();
+  });
+
+  it("restores a grant the failed new version simply did not declare when the upgrade rolls back", async () => {
+    const harness = createFakeHostHarness((_mainPath, version) => (version === "2.0.0" ? { ok: false, error: "boom" } : { ok: true }));
+    const { controller } = makeController(harness);
+    const id = "dev.firefly.dropdecl";
+    expect((await importConfirmed(controller, await writeArchivePlugin({ id, version: "1.0.0", permissions: ["sessions.read", "secrets"] }))).ok).toBe(true);
+    await controller.enablePlugin(id);
+    expect(controller.stateStore.hasPermission(id, "secrets")).toBe(true);
+
+    const res = await importConfirmed(controller, await writeArchivePlugin({ id, version: "2.0.0", permissions: ["sessions.read"] }));
+
+    expect(res).toMatchObject({ ok: false, activation: "rolled-back" });
+    expect(controller.stateStore.get(id)!.version).toBe("1.0.0");
+    expect(controller.stateStore.hasPermission(id, "secrets")).toBe(true);
+
+    await controller.stopAll("quit");
+    controller.dispose();
+  });
+
   it("fault-injects state write failure during upgrade rollback and marks disabled-fault without restarting old (D2)", async () => {
     const harness = createFakeHostHarness((_mainPath, version) =>
       version === "2.0.0" ? { ok: false, error: "v2 boom" } : { ok: true },
