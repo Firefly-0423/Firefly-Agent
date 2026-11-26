@@ -40,7 +40,7 @@ Please read the [disclaimer](./docs/disclaimer.en.md) before using the app. Chan
 - **Redesigned plugin architecture**: Plugins run in isolated child processes with local folder/package import, explicit enable trust prompts, per-permission revocation, model rate limits, and sandboxed plugin windows. Legacy 0.x plugins are no longer supported.
 - **Schedule proposal review**: Plugin-proposed tasks land in a pending confirmation area where you approve or reject them, with time-zone-aware cron schedules and one-click "Run now" when eligible.
 - **Resilient task execution**: Work and Code runs keep finishing if you switch chats or refresh, support mid-run "Send Now" supplements, and let you answer approvals right from reminder toasts.
-- **Focused permission tiers**: Simplified to three file access levels (read-only, ask for approval, and full access), with confirmed full-document reading for Office and PDF attachments in Code mode.
+- **Focused permission tiers**: Simplified to three file access levels (read-only, ask for approval, and full access).
 
 For detailed release notes, see [GitHub Releases](https://github.com/Firefly-0423/Firefly-Agent/releases) or `CHANGELOG.md` on the release branch.
 
