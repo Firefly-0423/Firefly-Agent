@@ -13,10 +13,10 @@ html {
   padding: 14px;
   height: 100vh;
   box-sizing: border-box;
-  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  box-shadow: 0 22px 60px var(--ff-black-alpha-32), inset 0 1px 0 var(--ff-white-alpha-10);
   border-radius: 12px;
   border: 1px solid var(--rb-border-soft);
-  background: radial-gradient(circle at 12% 0%, rgba(123, 216, 174, 0.14), transparent 38%), linear-gradient(145deg, rgba(29, 48, 42, 0.96), rgba(21, 36, 32, 0.95));
+  background: radial-gradient(circle at 12% 0%, var(--ff-mint-soft-14), transparent 38%), linear-gradient(145deg, var(--ff-palette-1d302a-96), var(--ff-palette-152420-95));
 }
 
 .sticker-titlebar {
@@ -46,17 +46,17 @@ html {
   color: var(--rb-text-strong);
   border-radius: 999px;
   border: 1px solid var(--rb-border-soft);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--ff-white-alpha-8);
 }
 
 .win-btn:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--ff-white-alpha-14);
 }
 
 .win-btn--close:hover {
-  color: #ffffff;
+  color: var(--ff-white);
   border-color: transparent;
-  background: #c42b1c;
+  background: var(--ff-win-close-hover);
 }
 
 .sticker-grid {
@@ -148,10 +148,10 @@ html {
   place-items: center;
   overflow: hidden;
   display: grid;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 1px 0 var(--ff-white-alpha-7);
   border-radius: 12px;
   border: 1px solid var(--rb-border-soft);
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--ff-white-alpha-6);
   aspect-ratio: 1;
 }
 
@@ -190,7 +190,7 @@ html {
   transition: background 160ms ease;
   position: absolute;
   inset: 0;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 1px 4px var(--ff-black-alpha-18);
   border-radius: 12px;
   border: 1px solid transparent;
   background: var(--rb-toggle-off);
@@ -203,9 +203,9 @@ html {
   top: 3px;
   left: 3px;
   height: 14px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 1px 3px var(--ff-black-alpha-28);
   border-radius: 999px;
-  background: #ffffff;
+  background: var(--ff-white);
 }
 
 .mini-switch input:checked + .mini-switch__track {
@@ -214,5 +214,5 @@ html {
 
 .mini-switch input:checked + .mini-switch__track .mini-switch__thumb {
   transform: translateX(16px);
-  background: #ffffff;
+  background: var(--ff-white);
 }

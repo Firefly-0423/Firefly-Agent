@@ -10,7 +10,7 @@
   opacity: 0.55;
   pointer-events: none;
   /* Soften the top and bottom so the rain fades in and out instead of being cut by the header and composer. */
-  mask-image: linear-gradient(to bottom, transparent 0, #000 14%, #000 78%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, var(--ff-black) 14%, var(--ff-black) 78%, transparent 100%);
 }
 
 :root[data-ui-theme="firefly-dark"] .ff-code-rain { opacity: 0.45; }

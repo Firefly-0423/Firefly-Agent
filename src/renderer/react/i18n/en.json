@@ -802,6 +802,17 @@
     "openFailed": "Open failed: {{error}}",
     "openRequiresRunning": "Enable the plugin first",
     "openUnsupported": "This plugin doesn't provide an interface to open",
+    "permissionLabels": {
+      "events": "Subscribe to app events",
+      "model.generate": "Generate model text",
+      "model.run": "Run model agent turns",
+      "notifications": "Desktop notifications",
+      "schedules": "Scheduled tasks",
+      "secrets": "Plugin secrets storage",
+      "sessions.read": "Read sessions",
+      "ui.windows": "Open plugin windows",
+      "workspace.read": "Read workspace files"
+    },
     "refresh": "Refresh plugins",
     "refreshFailed": "Refresh failed: {{error}}",
     "registryLink": "Local folder or .ffplugin / .zip import is available; open the marketplace to browse its catalog.",

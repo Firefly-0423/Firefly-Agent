@@ -4,7 +4,11 @@ export interface RpcTransport {
   post(frame: Frame): void
   onFrame(callback: (frame: unknown) => void): () => void
 }
-export interface RpcOptions { signal?: AbortSignal; timeoutMs?: number }
+export interface RpcOptions {
+  signal?: AbortSignal; timeoutMs?: number
+  /** Trusted local observer, called after transport.post succeeds; never included in a frame. */
+  onPosted?: () => void
+}
 type Handler = (params: unknown, context: { signal: AbortSignal }) => unknown
 export interface PluginRpc {
   call<T = unknown>(method: string, params: unknown, options?: RpcOptions): Promise<T>
@@ -61,6 +65,7 @@ export function createRpcEndpoint(transport: RpcTransport): PluginRpc {
       fail: error => fail(error, false),
     })
     if (!send(frame)) fail(unavailable(), false)
+    else { try { options.onPosted?.() } catch { /* Observer failures cannot change request delivery. */ } }
     return abort
   }
 

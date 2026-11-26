@@ -26,7 +26,7 @@ class Child extends EventEmitter {
     const port = ports[0];
     port.on("message", ({ data }) => {
       this.frames.push(data);
-      if (data.type === "req" && this.respond && (data.method === "activate" || data.method === "deactivate")) {
+      if (data.type === "req" && this.respond && (data.method === "activate" || data.method === "deactivate" || data.method === "channel.stop")) {
         port.postMessage({ type: "res", id: data.id, ok: true, value: null });
       }
     });
@@ -68,6 +68,24 @@ function setup(failChannel = false, forceKill = vi.fn(), configureRpc?: () => ((
 }
 afterEach(() => { vi.useRealTimers(); });
 describe("plugin host", () => {
+  it("keeps a pre-aborted channel send cancelled when the process concurrently exits before posting", async () => {
+    vi.useFakeTimers(); const { manager, children } = setup(); await manager.start("p");
+    const controller = new AbortController(); controller.abort(); const onPosted = vi.fn();
+    const sent = manager.call("p", "channel.send", {}, { signal: controller.signal, onPosted });
+    children[0].emit("exit", 1);
+    await expect(sent).rejects.toMatchObject({ code: "ERR_CANCELLED" });
+    expect(onPosted).not.toHaveBeenCalled();
+    expect(children[0].frames.filter(frame => frame.method === "channel.send")).toEqual([]);
+    await manager.stop("p");
+  });
+  it("marks a dispatched channel send unknown when disable closes its port without a result", async () => {
+    const { manager, children } = setup(); await manager.start("p");
+    const sent = manager.call("p", "channel.send", { id: "inbox", message: { chat: { type: "private", id: "u" }, text: "hello" } });
+    await Promise.resolve(); await manager.stop("p");
+    await expect(sent).resolves.toEqual({ status: "unknown", reason: "Plugin process stopped during channel send" });
+    expect(children[0].frames.filter(frame => frame.method === "channel.send")).toHaveLength(1);
+    expect(manager.status("p")).toBe("disabled");
+  });
   it("disposes service registrations exactly once on stop and crash before restarting", async () => {
     vi.useFakeTimers();
     const cleanup = vi.fn(); const configure = vi.fn(() => cleanup);
@@ -79,6 +97,27 @@ describe("plugin host", () => {
     await vi.advanceTimersByTimeAsync(1000);
     expect(configure).toHaveBeenCalledTimes(3);
     await manager.stop("p"); expect(cleanup).toHaveBeenCalledTimes(3);
+  });
+  it("marks interrupted channel send unknown without replay after process restart", async () => {
+    vi.useFakeTimers();
+    const { manager, children } = setup(); await manager.start("p");
+    const sent = manager.call("p", "channel.send", { id: "inbox", message: { chat: { type: "private", id: "u" }, text: "hello" } });
+    await Promise.resolve(); children[0].emit("exit", 1);
+    await expect(sent).resolves.toEqual({ status: "unknown", reason: "Plugin process exited during channel send" });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(children.flatMap(child => child.frames).filter(frame => frame.method === "channel.send")).toHaveLength(1);
+    await manager.stop("p");
+  });
+  it("runs channel stop hooks before deactivation while RPC is alive", async () => {
+    const { manager, children } = setup(); const hook = vi.fn(async (_id, rpc) => {
+      expect(manager.status("p")).toBe("stopping");
+      await rpc.call("channel.stop", { id: "inbox" }, { timeoutMs: 50 });
+    });
+    const off = manager.onBeforeStop(hook);
+    await manager.start("p"); await manager.stop("p");
+    expect(hook).toHaveBeenCalledTimes(1);
+    expect(children[0].frames.filter(frame => frame.type === "req").map(frame => frame.method)).toEqual(["activate", "channel.stop", "deactivate"]);
+    off();
   });
   it("kills the child if setting up its message channel fails", async () => {
     const { manager, children } = setup(true);

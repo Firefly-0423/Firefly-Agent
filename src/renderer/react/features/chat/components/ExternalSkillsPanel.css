@@ -31,7 +31,7 @@
 .external-skills__inventory li { margin: 12px 0; }
 .external-skills__inventory li p { margin: 4px 0; }
 .external-skills p, .external-skills dd, .external-skills li, .external-skills button { overflow-wrap: anywhere; }
-.external-skills__overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(0, 0, 0, .35); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.external-skills__overlay { position: fixed; inset: 0; z-index: 1000; background: var(--ff-black-alpha-35); display: flex; align-items: center; justify-content: center; padding: 20px; }
 .external-skills__dialog { box-sizing: border-box; width: min(720px, 100%); max-height: 90vh; overflow-y: auto; background: var(--ff-bg-workspace, var(--ff-surface)); padding: 24px; border-radius: 16px; }
 .external-skills__dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; position: sticky; bottom: -24px; background: var(--ff-bg-workspace, var(--ff-surface)); padding: 12px 0; }
 @media (max-width: 640px) { .external-skills { padding: 12px 16px 24px; } .external-skills__toolbar { gap: 8px; } .external-skills__toolbar input { flex-basis: 100%; order: 1; } .external-skills__inventory dl { grid-template-columns: 1fr; } .external-skills__inventory dt { font-weight: 600; } .external-skills__state { margin: 20px 0; } }

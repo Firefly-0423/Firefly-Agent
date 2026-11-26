@@ -60,6 +60,20 @@ const isActiveStatus = (status: PluginRuntimeStatus) => status === "running" || 
 const isTransitioningStatus = (status: PluginRuntimeStatus) =>
   status === "starting" || status === "stopping" || status === "restarting";
 
+export function permissionLabel(permission: string, t: Translate): string {
+  if (!permission.includes(".")) {
+    const key = `pluginPanel.permissionLabels.${permission}`;
+    const resolved = t(key, { defaultValue: permission });
+    return resolved && resolved !== key ? resolved : permission;
+  }
+  const labels = t("pluginPanel.permissionLabels", { returnObjects: true }) as unknown;
+  if (labels && typeof labels === "object" && !Array.isArray(labels)) {
+    const value = (labels as Record<string, unknown>)[permission];
+    if (typeof value === "string" && value.trim()) return value;
+  }
+  return permission;
+}
+
 function marketSourceLabel(url: string, t: (key: string) => string): string {
   if (url === "bundled:registry") { return t("pluginPanel.market.sourceBundled"); }
   try {
@@ -89,8 +103,8 @@ export function resolveMarketAction(entry: MarketPluginEntry, installed: PluginL
 
 function marketConfirmation(candidate: MarketPluginEntry, local: PluginListEntry | undefined, kind: "install" | "replace" | "update", label: string, t: Translate) {
   const declaredCaps = [
-    ...(candidate.capabilities ?? []),
-    ...(candidate.permissions ?? []),
+    ...(candidate.capabilities ?? []).map(cap => permissionLabel(cap, t)),
+    ...(candidate.permissions ?? []).map(perm => permissionLabel(perm, t)),
   ];
   const lines = [
     t("pluginPanel.market.installConfirm", { action: label, name: candidate.name, version: candidate.version }),
@@ -367,7 +381,15 @@ function usePluginController(api: PluginManagementApi | undefined, t: Translate,
 
   const matchingMarket = marketCatalogue.plugins.filter(entry => {
     const keyword = marketQuery.trim().toLowerCase();
-    return [entry.id, entry.name, entry.description, entry.author, ...(entry.capabilities ?? []), ...(entry.permissions ?? [])]
+    return [
+      entry.id,
+      entry.name,
+      entry.description,
+      entry.author,
+      ...(entry.capabilities ?? []),
+      ...(entry.permissions ?? []),
+      ...(entry.permissions ?? []).map(perm => permissionLabel(perm, t)),
+    ]
       .some(value => value.toLowerCase().includes(keyword));
   });
   const changeView = (next: PanelView) => {
@@ -486,13 +508,17 @@ function MarketCard({ entry, state, t }: { entry: MarketPluginEntry; state: Cont
       ? t("pluginPanel.market.sdkVersion", { sdk: entry.sdk })
       : t("pluginPanel.market.apiVersion", { version: entry.pluginApiVersion ?? t("pluginPanel.market.notDeclared") }),
     entry.permissions?.length
-      ? t("pluginPanel.market.permissions", { permissions: entry.permissions.join(", ") })
+      ? t("pluginPanel.market.permissions", { permissions: entry.permissions.map(perm => permissionLabel(perm, t)).join(", ") })
       : "",
     entry.tools?.length
       ? t("pluginPanel.market.tools", { tools: entry.tools.map(tool => `${tool.title} (${tool.name})`).join(", ") })
       : "",
     entry.license ? t("pluginPanel.market.license", { license: entry.license }) : "",
-    t("pluginPanel.market.capabilities", { capabilities: entry.capabilities?.join(", ") || entry.permissions?.join(", ") || t("pluginPanel.market.capabilitiesUnknown") }),
+    t("pluginPanel.market.capabilities", {
+      capabilities: entry.capabilities?.map(cap => permissionLabel(cap, t)).join(", ")
+        || entry.permissions?.map(perm => permissionLabel(perm, t)).join(", ")
+        || t("pluginPanel.market.capabilitiesUnknown"),
+    }),
     t("pluginPanel.market.executionWarning"),
   ].filter(Boolean);
   return <article className="plugin-card-ui">
@@ -551,7 +577,7 @@ function EnableConfirmDialog({ plugin, onConfirm, onCancel, t }: {
         <div className="plugin-panel__modal-section">
           <h4 className="plugin-panel__modal-section-title">{t("pluginPanel.enableConfirm.permissions")}</h4>
           {permissions.length > 0 ? <ul className="plugin-panel__modal-list">
-            {permissions.map(perm => <li key={perm}>{perm}</li>)}
+            {permissions.map(perm => <li key={perm}>{permissionLabel(perm, t)}</li>)}
           </ul> : <p className="plugin-panel__modal-meta">{t("pluginPanel.enableConfirm.noneDeclared")}</p>}
         </div>
         <div className="plugin-panel__modal-actions">
@@ -658,7 +684,7 @@ function PluginSettingsDialog({ plugin, state, onClose, t }: {
                 disabled={saving}
                 onChange={e => void togglePermission(perm, e.target.checked)}
               />
-              <span>{perm}</span>
+              <span>{permissionLabel(perm, t)}</span>
             </label>
           )) : <p className="plugin-panel__modal-meta">{t("pluginPanel.settings.noPermissions")}</p>}
         </div>

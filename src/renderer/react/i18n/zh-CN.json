@@ -802,6 +802,17 @@
     "openFailed": "打开失败：{{error}}",
     "openRequiresRunning": "请先启用插件",
     "openUnsupported": "此插件未提供可打开的界面",
+    "permissionLabels": {
+      "events": "订阅应用事件",
+      "model.generate": "调用模型生成",
+      "model.run": "运行模型对话",
+      "notifications": "桌面通知",
+      "schedules": "定时任务",
+      "secrets": "插件凭据存储",
+      "sessions.read": "读取会话记录",
+      "ui.windows": "打开插件窗口",
+      "workspace.read": "读取工作区文件"
+    },
     "refresh": "刷新插件",
     "refreshFailed": "刷新失败：{{error}}",
     "registryLink": "支持本地文件夹或 .ffplugin / .zip 导入，也可打开插件市场浏览目录。",
