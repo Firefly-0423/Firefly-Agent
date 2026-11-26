@@ -1236,7 +1236,10 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
       faultedIds.delete(manifest.id);
       suppressingFaultSync.delete(manifest.id);
 
-      await imported.commit();
+      // The new instance is running on the swapped files; removing the backup is cleanup, so a failure must not report the upgrade as failed.
+      await imported.commit().catch((err: unknown) => {
+        logger.warn(LogTag.Plugins, `Failed to remove the upgrade backup for ${manifest.id}`, err);
+      });
       if (oldInstallDir !== path.resolve(installDir)) {
         await removeDirIfSafe(oldInstallDir, path.join(pluginsRoot, manifest.id)).catch(() => {});
       }

@@ -594,6 +594,37 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
     controller.dispose();
   });
 
+  it("reports an enabled same-version overwrite as committed and keeps the new instance when only backup removal fails", async () => {
+    let failCommit = false;
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const { controller } = makeController(harness, undefined, {
+      packageFs: {
+        async rm(target, options) {
+          if (failCommit && path.basename(String(target)).startsWith(".backup-")) {
+            throw new Error("EPERM removing backup");
+          }
+          return fsPromises.rm(target, options);
+        },
+      },
+    });
+    const id = "dev.firefly.activecommitfail";
+    await controller.importFromPath(await writeArchivePlugin({ id, version: "1.0.0", name: "First Name", mainCode: "export default { build: 'first' };\n" }));
+    await controller.enablePlugin(id);
+
+    failCommit = true;
+    const res = await controller.importFromPath(await writeArchivePlugin({ id, version: "1.0.0", name: "Second Name", mainCode: "export default { build: 'second' };\n" }));
+
+    expect(res).toMatchObject({ ok: true, installation: "committed", activation: "running" });
+    expect(controller.status(id)).toBe("enabled");
+    expect(controller.stateStore.get(id)?.manifest.name).toBe("Second Name");
+    expect(controller.stateStore.isEnabled(id)).toBe(true);
+    const installed = path.join(dataRoot, "plugins", id, "1.0.0", "index.mjs");
+    expect(readFileSync(installed, "utf8")).toContain("second");
+
+    await controller.stopAll("quit");
+    controller.dispose();
+  });
+
   it("rejects a marketplace import whose real manifest declares native: true and leaves no files or state", async () => {
     const harness = createFakeHostHarness(() => ({ ok: true }));
     const { controller } = makeController(harness);
