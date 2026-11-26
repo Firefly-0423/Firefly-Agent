@@ -182,6 +182,7 @@ async function writeArchivePlugin(opts: {
   permissions?: string[];
   ext?: ".ffplugin" | ".zip";
   mainCode?: string;
+  native?: boolean;
 }) {
   const zip = new JSZip();
   zip.file("firefly.plugin.json", JSON.stringify({
@@ -193,6 +194,7 @@ async function writeArchivePlugin(opts: {
     main: "index.mjs",
     permissions: opts.permissions ?? ["secrets", "schedules"],
     tools: [{ name: "ping", title: "Ping", risk: ["network"], modes: ["work"] }],
+    ...(opts.native ? { native: true } : {}),
   }));
   zip.file("index.mjs", opts.mainCode ?? "export default { activate() {} };\n");
   const filePath = path.join(root, `${opts.id}-${opts.version}${opts.ext ?? ".ffplugin"}`);
@@ -481,6 +483,29 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
     const installed = path.join(dataRoot, "plugins", "dev.firefly.commitfail", "1.0.0", "index.mjs");
     expect(readFileSync(installed, "utf8")).toContain("first");
     expect(harness.launched).toHaveLength(0);
+
+    controller.dispose();
+  });
+
+  it("rejects a marketplace import whose real manifest declares native: true and leaves no files or state", async () => {
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const { controller } = makeController(harness);
+    const nativePkg = await writeArchivePlugin({ id: "dev.firefly.nativemarket", version: "1.0.0", native: true });
+
+    const res = await controller.importFromPath(nativePkg, { origin: "market" });
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.installation).toBe("rejected");
+      expect(res.error).toContain("原生");
+    }
+    expect(controller.stateStore.get("dev.firefly.nativemarket")).toBeUndefined();
+    expect(existsSync(controller.stateStore.filePath)).toBe(false);
+    expect(existsSync(path.join(dataRoot, "plugins", "dev.firefly.nativemarket", "1.0.0"))).toBe(false);
+    expect(harness.launched).toHaveLength(0);
+
+    const local = await controller.importFromPath(nativePkg, { origin: "local" });
+    expect(local.ok).toBe(true);
 
     controller.dispose();
   });

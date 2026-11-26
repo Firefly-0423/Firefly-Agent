@@ -1025,6 +1025,15 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
       }
 
       const origin: PluginOrigin = opts.origin ?? "local";
+      // The catalog entry's `native` flag is only metadata; the package's own manifest is authoritative.
+      if (origin === "market" && manifest.native === true) {
+        await imported.rollback().catch(() => {});
+        return {
+          ok: false,
+          installation: "rejected",
+          error: "插件市场不允许安装包含原生组件（native: true）的插件包",
+        };
+      }
       const sourceKind: PluginSourceKind = opts.sourceKind ?? imported.sourceKind;
       const sourceId = opts.sourceId;
       const existing = stateStore.get(manifest.id);
