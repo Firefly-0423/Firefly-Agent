@@ -370,7 +370,14 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
   function collectTaskRisks(task: ScheduledTask, meta?: PluginTaskMetadata): ToolRisk[] {
     const merged = new Set<ToolRisk>(meta?.requiredRisks ?? []);
     if (options.resolveTaskRisks) {
-      for (const risk of options.resolveTaskRisks(task)) {
+      let resolved: ToolRisk[];
+      try {
+        resolved = options.resolveTaskRisks(task);
+      } catch {
+        // Fail closed: if the effective risks cannot be determined, treat the run as privileged.
+        resolved = ["shell"];
+      }
+      for (const risk of resolved) {
         merged.add(risk);
       }
     }

@@ -15,6 +15,7 @@ import type { LlmClient } from "../../../agent/services/llm/llm-client";
 import { FireflyAgent } from "../../../agent/runtime/firefly-agent";
 import type { BuildOptionsFn } from "../../../agent/runtime/run-input-types";
 import { cancelPendingApprovalsForRun } from "../../../platform/permission/permission";
+import { createPluginTaskRiskResolver } from "./plugin-task-risks";
 import type { ToolRegistry } from "../../../tooling/registry/tool-registry";
 import type { ChatSession, ChatSessionMeta, ConversationMode } from "../../../../shared/chat-types";
 import type { PluginManifestV1, PluginRunSource } from "../../../../shared/plugin-manifest";
@@ -254,6 +255,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
   const scheduleService: PluginScheduleService = createPluginScheduleService({
     store: deps.schedulerStore,
     stateFile: deps.scheduleStateFile ?? path.join(deps.dataRoot, "plugin-schedules-state.json"),
+    resolveTaskRisks: createPluginTaskRiskResolver(deps.toolRegistry),
     ...(deps.runAgentTask ? { runAgentTask: deps.runAgentTask } : {}),
     ...(deps.onScheduleStateChanged ? { onStateChanged: deps.onScheduleStateChanged } : {}),
   });
