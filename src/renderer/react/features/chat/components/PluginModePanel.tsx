@@ -635,7 +635,11 @@ function PluginSettingsDialog({ plugin, state, onClose, t }: {
   }, [plugin.id, plugin.modelRateLimit]);
 
   const granted = new Set(plugin.grantedPermissions ?? []);
-  const permissions = Array.from(new Set([...(plugin.permissions ?? []), ...granted]));
+  const permissions = Array.from(new Set([
+    ...(plugin.permissions ?? []),
+    ...(plugin.tools ?? []).map(tool => `tool:${tool.name}`),
+    ...granted,
+  ]));
 
   const togglePermission = async (permission: string, nextGranted: boolean) => {
     setDialogError(null);

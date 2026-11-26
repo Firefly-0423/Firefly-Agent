@@ -568,6 +568,33 @@ test("displays localized permission labels in settings modal and revokes notific
   expect(api.setPermission).toHaveBeenCalledExactlyOnceWith("archive-toolkit", "notifications", false);
 });
 
+test("settings modal lists a checkbox for every declared tool, checked only when granted, and revokes by the tool key", async () => {
+  const tool = (name: string) => ({ name, title: name, risk: ["network"], modes: ["work"] });
+  const initial = installed({
+    permissions: ["notifications", "tool:ping"],
+    grantedPermissions: ["notifications", "tool:ping"],
+    tools: [tool("ping"), tool("fetch"), tool("search")],
+  });
+  const api = service([initial]);
+
+  await mount(api);
+  await click(actionButtons().find(b => b.textContent?.includes("设置"))!);
+
+  const dialog = host.querySelector('[role="dialog"]')!;
+  const rows = Array.from(dialog.querySelectorAll<HTMLLabelElement>(".plugin-panel__perm-row"));
+  const state = rows.map(row => [row.textContent, row.querySelector<HTMLInputElement>('input[type="checkbox"]')!.checked]);
+  expect(state).toEqual([
+    ["桌面通知", true],
+    ["ping", true],
+    ["fetch", false],
+    ["search", false],
+  ]);
+
+  const fetchBox = rows[2].querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+  await React.act(async () => { fetchBox.click(); });
+  expect(api.setPermission).toHaveBeenCalledExactlyOnceWith("archive-toolkit", "tool:fetch", true);
+});
+
 test("displays localized permission labels in marketplace details and install confirmation", async () => {
   const api = service();
   vi.mocked(api.marketList).mockResolvedValue({
