@@ -75,6 +75,29 @@ describe("plugin-v2 redaction", () => {
     expect(output).not.toContain(leaked);
   });
 
+  describe("when the workspace sits under a protected root such as the home directory", () => {
+    const home = path.join("C:", "Users", "alice");
+    const nestedWorkspace = path.join(home, "project");
+    const homeSource = { ...source, protectedRoots: [home] };
+    const inside = path.join(nestedWorkspace, "src", "main.ts");
+    const foreign = path.join(home, "secret.env");
+    const text = `file=${inside} other=${foreign} done`;
+    const expected = `file=${inside} other=[REDACTED_PATH] done`;
+
+    it("keeps workspace paths and redacts the rest in full text", () => {
+      expect(redactPluginText(text, { workspaceRoot: nestedWorkspace }, homeSource)).toBe(expected);
+    });
+
+    it.each([
+      ["one chunk", [text]],
+      ["split inside the workspace path", [text.slice(0, 12), text.slice(12)]],
+      ["split inside the foreign path", [text.slice(0, text.indexOf("secret")), text.slice(text.indexOf("secret"))]],
+    ])("keeps workspace paths and redacts the rest in a stream (%s)", (_label, chunks) => {
+      const redactor = createPluginStreamRedactor({ workspaceRoot: nestedWorkspace }, homeSource);
+      expect(chunks.map((chunk) => redactor.push(chunk)).join("") + redactor.finish()).toBe(expected);
+    });
+  });
+
   it("flushes safe buffered tail on finish() only", () => {
     const redactor = createPluginStreamRedactor({ workspaceRoot }, source);
     expect(redactor.push("note C")).toBe("note ");

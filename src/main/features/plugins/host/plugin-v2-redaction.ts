@@ -99,6 +99,22 @@ function redactForeignPathMatch(candidate: string, workspaceRoot: string | null)
   return isInsideWorkspace(candidate, workspaceRoot) ? candidate : "[REDACTED_PATH]";
 }
 
+/**
+ * Redacts each whole path that starts with `root`, judged by the full path: a protected root such as
+ * the home directory can be an ancestor of the workspace, and paths inside the workspace must survive.
+ */
+function redactProtectedRootPaths(text: string, root: string, workspaceRoot: string | null): string {
+  let out = "";
+  let from = 0;
+  for (let at = text.indexOf(root); at !== -1; at = text.indexOf(root, from)) {
+    let end = at + root.length;
+    while (end < text.length && !TRAILING_PATH_DELIMITERS.test(text[end])) end++;
+    out += text.slice(from, at) + redactForeignPathMatch(text.slice(at, end), workspaceRoot);
+    from = end;
+  }
+  return out + text.slice(from);
+}
+
 /** Redacts real host secrets and filesystem paths outside `context.workspaceRoot`. */
 export function redactPluginText(
   text: string,
@@ -122,7 +138,7 @@ export function redactPluginText(
   for (const root of protectedRoots) {
     if (!result.includes(root)) continue;
     if (isInsideWorkspace(root, context.workspaceRoot)) continue;
-    result = result.split(root).join("[REDACTED_PATH]");
+    result = redactProtectedRootPaths(result, root, context.workspaceRoot);
   }
 
   result = result.replace(UNC_PATH_REGEX, (match) => redactForeignPathMatch(match, context.workspaceRoot));
