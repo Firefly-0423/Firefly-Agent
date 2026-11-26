@@ -41,27 +41,21 @@ export const STRICT_PLUGIN_UI_CSP = [
 
 const PLUGIN_ID_PATTERN = /^[a-z0-9]+(\.[a-z0-9-]+){2,}$/;
 
-const MIME_BY_EXTENSION: Record<string, string> = {
-  ".html": "text/html; charset=utf-8",
-  ".htm": "text/html; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".mjs": "text/javascript; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".gif": "image/gif",
-  ".webp": "image/webp",
-  ".svg": "image/svg+xml",
-  ".ico": "image/x-icon",
-  ".woff": "font/woff",
-  ".woff2": "font/woff2",
-  ".ttf": "font/ttf",
-  ".otf": "font/otf",
-  ".txt": "text/plain; charset=utf-8",
+const UTF8 = "; charset=utf-8";
+
+/** Only these extensions are served; anything else answers 404 so a package cannot expose arbitrary files. */
+const MIME_BY_EXTENSION: Readonly<Record<string, string>> = Object.freeze({
+  // Pages, scripts and data, always declared as UTF-8.
+  ".html": `text/html${UTF8}`, ".htm": `text/html${UTF8}`,
+  ".js": `text/javascript${UTF8}`, ".mjs": `text/javascript${UTF8}`,
+  ".css": `text/css${UTF8}`, ".json": `application/json${UTF8}`, ".txt": `text/plain${UTF8}`,
+  // Images.
+  ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif",
+  ".webp": "image/webp", ".svg": "image/svg+xml", ".ico": "image/x-icon",
+  // Fonts and WebAssembly.
+  ".woff": "font/woff", ".woff2": "font/woff2", ".ttf": "font/ttf", ".otf": "font/otf",
   ".wasm": "application/wasm",
-};
+});
 
 export type PluginUiAssetResponse =
   | { status: 200; contentType: string; headers: Record<string, string>; body: Buffer }
@@ -81,25 +75,27 @@ function isInsideRoot(root: string, target: string): boolean {
   return relative !== "" && !escapesRoot(relative);
 }
 
-function safePathSegment(encoded: string): string | null {
-  let decoded: string;
+/** Names that would point at the current or parent directory instead of a file inside the package. */
+const DIRECTORY_NAMES = new Set(["", ".", ".."]);
+/** A separator or NUL left over after decoding, or a Windows drive prefix, would leave the segment. */
+const SEGMENT_ESCAPE = /[\\/\0]|^[a-zA-Z]:/;
+
+function decodeOnce(value: string): string | null {
   try {
-    decoded = decodeURIComponent(encoded);
+    return decodeURIComponent(value);
   } catch {
     return null;
   }
-  if (
-    decoded === ""
-    || decoded === "."
-    || decoded === ".."
-    || decoded.includes("/")
-    || decoded.includes("\\")
-    || decoded.includes("\0")
-    || /^[a-zA-Z]:/.test(decoded)
-  ) {
-    return null;
-  }
-  return decoded;
+}
+
+/**
+ * Decodes one URL path segment exactly once (so `%252e` stays a literal `%2e` name) and returns null for anything that
+ * is not a plain file or folder name.
+ */
+function safePathSegment(encoded: string): string | null {
+  const name = decodeOnce(encoded);
+  if (name === null || DIRECTORY_NAMES.has(name) || SEGMENT_ESCAPE.test(name)) return null;
+  return name;
 }
 
 function hasRawPathEscape(rawUrl: string): boolean {

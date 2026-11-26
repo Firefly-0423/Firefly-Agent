@@ -50,6 +50,10 @@ Firefly maintains the review/delegation adaptation, four reference briefs and th
 
 The 29 current Firefly stickers were supplied by the repository owner for this resource update. This source record does not claim original authorship or transfer the underlying artwork/IP rights; the applicable asset permissions remain separate from the source-code MIT license.
 
+## Code in earlier releases adapted from an MIT-licensed project
+
+Firefly releases up to and including 1.1.x, and the repository history that holds them, contain code adapted from another desktop-agent project released under the MIT License, `Copyright (c) 2026 Playa`. That code is used under the MIT License, whose permission notice is the same text as this repository's [LICENSE](LICENSE). For 1.2.0 the adapted parts were rewritten; a line-by-line comparison of the 1.2.0 tree against that project finds no remaining shared code beyond standard license text, generic CI setup steps, the Live2D model data format and third-party assets credited elsewhere in this file. The notice is kept for the earlier releases and history.
+
 ## Historical design research sources
 
 Retired design notes identified BiliNote (`https://github.com/JefferyHcool/BiliNote`, recorded there as MIT), moesnow/March7thAssistant (recorded there as GPL-3.0), and SnowLuma as external research or integration references. Removing those obsolete plans does not claim authorship of these projects or grant redistribution rights. The original GameBot research boundary prohibited copying March7thAssistant code, templates, images, configuration and artwork. The SnowLuma proposal did not include its binary and left its distribution license for separate verification. No such implementation or binary is added by this documentation cleanup. These are provenance records, not a new license audit or a claim that a proposed integration is available.
