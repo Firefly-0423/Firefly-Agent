@@ -6,7 +6,7 @@ import { within } from "../../../base/identity/runtime-profile";
 import { isAbortError } from "../../../base/utils/abort-utils";
 import { logger, LogTag } from "../../../base/logging/logger";
 import { runWithUsageAttribution } from "../../../base/storage/usage-attribution";
-import { recordRequest, recordUsage } from "../../../base/storage/token-usage-store";
+import { recordPluginCall, recordRequest, recordUsage } from "../../../base/storage/token-usage-store";
 import { resolveModelSettingsProfile, type ModelSettings } from "../../../model/config/model-settings";
 import { createSseReader, getAdapterForConfig } from "../../../model/providers";
 import { vendorConfigFromSettings } from "../../../model/providers/vendor-config";
@@ -22,7 +22,9 @@ import {
   PluginError,
   type ProtocolHostEvent,
   type ProtocolRunEvent,
+  type ProtocolToolResult,
 } from "../../../../shared/plugin-protocol";
+import type { ToolCallOutcome } from "../../../../shared/tool-call-outcome";
 import type { PluginRpc } from "../../../../shared/plugin-rpc";
 import { createPluginContextService, type PluginContextService } from "../../../../plugins/v2/context";
 import {
@@ -168,6 +170,14 @@ function raceWithSignal<T>(promise: Promise<T>, signal: AbortSignal): Promise<T>
     );
   });
 }
+
+/** The agent loop's tool outcome → the plugin protocol's four tool states. */
+const PLUGIN_TOOL_STATUS = {
+  success: "succeeded",
+  failure: "failed",
+  unknown: "unknown",
+  not_executed: "not_executed",
+} as const satisfies Record<ToolCallOutcome, ProtocolToolResult["status"]>;
 
 export function mapPluginModelRunOutcome(status: string | undefined): "completed" | "cancelled" | "failed" {
   if (status === "success") return "completed";
@@ -402,6 +412,10 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
           if (step.done) break;
           const delta = protocol.parseStreamEvent(step.value);
           if (!delta) continue;
+          if (delta.error) {
+            // The provider failed after HTTP 200. Its message can carry upstream details, so it never reaches the plugin.
+            throw new PluginError("ERR_UNAVAILABLE", "Model provider reported an error mid-stream", true);
+          }
           if (delta.deltaText) {
             const visible = visibility.push(delta.deltaText);
             if (visible) yield { delta: visible };
@@ -470,7 +484,16 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
         ...buildable,
         runId,
         signal,
+        // buildRunOptions does not set the conversation mode (the desktop bridge and scheduler add it themselves);
+        // without it partner delegation and the code-mode plan path never switch on.
+        conversationMode: request.mode,
+        executionMode: request.mode === "chat" ? "chat" as const : "work" as const,
+        // The run keeps the real session id, so attribute usage to the plugin explicitly.
+        usagePluginId: request.pluginId,
         interactiveTools: false,
+        // Plugin runs are not registered with the desktop run bridge, so no one could answer an approval card:
+        // actions that need approval are refused at once instead of waiting until cancel or timeout.
+        approvals: "refuse" as const,
         allowDelegation: request.allowPartners === true,
         ...(request.allowPartners ? {} : {
           tools: (built.options.tools ?? []).filter((tool) => tool.id !== "delegate_agent"),
@@ -496,7 +519,17 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
         };
         signal.addEventListener("abort", onAbort, { once: true });
 
-        sub = agent.runWithEvents(runOptions).subscribe({
+        // tool.completed comes from the loop's own outcome: the AG-UI TOOL_CALL_RESULT folds `unknown` and
+        // `not_executed` into "failed", and a plugin needs to tell "never ran" from "may have had effects".
+        const onToolFinished: NonNullable<typeof runOptions.onToolFinished> = (finished) => {
+          onEvent({
+            type: "tool.completed",
+            callId: finished.toolCallId,
+            tool: toolNames.get(finished.toolCallId) ?? finished.toolId,
+            status: PLUGIN_TOOL_STATUS[finished.status],
+          });
+        };
+        sub = agent.runWithEvents({ ...runOptions, onToolFinished }).subscribe({
           next(packet: BaseEvent) {
             try {
               switch (packet.type) {
@@ -522,19 +555,6 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
                   if (ev.toolCallId && ev.toolCallName) {
                     toolNames.set(ev.toolCallId, ev.toolCallName);
                     onEvent({ type: "tool.started", callId: ev.toolCallId, tool: ev.toolCallName });
-                  }
-                  break;
-                }
-                case "TOOL_CALL_RESULT": {
-                  const ev = packet as { toolCallId?: string; status?: string };
-                  if (ev.toolCallId) {
-                    const tool = toolNames.get(ev.toolCallId) ?? "unknown";
-                    onEvent({
-                      type: "tool.completed",
-                      callId: ev.toolCallId,
-                      tool,
-                      status: ev.status === "success" ? "succeeded" : "failed",
-                    });
                   }
                   break;
                 }
@@ -627,6 +647,9 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
     subscribe(listener) {
       hostEventListeners.add(listener);
       return () => { hostEventListeners.delete(listener); };
+    },
+    onModelCall(pluginId) {
+      recordPluginCall(pluginId);
     },
     modelLimitPerMinute(pluginId) {
       return stateStore.getModelRateLimit(pluginId);

@@ -365,6 +365,25 @@ describe("G37-1 Plugin tools: registration, modes, schema validation, approval &
     pluginRpc.dispose();
   });
 
+  it.each([
+    [true, 1],
+    [false, 0],
+  ] as const)("describeApproval with live grant=%s sends the args to the plugin %i time(s)", async (granted, calls) => {
+    const registry = new ToolRegistry();
+    const service = createPluginToolService({ registry, canExecute: () => granted });
+    const hostCall = vi.fn(async () => ({ summary: "Write notes.md" }));
+    const manifest = makeManifest({ tools: [{ name: "write_note", title: "Write", risk: ["fs-write"], modes: ["work"] }] });
+    service.registerTool({
+      manifest,
+      registration: { name: "write_note", description: "write", parameters: { type: "object", properties: {} } },
+      host: { call: hostCall },
+    });
+    const tool = registry.getById(pluginToolId(manifest.id, "write_note"))!;
+    const described = await tool.describeApproval!({ path: "notes.md", content: "private text" });
+    expect(hostCall).toHaveBeenCalledTimes(calls);
+    expect(described).toEqual(granted ? { summary: "Write notes.md" } : null);
+  });
+
   it("exposes plugin tools ONLY in work and code modes and NEVER in chat mode (even with overrides)", async () => {
     const registry = new ToolRegistry();
     const service = createPluginToolService({ registry });

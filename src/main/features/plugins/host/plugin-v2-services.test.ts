@@ -67,6 +67,7 @@ vi.mock("../../../platform/permission/permission", () => ({
 vi.mock("../../../base/storage/token-usage-store", () => ({
   recordRequest: vi.fn(),
   recordUsage: vi.fn(),
+  recordPluginCall: vi.fn(),
 }));
 
 import { createPluginV2HostController, mapPluginModelRunOutcome } from "./plugin-v2-services";
@@ -223,6 +224,43 @@ describe("plugin-v2-services model.run (A2)", () => {
     }
   });
 
+  it("reports each tool's real outcome (succeeded / failed / unknown / not_executed) once per call", async () => {
+    const fixture = createControllerFixture();
+    try {
+      const outcomes = [["c1", "success"], ["c2", "failure"], ["c3", "unknown"], ["c4", "not_executed"]] as const;
+      mocks.setRunFactory((options: { onToolFinished?: (event: unknown) => void }) => ({
+        lastResult: { reply: "done" },
+        run(sub) {
+          sub.next({ type: "RUN_STARTED" });
+          for (const [id, status] of outcomes) {
+            sub.next({ type: "TOOL_CALL_START", toolCallId: id, toolCallName: `tool_${id}` });
+            options.onToolFinished?.({ runId: "r", toolCallId: id, toolId: `tool_${id}`, status, risk: "safe" });
+            // The AG-UI result event folds unknown/not_executed into "failed"; it must not produce a second report.
+            sub.next({ type: "TOOL_CALL_RESULT", toolCallId: id, status: status === "success" ? "success" : "failed" });
+          }
+          sub.next({ type: "RUN_FINISHED", result: { status: "completed" } });
+          sub.complete();
+          return () => {};
+        },
+      }));
+      const completed: Array<{ callId: string; tool: string; status: string }> = [];
+      for await (const chunk of fixture.clientRpc.stream<{ type: string; callId: string; tool: string; status: string }>(
+        PLUGIN_TO_HOST_METHODS.modelRun,
+        { objective: "tools", mode: "work", sessionId: "s-1" },
+      )) {
+        if (chunk.type === "tool.completed") completed.push({ callId: chunk.callId, tool: chunk.tool, status: chunk.status });
+      }
+      expect(completed).toEqual([
+        { callId: "c1", tool: "tool_c1", status: "succeeded" },
+        { callId: "c2", tool: "tool_c2", status: "failed" },
+        { callId: "c3", tool: "tool_c3", status: "unknown" },
+        { callId: "c4", tool: "tool_c4", status: "not_executed" },
+      ]);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it.each([
     [undefined, false],
     [false, false],
@@ -241,8 +279,32 @@ describe("plugin-v2-services model.run (A2)", () => {
       expect(options).not.toHaveProperty("openMemoryRun");
       expect(options).not.toHaveProperty("controlledResponses");
       expect(options.allowDelegation).toBe(delegation);
+      expect(options.approvals).toBe("refuse");
+      expect(options.usagePluginId).toBe("dev.test.model");
       expect((options.tools as Array<{ id: string }>).map((tool) => tool.id)).toEqual(delegation ? ["delegate_agent", "read_file"] : ["read_file"]);
       expect(openMemoryRun).not.toHaveBeenCalled();
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it.each([
+    ["chat", "chat"],
+    ["work", "work"],
+    ["code", "work"],
+  ] as const)("runs a %s request with that conversationMode and executionMode=%s", async (mode, executionMode) => {
+    // Production buildRunOptions returns no conversationMode; the plugin host must set it like the desktop does.
+    const buildRunOptions = vi.fn(async () => ({ options: { tools: [] } }));
+    const fixture = createControllerFixture({ buildRunOptions });
+    try {
+      mocks.setRunFactory(() => ({ lastResult: { reply: "ok" }, run(sub) { sub.complete(); return () => {}; } }));
+      for await (const _chunk of fixture.clientRpc.stream(
+        PLUGIN_TO_HOST_METHODS.modelRun,
+        { objective: "plan", mode, sessionId: "s-1" },
+      )) { /* drain */ }
+      const options = mocks.agentInstances.at(-1)?.options as Record<string, unknown>;
+      expect({ conversationMode: options.conversationMode, executionMode: options.executionMode })
+        .toEqual({ conversationMode: mode, executionMode });
     } finally {
       fixture.cleanup();
     }
@@ -399,6 +461,34 @@ describe("plugin-v2-services model.generate stream (A3)", () => {
       ac.abort();
       await expect(pendingSecond).rejects.toMatchObject({ code: "ERR_CANCELLED" });
       expect(typeof emitSecondChunk).toBe("function");
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("turns an in-stream provider error into ERR_UNAVAILABLE without leaking the upstream message", async () => {
+    const fixture = createControllerFixture();
+    try {
+      const enc = new TextEncoder();
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(sseFrame("partial answer "));
+          controller.enqueue(enc.encode(`data: ${JSON.stringify({ error: { message: "upstream overloaded sk-secret-1234" } })}\n\n`));
+          controller.enqueue(enc.encode("data: [DONE]\n\n"));
+          controller.close();
+        },
+      });
+      vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+      const received: string[] = [];
+      const run = async () => {
+        for await (const chunk of fixture.clientRpc.stream<{ delta: string }>(PLUGIN_TO_HOST_METHODS.modelGenerate, { prompt: "hi", stream: true })) {
+          received.push(chunk.delta);
+        }
+      };
+      const error = await run().then(() => undefined, (err: unknown) => err as { code?: string; message?: string });
+      expect(error).toMatchObject({ code: "ERR_UNAVAILABLE" });
+      expect(error?.message).not.toContain("overloaded");
+      expect(error?.message).not.toContain("sk-secret");
     } finally {
       fixture.cleanup();
     }
