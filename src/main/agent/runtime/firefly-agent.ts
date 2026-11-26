@@ -67,6 +67,11 @@ export type FireflyRunOptions = {
    * For runs nobody can answer from the desktop (plugin model.run), so they never wait on an approval.
    */
   approvals?: "prompt" | "refuse";
+  /**
+   * The plugin that started this run, for usage attribution, when the run is bound to a real session
+   * (plugin model.run): counted as that plugin's call, not as a user message of the session's mode.
+   */
+  usagePluginId?: string;
   /** false keeps the run from delegating to partners: no agent executor and no delegate_agent tool. */
   allowDelegation?: boolean;
   capabilities?: RunCapabilities;
@@ -172,7 +177,8 @@ export class FireflyAgent extends AbstractAgent {
       const detach = () => { current.signal?.removeEventListener("abort", externalCancel); };
       if (current.signal?.aborted) externalCancel();
       else current.signal?.addEventListener("abort", externalCancel, { once: true });
-      const plugin = conversation.startsWith("plugin:") ? conversation.slice("plugin:".length) : undefined;
+      const plugin = current.usagePluginId
+        ?? (conversation.startsWith("plugin:") ? conversation.slice("plugin:".length) : undefined);
       if (plugin) recordPluginCall(plugin);
       void runWithUsageAttribution(plugin ? { feature: "plugin", pluginId: plugin }
         : { feature: usageFeatureForMode(current.conversationMode ?? options.executionMode), sessionId: current.conversationId }, async () => {
