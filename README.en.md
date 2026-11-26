@@ -6,99 +6,82 @@
 
 <p align="center">
   <a href="https://github.com/Firefly-0423/Firefly-Agent"><img src="https://img.shields.io/badge/GitHub-Firefly--Agent-24292f?style=flat&logo=github&logoColor=white" alt="GitHub repository" height="20"></a>
-  <a href="https://github.com/Firefly-0423/Firefly-Agent/releases/latest"><img src="https://img.shields.io/github/v/release/Firefly-0423/Firefly-Agent?style=flat&label=Download&color=2f8f6b" alt="Download the latest release" height="20"></a>
-  <a href="https://hotarufirefly.online"><img src="https://img.shields.io/badge/Try%20it%20online-hotarufirefly.online-5fe0c1?style=flat" alt="Try it online" height="20"></a>
-  <img src="https://img.shields.io/badge/Windows-10%20%2F%2011-0078D6?style=flat&logo=windows&logoColor=white" alt="Runs on Windows 10 / 11" height="20">
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=flat" alt="MIT License" height="20"></a>
+  <a href="https://gitcode.com/hotaru_wu/Firefly-Agent"><img src="https://img.shields.io/badge/GitCode-Firefly--Agent-d94336?style=flat" alt="GitCode repository" height="20"></a>
 </p>
 
-Have you ever wanted Firefly to live on your computer, chatting with you and helping you get things done?
+Firefly-Agent is a Windows desktop companion featuring Firefly from Honkai: Star Rail, built to chat with you and help finish real tasks on your PC.
 
-Firefly-Agent is a Windows Live2D desktop companion featuring Firefly from Honkai: Star Rail. She talks with you, reads and writes files, changes code and runs commands, and splits work with 12 partners. You can see every step she takes and everything she needs you to approve.
+## What It Can Do
 
-## ✨ At a glance
+- **Three modes**: Chat handles everyday conversation, Work moves general tasks forward, and Code inspects files, edits code, and runs commands.
+- **Partner collaboration**: When a task gets busy, Firefly delegates sub-tasks to 12 partners in parallel and reviews everything when they return.
+- **Live2D presence**: Firefly stays on your desktop, reacts with expressions as tasks progress, and supports optional, restrained check-ins.
+- **Local memory**: Conversations and long-term memory stay on your machine in SQLite, while API keys and plugin secrets are encrypted by Windows.
+- **Permission first**: Choose between read-only, ask-before-acting, and full-access levels, approve sensitive actions in clear prompts, and cancel at any time.
+- **Built-in browser**: Keep manual browsing and agent actions separated, and retain active pages for background read-only observation when switching chats.
+- **Multi-provider models**: Connect compatible chat and response APIs and switch profiles whenever you need.
+- **Plugins and extensions**: Extend Firefly with SDK 1.2.0 plugins, Skills, MCP servers, and scheduled reminders; external chat channel UI will follow in 1.2.x.
 
-- **Three modes**: Chat to talk, Work to move tasks forward, Code to change code. Each has its own prompts and tools.
-- **12 partners**: in Work and Code, Firefly hands parts of a task to the partner best suited for it, runs them in parallel, then checks and combines the results.
-- **Live2D companion**: Firefly stays on your desktop and changes expression as she works. Proactive chat is optional and restrained.
-- **Local memory**: memory and history search live in SQLite on your machine, with the key protected by Windows DPAPI.
-- **Asks before acting**: file writes, commands and network actions run under permission levels, need your approval and can be cancelled at any time.
-- **Built-in browser**: manual and agent browsing are granted separately, and the agent only acts within the domains and actions you approve.
-- **Many models**: Chat Completions, Anthropic Messages and Responses APIs, with switchable model profiles.
-- **Extensions**: a Skills market, a plugin market and the [plugin SDK](./plugin-sdk/), MCP servers, and QQ, WeChat and Feishu channels, each turned on only when you want it.
+## Download and Install
 
-## 🚀 Quick start
+- **Requirements**: Windows 10 or 11 (64-bit).
+- **Installer**: Download the latest release from [GitHub Releases](https://github.com/Firefly-0423/Firefly-Agent/releases/latest).
+- **Online demo**: Preview the interface without installing at [hotarufirefly.online](https://hotarufirefly.online).
+- **First setup**: Launch the app, open Settings, and add at least one model profile with your own endpoint and credentials.
+- **Isolated data folder**: Version 1.2.0 keeps conversations, settings, and logs in `%APPDATA%\Firefly-1.2.0`. Existing 1.1.x data directories are never read, altered, or migrated.
 
-Download the installer from [Releases](https://github.com/Firefly-0423/Firefly-Agent/releases/latest). It needs Windows 10 / 11 (x64). On first launch, create a model profile in Settings with your own model service and credentials. To look around first, try the live demo at [hotarufirefly.online](https://hotarufirefly.online).
+Please read the [disclaimer](./docs/disclaimer.en.md) before using the app. Channel and data-directory guides are available in the [user guide](./docs/user-guide/index.md) (in Chinese).
 
-To run from source you need Node.js 24 or later and pnpm 12.10.1:
+## What's New in 1.2.0 and Known Limitations
+
+### Highlights
+
+- **Refreshed dark theme**: `firefly-dark` now uses neutral near-black surfaces paired with an emerald accent across chat, settings, and reminder toasts.
+- **Redesigned plugin architecture**: Plugins run in isolated child processes with local folder/package import, explicit enable trust prompts, per-permission revocation, model rate limits, and sandboxed plugin windows. Legacy 0.x plugins are no longer supported.
+- **Schedule proposal review**: Plugin-proposed tasks land in a pending confirmation area where you approve or reject them, with time-zone-aware cron schedules and one-click "Run now" when eligible.
+- **Resilient task execution**: Work and Code runs keep finishing if you switch chats or refresh, support mid-run "Send Now" supplements, and let you answer approvals right from reminder toasts.
+- **Focused permission tiers**: Simplified to three file access levels (read-only, ask for approval, and full access), with confirmed full-document reading for Office and PDF attachments in Code mode.
+
+For detailed release notes, see [GitHub Releases](https://github.com/Firefly-0423/Firefly-Agent/releases) or `CHANGELOG.md` on the release branch.
+
+### Known Limitations
+
+- **No unattended run approvals in 1.2.0**: Plugin schedules that require shell, file-write, or input-control tools are rejected when you try to confirm or enable them, displaying a notice that unattended approval is not yet supported in 1.2.0. Previously confirmed tasks of this kind log a `skipped` run and pause recurring schedules instead of executing; full unattended approval is planned for 1.2.x.
+- **External channel desktop UI in 1.2.x**: Core SDK 1.2.0 channel services are in place, while unified desktop channel wiring and setup UI will arrive in 1.2.x.
+
+## Plugin Development
+
+Start building 1.2.0 plugins with these guides:
+
+- [Plugin SDK README](./plugin-sdk/README.md): Installation, minimal manifest + entry example, permissions, and local test host.
+- [Plugin Development Guide](./docs/plugins/plugin-dev-guide.md): Manifest fields, full capability API reference, and tested code snippets.
+- [Plugin Authoring Notes](./docs/plugins/plugin-authoring.md): Process isolation vs. trust boundary, risk rules, and catalog requirements.
+
+Working reference plugins (weather lookup and daily reminder) are included under [plugin-sdk/examples](./plugin-sdk/examples/).
+
+## Contributing and Source Setup
+
+Building and running from source requires **Windows**, **Node.js 24+**, and **pnpm 12.10.1**.
 
 ```powershell
-pnpm install
+pnpm install --frozen-lockfile
 pnpm exec install-electron
 pnpm run dev
 ```
 
-Read the [disclaimer](./docs/disclaimer.en.md) before use. Channel setup is in the [user guide](./docs/user-guide/index.md) (Chinese); packaging and the native helper build are in the [development guide](./docs/contributing/development.md).
+For full build instructions, packaging steps, and workflow conventions, see the [development guide](./docs/contributing/development.md) (in Chinese) and [development workflow](./docs/contributing/development-workflow.md), or browse the [documentation index](./docs/README.md).
 
-## 🗂️ Project structure
+## Feedback and Links
 
-### Main process
+- Bug reports and feature requests: [GitHub Issues](https://github.com/Firefly-0423/Firefly-Agent/issues).
+- Skills repository: [firefly-skills](https://github.com/Firefly-0423/firefly-skills).
+- Plugin catalog repository: [firefly-plugins](https://github.com/Firefly-0423/firefly-plugins).
 
-`src/main/` has seven layers. A layer may only import from its own layer or lower ones, and each layer has its own `AGENTS.md`.
+Please remove API keys, private chats, and local machine paths before sharing logs or opening an issue.
 
-| Layer | Responsibility |
-| --- | --- |
-| `base/` | Storage, logging, app identity and data directory, IPC registration |
-| `platform/` | Settings, permissions and approvals, windows, speech, browser, Git, LSP |
-| `model/` · `tooling/` · `conversation/` | Model access and prompts; tool contracts; conversation records |
-| `knowledge/` · `memory/` | Document retrieval, study workspace, Skills; memory, recall and context |
-| `agent/` | Main loop, built-in tools, MCP, partner delegation |
-| `features/` | Feature entry points: chat, sessions, channels, scheduler, plugins |
-| `app/` | Composition root: wires modules, runs startup and shutdown |
+## License and Credits
 
-### UI and shared code
-
-| Folder | Responsibility |
-| --- | --- |
-| `src/renderer/` | React UI, Live2D, online demo |
-| `src/preload/` | Controlled IPC bridge |
-| `src/plugins/` | Plugin system core |
-| `src/shared/` | Contracts shared by main and renderer |
-| `src/cli/` | Command-line entry |
-
-### Other folders
-
-| Folder | Responsibility |
-| --- | --- |
-| `native/` | Rust native helper: screenshots, history reading, workspace handles |
-| `plugin-sdk/` · `examples/` | Plugin SDK and examples |
-| `skills/` · `vendor/firefly-skills/` | Project Skills; third-party Skills |
-| `prompts/` | Layered character prompts and world lore |
-| `site/` | Promo website and online demo |
-| `scripts/` · `docs/` | Build, packaging and verification scripts; design and development docs |
-
-## 💬 Feedback and contact
-
-- Questions and suggestions: [open an issue](https://github.com/Firefly-0423/Firefly-Agent/issues).
-- Submit Skills to [firefly-skills](https://github.com/Firefly-0423/firefly-skills) and plugins to [firefly-plugins](https://github.com/Firefly-0423/firefly-plugins).
-
-Please do not attach keys, private conversations or user data to an issue.
-
-## 📖 About
-
-Firefly-Agent is developed by hotaru. The first public version, 1.1.0, was released in October 2026.
-
-- The full documentation starts at the [docs index](./docs/README.md); the architecture and each layer's responsibilities are in [AGENTS.md](./AGENTS.md).
-- The development environment, pre-commit checks and branch rules are in the [development guide](./docs/contributing/development.md).
-- Data stays on your machine in `%APPDATA%\Firefly-1.2.0` and never goes into Git or the installer. Conversations and documents may be sent to the model service you choose, so use only services you trust.
-
-## ⚖️ License
-
-- The source code is under the [MIT License](./LICENSE).
-- Sources and licenses for third-party dependencies, Skills, models and images are in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md); the Live2D model license is in [MODEL_LICENSE.md](./MODEL_LICENSE.md).
-- Firefly and the related Honkai: Star Rail characters and intellectual property belong to HoYoverse / miHoYo and the respective rights holders. This is an unofficial, non-commercial fan project. Derivatives that contain the Firefly character, the Live2D model or character artwork may not be used commercially.
-
-## ⭐ Support
-
-If you like this project, a Star helps.
+- Source code is licensed under the [MIT License](./LICENSE).
+- Third-party dependencies, bundled Skills, and historical provenance notices are documented in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
+- The bundled Firefly Live2D model is used by permission from creator **是依七哒**; see [MODEL_LICENSE.md](./MODEL_LICENSE.md) for asset and character IP boundaries.
+- Firefly and Honkai: Star Rail intellectual property belong to HoYoverse / miHoYo and respective rights holders. This is an unofficial, non-commercial fan project; commercial use of derivatives containing the character, Live2D model, or character artwork is prohibited.
