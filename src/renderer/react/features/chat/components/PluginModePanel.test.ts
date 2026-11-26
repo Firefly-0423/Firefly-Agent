@@ -3,10 +3,12 @@ import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { MarketInstallResult, MarketListResult, MarketPluginEntry, PluginListEntry, PluginManagementApi } from "../../../../../shared/plugin-management";
+import { PLUGIN_PERMISSIONS } from "../../../../../shared/plugin-manifest/types";
+import { setUiLocale, t } from "../../../i18n";
 
 const feedback = vi.hoisted(() => ({ confirm: vi.fn(), notice: vi.fn(), alert: vi.fn() }));
 vi.mock("../../../components/feedback/FeedbackProvider", () => ({ useFeedback: () => feedback }));
-import { PluginModePanel, pluginToggleTarget, resolveMarketAction } from "./PluginModePanel";
+import { PluginModePanel, permissionLabel, pluginToggleTarget, resolveMarketAction } from "./PluginModePanel";
 
 const installed = (patch: Partial<PluginListEntry> = {}): PluginListEntry => ({
   id: "archive-toolkit", name: "Archive toolkit", description: "Browse local archives", author: "Desk Tools",
@@ -49,7 +51,7 @@ beforeEach(() => {
   host = document.body.appendChild(document.createElement("main"));
   root = createRoot(host);
 });
-afterEach(async () => { await React.act(async () => root.unmount()); host.remove(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+afterEach(async () => { await React.act(async () => root.unmount()); host.remove(); setUiLocale("zh-CN"); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 const mount = async (api: PluginManagementApi) => React.act(async () => root.render(React.createElement(PluginModePanel, { api })));
 const click = async (button: HTMLButtonElement) => React.act(async () => button.click());
 const buttons = (selector = "button") => Array.from(host.querySelectorAll<HTMLButtonElement>(selector));
@@ -113,8 +115,8 @@ test("hides interface actions for headless plugins and opens enable trust confir
     "Scan (scan)",
     "Repo Info (repo)",
     "Alerts (alerts)",
-    "workspace.read",
-    "model.run",
+    "读取工作区文件",
+    "运行模型对话",
   ]) expect(dialog.textContent).toContain(text);
   const confirmBtn = Array.from(dialog.querySelectorAll("button")).find(b => b.textContent === "信任并启用")!;
   await click(confirmBtn);
@@ -357,7 +359,7 @@ test("disables incompatible packages and shows inspectable v2 details", async ()
   const details = host.querySelector("details")!;
   expect(details).not.toBeNull();
   expect(details.querySelector("summary")?.textContent).toBe("插件详情");
-  for (const text of ["catalog-toolkit", "目标 SDK：>=1.2.0 <2.0.0", "声明的权限：workspace.read", "许可证：MIT", "声明的能力：network", "不代表沙箱隔离"]) expect(details.textContent).toContain(text);
+  for (const text of ["catalog-toolkit", "目标 SDK：>=1.2.0 <2.0.0", "声明的权限：读取工作区文件", "许可证：MIT", "声明的能力：network", "不代表沙箱隔离"]) expect(details.textContent).toContain(text);
   expect(host.textContent).toContain("兼容当前应用");
 });
 
@@ -492,4 +494,98 @@ test("displays partial uninstall cleanup failures truthfully and supports retryi
 
   expect(api.uninstall).toHaveBeenNthCalledWith(2, "archive-toolkit", { deleteSecrets: true, deleteData: false });
   expect(host.textContent).not.toContain("删除失败（需重试）");
+});
+
+test("resolves localized permission labels for all 1.2.0 permissions and falls back for unknown keys", () => {
+  setUiLocale("zh-CN");
+  expect(permissionLabel("notifications", t)).toBe("桌面通知");
+  for (const perm of PLUGIN_PERMISSIONS) {
+    const label = permissionLabel(perm, t);
+    expect(label).not.toBe(perm);
+    expect(label).not.toContain("pluginPanel.permissionLabels");
+  }
+  expect(permissionLabel("custom.future", t)).toBe("custom.future");
+
+  setUiLocale("en");
+  expect(permissionLabel("notifications", t)).toBe("Desktop notifications");
+  for (const perm of PLUGIN_PERMISSIONS) {
+    const label = permissionLabel(perm, t);
+    expect(label).not.toBe(perm);
+    expect(label).not.toContain("pluginPanel.permissionLabels");
+  }
+  expect(permissionLabel("custom.future", t)).toBe("custom.future");
+});
+
+test("displays localized notifications permission in enable confirmation modal across zh-CN and en", async () => {
+  const api = service([installed({
+    canOpen: false,
+    configuredEnabled: false,
+    enabled: false,
+    status: "disabled",
+    permissions: ["notifications", "workspace.read"],
+  })]);
+  await mount(api);
+  await click(actionButtons()[1]);
+
+  const dialog = host.querySelector('[role="dialog"]')!;
+  expect(dialog).not.toBeNull();
+  expect(dialog.textContent).toContain("桌面通知");
+  expect(dialog.textContent).toContain("读取工作区文件");
+
+  await React.act(async () => { setUiLocale("en"); });
+  expect(dialog.textContent).toContain("Desktop notifications");
+  expect(dialog.textContent).toContain("Read workspace files");
+});
+
+test("displays localized permission labels in settings modal and revokes notifications using raw permission key", async () => {
+  const initial = installed({
+    permissions: ["notifications", "schedules"],
+    grantedPermissions: ["notifications"],
+  });
+  const afterRevoke = installed({
+    permissions: ["notifications", "schedules"],
+    grantedPermissions: [],
+    revision: 2,
+  });
+  const api = service([initial]);
+  vi.mocked(api.setPermission!).mockResolvedValue({ ok: true, overview: { plugins: [afterRevoke], issues: [] } });
+
+  await mount(api);
+  const settingsBtn = actionButtons().find(b => b.textContent?.includes("设置"))!;
+  await click(settingsBtn);
+
+  const dialog = host.querySelector('[role="dialog"]')!;
+  expect(dialog.textContent).toContain("桌面通知");
+  expect(dialog.textContent).toContain("定时任务");
+
+  const rows = Array.from(dialog.querySelectorAll<HTMLLabelElement>(".plugin-panel__perm-row"));
+  const notifRow = rows.find(row => row.textContent?.includes("桌面通知"))!;
+  expect(notifRow).toBeDefined();
+  const notifBox = notifRow.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+  expect(notifBox.checked).toBe(true);
+
+  await React.act(async () => { notifBox.click(); });
+  expect(api.setPermission).toHaveBeenCalledExactlyOnceWith("archive-toolkit", "notifications", false);
+});
+
+test("displays localized permission labels in marketplace details and install confirmation", async () => {
+  const api = service();
+  vi.mocked(api.marketList).mockResolvedValue({
+    ok: true,
+    plugins: [catalog({ compatible: true, permissions: ["notifications", "schedules"] })],
+  });
+  vi.mocked(api.marketInstall).mockResolvedValue({
+    ok: true,
+    plugin: { id: "catalog-toolkit", name: "Catalog toolkit", version: "4.6.0" },
+  });
+
+  await mount(api);
+  await nav(true);
+  const details = host.querySelector("details")!;
+  expect(details.textContent).toContain("声明的权限：桌面通知, 定时任务");
+  expect(details.textContent).toContain("声明的能力：桌面通知, 定时任务");
+
+  await click(actionButtons()[0]);
+  expect(feedback.confirm).toHaveBeenCalledTimes(1);
+  expect(feedback.confirm.mock.calls[0][0].message).toContain("声明的能力：桌面通知, 定时任务");
 });

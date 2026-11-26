@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>天气设置</title>
+  <script type="module" src="settings.js"></script>
+</head>
+<body>
+  <main>
+    <h1>天气查询设置</h1>
+    <p>API Key 将由 Firefly 通过系统凭据加密存储（<code>secrets</code>），留空时自动使用免密钥的 Open-Meteo。</p>
+    <p id="status">读取中...</p>
+    <form id="key-form">
+      <label for="api-key">OpenWeather API Key</label>
+      <input id="api-key" name="apiKey" type="password" autocomplete="off" placeholder="输入 API Key" />
+      <button type="submit">保存 Key</button>
+      <button type="button" id="clear-btn">清除 Key</button>
+    </form>
+  </main>
+</body>
+</html>

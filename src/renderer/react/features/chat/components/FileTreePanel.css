@@ -42,7 +42,7 @@
 
 .ff-file-tree .ant-tree .ant-tree-node-selected,
 .ff-file-tree .ant-tree .ant-tree-node-content-wrapper:hover {
-  background: rgb(45 122 95 / 8%);
+  background: var(--ff-palette-2d7a5f-8);
 }
 
 .ff-file-tree .ant-tree .ant-tree-node-selected {
@@ -52,7 +52,7 @@
 .ff-file-tree .ant-tree .ant-tree-iconEle {
   align-items: center;
   display: inline-flex;
-  color: var(--ff-text-muted, #a99fa5);
+  color: var(--ff-text-muted, var(--ff-palette-a99fa5));
 }
 
 /* VS Code 官方文件类型图标（vscode-icons 集） */
@@ -133,7 +133,7 @@
 
 .ff-file-preview__lineno {
   user-select: none;
-  color: var(--ff-text-muted, #b9b0b6);
+  color: var(--ff-text-muted, var(--ff-palette-b9b0b6));
   text-align: right;
   padding-right: 10px;
   width: 44px;
@@ -141,7 +141,7 @@
 }
 
 .ff-file-preview__text {
-  color: var(--ff-text, #3d393f);
+  color: var(--ff-text, var(--ff-palette-3d393f));
   white-space: pre;
   min-width: 0;
   flex: 1;
@@ -178,8 +178,8 @@
 }
 
 .ff-file-preview__md-btn:hover {
-  color: var(--ff-text, #3d393f);
-  background: var(--ff-bg-hover, #eceef3);
+  color: var(--ff-text, var(--ff-palette-3d393f));
+  background: var(--ff-bg-hover, var(--ff-slate-110));
 }
 
 .ff-file-preview__md-btn.is-active {
@@ -226,8 +226,8 @@
 }
 
 .ff-file-refresh:hover:not(:disabled) {
-  color: var(--ff-text, #3d393f);
-  background: var(--ff-bg-hover, #eceef3);
+  color: var(--ff-text, var(--ff-palette-3d393f));
+  background: var(--ff-bg-hover, var(--ff-slate-110));
 }
 
 .ff-file-refresh:focus-visible {

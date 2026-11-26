@@ -3,6 +3,7 @@
  */
 import Ajv from "ajv";
 import { PluginError } from "../protocol";
+import { createPluginNotificationLimiter, parsePluginNotification } from "../../../src/shared/plugin-notifications";
 import type {
   ChannelAdapter,
   ChannelState,
@@ -17,6 +18,8 @@ import type {
   InboundMessage,
   Mode,
   Model,
+  Notifications,
+  NotificationRequest,
   ModelGenerateChunk,
   ModelGenerateRequest,
   ModelGenerateResult,
@@ -115,6 +118,7 @@ export interface TestHostOptions {
     | "reject"
     | ((ctx: ApprovalDecisionContext) => "allow" | "reject" | Promise<"allow" | "reject">);
   rateLimitPerMinute?: number;
+  notificationsSupported?: boolean;
   model?: {
     generate?: (req: ModelGenerateRequest) => Promise<ModelGenerateResult> | ModelGenerateResult;
     generateStream?: (req: ModelGenerateRequest) => AsyncIterable<ModelGenerateChunk>;
@@ -152,6 +156,7 @@ export interface TestHost {
   readonly level: PermissionLevel;
   readonly secrets: Map<string, string>;
   readonly schedules: Map<string, TaskRecord>;
+  readonly notifications: ReadonlyArray<NotificationRequest>;
   readonly channelStates: Map<string, ChannelState[]>;
   readonly deliveredMessages: Array<{ channelId: string; message: InboundMessage }>;
   readonly uiMessages: Array<{ to: UiTarget; msg: unknown }>;
@@ -215,6 +220,8 @@ export function createTestHost(options: TestHostOptions): TestHost {
   let callCounter = 0;
   let taskCounter = 0;
   const modelCallTimes: number[] = [];
+  const checkNotificationRateLimit = createPluginNotificationLimiter();
+  const notifications: NotificationRequest[] = [];
 
   const calls: RecordedHostCall[] = [];
   const registeredTools = new Map<string, { def: ToolDefinition<Record<string, unknown>>; validate: ReturnType<typeof ajv.compile> }>();
@@ -281,6 +288,19 @@ export function createTestHost(options: TestHostOptions): TestHost {
       throw new PluginError("ERR_RATE_LIMITED", "Plugin model call rate limit exceeded", true);
     }
     modelCallTimes.push(now);
+  };
+
+  const notificationsApi: Notifications = {
+    async show(input) {
+      record("notifications.show", input);
+      requirePermission("notifications");
+      const text = parsePluginNotification(input);
+      checkNotificationRateLimit(manifest.id);
+      if (options.notificationsSupported === false) return { shown: false };
+      const name = (manifest.name ?? manifest.id).replace(/[\p{Cc}\p{Cf}]/gu, "");
+      notifications.push({ title: `〔${name}〕${text.title}`, body: text.body });
+      return { shown: true };
+    },
   };
 
   const toolsApi: Tools = {
@@ -734,6 +754,7 @@ export function createTestHost(options: TestHostOptions): TestHost {
       sessions: bindToActivation(sessionsApi, owner),
       workspace: bindToActivation(workspaceApi, owner),
       schedules: bindToActivation(schedulesApi, owner),
+      notifications: bindToActivation(notificationsApi, owner),
       secrets: bindToActivation(secretsApi, owner),
       ui: bindToActivation(uiApi, owner),
     };
@@ -756,6 +777,7 @@ export function createTestHost(options: TestHostOptions): TestHost {
     },
     secrets,
     schedules,
+    notifications,
     channelStates,
     deliveredMessages,
     uiMessages,

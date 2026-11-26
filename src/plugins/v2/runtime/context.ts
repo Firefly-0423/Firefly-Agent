@@ -15,6 +15,8 @@ import {
   type ProtocolModelGenerateChunk,
   type ProtocolModelGenerateResult,
   type ProtocolModelRunResult,
+  type ProtocolNotificationParams,
+  type ProtocolNotificationResult,
   type ProtocolOutboundMessage,
   type ProtocolPage,
   type ProtocolRunEvent,
@@ -129,6 +131,9 @@ export interface RuntimePluginContext {
     remove(taskId: string): Promise<boolean>;
     list(): Promise<ProtocolTaskRecord[]>;
     onTrigger(fn: (e: { taskId: string; payload?: unknown; signal: AbortSignal }) => Promise<void>): Disposable;
+  };
+  readonly notifications: {
+    show(input: ProtocolNotificationParams): Promise<ProtocolNotificationResult>;
   };
   readonly secrets: {
     set(key: string, value: string): Promise<void>;
@@ -688,6 +693,10 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
           });
         });
       },
+    },
+
+    notifications: {
+      show: (input) => callHost(P.notificationsShow, input, { signal }),
     },
 
     secrets: {

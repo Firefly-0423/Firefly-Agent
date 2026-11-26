@@ -90,7 +90,7 @@
     "permissions": {
       "type": "array",
       "items": {
-        "enum": ["model.generate", "model.run", "events", "sessions.read", "workspace.read", "schedules", "secrets", "ui.windows"]
+          "enum": ["model.generate", "model.run", "events", "sessions.read", "workspace.read", "schedules", "notifications", "secrets", "ui.windows"]
       }
     },
     "ui": {
