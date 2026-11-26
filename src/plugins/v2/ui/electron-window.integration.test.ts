@@ -4,6 +4,8 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildSync } from "esbuild";
+// @ts-expect-error untyped build script; this is the same bundler step build:preload runs
+import { buildPluginWindowPreload } from "../../../../scripts/build/plugin-window-preload.mjs";
 import { expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
@@ -107,7 +109,7 @@ if (window.fireflyPlugin) {
 
 it.skipIf(!electron || !existsSync(electron))(
   "enforces isolated BrowserWindow, strict CSP headers, external URL rejection, cross-plugin isolation, and lifecycle cleanup in real Electron",
-  () => {
+  async () => {
     const dir = mkdtempSync(join(tmpdir(), "ff-plugin-win-e2e-"));
     try {
       const dataRoot = join(dir, "data");
@@ -127,14 +129,7 @@ it.skipIf(!electron || !existsSync(electron))(
         format: "cjs",
       });
 
-      buildSync({
-        entryPoints: ["src/preload/plugin-window.ts"],
-        outfile: preloadBundle,
-        platform: "node",
-        bundle: true,
-        external: ["electron"],
-        format: "cjs",
-      });
+      await buildPluginWindowPreload({ outfile: preloadBundle });
 
       const runnerSource = `
 const assert = require("node:assert/strict");
