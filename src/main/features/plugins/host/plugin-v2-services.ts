@@ -1085,9 +1085,6 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
             ...(sourceId ? { sourceId } : {}),
           });
           await imported.commit();
-          if (oldInstallDir !== path.resolve(installDir)) {
-            await removeDirIfSafe(oldInstallDir, path.join(pluginsRoot, manifest.id));
-          }
         } catch (error) {
           await imported.rollback().catch(() => {});
           // install() already persisted the new manifest; put the previous record back so state matches the rolled-back files.
@@ -1097,6 +1094,10 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
             installation: "rejected",
             error: error instanceof Error ? error.message : String(error),
           };
+        }
+        // The new version is committed; removing the old directory is cleanup and must not undo the install.
+        if (oldInstallDir !== path.resolve(installDir)) {
+          await removeDirIfSafe(oldInstallDir, path.join(pluginsRoot, manifest.id)).catch(() => {});
         }
         faultedIds.delete(manifest.id);
         lastErrors.delete(manifest.id);
@@ -1231,7 +1232,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
 
       await imported.commit();
       if (oldInstallDir !== path.resolve(installDir)) {
-        await removeDirIfSafe(oldInstallDir, path.join(pluginsRoot, manifest.id));
+        await removeDirIfSafe(oldInstallDir, path.join(pluginsRoot, manifest.id)).catch(() => {});
       }
       lastErrors.delete(manifest.id);
       deps.onOverviewChanged?.();
