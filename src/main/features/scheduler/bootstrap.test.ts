@@ -30,3 +30,28 @@ it("keeps assembly inert and separates idempotent initialization from engine sta
   expect(engine.stop).toHaveBeenCalledTimes(1);
   expect(engine.start).toHaveBeenCalledTimes(1);
 });
+
+it("runs a task the plugin host owns through that host and every other task through the agent runner", async () => {
+  const runAgent = vi.fn(async () => ({ ok: true, historyId: "agent", effectiveToolIds: [] }));
+  vi.doMock("./scheduler-runner", () => ({ createSchedulerRunner: () => ({ runScheduledTask: runAgent, close: async () => {} }) }));
+  vi.resetModules();
+  const { createSchedulerSubsystem: create } = await import("./bootstrap");
+  const hostRun = vi.fn(async () => ({ ok: true, historyId: "plugin", effectiveToolIds: [] }));
+  let wiring: { runTask: (t: unknown, d: Date, m: boolean) => Promise<{ historyId: string }> } | undefined;
+  const store = { load: vi.fn(), onChange: vi.fn(), getTasks: () => [], updateTask: vi.fn(), recordHistory: vi.fn() };
+  create({
+    store, agentRuntime: {}, getReactChatWindow: () => null,
+    createEngine: (deps: unknown) => { wiring = deps as typeof wiring; return { start: vi.fn(), stop: vi.fn() }; },
+    runPluginTask: (task: { ownerPluginId?: string }, at: Date, manual: boolean) => task.ownerPluginId === "v2" ? hostRun(task, at, manual) : undefined,
+  } as unknown as SchedulerSubsystemDeps);
+  const at = new Date("2026-11-26T00:00:00Z");
+  const owned = { id: "a", ownerPluginId: "v2" }, plain = { id: "b" };
+  expect((await wiring!.runTask(owned, at, true)).historyId).toBe("plugin");
+  expect(hostRun).toHaveBeenCalledTimes(1);
+  expect(hostRun).toHaveBeenCalledWith(owned, at, true);
+  expect(runAgent).not.toHaveBeenCalled();
+  expect((await wiring!.runTask(plain, at, false)).historyId).toBe("agent");
+  expect(runAgent).toHaveBeenCalledTimes(1);
+  expect(runAgent).toHaveBeenCalledWith(plain, at, false);
+  expect(hostRun).toHaveBeenCalledTimes(1);
+});

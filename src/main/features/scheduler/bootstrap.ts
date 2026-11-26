@@ -8,12 +8,14 @@ import { getSchedulerStore } from "./scheduler-store";
 import { createSchedulerRunner } from "./scheduler-runner";
 import { registerSchedulerIpc } from "./scheduler-ipc";
 import { SchedulerEngine, type SchedulerEngineDeps } from "./scheduler-engine";
-import type { ScheduledTask } from "../../platform/schedule/schedule-types";
+import type { ScheduledRunResult, ScheduledTask } from "../../platform/schedule/schedule-types";
 
 type StoreHandle = ReturnType<typeof getSchedulerStore>;
 export type SchedulerSubsystemDeps = {
   publishLifecycle?: LifecyclePublisher;
   canRunTask?: (task: ScheduledTask) => boolean;
+  /** Runs a task a plugin host owns; returns undefined when the host does not own it so the agent runner takes it. */
+  runPluginTask?: (task: ScheduledTask, scheduledFireAt: Date, manual: boolean) => Promise<ScheduledRunResult> | undefined;
   ipc?: IpcScope;
   registerIpc?: typeof registerSchedulerIpc;
   createEngine?: (deps: SchedulerEngineDeps) => SchedulerEngine;
@@ -27,6 +29,8 @@ export type SchedulerSubsystem = {
   start(): void;
   initialize(): void;
   engine: SchedulerEngine;
+  /** The agent runner, for hosts that run `run` actions of plugin tasks themselves. */
+  runAgentTask: SchedulerEngineDeps["runTask"];
   store: StoreHandle;
 };
 
@@ -46,7 +50,8 @@ export function createSchedulerSubsystem(services: SchedulerSubsystemDeps): Sche
   });
   const wiring: SchedulerEngineDeps = {
     store: repository,
-    runTask: executor.runScheduledTask,
+    runTask: (task, scheduledFireAt, manual) =>
+      services.runPluginTask?.(task, scheduledFireAt, manual) ?? executor.runScheduledTask(task, scheduledFireAt, manual),
     ...(services.canRunTask ? { canRunTask: services.canRunTask } : {}),
   };
   const clockwork = services.createEngine ? services.createEngine(wiring) : new SchedulerEngine(wiring);
@@ -63,5 +68,5 @@ export function createSchedulerSubsystem(services: SchedulerSubsystemDeps): Sche
     clockwork.stop();
     await executor.close();
   };
-  return { store: repository, engine: clockwork, initialize, start, stop };
+  return { store: repository, engine: clockwork, runAgentTask: executor.runScheduledTask, initialize, start, stop };
 }

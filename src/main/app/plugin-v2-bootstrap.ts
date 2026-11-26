@@ -9,6 +9,7 @@ import { toolRegistry } from "../tooling/registry/tool-registry";
 import type { LlmClient } from "../agent/services/llm/llm-client";
 import type { BuildOptionsFn } from "../agent/runtime/run-input-types";
 import * as chatsStore from "../features/sessions/chats-store";
+import type { ScheduledRunResult, ScheduledTask } from "../platform/schedule/schedule-types";
 import type { PluginSchedulerStorePort } from "../../plugins/v2/schedules";
 import type { ServicePermission } from "../../plugins/v2/services";
 import {
@@ -25,6 +26,7 @@ export interface PluginV2BootstrapDeps {
   llmClient: Pick<LlmClient, "chatNonStream">;
   buildRunOptions: BuildOptionsFn;
   schedulerStore: PluginSchedulerStorePort;
+  runAgentTask?: (task: ScheduledTask, scheduledFireAt: Date, manual: boolean) => Promise<ScheduledRunResult>;
   getChatWebContents: () => WebContents | null;
   confirmTimeoutMs?: number;
 }
@@ -142,6 +144,7 @@ export async function startPluginV2Bootstrap(deps: PluginV2BootstrapDeps): Promi
     toolRegistry,
     safeStorage,
     schedulerStore: deps.schedulerStore,
+    ...(deps.runAgentTask ? { runAgentTask: deps.runAgentTask } : {}),
     llmClient: deps.llmClient,
     buildRunOptions: deps.buildRunOptions,
     loadModelSettings,

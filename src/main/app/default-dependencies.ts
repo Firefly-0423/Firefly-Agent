@@ -88,6 +88,7 @@ import { recoverExternalSkills } from "../knowledge/skills/external-install";
 import { ExternalSkillStateStore } from "../knowledge/skills/external-state";
 import { EXTERNAL_SKILL_REVIEWS } from "../knowledge/skills/external-reviews";
 import type { ExternalHostSession } from "../knowledge/skills/external-types";
+import { isPluginTaskRunnable } from "./plugin-task-runnable";
 import { createSchedulerSubsystem } from "../features/scheduler/bootstrap";
 import type { SchedulerSubsystem } from "../features/scheduler/bootstrap";
 import { createChannelsSubsystem } from "../features/channels/bootstrap";
@@ -1015,6 +1016,7 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
             llmClient: services.llm,
             buildRunOptions: runtime.buildOptions,
             schedulerStore: scheduler.store,
+            runAgentTask: scheduler.runAgentTask,
             getChatWebContents: () => reactChatWindow?.webContents ?? null,
           });
           const stopV1 = typeof pluginManager.stop === "function" ? pluginManager.stop.bind(pluginManager) : async () => {};
@@ -1041,7 +1043,12 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
             ipc: shell.ipc,
             publishLifecycle: lifecyclePublisher,
             // 插件任务只有所属插件在运行时才可触发，用户任务不受影响
-            canRunTask: (task) => !task.ownerPluginId || (pluginManager?.isRunning(task.ownerPluginId) ?? false),
+            canRunTask: (task) => isPluginTaskRunnable(task, pluginManager, pluginV2),
+            // v2 插件的任务（回调动作、待批准暂停）由 v2 调度服务执行，其余交给 agent 运行器
+            runPluginTask: (task, scheduledFireAt, manual) =>
+              task.ownerPluginId && pluginV2?.status(task.ownerPluginId) === "enabled"
+                ? pluginV2.scheduleService.runScheduledTask(task, scheduledFireAt, manual)
+                : undefined,
           }),
 
         registerCoreIpc: (input) => {

@@ -38,6 +38,7 @@ import {
   bindPluginScheduleRpc,
   createPluginScheduleService,
   type PluginScheduleService,
+  type PluginScheduleServiceOptions,
   type PluginSchedulerStorePort,
 } from "../../../../plugins/v2/schedules";
 import {
@@ -88,6 +89,8 @@ export interface PluginV2HostDependencies {
   scheduleStateFile?: string;
   /** Called after the plugin schedule state (proposals, approvals) changed, so the UI can reload. */
   onScheduleStateChanged?: () => void;
+  /** Runs the `run` action of a plugin task (the agent runner). */
+  runAgentTask?: PluginScheduleServiceOptions["runAgentTask"];
   runtimeEntry?: string;
   toolRegistry?: ToolRegistry;
   safeStorage?: SafeStorageLike | null;
@@ -251,6 +254,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
   const scheduleService: PluginScheduleService = createPluginScheduleService({
     store: deps.schedulerStore,
     stateFile: deps.scheduleStateFile ?? path.join(deps.dataRoot, "plugin-schedules-state.json"),
+    ...(deps.runAgentTask ? { runAgentTask: deps.runAgentTask } : {}),
     ...(deps.onScheduleStateChanged ? { onStateChanged: deps.onScheduleStateChanged } : {}),
   });
 
