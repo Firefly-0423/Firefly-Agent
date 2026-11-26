@@ -268,6 +268,12 @@ export async function startPluginV2Bootstrap(deps: PluginV2BootstrapDeps): Promi
     return { ok: true, stopped };
   });
 
+  const { ipc } = deps;
+  ipc.handle(IPC.PLUGIN_WINDOW_GET_STATE, (event) => controller.uiService.handleWindowGetState(event.sender.id));
+  ipc.handle(IPC.PLUGIN_WINDOW_INVOKE, (event, payload: unknown) => controller.uiService.handleWindowInvoke(event.sender.id, payload));
+  ipc.handle(IPC.PLUGIN_WINDOW_CLOSE, (event) => controller.uiService.handleWindowClose(event.sender.id));
+  ipc.on(IPC.PLUGIN_WINDOW_READY, (event) => controller.uiService.handleWindowReady(event.sender.id));
+
   // A plugin starting or stopping changes whether its tasks can run; the scheduler panel reloads on this event.
   controller.hostManager?.onStatusChange?.(() => {
     sendToChat(IPC.SCHEDULER_EVENT, { type: "CUSTOM", name: PLUGIN_PROPOSALS_CHANGED_EVENT });

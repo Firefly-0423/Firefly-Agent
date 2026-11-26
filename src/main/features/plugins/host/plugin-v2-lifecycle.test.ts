@@ -95,6 +95,7 @@ type ActivateVerdict = { ok: boolean; error?: string };
 
 function createFakeHostHarness(
   activateBehavior: (mainPath: string, version: string) => ActivateVerdict | Promise<ActivateVerdict>,
+  onPluginRequest?: (method: string, params: unknown) => unknown,
 ) {
   const launched: FakeChildRecord[] = [];
   const managers: PluginHostManager[] = [];
@@ -132,6 +133,8 @@ function createFakeHostHarness(
             } else if (frame.method === HOST_TO_PLUGIN_METHODS.deactivate) {
               record.stopReasons.push(String(frame.params));
               childPort?.postMessage({ type: "res", id: frame.id, ok: true, value: null });
+            } else if (onPluginRequest) {
+              childPort?.postMessage({ type: "res", id: frame.id, ok: true, value: onPluginRequest(frame.method, frame.params) });
             }
           });
           childPort.start();
@@ -156,7 +159,7 @@ function createFakeHostHarness(
 function makeController(
   harness: ReturnType<typeof createFakeHostHarness>,
   deleteTasksSpy = vi.fn(() => 2),
-  extra: { packageFs?: Partial<ImporterFsOps>; createNotifications?: PluginV2HostDependencies["createNotifications"] } = {},
+  extra: { createPluginWindow?: PluginV2HostDependencies["createPluginWindow"]; packageFs?: Partial<ImporterFsOps>; createNotifications?: PluginV2HostDependencies["createNotifications"] } = {},
 ) {
   const controller = createPluginV2HostController({
     dataRoot,
@@ -179,6 +182,7 @@ function makeController(
     getActiveChatTarget: () => null,
     confirmFirstUse: async () => true,
     createHostManager: harness.createHostManager,
+    ...(extra.createPluginWindow ? { createPluginWindow: extra.createPluginWindow } : {}),
     ...(extra.packageFs ? { packageFs: extra.packageFs } : {}),
     ...(extra.createNotifications ? { createNotifications: extra.createNotifications } : {}),
   });
@@ -1025,6 +1029,147 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
     expect(controller.stateStore.getModelRateLimit("dev.firefly.faulty")).toBe(42);
     const afterInvalid = JSON.parse(readFileSync(controller.stateStore.filePath, "utf8")).plugins["dev.firefly.faulty"];
     expect(afterInvalid).toEqual(beforeInvalid);
+
+    controller.dispose();
+  });
+
+  it("closes open plugin UI windows on permission revocation, disable, fault, and stopAll", async () => {
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    let nextWcId = 500;
+    const closedCounts = new Map<string, number>();
+    const controller = createPluginV2HostController({
+      dataRoot,
+      stateFile: path.join(dataRoot, "plugin-state.json"),
+      scheduleStateFile: path.join(dataRoot, "plugin-schedules-state.json"),
+      safeStorage: createFakeSafeStorage(),
+      schedulerStore: {
+        listTasksByOwner: () => [],
+        createTask: vi.fn() as never,
+        updateTask: vi.fn() as never,
+        deleteTask: vi.fn(() => true),
+        deleteTasksByOwner: vi.fn(() => 0),
+      },
+      llmClient: { chatNonStream: vi.fn() as never },
+      buildRunOptions: vi.fn() as never,
+      loadModelSettings: () => ({} as never),
+      loadGeneralSettings: () => ({}),
+      listSessions: () => [],
+      getSession: () => null,
+      getActiveChatTarget: () => null,
+      confirmFirstUse: async () => true,
+      createHostManager: harness.createHostManager,
+      createPluginWindow: (opts) => {
+        let destroyed = false;
+        const listeners = new Set<() => void>();
+        return {
+          webContentsId: nextWcId++,
+          show: () => {},
+          focus: () => {},
+          close: () => {
+            if (destroyed) return;
+            destroyed = true;
+            closedCounts.set(opts.pluginId, (closedCounts.get(opts.pluginId) ?? 0) + 1);
+            for (const fn of [...listeners]) fn();
+          },
+          isDestroyed: () => destroyed,
+          sendMessage: () => {},
+          onClosed: (fn) => {
+            listeners.add(fn);
+            return () => listeners.delete(fn);
+          },
+          load: async () => {},
+        };
+      },
+    });
+
+    const manifest = {
+      schemaVersion: 1 as const,
+      id: "dev.firefly.uiwin",
+      name: "UI Win",
+      version: "1.0.0",
+      sdk: "^1.2.0",
+      main: "index.mjs",
+      permissions: ["ui.windows" as const],
+      ui: { windows: [{ id: "panel", entry: "ui/panel.html", title: "Panel" }] },
+    };
+    const pkgDir = path.join(dataRoot, "plugins", "dev.firefly.uiwin", "1.0.0");
+    mkdirSync(path.join(pkgDir, "ui"), { recursive: true });
+    writeFileSync(path.join(pkgDir, "index.mjs"), "export default { activate() {} };\n", "utf8");
+    writeFileSync(path.join(pkgDir, "ui", "panel.html"), "<html></html>", "utf8");
+    controller.installPlugin(manifest, pkgDir);
+
+    await controller.enablePlugin("dev.firefly.uiwin");
+    await controller.openPluginWindow("dev.firefly.uiwin");
+    expect(controller.listOpenWindows("dev.firefly.uiwin")).toEqual(["panel"]);
+
+    // Revoking ui.windows closes open windows and blocks re-opening
+    controller.revokePermission("dev.firefly.uiwin", "ui.windows");
+    expect(controller.listOpenWindows("dev.firefly.uiwin")).toEqual([]);
+    expect(closedCounts.get("dev.firefly.uiwin")).toBe(1);
+    await expect(controller.openPluginWindow("dev.firefly.uiwin")).rejects.toMatchObject({ code: "ERR_PERMISSION" });
+
+    // Re-grant and open, then disablePlugin closes windows
+    controller.grantPermission("dev.firefly.uiwin", "ui.windows");
+    await controller.openPluginWindow("dev.firefly.uiwin");
+    expect(controller.listOpenWindows("dev.firefly.uiwin")).toEqual(["panel"]);
+    await controller.disablePlugin("dev.firefly.uiwin");
+    expect(controller.listOpenWindows("dev.firefly.uiwin")).toEqual([]);
+    expect(closedCounts.get("dev.firefly.uiwin")).toBe(2);
+
+    await controller.stopAll("quit");
+    controller.dispose();
+  });
+
+  it("forwards a window invoke from a page loaded during activate, and rejects invokes once the plugin stops", async () => {
+    let releaseActivate!: () => void;
+    const activateGate = new Promise<void>((resolve) => { releaseActivate = resolve; });
+    const received: Array<{ method: string; params: unknown }> = [];
+    const harness = createFakeHostHarness(
+      async () => { await activateGate; return { ok: true }; },
+      (method, params) => { received.push({ method, params }); return { pong: true }; },
+    );
+    const { controller } = makeController(harness, undefined, {
+      createPluginWindow: (opts) => {
+        let destroyed = false;
+        const listeners = new Set<() => void>();
+        return {
+          webContentsId: 700,
+          show: () => {},
+          focus: () => {},
+          close: () => { if (destroyed) return; destroyed = true; for (const fn of [...listeners]) fn(); },
+          isDestroyed: () => destroyed,
+          sendMessage: () => {},
+          onClosed: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
+          load: async () => {},
+        };
+      },
+    });
+    const id = "dev.firefly.startui";
+    const pkgDir = path.join(dataRoot, "plugins", id, "1.0.0");
+    mkdirSync(path.join(pkgDir, "ui"), { recursive: true });
+    writeFileSync(path.join(pkgDir, "index.mjs"), "export default { activate() {} };\n", "utf8");
+    writeFileSync(path.join(pkgDir, "ui", "panel.html"), "<html></html>", "utf8");
+    controller.installPlugin({
+      schemaVersion: 1 as const, id, name: "Start UI", version: "1.0.0", sdk: "^1.2.0", main: "index.mjs",
+      permissions: ["ui.windows" as const],
+      ui: { windows: [{ id: "panel", entry: "ui/panel.html", title: "Panel" }] },
+    }, pkgDir);
+
+    const enabling = controller.enablePlugin(id);
+    await vi.waitFor(() => expect(harness.managers[0]?.status(id)).toBe("starting"));
+    await controller.openPluginWindow(id);
+
+    await expect(controller.uiService.handleWindowInvoke(700, { method: "ping", params: { n: 1 } })).resolves.toEqual({ pong: true });
+    expect(received).toEqual([{ method: HOST_TO_PLUGIN_METHODS.uiMessage, params: { from: { kind: "window", id: expect.any(String) }, method: "ping", params: { n: 1 } } }]);
+    // Only window UI messages get the starting-state path; other callers stay enabled-only.
+    await expect(harness.managers[0].call(id, "tool.execute", {})).rejects.toMatchObject({ code: "ERR_UNAVAILABLE" });
+
+    releaseActivate();
+    await enabling;
+    await controller.disablePlugin(id);
+    received.length = 0;
+    await expect(controller.uiService.handleWindowInvoke(700, { method: "ping" })).rejects.toBeInstanceOf(Error);
+    expect(received).toEqual([]);
 
     controller.dispose();
   });
