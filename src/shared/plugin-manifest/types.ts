@@ -31,6 +31,7 @@ export const PLUGIN_PERMISSIONS = [
   "sessions.read",
   "workspace.read",
   "schedules",
+  "notifications",
   "secrets",
   "ui.windows",
 ] as const;

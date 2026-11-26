@@ -44,7 +44,7 @@
 }
 
 .scheduled-state.is-error {
-  color: var(--ff-danger, #e5484d);
+  color: var(--ff-danger, var(--ff-status-err-vivid));
   padding: 12px 0;
   text-align: left;
 }
@@ -86,20 +86,20 @@
 }
 
 .scheduled-btn.is-primary {
-  color: #fff;
+  color: var(--ff-white);
   background: var(--ff-accent, var(--ff-accent-solid));
   border-color: var(--ff-accent, var(--ff-accent));
 }
 
 .scheduled-btn.is-primary:hover:not(:disabled) {
-  color: #fff;
+  color: var(--ff-white);
   background: var(--ff-accent-hover, var(--ff-accent-solid));
 }
 
 .scheduled-btn.is-danger:hover:not(:disabled) {
-  color: var(--ff-danger, #e5484d);
-  border-color: var(--ff-danger, #e5484d);
-  background: rgba(229, 72, 77, 0.08);
+  color: var(--ff-danger, var(--ff-status-err-vivid));
+  border-color: var(--ff-danger, var(--ff-status-err-vivid));
+  background: var(--ff-status-err-soft);
 }
 
 .scheduled-btn:focus-visible,
@@ -218,7 +218,7 @@
 }
 
 .scheduled-card__history.is-error {
-  color: var(--ff-danger, #e5484d);
+  color: var(--ff-danger, var(--ff-status-err-vivid));
 }
 
 .scheduled-card__history-row {
@@ -230,7 +230,7 @@
 }
 
 .scheduled-card__history-status.is-failed {
-  color: var(--ff-danger, #e5484d);
+  color: var(--ff-danger, var(--ff-status-err-vivid));
 }
 
 .scheduled-card__history-status.is-success {
@@ -434,7 +434,7 @@
   flex-shrink: 0;
   padding: 0 6px;
   font-size: var(--ff-fs-caption);
-  color: var(--ff-danger, #e5484d);
+  color: var(--ff-danger, var(--ff-status-err-vivid));
   border: 1px solid currentColor;
   border-radius: 8px;
 }
@@ -463,7 +463,7 @@
 }
 
 .scheduled-status.is-error {
-  color: var(--ff-danger, #e5484d);
+  color: var(--ff-danger, var(--ff-status-err-vivid));
 }
 
 /* 窄宽度（320-480px 侧栏展开或窗口收窄）：收紧留白，避免横向溢出 */

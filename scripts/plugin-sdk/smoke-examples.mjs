@@ -1,89 +1,85 @@
-// 示例插件冒烟测试。运行位置是临时项目（SDK 已从 tarball 装进它的 node_modules）。
-// 对每个示例检查：能完成 register、工具 id 符合约定、停止流程不抛错。
-// 用法：node smoke.mjs <install 目录>，目录下每个子目录是一个已组装好的插件。
-import { createRequire } from "node:module";
+// 1.2.0 示例插件冒烟测试（在临时外部项目中运行，导入已安装的 @firefly_wu/plugin-sdk/testing）。
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { readdir, readFile } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
+import { createTestHost } from "@firefly_wu/plugin-sdk/testing";
 
-const require = createRequire(import.meta.url);
-const { createMockPluginContext, assertPluginTool, assertValidManifest } = require("@firefly_wu/plugin-sdk/testing");
+const [sourcesRoot, packagesRoot] = process.argv.slice(2);
 
-const installRoot = process.argv[2];
+async function checkWeather() {
+  const dir = path.join(sourcesRoot, "dev.firefly.weather");
+  const pkgBytes = await readFile(path.join(packagesRoot, "dev.firefly.weather.ffplugin"));
+  assert.equal(pkgBytes.subarray(0, 2).toString("utf8"), "PK");
 
-/** 各项宿主服务的最小假实现，只够示例在注册阶段使用。 */
-const FAKE_SERVICES = {
-  secrets: () => ({
-    get: async () => undefined,
-    set: async () => undefined,
-    delete: async () => false,
-  }),
-  scheduler: () => {
-    const sampleTask = {
-      id: "task-1",
-      title: "t",
-      prompt: "p",
-      mode: "chat",
-      schedule: { kind: "daily", timeOfDay: "09:00" },
-      allowedToolIds: [],
-      enabled: false,
-      nextFireAt: null,
-      createdAt: "",
-      updatedAt: "",
-    };
-    return {
-      createTask: async () => ({ ...sampleTask }),
-      listTasks: async () => [{ ...sampleTask }],
-      updateTask: async () => ({ ...sampleTask }),
-      deleteTask: async () => true,
-      getHistory: async () => [],
-    };
-  },
-  llm: () => ({ generateText: async () => "摘要" }),
-  conversations: () => ({
-    list: async () => ({ items: [] }),
-    getMessages: async () => ({ items: [], range: {} }),
-  }),
-};
+  const manifest = JSON.parse(await readFile(path.join(dir, "firefly.plugin.json"), "utf8"));
+  const mod = await import(pathToFileURL(path.join(dir, manifest.main)).href);
 
-/** 按 manifest 声明的 deps 生成假服务；不认识的依赖名直接忽略。 */
-function fakeDepsFor(manifest) {
-  const deps = {};
-  for (const name of manifest.deps ?? []) {
-    if (Object.hasOwn(FAKE_SERVICES, name)) deps[name] = FAKE_SERVICES[name]();
-  }
-  return deps;
+  let fetchCalls = 0;
+  const plugin = mod.createWeatherPlugin({
+    fetchImpl: async () => {
+      fetchCalls++;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ name: "Shanghai", main: { temp: 21, humidity: 55 }, weather: [{ description: "多云" }] }),
+      };
+    },
+  });
+
+  const host = createTestHost({ manifest, mode: "work", level: "full", secrets: { api_key: "smoke-key" } });
+  await host.activate(plugin);
+
+  const invalid = await host.callTool("get_weather", { city: "   " });
+  assert.equal(invalid.status, "not_executed");
+  assert.equal(fetchCalls, 0);
+
+  const ok = await host.callTool("get_weather", { city: "Shanghai" });
+  assert.equal(ok.status, "succeeded");
+  assert.equal(fetchCalls, 1);
+
+  await host.deactivate("disabled");
+  console.log("[smoke] dev.firefly.weather 通过");
 }
 
-/** 完整检查一个插件目录；任何一步失败都会抛出。 */
-async function smokeTest(pluginDir, dirName) {
-  const manifest = JSON.parse(await readFile(path.join(pluginDir, "manifest.json"), "utf8"));
-  assertValidManifest(manifest);
+async function checkReminder() {
+  const dir = path.join(sourcesRoot, "dev.firefly.reminder");
+  const pkgBytes = await readFile(path.join(packagesRoot, "dev.firefly.reminder.ffplugin"));
+  assert.equal(pkgBytes.subarray(0, 2).toString("utf8"), "PK");
 
-  // manifest.entry 指向的产物必须存在、能加载，并且导出 register
-  const plugin = require(path.join(pluginDir, manifest.entry));
-  if (typeof plugin?.register !== "function") {
-    throw new Error("入口导出缺少 register 函数");
-  }
+  const manifest = JSON.parse(await readFile(path.join(dir, "firefly.plugin.json"), "utf8"));
+  const mod = await import(pathToFileURL(path.join(dir, manifest.main)).href);
 
-  const ctx = createMockPluginContext({ pluginId: manifest.id, deps: fakeDepsFor(manifest) });
-  if (plugin.open) await plugin.open();
-  await plugin.register(ctx);
-  ctx.tools.forEach((tool) => assertPluginTool(tool, manifest.id));
+  let modelCalls = 0;
+  const host = createTestHost({
+    manifest,
+    mode: "work",
+    level: "full",
+    model: {
+      generate: async () => {
+        modelCalls++;
+        return { text: "记得喝水休息一下。" };
+      },
+    },
+  });
+  await host.activate(mod.default);
 
-  // 停止流程：框架清理与 unregister 都不应抛错
-  await ctx.dispose();
-  if (plugin.unregister) await plugin.unregister();
+  const proposed = await host.callTool("create_daily_reminder", {
+    title: "喝水",
+    topic: "喝水提醒",
+    timeOfDay: "09:00",
+  });
+  assert.equal(proposed.status, "succeeded");
+  assert.equal(proposed.output.status, "pending_approval");
+  assert.equal(modelCalls, 0);
 
-  console.log(`[smoke] ${dirName}: register ${ctx.tools.length} 个工具, 契约通过`);
+  host.approveSchedule(proposed.output.taskId);
+  await host.triggerSchedule(proposed.output.taskId, { topic: "喝水提醒" });
+  assert.equal(modelCalls, 1);
+
+  await host.deactivate("disabled");
+  console.log("[smoke] dev.firefly.reminder 通过");
 }
 
-let anyFailed = false;
-for (const dirName of await readdir(installRoot)) {
-  try {
-    await smokeTest(path.join(installRoot, dirName), dirName);
-  } catch (error) {
-    anyFailed = true;
-    console.error(`[smoke] ${dirName} 失败:`, error);
-  }
-}
-if (anyFailed) process.exit(1);
+await checkWeather();
+await checkReminder();

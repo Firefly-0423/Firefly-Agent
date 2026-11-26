@@ -82,6 +82,10 @@ describe("plugin child-process runtime", () => {
     const workspaceSeen: unknown[] = [];
     const triggersSeen: unknown[] = [];
     const channelStopped = vi.fn();
+    hostRpc.handle(P.notificationsShow, params => {
+      recordedCalls.push({ method: P.notificationsShow, params });
+      return { shown: true };
+    });
 
     hostRpc.handle(P.toolsRegister, (params) => {
       recordedCalls.push({ method: P.toolsRegister, params });
@@ -346,6 +350,10 @@ describe("plugin child-process runtime", () => {
       expect(await observedContext.schedules.update("t-1", { title: "t2" })).toEqual({ status: "pending_approval" });
       expect(await observedContext.schedules.list()).toEqual([]);
       expect(await observedContext.schedules.remove("t-1")).toBe(true);
+      expect(await observedContext.notifications.show({ title: "提醒", body: "记得喝水" })).toEqual({ shown: true });
+      expect(recordedCalls.filter(call => call.method === P.notificationsShow)).toEqual([
+        { method: "notifications.show", params: { title: "提醒", body: "记得喝水" } },
+      ]);
 
       await observedContext.secrets.set("apiKey", "v");
       expect(await observedContext.secrets.get("apiKey")).toBe("secret-value");

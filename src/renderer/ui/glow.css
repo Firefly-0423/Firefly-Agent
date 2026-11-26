@@ -23,8 +23,8 @@
    settings/shared/range-fill.ts as they move. */
 :root[data-ui-theme="pearl-white"] input[type="range"] { accent-color: var(--ff-glow); }
 :root[data-ui-theme="pearl-white"] :is(.range-row, .setting-row, .tts-field) input[type="range"] {
-  background: linear-gradient(90deg, var(--ff-glow-soft) var(--ff-range-fill, 0%), #e6e8ee var(--ff-range-fill, 0%));
-  border-color: #c9ccd6;
+  background: linear-gradient(90deg, var(--ff-glow-soft) var(--ff-range-fill, 0%), var(--ff-slate-100) var(--ff-range-fill, 0%));
+  border-color: var(--ff-slate-250);
 }
 :root[data-ui-theme="pearl-white"] :is(.range-row, .setting-row, .tts-field) input[type="range"]::-webkit-slider-thumb {
   border: 2px solid var(--ff-glow);
@@ -38,10 +38,10 @@
 /* The selected option or page: a teal edge or ring instead of a solid ink block. */
 :root[data-ui-theme="pearl-white"] :is(.option-block, .language-option).is-active,
 :root[data-ui-theme="pearl-white"] :is(.option-block, .language-option).is-active:not(:disabled):hover {
-  color: #2c7a5d;
-  background: #ffffff;
-  border-color: #9fdcc2;
-  box-shadow: inset 0 0 0 1px #9fdcc2;
+  color: var(--ff-teal-700);
+  background: var(--ff-white);
+  border-color: var(--ff-mint-border-light);
+  box-shadow: inset 0 0 0 1px var(--ff-mint-border-light);
 }
 :root[data-ui-theme="pearl-white"] .nav-item.is-active { color: var(--rb-pink-700); box-shadow: inset 2px 0 var(--ff-glow); }
 :root[data-ui-theme="pearl-white"] .ff-permission-panel__option.is-active { border-color: rgba(var(--ff-glow-rgb), 0.4); background: rgba(var(--ff-glow-rgb), 0.07); }
@@ -49,8 +49,8 @@
 :root[data-ui-theme="pearl-white"] :is(.ff-model-list__item > svg, .ff-effort__value) { color: var(--ff-glow); }
 
 /* The send button: the one place a button takes the glow, since sending is what lights Firefly up. */
-:root[data-ui-theme="pearl-white"] .ff-composer .ant-sender-actions-btn:not(:disabled) { background: var(--ff-glow); color: #ffffff; }
-:root[data-ui-theme="pearl-white"] .ff-composer .ant-sender-actions-btn:not(:disabled):hover { background: color-mix(in srgb, var(--ff-glow) 88%, #000000); }
+:root[data-ui-theme="pearl-white"] .ff-composer .ant-sender-actions-btn:not(:disabled) { background: var(--ff-glow); color: var(--ff-white); }
+:root[data-ui-theme="pearl-white"] .ff-composer .ant-sender-actions-btn:not(:disabled):hover { background: color-mix(in srgb, var(--ff-glow) 88%, var(--ff-black)); }
 
 /* Focus rings and things that are running or listening. */
 :root[data-ui-theme="pearl-white"] :focus-visible { outline-color: var(--ff-glow); }
@@ -68,13 +68,13 @@
 /* ===== Dark theme, quieter =====
    Cards rest on a slightly lifted surface instead of outlined boxes, disclosure chevrons are muted rather than
    mint, and the composer and cards only show a border on hover or focus. */
-:root[data-ui-theme="firefly-dark"] .ff-overview-card { border-color: transparent; background: #1f332c; }
-:root[data-ui-theme="firefly-dark"] .ff-overview-card:hover { border-color: #2f4840; }
+:root[data-ui-theme="firefly-dark"] .ff-overview-card { border-color: transparent; background: var(--ff-dark-card-bg); }
+:root[data-ui-theme="firefly-dark"] .ff-overview-card:hover { border-color: var(--ff-dark-card-border); }
 :root[data-ui-theme="firefly-dark"] .ff-run-activity__chevron { color: var(--ff-text-muted); }
-:root[data-ui-theme="firefly-dark"] .ff-composer-shell { border-color: #2a4038; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28); }
-:root[data-ui-theme="firefly-dark"] .ff-composer-shell:hover { border-color: #36524a; }
-:root[data-ui-theme="firefly-dark"] .ff-composer-shell:focus-within { border-color: rgba(var(--ff-glow-rgb), 0.45); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.32), 0 0 0 3px rgba(var(--ff-glow-rgb), 0.08); }
-:root[data-ui-theme="firefly-dark"] .ff-message--user .ant-bubble-content { background: #284239; color: var(--ff-text); }
+:root[data-ui-theme="firefly-dark"] .ff-composer-shell { border-color: var(--ff-dark-composer-border); box-shadow: 0 8px 28px var(--ff-black-alpha-28); }
+:root[data-ui-theme="firefly-dark"] .ff-composer-shell:hover { border-color: var(--ff-dark-composer-border-hover); }
+:root[data-ui-theme="firefly-dark"] .ff-composer-shell:focus-within { border-color: rgba(var(--ff-glow-rgb), 0.45); box-shadow: 0 8px 28px var(--ff-black-alpha-32), 0 0 0 3px rgba(var(--ff-glow-rgb), 0.08); }
+:root[data-ui-theme="firefly-dark"] .ff-message--user .ant-bubble-content { background: var(--ff-dark-user-bubble); color: var(--ff-text); }
 /* Light text on a dark ground looks bolder than the same weight in the light theme; reading text sits a touch finer. */
 :root[data-ui-theme="firefly-dark"] .ff-message-markdown,
 :root[data-ui-theme="firefly-dark"] .ff-message-markdown :is(p, li, td, blockquote) { font-weight: 360; }
@@ -91,10 +91,10 @@
   --ff-border: #333937;
   background: var(--ff-bg-workspace);
 }
-:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-overview-card { background: #232726; }
-:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-overview-card:hover { border-color: #363c3a; }
-:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-composer-shell { border-color: #313735; }
-:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-message--user .ant-bubble-content { background: #2b3532; }
+:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-overview-card { background: var(--ff-dark-main-card); }
+:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-overview-card:hover { border-color: var(--ff-dark-main-card-hover); }
+:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-composer-shell { border-color: var(--ff-dark-main-composer-border); }
+:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-message--user .ant-bubble-content { background: var(--ff-dark-main-user-bubble); }
 /* The overview cards column is the right-hand side when the panel is closed: it keeps the ink green. */
 :root[data-ui-theme="firefly-dark"] .ff-page-main .ff-chat-cards {
   --ff-bg-workspace: #192a24;
@@ -103,10 +103,10 @@
   --ff-bg-active: #2c463c;
   --ff-border: #2f4840;
   align-self: stretch;
-  background: #152420;
+  background: var(--ff-dark-ink-bg-1);
 }
-:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-chat-cards .ff-overview-card { background: #1f332c; }
-:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-chat-cards .ff-overview-card:hover { border-color: #2f4840; }
+:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-chat-cards .ff-overview-card { background: var(--ff-dark-card-bg); }
+:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-chat-cards .ff-overview-card:hover { border-color: var(--ff-dark-card-border); }
 
 /* "流萤已处理 N 秒": a hairline under the run header separates the run from the reply below it, in both themes. */
 .ff-run-activity__header { position: relative; }
@@ -137,22 +137,22 @@
 
 /* Dark pop-ups and composer, after Codex: the same near-black as the conversation, set apart by a clear hairline
    rather than a lighter fill or a green frame. */
-:root[data-ui-theme="firefly-dark"] { --ff-popover: #1b1e1d; }
+:root[data-ui-theme="firefly-dark"] { --ff-popover: var(--ff-dark-main-bg); }
 :root[data-ui-theme="firefly-dark"] :is(.ant-popover .ant-popover-inner, .ant-dropdown .ant-dropdown-menu, .ant-select-dropdown) {
-  background: #1b1e1d;
-  border: 1px solid #3b4240;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  background: var(--ff-dark-main-bg);
+  border: 1px solid var(--ff-dark-popover-border);
+  box-shadow: 0 16px 40px var(--ff-black-alpha-45);
 }
-:root[data-ui-theme="firefly-dark"] .ant-popover .ant-popover-arrow::before { background: #1b1e1d; }
-:root[data-ui-theme="firefly-dark"] .ant-popover { --ff-bg-hover: #2a2f2d; --ff-bg-active: #323836; --ff-border: #3b4240; }
-:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-composer-shell { background: #1b1e1d; border-color: #3b4240; }
-:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-composer-shell:hover { border-color: #4a524f; }
-:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-composer__project-strip { background: #1b1e1d; border-color: #3b4240; }
+:root[data-ui-theme="firefly-dark"] .ant-popover .ant-popover-arrow::before { background: var(--ff-dark-main-bg); }
+:root[data-ui-theme="firefly-dark"] .ant-popover { --ff-bg-hover: var(--ff-dark-main-hover); --ff-bg-active: var(--ff-dark-main-active); --ff-border: var(--ff-dark-popover-border); }
+:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-composer-shell { background: var(--ff-dark-main-bg); border-color: var(--ff-dark-popover-border); }
+:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-composer-shell:hover { border-color: var(--ff-dark-popover-border-hover); }
+:root[data-ui-theme="firefly-dark"] .ff-page-main .ff-composer__project-strip { background: var(--ff-dark-main-bg); border-color: var(--ff-dark-popover-border); }
 /* This antd version paints the popover on .ant-popover-container (not -inner): give it the same near-black and hairline. */
 :root[data-ui-theme="firefly-dark"] .ant-popover .ant-popover-container {
-  background: #1b1e1d;
-  border: 1px solid #3b4240;
+  background: var(--ff-dark-main-bg);
+  border: 1px solid var(--ff-dark-popover-border);
   border-radius: 16px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 16px 40px var(--ff-black-alpha-45);
 }
 :root[data-ui-theme="firefly-dark"] .ant-popover .ant-popover-container .ant-popover-inner { border: 0; box-shadow: none; background: transparent; }
