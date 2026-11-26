@@ -465,6 +465,18 @@ describe("ScheduledTaskPanel — review follow-ups", () => {
     expect(buttonByText("立即运行").disabled).toBe(true);
   });
 
+  it.each([
+    { pluginRunnable: true, disabled: false },
+    { pluginRunnable: false, disabled: true },
+  ])("uses the host's pluginRunnable=$pluginRunnable over the legacy list for a v2 plugin task (Run now disabled: $disabled)", async ({ pluginRunnable, disabled }) => {
+    const task: ScheduledTask = { ...DAILY_TASK, id: "task-v2", ownerPluginId: "v2.plugin", pluginRunnable };
+    installScheduler({ list: vi.fn(async () => ({ ok: true, value: [task] })) });
+    installPluginList([]);
+    await renderPanel();
+
+    expect(buttonByText("立即运行").disabled).toBe(disabled);
+  });
+
   it("stops listening to plugin changes when the panel unmounts", async () => {
     installScheduler();
     const off = vi.fn();

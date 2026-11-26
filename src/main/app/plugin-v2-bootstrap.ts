@@ -208,6 +208,10 @@ export async function startPluginV2Bootstrap(deps: PluginV2BootstrapDeps): Promi
     return { ok: true, stopped };
   });
 
+  // A plugin starting or stopping changes whether its tasks can run; the scheduler panel reloads on this event.
+  controller.hostManager?.onStatusChange?.(() => {
+    sendToChat(IPC.SCHEDULER_EVENT, { type: "CUSTOM", name: PLUGIN_PROPOSALS_CHANGED_EVENT });
+  });
   await controller.startEnabled();
   return controller;
 }

@@ -58,8 +58,8 @@ it("runs a task the plugin host owns through that host and every other task thro
 
 it("hands the plugin task enable guard to the scheduler IPC", () => {
   const store = { load: vi.fn(), onChange: vi.fn(), getTasks: () => [], updateTask: vi.fn(), recordHistory: vi.fn() };
-  const register = vi.fn(), guard = vi.fn(), ipc = {};
-  createSchedulerSubsystem({ store, createEngine: () => ({}), registerIpc: register, ipc, guardPluginTaskEnable: guard,
+  const register = vi.fn(), guard = vi.fn(), canRunTask = vi.fn(), ipc = {};
+  createSchedulerSubsystem({ store, createEngine: () => ({}), registerIpc: register, ipc, guardPluginTaskEnable: guard, canRunTask,
     agentRuntime: {}, getReactChatWindow: () => null } as unknown as SchedulerSubsystemDeps).initialize();
-  expect(register).toHaveBeenCalledWith(store, expect.anything(), expect.any(Function), ipc, guard);
+  expect(register).toHaveBeenCalledWith(store, expect.anything(), expect.any(Function), ipc, guard, canRunTask);
 });

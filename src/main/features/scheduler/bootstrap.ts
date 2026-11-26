@@ -63,7 +63,7 @@ export function createSchedulerSubsystem(services: SchedulerSubsystemDeps): Sche
     if (loaded) return;
     loaded = true;
     repository.load();
-    install(repository, clockwork, () => toolRegistry.getAllTools(), services.ipc, services.guardPluginTaskEnable);
+    install(repository, clockwork, () => toolRegistry.getAllTools(), services.ipc, services.guardPluginTaskEnable, services.canRunTask);
   };
   const start = (): void => { clockwork.start(); };
   const stop = async (): Promise<void> => {

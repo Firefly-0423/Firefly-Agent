@@ -33,6 +33,7 @@ const mocks = vi.hoisted(() => {
     showMessageBox,
     controller: {
       startEnabled: vi.fn(async () => {}),
+      hostManager: { onStatusChange: vi.fn() },
       getBorrowingEntries: vi.fn(() => []),
       stopBorrowing: vi.fn(() => 0),
       publishHostEvent: vi.fn(),
@@ -349,6 +350,27 @@ describe("startPluginV2Bootstrap plugin schedule proposals", () => {
     await expect(invoke(IPC.SCHEDULER_PLUGIN_PROPOSALS_CONFIRM, "task-1", "rev-1")).resolves.toEqual({ ok: true, value: true });
     expect(mocks.scheduleService.confirmProposal).toHaveBeenCalledTimes(1);
     expect(mocks.scheduleService.confirmProposal).toHaveBeenCalledWith("task-1", "rev-1");
+  });
+
+  it("tells the chat window to reload scheduled tasks when a v2 plugin starts or stops", async () => {
+    const { ipc } = createMockIpc();
+    const chatWebContents = createFakeChatWebContents();
+    const { startPluginV2Bootstrap } = await import("./plugin-v2-bootstrap");
+    await startPluginV2Bootstrap({
+      ipc,
+      llmClient: { chatNonStream: vi.fn() },
+      buildRunOptions: vi.fn() as never,
+      schedulerStore: {} as never,
+      getChatWebContents: () => chatWebContents as never,
+    });
+    const onStatusChange = mocks.controller.hostManager.onStatusChange;
+    const listener = onStatusChange.mock.calls.at(-1)![0] as (event: { id: string; status: string }) => void;
+    chatWebContents.send.mockClear();
+
+    listener({ id: "dev.test.plugin", status: "enabled" });
+
+    expect(chatWebContents.send).toHaveBeenCalledTimes(1);
+    expect(chatWebContents.send).toHaveBeenCalledWith(IPC.SCHEDULER_EVENT, { type: "CUSTOM", name: "scheduler.plugin_proposals_changed" });
   });
 
   it("pushes a scheduler event to the chat window when the schedule state changes, and skips a closed window", async () => {

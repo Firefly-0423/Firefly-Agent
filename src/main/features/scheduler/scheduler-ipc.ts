@@ -23,16 +23,23 @@ export type SchedulerToolInfo = {
 };
 
 /** 给渲染层看的任务视图，去掉授权指纹和用户授权位这类宿主内部字段 */
-export type RendererScheduledTask = Omit<ScheduledTask, "approvalFingerprint" | "pluginUserEnabled">;
+export type RendererScheduledTask = Omit<ScheduledTask, "approvalFingerprint" | "pluginUserEnabled"> & {
+  /** Plugin-owned tasks only: whether the owning plugin runs now, in the legacy or the v2 host. */
+  pluginRunnable?: boolean;
+};
 
 /**
  * 渲染层投影。插件任务的 enabled 显示为有效授权状态，
  * 与引擎判断是否运行时采用同一口径。
  */
-export function projectTaskForRenderer(task: ScheduledTask): RendererScheduledTask {
+export function projectTaskForRenderer(task: ScheduledTask, canRunTask?: (task: ScheduledTask) => boolean): RendererScheduledTask {
   const { approvalFingerprint: _fingerprint, pluginUserEnabled: _userEnabled, ...visible } = task;
   if (!task.ownerPluginId) return visible;
-  return { ...visible, enabled: executionSpec.isPluginTaskEffectivelyEnabled(task) };
+  return {
+    ...visible,
+    enabled: executionSpec.isPluginTaskEffectivelyEnabled(task),
+    ...(canRunTask ? { pluginRunnable: canRunTask(task) } : {}),
+  };
 }
 
 /**
@@ -73,6 +80,7 @@ export function registerSchedulerIpc(
   getTools: () => ToolDefinition[],
   ipcOption?: IpcScope,
   guardPluginTaskEnable?: PluginTaskEnableGuard,
+  canRunTask?: (task: ScheduledTask) => boolean,
 ): void {
   if (registered) return;
   registered = true;
@@ -80,7 +88,7 @@ export function registerSchedulerIpc(
 
   ipc.handle(IPC.SCHEDULER_LIST, () => {
     try {
-      return succeed(store.getTasks().map(projectTaskForRenderer));
+      return succeed(store.getTasks().map((task) => projectTaskForRenderer(task, canRunTask)));
     } catch (err) {
       return failure(err);
     }

@@ -19,6 +19,8 @@ export interface ScheduledTask {
   createdAt: string; updatedAt: string;
   // 插件任务的 enabled 已包含主进程授权结果。
   ownerPluginId?: string;
+  // 插件任务：主进程判断的所属插件是否正在运行（旧版或 v2 宿主）；缺省时界面回退到旧版插件列表。
+  pluginRunnable?: boolean;
   // 未指定模式时沿用 work。
   mode?: string;
 }

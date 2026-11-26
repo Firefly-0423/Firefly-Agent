@@ -312,7 +312,7 @@ export function ScheduledTaskPanel() {
                 <ScheduledTaskCard
                   key={task.id}
                   task={task}
-                  pluginRunning={task.ownerPluginId ? pluginRunning[task.ownerPluginId] === true : true}
+                  pluginRunning={task.ownerPluginId ? (task.pluginRunnable ?? pluginRunning[task.ownerPluginId]) === true : true}
                   history={histories[task.id]}
                   onRun={() => void runNow(task)}
                   onEdit={() => setEditor({ task })}
