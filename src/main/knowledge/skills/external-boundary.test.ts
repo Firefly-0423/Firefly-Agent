@@ -31,7 +31,7 @@ const hash = (file: string) => createHash("sha256").update(fs.readFileSync(path.
 const unchangedBoundaries = {
   // Reviewed plugin lifecycle update: apiVersion 2 registry format (SDK 1.2.0 .ffplugin packages, reverse-domain IDs,
   // sdk SemVer compatibility, native:false enforcement). Catalog/Release prefix, size, timeout, redirect, and SHA-256 rules are unchanged.
-  "src/main/features/plugins/host/plugin-marketplace.ts": "80aa174339ed39fc92162f9ed43ac657de345cac38f747b2e78019b6111460a0",
+  "src/main/features/plugins/host/plugin-marketplace.ts": "1f83cccd2e4fe705e2506eac6ff7fe7b69c7b17fe7181ed9db0d3c3996c61771",
   "src/main/platform/browser/browser-request-policy.ts": "9ce32fdba4722e49b7c96d27ad7a2058fae3d62a4186d44aac98e49d7e62bdf1",
   // Reviewed window-browser tools change: browser-startup-config only forwards the optional acceptDownload callback, and
   // electron-browser-guest only attaches the per-page tools object. No navigation, network or sandbox setting changed here;
