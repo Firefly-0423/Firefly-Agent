@@ -1052,7 +1052,6 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
             sourceKind,
             ...(sourceId ? { sourceId } : {}),
           });
-          await imported.commit();
         } catch (error) {
           await imported.rollback().catch(() => {});
           // install() may already have written a record; the plugin was not installed before, so remove it again.
@@ -1063,6 +1062,10 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
             error: error instanceof Error ? error.message : String(error),
           };
         }
+        // The new package is in place and recorded; removing the backup is cleanup and must not undo the install.
+        await imported.commit().catch((err: unknown) => {
+          logger.warn(LogTag.Plugins, `Failed to remove the install backup for ${manifest.id}`, err);
+        });
         faultedIds.delete(manifest.id);
         lastErrors.delete(manifest.id);
         deps.onOverviewChanged?.();
@@ -1090,7 +1093,6 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
             sourceKind,
             ...(sourceId ? { sourceId } : {}),
           });
-          await imported.commit();
         } catch (error) {
           await imported.rollback().catch(() => {});
           // install() already persisted the new manifest; put the previous record back so state matches the rolled-back files.
@@ -1101,7 +1103,10 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
             error: error instanceof Error ? error.message : String(error),
           };
         }
-        // The new version is committed; removing the old directory is cleanup and must not undo the install.
+        // The new version is installed; removing the backup and the old directory is cleanup and must not undo the install.
+        await imported.commit().catch((err: unknown) => {
+          logger.warn(LogTag.Plugins, `Failed to remove the install backup for ${manifest.id}`, err);
+        });
         if (oldInstallDir !== path.resolve(installDir)) {
           await removeDirIfSafe(oldInstallDir, path.join(pluginsRoot, manifest.id)).catch(() => {});
         }

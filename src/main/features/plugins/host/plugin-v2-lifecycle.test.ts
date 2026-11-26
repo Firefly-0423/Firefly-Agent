@@ -544,7 +544,7 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
     controller.dispose();
   });
 
-  it("restores files and the previous state record when committing a disabled same-version overwrite fails", async () => {
+  it("reports a disabled same-version overwrite as committed with the new files and state when only backup removal fails", async () => {
     let failCommit = false;
     const harness = createFakeHostHarness(() => ({ ok: true }));
     const { controller } = makeController(harness, undefined, {
@@ -557,44 +557,99 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
         },
       },
     });
-    const first = await writeArchivePlugin({
-      id: "dev.firefly.commitfail",
+    const id = "dev.firefly.commitfail";
+    expect((await controller.importFromPath(await writeArchivePlugin({
+      id,
       version: "1.0.0",
       name: "First Name",
       mainCode: "export default { build: 'first' };\n",
-    });
-    expect((await controller.importFromPath(first)).ok).toBe(true);
-    const before = structuredClone(controller.stateStore.get("dev.firefly.commitfail"));
+    }))).ok).toBe(true);
 
     failCommit = true;
-    const second = await writeArchivePlugin({
-      id: "dev.firefly.commitfail",
+    const res = await controller.importFromPath(await writeArchivePlugin({
+      id,
       version: "1.0.0",
       name: "Second Name",
       mainCode: "export default { build: 'second' };\n",
-    });
-    const res = await controller.importFromPath(second);
+    }));
 
-    expect(res.ok).toBe(false);
-    if (!res.ok) {
-      expect(res.installation).toBe("rejected");
-      expect(res.error).toContain("EPERM removing backup");
-    }
-    const after = controller.stateStore.get("dev.firefly.commitfail");
-    expect(after?.manifest).toEqual(before?.manifest);
-    expect(after?.manifest.name).toBe("First Name");
-    expect(after?.enabled).toBe(false);
-    expect(after?.installDir).toBe(before?.installDir);
+    expect(res).toEqual({
+      ok: true,
+      installation: "committed",
+      activation: "not-requested",
+      plugin: { id, name: "Second Name", version: "1.0.0" },
+    });
+    expect(controller.stateStore.get(id)?.manifest.name).toBe("Second Name");
+    expect(controller.stateStore.get(id)?.enabled).toBe(false);
     const diskState = JSON.parse(readFileSync(controller.stateStore.filePath, "utf8"));
-    expect(diskState.plugins["dev.firefly.commitfail"].manifest.name).toBe("First Name");
-    const installed = path.join(dataRoot, "plugins", "dev.firefly.commitfail", "1.0.0", "index.mjs");
-    expect(readFileSync(installed, "utf8")).toContain("first");
+    expect(diskState.plugins[id].manifest.name).toBe("Second Name");
+    expect(readFileSync(path.join(dataRoot, "plugins", id, "1.0.0", "index.mjs"), "utf8")).toContain("second");
     expect(harness.launched).toHaveLength(0);
 
     controller.dispose();
   });
 
-  it("leaves no state record when a first install over a leftover same-version directory fails to commit", async () => {
+  it("keeps the complete new package when backup removal deletes part of the backup and then throws", async () => {
+    let failCommit = false;
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const { controller } = makeController(harness, undefined, {
+      packageFs: {
+        async rm(target, options) {
+          if (failCommit && path.basename(String(target)).startsWith(".backup-")) {
+            await fsPromises.rm(path.join(String(target), "index.mjs"), { force: true });
+            throw new Error("EPERM removing backup");
+          }
+          return fsPromises.rm(target, options);
+        },
+      },
+    });
+    const id = "dev.firefly.partialbackup";
+    await controller.importFromPath(await writeArchivePlugin({ id, version: "1.0.0", name: "First Name", mainCode: "export default { build: 'first' };\n" }));
+
+    failCommit = true;
+    const res = await controller.importFromPath(await writeArchivePlugin({ id, version: "1.0.0", name: "Second Name", mainCode: "export default { build: 'second' };\n" }));
+
+    expect(res).toMatchObject({ ok: true, installation: "committed" });
+    expect(readFileSync(path.join(dataRoot, "plugins", id, "1.0.0", "index.mjs"), "utf8")).toContain("second");
+    expect(controller.stateStore.get(id)?.manifest.name).toBe("Second Name");
+
+    controller.dispose();
+  });
+
+  it("restores files and the previous state record when swapping a disabled same-version overwrite fails", async () => {
+    let failSwap = false;
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const { controller } = makeController(harness, undefined, {
+      packageFs: {
+        async rename(from, to) {
+          if (failSwap && path.basename(String(from)).startsWith(".staging-")) {
+            throw new Error("EPERM swapping package");
+          }
+          return fsPromises.rename(from, to);
+        },
+      },
+    });
+    const id = "dev.firefly.swapfail";
+    await controller.importFromPath(await writeArchivePlugin({ id, version: "1.0.0", name: "First Name", mainCode: "export default { build: 'first' };\n" }));
+    const before = structuredClone(controller.stateStore.get(id));
+
+    failSwap = true;
+    const res = await controller.importFromPath(await writeArchivePlugin({ id, version: "1.0.0", name: "Second Name", mainCode: "export default { build: 'second' };\n" }));
+
+    expect(res).toMatchObject({ ok: false, installation: "rejected", error: expect.stringContaining("EPERM swapping package") });
+    expect(controller.stateStore.get(id)).toMatchObject({
+      manifest: before?.manifest,
+      installDir: before?.installDir,
+      enabled: false,
+      grantedPermissions: before?.grantedPermissions,
+    });
+    expect(readFileSync(path.join(dataRoot, "plugins", id, "1.0.0", "index.mjs"), "utf8")).toContain("first");
+    expect(readdirSync(path.join(dataRoot, "plugins", id))).toEqual(["1.0.0"]);
+
+    controller.dispose();
+  });
+
+  it("commits a first install over a leftover same-version directory when only backup removal fails", async () => {
     let failCommit = false;
     const harness = createFakeHostHarness(() => ({ ok: true }));
     const { controller } = makeController(harness, undefined, {
@@ -615,10 +670,9 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
     failCommit = true;
     const res = await controller.importFromPath(await writeArchivePlugin({ id, version: "1.0.0", name: "Again" }));
 
-    expect(res).toMatchObject({ ok: false, installation: "rejected" });
-    expect(controller.stateStore.get(id)).toBeUndefined();
-    const diskState = JSON.parse(readFileSync(controller.stateStore.filePath, "utf8"));
-    expect(diskState.plugins[id]).toBeUndefined();
+    expect(res).toMatchObject({ ok: true, installation: "committed", plugin: { id, name: "Again" } });
+    expect(controller.stateStore.get(id)?.manifest.name).toBe("Again");
+    expect(readFileSync(path.join(dataRoot, "plugins", id, "1.0.0", "index.mjs"), "utf8")).toContain("activate");
     expect(harness.launched).toHaveLength(0);
 
     controller.dispose();
