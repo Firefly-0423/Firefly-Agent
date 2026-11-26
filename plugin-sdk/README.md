@@ -137,7 +137,7 @@ export default definePlugin({
 | 权限 | 对应能力 (`ctx.*`) | 是否需要首次调用单独确认 | 说明与约束 |
 | --- | --- | --- | --- |
 | `model.generate` | `ctx.model.generate` / `generateStream` | 否（启用即授予） | 与 `model.run` 共享每分钟限频（默认 10 次，可在 1–60 间配置），超限抛出 `ERR_RATE_LIMITED` |
-| `model.run` | `ctx.model.run` | **是（首次调用确认）** | 启动子代理运行；会展示「插件正在借用模型」指示器与停止按钮，并受限频约束 |
+| `model.run` | `ctx.model.run` | **是（首次调用确认）** | 启动子代理运行；会展示「插件正在借用模型」指示器与停止按钮，并受限频约束。1.2.0 里需要用户审批的工具操作会被直接拒绝（不会弹审批框，也不会悄悄放行），默认不调用伙伴，`allowPartners: true` 才放开 |
 | `events` | `ctx.events.on` | 否（启用即授予） | 订阅宿主脱敏运行事件，单订阅最多缓存 100 条 |
 | `sessions.read` | `ctx.sessions.list` / `messages` | **是（首次调用确认）** | 仅读取当前绑定工作区下的公开对话记录，经宿主脱敏 |
 | `workspace.read` | `ctx.workspace.current` / `onChange` | **是（首次调用确认）** | 仅读取当前绑定工作区的元数据与变更通知 |

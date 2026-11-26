@@ -176,6 +176,7 @@ export default definePlugin({
 | `ctx.model.generateStream(req)` | `"model.generate"` | 同上（底层 `model.generate` 带 `stream: true`） | `AsyncIterable<{ delta: string }>` |
 | `ctx.model.run(req)` | `"model.run"`（**含首次确认**） | `{ objective, mode: Mode, sessionId?, allowPartners?, signal? }` | `{ events: AsyncIterable<RunEvent>, result: Promise<{ runId, sessionId, reply }> }` |
 
+- `model.run` 的运行受当前权限档位约束；1.2.0 里需要用户审批的工具操作会被直接拒绝（不弹审批框、不挂起、不放行），所以要写文件或执行命令的任务请改用插件自己的工具并走正常审批。默认不调用伙伴，传 `allowPartners: true` 才允许。
 - `model.run` 的 `RunEvent` 分片类型：`run.started`、`text.delta`、`tool.started`、`tool.completed`、`run.ended`（协议底层最后附带 `{ type: "run.result", result }` 分片）。
 - `generate` / `generateStream` / `run` 共享每分钟滑动窗口限频（默认 **10 次/分钟**，可配置 1–60，超限抛出 `ERR_RATE_LIMITED`，`retryable: true`）。
 - 模型输出与流式分片均经宿主脱敏器处理。
