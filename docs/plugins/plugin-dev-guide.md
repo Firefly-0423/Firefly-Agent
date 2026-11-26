@@ -110,6 +110,9 @@ export default definePlugin({
 });
 ```
 
+> **打包要求**：宿主用原生 `import()` 加载入口，不会注入 SDK，`firefly-plugin pack` 也不归档 `node_modules`。入口保留 `@firefly_wu/plugin-sdk` 的运行时导入（`definePlugin`、`PluginError` 等）会在加载时抛出 `ERR_MODULE_NOT_FOUND`。本文的 TypeScript 示例须先打包进入口：
+> `node_modules/.bin/esbuild src/index.ts --bundle --format=esm --platform=node --target=node20 --outfile=my-plugin/index.mjs`，再执行 `firefly-plugin pack`。不需要运行时值时，可直接默认导出对象并只用 `import type`。
+
 `PluginContext` 基础只读属性与方法：
 - `ctx.id: string`、`ctx.version: string`、`ctx.dataDir: string`（插件私有持久化目录）、`ctx.signal: AbortSignal`（停用或异常退出时中止）。
 - `ctx.has(permission: string): boolean`：检查权限是否已声明且当前仍处于授予状态（用户在设置页撤销权限后会变为 `false`）。

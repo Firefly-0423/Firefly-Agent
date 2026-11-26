@@ -77,11 +77,12 @@ npm pack ./plugin-sdk
 
 <!-- doc-example: plugin id=readme-minimal -->
 ```js
-import { definePlugin } from "@firefly_wu/plugin-sdk";
-
+// 无需 import SDK：definePlugin 只是原样返回参数的类型辅助，直接默认导出对象即可。
+// 宿主用原生 import() 加载入口，不会替插件解析 @firefly_wu/plugin-sdk。
 const disposables = [];
 
-export default definePlugin({
+/** @type {import("@firefly_wu/plugin-sdk").PluginDefinition} */
+const plugin = {
   activate(ctx) {
     const tool = ctx.tools.register({
       name: "greet",
@@ -125,8 +126,17 @@ export default definePlugin({
       disposables.pop()?.dispose();
     }
   },
-});
+};
+
+export default plugin;
 ```
+
+> **入口里需要 SDK 运行时值时必须先打包。** `firefly-plugin pack` 只归档包目录内的文件，不会带上 `node_modules`，宿主也不会注入 SDK；入口中保留 `import { definePlugin, PluginError } from "@firefly_wu/plugin-sdk"` 这类运行时导入会在加载时抛出 `ERR_MODULE_NOT_FOUND`（`import type` 在编译后会被擦除，不受影响）。需要 `PluginError` 等运行时值或使用 TypeScript 时，先把 SDK 打进入口再打包：
+>
+> ```bash
+> node_modules/.bin/esbuild src/index.ts --bundle --format=esm --platform=node --target=node20 --outfile=my-plugin/index.mjs
+> npx firefly-plugin pack ./my-plugin -o ./dist/my-plugin-1.0.0.ffplugin
+> ```
 
 ---
 

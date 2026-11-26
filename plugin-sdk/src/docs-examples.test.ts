@@ -107,6 +107,19 @@ describe("SDK 1.2.0 documentation executable examples", () => {
     ]);
   });
 
+  it("keeps the minimal README entry free of bare SDK imports and documents the bundling step", () => {
+    const minimal = readmeBlocks.find((b) => b.kind === "plugin" && b.id === "readme-minimal");
+    expect(minimal).toBeDefined();
+    expect(minimal!.code).not.toMatch(/^\s*import\s+(?!type)[^;]*from\s+["']@firefly_wu\/plugin-sdk/m);
+    expect(minimal!.code).not.toMatch(/require\(\s*["']@firefly_wu\/plugin-sdk/);
+    const readme = readFileSync(path.join(repoRoot, "plugin-sdk/README.md"), "utf8");
+    const guide = readFileSync(path.join(repoRoot, "docs/plugins/plugin-dev-guide.md"), "utf8");
+    for (const text of [readme, guide]) {
+      expect(text).toContain("ERR_MODULE_NOT_FOUND");
+      expect(text).toContain("esbuild src/index.ts --bundle");
+    }
+  });
+
   it("validates every documented firefly.plugin.json against manifest.schema.json and validateManifest", () => {
     const schema = JSON.parse(
       readFileSync(path.join(repoRoot, "src/shared/plugin-manifest/manifest.schema.json"), "utf8"),
