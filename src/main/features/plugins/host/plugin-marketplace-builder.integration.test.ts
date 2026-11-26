@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PluginHostManager, type HostChild, type HostDependencies, type HostPort } from "../../../../plugins/v2/host";
 import { HOST_TO_PLUGIN_METHODS, type Frame } from "../../../../shared/plugin-protocol";
 import { createPluginV2HostController } from "./plugin-v2-services";
-import { createPluginMarketplaceService } from "./plugin-marketplace";
+import { createPluginMarketplaceService, MARKET_REGISTRY_URLS, MARKET_V2_REPOSITORY_ROOT } from "./plugin-marketplace";
 
 // The real catalog builder (scripts/plugin-marketplace/build.mjs) feeds the real marketplace service and importer.
 interface BuiltCatalog {
@@ -129,6 +129,30 @@ afterEach(async () => {
 });
 
 describe("plugin catalog builder output against the real marketplace service", () => {
+  it("imports the v2 repository package through the real installer as disabled", async () => {
+    const built = await buildCatalog({ outDir: path.join(root, "repository") });
+    const selected = built.plugins.find(plugin => plugin.id === "dev.firefly.text-stats")!;
+    const catalog = JSON.parse(readFileSync(built.registryPath, "utf8"));
+    const entry = catalog.plugins.find((plugin: { id: string }) => plugin.id === selected.id);
+    const url = new URL("packages/" + path.basename(selected.packagePath), MARKET_V2_REPOSITORY_ROOT).href;
+    const fetchImpl = vi.fn(async (input: string) => {
+      if (input === MARKET_REGISTRY_URLS[0]) return Response.json({ apiVersion: 2, plugins: [{ ...entry, package: url }] });
+      if (input === url) return new Response(readFileSync(selected.packagePath));
+      return new Response(null, { status: 404 });
+    });
+    const market = createPluginMarketplaceService({
+      registryUrls: MARKET_REGISTRY_URLS,
+      zipUrlPrefixes: [],
+      cacheDir: path.join(root, "cache"),
+      installPackage: (file, opts) => controller.importFromPath(file, opts),
+      fetchImpl,
+    });
+    expect(await market.listMarket()).toMatchObject({ ok: true, mode: "online", plugins: [{ id: selected.id, source: "remote" }] });
+    expect(await market.installFromMarket(selected.id)).toMatchObject({ ok: true, installation: "committed", activation: "not-requested" });
+    expect(controller.listPlugins()).toMatchObject([{ id: selected.id, origin: "market", enabled: false, status: "disabled" }]);
+    expect(fetchImpl.mock.calls.map(([input]) => input)).toEqual([MARKET_REGISTRY_URLS[0], url]);
+  });
+
   it("lists every built plugin from the bundled catalog and installs one disabled through the importer", async () => {
     const built = await buildCatalog({ outDir: path.join(root, "bundled") });
     const market = createPluginMarketplaceService({

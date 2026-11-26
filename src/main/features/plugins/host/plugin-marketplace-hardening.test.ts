@@ -68,6 +68,36 @@ afterEach(() => {
 });
 
 describe("marketplace trusted bundled catalog", () => {
+  it("installs a repository package only from its official catalog and exact name", async () => {
+    const catalog = "https://raw.githubusercontent.com/Firefly-0423/firefly-plugins/marketplace-v2/marketplace/registry.json";
+    const pkg = new URL("packages/dev.firefly.demo-1.0.0.ffplugin", catalog).href;
+    const fetchImpl = vi.fn<MarketplaceFetch>(async url => url === pkg ? new Response(bytes) : json(registry([entry({ package: pkg })])));
+    const f = fixture({ registryUrls: [catalog], fetchImpl });
+    expect((await f.service.listMarket()).plugins.map(plugin => plugin.id)).toEqual(["dev.firefly.demo"]);
+    expect(await f.service.installFromMarket("dev.firefly.demo")).toMatchObject({ ok: true, activation: "not-requested" });
+    expect(fetchImpl.mock.calls.map(([url]) => url)).toEqual([catalog, pkg]);
+
+    const other = fixture({ fetchImpl });
+    expect((await other.service.listMarket()).plugins).toEqual([]);
+    expect(other.deps.installPackage).not.toHaveBeenCalled();
+  });
+
+  it.each(["wrong.ffplugin", "dev.firefly.demo-1.0.0.ffplugin?extra=1", "redirect"])(
+    "rejects an unofficial repository package destination: %s", async (destination) => {
+      const catalog = "https://raw.githubusercontent.com/Firefly-0423/firefly-plugins/marketplace-v2/marketplace/registry.json";
+      const expected = new URL("packages/dev.firefly.demo-1.0.0.ffplugin", catalog).href;
+      const pkg = destination === "redirect" ? expected : new URL("packages/" + destination, catalog).href;
+      const fetchImpl = vi.fn<MarketplaceFetch>(async url => url === catalog
+        ? json(registry([entry({ package: pkg })]))
+        : new Response(null, { status: 302, headers: { location: new URL("packages/wrong.ffplugin", catalog).href } }));
+      const f = fixture({ registryUrls: [catalog], fetchImpl });
+      await f.service.listMarket();
+      expect(await f.service.installFromMarket("dev.firefly.demo")).toMatchObject({ ok: false });
+      expect(f.deps.installPackage).not.toHaveBeenCalled();
+      expect(fetchImpl.mock.calls.map(([url]) => url)).toEqual(destination === "redirect" ? [catalog, expected] : [catalog]);
+    },
+  );
+
   it("lists and installs a clearly marked bundled entry without a network request", async () => {
     const fetchImpl = vi.fn();
     const f = bundled({ registryUrls: [], fetchImpl });

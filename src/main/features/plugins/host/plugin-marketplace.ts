@@ -21,12 +21,12 @@ import type {
 } from "../../../../shared/plugin-management";
 import type { PluginV2ImportOptions, PluginV2ImportResult } from "./plugin-v2-services";
 
-// The catalog is registry.json on the main branch of the Firefly-0423/firefly-plugins repository; packages are that
-// repository's GitHub Release assets. Every entry pins its package SHA-256, and downloads are refused on a mismatch.
-// Changing either list is a boundary change: the pinned values and this file's reviewed hash in
-// skills/external-boundary.test.ts must be updated together.
+// Keep the v2 catalog separate from the legacy v1 directory on main. GitHub Release
+// assets remain supported. Repository files are bound to the official v2 catalog.
+export const MARKET_V2_REPOSITORY_ROOT = "https://raw.githubusercontent.com/Firefly-0423/firefly-plugins/marketplace-v2/marketplace/";
+const REPOSITORY_CATALOG_URL = `${MARKET_V2_REPOSITORY_ROOT}registry.json`;
 export const MARKET_REGISTRY_URLS: readonly string[] = [
-  "https://raw.githubusercontent.com/Firefly-0423/firefly-plugins/main/registry.json",
+  REPOSITORY_CATALOG_URL,
 ];
 export const MARKET_ZIP_URL_PREFIXES: readonly string[] = [
   "https://github.com/Firefly-0423/firefly-plugins/releases/download/",
@@ -51,6 +51,7 @@ interface MarketSnapshotEntry {
   compatible: boolean;
   packageUrl: string;
   sha256: string;
+  repositoryPackage: boolean;
   source: "bundled" | "remote";
 }
 
@@ -161,6 +162,7 @@ function validateEntry(
   deps: PluginMarketplaceDeps,
   source: "bundled" | "remote",
   hostVersion: string,
+  catalogUrl: string,
 ): (MarketPluginEntry & MarketSnapshotEntry) | null {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
   const entry = raw as Record<string, unknown>;
@@ -183,7 +185,10 @@ function validateEntry(
   const tools = parseTools(entry.tools);
   if (!tools) return null;
   if (typeof packageUrl !== "string") return null;
-  if (source === "bundled" ? !BUNDLED_PACKAGE_PATTERN.test(packageUrl) : !allowedZipUrl(packageUrl, deps.zipUrlPrefixes)) return null;
+  const repositoryPackage = source === "remote" && catalogUrl === REPOSITORY_CATALOG_URL
+    && packageUrl === `${MARKET_V2_REPOSITORY_ROOT}packages/${id}-${encodeURIComponent(version)}.ffplugin`;
+  if (source === "bundled" ? !BUNDLED_PACKAGE_PATTERN.test(packageUrl)
+    : !repositoryPackage && !allowedZipUrl(packageUrl, deps.zipUrlPrefixes)) return null;
   if (typeof sha256 !== "string" || !SHA256_PATTERN.test(sha256)) return null;
   if (homepage !== undefined && !httpsUrl(homepage)) return null;
   if (license !== undefined && !isText(license, 120)) return null;
@@ -201,6 +206,7 @@ function validateEntry(
     tools,
     packageUrl,
     sha256,
+    repositoryPackage,
     source,
     compatible,
     ...(typeof license === "string" ? { license } : {}),
@@ -214,6 +220,7 @@ function validateRegistry(
   deps: PluginMarketplaceDeps,
   source: "bundled" | "remote",
   hostVersion: string,
+  catalogUrl: string,
 ) {
   if (typeof data !== "object" || data === null) throw new RegistryFormatError("registry 不是合法的 JSON 对象", "invalid");
   const record = data as Record<string, unknown>;
@@ -224,14 +231,14 @@ function validateRegistry(
   const plugins: MarketPluginEntry[] = [];
   const snapshot = new Map<string, MarketSnapshotEntry>();
   for (const raw of record.plugins) {
-    const entry = validateEntry(raw, deps, source, hostVersion);
+    const entry = validateEntry(raw, deps, source, hostVersion, catalogUrl);
     if (!entry) {
       // Never print an untrusted URL/body: it can include credentials, signed links or enormous strings.
       console.warn("[plugins] 插件市场条目校验失败，已跳过");
       continue;
     }
     if (snapshot.has(entry.id)) throw new RegistryFormatError(`registry 存在重复插件 id: ${entry.id}`, "invalid");
-    const { packageUrl, sha256, ...display } = entry;
+    const { packageUrl, sha256, repositoryPackage, ...display } = entry;
     plugins.push(display);
     snapshot.set(entry.id, {
       id: entry.id,
@@ -240,6 +247,7 @@ function validateRegistry(
       compatible: entry.compatible ?? false,
       packageUrl,
       sha256,
+      repositoryPackage,
       source,
     });
   }
@@ -323,9 +331,9 @@ export function createPluginMarketplaceService(deps: PluginMarketplaceDeps) {
   let listSeq = 0;
   let installInFlight = false;
 
-  async function fetchChecked(url: string, kind: "registry" | "zip", limit: ReturnType<typeof deadline>): Promise<Response> {
+  async function fetchChecked(url: string, kind: "registry" | "zip", limit: ReturnType<typeof deadline>, repositoryPackage = false): Promise<Response> {
     const first = httpsUrl(url);
-    if (!first || (kind === "zip" && !allowedZipUrl(url, deps.zipUrlPrefixes))) throw new Error("插件市场地址不受信任");
+    if (!first || (kind === "zip" && !repositoryPackage && !allowedZipUrl(url, deps.zipUrlPrefixes))) throw new Error("插件市场地址不受信任");
     let current = url;
     const githubRelease = first.origin === "https://github.com" && /^\/[^/]+\/[^/]+\/releases\/download\//.test(first.pathname);
     for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
@@ -333,6 +341,7 @@ export function createPluginMarketplaceService(deps: PluginMarketplaceDeps) {
       const response = await limit.race(fetchImpl(current, { signal: limit.signal, redirect: "manual", credentials: "omit" }));
       if (![301, 302, 303, 307, 308].includes(response.status)) return response;
       void response.body?.cancel().catch(() => {});
+      if (repositoryPackage) throw new Error("仓库插件包不允许重定向");
       const location = response.headers.get("location");
       if (!location || redirects === MAX_REDIRECTS) throw new Error("插件市场重定向次数过多或缺少地址");
       const nextRaw = new URL(location, current).href;
@@ -423,7 +432,7 @@ export function createPluginMarketplaceService(deps: PluginMarketplaceDeps) {
         continue;
       }
       try {
-        const parsed = validateRegistry(probe.data, deps, probe.url === BUNDLED_MARKET_SOURCE ? "bundled" : "remote", hostVersion);
+        const parsed = validateRegistry(probe.data, deps, probe.url === BUNDLED_MARKET_SOURCE ? "bundled" : "remote", hostVersion, probe.url);
         const used = chosen === null;
         sources.push({ url: probe.url, ok: true, used });
         if (used) { chosen = parsed; chosenSource = probe.url; }
@@ -450,10 +459,10 @@ export function createPluginMarketplaceService(deps: PluginMarketplaceDeps) {
     return hash.digest("hex");
   }
 
-  async function downloadPackage(url: string, tempPath: string): Promise<void> {
+  async function downloadPackage(entry: MarketSnapshotEntry, tempPath: string): Promise<void> {
     const limit = deadline(zipTimeoutMs, "下载插件包超时");
     try {
-      const response = await fetchChecked(url, "zip", limit);
+      const response = await fetchChecked(entry.packageUrl, "zip", limit, entry.repositoryPackage);
       const file = await open(tempPath, "wx");
       try {
         await consume(response, zipMaxBytes, limit, (chunk) => file.writeFile(chunk), "插件包");
@@ -478,7 +487,7 @@ export function createPluginMarketplaceService(deps: PluginMarketplaceDeps) {
           const match = BUNDLED_PACKAGE_PATTERN.exec(entry.packageUrl);
           if (!match) throw new Error("内置插件包地址无效");
           await copyFile(await bundledFile(match[1], zipMaxBytes), tempPath, constants.COPYFILE_EXCL);
-        } else { await downloadPackage(entry.packageUrl, tempPath); }
+        } else { await downloadPackage(entry, tempPath); }
         if (await sha256File(tempPath) !== entry.sha256.toLowerCase()) throw new Error("插件包校验失败（SHA-256 不匹配）");
         if (!entry.sourceId) throw new Error("插件来源快照缺失，请刷新后重试");
         const result = await deps.installPackage(tempPath, {
