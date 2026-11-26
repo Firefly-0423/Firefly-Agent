@@ -1464,6 +1464,14 @@
     "takeoverAndRestart": "终止并重开",
     "takeoverWaiting": "正在等待旧任务停止…",
     "takeoverStuck": "旧任务还没停下，没有启动新任务。",
-    "takeoverRetry": "再试一次接管"
+    "takeoverRetry": "再试一次接管",
+    "pluginBorrowingBanner": "〔{{name}}〕正在借用流萤思考",
+    "pluginBorrowingStop": "停止",
+    "pluginConfirmTitle": "插件权限确认",
+    "pluginConfirmSessionsRead": "插件〔{{name}}〕想要读取会话记录，是否允许？",
+    "pluginConfirmWorkspaceRead": "插件〔{{name}}〕想要读取工作区信息，是否允许？",
+    "pluginConfirmModelRun": "插件〔{{name}}〕想要发起完整模型运行，是否允许？",
+    "pluginConfirmAllow": "允许",
+    "pluginConfirmDeny": "拒绝"
   }
 }

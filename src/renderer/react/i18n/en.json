@@ -1464,6 +1464,14 @@
     "takeoverAndRestart": "Stop and restart",
     "takeoverWaiting": "Waiting for the previous task to stop…",
     "takeoverStuck": "The previous task hasn’t stopped. No new task was started.",
-    "takeoverRetry": "Try again"
+    "takeoverRetry": "Try again",
+    "pluginBorrowingBanner": "\"{{name}}\" is borrowing Firefly to think",
+    "pluginBorrowingStop": "Stop",
+    "pluginConfirmTitle": "Plugin Permission Request",
+    "pluginConfirmSessionsRead": "Plugin \"{{name}}\" wants to read conversation history. Allow?",
+    "pluginConfirmWorkspaceRead": "Plugin \"{{name}}\" wants to read workspace information. Allow?",
+    "pluginConfirmModelRun": "Plugin \"{{name}}\" wants to run a full model agent turn. Allow?",
+    "pluginConfirmAllow": "Allow",
+    "pluginConfirmDeny": "Deny"
   }
 }

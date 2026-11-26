@@ -62,6 +62,24 @@ test("names harness built-ins in the current language, even over a name an older
   } finally { await i18next.changeLanguage("zh-CN"); }
 });
 
+test("presents running tool progress with optional percentage without altering non-running results", () => {
+  expect(describeToolExecution(record("demo_sync", {
+    status: "running",
+    progress: { message: "正在索引文件", percent: 45 },
+  }))).toStrictEqual({ label: "demo_sync", statusText: "正在索引文件 (45%)", detail: undefined });
+
+  expect(describeToolExecution(record("demo_sync", {
+    status: "running",
+    progress: { message: "连接中" },
+  }))).toStrictEqual({ label: "demo_sync", statusText: "连接中", detail: undefined });
+
+  expect(describeToolExecution(record("demo_sync", {
+    status: "success",
+    progress: { message: "正在索引文件", percent: 45 },
+    result: "final ok",
+  }))).toStrictEqual({ label: "demo_sync", statusText: "执行操作完成", detail: undefined });
+});
+
 test("extracts readable question/answer rows only for ask_user results", () => {
   expect(buildAskUserQa(record("ask_user", { result: "  选择格式？ → JSON\n输出到哪里？ → 本地\n" })))
     .toStrictEqual(["选择格式？ → JSON", "输出到哪里？ → 本地"]);

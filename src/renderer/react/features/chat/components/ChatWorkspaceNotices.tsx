@@ -1,5 +1,6 @@
 import React from "react";
 import { useTranslation } from "../../../i18n";
+import type { PluginV2BorrowingEntry } from "../../../../../shared/plugin-management";
 
 export interface InterruptedRunNotice {
   todoCount: number;
@@ -49,4 +50,27 @@ export function ContextCompressionNotice({ visible: shown }: { visible: boolean 
   return shown ? <div className="ff-compressing-context" aria-live="polite" aria-busy="true">
     <span>{translate("workspaceNotices.compressingContext")}</span>
   </div> : null;
+}
+
+export function PluginBorrowingBanner({
+  entries,
+  onStop,
+}: {
+  entries: readonly PluginV2BorrowingEntry[];
+  onStop: (id: string) => void;
+}) {
+  const { t: translate } = useTranslation();
+  if (entries.length === 0) return null;
+  return (
+    <div className="ff-plugin-borrowing-list" aria-live="polite">
+      {entries.map((entry) => (
+        <div key={entry.id} className="ff-plugin-borrowing-banner" role="status">
+          <span>{translate("workspaceNotices.pluginBorrowingBanner", { name: entry.pluginName })}</span>
+          <button type="button" className="ff-plugin-borrowing-banner__stop" onClick={() => onStop(entry.id)}>
+            {translate("workspaceNotices.pluginBorrowingStop")}
+          </button>
+        </div>
+      ))}
+    </div>
+  );
 }

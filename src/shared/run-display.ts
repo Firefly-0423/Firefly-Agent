@@ -95,6 +95,7 @@ export function reduceToolDisplay(tools: readonly ToolExecutionRecord[], event: 
       break;
     case "TOOL_CALL_RESULT":
       patch = { status: event.status === "failed" ? "error" : "success", result: (event.content ?? "").slice(0, 4000), changes: event.changes,
+        progress: undefined,
         taskResult: previous?.name === "delegate_agent" ? normalizeToolTaskResult(event.taskResult, event.runId) : undefined };
       break;
     case "TOOL_CALL_END":

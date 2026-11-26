@@ -43,6 +43,7 @@ describe("createStorageContext",()=>{
   expect(context.files.historyBudgetStats).toBe(path.join(p.userData,"memory-history-budget.json"));
   expect(context.files.chatWindowState).toBe(path.join(p.userData,"chat-window-state.json"));
   expect(context.files.skillDescriptionsZh).toBe(path.join(p.userData,"skill-descriptions-zh.json"));
+  expect(context.files.pluginState).toBe(path.join(p.userData,"plugin-state.json"));
   expect(context.files.mainLog).toBe(path.join(p.logs,"firefly.log"));
   expect(Object.isFrozen(context)).toBe(true);
   expect(Object.isFrozen(context.memory)).toBe(true);

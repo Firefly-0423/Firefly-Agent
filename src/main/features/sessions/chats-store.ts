@@ -388,20 +388,37 @@ export async function openStorageFolder(): Promise<void> {
   prepareFolders();
   await shell.openPath(directory);
 }
+const workspaceBindingListeners = new Set<(sessionId: string) => void>();
+
+export function onWorkspaceBindingChanged(listener: (sessionId: string) => void): () => void {
+  workspaceBindingListeners.add(listener);
+  return () => { workspaceBindingListeners.delete(listener); };
+}
+
+function notifyWorkspaceBindingChanged(sessionId: string): void {
+  for (const listener of [...workspaceBindingListeners]) {
+    try { listener(sessionId); } catch { /* Observer failure cannot block store persistence. */ }
+  }
+}
+
 export function setWorkspaceBinding(sessionId: string, binding: ConversationWorkspaceBinding): ChatSession | null {
-  return change(sessionId, (conversation) => {
+  const updated = change(sessionId, (conversation) => {
     conversation.workspaceBinding = binding;
     conversation.updatedAt = Date.now();
   });
+  if (updated) notifyWorkspaceBindingChanged(sessionId);
+  return updated;
 }
 export function getWorkspaceBinding(sessionId: string): ConversationWorkspaceBinding | undefined {
   return read(sessionId)?.workspaceBinding;
 }
 export function clearWorkspaceBinding(sessionId: string): ChatSession | null {
-  return change(sessionId, (conversation) => {
+  const updated = change(sessionId, (conversation) => {
     conversation.workspaceBinding = undefined;
     conversation.updatedAt = Date.now();
   });
+  if (updated) notifyWorkspaceBindingChanged(sessionId);
+  return updated;
 }
 
 export type PendingChatMessageInput = Omit<PendingChatMessage, "enqueuedAt">;
