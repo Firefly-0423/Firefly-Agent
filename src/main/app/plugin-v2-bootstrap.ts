@@ -222,6 +222,9 @@ export async function startPluginV2Bootstrap(deps: PluginV2BootstrapDeps): Promi
   const marketplace = createPluginMarketplaceService({
     registryUrls: MARKET_REGISTRY_URLS,
     zipUrlPrefixes: MARKET_ZIP_URL_PREFIXES,
+    // build:main copies the generated v2 catalog (resources/plugin-marketplace) to dist/main/plugin-marketplace;
+    // this file compiles to dist/main/main/app, so the app-owned offline catalog is two levels up.
+    bundledDir: path.join(__dirname, "..", "..", "plugin-marketplace"),
     cacheDir: path.join(storage.dataRoot, "plugin-market-cache"),
     installPackage: (packagePath, opts) => controller.importFromPath(packagePath, opts),
   });
