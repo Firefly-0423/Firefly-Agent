@@ -264,7 +264,8 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
   const pluginsRoot = path.join(deps.dataRoot, "plugins");
   const lastErrors = new Map<string, string>();
   const faultedIds = new Set<string>();
-  let suppressingFaultSync = false;
+  // Plugins whose own upgrade is in flight; other plugins faulting meanwhile must still be persisted as disabled.
+  const suppressingFaultSync = new Set<string>();
 
   let contextRevision = 1;
   const accessListeners = new Map<string, Set<() => void>>();
@@ -812,7 +813,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
     if (status === "enabled") {
       faultedIds.delete(id);
       lastErrors.delete(id);
-    } else if (status === "disabled-fault" && !suppressingFaultSync) {
+    } else if (status === "disabled-fault" && !suppressingFaultSync.has(id)) {
       faultedIds.add(id);
       if (!lastErrors.has(id)) {
         lastErrors.set(id, "插件进程多次异常退出，已自动停用");
@@ -1111,7 +1112,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
       }
 
       // Upgrade while active: stop old -> activate new -> on failure transactionally roll back files + state before restarting old.
-      suppressingFaultSync = true;
+      suppressingFaultSync.add(manifest.id);
       try {
         await stopPlugin(manifest.id, "upgrade");
         stateStore.install({
@@ -1171,7 +1172,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
           }
           if (!restartError) {
             faultedIds.delete(manifest.id);
-            suppressingFaultSync = false;
+            suppressingFaultSync.delete(manifest.id);
             const message = `新版本启动失败，已回滚至 v${existing.version}：${reason}`;
             lastErrors.set(manifest.id, message);
             deps.onOverviewChanged?.();
@@ -1190,7 +1191,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
             }
           }
           faultedIds.add(manifest.id);
-          suppressingFaultSync = false;
+          suppressingFaultSync.delete(manifest.id);
           const message = `新版本启动失败（${reason}），且旧版本恢复失败（${restartError}）`;
           lastErrors.set(manifest.id, message);
           deps.onRunningStateChange?.(manifest.id, false);
@@ -1211,7 +1212,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
           }
         }
         faultedIds.add(manifest.id);
-        suppressingFaultSync = false;
+        suppressingFaultSync.delete(manifest.id);
         const rollbackProblems = [
           fileRollbackError ? `文件回滚失败（${fileRollbackError}）` : (!filesVerified ? "旧版本文件校验未通过" : ""),
           stateRollbackError ? `状态回滚失败（${stateRollbackError}）` : (!stateVerified ? "插件状态文件校验未通过" : ""),
@@ -1228,7 +1229,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
         };
       }
       faultedIds.delete(manifest.id);
-      suppressingFaultSync = false;
+      suppressingFaultSync.delete(manifest.id);
 
       await imported.commit();
       if (oldInstallDir !== path.resolve(installDir)) {

@@ -89,10 +89,15 @@ interface FakeChildRecord {
   killCount: number;
 }
 
-function createFakeHostHarness(activateBehavior: (mainPath: string, version: string) => { ok: boolean; error?: string }) {
+type ActivateVerdict = { ok: boolean; error?: string };
+
+function createFakeHostHarness(
+  activateBehavior: (mainPath: string, version: string) => ActivateVerdict | Promise<ActivateVerdict>,
+) {
   const launched: FakeChildRecord[] = [];
+  const managers: PluginHostManager[] = [];
   const createHostManager = (deps: HostDependencies) => {
-    return new PluginHostManager({
+    const manager = new PluginHostManager({
       ...deps,
       fork: (_entry, _args, _opts) => {
         const child = new EventEmitter() as HostChild & {
@@ -104,14 +109,14 @@ function createFakeHostHarness(activateBehavior: (mainPath: string, version: str
         let childPort: HostPort | undefined;
         child.postMessage = (_msg, ports) => {
           childPort = ports[0];
-          childPort.on("message", ({ data }) => {
+          childPort.on("message", async ({ data }) => {
             const frame = data as Frame;
             if (frame.type !== "req") return;
             if (frame.method === HOST_TO_PLUGIN_METHODS.activate) {
               const params = frame.params as { main: string; version: string };
               record.mainPath = params.main;
               record.version = params.version;
-              const verdict = activateBehavior(params.main, params.version);
+              const verdict = await activateBehavior(params.main, params.version);
               if (verdict.ok) {
                 childPort?.postMessage({ type: "res", id: frame.id, ok: true, value: null });
               } else {
@@ -140,8 +145,10 @@ function createFakeHostHarness(activateBehavior: (mainPath: string, version: str
       createChannel: createMemoryPortPair,
       getAppMetrics: () => [],
     });
+    managers.push(manager);
+    return manager;
   };
-  return { launched, createHostManager };
+  return { launched, managers, createHostManager };
 }
 
 function makeController(
@@ -434,6 +441,36 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
     const diskState = JSON.parse(readFileSync(controller.stateStore.filePath, "utf8"));
     expect(diskState.plugins["dev.firefly.failbackup"].enabled).toBe(false);
 
+    controller.dispose();
+  });
+
+  it("persists a bystander plugin as disabled when it faults while another plugin is being upgraded", async () => {
+    const bystanderId = "dev.firefly.bystander";
+    const harness = createFakeHostHarness(async (mainPath, version) => {
+      if (mainPath.includes(bystanderId)) return { ok: false, error: "bystander activation boom" };
+      if (version === "2.0.0") {
+        // Plugin B faults for real (host status -> disabled-fault) while A's upgrade activation is in flight.
+        await harness.managers[0].start(bystanderId).catch(() => {});
+      }
+      return { ok: true };
+    });
+    const { controller } = makeController(harness);
+    await controller.importFromPath(await writeArchivePlugin({ id: "dev.firefly.upgrader", version: "1.0.0" }));
+    await controller.enablePlugin("dev.firefly.upgrader");
+    await controller.importFromPath(await writeArchivePlugin({ id: bystanderId, version: "1.0.0" }));
+    controller.stateStore.enable(bystanderId);
+    expect(controller.stateStore.isEnabled(bystanderId)).toBe(true);
+
+    const res = await controller.importFromPath(await writeArchivePlugin({ id: "dev.firefly.upgrader", version: "2.0.0" }));
+
+    expect(res).toMatchObject({ ok: true, activation: "running" });
+    expect(controller.status(bystanderId)).toBe("disabled-fault");
+    expect(controller.stateStore.isEnabled(bystanderId)).toBe(false);
+    const disk = JSON.parse(readFileSync(controller.stateStore.filePath, "utf8"));
+    expect(disk.plugins[bystanderId].enabled).toBe(false);
+    expect(controller.stateStore.isEnabled("dev.firefly.upgrader")).toBe(true);
+
+    await controller.stopAll("quit");
     controller.dispose();
   });
 
