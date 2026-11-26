@@ -279,7 +279,9 @@ app.whenReady().then(async () => {
     assert.equal(permCheck.notifCheck, "denied");
     assert.equal(permCheck.micCheck, "denied");
     assert.equal(permCheck.mediaGranted, false);
-    assert.equal(permCheck.mediaErrorName, "NotAllowedError");
+    // On a machine without an audio device (CI runners) Chromium rejects with NotFoundError before it asks the
+    // permission handler; the denial itself is already asserted by micCheck and mediaGranted above.
+    assert.ok(["NotAllowedError", "NotFoundError"].includes(permCheck.mediaErrorName), String(permCheck.mediaErrorName));
 
     // 2. Verify top-level navigation and window.open are blocked, and loading external URL / file: escape is rejected.
     await winA.webContents.executeJavaScript(\`
