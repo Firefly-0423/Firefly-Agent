@@ -10,6 +10,10 @@ export {
   type PluginScheduleService,
 } from "./schedule-service";
 export {
+  bindPluginScheduleRpc,
+  type BindPluginScheduleRpcOptions,
+} from "./rpc";
+export {
   PluginError,
   UNATTENDED_APPROVAL_RISKS,
   type Disposable,

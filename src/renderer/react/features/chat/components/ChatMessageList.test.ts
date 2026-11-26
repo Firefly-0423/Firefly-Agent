@@ -298,3 +298,21 @@ test("preserves reasoning/answer item order and identities on cache hits", () =>
   expect(second.items.map(item => item.key)).toStrictEqual(first.items.map(item => item.key));
   expect(second.items.every((item, index) => item === first.items[index])).toBe(true);
 });
+
+test("displays live tool progress message on running tool card", () => {
+  const html = draw({
+    live: true,
+    agentRounds: [rounds[1]],
+    tools: [{
+      id: "plugin-step",
+      roundId: "verification",
+      name: "demo_sync",
+      displayName: "同步数据",
+      status: "running",
+      progress: { message: "上传分片", percent: 60 },
+    }],
+  });
+  const text = html.replace(/<[^>]+>/g, "");
+  expect(text).toContain("同步数据");
+  expect(text).toContain("上传分片 (60%)");
+});

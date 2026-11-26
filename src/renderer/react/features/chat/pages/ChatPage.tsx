@@ -32,8 +32,11 @@ import { sessionsNeedingInput } from "./sidebar-status";
 import {
   ContextCompressionNotice,
   FileDropOverlay,
+  PluginBorrowingBanner,
   RunRecoveryNotices,
 } from "../components/ChatWorkspaceNotices";
+import { attachPluginV2Listeners } from "./plugin-v2-bridge";
+import type { PluginV2BorrowingEntry } from "../../../../../shared/plugin-management";
 
 import type {
   ChatMessage,
@@ -169,6 +172,7 @@ export function ChatPage() {
   const [filesTabOpen, setFilesTabOpen] = useState(false);
   const [browserTabOpen, setBrowserTabOpen] = useState(false);
   const [tasksTabOpen, setTasksTabOpen] = useState(false);
+  const [pluginBorrowing, setPluginBorrowing] = useState<PluginV2BorrowingEntry[]>([]);
   // The overview cards stay where the user left them, across modes, conversations and restarts.
   const [overviewTabOpen, setOverviewTabOpen] = useState(() => {
     try { return window.localStorage.getItem(OVERVIEW_OPEN_KEY) === "1"; } catch { return false; }
@@ -513,6 +517,18 @@ export function ChatPage() {
     }).catch(() => { if (active) setInterruptedRun(null); });
     return () => { active = false; };
   }, [activeSessionId, mode]);
+
+  useEffect(() => {
+    const api = window.plugins;
+    if (!api) return;
+    return attachPluginV2Listeners({
+      api,
+      confirm: (options) => feedback.confirm(options),
+      onBorrowingChange: setPluginBorrowing,
+      translate: t,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 计划审阅与批准在 run 结束后发出，必须持久监听。
   // 完成事件由所属 run 控制器校验并处理，不依赖当前会话。
@@ -1581,6 +1597,10 @@ export function ChatPage() {
           />
           </ChatInspectorActionsContext.Provider>
         )}
+        <PluginBorrowingBanner
+          entries={pluginBorrowing}
+          onStop={(id) => void window.plugins?.stopV2Borrowing?.({ id })}
+        />
         <ContextCompressionNotice visible={isCompressingContext} />
         {!hasMessages && <div className="ff-workspace-greeting">
           <h2 className="ff-workspace-greeting__title">{t(mode === "chat" ? "chatPage.emptyGreeting" : "chatPage.emptyGreetingTask")}</h2>

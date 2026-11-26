@@ -3,6 +3,7 @@ export type {
   PluginToolCaller,
   PluginToolExecuteHost,
   PluginToolExecutionMeta,
+  PluginToolProgressEvent,
   PluginToolRegistrationPayload,
   PluginToolResult,
   PluginToolService,
