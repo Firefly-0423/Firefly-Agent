@@ -4,11 +4,15 @@ import type { IpcScope } from "../../base/ipc/ipc-scope";
 import type { AgentRuntime } from "../../agent/runtime/agent-runtime";
 import { toolRegistry } from "../../tooling/registry/tool-registry";
 import type { LifecyclePublisher } from "../../agent/runtime/lifecycle-publisher";
+import { IPC } from "../../../shared/ipc-channels";
 import { getSchedulerStore } from "./scheduler-store";
 import { createSchedulerRunner } from "./scheduler-runner";
 import { registerSchedulerIpc, type PluginTaskEnableGuard } from "./scheduler-ipc";
 import { SchedulerEngine, type SchedulerEngineDeps } from "./scheduler-engine";
 import type { ScheduledRunResult, ScheduledTask } from "../../platform/schedule/schedule-types";
+
+/** Sent to the chat window after the plugin host finished a scheduled run; the task panel re-reads that task and its history. */
+export const PLUGIN_TASK_FINISHED_EVENT = "scheduler.plugin_task_finished";
 
 type StoreHandle = ReturnType<typeof getSchedulerStore>;
 export type SchedulerSubsystemDeps = {
@@ -50,10 +54,20 @@ export function createSchedulerSubsystem(services: SchedulerSubsystemDeps): Sche
     now: () => new Date(),
     ...(services.publishLifecycle ? { publishLifecycle: services.publishLifecycle } : {}),
   });
+  // The agent runner sends its own run events; a run the plugin host performs does not, so tell the chat panel to re-read afterwards.
+  const announcePluginTaskFinished = (taskId: string): void => {
+    const chat = services.getReactChatWindow();
+    if (chat && !chat.isDestroyed()) {
+      chat.webContents.send(IPC.SCHEDULER_EVENT, { type: "CUSTOM", name: PLUGIN_TASK_FINISHED_EVENT, schedulerTaskId: taskId });
+    }
+  };
   const wiring: SchedulerEngineDeps = {
     store: repository,
-    runTask: (task, scheduledFireAt, manual) =>
-      services.runPluginTask?.(task, scheduledFireAt, manual) ?? executor.runScheduledTask(task, scheduledFireAt, manual),
+    runTask: (task, scheduledFireAt, manual) => {
+      const delegated = services.runPluginTask?.(task, scheduledFireAt, manual);
+      if (!delegated) return executor.runScheduledTask(task, scheduledFireAt, manual);
+      return delegated.finally(() => announcePluginTaskFinished(task.id));
+    },
     ...(services.canRunTask ? { canRunTask: services.canRunTask } : {}),
   };
   const clockwork = services.createEngine ? services.createEngine(wiring) : new SchedulerEngine(wiring);

@@ -63,3 +63,31 @@ it("hands the plugin task enable guard to the scheduler IPC", () => {
     agentRuntime: {}, getReactChatWindow: () => null } as unknown as SchedulerSubsystemDeps).initialize();
   expect(register).toHaveBeenCalledWith(store, expect.anything(), expect.any(Function), ipc, guard, canRunTask);
 });
+
+it.each([
+  { outcome: "success", hostRun: async () => ({ ok: true, historyId: "plugin", effectiveToolIds: [] }) },
+  { outcome: "failure", hostRun: async () => { throw new Error("callback failed"); } },
+])("tells the chat panel to re-read after the plugin host finishes a run ($outcome), and not for agent runs", async ({ hostRun }) => {
+  const runAgent = vi.fn(async () => ({ ok: true, historyId: "agent", effectiveToolIds: [] }));
+  vi.doMock("./scheduler-runner", () => ({ createSchedulerRunner: () => ({ runScheduledTask: runAgent, close: async () => {} }) }));
+  vi.resetModules();
+  const { createSchedulerSubsystem: create, PLUGIN_TASK_FINISHED_EVENT } = await import("./bootstrap");
+  const { IPC } = await import("../../../shared/ipc-channels");
+  const send = vi.fn();
+  const chat = { isDestroyed: () => false, webContents: { send } };
+  let wiring: { runTask: (t: unknown, d: Date, m: boolean) => Promise<unknown> } | undefined;
+  const store = { load: vi.fn(), onChange: vi.fn(), getTasks: () => [], updateTask: vi.fn(), recordHistory: vi.fn() };
+  create({
+    store, agentRuntime: {}, getReactChatWindow: () => chat,
+    createEngine: (deps: unknown) => { wiring = deps as typeof wiring; return { start: vi.fn(), stop: vi.fn() }; },
+    runPluginTask: (task: { ownerPluginId?: string }) => task.ownerPluginId === "v2" ? hostRun() : undefined,
+  } as unknown as SchedulerSubsystemDeps);
+  const at = new Date("2026-11-26T00:00:00Z");
+
+  await wiring!.runTask({ id: "plain" }, at, true);
+  expect(send).not.toHaveBeenCalled();
+
+  await wiring!.runTask({ id: "owned", ownerPluginId: "v2" }, at, true).catch(() => undefined);
+  expect(send).toHaveBeenCalledTimes(1);
+  expect(send).toHaveBeenCalledWith(IPC.SCHEDULER_EVENT, { type: "CUSTOM", name: PLUGIN_TASK_FINISHED_EVENT, schedulerTaskId: "owned" });
+});

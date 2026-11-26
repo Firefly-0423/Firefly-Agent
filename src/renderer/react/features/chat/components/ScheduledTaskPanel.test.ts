@@ -519,6 +519,21 @@ describe("ScheduledTaskPanel — review follow-ups", () => {
     expect(text()).toContain("失败");
   });
 
+  it("refreshes the expanded history when the plugin host reports a finished run of that task", async () => {
+    const row = (id: string, status: string) => ({ id, taskId: "task-daily", taskTitle: "早安信息整理", firedAt: NOW, status, durationMs: 1000, effectiveToolIds: [] });
+    let rows: any[] = [];
+    const api = installScheduler({ getHistory: vi.fn(async () => ({ ok: true, value: rows })) });
+    (window as unknown as Record<string, unknown>).schedulerEvents = { onEvent: vi.fn((callback: Listener) => { emit = callback; return () => { emit = undefined; }; }) };
+    await renderPanel();
+    await click(buttonByText("历史"));
+    const listCalls = api.list.mock.calls.length;
+    rows = [row("run-1", "failed")];
+    await act(async () => { emit!({ type: "CUSTOM", name: "scheduler.plugin_task_finished", schedulerTaskId: "task-daily" }); });
+    await flush();
+    expect(api.list.mock.calls.length).toBeGreaterThan(listCalls);
+    expect(text()).toContain("失败");
+  });
+
   it("refreshes only the history of the task a run event names, and every open history on focus", async () => {
     const second: ScheduledTask = { ...DAILY_TASK, id: "task-second", title: "每周报告" };
     const api = installScheduler({ list: vi.fn(async () => ({ ok: true, value: [DAILY_TASK, second] })) });

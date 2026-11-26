@@ -67,11 +67,13 @@ function eventTaskId(raw: unknown): string | undefined {
 
 /** Sent by the main process when a plugin schedule proposal was created, changed, confirmed or rejected. */
 const PLUGIN_PROPOSALS_CHANGED_EVENT = "scheduler.plugin_proposals_changed";
+/** Sent by the main process after the plugin host finished a scheduled run (it sends no RUN_FINISHED of its own). */
+const PLUGIN_TASK_FINISHED_EVENT = "scheduler.plugin_task_finished";
 
 function shouldReloadOnSchedulerEvent(raw: unknown): boolean {
   const event = raw as { type?: string; name?: string } | null;
   if (!event) return false;
-  if (event.type === "CUSTOM" && event.name === PLUGIN_PROPOSALS_CHANGED_EVENT) return true;
+  if (event.type === "CUSTOM" && (event.name === PLUGIN_PROPOSALS_CHANGED_EVENT || event.name === PLUGIN_TASK_FINISHED_EVENT)) return true;
   return event.type === "RUN_FINISHED"
     || event.type === "RUN_ERROR"
     || (event.type === "CUSTOM" && event.name === "scheduler.started");
