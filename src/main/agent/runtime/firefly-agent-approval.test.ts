@@ -122,6 +122,29 @@ describe("approval requests carry the run id (ChatPage G2)", () => {
   });
 });
 
+describe("usage attribution for plugin runs", () => {
+  it("counts a run with usagePluginId as that plugin's call, not a user message, while keeping the session id", async () => {
+    const usage = await import("../../base/storage/token-usage-store");
+    vi.mocked(usage.recordMessage).mockClear();
+    vi.mocked(usage.recordPluginCall).mockClear();
+    await lastValueFrom(new FireflyAgent({ threadId: "usage-plugin" })
+      .runWithEvents({ ...options("work", "usage-run"), tools: [], usagePluginId: "dev.example.helper" }).pipe(toArray())).catch(() => []);
+    expect(vi.mocked(usage.recordPluginCall).mock.calls).toEqual([["dev.example.helper"]]);
+    expect(usage.recordMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe("runs that refuse approvals (plugin model.run)", () => {
+  it("refuses an action that needs approval without sending a card and still finishes the run", async () => {
+    const runId = "g2-refuse";
+    const events = await lastValueFrom(new FireflyAgent({ threadId: "g2-refuse" })
+      .runWithEvents({ ...options("work", runId), approvals: "refuse" }).pipe(toArray()));
+    expect(cards()).toEqual([]);
+    expect(execute).not.toHaveBeenCalled();
+    expect(events.filter(event => event.type === EventType.RUN_FINISHED).map(event => event.runId)).toEqual([runId]);
+  });
+});
+
 describe("approval answered from the toast review", () => {
   it("lets the original run finish and records its tool result and answer once", async () => {
     const runId = "review-run";

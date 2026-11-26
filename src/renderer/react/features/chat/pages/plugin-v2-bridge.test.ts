@@ -94,6 +94,28 @@ describe("attachPluginV2Listeners", () => {
     dispose();
   });
 
+  test("aborts the open or queued dialog when the host settles the request first", async () => {
+    const harness = createBridgeHarness();
+    const signals: AbortSignal[] = [];
+    const confirm = vi.fn((options: { signal?: AbortSignal }) => {
+      if (options.signal) signals.push(options.signal);
+      return new Promise<boolean>(() => {});
+    });
+
+    const dispose = attachPluginV2Listeners({ api: harness.api, confirm, onBorrowingChange: vi.fn(), translate: t });
+
+    harness.emitConfirm({ id: "c-open", pluginId: "p1", pluginName: "Demo", permission: "model.run" });
+    harness.emitConfirm({ id: "c-other", pluginId: "p2", pluginName: "Other", permission: "sessions.read" });
+    expect(signals).toHaveLength(2);
+
+    harness.emitSettled({ id: "c-open", reason: "timeout" });
+    expect(signals.map((signal) => signal.aborted)).toEqual([true, false]);
+    expect(harness.api.resolveV2Confirm).not.toHaveBeenCalled();
+
+    dispose();
+    expect(signals[1].aborted).toBe(true);
+  });
+
   test("syncs initial and live model borrowing entries", async () => {
     const harness = createBridgeHarness();
     harness.api.getV2Borrowing.mockResolvedValueOnce({
