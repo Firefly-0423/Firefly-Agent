@@ -67,7 +67,13 @@ const m = vi.hoisted(() => {
     proactiveConversationLifecycle: { kind: "proactive-lifecycle" },
   };
   state.agentRuntime = { kind: "agent-runtime", buildOptions: vi.fn(), onRunFinished: vi.fn() };
-  state.pluginManager = { kind: "plugin-manager", publishHostEvent: vi.fn(), isRunning: vi.fn() };
+  state.pluginManager = { kind: "plugin-manager", publishHostEvent: vi.fn(), isRunning: vi.fn(), stop: vi.fn(async () => {}) };
+  state.pluginV2 = {
+    collectTurnPluginContext: vi.fn(async () => "[v2 context]"),
+    onContextChanged: vi.fn(),
+    stopAll: vi.fn(async () => {}),
+    dispose: vi.fn(),
+  };
   state.scheduler = { store: {}, engine: { refreshPluginTasks: vi.fn() } };
   state.channels = { kind: "channels" };
   state.browserService = { kind: "browser-service" };
@@ -264,6 +270,10 @@ vi.mock("../features/plugins/host/pending-turn-lifecycle", () => ({
   }),
 }));
 vi.mock("../features/plugins/host/plugin-runtime", () => ({ startPluginRuntime: vi.fn(async () => m.pluginManager) }));
+vi.mock("./plugin-v2-bootstrap", () => ({
+  startPluginV2Bootstrap: vi.fn(async () => m.pluginV2),
+  forwardHostEventToPluginV2: vi.fn(),
+}));
 vi.mock("../features/scheduler/bootstrap", () => ({ createSchedulerSubsystem: vi.fn(() => m.scheduler) }));
 vi.mock("../features/channels/bootstrap", () => ({ createChannelsSubsystem: vi.fn(() => m.channels) }));
 vi.mock("../agent/runtime/agent-runtime", () => ({
@@ -642,6 +652,55 @@ describe("core phase", () => {
     expect(m.agentRuntimeOptions.defaultMemory).toBe(m.defaultMemory);
     expect(m.agentRuntimeOptions.loadModelSettings).toBeDefined();
     expect(m.agentRuntimeOptions.buildPluginPromptContext).toEqual(expect.any(Function));
+    expect(m.agentRuntimeOptions.collectTurnPluginContext).toEqual(expect.any(Function));
+  });
+
+  it("wires v2 plugins into startPlugins, turn context, host events, target changes, and shutdown", async () => {
+    const { startPluginV2Bootstrap, forwardHostEventToPluginV2 } = await import("./plugin-v2-bootstrap");
+    const deps = createDeps();
+    await deps.startShell();
+    await deps.startCore(m.shellResult);
+    m.coreDeps.createRuntime({ llm: m.llmClient, embedding: m.embedding, social: m.social });
+
+    await expect(
+      m.agentRuntimeOptions.collectTurnPluginContext({ source: "user", mode: "chat", sessionId: "s-0" }),
+    ).resolves.toBe("");
+
+    const startedPlugins = await m.coreDeps.startPlugins(
+      { llm: m.llmClient, embedding: m.embedding, social: m.social },
+      m.scheduler,
+      m.agentRuntime,
+    );
+    expect(startPluginV2Bootstrap).toHaveBeenCalledWith(expect.objectContaining({
+      ipc: m.ipcScope,
+      llmClient: m.llmClient,
+      buildRunOptions: m.agentRuntime.buildOptions,
+      schedulerStore: m.scheduler.store,
+      getChatWebContents: expect.any(Function),
+    }));
+
+    await expect(
+      m.agentRuntimeOptions.collectTurnPluginContext({ source: "user", mode: "work", sessionId: "s-1" }),
+    ).resolves.toBe("[v2 context]");
+
+    m.defaultMemory.refresh = vi.fn();
+    const { registerChatUiIpc } = await import("../features/sessions/chat-ui-ipc");
+    m.shellDeps.registerShellIpc({ ipc: m.ipcScope, windowManager: m.windowManager, live2dWindowLifecycle: {} });
+    const chatUiCall = (registerChatUiIpc as unknown as { mock: { calls: any[][] } }).mock.calls.at(-1)?.[0];
+    chatUiCall?.onActiveTargetChanged?.();
+    expect(m.pluginV2.onContextChanged).toHaveBeenCalled();
+
+    await m.publisherOpts.publish("turn:started", { runId: "r-1", mode: "work", source: "desktop", conversationId: "s-1" });
+    expect(forwardHostEventToPluginV2).toHaveBeenCalledWith(
+      m.pluginV2,
+      "turn:started",
+      expect.objectContaining({ runId: "r-1" }),
+    );
+
+    await startedPlugins.stop();
+    expect(m.pluginManager.stop).toHaveBeenCalled();
+    expect(m.pluginV2.stopAll).toHaveBeenCalledWith("quit");
+    expect(m.pluginV2.dispose).toHaveBeenCalled();
   });
 
   it("initializes RAG and registers flush resources", async () => {

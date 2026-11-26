@@ -56,6 +56,8 @@ export interface ServiceDependencies {
   /** Events include trusted sessionId/pluginId scope metadata, stripped before delivery. */
   subscribe(listener: (event: unknown) => void): () => void;
   modelLimitPerMinute?(pluginId: string): number;
+  /** Called once per approved model.generate (plain or streaming), for the plugin call statistics. */
+  onModelCall?(pluginId: string): void;
 }
 const invalid = () => new PluginError("ERR_INVALID_ARGUMENT", "Invalid service arguments");
 const unavailable = () => new PluginError("ERR_UNAVAILABLE", "Host context is unavailable");
@@ -276,6 +278,7 @@ export function createPluginHostServices(deps: ServiceDependencies) {
           op.guard();
           const redactor = deps.createStreamRedactor(op.ctx);
           if (!isRun) {
+            deps.onModelCall?.(pluginId);
             const iterator = deps.generateStream(prepared.request as GenerateRequest, prepared.profile, op.signal)[Symbol.asyncIterator]();
             try {
               while (true) {
@@ -349,6 +352,7 @@ export function createPluginHostServices(deps: ServiceDependencies) {
           op.guard();
           const prepared = await prepareModel(params, op, false); hide = prepared.hide;
           op.guard();
+          deps.onModelCall?.(pluginId);
           const result = await op.wait(deps.generate(prepared.request as GenerateRequest, prepared.profile, op.signal)); op.guard();
           return { text: deps.redact(result.text, op.ctx), ...(result.usage ? { usage: { inputTokens: result.usage.inputTokens, outputTokens: result.usage.outputTokens } } : {}) };
         } finally { hide(); op.cleanup(); }

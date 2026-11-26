@@ -49,6 +49,7 @@ export interface ToolDefinition {
   risk?: ToolRiskLevel;
   risks?: ToolRiskLevel[];
   pluginMeta?: PluginToolMeta;
+  describeApproval?: (args: Record<string, unknown>, signal?: AbortSignal) => Promise<{ summary: string; target?: string } | null>;
   validateArgs?: (args: Record<string, unknown>) => { valid: true } | { valid: false; message: string };
   /** execute() reports failure only by throwing; its return value is never re-read as a legacy status payload. */
   explicitOutcome?: boolean;

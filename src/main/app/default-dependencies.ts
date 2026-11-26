@@ -94,6 +94,8 @@ import { createChannelsSubsystem } from "../features/channels/bootstrap";
 import { createLifecyclePublisher } from "../agent/runtime/lifecycle-publisher";
 import { createPendingTurnLifecycle } from "../features/plugins/host/pending-turn-lifecycle";
 import { startPluginRuntime } from "../features/plugins/host/plugin-runtime";
+import { forwardHostEventToPluginV2, startPluginV2Bootstrap } from "./plugin-v2-bootstrap";
+import type { PluginV2HostController } from "../features/plugins/host/plugin-v2-services";
 import { createAgentRuntime } from "../agent/runtime/agent-runtime";
 import { createProactiveLifecycle } from "../features/proactive/proactive-lifecycle";
 import { createSocialContextService } from "../agent/services/social-context/social-context-service";
@@ -386,6 +388,7 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
   let desktopAsr: ReturnType<typeof registerDesktopAsrIpc> | undefined;
   // Agent Runtime 比插件管理器先构造，这里用一个可后填的引用在运行期转发宿主事件
   let pluginManager: PluginManager | undefined;
+  let pluginV2: PluginV2HostController | undefined;
 
   const hasSwitch = (name: string): boolean => app.commandLine?.hasSwitch(name) === true;
 
@@ -402,8 +405,12 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
   });
   app.once("will-quit", () => memoryOnlineEntry?.cancel());
 
-  const forwardToPlugins = (event: Parameters<PluginManager["publishHostEvent"]>[0], payload: Parameters<PluginManager["publishHostEvent"]>[1]) =>
-    pluginManager ? pluginManager.publishHostEvent(event, payload) : Promise.resolve();
+  const forwardToPlugins = (event: Parameters<PluginManager["publishHostEvent"]>[0], payload: Parameters<PluginManager["publishHostEvent"]>[1]) => {
+    if (pluginV2) {
+      forwardHostEventToPluginV2(pluginV2, String(event), payload);
+    }
+    return pluginManager ? pluginManager.publishHostEvent(event, payload) : Promise.resolve();
+  };
 
   // 插件系统就绪之前发布的事件没人监听，直接丢弃
   const lifecyclePublisher = createLifecyclePublisher({ publish: forwardToPlugins });
@@ -849,6 +856,7 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
               desktopAsr?.cancelAll();
               for (const host of liveBrowserHosts()) host.binding.refresh();
               desktopMemory?.refresh();
+              pluginV2?.onContextChanged();
             },
           });
         },
@@ -967,6 +975,7 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
             publishToolFinished: (event) => lifecyclePublisher.publishToolFinished(event),
             publishPluginHostEvent: forwardToPlugins,
             buildPluginPromptContext: (input) => pluginPromptRegistry.build(input),
+            collectTurnPluginContext: (input) => pluginV2 ? pluginV2.collectTurnPluginContext(input) : Promise.resolve(""),
             socialAtomStore: services.social.store,
             chatsStore,
             socialContextScheduler: services.social.scheduler,
@@ -1001,7 +1010,27 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
             getPanelHostWebContents: () => settingsWindow?.webContents ?? null,
             getMarketplaceHostWebContents: () => reactChatWindow?.webContents ?? null,
           });
-          return pluginManager;
+          pluginV2 = await startPluginV2Bootstrap({
+            ipc: shell.ipc,
+            llmClient: services.llm,
+            buildRunOptions: runtime.buildOptions,
+            schedulerStore: scheduler.store,
+            getChatWebContents: () => reactChatWindow?.webContents ?? null,
+          });
+          const stopV1 = typeof pluginManager.stop === "function" ? pluginManager.stop.bind(pluginManager) : async () => {};
+          return Object.create(pluginManager, {
+            stop: {
+              value: async () => {
+                await Promise.allSettled([
+                  stopV1(),
+                  (async () => {
+                    await pluginV2?.stopAll("quit");
+                    pluginV2?.dispose();
+                  })(),
+                ]);
+              },
+            },
+          }) as PluginManager;
         },
 
         createScheduler: (runtime) =>
