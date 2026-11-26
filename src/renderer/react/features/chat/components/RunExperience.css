@@ -691,6 +691,10 @@ button.ff-file-change-card__row:hover { background: var(--ff-bg-subtle); }
   color: var(--rb-text-on-pink);
   border-color: var(--ff-accent);
 }
+/* The default dark accent is a bright emerald; a white label on it falls below 3:1, so use near-black. Custom colours keep their computed --rb-text-on-pink. */
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-interaction-panel__actions button.is-primary {
+  color: #0a0a0a;
+}
 
 .ff-plan-entry__dot.is-failed { background: var(--ff-danger); }
 .ff-plan-entry__dot.is-cancelled { background: var(--ff-text-muted); }

@@ -43,7 +43,7 @@ export const LIGHT_CODE_PALETTES: Record<LightCodeTheme, CodePalette> = {
 
 export const DARK_CODE_PALETTES: Record<DarkCodeTheme, CodePalette> = {
   // The mint-on-ink colours of Firefly's dark theme.
-  firefly: { text: "var(--ff-text, #dce8e2)", comment: "#7f948a", keyword: "#c3a6f0", function: "#8ec7f0", string: "#7bd8ae", number: "#e8c36a", type: "#e8c36a", tag: "#f2a07b", property: "#8ec7f0", punctuation: "#a9bdb3" },
+  firefly: { text: "var(--ff-text, #dce8e2)", comment: "#7f948a", keyword: "#c3a6f0", function: "#8ec7f0", string: "#34d399", number: "#e8c36a", type: "#e8c36a", tag: "#f2a07b", property: "#8ec7f0", punctuation: "#a9bdb3" },
   "one-dark": { background: "#282c34", text: "#abb2bf", comment: "#5c6370", keyword: "#c678dd", function: "#61afef", string: "#98c379", number: "#d19a66", type: "#e5c07b", tag: "#e06c75", property: "#e06c75", punctuation: "#abb2bf" },
   "github-dark": { background: "#0d1117", text: "#c9d1d9", comment: "#8b949e", keyword: "#ff7b72", function: "#d2a8ff", string: "#a5d6ff", number: "#79c0ff", type: "#ffa657", tag: "#7ee787", property: "#79c0ff", punctuation: "#c9d1d9" },
   dracula: { background: "#282a36", text: "#f8f8f2", comment: "#6272a4", keyword: "#ff79c6", function: "#50fa7b", string: "#f1fa8c", number: "#bd93f9", type: "#8be9fd", tag: "#ff79c6", property: "#66d9ef", punctuation: "#f8f8f2" },
