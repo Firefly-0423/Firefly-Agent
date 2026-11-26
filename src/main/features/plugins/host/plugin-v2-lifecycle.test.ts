@@ -1261,3 +1261,138 @@ describe("Plugin V2 desktop notifications wiring", () => {
     t.controller.dispose();
   });
 });
+
+describe("Plugin V2 lifecycle serialization per plugin id", () => {
+  const pluginId = "dev.firefly.serial";
+
+  async function installEnabledV1(harness: ReturnType<typeof createFakeHostHarness>) {
+    const { controller } = makeController(harness);
+    const first = await writeArchivePlugin({ id: pluginId, version: "1.0.0" });
+    expect((await controller.importFromPath(first, { origin: "market", sourceId: "official" })).ok).toBe(true);
+    await controller.enablePlugin(pluginId);
+    return controller;
+  }
+
+  function liveVersions(harness: ReturnType<typeof createFakeHostHarness>): string[] {
+    return harness.launched.filter((child) => child.killCount === 0 && child.stopReasons.length === 0).map((child) => child.version);
+  }
+
+  it("two overlapping imports of one id end with the persisted version equal to the single running version", async () => {
+    let releaseFirstStart!: () => void;
+    const firstStartGate = new Promise<void>((resolve) => { releaseFirstStart = resolve; });
+    let gated = false;
+    const harness = createFakeHostHarness(async (_main, version) => {
+      // Hold whichever upgrade starts first; staging order is not deterministic, the lock order is.
+      if (version !== "1.0.0" && !gated) {
+        gated = true;
+        await firstStartGate;
+      }
+      return { ok: true };
+    });
+    const controller = await installEnabledV1(harness);
+    const v2 = await writeArchivePlugin({ id: pluginId, version: "2.0.0" });
+    const v3 = await writeArchivePlugin({ id: pluginId, version: "3.0.0" });
+
+    const imports = Promise.all([
+      controller.importFromPath(v2, { origin: "market", sourceId: "official" }),
+      controller.importFromPath(v3, { origin: "market", sourceId: "official" }),
+    ]);
+    await vi.waitFor(() => expect(harness.launched).toHaveLength(2));
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    // The other import must wait instead of reading the old state and stopping/swapping in between.
+    expect(harness.launched).toHaveLength(2);
+    releaseFirstStart();
+    const results = await imports;
+
+    for (const result of results) expect(result).toMatchObject({ ok: true, activation: "running" });
+    const persisted = controller.stateStore.get(pluginId)?.version;
+    expect(persisted).toBe(harness.launched[2]?.version);
+    expect(liveVersions(harness)).toEqual([persisted]);
+    expect(controller.status(pluginId)).toBe("enabled");
+  });
+
+  it("a local import queued behind another sees the first result as the existing plugin", async () => {
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const { controller } = makeController(harness);
+    const v1 = await writeArchivePlugin({ id: pluginId, version: "1.0.0" });
+    const v2 = await writeArchivePlugin({ id: pluginId, version: "2.0.0" });
+
+    const results = await Promise.all([controller.importFromPath(v1), controller.importFromPath(v2)]);
+
+    const committed = results.filter((result) => result.ok);
+    const asked = results.filter((result) => !result.ok);
+    expect(committed).toHaveLength(1);
+    expect(asked).toHaveLength(1);
+    const winner = committed[0]!.ok ? committed[0]!.plugin.version : "";
+    expect(asked[0]).toMatchObject({ installation: "needs-confirmation", replace: { current: { version: winner } } });
+    expect(controller.stateStore.get(pluginId)?.version).toBe(winner);
+  });
+
+  it("an import racing an uninstall ends either fully installed or fully removed", async () => {
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const controller = await installEnabledV1(harness);
+    const v2 = await writeArchivePlugin({ id: pluginId, version: "2.0.0" });
+
+    const [imported, removed] = await Promise.all([
+      controller.importFromPath(v2, { origin: "market", sourceId: "official" }),
+      controller.uninstallPlugin(pluginId),
+    ]);
+
+    // Staging finishes after the uninstall took the lock, so the import lands on a fresh install; either way state and files agree.
+    expect(removed.ok).toBe(true);
+    expect(imported.ok).toBe(true);
+    const stored = controller.stateStore.get(pluginId);
+    expect(stored?.version).toBe("2.0.0");
+    expect(existsSync(path.join(dataRoot, "plugins", pluginId, "2.0.0", "index.mjs"))).toBe(true);
+    expect(liveVersions(harness)).toEqual([]);
+  });
+
+  it("an uninstall followed by an import of the same id leaves a consistent fresh install", async () => {
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const controller = await installEnabledV1(harness);
+    const v2 = await writeArchivePlugin({ id: pluginId, version: "2.0.0" });
+
+    const [removed, imported] = await Promise.all([
+      controller.uninstallPlugin(pluginId),
+      controller.importFromPath(v2, { origin: "market", sourceId: "official" }),
+    ]);
+
+    expect(removed.ok).toBe(true);
+    expect(imported).toMatchObject({ ok: true, activation: "not-requested", plugin: { version: "2.0.0" } });
+    expect(controller.stateStore.get(pluginId)?.version).toBe("2.0.0");
+    expect(existsSync(path.join(dataRoot, "plugins", pluginId, "2.0.0", "index.mjs"))).toBe(true);
+    expect(liveVersions(harness)).toEqual([]);
+  });
+
+  it("different plugin ids still start concurrently", async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const harness = createFakeHostHarness(async () => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await gate;
+      inFlight -= 1;
+      return { ok: true };
+    });
+    const { controller } = makeController(harness);
+    for (const id of ["dev.firefly.one", "dev.firefly.two"]) {
+      await controller.importFromPath(await writeArchivePlugin({ id, version: "1.0.0" }));
+    }
+
+    const enabling = Promise.all([controller.enablePlugin("dev.firefly.one"), controller.enablePlugin("dev.firefly.two")]);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(maxInFlight).toBe(2);
+    release();
+    await enabling;
+  });
+
+  it("a failed task releases the lock so the next lifecycle call proceeds", async () => {
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const { controller } = makeController(harness);
+    await expect(controller.enablePlugin("dev.firefly.missing")).rejects.toThrow();
+    const res = await controller.importFromPath(await writeArchivePlugin({ id: "dev.firefly.missing", version: "1.0.0" }));
+    expect(res.ok).toBe(true);
+  });
+});

@@ -328,6 +328,29 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
   const faultedIds = new Set<string>();
   // Plugins whose own upgrade is in flight; other plugins faulting meanwhile must still be persisted as disabled.
   const suppressingFaultSync = new Set<string>();
+  // Per-plugin-id FIFO mutex: lifecycle changes of one plugin (import/upgrade, enable, disable, uninstall) must not
+  // interleave, because each reads the persisted state first and then stops/swaps/starts. Different ids stay concurrent.
+  const pluginLockTails = new Map<string, Promise<void>>();
+  async function acquirePluginLock(id: string): Promise<() => void> {
+    const previous = pluginLockTails.get(id) ?? Promise.resolve();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const tail = previous.then(() => gate);
+    pluginLockTails.set(id, tail);
+    await previous;
+    return () => {
+      release();
+      if (pluginLockTails.get(id) === tail) pluginLockTails.delete(id);
+    };
+  }
+  async function withPluginLock<T>(id: string, task: () => Promise<T>): Promise<T> {
+    const release = await acquirePluginLock(id);
+    try {
+      return await task();
+    } finally {
+      release();
+    }
+  }
 
   let contextRevision = 1;
   const accessListeners = new Map<string, Set<() => void>>();
@@ -1024,6 +1047,130 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
     }
   };
 
+  async function enablePluginUnlocked(id: string, opts?: { grantedPermissions?: readonly string[] }): Promise<StoredPluginState> {
+    faultedIds.delete(id);
+    lastErrors.delete(id);
+    const updated = stateStore.enable(id, opts);
+    startedPluginIds.add(id);
+    try {
+      await hostManager.start(id);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      faultedIds.add(id);
+      lastErrors.set(id, message);
+      if (stateStore.isEnabled(id)) {
+        try {
+          stateStore.disable(id);
+        } catch {
+          /* Preserve activation failure as primary error. */
+        }
+      }
+      deps.onOverviewChanged?.();
+      throw error;
+    }
+    deps.onOverviewChanged?.();
+    return stateStore.get(id) ?? updated;
+  }
+  async function disablePluginUnlocked(id: string): Promise<StoredPluginState> {
+    faultedIds.delete(id);
+    const updated = stateStore.disable(id);
+    await stopPlugin(id, "disabled");
+    lastErrors.delete(id);
+    deps.onOverviewChanged?.();
+    return updated;
+  }
+  async function uninstallPluginUnlocked(
+    id: string,
+    options: { deleteSecrets?: boolean; deleteData?: boolean } = {},
+  ): Promise<PluginV2UninstallResult> {
+    const existing = stateStore.get(id);
+    const pending = stateStore.getPendingCleanup(id);
+    const pluginName = existing?.manifest.name ?? pending?.name ?? id;
+
+    if (existing) {
+      await stopPlugin(id, "disabled");
+      scheduleService.uninstallPlugin(id);
+      await removeDirIfSafe(path.join(pluginsRoot, id), pluginsRoot);
+      if (existing.installDir) {
+        await removeDirIfSafe(existing.installDir, pluginsRoot);
+      }
+      faultedIds.delete(id);
+      stateStore.uninstall(id);
+      lastErrors.delete(id);
+    }
+
+    let secretsOutcome: UninstallCleanupOutcome = options.deleteSecrets
+      ? "deleted"
+      : (options.deleteSecrets === undefined && pending ? pending.secrets : "kept");
+    let secretsError: string | undefined = secretsOutcome === "delete_failed" ? pending?.secretsError : undefined;
+
+    if (options.deleteSecrets) {
+      try {
+        await secretsService.deleteAll(id);
+        secretsOutcome = "deleted";
+        secretsError = undefined;
+      } catch (err) {
+        logger.warn(LogTag.Plugins, "Failed to delete plugin secrets on uninstall", err);
+        secretsOutcome = "delete_failed";
+        secretsError = err instanceof Error ? err.message : String(err);
+      }
+    }
+
+    let dataOutcome: UninstallCleanupOutcome = options.deleteData
+      ? "deleted"
+      : (options.deleteData === undefined && pending ? pending.data : "kept");
+    let dataError: string | undefined = dataOutcome === "delete_failed" ? pending?.dataError : undefined;
+
+    if (options.deleteData) {
+      try {
+        await removeDirStrict(path.join(deps.dataRoot, "plugin-data", id), path.join(deps.dataRoot, "plugin-data"));
+        dataOutcome = "deleted";
+        dataError = undefined;
+      } catch (err) {
+        logger.warn(LogTag.Plugins, "Failed to delete plugin data on uninstall", err);
+        dataOutcome = "delete_failed";
+        dataError = err instanceof Error ? err.message : String(err);
+      }
+    }
+
+    const cleanup: UninstallCleanupResult = {
+      secrets: secretsOutcome,
+      ...(secretsError ? { secretsError } : {}),
+      data: dataOutcome,
+      ...(dataError ? { dataError } : {}),
+    };
+
+    const hasFailure = secretsOutcome === "delete_failed" || dataOutcome === "delete_failed";
+    if (hasFailure) {
+      stateStore.setPendingCleanup({
+        id,
+        name: pluginName,
+        ...cleanup,
+      });
+      const errorParts = [
+        secretsOutcome === "delete_failed" ? `凭据删除失败（${secretsError ?? "未知错误"}）` : "",
+        dataOutcome === "delete_failed" ? `数据目录删除失败（${dataError ?? "未知错误"}）` : "",
+      ].filter(Boolean);
+      deps.onOverviewChanged?.();
+      return {
+        ok: false,
+        uninstalled: Boolean(existing || pending),
+        cleanup,
+        error: errorParts.join("；"),
+      };
+    }
+
+    if (pending) {
+      stateStore.clearPendingCleanup(id);
+    }
+    deps.onOverviewChanged?.();
+    return {
+      ok: true,
+      uninstalled: Boolean(existing || pending),
+      cleanup,
+    };
+  }
+
   return {
     stateStore,
     hostManager,
@@ -1127,194 +1274,221 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
       }
       const sourceKind: PluginSourceKind = opts.sourceKind ?? imported.sourceKind;
       const sourceId = opts.sourceId;
-      const existing = stateStore.get(manifest.id);
-
-      // A local package must not silently replace (or hot-swap) an installed plugin: the user confirms this exact package first.
-      if (existing && origin === "local") {
-        if (!opts.confirmedReplacement) {
-          await imported.rollback().catch(() => {});
-          return {
-            ok: false,
-            installation: "needs-confirmation",
-            error: `插件 ${manifest.id} 已安装，替换前需要确认`,
-            replace: summarizeReplacement(existing, manifest, origin, imported.contentSha256),
-          };
-        }
-        if (opts.confirmedReplacement.sha256 !== imported.contentSha256) {
-          await imported.rollback().catch(() => {});
-          return {
-            ok: false,
-            installation: "rejected",
-            error: "插件包与已确认的内容不一致，请重新导入并确认",
-          };
-        }
-      }
-
-      if (!existing) {
-        try {
-          await imported.swap?.();
-          stateStore.install({
-            manifest,
-            installDir,
-            enabled: false,
-            grantedPermissions: [],
-            origin,
-            sourceKind,
-            ...(sourceId ? { sourceId } : {}),
-          });
-        } catch (error) {
-          await imported.rollback().catch(() => {});
-          // install() may already have written a record; the plugin was not installed before, so remove it again.
-          try { stateStore.uninstall(manifest.id); } catch { /* Best effort: the original error is reported. */ }
-          return {
-            ok: false,
-            installation: "rejected",
-            error: error instanceof Error ? error.message : String(error),
-          };
-        }
-        // The new package is in place and recorded; removing the backup is cleanup and must not undo the install.
-        await imported.commit().catch((err: unknown) => {
-          logger.warn(LogTag.Plugins, `Failed to remove the install backup for ${manifest.id}`, err);
-        });
-        faultedIds.delete(manifest.id);
-        lastErrors.delete(manifest.id);
-        deps.onOverviewChanged?.();
-        return {
-          ok: true,
-          installation: "committed",
-          activation: "not-requested",
-          plugin: { id: manifest.id, name: manifest.name, version: manifest.version },
-        };
-      }
-
-      const oldInstallDir = path.resolve(
-        existing.installDir ?? path.join(pluginsRoot, existing.manifest.id, existing.version),
-      );
-      const wasActive = existing.enabled || hostManager.status(manifest.id) === "enabled";
-
-      if (!wasActive) {
-        try {
-          await imported.swap?.();
-          stateStore.install({
-            manifest,
-            installDir,
-            enabled: false,
-            origin,
-            sourceKind,
-            ...(sourceId ? { sourceId } : {}),
-          });
-        } catch (error) {
-          await imported.rollback().catch(() => {});
-          // install() already persisted the new manifest; put the previous record back so state matches the rolled-back files.
-          try { stateStore.restoreSnapshot(existing); } catch { /* Best effort: the original error is reported. */ }
-          return {
-            ok: false,
-            installation: "rejected",
-            error: error instanceof Error ? error.message : String(error),
-          };
-        }
-        // The new version is installed; removing the backup and the old directory is cleanup and must not undo the install.
-        await imported.commit().catch((err: unknown) => {
-          logger.warn(LogTag.Plugins, `Failed to remove the install backup for ${manifest.id}`, err);
-        });
-        if (oldInstallDir !== path.resolve(installDir)) {
-          await removeDirIfSafe(oldInstallDir, path.join(pluginsRoot, manifest.id)).catch(() => {});
-        }
-        faultedIds.delete(manifest.id);
-        lastErrors.delete(manifest.id);
-        deps.onOverviewChanged?.();
-        return {
-          ok: true,
-          installation: "committed",
-          activation: "not-requested",
-          plugin: { id: manifest.id, name: manifest.name, version: manifest.version },
-        };
-      }
-
-      // Upgrade while active: stop old -> activate new -> on failure transactionally roll back files + state before restarting old.
-      suppressingFaultSync.add(manifest.id);
+      const releaseLock = await acquirePluginLock(manifest.id);
       try {
-        await stopPlugin(manifest.id, "upgrade");
-        // Swap only after the old instance has stopped, so it never observes the new files.
-        await imported.swap?.();
-        stateStore.install({
-          manifest,
-          installDir,
-          enabled: true,
-          origin,
-          sourceKind,
-          ...(sourceId ? { sourceId } : {}),
-        });
-        startedPluginIds.add(manifest.id);
-        await hostManager.start(manifest.id);
-      } catch (upgradeError) {
-        const reason = upgradeError instanceof Error ? upgradeError.message : String(upgradeError);
-        await stopPlugin(manifest.id, "upgrade").catch(() => {});
+        const existing = stateStore.get(manifest.id);
 
-        let fileRollbackError: string | undefined;
-        try {
-          await imported.rollback();
-        } catch (err) {
-          fileRollbackError = err instanceof Error ? err.message : String(err);
-        }
-
-        let stateRollbackError: string | undefined;
-        let restoredState: StoredPluginState | undefined;
-        try {
-          restoredState = stateStore.restoreSnapshot(existing);
-        } catch (err) {
-          stateRollbackError = err instanceof Error ? err.message : String(err);
-        }
-
-        const removedNewDir = path.resolve(installDir) !== oldInstallDir ? path.resolve(installDir) : undefined;
-        const filesVerified = !fileRollbackError && verifyRestoredFilesOnDisk(
-          oldInstallDir,
-          existing.main,
-          removedNewDir,
-        );
-        const diskState = !stateRollbackError && restoredState
-          ? stateStore.verifyOnDisk(manifest.id)
-          : undefined;
-        const stateVerified = Boolean(
-          restoredState
-          && diskState
-          && diskState.version === existing.version
-          && diskState.main === existing.main
-          && diskState.enabled === existing.enabled
-          && diskState.revision === restoredState.revision,
-        );
-
-        if (!fileRollbackError && !stateRollbackError && filesVerified && stateVerified) {
-          let restartError: string | undefined;
-          try {
-            startedPluginIds.add(manifest.id);
-            await hostManager.start(manifest.id);
-          } catch (err) {
-            restartError = err instanceof Error ? err.message : String(err);
+        // A local package must not silently replace (or hot-swap) an installed plugin: the user confirms this exact package first.
+        if (existing && origin === "local") {
+          if (!opts.confirmedReplacement) {
+            await imported.rollback().catch(() => {});
+            return {
+              ok: false,
+              installation: "needs-confirmation",
+              error: `插件 ${manifest.id} 已安装，替换前需要确认`,
+              replace: summarizeReplacement(existing, manifest, origin, imported.contentSha256),
+            };
           }
-          if (!restartError) {
-            faultedIds.delete(manifest.id);
+          if (opts.confirmedReplacement.sha256 !== imported.contentSha256) {
+            await imported.rollback().catch(() => {});
+            return {
+              ok: false,
+              installation: "rejected",
+              error: "插件包与已确认的内容不一致，请重新导入并确认",
+            };
+          }
+        }
+
+        if (!existing) {
+          try {
+            await imported.swap?.();
+            stateStore.install({
+              manifest,
+              installDir,
+              enabled: false,
+              grantedPermissions: [],
+              origin,
+              sourceKind,
+              ...(sourceId ? { sourceId } : {}),
+            });
+          } catch (error) {
+            await imported.rollback().catch(() => {});
+            // install() may already have written a record; the plugin was not installed before, so remove it again.
+            try { stateStore.uninstall(manifest.id); } catch { /* Best effort: the original error is reported. */ }
+            return {
+              ok: false,
+              installation: "rejected",
+              error: error instanceof Error ? error.message : String(error),
+            };
+          }
+          // The new package is in place and recorded; removing the backup is cleanup and must not undo the install.
+          await imported.commit().catch((err: unknown) => {
+            logger.warn(LogTag.Plugins, `Failed to remove the install backup for ${manifest.id}`, err);
+          });
+          faultedIds.delete(manifest.id);
+          lastErrors.delete(manifest.id);
+          deps.onOverviewChanged?.();
+          return {
+            ok: true,
+            installation: "committed",
+            activation: "not-requested",
+            plugin: { id: manifest.id, name: manifest.name, version: manifest.version },
+          };
+        }
+
+        const oldInstallDir = path.resolve(
+          existing.installDir ?? path.join(pluginsRoot, existing.manifest.id, existing.version),
+        );
+        const wasActive = existing.enabled || hostManager.status(manifest.id) === "enabled";
+
+        if (!wasActive) {
+          try {
+            await imported.swap?.();
+            stateStore.install({
+              manifest,
+              installDir,
+              enabled: false,
+              origin,
+              sourceKind,
+              ...(sourceId ? { sourceId } : {}),
+            });
+          } catch (error) {
+            await imported.rollback().catch(() => {});
+            // install() already persisted the new manifest; put the previous record back so state matches the rolled-back files.
+            try { stateStore.restoreSnapshot(existing); } catch { /* Best effort: the original error is reported. */ }
+            return {
+              ok: false,
+              installation: "rejected",
+              error: error instanceof Error ? error.message : String(error),
+            };
+          }
+          // The new version is installed; removing the backup and the old directory is cleanup and must not undo the install.
+          await imported.commit().catch((err: unknown) => {
+            logger.warn(LogTag.Plugins, `Failed to remove the install backup for ${manifest.id}`, err);
+          });
+          if (oldInstallDir !== path.resolve(installDir)) {
+            await removeDirIfSafe(oldInstallDir, path.join(pluginsRoot, manifest.id)).catch(() => {});
+          }
+          faultedIds.delete(manifest.id);
+          lastErrors.delete(manifest.id);
+          deps.onOverviewChanged?.();
+          return {
+            ok: true,
+            installation: "committed",
+            activation: "not-requested",
+            plugin: { id: manifest.id, name: manifest.name, version: manifest.version },
+          };
+        }
+
+        // Upgrade while active: stop old -> activate new -> on failure transactionally roll back files + state before restarting old.
+        suppressingFaultSync.add(manifest.id);
+        try {
+          await stopPlugin(manifest.id, "upgrade");
+          // Swap only after the old instance has stopped, so it never observes the new files.
+          await imported.swap?.();
+          stateStore.install({
+            manifest,
+            installDir,
+            enabled: true,
+            origin,
+            sourceKind,
+            ...(sourceId ? { sourceId } : {}),
+          });
+          startedPluginIds.add(manifest.id);
+          await hostManager.start(manifest.id);
+        } catch (upgradeError) {
+          const reason = upgradeError instanceof Error ? upgradeError.message : String(upgradeError);
+          await stopPlugin(manifest.id, "upgrade").catch(() => {});
+
+          let fileRollbackError: string | undefined;
+          try {
+            await imported.rollback();
+          } catch (err) {
+            fileRollbackError = err instanceof Error ? err.message : String(err);
+          }
+
+          let stateRollbackError: string | undefined;
+          let restoredState: StoredPluginState | undefined;
+          try {
+            restoredState = stateStore.restoreSnapshot(existing);
+          } catch (err) {
+            stateRollbackError = err instanceof Error ? err.message : String(err);
+          }
+
+          const removedNewDir = path.resolve(installDir) !== oldInstallDir ? path.resolve(installDir) : undefined;
+          const filesVerified = !fileRollbackError && verifyRestoredFilesOnDisk(
+            oldInstallDir,
+            existing.main,
+            removedNewDir,
+          );
+          const diskState = !stateRollbackError && restoredState
+            ? stateStore.verifyOnDisk(manifest.id)
+            : undefined;
+          const stateVerified = Boolean(
+            restoredState
+            && diskState
+            && diskState.version === existing.version
+            && diskState.main === existing.main
+            && diskState.enabled === existing.enabled
+            && diskState.revision === restoredState.revision,
+          );
+
+          if (!fileRollbackError && !stateRollbackError && filesVerified && stateVerified) {
+            let restartError: string | undefined;
+            try {
+              startedPluginIds.add(manifest.id);
+              await hostManager.start(manifest.id);
+            } catch (err) {
+              restartError = err instanceof Error ? err.message : String(err);
+            }
+            if (!restartError) {
+              faultedIds.delete(manifest.id);
+              suppressingFaultSync.delete(manifest.id);
+              const message = `新版本启动失败，已回滚至 v${existing.version}：${reason}`;
+              lastErrors.set(manifest.id, message);
+              deps.onOverviewChanged?.();
+              return {
+                ok: false,
+                installation: "rejected",
+                activation: "rolled-back",
+                error: message,
+              };
+            }
+            if (stateStore.isEnabled(manifest.id)) {
+              try {
+                stateStore.disable(manifest.id);
+              } catch {
+                /* Best-effort persist fault disable when old version fails to restart. */
+              }
+            }
+            faultedIds.add(manifest.id);
             suppressingFaultSync.delete(manifest.id);
-            const message = `新版本启动失败，已回滚至 v${existing.version}：${reason}`;
+            const message = `新版本启动失败（${reason}），且旧版本恢复失败（${restartError}）`;
             lastErrors.set(manifest.id, message);
+            deps.onRunningStateChange?.(manifest.id, false);
             deps.onOverviewChanged?.();
             return {
               ok: false,
               installation: "rejected",
-              activation: "rolled-back",
+              activation: "failed",
               error: message,
             };
           }
+
           if (stateStore.isEnabled(manifest.id)) {
             try {
               stateStore.disable(manifest.id);
             } catch {
-              /* Best-effort persist fault disable when old version fails to restart. */
+              /* Preserve rollback failure diagnostics if state store write also fails. */
             }
           }
           faultedIds.add(manifest.id);
           suppressingFaultSync.delete(manifest.id);
-          const message = `新版本启动失败（${reason}），且旧版本恢复失败（${restartError}）`;
+          const rollbackProblems = [
+            fileRollbackError ? `文件回滚失败（${fileRollbackError}）` : (!filesVerified ? "旧版本文件校验未通过" : ""),
+            stateRollbackError ? `状态回滚失败（${stateRollbackError}）` : (!stateVerified ? "插件状态文件校验未通过" : ""),
+          ].filter(Boolean).join("；");
+          const message = `新版本启动失败（${reason}），且回滚未完成（${rollbackProblems}），已停用（异常）`;
           lastErrors.set(manifest.id, message);
           deps.onRunningStateChange?.(manifest.id, false);
           deps.onOverviewChanged?.();
@@ -1325,81 +1499,39 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
             error: message,
           };
         }
-
-        if (stateStore.isEnabled(manifest.id)) {
-          try {
-            stateStore.disable(manifest.id);
-          } catch {
-            /* Preserve rollback failure diagnostics if state store write also fails. */
-          }
-        }
-        faultedIds.add(manifest.id);
+        faultedIds.delete(manifest.id);
         suppressingFaultSync.delete(manifest.id);
-        const rollbackProblems = [
-          fileRollbackError ? `文件回滚失败（${fileRollbackError}）` : (!filesVerified ? "旧版本文件校验未通过" : ""),
-          stateRollbackError ? `状态回滚失败（${stateRollbackError}）` : (!stateVerified ? "插件状态文件校验未通过" : ""),
-        ].filter(Boolean).join("；");
-        const message = `新版本启动失败（${reason}），且回滚未完成（${rollbackProblems}），已停用（异常）`;
-        lastErrors.set(manifest.id, message);
-        deps.onRunningStateChange?.(manifest.id, false);
+
+        // The new instance is running on the swapped files; removing the backup is cleanup, so a failure must not report the upgrade as failed.
+        await imported.commit().catch((err: unknown) => {
+          logger.warn(LogTag.Plugins, `Failed to remove the upgrade backup for ${manifest.id}`, err);
+        });
+        if (oldInstallDir !== path.resolve(installDir)) {
+          await removeDirIfSafe(oldInstallDir, path.join(pluginsRoot, manifest.id)).catch(() => {});
+        }
+        lastErrors.delete(manifest.id);
         deps.onOverviewChanged?.();
         return {
-          ok: false,
-          installation: "rejected",
-          activation: "failed",
-          error: message,
+          ok: true,
+          installation: "committed",
+          activation: "running",
+          plugin: { id: manifest.id, name: manifest.name, version: manifest.version },
         };
+      } finally {
+        releaseLock();
       }
-      faultedIds.delete(manifest.id);
-      suppressingFaultSync.delete(manifest.id);
-
-      // The new instance is running on the swapped files; removing the backup is cleanup, so a failure must not report the upgrade as failed.
-      await imported.commit().catch((err: unknown) => {
-        logger.warn(LogTag.Plugins, `Failed to remove the upgrade backup for ${manifest.id}`, err);
-      });
-      if (oldInstallDir !== path.resolve(installDir)) {
-        await removeDirIfSafe(oldInstallDir, path.join(pluginsRoot, manifest.id)).catch(() => {});
-      }
-      lastErrors.delete(manifest.id);
-      deps.onOverviewChanged?.();
-      return {
-        ok: true,
-        installation: "committed",
-        activation: "running",
-        plugin: { id: manifest.id, name: manifest.name, version: manifest.version },
-      };
     },
-    async enablePlugin(id: string, opts?: { grantedPermissions?: readonly string[] }): Promise<StoredPluginState> {
-      faultedIds.delete(id);
-      lastErrors.delete(id);
-      const updated = stateStore.enable(id, opts);
-      startedPluginIds.add(id);
-      try {
-        await hostManager.start(id);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        faultedIds.add(id);
-        lastErrors.set(id, message);
-        if (stateStore.isEnabled(id)) {
-          try {
-            stateStore.disable(id);
-          } catch {
-            /* Preserve activation failure as primary error. */
-          }
-        }
-        deps.onOverviewChanged?.();
-        throw error;
-      }
-      deps.onOverviewChanged?.();
-      return stateStore.get(id) ?? updated;
+    enablePlugin(id: string, opts?: { grantedPermissions?: readonly string[] }): Promise<StoredPluginState> {
+      return withPluginLock(id, () => enablePluginUnlocked(id, opts));
     },
-    async disablePlugin(id: string): Promise<StoredPluginState> {
-      faultedIds.delete(id);
-      const updated = stateStore.disable(id);
-      await stopPlugin(id, "disabled");
-      lastErrors.delete(id);
-      deps.onOverviewChanged?.();
-      return updated;
+    disablePlugin(id: string): Promise<StoredPluginState> {
+      return withPluginLock(id, () => disablePluginUnlocked(id));
+    },
+    uninstallPlugin(
+      id: string,
+      options: { deleteSecrets?: boolean; deleteData?: boolean } = {},
+    ): Promise<PluginV2UninstallResult> {
+      return withPluginLock(id, () => uninstallPluginUnlocked(id, options));
     },
     grantPermission(id: string, permission: string): StoredPluginState {
       const updated = stateStore.grantPermission(id, permission);
@@ -1415,97 +1547,6 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
       const updated = stateStore.setModelRateLimit(id, limit);
       deps.onOverviewChanged?.();
       return updated;
-    },
-    async uninstallPlugin(
-      id: string,
-      options: { deleteSecrets?: boolean; deleteData?: boolean } = {},
-    ): Promise<PluginV2UninstallResult> {
-      const existing = stateStore.get(id);
-      const pending = stateStore.getPendingCleanup(id);
-      const pluginName = existing?.manifest.name ?? pending?.name ?? id;
-
-      if (existing) {
-        await stopPlugin(id, "disabled");
-        scheduleService.uninstallPlugin(id);
-        await removeDirIfSafe(path.join(pluginsRoot, id), pluginsRoot);
-        if (existing.installDir) {
-          await removeDirIfSafe(existing.installDir, pluginsRoot);
-        }
-        faultedIds.delete(id);
-        stateStore.uninstall(id);
-        lastErrors.delete(id);
-      }
-
-      let secretsOutcome: UninstallCleanupOutcome = options.deleteSecrets
-        ? "deleted"
-        : (options.deleteSecrets === undefined && pending ? pending.secrets : "kept");
-      let secretsError: string | undefined = secretsOutcome === "delete_failed" ? pending?.secretsError : undefined;
-
-      if (options.deleteSecrets) {
-        try {
-          await secretsService.deleteAll(id);
-          secretsOutcome = "deleted";
-          secretsError = undefined;
-        } catch (err) {
-          logger.warn(LogTag.Plugins, "Failed to delete plugin secrets on uninstall", err);
-          secretsOutcome = "delete_failed";
-          secretsError = err instanceof Error ? err.message : String(err);
-        }
-      }
-
-      let dataOutcome: UninstallCleanupOutcome = options.deleteData
-        ? "deleted"
-        : (options.deleteData === undefined && pending ? pending.data : "kept");
-      let dataError: string | undefined = dataOutcome === "delete_failed" ? pending?.dataError : undefined;
-
-      if (options.deleteData) {
-        try {
-          await removeDirStrict(path.join(deps.dataRoot, "plugin-data", id), path.join(deps.dataRoot, "plugin-data"));
-          dataOutcome = "deleted";
-          dataError = undefined;
-        } catch (err) {
-          logger.warn(LogTag.Plugins, "Failed to delete plugin data on uninstall", err);
-          dataOutcome = "delete_failed";
-          dataError = err instanceof Error ? err.message : String(err);
-        }
-      }
-
-      const cleanup: UninstallCleanupResult = {
-        secrets: secretsOutcome,
-        ...(secretsError ? { secretsError } : {}),
-        data: dataOutcome,
-        ...(dataError ? { dataError } : {}),
-      };
-
-      const hasFailure = secretsOutcome === "delete_failed" || dataOutcome === "delete_failed";
-      if (hasFailure) {
-        stateStore.setPendingCleanup({
-          id,
-          name: pluginName,
-          ...cleanup,
-        });
-        const errorParts = [
-          secretsOutcome === "delete_failed" ? `凭据删除失败（${secretsError ?? "未知错误"}）` : "",
-          dataOutcome === "delete_failed" ? `数据目录删除失败（${dataError ?? "未知错误"}）` : "",
-        ].filter(Boolean);
-        deps.onOverviewChanged?.();
-        return {
-          ok: false,
-          uninstalled: Boolean(existing || pending),
-          cleanup,
-          error: errorParts.join("；"),
-        };
-      }
-
-      if (pending) {
-        stateStore.clearPendingCleanup(id);
-      }
-      deps.onOverviewChanged?.();
-      return {
-        ok: true,
-        uninstalled: Boolean(existing || pending),
-        cleanup,
-      };
     },
     status(id: string): PluginHostStatus {
       return resolveStatus(id);
