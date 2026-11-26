@@ -16,6 +16,14 @@ const mocks = vi.hoisted(() => {
   }) => Promise<boolean>) | undefined;
   const showMessageBox = vi.fn(async () => ({ response: 0 }));
   return {
+    capturedDeps: undefined as { onScheduleStateChanged?: () => void } | undefined,
+    scheduleService: {
+      listPendingProposals: vi.fn(() => []),
+      getTaskRecord: vi.fn(() => undefined),
+      confirmProposal: vi.fn(() => ({})),
+      rejectProposal: vi.fn(() => ({})),
+    },
+    stateStore: { get: vi.fn((id: string) => (id === "dev.test.plugin" ? { manifest: { name: "Test plugin" } } : undefined)) },
     get capturedConfirmFirstUse() {
       return capturedConfirmFirstUse;
     },
@@ -67,9 +75,10 @@ vi.mock("../tooling/registry/tool-registry", () => ({ toolRegistry: {} }));
 vi.mock("../features/sessions/chats-store", () => ({ listSessions: vi.fn(), getSession: vi.fn() }));
 
 vi.mock("../features/plugins/host/plugin-v2-services", () => ({
-  createPluginV2HostController: vi.fn((deps: { confirmFirstUse: typeof mocks.capturedConfirmFirstUse }) => {
+  createPluginV2HostController: vi.fn((deps: { confirmFirstUse: typeof mocks.capturedConfirmFirstUse; onScheduleStateChanged?: () => void }) => {
     mocks.capturedConfirmFirstUse = deps.confirmFirstUse;
-    return mocks.controller;
+    mocks.capturedDeps = deps;
+    return { ...mocks.controller, scheduleService: mocks.scheduleService, stateStore: mocks.stateStore };
   }),
 }));
 
@@ -316,5 +325,51 @@ describe("startPluginV2Bootstrap first-use confirmations", () => {
     });
     expect(allowed).toBe(true);
     expect(mocks.showMessageBox).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("startPluginV2Bootstrap plugin schedule proposals", () => {
+  beforeEach(() => {
+    mocks.scheduleService.listPendingProposals.mockClear();
+    mocks.scheduleService.confirmProposal.mockClear();
+  });
+
+  it("registers the proposal channels on the scheduler IPC scope and routes confirm to the schedule service", async () => {
+    const { ipc, invoke } = createMockIpc();
+    const { startPluginV2Bootstrap } = await import("./plugin-v2-bootstrap");
+    await startPluginV2Bootstrap({
+      ipc,
+      llmClient: { chatNonStream: vi.fn() },
+      buildRunOptions: vi.fn() as never,
+      schedulerStore: {} as never,
+      getChatWebContents: () => null,
+    });
+
+    await expect(invoke(IPC.SCHEDULER_PLUGIN_PROPOSALS_LIST)).resolves.toEqual({ ok: true, value: [] });
+    await expect(invoke(IPC.SCHEDULER_PLUGIN_PROPOSALS_CONFIRM, "task-1")).resolves.toEqual({ ok: true, value: true });
+    expect(mocks.scheduleService.confirmProposal).toHaveBeenCalledTimes(1);
+    expect(mocks.scheduleService.confirmProposal).toHaveBeenCalledWith("task-1");
+  });
+
+  it("pushes a scheduler event to the chat window when the schedule state changes, and skips a closed window", async () => {
+    const { ipc } = createMockIpc();
+    const chatWebContents = createFakeChatWebContents();
+    let target: ReturnType<typeof createFakeChatWebContents> | null = chatWebContents;
+    const { startPluginV2Bootstrap } = await import("./plugin-v2-bootstrap");
+    await startPluginV2Bootstrap({
+      ipc,
+      llmClient: { chatNonStream: vi.fn() },
+      buildRunOptions: vi.fn() as never,
+      schedulerStore: {} as never,
+      getChatWebContents: () => target as never,
+    });
+
+    mocks.capturedDeps!.onScheduleStateChanged!();
+    expect(chatWebContents.send).toHaveBeenCalledTimes(1);
+    expect(chatWebContents.send).toHaveBeenCalledWith(IPC.SCHEDULER_EVENT, { type: "CUSTOM", name: "scheduler.plugin_proposals_changed" });
+
+    target = null;
+    expect(() => mocks.capturedDeps!.onScheduleStateChanged!()).not.toThrow();
+    expect(chatWebContents.send).toHaveBeenCalledTimes(1);
   });
 });

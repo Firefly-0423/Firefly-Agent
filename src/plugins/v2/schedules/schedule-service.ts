@@ -207,6 +207,15 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       state = backingFile.read(emptyState());
       throw new PluginError("ERR_INTERNAL", "Failed to persist plugin schedule state", { cause });
     }
+    notifyStateChanged();
+  }
+
+  function notifyStateChanged(): void {
+    try {
+      options.onStateChanged?.();
+    } catch {
+      // A failing UI refresh must never turn a saved change into a failed operation.
+    }
   }
 
   function findMetadataByAnyId(id: string): PluginTaskMetadata | undefined {
@@ -689,6 +698,13 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       .map((proposal) => cloneValue(proposal));
   }
 
+  /** The current record of a task that already exists in the scheduler store, or undefined (e.g. a still-unconfirmed create). */
+  function getTaskRecord(taskId: string): TaskRecord | undefined {
+    const task = findStoreTaskByAnyId(taskId);
+    if (!task) return undefined;
+    return toTaskRecordFromStore(task, findMetadataByAnyId(taskId));
+  }
+
   function confirmProposal(taskId: string): TaskRecord {
     ensureNonEmptyId(taskId, "taskId");
     const proposal = findPendingProposalForTask(taskId);
@@ -1138,6 +1154,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
   return {
     forPlugin,
     listPendingProposals,
+    getTaskRecord,
     confirmProposal,
     rejectProposal,
     runScheduledTask,

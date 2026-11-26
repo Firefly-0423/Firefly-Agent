@@ -17,6 +17,7 @@ import {
   type PluginV2ConfirmRequest,
   type PluginV2HostController,
 } from "../features/plugins/host/plugin-v2-services";
+import { registerPluginProposalIpc } from "../features/scheduler/plugin-proposal-ipc";
 import { IPC } from "../../shared/ipc-channels";
 
 export interface PluginV2BootstrapDeps {
@@ -29,6 +30,8 @@ export interface PluginV2BootstrapDeps {
 }
 
 const DEFAULT_CONFIRM_TIMEOUT_MS = 120_000;
+/** Custom scheduler event telling the panel that plugin schedule proposals or tasks changed. */
+const PLUGIN_PROPOSALS_CHANGED_EVENT = "scheduler.plugin_proposals_changed";
 
 const CONFIRM_TEXT: Record<"sessions.read" | "workspace.read" | "model.run", (name: string) => string> = {
   "sessions.read": (name) => `插件〔${name}〕想要读取会话记录，是否允许？`,
@@ -163,6 +166,10 @@ export async function startPluginV2Bootstrap(deps: PluginV2BootstrapDeps): Promi
     onBorrowingChanged: (entries: PluginV2BorrowingEntry[]) => {
       sendToChat(IPC.PLUGINS_V2_BORROWING_CHANGED, { entries });
     },
+    onScheduleStateChanged: () => {
+      // Same channel the scheduler panel already listens on; it reloads the proposal list and the task list.
+      sendToChat(IPC.SCHEDULER_EVENT, { type: "CUSTOM", name: PLUGIN_PROPOSALS_CHANGED_EVENT });
+    },
     onToolProgress: (progress) => {
       sendToChat(IPC.AGUI_EVENT, {
         type: "CUSTOM",
@@ -177,6 +184,12 @@ export async function startPluginV2Bootstrap(deps: PluginV2BootstrapDeps): Promi
       });
     },
   });
+
+  registerPluginProposalIpc(
+    deps.ipc,
+    controller.scheduleService,
+    (pluginId) => controller.stateStore.get(pluginId)?.manifest.name,
+  );
 
   deps.ipc.handle(IPC.PLUGINS_V2_BORROWING_GET, () => ({
     entries: controller.getBorrowingEntries(),

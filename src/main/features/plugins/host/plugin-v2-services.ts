@@ -84,6 +84,8 @@ export interface PluginV2HostDependencies {
   dataRoot: string;
   stateFile?: string;
   scheduleStateFile?: string;
+  /** Called after the plugin schedule state (proposals, approvals) changed, so the UI can reload. */
+  onScheduleStateChanged?: () => void;
   runtimeEntry?: string;
   toolRegistry?: ToolRegistry;
   safeStorage?: SafeStorageLike | null;
@@ -239,6 +241,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
   const scheduleService: PluginScheduleService = createPluginScheduleService({
     store: deps.schedulerStore,
     stateFile: deps.scheduleStateFile ?? path.join(deps.dataRoot, "plugin-schedules-state.json"),
+    ...(deps.onScheduleStateChanged ? { onStateChanged: deps.onScheduleStateChanged } : {}),
   });
 
   const contextService: PluginContextService = createPluginContextService();
