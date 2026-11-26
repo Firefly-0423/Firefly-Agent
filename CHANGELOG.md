@@ -1,6 +1,6 @@
 # 更新日志 / Changelog
 
-- 适用版本：`v1.2.0`（仅涵盖 `v1.1.4` 之后合入 `dev/firefly-1.2.0` 的更新，已核对至合入的 #132；不包含此前已归入 1.1.x 阶段或未合入 `dev` 的历史条目）。
+- 适用版本：`v1.2.0`（仅涵盖 `v1.1.4` 之后合入 `dev/firefly-1.2.0` 的更新；已合入并核对至 #138，待合入的 #139–#143 按当前 PR 描述与分支代码录入，G40、G45 标为“合并后核对”；不包含此前已归入 1.1.x 阶段或未合入 `dev` 的历史条目）。
 
 ---
 
@@ -13,6 +13,12 @@
 - **独立 1.2.0 数据目录，不迁移 1.1.x 旧数据（#62）**：1.2.0 正式版启用独立本地数据目录（`%APPDATA%\Firefly-1.2.0`）并同步更新安装器开机自启配置，不会读取、修改或迁移 1.1.x 版本的对话记录与设置，原有 1.1.x 数据目录将原样保留。
 
 ### 新功能
+
+- **全新中性深色主题与翡翠绿强调色（#142）**：深色主题改用近黑（`#0a0a0a`）中性灰阶表面并搭配翡翠绿（`#10b981`）强调色，统一覆盖聊天页、设置页、气泡通知、启动页、代码块与审批主按钮（深色底审批主按钮文字改用高对比深色）；浅色主题保持原有配色。开启自定义配色时，深色模式默认使用中性底色，并将默认翡翠绿覆写限定在未启用自定义配色的场景，确保深色强调色与白色背景下的主按钮文字、左侧活动栏当前项与会话列表当前项均清晰可读。
+- **插件全生命周期管理与新版插件市场（#139）**：支持从本地 `.ffplugin`、`.zip` 包或本地文件夹导入 1.2.0 插件；启用前弹窗展示声明的工具、上下文、渠道与权限，提示“启用即信任该插件的代码”，并对 `native: true` 插件展示高风险警示；插件设置内支持中文化权限开关、逐项勾选/取消已声明工具授权与调整模型调用限频（1–60 次/分钟，默认 10 次）。支持同版本覆盖（先停用运行中的旧实例再切换安装目录）、升级激活失败时事务回滚并恢复旧版状态，以及卸载时默认保留密钥与数据（可按需勾选删除，部分清理失败会明确提示）；插件市场切换至 `apiVersion: 2` 目录格式（校验 SDK 版本范围与 SHA-256，并拒绝声明 `native` 的市场包），随应用内置 5 个 v2 离线目录插件供断网时回退安装；同步移除旧版 0.x 插件宿主与面板桥接。
+- **聊天定时任务面板支持审阅与确认插件日程提议（#140）**：定时任务面板顶部新增“待确认”区，列出插件提议的新建或变更任务（包含来源插件、标题、计划时间、动作、允许工具以及变更项对照），并通过调度变更事件实时刷新。确认操作绑定审阅时的规格指纹，若插件在用户点确认前修改了提议，确认会被拒绝并提示重新审阅；v2 插件任务统一通过 v2 调度服务执行，面板“立即运行”按宿主实时可运行状态开放，已拒绝或已处理的提议会给出可读提示。
+- **插件独立窗口与严格隔离视图（G40，合并后核对）**：声明 `ui.windows` 权限的插件可从管理界面打开独立窗口，通过 `firefly-plugin-ui` 协议与按插件隔离的非持久化会话加载包内静态资源，实施严格 CSP 与只读文件句柄校验（拒绝路径穿越、符号链接/junction、外链跳转、`window.open` 及浏览器权限请求），仅暴露最小 `window.fireflyPlugin` 桥接，并在插件停用、卸载、异常熔断、退出或撤销 `ui.windows` 权限时自动关闭窗口。
+- **插件宿主正式接入桌面应用（#137）**：1.2.0 插件宿主接入应用启动与退出生命周期，状态、授权、递增 `revision` 与限频通过独立 `plugin-state.json` 持久化（文件损坏时保留现场并拒绝继续写入）；首次使用 `sessions.read`、`workspace.read`、`model.run` 时在聊天页或系统对话框发起确认（120 秒超时自动拒绝，刷新页面后可重新加载待确认请求）；插件借用模型期间聊天页显示“〔插件名〕正在借用流萤思考”与停止按钮，传给插件的文本（含流式输出）自动脱敏密钥与受保护路径，并支持工具进度更新与自定义审批说明。
 
 - **提醒小窗内直接查看并处理工具审批（#93）**：在系统提醒小窗点击“查看审批”可展开待确认工具的名称、所属会话、搭档助手与参数摘要，并在核验有效后直接批准或拒绝；即使聊天页面已经切走或刷新，也能从提醒小窗完成确认。
 - **任务运行中支持“立即补充”并查看进程内提示气泡（`5f18caa`、#99、#104）**：Work 与 Code 模式任务执行期间，排队消息可标记为“立即补充”或及时撤回（过晚撤回时提示已交给当前运行）；补充内容发往模型时会附带明确提示使其先核对已完成工作再继续，并在任务步骤流中显示为“你补充了”气泡且在刷新后保留位置。
@@ -33,6 +39,12 @@
 - **浏览器页面在切换会话后可以保留（#117、#122）**：运行持有的页面可继续后台只读观察。点击、输入和跳转需等待页面重新可交互。其他会话看不到该页面。
 - **文件访问权限收敛到三档（#123）**：只读、请求审批、完全访问。
 
+### 已知限制
+
+- **1.2.0 不支持无人值守运行审批（#140）**：插件定时任务如果会用到命令行（`shell`）、写文件（`fs-write`）、控制键鼠（`input-control`）这类需要每次审批的工具（无论来自插件声明、工具注册表风险推导，还是未知工具按失败闭合处理），在确认提议、启用或编辑并保持启用时都会被直接拒绝，界面提示“1.2.0 还不支持无人值守审批”（完整中文提示：“这个任务每次运行都需要审批，Firefly 1.2.0 还不支持无人值守审批，因此无法确认。”）。此前已经确认过的这类任务到点触发时不会执行，只记一条“跳过”（`skipped`）记录并取消挂起审批，周期任务会被自动暂停。无人值守运行审批入口计划在 1.2.x 提供。
+- **外部渠道桌面接入留待 1.2.x（#135、#143）**：SDK 1.2.0 与宿主已提供外部渠道服务，桌面端渠道设置与接入界面留待 1.2.x 提供（当前单会话的 Work 模式切换仅驻留内存，重启后恢复为 Chat）。
+- **插件桌面通知的桌面宿主组装接入待核实（#136、#137、#139，待核实）**：SDK 1.2.0 通知协议、Electron 通知服务模块与设置页“桌面通知”权限标签已实现，但在 `dev/firefly-1.2.0` 与 #139 分支中尚未看到通知服务挂入桌面宿主启动组装，1.2.0 发布前是否补齐接入待核实。
+
 ### 修复
 
 - **修复项目里上传过附件后，新任务一开始就失败的问题（#112）**：在同一项目中上传过文件后，新开的 Work 或 Code 任务会在读取历史时报错。现在可以正常读取带附件的历史，附件只作为文字记录带入。该问题自 v1.1.4 起存在。
@@ -51,13 +63,22 @@
 
 ### 插件 SDK
 
-- **插件可申请模型和只读数据能力（#132）**：宿主支持文本生成和完整运行，默认每个插件两项模型能力合计每分钟 10 次。会话和工作区访问需要授权，工作区接口只给绑定信息。应用中的启用入口仍待接线。
+- **SDK 1.2.0 开发者文档与可执行示例测试（#143）**：重写 `plugin-sdk/README.md`、`plugin-sdk/LIFECYCLE.md`、`docs/plugins/plugin-authoring.md` 与 `docs/plugins/plugin-dev-guide.md` 并更新发布标签说明，补充桌面通知、外部渠道规则、`model.run` 拒绝需审批动作（不弹审批卡、不挂起、不静默放行）、免打包最小示例与 esbuild 打包说明，并新增由 `createTestHost` 自动校验执行的 Markdown 文档示例测试。
+- **插件桌面通知能力（#136）**：新增 `notifications` 权限与 `ctx.notifications.show({ title, body })`，仅接受纯文本（标题 ≤ 64 码点、正文 ≤ 256 码点，自动清除控制与双向覆盖字符），每插件每分钟限频 5 次（重启不重置），宿主自动附加真实插件名前缀 `〔插件名〕`，点击仅聚焦主窗口，停用或撤权时关闭待显示通知（桌面宿主组装接入状态待核实，见“已知限制”）。
+- **外部渠道宿主服务（#135）**：新增 SDK 1.2.0 外部渠道宿主服务，支持已声明渠道注册、入站消息排队（单会话最多 20 条）、内联附件限制（最多 8 个、总计 10 MB，不抓取远程 URL）、`<external-data>` 不可信包裹、默认 Chat 无工具与单会话 Work 仅放行 `fs-read` 工具、仅限本机审批与出站脱敏；桌面端界面随 1.2.x 提供。
+- **官方 1.2.0 示例插件（#133）**：在 `plugin-sdk/examples/` 新增天气查询（`dev.firefly.weather`）与每日提醒（`dev.firefly.reminder`）两个示例插件，覆盖网络工具、密钥存取、设置页界面、定时任务提议、通知发送与 `createTestHost` 单测及打包冒烟脚本。
+- **插件可申请模型和只读数据能力（#132）**：宿主支持文本生成和完整运行，默认每个插件两项模型能力合计每分钟 10 次。会话和工作区访问需要授权，工作区接口只给绑定信息；桌面宿主接线见 #137，管理与启用入口见 #139。
 
-- **插件开发与授权（#129、#131）**：SDK 提供插件公开接口、测试宿主和运行入口。插件工具按风险和授权使用，插件提供的上下文按不可信资料处理。实际启用和能力开放仍以应用接线及实机验收为准。
+- **插件开发与授权（#129、#131）**：SDK 提供插件公开接口、测试宿主和运行入口。插件工具按风险和授权使用，插件提供的上下文按不可信资料处理；桌面接线与管理界面见 #137、#139，最终能力以打包实机验收为准。
 
 - **密钥、定时任务与插件进程（#124–#127）**：提供按插件隔离的加密密钥存储、需要确认的定时任务、清单与打包检查，以及独立插件进程。具体插件能使用的能力取决于声明和用户授权。
 
 ### 工程与文档
+
+- **打包应用插件冒烟验证脚本（G45，合并后核对）**：新增 `scripts/verify/packaged-plugin-smoke.mjs` 及隔离守卫单测，强制要求临时目录内的独立隔离根（拒绝生产目录 `%APPDATA%\Firefly-1.2.0` 与非临时路径）并按 PID 追踪清理子进程，自动覆盖隔离启动、导入并启用 #133 示例 `.ffplugin`、Work 工具调用、运行中取消、插件子进程崩溃熔断（`disabled-fault`）恢复与卸载截图取证（开发构建 `--dry-run` 已验，打包 `win-unpacked` 留待实机执行）。
+- **清理代码、计划与文档中的历史参考与上游项目名称（#141）**：统一改写计划、规格、CI 工作流注释及少量代码片段表述（涉及侧边栏、聊天页、天气工具与测试夹具等），无用户侧行为变化。
+- **渲染进程颜色令牌收敛（#134）**：将 38 个 CSS 文件中的 662 处静态色值收敛至 `src/renderer/ui/tokens.css`（零视觉变化），为 #142 深色主题改版提供统一变量入口。
+- **精简中英文 README 与更新源码搜索忽略规则（#119、#138）**：改版 `README.md` 与 `README.en.md`（改用应用头像图标、新版徽章与精简章节，并指向 `docs/README.md` 和 `AGENTS.md`）；扩展 `.ignore` 过滤锁文件、`vendor/`、Live2D 与图片资源，让代码搜索聚焦源码。
 
 - **设置页继续按面板拆分（#110、#114）**：通用、偏好、外观和 API 面板各自成为独立模块，设置页入口收敛到约 110 行，冷启动读取次数不变。
 - **仓库开发和构建改用 pnpm 12.10.1（#109）**：依赖安装、脚本和 CI 统一使用 pnpm；插件 SDK 仍通过 npm 发布。
@@ -76,6 +97,12 @@
 - **Isolated 1.2.0 user data directory with no automatic 1.1.x migration (#62)**: Firefly 1.2.0 stores its production conversations, settings, and installer autostart options in a dedicated folder (`%APPDATA%\Firefly-1.2.0`). Existing 1.1.x data directories are never read, altered, or migrated automatically and remain intact.
 
 ### New Features
+
+- **Neutral dark theme with emerald accent (#142)**: Refreshes `firefly-dark` with a near-black (`#0a0a0a`) neutral surface palette and an emerald (`#10b981`) accent across chat, settings, toasts, splash screen, code themes, and approval buttons (giving approval buttons a high-contrast dark label on emerald) while keeping the light theme unchanged. In custom-color mode, dark defaults use neutral surfaces and default emerald overrides apply only when custom colors are off, keeping primary button labels, active activity-bar items, and active session rows legible with dark accents or white backgrounds.
+- **Full v2 plugin lifecycle management and apiVersion 2 marketplace (#139)**: Adds local `.ffplugin`, `.zip`, and folder imports, an enable trust confirmation dialog listing declared tools, context, channels, and permissions (with a high-risk warning for `native: true`), and per-plugin settings with localized permission toggles, individual tool grant checkboxes, and model rate-limit controls (1–60/min, default 10). Supports same-version overwrite (stopping the running instance before swapping files), transactional rollback on upgrade activation failure, and selective uninstall (keeping secrets and data by default with opt-in deletion and partial-cleanup failure reporting). Updates the marketplace to `apiVersion: 2` (SemVer SDK check, SHA-256 verification, rejecting `native` marketplace packages), bundles 5 v2 offline catalog plugins for network-offline fallback, and removes the legacy 0.x plugin host and panel bridge.
+- **Review and confirm or reject plugin schedule proposals in chat (#140)**: Adds a pending-confirmation section at the top of the scheduled-task panel showing plugin-proposed creates and updates (plugin name, title, schedule, action, allowed tools, and diffs against the live schedule) with live updates via scheduler change events. Confirmations bind to the reviewed spec revision (rejecting confirmation with a re-review prompt if the plugin edits the proposal before confirmation), v2 plugin tasks execute through the v2 schedule service, the panel's "Run now" action reflects v2 host runnable state, and already-handled or rejected proposals display readable errors.
+- **Isolated plugin UI windows (G40, verify after merge)**: Plugins declaring `ui.windows` can open isolated windows from the management UI over a custom `firefly-plugin-ui` protocol and per-plugin non-persistent Electron sessions, enforcing strict CSP, verified file-descriptor asset reads (blocking path escapes and symlinks/junctions), external navigation / `window.open` / browser permission denial, a minimal `window.fireflyPlugin` preload bridge, and automatic window closure on disable, uninstall, fault, quit, or `ui.windows` revocation.
+- **SDK 1.2.0 plugin host wired into the desktop app (#137)**: Wires v2 plugin startup/shutdown into the desktop composition root with persistent `plugin-state.json` storage (preserving corrupt files and refusing further writes), first-use confirmations for `sessions.read`, `workspace.read`, and `model.run` (120 s timeout, recoverable after renderer reload), a chat banner ("〔plugin〕正在借用流萤思考") with a Stop button while a plugin borrows the model, secret/protected-path redaction on text sent to plugins (including streams), and tool progress / `describeApproval` support.
 
 - **Review and answer tool approvals directly from the reminder toast (#93)**: Clicking "View approval" in a toast reminder inspects the pending tool, target session, partner agent, and arguments after Main verifies the request, letting you approve or deny even if the main chat view switched or reloaded.
 - **In-run "Send Now" supplements with live process bubbles (`5f18caa`, #99, #104)**: In Work and Code modes, queued messages can be marked to inject mid-run or withdrawn before handoff (with a notice if already handed off). Injected messages include a clear prompt note so the model reviews finished work first, appear in the step stream as "你补充了" bubbles, and keep their position across reloads.
@@ -96,6 +123,12 @@
 - **Browser pages can survive a conversation switch (#117, #122).** A run can observe its page in the background. Clicks, typing and navigation wait until the page is interactive again. Other conversations cannot see that page.
 - **Three file access levels (#123).** Choose read-only, ask for approval or full access.
 
+### Known Limitations
+
+- **Unattended run approval is not supported in 1.2.0 (#140)**: Plugin scheduled tasks that require per-run approval tools (`shell`, `fs-write`, or `input-control` — whether declared, derived from the tool registry, or treated as fail-closed for unknown tools) are rejected when confirming a proposal or enabling/editing a task to stay enabled, showing the UI notice that Firefly 1.2.0 does not support unattended run approval yet (Chinese UI: "1.2.0 还不支持无人值守审批"). Previously confirmed tasks of this kind do not execute when triggered; they record a single `skipped` history entry, cancel waiting approvals, and pause recurring schedules. An approval UI for unattended runs is planned for 1.2.x.
+- **External channel desktop UI deferred to 1.2.x (#135, #143)**: SDK 1.2.0 and host channel services are available, while desktop channel configuration and wiring UI are planned for 1.2.x (per-conversation Work mode switches currently remain in memory and reset to Chat on restart).
+- **Plugin desktop notification host wiring (to be verified / 待核实, #136, #137, #139)**: The SDK notification API, Electron notification service module, and localized Settings permission label are implemented, but composition into the desktop host bootstrap was not yet observed on `dev/firefly-1.2.0` or #139 and must be verified before release.
+
 ### Bug Fixes
 
 - **Fixed new tasks failing at start in projects that had attachments (#112)**: After a file was uploaded in a project, new Work or Code tasks there failed while reading history. History with attachments now loads, with attachments carried as text records only. The issue existed since v1.1.4.
@@ -114,13 +147,22 @@
 
 ### Plugin SDK
 
-- **Model and read-only data services for plugins (#132).** The host supports text generation and full runs, with a shared default limit of 10 model requests per plugin per minute. Session and workspace access require consent. Workspace APIs expose binding information. Desktop integration is pending.
+- **Rewritten 1.2.0 SDK docs with executable doc-example tests (#143)**: Rewrote `plugin-sdk/README.md`, `plugin-sdk/LIFECYCLE.md`, `docs/plugins/plugin-authoring.md`, and `docs/plugins/plugin-dev-guide.md`, updated the publishing tag guide, documented desktop notifications, external channel rules, `model.run` approval refusal, and a bundle-free minimal example plus esbuild bundling, and added `createTestHost`-backed tests executing the Markdown code examples.
+- **Desktop notifications capability for plugins (#136)**: Added the `notifications` permission and `ctx.notifications.show({ title, body })` with plain-text sanitization (64/256 code-point limits), a 5/min per-plugin sliding rate limit, host-enforced `〔plugin〕` title prefixing, focus-only clicks, and automatic dismissal on disable or revocation (desktop host bootstrap wiring to be verified; see Known Limitations).
+- **Host channel services for SDK 1.2.0 (#135)**: Added manifest-declared channel registration, inbound queuing (20 messages per conversation), inline attachment caps (up to 8 files / 10 MB total, no remote URL fetches), `<external-data>` untrusted wrapping, Chat (no tools) and Work (`fs-read` only) modes, local-only approvals, and mandatory outbound redaction; desktop UI follows in 1.2.x.
+- **Official 1.2.0 example plugins (#133)**: Added `dev.firefly.weather` and `dev.firefly.reminder` under `plugin-sdk/examples/` covering network tools, secret storage, settings UI, schedule proposals, notifications, `createTestHost` tests, and packaged SDK smoke validation.
+- **Model and read-only data services for plugins (#132).** The host supports text generation and full runs, with a shared default limit of 10 model requests per plugin per minute. Session and workspace access require consent. Workspace APIs expose binding information. Desktop host wiring is covered in #137 and management UI in #139.
 
-- **Plugin development and consent (#129, #131).** The SDK adds public APIs, a test host, and a plugin runtime. Tool access depends on risk and user consent; plugin context is treated as untrusted data. Availability depends on desktop integration and acceptance testing.
+- **Plugin development and consent (#129, #131).** The SDK adds public APIs, a test host, and a plugin runtime. Tool access depends on risk and user consent; plugin context is treated as untrusted data. Desktop wiring and lifecycle UI are covered in #137 and #139, subject to real-machine acceptance.
 
 - **Secrets, schedules and plugin processes (#124–#127).** Adds encrypted per-plugin secret storage, schedules that require confirmation, manifest and package checks, and separate plugin processes. Capabilities depend on declarations and user authorization.
 
 ### Engineering & Docs
+
+- **Packaged plugin smoke verification script (G45, verify after merge)**: Added `scripts/verify/packaged-plugin-smoke.mjs` and isolation unit tests enforcing temp-only isolation roots (rejecting `%APPDATA%\Firefly-1.2.0` and non-temp paths) and PID-scoped process cleanup, automating isolated launch, importing and enabling both #133 `.ffplugin` examples, Work tool execution, mid-flight cancellation, utility-process crash recovery (`disabled-fault`), and uninstall with screenshots and JSON report (`--dry-run` verified on dev build; packaged `win-unpacked` run reserved for real-machine check).
+- **Upstream project reference cleanup (#141)**: Removed remaining upstream project references from plans, specs, and CI comments and restructured minor code fragments (sidebar, chat page, weather tool, test harness) with no user-facing behavior change.
+- **Centralized renderer color tokens (#134)**: Moved 662 hard-coded color values across 38 CSS files into `src/renderer/ui/tokens.css` with zero visual change as groundwork for #142.
+- **Concise README overhaul and `.ignore` update (#119, #138)**: Rewrote `README.md` and `README.en.md` around the app avatar, new badges, and shorter sections linking to `docs/README.md` and `AGENTS.md`; expanded `.ignore` to skip lockfiles, `vendor/`, Live2D assets, and binary images during code search.
 
 - **Settings page split into per-panel modules (#110, #114)**: General, preferences, appearance and API panels are now separate modules; the entry shrinks to about 110 lines with the same cold-start reads.
 - **Development and builds now use pnpm 12.10.1 (#109)**: Installs, scripts and CI use pnpm; the plugin SDK is still published with npm.
