@@ -594,6 +594,36 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
     controller.dispose();
   });
 
+  it("leaves no state record when a first install over a leftover same-version directory fails to commit", async () => {
+    let failCommit = false;
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const { controller } = makeController(harness, undefined, {
+      packageFs: {
+        async rm(target, options) {
+          if (failCommit && path.basename(String(target)).startsWith(".backup-")) {
+            throw new Error("EPERM removing backup");
+          }
+          return fsPromises.rm(target, options);
+        },
+      },
+    });
+    const id = "dev.firefly.leftover";
+    expect((await controller.importFromPath(await writeArchivePlugin({ id, version: "1.0.0" }))).ok).toBe(true);
+    // Simulate an uninstall that removed the record but could not delete the package directory.
+    controller.stateStore.uninstall(id);
+
+    failCommit = true;
+    const res = await controller.importFromPath(await writeArchivePlugin({ id, version: "1.0.0", name: "Again" }));
+
+    expect(res).toMatchObject({ ok: false, installation: "rejected" });
+    expect(controller.stateStore.get(id)).toBeUndefined();
+    const diskState = JSON.parse(readFileSync(controller.stateStore.filePath, "utf8"));
+    expect(diskState.plugins[id]).toBeUndefined();
+    expect(harness.launched).toHaveLength(0);
+
+    controller.dispose();
+  });
+
   it("reports an enabled same-version overwrite as committed and keeps the new instance when only backup removal fails", async () => {
     let failCommit = false;
     const harness = createFakeHostHarness(() => ({ ok: true }));

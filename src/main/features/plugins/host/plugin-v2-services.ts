@@ -1055,6 +1055,8 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
           await imported.commit();
         } catch (error) {
           await imported.rollback().catch(() => {});
+          // install() may already have written a record; the plugin was not installed before, so remove it again.
+          try { stateStore.uninstall(manifest.id); } catch { /* Best effort: the original error is reported. */ }
           return {
             ok: false,
             installation: "rejected",
