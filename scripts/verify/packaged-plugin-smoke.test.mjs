@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import {
   SmokeIsolationError,
+  cleanupIsolation,
   buildIsolatedEnv,
   createProcessTracker,
   parseSmokeArgs,
@@ -230,3 +231,48 @@ test("parseSmokeArgs parses dry-run, unpacked path, and options", () => {
   assert.equal(pkg.unpackedDir, "release/win-unpacked");
   assert.equal(pkg.outputDir, "out/smoke");
 });
+
+test("cleanupIsolation keeps only the default report directory inside the work root", () =>
+  withTempWorkspace((root) => {
+    const workRoot = path.join(root, "work");
+    const reportDir = path.join(workRoot, "report");
+    for (const dir of ["profile/Cache", "packages", "workspace", "report/shots"]) fs.mkdirSync(path.join(workRoot, dir), { recursive: true });
+    fs.writeFileSync(path.join(workRoot, "profile", "Cookies"), "x");
+    fs.writeFileSync(path.join(workRoot, "loose.log"), "x");
+    fs.writeFileSync(path.join(reportDir, "report.json"), "{}");
+
+    cleanupIsolation(workRoot, reportDir);
+
+    assert.deepEqual(fs.readdirSync(workRoot), ["report"]);
+    assert.deepEqual(fs.readdirSync(reportDir).sort(), ["report.json", "shots"]);
+  }));
+
+test("cleanupIsolation keeps the folders leading to a nested report and removes their other contents", () =>
+  withTempWorkspace((root) => {
+    const workRoot = path.join(root, "work");
+    const reportDir = path.join(workRoot, "out", "report");
+    fs.mkdirSync(reportDir, { recursive: true });
+    fs.mkdirSync(path.join(workRoot, "out", "tmp"), { recursive: true });
+    fs.mkdirSync(path.join(workRoot, "profile"), { recursive: true });
+    fs.writeFileSync(path.join(reportDir, "report.json"), "{}");
+
+    cleanupIsolation(workRoot, reportDir);
+
+    assert.deepEqual(fs.readdirSync(workRoot), ["out"]);
+    assert.deepEqual(fs.readdirSync(path.join(workRoot, "out")), ["report"]);
+    assert.ok(fs.existsSync(path.join(reportDir, "report.json")));
+  }));
+
+test("cleanupIsolation removes the whole work root when the report is written elsewhere", () =>
+  withTempWorkspace((root) => {
+    const workRoot = path.join(root, "work");
+    const reportDir = path.join(root, "external-report");
+    fs.mkdirSync(path.join(workRoot, "profile"), { recursive: true });
+    fs.mkdirSync(reportDir, { recursive: true });
+    fs.writeFileSync(path.join(reportDir, "report.json"), "{}");
+
+    cleanupIsolation(workRoot, reportDir);
+
+    assert.equal(fs.existsSync(workRoot), false);
+    assert.ok(fs.existsSync(path.join(reportDir, "report.json")));
+  }));

@@ -642,8 +642,8 @@ function startMockOpenAiServer() {
             clearInterval(keepalive);
             clearTimeout(safety);
           };
-          req.on("aborted", markAborted);
-          req.on("close", markAborted);
+          // Only the response closing before it ended means the client cancelled; the request side also emits
+          // "close" as soon as its body has been read, which would mark a cancel that never happened.
           res.on("close", markAborted);
           return;
         }
@@ -868,6 +868,33 @@ async function waitFor(fn, { timeoutMs = 20000, intervalMs = 150, label = "condi
     await new Promise((r) => setTimeout(r, intervalMs));
   }
   throw new Error(`Timed out waiting for ${label}${lastError ? `: ${lastError.message}` : ""}`);
+}
+
+/**
+ * Removes the isolated profile, caches, packages and workspace under workRoot. When the report directory lives inside
+ * workRoot (the default), only that directory and the folders leading to it are kept.
+ */
+export function cleanupIsolation(workRoot, outputDir) {
+  const remove = (target) => {
+    try {
+      fs.rmSync(target, { recursive: true, force: true, maxRetries: 12, retryDelay: 150 });
+    } catch {
+      // Windows may briefly hold handles on killed child dirs; ignore post-cleanup EPERM.
+    }
+  };
+  if (!withinPath(workRoot, outputDir) || samePath(workRoot, outputDir)) {
+    if (!samePath(workRoot, outputDir)) remove(workRoot);
+    return;
+  }
+  const prune = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const target = path.join(dir, entry.name);
+      if (samePath(target, outputDir)) continue;
+      if (entry.isDirectory() && withinPath(target, outputDir)) prune(target);
+      else remove(target);
+    }
+  };
+  prune(workRoot);
 }
 
 export async function runPackagedPluginSmoke(options = {}) {
@@ -1199,17 +1226,7 @@ export async function runPackagedPluginSmoke(options = {}) {
     if (browser) await browser.close().catch(() => {});
     tracker.cleanup();
     if (mockServer) await mockServer.close().catch(() => {});
-    if (!options.keepIsolation) {
-      // Remove isolated temp directory unless requested, keeping external --output-dir intact.
-      const outputInsideWork = withinPath(workRoot, outputDir);
-      if (!outputInsideWork) {
-        try {
-          fs.rmSync(workRoot, { recursive: true, force: true, maxRetries: 12, retryDelay: 150 });
-        } catch {
-          // Windows may briefly hold handles on killed child dirs; ignore post-cleanup EPERM.
-        }
-      }
-    }
+    if (!options.keepIsolation) cleanupIsolation(workRoot, outputDir);
   }
 }
 
