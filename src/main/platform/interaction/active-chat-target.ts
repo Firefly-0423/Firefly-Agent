@@ -23,17 +23,20 @@ export interface ActiveChatTarget extends RendererTarget {
   mode: ConversationMode;
 }
 
+/** 渲染端上报活动会话时携带的内容；sender 由主进程另行传入校验。 */
+export interface ActiveTargetReport {
+  sender: WebContents;
+  sessionId: string;
+  mode: ConversationMode;
+  rendererTargetId: string;
+}
+
 export type ActiveChatTargetInvalidReason = "target-destroyed" | "navigation" | "session-deleted";
 
 export interface ActiveChatTargetRegistry {
-  /** 渲染端上报活动会话（首次或切换）。sender 须是聊天窗口的 WebContents。 */
-  setActive(input: {
-    sender: WebContents;
-    sessionId: string;
-    mode: ConversationMode;
-    rendererTargetId: string;
-  }): void;
-  /** 渲染端清空活动会话（回到欢迎页）。 */
+  /** 记录渲染端上报的活动会话（首次进入或切换）；sender 必须来自聊天窗口。 */
+  setActive(report: ActiveTargetReport): void;
+  /** 渲染端回到欢迎页时清除登记。 */
   clearActive(sender: WebContents): void;
   /** 返回当前目标的快照；没有目标时为 null。 */
   getActive(): ActiveChatTarget | null;

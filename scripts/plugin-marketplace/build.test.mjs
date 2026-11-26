@@ -1,21 +1,20 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import Ajv from "ajv";
 import JSZip from "jszip";
 
 const builderUrl = new URL("./build.mjs", import.meta.url);
 const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
 const pluginIds = ["text-stats", "json-tools", "timezone-tools", "code-language", "text-trim"];
-const zipName = id => `${id}-1.0.1.zip`;
+const zipName = id => `dev.firefly.${id}-1.0.1.ffplugin`;
 // Pin the reviewed local package bytes; building does not publish a hosted release.
-const TEXT_STATS_SHA256 = "7ecf64d2f6f2437c9bbac8ec69faf5b1f9ed7829360f25c38f1c6d851f0ceeab";
+const TEXT_STATS_SHA256 = "1a7f8c16adc83229e713dfa403f75a189d6767dfa634dc01475c2abd6fa7d38b";
 
 async function builder() {
   assert.ok(existsSync(builderUrl), "marketplace artifact builder must exist");
@@ -33,58 +32,51 @@ async function fixture(t) {
 async function json(file) { return JSON.parse(await readFile(file, "utf8")); }
 const lf = text => text.replace(/\r\n/g, "\n");
 
-test("bundled catalog lists every plugin with a checksummed disabled API v1 package and root manifest", async t => {
+test("bundled catalog is a v2 registry listing every plugin with a checksummed .ffplugin built from its v2 manifest", async t => {
   const build = await builder();
   const outDir = await fixture(t);
   const result = await build({ outDir });
   const registry = await json(path.join(outDir, "registry.json"));
   assert.equal(result.registryPath, path.join(outDir, "registry.json"));
   assert.deepEqual((await readdir(outDir)).sort(), ["registry.json", ...pluginIds.map(zipName)].sort());
-  assert.equal(registry.apiVersion, 1);
-  assert.deepEqual(registry.plugins.map(entry => entry.id), pluginIds);
-  assert.deepEqual(result.plugins.map(plugin => plugin.id), pluginIds);
+  assert.equal(registry.apiVersion, 2);
+  assert.deepEqual(registry.plugins.map(entry => entry.id), pluginIds.map(id => `dev.firefly.${id}`));
+  assert.deepEqual(result.plugins.map(plugin => plugin.id), registry.plugins.map(entry => entry.id));
   // Compatibility for callers that only know the first plugin.
-  assert.equal(result.zipPath, path.join(outDir, zipName("text-stats")));
+  assert.equal(result.packagePath, path.join(outDir, zipName("text-stats")));
   assert.equal(result.sha256, registry.plugins[0].sha256);
-  const schema = await json(path.join(repoRoot, "scripts/plugin-marketplace/example-manifest.schema.json"));
-  const validate = new Ajv({ strict: false }).compile(schema);
   const seenHashes = new Set();
-  for (const entry of registry.plugins) {
-    const bytes = await readFile(path.join(outDir, zipName(entry.id)));
-    assert.equal(entry.zip, `bundled:${zipName(entry.id)}`);
+  for (const [index, entry] of registry.plugins.entries()) {
+    const dir = pluginIds[index];
+    const bytes = await readFile(path.join(outDir, zipName(dir)));
+    assert.equal(entry.package, `bundled:${zipName(dir)}`);
     assert.equal(entry.sha256, createHash("sha256").update(bytes).digest("hex"));
     seenHashes.add(entry.sha256);
-    assert.equal(entry.downloads, 0);
-    assert.equal(entry.pluginApiVersion, 1);
-    const catalog = await json(path.join(repoRoot, "examples", entry.id, "catalog.json"));
+    assert.equal(entry.native, false);
+    assert.deepEqual(entry.permissions, []);
+    assert.equal("downloads" in entry, false);
+    assert.equal("zip" in entry, false);
+    assert.equal("pluginApiVersion" in entry, false);
+    const catalog = await json(path.join(repoRoot, "examples", dir, "catalog.json"));
     assert.deepEqual(entry.capabilities, catalog.capabilities);
-    assert.ok(entry.capabilities.length > 0 && entry.capabilities.every(x => typeof x === "string" && x.trim()));
     const zip = await JSZip.loadAsync(bytes);
-    assert.deepEqual(Object.keys(zip.files), ["LICENSE", "README.md", "index.cjs", "manifest.json"]);
-    const manifest = JSON.parse(await zip.file("manifest.json").async("string"));
-    assert.equal(validate(manifest), true, JSON.stringify(validate.errors));
-    for (const key of ["id", "name", "version", "description", "author"]) assert.equal(entry[key], manifest[key]);
-    assert.equal(manifest.id, entry.id);
-    assert.equal(manifest.defaultEnabled, false);
-    assert.equal(manifest.apiVersion, entry.pluginApiVersion);
-    assert.equal(manifest.entry, "index.cjs");
-    assert.deepEqual(manifest.deps ?? [], []);
-    for (const name of ["index.cjs", "LICENSE", "README.md"]) {
-      assert.equal(await zip.file(name).async("string"), lf(await readFile(path.join(repoRoot, "examples", entry.id, name), "utf8")));
-    }
-    for (const file of Object.values(zip.files)) {
-      assert.equal(file.dir, false);
-      assert.equal(file.date.toISOString(), "1980-01-01T00:00:00.000Z");
-      assert.equal(file.unixPermissions, 0o100644);
+    assert.deepEqual(Object.keys(zip.files).sort(), ["LICENSE", "README.md", "firefly.plugin.json", "index.mjs"]);
+    const manifest = JSON.parse(await zip.file("firefly.plugin.json").async("string"));
+    assert.equal(manifest.schemaVersion, 1);
+    for (const key of ["id", "name", "version", "sdk", "description", "license", "tools"]) assert.deepEqual(entry[key], manifest[key], key);
+    assert.equal(entry.author, manifest.author.name);
+    assert.equal(manifest.main, "index.mjs");
+    for (const name of ["index.mjs", "LICENSE", "README.md"]) {
+      assert.equal(await zip.file(name).async("string"), lf(await readFile(path.join(repoRoot, "examples", dir, name), "utf8")));
     }
   }
   assert.equal(seenHashes.size, pluginIds.length, "every package must be distinct");
 });
 
-test("text-stats 1.0.1 stays byte-identical to the reviewed local package", async t => {
+test("dev.firefly.text-stats 1.0.1 stays byte-identical to the reviewed local package", async t => {
   const build = await builder();
   const result = await build({ outDir: await fixture(t) });
-  assert.equal(result.plugins.find(plugin => plugin.id === "text-stats").sha256, TEXT_STATS_SHA256);
+  assert.equal(result.plugins.find(plugin => plugin.id === "dev.firefly.text-stats").sha256, TEXT_STATS_SHA256);
 });
 
 test("repeated builds in different directories and time zones are byte-for-byte identical", async t => {
@@ -112,8 +104,8 @@ test("public mode gives each plugin its own <id>-<version> release tag unless on
   const config = await json(path.join(options.outDir, "marketplace-config.json"));
   assert.equal(result.registryPath, path.join(options.outDir, "marketplace/registry.json"));
   assert.equal(result.configPath, path.join(options.outDir, "marketplace-config.json"));
-  assert.deepEqual(registry.plugins.map(entry => entry.zip), pluginIds.map(id =>
-    `https://github.com/example-owner/example-repo/releases/download/${id}-1.0.1/${zipName(id)}`));
+  assert.deepEqual(registry.plugins.map(entry => entry.package), pluginIds.map(id =>
+    `https://github.com/example-owner/example-repo/releases/download/dev.firefly.${id}-1.0.1/${zipName(id)}`));
   assert.deepEqual(config, {
     registryUrls: ["https://raw.githubusercontent.com/example-owner/example-repo/catalog-v1/marketplace/registry.json"],
     zipUrlPrefixes: ["https://github.com/example-owner/example-repo/releases/download/"],
@@ -125,7 +117,7 @@ test("public mode gives each plugin its own <id>-<version> release tag unless on
 
   const single = await build({ ...options, outDir: path.join(root, "single"), tag: "plugins-v1.0.0" });
   const singleRegistry = await json(single.registryPath);
-  assert.deepEqual(singleRegistry.plugins.map(entry => entry.zip), pluginIds.map(id =>
+  assert.deepEqual(singleRegistry.plugins.map(entry => entry.package), pluginIds.map(id =>
     `https://github.com/example-owner/example-repo/releases/download/plugins-v1.0.0/${zipName(id)}`));
 });
 
@@ -133,8 +125,8 @@ test("public text-stats URL formatting preserves the repository settings", async
   const build = await builder();
   const result = await build({ outDir: await fixture(t), repository: "Firefly-0423/firefly-plugins", registryRef: "plugin-catalog" });
   const registry = await json(result.registryPath);
-  const textStats = registry.plugins.find(entry => entry.id === "text-stats");
-  assert.equal(textStats.zip, "https://github.com/Firefly-0423/firefly-plugins/releases/download/text-stats-1.0.1/text-stats-1.0.1.zip");
+  const textStats = registry.plugins.find(entry => entry.id === "dev.firefly.text-stats");
+  assert.equal(textStats.package, "https://github.com/Firefly-0423/firefly-plugins/releases/download/dev.firefly.text-stats-1.0.1/dev.firefly.text-stats-1.0.1.ffplugin");
   assert.equal(textStats.sha256, TEXT_STATS_SHA256);
 });
 
@@ -144,7 +136,7 @@ test("public and bundled modes use identical ZIP bytes and SHA-256 for every plu
   const bundled = await build({ outDir: path.join(root, "bundled") });
   const published = await build({ outDir: path.join(root, "public"), repository: "owner/repo", tag: "v1.0.0", registryRef: "main" });
   for (const [index, plugin] of bundled.plugins.entries()) {
-    assert.deepEqual(await readFile(plugin.zipPath), await readFile(published.plugins[index].zipPath));
+    assert.deepEqual(await readFile(plugin.packagePath), await readFile(published.plugins[index].packagePath));
   }
   assert.deepEqual((await json(bundled.registryPath)).plugins.map(entry => entry.sha256),
     (await json(published.registryPath)).plugins.map(entry => entry.sha256));
@@ -199,15 +191,17 @@ test("public CLI explicitly reports preparation without claiming hosted availabi
   assert.doesNotMatch(result.stdout, /online ready|marketplace is live/i);
 });
 
-// Isolate source changes under the owned script directory; parent node_modules stays resolvable.
+// Isolate source changes under the owned script directory; parent node_modules stays resolvable and src/ is a junction
+// to the real host sources the builder bundles (packer and manifest validation).
 async function sourceFixture(t) {
   const root = await mkdtemp(path.join(repoRoot, "scripts/plugin-marketplace/.test-source-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  for (const file of ["scripts/plugin-marketplace/build.mjs", "scripts/plugin-marketplace/example-manifest.schema.json", "src/shared/version.ts"]) {
+  for (const file of ["scripts/plugin-marketplace/build.mjs"]) {
     await mkdir(path.dirname(path.join(root, file)), { recursive: true });
     await cp(path.join(repoRoot, file), path.join(root, file));
   }
   for (const id of pluginIds) await cp(path.join(repoRoot, "examples", id), path.join(root, "examples", id), { recursive: true });
+  await symlink(path.join(repoRoot, "src"), path.join(root, "src"), "junction");
   const { buildMarketplace } = await import(pathToFileURL(path.join(root, "scripts/plugin-marketplace/build.mjs")).href);
   return { root, build: buildMarketplace };
 }
@@ -227,18 +221,18 @@ test("rejects slash-bearing tags and registry refs rather than generating forbid
 
 test("bumping a source manifest to another valid SemVer determines the filename and catalog version", async t => {
   const { root, build } = await sourceFixture(t);
-  const manifestPath = path.join(root, "examples/json-tools/manifest.json");
+  const manifestPath = path.join(root, "examples/json-tools/firefly.plugin.json");
   const manifest = await json(manifestPath);
   manifest.version = "1.2.3-beta.1+Build.2";
   await writeFile(manifestPath, JSON.stringify(manifest));
   const result = await build({ outDir: path.join(root, "output") });
-  const bumped = result.plugins.find(plugin => plugin.id === "json-tools");
-  assert.equal(path.basename(bumped.zipPath), "json-tools-1.2.3-beta.1+Build.2.zip");
+  const bumped = result.plugins.find(plugin => plugin.id === "dev.firefly.json-tools");
+  assert.equal(path.basename(bumped.packagePath), "dev.firefly.json-tools-1.2.3-beta.1+Build.2.ffplugin");
   const catalog = await json(result.registryPath);
-  const entry = catalog.plugins.find(item => item.id === "json-tools");
+  const entry = catalog.plugins.find(item => item.id === "dev.firefly.json-tools");
   assert.equal(entry.version, manifest.version);
-  assert.equal(entry.zip, "bundled:json-tools-1.2.3-beta.1+Build.2.zip");
-  assert.equal(catalog.plugins.find(item => item.id === "text-stats").version, "1.0.1");
+  assert.equal(entry.package, "bundled:dev.firefly.json-tools-1.2.3-beta.1+Build.2.ffplugin");
+  assert.equal(catalog.plugins.find(item => item.id === "dev.firefly.text-stats").version, "1.0.1");
   for (const version of ["01.2.3", "1.2", "1.2.3 ", "../evil", "1.0.0-beta.01"]) {
     manifest.version = version;
     await writeFile(manifestPath, JSON.stringify(manifest));
@@ -249,14 +243,15 @@ test("bumping a source manifest to another valid SemVer determines the filename 
 
 test("refuses plugins whose manifest or catalog.json breaks the catalog contract, without creating outputs", async t => {
   const { root, build } = await sourceFixture(t);
-  const manifestPath = path.join(root, "examples/text-trim/manifest.json");
+  const manifestPath = path.join(root, "examples/text-trim/firefly.plugin.json");
   const catalogPath = path.join(root, "examples/text-trim/catalog.json");
   const manifest = await json(manifestPath);
   const catalog = await json(catalogPath);
   const outDir = path.join(root, "output");
   const manifestCases = [
-    { ...manifest, id: "other-id" }, { ...manifest, defaultEnabled: true }, { ...manifest, deps: ["llm"] },
-    { ...manifest, entry: "main.cjs" }, { ...manifest, apiVersion: 2 }, { ...manifest, extra: true },
+    { ...manifest, id: "dev.firefly.other" }, { ...manifest, native: true }, { ...manifest, permissions: ["secrets"] },
+    { ...manifest, main: "main.mjs" }, { ...manifest, ui: { settings: { entry: "ui.html", title: "x" } } },
+    { ...manifest, schemaVersion: 2 }, { ...manifest, extra: true }, { apiVersion: 1, id: "text-trim", entry: "index.cjs" },
   ];
   for (const bad of manifestCases) {
     await writeFile(manifestPath, JSON.stringify(bad));

@@ -68,6 +68,35 @@ function setup(failChannel = false, forceKill = vi.fn(), configureRpc?: () => ((
 }
 afterEach(() => { vi.useRealTimers(); });
 describe("plugin host", () => {
+  it("accepts UI calls while starting but rejects them and plain calls before enable, and UI calls after stop", async () => {
+    const { manager, children } = setup();
+    children.length = 0;
+    // Hold activation open: the fake child answers activate only when allowed.
+    const original = Child.prototype.postMessage;
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    Child.prototype.postMessage = function (this: Child, message: unknown, ports: Port[]) {
+      const port = ports[0];
+      port.on("message", ({ data }: { data: any }) => {
+        if (data.type !== "req") return;
+        if (data.method === "activate") void held.then(() => port.postMessage({ type: "res", id: data.id, ok: true, value: null }));
+        else port.postMessage({ type: "res", id: data.id, ok: true, value: { echoed: data.method } });
+      });
+      port.start();
+    };
+    try {
+      const starting = manager.start("p");
+      await vi.waitFor(() => expect(manager.status("p")).toBe("starting"));
+      await expect(manager.uiCall("p", "ui.message", {})).resolves.toEqual({ echoed: "ui.message" });
+      await expect(manager.call("p", "ui.message", {})).rejects.toMatchObject({ code: "ERR_UNAVAILABLE" });
+      release();
+      await starting;
+      await manager.stop("p");
+      await expect(manager.uiCall("p", "ui.message", {})).rejects.toMatchObject({ code: "ERR_UNAVAILABLE" });
+    } finally {
+      Child.prototype.postMessage = original;
+    }
+  });
   it("keeps a pre-aborted channel send cancelled when the process concurrently exits before posting", async () => {
     vi.useFakeTimers(); const { manager, children } = setup(); await manager.start("p");
     const controller = new AbortController(); controller.abort(); const onPosted = vi.fn();

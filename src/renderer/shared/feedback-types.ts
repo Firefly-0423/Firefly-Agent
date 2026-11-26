@@ -27,4 +27,6 @@ export interface ConfirmOptions {
   message: string;
   title: string;
   tone?: Exclude<FeedbackTone, "success">;
+  /** Aborting closes the dialog (or skips it while still queued) and resolves the confirmation as `false`. */
+  signal?: AbortSignal;
 }

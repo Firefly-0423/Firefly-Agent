@@ -196,6 +196,94 @@ describe("importPluginPackage", () => {
     expect(readdirSync(pluginsRoot)).toEqual([]);
   });
 
+  describe("deferSwap", () => {
+    const pluginId = "dev.firefly.deferred";
+    const entry = (installDir: string) => path.join(installDir, "dist", "index.mjs");
+
+    async function installV1(): Promise<string> {
+      const v1 = createPackage(path.join(root, "src-v1"), {
+        manifest: goodManifest({ id: pluginId, version: "1.0.0" }),
+        files: { "dist/index.mjs": "export default { build: 'old' };\n", "assets/icon.png": "png", "ui/settings.html": "<!doctype html>" },
+      });
+      const first = await importPluginPackage(v1, { pluginsRoot });
+      if (!first.ok) throw new Error("fixture import failed");
+      await first.commit();
+      return first.installDir;
+    }
+
+    function overwritePackage() {
+      return createPackage(path.join(root, "src-v1-new"), {
+        manifest: goodManifest({ id: pluginId, version: "1.0.0" }),
+        files: { "dist/index.mjs": "export default { build: 'new' };\n", "assets/icon.png": "png", "ui/settings.html": "<!doctype html>" },
+      });
+    }
+
+    it("stages without touching the installed directory until swap(), then commit removes the backup", async () => {
+      const installDir = await installV1();
+      const res = await importPluginPackage(overwritePackage(), { pluginsRoot, allowOverwrite: true, deferSwap: true });
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
+
+      expect(res.installDir).toBe(installDir);
+      expect(readFileSync(entry(installDir), "utf8")).toContain("'old'");
+      expect(readdirSync(path.join(pluginsRoot, pluginId)).some((name) => name.startsWith(".staging-"))).toBe(true);
+
+      await res.swap!();
+      expect(readFileSync(entry(installDir), "utf8")).toContain("'new'");
+      await res.commit();
+      expect(readdirSync(path.join(pluginsRoot, pluginId))).toEqual(["1.0.0"]);
+    });
+
+    it("rollback before swap() removes staging and leaves the installed files untouched", async () => {
+      const installDir = await installV1();
+      const res = await importPluginPackage(overwritePackage(), { pluginsRoot, allowOverwrite: true, deferSwap: true });
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
+
+      await res.rollback();
+
+      expect(readFileSync(entry(installDir), "utf8")).toContain("'old'");
+      expect(readdirSync(path.join(pluginsRoot, pluginId))).toEqual(["1.0.0"]);
+    });
+
+    it("restores the old directory and clears staging when swap() fails while moving staging into place", async () => {
+      const installDir = await installV1();
+      const res = await importPluginPackage(overwritePackage(), {
+        pluginsRoot,
+        allowOverwrite: true,
+        deferSwap: true,
+        fs: {
+          async rename(from, to) {
+            if (path.basename(String(from)).startsWith(".staging-")) throw new Error("EPERM staging rename");
+            return fsPromises.rename(from, to);
+          },
+        },
+      });
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
+
+      await expect(res.swap!()).rejects.toThrow("EPERM staging rename");
+
+      expect(readFileSync(entry(installDir), "utf8")).toContain("'old'");
+      expect(readdirSync(path.join(pluginsRoot, pluginId))).toEqual(["1.0.0"]);
+      await res.rollback();
+      expect(readFileSync(entry(installDir), "utf8")).toContain("'old'");
+    });
+
+    it("rollback after swap() restores the previous files", async () => {
+      const installDir = await installV1();
+      const res = await importPluginPackage(overwritePackage(), { pluginsRoot, allowOverwrite: true, deferSwap: true });
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
+
+      await res.swap!();
+      await res.rollback();
+
+      expect(readFileSync(entry(installDir), "utf8")).toContain("'old'");
+      expect(readdirSync(path.join(pluginsRoot, pluginId))).toEqual(["1.0.0"]);
+    });
+  });
+
   it("refuses allowOverwrite=false without creating staging or touching existing version (D7)", async () => {
     const pluginId = "dev.firefly.nooverwrite";
     const v1Folder = createPackage(path.join(root, "src-v1"), {

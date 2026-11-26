@@ -11,9 +11,11 @@ import { HOST_TO_PLUGIN_METHODS, type Frame } from "../../../../shared/plugin-pr
 import type { ImporterFsOps } from "../../../../plugins/v2/package/importer";
 import { resolvePluginSecretsFile } from "../../../../plugins/v2/secrets/paths";
 import type { SafeStorageLike } from "../../../../plugins/v2/secrets";
-import { createPluginV2HostController } from "./plugin-v2-services";
+import { createPluginV2HostController, type PluginV2HostDependencies } from "./plugin-v2-services";
 import type { HostChild, HostDependencies, HostPort } from "../../../../plugins/v2/host";
 import { PluginHostManager } from "../../../../plugins/v2/host";
+import { createPluginNotifications } from "../../../../plugins/v2/notifications";
+import { createRpcEndpoint } from "../../../../shared/plugin-rpc";
 
 let root: string;
 let dataRoot: string;
@@ -89,10 +91,16 @@ interface FakeChildRecord {
   killCount: number;
 }
 
-function createFakeHostHarness(activateBehavior: (mainPath: string, version: string) => { ok: boolean; error?: string }) {
+type ActivateVerdict = { ok: boolean; error?: string };
+
+function createFakeHostHarness(
+  activateBehavior: (mainPath: string, version: string) => ActivateVerdict | Promise<ActivateVerdict>,
+  onPluginRequest?: (method: string, params: unknown) => unknown,
+) {
   const launched: FakeChildRecord[] = [];
+  const managers: PluginHostManager[] = [];
   const createHostManager = (deps: HostDependencies) => {
-    return new PluginHostManager({
+    const manager = new PluginHostManager({
       ...deps,
       fork: (_entry, _args, _opts) => {
         const child = new EventEmitter() as HostChild & {
@@ -104,14 +112,14 @@ function createFakeHostHarness(activateBehavior: (mainPath: string, version: str
         let childPort: HostPort | undefined;
         child.postMessage = (_msg, ports) => {
           childPort = ports[0];
-          childPort.on("message", ({ data }) => {
+          childPort.on("message", async ({ data }) => {
             const frame = data as Frame;
             if (frame.type !== "req") return;
             if (frame.method === HOST_TO_PLUGIN_METHODS.activate) {
               const params = frame.params as { main: string; version: string };
               record.mainPath = params.main;
               record.version = params.version;
-              const verdict = activateBehavior(params.main, params.version);
+              const verdict = await activateBehavior(params.main, params.version);
               if (verdict.ok) {
                 childPort?.postMessage({ type: "res", id: frame.id, ok: true, value: null });
               } else {
@@ -125,6 +133,8 @@ function createFakeHostHarness(activateBehavior: (mainPath: string, version: str
             } else if (frame.method === HOST_TO_PLUGIN_METHODS.deactivate) {
               record.stopReasons.push(String(frame.params));
               childPort?.postMessage({ type: "res", id: frame.id, ok: true, value: null });
+            } else if (onPluginRequest) {
+              childPort?.postMessage({ type: "res", id: frame.id, ok: true, value: onPluginRequest(frame.method, frame.params) });
             }
           });
           childPort.start();
@@ -140,14 +150,16 @@ function createFakeHostHarness(activateBehavior: (mainPath: string, version: str
       createChannel: createMemoryPortPair,
       getAppMetrics: () => [],
     });
+    managers.push(manager);
+    return manager;
   };
-  return { launched, createHostManager };
+  return { launched, managers, createHostManager };
 }
 
 function makeController(
   harness: ReturnType<typeof createFakeHostHarness>,
   deleteTasksSpy = vi.fn(() => 2),
-  extra: { packageFs?: Partial<ImporterFsOps> } = {},
+  extra: { createPluginWindow?: PluginV2HostDependencies["createPluginWindow"]; packageFs?: Partial<ImporterFsOps>; createNotifications?: PluginV2HostDependencies["createNotifications"] } = {},
 ) {
   const controller = createPluginV2HostController({
     dataRoot,
@@ -170,9 +182,27 @@ function makeController(
     getActiveChatTarget: () => null,
     confirmFirstUse: async () => true,
     createHostManager: harness.createHostManager,
+    ...(extra.createPluginWindow ? { createPluginWindow: extra.createPluginWindow } : {}),
     ...(extra.packageFs ? { packageFs: extra.packageFs } : {}),
+    ...(extra.createNotifications ? { createNotifications: extra.createNotifications } : {}),
   });
   return { controller, deleteTasksSpy };
+}
+
+type LifecycleController = ReturnType<typeof makeController>["controller"];
+
+/** Imports a package and, for a local overwrite that asks for confirmation, confirms exactly what was shown. */
+async function importConfirmed(
+  controller: LifecycleController,
+  sourcePath: string,
+  opts: Parameters<LifecycleController["importFromPath"]>[1] = {},
+) {
+  const first = await controller.importFromPath(sourcePath, opts);
+  if (first.ok || first.installation !== "needs-confirmation") return first;
+  return controller.importFromPath(sourcePath, {
+    ...opts,
+    confirmedReplacement: { sha256: first.replace.packageSha256 },
+  });
 }
 
 async function writeArchivePlugin(opts: {
@@ -182,6 +212,7 @@ async function writeArchivePlugin(opts: {
   permissions?: string[];
   ext?: ".ffplugin" | ".zip";
   mainCode?: string;
+  native?: boolean;
 }) {
   const zip = new JSZip();
   zip.file("firefly.plugin.json", JSON.stringify({
@@ -193,6 +224,7 @@ async function writeArchivePlugin(opts: {
     main: "index.mjs",
     permissions: opts.permissions ?? ["secrets", "schedules"],
     tools: [{ name: "ping", title: "Ping", risk: ["network"], modes: ["work"] }],
+    ...(opts.native ? { native: true } : {}),
   }));
   zip.file("index.mjs", opts.mainCode ?? "export default { activate() {} };\n");
   const filePath = path.join(root, `${opts.id}-${opts.version}${opts.ext ?? ".ffplugin"}`);
@@ -211,7 +243,7 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
     badZip.file("index.cjs", "module.exports={};");
     const badPath = path.join(root, "old.zip");
     writeFileSync(badPath, await badZip.generateAsync({ type: "nodebuffer" }));
-    const badRes = await controller.importFromPath(badPath);
+    const badRes = await importConfirmed(controller, badPath);
     expect(badRes.ok).toBe(false);
     expect(badRes.error).toContain("0.x");
     expect(existsSync(path.join(dataRoot, "plugins"))).toBe(false);
@@ -219,7 +251,7 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
 
     // Valid import starts disabled
     const goodPath = await writeArchivePlugin({ id: "dev.firefly.alpha", version: "1.0.0" });
-    const goodRes = await controller.importFromPath(goodPath);
+    const goodRes = await importConfirmed(controller, goodPath);
     expect(goodRes).toEqual({
       ok: true,
       installation: "committed",
@@ -245,7 +277,7 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
       permissions: ["sessions.read", "model.run", "secrets", "schedules"],
       mainCode: "export default { version: '1.0.0', activate() {} };\n",
     });
-    expect((await controller.importFromPath(v1Path)).ok).toBe(true);
+    expect((await importConfirmed(controller, v1Path)).ok).toBe(true);
 
     await controller.enablePlugin("dev.firefly.up");
     controller.setModelRateLimit("dev.firefly.up", 25);
@@ -263,7 +295,7 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
       permissions: ["sessions.read", "workspace.read", "model.run", "secrets", "schedules"],
       mainCode: "export default { version: '2.0.0', activate() {} };\n",
     });
-    const upgradeRes = await controller.importFromPath(v2Path);
+    const upgradeRes = await importConfirmed(controller, v2Path);
     expect(upgradeRes).toEqual({
       ok: false,
       installation: "rejected",
@@ -306,13 +338,67 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
     controller.dispose();
   });
 
+  it("keeps a permission revoked and a rate limit changed during an upgrade when the upgrade rolls back", async () => {
+    let releaseV2!: () => void;
+    const v2Held = new Promise<void>((resolve) => { releaseV2 = resolve; });
+    const harness = createFakeHostHarness(async (_mainPath, version) => {
+      if (version !== "2.0.0") return { ok: true };
+      await v2Held;
+      return { ok: false, error: "v2 activation boom" };
+    });
+    const { controller } = makeController(harness);
+    const id = "dev.firefly.revokeduring";
+    const permissions = ["sessions.read", "secrets"];
+    expect((await importConfirmed(controller, await writeArchivePlugin({ id, version: "1.0.0", permissions }))).ok).toBe(true);
+    await controller.enablePlugin(id);
+    expect(controller.stateStore.get(id)!.grantedPermissions).toEqual(expect.arrayContaining(permissions));
+
+    const upgrade = importConfirmed(controller, await writeArchivePlugin({ id, version: "2.0.0", permissions }));
+    await vi.waitFor(() => expect(harness.launched.map((c) => c.version)).toContain("2.0.0"));
+    controller.revokePermission(id, "secrets");
+    controller.setModelRateLimit(id, 7);
+    releaseV2();
+    const res = await upgrade;
+
+    expect(res).toMatchObject({ ok: false, activation: "rolled-back" });
+    const restored = controller.stateStore.get(id)!;
+    expect(restored.version).toBe("1.0.0");
+    expect(restored.grantedPermissions).not.toContain("secrets");
+    expect(restored.grantedPermissions).toContain("sessions.read");
+    expect(restored.modelRateLimit).toBe(7);
+    const disk = JSON.parse(readFileSync(controller.stateStore.filePath, "utf8"));
+    expect(disk.plugins[id].grantedPermissions).not.toContain("secrets");
+    expect(controller.stateStore.hasPermission(id, "secrets")).toBe(false);
+
+    await controller.stopAll("quit");
+    controller.dispose();
+  });
+
+  it("restores a grant the failed new version simply did not declare when the upgrade rolls back", async () => {
+    const harness = createFakeHostHarness((_mainPath, version) => (version === "2.0.0" ? { ok: false, error: "boom" } : { ok: true }));
+    const { controller } = makeController(harness);
+    const id = "dev.firefly.dropdecl";
+    expect((await importConfirmed(controller, await writeArchivePlugin({ id, version: "1.0.0", permissions: ["sessions.read", "secrets"] }))).ok).toBe(true);
+    await controller.enablePlugin(id);
+    expect(controller.stateStore.hasPermission(id, "secrets")).toBe(true);
+
+    const res = await importConfirmed(controller, await writeArchivePlugin({ id, version: "2.0.0", permissions: ["sessions.read"] }));
+
+    expect(res).toMatchObject({ ok: false, activation: "rolled-back" });
+    expect(controller.stateStore.get(id)!.version).toBe("1.0.0");
+    expect(controller.stateStore.hasPermission(id, "secrets")).toBe(true);
+
+    await controller.stopAll("quit");
+    controller.dispose();
+  });
+
   it("fault-injects state write failure during upgrade rollback and marks disabled-fault without restarting old (D2)", async () => {
     const harness = createFakeHostHarness((_mainPath, version) =>
       version === "2.0.0" ? { ok: false, error: "v2 boom" } : { ok: true },
     );
     const { controller } = makeController(harness);
     const v1Path = await writeArchivePlugin({ id: "dev.firefly.failstate", version: "1.0.0" });
-    await controller.importFromPath(v1Path);
+    await importConfirmed(controller, v1Path);
     await controller.enablePlugin("dev.firefly.failstate");
 
     const origWrite = AtomicJsonStore.prototype.write;
@@ -327,7 +413,7 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
     });
 
     const v2Path = await writeArchivePlugin({ id: "dev.firefly.failstate", version: "2.0.0" });
-    const res = await controller.importFromPath(v2Path);
+    const res = await importConfirmed(controller, v2Path);
     expect(res.ok).toBe(false);
     if (!res.ok) {
       expect(res.activation).toBe("failed");
@@ -364,11 +450,11 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
       },
     });
     const v1Path = await writeArchivePlugin({ id: "dev.firefly.failrm", version: "1.0.0" });
-    await controller.importFromPath(v1Path);
+    await importConfirmed(controller, v1Path);
     await controller.enablePlugin("dev.firefly.failrm");
 
     const v2Path = await writeArchivePlugin({ id: "dev.firefly.failrm", version: "2.0.0" });
-    const res = await controller.importFromPath(v2Path);
+    const res = await importConfirmed(controller, v2Path);
     expect(res.ok).toBe(false);
     if (!res.ok) {
       expect(res.activation).toBe("failed");
@@ -406,7 +492,7 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
       version: "1.0.0",
       mainCode: "export default { build: 'first' };\n",
     });
-    await controller.importFromPath(v1First);
+    await importConfirmed(controller, v1First);
     await controller.enablePlugin("dev.firefly.failbackup");
 
     failAttempt = true;
@@ -415,7 +501,7 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
       version: "1.0.0",
       mainCode: "export default { build: 'second' };\n",
     });
-    const res = await controller.importFromPath(v1Overwrite);
+    const res = await importConfirmed(controller, v1Overwrite);
     expect(res.ok).toBe(false);
     if (!res.ok) {
       expect(res.activation).toBe("failed");
@@ -435,13 +521,301 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
     controller.dispose();
   });
 
+  it("persists a bystander plugin as disabled when it faults while another plugin is being upgraded", async () => {
+    const bystanderId = "dev.firefly.bystander";
+    const harness = createFakeHostHarness(async (mainPath, version) => {
+      if (mainPath.includes(bystanderId)) return { ok: false, error: "bystander activation boom" };
+      if (version === "2.0.0") {
+        // Plugin B faults for real (host status -> disabled-fault) while A's upgrade activation is in flight.
+        await harness.managers[0].start(bystanderId).catch(() => {});
+      }
+      return { ok: true };
+    });
+    const { controller } = makeController(harness);
+    await importConfirmed(controller, await writeArchivePlugin({ id: "dev.firefly.upgrader", version: "1.0.0" }));
+    await controller.enablePlugin("dev.firefly.upgrader");
+    await importConfirmed(controller, await writeArchivePlugin({ id: bystanderId, version: "1.0.0" }));
+    controller.stateStore.enable(bystanderId);
+    expect(controller.stateStore.isEnabled(bystanderId)).toBe(true);
+
+    const res = await importConfirmed(controller, await writeArchivePlugin({ id: "dev.firefly.upgrader", version: "2.0.0" }));
+
+    expect(res).toMatchObject({ ok: true, activation: "running" });
+    expect(controller.status(bystanderId)).toBe("disabled-fault");
+    expect(controller.stateStore.isEnabled(bystanderId)).toBe(false);
+    const disk = JSON.parse(readFileSync(controller.stateStore.filePath, "utf8"));
+    expect(disk.plugins[bystanderId].enabled).toBe(false);
+    expect(controller.stateStore.isEnabled("dev.firefly.upgrader")).toBe(true);
+
+    await controller.stopAll("quit");
+    controller.dispose();
+  });
+
+  it("keeps the old files in place until the running old instance has stopped during a same-version overwrite", async () => {
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const { controller } = makeController(harness);
+    const pluginId = "dev.firefly.stopfirst";
+    const installedMain = path.join(dataRoot, "plugins", pluginId, "1.0.0", "index.mjs");
+    await importConfirmed(controller, await writeArchivePlugin({
+      id: pluginId,
+      version: "1.0.0",
+      mainCode: "export default { build: 'old' };\n",
+    }));
+    await controller.enablePlugin(pluginId);
+
+    const filesSeenAtStop: string[] = [];
+    const realStop = harness.managers[0].stop.bind(harness.managers[0]);
+    vi.spyOn(harness.managers[0], "stop").mockImplementation(async (id, reason) => {
+      filesSeenAtStop.push(readFileSync(installedMain, "utf8"));
+      return realStop(id, reason);
+    });
+
+    const res = await importConfirmed(controller, await writeArchivePlugin({
+      id: pluginId,
+      version: "1.0.0",
+      mainCode: "export default { build: 'new' };\n",
+    }));
+
+    expect(res).toMatchObject({ ok: true, activation: "running" });
+    expect(filesSeenAtStop).toEqual(["export default { build: 'old' };\n"]);
+    expect(readFileSync(installedMain, "utf8")).toContain("'new'");
+    expect(readdirSync(path.join(dataRoot, "plugins", pluginId))).toEqual(["1.0.0"]);
+
+    await controller.stopAll("quit");
+    controller.dispose();
+  });
+
+  it("keeps the old files and restarts the old instance when stopping it fails during a same-version overwrite", async () => {
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const { controller } = makeController(harness);
+    const pluginId = "dev.firefly.stopfails";
+    const installedMain = path.join(dataRoot, "plugins", pluginId, "1.0.0", "index.mjs");
+    await importConfirmed(controller, await writeArchivePlugin({
+      id: pluginId,
+      version: "1.0.0",
+      mainCode: "export default { build: 'old' };\n",
+    }));
+    await controller.enablePlugin(pluginId);
+
+    const realStop = harness.managers[0].stop.bind(harness.managers[0]);
+    let stopCalls = 0;
+    vi.spyOn(harness.managers[0], "stop").mockImplementation(async (id, reason) => {
+      stopCalls += 1;
+      if (stopCalls === 1) throw new Error("stop boom");
+      return realStop(id, reason);
+    });
+
+    const res = await importConfirmed(controller, await writeArchivePlugin({
+      id: pluginId,
+      version: "1.0.0",
+      mainCode: "export default { build: 'new' };\n",
+    }));
+
+    expect(res).toMatchObject({ ok: false, installation: "rejected", activation: "rolled-back" });
+    expect(readFileSync(installedMain, "utf8")).toContain("'old'");
+    expect(readdirSync(path.join(dataRoot, "plugins", pluginId))).toEqual(["1.0.0"]);
+    expect(controller.stateStore.isEnabled(pluginId)).toBe(true);
+    expect(controller.status(pluginId)).toBe("enabled");
+
+    await controller.stopAll("quit");
+    controller.dispose();
+  });
+
+  it("reports a disabled same-version overwrite as committed with the new files and state when only backup removal fails", async () => {
+    let failCommit = false;
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const { controller } = makeController(harness, undefined, {
+      packageFs: {
+        async rm(target, options) {
+          if (failCommit && path.basename(String(target)).startsWith(".backup-")) {
+            throw new Error("EPERM removing backup");
+          }
+          return fsPromises.rm(target, options);
+        },
+      },
+    });
+    const id = "dev.firefly.commitfail";
+    expect((await importConfirmed(controller, await writeArchivePlugin({
+      id,
+      version: "1.0.0",
+      name: "First Name",
+      mainCode: "export default { build: 'first' };\n",
+    }))).ok).toBe(true);
+
+    failCommit = true;
+    const res = await importConfirmed(controller, await writeArchivePlugin({
+      id,
+      version: "1.0.0",
+      name: "Second Name",
+      mainCode: "export default { build: 'second' };\n",
+    }));
+
+    expect(res).toEqual({
+      ok: true,
+      installation: "committed",
+      activation: "not-requested",
+      plugin: { id, name: "Second Name", version: "1.0.0" },
+    });
+    expect(controller.stateStore.get(id)?.manifest.name).toBe("Second Name");
+    expect(controller.stateStore.get(id)?.enabled).toBe(false);
+    const diskState = JSON.parse(readFileSync(controller.stateStore.filePath, "utf8"));
+    expect(diskState.plugins[id].manifest.name).toBe("Second Name");
+    expect(readFileSync(path.join(dataRoot, "plugins", id, "1.0.0", "index.mjs"), "utf8")).toContain("second");
+    expect(harness.launched).toHaveLength(0);
+
+    controller.dispose();
+  });
+
+  it("keeps the complete new package when backup removal deletes part of the backup and then throws", async () => {
+    let failCommit = false;
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const { controller } = makeController(harness, undefined, {
+      packageFs: {
+        async rm(target, options) {
+          if (failCommit && path.basename(String(target)).startsWith(".backup-")) {
+            await fsPromises.rm(path.join(String(target), "index.mjs"), { force: true });
+            throw new Error("EPERM removing backup");
+          }
+          return fsPromises.rm(target, options);
+        },
+      },
+    });
+    const id = "dev.firefly.partialbackup";
+    await importConfirmed(controller, await writeArchivePlugin({ id, version: "1.0.0", name: "First Name", mainCode: "export default { build: 'first' };\n" }));
+
+    failCommit = true;
+    const res = await importConfirmed(controller, await writeArchivePlugin({ id, version: "1.0.0", name: "Second Name", mainCode: "export default { build: 'second' };\n" }));
+
+    expect(res).toMatchObject({ ok: true, installation: "committed" });
+    expect(readFileSync(path.join(dataRoot, "plugins", id, "1.0.0", "index.mjs"), "utf8")).toContain("second");
+    expect(controller.stateStore.get(id)?.manifest.name).toBe("Second Name");
+
+    controller.dispose();
+  });
+
+  it("restores files and the previous state record when swapping a disabled same-version overwrite fails", async () => {
+    let failSwap = false;
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const { controller } = makeController(harness, undefined, {
+      packageFs: {
+        async rename(from, to) {
+          if (failSwap && path.basename(String(from)).startsWith(".staging-")) {
+            throw new Error("EPERM swapping package");
+          }
+          return fsPromises.rename(from, to);
+        },
+      },
+    });
+    const id = "dev.firefly.swapfail";
+    await importConfirmed(controller, await writeArchivePlugin({ id, version: "1.0.0", name: "First Name", mainCode: "export default { build: 'first' };\n" }));
+    const before = structuredClone(controller.stateStore.get(id));
+
+    failSwap = true;
+    const res = await importConfirmed(controller, await writeArchivePlugin({ id, version: "1.0.0", name: "Second Name", mainCode: "export default { build: 'second' };\n" }));
+
+    expect(res).toMatchObject({ ok: false, installation: "rejected", error: expect.stringContaining("EPERM swapping package") });
+    expect(controller.stateStore.get(id)).toMatchObject({
+      manifest: before?.manifest,
+      installDir: before?.installDir,
+      enabled: false,
+      grantedPermissions: before?.grantedPermissions,
+    });
+    expect(readFileSync(path.join(dataRoot, "plugins", id, "1.0.0", "index.mjs"), "utf8")).toContain("first");
+    expect(readdirSync(path.join(dataRoot, "plugins", id))).toEqual(["1.0.0"]);
+
+    controller.dispose();
+  });
+
+  it("commits a first install over a leftover same-version directory when only backup removal fails", async () => {
+    let failCommit = false;
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const { controller } = makeController(harness, undefined, {
+      packageFs: {
+        async rm(target, options) {
+          if (failCommit && path.basename(String(target)).startsWith(".backup-")) {
+            throw new Error("EPERM removing backup");
+          }
+          return fsPromises.rm(target, options);
+        },
+      },
+    });
+    const id = "dev.firefly.leftover";
+    expect((await importConfirmed(controller, await writeArchivePlugin({ id, version: "1.0.0" }))).ok).toBe(true);
+    // Simulate an uninstall that removed the record but could not delete the package directory.
+    controller.stateStore.uninstall(id);
+
+    failCommit = true;
+    const res = await importConfirmed(controller, await writeArchivePlugin({ id, version: "1.0.0", name: "Again" }));
+
+    expect(res).toMatchObject({ ok: true, installation: "committed", plugin: { id, name: "Again" } });
+    expect(controller.stateStore.get(id)?.manifest.name).toBe("Again");
+    expect(readFileSync(path.join(dataRoot, "plugins", id, "1.0.0", "index.mjs"), "utf8")).toContain("activate");
+    expect(harness.launched).toHaveLength(0);
+
+    controller.dispose();
+  });
+
+  it("reports an enabled same-version overwrite as committed and keeps the new instance when only backup removal fails", async () => {
+    let failCommit = false;
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const { controller } = makeController(harness, undefined, {
+      packageFs: {
+        async rm(target, options) {
+          if (failCommit && path.basename(String(target)).startsWith(".backup-")) {
+            throw new Error("EPERM removing backup");
+          }
+          return fsPromises.rm(target, options);
+        },
+      },
+    });
+    const id = "dev.firefly.activecommitfail";
+    await importConfirmed(controller, await writeArchivePlugin({ id, version: "1.0.0", name: "First Name", mainCode: "export default { build: 'first' };\n" }));
+    await controller.enablePlugin(id);
+
+    failCommit = true;
+    const res = await importConfirmed(controller, await writeArchivePlugin({ id, version: "1.0.0", name: "Second Name", mainCode: "export default { build: 'second' };\n" }));
+
+    expect(res).toMatchObject({ ok: true, installation: "committed", activation: "running" });
+    expect(controller.status(id)).toBe("enabled");
+    expect(controller.stateStore.get(id)?.manifest.name).toBe("Second Name");
+    expect(controller.stateStore.isEnabled(id)).toBe(true);
+    const installed = path.join(dataRoot, "plugins", id, "1.0.0", "index.mjs");
+    expect(readFileSync(installed, "utf8")).toContain("second");
+
+    await controller.stopAll("quit");
+    controller.dispose();
+  });
+
+  it("rejects a marketplace import whose real manifest declares native: true and leaves no files or state", async () => {
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const { controller } = makeController(harness);
+    const nativePkg = await writeArchivePlugin({ id: "dev.firefly.nativemarket", version: "1.0.0", native: true });
+
+    const res = await importConfirmed(controller, nativePkg, { origin: "market" });
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.installation).toBe("rejected");
+      expect(res.error).toContain("原生");
+    }
+    expect(controller.stateStore.get("dev.firefly.nativemarket")).toBeUndefined();
+    expect(existsSync(controller.stateStore.filePath)).toBe(false);
+    expect(existsSync(path.join(dataRoot, "plugins", "dev.firefly.nativemarket", "1.0.0"))).toBe(false);
+    expect(harness.launched).toHaveLength(0);
+
+    const local = await importConfirmed(controller, nativePkg, { origin: "local" });
+    expect(local.ok).toBe(true);
+
+    controller.dispose();
+  });
+
   it("uninstall removes scheduled tasks and package dir while keeping secrets when requested", async () => {
     const harness = createFakeHostHarness(() => ({ ok: true }));
     const deleteTasksSpy = vi.fn(() => 1);
     const { controller } = makeController(harness, deleteTasksSpy);
 
     const pkgPath = await writeArchivePlugin({ id: "dev.firefly.keepsec", version: "1.0.0" });
-    await controller.importFromPath(pkgPath);
+    await importConfirmed(controller, pkgPath);
     await controller.enablePlugin("dev.firefly.keepsec");
 
     // Write a secret and plugin-data file
@@ -468,7 +842,7 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
     expect(await controller.secretsService.get("dev.firefly.keepsec", "api_key")).toBe("super-secret");
 
     // Reinstall & uninstall deleting secrets and data; verify old grants are not reused
-    await controller.importFromPath(pkgPath);
+    await importConfirmed(controller, pkgPath);
     const reinstalled = controller.stateStore.get("dev.firefly.keepsec")!;
     expect(reinstalled.enabled).toBe(false);
     expect(reinstalled.grantedPermissions).toEqual([]);
@@ -506,7 +880,7 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
       version: "1.0.0",
       permissions: ["secrets", "schedules"],
     });
-    await controller.importFromPath(pkgPath);
+    await importConfirmed(controller, pkgPath);
     await controller.enablePlugin("dev.firefly.partialclean");
     controller.setModelRateLimit("dev.firefly.partialclean", 33);
     expect(controller.stateStore.get("dev.firefly.partialclean")!.grantedPermissions.length).toBeGreaterThan(0);
@@ -555,7 +929,7 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
     expect(controller.listPendingCleanups()).toEqual([]);
 
     // 2. Reinstall same ID: verify zero reused grants, rate limit reset, disabled by default
-    await controller.importFromPath(pkgPath);
+    await importConfirmed(controller, pkgPath);
     const fresh = controller.stateStore.get("dev.firefly.partialclean")!;
     expect(fresh.enabled).toBe(false);
     expect(fresh.grantedPermissions).toEqual([]);
@@ -609,7 +983,7 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
     const { controller } = makeController(harness);
 
     const pkgPath = await writeArchivePlugin({ id: "dev.firefly.faulty", version: "1.0.0" });
-    await controller.importFromPath(pkgPath);
+    await importConfirmed(controller, pkgPath);
 
     await expect(controller.enablePlugin("dev.firefly.faulty")).rejects.toMatchObject({
       code: "ERR_INTERNAL",
@@ -746,6 +1120,60 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
     controller.dispose();
   });
 
+  it("forwards a window invoke from a page loaded during activate, and rejects invokes once the plugin stops", async () => {
+    let releaseActivate!: () => void;
+    const activateGate = new Promise<void>((resolve) => { releaseActivate = resolve; });
+    const received: Array<{ method: string; params: unknown }> = [];
+    const harness = createFakeHostHarness(
+      async () => { await activateGate; return { ok: true }; },
+      (method, params) => { received.push({ method, params }); return { pong: true }; },
+    );
+    const { controller } = makeController(harness, undefined, {
+      createPluginWindow: (opts) => {
+        let destroyed = false;
+        const listeners = new Set<() => void>();
+        return {
+          webContentsId: 700,
+          show: () => {},
+          focus: () => {},
+          close: () => { if (destroyed) return; destroyed = true; for (const fn of [...listeners]) fn(); },
+          isDestroyed: () => destroyed,
+          sendMessage: () => {},
+          onClosed: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
+          load: async () => {},
+        };
+      },
+    });
+    const id = "dev.firefly.startui";
+    const pkgDir = path.join(dataRoot, "plugins", id, "1.0.0");
+    mkdirSync(path.join(pkgDir, "ui"), { recursive: true });
+    writeFileSync(path.join(pkgDir, "index.mjs"), "export default { activate() {} };\n", "utf8");
+    writeFileSync(path.join(pkgDir, "ui", "panel.html"), "<html></html>", "utf8");
+    controller.installPlugin({
+      schemaVersion: 1 as const, id, name: "Start UI", version: "1.0.0", sdk: "^1.2.0", main: "index.mjs",
+      permissions: ["ui.windows" as const],
+      ui: { windows: [{ id: "panel", entry: "ui/panel.html", title: "Panel" }] },
+    }, pkgDir);
+
+    const enabling = controller.enablePlugin(id);
+    await vi.waitFor(() => expect(harness.managers[0]?.status(id)).toBe("starting"));
+    await controller.openPluginWindow(id);
+
+    await expect(controller.uiService.handleWindowInvoke(700, { method: "ping", params: { n: 1 } })).resolves.toEqual({ pong: true });
+    expect(received).toEqual([{ method: HOST_TO_PLUGIN_METHODS.uiMessage, params: { from: { kind: "window", id: expect.any(String) }, method: "ping", params: { n: 1 } } }]);
+    // Only window UI messages get the starting-state path; other callers stay enabled-only.
+    await expect(harness.managers[0].call(id, "tool.execute", {})).rejects.toMatchObject({ code: "ERR_UNAVAILABLE" });
+
+    releaseActivate();
+    await enabling;
+    await controller.disablePlugin(id);
+    received.length = 0;
+    await expect(controller.uiService.handleWindowInvoke(700, { method: "ping" })).rejects.toBeInstanceOf(Error);
+    expect(received).toEqual([]);
+
+    controller.dispose();
+  });
+
   it.skipIf(process.platform !== "win32")(
     "handles Windows 8.3 short paths consistently and still blocks junction escapes via short aliases",
     async (ctx) => {
@@ -771,7 +1199,7 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
 
       const harness = createFakeHostHarness(() => ({ ok: true }));
       const { controller } = makeController(harness);
-      const imported = await controller.importFromPath(shortDir);
+      const imported = await importConfirmed(controller, shortDir);
       expect(imported.ok).toBe(true);
       expect(existsSync(path.join(dataRoot, "plugins", "dev.firefly.short83", "1.0.0", "dist", "index.mjs"))).toBe(true);
 
@@ -796,11 +1224,374 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
         sdk: "^1.2.0",
         main: `${shortJunctionName}/evil.mjs`,
       }));
-      const badRes = await controller.importFromPath(badLongDir);
+      const badRes = await importConfirmed(controller, badLongDir);
       expect(badRes.ok).toBe(false);
       expect(existsSync(path.join(dataRoot, "plugins", "dev.firefly.bad83"))).toBe(false);
 
       controller.dispose();
     },
   );
+});
+
+
+describe("Plugin V2 local replacement confirmation", () => {
+  const pluginId = "dev.firefly.replace";
+
+  async function installEnabled(harness: ReturnType<typeof createFakeHostHarness>) {
+    const { controller } = makeController(harness);
+    const first = await writeArchivePlugin({
+      id: pluginId,
+      version: "1.0.0",
+      name: "Old Name",
+      permissions: ["secrets"],
+      mainCode: "export default { build: 'old' };\n",
+    });
+    expect((await controller.importFromPath(first, { origin: "market", sourceId: "official" })).ok).toBe(true);
+    await controller.enablePlugin(pluginId);
+    return controller;
+  }
+
+  it("asks for confirmation instead of swapping or restarting an enabled plugin when a local package has the same id", async () => {
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const controller = await installEnabled(harness);
+    const before = structuredClone(controller.stateStore.get(pluginId));
+    const installedMain = path.join(dataRoot, "plugins", pluginId, "1.0.0", "index.mjs");
+
+    const res = await controller.importFromPath(await writeArchivePlugin({
+      id: pluginId,
+      version: "2.0.0",
+      name: "New Name",
+      permissions: ["secrets", "schedules"],
+      native: true,
+      mainCode: "export default { build: 'new' };\n",
+    }));
+
+    expect(res).toEqual({
+      ok: false,
+      installation: "needs-confirmation",
+      error: expect.any(String),
+      replace: {
+        current: {
+          name: "Old Name",
+          version: "1.0.0",
+          origin: "market",
+          enabled: true,
+          native: false,
+          grantedPermissions: ["secrets", "tool:ping"],
+        },
+        incoming: {
+          name: "New Name",
+          version: "2.0.0",
+          origin: "local",
+          native: true,
+          permissions: ["secrets", "schedules"],
+          tools: [{ name: "ping", title: "Ping", risk: ["network"], modes: ["work"] }],
+        },
+        addedPermissions: ["schedules"],
+        nativeEscalation: true,
+        packageSha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+      },
+    });
+    expect(readFileSync(installedMain, "utf8")).toContain("'old'");
+    expect(readdirSync(path.join(dataRoot, "plugins", pluginId))).toEqual(["1.0.0"]);
+    expect(controller.stateStore.get(pluginId)).toEqual(before);
+    expect(controller.status(pluginId)).toBe("enabled");
+    expect(harness.launched).toHaveLength(1);
+    expect(harness.launched[0].stopReasons).toEqual([]);
+
+    await controller.stopAll("quit");
+    controller.dispose();
+  });
+
+  it("upgrades once the confirmation carries the hash of the package that was shown", async () => {
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const controller = await installEnabled(harness);
+    const next = await writeArchivePlugin({ id: pluginId, version: "2.0.0", mainCode: "export default { build: 'new' };\n" });
+    const asked = await controller.importFromPath(next);
+    if (asked.ok || asked.installation !== "needs-confirmation") throw new Error("expected needs-confirmation");
+
+    const res = await controller.importFromPath(next, { confirmedReplacement: { sha256: asked.replace.packageSha256 } });
+
+    expect(res).toMatchObject({ ok: true, installation: "committed", activation: "running", plugin: { id: pluginId, version: "2.0.0" } });
+    expect(controller.stateStore.get(pluginId)).toMatchObject({ version: "2.0.0", origin: "local", enabled: true });
+    expect(readFileSync(path.join(dataRoot, "plugins", pluginId, "2.0.0", "index.mjs"), "utf8")).toContain("'new'");
+
+    await controller.stopAll("quit");
+    controller.dispose();
+  });
+
+  it("rejects a confirmation for a different package and leaves the installed plugin untouched", async () => {
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const controller = await installEnabled(harness);
+    const shown = await writeArchivePlugin({ id: pluginId, version: "2.0.0", mainCode: "export default { build: 'shown' };\n" });
+    const asked = await controller.importFromPath(shown);
+    if (asked.ok || asked.installation !== "needs-confirmation") throw new Error("expected needs-confirmation");
+    const before = structuredClone(controller.stateStore.get(pluginId));
+
+    const swapped = await writeArchivePlugin({ id: pluginId, version: "2.0.0", mainCode: "export default { build: 'swapped' };\n", ext: ".zip" });
+    const res = await controller.importFromPath(swapped, { confirmedReplacement: { sha256: asked.replace.packageSha256 } });
+
+    expect(res).toEqual({ ok: false, installation: "rejected", error: expect.stringContaining("确认") });
+    expect(readFileSync(path.join(dataRoot, "plugins", pluginId, "1.0.0", "index.mjs"), "utf8")).toContain("'old'");
+    expect(readdirSync(path.join(dataRoot, "plugins", pluginId))).toEqual(["1.0.0"]);
+    expect(controller.stateStore.get(pluginId)).toEqual(before);
+    expect(harness.launched[0].stopReasons).toEqual([]);
+
+    await controller.stopAll("quit");
+    controller.dispose();
+  });
+
+  it("does not ask when a market import updates a market plugin", async () => {
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const controller = await installEnabled(harness);
+    const res = await controller.importFromPath(
+      await writeArchivePlugin({ id: pluginId, version: "2.0.0" }),
+      { origin: "market", sourceId: "official" },
+    );
+    expect(res).toMatchObject({ ok: true, installation: "committed" });
+    await controller.stopAll("quit");
+    controller.dispose();
+  });
+});
+
+describe("Plugin V2 desktop notifications wiring", () => {
+  const pluginId = "dev.firefly.notify";
+
+  function setup() {
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    let hostDeps: HostDependencies | undefined;
+    const created: Array<EventEmitter & { show: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> }> = [];
+    const create = vi.fn((_options: { title: string; body: string }) => {
+      const notice = Object.assign(new EventEmitter(), { show: vi.fn(), close: vi.fn() });
+      created.push(notice);
+      return notice;
+    });
+    const focusMainWindow = vi.fn();
+    const { controller } = makeController(
+      { ...harness, createHostManager: (deps: HostDependencies) => { hostDeps = deps; return harness.createHostManager(deps); } },
+      undefined,
+      {
+        createNotifications: (access) => createPluginNotifications({
+          ...access,
+          isSupported: () => true,
+          create,
+          focusMainWindow,
+        }),
+      },
+    );
+    // Connects a plugin-side endpoint to the host rpc the same way the host manager does when it starts a plugin.
+    const connect = () => {
+      let hostReceive = (_v: unknown) => {}, clientReceive = (_v: unknown) => {};
+      const host = createRpcEndpoint({ post: (f) => clientReceive(f), onFrame: (fn) => { hostReceive = fn; return () => {}; } });
+      const client = createRpcEndpoint({ post: (f) => hostReceive(f), onFrame: (fn) => { clientReceive = fn; return () => {}; } });
+      const dispose = hostDeps!.configureRpc!(pluginId, host);
+      return { client, close: () => { dispose(); client.close(); host.close(); } };
+    };
+    return { controller, create, created, focusMainWindow, connect };
+  }
+
+  async function install(controller: ReturnType<typeof setup>["controller"], permissions: string[]) {
+    await controller.importFromPath(await writeArchivePlugin({ id: pluginId, version: "1.0.0", name: "Notifier", permissions }));
+  }
+
+  it("shows a notification titled with the installed plugin name when the permission is granted", async () => {
+    const t = setup();
+    await install(t.controller, ["notifications"]);
+    await t.controller.enablePlugin(pluginId);
+    const link = t.connect();
+
+    const pending = link.client.call("notifications.show", { title: "Done", body: "Finished" });
+    await vi.waitFor(() => expect(t.created).toHaveLength(1));
+    t.created[0].emit("show");
+
+    await expect(pending).resolves.toEqual({ shown: true });
+    expect(t.create).toHaveBeenCalledExactlyOnceWith({ title: "〔Notifier〕Done", body: "Finished" });
+    t.created[0].emit("click");
+    expect(t.focusMainWindow).toHaveBeenCalledTimes(1);
+
+    link.close();
+    t.controller.dispose();
+  });
+
+  it("refuses a plugin whose notifications permission is not granted, without creating a notification", async () => {
+    const t = setup();
+    await install(t.controller, ["notifications"]);
+    await t.controller.enablePlugin(pluginId, { grantedPermissions: [] });
+    const link = t.connect();
+
+    await expect(link.client.call("notifications.show", { title: "Done", body: "x" })).rejects.toMatchObject({ code: "ERR_PERMISSION" });
+    expect(t.create).not.toHaveBeenCalled();
+
+    link.close();
+    t.controller.dispose();
+  });
+
+  it("refuses a plugin that does not declare the permission", async () => {
+    const t = setup();
+    await install(t.controller, ["secrets"]);
+    await t.controller.enablePlugin(pluginId);
+    const link = t.connect();
+
+    await expect(link.client.call("notifications.show", { title: "Done", body: "x" })).rejects.toMatchObject({ code: "ERR_UNDECLARED" });
+    expect(t.create).not.toHaveBeenCalled();
+
+    link.close();
+    t.controller.dispose();
+  });
+
+  it("stops a pending notification and refuses new ones as soon as the permission is revoked while the plugin runs", async () => {
+    const t = setup();
+    await install(t.controller, ["notifications"]);
+    await t.controller.enablePlugin(pluginId);
+    const link = t.connect();
+
+    const pending = link.client.call("notifications.show", { title: "Done", body: "x" });
+    await vi.waitFor(() => expect(t.created).toHaveLength(1));
+    t.controller.revokePermission(pluginId, "notifications");
+
+    await expect(pending).rejects.toMatchObject({ code: "ERR_PERMISSION" });
+    expect(t.created[0].close).toHaveBeenCalled();
+    await expect(link.client.call("notifications.show", { title: "Again", body: "x" })).rejects.toMatchObject({ code: "ERR_PERMISSION" });
+    expect(t.create).toHaveBeenCalledTimes(1);
+    t.created[0].emit("click");
+    expect(t.focusMainWindow).not.toHaveBeenCalled();
+
+    link.close();
+    t.controller.dispose();
+  });
+});
+
+describe("Plugin V2 lifecycle serialization per plugin id", () => {
+  const pluginId = "dev.firefly.serial";
+
+  async function installEnabledV1(harness: ReturnType<typeof createFakeHostHarness>) {
+    const { controller } = makeController(harness);
+    const first = await writeArchivePlugin({ id: pluginId, version: "1.0.0" });
+    expect((await controller.importFromPath(first, { origin: "market", sourceId: "official" })).ok).toBe(true);
+    await controller.enablePlugin(pluginId);
+    return controller;
+  }
+
+  function liveVersions(harness: ReturnType<typeof createFakeHostHarness>): string[] {
+    return harness.launched.filter((child) => child.killCount === 0 && child.stopReasons.length === 0).map((child) => child.version);
+  }
+
+  it("two overlapping imports of one id end with the persisted version equal to the single running version", async () => {
+    let releaseFirstStart!: () => void;
+    const firstStartGate = new Promise<void>((resolve) => { releaseFirstStart = resolve; });
+    let gated = false;
+    const harness = createFakeHostHarness(async (_main, version) => {
+      // Hold whichever upgrade starts first; staging order is not deterministic, the lock order is.
+      if (version !== "1.0.0" && !gated) {
+        gated = true;
+        await firstStartGate;
+      }
+      return { ok: true };
+    });
+    const controller = await installEnabledV1(harness);
+    const v2 = await writeArchivePlugin({ id: pluginId, version: "2.0.0" });
+    const v3 = await writeArchivePlugin({ id: pluginId, version: "3.0.0" });
+
+    const imports = Promise.all([
+      controller.importFromPath(v2, { origin: "market", sourceId: "official" }),
+      controller.importFromPath(v3, { origin: "market", sourceId: "official" }),
+    ]);
+    await vi.waitFor(() => expect(harness.launched).toHaveLength(2));
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    // The other import must wait instead of reading the old state and stopping/swapping in between.
+    expect(harness.launched).toHaveLength(2);
+    releaseFirstStart();
+    const results = await imports;
+
+    for (const result of results) expect(result).toMatchObject({ ok: true, activation: "running" });
+    const persisted = controller.stateStore.get(pluginId)?.version;
+    expect(persisted).toBe(harness.launched[2]?.version);
+    expect(liveVersions(harness)).toEqual([persisted]);
+    expect(controller.status(pluginId)).toBe("enabled");
+  });
+
+  it("a local import queued behind another sees the first result as the existing plugin", async () => {
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const { controller } = makeController(harness);
+    const v1 = await writeArchivePlugin({ id: pluginId, version: "1.0.0" });
+    const v2 = await writeArchivePlugin({ id: pluginId, version: "2.0.0" });
+
+    const results = await Promise.all([controller.importFromPath(v1), controller.importFromPath(v2)]);
+
+    const committed = results.filter((result) => result.ok);
+    const asked = results.filter((result) => !result.ok);
+    expect(committed).toHaveLength(1);
+    expect(asked).toHaveLength(1);
+    const winner = committed[0]!.ok ? committed[0]!.plugin.version : "";
+    expect(asked[0]).toMatchObject({ installation: "needs-confirmation", replace: { current: { version: winner } } });
+    expect(controller.stateStore.get(pluginId)?.version).toBe(winner);
+  });
+
+  it("an import racing an uninstall ends either fully installed or fully removed", async () => {
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const controller = await installEnabledV1(harness);
+    const v2 = await writeArchivePlugin({ id: pluginId, version: "2.0.0" });
+
+    const [imported, removed] = await Promise.all([
+      controller.importFromPath(v2, { origin: "market", sourceId: "official" }),
+      controller.uninstallPlugin(pluginId),
+    ]);
+
+    // Staging finishes after the uninstall took the lock, so the import lands on a fresh install; either way state and files agree.
+    expect(removed.ok).toBe(true);
+    expect(imported.ok).toBe(true);
+    const stored = controller.stateStore.get(pluginId);
+    expect(stored?.version).toBe("2.0.0");
+    expect(existsSync(path.join(dataRoot, "plugins", pluginId, "2.0.0", "index.mjs"))).toBe(true);
+    expect(liveVersions(harness)).toEqual([]);
+  });
+
+  it("an uninstall followed by an import of the same id leaves a consistent fresh install", async () => {
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const controller = await installEnabledV1(harness);
+    const v2 = await writeArchivePlugin({ id: pluginId, version: "2.0.0" });
+
+    const [removed, imported] = await Promise.all([
+      controller.uninstallPlugin(pluginId),
+      controller.importFromPath(v2, { origin: "market", sourceId: "official" }),
+    ]);
+
+    expect(removed.ok).toBe(true);
+    expect(imported).toMatchObject({ ok: true, activation: "not-requested", plugin: { version: "2.0.0" } });
+    expect(controller.stateStore.get(pluginId)?.version).toBe("2.0.0");
+    expect(existsSync(path.join(dataRoot, "plugins", pluginId, "2.0.0", "index.mjs"))).toBe(true);
+    expect(liveVersions(harness)).toEqual([]);
+  });
+
+  it("different plugin ids still start concurrently", async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const harness = createFakeHostHarness(async () => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await gate;
+      inFlight -= 1;
+      return { ok: true };
+    });
+    const { controller } = makeController(harness);
+    for (const id of ["dev.firefly.one", "dev.firefly.two"]) {
+      await controller.importFromPath(await writeArchivePlugin({ id, version: "1.0.0" }));
+    }
+
+    const enabling = Promise.all([controller.enablePlugin("dev.firefly.one"), controller.enablePlugin("dev.firefly.two")]);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(maxInFlight).toBe(2);
+    release();
+    await enabling;
+  });
+
+  it("a failed task releases the lock so the next lifecycle call proceeds", async () => {
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const { controller } = makeController(harness);
+    await expect(controller.enablePlugin("dev.firefly.missing")).rejects.toThrow();
+    const res = await controller.importFromPath(await writeArchivePlugin({ id: "dev.firefly.missing", version: "1.0.0" }));
+    expect(res.ok).toBe(true);
+  });
 });

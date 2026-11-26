@@ -1,6 +1,4 @@
-"use strict";
-
-// Pure computation through the public Plugin API v1. No runtime SDK dependency, no Node facilities.
+// Pure computation through the Firefly plugin API 1.2. No runtime SDK dependency, no Node facilities.
 // The lossless-JSON rules and the structural comparison are adapted from deepseek-harness
 // packages/util/values (MIT, Copyright (c) 2026 DeepSeek); see LICENSE and README.md.
 const VALIDATE_ID = "json-tools_validate";
@@ -8,7 +6,7 @@ const COMPARE_ID = "json-tools_compare";
 const MAX_CHARS = 1_000_000;
 const MAX_MESSAGE = 300;
 const MAX_PATH = 200;
-let activeContext;
+const disposables = [];
 
 function rootType(value) {
   if (value === null) return "null";
@@ -100,41 +98,41 @@ function firstDifference(left, right) {
   return undefined;
 }
 
-module.exports = {
-  register(ctx) {
-    if (activeContext) throw new Error("JSON tools is already registered");
-    ctx.registerTool({
-      id: VALIDATE_ID,
-      name: "JSON 校验",
+/** Runs a pure handler and maps its outcome onto a tool result: bad arguments are reported as not executed. */
+function offline(handler) {
+  return async (args) => {
+    try {
+      return { status: "succeeded", output: await handler(args) };
+    } catch (error) {
+      return { status: "not_executed", reason: error instanceof Error ? error.message : String(error) };
+    }
+  };
+}
+
+export default {
+  activate(ctx) {
+    disposables.push(ctx.tools.register({
+      name: VALIDATE_ID,
       description: "校验一段文本是否为合法且无损的 JSON：语法正确，且不含无法往返的值（负零、溢出为无穷大的数字）。有效时返回根类型；无效时返回原因和位置路径。全部离线处理，不保存原文。",
-      enabled: true,
-      risk: "safe",
-      effectKind: "read",
-      verificationPolicy: "none",
-      inputSchema: {
+      parameters: {
         type: "object",
         properties: { text: { type: "string", description: `要校验的 JSON 文本，最多 ${MAX_CHARS} 个字符` } },
         required: ["text"],
       },
-      async execute(args) {
+      execute: offline((args) => {
         if (!args || typeof args.text !== "string") throw new TypeError("text must be a string");
         assertSize(args.text, "text");
         const parsed = parse(args.text);
-        if ("syntaxError" in parsed) return JSON.stringify({ valid: false, reason: "syntax", message: parsed.syntaxError });
+        if ("syntaxError" in parsed) return ({ valid: false, reason: "syntax", message: parsed.syntaxError });
         const lossy = findLossy(parsed.value);
-        if (lossy) return JSON.stringify({ valid: false, reason: "lossy", path: cap(lossy.path, MAX_PATH), message: lossy.message });
-        return JSON.stringify({ valid: true, type: rootType(parsed.value) });
-      },
-    });
-    ctx.registerTool({
-      id: COMPARE_ID,
-      name: "JSON 比较",
+        if (lossy) return ({ valid: false, reason: "lossy", path: cap(lossy.path, MAX_PATH), message: lossy.message });
+        return ({ valid: true, type: rootType(parsed.value) });
+      }),
+    }));
+    disposables.push(ctx.tools.register({
+      name: COMPARE_ID,
       description: "按结构比较两段 JSON 文本：忽略对象键顺序和数字写法（1 与 1.0 相同），数组顺序有意义。相同返回 equal=true；不同返回文档顺序中的第一处差异路径和类别（type、value、length、missing-in-left、missing-in-right）。两段文本都必须是合法且无损的 JSON。",
-      enabled: true,
-      risk: "safe",
-      effectKind: "read",
-      verificationPolicy: "none",
-      inputSchema: {
+      parameters: {
         type: "object",
         properties: {
           left: { type: "string", description: `第一段 JSON 文本，最多 ${MAX_CHARS} 个字符` },
@@ -142,7 +140,7 @@ module.exports = {
         },
         required: ["left", "right"],
       },
-      async execute(args) {
+      execute: offline((args) => {
         if (!args || typeof args.left !== "string" || typeof args.right !== "string") throw new TypeError("left and right must be strings");
         assertSize(args.left, "left");
         assertSize(args.right, "right");
@@ -155,16 +153,11 @@ module.exports = {
           documents[side] = parsed.value;
         }
         const difference = firstDifference(documents.left, documents.right);
-        return JSON.stringify(difference ? { equal: false, difference } : { equal: true });
-      },
-    });
-    activeContext = ctx;
+        return (difference ? { equal: false, difference } : { equal: true });
+      }),
+    }));
   },
-  unregister() {
-    if (!activeContext) return;
-    const ctx = activeContext;
-    activeContext = undefined;
-    ctx.unregisterTool(VALIDATE_ID);
-    ctx.unregisterTool(COMPARE_ID);
+  deactivate() {
+    while (disposables.length > 0) disposables.pop().dispose();
   },
 };

@@ -1,66 +1,60 @@
-# Firefly 插件作者须知
+# Firefly 1.2.0 插件作者须知
 
-本文说明编写与分发 Firefly 插件时的**信任边界、权限档位、数据与密钥存储**及**发布流程**。从零创建插件和调用当前 SDK 接口，见 [plugin-dev-guide.md](./plugin-dev-guide.md)。
+本文说明编写与分发 Firefly 1.2.0 插件时的**信任边界、权限档位、敏感能力确认、数据与密钥存储**及**发布流程**。清单字段与 `ctx.*` 接口逐项参考见 [plugin-dev-guide.md](./plugin-dev-guide.md)。
 
-## 1. 信任模型：启用即信任插件代码
+## 1. 信任模型：进程隔离不是沙箱，启用即信任代码
 
-- **当前版本（`apiVersion: 1`，SDK `0.2.1`）**：插件由 `src/plugins/loader.ts` 加载并在主进程直接执行 Node.js 代码，具备主应用同级权限。`deps` 声明只是宿主服务（`llm`、`conversations`、`secrets`、`workspace`、`scheduler`、`channels`）的注入声明，**不是执行沙箱**；版本目录隔离、代码树摘要与来源记录也**不构成代码运行沙箱**（见 [plugin-sdk/LIFECYCLE.md](../../plugin-sdk/LIFECYCLE.md)）。
-- **安装默认停用**：无论是通过本地 ZIP 还是插件市场安装，首次安装后均保持停用，不会执行插件入口；只有在用户确认可信并手动启用后，宿主才调用 `register(ctx)`。
-- **来源校验与接管限制**：主应用启用 `PluginVersionStore`（`src/main/features/plugins/host/plugin-runtime.ts`）跟踪包来源与 ZIP SHA-256：
-  - 市场来源固定校验 `MARKET_REGISTRY_URLS` 与 `MARKET_ZIP_URL_PREFIXES`（`src/main/features/plugins/host/plugin-marketplace.ts`），核对条目固定 SHA-256 后才解包。
-  - 已存在同 ID 插件时，禁止不同已知来源静默接管；从本地或离线目录转为在线市场来源需在宿主原生确认对话框中显式确认。
-  - 在设置页中，`settingsPanel` 运行在 `firefly-plugin://` 协议的受限 iframe 中，仅在插件实际处于运行状态时挂载，停用或卸载时销毁 iframe 并拒绝旧桥接调用（`src/main/features/plugins/panel/plugin-panel-protocol.ts`、`src/main/features/plugins/host/plugin-runtime.ts`）。
-- **1.2.0 规划演进**（详见 [plugin-sdk-1-2-0.md](../superpowers/specs/plugin-sdk-1-2-0.md) §5.1、§9、§14）：
-  - 1.2.0 计划将已启用插件移入独立 Electron `utilityProcess`（不继承宿主密钥/环境凭据），但负责人已明确：**进程隔离保护的是宿主稳定性与宿主内部数据，仍非系统级安全沙箱**，插件进程依然具备 Node 文件系统与网络访问能力，因此仍坚持“启用即信任该插件的代码”。
-  - 包含 `.node` / `.dll` 原生模块（`native: true`）的插件包在 1.2.0 规划中**禁止进入线上目录**，仅允许本地安装并在启用时弹出高风险提示。
+- **独立进程运行（`utilityProcess`）**：1.2.0 已启用插件运行在独立的 Electron `utilityProcess` 中（`src/plugins/v2/host/index.ts`），通过 `MessageChannelMain` 二进制 RPC 与宿主通信。子进程使用精简环境变量（仅保留系统加载目录与 `TEMP`/`TMP`，不继承宿主的 `NODE_OPTIONS`、代理设置或系统凭据）。
+- **进程隔离 ≠ 安全沙箱**：隔离保护的是 Firefly 宿主进程稳定性与宿主内部数据；插件在其自身进程中仍具备完整 Node.js 文件系统与网络访问权限。因此，**启用一个插件即意味着信任该插件的代码**（首次安装默认停用，启用确认框会显式提示这一点）。
+- **与 0.x 不兼容**：1.2.0 不支持 0.x 插件（`apiVersion: 1`、`manifest.json`、`ctx.deps.*`、`register`/`unregister`），也不读取或迁移 1.1.x 的 `plugins/`、`plugin-data/`（Windows 默认数据目录为 `%APPDATA%\Firefly-1.2.0`）。
+- **原生模块限制（`native: true`）**：包内含 `.node` 或 `.dll` 时必须在 `firefly.plugin.json` 中声明 `"native": true`（否则 `firefly-plugin validate` / 宿主校验报 `native_binary_undeclared`）。含原生模块的插件**禁止进入线上官方目录**，仅允许本地 `.ffplugin` 安装，并在启用时弹出高风险提示。
 
-## 2. 权限档位与工具审批
+## 2. 工具风险与三档权限策略
 
-桌面端界面（`src/renderer/react/features/chat/components/PermissionControl.tsx` 的 `PERMISSION_OPTIONS`）向用户提供三档权限选项，插件工具复用宿主的权限判定（`src/main/platform/permission/permission-policy.ts` 的 `policyFor`）：
+桌面端提供三档权限策略（`src/main/platform/permission/permission-policy.ts`，旧值 `"project-read-only"` 与 `"scoped"` 已移除）：
 
 | 权限档位 | 界面含义 | `fs-read` | `fs-write` | `shell` | `network` | `input-control` | 说明 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `read-only` | 只读 | 放行 | 拒绝 | 当前实现放行；**1.2.0 规划插件改为询问** | 放行 | 拒绝 | 1.2.0 规格指出内置命令有命令沙箱兜底，而插件不处于内置命令沙箱中，因此插件声明 `shell` 时只读档位将收紧为询问 |
-| `per-action` | 请求审批 | 询问 | 询问 | 询问 | 询问 | 询问 | 每次调用前弹出审批确认 |
+| `read-only` | 只读 | 放行 | 拒绝 | **询问** | 放行 | 拒绝 | 插件不在内置命令沙箱中，因此插件声明 `shell` 时在只读档位改为询问 |
+| `per-action` | 请求审批 | 询问 | 询问 | 询问 | 询问 | 询问 | 每次调用前弹出审批卡片 |
 | `full` | 完全访问 | 放行 | 放行 | 放行 | 放行 | 放行 | 直接执行对应风险操作 |
 
-需要特别注意当前代码与 1.2.0 规划的差异：
+编写工具时必须遵守以下边界：
 
-1. **权限档位**：`src/main/platform/permission/permission-policy.ts` 的 `AgentFileAccessLevel` 只有 `"read-only"`、`"per-action"`、`"full"` 三档；早期的 `"project-read-only"` 与 `"scoped"` 已删除，设置文件里出现这两个旧值时回落到 `read-only`。
-2. **工具风险声明 `risk`**：
-   - 在当前 SDK `0.2.1`（`plugin-sdk/src/api.ts`）中，`PluginTool.risk` 为可选字段，`PluginToolRisk` 包含 `"safe" | "fs-read" | "fs-write" | "shell" | "network" | "input-control"`；若声明 `"safe"`，`policyFor` 会直接放行。
-   - 依据 [plugin-sdk-1-2-0.md](../superpowers/specs/plugin-sdk-1-2-0.md) §4 与 §7.3，1.2.0 将要求每个插件工具**必须**声明至少一项真实风险，**禁止插件使用 `safe`**（因为宿主无法核实第三方工具确无副作用），并在审批卡片标明由插件声明。作者在编写新插件时即应如实声明 `fs-read`、`fs-write`、`shell`、`network` 或 `input-control`，不要依赖 `safe` 绕过审批。
-3. **渠道与模式边界**：
-   - `PluginTool.modes` 可限制工具仅在 `"code"` 或 `"work"` 中暴露。
-   - 根据 [disclaimer.zh-CN.md](../disclaimer.zh-CN.md) ④，当前渠道策略仅在 Chat / Work 间切换（不包含 Code）；在 1.2.0 规格 §7.4 中进一步规划了“渠道默认 Chat，开启 Work 仅放行 `fs-read`，外部平台不接受审批”，但以当前主分支代码为准，目前渠道 Work 路径仍待独立收紧（详见已知问题记录）。
-4. **不可信内容隔离意识**：插件通过提示词 Provider 返回的文本、接入的外部渠道消息、以及工具执行输出最终都会进入模型上下文；请勿将外部输入当成系统指令拼接，避免提示词注入风险。
-5. **定时任务授权**：插件通过 `ctx.deps.scheduler` 创建的定时任务默认停用（`enabled: false`），不能请求“全部工具”模式，必须显式提供 `allowedToolIds`；且只要改动执行规格（`schedule`、`prompt`、`mode`、`allowedToolIds`），宿主会撤销既有用户授权并将任务恢复为停用，等待用户再次确认（`plugin-sdk/src/api.ts`、`src/plugins/api.ts`）。
+1. **禁止声明 `"safe"`**：宿主无法核实第三方插件工具是否真正无副作用，因此插件工具的 `risk` 必填且至少包含一项真实风险（`fs-read`、`fs-write`、`shell`、`network`、`input-control`），声明 `"safe"` 会在清单校验阶段被拒绝（`risk_safe_forbidden`）。
+2. **仅在 Work / Code 模式挂载**：插件工具只在 `work` / `code` 模式注册给模型，Chat 模式不挂载插件工具。
+3. **审批卡片透明展示**：审批卡片会标明来源插件名称，并展示插件可选提供的 `describeApproval(args)` 摘要与目标。
+4. **结构化四态结果与不确定效果保护**：工具返回 `succeeded`、`failed`、`unknown`、`not_executed`。当插件声明非纯读风险且发生崩溃、超时或 `unknown` 结果时，宿主将其视为存在不确定副作用并禁止自动重试。
+5. **外部渠道（SDK 接口已提供，桌面接入随 1.2.x 提供）**：渠道入站消息默认在 **Chat** 模式运行（不挂载任何工具）；按会话开启 **Work** 后仅放行风险全为 `fs-read` 的工具（禁止 `fs-write`、`shell`、`network`、`input-control`）；审批只在本机宿主完成，绝不接受外部平台回复同意；所有出站回复在交由插件发送前都会先经宿主脱敏（`redactOutbound`）。
 
-## 3. 数据与密钥存储规范
+## 3. 能力权限、首次调用确认与限频
 
-宿主为每个插件提供独立的持久化目录与加密密钥存储，**升级、版本切换与卸载默认均保留数据与密钥**：
+清单 `permissions` 数组支持以下 9 项权限（均在启用插件时向用户集中展示，且可在设置页随时撤销，撤销后立即生效并返回 `ERR_PERMISSION`）：
 
-| 存储机制 | 适用内容 | 实际落盘位置（相对 `userData`） | 格式与保护边界 |
-| --- | --- | --- | --- |
-| `ctx.storage`（`src/plugins/storage.ts`） | 普通插件配置、状态缓存、非敏感数据 | `plugin-data/<pluginId>/<key>.json` | 仅支持可 JSON 序列化的数据（`JSON.stringify`/`JSON.parse`），以 `.tmp` + 重命名原子落盘；`key` 须匹配 `/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/`。**磁盘明文存储，禁止写入 API Key、Token 等凭据** |
-| `ctx.deps.secrets`（`src/main/features/plugins/host/secrets-service.ts`） | API Key、Token 等敏感凭据 | `plugin-data/<pluginId>/secrets/<SHA256(key)>.enc` | 需在 `manifest.json` 的 `deps` 中声明 `"secrets"`；值必须为字符串，经 Electron `safeStorage`（Windows 下为 DPAPI）加密保存；若 `safeStorage.isEncryptionAvailable()` 为 `false`，宿主直接返回 `E_STORAGE_UNAVAILABLE` 并拒绝降级明文落盘 |
-| 版本目录与安装状态（`plugin-sdk/LIFECYCLE.md`） | 宿主管理的插件代码与安装状态 | `plugin-packages/<SHA256(pluginId)>/<UUID>/`、`plugin-install-state/<id>.json`、`plugin-install-metadata/` | 作者与开发者不应直接修改宿主管理的版本目录（文件树摘要不一致会被拒绝加载）；迁移至 v2 安装状态的配置目录不可直接交给旧版应用读取 |
+| 权限 | 是否首次调用单独确认 | 附加约束 |
+| --- | --- | --- |
+| `sessions.read` | **是** | 仅读取当前绑定工作区下的公开对话投影（经宿主脱敏，无工具轨迹与他插件私有记录），单页上限 100 条（默认 50） |
+| `workspace.read` | **是** | 仅读取当前宿主绑定的工作区元数据与变更事件 |
+| `model.run` | **是** | 复用宿主正常 Run 控制器与审批路径，运行期间展示「插件正在借用模型」与停止按钮；与 `model.generate` 共享限频 |
+| `model.generate` | 否 | 与 `model.run` 共享每分钟滑动窗口限频（默认 10 次/分钟，宿主可配置 1–60），超限抛出 `ERR_RATE_LIMITED` |
+| `events` | 否 | 仅投递当前插件可观察的脱敏事件，队列上限 100 条（溢出丢弃最旧记录） |
+| `schedules` | 否（任务须批准） | `propose` / `update` 立即返回 `pending_approval`；修改执行规格会重新触发审批。无人值守触发时若涉及高风险工具会挂起等待用户批准 |
+| `notifications` | 否 | `ctx.notifications.show({ title, body })` 返回 `Promise<{ shown: boolean }>`；仅纯文本（禁按钮/链接/自定义图标），去除控制字符后标题/正文上限 **64 / 256** 个 Unicode 码点，每分钟最多 **5** 次（重启不重置配额）；宿主在标题前加 `〔插件名〕`，点击仅激活主窗口；系统不支持或用户关闭通知时返回 `{ shown: false }` |
+| `secrets` | 否 | 由主进程加密存储，见下文第 4 节 |
+| `ui.windows` | 否 | 仅允许打开在 `manifest.ui.windows` 中静态声明的独立窗口；独立窗口与设置页通过受限桥 `window.fireflyPlugin` 通信，且插件隔离会话默认拒绝摄像头/麦克风/通知等浏览器权限请求 |
 
-关于目录根路径与生命周期细节：
+关于**首次调用确认**机制（`src/plugins/v2/services/index.ts`）：
+- `sessions.read`、`workspace.read`、`model.run` 在首次实际调用时由宿主弹出确认提示（120 秒未应答按取消处理，且不写入持久化确认记录）。
+- 确认通过后按授予版本（grant revision）持久化，切换会话或重启应用不再重复弹窗；若权限被撤销后重新授予、插件停用或升级版本，则会重置授予版本并重新要求首次确认。
 
-- 通过 `ctx.storage.rootDir()` 可取得 `<userData>/plugin-data/<pluginId>`，如需存放大文件应置于该目录下，但不得写入密钥明文。
-- 插件停止或卸载时，宿主按 `beginStop()` → `unregister()` → `ctx.dispose()` 顺序收尾（`src/plugins/manager.ts`、`plugin-sdk/LIFECYCLE.md`）。**注意不要在 `unregister()` 中先清空模块状态变量、随后又在 `ctx.onDispose()` 中把空状态写回 `ctx.storage`**，否则会丢失缓存数据（`examples/README.md` 已记录同类反模式）。
-- 当前 1.1.x 的用户数据目录由 `src/main/base/identity/data-directory.ts` 解析；1.2.0 计划切换至 `%APPDATA%\Firefly-1.2.0`，且 1.2.0 规格 §8 明确不迁移 1.1.x 的 `plugins/`、`plugin-data/` 和 0.x 插件（以实际切换实现为准）。
+## 4. 不可信内容与数据/密钥存储
 
-## 4. 发布与验收流程
+- **不可信外部数据隔离**：插件 `ctx.context` 注入的上下文文本、工具返回值以及外部渠道入站消息（文本上限 64,000 字符、最多 8 个总计 10 MiB 的 `Uint8Array` 附件，拒绝 `url` 附件）都视为外部数据；宿主上下文服务对单 Provider 限制 1,500 ms 超时与 16,000 字符上限（总上限 32,000 字符），并用外部数据边界标记包裹后送入模型，插件不得将外部输入伪装为系统指令。桌面通知参数同样清理控制字符与双向覆盖字符且不可携带指令或链接。
+- **插件私有目录（`ctx.dataDir`）**：宿主为每个插件分配独立工作目录 `ctx.dataDir`，用于存放非敏感缓存与配置文件。**严禁将 API Key、Token 等凭据以明文写入 `ctx.dataDir`。**
+- **加密凭据存储（`ctx.secrets`）**：须在 `permissions` 声明 `"secrets"`。主进程通过 Electron `safeStorage` 加密保存到独立存储；若当前系统加密不可用（例如 `safeStorage.isEncryptionAvailable()` 为 `false` 或 Linux 降级为 `basic_text`），宿主**直接拒绝并返回 `ERR_UNAVAILABLE`**，绝不降级为明文落盘。
 
-插件与 SDK 的发布流程已有专门文档维护，本文仅给出入口索引，具体规则与命令以原文档为准：
+## 5. 发布与验收流程
 
-- **发布插件到官方插件目录与随应用离线目录**：见 [plugin-catalog-publishing.md](../plugin-catalog-publishing.md)
-  - 线上目录位于独立仓库 `Firefly-0423/firefly-plugins`（PR 提交源码校验、合并后由维护者运行 Release 工作流并固定 ZIP SHA-256）。
-  - 随应用离线包由 `scripts/plugin-marketplace/build.mjs` 从 `examples/<id>/` 构建至 `resources/plugin-marketplace/`，并与线上使用同一套确定性 ZIP 打包规则。
-  - 安全边界实现与测试当前分别位于 `src/main/features/plugins/host/plugin-marketplace.ts` 与 `src/main/knowledge/skills/external-boundary.test.ts`（`plugin-catalog-publishing.md` 中仍沿用主进程七层分层前的旧文件名提示）。
-- **发布 `@firefly_wu/plugin-sdk` 到 npm**：见 [plugin-sdk-publishing.md](../plugin-sdk-publishing.md)
-  - 通过 `.github/workflows/plugin-sdk-publish.yml` 使用 npm OIDC Trusted Publishing 发布，版本标签格式为 `plugin-sdk-v<version>`，发布前执行 `pnpm run check:plugin-sdk` 与 `pnpm run test:plugin-examples`。
-- **宿主生命周期与真实 Electron 验收参考**：见 [plugin-sdk/LIFECYCLE.md](../../plugin-sdk/LIFECYCLE.md) 与 [plugin-lifecycle-validation.md](../plugin-lifecycle-validation.md)
-  - 涉及更新重启切换、失败恢复、版本目录清理与面板边界校验时，可对照其中的测试矩阵与验证方式执行验证。
+- **npm 发布 `@firefly_wu/plugin-sdk`**：见 [plugin-sdk-publishing.md](../plugin-sdk-publishing.md)（`.github/workflows/plugin-sdk-publish.yml`，标签格式 `plugin-sdk-v<version>`，发布前执行 `pnpm run check:plugin-sdk` 与 `pnpm run test:plugin-examples`）。
+- **插件目录与离线包**：见 [plugin-catalog-publishing.md](../plugin-catalog-publishing.md)（独立仓库 `Firefly-0423/firefly-plugins` 与本地校验规则）。随应用离线包由 `scripts/plugin-marketplace/build.mjs` 从 `examples/<目录>/` 构建协议 v2 的 `.ffplugin` 包和 `registry.json`，输出到 `resources/plugin-marketplace/`。
+- **进程生命周期与隔离细节**：见 [plugin-sdk/LIFECYCLE.md](../../plugin-sdk/LIFECYCLE.md)（历史 1.1.x 验收参考见 [plugin-lifecycle-validation.md](../plugin-lifecycle-validation.md)）。

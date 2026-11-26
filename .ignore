@@ -1,3 +1,24 @@
+# Search-only ignores for ripgrep, fd and editors that honour .ignore. Git does not read this file;
+# build output and private data are already excluded by .gitignore. This hides tracked files that
+# are large, generated or vendored, so code searches stay on source.
+
+# Python caches from helper scripts.
 __pycache__/
 *.py[cod]
 .venv/
+
+# Lockfile and vendored third-party code.
+pnpm-lock.yaml
+vendor/
+src/renderer/public/live2dcubismcore.min.js
+
+# Binary art and model assets.
+src/renderer/public/models/
+src/renderer/public/stickers/
+readme-assets/
+*.png
+*.gif
+*.webp
+*.jpg
+*.ico
+*.moc3

@@ -1,12 +1,10 @@
-"use strict";
-
 // Pure computation through the public Plugin API v1; UTF-8 sizes are computed by hand, so no TextEncoder or Buffer is needed.
 // The head / tail / headTail retention strategies, the UTF-8 boundary rule and the omission wording are adapted from
 // deepseek-harness packages/util/output-retention (MIT, Copyright (c) 2026 DeepSeek); see LICENSE and README.md.
 const TOOL_ID = "text-trim_cap";
 const MAX_CHARS = 1_000_000;
 const STRATEGIES = ["head", "tail", "headTail"];
-let activeContext;
+const disposables = [];
 
 function isBudget(value) {
   return Number.isSafeInteger(value) && value >= 0;
@@ -55,18 +53,23 @@ function tailFit(text, budget) {
   return { units, bytes };
 }
 
-module.exports = {
-  register(ctx) {
-    if (activeContext) throw new Error("Text trim is already registered");
-    ctx.registerTool({
-      id: TOOL_ID,
-      name: "文本截断",
+/** Runs a pure handler and maps its outcome onto a tool result: bad arguments are reported as not executed. */
+function offline(handler) {
+  return async (args) => {
+    try {
+      return { status: "succeeded", output: await handler(args) };
+    } catch (error) {
+      return { status: "not_executed", reason: error instanceof Error ? error.message : String(error) };
+    }
+  };
+}
+
+export default {
+  activate(ctx) {
+    disposables.push(ctx.tools.register({
+      name: TOOL_ID,
       description: "把长文本截断到指定的 UTF-8 字节预算，并报告确切丢弃了多少字节。strategy=head 保留开头（默认），tail 保留结尾，headTail 同时保留开头和结尾并在中间标出省略。截断位置落在完整字符边界上，不会产生乱码；预算按字节而不是字符计算。全部离线处理，不保存原文。",
-      enabled: true,
-      risk: "safe",
-      effectKind: "read",
-      verificationPolicy: "none",
-      inputSchema: {
+      parameters: {
         type: "object",
         properties: {
           text: { type: "string", description: `要截断的文本，最多 ${MAX_CHARS} 个字符` },
@@ -77,7 +80,7 @@ module.exports = {
         },
         required: ["text"],
       },
-      async execute(args) {
+      execute: offline((args) => {
         if (!args || typeof args.text !== "string") throw new TypeError("text must be a string");
         if (args.text.length > MAX_CHARS) throw new RangeError(`text must be at most ${MAX_CHARS} characters`);
         const strategy = args.strategy === undefined ? "head" : args.strategy;
@@ -109,7 +112,7 @@ module.exports = {
           kept = strategy === "headTail" ? `${headText}\n[... omitted ${omitted} bytes ...]\n${tailText}` : headText + tailText;
         }
         const omittedBytes = total - keptBytes;
-        return JSON.stringify({
+        return ({
           text: kept,
           truncated: omittedBytes > 0,
           totalBytes: total,
@@ -117,14 +120,10 @@ module.exports = {
           omittedBytes,
           notice: omittedBytes > 0 ? `Omitted ${omittedBytes} bytes.` : "",
         });
-      },
-    });
-    activeContext = ctx;
+      }),
+    }));
   },
-  unregister() {
-    if (!activeContext) return;
-    const ctx = activeContext;
-    activeContext = undefined;
-    ctx.unregisterTool(TOOL_ID);
+  deactivate() {
+    while (disposables.length > 0) disposables.pop().dispose();
   },
 };

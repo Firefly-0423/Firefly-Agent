@@ -18,13 +18,14 @@ export interface ModelConnectionApi {
   onConnectionChanged(callback: (snapshot: ModelConnectionSnapshot) => void): () => void;
 }
 export interface PublicModelConfig {
+  /** 自动沿用内置配置，或由用户手动指定。 */
   mode: "auto" | "manual";
   provider: string;
-  // 用户自定义昵称；留空时状态栏用 shortName
-  displayName?: string;
-  // 厂商短名（去括号后缀），状态栏"正在喂养"的兜底显示
-  shortName: string;
   model: string;
+  /** 状态栏上用户可改的显示名；没有填写时界面退回使用 shortName。 */
+  displayName?: string;
+  /** 去掉括号说明后的厂商简称，作为状态栏文案的备用值。 */
+  shortName: string;
   connected: boolean;
   stickerSize: StickerSize;
   rerankerMode: "standard" | "none";

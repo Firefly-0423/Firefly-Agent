@@ -1,6 +1,6 @@
 # 文本截断（text-trim）
 
-Firefly Plugin API v1 插件，版本 1.0.0。首次安装保持停用，需要用户明确启用。
+Firefly 1.2.0 插件包（`.ffplugin`，id `dev.firefly.text-trim`），版本 1.0.1。首次安装保持停用，需要用户明确启用。
 
 启用后提供只读工具 `text-trim_cap`，把长文本截断到 UTF-8 字节预算，并报告确切丢弃了多少字节。
 

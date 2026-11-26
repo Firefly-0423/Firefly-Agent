@@ -10,6 +10,8 @@ import { toolRegistry } from "../tooling/registry/tool-registry";
 import type { LlmClient } from "../agent/services/llm/llm-client";
 import type { BuildOptionsFn } from "../agent/runtime/run-input-types";
 import * as chatsStore from "../features/sessions/chats-store";
+import { createElectronPluginNotifications } from "../../plugins/v2/notifications/electron";
+import type { ScheduledRunResult, ScheduledTask } from "../platform/schedule/schedule-types";
 import type { PluginSchedulerStorePort } from "../../plugins/v2/schedules";
 import type { ServicePermission } from "../../plugins/v2/services";
 import {
@@ -29,6 +31,7 @@ import {
   type PluginV2ConfirmRequest,
   type PluginV2HostController,
 } from "../features/plugins/host/plugin-v2-services";
+import { registerPluginProposalIpc } from "../features/scheduler/plugin-proposal-ipc";
 import { IPC } from "../../shared/ipc-channels";
 
 export interface PluginV2BootstrapDeps {
@@ -36,13 +39,18 @@ export interface PluginV2BootstrapDeps {
   llmClient: Pick<LlmClient, "chatNonStream">;
   buildRunOptions: BuildOptionsFn;
   schedulerStore: PluginSchedulerStorePort;
+  runAgentTask?: (task: ScheduledTask, scheduledFireAt: Date, manual: boolean) => Promise<ScheduledRunResult>;
   getChatWebContents: () => WebContents | null;
   getPanelWebContents?: () => WebContents | null;
+  /** Restore, show and focus the main chat window; used when a plugin notification is clicked. */
+  focusMainWindow: () => void;
   onRunningStateChange?: (pluginId: string, running: boolean) => void;
   confirmTimeoutMs?: number;
 }
 
 const DEFAULT_CONFIRM_TIMEOUT_MS = 120_000;
+/** Custom scheduler event telling the panel that plugin schedule proposals or tasks changed. */
+const PLUGIN_PROPOSALS_CHANGED_EVENT = "scheduler.plugin_proposals_changed";
 
 const CONFIRM_TEXT: Record<"sessions.read" | "workspace.read" | "model.run", (name: string) => string> = {
   "sessions.read": (name) => `插件〔${name}〕想要读取会话记录，是否允许？`,
@@ -156,7 +164,10 @@ export async function startPluginV2Bootstrap(deps: PluginV2BootstrapDeps): Promi
     stateFile: storage.files.pluginState,
     toolRegistry,
     safeStorage,
+    // The bootstrap runs after app ready, which Electron requires before a Notification is created.
+    createNotifications: (access) => createElectronPluginNotifications({ ...access, focusMainWindow: deps.focusMainWindow }),
     schedulerStore: deps.schedulerStore,
+    ...(deps.runAgentTask ? { runAgentTask: deps.runAgentTask } : {}),
     llmClient: deps.llmClient,
     buildRunOptions: deps.buildRunOptions,
     loadModelSettings,
@@ -182,6 +193,10 @@ export async function startPluginV2Bootstrap(deps: PluginV2BootstrapDeps): Promi
     onRunningStateChange: deps.onRunningStateChange,
     onBorrowingChanged: (entries: PluginV2BorrowingEntry[]) => {
       sendToChat(IPC.PLUGINS_V2_BORROWING_CHANGED, { entries });
+    },
+    onScheduleStateChanged: () => {
+      // Same channel the scheduler panel already listens on; it reloads the proposal list and the task list.
+      sendToChat(IPC.SCHEDULER_EVENT, { type: "CUSTOM", name: PLUGIN_PROPOSALS_CHANGED_EVENT });
     },
     onToolProgress: (progress) => {
       sendToChat(IPC.AGUI_EVENT, {
@@ -222,6 +237,9 @@ export async function startPluginV2Bootstrap(deps: PluginV2BootstrapDeps): Promi
   const marketplace = createPluginMarketplaceService({
     registryUrls: MARKET_REGISTRY_URLS,
     zipUrlPrefixes: MARKET_ZIP_URL_PREFIXES,
+    // build:main copies the generated v2 catalog (resources/plugin-marketplace) to dist/main/plugin-marketplace;
+    // this file compiles to dist/main/main/app, so the app-owned offline catalog is two levels up.
+    bundledDir: path.join(__dirname, "..", "..", "plugin-marketplace"),
     cacheDir: path.join(storage.dataRoot, "plugin-market-cache"),
     installPackage: (packagePath, opts) => controller.importFromPath(packagePath, opts),
   });
@@ -230,6 +248,11 @@ export async function startPluginV2Bootstrap(deps: PluginV2BootstrapDeps): Promi
     market: marketplace,
     getHostWebContents: () => deps.getChatWebContents(),
   });
+  registerPluginProposalIpc(
+    deps.ipc,
+    controller.scheduleService,
+    (pluginId) => controller.stateStore.get(pluginId)?.manifest.name,
+  );
 
   deps.ipc.handle(IPC.PLUGINS_V2_BORROWING_GET, () => ({
     entries: controller.getBorrowingEntries(),
@@ -251,6 +274,10 @@ export async function startPluginV2Bootstrap(deps: PluginV2BootstrapDeps): Promi
   ipc.handle(IPC.PLUGIN_WINDOW_CLOSE, (event) => controller.uiService.handleWindowClose(event.sender.id));
   ipc.on(IPC.PLUGIN_WINDOW_READY, (event) => controller.uiService.handleWindowReady(event.sender.id));
 
+  // A plugin starting or stopping changes whether its tasks can run; the scheduler panel reloads on this event.
+  controller.hostManager?.onStatusChange?.(() => {
+    sendToChat(IPC.SCHEDULER_EVENT, { type: "CUSTOM", name: PLUGIN_PROPOSALS_CHANGED_EVENT });
+  });
   await controller.startEnabled();
   return controller;
 }

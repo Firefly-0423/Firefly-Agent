@@ -331,15 +331,13 @@ describe("PluginSchedulesService (v2)", () => {
         runSpec({
           title: "Alpha privileged",
           schedule: { kind: "interval", minutes: 15 },
-          requiredRisks: ["shell"],
         }),
       );
       service.confirmProposal(a2.taskId);
       await pluginA.propose(runSpec({ title: "Alpha pending" }));
 
-      // Trigger Alpha 2 unattended so it enters pending_approval
-      currentNow = new Date("2032-03-10T10:15:00.000Z");
-      await vi.advanceTimersByTimeAsync(15 * 60_000);
+      // Alpha 2 has a run waiting for approval
+      service.suspendUnattendedRun(a2.taskId, ["shell"]);
       expect(service.listPendingRunApprovals("dev.firefly.alpha")).toHaveLength(1);
 
       // Plugin B: 1 confirmed task, 1 pending proposal
@@ -369,43 +367,184 @@ describe("PluginSchedulesService (v2)", () => {
     });
   });
 
-  describe("unattended approval suspension (pending_approval)", () => {
-    it.each<ToolRisk>(["fs-write", "shell", "input-control"])(
-      "suspends unattended execution requiring %s as pending_approval and notifies desktop",
-      async (risk) => {
-        const { service, runAgentMock, notifications } = setupHarness();
-        const pluginA = service.forPlugin("dev.firefly.alpha");
+  describe("Firefly 1.2.0 refuses plugin tasks that would need unattended approval", () => {
+    const PLUGIN = "dev.firefly.alpha";
+    const STATE_FILE = () => join(workdir, "plugin-schedules-state.json");
+    // Registry stand-in: tool ids map to the risks the real registry resolver would report.
+    const REGISTRY_RISKS: Record<string, ToolRisk[]> = { "danger-shell": ["shell"], writer: ["fs-write"], mouse: ["input-control"], reader: ["fs-read"] };
+    const resolveFromRegistry = (task: { allowedToolIds: readonly string[] }): ToolRisk[] => {
+      const risks = new Set<ToolRisk>();
+      for (const id of task.allowedToolIds) {
+        const known = REGISTRY_RISKS[id];
+        if (!known) risks.add("shell");
+        else known.forEach((risk) => risks.add(risk));
+      }
+      return Array.from(risks);
+    };
 
-        const proposed = await pluginA.propose(
-          runSpec({
-            title: `Privileged ${risk}`,
-            schedule: { kind: "interval", minutes: 10 },
-            requiredRisks: [risk],
-          }),
-        );
+    const refusalCases: Array<{ name: string; spec: Partial<ScheduleProposalSpec>; resolver?: (task: ScheduledTask) => ToolRisk[] }> = [
+      { name: "declared shell", spec: { requiredRisks: ["shell"] } },
+      { name: "declared fs-write", spec: { requiredRisks: ["fs-write"] } },
+      { name: "declared input-control", spec: { requiredRisks: ["input-control"] } },
+      { name: "registry-derived fs-write", spec: { allowedToolIds: ["writer"] } },
+      { name: "registry-derived input-control", spec: { allowedToolIds: ["reader", "mouse"] } },
+      { name: "unregistered tool (unresolved)", spec: { allowedToolIds: ["not-installed"] } },
+      { name: "resolver failure (unresolved)", spec: {}, resolver: () => { throw new Error("registry offline"); } },
+    ];
+
+    it.each(refusalCases)("refuses to confirm a create proposal with $name risk and writes nothing", async ({ spec, resolver }) => {
+      const { store, service, runAgentMock, notifications } = setupHarness({ resolveTaskRisks: resolver ?? resolveFromRegistry });
+      const client = service.forPlugin(PLUGIN);
+      const proposed = await client.propose(runSpec({ schedule: { kind: "interval", minutes: 10 }, ...spec }));
+      const stateBefore = readFileSync(STATE_FILE(), "utf8");
+
+      let refusal: unknown;
+      try { service.confirmProposal(proposed.taskId); } catch (error) { refusal = error; }
+
+      expect(refusal).toBeInstanceOf(PluginError);
+      expect(refusal).toMatchObject({ code: "ERR_PERMISSION", reason: "unattended_approval_unsupported" });
+      expect(store.getTasks()).toEqual([]);
+      expect(readFileSync(STATE_FILE(), "utf8")).toBe(stateBefore);
+      expect(service.listPendingProposals(PLUGIN).map((p) => p.taskId)).toEqual([proposed.taskId]);
+
+      currentNow = new Date("2032-03-10T10:30:00.000Z");
+      await vi.advanceTimersByTimeAsync(30 * 60_000);
+      expect(runAgentMock).not.toHaveBeenCalled();
+      expect(notifications).toEqual([]);
+
+      // The proposal is still pending, so the user can reject it.
+      expect(service.rejectProposal(proposed.taskId).status).toBe("rejected");
+    });
+
+    it("refuses an update proposal that adds a risky tool and keeps the existing task unchanged", async () => {
+      const { store, service } = setupHarness({ resolveTaskRisks: resolveFromRegistry });
+      const client = service.forPlugin(PLUGIN);
+      const created = await client.propose(runSpec({ schedule: { kind: "interval", minutes: 10 }, allowedToolIds: ["reader"] }));
+      service.confirmProposal(created.taskId);
+      const taskBefore = structuredClone(store.getTasks());
+      await client.update(created.taskId, { allowedToolIds: ["reader", "danger-shell"] });
+      const stateBefore = readFileSync(STATE_FILE(), "utf8");
+
+      expect(() => service.confirmProposal(created.taskId)).toThrowError(
+        expect.objectContaining({ code: "ERR_PERMISSION", reason: "unattended_approval_unsupported" }),
+      );
+
+      expect(store.getTasks()).toEqual(taskBefore);
+      expect(readFileSync(STATE_FILE(), "utf8")).toBe(stateBefore);
+      expect(service.listPendingProposals(PLUGIN)).toHaveLength(1);
+
+      // Revising the proposal back to safe tools makes it confirmable.
+      await client.update(created.taskId, { allowedToolIds: ["reader"], title: "Safe again" });
+      expect(service.confirmProposal(created.taskId).title).toBe("Safe again");
+    });
+
+    it("refuses an update proposal that declares a risk", async () => {
+      const { store, service } = setupHarness();
+      const client = service.forPlugin(PLUGIN);
+      const created = await client.propose(runSpec());
+      service.confirmProposal(created.taskId);
+      const taskBefore = structuredClone(store.getTasks());
+      await client.update(created.taskId, { requiredRisks: ["fs-write"] });
+
+      expect(() => service.confirmProposal(created.taskId)).toThrowError(
+        expect.objectContaining({ code: "ERR_PERMISSION", reason: "unattended_approval_unsupported" }),
+      );
+      expect(store.getTasks()).toEqual(taskBefore);
+    });
+
+    it("still confirms and runs a safe one-shot task", async () => {
+      const { store, service, runAgentMock } = setupHarness({ resolveTaskRisks: resolveFromRegistry });
+      const client = service.forPlugin(PLUGIN);
+      const proposed = await client.propose(runSpec({
+        schedule: { kind: "once", at: BASE_TIME.getTime() + 10 * 60_000 },
+        allowedToolIds: ["reader"],
+        requiredRisks: ["fs-read", "network"],
+      }));
+      service.confirmProposal(proposed.taskId);
+      expect(store.getTasks()).toHaveLength(1);
+
+      currentNow = new Date("2032-03-10T10:10:00.000Z");
+      await vi.advanceTimersByTimeAsync(10 * 60_000);
+
+      expect(runAgentMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("the IPC guard accepts a safe task, refuses it once its tools became risky, and ignores tasks the service does not manage", async () => {
+      let risks: ToolRisk[] = [];
+      const { store, service } = setupHarness({ resolveTaskRisks: () => risks });
+      const proposed = await service.forPlugin(PLUGIN).propose(runSpec());
+      service.confirmProposal(proposed.taskId);
+      const [task] = store.getTasks();
+
+      expect(() => service.assertTaskCanRunUnattended(task)).not.toThrow();
+      risks = ["shell"];
+      expect(() => service.assertTaskCanRunUnattended(task)).toThrowError(
+        expect.objectContaining({ code: "ERR_PERMISSION", reason: "unattended_approval_unsupported" }),
+      );
+      expect(() => service.assertTaskCanRunUnattended({ ...task, id: "legacy-task" })).not.toThrow();
+    });
+
+    it.each<ToolRisk>(["fs-write", "shell", "input-control"])(
+      "a recurring fire that needs %s approval executes nothing, records one skip, creates no pending record and pauses the task",
+      async (risk) => {
+        let risks: ToolRisk[] = [];
+        const { store, service, runAgentMock, notifications } = setupHarness({ resolveTaskRisks: () => risks });
+        const proposed = await service.forPlugin(PLUGIN).propose(runSpec({ schedule: { kind: "interval", minutes: 10 } }));
         service.confirmProposal(proposed.taskId);
+        risks = [risk];
 
         currentNow = new Date("2032-03-10T10:10:00.000Z");
         await vi.advanceTimersByTimeAsync(10 * 60_000);
+        currentNow = new Date("2032-03-10T10:30:00.000Z");
+        await vi.advanceTimersByTimeAsync(20 * 60_000);
 
+        const [task] = store.getTasks();
         expect(runAgentMock).not.toHaveBeenCalled();
-        expect(notifications).toHaveLength(1);
-        expect(notifications[0]).toMatchObject({
-          taskId: proposed.taskId,
-          pluginId: "dev.firefly.alpha",
-          requiredRisks: [risk],
-        });
-
-        const approvals = service.listPendingRunApprovals("dev.firefly.alpha");
-        expect(approvals).toHaveLength(1);
-        expect(approvals[0].status).toBe("pending_approval");
-
-        const [taskView] = await pluginA.list();
-        expect(taskView.status).toBe("pending_approval");
-        expect(taskView.pendingApprovalRunId).toBe(approvals[0].runId);
+        expect(notifications).toEqual([]);
+        expect(service.listPendingRunApprovals()).toEqual([]);
+        expect(store.getHistory(task.id)).toEqual([
+          expect.objectContaining({ status: "skipped", reason: "unattended run needs approval (not supported in 1.2.0)" }),
+        ]);
+        expect(task.pluginUserEnabled).toBe(false);
+        expect((await service.forPlugin(PLUGIN).list())[0].status).toBe("paused");
       },
     );
 
+    it("a one-shot fire that needs approval executes nothing and leaves no pending record", async () => {
+      let risks: ToolRisk[] = [];
+      const { store, service, runAgentMock } = setupHarness({ resolveTaskRisks: () => risks });
+      const proposed = await service.forPlugin(PLUGIN).propose(runSpec({ schedule: { kind: "once", at: BASE_TIME.getTime() + 10 * 60_000 } }));
+      service.confirmProposal(proposed.taskId);
+      risks = ["shell"];
+
+      currentNow = new Date("2032-03-10T10:10:00.000Z");
+      await vi.advanceTimersByTimeAsync(10 * 60_000);
+
+      const [task] = store.getTasks();
+      expect(runAgentMock).not.toHaveBeenCalled();
+      expect(service.listPendingRunApprovals()).toEqual([]);
+      expect(store.getHistory(task.id).map((entry) => entry.status)).toEqual(["skipped"]);
+    });
+
+    it("a blocked fire settles an approval that was already waiting as cancelled", async () => {
+      let risks: ToolRisk[] = [];
+      const { service, runAgentMock } = setupHarness({ resolveTaskRisks: () => risks });
+      const proposed = await service.forPlugin(PLUGIN).propose(runSpec({ schedule: { kind: "interval", minutes: 10 } }));
+      service.confirmProposal(proposed.taskId);
+      const waiting = service.suspendUnattendedRun(proposed.taskId, ["shell"]);
+      risks = ["shell"];
+
+      currentNow = new Date("2032-03-10T10:10:00.000Z");
+      await vi.advanceTimersByTimeAsync(10 * 60_000);
+
+      expect(service.getRunApproval(waiting.runId)).toMatchObject({ status: "cancelled" });
+      expect(service.listPendingRunApprovals()).toEqual([]);
+      await expectErrorCode(service.approveRun(waiting.runId), "ERR_CANCELLED");
+      expect(runAgentMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("unattended approval suspension (pending_approval)", () => {
     it("executes immediately without suspending for fs-read and network risks", async () => {
       const { service, runAgentMock, notifications } = setupHarness();
       const pluginA = service.forPlugin("dev.firefly.alpha");
@@ -433,15 +572,10 @@ describe("PluginSchedulesService (v2)", () => {
       const proposed = await pluginA.propose(
         runSpec({
           schedule: { kind: "interval", minutes: 10 },
-          requiredRisks: ["fs-write"],
         }),
       );
       service.confirmProposal(proposed.taskId);
-
-      currentNow = new Date("2032-03-10T10:10:00.000Z");
-      await vi.advanceTimersByTimeAsync(10 * 60_000);
-
-      const [pending] = service.listPendingRunApprovals();
+      const pending = service.suspendUnattendedRun(proposed.taskId, ["fs-write"]);
       expect(runAgentMock).not.toHaveBeenCalled();
 
       const settled = await service.approveRun(pending.runId);
@@ -462,15 +596,10 @@ describe("PluginSchedulesService (v2)", () => {
       const proposed = await pluginA.propose(
         runSpec({
           schedule: { kind: "interval", minutes: 10 },
-          requiredRisks: ["input-control"],
         }),
       );
       const confirmed = service.confirmProposal(proposed.taskId);
-
-      currentNow = new Date("2032-03-10T10:10:00.000Z");
-      await vi.advanceTimersByTimeAsync(10 * 60_000);
-
-      const [pending] = service.listPendingRunApprovals();
+      const pending = service.suspendUnattendedRun(proposed.taskId, ["input-control"]);
       const rejected = service.rejectRun(pending.runId, "Not now");
       expect(rejected.status).toBe("rejected");
       expect(rejected.reason).toBe("Not now");
@@ -621,14 +750,10 @@ describe("PluginSchedulesService (v2)", () => {
         title: "Privileged reminder",
         schedule: { kind: "interval", minutes: 5 },
         action: { type: "callback", payload },
-        requiredRisks: ["shell"],
       });
       service.confirmProposal(proposed.taskId);
       const [task] = store.getTasks();
-
-      currentNow = new Date("2032-03-10T10:05:00.000Z");
-      await vi.advanceTimersByTimeAsync(5 * 60_000);
-      const [pending] = service.listPendingRunApprovals(pluginId);
+      const pending = service.suspendUnattendedRun(proposed.taskId, ["shell"]);
       const history = store.getHistory(task.id);
       stopped.abort();
 
@@ -690,11 +815,9 @@ describe("PluginSchedulesService (v2)", () => {
     it("confirming a task update cancels a run still waiting for approval of the old specification", async () => {
       const { service, runAgentMock } = setupHarness();
       const client = service.forPlugin("dev.firefly.alpha");
-      const proposed = await client.propose(runSpec({ title: "old title", schedule: { kind: "interval", minutes: 15 }, requiredRisks: ["shell"] }));
+      const proposed = await client.propose(runSpec({ title: "old title", schedule: { kind: "interval", minutes: 15 } }));
       service.confirmProposal(proposed.taskId);
-      currentNow = new Date("2032-03-10T10:15:00.000Z");
-      await vi.advanceTimersByTimeAsync(15 * 60_000);
-      const [waiting] = service.listPendingRunApprovals("dev.firefly.alpha");
+      const waiting = service.suspendUnattendedRun(proposed.taskId, ["shell"]);
       expect(waiting.title).toBe("old title");
 
       await client.update(proposed.taskId, { title: "NEW title", action: { type: "run", prompt: "NEW prompt", mode: "work" } });
@@ -777,13 +900,10 @@ describe("PluginSchedulesService (v2)", () => {
         await new Promise<void>(resolve => { release = resolve; });
         active -= 1;
       });
-      const proposed = await client.propose({ title: "Write", schedule: { kind: "interval", minutes: 15 }, action: { type: "callback" }, requiredRisks: ["shell"] });
+      const proposed = await client.propose({ title: "Write", schedule: { kind: "interval", minutes: 15 }, action: { type: "callback" } });
       service.confirmProposal(proposed.taskId);
-      currentNow = new Date("2032-03-10T10:15:00.000Z");
-      await vi.advanceTimersByTimeAsync(15 * 60_000);
-      currentNow = new Date("2032-03-10T10:30:00.000Z");
-      await vi.advanceTimersByTimeAsync(15 * 60_000);
-      const [first, second] = service.listPendingRunApprovals("dev.firefly.alpha");
+      const first = service.suspendUnattendedRun(proposed.taskId, ["shell"]);
+      const second = service.suspendUnattendedRun(proposed.taskId, ["shell"]);
 
       const running = service.approveRun(first.runId);
       await vi.advanceTimersByTimeAsync(0);
@@ -829,11 +949,9 @@ describe("PluginSchedulesService (v2)", () => {
       const client = service.forPlugin("dev.firefly.alpha");
       let release!: () => void;
       client.onTrigger(async () => { await new Promise<void>(resolve => { release = resolve; }); });
-      const proposed = await client.propose({ title: "Write", schedule: { kind: "interval", minutes: 15 }, action: { type: "callback" }, requiredRisks: ["shell"] });
+      const proposed = await client.propose({ title: "Write", schedule: { kind: "interval", minutes: 15 }, action: { type: "callback" } });
       service.confirmProposal(proposed.taskId);
-      currentNow = new Date("2032-03-10T10:15:00.000Z");
-      await vi.advanceTimersByTimeAsync(15 * 60_000);
-      const [waiting] = service.listPendingRunApprovals("dev.firefly.alpha");
+      const waiting = service.suspendUnattendedRun(proposed.taskId, ["shell"]);
 
       const running = service.approveRun(waiting.runId);
       await vi.advanceTimersByTimeAsync(0);
@@ -926,6 +1044,62 @@ describe("PluginSchedulesService (v2)", () => {
       expect(store.getTasks()[0].schedule).toEqual({ kind: "interval", every: 60, unit: "minutes" });
     });
 
+    describe("the snapshot used to review an update", () => {
+      async function confirmedTaskEditedByUser() {
+        const harness = setupHarness();
+        const client = harness.service.forPlugin("dev.firefly.digest");
+        const proposed = await client.propose({
+          title: "Digest",
+          schedule: { kind: "interval", minutes: 30 },
+          action: { type: "run", prompt: "Summarize", mode: "work" },
+        });
+        harness.service.confirmProposal(proposed.taskId);
+        const stored = harness.store.getTasks()[0];
+        harness.store.updateTask(stored.id, { schedule: { kind: "interval", every: 10, unit: "minutes" }, prompt: "Summarize loudly", mode: "chat" });
+        return { ...harness, client, taskId: proposed.taskId };
+      }
+
+      it("shows the schedule, prompt and mode the user edited in the scheduler, not the plugin's original", async () => {
+        const { service, client, taskId } = await confirmedTaskEditedByUser();
+        await client.update(taskId, { title: "Digest v2" });
+
+        expect(service.getTaskRecord(taskId)).toMatchObject({
+          title: "Digest",
+          schedule: { kind: "interval", minutes: 10 },
+          action: { type: "run", prompt: "Summarize loudly", mode: "chat" },
+        });
+      });
+
+      it("a title-only update proposal keeps the user's edited schedule and prompt instead of reverting them", async () => {
+        const { service, store, client, taskId } = await confirmedTaskEditedByUser();
+        await client.update(taskId, { title: "Digest v2" });
+
+        expect(service.listPendingProposals()[0].spec).toMatchObject({
+          title: "Digest v2",
+          schedule: { kind: "interval", minutes: 10 },
+          action: { type: "run", prompt: "Summarize loudly", mode: "chat" },
+        });
+        expect(store.getTasks()[0].schedule).toEqual({ kind: "interval", every: 10, unit: "minutes" });
+      });
+
+      it("keeps the plugin's own representation while the user has not edited the task", async () => {
+        const { service, store } = setupHarness();
+        const client = service.forPlugin("dev.firefly.cron");
+        const proposed = await client.propose({
+          title: "Check",
+          schedule: { kind: "cron", expression: "*/15 * * * *", timezone: "UTC" },
+          action: { type: "callback", payload: { n: 1 } },
+        });
+        service.confirmProposal(proposed.taskId);
+        expect(store.getTasks()).toHaveLength(1);
+
+        expect(service.getTaskRecord(proposed.taskId)).toMatchObject({
+          schedule: { kind: "cron", expression: "*/15 * * * *", timezone: "UTC" },
+          action: { type: "callback", payload: { n: 1 } },
+        });
+      });
+    });
+
     it("a removal whose scheduled-task delete fails keeps the callback action intact", async () => {
       const { store, service, runAgentMock } = setupHarness();
       const client = service.forPlugin("dev.firefly.reminder");
@@ -1008,13 +1182,11 @@ describe("PluginSchedulesService (v2)", () => {
         title: "Confirmed callback",
         schedule: { kind: "interval", minutes: 20 },
         action: { type: "callback", payload: { step: 42 } },
-        requiredRisks: ["shell"],
       });
       service1.confirmProposal(confirmedProp.taskId);
 
-      // Simulate unattended run entering pending_approval before restart
-      const taskRow = store1.getTasks()[0];
-      await service1.runScheduledTask(taskRow, currentNow, false);
+      // A run waiting for approval before restart
+      service1.suspendUnattendedRun(confirmedProp.taskId, ["shell"]);
       expect(service1.listPendingRunApprovals("dev.firefly.persist")).toHaveLength(1);
 
       // Restart with new store and service instances reading the same files
