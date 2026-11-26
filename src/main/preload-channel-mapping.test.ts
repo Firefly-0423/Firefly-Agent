@@ -363,7 +363,7 @@ describe("preload IPC channel and argument mapping", () => {
   it("accounts for every non-listener invoke/send method across all exposed APIs", () => {
     const mapped = CHANNEL_MAPPING_CASES.map((entry) => entry.path);
     expect(new Set(mapped).size).toBe(mapped.length);
-    expect(mapped).toHaveLength(223);
+    expect(mapped).toHaveLength(226);
 
     const allExposedFunctions = collectLeafFunctionPaths(harness.exposed);
     expect(allExposedFunctions).toHaveLength(262);
