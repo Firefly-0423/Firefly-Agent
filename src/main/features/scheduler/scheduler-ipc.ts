@@ -23,17 +23,30 @@ export type SchedulerToolInfo = {
 };
 
 /** 给渲染层看的任务视图，去掉授权指纹和用户授权位这类宿主内部字段 */
-export type RendererScheduledTask = Omit<ScheduledTask, "approvalFingerprint" | "pluginUserEnabled">;
+export type RendererScheduledTask = Omit<ScheduledTask, "approvalFingerprint" | "pluginUserEnabled"> & {
+  /** Plugin-owned tasks only: whether the owning plugin runs now, in the legacy or the v2 host. */
+  pluginRunnable?: boolean;
+};
 
 /**
  * 渲染层投影。插件任务的 enabled 显示为有效授权状态，
  * 与引擎判断是否运行时采用同一口径。
  */
-export function projectTaskForRenderer(task: ScheduledTask): RendererScheduledTask {
+export function projectTaskForRenderer(task: ScheduledTask, canRunTask?: (task: ScheduledTask) => boolean): RendererScheduledTask {
   const { approvalFingerprint: _fingerprint, pluginUserEnabled: _userEnabled, ...visible } = task;
   if (!task.ownerPluginId) return visible;
-  return { ...visible, enabled: executionSpec.isPluginTaskEffectivelyEnabled(task) };
+  return {
+    ...visible,
+    enabled: executionSpec.isPluginTaskEffectivelyEnabled(task),
+    ...(canRunTask ? { pluginRunnable: canRunTask(task) } : {}),
+  };
 }
+
+/**
+ * Checks a plugin task as it would be saved. Throws to refuse; the app wiring supplies it so this module
+ * does not need to know which plugin host owns the task.
+ */
+export type PluginTaskEnableGuard = (task: ScheduledTask) => void;
 
 let registered = false;
 
@@ -52,7 +65,12 @@ function succeed<T>(value: T): SchedulerIpcResult<T> {
 }
 
 function failure(err: unknown): SchedulerIpcResult {
-  return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  const { reason } = (err ?? {}) as { reason?: unknown };
+  return {
+    ok: false,
+    error: err instanceof Error ? err.message : String(err),
+    ...(typeof reason === "string" ? { reason } : {}),
+  };
 }
 
 /** 注册调度相关 IPC；整个进程只注册一次，重复调用直接返回 */
@@ -61,6 +79,8 @@ export function registerSchedulerIpc(
   engine: SchedulerEngine,
   getTools: () => ToolDefinition[],
   ipcOption?: IpcScope,
+  guardPluginTaskEnable?: PluginTaskEnableGuard,
+  canRunTask?: (task: ScheduledTask) => boolean,
 ): void {
   if (registered) return;
   registered = true;
@@ -68,7 +88,7 @@ export function registerSchedulerIpc(
 
   ipc.handle(IPC.SCHEDULER_LIST, () => {
     try {
-      return succeed(store.getTasks().map(projectTaskForRenderer));
+      return succeed(store.getTasks().map((task) => projectTaskForRenderer(task, canRunTask)));
     } catch (err) {
       return failure(err);
     }
@@ -87,6 +107,11 @@ export function registerSchedulerIpc(
       const current = store.getTasks().find((t) => t.id === id);
       // 插件任务保存时按新规格重算授权指纹，并剔除宿主固定的字段
       const effective = current?.ownerPluginId ? executionSpec.authorizePluginTaskUpdatePatch(current, patch) : patch;
+      // A plugin task that stays enabled must still be allowed to run unattended after the edit.
+      if (current?.ownerPluginId && guardPluginTaskEnable
+        && (effective.pluginUserEnabled ?? current.pluginUserEnabled) === true) {
+        guardPluginTaskEnable({ ...current, ...effective } as ScheduledTask);
+      }
       return succeed(store.updateTask(id, effective));
     } catch (err) {
       return failure(err);
@@ -106,6 +131,7 @@ export function registerSchedulerIpc(
       const task = store.getTasks().find((t) => t.id === id);
       // 用户任务直接改 enabled，插件任务改授权位并按当前规格写指纹
       const patch = task?.ownerPluginId ? executionSpec.pluginTaskTogglePatch(task, enabled) : { enabled };
+      if (task?.ownerPluginId && enabled) guardPluginTaskEnable?.(task);
       return succeed(store.updateTask(id, patch));
     } catch (err) {
       return failure(err);

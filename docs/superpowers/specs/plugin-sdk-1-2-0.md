@@ -402,7 +402,7 @@ export interface Ui {
 负责人在已登录 npm 的终端执行（本机当前的 npm 令牌已失效，我无法代为执行）：
 
 ```bash
-npm deprecate @firefly_wu/plugin-sdk@"<1.0.0" "0.x is no longer supported. Use @firefly_wu/plugin-sdk 1.2.0 or later with Firefly 1.2.0. The 0.x line was derived from Cyrene-Agent (MIT)."
+npm deprecate @firefly_wu/plugin-sdk@"<1.0.0" "0.x is no longer supported. Use @firefly_wu/plugin-sdk 1.2.0 or later with Firefly 1.2.0."
 ```
 
 执行后用 `npm view @firefly_wu/plugin-sdk deprecated` 核对。1.2.0 发布前不要执行，以免用户找不到可用版本。

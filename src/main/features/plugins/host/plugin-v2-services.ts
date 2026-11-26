@@ -15,6 +15,7 @@ import type { LlmClient } from "../../../agent/services/llm/llm-client";
 import { FireflyAgent } from "../../../agent/runtime/firefly-agent";
 import type { BuildOptionsFn } from "../../../agent/runtime/run-input-types";
 import { cancelPendingApprovalsForRun } from "../../../platform/permission/permission";
+import { createPluginTaskRiskResolver } from "./plugin-task-risks";
 import type { ToolRegistry } from "../../../tooling/registry/tool-registry";
 import type { ChatSession, ChatSessionMeta, ConversationMode } from "../../../../shared/chat-types";
 import type {
@@ -46,6 +47,7 @@ import {
   bindPluginScheduleRpc,
   createPluginScheduleService,
   type PluginScheduleService,
+  type PluginScheduleServiceOptions,
   type PluginSchedulerStorePort,
 } from "../../../../plugins/v2/schedules";
 import {
@@ -98,6 +100,10 @@ export interface PluginV2HostDependencies {
   hostVersion?: string;
   stateFile?: string;
   scheduleStateFile?: string;
+  /** Called after the plugin schedule state (proposals, approvals) changed, so the UI can reload. */
+  onScheduleStateChanged?: () => void;
+  /** Runs the `run` action of a plugin task (the agent runner). */
+  runAgentTask?: PluginScheduleServiceOptions["runAgentTask"];
   runtimeEntry?: string;
   toolRegistry?: ToolRegistry;
   safeStorage?: SafeStorageLike | null;
@@ -406,6 +412,9 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
   const scheduleService: PluginScheduleService = createPluginScheduleService({
     store: deps.schedulerStore,
     stateFile: deps.scheduleStateFile ?? path.join(deps.dataRoot, "plugin-schedules-state.json"),
+    resolveTaskRisks: createPluginTaskRiskResolver(deps.toolRegistry),
+    ...(deps.runAgentTask ? { runAgentTask: deps.runAgentTask } : {}),
+    ...(deps.onScheduleStateChanged ? { onStateChanged: deps.onScheduleStateChanged } : {}),
   });
 
   const contextService: PluginContextService = createPluginContextService();

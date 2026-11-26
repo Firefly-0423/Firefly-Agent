@@ -112,7 +112,7 @@ const EXPECTED_NAMESPACE_KEYS: Record<string, readonly string[]> = {
   ],
   fireflyAppearance: ["get", "onChanged"],
   fireflyFont: ["get", "onChanged"],
-  fireflyScheduler: ["add", "delete", "fireNow", "getHistory", "getTools", "list", "toggle", "update"],
+  fireflyScheduler: ["add", "confirmPluginProposal", "delete", "fireNow", "getHistory", "getTools", "list", "listPluginProposals", "rejectPluginProposal", "toggle", "update"],
   fireflyTheme: ["get", "getColors", "onChanged", "onColorsChanged"],
   live2dWork: ["getWorking", "onChanged"],
   manualBrowser: ["execute", "getAvailability", "getPermission", "onChanged", "requestPermission", "revokePermission"],

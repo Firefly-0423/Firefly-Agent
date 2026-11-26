@@ -179,7 +179,7 @@ async function executeWeather(args: Record<string, unknown>, context?: ToolConte
       if (!credential) return "[错误] 还没有配置高德天气 Key。请在 设置 → 插件 → 天气查询 填入高德 Key，或切换天气源为 Open-Meteo（免配置）。";
       return amapFetchWeather(municipality, credential, context);
     }
-    default: return `[错误] 未知的天气源"${provider}"。请在 设置 → 插件 → 天气查询 选择 Open-Meteo 或 高德天气。`;
+    default: return `[错误] 无法识别天气源"${provider}"。请打开 设置 → 插件 → 天气查询，改选 Open-Meteo 或高德天气。`;
   }
 }
 const HANDLER_weather = executeWeather;
