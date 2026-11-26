@@ -107,6 +107,18 @@ describe("projectTaskForRenderer", () => {
   });
 });
 
+describe("projectTaskForRenderer pluginRunnable", () => {
+  it.each([true, false])("reports the host's runnable answer (%s) for plugin tasks only", (runnable) => {
+    const canRunTask = vi.fn(() => runnable);
+    const plugin = pluginTask();
+
+    expect(projectTaskForRenderer(plugin, canRunTask).pluginRunnable).toBe(runnable);
+    expect(canRunTask).toHaveBeenCalledWith(plugin);
+    expect(projectTaskForRenderer(userTask(), canRunTask)).not.toHaveProperty("pluginRunnable");
+    expect(projectTaskForRenderer(plugin)).not.toHaveProperty("pluginRunnable");
+  });
+});
+
 describe("scheduler list/add/update/delete/toggle handlers", () => {
   it("lists renderer projections and reports store failures", () => {
     const tasks = [userTask(), pluginTask()];
