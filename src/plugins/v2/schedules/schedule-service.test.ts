@@ -926,6 +926,62 @@ describe("PluginSchedulesService (v2)", () => {
       expect(store.getTasks()[0].schedule).toEqual({ kind: "interval", every: 60, unit: "minutes" });
     });
 
+    describe("the snapshot used to review an update", () => {
+      async function confirmedTaskEditedByUser() {
+        const harness = setupHarness();
+        const client = harness.service.forPlugin("dev.firefly.digest");
+        const proposed = await client.propose({
+          title: "Digest",
+          schedule: { kind: "interval", minutes: 30 },
+          action: { type: "run", prompt: "Summarize", mode: "work" },
+        });
+        harness.service.confirmProposal(proposed.taskId);
+        const stored = harness.store.getTasks()[0];
+        harness.store.updateTask(stored.id, { schedule: { kind: "interval", every: 10, unit: "minutes" }, prompt: "Summarize loudly", mode: "chat" });
+        return { ...harness, client, taskId: proposed.taskId };
+      }
+
+      it("shows the schedule, prompt and mode the user edited in the scheduler, not the plugin's original", async () => {
+        const { service, client, taskId } = await confirmedTaskEditedByUser();
+        await client.update(taskId, { title: "Digest v2" });
+
+        expect(service.getTaskRecord(taskId)).toMatchObject({
+          title: "Digest",
+          schedule: { kind: "interval", minutes: 10 },
+          action: { type: "run", prompt: "Summarize loudly", mode: "chat" },
+        });
+      });
+
+      it("a title-only update proposal keeps the user's edited schedule and prompt instead of reverting them", async () => {
+        const { service, store, client, taskId } = await confirmedTaskEditedByUser();
+        await client.update(taskId, { title: "Digest v2" });
+
+        expect(service.listPendingProposals()[0].spec).toMatchObject({
+          title: "Digest v2",
+          schedule: { kind: "interval", minutes: 10 },
+          action: { type: "run", prompt: "Summarize loudly", mode: "chat" },
+        });
+        expect(store.getTasks()[0].schedule).toEqual({ kind: "interval", every: 10, unit: "minutes" });
+      });
+
+      it("keeps the plugin's own representation while the user has not edited the task", async () => {
+        const { service, store } = setupHarness();
+        const client = service.forPlugin("dev.firefly.cron");
+        const proposed = await client.propose({
+          title: "Check",
+          schedule: { kind: "cron", expression: "*/15 * * * *", timezone: "UTC" },
+          action: { type: "callback", payload: { n: 1 } },
+        });
+        service.confirmProposal(proposed.taskId);
+        expect(store.getTasks()).toHaveLength(1);
+
+        expect(service.getTaskRecord(proposed.taskId)).toMatchObject({
+          schedule: { kind: "cron", expression: "*/15 * * * *", timezone: "UTC" },
+          action: { type: "callback", payload: { n: 1 } },
+        });
+      });
+    });
+
     it("a removal whose scheduled-task delete fails keeps the callback action intact", async () => {
       const { store, service, runAgentMock } = setupHarness();
       const client = service.forPlugin("dev.firefly.reminder");

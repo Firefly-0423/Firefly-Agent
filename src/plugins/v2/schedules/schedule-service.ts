@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import { AtomicJsonStore } from "../../../main/base/storage/atomic-json-store";
 import {
   computeExecutionSpecFingerprint,
@@ -277,14 +278,9 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     return true;
   }
 
-  function toTaskRecordFromStore(task: ScheduledTask, meta?: PluginTaskMetadata): TaskRecord {
-    const v2TaskId = meta?.taskId ?? task.id;
-    const pendingProposal = findPendingProposalForTask(v2TaskId);
-    const pendingApproval = Object.values(state.approvals).find(
-      (record) => record.taskId === v2TaskId && record.status === "pending_approval",
-    );
-    const enabled = isPluginTaskEffectivelyEnabled(task);
-    const fallbackSchedule: Schedule = task.schedule.kind === "cron"
+  /** The schedule a store task actually runs on, expressed as a plugin Schedule. */
+  function scheduleFromStore(task: ScheduledTask): Schedule {
+    return task.schedule.kind === "cron"
       ? task.schedule
       : task.schedule.kind === "once"
       ? { kind: "once", at: Date.parse(task.schedule.runAt) }
@@ -299,19 +295,49 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
               kind: "cron",
               expression: `${Number(task.schedule.timeOfDay.slice(3, 5))} ${Number(task.schedule.timeOfDay.slice(0, 2))} * * ${task.schedule.dayOfWeek}`,
             };
+  }
+
+  /**
+   * What the task effectively does now. The SchedulerStore is authoritative because the user can edit
+   * a plugin task there; the plugin metadata only supplies the original representation while it still
+   * matches the store (exact cron timezone etc.) and the callback action, which the store cannot express.
+   */
+  function effectiveScheduleAndAction(task: ScheduledTask, meta?: PluginTaskMetadata): { schedule: Schedule; action: ScheduleAction } {
+    let schedule: Schedule | undefined;
+    if (meta) {
+      try {
+        const { storeSchedule } = validateAndConvertSchedule(meta.schedule, clock(), { checkOnceInFuture: false });
+        if (isDeepStrictEqual(storeSchedule, task.schedule)) schedule = meta.schedule;
+      } catch {
+        // Metadata that no longer converts cannot describe the stored task.
+      }
+    }
+    const storeAction: ScheduleAction = { type: "run", prompt: task.prompt, mode: task.mode ?? "work" };
+    const action = meta?.action.type === "callback"
+      ? meta.action
+      : meta?.action.type === "run"
+        && meta.action.prompt.trim() === task.prompt
+        && meta.action.mode === (task.mode ?? "work")
+        ? meta.action
+        : storeAction;
+    return { schedule: cloneValue(schedule ?? scheduleFromStore(task)), action: cloneValue(action) };
+  }
+
+  function toTaskRecordFromStore(task: ScheduledTask, meta?: PluginTaskMetadata): TaskRecord {
+    const v2TaskId = meta?.taskId ?? task.id;
+    const pendingProposal = findPendingProposalForTask(v2TaskId);
+    const pendingApproval = Object.values(state.approvals).find(
+      (record) => record.taskId === v2TaskId && record.status === "pending_approval",
+    );
+    const enabled = isPluginTaskEffectivelyEnabled(task);
+    const { schedule, action } = effectiveScheduleAndAction(task, meta);
 
     return {
       taskId: v2TaskId,
       pluginId: task.ownerPluginId ?? meta?.pluginId ?? "",
       title: task.title,
-      schedule: cloneValue(meta?.schedule ?? fallbackSchedule),
-      action: cloneValue(
-        meta?.action ?? {
-          type: "run",
-          prompt: task.prompt,
-          mode: task.mode ?? "work",
-        },
-      ),
+      schedule,
+      action,
       status: pendingProposal || pendingApproval ? "pending_approval" : enabled ? "active" : "paused",
       requiredRisks: [...(meta?.requiredRisks ?? [])],
       allowedToolIds: [...task.allowedToolIds],
@@ -544,8 +570,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
           : meta
             ? {
                 title: liveTask?.title ?? "",
-                schedule: meta.schedule,
-                action: meta.action,
+                ...(liveTask ? effectiveScheduleAndAction(liveTask, meta) : { schedule: meta.schedule, action: meta.action }),
                 requiredRisks: meta.requiredRisks,
                 allowedToolIds: liveTask?.allowedToolIds ?? [],
               }
