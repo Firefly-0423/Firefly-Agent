@@ -23,6 +23,7 @@ import type {
   UninstallCleanupResult,
 } from "../../../../shared/plugin-management";
 import type { PluginManifestV1, PluginRunSource } from "../../../../shared/plugin-manifest";
+import type { PluginReplaceSummary } from "../../../../shared/plugin-management";
 import {
   PluginError,
   type ProtocolHostEvent,
@@ -129,7 +130,11 @@ export interface PluginV2ImportOptions {
   origin?: PluginOrigin;
   sourceKind?: PluginSourceKind;
   sourceId?: string;
+  /** Hash of the package the user was shown in a replace confirmation; required to overwrite an installed plugin from a local package. */
+  confirmedReplacement?: { sha256: string };
 }
+
+export type PluginV2ReplaceSummary = PluginReplaceSummary;
 
 export type PluginV2ImportResult =
   | {
@@ -143,6 +148,12 @@ export type PluginV2ImportResult =
       installation: "rejected";
       activation?: "rolled-back" | "failed";
       error: string;
+    }
+  | {
+      ok: false;
+      installation: "needs-confirmation";
+      error: string;
+      replace: PluginV2ReplaceSummary;
     };
 
 export type PluginV2UninstallResult = {
@@ -246,6 +257,44 @@ export function mapPluginModelRunOutcome(status: string | undefined): "completed
   if (status === "success") return "completed";
   if (status === "cancelled") return "cancelled";
   return "failed";
+}
+
+function summarizeReplacement(
+  existing: StoredPluginState,
+  incoming: PluginManifestV1,
+  incomingOrigin: PluginOrigin,
+  packageSha256: string,
+): PluginV2ReplaceSummary {
+  const granted = new Set(existing.grantedPermissions);
+  const permissions = [...(incoming.permissions ?? [])];
+  const currentNative = existing.manifest.native === true;
+  const incomingNative = incoming.native === true;
+  return {
+    current: {
+      name: existing.manifest.name,
+      version: existing.version,
+      origin: existing.origin ?? "local",
+      enabled: existing.enabled,
+      native: currentNative,
+      grantedPermissions: [...existing.grantedPermissions],
+    },
+    incoming: {
+      name: incoming.name,
+      version: incoming.version,
+      origin: incomingOrigin,
+      native: incomingNative,
+      permissions,
+      tools: (incoming.tools ?? []).map((tool) => ({
+        name: tool.name,
+        title: tool.title,
+        risk: [...tool.risk],
+        modes: [...tool.modes],
+      })),
+    },
+    addedPermissions: permissions.filter((permission) => !granted.has(permission)),
+    nativeEscalation: !currentNative && incomingNative,
+    packageSha256,
+  };
 }
 
 export function createPluginV2HostController(deps: PluginV2HostDependencies) {
@@ -1039,6 +1088,27 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
       const sourceKind: PluginSourceKind = opts.sourceKind ?? imported.sourceKind;
       const sourceId = opts.sourceId;
       const existing = stateStore.get(manifest.id);
+
+      // A local package must not silently replace (or hot-swap) an installed plugin: the user confirms this exact package first.
+      if (existing && origin === "local") {
+        if (!opts.confirmedReplacement) {
+          await imported.rollback().catch(() => {});
+          return {
+            ok: false,
+            installation: "needs-confirmation",
+            error: `插件 ${manifest.id} 已安装，替换前需要确认`,
+            replace: summarizeReplacement(existing, manifest, origin, imported.contentSha256),
+          };
+        }
+        if (opts.confirmedReplacement.sha256 !== imported.contentSha256) {
+          await imported.rollback().catch(() => {});
+          return {
+            ok: false,
+            installation: "rejected",
+            error: "插件包与已确认的内容不一致，请重新导入并确认",
+          };
+        }
+      }
 
       if (!existing) {
         try {

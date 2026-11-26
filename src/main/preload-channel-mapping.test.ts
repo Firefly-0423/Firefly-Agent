@@ -393,4 +393,12 @@ describe("preload IPC channel and argument mapping", () => {
       }
     },
   );
+
+  it.each([
+    ["plugins.importZip", IPC.PLUGINS_IMPORT_ZIP],
+    ["plugins.importFolder", IPC.PLUGINS_IMPORT_FOLDER],
+  ])("forwards the replace confirmation token from %s as the only argument", async (path, channel) => {
+    await resolveCallable(path)("token-1");
+    expect(harness.invoke.mock.calls).toEqual([[channel, "token-1"]]);
+  });
 });

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { IpcScope } from "../../../base/ipc/ipc-scope";
 import { IPC } from "../../../../shared/ipc-channels";
 import type {
@@ -166,24 +167,44 @@ export function registerPluginManagementIpc(deps: PluginManagementIpcDeps): void
     }),
   );
 
+  // One pending replace confirmation: it remembers the exact path and package hash that were shown to the user.
+  let pendingReplacement: { token: string; sourcePath: string; sha256: string } | undefined;
+
+  const runImport = async (select: () => Promise<string | undefined>, rawToken: unknown) => {
+    let sourcePath: string | undefined;
+    let opts: { confirmedReplacement: { sha256: string } } | undefined;
+    if (rawToken !== undefined) {
+      const pending = pendingReplacement;
+      pendingReplacement = undefined;
+      if (typeof rawToken !== "string" || !pending || pending.token !== rawToken) {
+        return { ok: false, error: "替换确认已失效，请重新导入", overview: overview() };
+      }
+      sourcePath = pending.sourcePath;
+      opts = { confirmedReplacement: { sha256: pending.sha256 } };
+    } else {
+      pendingReplacement = undefined;
+      sourcePath = await select();
+      if (!sourcePath) return { ok: false, canceled: true };
+    }
+    const result = opts
+      ? await controller.importFromPath(sourcePath, opts)
+      : await controller.importFromPath(sourcePath);
+    if (!result.ok && result.installation === "needs-confirmation") {
+      const token = randomUUID();
+      pendingReplacement = { token, sourcePath, sha256: result.replace.packageSha256 };
+      return { ...result, confirmToken: token, overview: overview() };
+    }
+    return { ...result, overview: overview() };
+  };
+
   ipc.handle(
     IPC.PLUGINS_IMPORT_ZIP,
-    guardPluginIpcHandler(IPC.PLUGINS_IMPORT_ZIP, hosts, async () => {
-      const selected = await deps.selectPluginPackage();
-      if (!selected) return { ok: false, canceled: true };
-      const result = await controller.importFromPath(selected);
-      return { ...result, overview: overview() };
-    }),
+    guardPluginIpcHandler(IPC.PLUGINS_IMPORT_ZIP, hosts, ([token]) => runImport(deps.selectPluginPackage, token)),
   );
 
   ipc.handle(
     IPC.PLUGINS_IMPORT_FOLDER,
-    guardPluginIpcHandler(IPC.PLUGINS_IMPORT_FOLDER, hosts, async () => {
-      const selected = await deps.selectPluginFolder();
-      if (!selected) return { ok: false, canceled: true };
-      const result = await controller.importFromPath(selected);
-      return { ...result, overview: overview() };
-    }),
+    guardPluginIpcHandler(IPC.PLUGINS_IMPORT_FOLDER, hosts, ([token]) => runImport(deps.selectPluginFolder, token)),
   );
 
   ipc.handle(

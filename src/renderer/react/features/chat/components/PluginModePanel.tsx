@@ -9,6 +9,7 @@ import type {
   PluginListEntry,
   PluginManagementApi,
   PluginOverview,
+  PluginReplaceSummary,
   PluginRuntimeStatus,
   UninstallCleanupResult,
   UninstallPluginOptions,
@@ -44,6 +45,34 @@ const STATUS_ORDER: Record<PluginRuntimeStatus, number> = {
   stopping: 6,
   disabled: 7,
 };
+function replaceConfirmation(summary: PluginReplaceSummary, t: Translate) {
+  const { current, incoming } = summary;
+  const originLabel = (origin: "local" | "market") => t(origin === "market" ? "pluginPanel.replaceConfirm.originMarket" : "pluginPanel.replaceConfirm.originLocal");
+  const tools = incoming.tools.map(tool => `${tool.title} (${tool.name}) · ${tool.risk.join(", ")}`);
+  const lines = [
+    t("pluginPanel.replaceConfirm.currentLine", {
+      name: current.name, version: current.version, origin: originLabel(current.origin),
+      state: t(current.enabled ? "pluginPanel.replaceConfirm.stateEnabled" : "pluginPanel.replaceConfirm.stateDisabled"),
+    }),
+    t("pluginPanel.replaceConfirm.incomingLine", { name: incoming.name, version: incoming.version }),
+    current.origin === "market" ? t("pluginPanel.replaceConfirm.originChange") : "",
+    t(current.enabled ? "pluginPanel.replaceConfirm.stateEnabledNotice" : "pluginPanel.replaceConfirm.stateDisabledNotice"),
+    t("pluginPanel.enableConfirm.trustNotice"),
+    incoming.native ? t("pluginPanel.enableConfirm.nativeWarning") : "",
+    summary.nativeEscalation ? t("pluginPanel.replaceConfirm.nativeEscalation") : "",
+    summary.addedPermissions.length > 0
+      ? t("pluginPanel.replaceConfirm.newPermissions", { permissions: summary.addedPermissions.map(perm => permissionLabel(perm, t)).join(", ") })
+      : t("pluginPanel.replaceConfirm.noNewPermissions"),
+    tools.length > 0 ? t("pluginPanel.replaceConfirm.tools", { tools: tools.join("; ") }) : t("pluginPanel.replaceConfirm.toolsNone"),
+  ];
+  return {
+    title: t("pluginPanel.replaceConfirm.title"),
+    message: lines.filter(Boolean).join("\n\n"),
+    confirmText: t("pluginPanel.replaceConfirm.confirm"),
+    cancelText: t("common.cancel"),
+    dangerous: true,
+  };
+}
 const causeText = (cause: unknown) => cause instanceof Error ? cause.message : String(cause);
 const formatCleanupFailure = (
   cleanup: UninstallCleanupResult | undefined,
@@ -219,7 +248,12 @@ function usePluginController(api: PluginManagementApi | undefined, t: Translate,
     const runner = kind === "importFolder" ? api?.importFolder : api?.importZip;
     if (!runner || !beginInstalled({ header: kind })) return;
     try {
-      const response = await runner();
+      let response = await runner();
+      if (response.installation === "needs-confirmation" && response.replace && response.confirmToken) {
+        // The pending replacement is bound to the exact package shown here; declining leaves the installed plugin untouched.
+        if (!await feedback.confirm(replaceConfirmation(response.replace, t))) return;
+        response = await runner(response.confirmToken);
+      }
       if (!response.ok && !response.canceled) {
         if (response.activation === "rolled-back") {
           setInstalledFailure(t("pluginPanel.upgradeRolledBack", { error: response.error ?? t("pluginPanel.unknownError") }));

@@ -108,4 +108,55 @@ describe("registerPluginManagementIpc", () => {
       cleanup: { secrets: "kept", data: "kept" },
     });
   });
+
+  describe("local replacement confirmation", () => {
+    const replace = {
+      current: { name: "Old", version: "1.0.0", origin: "market", enabled: true, native: false, grantedPermissions: [] },
+      incoming: { name: "New", version: "2.0.0", origin: "local", native: false, permissions: [], tools: [] },
+      addedPermissions: [],
+      nativeEscalation: false,
+      packageSha256: "a".repeat(64),
+    };
+    const needsConfirmation = { ok: false as const, installation: "needs-confirmation" as const, error: "replace?", replace };
+
+    it("returns a one-time token with the summary and re-imports the same path only with the confirmed hash", async () => {
+      const trusted = eventFrom(chatHost);
+      controller.importFromPath.mockResolvedValueOnce(needsConfirmation);
+
+      const asked = await handlers.get(IPC.PLUGINS_IMPORT_ZIP)!(trusted) as { confirmToken: string };
+      expect(asked).toMatchObject({ ok: false, installation: "needs-confirmation", replace, confirmToken: expect.any(String) });
+      expect(controller.importFromPath).toHaveBeenCalledTimes(1);
+
+      await handlers.get(IPC.PLUGINS_IMPORT_ZIP)!(trusted, asked.confirmToken);
+      expect(selectPluginPackage).toHaveBeenCalledTimes(1);
+      expect(controller.importFromPath).toHaveBeenLastCalledWith("C:\\pkg.ffplugin", { confirmedReplacement: { sha256: replace.packageSha256 } });
+
+      controller.importFromPath.mockClear();
+      const reused = await handlers.get(IPC.PLUGINS_IMPORT_ZIP)!(trusted, asked.confirmToken);
+      expect(reused).toMatchObject({ ok: false });
+      expect(controller.importFromPath).not.toHaveBeenCalled();
+    });
+
+    it("rejects an unknown or malformed token without importing or opening a dialog", async () => {
+      const trusted = eventFrom(chatHost);
+      for (const token of ["nope", 42, {}]) {
+        const res = await handlers.get(IPC.PLUGINS_IMPORT_FOLDER)!(trusted, token);
+        expect(res).toMatchObject({ ok: false, error: expect.any(String) });
+      }
+      expect(controller.importFromPath).not.toHaveBeenCalled();
+      expect(selectPluginFolder).not.toHaveBeenCalled();
+    });
+
+    it("forgets the older pending confirmation when a newer import asks", async () => {
+      const trusted = eventFrom(chatHost);
+      controller.importFromPath.mockResolvedValueOnce(needsConfirmation).mockResolvedValueOnce(needsConfirmation);
+      const first = await handlers.get(IPC.PLUGINS_IMPORT_ZIP)!(trusted) as { confirmToken: string };
+      await handlers.get(IPC.PLUGINS_IMPORT_FOLDER)!(trusted);
+      controller.importFromPath.mockClear();
+
+      const res = await handlers.get(IPC.PLUGINS_IMPORT_ZIP)!(trusted, first.confirmToken);
+      expect(res).toMatchObject({ ok: false });
+      expect(controller.importFromPath).not.toHaveBeenCalled();
+    });
+  });
 });

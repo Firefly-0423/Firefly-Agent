@@ -1,5 +1,5 @@
-import { randomUUID } from "node:crypto";
-import { cp, lstat, mkdir, mkdtemp, readdir, realpath, rename, rm } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { cp, lstat, mkdir, mkdtemp, readdir, readFile, realpath, rename, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { within } from "../../../main/base/identity/runtime-profile";
@@ -50,6 +50,8 @@ export interface ImportedPackageHandle {
   installDir: string;
   files: string[];
   sourceKind: "local-folder" | "local-package";
+  /** SHA-256 over the staged package: every file's relative path and content digest, in path order. */
+  contentSha256: string;
   /**
    * Only present with `deferSwap`: moves the staged files into `installDir` (the previous directory,
    * if any, becomes a backup). Until it runs, `installDir` is untouched and `rollback()` only drops staging.
@@ -212,6 +214,16 @@ async function copyValidatedFiles(
     await fsOps.mkdir(path.dirname(dst), { recursive: true });
     await fsOps.cp(src, dst, { dereference: false, errorOnExist: true });
   }
+}
+
+/** Digest of the staged copy (what would be installed), so a confirmation binds to the exact bytes. */
+async function hashStagedPackage(stagingDir: string, files: readonly string[]): Promise<string> {
+  const hash = createHash("sha256");
+  for (const relative of [...files].sort()) {
+    const content = await readFile(path.join(stagingDir, ...relative.split("/")));
+    hash.update(`${relative}\u0000${createHash("sha256").update(content).digest("hex")};`);
+  }
+  return hash.digest("hex");
 }
 
 async function inspectSourceDir(
@@ -402,6 +414,8 @@ export async function importPluginPackage(
         { path: targetDir, label: "插件目标目录" },
       ]);
 
+      const contentSha256 = await hashStagedPackage(stagingDir, files);
+
       if (!deferred) await swapIntoPlace();
 
       let settled = false;
@@ -412,6 +426,7 @@ export async function importPluginPackage(
         installDir: targetDir,
         files,
         sourceKind,
+        contentSha256,
         ...(deferred
           ? {
               async swap() {
