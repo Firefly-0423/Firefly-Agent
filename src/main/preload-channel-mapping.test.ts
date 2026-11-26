@@ -366,7 +366,7 @@ describe("preload IPC channel and argument mapping", () => {
     expect(mapped).toHaveLength(226);
 
     const allExposedFunctions = collectLeafFunctionPaths(harness.exposed);
-    expect(allExposedFunctions).toHaveLength(262);
+    expect(allExposedFunctions).toHaveLength(265);
 
     const nonTableFunctions = allExposedFunctions.filter(
       (methodPath) => methodPath === "chat.ingestDroppedFiles" || /\.on[A-Z]/.test(methodPath),
