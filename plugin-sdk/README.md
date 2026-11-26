@@ -132,7 +132,7 @@ export default definePlugin({
 
 ## 权限一览与首次调用确认
 
-插件调用宿主能力时，必须在 `firefly.plugin.json` 的 `permissions` 数组中声明对应权限；启用插件时宿主会向用户集中展示所有声明的能力。下表列出 SDK 1.2.0 的全部 8 项权限：
+插件调用宿主能力时，必须在 `firefly.plugin.json` 的 `permissions` 数组中声明对应权限；启用插件时宿主会向用户集中展示所有声明的能力。下表列出 SDK 1.2.0 的全部 9 项权限：
 
 | 权限 | 对应能力 (`ctx.*`) | 是否需要首次调用单独确认 | 说明与约束 |
 | --- | --- | --- | --- |
@@ -142,6 +142,7 @@ export default definePlugin({
 | `sessions.read` | `ctx.sessions.list` / `messages` | **是（首次调用确认）** | 仅读取当前绑定工作区下的公开对话记录，经宿主脱敏 |
 | `workspace.read` | `ctx.workspace.current` / `onChange` | **是（首次调用确认）** | 仅读取当前绑定工作区的元数据与变更通知 |
 | `schedules` | `ctx.schedules.*` | 否（但任务须审批） | `propose` / `update` 创建或修改后处于 `pending_approval`，需用户在任务面板批准才生效 |
+| `notifications` | `ctx.notifications.show` | 否（启用即授予） | 发送纯文本桌面通知 `{ title, body } -> Promise<{ shown: boolean }>`；标题/正文上限 64/256 个 Unicode 码点、每分钟最多 5 次；宿主在标题前加 `〔插件名〕`；系统不支持或用户关闭通知时返回 `{ shown: false }` |
 | `secrets` | `ctx.secrets.*` | 否（启用即授予） | 基于系统 `safeStorage` 加密存储凭据；加密不可用时直接失败（`ERR_UNAVAILABLE`），绝不降级明文 |
 | `ui.windows` | `ctx.ui.openWindow` | 否（启用即授予） | 打开 `manifest.ui.windows` 中声明的独立窗口；设置页 `ui.settings` 仅需在 `ui.settings` 声明即可收发消息 |
 
@@ -150,11 +151,31 @@ export default definePlugin({
 - 确认状态按授予版本（grant revision）持久化，切会话或重启应用后无需重复确认；但一旦用户在设置页**撤销该权限**、停用插件或升级版本，再次授予时会重新触发首次确认。
 - 未在清单声明的能力调用抛出 `ERR_UNDECLARED`；声明但已被用户撤销或拒绝确认抛出 `ERR_PERMISSION`。
 
+桌面通知（`ctx.notifications.show`）调用约定：
+- 仅接受 `{ title, body }` 纯文本对象（禁止按钮、链接动作或自定义图标）；去除控制字符后，标题上限 **64** 个 Unicode 码点、正文上限 **256** 个 Unicode 码点（超限报 `ERR_INVALID_ARGUMENT`）。
+- 每插件每分钟最多 **5** 次（超限报 `ERR_RATE_LIMITED`）；宿主自动在标题前添加 `〔插件名〕`，点击仅激活 Firefly 主窗口。
+- 若系统不支持通知或用户已关闭通知，返回 `{ shown: false }`（不会抛错），插件应做静默降级或兜底处理：
+
+<!-- doc-example: snippet id=readme-notifications -->
+```ts
+import type { PluginContext } from "@firefly_wu/plugin-sdk";
+
+export async function sendSafeNotification(ctx: PluginContext, title: string, body: string) {
+  if (!ctx.has("notifications")) {
+    return { sent: false, reason: "no_permission" as const };
+  }
+  const safeTitle = [...title.trim()].slice(0, 64).join("");
+  const safeBody = [...body.trim()].slice(0, 256).join("");
+  const { shown } = await ctx.notifications.show({ title: safeTitle, body: safeBody });
+  return { sent: shown, reason: shown ? ("shown" as const) : ("suppressed_or_unsupported" as const) };
+}
+```
+
 工具风险声明与三档权限策略：
 - 工具的 `risk` 只能从 `fs-read`、`fs-write`、`shell`、`network`、`input-control` 中选取，**禁止声明 `"safe"`**。
 - 宿主提供 `read-only`（只读）、`per-action`（请求审批）、`full`（完全访问）三档权限策略：在 `read-only` 下插件 `shell` 工具也会改为**询问**（因插件不在内置命令沙箱中）。
 
-> 外部聊天渠道能力（`channels` / `ctx.channels`）正在 C12 阶段接入宿主，**即将提供**。
+> 外部聊天渠道（`channels` / `ctx.channels`）：**SDK 接口已提供，桌面接入随 1.2.x 提供**。渠道默认以 **Chat** 模式运行（不挂载工具）；按会话开启 **Work** 后仅放行 `fs-read` 风险工具；审批只在本机宿主完成（不接受外部平台回复审批）；回复发出前先由宿主脱敏。
 
 ---
 
@@ -279,7 +300,7 @@ npx firefly-plugin pack ./my-plugin -o ./dist/my-plugin-1.0.0.ffplugin
 Firefly 1.2.0 对插件系统做了彻底重构，**不兼容 0.x 版本**：
 
 1. **清单文件与字段变化**：1.2.0 使用 `firefly.plugin.json` 与 `schemaVersion: 1`，不再识别 0.x 的 `manifest.json`。若清单中出现 `apiVersion`、`entry`、`deps`、`hooks`、`settingsPanel`、`settingsSection`、`defaultEnabled` 等 0.x 字段，校验器会直接返回错误码 `legacy_manifest`（`"这是 0.x 插件，1.2.0 不再支持"`）。
-2. **入口与能力接口变化**：1.2.0 使用 `definePlugin({ activate(ctx), deactivate?(reason) })` 与平铺命名空间（`ctx.tools`、`ctx.context`、`ctx.model`、`ctx.events`、`ctx.sessions`、`ctx.workspace`、`ctx.schedules`、`ctx.secrets`、`ctx.ui`），取代 0.x 的 `register(ctx)` / `unregister()`、`ctx.deps.*` 与 `ctx.storage`。
+2. **入口与能力接口变化**：1.2.0 使用 `definePlugin({ activate(ctx), deactivate?(reason) })` 与平铺命名空间（`ctx.tools`、`ctx.context`、`ctx.channels`、`ctx.model`、`ctx.events`、`ctx.sessions`、`ctx.workspace`、`ctx.schedules`、`ctx.notifications`、`ctx.secrets`、`ctx.ui`），取代 0.x 的 `register(ctx)` / `unregister()`、`ctx.deps.*` 与 `ctx.storage`。
 3. **存储与运行隔离**：1.2.0 使用独立数据目录（Windows 默认 `%APPDATA%\Firefly-1.2.0`），**不读取、不迁移** 1.1.x 的 `plugins/`、`plugin-data/` 以及 0.x 插件。
 
 ---
@@ -298,7 +319,9 @@ Firefly 1.2.0 对插件系统做了彻底重构，**不兼容 0.x 版本**：
 
 - **Install**: `npm install @firefly_wu/plugin-sdk` (or build from the Firefly repo via `pnpm run build:plugin-sdk && npm pack ./plugin-sdk`).
 - **Minimal Plugin**: Declare a `firefly.plugin.json` (`schemaVersion: 1`, reverse-domain `id`, SemVer `version` and `sdk`, `.mjs`/`.cjs` `main`, tool `risk` without `"safe"`) and export `definePlugin({ activate(ctx), deactivate?(reason) })`.
-- **Permissions & First-Use Confirmations**: Supported `permissions` are `model.generate`, `model.run`, `events`, `sessions.read`, `workspace.read`, `schedules`, `secrets`, and `ui.windows` (`channels` is coming soon in C12). Three sensitive permissions — **`sessions.read`**, **`workspace.read`**, and **`model.run`** — additionally prompt the user for a separate **first-use confirmation** on their first invocation (persisted per grant revision; reset on revocation or upgrade).
+- **Permissions & First-Use Confirmations**: Supported `permissions` are `model.generate`, `model.run`, `events`, `sessions.read`, `workspace.read`, `schedules`, `notifications`, `secrets`, and `ui.windows`. Three sensitive permissions — **`sessions.read`**, **`workspace.read`**, and **`model.run`** — additionally prompt the user for a separate **first-use confirmation** on their first invocation (persisted per grant revision; reset on revocation or upgrade).
+- **Desktop Notifications (`notifications`)**: Call `ctx.notifications.show({ title, body }) -> Promise<{ shown: boolean }>` (plain text only, up to `64` / `256` Unicode code points after control-character stripping, max `5` calls per minute per plugin). The host prepends `〔Plugin Name〕` to `title`, clicking only focuses the main window, and `{ shown: false }` is returned if unsupported by the OS or disabled by the user.
+- **Channels (`channels` / `ctx.channels`)**: The SDK interface is available; desktop wiring arrives in 1.2.x. Channel conversations default to **Chat** mode (no tools); enabling **Work** per conversation allows only `fs-read` tools, approvals happen solely locally on the host (never on external platforms), and outbound replies are redacted before sending.
 - **Four `ToolResult` States**: Tool `execute()` returns a discriminated union: `succeeded` (`output`, `summary?`), `failed` (`error`, `retryable?`), `unknown` (`reason`, `possibleEffects?` — host will never auto-retry), or `not_executed` (`reason`).
 - **Testing & Packaging**: Import `createTestHost` from `@firefly_wu/plugin-sdk/testing` to test modes, permission levels (`read-only`, `per-action`, `full`), revocation, cancellation, and crashes without Electron. Validate and bundle packages as `.ffplugin` archives using `firefly-plugin validate <dir>` and `firefly-plugin pack <dir> -o <file.ffplugin>`.
 - **0.x Incompatibility & Trust Boundary**: 1.2.0 is incompatible with 0.x (`apiVersion: 1`, `manifest.json`, `ctx.deps.*`, `register`/`unregister`) and does not migrate 0.x plugins or 1.1.x plugin data. Plugins run in an isolated Electron `utilityProcess`, **which protects host stability and host data rather than acting as a OS security sandbox** — plugin code still has Node.js filesystem and network access, so **enabling a plugin means trusting its code**.

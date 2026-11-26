@@ -2,7 +2,7 @@
 
 本文面向插件开发者，完整说明 Firefly 1.2.0 插件的项目结构、`firefly.plugin.json` 逐字段规范、`ctx.*` 全部接口与协议错误码、#133 官方示例拆解，以及使用 `createTestHost()` 测试与 `firefly-plugin` CLI 打包的完整流程。安全模型与权限策略细节见 [plugin-authoring.md](./plugin-authoring.md)。
 
-> **SDK 1.2.0 基线**：`@firefly_wu/plugin-sdk` **`1.2.0`**（`plugin-sdk/package.json`），对应清单 `schemaVersion: 1`（`firefly.plugin.json`）。本文只记录已合入主分支或已在 PR 中的能力；**外部聊天渠道（`channels` / `ctx.channels`）将在 C12 中接入，当前标为「即将提供」**。
+> **SDK 1.2.0 基线**：`@firefly_wu/plugin-sdk` **`1.2.0`**（`plugin-sdk/package.json`），对应清单 `schemaVersion: 1`（`firefly.plugin.json`）。本文涵盖工具、上下文、模型、事件、会话、工作区、定时任务、桌面通知（#136）、密钥与界面能力；**外部聊天渠道（`channels` / `ctx.channels`）：SDK 接口已提供，桌面接入随 1.2.x 提供**。
 
 ---
 
@@ -61,7 +61,7 @@ my-plugin/
 | `native` | 否 | 布尔值 | 包含 `.node` / `.dll` 原生模块时必须为 `true`；线上目录禁止 `native: true` |
 | `tools` | 否 | `ToolManifest[]` | 静态声明插件注册的全部工具，名称不可重复 |
 | `context` | 否 | `ContextManifest[]` | 静态声明插件注册的全部上下文 Provider，id 不可重复 |
-| `channels` | 否 | `ChannelManifest[]` | **即将提供（C12 接入中）**；静态声明渠道适配器，id 不可重复 |
+| `channels` | 否 | `ChannelManifest[]` | **SDK 接口已提供，桌面接入随 1.2.x 提供**；静态声明渠道适配器，id 不可重复 |
 | `permissions` | 否 | `PluginPermission[]` | 允许的权限枚举见下表 |
 | `ui` | 否 | `{ settings?, windows? }` | 声明设置面板与独立窗口 |
 
@@ -77,10 +77,10 @@ my-plugin/
   - `title`（必填，非空白）：展示标题。
   - `modes`（必填，非空数组）：元素为 `"chat" | "work" | "code"`。
   - `sources`（必填，非空数组）：元素为 `"user" | "schedule" | "plugin" | "channel"`。
-- **`channels[]`** *(即将提供，C12)*：
+- **`channels[]`** *(SDK 接口已提供，桌面接入随 1.2.x 提供)*：
   - `id`（必填，非空白，数组内唯一）、`title`（必填，非空白）。
 - **`permissions[]`**：
-  - 枚举值：`"model.generate"`、`"model.run"`、`"events"`、`"sessions.read"`、`"workspace.read"`、`"schedules"`、`"secrets"`、`"ui.windows"`。
+  - 枚举值：`"model.generate"`、`"model.run"`、`"events"`、`"sessions.read"`、`"workspace.read"`、`"schedules"`、`"notifications"`、`"secrets"`、`"ui.windows"`。
 - **`ui.settings`**：
   - `entry`（必填，相对路径）、`title`（必填，非空白）。
 - **`ui.windows[]`**：
@@ -149,14 +149,24 @@ export default definePlugin({
 
 约束：单次 `provide` 超时 **1,500 ms**，单 Provider 最多保留 **16,000** 字符，所有 Provider 合计最多 **32,000** 字符，内容以外部数据边界标签包裹送入模型。
 
-### 4.3 `ctx.channels` — 外部聊天渠道 *(即将提供，C12)*
+### 4.3 `ctx.channels` — 外部聊天渠道
 
-> **状态说明**：协议与 SDK 类型已定义，桌面端 C12 渠道宿主接线**即将提供**，当前桌面主应用尚未启用渠道运行路径。
+> **状态说明**：**SDK 接口已提供，桌面接入随 1.2.x 提供**。插件侧 `ctx.channels` 与宿主服务 `createPluginChannelService`（`src/plugins/v2/channels/channel-service.ts`）已合入分支，当前桌面主应用尚未接入渠道设置面板与消息路由入口。
 
-协议契约预留如下（供参考）：
-- `ctx.channels.register(adapter: ChannelAdapter)`：触发 `channels.register`（需在 `manifest.channels` 声明 `id`）。
-- `ChannelHost` 回调：`reportState(s: { state: "disconnected" \| "connecting" \| "connected" \| "error", detail? })`（`channels.reportState`）与 `deliver(msg: InboundMessage)` → `{ accepted: boolean; sessionId?: string }`（`channels.deliver`）。
-- 宿主调用插件：`channel.start` (`{ id }`)、`channel.stop` (`{ id }`)、`channel.send` (`{ id, message: OutboundMessage }`) → `{ externalMessageId: string }`。
+接口契约与协议方法：
+- `ctx.channels.register(adapter: ChannelAdapter): Disposable`：触发 `channels.register`（`id` 必须在 `manifest.channels` 中声明，否则报 `ERR_UNDECLARED`；插件停用或 `dispose()` 时断开连接并取消进行中的会话运行）。
+- `ChannelAdapter`：`{ id, start(host: ChannelHost, signal), stop(), send(msg: OutboundMessage, signal) -> Promise<{ externalMessageId }> }`。
+- `ChannelHost` 回调：
+  - `reportState(s: { state: "disconnected" | "connecting" | "connected" | "error", detail? })`（协议方法 `channels.reportState`）。
+  - `deliver(msg: InboundMessage): Promise<{ accepted: boolean; sessionId?: string }>`（协议方法 `channels.deliver`；入站校验通过即入队并返回 `accepted: true` 与宿主生成的会话 `sessionId`）。
+- 宿主向插件发起的 RPC：`channel.start` (`{ id }`)、`channel.stop` (`{ id }`，1,500 ms 超时)、`channel.send` (`{ id, message: OutboundMessage }`) → `{ externalMessageId: string }`（30,000 ms 超时；若消息已投递后发生超时、取消或插件进程崩溃，宿主记录为 `{ status: "unknown", reason }` 且**禁止自动重试**）。
+
+规格 §6.4 / §7.4 安全与运行规则：
+- **默认 Chat 模式**：所有渠道入站会话默认处于 **Chat** 模式，不挂载任何工具。
+- **按会话开启 Work（仅放行 `fs-read`）**：宿主按 `(pluginId, channelId, chat)` 粒度允许用户为单个私聊/群/话题开启 **Work** 模式；开启后**仅放行风险全为 `fs-read` 的工具**，其余风险（`fs-write`、`shell`、`network`、`input-control`）的工具不进入工具目录且在分发时被拒绝（`ERR_PERMISSION`）。模式切换会中止该会话当前运行。
+- **审批只在本机完成**：所有需要审批的操作只能通过 Firefly 本机审批界面完成（`approveLocally`），绝不接受外部聊天平台的“回复同意”等指令。
+- **回复发出前先脱敏**：所有通过 `channel.send` 发出的文本（包括自动回复与宿主显式发送）都会先经过宿主 `redactOutbound` 脱敏，再交给渠道插件发送。
+- **入站载荷与队列上限**：入站文本上限 **64,000** 字符；单条消息最多 **8** 个附件且总字节上限 **10 MiB**（仅接受 `Uint8Array` 数据与 `"image" | "audio" | "file" | "video"` 类型，拒绝 `url` 附件）；单会话排队上限 **20** 条（溢出报 `ERR_RATE_LIMITED`）；入站文本统一包在 `<external-data>` 不可信数据标记内送入模型。
 
 ### 4.4 `ctx.model` — 调用宿主模型与子代理
 
@@ -207,7 +217,22 @@ export default definePlugin({
 - `Schedule` 支持三种形式：`{ kind: "cron", expression, timezone? }`、`{ kind: "once", at }`、`{ kind: "interval", minutes }`。
 - `ScheduleAction` 支持 `{ type: "run", prompt, mode }` 或 `{ type: "callback", payload? }`（`payload` 须可 JSON 序列化）。
 
-### 4.8 `ctx.secrets` — 加密凭据存储
+### 4.8 `ctx.notifications` — 桌面通知（#136）
+
+所需权限：`"notifications"`（在启用插件时确认授予，无额外首次确认；未声明报 `ERR_UNDECLARED`，未授权或撤销后报 `ERR_PERMISSION`）。
+
+| 方法 | 参数 | 返回值 |
+| --- | --- | --- |
+| `ctx.notifications.show(notification)` | `{ title: string; body: string }` | `Promise<{ shown: boolean }>`（协议方法 `notifications.show`） |
+
+规则与约束（对齐 `src/shared/plugin-notifications.ts` 与 `src/plugins/v2/notifications/index.ts`）：
+- **纯文本与精确字段**：入参必须为只含 `title` 和 `body` 两个字符串字段的对象（多余字段或非字符串报 `ERR_INVALID_ARGUMENT`）；不支持链接动作、按钮或自定义图标。
+- **字符清洗与长度上限**：宿主清除所有控制字符（`[\p{Cc}\p{Cf}]`，含双向覆盖符）后统计 Unicode 码点，**`title` 上限 `64` 个码点、`body` 上限 `256` 个码点**；超限抛出 `ERR_INVALID_ARGUMENT`（不消耗限频配额）。
+- **宿主插件名前缀与点击行为**：宿主自动在通知标题前加上已安装清单中的真实插件名 **`〔插件名〕`**；用户点击通知仅恢复并聚焦 Firefly 主窗口，不回调插件或解析 URL。
+- **每分钟限频**：每插件每分钟滑动窗口最多 **`5` 次**（已授权且参数有效的调用即使系统不支持或显示失败也会计入配额；生命周期重启不重置配额），超限抛出 `ERR_RATE_LIMITED`（`retryable: true`）。
+- **`{ shown: false }` 语义与资源释放**：当操作系统不支持通知、用户关闭通知开关、平台发送失败或 5 秒内未收到显示确认时返回 `{ shown: false }`；插件停用、撤权或升级时会关闭待显示通知并移除点击监听。
+
+### 4.9 `ctx.secrets` — 加密凭据存储
 
 所需权限：`"secrets"`。
 
@@ -220,7 +245,7 @@ export default definePlugin({
 
 底层基于 Electron `safeStorage` 加密；加密不可用时统一抛出 `ERR_UNAVAILABLE`。
 
-### 4.9 `ctx.ui` — 设置面板与独立窗口
+### 4.10 `ctx.ui` — 设置面板与独立窗口
 
 | 方法 | 权限要求 | 参数 | 返回值 / 行为 |
 | --- | --- | --- | --- |
@@ -230,19 +255,19 @@ export default definePlugin({
 
 在插件的 `ui/settings.html` 或独立窗口页面脚本中，宿主注入受限桥 `window.fireflyPlugin`（例如 `await window.fireflyPlugin.invoke(method, params)`），可直接调用插件通过 `ctx.ui.onMessage` 注册的方法。
 
-### 4.10 协议错误码一览（`PLUGIN_ERROR_CODES`）
+### 4.11 协议错误码一览（`PLUGIN_ERROR_CODES`）
 
 `PluginError` 自带 `code: PluginErrorCode`、`message: string`、`retryable: boolean`（支持跨包边界 `instanceof PluginError`）：
 
 | 错误码 | 典型含义 | 常见触发场景 |
 | --- | --- | --- |
-| `ERR_UNDECLARED` | 未在清单声明 | 调用未在 `permissions` 声明的能力；注册未在 `tools`/`context`/`ui.windows` 声明的条目 |
-| `ERR_PERMISSION` | 权限被拒绝或撤销 | 用户撤销权限、拒绝首次调用确认、确认 120s 超时、或 `sessions.messages` 越权访问其他 `sessionId` |
+| `ERR_UNDECLARED` | 未在清单声明 | 调用未在 `permissions` 声明的能力；注册未在 `tools`/`context`/`channels`/`ui.windows` 声明的条目 |
+| `ERR_PERMISSION` | 权限被拒绝或撤销 | 用户撤销权限（含 `notifications`）、拒绝首次调用确认、确认 120s 超时、或 `sessions.messages` 越权访问其他 `sessionId` |
 | `ERR_REJECTED` | 被宿主或审批拒绝 | 工具审批被用户拒绝、或输入策略明确拒绝请求 |
 | `ERR_CANCELLED` | 请求已取消 | `AbortSignal` 已中止、插件停用中、或用户点击「停止借用模型」 |
 | `ERR_TIMEOUT` | 操作超时 | 进程激活超时（10s）、上下文收集超时（1.5s）、工具或模型调用超时（`retryable` 视调用而定） |
-| `ERR_INVALID_ARGUMENT` | 参数校验失败 | RPC 入参多余未知字段、非法页码/limit、空 key、非法 JSON Schema |
-| `ERR_RATE_LIMITED` | 触发限频 | `model.generate` / `model.run` 超过每分钟配额（`retryable: true`） |
+| `ERR_INVALID_ARGUMENT` | 参数校验失败 | RPC 入参多余未知字段、通知标题/正文超 64/256 码点、非法页码/limit、空 key、非法 JSON Schema |
+| `ERR_RATE_LIMITED` | 触发限频 | `model.generate` / `model.run` 超每分钟配额、`notifications.show` 超 5 次/分钟、或渠道单会话队列超过 20 条（`retryable: true`） |
 | `ERR_UNAVAILABLE` | 宿主服务或进程不可用 | 模型未配置、`safeStorage` 不可用、插件进程已退出、旧激活句柄失效、或上游网络临时不可用（网络错误 `retryable: true`） |
 | `ERR_INTERNAL` | 内部错误 | 未预期的序列化、存储或内部异常 |
 
@@ -256,8 +281,8 @@ export default definePlugin({
    - 清单声明 `secrets` 权限、`network` 风险工具 `get_weather`（`modes: ["work", "code"]`）以及设置面板 `ui.settings`（`ui/settings.html` + `ui/settings.js`）。
    - 展示：入参校验失败先返回 `not_executed`（不触碰密钥或网络）、`ctx.secrets` 读写 API Key、超时/网络故障返回 `failed`（`retryable`）、取消返回 `not_executed`，以及设置页通过 `window.fireflyPlugin.invoke` 与 `ctx.ui.onMessage` 交互。
 2. **定时提醒（`plugin-sdk/examples/dev.firefly.reminder`）**：
-   - 清单声明 `schedules` 与 `model.generate` 权限，以及 `create_daily_reminder`（`fs-write`）和 `list_reminders`（`fs-read`）两个工具。
-   - 展示：`ctx.schedules.propose` 创建 `pending_approval` 的每日 `callback` 任务、`ctx.schedules.onTrigger` 触发回调时二次检查 `status === "active"` 并调用 `ctx.model.generate` 生成提醒文本。
+   - 清单声明 `schedules`、`model.generate` 与 `notifications` 权限，以及 `create_daily_reminder`（`fs-write`）和 `list_reminders`（`fs-read`）两个工具。
+   - 展示：`ctx.schedules.propose` 创建 `pending_approval` 的每日 `callback` 任务、`ctx.schedules.onTrigger` 触发回调时二次检查 `status === "active"`、调用 `ctx.model.generate` 生成提醒文本，并通过 `ctx.notifications.show` 发送桌面通知（截断至 64/256 码点，处理 `{ shown: false }` 与撤权异常）。
 
 下面是一个结合工具、上下文 Provider 与状态清理的完整可测插件与清单示例：
 
@@ -408,6 +433,186 @@ export async function verifyGuideNotesPlugin(manifest: any, plugin: any) {
   });
 
   await host.deactivate("disabled");
+}
+```
+
+### 6.1 使用 `createTestHost()` 验证桌面通知与渠道适配器
+
+以下可运行示例演示如何测试 `ctx.notifications.show`（含 `〔插件名〕` 前缀、`64`/`256` 字符限制、每分钟 `5` 次限频、`notificationsSupported: false` 返回 `{ shown: false }` 与撤权报错）以及 `ctx.channels.register` 适配器：
+
+<!-- doc-example: manifest id=guide-notify-channel -->
+```json
+{
+  "schemaVersion": 1,
+  "id": "dev.firefly.notifier",
+  "name": "通知与渠道示例",
+  "version": "1.0.0",
+  "sdk": "^1.2.0",
+  "description": "演示桌面通知限额、shown: false 降级以及渠道适配器注册。",
+  "author": {
+    "name": "Firefly-0423"
+  },
+  "license": "MIT",
+  "main": "index.mjs",
+  "native": false,
+  "permissions": ["notifications"],
+  "tools": [
+    {
+      "name": "send_notice",
+      "title": "发送桌面通知",
+      "risk": ["fs-read"],
+      "modes": ["work", "code"]
+    }
+  ],
+  "channels": [
+    {
+      "id": "demo_bridge",
+      "title": "演示渠道"
+    }
+  ]
+}
+```
+
+<!-- doc-example: plugin id=guide-notify-channel -->
+```ts
+import { definePlugin, PluginError, type PluginContext } from "@firefly_wu/plugin-sdk";
+
+export function createNotifyChannelPlugin() {
+  const disposables: Array<{ dispose(): void }> = [];
+
+  return definePlugin({
+    activate(ctx: PluginContext) {
+      disposables.push(
+        ctx.tools.register({
+          name: "send_notice",
+          description: "发送一条纯文本桌面通知。",
+          parameters: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              body: { type: "string" },
+            },
+            required: ["title", "body"],
+            additionalProperties: false,
+          },
+          async execute(args) {
+            try {
+              const res = await ctx.notifications.show({
+                title: String(args.title ?? ""),
+                body: String(args.body ?? ""),
+              });
+              return { status: "succeeded", output: res };
+            } catch (err) {
+              if (err instanceof PluginError) {
+                return { status: "failed", error: err.code, retryable: err.retryable };
+              }
+              throw err;
+            }
+          },
+        }),
+      );
+
+      disposables.push(
+        ctx.channels.register({
+          id: "demo_bridge",
+          async start(chHost, signal) {
+            chHost.reportState({ state: "connected" });
+            if (!signal.aborted) {
+              await chHost.deliver({
+                externalMessageId: "ext-1",
+                chat: { type: "private", id: "user-1" },
+                sender: { id: "user-1", name: "Alice" },
+                text: "你好，流萤",
+                timestamp: 1000,
+              });
+            }
+          },
+          async stop() {},
+          async send(msg) {
+            return { externalMessageId: `sent:${msg.text}` };
+          },
+        }),
+      );
+    },
+    async deactivate() {
+      while (disposables.length > 0) disposables.pop()?.dispose();
+    },
+  });
+}
+
+export default createNotifyChannelPlugin();
+```
+
+<!-- doc-example: test id=guide-notify-channel manifest=guide-notify-channel plugin=guide-notify-channel -->
+```ts
+import { expect } from "vitest";
+import { createTestHost } from "@firefly_wu/plugin-sdk/testing";
+
+export async function verifyNotifyChannelPlugin(manifest: any, plugin: any) {
+  // 1. 正常展示通知（宿主自动加 〔插件名〕 前缀）、校验 64/256 码点限制与 5 次/分钟限频
+  const host = createTestHost({ manifest, mode: "work", level: "full" });
+  await host.activate(plugin);
+
+  await expect(host.callTool("send_notice", { title: "构建完成", body: "耗时 3 秒" })).resolves.toEqual({
+    status: "succeeded",
+    output: { shown: true },
+  });
+  expect(host.notifications[0]).toEqual({ title: "〔通知与渠道示例〕构建完成", body: "耗时 3 秒" });
+
+  // 超过 64/256 码点限制抛出 ERR_INVALID_ARGUMENT，且不消耗配额
+  await expect(host.callTool("send_notice", { title: "a".repeat(65), body: "ok" })).resolves.toEqual({
+    status: "failed",
+    error: "ERR_INVALID_ARGUMENT",
+    retryable: false,
+  });
+
+  // 同一分钟内继续发送 4 条共达 5 条上限，第 6 条抛出 ERR_RATE_LIMITED
+  for (let i = 0; i < 4; i++) {
+    await expect(host.callTool("send_notice", { title: `第${i + 2}条`, body: "正常" })).resolves.toEqual({
+      status: "succeeded",
+      output: { shown: true },
+    });
+  }
+  await expect(host.callTool("send_notice", { title: "超限", body: "第6条" })).resolves.toEqual({
+    status: "failed",
+    error: "ERR_RATE_LIMITED",
+    retryable: true,
+  });
+
+  // 2. 驱动渠道适配器生命周期与消息收发
+  await host.startChannel("demo_bridge");
+  expect(host.channelStates.get("demo_bridge")).toEqual([{ state: "connected" }]);
+  expect(host.deliveredMessages[0]?.message.text).toBe("你好，流萤");
+  await expect(
+    host.sendChannel("demo_bridge", { chat: { type: "private", id: "user-1" }, text: "已收到" }),
+  ).resolves.toEqual({ externalMessageId: "sent:已收到" });
+  await host.stopChannel("demo_bridge");
+
+  // 撤销权限后报 ERR_PERMISSION
+  host.revokePermission("notifications");
+  await expect(host.callTool("send_notice", { title: "撤权", body: "应失败" })).resolves.toEqual({
+    status: "failed",
+    error: "ERR_PERMISSION",
+    retryable: false,
+  });
+  await host.deactivate("disabled");
+
+  // 3. 系统不支持或用户关闭通知时返回 { shown: false }
+  const unsupportedHost = createTestHost({
+    manifest: { ...manifest, id: "dev.firefly.notifier.off" },
+    mode: "work",
+    level: "full",
+    notificationsSupported: false,
+  });
+  await unsupportedHost.activate(plugin);
+  await expect(
+    unsupportedHost.callTool("send_notice", { title: "静默降级", body: "系统关闭通知" }),
+  ).resolves.toEqual({
+    status: "succeeded",
+    output: { shown: false },
+  });
+  expect(unsupportedHost.notifications).toEqual([]);
+  await unsupportedHost.deactivate("disabled");
 }
 ```
 
