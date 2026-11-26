@@ -447,6 +447,16 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
     },
   };
 
+  // Window messages may arrive while the plugin is still activating; every other caller stays enabled-only.
+  const windowMessageAdapter = {
+    call: async <T = unknown>(id: string, method: string, params: unknown): Promise<T> => {
+      if (!hostManagerRef) {
+        throw new PluginError("ERR_UNAVAILABLE", "Plugin host manager is not initialized");
+      }
+      return await hostManagerRef.uiCall<T>(id, method, params) as T;
+    },
+  };
+
   const windowFactory = deps.createPluginWindow
     ?? createElectronPluginWindowFactory(
       deps.pluginWindowPreloadPath ? { preloadPath: deps.pluginWindowPreloadPath } : {},
@@ -467,7 +477,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
         hasWindowsPermission: stateStore.hasPermission(pluginId, "ui.windows"),
       };
     },
-    sendToPlugin: (pluginId, method, params) => hostAdapter.call(pluginId, method, params),
+    sendToPlugin: (pluginId, method, params) => windowMessageAdapter.call(pluginId, method, params),
     createWindow: windowFactory,
   });
 
