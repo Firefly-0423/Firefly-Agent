@@ -43,6 +43,31 @@ export interface SchedulerToolInfo {
 export interface SchedulerResult<T> {
   ok: boolean; value?: T;
   error?: string; reason?: string;
+  /** Stable PluginError code (e.g. ERR_REJECTED) on plugin proposal failures. */
+  code?: string;
+}
+
+/** A plugin-proposed schedule in the plugin protocol's format, waiting for the user's decision. */
+export type PluginProposalSchedule =
+  | { kind: "cron"; expression: string; timezone?: string }
+  | { kind: "once"; at: number }
+  | { kind: "interval"; minutes: number };
+
+export type PluginProposalAction =
+  | { type: "run"; prompt: string; mode: string }
+  | { type: "callback"; payload?: unknown };
+
+export interface PluginProposal {
+  proposalId: string; taskId: string; pluginId: string;
+  /** Plugin display name; the plugin id when the name is unknown. */
+  pluginName: string;
+  kind: "create" | "update";
+  title: string; schedule: PluginProposalSchedule; action: PluginProposalAction;
+  allowedToolIds: string[]; createdAt: string;
+  /** Present for an update whose target task still exists. */
+  current?: {
+    title: string; schedule: PluginProposalSchedule; action: PluginProposalAction; allowedToolIds: string[];
+  };
 }
 
 type Reply<T> = Promise<SchedulerResult<T>>;
@@ -58,4 +83,7 @@ export interface SchedulerApi {
     taskId: string, limit?: number,
   ) => Reply<ScheduledTaskHistoryEntry[]>;
   getTools: () => Reply<SchedulerToolInfo[]>;
+  listPluginProposals?: () => Reply<PluginProposal[]>;
+  confirmPluginProposal?: (taskId: string) => Reply<boolean>;
+  rejectPluginProposal?: (taskId: string) => Reply<boolean>;
 }

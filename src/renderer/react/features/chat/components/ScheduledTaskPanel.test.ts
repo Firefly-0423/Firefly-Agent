@@ -2,7 +2,7 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ScheduledTask, SchedulerApi, SchedulerToolInfo } from "./scheduled-task-model";
+import type { PluginProposal, ScheduledTask, SchedulerApi, SchedulerToolInfo } from "./scheduled-task-model";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -565,4 +565,173 @@ it("shows native cron read-only without offering an editor that could change its
   expect(text()).toContain("Cron */15 * * * * (UTC)");
   expect([...container.querySelectorAll("button")].some(button => button.textContent?.trim() === "编辑")).toBe(false);
   expect(api.update).not.toHaveBeenCalled();
+});
+
+describe("plugin schedule proposals", () => {
+  const CALLBACK_PROPOSAL: PluginProposal = {
+    proposalId: "p-1",
+    taskId: "plugin-task-1",
+    pluginId: "dev.firefly.digest",
+    pluginName: "Digest plugin",
+    kind: "create",
+    title: "Hourly sync",
+    schedule: { kind: "interval", minutes: 60 },
+    action: { type: "callback" },
+    allowedToolIds: [],
+    createdAt: NOW,
+  };
+  const UPDATE_PROPOSAL: PluginProposal = {
+    ...CALLBACK_PROPOSAL,
+    proposalId: "p-2",
+    taskId: "plugin-task-2",
+    kind: "update",
+    title: "Evening digest",
+    schedule: { kind: "interval", minutes: 120 },
+    action: { type: "run", prompt: "Summarize the day", mode: "work" },
+    current: {
+      title: "Morning digest",
+      schedule: { kind: "interval", minutes: 30 },
+      action: { type: "run", prompt: "Summarize the day", mode: "work" },
+      allowedToolIds: [],
+    },
+  };
+
+  function installWithProposals(proposals: PluginProposal[], overrides: Partial<SchedulerApi> = {}) {
+    return installScheduler({
+      listPluginProposals: vi.fn(async () => ({ ok: true, value: proposals })),
+      confirmPluginProposal: vi.fn(async () => ({ ok: true, value: true })),
+      rejectPluginProposal: vi.fn(async () => ({ ok: true, value: true })),
+      ...overrides,
+    });
+  }
+
+  it("hides the pending section when there are no proposals", async () => {
+    installWithProposals([]);
+    await renderPanel();
+    expect(text()).not.toContain("待确认");
+    expect(container.querySelector(".scheduled-pending")).toBeNull();
+  });
+
+  it("hides the pending section when the preload API has no proposal methods", async () => {
+    installScheduler();
+    await renderPanel();
+    expect(container.querySelector(".scheduled-pending")).toBeNull();
+    expect(text()).toContain("早安信息整理");
+  });
+
+  it("shows plugin name, title, schedule and a plain plugin-callback action for a new callback task", async () => {
+    installWithProposals([CALLBACK_PROPOSAL]);
+    await renderPanel();
+
+    const section = container.querySelector<HTMLElement>(".scheduled-pending")!;
+    expect(section.querySelector("h2")?.textContent).toBe("待确认");
+    const card = section.querySelector<HTMLElement>("article")!;
+    expect(card.querySelector("h3")?.textContent).toBe("Hourly sync");
+    expect(card.textContent).toContain("Digest plugin");
+    expect(card.textContent).toContain("新建任务");
+    expect(card.textContent).toContain("插件回调");
+    expect(card.textContent).not.toContain("运行提示词");
+    expect(card.textContent).not.toContain("变更内容");
+  });
+
+  it("shows prompt and mode for a run action", async () => {
+    installWithProposals([{ ...CALLBACK_PROPOSAL, action: { type: "run", prompt: "Summarize unread", mode: "chat" } }]);
+    await renderPanel();
+    expect(container.querySelector(".scheduled-pending")!.textContent).toContain("以chat模式运行提示词：Summarize unread");
+  });
+
+  it("confirm calls the API with the proposal's taskId only, then reloads the lists", async () => {
+    const api = installWithProposals([CALLBACK_PROPOSAL, UPDATE_PROPOSAL]);
+    await renderPanel();
+    const listCalls = (api.listPluginProposals as ReturnType<typeof vi.fn>).mock.calls.length;
+    const secondCard = container.querySelectorAll<HTMLElement>(".scheduled-pending article")[1];
+    const confirmButton = [...secondCard.querySelectorAll("button")].find((b) => b.textContent?.trim() === "确认")!;
+
+    await click(confirmButton);
+
+    expect(api.confirmPluginProposal).toHaveBeenCalledTimes(1);
+    expect(api.confirmPluginProposal).toHaveBeenCalledWith("plugin-task-2");
+    expect(api.rejectPluginProposal).not.toHaveBeenCalled();
+    expect((api.listPluginProposals as ReturnType<typeof vi.fn>).mock.calls.length).toBe(listCalls + 1);
+  });
+
+  it("reject calls the reject API and never the confirm API", async () => {
+    const api = installWithProposals([CALLBACK_PROPOSAL]);
+    await renderPanel();
+
+    await click(buttonByText("拒绝"));
+
+    expect(api.rejectPluginProposal).toHaveBeenCalledWith("plugin-task-1");
+    expect(api.confirmPluginProposal).not.toHaveBeenCalled();
+  });
+
+  it("disables both buttons while a request is in flight and enables them again afterwards", async () => {
+    let finish!: (value: { ok: boolean; value: boolean }) => void;
+    const api = installWithProposals([CALLBACK_PROPOSAL], {
+      confirmPluginProposal: vi.fn(() => new Promise((resolve) => { finish = resolve; })) as never,
+    });
+    await renderPanel();
+
+    await click(buttonByText("确认"));
+    expect(buttonByText("确认").disabled).toBe(true);
+    expect(buttonByText("拒绝").disabled).toBe(true);
+    await click(buttonByText("确认"));
+    expect(api.confirmPluginProposal).toHaveBeenCalledTimes(1);
+
+    await act(async () => { finish({ ok: false, value: false }); });
+    await flush();
+    expect(buttonByText("确认").disabled).toBe(false);
+    expect(buttonByText("拒绝").disabled).toBe(false);
+  });
+
+  it("shows the error message on failure and keeps the proposal on screen", async () => {
+    installWithProposals([CALLBACK_PROPOSAL], {
+      confirmPluginProposal: vi.fn(async () => ({ ok: false, error: "No pending proposal found", code: "ERR_INVALID_ARGUMENT" })),
+    });
+    await renderPanel();
+
+    await click(buttonByText("确认"));
+
+    const alert = container.querySelector(".scheduled-pending [role='alert']");
+    expect(alert?.textContent).toBe("No pending proposal found");
+    expect(container.querySelectorAll(".scheduled-pending article")).toHaveLength(1);
+  });
+
+  it("an update proposal lists only the fields that changed", async () => {
+    installWithProposals([UPDATE_PROPOSAL]);
+    await renderPanel();
+
+    const card = container.querySelector<HTMLElement>(".scheduled-pending article")!;
+    expect(card.textContent).toContain("修改已有任务");
+    const changes = [...card.querySelectorAll(".scheduled-pending__changes li")].map((li) => li.textContent);
+    expect(changes).toEqual([
+      "标题：Morning digest -> Evening digest",
+      "计划：每隔 30 分钟 -> 每隔 2 小时",
+    ]);
+  });
+
+  it("an update with no visible difference says so, and one whose task is gone says it cannot be applied", async () => {
+    installWithProposals([
+      { ...UPDATE_PROPOSAL, current: { title: UPDATE_PROPOSAL.title, schedule: UPDATE_PROPOSAL.schedule, action: UPDATE_PROPOSAL.action, allowedToolIds: [] } },
+      { ...UPDATE_PROPOSAL, proposalId: "p-3", taskId: "plugin-task-3", current: undefined },
+    ]);
+    await renderPanel();
+
+    const [same, gone] = [...container.querySelectorAll<HTMLElement>(".scheduled-pending article")];
+    expect(same.textContent).toContain("与当前任务相同");
+    expect(gone.textContent).toContain("原任务已不存在，此变更无法应用");
+  });
+
+  it("reloads the proposal list when the main process reports a proposal change", async () => {
+    const api = installWithProposals([]);
+    (window as unknown as Record<string, unknown>).schedulerEvents = { onEvent: vi.fn((callback: Listener) => { emit = callback; return () => { emit = undefined; }; }) };
+    await renderPanel();
+    expect(container.querySelector(".scheduled-pending")).toBeNull();
+
+    (api.listPluginProposals as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: true, value: [CALLBACK_PROPOSAL] });
+    await act(async () => { emit!({ type: "CUSTOM", name: "scheduler.plugin_proposals_changed" }); });
+    await flush();
+
+    expect(container.querySelector(".scheduled-pending")).not.toBeNull();
+  });
 });
