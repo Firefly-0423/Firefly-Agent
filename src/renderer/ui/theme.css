@@ -181,17 +181,17 @@
   --md-code-bg: rgba(255, 255, 255, 0.04);
 }
 
-html[data-ui-theme="firefly-dark"] .settings-shell {
+html[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .settings-shell {
   --st-selected-fill: rgba(16, 185, 129, 0.14);
   --st-selected-text: #6ee7b7;
 }
 
-html[data-ui-theme="firefly-dark"] .ff-activity-rail__item[aria-current="page"] {
+html[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-activity-rail__item[aria-current="page"] {
   --ff-bg-active: rgba(16, 185, 129, 0.16);
   --ff-text: #6ee7b7;
 }
 
-html[data-ui-theme="firefly-dark"] .ff-conversation-list .ant-conversations-item-active {
+html[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-conversation-list .ant-conversations-item-active {
   --ff-bg-active: rgba(16, 185, 129, 0.14);
 }
 
