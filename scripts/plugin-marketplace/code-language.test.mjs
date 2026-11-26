@@ -32,7 +32,7 @@ test("follows the documented edge cases of the upstream table", async () => {
 
 test("every recognized extension resolves and every language has a short name", async () => {
   const { tools } = await sandboxTools("code-language");
-  const schema = tools.get("code-language_detect").inputSchema;
+  const schema = tools.get("code-language_detect").parameters;
   assert.equal(schema.properties.paths.type, "array");
   assert.equal(schema.properties.paths.items.type, "string");
   const sample = ["ts", "tsx", "mts", "cts", "js", "jsx", "mjs", "cjs", "sh", "bash", "zsh", "fish", "json", "jsonc", "jsonl", "ndjson", "ipynb", "csv", "py", "pyw", "pyi", "rb", "rake", "gemspec", "go", "rs", "java", "c", "h", "cc", "cpp", "cxx", "hh", "hpp", "hxx", "cs", "kt", "kts", "swift", "php", "yaml", "yml", "toml", "ini", "conf", "cfg", "properties", "env", "log", "diff", "patch", "http", "md", "markdown", "mdx", "rst", "tex", "sty", "cls", "bib", "adoc", "html", "htm", "xhtml", "css", "scss", "less", "sql", "xml", "xsd", "xsl", "xslt", "plist", "svg", "lua", "bat", "cmd", "ps1", "psm1", "psd1", "r", "jl", "dart", "scala", "clj", "cljs", "edn", "erl", "hrl", "ex", "exs", "hs", "fs", "fsi", "fsx", "vb", "pl", "pm", "v", "sv", "svh", "graphql", "gql", "proto", "tf", "tfvars", "hcl", "nix", "vue", "svelte", "makefile", "mk", "cmake", "gradle", "groovy"];

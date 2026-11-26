@@ -58,7 +58,7 @@
 
 - **发布插件到官方插件目录与随应用离线目录**：见 [plugin-catalog-publishing.md](../plugin-catalog-publishing.md)
   - 线上目录位于独立仓库 `Firefly-0423/firefly-plugins`（PR 提交源码校验、合并后由维护者运行 Release 工作流并固定 ZIP SHA-256）。
-  - 随应用离线包由 `scripts/plugin-marketplace/build.mjs` 从 `examples/<id>/` 构建至 `resources/plugin-marketplace/`，并与线上使用同一套确定性 ZIP 打包规则。
+  - 随应用离线包由 `scripts/plugin-marketplace/build.mjs` 从 `examples/<目录>/` 构建 v2 `.ffplugin` 包和 `registry.json`（协议 v2）至 `resources/plugin-marketplace/`，用应用自己的 `packPackage` 确定性打包。
   - 安全边界实现与测试当前分别位于 `src/main/features/plugins/host/plugin-marketplace.ts` 与 `src/main/knowledge/skills/external-boundary.test.ts`（`plugin-catalog-publishing.md` 中仍沿用主进程七层分层前的旧文件名提示）。
 - **发布 `@firefly_wu/plugin-sdk` 到 npm**：见 [plugin-sdk-publishing.md](../plugin-sdk-publishing.md)
   - 通过 `.github/workflows/plugin-sdk-publish.yml` 使用 npm OIDC Trusted Publishing 发布，版本标签格式为 `plugin-sdk-v<version>`，发布前执行 `pnpm run check:plugin-sdk` 与 `pnpm run test:plugin-examples`。

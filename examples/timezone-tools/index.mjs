@@ -1,5 +1,3 @@
-"use strict";
-
 // Pure computation through the public Plugin API v1, using only the engine's built-in Intl and Date.
 // Zone canonicalization is adapted from deepseek-harness packages/util/time
 // (MIT, Copyright (c) 2026 DeepSeek); conversion is new Firefly code built on the same zone vocabulary.
@@ -12,7 +10,7 @@ const DAY_MS = 86_400_000;
 // Strict profile from deepseek-harness: UTC or an IANA Area/Location-style identifier.
 const IANA_TIME_ZONE = /^[A-Za-z][A-Za-z0-9_+.-]*(?:\/[A-Za-z0-9_+.-]+)+$/;
 const ISO_TIME = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}:?\d{2})?$/;
-let activeContext;
+const disposables = [];
 
 function canonicalZone(value) {
   if (value.length === 0 || value.length > MAX_ZONE_CHARS || value.trim() !== value
@@ -109,38 +107,38 @@ function isoInstant(ms) {
   return new Date(ms).toISOString();
 }
 
-module.exports = {
-  register(ctx) {
-    if (activeContext) throw new Error("Time zone tools is already registered");
-    ctx.registerTool({
-      id: CANONICALIZE_ID,
-      name: "时区名校验",
+/** Runs a pure handler and maps its outcome onto a tool result: bad arguments are reported as not executed. */
+function offline(handler) {
+  return async (args) => {
+    try {
+      return { status: "succeeded", output: await handler(args) };
+    } catch (error) {
+      return { status: "not_executed", reason: error instanceof Error ? error.message : String(error) };
+    }
+  };
+}
+
+export default {
+  activate(ctx) {
+    disposables.push(ctx.tools.register({
+      name: CANONICALIZE_ID,
       description: "校验并规范化 IANA 时区名。只接受 UTC 或 Area/Location 形式（如 Asia/Shanghai），拒绝缩写（EST、GMT）、带空白的名称和平台不认识的名称；别名按本机 ICU 数据返回规范拼写。全部离线处理。",
-      enabled: true,
-      risk: "safe",
-      effectKind: "read",
-      verificationPolicy: "none",
-      inputSchema: {
+      parameters: {
         type: "object",
         properties: { zone: { type: "string", description: "时区名，例如 America/New_York 或 UTC" } },
         required: ["zone"],
       },
-      async execute(args) {
+      execute: offline((args) => {
         if (!args || typeof args.zone !== "string") throw new TypeError("zone must be a string");
         if (args.zone.length > MAX_ZONE_CHARS) throw new RangeError(`zone must be at most ${MAX_ZONE_CHARS} characters`);
         const canonical = canonicalZone(args.zone);
-        return JSON.stringify(canonical === undefined ? { valid: false } : { valid: true, canonical });
-      },
-    });
-    ctx.registerTool({
-      id: CONVERT_ID,
-      name: "时区换算",
+        return (canonical === undefined ? { valid: false } : { valid: true, canonical });
+      }),
+    }));
+    disposables.push(ctx.tools.register({
+      name: CONVERT_ID,
       description: "把一个时间换算到目标时区。time 为带 Z 或 ±hh:mm 偏移的 ISO 8601 时间时表示确定的瞬间；不带偏移的本地时间必须同时给出 from 时区。夏令时空档中不存在的本地时间会报错；重复的本地时间取较早瞬间并标记 ambiguous。支持 1900–2200 年，精度到毫秒。全部离线处理。",
-      enabled: true,
-      risk: "safe",
-      effectKind: "read",
-      verificationPolicy: "none",
-      inputSchema: {
+      parameters: {
         type: "object",
         properties: {
           time: { type: "string", description: "ISO 8601 时间，例如 2026-03-08T12:00:00Z、2026-03-08T12:00:00+09:00，或不带偏移的 2026-03-08T12:00:00（需要 from）" },
@@ -149,7 +147,7 @@ module.exports = {
         },
         required: ["time", "to"],
       },
-      async execute(args) {
+      execute: offline((args) => {
         if (!args || typeof args.time !== "string" || typeof args.to !== "string") throw new TypeError("time and to must be strings");
         if (args.from !== undefined && typeof args.from !== "string") throw new TypeError("from must be a string");
         const target = requireZone(args.to, "to");
@@ -160,7 +158,7 @@ module.exports = {
           const utcMs = parsed.wallMs - parsed.offsetMs;
           result.instant = isoInstant(utcMs);
           result.to = describe(target, utcMs);
-          return JSON.stringify(result);
+          return (result);
         }
         if (args.from === undefined) throw new Error("time without an offset requires from, the zone of that local time");
         const source = requireZone(args.from, "from");
@@ -173,16 +171,11 @@ module.exports = {
         }
         result.from = describe(source, instants[0]);
         result.to = describe(target, instants[0]);
-        return JSON.stringify(result);
-      },
-    });
-    activeContext = ctx;
+        return (result);
+      }),
+    }));
   },
-  unregister() {
-    if (!activeContext) return;
-    const ctx = activeContext;
-    activeContext = undefined;
-    ctx.unregisterTool(CANONICALIZE_ID);
-    ctx.unregisterTool(CONVERT_ID);
+  deactivate() {
+    while (disposables.length > 0) disposables.pop().dispose();
   },
 };

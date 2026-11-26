@@ -1,6 +1,6 @@
 # 插件示例说明
 
-本目录的前几个插件用于阅读 API 与集成方式。源码、manifest 和署名保持原样；不把注册冒烟等同于真实宿主验证。末尾的“随市场目录分发”五个插件是离线工具，由 `scripts/plugin-marketplace/build.mjs` 打包进离线目录，发布方式见 `docs/plugin-catalog-publishing.md`。
+本目录的前几个插件用于阅读 API 与集成方式。源码、manifest 和署名保持原样；不把注册冒烟等同于真实宿主验证。末尾的“随市场目录分发”五个插件是离线工具，由 `scripts/plugin-marketplace/build.mjs` 打成 `.ffplugin` 并写入离线目录，发布方式见 `docs/plugin-catalog-publishing.md`。
 
 | 目录 | 入口与依赖 | 展示内容 |
 | --- | --- | --- |
@@ -11,7 +11,7 @@
 
 ### 随市场目录分发的离线插件
 
-这五个插件都只做内存内计算：不联网、不读写文件、不启动命令，首次安装保持停用。每个目录含 `manifest.json`、`index.cjs`、`README.md`、`LICENSE`，以及只供目录条目使用、不进入 ZIP 的 `catalog.json`。测试在 `scripts/plugin-marketplace/`，运行 `pnpm run test:plugin-marketplace`。
+这五个插件都只做内存内计算：不联网、不读写文件、不启动命令，首次安装保持停用。1.2.0 清单禁止工具声明 `safe`，所以每个工具按最低的真实风险档声明 `fs-read`，调用时会按该档走审批。每个目录含 `firefly.plugin.json`（1.2.0 清单，id 为 `dev.firefly.<目录名>`）、`index.mjs`、`README.md`、`LICENSE`，以及只供目录条目使用、不进入包的 `catalog.json`；构建产出 `.ffplugin` 包和 v2 `registry.json`。测试在 `scripts/plugin-marketplace/`，运行 `pnpm run test:plugin-marketplace`。
 
 | 目录 | 工具 | 来源 |
 | --- | --- | --- |
