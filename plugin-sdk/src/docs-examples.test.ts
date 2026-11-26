@@ -93,6 +93,7 @@ describe("SDK 1.2.0 documentation executable examples", () => {
     expect(readmeBlocks.map((b) => `${b.kind}:${b.id}`)).toEqual([
       "manifest:readme-minimal",
       "plugin:readme-minimal",
+      "snippet:readme-notifications",
       "snippet:readme-tool-results",
       "test:readme-testhost",
     ]);
@@ -100,6 +101,9 @@ describe("SDK 1.2.0 documentation executable examples", () => {
       "manifest:guide-notes",
       "plugin:guide-notes",
       "test:guide-notes",
+      "manifest:guide-notify-channel",
+      "plugin:guide-notify-channel",
+      "test:guide-notify-channel",
     ]);
   });
 
@@ -153,6 +157,48 @@ describe("SDK 1.2.0 documentation executable examples", () => {
     expect(formatResultExample("failed")).toMatchObject({ status: "failed", retryable: true });
     expect(formatResultExample("unknown")).toMatchObject({ status: "unknown" });
     expect(formatResultExample("not_executed").status).toBe("not_executed");
+  });
+
+  it("executes the notification helper snippet from README.md against createTestHost", async () => {
+    const block = readmeBlocks.find((b) => b.kind === "snippet" && b.id === "readme-notifications");
+    expect(block).toBeDefined();
+    const mod = evaluateDocModule(block!);
+    const sendSafeNotification = mod.sendSafeNotification as (
+      ctx: sdk.PluginContext,
+      title: string,
+      body: string,
+    ) => Promise<{ sent: boolean; reason: string }>;
+
+    let activeCtx!: sdk.PluginContext;
+    const supportedHost = sdkTesting.createTestHost({
+      manifest: { id: "dev.firefly.readme.notify", name: "README 通知测试", permissions: ["notifications"] },
+      notificationsSupported: true,
+    });
+    await supportedHost.activate({ activate(ctx) { activeCtx = ctx; } });
+    await expect(sendSafeNotification(activeCtx, "测试标题", "测试正文")).resolves.toEqual({
+      sent: true,
+      reason: "shown",
+    });
+    expect(supportedHost.notifications).toEqual([{ title: "〔README 通知测试〕测试标题", body: "测试正文" }]);
+
+    supportedHost.revokePermission("notifications");
+    await expect(sendSafeNotification(activeCtx, "无权限", "不应发送")).resolves.toEqual({
+      sent: false,
+      reason: "no_permission",
+    });
+    await supportedHost.deactivate("disabled");
+
+    let unsupportedCtx!: sdk.PluginContext;
+    const unsupportedHost = sdkTesting.createTestHost({
+      manifest: { id: "dev.firefly.readme.notify.off", name: "README 通知关闭测试", permissions: ["notifications"] },
+      notificationsSupported: false,
+    });
+    await unsupportedHost.activate({ activate(ctx) { unsupportedCtx = ctx; } });
+    await expect(sendSafeNotification(unsupportedCtx, "静默降级", "系统不支持")).resolves.toEqual({
+      sent: false,
+      reason: "suppressed_or_unsupported",
+    });
+    await unsupportedHost.deactivate("disabled");
   });
 
   it("keeps relative markdown links valid and avoids forbidden legacy naming", () => {
