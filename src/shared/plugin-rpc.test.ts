@@ -14,6 +14,27 @@ function pair() {
 afterEach(() => vi.useRealTimers())
 
 describe('plugin RPC', () => {
+  it('reports posting once only after transport accepts the request and never serializes the observer', async () => {
+    const { a, b, sent } = pair(); const onPosted = vi.fn();
+    b.handle('echo', () => 'ok');
+    await expect(a.call('echo', null, { onPosted })).resolves.toBe('ok');
+    expect(onPosted).toHaveBeenCalledTimes(1);
+    expect(sent[0][0]).toEqual({ type: 'req', id: '1', method: 'echo', params: null, deadline: expect.any(Number) });
+    const aborted = new AbortController(); aborted.abort();
+    await expect(a.call('echo', null, { signal: aborted.signal, onPosted })).rejects.toMatchObject({ code: 'ERR_CANCELLED' });
+    await expect(a.call('echo', null, { timeoutMs: -1, onPosted })).rejects.toMatchObject({ code: 'ERR_INVALID_ARGUMENT' });
+    a.close(); await expect(a.call('echo', null, { onPosted })).rejects.toMatchObject({ code: 'ERR_UNAVAILABLE' });
+    expect(onPosted).toHaveBeenCalledTimes(1); b.dispose();
+  })
+  it('does not report a failed transport post as posted and isolates observer exceptions', async () => {
+    const onPosted = vi.fn();
+    const endpoint = createRpcEndpoint({ post() { throw Error('closed port'); }, onFrame() { return () => {} } });
+    await expect(endpoint.call('echo', null, { onPosted })).rejects.toMatchObject({ code: 'ERR_UNAVAILABLE' });
+    expect(onPosted).not.toHaveBeenCalled(); endpoint.dispose();
+    const { a, b } = pair(); b.handle('echo', () => 'ok');
+    await expect(a.call('echo', null, { onPosted: () => { throw Error('observer'); } })).resolves.toBe('ok');
+    a.dispose(); b.dispose();
+  })
   it('treats a PluginError from another bundled copy of the protocol as a PluginError in both directions', async () => {
     // Stands in for the SDK bundle's own PluginError class, which is a different constructor.
     class ForeignPluginError extends Error {

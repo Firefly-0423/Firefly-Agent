@@ -3,7 +3,7 @@
 .ff-review-panel {
   app-region: no-drag;
   overflow: hidden;
-  box-shadow: 0 4px 16px rgb(31 35 48 / 5%);
+  box-shadow: 0 4px 16px var(--ff-palette-1f2330-5);
   background: var(--ff-surface);
   border-radius: 12px;
   border: 1px solid var(--ff-border, var(--ff-border));
@@ -70,7 +70,7 @@
 /* 展开/收起 chevron */
 .ff-review-panel__chevron {
   transition: transform 0.15s ease;
-  color: var(--ff-text-muted, #b5adb2);
+  color: var(--ff-text-muted, var(--ff-palette-b5adb2));
   flex-shrink: 0;
   height: 14px;
   width: 14px;
@@ -151,7 +151,7 @@
 
 /* 右箭头（提示点击会打开侧栏） */
 .ff-review-panel__arrow {
-  color: var(--ff-text-muted, #b5adb2);
+  color: var(--ff-text-muted, var(--ff-palette-b5adb2));
   flex-shrink: 0;
   height: 13px;
   width: 13px;
@@ -170,7 +170,7 @@
   color: var(--ff-text, var(--ff-text));
   background: var(--ff-surface);
   border-radius: 12px;
-  border: 1px solid var(--ff-border, #d9d2d6);
+  border: 1px solid var(--ff-border, var(--ff-palette-d9d2d6));
   padding: 5px 12px;
 }
 .ff-review-panel__restore-btn:hover {

@@ -18,7 +18,7 @@
   line-height: 1.4;
   font-size: var(--ff-fs-caption);
   color: var(--ff-text-secondary);
-  box-shadow: 0 4px 16px rgb(43 33 54 / 8%);
+  box-shadow: 0 4px 16px var(--ff-palette-2b2136-8);
   background: color-mix(in srgb, var(--ff-bg-workspace) 88%, transparent);
   border-radius: 12px;
   border: 1px solid var(--ff-border);
@@ -78,7 +78,7 @@
 }
 
 .ff-message-avatar__image {
-  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.16));
+  filter: drop-shadow(0 2px 8px var(--ff-black-alpha-16));
   border: 1px solid var(--ff-border);
   object-fit: cover;
 }
@@ -174,8 +174,8 @@
 
 .ff-message__image-attachment figcaption {
   font: 500 var(--ff-fs-caption)/1.2 var(--rb-font-sans, sans-serif);
-  color: #fff;
-  background: rgb(0 0 0 / 58%);
+  color: var(--ff-white);
+  background: var(--ff-black-alpha-58);
   border-radius: 12px;
   padding: 4px 7px;
   bottom: 7px;
@@ -190,7 +190,7 @@
 .ff-message__file-attachment {
   white-space: nowrap;
   text-overflow: ellipsis;
-  background: rgb(255 255 255 / 18%);
+  background: var(--ff-white-alpha-18);
   border-radius: 12px;
   padding: 7px 10px;
   overflow: hidden;
@@ -353,7 +353,7 @@
 }
 
 .ff-run-activity__header:focus-visible {
-  outline: 2px solid rgb(45 122 95 / 55%);
+  outline: 2px solid var(--ff-palette-2d7a5f-55);
   outline-offset: 3px;
   border-radius: 12px;
 }
@@ -447,7 +447,8 @@
 }
 
 .ff-run-activity__divider {
-  background: linear-gradient(90deg, transparent, var(--ff-border), transparent);
+  background-color: transparent;
+  background-image: linear-gradient(90deg, transparent, var(--ff-border), transparent);
   height: 1px;
 }
 
@@ -850,7 +851,7 @@
 
 .ff-file-link:hover {
   text-decoration: underline;
-  color: color-mix(in srgb, var(--ff-accent) 82%, #5c5f77);
+  color: color-mix(in srgb, var(--ff-accent) 82%, var(--ff-palette-5c5f77));
 }
 
 .ff-file-link__icon {
@@ -1169,12 +1170,13 @@
   margin: 20px 0;
   border: 0;
   border-top: 0;
-  background: linear-gradient(
+  background-color: transparent;
+  background-image: linear-gradient(
     90deg,
     transparent 0%,
-    rgb(45 122 95 / 22%) 16%,
-    rgb(45 122 95 / 44%) 50%,
-    rgb(45 122 95 / 22%) 84%,
+    var(--ff-palette-2d7a5f-22) 16%,
+    var(--ff-palette-2d7a5f-44) 50%,
+    var(--ff-palette-2d7a5f-22) 84%,
     transparent 100%
   );
 }
@@ -1237,11 +1239,11 @@
   box-sizing: border-box;
   line-height: 1.55;
   font: inherit;
-  color: #282828;
-  background: rgb(255 255 255 / 92%);
+  color: var(--ff-palette-282828);
+  background: var(--ff-white-alpha-92);
   outline: none;
   border-radius: 12px;
-  border: 1px solid rgb(255 255 255 / 65%);
+  border: 1px solid var(--ff-white-alpha-65);
   padding: 10px 12px;
   resize: vertical;
   min-height: 82px;
@@ -1249,8 +1251,8 @@
 }
 
 .ff-last-message-editor textarea:focus {
-  box-shadow: 0 0 0 2px rgb(255 255 255 / 28%);
-  border-color: #fff;
+  box-shadow: 0 0 0 2px var(--ff-white-alpha-28);
+  border-color: var(--ff-white);
 }
 
 .ff-last-message-editor__actions {
@@ -1261,9 +1263,9 @@
 
 .ff-last-message-editor__actions button {
   padding: 5px 11px;
-  border: 1px solid rgb(255 255 255 / 68%);
+  border: 1px solid var(--ff-white-alpha-68);
   border-radius: 12px;
-  background: rgb(255 255 255 / 82%);
+  background: var(--ff-white-alpha-82);
   color: var(--ff-text-secondary);
   cursor: pointer;
   font: inherit;
@@ -1274,7 +1276,7 @@
   font-weight: 600;
   color: var(--ff-accent);
   background: var(--ff-surface);
-  border-color: #fff;
+  border-color: var(--ff-white);
 }
 
 .ff-last-message-editor__actions button:disabled {

@@ -264,9 +264,10 @@ npx firefly-plugin pack ./my-plugin -o ./dist/my-plugin-1.0.0.ffplugin
 - **`@firefly_wu/plugin-sdk`**：
   - `definePlugin(plugin)`
   - `PluginError`、`PLUGIN_ERROR_CODES`、`PluginErrorCode`、`PluginErrorOptions`
-  - `PluginContext`、`PluginDefinition`、`Mode`、`RunSource`、`ToolRisk`、`PluginPermission`、`DeactivateReason`、`Disposable`、`ToolResult`、`ToolCall`、`ToolCaller`、`ToolDefinition`、`ToolApprovalDescription` 及能力接口类型（`Tools`、`ContextProviders`、`Channels`、`Model`、`Events`、`Sessions`、`Workspace`、`Schedules`、`Secrets`、`Ui` 等）
+  - `PluginContext`、`PluginDefinition`、`Mode`、`RunSource`、`ToolRisk`、`PluginPermission`、`DeactivateReason`、`Disposable`、`ToolResult`、`ToolCall`、`ToolCaller`、`ToolDefinition`、`ToolApprovalDescription` 及各项能力接口类型（`Tools`、`ContextProviders`、`Channels`、`Model`、`Events`、`Sessions`、`Workspace`、`Schedules`、`Notifications`、`NotificationRequest`、`NotificationResult`、`Secrets`、`Ui` 等）
 - **`@firefly_wu/plugin-sdk/testing`**：
-  - `createTestHost(options)`、`evaluateToolPermission(risks, mode, level)` 及相关测试类型。
+  - `createTestHost(options)`、`evaluateToolPermission(level, risks)` 及相关测试类型：模拟三种运行模式（`chat`、`work`、`code`）、三种权限档位（`read-only`、`per-action`、`full`）、权限声明与撤销、取消、进程崩溃，并记录插件发起的每一次调用（`host.calls`）。
+  - `host.notifications`：记录已展示通知的标题（含真实插件名前缀）和正文；`notificationsSupported: false` 模拟系统不支持通知。`ctx.notifications.show({ title, body })` 需要 `notifications` 权限，每分钟最多 5 条，清理控制字符后标题/正文上限为 64/256 个 Unicode 码点。
 - **`firefly-plugin` CLI**：
   - `firefly-plugin validate <目录> [--host-version <版本>]`
   - `firefly-plugin pack <目录> -o <输出文件.ffplugin> [--host-version <版本>]`
