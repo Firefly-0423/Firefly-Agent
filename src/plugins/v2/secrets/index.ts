@@ -25,3 +25,7 @@ export {
   type SafeStorageLike,
   type ScopedPluginSecrets,
 } from "./secrets-service";
+export {
+  bindPluginSecretsRpc,
+  type BindPluginSecretsRpcOptions,
+} from "./rpc";

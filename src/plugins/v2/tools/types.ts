@@ -31,6 +31,7 @@ export interface PluginToolExecuteHost {
 
 export interface PluginToolExecutionMeta {
   callId?: string;
+  runId?: string;
   sessionId?: string;
   mode?: "chat" | "work" | "code";
   caller?: PluginToolCaller;
@@ -50,9 +51,20 @@ export interface RegisteredPluginTool {
   validateArgs: (args: unknown) => { valid: true } | { valid: false; message: string };
 }
 
+export interface PluginToolProgressEvent {
+  pluginId: string;
+  callId: string;
+  runId?: string;
+  sessionId?: string;
+  message: string;
+  percent?: number;
+}
+
 export interface PluginToolServiceOptions {
   registry?: ToolRegistry;
   defaultTimeoutMs?: number;
+  canExecute?: (pluginId: string, toolName: string) => boolean;
+  onProgress?: (event: PluginToolProgressEvent) => void;
 }
 
 export interface PluginToolService {

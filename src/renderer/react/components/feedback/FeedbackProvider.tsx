@@ -42,8 +42,18 @@ function dialogResult<T>(closers: DialogClosers, cancelled: T, display: (finish:
 }
 
 function openQuestion(dialogs: ModalApi, closers: DialogClosers, request: ConfirmOptions) {
+  // A request withdrawn while it waited in the queue is never shown.
+  if (request.signal?.aborted) return Promise.resolve(false);
   return dialogResult(closers, false, (finish, dismiss) => {
-    dialogs.confirm({
+    const onAbort = () => {
+      instance?.destroy();
+      dismiss();
+    };
+    const settle = (answer: boolean) => {
+      request.signal?.removeEventListener("abort", onAbort);
+      finish(answer);
+    };
+    const instance = dialogs.confirm({
       title: request.title,
       content: request.message,
       icon: feedbackSymbol(request.tone ?? (request.dangerous ? "error" : "warning")),
@@ -53,9 +63,10 @@ function openQuestion(dialogs: ModalApi, closers: DialogClosers, request: Confir
       autoFocusButton: request.dangerous ? "cancel" : "ok",
       okButtonProps: request.dangerous ? { danger: true } : undefined,
       rootClassName: `ff-feedback-modal${request.dangerous ? " ff-feedback-modal--danger" : ""}`,
-      onOk: () => finish(true),
-      onCancel: dismiss,
+      onOk: () => settle(true),
+      onCancel: () => settle(false),
     });
+    request.signal?.addEventListener("abort", onAbort, { once: true });
   });
 }
 

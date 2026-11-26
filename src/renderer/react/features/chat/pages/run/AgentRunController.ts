@@ -921,6 +921,26 @@ export class AgentRunController {
         }
         break;
       }
+      case "firefly.tool_progress": {
+        const payload = event.value as { toolCallId?: unknown; message?: unknown; percent?: unknown } | null | undefined;
+        if (typeof payload?.toolCallId !== "string" || typeof payload?.message !== "string") break;
+        const message = payload.message.trim();
+        if (!message) break;
+        const percent = typeof payload.percent === "number" && Number.isFinite(payload.percent)
+          ? Math.max(0, Math.min(100, payload.percent))
+          : undefined;
+        let updated = false;
+        const nextTools = this.tools.map((entry) => {
+          if (entry.id !== payload.toolCallId || entry.status !== "running") return entry;
+          updated = true;
+          return { ...entry, progress: { message, ...(percent !== undefined ? { percent } : {}) } };
+        });
+        if (updated) {
+          this.tools = nextTools;
+          this.patch({ toolExecutions: this.tools });
+        }
+        break;
+      }
     }
   }
 }

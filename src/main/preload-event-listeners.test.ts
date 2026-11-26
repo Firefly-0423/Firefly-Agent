@@ -95,6 +95,9 @@ const LISTENER_CASES: readonly ListenerCase[] = [
   { path: "settings.onPopQuizRequest", channel: IPC.POP_QUIZ_REQUEST, firstPayload: { quizId: "q-1" }, secondPayload: { quizId: "q-2" }, thirdPayload: { quizId: "q-3" } },
   { path: "settings.onPopQuizSettled", channel: IPC.POP_QUIZ_SETTLED, firstPayload: { quizId: "q-1", reason: "submitted" }, secondPayload: { quizId: "q-2", reason: "skipped" }, thirdPayload: { quizId: "q-3", reason: "cancelled" } },
   { path: "plugins.onChanged", channel: IPC.PLUGINS_CHANGED, firstPayload: { plugins: ["a"] }, secondPayload: { plugins: ["b"] }, thirdPayload: { plugins: ["c"] } },
+  { path: "plugins.onV2BorrowingChanged", channel: IPC.PLUGINS_V2_BORROWING_CHANGED, firstPayload: { entries: [{ id: "b-1", pluginId: "p1", pluginName: "P1" }] }, secondPayload: { entries: [] }, thirdPayload: { entries: [{ id: "b-2", pluginId: "p2", pluginName: "P2" }] } },
+  { path: "plugins.onV2ConfirmRequest", channel: IPC.PLUGINS_V2_CONFIRM_REQUEST, firstPayload: { id: "c-1", pluginId: "p1", pluginName: "P1", permission: "sessions.read" }, secondPayload: { id: "c-2", pluginId: "p1", pluginName: "P1", permission: "workspace.read" }, thirdPayload: { id: "c-3", pluginId: "p1", pluginName: "P1", permission: "model.run" } },
+  { path: "plugins.onV2ConfirmSettled", channel: IPC.PLUGINS_V2_CONFIRM_SETTLED, firstPayload: { id: "c-1", reason: "answered" }, secondPayload: { id: "c-2", reason: "cancelled" }, thirdPayload: { id: "c-3", reason: "answered" } },
   { path: "modelConfig.onConnectionChanged", channel: IPC.MODEL_CONNECTION_CHANGED, firstPayload: { revision: 1 }, secondPayload: { revision: 2 }, thirdPayload: { revision: 3 } },
   { path: "modelConfig.onChanged", channel: IPC.MODEL_CONFIG_CHANGED, firstPayload: { model: "gpt-4o" }, secondPayload: { model: "claude" }, thirdPayload: { model: "gemini" } },
   { path: "manualBrowser.onChanged", channel: IPC.BROWSER_CHANGED, firstPayload: { requestId: 1 }, secondPayload: { requestId: 2 }, thirdPayload: { requestId: 3 } },
@@ -150,10 +153,10 @@ describe("preload event listeners, payload unwrapping, and unsubscribe isolation
     harness.removeListener.mockClear();
   });
 
-  it("covers all 35 exposed on* event listener subscriptions", () => {
+  it("covers all 38 exposed on* event listener subscriptions", () => {
     const listed = LISTENER_CASES.map((entry) => entry.path);
     expect(new Set(listed).size).toBe(listed.length);
-    expect(listed).toHaveLength(35);
+    expect(listed).toHaveLength(38);
     expect(listed.slice().sort()).toEqual(collectListenerPaths(harness.exposed));
   });
 

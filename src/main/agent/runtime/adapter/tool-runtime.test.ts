@@ -199,6 +199,16 @@ it("uses the canonical Main registry and injects the same coordinator into the c
       revalidateToolPermission: second.toolContext.revalidateToolPermission,
     }) }));
     expect(prepareRuntime("chat").agentExecutor).toBeUndefined();
+    createAgentExecutor.mockClear();
+    const noPartners = prepareToolRuntime({
+      options: { conversationId: "synthetic-plugin", conversationMode: "work", allowDelegation: false,
+        settings: { provider: "synthetic", baseUrl: "", model: "model", apiKey: "" }, messages: [] } as never,
+      signal: new AbortController().signal,
+      prepared: { threadId: "synthetic-plugin", runId: "plugin-run", systemPrompt: "system", vendorConfig: {}, tools: [], runStore: {} } as never,
+      sendBaseEvent: vi.fn(),
+    });
+    expect(noPartners.agentExecutor).toBeUndefined();
+    expect(createAgentExecutor).not.toHaveBeenCalled();
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
@@ -268,5 +278,78 @@ describe("approval requests carry the run id (ChatPage G2)", () => {
     getCurrentLevel.mockReturnValue("per-action");
     expect(await runtime.checkPermission("g2_write", {})).toBe(false);
     expect(checkPermission).not.toHaveBeenCalled();
+  });
+
+  it("calls tool.describeApproval when prompting and passes summary/target into approvalTarget", async () => {
+    getCurrentLevel.mockReturnValue("per-action");
+    const describeApproval = vi.fn(async () => ({ summary: "Sync repository", target: "origin/main" }));
+    getById.mockReturnValue({
+      id: "demo_sync",
+      name: "Sync",
+      description: "Sync",
+      risk: "fs-write",
+      risks: ["fs-write"],
+      pluginMeta: { pluginId: "demo", pluginName: "Demo", toolName: "sync" },
+      describeApproval,
+    });
+    const runtime = prepareRuntime("code", "normal", { runId: "run-describe" });
+    expect(await runtime.checkPermission("demo_sync", { branch: "main" })).toBe(true);
+    expect(describeApproval).toHaveBeenCalledWith({ branch: "main" }, expect.any(AbortSignal));
+    expect(checkPermission).toHaveBeenCalledWith(expect.objectContaining({
+      approvalTarget: "Sync repository — origin/main",
+      isPlugin: true,
+      declaredBy: "Demo",
+    }));
+  });
+
+  it("falls back to default approval copy when describeApproval returns null, throws, or times out", async () => {
+    vi.useFakeTimers();
+    try {
+      getCurrentLevel.mockReturnValue("per-action");
+      const describeApproval = vi.fn()
+        .mockResolvedValueOnce(null)
+        .mockRejectedValueOnce(new Error("boom"))
+        .mockImplementationOnce(() => new Promise(() => {}));
+      getById.mockReturnValue({
+        id: "demo_sync",
+        name: "Sync",
+        description: "Sync",
+        risk: "fs-write",
+        risks: ["fs-write"],
+        pluginMeta: { pluginId: "demo", pluginName: "Demo", toolName: "sync" },
+        describeApproval,
+      });
+      const runtime = prepareRuntime("code", "normal", { runId: "run-describe" });
+
+      await runtime.checkPermission("demo_sync", {});
+      expect(checkPermission.mock.calls.at(-1)?.[0]).not.toHaveProperty("approvalTarget");
+
+      await runtime.checkPermission("demo_sync", {});
+      expect(checkPermission.mock.calls.at(-1)?.[0]).not.toHaveProperty("approvalTarget");
+
+      const pending = runtime.checkPermission("demo_sync", {});
+      await vi.advanceTimersByTimeAsync(1_050);
+      await pending;
+      expect(checkPermission.mock.calls.at(-1)?.[0]).not.toHaveProperty("approvalTarget");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("skips describeApproval when policy does not prompt", async () => {
+    getCurrentLevel.mockReturnValue("full");
+    const describeApproval = vi.fn(async () => ({ summary: "Should not run" }));
+    getById.mockReturnValue({
+      id: "demo_net",
+      name: "Net",
+      description: "Net",
+      risk: "network",
+      risks: ["network"],
+      pluginMeta: { pluginId: "demo", pluginName: "Demo", toolName: "net" },
+      describeApproval,
+    });
+    const runtime = prepareRuntime("code", "normal", { runId: "run-allow" });
+    await runtime.checkPermission("demo_net", {});
+    expect(describeApproval).not.toHaveBeenCalled();
   });
 });
