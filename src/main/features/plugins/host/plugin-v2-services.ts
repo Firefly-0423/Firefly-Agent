@@ -468,6 +468,9 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
         runId,
         signal,
         interactiveTools: false,
+        // Plugin runs are not registered with the desktop run bridge, so no one could answer an approval card:
+        // actions that need approval are refused at once instead of waiting until cancel or timeout.
+        approvals: "refuse" as const,
         allowDelegation: request.allowPartners === true,
         ...(request.allowPartners ? {} : {
           tools: (built.options.tools ?? []).filter((tool) => tool.id !== "delegate_agent"),

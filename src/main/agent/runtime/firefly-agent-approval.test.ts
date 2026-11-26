@@ -122,6 +122,17 @@ describe("approval requests carry the run id (ChatPage G2)", () => {
   });
 });
 
+describe("runs that refuse approvals (plugin model.run)", () => {
+  it("refuses an action that needs approval without sending a card and still finishes the run", async () => {
+    const runId = "g2-refuse";
+    const events = await lastValueFrom(new FireflyAgent({ threadId: "g2-refuse" })
+      .runWithEvents({ ...options("work", runId), approvals: "refuse" }).pipe(toArray()));
+    expect(cards()).toEqual([]);
+    expect(execute).not.toHaveBeenCalled();
+    expect(events.filter(event => event.type === EventType.RUN_FINISHED).map(event => event.runId)).toEqual([runId]);
+  });
+});
+
 describe("approval answered from the toast review", () => {
   it("lets the original run finish and records its tool result and answer once", async () => {
     const runId = "review-run";

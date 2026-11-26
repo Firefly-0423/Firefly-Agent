@@ -103,8 +103,9 @@ export function prepareToolRuntime(input: ToolRuntimeInput): PreparedToolRuntime
     if (policyForTool(fileAccessLevel, policyTarget) === "deny") return false;
     if (options.permissionMode === "allow_all") return true;
     const policies = [policyForTool(fileAccessLevel, policyTarget), policyForTool(getCurrentLevel(), policyTarget)];
-    if (!runId) {
+    if (!runId || options.approvals === "refuse") {
       // 与权限宿主取更严判定的规则一致：只有真正要问用户的审批才需要所属运行。
+      // 桌面上没人能回答的运行（插件 model.run）也一样：要审批的操作直接拒绝，不挂起等待。
       if (!policies.includes("deny") && policies.includes("ask")) return false;
     }
     const requestSignal = invocationSignal && invocationSignal !== signal ? AbortSignal.any([signal, invocationSignal]) : signal;

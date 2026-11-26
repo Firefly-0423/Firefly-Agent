@@ -62,6 +62,11 @@ export type FireflyRunOptions = {
   imageCaptionFallback?: () => Promise<ChatMessage[]>;
   permissionMode?: "normal" | "allow_all";
   interactiveTools?: boolean;
+  /**
+   * "refuse": an action that would need the user's approval is refused at once, with no approval card.
+   * For runs nobody can answer from the desktop (plugin model.run), so they never wait on an approval.
+   */
+  approvals?: "prompt" | "refuse";
   /** false keeps the run from delegating to partners: no agent executor and no delegate_agent tool. */
   allowDelegation?: boolean;
   capabilities?: RunCapabilities;

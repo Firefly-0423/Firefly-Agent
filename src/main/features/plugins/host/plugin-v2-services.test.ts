@@ -241,6 +241,7 @@ describe("plugin-v2-services model.run (A2)", () => {
       expect(options).not.toHaveProperty("openMemoryRun");
       expect(options).not.toHaveProperty("controlledResponses");
       expect(options.allowDelegation).toBe(delegation);
+      expect(options.approvals).toBe("refuse");
       expect((options.tools as Array<{ id: string }>).map((tool) => tool.id)).toEqual(delegation ? ["delegate_agent", "read_file"] : ["read_file"]);
       expect(openMemoryRun).not.toHaveBeenCalled();
     } finally {
