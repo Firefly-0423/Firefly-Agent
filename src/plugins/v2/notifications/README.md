@@ -1,6 +1,6 @@
 # 插件桌面通知宿主
 
-`createElectronPluginNotifications` 在 Electron `app.whenReady()` 后创建，使用系统通知。v2 组合根尚未接入主应用；G38 接线时与现有 v2 服务组合，不调用 v0 宿主或读取旧安装数据：
+`createElectronPluginNotifications` 在 Electron `app.whenReady()` 后创建，使用系统通知。v2 组合根（`src/main/app/plugin-v2-bootstrap.ts`）把它作为 `createNotifications` 传给插件宿主控制器，由控制器用安装清单与实时授予提供 `access` / `onAccessChange`，并在每个插件的 `configureRpc` 中一并注册；当前没有“通知显示开关”设置，所以不传 `isEnabled`。下面是等价的接线示意，不调用 v0 宿主或读取旧安装数据：
 
 ```ts
 const notifications = createElectronPluginNotifications({

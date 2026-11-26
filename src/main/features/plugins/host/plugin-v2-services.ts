@@ -23,6 +23,7 @@ import type {
   UninstallCleanupResult,
 } from "../../../../shared/plugin-management";
 import type { PluginManifestV1, PluginRunSource } from "../../../../shared/plugin-manifest";
+import type { PluginNotificationDependencies } from "../../../../plugins/v2/notifications";
 import type { PluginReplaceSummary } from "../../../../shared/plugin-management";
 import {
   PluginError,
@@ -123,6 +124,18 @@ export interface PluginV2HostDependencies {
   onRunningStateChange?: (pluginId: string, running: boolean) => void;
   createHostManager?: (deps: HostDependencies) => PluginHostManager;
   packageFs?: Partial<ImporterFsOps>;
+  /**
+   * Builds the desktop-notification service once the controller can supply installed access and live grants.
+   * The composition root owns the Electron parts (system notification, window focus).
+   */
+  createNotifications?: (
+    access: Pick<PluginNotificationDependencies, "access" | "onAccessChange">,
+  ) => PluginNotificationsService;
+}
+
+export interface PluginNotificationsService {
+  configureRpc(pluginId: string, rpc: PluginRpc): () => void;
+  dispose(): void;
 }
 
 export interface PluginV2ImportOptions {
@@ -774,6 +787,31 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
     },
   });
 
+  const notifications = deps.createNotifications?.({
+    access(pluginId) {
+      const stored = stateStore.get(pluginId);
+      if (!stored || !stored.enabled) return null;
+      return {
+        name: stored.manifest.name,
+        declared: stored.manifest.permissions ?? [],
+        granted: new Set(stored.grantedPermissions),
+        revision: stored.revision,
+      };
+    },
+    onAccessChange(pluginId, listener) {
+      let set = accessListeners.get(pluginId);
+      if (!set) {
+        set = new Set();
+        accessListeners.set(pluginId, set);
+      }
+      set.add(listener);
+      return () => {
+        set?.delete(listener);
+        if (set && set.size === 0) accessListeners.delete(pluginId);
+      };
+    },
+  });
+
   const configureRpc = (id: string, rpc: PluginRpc): (() => void) => {
     const stored = stateStore.get(id);
     if (!stored) {
@@ -803,8 +841,10 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
       rpc,
     );
     const offServices = hostServices.configureRpc(id, rpc);
+    const offNotifications = notifications?.configureRpc(id, rpc);
 
     return () => {
+      offNotifications?.();
       offServices();
       offSchedules();
       offSecrets();
@@ -1498,6 +1538,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
       unsubTarget?.();
       unsubWorkspace?.();
       hostServices.dispose();
+      notifications?.dispose();
       hostEventListeners.clear();
       borrowingMap.clear();
     },

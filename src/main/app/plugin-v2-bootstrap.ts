@@ -10,6 +10,7 @@ import { toolRegistry } from "../tooling/registry/tool-registry";
 import type { LlmClient } from "../agent/services/llm/llm-client";
 import type { BuildOptionsFn } from "../agent/runtime/run-input-types";
 import * as chatsStore from "../features/sessions/chats-store";
+import { createElectronPluginNotifications } from "../../plugins/v2/notifications/electron";
 import type { PluginSchedulerStorePort } from "../../plugins/v2/schedules";
 import type { ServicePermission } from "../../plugins/v2/services";
 import {
@@ -38,6 +39,8 @@ export interface PluginV2BootstrapDeps {
   schedulerStore: PluginSchedulerStorePort;
   getChatWebContents: () => WebContents | null;
   getPanelWebContents?: () => WebContents | null;
+  /** Restore, show and focus the main chat window; used when a plugin notification is clicked. */
+  focusMainWindow: () => void;
   onRunningStateChange?: (pluginId: string, running: boolean) => void;
   confirmTimeoutMs?: number;
 }
@@ -156,6 +159,8 @@ export async function startPluginV2Bootstrap(deps: PluginV2BootstrapDeps): Promi
     stateFile: storage.files.pluginState,
     toolRegistry,
     safeStorage,
+    // The bootstrap runs after app ready, which Electron requires before a Notification is created.
+    createNotifications: (access) => createElectronPluginNotifications({ ...access, focusMainWindow: deps.focusMainWindow }),
     schedulerStore: deps.schedulerStore,
     llmClient: deps.llmClient,
     buildRunOptions: deps.buildRunOptions,

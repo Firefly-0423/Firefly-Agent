@@ -1002,6 +1002,13 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
             schedulerStore: scheduler.store,
             getChatWebContents: () => reactChatWindow?.webContents ?? null,
             getPanelWebContents: () => settingsWindow?.webContents ?? null,
+            focusMainWindow: () => {
+              const chat = reactChatWindow;
+              if (!chat || chat.isDestroyed()) return;
+              if (chat.isMinimized()) chat.restore();
+              chat.show();
+              chat.focus();
+            },
             onRunningStateChange: () => scheduler.engine.refreshPluginTasks(),
           });
           return {

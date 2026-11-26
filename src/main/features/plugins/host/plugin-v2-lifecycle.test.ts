@@ -11,9 +11,11 @@ import { HOST_TO_PLUGIN_METHODS, type Frame } from "../../../../shared/plugin-pr
 import type { ImporterFsOps } from "../../../../plugins/v2/package/importer";
 import { resolvePluginSecretsFile } from "../../../../plugins/v2/secrets/paths";
 import type { SafeStorageLike } from "../../../../plugins/v2/secrets";
-import { createPluginV2HostController } from "./plugin-v2-services";
+import { createPluginV2HostController, type PluginV2HostDependencies } from "./plugin-v2-services";
 import type { HostChild, HostDependencies, HostPort } from "../../../../plugins/v2/host";
 import { PluginHostManager } from "../../../../plugins/v2/host";
+import { createPluginNotifications } from "../../../../plugins/v2/notifications";
+import { createRpcEndpoint } from "../../../../shared/plugin-rpc";
 
 let root: string;
 let dataRoot: string;
@@ -154,7 +156,7 @@ function createFakeHostHarness(
 function makeController(
   harness: ReturnType<typeof createFakeHostHarness>,
   deleteTasksSpy = vi.fn(() => 2),
-  extra: { packageFs?: Partial<ImporterFsOps> } = {},
+  extra: { packageFs?: Partial<ImporterFsOps>; createNotifications?: PluginV2HostDependencies["createNotifications"] } = {},
 ) {
   const controller = createPluginV2HostController({
     dataRoot,
@@ -178,6 +180,7 @@ function makeController(
     confirmFirstUse: async () => true,
     createHostManager: harness.createHostManager,
     ...(extra.packageFs ? { packageFs: extra.packageFs } : {}),
+    ...(extra.createNotifications ? { createNotifications: extra.createNotifications } : {}),
   });
   return { controller, deleteTasksSpy };
 }
@@ -1149,5 +1152,112 @@ describe("Plugin V2 local replacement confirmation", () => {
     expect(res).toMatchObject({ ok: true, installation: "committed" });
     await controller.stopAll("quit");
     controller.dispose();
+  });
+});
+
+describe("Plugin V2 desktop notifications wiring", () => {
+  const pluginId = "dev.firefly.notify";
+
+  function setup() {
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    let hostDeps: HostDependencies | undefined;
+    const created: Array<EventEmitter & { show: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> }> = [];
+    const create = vi.fn((_options: { title: string; body: string }) => {
+      const notice = Object.assign(new EventEmitter(), { show: vi.fn(), close: vi.fn() });
+      created.push(notice);
+      return notice;
+    });
+    const focusMainWindow = vi.fn();
+    const { controller } = makeController(
+      { ...harness, createHostManager: (deps: HostDependencies) => { hostDeps = deps; return harness.createHostManager(deps); } },
+      undefined,
+      {
+        createNotifications: (access) => createPluginNotifications({
+          ...access,
+          isSupported: () => true,
+          create,
+          focusMainWindow,
+        }),
+      },
+    );
+    // Connects a plugin-side endpoint to the host rpc the same way the host manager does when it starts a plugin.
+    const connect = () => {
+      let hostReceive = (_v: unknown) => {}, clientReceive = (_v: unknown) => {};
+      const host = createRpcEndpoint({ post: (f) => clientReceive(f), onFrame: (fn) => { hostReceive = fn; return () => {}; } });
+      const client = createRpcEndpoint({ post: (f) => hostReceive(f), onFrame: (fn) => { clientReceive = fn; return () => {}; } });
+      const dispose = hostDeps!.configureRpc!(pluginId, host);
+      return { client, close: () => { dispose(); client.close(); host.close(); } };
+    };
+    return { controller, create, created, focusMainWindow, connect };
+  }
+
+  async function install(controller: ReturnType<typeof setup>["controller"], permissions: string[]) {
+    await controller.importFromPath(await writeArchivePlugin({ id: pluginId, version: "1.0.0", name: "Notifier", permissions }));
+  }
+
+  it("shows a notification titled with the installed plugin name when the permission is granted", async () => {
+    const t = setup();
+    await install(t.controller, ["notifications"]);
+    await t.controller.enablePlugin(pluginId);
+    const link = t.connect();
+
+    const pending = link.client.call("notifications.show", { title: "Done", body: "Finished" });
+    await vi.waitFor(() => expect(t.created).toHaveLength(1));
+    t.created[0].emit("show");
+
+    await expect(pending).resolves.toEqual({ shown: true });
+    expect(t.create).toHaveBeenCalledExactlyOnceWith({ title: "〔Notifier〕Done", body: "Finished" });
+    t.created[0].emit("click");
+    expect(t.focusMainWindow).toHaveBeenCalledTimes(1);
+
+    link.close();
+    t.controller.dispose();
+  });
+
+  it("refuses a plugin whose notifications permission is not granted, without creating a notification", async () => {
+    const t = setup();
+    await install(t.controller, ["notifications"]);
+    await t.controller.enablePlugin(pluginId, { grantedPermissions: [] });
+    const link = t.connect();
+
+    await expect(link.client.call("notifications.show", { title: "Done", body: "x" })).rejects.toMatchObject({ code: "ERR_PERMISSION" });
+    expect(t.create).not.toHaveBeenCalled();
+
+    link.close();
+    t.controller.dispose();
+  });
+
+  it("refuses a plugin that does not declare the permission", async () => {
+    const t = setup();
+    await install(t.controller, ["secrets"]);
+    await t.controller.enablePlugin(pluginId);
+    const link = t.connect();
+
+    await expect(link.client.call("notifications.show", { title: "Done", body: "x" })).rejects.toMatchObject({ code: "ERR_UNDECLARED" });
+    expect(t.create).not.toHaveBeenCalled();
+
+    link.close();
+    t.controller.dispose();
+  });
+
+  it("stops a pending notification and refuses new ones as soon as the permission is revoked while the plugin runs", async () => {
+    const t = setup();
+    await install(t.controller, ["notifications"]);
+    await t.controller.enablePlugin(pluginId);
+    const link = t.connect();
+
+    const pending = link.client.call("notifications.show", { title: "Done", body: "x" });
+    await vi.waitFor(() => expect(t.created).toHaveLength(1));
+    t.controller.revokePermission(pluginId, "notifications");
+
+    await expect(pending).rejects.toMatchObject({ code: "ERR_PERMISSION" });
+    expect(t.created[0].close).toHaveBeenCalled();
+    await expect(link.client.call("notifications.show", { title: "Again", body: "x" })).rejects.toMatchObject({ code: "ERR_PERMISSION" });
+    expect(t.create).toHaveBeenCalledTimes(1);
+    t.created[0].emit("click");
+    expect(t.focusMainWindow).not.toHaveBeenCalled();
+
+    link.close();
+    t.controller.dispose();
   });
 });

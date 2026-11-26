@@ -79,9 +79,22 @@ vi.mock("../features/plugins/host/plugin-marketplace", async (importOriginal) =>
   };
 });
 
+const notificationsMock = vi.hoisted(() => ({
+  createNotifications: undefined as undefined | ((access: unknown) => unknown),
+  electronDeps: undefined as undefined | Record<string, unknown>,
+  service: { configureRpc: vi.fn(), dispose: vi.fn() },
+}));
+vi.mock("../../plugins/v2/notifications/electron", () => ({
+  createElectronPluginNotifications: vi.fn((deps: Record<string, unknown>) => {
+    notificationsMock.electronDeps = deps;
+    return notificationsMock.service;
+  }),
+}));
+
 vi.mock("../features/plugins/host/plugin-v2-services", () => ({
-  createPluginV2HostController: vi.fn((deps: { confirmFirstUse: typeof mocks.capturedConfirmFirstUse }) => {
+  createPluginV2HostController: vi.fn((deps: { confirmFirstUse: typeof mocks.capturedConfirmFirstUse; createNotifications?: (access: unknown) => unknown }) => {
     mocks.capturedConfirmFirstUse = deps.confirmFirstUse;
+    notificationsMock.createNotifications = deps.createNotifications;
     return mocks.controller;
   }),
 }));
@@ -138,6 +151,30 @@ describe("startPluginV2Bootstrap marketplace catalog", () => {
     // Source and compiled files sit at the same depth (src/main/app, dist/main/main/app): two levels up is the catalog root.
     expect(marketplaceMock.deps?.bundledDir).toBe(path.join(__dirname, "..", "..", "plugin-marketplace"));
     expect(marketplaceMock.deps?.registryUrls.length).toBeGreaterThan(0);
+  });
+});
+
+describe("startPluginV2Bootstrap desktop notifications", () => {
+  it("gives the controller an Electron notification factory fed by installed access and the chat window focus callback", async () => {
+    const { ipc } = createMockIpc();
+    const focusMainWindow = vi.fn();
+    const { startPluginV2Bootstrap } = await import("./plugin-v2-bootstrap");
+    await startPluginV2Bootstrap({
+      ipc,
+      llmClient: { chatNonStream: vi.fn() },
+      buildRunOptions: vi.fn() as never,
+      schedulerStore: {} as never,
+      getChatWebContents: () => null as never,
+      focusMainWindow,
+    });
+    expect(notificationsMock.electronDeps).toBeUndefined();
+
+    const access = { access: vi.fn(), onAccessChange: vi.fn() };
+    const service = notificationsMock.createNotifications!(access);
+
+    expect(service).toBe(notificationsMock.service);
+    expect(notificationsMock.electronDeps).toEqual({ ...access, focusMainWindow });
+    expect(notificationsMock.electronDeps).not.toHaveProperty("isEnabled");
   });
 });
 
