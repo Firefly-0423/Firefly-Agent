@@ -435,6 +435,56 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
     controller.dispose();
   });
 
+  it("restores files and the previous state record when committing a disabled same-version overwrite fails", async () => {
+    let failCommit = false;
+    const harness = createFakeHostHarness(() => ({ ok: true }));
+    const { controller } = makeController(harness, undefined, {
+      packageFs: {
+        async rm(target, options) {
+          if (failCommit && path.basename(String(target)).startsWith(".backup-")) {
+            throw new Error("EPERM removing backup");
+          }
+          return fsPromises.rm(target, options);
+        },
+      },
+    });
+    const first = await writeArchivePlugin({
+      id: "dev.firefly.commitfail",
+      version: "1.0.0",
+      name: "First Name",
+      mainCode: "export default { build: 'first' };\n",
+    });
+    expect((await controller.importFromPath(first)).ok).toBe(true);
+    const before = structuredClone(controller.stateStore.get("dev.firefly.commitfail"));
+
+    failCommit = true;
+    const second = await writeArchivePlugin({
+      id: "dev.firefly.commitfail",
+      version: "1.0.0",
+      name: "Second Name",
+      mainCode: "export default { build: 'second' };\n",
+    });
+    const res = await controller.importFromPath(second);
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.installation).toBe("rejected");
+      expect(res.error).toContain("EPERM removing backup");
+    }
+    const after = controller.stateStore.get("dev.firefly.commitfail");
+    expect(after?.manifest).toEqual(before?.manifest);
+    expect(after?.manifest.name).toBe("First Name");
+    expect(after?.enabled).toBe(false);
+    expect(after?.installDir).toBe(before?.installDir);
+    const diskState = JSON.parse(readFileSync(controller.stateStore.filePath, "utf8"));
+    expect(diskState.plugins["dev.firefly.commitfail"].manifest.name).toBe("First Name");
+    const installed = path.join(dataRoot, "plugins", "dev.firefly.commitfail", "1.0.0", "index.mjs");
+    expect(readFileSync(installed, "utf8")).toContain("first");
+    expect(harness.launched).toHaveLength(0);
+
+    controller.dispose();
+  });
+
   it("uninstall removes scheduled tasks and package dir while keeping secrets when requested", async () => {
     const harness = createFakeHostHarness(() => ({ ok: true }));
     const deleteTasksSpy = vi.fn(() => 1);

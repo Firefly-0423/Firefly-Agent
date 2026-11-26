@@ -1081,6 +1081,8 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
           }
         } catch (error) {
           await imported.rollback().catch(() => {});
+          // install() already persisted the new manifest; put the previous record back so state matches the rolled-back files.
+          try { stateStore.restoreSnapshot(existing); } catch { /* Best effort: the original error is reported. */ }
           return {
             ok: false,
             installation: "rejected",
