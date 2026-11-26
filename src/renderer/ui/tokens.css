@@ -455,13 +455,13 @@
 }
 
 :root[data-ui-theme="firefly-dark"] {
-  --ff-mint-200: #a9ead0;
-  --ff-mint-300: #8fe0bc;
-  --ff-mint-400: #7bd8ae;
-  --ff-mint-soft-14: rgba(123, 216, 174, 0.14);
-  --ff-mint-soft-16: rgba(123, 216, 174, 0.16);
-  --ff-mint-soft-26: rgba(123, 216, 174, 0.26);
-  --ff-mint-soft-28: rgba(123, 216, 174, 0.28);
+  --ff-mint-200: #6ee7b7;
+  --ff-mint-300: #34d399;
+  --ff-mint-400: #10b981;
+  --ff-mint-soft-14: rgba(16, 185, 129, 0.14);
+  --ff-mint-soft-16: rgba(16, 185, 129, 0.16);
+  --ff-mint-soft-26: rgba(16, 185, 129, 0.26);
+  --ff-mint-soft-28: rgba(16, 185, 129, 0.28);
   --ff-palette-0b2b22: #181818;
   --ff-palette-0c1714: #121212;
   --ff-palette-13221d: #181818;

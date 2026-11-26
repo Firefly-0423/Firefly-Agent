@@ -8,9 +8,9 @@
   --ff-glow-rgb: 59, 154, 118;
 }
 :root[data-ui-theme="firefly-dark"] {
-  --ff-glow: var(--ff-accent, #7bd8ae);
-  --ff-glow-soft: var(--ff-accent, #7bd8ae);
-  --ff-glow-rgb: var(--ff-accent-rgb, 123, 216, 174);
+  --ff-glow: var(--ff-accent, #10b981);
+  --ff-glow-soft: var(--ff-accent, #10b981);
+  --ff-glow-rgb: var(--ff-accent-rgb, 16, 185, 129);
 }
 
 :root[data-ui-theme="pearl-white"] {

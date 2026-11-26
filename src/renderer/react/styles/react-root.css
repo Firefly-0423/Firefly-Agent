@@ -100,14 +100,14 @@
   --ff-text: #ededed;
   --ff-text-secondary: #b8b8b8;
   --ff-text-muted: #a0a0a0;
-  --ff-accent: #7bd8ae;
+  --ff-accent: #10b981;
   /* Firefly gold: the warm complement of the ink-green ground, like a glowing firefly against the night, and it keeps mint for the accent. */
   --ff-drop-guide: #f3c969;
   --ff-drop-guide-glow: rgba(243, 201, 105, 0.34);
   --ff-git-branch: #b9a4ff;
-  --ff-accent-solid: #3b9a76;
-  --ff-primary-bg: #318364;
-  --ff-accent-rgb: 123, 216, 174;
+  --ff-accent-solid: #059669;
+  --ff-primary-bg: #047857;
+  --ff-accent-rgb: 16, 185, 129;
   --ff-on-accent: #ffffff;
   --ff-danger: #f28b82;
   --ff-success: #6fd6a4;
@@ -120,13 +120,13 @@
   --ff-info-fg: #9bcdf2;
   --ff-scrim: rgba(0, 0, 0, 0.55);
   --ff-pill-bg: #242424;
-  --ff-pill-border: #7bd8ae;
+  --ff-pill-border: #10b981;
   --ff-pill-status: #ededed;
   --ff-shadow-workspace: inset 0 2px 8px rgba(0, 0, 0, 0.25), inset 0 0 2px rgba(0, 0, 0, 0.2);
   --ff-shadow-bubble-neutral: 0 1px 2px rgba(0, 0, 0, 0.35), 0 6px 20px rgba(0, 0, 0, 0.28);
   --ff-shadow-bubble-accent: 0 1px 2px rgba(0, 0, 0, 0.35), 0 6px 20px rgba(0, 0, 0, 0.3);
   --ff-shadow-control-hover: 0 2px 6px rgba(0, 0, 0, 0.35), 0 8px 22px rgba(0, 0, 0, 0.3);
-  --ff-shadow-control-focus: 0 0 0 3px rgba(123, 216, 174, 0.22), 0 6px 18px rgba(0, 0, 0, 0.3);
+  --ff-shadow-control-focus: 0 0 0 3px rgba(16, 185, 129, 0.22), 0 6px 18px rgba(0, 0, 0, 0.3);
 }
 
 /* ===== 滚动条：10px 透明轨道里一根 6px 的圆角细滑块，不占视觉位置 ===== */
