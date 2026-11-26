@@ -49,9 +49,9 @@ export const PLUGIN_TO_HOST_METHODS = {
   toolsRegister: 'tools.register', toolsUnregister: 'tools.unregister', toolsProgress: 'tools.progress',
   contextRegister: 'context.register', contextUnregister: 'context.unregister',
   channelsRegister: 'channels.register', channelsReportState: 'channels.reportState', channelsDeliver: 'channels.deliver',
-  modelGenerate: 'model.generate', modelRun: 'model.run',
+  modelGenerate: 'model.generate', modelRun: 'model.run', notificationsShow: 'notifications.show',
   eventsSubscribe: 'events.subscribe', sessionsList: 'sessions.list', sessionsMessages: 'sessions.messages',
-  workspaceInfo: 'workspace.info', workspaceRead: 'workspace.read', workspaceWatch: 'workspace.watch',
+  workspaceInfo: 'workspace.info', workspaceWatch: 'workspace.watch',
   schedulesPropose: 'schedules.propose', schedulesUpdate: 'schedules.update', schedulesRemove: 'schedules.remove', schedulesList: 'schedules.list', schedulesOnTrigger: 'schedules.onTrigger',
   secretsGet: 'secrets.get', secretsSet: 'secrets.set', secretsDelete: 'secrets.delete', secretsKeys: 'secrets.keys',
   uiOpenWindow: 'ui.openWindow', uiCloseWindow: 'ui.closeWindow', uiOnMessage: 'ui.onMessage', uiPost: 'ui.post'
@@ -104,6 +104,14 @@ export interface ProtocolOutboundMessage {
   text: string
   replyToExternalMessageId?: string
   attachments?: ProtocolChannelAttachment[]
+}
+
+export interface ProtocolNotificationParams {
+  title: string
+  body: string
+}
+export interface ProtocolNotificationResult {
+  shown: boolean
 }
 
 export interface ProtocolModelGenerateParams {
@@ -232,6 +240,7 @@ export interface HostToPluginResults {
 }
 
 export interface PluginToHostParams {
+  'notifications.show': ProtocolNotificationParams
   'tools.register': { name: string; description: string; parameters: Record<string, unknown> }
   'tools.unregister': { name: string }
   'tools.progress': { callId: string; message: string; percent?: number }
@@ -246,7 +255,6 @@ export interface PluginToHostParams {
   'sessions.list': { cursor?: string; limit?: number; mode?: ProtocolMode }
   'sessions.messages': { sessionId: string; cursor?: string; limit?: number }
   'workspace.info': { sessionId?: string }
-  'workspace.read': Record<string, unknown>
   'workspace.watch': Record<string, never>
   'schedules.propose': ProtocolScheduleProposalSpec
   'schedules.update': { taskId: string; patch: Partial<ProtocolScheduleProposalSpec> }
@@ -264,6 +272,7 @@ export interface PluginToHostParams {
 }
 
 export interface PluginToHostResults {
+  'notifications.show': ProtocolNotificationResult
   'tools.register': void
   'tools.unregister': void
   'tools.progress': void
@@ -278,7 +287,6 @@ export interface PluginToHostResults {
   'sessions.list': ProtocolPage<ProtocolSessionSummary>
   'sessions.messages': ProtocolPage<ProtocolMessageRecord>
   'workspace.info': ProtocolWorkspaceInfo | null
-  'workspace.read': unknown
   'workspace.watch': ProtocolWorkspaceInfo | null
   'schedules.propose': { taskId: string; status: 'pending_approval' }
   'schedules.update': { status: 'pending_approval' }

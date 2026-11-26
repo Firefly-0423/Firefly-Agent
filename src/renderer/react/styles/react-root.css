@@ -225,7 +225,7 @@ body {
   place-items: center;
   border: 2px dashed var(--ff-accent);
   border-radius: 12px;
-  background: rgb(255 255 255 / 88%);
+  background: var(--ff-white-alpha-88);
   color: var(--ff-accent);
   font: 600 var(--ff-fs-title)/1.4 var(--rb-font-sans, sans-serif);
   pointer-events: none;
@@ -236,7 +236,7 @@ body {
   padding: 10px 16px;
   border-radius: 12px;
   background: var(--ff-surface);
-  box-shadow: 0 8px 24px rgb(136 57 239 / 16%);
+  box-shadow: 0 8px 24px var(--ff-palette-8839ef-16);
 }
 
 .ff-page.is-collapsed {
@@ -372,7 +372,7 @@ body {
   width: 1px;
   height: 16px;
   flex-shrink: 0;
-  background: var(--ff-border, #eceef3);
+  background: var(--ff-border, var(--ff-slate-110));
 }
 
 /* 全局文字选中：用应用粉色强调色替代浏览器默认蓝 */
@@ -509,9 +509,9 @@ body {
   border: none;
   border-radius: 50%;
   padding: 0;
-  background: var(--ff-surface, rgba(255, 255, 255, 0.92));
-  color: var(--ff-text-primary, #4c3762);
-  box-shadow: 0 4px 14px rgba(76, 55, 98, 0.18);
+  background: var(--ff-surface, var(--ff-white-alpha-92));
+  color: var(--ff-text-primary, var(--ff-ink-plum));
+  box-shadow: 0 4px 14px var(--ff-ink-plum-18);
   cursor: pointer;
   transition: transform 0.2s ease, opacity 0.2s ease;
   backdrop-filter: blur(6px);
@@ -564,7 +564,7 @@ body {
 .ff-temporary-chat-banner {
   display: flex; align-items: center; justify-content: center; gap: 6px;
   margin: 0 auto 8px; padding: 4px 12px; width: fit-content; max-width: calc(100% - 32px);
-  border-radius: 999px; background: var(--ff-surface-muted, rgba(127, 127, 127, 0.12));
+  border-radius: 999px; background: var(--ff-surface-muted, var(--ff-surface-muted));
   color: var(--ff-text-muted); font: 400 var(--ff-fs-caption)/1.5 var(--rb-font-sans, inherit);
 }
 .ff-workspace-greeting__hint { margin: 6px 0 0; color: var(--ff-text-muted); font: 400 var(--ff-fs-ui)/1.5 var(--rb-font-sans, sans-serif); }
@@ -585,13 +585,47 @@ body {
   gap: 10px;
   padding: 10px 14px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  background: var(--ff-white-alpha-92);
+  box-shadow: 0 4px 14px var(--ff-black-alpha-8);
   color: var(--ff-text);
   font-size: var(--ff-fs-ui);
   pointer-events: none;
   animation: ff-compressing-fade-in 0.25s ease;
   z-index: 10;
+}
+
+.ff-plugin-borrowing-list {
+  position: absolute;
+  right: 24px;
+  bottom: 168px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 11;
+}
+
+.ff-plugin-borrowing-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid var(--ff-border);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  color: var(--ff-text);
+  font-size: var(--ff-fs-ui);
+  animation: ff-compressing-fade-in 0.25s ease;
+}
+
+.ff-plugin-borrowing-banner__stop {
+  padding: 3px 10px;
+  border: 1px solid var(--ff-border);
+  border-radius: 8px;
+  background: var(--ff-surface);
+  color: var(--ff-text);
+  font: 500 var(--ff-fs-ui)/1.3 var(--rb-font-sans, sans-serif);
+  cursor: pointer;
 }
 
 @keyframes ff-compressing-fade-in {
@@ -626,10 +660,10 @@ body {
   height: 10px;
   border: 2px solid var(--ff-bg-page);
   border-radius: 50%;
-  background: #8a8f98;
+  background: var(--ff-status-idle);
 }
 .ff-model-connection[data-state="connected"] .ff-model-connection__dot,
-.ff-model-connection[data-state="configured"] .ff-model-connection__dot { background: #238636; }
+.ff-model-connection[data-state="configured"] .ff-model-connection__dot { background: var(--ff-status-connected); }
 .ff-model-connection[data-state="failed"] .ff-model-connection__dot { background: var(--ff-danger); }
 /* The 24px hit area is almost empty: the visible part is the 14px status dot on the portrait's corner. Drawing the ring on the whole button
    put a large circle off-centre over the portrait, so the ring goes on the dot instead. */
@@ -720,8 +754,8 @@ body {
   padding: 6px;
   border: 1px solid rgba(var(--ff-accent-rgb), 0.08);
   border-radius: 16px;
-  background: var(--ff-popover, #f1f2f6);
-  box-shadow: 0 10px 34px rgba(61, 62, 85, 0.14), 0 1px 3px rgba(61, 62, 85, 0.06);
+  background: var(--ff-popover, var(--ff-palette-f1f2f6));
+  box-shadow: 0 10px 34px var(--ff-palette-3d3e55-14), 0 1px 3px var(--ff-palette-3d3e55-6);
 }
 .ant-dropdown .ant-dropdown-menu-item,
 .ant-select-dropdown .ant-select-item {

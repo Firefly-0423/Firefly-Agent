@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "dev.firefly.weather",
+  "name": "天气查询",
+  "version": "1.0.0",
+  "sdk": "^1.2.0",
+  "description": "查询指定城市的当前天气，使用 secrets 加密保存 API Key，并在设置面板配置。",
+  "author": {
+    "name": "Firefly-0423"
+  },
+  "license": "MIT",
+  "main": "index.mjs",
+  "native": false,
+  "permissions": [
+    "secrets"
+  ],
+  "tools": [
+    {
+      "name": "get_weather",
+      "title": "查询天气",
+      "risk": [
+        "network"
+      ],
+      "modes": [
+        "work",
+        "code"
+      ]
+    }
+  ],
+  "ui": {
+    "settings": {
+      "entry": "ui/settings.html",
+      "title": "天气设置"
+    }
+  }
+}

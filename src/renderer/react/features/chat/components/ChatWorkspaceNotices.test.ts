@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test, vi } from "vitest";
-import { RunRecoveryNotices } from "./ChatWorkspaceNotices";
+import { PluginBorrowingBanner, RunRecoveryNotices } from "./ChatWorkspaceNotices";
 
 const view = (patch: Partial<Parameters<typeof RunRecoveryNotices>[0]>) =>
   renderToStaticMarkup(createElement(RunRecoveryNotices, {
@@ -22,4 +22,20 @@ test("has no takeover warning on the welcome screen or for another session", () 
 
 test("suppresses recovery controls during an active run", () => {
   expect(view({ isRunning: true, interruptedRun: { runId: "paused", rounds: 6, todoCount: 1 } })).toBe("");
+});
+
+test("renders borrowing banner with plugin name and stop button", () => {
+  const html = renderToStaticMarkup(createElement(PluginBorrowingBanner, {
+    entries: [{ id: "b-1", pluginId: "demo-plugin", pluginName: "示例插件" }],
+    onStop: vi.fn(),
+  }));
+  expect(html).toContain("〔示例插件〕正在借用流萤思考");
+  expect(html).toContain("停止");
+});
+
+test("renders nothing for PluginBorrowingBanner when no entries are active", () => {
+  expect(renderToStaticMarkup(createElement(PluginBorrowingBanner, {
+    entries: [],
+    onStop: vi.fn(),
+  }))).toBe("");
 });

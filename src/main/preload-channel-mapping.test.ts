@@ -194,7 +194,7 @@ const CHANNEL_MAPPING_CASES: readonly MappingCase[] = [
   { path: "settings.beginScreenshotHotkeyCapture", op: "invoke", channel: IPC.SCREENSHOT_HOTKEY_CAPTURE_START, callArgs: [], expectedArgs: [] },
   { path: "settings.endScreenshotHotkeyCapture", op: "invoke", channel: IPC.SCREENSHOT_HOTKEY_CAPTURE_END, callArgs: [], expectedArgs: [] },
 
-  // plugins & pluginPanel (9)
+  // plugins & pluginPanel (13)
   { path: "plugins.list", op: "invoke", channel: IPC.PLUGINS_LIST, callArgs: [], expectedArgs: [] },
   { path: "plugins.setEnabled", op: "invoke", channel: IPC.PLUGINS_SET_ENABLED, callArgs: ["plug-1", true], expectedArgs: ["plug-1", true] },
   { path: "plugins.open", op: "invoke", channel: IPC.PLUGINS_OPEN, callArgs: ["plug-1"], expectedArgs: ["plug-1"] },
@@ -203,6 +203,10 @@ const CHANNEL_MAPPING_CASES: readonly MappingCase[] = [
   { path: "plugins.uninstall", op: "invoke", channel: IPC.PLUGINS_UNINSTALL, callArgs: ["plug-1"], expectedArgs: ["plug-1"] },
   { path: "plugins.marketList", op: "invoke", channel: IPC.PLUGINS_MARKET_LIST, callArgs: ["zh-CN"], expectedArgs: ["zh-CN"] },
   { path: "plugins.marketInstall", op: "invoke", channel: IPC.PLUGINS_MARKET_INSTALL, callArgs: ["plug-1"], expectedArgs: ["plug-1"] },
+  { path: "plugins.getV2Borrowing", op: "invoke", channel: IPC.PLUGINS_V2_BORROWING_GET, callArgs: [], expectedArgs: [] },
+  { path: "plugins.stopV2Borrowing", op: "invoke", channel: IPC.PLUGINS_V2_BORROWING_STOP, callArgs: [{ id: "b-1" }], expectedArgs: [{ id: "b-1" }] },
+  { path: "plugins.getV2Confirms", op: "invoke", channel: IPC.PLUGINS_V2_CONFIRM_GET, callArgs: [], expectedArgs: [] },
+  { path: "plugins.resolveV2Confirm", op: "invoke", channel: IPC.PLUGINS_V2_CONFIRM_RESOLVE, callArgs: ["c-1", true], expectedArgs: [{ id: "c-1", allowed: true }] },
   { path: "pluginPanel.invoke", op: "invoke", channel: IPC.PLUGINS_PANEL_INVOKE, callArgs: ["plug-1", "refresh", { force: true }], expectedArgs: ["plug-1", "refresh", { force: true }] },
 
   // fireflyScheduler (8)
@@ -356,15 +360,15 @@ describe("preload IPC channel and argument mapping", () => {
   it("accounts for every non-listener invoke/send method across all exposed APIs", () => {
     const mapped = CHANNEL_MAPPING_CASES.map((entry) => entry.path);
     expect(new Set(mapped).size).toBe(mapped.length);
-    expect(mapped).toHaveLength(219);
+    expect(mapped).toHaveLength(223);
 
     const allExposedFunctions = collectLeafFunctionPaths(harness.exposed);
-    expect(allExposedFunctions).toHaveLength(255);
+    expect(allExposedFunctions).toHaveLength(262);
 
     const nonTableFunctions = allExposedFunctions.filter(
       (methodPath) => methodPath === "chat.ingestDroppedFiles" || /\.on[A-Z]/.test(methodPath),
     );
-    expect(nonTableFunctions).toHaveLength(36);
+    expect(nonTableFunctions).toHaveLength(39);
     expect(mapped.slice().sort()).toEqual(
       allExposedFunctions.filter((methodPath) => !nonTableFunctions.includes(methodPath)),
     );

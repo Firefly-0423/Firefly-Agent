@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { win32 } from "node:path";
-import { createRpcEndpoint, type PluginRpc } from "../../../shared/plugin-rpc";
+import { createRpcEndpoint, type PluginRpc, type RpcOptions } from "../../../shared/plugin-rpc";
 import { HOST_TO_PLUGIN_METHODS, PluginError, type Frame } from "../../../shared/plugin-protocol";
 
 export type PluginHostStatus = "disabled" | "starting" | "enabled" | "stopping" | "restarting" | "disabled-fault";
@@ -39,7 +39,7 @@ export interface HostDependencies {
   memoryPollMs?: number;
   /** Last resort when the child is still alive after a termination request (POSIX kill() is only SIGTERM). */
   forceKill?(pid: number): void;
-  configureRpc?(id: string, rpc: PluginRpc): void;
+  configureRpc?(id: string, rpc: PluginRpc): void | (() => void);
 }
 
 /** No host PATH, NODE_OPTIONS, proxy, app settings or credentials cross this boundary.
@@ -61,6 +61,7 @@ interface Runtime {
   child: HostChild;
   rpc: PluginRpc;
   ports: HostPort[];
+  disposeServices?: () => void;
   crashed: boolean;
   finished: boolean;
   exit: () => void;
@@ -85,7 +86,14 @@ const TERMINATE_GRACE_MS = 750;
 export class PluginHostManager {
   private readonly records = new Map<string, RecordState>();
   private readonly listeners = new Set<(event: { id: string; status: PluginHostStatus }) => void>();
+  private readonly stopListeners = new Set<(id: string, rpc: PluginRpc) => Promise<void>>();
   constructor(private readonly dependencies: HostDependencies) {}
+
+  /** Runs while the port is alive, before deactivate. Services must use bounded RPC calls. */
+  onBeforeStop(listener: (id: string, rpc: PluginRpc) => Promise<void>): () => void {
+    this.stopListeners.add(listener);
+    return () => { this.stopListeners.delete(listener); };
+  }
 
   onStatusChange(listener: (event: { id: string; status: PluginHostStatus }) => void): () => void {
     this.listeners.add(listener);
@@ -123,6 +131,7 @@ export class PluginHostManager {
     runtime.rejectStartup(unavailable());
     if (runtime.startupTimer) clearTimeout(runtime.startupTimer);
     const stopped = (async () => {
+      await Promise.allSettled([...this.stopListeners].map(listener => Promise.resolve().then(() => listener(id, runtime.rpc))));
       try { await runtime.rpc.call(HOST_TO_PLUGIN_METHODS.deactivate, reason, { timeoutMs: 5000 }); } catch { /* Grace expired or plugin already exited. */ }
       this.finish(record, runtime, true);
       this.setStatus(id, record, "disabled");
@@ -132,12 +141,15 @@ export class PluginHostManager {
     return stopped;
   }
 
-  async call<T = unknown>(id: string, method: string, params: unknown, opts?: { signal?: AbortSignal; timeoutMs?: number }): Promise<T | { status: "unknown"; reason: string }> {
+  async call<T = unknown>(id: string, method: string, params: unknown, opts?: RpcOptions): Promise<T | { status: "unknown"; reason: string }> {
     const record = this.records.get(id), runtime = record?.runtime;
     if (record?.state !== "enabled" || !runtime) throw unavailable();
-    try { return await runtime.rpc.call<T>(method, params, opts); }
+    let posted = false;
+    try { return await runtime.rpc.call<T>(method, params, { ...opts, onPosted: () => { posted = true; opts?.onPosted?.(); } }); }
     catch (error) {
       if (runtime.crashed && method === HOST_TO_PLUGIN_METHODS.toolExecute) return { status: "unknown", reason: "Plugin process exited during tool execution" };
+      if (posted && runtime.crashed && method === HOST_TO_PLUGIN_METHODS.channelSend) return { status: "unknown", reason: "Plugin process exited during channel send" };
+      if (posted && runtime.finished && method === HOST_TO_PLUGIN_METHODS.channelSend) return { status: "unknown", reason: "Plugin process stopped during channel send" };
       throw error;
     }
   }
@@ -204,7 +216,8 @@ export class PluginHostManager {
         // Electron reports workingSetSize in KiB, while configuration uses MiB.
         if (metric && metric.memory.workingSetSize > limit * 1024) this.crash(id, record, active, true);
       }, this.dependencies.memoryPollMs ?? 1000);
-      this.dependencies.configureRpc?.(id, rpc);
+      const disposeServices = this.dependencies.configureRpc?.(id, rpc);
+      if (disposeServices) active.disposeServices = disposeServices;
       await activated;
       if (active.finished || record.state !== "starting") throw unavailable();
       clearTimeout(active.startupTimer);
@@ -226,6 +239,7 @@ export class PluginHostManager {
     runtime.finished = true;
     clearTimeout(runtime.startupTimer); clearInterval(runtime.memoryTimer);
     runtime.child.removeListener("spawn", runtime.spawn); runtime.child.removeListener("exit", runtime.exit);
+    try { runtime.disposeServices?.(); } catch { /* Service cleanup cannot prevent process cleanup. */ }
     runtime.rpc.close(unavailable());
     for (const port of runtime.ports) port.close();
     if (record.runtime === runtime) record.runtime = undefined;

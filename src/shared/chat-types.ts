@@ -21,12 +21,17 @@ export type ToolTaskResult = {
     truncated?: boolean;
     writes?: TaskWriteEvidence[];
 };
+export type ToolExecutionProgress = {
+    message: string;
+    percent?: number;
+};
 export type ToolExecutionRecord = {
     argsText?: string;
     changes?: ToolFileChange[];
     displayName?: string;
     id: string;
     name: string;
+    progress?: ToolExecutionProgress;
     result?: string;
     roundId?: string;
     seq?: number;

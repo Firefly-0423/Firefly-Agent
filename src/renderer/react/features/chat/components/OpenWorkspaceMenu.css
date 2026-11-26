@@ -58,11 +58,11 @@
 
 /* 两半之间的接缝细线，悬停任一侧时显现 */
 .ff-open-workspace__main + .ff-open-workspace__chevron {
-  box-shadow: -1px 0 0 rgb(0 0 0 / 0%);
+  box-shadow: -1px 0 0 var(--ff-black-alpha-0);
 }
 
 .ff-open-workspace:hover .ff-open-workspace__main {
-  box-shadow: inset -1px 0 0 var(--ff-border, #eceef3);
+  box-shadow: inset -1px 0 0 var(--ff-border, var(--ff-slate-110));
 }
 
 /* ── 点击状态 ── */
@@ -75,14 +75,14 @@
 
 /* 启动失败：红态 2 秒后自动衰减回 idle */
 .ff-open-workspace[data-phase="error"] .ff-open-workspace__main {
-  color: var(--ff-danger, #e5484d);
+  color: var(--ff-danger, var(--ff-status-err-vivid));
 }
 
 /* ── 下拉菜单 ── */
 
 .ff-open-workspace__menu {
   z-index: 40;
-  box-shadow: 0 6px 20px rgb(0 0 0 / 10%);
+  box-shadow: 0 6px 20px var(--ff-black-alpha-10);
   border-radius: 12px;
   border: 1px solid var(--ff-border, var(--ff-border));
   background: var(--ff-bg, var(--ff-surface));
@@ -114,7 +114,7 @@
 }
 
 .ff-open-workspace__item.is-selected {
-  color: var(--ff-accent, rgb(45 122 95));
+  color: var(--ff-accent, var(--ff-palette-2d7a5f));
 }
 
 /* 菜单项名称占据剩余宽度，勾选标记贴右 */

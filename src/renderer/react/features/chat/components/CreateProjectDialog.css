@@ -73,7 +73,7 @@
 .ff-create-project__ghost:focus-visible,
 .ff-create-project__submit:focus-visible { outline: 2px solid rgba(var(--ff-accent-rgb), 0.45); outline-offset: 1px; }
 
-.ff-create-project__error { margin: 0; color: var(--ff-danger, #c4453c); font-size: var(--ff-fs-caption); }
+.ff-create-project__error { margin: 0; color: var(--ff-danger, var(--ff-palette-c4453c)); font-size: var(--ff-fs-caption); }
 
 .ff-create-project__tip {
   display: flex;
