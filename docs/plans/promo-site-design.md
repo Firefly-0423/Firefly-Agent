@@ -5,7 +5,7 @@
 
 A public site for Firefly on the user's own domain. It introduces the product and links to the download and the repositories. Its centre is a panel that runs Firefly's real React UI in the browser. Visitors can switch modes, send messages and open the overview cards. Replies are scripted; nothing calls a model or leaves the page.
 
-The reference is Cyrene's site (playaagentcyrene.online, checked 2026-10-30). It has a hero, a provider strip, an embedded desktop UI with fixed demo replies ("消息只保存在当前页面", "固定演示回复，不调用模型"), a feature carousel, and download and docs links.
+The reference is a comparable project's site (checked 2026-10-30). It has a hero, a provider strip, an embedded desktop UI with fixed demo replies ("消息只保存在当前页面", "固定演示回复，不调用模型"), a feature carousel, and download and docs links.
 
 User decisions (2026-10-30):
 - own domain;

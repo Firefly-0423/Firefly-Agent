@@ -39,6 +39,27 @@ interface ConversationSidebarProps {
   onExport: (sessionId: string) => void | Promise<void>;
 }
 
+/** 右键菜单的位置与所指会话。 */
+interface SessionMenuState {
+  open: boolean;
+  x: number;
+  y: number;
+  above?: number;
+  sessionId: string;
+  sessionTitle: string;
+  pinned: boolean;
+  workspaceRoot?: string;
+}
+
+const CLOSED_SESSION_MENU: SessionMenuState = { open: false, x: 0, y: 0, sessionId: "", sessionTitle: "", pinned: false };
+
+/** 保留已展开的分组，并把新出现的分组也并入。 */
+function withNewKeys(current: readonly string[], incoming: readonly string[]): string[] {
+  const merged = new Set(current);
+  for (const key of incoming) merged.add(key);
+  return [...merged];
+}
+
 function ProjectIcon({ mode, open = false }: { mode: ConversationMode; open?: boolean }) {
   const Icon = mode === "code" ? FolderCode : open ? FolderOpen : Folder;
   return <Icon size={16} strokeWidth={1.6} aria-hidden="true" />;
@@ -177,19 +198,10 @@ export const ConversationSidebar = memo(function ConversationSidebar({
   const [expandedKeys, setExpandedKeys] = useState<string[]>(projectKeys);
 
   useEffect(() => {
-    setExpandedKeys((current) => [...new Set([...current, ...projectKeys])]);
+    setExpandedKeys((current) => withNewKeys(current, projectKeys));
   }, [projectKeys]);
 
-  const [contextMenu, setContextMenu] = useState<{
-    open: boolean;
-    x: number;
-    y: number;
-    above?: number;
-    sessionId: string;
-    sessionTitle: string;
-    pinned: boolean;
-    workspaceRoot?: string;
-  }>({ open: false, x: 0, y: 0, sessionId: "", sessionTitle: "", pinned: false });
+  const [contextMenu, setContextMenu] = useState<SessionMenuState>(CLOSED_SESSION_MENU);
   // 「打开方式」里列出的应用：菜单打开时按这个会话的项目文件夹探测一次。
   const [openApps, setOpenApps] = useState<OpenInAppEntry[] | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -377,15 +389,15 @@ export const ConversationSidebar = memo(function ConversationSidebar({
     } else if (key === "export-markdown") {
       void onExport(contextMenu.sessionId);
     } else if (key === "delete") {
-      // 删除会话不可恢复：危险确认，默认聚焦取消，确认后才触发删除
-      const confirmed = await feedback.confirm({
+      // 会话删除后无法找回，所以先弹出危险级确认框，用户确认才真正删除。
+      const dialog = {
         title: t("sidebar.deleteConfirmTitle", { title: contextMenu.sessionTitle }),
         message: t("sidebar.deleteConfirmContent"),
         confirmText: t("sidebar.delete"),
         cancelText: t("common.cancel"),
         dangerous: true,
-      });
-      if (confirmed) onDelete(contextMenu.sessionId);
+      };
+      if (await feedback.confirm(dialog)) onDelete(contextMenu.sessionId);
     }
   }
 
