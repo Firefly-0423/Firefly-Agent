@@ -708,4 +708,24 @@ describe("Terminal checkpoint saves are confirmed before they are reported", () 
     expect(getRunStatus).toHaveBeenCalledWith({ sessionId: "session-1", candidates: [{ assistantTurnId: "assistant-1", runId: "run-1" }] });
     expect(s.host.onRunFinished.mock.calls).toEqual([[{ mode: "chat", sessionId: "session-1", queuePaused: false }]]);
   });
+
+  test("applies firefly.tool_progress to running tools without altering final tool result", async () => {
+    const s = runScenario();
+    await s.ready();
+    s.send({ type: "TOOL_CALL_START", runId: "run-1", toolCallId: "call-p1", toolCallName: "demo_slow" });
+    s.custom("firefly.tool_progress", { toolCallId: "call-p1", message: "Syncing step 1", percent: 50 });
+    expect(s.patches().at(-1)?.toolExecutions?.[0]).toMatchObject({
+      id: "call-p1",
+      status: "running",
+      progress: { message: "Syncing step 1", percent: 50 },
+    });
+    s.send({ type: "TOOL_CALL_RESULT", runId: "run-1", toolCallId: "call-p1", content: "actual tool output" });
+    expect(s.patches().at(-1)?.toolExecutions?.[0]).toMatchObject({
+      id: "call-p1",
+      status: "success",
+      result: "actual tool output",
+      progress: undefined,
+    });
+    await s.finish();
+  });
 });

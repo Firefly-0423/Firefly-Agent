@@ -70,7 +70,11 @@ export function describeToolExecution(tool: ToolExecutionRecord): ToolExecutionP
   const label = translatedToolName(tool.name, tool.displayName, false);
   const action = translatedToolName(tool.name, tool.displayName, true);
   let statusText: string;
-  if (tool.name === "run_shell" && tool.status === "error" && output?.timedOut === true) {
+  if (tool.status === "running" && tool.progress?.message) {
+    statusText = tool.progress.percent !== undefined
+      ? `${tool.progress.message} (${Math.round(tool.progress.percent)}%)`
+      : tool.progress.message;
+  } else if (tool.name === "run_shell" && tool.status === "error" && output?.timedOut === true) {
     statusText = t("agentRounds.commandTimeout");
   } else {
     const stateKey = tool.status === "running" ? "agentRounds.statusRunning"

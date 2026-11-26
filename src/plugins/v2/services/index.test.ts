@@ -46,6 +46,21 @@ function fixture(confirmationStore = new Map<string, number>()) {
   return { deps, services, client, workspaceListeners, workspaceChange: () => { workspaceListeners.forEach(fn => fn()); }, grant, context, eventListeners, changeBinding: () => { listeners.forEach(fn => fn()); }, revoke: () => { grant.revision++; listeners.forEach(fn => fn()); }, emit: (event: unknown) => eventListeners.forEach(fn => fn(event)), close: () => { services.dispose(); client.close(); host.close(); } };
 }
 afterEach(() => vi.useRealTimers());
+describe("plugin call counting", () => {
+  it("counts each approved model.generate once, plain and streaming, and never a refused one", async () => {
+    const f = fixture();
+    const counted = vi.fn();
+    f.deps.onModelCall = counted;
+    try {
+      await f.client.call(P.modelGenerate, { prompt: "hi" });
+      for await (const _chunk of f.client.stream(P.modelGenerate, { prompt: "hi", stream: true })) { /* drain */ }
+      expect(counted.mock.calls).toEqual([["dev.test.plugin"], ["dev.test.plugin"]]);
+      f.grant.granted.delete("model.generate"); f.revoke();
+      await expect(f.client.call(P.modelGenerate, { prompt: "hi" })).rejects.toMatchObject({ code: "ERR_PERMISSION" });
+      expect(counted).toHaveBeenCalledTimes(2);
+    } finally { f.close(); }
+  });
+});
 describe("model rate limit", () => {
   it("applies live settings changes without resetting prior usage", () => {
     let configured = 1;
