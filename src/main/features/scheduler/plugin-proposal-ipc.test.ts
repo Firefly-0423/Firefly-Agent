@@ -43,7 +43,7 @@ describe("plugin schedule proposal IPC", () => {
     return store;
   }
 
-  function setup() {
+  function setup(resolveTaskRisks?: () => Array<"shell">) {
     const store = makeStore();
     const stateChanged = vi.fn();
     const service = createPluginScheduleService({
@@ -52,6 +52,7 @@ describe("plugin schedule proposal IPC", () => {
       now: () => NOW,
       id: () => `id-${counter++}`,
       onStateChanged: stateChanged,
+      ...(resolveTaskRisks ? { resolveTaskRisks } : {}),
     });
     const handlers = new Map<string, (...args: any[]) => any>();
     registerPluginProposalIpc(
@@ -203,6 +204,21 @@ describe("plugin schedule proposal IPC", () => {
     expect(store.getTasks()).toEqual([]);
     expect(stateChanged).not.toHaveBeenCalled();
     expect(fs.existsSync(path.join(workdir, "plugin-schedules-state.json"))).toBe(false);
+  });
+
+  it("confirming a proposal that needs unattended approval returns the stable reason, saves nothing and keeps it pending", async () => {
+    const { call, confirm, plugin, store } = setup(() => ["shell"]);
+    const proposed = await plugin.propose(runSpec({ allowedToolIds: ["run-shell"] }));
+
+    expect(confirm(proposed.taskId)).toEqual({
+      ok: false,
+      error: expect.stringContaining("can't approve unattended runs"),
+      code: "ERR_PERMISSION",
+      reason: "unattended_approval_unsupported",
+    });
+    expect(store.getTasks()).toEqual([]);
+    const listed = call<PluginProposalView[]>(IPC.SCHEDULER_PLUGIN_PROPOSALS_LIST);
+    expect(listed.ok && listed.value.map((p) => p.taskId)).toEqual([proposed.taskId]);
   });
 
   it("confirming a rejected proposal returns ERR_REJECTED and creates no task", async () => {

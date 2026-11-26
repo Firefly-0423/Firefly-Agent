@@ -37,6 +37,7 @@ export function PluginProposalSection({ proposals, api, onResolved }: PluginProp
       const result: SchedulerResult<boolean> = await request;
       if (!result.ok) {
         // The service's messages are English and name internal ids; known codes get a plain sentence.
+        if (result.reason === "unattended_approval_unsupported") throw new Error(t("scheduledPanel.pending.unattendedUnsupported"));
         if (result.code === "ERR_UNAVAILABLE") {
           // The plugin edited the proposal after it was shown: reload so the user reviews the new spec.
           onResolved();

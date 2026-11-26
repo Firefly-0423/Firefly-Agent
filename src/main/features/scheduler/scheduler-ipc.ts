@@ -35,6 +35,12 @@ export function projectTaskForRenderer(task: ScheduledTask): RendererScheduledTa
   return { ...visible, enabled: executionSpec.isPluginTaskEffectivelyEnabled(task) };
 }
 
+/**
+ * Checks a plugin task as it would be saved. Throws to refuse; the app wiring supplies it so this module
+ * does not need to know which plugin host owns the task.
+ */
+export type PluginTaskEnableGuard = (task: ScheduledTask) => void;
+
 let registered = false;
 
 function describeTool(tool: ToolDefinition): SchedulerToolInfo {
@@ -52,7 +58,12 @@ function succeed<T>(value: T): SchedulerIpcResult<T> {
 }
 
 function failure(err: unknown): SchedulerIpcResult {
-  return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  const { reason } = (err ?? {}) as { reason?: unknown };
+  return {
+    ok: false,
+    error: err instanceof Error ? err.message : String(err),
+    ...(typeof reason === "string" ? { reason } : {}),
+  };
 }
 
 /** 注册调度相关 IPC；整个进程只注册一次，重复调用直接返回 */
@@ -61,6 +72,7 @@ export function registerSchedulerIpc(
   engine: SchedulerEngine,
   getTools: () => ToolDefinition[],
   ipcOption?: IpcScope,
+  guardPluginTaskEnable?: PluginTaskEnableGuard,
 ): void {
   if (registered) return;
   registered = true;
@@ -87,6 +99,11 @@ export function registerSchedulerIpc(
       const current = store.getTasks().find((t) => t.id === id);
       // 插件任务保存时按新规格重算授权指纹，并剔除宿主固定的字段
       const effective = current?.ownerPluginId ? executionSpec.authorizePluginTaskUpdatePatch(current, patch) : patch;
+      // A plugin task that stays enabled must still be allowed to run unattended after the edit.
+      if (current?.ownerPluginId && guardPluginTaskEnable
+        && (effective.pluginUserEnabled ?? current.pluginUserEnabled) === true) {
+        guardPluginTaskEnable({ ...current, ...effective } as ScheduledTask);
+      }
       return succeed(store.updateTask(id, effective));
     } catch (err) {
       return failure(err);
@@ -106,6 +123,7 @@ export function registerSchedulerIpc(
       const task = store.getTasks().find((t) => t.id === id);
       // 用户任务直接改 enabled，插件任务改授权位并按当前规格写指纹
       const patch = task?.ownerPluginId ? executionSpec.pluginTaskTogglePatch(task, enabled) : { enabled };
+      if (task?.ownerPluginId && enabled) guardPluginTaskEnable?.(task);
       return succeed(store.updateTask(id, patch));
     } catch (err) {
       return failure(err);

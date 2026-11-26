@@ -14,6 +14,10 @@ import type {
 import { validateAndConvertSchedule } from "./cron";
 import { computeProposalRevision } from "./proposal-revision";
 import {
+  UNATTENDED_APPROVAL_UNSUPPORTED_SKIP_REASON,
+  UnattendedApprovalUnsupportedError,
+} from "./unattended-approval-unsupported";
+import {
   PluginError,
   UNATTENDED_APPROVAL_RISKS,
   type Disposable,
@@ -382,6 +386,66 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       }
     }
     return Array.from(merged);
+  }
+
+  function blockingRisksOf(task: ScheduledTask, meta?: PluginTaskMetadata): ToolRisk[] {
+    return collectTaskRisks(task, meta).filter((risk) => UNATTENDED_APPROVAL_RISKS.has(risk));
+  }
+
+  /**
+   * Firefly 1.2.0 cannot approve an unattended run, so a plugin task that would need approval
+   * (declared, registry-derived or unresolved tool risks) must not be confirmed or enabled.
+   * Uses the same resolution as dispatch so what is accepted here is what would run there.
+   */
+  function assertCandidateCanRunUnattended(task: ScheduledTask, meta: PluginTaskMetadata): void {
+    const blocking = blockingRisksOf(task, meta);
+    if (blocking.length > 0) throw new UnattendedApprovalUnsupportedError(blocking);
+  }
+
+  /** For the scheduler IPC: refuse to enable a v2 plugin task (as it would be saved) that would need approval. Other tasks pass. */
+  function assertTaskCanRunUnattended(task: ScheduledTask): void {
+    const meta = findMetadataByAnyId(task.id);
+    if (meta) assertCandidateCanRunUnattended(task, meta);
+  }
+
+  /** A scheduled fire that would need approval: execute nothing, record why, and stop a recurring task. */
+  function refuseUnattendedRun(
+    task: ScheduledTask,
+    v2TaskId: string,
+    appointment: Date,
+  ): ScheduledRunResult {
+    const settledAt = clock().toISOString();
+    let settledApprovals = false;
+    for (const approval of Object.values(state.approvals)) {
+      if (approval.taskId === v2TaskId && approval.status === "pending_approval") {
+        approval.status = "cancelled";
+        approval.reason = UNATTENDED_APPROVAL_UNSUPPORTED_SKIP_REASON;
+        approval.settledAt = settledAt;
+        settledApprovals = true;
+      }
+    }
+    if (settledApprovals) persistState();
+
+    const historyId = `skip-${nextId()}`;
+    store.recordHistory({
+      id: historyId,
+      taskId: task.id,
+      taskTitle: task.title,
+      firedAt: appointment.toISOString(),
+      status: "skipped",
+      reason: UNATTENDED_APPROVAL_UNSUPPORTED_SKIP_REASON,
+      effectiveToolIds: [...task.allowedToolIds],
+    });
+    // A one-shot task was already stopped by the engine; a recurring one would skip the same way every time.
+    if (task.schedule.kind !== "once") {
+      store.updateTask(task.id, { pluginUserEnabled: false, nextFireAt: null });
+    }
+    return {
+      ok: false,
+      error: UNATTENDED_APPROVAL_UNSUPPORTED_SKIP_REASON,
+      historyId,
+      effectiveToolIds: [...task.allowedToolIds],
+    };
   }
 
   async function executeConfirmedAction(
@@ -773,6 +837,35 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       allowedToolIds,
     });
 
+    // Refuse before any write; the proposal stays pending so it can still be rejected or revised.
+    const existing = proposal.kind === "update" ? findStoreTaskByAnyId(proposal.taskId) : undefined;
+    const timestamp = now.toISOString();
+    assertCandidateCanRunUnattended(
+      {
+        id: existing?.id ?? proposal.taskId,
+        enabled: false,
+        toolMode: "allow-list",
+        nextFireAt: null,
+        createdAt: existing?.createdAt ?? timestamp,
+        updatedAt: timestamp,
+        ...existing,
+        ownerPluginId: proposal.pluginId,
+        title: proposal.spec.title,
+        schedule: storeSchedule,
+        prompt,
+        mode,
+        allowedToolIds,
+      },
+      {
+        taskId: proposal.taskId,
+        storeTaskId: existing?.id ?? "",
+        pluginId: proposal.pluginId,
+        schedule: proposal.spec.schedule,
+        action: proposal.spec.action,
+        requiredRisks,
+      },
+    );
+
     if (proposal.kind === "create") {
       const input: NewScheduledTaskInput = {
         title: proposal.spec.title,
@@ -929,17 +1022,8 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     const meta = findMetadataByAnyId(task.id);
     const v2TaskId = meta?.taskId ?? task.id;
 
-    const risks = collectTaskRisks(task, meta);
-    const blockingRisks = risks.filter((risk) => UNATTENDED_APPROVAL_RISKS.has(risk));
-
-    if (!requestedByUser && blockingRisks.length > 0) {
-      const suspended = createApprovalSuspension(task, v2TaskId, appointment, blockingRisks);
-      return {
-        ok: false,
-        error: "pending_approval",
-        historyId: suspended.runId,
-        effectiveToolIds: [...task.allowedToolIds],
-      };
+    if (!requestedByUser && blockingRisksOf(task, meta).length > 0) {
+      return refuseUnattendedRun(task, v2TaskId, appointment);
     }
 
     return executeConfirmedAction(v2TaskId, task, meta, appointment, requestedByUser, `run-${nextId()}`);
@@ -1195,6 +1279,7 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     confirmProposal,
     rejectProposal,
     runScheduledTask,
+    assertTaskCanRunUnattended,
     suspendUnattendedRun,
     listPendingRunApprovals,
     getRunApproval,

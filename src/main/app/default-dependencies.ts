@@ -1044,6 +1044,12 @@ export function createDefaultApplicationDependencies(): ApplicationDependencies 
             publishLifecycle: lifecyclePublisher,
             // 插件任务只有所属插件在运行时才可触发，用户任务不受影响
             canRunTask: (task) => isPluginTaskRunnable(task, pluginManager, pluginV2),
+            // v2 插件任务若每次运行都要审批，1.2.0 没有无人值守审批入口，不允许保存为启用
+            guardPluginTaskEnable: (task) => {
+              if (task.ownerPluginId && pluginV2?.status(task.ownerPluginId) === "enabled") {
+                pluginV2.scheduleService.assertTaskCanRunUnattended(task);
+              }
+            },
             // v2 插件的任务（回调动作、待批准暂停）由 v2 调度服务执行，其余交给 agent 运行器
             runPluginTask: (task, scheduledFireAt, manual) =>
               task.ownerPluginId && pluginV2?.status(task.ownerPluginId) === "enabled"

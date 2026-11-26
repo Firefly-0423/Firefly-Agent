@@ -967,6 +967,7 @@
     "pending": {
       "changedSinceReview": "The plugin changed this proposal after you opened it. Review the updated version and confirm again.",
       "alreadyRejected": "This proposal was already rejected.",
+      "unattendedUnsupported": "This task needs approval each time it runs. Firefly 1.2.0 can't approve unattended runs yet, so it can't be confirmed.",
       "actionCallback": "Plugin callback",
       "actionRun": "Run prompt in {{mode}} mode: {{prompt}}",
       "changeAction": "Action: {{from}} -> {{to}}",

@@ -6,7 +6,7 @@ import { toolRegistry } from "../../tooling/registry/tool-registry";
 import type { LifecyclePublisher } from "../../agent/runtime/lifecycle-publisher";
 import { getSchedulerStore } from "./scheduler-store";
 import { createSchedulerRunner } from "./scheduler-runner";
-import { registerSchedulerIpc } from "./scheduler-ipc";
+import { registerSchedulerIpc, type PluginTaskEnableGuard } from "./scheduler-ipc";
 import { SchedulerEngine, type SchedulerEngineDeps } from "./scheduler-engine";
 import type { ScheduledRunResult, ScheduledTask } from "../../platform/schedule/schedule-types";
 
@@ -16,6 +16,8 @@ export type SchedulerSubsystemDeps = {
   canRunTask?: (task: ScheduledTask) => boolean;
   /** Runs a task a plugin host owns; returns undefined when the host does not own it so the agent runner takes it. */
   runPluginTask?: (task: ScheduledTask, scheduledFireAt: Date, manual: boolean) => Promise<ScheduledRunResult> | undefined;
+  /** Refuses to save an enabled plugin task the plugin host cannot run unattended (see PluginTaskEnableGuard). */
+  guardPluginTaskEnable?: PluginTaskEnableGuard;
   ipc?: IpcScope;
   registerIpc?: typeof registerSchedulerIpc;
   createEngine?: (deps: SchedulerEngineDeps) => SchedulerEngine;
@@ -61,7 +63,7 @@ export function createSchedulerSubsystem(services: SchedulerSubsystemDeps): Sche
     if (loaded) return;
     loaded = true;
     repository.load();
-    install(repository, clockwork, () => toolRegistry.getAllTools(), services.ipc);
+    install(repository, clockwork, () => toolRegistry.getAllTools(), services.ipc, services.guardPluginTaskEnable);
   };
   const start = (): void => { clockwork.start(); };
   const stop = async (): Promise<void> => {

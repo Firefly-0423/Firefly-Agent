@@ -40,14 +40,15 @@ export interface PluginProposalView {
 
 export type PluginProposalIpcResult<T = unknown> =
   | { ok: true; value: T }
-  | { ok: false; error: string; /** Stable PluginError code, e.g. ERR_REJECTED or ERR_INVALID_ARGUMENT. */ code?: string };
+  | { ok: false; error: string; /** Stable PluginError code, e.g. ERR_REJECTED or ERR_INVALID_ARGUMENT. */ code?: string; /** Stable machine-readable cause when the code alone is ambiguous, e.g. "unattended_approval_unsupported". */ reason?: string };
 
 function failure(err: unknown): PluginProposalIpcResult<never> {
-  const code = (err as { code?: unknown } | null)?.code;
+  const { code, reason } = (err ?? {}) as { code?: unknown; reason?: unknown };
   return {
     ok: false,
     error: err instanceof Error ? err.message : String(err),
     ...(typeof code === "string" ? { code } : {}),
+    ...(typeof reason === "string" ? { reason } : {}),
   };
 }
 

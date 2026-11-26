@@ -967,6 +967,7 @@
     "pending": {
       "changedSinceReview": "这条提案在你查看后被插件修改过，请重新审阅后再确认。",
       "alreadyRejected": "这条提案已经被拒绝了。",
+      "unattendedUnsupported": "这个任务每次运行都需要审批，Firefly 1.2.0 还不支持无人值守审批，因此无法确认。",
       "actionCallback": "插件回调",
       "actionRun": "以{{mode}}模式运行提示词：{{prompt}}",
       "changeAction": "动作：{{from}} -> {{to}}",

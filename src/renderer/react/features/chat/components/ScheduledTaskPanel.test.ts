@@ -703,6 +703,24 @@ describe("plugin schedule proposals", () => {
     expect(container.querySelectorAll(".scheduled-pending article")).toHaveLength(1);
   });
 
+  it("a proposal that would need approval on every run explains why it cannot be confirmed and stays pending", async () => {
+    const api = installWithProposals([CALLBACK_PROPOSAL], {
+      confirmPluginProposal: vi.fn(async () => ({
+        ok: false, error: "This task needs approval each time it runs (shell).", code: "ERR_PERMISSION", reason: "unattended_approval_unsupported",
+      })),
+    });
+    await renderPanel();
+    const listCalls = (api.listPluginProposals as ReturnType<typeof vi.fn>).mock.calls.length;
+
+    await click(buttonByText("确认"));
+
+    expect(container.querySelector(".scheduled-pending [role='alert']")?.textContent)
+      .toBe("这个任务每次运行都需要审批，Firefly 1.2.0 还不支持无人值守审批，因此无法确认。");
+    expect(container.querySelectorAll(".scheduled-pending article")).toHaveLength(1);
+    expect(buttonByText("拒绝").disabled).toBe(false);
+    expect((api.listPluginProposals as ReturnType<typeof vi.fn>).mock.calls.length).toBe(listCalls);
+  });
+
   it("a proposal the plugin edited after review is not confirmed, shows a re-review message and reloads the list", async () => {
     const edited: PluginProposal = { ...CALLBACK_PROPOSAL, revision: "rev-p-1-edited", action: { type: "run", prompt: "x", mode: "work" }, allowedToolIds: ["shell"] };
     const api = installWithProposals([CALLBACK_PROPOSAL], {

@@ -53,7 +53,9 @@ describe("plugin schedule with the real risk resolver", () => {
   beforeEach(() => { workdir = fs.mkdtempSync(path.join(os.tmpdir(), "firefly-task-risks-")); counter = 0; });
   afterEach(() => fs.rmSync(workdir, { recursive: true, force: true }));
 
-  async function setup(spec: Partial<ScheduleProposalSpec>, resolveTaskRisks = createPluginTaskRiskResolver(makeRegistry())) {
+  /** Confirms the task while its tools look safe, then lets `resolveTaskRisks` decide at fire time (the registry changed since). */
+  async function setup(spec: Partial<ScheduleProposalSpec>, resolveTaskRisks = createPluginTaskRiskResolver(makeRegistry()), confirmWith: typeof resolveTaskRisks | null = () => []) {
+    let active = confirmWith ?? resolveTaskRisks;
     const store = createSchedulerStore({
       tasksFile: path.join(workdir, "scheduled-tasks.json"),
       historyFile: path.join(workdir, "scheduled-tasks-history.jsonl"),
@@ -68,7 +70,7 @@ describe("plugin schedule with the real risk resolver", () => {
       now: () => NOW,
       id: () => `id-${counter++}`,
       runAgentTask,
-      resolveTaskRisks,
+      resolveTaskRisks: (task) => active(task),
     });
     const proposed = await service.forPlugin(PLUGIN).propose({
       title: "Digest",
@@ -77,22 +79,28 @@ describe("plugin schedule with the real risk resolver", () => {
       ...spec,
     });
     service.confirmProposal(proposed.taskId);
+    active = resolveTaskRisks;
     return { service, store, runAgentTask, task: store.getTasks()[0]! };
   }
 
-  it("scheduled fire with run_shell and no declared requiredRisks waits for approval and never runs the agent", async () => {
-    const { service, runAgentTask, task } = await setup({ allowedToolIds: ["run_shell"] });
-    const result = await service.runScheduledTask(task, NOW, false);
-    expect(result).toMatchObject({ ok: false, error: "pending_approval" });
-    expect(runAgentTask).not.toHaveBeenCalled();
-    expect(service.listPendingRunApprovals(PLUGIN)).toHaveLength(1);
+  it.each([
+    { name: "run_shell with no declared requiredRisks", tools: ["run_shell"] },
+    { name: "an unknown tool id", tools: ["ghost_tool"] },
+  ])("a task with $name is refused at confirmation and nothing is saved", async ({ tools }) => {
+    await expect(setup({ allowedToolIds: tools }, undefined, null)).rejects.toMatchObject({
+      code: "ERR_PERMISSION", reason: "unattended_approval_unsupported",
+    });
+    const tasksFile = path.join(workdir, "scheduled-tasks.json");
+    expect(fs.existsSync(tasksFile) ? fs.readFileSync(tasksFile, "utf8") : "").not.toContain("Digest");
   });
 
-  it("an unknown tool id in the allowlist is treated as privileged and does not run", async () => {
-    const { service, runAgentTask, task } = await setup({ allowedToolIds: ["ghost_tool"] });
+  it("a scheduled fire whose tools became privileged after confirmation runs nothing and leaves no pending approval", async () => {
+    const { service, store, runAgentTask, task } = await setup({ allowedToolIds: ["run_shell"] });
     const result = await service.runScheduledTask(task, NOW, false);
-    expect(result).toMatchObject({ ok: false, error: "pending_approval" });
+    expect(result).toMatchObject({ ok: false, error: "unattended run needs approval (not supported in 1.2.0)" });
     expect(runAgentTask).not.toHaveBeenCalled();
+    expect(service.listPendingRunApprovals(PLUGIN)).toHaveLength(0);
+    expect(store.getTasks()[0]?.pluginUserEnabled).toBe(false);
   });
 
   it("a safe-only allowlist still runs unattended", async () => {
@@ -103,10 +111,11 @@ describe("plugin schedule with the real risk resolver", () => {
     expect(service.listPendingRunApprovals(PLUGIN)).toHaveLength(0);
   });
 
-  it("a resolver that throws fails closed into pending approval", async () => {
+  it("a resolver that throws fails closed: the fire runs nothing and leaves no pending approval", async () => {
     const { service, runAgentTask, task } = await setup({ allowedToolIds: ["read_note"] }, () => { throw new Error("registry broken"); });
     const result = await service.runScheduledTask(task, NOW, false);
-    expect(result).toMatchObject({ ok: false, error: "pending_approval" });
+    expect(result).toMatchObject({ ok: false, error: "unattended run needs approval (not supported in 1.2.0)" });
     expect(runAgentTask).not.toHaveBeenCalled();
+    expect(service.listPendingRunApprovals(PLUGIN)).toHaveLength(0);
   });
 });
