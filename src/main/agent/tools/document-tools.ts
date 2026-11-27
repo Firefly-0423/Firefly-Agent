@@ -25,7 +25,11 @@ function validateFilename(filename: string, ext: string | string[]): string | nu
   const suffixes = Array.isArray(ext) ? ext : [ext];
   const allowed = suffixes.some(suffix => filename.toLowerCase().endsWith(suffix));
   if (!allowed) return null;
-  return /[<>:"|?*]/.test(filename) ? null : filename;
+  return /[<>:"|?*]/.test(withoutDrivePrefix(filename)) ? null : filename;
+}
+/** 绝对路径开头的盘符冒号（C:\）是合法字符，其余位置的冒号仍然非法 */
+function withoutDrivePrefix(filename: string): string {
+  return filename.replace(/^[A-Za-z]:[\\/]/, "");
 }
 function filenameError(ext: string, args: Arguments): string {
   const received = args.filename;
@@ -34,7 +38,7 @@ function filenameError(ext: string, args: Arguments): string {
     return `[错误] 未提供 filename 参数（要求 ${ext} 结尾）。本次收到的参数键：${parameters}。请补上 filename 后重试。`;
   }
   const label = String(received);
-  if (/[<>:"|?*]/.test(label)) return `[错误] filename 含非法字符（<>:"|?*）：${label}`;
+  if (/[<>:"|?*]/.test(withoutDrivePrefix(label))) return `[错误] filename 含非法字符（<>:"|?*）：${label}`;
   return `[错误] filename 必须是 ${ext} 结尾，实际收到：${label}。`;
 }
 function captureBaseline(context: ToolContext | undefined, outputPath: string): void {
@@ -45,7 +49,9 @@ function captureBaseline(context: ToolContext | undefined, outputPath: string): 
 }
 function resolveOutputPath(filename: string, workspaceRoot?: string): string | null {
   const cleaned = path.normalize(filename).replace(/\\/g, "/");
-  if (cleaned.includes("..") || path.isAbsolute(cleaned)) return null;
+  if (cleaned.includes("..")) return null;
+  // 绝对路径只在有工作区时接受，并且必须落在工作区内；没有工作区时仍只写桌面下的相对路径。
+  if (path.isAbsolute(cleaned) && !workspaceRoot) return null;
   const root = path.resolve(workspaceRoot || app.getPath("desktop"));
   const destination = path.resolve(root, cleaned);
   const remainder = path.relative(root, destination);
@@ -407,7 +413,7 @@ export function registerDocumentTools(): void {
   toolRegistry.register({
   "id": "write_word",
   "name": "写 Word",
-  "description": "生成一个美观的 Word 文档（.docx）。支持多种预设风格主题。\n已内置：标题样式（颜色/字号/字体）、正文行距/字体/颜色、段落间距。\n\n何时用：\n- 用户要写报告/总结/方案/请假条\n- 需要「导出成 Word」「做成 docx」\n- 用户明确选择了风格 → 用对应 style 参数直接生成；尚未明确时先向用户确认\n\n不要用于：\n- 表格数据（用 write_excel）\n- 轻量笔记（用 write_file）\n- 需要复杂排版（页眉页脚/目录/图片/表格）→ 才考虑 invoke_skill(docx)\n\nstyle 可选值（见 skills/docx/styles/catalog.md）：default(商务) / academic(学术) / clean(极简) / elegant(优雅) / formal(公文)。\n参数：filename（只传文件名，如 AI新闻汇总.docx，不要传绝对路径；输出目录由系统固定为桌面），title（标题），paragraphs（段落数组），style（可选预设风格）。",
+  "description": "生成一个美观的 Word 文档（.docx）。支持多种预设风格主题。\n已内置：标题样式（颜色/字号/字体）、正文行距/字体/颜色、段落间距。\n\n何时用：\n- 用户要写报告/总结/方案/请假条\n- 需要「导出成 Word」「做成 docx」\n- 用户明确选择了风格 → 用对应 style 参数直接生成；尚未明确时先向用户确认\n\n不要用于：\n- 表格数据（用 write_excel）\n- 轻量笔记（用 write_file）\n- 需要复杂排版（页眉页脚/目录/图片/表格）→ 才考虑 invoke_skill(docx)\n\nstyle 可选值（见 skills/docx/styles/catalog.md）：default(商务) / academic(学术) / clean(极简) / elegant(优雅) / formal(公文)。\n参数：filename（可传文件名或工作区内的相对/绝对路径，如 AI新闻汇总.docx 或 reports/周报.docx；有工作区时默认写入工作区，路径必须在工作区内，没有工作区时才写入桌面），title（标题），paragraphs（段落数组），style（可选预设风格）。",
   "enabled": true,
   "risk": "fs-write",
   "modes": [
@@ -421,7 +427,7 @@ export function registerDocumentTools(): void {
     "properties": {
       "filename": {
         "type": "string",
-        "description": "文件名，必须以 .docx 结尾，例如 'AI新闻汇总.docx'。只传文件名，不要传绝对路径或目录。文件默认写入系统指定的桌面目录。"
+        "description": "文件名，必须以 .docx 结尾，例如 'AI新闻汇总.docx'。可传文件名，或工作区内的相对路径/绝对路径（可含子目录）。有工作区时默认写入工作区，路径必须在工作区内；没有工作区时才写入桌面。"
       },
       "title": {
         "type": "string",
