@@ -138,6 +138,15 @@ describe("Markdown reply updates", () => {
     expect(Array.from(host.querySelectorAll("pre.ff-code-plain")).map(node => node.textContent)).toEqual(["print(1)"]);
   }));
 
+  it.each([
+    ["a block quote", "> ```mermaid\n> graph LR\n> A-->B"],
+    ["a list item", "- ```mermaid\n  graph LR\n  A-->B"],
+  ])("keeps an unclosed diagram fence inside %s as plain text in a whole-document reply", (_, fence) => withMessage((host, render) => {
+    render("See [Guide][dest].\n\n[dest]: https://docs.invalid/guide\n\n" + fence, true);
+    expect(host.querySelector('[data-mermaid="ready"]')).toBeNull();
+    expect(host.querySelector("pre.ff-code-plain")?.textContent).toContain("A-->B");
+  }));
+
   it("waits for a valid table separator row and keeps fixed table layout", () => withMessage((host, render) => {
     render("| Key | Value |\n| ---", true);
     expect(host.querySelector("table")).toBeNull();

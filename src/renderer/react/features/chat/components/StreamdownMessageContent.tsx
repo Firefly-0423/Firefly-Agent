@@ -41,7 +41,9 @@ function extractCodeBlock(children: ReactNode): { code: string; lang: string } |
  */
 const WholeDocumentFenceContext = createContext<number | undefined>(undefined);
 
-const FENCE_LINE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
+// A fence may open inside block quotes or list items ("> ```mermaid", "- ```ts"); the offset kept is the line start,
+// which is never after the code node's own start.
+const FENCE_LINE = /^(?:[ \t]*(?:>|[-*+]|\d{1,9}[.)])[ \t]*)*[ \t]*(`{3,}|~{3,})(.*)$/;
 
 /** Offset of the fence that is still open at the end of `content`, or Infinity when every fence is closed. */
 export function openTrailingFenceOffset(content: string): number {
