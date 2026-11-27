@@ -5,16 +5,22 @@ export const PLUGIN_ACTIVATE_ERROR_PREFIX = "Plugin activate() threw: ";
 
 const MAX_PLUGIN_MESSAGE_LENGTH = 160;
 
+/**
+ * Anything that looks like the start of a local path: drive letter, UNC, ~ or %VAR% / $VAR prefixes,
+ * relative ./ ../ prefixes, or a "/x" at the start of a token (including single-segment POSIX root paths).
+ * A path's end cannot be located safely (names may contain spaces and quotes), so everything from here on is dropped.
+ */
+const PATH_START =
+  /(?<![A-Za-z])[A-Za-z]:[\\/]|\\\\|~[\\/]|%[A-Za-z_][A-Za-z0-9_]*%|\$\{?[A-Za-z_][A-Za-z0-9_]*\}?(?=[\\/]|$)|(?<![^\s("'`[=,;])(?:\.{1,2}[\\/]|\/(?=[^\s/]))/;
+
+export const REDACTED_PATH_MARK = "<路径>";
+
 /** Reduces a plugin-authored message to one short plain-text line with no stack and no file paths. */
 export function sanitizePluginMessage(raw: unknown): string {
   const text = typeof raw === "string" ? raw : "";
   const firstLine = text.split(/\r?\n/)[0] ?? "";
-  const withoutPaths = firstLine
-    // A quoted path may contain spaces (e.g. 'C:\Users\Jane Doe\x'): replace everything up to the closing quote.
-    .replace(/(["'`])(?:[A-Za-z]:[\\/]|\\\\|\/)[^"'`\r\n]*\1/g, "$1<路径>$1")
-    .replace(/[A-Za-z]:[\\/][^\s"'`)\]]*/g, "<路径>")
-    .replace(/\\\\[^\s"'`)\]]+/g, "<路径>")
-    .replace(/(?:^|(?<=[\s("'`]))\/(?:[^\s/"'`)\]]+\/)+[^\s"'`)\]]*/g, "<路径>")
+  const pathAt = firstLine.search(PATH_START);
+  const withoutPaths = (pathAt < 0 ? firstLine : `${firstLine.slice(0, pathAt)}${REDACTED_PATH_MARK}`)
     // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001f\u007f]/g, " ")
     .replace(/\s+/g, " ")
@@ -43,7 +49,8 @@ export function describeActivationFailure(error: unknown): string {
   if (error instanceof PluginError) {
     if (error.code === "ERR_INTERNAL" && error.message.startsWith(PLUGIN_ACTIVATE_ERROR_PREFIX)) {
       const own = sanitizePluginMessage(error.message.slice(PLUGIN_ACTIVATE_ERROR_PREFIX.length));
-      return own ? `插件自身报错：${own}` : "插件启动时抛出了错误";
+      // A message that was only a path (or empty) says nothing useful.
+      return own && own !== REDACTED_PATH_MARK ? `插件自身报错：${own}` : "插件启动时抛出了错误";
     }
     return CODE_TEXT[error.code] ?? "插件启动失败";
   }

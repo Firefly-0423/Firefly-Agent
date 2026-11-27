@@ -28,11 +28,18 @@ describe("wrapPluginActivationError", () => {
 
 describe("sanitizePluginMessage", () => {
   it.each([
-    ["cannot open C:\\Users\\bob\\data\\x.json now", "cannot open <路径> now"],
-    ["cannot open /home/bob/data/x.json now", "cannot open <路径> now"],
-    ["ENOENT: no such file or directory, open 'C:\\Users\\Jane Doe\\private\\credentials.json'", "ENOENT: no such file or directory, open '<路径>'"],
-    ["open \"/home/Jane Doe/private/key.pem\" failed", "open \"<路径>\" failed"],
-    ["open `\\\\server\\share name\\a.txt` failed", "open `<路径>` failed"],
+    ["cannot open C:\\Users\\bob\\data\\x.json now", "cannot open <路径>"],
+    ["cannot open C:\\Users\\Jane Doe\\Secret Dir\\x.json", "cannot open <路径>"],
+    ["cannot open /home/bob/data/x.json now", "cannot open <路径>"],
+    ["cannot open /janedoe", "cannot open <路径>"],
+    ["ENOENT: no such file or directory, open 'C:\\Users\\Jane Doe\\private\\credentials.json'", "ENOENT: no such file or directory, open '<路径>"],
+    ["open \"/home/Jane's Doe/private/key.pem\" failed", "open \"<路径>"],
+    ["open `\\\\server\\share name\\a.txt` failed", "open `<路径>"],
+    ["cannot read ~\\Jane Doe\\x", "cannot read <路径>"],
+    ["cannot read %USERPROFILE%\\Jane Doe\\x", "cannot read <路径>"],
+    ["cannot read $HOME/Jane Doe/x", "cannot read <路径>"],
+    ["cannot read ..\\Jane Doe\\x", "cannot read <路径>"],
+    ["use a/b or https://example.com instead of 1/2", "use a/b or https://example.com instead of 1/2"],
     ["bad\tinput\u0007here", "bad input here"],
   ])("sanitizes %j", (input, expected) => {
     expect(sanitizePluginMessage(input)).toBe(expected);
@@ -47,6 +54,10 @@ describe("sanitizePluginMessage", () => {
 describe("describeActivationFailure", () => {
   it("shows the plugin's own message in Chinese framing", () => {
     expect(describeActivationFailure(new PluginError("ERR_INTERNAL", `${PLUGIN_ACTIVATE_ERROR_PREFIX}boom`))).toBe("插件自身报错：boom");
+  });
+
+  it("falls back to the generic wording when the message is only a path", () => {
+    expect(describeActivationFailure(new PluginError("ERR_INTERNAL", `${PLUGIN_ACTIVATE_ERROR_PREFIX}C:\\Users\\Jane Doe\\x.js`))).toBe("插件启动时抛出了错误");
   });
 
   it.each([

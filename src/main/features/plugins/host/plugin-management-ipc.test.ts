@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { IpcMainInvokeEvent, WebContents } from "electron";
 import { IPC } from "../../../../shared/ipc-channels";
+import { wrapPluginActivationError } from "../../../../shared/plugin-activation-error";
 import { registerPluginManagementIpc } from "./plugin-management-ipc";
 import { PLUGIN_MANAGEMENT_FORBIDDEN } from "./plugin-management-ipc-guard";
 
@@ -82,6 +83,29 @@ describe("registerPluginManagementIpc", () => {
     expect(controller.enablePlugin).not.toHaveBeenCalled();
     expect(selectPluginPackage).not.toHaveBeenCalled();
     expect(selectPluginFolder).not.toHaveBeenCalled();
+  });
+
+  it("returns the plugin's own message when enabling fails with an ordinary error", async () => {
+    controller.enablePlugin.mockRejectedValueOnce(wrapPluginActivationError(new Error("activation fails on purpose")));
+    const result = await handlers.get(IPC.PLUGINS_SET_ENABLED)!(eventFrom(chatHost), "dev.firefly.a", true);
+    expect(result).toMatchObject({ ok: false, error: "插件自身报错：activation fails on purpose" });
+  });
+
+  it.each([
+    ["spaced Windows path", "cannot read C:\\Users\\Jane Doe\\Secret Dir\\token.json"],
+    ["single-segment POSIX path", "cannot read /janedoe"],
+    ["home-relative path", "cannot read ~\\Secret Dir\\token.json"],
+  ])("does not leak path fragments from a failed enable (%s)", async (_name, message) => {
+    controller.enablePlugin.mockRejectedValueOnce(wrapPluginActivationError(new Error(message)));
+    const result = (await handlers.get(IPC.PLUGINS_SET_ENABLED)!(eventFrom(chatHost), "dev.firefly.a", true)) as { error: string };
+    expect(result.error).toBe("插件自身报错：cannot read <路径>");
+    expect(result.error).not.toMatch(/Jane|Doe|Secret|token|janedoe/);
+  });
+
+  it("does not echo a raw host error when enabling fails", async () => {
+    controller.enablePlugin.mockRejectedValueOnce(new Error("ENOENT C:\\Users\\Jane Doe\\main.mjs"));
+    const result = (await handlers.get(IPC.PLUGINS_SET_ENABLED)!(eventFrom(chatHost), "dev.firefly.a", true)) as { error: string };
+    expect(result.error).toBe("插件启动失败");
   });
 
   it("forwards package/folder imports, permissions, rate limit, and selective uninstall options", async () => {
