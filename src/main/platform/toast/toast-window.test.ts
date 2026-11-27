@@ -8,7 +8,7 @@ function desktopToast() {
   const bounds = vi.fn<(value: ToastBounds) => void>();
   const shell = {
     setBounds: bounds, isDestroyed: () => false, isVisible: () => showing,
-    showInactive: vi.fn(() => { showing = true; }), hide: vi.fn(() => { showing = false; }),
+    showInactive: vi.fn(() => { showing = true; }), moveTop: vi.fn(), hide: vi.fn(() => { showing = false; }),
     webContents: { id: 106 },
   };
   const api = createToastWindowController({
@@ -45,6 +45,16 @@ describe("Toast desktop geometry", () => {
     expect(port.latest()).toEqual({ width: TOAST_WINDOW_WIDTH, height: 108,
       x: port.area.x + port.area.width - TOAST_WINDOW_WIDTH, y: port.area.y + port.area.height - 108 });
     expect(port.shell.showInactive).toHaveBeenCalledTimes(1);
+  });
+
+  it("raises the toast above same-level windows such as the pet each time it is shown or refreshed", () => {
+    const port = desktopToast();
+    port.api.updateHeight(108);
+    port.api.syncVisibility(true);
+    port.api.syncVisibility(true);
+    expect(port.shell.moveTop).toHaveBeenCalledTimes(2);
+    port.api.syncVisibility(false);
+    expect(port.shell.moveTop).toHaveBeenCalledTimes(2);
   });
 
   it("caps oversized content at sixty percent of the usable display height", () => {

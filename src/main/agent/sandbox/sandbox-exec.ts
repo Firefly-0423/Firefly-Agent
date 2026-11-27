@@ -83,6 +83,21 @@ export async function initSandbox(): Promise<void> {
 }
 export function isSandboxReady(): boolean { return !!runtime && !disabled; }
 
+// Workspaces run on separate queues, so several callers can see "not provisioned" at once; they must share one install
+// (it rotates the sandbox account password and may raise UAC) and all stand down together if it is cancelled.
+let installInFlight: Promise<boolean> | null = null;
+function installSandboxOnce(): Promise<boolean> {
+  if (!installInFlight) {
+    installInFlight = (async () => {
+      const installation = await runtime.installWindowsSandboxAsync({ srtWin: windowsRuntime });
+      if (installation.cancelled) { logger.warn(LogTag.Runtime, "[Sandbox] install cancelled (UAC dismissed)"); return false; }
+      logger.info(LogTag.Runtime, `[Sandbox] install completed: user.provisioned=${installation.user?.provisioned} wfp.state=${installation.wfp?.state}`);
+      return true;
+    })().finally(() => { installInFlight = null; });
+  }
+  return installInFlight;
+}
+
 export async function ensureSandboxReady(cwd: string = process.cwd(), level: AgentFileAccessLevel = getCurrentLevel(), trustedWorkspaceRoot?: string): Promise<boolean> {
   if (disabled || !isWindows()) {
     logger.info(LogTag.Runtime, `[Sandbox] ensureSandboxReady: skip (sandboxDisabled=${disabled} isWindows=${isWindows()})`);
@@ -107,12 +122,11 @@ export async function ensureSandboxReady(cwd: string = process.cwd(), level: Age
   try {
     logger.info(LogTag.Runtime, "[Sandbox] ensureSandboxReady: checking status...");
     const status = await runtime.checkWindowsSandboxStatusAsync({ srtWin: windowsRuntime });
-    logger.info(LogTag.Runtime, `[Sandbox] ensureSandboxReady: status user.provisioned=${status.user.provisioned} wfp.state=${status.wfp.state}`);
-    if (!status.user.provisioned) {
-      logger.info(LogTag.Runtime, "[Sandbox] not provisioned, attempting install (UAC may prompt)");
-      const installation = await runtime.installWindowsSandboxAsync({ srtWin: windowsRuntime });
-      if (installation.cancelled) { logger.warn(LogTag.Runtime, "[Sandbox] install cancelled (UAC dismissed)"); return false; }
-      logger.info(LogTag.Runtime, `[Sandbox] install completed: user.provisioned=${installation.user?.provisioned} wfp.state=${installation.wfp?.state}`);
+    logger.info(LogTag.Runtime, `[Sandbox] ensureSandboxReady: status user.provisioned=${status.user.provisioned} cred=${status.user.credPresent} wfp.state=${status.wfp.state}`);
+    // A half-provisioned machine (user exists, credential missing) can never initialize; the install is idempotent and rewrites the credential.
+    if (!status.user.provisioned || status.user.credPresent === false) {
+      logger.info(LogTag.Runtime, `[Sandbox] ${status.user.provisioned ? "credential missing, repairing" : "not provisioned"}: attempting install (UAC may prompt)`);
+      if (!await installSandboxOnce()) return false;
     }
     if (ready) { await runtime.SandboxManager.reset(); ready = false; activeSession = null; }
     await initSandboxManager(level, root);

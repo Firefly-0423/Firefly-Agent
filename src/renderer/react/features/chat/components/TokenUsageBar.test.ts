@@ -157,7 +157,7 @@ describe("usage card", () => {
     expect(text).toContain("缓存读取346,000,000 tok");
     expect(text).toContain("输出1,000,000 tok");
     expect(text).toContain("请求数133 次请求");
-    expect(text).toContain("近 90 天累计");
+    expect(text).not.toContain("所有对话合计");
   });
 
   it("shows em dashes where a conversation has no first-token or speed data", async () => {

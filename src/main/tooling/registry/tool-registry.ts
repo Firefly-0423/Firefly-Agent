@@ -49,6 +49,8 @@ export interface ToolDefinition {
   risk?: ToolRiskLevel;
   risks?: ToolRiskLevel[];
   pluginMeta?: PluginToolMeta;
+  /** Live gate evaluated each time the model-visible list is built; false hides the tool from new runs (execution still re-checks). */
+  isAvailable?: () => boolean;
   describeApproval?: (args: Record<string, unknown>, signal?: AbortSignal) => Promise<{ summary: string; target?: string } | null>;
   validateArgs?: (args: Record<string, unknown>) => { valid: true } | { valid: false; message: string };
   /** execute() reports failure only by throwing; its return value is never re-read as a legacy status payload. */
@@ -108,12 +110,13 @@ export class ToolRegistry {
 
   getEnabledTools(): ToolDefinition[] {
     return Array.from(this.definitions.values()).filter(definition =>
-      definition.enabled && !definition.deprecated && !this.memoryIsRetired(definition.id));
+      definition.enabled && !definition.deprecated && !this.memoryIsRetired(definition.id) && (definition.isAvailable?.() ?? true));
   }
 
   getEnabledToolsForMode(selected: ConversationMode, custom?: ToolModeOverrides): ToolDefinition[] {
     return Array.from(this.definitions.values()).filter(definition => {
       if (!definition.enabled || definition.deprecated || this.memoryIsRetired(definition.id)) return false;
+      if (definition.isAvailable && !definition.isAvailable()) return false;
       // 规格 §4 / §7：插件工具绝不在 Chat 模式暴露（即使自定义模式覆写存在）。
       if (selected === "chat" && definition.pluginMeta) return false;
       const chosen = custom?.[definition.id]?.[selected];

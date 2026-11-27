@@ -2,7 +2,7 @@ export interface UiColorSet { accent: string; background: string; foreground: st
 /** One switch, and a colour set per theme as in Codex: the top-level fields are the light set (as stored before), `dark` the dark one. */
 export interface UiColors extends UiColorSet { enabled: boolean; dark: UiColorSet }
 export type UiColorScheme = "light" | "dark";
-const DEFAULT_DARK_COLORS: Readonly<UiColorSet> = Object.freeze({ accent: "#7bd8ae", background: "#192a24", foreground: "#e4eee9" });
+const DEFAULT_DARK_COLORS: Readonly<UiColorSet> = Object.freeze({ accent: "#10b981", background: "#141414", foreground: "#ededed" });
 export const DEFAULT_UI_COLORS: Readonly<UiColors> = Object.freeze({ enabled: false, accent: "#0285ff", background: "#ffffff", foreground: "#0d0d0d", dark: DEFAULT_DARK_COLORS });
 /** The defaults of one theme's set, which "restore default colours" puts back. */
 export function defaultUiColorSet(scheme: UiColorScheme): UiColorSet {

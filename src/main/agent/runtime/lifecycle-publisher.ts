@@ -4,7 +4,7 @@ import type {
   PluginToolFinishedEvent,
   PluginTurnFinishedEvent,
   PluginTurnStartedEvent,
-} from "../../../plugins/api";
+} from "../../../shared/plugin-host-events";
 
 type StampKey = "eventId" | "timestamp";
 

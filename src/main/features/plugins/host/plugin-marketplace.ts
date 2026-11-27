@@ -3,26 +3,35 @@ import { constants, createReadStream } from "node:fs";
 import { copyFile, lstat, mkdir, open, readFile, realpath, rm } from "node:fs/promises";
 import path from "node:path";
 import { isValidPluginVersion } from "../../../../shared/version";
-import { CURRENT_PLUGIN_API_VERSION } from "../../../../plugins/api";
+import {
+  PLUGIN_PERMISSIONS,
+  PLUGIN_TOOL_MODES,
+  PLUGIN_TOOL_RISKS,
+  parseRange,
+  parseSemVer,
+  satisfiesRange,
+} from "../../../../shared/plugin-manifest";
+import { PLUGIN_HOST_VERSION } from "../../../../plugins/v2/package/importer";
 import type {
   MarketInstallResult,
   MarketListResult,
   MarketPluginEntry,
   MarketSourceStatus,
+  MarketToolSummary,
 } from "../../../../shared/plugin-management";
-import type { PluginImportResult } from "../../../../plugins/manager";
-import type { PackageSource } from "../../../../plugins/version-store";
+import type { PluginV2ImportOptions, PluginV2ImportResult } from "./plugin-v2-services";
 
-// The catalog is registry.json on the main branch of the Firefly-0423/firefly-plugins repository; packages are that
-// repository's GitHub Release assets. Every entry pins its package SHA-256, and downloads are refused on a mismatch.
-// Changing either list is a boundary change: the pinned values and this file's reviewed hash in
-// skills/external-boundary.test.ts must be updated together.
+// Keep the v2 catalog separate from the legacy v1 directory on main. GitHub Release
+// assets remain supported. Repository files are bound to the official v2 catalog.
+export const MARKET_V2_REPOSITORY_ROOT = "https://raw.githubusercontent.com/Firefly-0423/firefly-plugins/marketplace-v2/marketplace/";
+const REPOSITORY_CATALOG_URL = `${MARKET_V2_REPOSITORY_ROOT}registry.json`;
 export const MARKET_REGISTRY_URLS: readonly string[] = [
-  "https://raw.githubusercontent.com/Firefly-0423/firefly-plugins/main/registry.json",
+  REPOSITORY_CATALOG_URL,
 ];
 export const MARKET_ZIP_URL_PREFIXES: readonly string[] = [
   "https://github.com/Firefly-0423/firefly-plugins/releases/download/",
 ];
+export const MARKET_REGISTRY_API_VERSION = 2;
 export const BUNDLED_MARKET_SOURCE = "bundled:registry";
 export const MARKET_REGISTRY_TIMEOUT_MS = 10_000;
 /** With a bundled catalog available, the list does not wait longer than this for the online catalog. */
@@ -38,9 +47,11 @@ interface MarketSnapshotEntry {
   sourceId?: string;
   id: string;
   version: string;
-  zip: string;
+  sdk: string;
+  compatible: boolean;
+  packageUrl: string;
   sha256: string;
-  pluginApiVersion: number;
+  repositoryPackage: boolean;
   source: "bundled" | "remote";
 }
 
@@ -52,13 +63,14 @@ export type MarketplaceFetch = (
 export interface PluginMarketplaceDeps {
   registryUrls: readonly string[];
   zipUrlPrefixes: readonly string[];
-  /** App-owned generated catalog/ZIP directory, never supplied by Renderer or a remote catalog. */
+  /** App-owned generated catalog/package directory, never supplied by Renderer or a remote catalog. */
   bundledDir?: string;
   cacheDir: string;
-  installZip: (
-    zipPath: string,
-    opts: { expectedIdentity: { id: string; version: string }; origin: "market"; packageSource: PackageSource },
-  ) => Promise<PluginImportResult>;
+  hostVersion?: string;
+  installPackage: (
+    packagePath: string,
+    opts: PluginV2ImportOptions,
+  ) => Promise<PluginV2ImportResult>;
   fetchImpl?: MarketplaceFetch;
   /** Test overrides for bounded I/O. */
   registryTimeoutMs?: number;
@@ -71,9 +83,12 @@ export interface PluginMarketplaceDeps {
 class RegistryFormatError extends Error {
   constructor(message: string, readonly kind: "invalid" | "unsupported") { super(message); }
 }
-const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const ID_PATTERN = /^[a-z0-9]+(\.[a-z0-9-]+){2,}$/;
 const SHA256_PATTERN = /^[0-9a-fA-F]{64}$/;
-const BUNDLED_ZIP_PATTERN = /^bundled:([a-zA-Z0-9][a-zA-Z0-9.+-]*\.zip)$/;
+const BUNDLED_PACKAGE_PATTERN = /^bundled:([a-zA-Z0-9][a-zA-Z0-9.+-]*\.(?:ffplugin|zip))$/;
+const ALLOWED_PERMISSIONS = new Set<string>(PLUGIN_PERMISSIONS);
+const ALLOWED_RISKS = new Set<string>(PLUGIN_TOOL_RISKS);
+const ALLOWED_MODES = new Set<string>(PLUGIN_TOOL_MODES);
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -102,51 +117,141 @@ function allowedZipUrl(raw: string, prefixes: readonly string[]): boolean {
   });
 }
 
-function validateEntry(raw: unknown, deps: PluginMarketplaceDeps, source: "bundled" | "remote"):
-  (MarketPluginEntry & MarketSnapshotEntry) | null {
-  if (typeof raw !== "object" || raw === null) return null;
+function parseAuthor(raw: unknown): string | null {
+  if (isText(raw, 200)) return raw;
+  if (typeof raw === "object" && raw !== null && !Array.isArray(raw)) {
+    const name = (raw as { name?: unknown }).name;
+    if (isText(name, 200)) return name;
+  }
+  return null;
+}
+
+function parsePermissions(raw: unknown): string[] | null {
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw) || raw.length > PLUGIN_PERMISSIONS.length) return null;
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== "string" || !ALLOWED_PERMISSIONS.has(item)) return null;
+    if (!out.includes(item)) out.push(item);
+  }
+  return out;
+}
+
+function parseTools(raw: unknown): MarketToolSummary[] | null {
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw) || raw.length > 100) return null;
+  const out: MarketToolSummary[] = [];
+  for (const item of raw) {
+    if (typeof item !== "object" || item === null || Array.isArray(item)) return null;
+    const record = item as Record<string, unknown>;
+    if (!isText(record.name, 120) || !isText(record.title, 200)) return null;
+    if (!Array.isArray(record.risk) || record.risk.length === 0 || record.risk.some((r) => typeof r !== "string" || !ALLOWED_RISKS.has(r))) return null;
+    if (!Array.isArray(record.modes) || record.modes.length === 0 || record.modes.some((m) => typeof m !== "string" || !ALLOWED_MODES.has(m))) return null;
+    out.push({
+      name: record.name,
+      title: record.title,
+      risk: [...record.risk] as string[],
+      modes: [...record.modes] as string[],
+    });
+  }
+  return out;
+}
+
+function validateEntry(
+  raw: unknown,
+  deps: PluginMarketplaceDeps,
+  source: "bundled" | "remote",
+  hostVersion: string,
+  catalogUrl: string,
+): (MarketPluginEntry & MarketSnapshotEntry) | null {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
   const entry = raw as Record<string, unknown>;
-  const { id, name, version, description, author, zip, sha256, downloads, homepage, capabilities } = entry;
-  const pluginApiVersion = entry.pluginApiVersion ?? CURRENT_PLUGIN_API_VERSION;
-  if (typeof id !== "string" || id.length > 100 || !ID_PATTERN.test(id)) return null;
-  if (!isText(name, 120) || !isText(description) || !isText(author, 120)) return null;
+  const { id, name, version, sdk, description, sha256, homepage, capabilities, license } = entry;
+  const packageUrl = entry.package;
+  if (typeof id !== "string" || id.length < 6 || id.length > 64 || !ID_PATTERN.test(id)) return null;
+  if (!isText(name, 120) || !isText(description)) return null;
+  const author = parseAuthor(entry.author);
+  if (!author) return null;
   if (typeof version !== "string" || version !== version.trim() || version.length > 100 || !isValidPluginVersion(version)) return null;
-  if (typeof zip !== "string") return null;
-  if (source === "bundled" ? !BUNDLED_ZIP_PATTERN.test(zip) : !allowedZipUrl(zip, deps.zipUrlPrefixes)) return null;
+  if (!isText(sdk, 100)) return null;
+  const parsedRange = parseRange(sdk);
+  const parsedHost = parseSemVer(hostVersion);
+  if (!parsedRange) return null;
+  const compatible = Boolean(parsedHost && satisfiesRange(parsedHost, parsedRange));
+  // Spec §4 rule 7 & §9: online/market catalog strictly forbids native: true packages.
+  if (entry.native !== false) return null;
+  const permissions = parsePermissions(entry.permissions);
+  if (!permissions) return null;
+  const tools = parseTools(entry.tools);
+  if (!tools) return null;
+  if (typeof packageUrl !== "string") return null;
+  const repositoryPackage = source === "remote" && catalogUrl === REPOSITORY_CATALOG_URL
+    && packageUrl === `${MARKET_V2_REPOSITORY_ROOT}packages/${id}-${encodeURIComponent(version)}.ffplugin`;
+  if (source === "bundled" ? !BUNDLED_PACKAGE_PATTERN.test(packageUrl)
+    : !repositoryPackage && !allowedZipUrl(packageUrl, deps.zipUrlPrefixes)) return null;
   if (typeof sha256 !== "string" || !SHA256_PATTERN.test(sha256)) return null;
-  if (typeof downloads !== "number" || !Number.isSafeInteger(downloads) || downloads < 0) return null;
   if (homepage !== undefined && !httpsUrl(homepage)) return null;
-  if (typeof pluginApiVersion !== "number" || !Number.isSafeInteger(pluginApiVersion) || pluginApiVersion < 1) return null;
+  if (license !== undefined && !isText(license, 120)) return null;
   if (capabilities !== undefined && (!Array.isArray(capabilities) || capabilities.length > 20
     || !capabilities.every((value) => isText(value, 500)))) return null;
   return {
-    id, name, version, description, author, downloads, zip, sha256, pluginApiVersion, source,
-    compatible: pluginApiVersion === CURRENT_PLUGIN_API_VERSION,
-    capabilities: capabilities as string[] | undefined,
-    homepage: typeof homepage === "string" ? homepage : undefined,
+    id,
+    name,
+    version,
+    sdk,
+    description,
+    author,
+    native: false,
+    permissions,
+    tools,
+    packageUrl,
+    sha256,
+    repositoryPackage,
+    source,
+    compatible,
+    ...(typeof license === "string" ? { license } : {}),
+    ...(capabilities !== undefined ? { capabilities: capabilities as string[] } : {}),
+    ...(typeof homepage === "string" ? { homepage } : {}),
   };
 }
 
-function validateRegistry(data: unknown, deps: PluginMarketplaceDeps, source: "bundled" | "remote") {
+function validateRegistry(
+  data: unknown,
+  deps: PluginMarketplaceDeps,
+  source: "bundled" | "remote",
+  hostVersion: string,
+  catalogUrl: string,
+) {
   if (typeof data !== "object" || data === null) throw new RegistryFormatError("registry 不是合法的 JSON 对象", "invalid");
   const record = data as Record<string, unknown>;
-  if (record.apiVersion !== 1) throw new RegistryFormatError(`插件市场协议版本不支持: ${String(record.apiVersion)}`, "unsupported");
+  if (record.apiVersion !== MARKET_REGISTRY_API_VERSION) {
+    throw new RegistryFormatError(`插件市场协议版本不支持: ${String(record.apiVersion)}`, "unsupported");
+  }
   if (!Array.isArray(record.plugins)) throw new RegistryFormatError("registry 的 plugins 必须是数组", "invalid");
   const plugins: MarketPluginEntry[] = [];
   const snapshot = new Map<string, MarketSnapshotEntry>();
   for (const raw of record.plugins) {
-    const entry = validateEntry(raw, deps, source);
+    const entry = validateEntry(raw, deps, source, hostVersion, catalogUrl);
     if (!entry) {
       // Never print an untrusted URL/body: it can include credentials, signed links or enormous strings.
       console.warn("[plugins] 插件市场条目校验失败，已跳过");
       continue;
     }
     if (snapshot.has(entry.id)) throw new RegistryFormatError(`registry 存在重复插件 id: ${entry.id}`, "invalid");
-    const { zip, sha256, ...display } = entry;
+    const { packageUrl, sha256, repositoryPackage, ...display } = entry;
     plugins.push(display);
-    snapshot.set(entry.id, { id: entry.id, version: entry.version, zip, sha256, pluginApiVersion: entry.pluginApiVersion, source });
+    snapshot.set(entry.id, {
+      id: entry.id,
+      version: entry.version,
+      sdk: entry.sdk,
+      compatible: entry.compatible ?? false,
+      packageUrl,
+      sha256,
+      repositoryPackage,
+      source,
+    });
   }
-  plugins.sort((a, b) => b.downloads - a.downloads || a.name.localeCompare(b.name, "zh-CN"));
+  plugins.sort((a, b) => a.name.localeCompare(b.name, "zh-CN") || a.id.localeCompare(b.id));
   return { plugins, snapshot };
 }
 
@@ -216,6 +321,7 @@ export function electronMarketFetch(input: string, init?: { signal?: AbortSignal
 
 export function createPluginMarketplaceService(deps: PluginMarketplaceDeps) {
   const fetchImpl: MarketplaceFetch = deps.fetchImpl ?? ((input, init) => electronMarketFetch(input, init));
+  const hostVersion = deps.hostVersion ?? PLUGIN_HOST_VERSION;
   const registryTimeoutMs = deps.registryTimeoutMs ?? MARKET_REGISTRY_TIMEOUT_MS;
   const registryGraceMs = deps.registryGraceMs ?? MARKET_REGISTRY_GRACE_MS;
   const registryMaxBytes = deps.registryMaxBytes ?? MARKET_REGISTRY_MAX_BYTES;
@@ -225,9 +331,9 @@ export function createPluginMarketplaceService(deps: PluginMarketplaceDeps) {
   let listSeq = 0;
   let installInFlight = false;
 
-  async function fetchChecked(url: string, kind: "registry" | "zip", limit: ReturnType<typeof deadline>): Promise<Response> {
+  async function fetchChecked(url: string, kind: "registry" | "zip", limit: ReturnType<typeof deadline>, repositoryPackage = false): Promise<Response> {
     const first = httpsUrl(url);
-    if (!first || (kind === "zip" && !allowedZipUrl(url, deps.zipUrlPrefixes))) throw new Error("插件市场地址不受信任");
+    if (!first || (kind === "zip" && !repositoryPackage && !allowedZipUrl(url, deps.zipUrlPrefixes))) throw new Error("插件市场地址不受信任");
     let current = url;
     const githubRelease = first.origin === "https://github.com" && /^\/[^/]+\/[^/]+\/releases\/download\//.test(first.pathname);
     for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
@@ -235,6 +341,7 @@ export function createPluginMarketplaceService(deps: PluginMarketplaceDeps) {
       const response = await limit.race(fetchImpl(current, { signal: limit.signal, redirect: "manual", credentials: "omit" }));
       if (![301, 302, 303, 307, 308].includes(response.status)) return response;
       void response.body?.cancel().catch(() => {});
+      if (repositoryPackage) throw new Error("仓库插件包不允许重定向");
       const location = response.headers.get("location");
       if (!location || redirects === MAX_REDIRECTS) throw new Error("插件市场重定向次数过多或缺少地址");
       const nextRaw = new URL(location, current).href;
@@ -325,7 +432,7 @@ export function createPluginMarketplaceService(deps: PluginMarketplaceDeps) {
         continue;
       }
       try {
-        const parsed = validateRegistry(probe.data, deps, probe.url === BUNDLED_MARKET_SOURCE ? "bundled" : "remote");
+        const parsed = validateRegistry(probe.data, deps, probe.url === BUNDLED_MARKET_SOURCE ? "bundled" : "remote", hostVersion, probe.url);
         const used = chosen === null;
         sources.push({ url: probe.url, ok: true, used });
         if (used) { chosen = parsed; chosenSource = probe.url; }
@@ -352,10 +459,10 @@ export function createPluginMarketplaceService(deps: PluginMarketplaceDeps) {
     return hash.digest("hex");
   }
 
-  async function downloadZip(url: string, tempPath: string): Promise<void> {
+  async function downloadPackage(entry: MarketSnapshotEntry, tempPath: string): Promise<void> {
     const limit = deadline(zipTimeoutMs, "下载插件包超时");
     try {
-      const response = await fetchChecked(url, "zip", limit);
+      const response = await fetchChecked(entry.packageUrl, "zip", limit, entry.repositoryPackage);
       const file = await open(tempPath, "wx");
       try {
         await consume(response, zipMaxBytes, limit, (chunk) => file.writeFile(chunk), "插件包");
@@ -369,23 +476,41 @@ export function createPluginMarketplaceService(deps: PluginMarketplaceDeps) {
     try {
       const entry = snapshot?.get(id);
       if (!entry) return { ok: false, error: "插件市场信息已失效，请刷新后重试" };
-      if (entry.pluginApiVersion !== CURRENT_PLUGIN_API_VERSION) return { ok: false, error: `插件 API ${entry.pluginApiVersion} 与当前宿主 API ${CURRENT_PLUGIN_API_VERSION} 不兼容` };
+      if (!entry.compatible) {
+        return { ok: false, error: `插件要求 Firefly ${entry.sdk}，与当前宿主 ${hostVersion} 不兼容` };
+      }
       await mkdir(deps.cacheDir, { recursive: true });
-      const tempPath = path.join(deps.cacheDir, `${id}-${randomUUID()}.zip`);
+      const ext = entry.packageUrl.endsWith(".zip") ? ".zip" : ".ffplugin";
+      const tempPath = path.join(deps.cacheDir, `${id}-${randomUUID()}${ext}`);
       try {
         if (entry.source === "bundled") {
-          const match = BUNDLED_ZIP_PATTERN.exec(entry.zip);
+          const match = BUNDLED_PACKAGE_PATTERN.exec(entry.packageUrl);
           if (!match) throw new Error("内置插件包地址无效");
           await copyFile(await bundledFile(match[1], zipMaxBytes), tempPath, constants.COPYFILE_EXCL);
-        } else { await downloadZip(entry.zip, tempPath); }
+        } else { await downloadPackage(entry, tempPath); }
         if (await sha256File(tempPath) !== entry.sha256.toLowerCase()) throw new Error("插件包校验失败（SHA-256 不匹配）");
         if (!entry.sourceId) throw new Error("插件来源快照缺失，请刷新后重试");
-        const result = await deps.installZip(tempPath, { expectedIdentity: { id: entry.id, version: entry.version }, origin: "market",
-          packageSource: { kind: entry.source === "bundled" ? "bundled" : "curated-market", sourceId: entry.sourceId, archiveSha256: entry.sha256.toLowerCase() } });
-        if (!result.ok) return { ok: false, error: result.canceled ? "已取消安装插件" : result.error ?? "安装插件失败",
-          installation: result.installation, activation: result.activation, overview: result.overview };
-        return { ok: true, plugin: result.plugin ?? { id: entry.id, name: entry.id, version: entry.version }, overview: result.overview,
-          installation: result.installation === "committed" ? "committed" : undefined, activation: result.activation };
+        const result = await deps.installPackage(tempPath, {
+          expectedIdentity: { id: entry.id, version: entry.version },
+          origin: "market",
+          sourceKind: entry.source === "bundled" ? "bundled" : "curated-market",
+          sourceId: entry.sourceId,
+        });
+        if (!result.ok) {
+          return {
+            ok: false,
+            error: result.error || "安装插件失败",
+            // Market imports are never held for replacement confirmation; treat it as a rejection if it ever occurs.
+            installation: "rejected",
+            ...(result.installation === "rejected" && result.activation ? { activation: result.activation } : {}),
+          };
+        }
+        return {
+          ok: true,
+          plugin: result.plugin,
+          installation: result.installation,
+          activation: result.activation,
+        };
       } finally { await rm(tempPath, { force: true }); }
     } catch (error) { return { ok: false, error: errorMessage(error) }; }
     finally { installInFlight = false; }

@@ -2,9 +2,6 @@ import { beforeEach, afterEach, describe, it, expect, vi } from "vitest";
 import * as fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { PluginManager } from "../../../plugins/manager";
-import { createPluginPromptRegistry } from "../../../plugins/prompts";
-import type { PluginRuntime } from "../../../plugins/context";
 import type { ScheduledTask } from "../../platform/schedule/schedule-types";
 import { createAgentRuntime, type AgentRuntimeDeps } from "./agent-runtime";
 import * as builders from "./build-options";
@@ -15,7 +12,6 @@ vi.mock("electron", () => ({ app: { getPath: () => effects.root } }));
 vi.mock("./build-options", async (original) => ({ ...await original<typeof import("./build-options")>(), onAgentRunFinished: effects.finish }));
 vi.mock("./index", async (original) => ({ ...await original<typeof import("./index")>(), buildAlwaysOnContext: effects.legacy, buildWorldbookContext: effects.worldbook, scheduleMemoryWrite: effects.write }));
 const directories: string[] = [];
-let plugin: PluginManager | undefined;
 function temporary() { const root = fs.mkdtempSync(path.join(os.tmpdir(), "agenda-runtime-")); directories.push(root); return root; }
 const savedSettings = () => ({ mode: "manual", provider: "", model: "", baseUrl: "", apiKey: "", multimodal: false, perProvider: {}, modelProfiles: [{ id: "calendar-profile", provider: "Calendar provider", baseUrl: "https://calendar-profile.invalid/v1", model: "calendar-model", apiKey: "calendar-profile-key", explicitTransport: "anthropic" }] });
 function dependencies(patch: Partial<AgentRuntimeDeps> = {}): AgentRuntimeDeps {
@@ -41,7 +37,7 @@ beforeEach(() => {
   effects.worldbook.mockReset().mockResolvedValue("[CALENDAR_WORLDBOOK]");
 });
 afterEach(async () => {
-  await plugin?.stop(); plugin = undefined; effects.root = "";
+  effects.root = "";
   vi.restoreAllMocks(); directories.splice(0).forEach((root) => fs.rmSync(root, { recursive: true, force: true }));
 });
 
@@ -76,19 +72,6 @@ describe("Runtime completion notifications", () => {
     publish.mockRejectedValueOnce(Error("Calendar listener failed"));
     await expect(runtime.onRunFinished(result, "Read my calendar", context)).resolves.toEqual({ sticker: null });
     await expect.poll(() => warning.mock.calls.length).toBe(1);
-  });
-
-  it("delivers metadata through the real plugin manager and event bus", async () => {
-    const root = temporary(), packageRoot = path.join(root, "calendar-listener"), received = path.join(root, "calendar-event.json");
-    fs.mkdirSync(packageRoot);
-    fs.writeFileSync(path.join(packageRoot, "manifest.json"), JSON.stringify({ apiVersion: 1, id: "calendar-listener", name: "Calendar Listener", version: "1.0.0", description: "Calendar event consumer", author: "Calendar tests", entry: "listener.cjs", defaultEnabled: true }));
-    fs.writeFileSync(path.join(packageRoot, "listener.cjs"), "const fs=require('node:fs'); module.exports={register(host){host.events.on('host:turn:completed', event=>fs.writeFileSync(" + JSON.stringify(received) + ",JSON.stringify(event)))}};");
-    const runtime: PluginRuntime = { toolRegistry: { register: () => {}, unregister: () => true }, channelManager: { has: () => false, register: () => {}, unregister: async () => true, startOne: async () => {} }, registerIpc: () => {}, unregisterIpc: () => {}, promptRegistry: createPluginPromptRegistry() };
-    plugin = new PluginManager({ scanRoots: [{ path: root, source: "builtin" }], storageRoot: path.join(root, "plugin-storage"), runtime, loadEnabledMap: () => ({}), saveEnabledMap: () => {} });
-    await plugin.start();
-    await createAgentRuntime(dependencies({ publishPluginHostEvent: (event, payload) => plugin!.publishHostEvent(event, payload) })).onRunFinished(result, "Read my calendar", context);
-    await expect.poll(() => fs.existsSync(received)).toBe(true);
-    expect(JSON.parse(fs.readFileSync(received, "utf8"))).toEqual(context);
   });
 });
 

@@ -132,6 +132,7 @@ function createControllerFixture(opts: { chatRequestTimeoutSec?: number; buildRu
       stop: vi.fn(async () => {}),
       status: vi.fn(() => "stopped" as const),
       call: vi.fn(),
+      onStatusChange: () => () => {},
     }) as never,
   });
 

@@ -3,9 +3,9 @@
 // 请求和返回类型共用设置页的声明；type-only 引用不会引入另一个运行时 bundle。
 // 校验只返回翻译 key，具体文案由调用方提供。
 
-import type { ScheduleConfig } from "../../../../settings/scheduler/types";
+import type { PluginProposal, PluginProposalAction, PluginProposalSchedule, ScheduleConfig } from "../../../../settings/scheduler/types";
 export type {
-  ScheduleConfig, SchedulerApi, SchedulerResult, SchedulerToolInfo,
+  PluginProposal, ScheduleConfig, SchedulerApi, SchedulerResult, SchedulerToolInfo,
   SchedulerToolMode, ScheduledTask, ScheduledTaskHistoryEntry,
 } from "../../../../settings/scheduler/types";
 
@@ -140,4 +140,49 @@ export function fireNowErrorMessage(result: { error?: string; reason?: string },
   if (result.reason === "task already running") return t("scheduledPanel.errors.alreadyRunning");
   if (result.reason === "plugin not running") return t("scheduledPanel.errors.pluginNotRunning");
   return result.error ?? result.reason ?? t("scheduledPanel.errors.runFailed");
+}
+
+/** Plugin protocol schedule → the panel's schedule config, so proposals reuse describeSchedule. */
+export function proposalScheduleToConfig(schedule: PluginProposalSchedule): ScheduleConfig {
+  if (schedule.kind === "cron") return schedule;
+  if (schedule.kind === "once") return { kind: "once", runAt: new Date(schedule.at).toISOString() };
+  return schedule.minutes % 60 === 0 && schedule.minutes >= 60
+    ? { kind: "interval", every: schedule.minutes / 60, unit: "hours" }
+    : { kind: "interval", every: schedule.minutes, unit: "minutes" };
+}
+
+export function describeProposalSchedule(schedule: PluginProposalSchedule, t: Translate): string {
+  if (schedule.kind === "once" && Number.isNaN(new Date(schedule.at).getTime())) return t("scheduledPanel.invalidTime");
+  return describeSchedule(proposalScheduleToConfig(schedule), t);
+}
+
+/** A callback action only says "plugin callback"; a run action shows its prompt and mode. */
+export function describeProposalAction(action: PluginProposalAction, t: Translate): string {
+  if (action.type === "callback") return t("scheduledPanel.pending.actionCallback");
+  return t("scheduledPanel.pending.actionRun", { mode: action.mode, prompt: action.prompt });
+}
+
+/** What an update proposal changes compared with the current task; an empty list means no visible difference. */
+export function describeProposalChanges(proposal: PluginProposal, t: Translate): string[] {
+  const current = proposal.current;
+  if (!current) return [];
+  const changes: string[] = [];
+  if (current.title !== proposal.title) {
+    changes.push(t("scheduledPanel.pending.changeTitle", { from: current.title, to: proposal.title }));
+  }
+  const fromSchedule = describeProposalSchedule(current.schedule, t);
+  const toSchedule = describeProposalSchedule(proposal.schedule, t);
+  if (fromSchedule !== toSchedule) {
+    changes.push(t("scheduledPanel.pending.changeSchedule", { from: fromSchedule, to: toSchedule }));
+  }
+  const fromAction = describeProposalAction(current.action, t);
+  const toAction = describeProposalAction(proposal.action, t);
+  if (fromAction !== toAction) {
+    changes.push(t("scheduledPanel.pending.changeAction", { from: fromAction, to: toAction }));
+  }
+  const tools = (ids: string[]) => [...ids].sort().join(", ") || t("scheduledPanel.noTools");
+  if (tools(current.allowedToolIds) !== tools(proposal.allowedToolIds)) {
+    changes.push(t("scheduledPanel.pending.changeTools", { from: tools(current.allowedToolIds), to: tools(proposal.allowedToolIds) }));
+  }
+  return changes;
 }

@@ -1,7 +1,7 @@
 import type { ExternalSkillReview } from "./external-types";
 
 /** Main-maintained exact-file static reviews. Changes to commit, any file, or scope require a new review.
- * Review rationale and source/license preservation are in THIRD_PARTY_SKILL_REVIEWS.md.
+ * Review rationale and source/license preservation are in legal/THIRD_PARTY_SKILL_REVIEWS.md.
  * No installation, activation, runtime compatibility or user confirmation is implied by this table.
  */
 export const EXTERNAL_SKILL_REVIEWS: readonly ExternalSkillReview[] = [

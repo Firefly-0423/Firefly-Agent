@@ -1,5 +1,6 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { wrapPluginActivationError } from "../../../shared/plugin-activation-error";
 import {
   HOST_TO_PLUGIN_METHODS as H,
   PluginError,
@@ -184,7 +185,7 @@ export function attachPluginRuntime(
       const loadedPlugin = await loader.load(mainPath);
       if (superseded()) throw new PluginError("ERR_CANCELLED", "Plugin was deactivated during activation");
       plugin = loadedPlugin;
-      await loadedPlugin.activate(proxyRuntime.ctx);
+      try { await loadedPlugin.activate(proxyRuntime.ctx); } catch (activateError) { throw wrapPluginActivationError(activateError); }
       await proxyRuntime.awaitPendingRegistrations();
       if (superseded()) throw new PluginError("ERR_CANCELLED", "Plugin was deactivated during activation");
       return null;

@@ -39,6 +39,9 @@ export type PermissionInteraction = {
   agentName?: string;
   declaredBy?: string;
   targetPath?: string;
+  /** shell 类审批要执行的命令原文，与 toast 的“查看审批”展示同一份参数 */
+  command?: string;
+  cwd?: string;
   workspaceName?: string;
   summary: string;
   toolName: string;

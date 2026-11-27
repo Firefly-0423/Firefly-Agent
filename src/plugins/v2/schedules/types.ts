@@ -151,6 +151,8 @@ export interface PluginScheduleServiceOptions {
   ) => Promise<ScheduledRunResult>;
   /** Optional hook to notify `SchedulerEngine.refreshPluginTasks()` after bulk uninstall cleanup. */
   refreshEngine?: () => void;
+  /** Called after plugin schedule state (proposals, approvals, task metadata) was saved; lets the host refresh its UI. */
+  onStateChanged?: () => void;
   /** Desktop notification hook invoked when an unattended run suspends as `pending_approval`. */
   notifyApprovalRequired?: (notification: UnattendedApprovalNotification) => void;
   /** Resolves additional tool risks for a scheduled task (e.g., from tool registry metadata). */

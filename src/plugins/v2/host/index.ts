@@ -142,8 +142,21 @@ export class PluginHostManager {
   }
 
   async call<T = unknown>(id: string, method: string, params: unknown, opts?: RpcOptions): Promise<T | { status: "unknown"; reason: string }> {
+    return this.dispatch<T>(id, method, params, opts, ["enabled"]);
+  }
+
+  /**
+   * Forward a message from one of the plugin's own UI windows. A window may be opened from
+   * activate() and start talking before activation finishes, so this also accepts "starting".
+   * Stop, fault and crash still reject: the runtime is gone and its RPC endpoint is closed.
+   */
+  uiCall<T = unknown>(id: string, method: string, params: unknown, opts?: RpcOptions): Promise<T | { status: "unknown"; reason: string }> {
+    return this.dispatch<T>(id, method, params, opts, ["starting", "enabled"]);
+  }
+
+  private async dispatch<T>(id: string, method: string, params: unknown, opts: RpcOptions | undefined, allowed: readonly PluginHostStatus[]): Promise<T | { status: "unknown"; reason: string }> {
     const record = this.records.get(id), runtime = record?.runtime;
-    if (record?.state !== "enabled" || !runtime) throw unavailable();
+    if (!record || !allowed.includes(record.state) || !runtime) throw unavailable();
     let posted = false;
     try { return await runtime.rpc.call<T>(method, params, { ...opts, onPosted: () => { posted = true; opts?.onPosted?.(); } }); }
     catch (error) {

@@ -112,7 +112,7 @@ const EXPECTED_NAMESPACE_KEYS: Record<string, readonly string[]> = {
   ],
   fireflyAppearance: ["get", "onChanged"],
   fireflyFont: ["get", "onChanged"],
-  fireflyScheduler: ["add", "delete", "fireNow", "getHistory", "getTools", "list", "toggle", "update"],
+  fireflyScheduler: ["add", "confirmPluginProposal", "delete", "fireNow", "getHistory", "getTools", "list", "listPluginProposals", "rejectPluginProposal", "toggle", "update"],
   fireflyTheme: ["get", "getColors", "onChanged", "onColorsChanged"],
   live2dWork: ["getWorking", "onChanged"],
   manualBrowser: ["execute", "getAvailability", "getPermission", "onChanged", "requestPermission", "revokePermission"],
@@ -145,10 +145,10 @@ const EXPECTED_NAMESPACE_KEYS: Record<string, readonly string[]> = {
   modelConfig: ["get", "getConnectionSnapshot", "getModelInstallStatus", "onChanged", "onConnectionChanged"],
   music: ["control", "getStatus"],
   openInApp: ["listApps", "open"],
-  pluginPanel: ["invoke"],
   plugins: [
     "getV2Borrowing",
     "getV2Confirms",
+    "importFolder",
     "importZip",
     "list",
     "marketInstall",
@@ -161,6 +161,8 @@ const EXPECTED_NAMESPACE_KEYS: Record<string, readonly string[]> = {
     "rescan",
     "resolveV2Confirm",
     "setEnabled",
+    "setModelRateLimit",
+    "setPermission",
     "stopV2Borrowing",
     "uninstall",
   ],
@@ -272,9 +274,9 @@ describe("preload exposure surface", () => {
     await import("../preload/index");
   });
 
-  it("exposes the exact 31 window namespaces once each via contextBridge.exposeInMainWorld", () => {
+  it("exposes the exact 30 window namespaces once each via contextBridge.exposeInMainWorld", () => {
     const expectedNamespaces = Object.keys(EXPECTED_NAMESPACE_KEYS).sort();
-    expect(expectedNamespaces).toHaveLength(31);
+    expect(expectedNamespaces).toHaveLength(30);
     expect(harness.exposedCalls.map(([name]) => name).sort()).toEqual(expectedNamespaces);
     expect([...harness.exposed.keys()].sort()).toEqual(expectedNamespaces);
   });

@@ -10,6 +10,10 @@ export {
   type PluginScheduleService,
 } from "./schedule-service";
 export {
+  UNATTENDED_APPROVAL_UNSUPPORTED_REASON,
+  UnattendedApprovalUnsupportedError,
+} from "./unattended-approval-unsupported";
+export {
   bindPluginScheduleRpc,
   type BindPluginScheduleRpcOptions,
 } from "./rpc";

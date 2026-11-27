@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { BrowserWindow } from "electron";
 import type { IpcScope } from "../../base/ipc/ipc-scope";
 import { IPC } from "../../../shared/ipc-channels";
-import type { PluginPromptMode, PluginTurnStatus } from "../../../plugins/api";
+import type { PluginPromptMode, PluginTurnStatus } from "../../../shared/plugin-host-events";
 import type { RunFinishedEvent } from "@ag-ui/core";
 import { loadModelSettings, resolveModelSettingsProfile } from "../../model/config/model-settings";
 import { resolveDefaultModelProfile } from "../../model/config/model-catalog";

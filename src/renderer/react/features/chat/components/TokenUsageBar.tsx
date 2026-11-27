@@ -186,7 +186,6 @@ export function UsageCardBody({ data }: { data: UsageData }) {
             [t("tokenUsageBar.outputRow"), t("tokenUsageBar.tokens", { value: exact(summary.output) })],
             [t("tokenUsageBar.requestsRow"), t("tokenUsageBar.requests", { count: exact(summary.requests) })],
           ])}
-          <p className="ff-overview-card__note">{t("tokenUsageBar.rangeNote", { days: TOKEN_USAGE_BAR_DAYS })}</p>
         </section>
       )}
     </div>

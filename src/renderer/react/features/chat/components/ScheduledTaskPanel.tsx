@@ -4,11 +4,13 @@ import { AlarmClock, CalendarCheck, CalendarClock, History, ListChecks, Pencil, 
 import { useTranslation } from "../../../i18n";
 import { useFeedback } from "../../../components/feedback/FeedbackProvider";
 import { ScheduledTaskEditor } from "./ScheduledTaskEditor";
+import { PluginProposalSection } from "./PluginProposalSection";
 import {
   describeSchedule,
   describeTaskTools,
   fireNowErrorMessage,
   formatScheduledTime,
+  type PluginProposal,
   type ScheduleDraft,
   type ScheduledTask,
   type ScheduledTaskHistoryEntry,
@@ -63,9 +65,15 @@ function eventTaskId(raw: unknown): string | undefined {
   return typeof id === "string" && id ? id : undefined;
 }
 
-function isRunBoundaryEvent(raw: unknown): boolean {
+/** Sent by the main process when a plugin schedule proposal was created, changed, confirmed or rejected. */
+const PLUGIN_PROPOSALS_CHANGED_EVENT = "scheduler.plugin_proposals_changed";
+/** Sent by the main process after the plugin host finished a scheduled run (it sends no RUN_FINISHED of its own). */
+const PLUGIN_TASK_FINISHED_EVENT = "scheduler.plugin_task_finished";
+
+function shouldReloadOnSchedulerEvent(raw: unknown): boolean {
   const event = raw as { type?: string; name?: string } | null;
   if (!event) return false;
+  if (event.type === "CUSTOM" && (event.name === PLUGIN_PROPOSALS_CHANGED_EVENT || event.name === PLUGIN_TASK_FINISHED_EVENT)) return true;
   return event.type === "RUN_FINISHED"
     || event.type === "RUN_ERROR"
     || (event.type === "CUSTOM" && event.name === "scheduler.started");
@@ -87,6 +95,7 @@ export function ScheduledTaskPanel() {
   const feedback = useFeedback();
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [tools, setTools] = useState<SchedulerToolInfo[]>([]);
+  const [proposals, setProposals] = useState<PluginProposal[]>([]);
   const [pluginRunning, setPluginRunning] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -112,13 +121,16 @@ export function ScheduledTaskPanel() {
     try {
       const scheduler = getSchedulerApi();
       if (!scheduler) throw new Error(t("scheduledPanel.apiUnavailable"));
-      const [tasksResult, toolsResult, running] = await Promise.all([
+      const [tasksResult, toolsResult, running, proposalsResult] = await Promise.all([
         scheduler.list(),
         scheduler.getTools(),
         readPluginRunning(),
+        // A proposal list that cannot load must not hide the task list; the section just stays empty.
+        Promise.resolve(scheduler.listPluginProposals?.()).catch(() => undefined),
       ]);
       if (!tasksResult.ok) throw new Error(tasksResult.error ?? t("scheduledPanel.loadFailed"));
       setTasks(tasksResult.value ?? []);
+      setProposals(proposalsResult?.ok ? proposalsResult.value ?? [] : []);
       if (toolsResult.ok) setTools(toolsResult.value ?? []);
       setPluginRunning(running);
       setLoadError(null);
@@ -142,14 +154,14 @@ export function ScheduledTaskPanel() {
   useEffect(() => {
     const refreshAll = () => void reload("all");
     const off = (window as ChatWindowWithScheduler).schedulerEvents?.onEvent((event) => {
-      if (!isRunBoundaryEvent(event)) return;
+      if (!shouldReloadOnSchedulerEvent(event)) return;
       const taskId = eventTaskId(event);
       void reload(taskId ? { taskId } : "all");
     });
     window.addEventListener("focus", refreshAll);
-    // A plugin can start or stop while the panel keeps focus; only the cached run state needs re-reading.
+    // A plugin can start or stop while the panel keeps focus; re-read the list so the host-computed pluginRunnable follows it.
     const offPlugins = (window as ChatWindowWithScheduler).plugins?.onChanged?.(() => {
-      void readPluginRunning().then(setPluginRunning).catch(() => undefined);
+      void reload("none");
     });
     return () => {
       off?.();
@@ -278,6 +290,7 @@ export function ScheduledTaskPanel() {
         />
       ) : (
         <>
+          <PluginProposalSection proposals={proposals} api={getSchedulerApi()} onResolved={() => void reload()} />
           {tasks.length > 0 && <p className="scheduled-panel__hint">{t("scheduledPanel.listHint")}</p>}
 
           {loadError && <div role="alert" className="scheduled-state is-error">{loadError}</div>}
@@ -301,7 +314,7 @@ export function ScheduledTaskPanel() {
                 <ScheduledTaskCard
                   key={task.id}
                   task={task}
-                  pluginRunning={task.ownerPluginId ? pluginRunning[task.ownerPluginId] === true : true}
+                  pluginRunning={task.ownerPluginId ? (task.pluginRunnable ?? pluginRunning[task.ownerPluginId]) === true : true}
                   history={histories[task.id]}
                   onRun={() => void runNow(task)}
                   onEdit={() => setEditor({ task })}

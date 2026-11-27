@@ -4,7 +4,7 @@ import { createBackgroundMemoryIngressIssuer, type BackgroundMemoryHost, type Ba
 import type { WebContents } from "electron";
 import { IPC } from "../../../shared/ipc-channels";
 import type { FireflyRunTerminalResult } from "../../../shared/run-terminal";
-import type { PluginPromptMode, PluginTurnStatus } from "../../../plugins/api";
+import type { PluginPromptMode, PluginTurnStatus } from "../../../shared/plugin-host-events";
 import { AgentRuntimeError } from "../../model/errors/agent-runtime-error";
 import { FireflyAgent, type FireflyRunOptions } from "../../agent/runtime/firefly-agent";
 import type { LifecyclePublisher } from "../../agent/runtime/lifecycle-publisher";

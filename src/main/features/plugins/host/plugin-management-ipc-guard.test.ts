@@ -16,7 +16,16 @@ function fixture() {
   const from = (w: WebContents, frame: unknown = w.mainFrame) => ({ sender: w, senderFrame: frame }) as IpcMainInvokeEvent;
   return { chat, settings, pet, hosts, from };
 }
-const MANAGE = [IPC.PLUGINS_SET_ENABLED, IPC.PLUGINS_OPEN, IPC.PLUGINS_RESCAN, IPC.PLUGINS_IMPORT_ZIP, IPC.PLUGINS_UNINSTALL];
+const MANAGE = [
+  IPC.PLUGINS_SET_ENABLED,
+  IPC.PLUGINS_SET_PERMISSION,
+  IPC.PLUGINS_SET_MODEL_RATE_LIMIT,
+  IPC.PLUGINS_OPEN,
+  IPC.PLUGINS_RESCAN,
+  IPC.PLUGINS_IMPORT_ZIP,
+  IPC.PLUGINS_IMPORT_FOLDER,
+  IPC.PLUGINS_UNINSTALL,
+];
 
 describe("plugin management IPC caller check", () => {
   it.each(["https://example.com/react/", "http://localhost:5173/settings/", "http://localhost:5173/react/other", "", "not a URL"])("rejects a navigated host document %s without invoking management", (url) => {

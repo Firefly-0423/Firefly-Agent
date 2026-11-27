@@ -184,6 +184,20 @@ export function ChatPage() {
   // The panel's real state: dragging the separator to zero (or End) collapses it while inspectorHidden stays false.
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
   const dockGroupRef = useRef<GroupImperativeHandle | null>(null);
+  // True while react-resizable-panels reports the dock separator as the active drag (data-separator="active").
+  // The library listens on the document and hit-tests an enlarged target, so a press often never reaches the
+  // separator element's own handlers; its attribute is the one signal that is always set. It puts the same
+  // shield on a loaded browser page that dragging an inspector separator does, so the native view is not re-placed on every move.
+  const [dockResizing, setDockResizing] = useState(false);
+  useEffect(() => {
+    const dock = dockRef.current;
+    if (!dock) return;
+    const sync = () => setDockResizing(dock.querySelector('.ff-dock-separator[data-separator="active"]') !== null);
+    const observer = new MutationObserver(sync);
+    observer.observe(dock, { attributes: true, attributeFilter: ["data-separator"], subtree: true, childList: true });
+    sync();
+    return () => observer.disconnect();
+  }, []);
   const [resultTabIds, setResultTabIds] = useState<string[]>([]);
   /** Run outputs whose changed files are open in their own panel. */
   const [changesTabIds, setChangesTabIds] = useState<string[]>([]);
@@ -469,30 +483,33 @@ export function ChatPage() {
         .catch(async (error) => {
           if (generation !== sessionSelectionGeneration.current) return;
           console.error("[ChatPage] Failed to switch React session:", error);
-          try {
-            await refreshSessionsRef.current(activeModeRef.current, true, generation);
-          } catch (fallbackError) {
+          await refreshSessionsRef.current(activeModeRef.current, true, generation).catch((fallbackError) => {
             console.error("[ChatPage] Switch fallback failed:", fallbackError);
-          }
+          });
         });
     });
 
-    void bootstrapReactSession({
-      urlSessionId: new URLSearchParams(window.location.search).get("sessionId"),
-      currentMode: activeModeRef.current as ReactSessionMode,
-      openSession: openSessionById,
-      refreshSessions: async (targetMode, selectCurrent) => {
-        await refreshSessions(targetMode as ConversationMode, selectCurrent);
-      },
-    }).catch((error) => {
-      setSessionListErrors((current) => ({ ...current, [initialMode]: true }));
-      console.error("[ChatPage] Failed to bootstrap React session:", error);
-    }).finally(() => {
-        // cold-start 全程完成才标记 bootstrap 完成；只有该标志置位后
-        // mode 切换 effect 才会触发 refreshSessions
+    const runColdStart = async () => {
+      const sessionFromUrl = new URLSearchParams(window.location.search).get("sessionId");
+      try {
+        await bootstrapReactSession({
+          urlSessionId: sessionFromUrl,
+          currentMode: activeModeRef.current as ReactSessionMode,
+          openSession: openSessionById,
+          refreshSessions: (targetMode, selectCurrent) =>
+            refreshSessions(targetMode as ConversationMode, selectCurrent).then(() => undefined),
+        });
+      } catch (error) {
+        setSessionListErrors((current) => ({ ...current, [initialMode]: true }));
+        console.error("[ChatPage] Failed to bootstrap React session:", error);
+      } finally {
+        // 冷启动结束后才放行 mode 切换 effect 里的 refreshSessions，
+        // 所以不论成败都在这里置位 bootstrapCompleted。
         setBootstrapCompleted(true);
         if (!disposed) store.notifyReactReady?.();
-    });
+      }
+    };
+    void runColdStart();
 
     return () => {
       disposed = true;
@@ -1146,14 +1163,14 @@ export function ChatPage() {
       running: isCurrentScopeRunning,
     });
   }, [activeSessionId, isCurrentScopeRunning, messages, runRegistryVersion, todoStateBySession]);
-  // 上下文容量圆环：session 级快照优先（手动压缩等不产生新消息的操作也即时刷新），
-  // 消息级快照兜底兼容旧数据；无快照不渲染。
-  const latestContextUsage = (activeSessionId ? sessionContextUsageBySession[activeSessionId] : undefined)
-    ?? messages.findLast((message) => message.contextUsage)?.contextUsage;
   const activePlan = mode === "code" && activeSessionId ? planReviewBySession[activeSessionId] : null;
+  // 容量圆环的数据来源：优先用会话级快照（压缩等不新增消息的操作也能立刻刷新）；
+  // 没有时回退到最近一条带快照的消息，兼容旧会话；两者都没有就不画圆环。
+  const sessionUsage = activeSessionId ? sessionContextUsageBySession[activeSessionId] : undefined;
+  const latestContextUsage = sessionUsage ?? messages.findLast((message) => message.contextUsage)?.contextUsage;
 
-  // ── 右侧面板标签管理 ──
-  // 会话隔离：切换会话时清空工作区相关标签，避免把 A 会话的文件带进 B 会话
+  // ── 右侧面板的标签页 ──
+  // 切换会话时先清掉与工作区相关的标签，不让上一个会话的文件出现在新会话里
   useEffect(() => {
     setDiffTabs([]);
     setFileTabs([]);
@@ -1382,20 +1399,23 @@ export function ChatPage() {
     openProject: () => undefined,
   });
   // 渲染期同步最新实现（函数声明在组件体内提升，此处可安全引用）
+  const openProjectFolder = (workspaceRoot: string) => {
+    void chatStore()?.openWorkspace(workspaceRoot).then((result) => {
+      if (result.ok) return;
+      // 失败只给一条不打断操作的轻提示
+      const reason = result.error ?? t("chatPage.unknownError");
+      feedback.notice({ tone: "error", message: t("chatPage.openProjectFolderFailed", { error: reason }) });
+    });
+  };
   navActionsRef.current = {
-    createNewTask,
-    createProjectTask,
-    startTemporaryChat,
+    openProject: openProjectFolder,
     selectSession,
-    handleRenameSession,
-    handleDeleteSession,
     handleTogglePinSession,
-    openProject: (workspaceRoot) => {
-      void chatStore()?.openWorkspace(workspaceRoot).then((result) => {
-        // 简短失败反馈：非阻塞错误轻提示
-        if (!result.ok) feedback.notice({ tone: "error", message: t("chatPage.openProjectFolderFailed", { error: result.error ?? t("chatPage.unknownError") }) });
-      });
-    },
+    handleDeleteSession,
+    handleRenameSession,
+    startTemporaryChat,
+    createProjectTask,
+    createNewTask,
   };
 
   const navToggleCollapsed = useCallback(() => setCollapsed((value) => !value), []);
@@ -1500,7 +1520,7 @@ export function ChatPage() {
         elementRef={dockRef}
         groupRef={dockGroupRef}
         orientation={compactDock ? "vertical" : "horizontal"}
-        className={`ff-page-dock ${compactDock ? "is-compact" : ""}${inspectorTabIds.length > 0 && inspectorVisible && !compactDock && !inspectorCollapsed ? " has-inspector" : ""}`}
+        className={`ff-page-dock ${compactDock ? "is-compact" : ""}${inspectorTabIds.length > 0 && inspectorVisible && !compactDock && !inspectorCollapsed ? " has-inspector" : ""}${dockResizing ? " is-resizing" : ""}`}
         defaultLayout={compactDock ? undefined : defaultLayout}
         onLayoutChange={layout => { onInspectorLayoutChange(layout); setInspectorCollapsed(Object.hasOwn(layout, "inspector") && layout.inspector < 0.5); }}
         onLayoutChanged={compactDock ? undefined : onLayoutChanged}

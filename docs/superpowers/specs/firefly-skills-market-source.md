@@ -52,7 +52,7 @@ Bundled Skills are a third thing: `vendor/firefly-skills/skills` holds 50 upstre
    - the path and the content SHA-256;
    - the license: the Skill's own `LICENSE`, SPDX `MIT`, covering `SKILL.md`, `NOTICE.md` and the `LICENSE`.
 
-   The rationale goes in `THIRD_PARTY_SKILL_REVIEWS.md`, like the Anthropic one. A Skill whose files change at a later commit is shown as needing review and cannot be installed until a new entry ships.
+   The rationale goes in `legal/THIRD_PARTY_SKILL_REVIEWS.md`, like the Anthropic one. A Skill whose files change at a later commit is shown as needing review and cannot be installed until a new entry ships.
 6. **Review helper.** A small script prints a draft entry for a given commit and Skill path, using the same hashing as Main. The reviewer still reads the files and decides. Its output is a proposal, never an approval.
 7. **UI.** A third tab, "Firefly-0423/firefly-skills", placed first and selected by default. Built-in items show a 已内置 label instead of an install action. The open-source tabs stay as they are.
 8. **Boundary test.** `skills/external-boundary.test.ts` pins the reviewed hashes of the boundary files. Update it together with the source list, as its comment requires.

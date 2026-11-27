@@ -83,32 +83,35 @@
   color-scheme: light;
 }
 
-/* ===== Firefly dark: ink-green ground, firefly-glow mint accent ===== */
+/* ===== Firefly dark: neutral grey-black layers; emerald only on primary actions ===== */
 :root[data-ui-theme="firefly-dark"] {
   color-scheme: dark;
-  --ff-bg-page: #152420;
-  --ff-bg-workspace: #192a24;
-  --ff-bg-subtle: #213530;
-  --ff-rail: #12201b;
+  /* Frame (rail, sidebars) darkest, the conversation panel one step up, cards and inputs one more. */
+  --ff-bg-page: #181818;
+  --ff-bg-workspace: #1f1f1f;
+  --ff-bg-subtle: #262626;
+  --ff-rail: #181818;
   --ff-shadow-popover: 0 14px 36px rgba(0, 0, 0, 0.55);
-  --ff-bg-hover: #243a32;
-  --ff-bg-active: #2c463c;
-  --ff-surface: #1d302a;
-  --ff-popover: #20342d;
-  --ff-border: #2f4840;
-  /* Text a step below white: bright mint-white on near-black read heavy and glared. */
-  --ff-text: #d5e0db;
-  --ff-text-secondary: #a9bbb2;
-  --ff-text-muted: #7f938a;
-  --ff-accent: #7bd8ae;
-  /* Firefly gold: the warm complement of the ink-green ground, like a glowing firefly against the night, and it keeps mint for the accent. */
+  /* Hover and the current item are a faint white veil over whatever they sit on, not a tint of the accent. */
+  --ff-bg-hover: rgba(255, 255, 255, 0.06);
+  --ff-bg-active: rgba(255, 255, 255, 0.1);
+  --ff-surface: #2a2a2a;
+  --ff-popover: #2a2a2a;
+  --ff-border: rgba(255, 255, 255, 0.08);
+  /* Text a step below white: pure white on near-black read heavy and glared. */
+  --ff-text: #e6e6e6;
+  --ff-text-secondary: #b4b4b4;
+  --ff-text-muted: #9a9a9a;
+  --ff-accent: #10b981;
+  /* Firefly gold: a warm highlight against the night, so mint stays reserved for the accent. */
   --ff-drop-guide: #f3c969;
   --ff-drop-guide-glow: rgba(243, 201, 105, 0.34);
   --ff-git-branch: #b9a4ff;
-  --ff-accent-solid: #3b9a76;
-  --ff-primary-bg: #318364;
-  --ff-accent-rgb: 123, 216, 174;
-  --ff-on-accent: #ffffff;
+  --ff-accent-solid: #059669;
+  /* Primary buttons are emerald with a near-black label (white on #10b981 is under 3:1). */
+  --ff-primary-bg: #10b981;
+  --ff-accent-rgb: 16, 185, 129;
+  --ff-on-accent: #0a0a0a;
   --ff-danger: #f28b82;
   --ff-success: #6fd6a4;
   --ff-warning: #e8c36a;
@@ -119,14 +122,19 @@
   --ff-info-bg: rgba(90, 170, 230, 0.16);
   --ff-info-fg: #9bcdf2;
   --ff-scrim: rgba(0, 0, 0, 0.55);
-  --ff-pill-bg: #243a32;
-  --ff-pill-border: #7bd8ae;
-  --ff-pill-status: #e4eee9;
+  --ff-pill-bg: #2a2a2a;
+  --ff-pill-border: rgba(255, 255, 255, 0.16);
+  --ff-pill-status: #e6e6e6;
   --ff-shadow-workspace: inset 0 2px 8px rgba(0, 0, 0, 0.25), inset 0 0 2px rgba(0, 0, 0, 0.2);
   --ff-shadow-bubble-neutral: 0 1px 2px rgba(0, 0, 0, 0.35), 0 6px 20px rgba(0, 0, 0, 0.28);
   --ff-shadow-bubble-accent: 0 1px 2px rgba(0, 0, 0, 0.35), 0 6px 20px rgba(0, 0, 0, 0.3);
   --ff-shadow-control-hover: 0 2px 6px rgba(0, 0, 0, 0.35), 0 8px 22px rgba(0, 0, 0, 0.3);
-  --ff-shadow-control-focus: 0 0 0 3px rgba(123, 216, 174, 0.22), 0 6px 18px rgba(0, 0, 0, 0.3);
+  --ff-shadow-control-focus: 0 0 0 3px rgba(255, 255, 255, 0.14), 0 6px 18px rgba(0, 0, 0, 0.3);
+}
+/* Tints built from --ff-accent-rgb (selected rows, hovers, soft rings) are white veils in the default dark theme.
+   Custom colours keep the accent-derived tints as before. */
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) {
+  --ff-accent-rgb: 255, 255, 255;
 }
 
 /* ===== 滚动条：10px 透明轨道里一根 6px 的圆角细滑块，不占视觉位置 ===== */

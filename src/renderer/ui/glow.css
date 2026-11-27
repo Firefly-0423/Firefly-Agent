@@ -8,9 +8,9 @@
   --ff-glow-rgb: 59, 154, 118;
 }
 :root[data-ui-theme="firefly-dark"] {
-  --ff-glow: var(--ff-accent, #7bd8ae);
-  --ff-glow-soft: var(--ff-accent, #7bd8ae);
-  --ff-glow-rgb: var(--ff-accent-rgb, 123, 216, 174);
+  --ff-glow: var(--ff-accent, #10b981);
+  --ff-glow-soft: var(--ff-accent, #10b981);
+  --ff-glow-rgb: var(--ff-accent-rgb, 16, 185, 129);
 }
 
 :root[data-ui-theme="pearl-white"] {
@@ -73,35 +73,35 @@
 :root[data-ui-theme="firefly-dark"] .ff-run-activity__chevron { color: var(--ff-text-muted); }
 :root[data-ui-theme="firefly-dark"] .ff-composer-shell { border-color: var(--ff-dark-composer-border); box-shadow: 0 8px 28px var(--ff-black-alpha-28); }
 :root[data-ui-theme="firefly-dark"] .ff-composer-shell:hover { border-color: var(--ff-dark-composer-border-hover); }
-:root[data-ui-theme="firefly-dark"] .ff-composer-shell:focus-within { border-color: rgba(var(--ff-glow-rgb), 0.45); box-shadow: 0 8px 28px var(--ff-black-alpha-32), 0 0 0 3px rgba(var(--ff-glow-rgb), 0.08); }
+:root[data-ui-theme="firefly-dark"] .ff-composer-shell:focus-within { border-color: var(--ff-dark-composer-border-hover); box-shadow: 0 8px 28px var(--ff-black-alpha-32), 0 0 0 3px rgba(var(--ff-glow-rgb), 0.08); }
 :root[data-ui-theme="firefly-dark"] .ff-message--user .ant-bubble-content { background: var(--ff-dark-user-bubble); color: var(--ff-text); }
 /* Light text on a dark ground looks bolder than the same weight in the light theme; reading text sits a touch finer. */
 :root[data-ui-theme="firefly-dark"] .ff-message-markdown,
 :root[data-ui-theme="firefly-dark"] .ff-message-markdown :is(p, li, td, blockquote) { font-weight: 360; }
 
-/* Dark theme: the ink green frames the window (sidebar, rail, right panel); the conversation in the middle sits on a
-   neutral deep grey with a faint green cast, so the text area reads calm and the two sides carry the colour. */
+/* Dark theme: a near-black frame (sidebar, rail, right panel) around a slightly lifted neutral panel for the
+   conversation. Greys only; firefly green is kept for the send button, primary buttons and switches. */
 :root[data-ui-theme="firefly-dark"] .ff-page-main {
-  --ff-bg-workspace: #1b1e1d;
-  --ff-surface: #222625;
-  --ff-bg-subtle: #262a29;
-  --ff-bg-hover: #2a2f2d;
-  --ff-bg-active: #323836;
-  --ff-popover: #262a29;
-  --ff-border: #333937;
+  --ff-bg-workspace: #1f1f1f;
+  --ff-surface: #2a2a2a;
+  --ff-bg-subtle: #262626;
+  --ff-bg-hover: rgba(255, 255, 255, 0.06);
+  --ff-bg-active: rgba(255, 255, 255, 0.1);
+  --ff-popover: #2a2a2a;
+  --ff-border: rgba(255, 255, 255, 0.08);
   background: var(--ff-bg-workspace);
 }
 :root[data-ui-theme="firefly-dark"] .ff-page-main .ff-overview-card { background: var(--ff-dark-main-card); }
 :root[data-ui-theme="firefly-dark"] .ff-page-main .ff-overview-card:hover { border-color: var(--ff-dark-main-card-hover); }
 :root[data-ui-theme="firefly-dark"] .ff-page-main .ff-composer-shell { border-color: var(--ff-dark-main-composer-border); }
 :root[data-ui-theme="firefly-dark"] .ff-page-main .ff-message--user .ant-bubble-content { background: var(--ff-dark-main-user-bubble); }
-/* The overview cards column is the right-hand side when the panel is closed: it keeps the ink green. */
+/* The overview cards column is the right-hand side when the panel is closed: it shares the frame's near-black. */
 :root[data-ui-theme="firefly-dark"] .ff-page-main .ff-chat-cards {
-  --ff-bg-workspace: #192a24;
-  --ff-surface: #1d302a;
-  --ff-bg-hover: #243a32;
-  --ff-bg-active: #2c463c;
-  --ff-border: #2f4840;
+  --ff-bg-workspace: #181818;
+  --ff-surface: #2a2a2a;
+  --ff-bg-hover: rgba(255, 255, 255, 0.06);
+  --ff-bg-active: rgba(255, 255, 255, 0.1);
+  --ff-border: rgba(255, 255, 255, 0.08);
   align-self: stretch;
   background: var(--ff-dark-ink-bg-1);
 }
@@ -132,11 +132,10 @@
 .ff-run-activity__toggle:focus-visible { outline: 2px solid var(--ff-glow, var(--ff-accent)); outline-offset: 1px; }
 .ff-run-activity__toggle .ff-run-activity__chevron { color: inherit; }
 :root[data-ui-theme="firefly-dark"] .ff-run-activity__header::after {
-  background: linear-gradient(90deg, rgba(var(--ff-glow-rgb), 0.28), rgba(var(--ff-glow-rgb), 0.05));
+  background: linear-gradient(90deg, var(--ff-border), color-mix(in srgb, var(--ff-border) 25%, transparent));
 }
 
-/* Dark pop-ups and composer, after Codex: the same near-black as the conversation, set apart by a clear hairline
-   rather than a lighter fill or a green frame. */
+/* Dark pop-ups and composer: one step above the conversation panel, set apart by a hairline rather than a green frame. */
 :root[data-ui-theme="firefly-dark"] { --ff-popover: var(--ff-dark-main-bg); }
 :root[data-ui-theme="firefly-dark"] :is(.ant-popover .ant-popover-inner, .ant-dropdown .ant-dropdown-menu, .ant-select-dropdown) {
   background: var(--ff-dark-main-bg);
@@ -156,3 +155,72 @@
   box-shadow: 0 16px 40px var(--ff-black-alpha-45);
 }
 :root[data-ui-theme="firefly-dark"] .ant-popover .ant-popover-container .ant-popover-inner { border: 0; box-shadow: none; background: transparent; }
+
+/* ===== Default dark: emerald is for primary buttons, send, toggles and success only. =====
+   Content that merely used --ff-accent as a highlight (file icons, markdown links,
+   hover and current-item text, review/dirty dots) reads as normal text on a white veil instead (own-message bubbles and file names are the deliberate emerald exceptions, in the section below). Custom colours are
+   untouched: every rule is scoped to :not([data-ui-colors]). */
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) {
+  --ff-neutral-veil: rgba(255, 255, 255, 0.06);
+  --ff-neutral-line: rgba(255, 255, 255, 0.2);
+}
+/* Links. */
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message-markdown a { color: var(--ff-text); text-decoration: underline; text-underline-offset: 2px; }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message-markdown a:hover { color: var(--ff-text-secondary); }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) :is(.ff-message--user, .ff-run-activity__insertion) .ff-message-markdown a { color: inherit; }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message-markdown blockquote { border-left-color: var(--ff-neutral-line); }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message-markdown li[data-streamdown="list-item"]::marker { color: var(--ff-text-muted); }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) :is(.ff-run-row--file[data-change-kind="added"], .ff-run-row--file[data-file-type="text"]) .ff-run-file__icon { color: var(--ff-text-muted); }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-file-preview__md-btn.is-active { color: var(--ff-text); background: var(--ff-bg-active); }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-file-editor__dirty { color: var(--ff-text-muted); }
+/* Hover, current and highlight text that is not an action. */
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) :is(
+  .ff-run-activity__header:hover, .ff-run-activity__chevron, .ff-tool-executions__detail, .ff-reasoning-status-art,
+  .ff-queue-dock__header:hover, .ff-queue-dock__inserted, .ff-queue-dock__actions button:hover:not(:disabled),
+  .ff-composer__attachment button:hover, .ff-composer__icon-button:hover,
+  .ff-context-usage-ring:hover, .ff-effort__value, .ff-model-list__item > svg,
+  .ff-open-workspace__item.is-selected, .ff-sidebar-search__item.is-current .ff-sidebar-search__title,
+  .ff-side-action.is-active .ff-side-action-icon, .ff-task-delegation__marker,
+  .ff-interaction-panel__question-index button.is-current,
+  .external-skills button[aria-pressed="true"], .external-skills__badge.is-built-in,
+  .model-card__badge, .model-card.is-default .model-card__name, .model-card__pill:hover:not(:disabled),
+  .skill-card__source--builtin, .scheduled-btn:hover:not(:disabled), .scheduled-kind__option.is-selected,
+  .plugin-panel__registry-link, .plugin-card-ui__downloads, .plugin-card-ui__details summary,
+  .plugin-panel__source-chip:hover:not(:disabled), .plugin-panel__source-chip.is-used, .plugin-card-ui__button:hover:not(:disabled),
+  .ff-code-git__toggle:hover, .ff-code-git-modal__hint code, .ff-app-update-entry
+) { color: var(--ff-text); }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-quiz-objective::before { color: var(--ff-text); }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-task-delegation.is-completed .ff-task-delegation__marker { color: var(--ff-success); }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-activity-rail__user .ff-user-avatar-circle.is-placeholder { border-color: var(--ff-border); background: var(--ff-bg-active); }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-activity-rail__user .ff-user-avatar-circle.is-placeholder span { color: var(--ff-text); }
+/* Borders, dots and drag handles that lit up in emerald. */
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) :is(.ff-plan-entry:hover, .ff-panel-empty__card:hover:not(:disabled), .ff-panel-sidebar__search:focus-within) { border-color: var(--ff-neutral-line); }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) :is(.ff-right-inspector__dot.is-review, .ff-plan-entry__dot.is-review, .ff-right-inspector__dirty, .ff-message-list__channel-dot) { background: var(--ff-text-muted); }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) :is(.ff-inspector-resizer:hover, .ff-inspector-resizer:focus-visible, .ff-right-inspector[data-shielded] .ff-inspector-resizer:active)::before,
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-dock-separator:focus-visible::after { background: var(--ff-neutral-line); }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) *::-webkit-scrollbar-thumb:active,
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message-list:hover::-webkit-scrollbar-thumb:active,
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-conversation-list-wrapper:hover::-webkit-scrollbar-thumb:active { background-color: var(--ff-scroll-thumb-hover); }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-scroll-pill:active { background: var(--ff-bg-active); }
+
+/* ===== Default dark: the two deliberate emerald spots in the conversation (as in Codex). =====
+   The user's own message is a solid emerald pill with the send button's near-black text; file names and file links in
+   messages and in the run panel are emerald text with an underline on hover. */
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user .ant-bubble-content,
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-run-activity__insertion { background: var(--ff-accent); color: var(--ff-on-accent); }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user:has(.ff-message__sticker:only-child) .ant-bubble-content { background: transparent; }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) :is(.ff-message--user, .ff-run-activity__insertion) :is(.ff-message-markdown, .ff-message-markdown :is(p, li, a, span, strong, em, .ff-file-link)) { color: inherit; }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) :is(.ff-message--user, .ff-run-activity__insertion) .ff-message-markdown blockquote { color: inherit; border-left-color: rgba(0, 0, 0, 0.32); }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) :is(.ff-message--user, .ff-run-activity__insertion) .ff-message-markdown li[data-streamdown="list-item"]::marker { color: inherit; }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) :is(.ff-message--user, .ff-run-activity__insertion) .ff-message-markdown :not(pre) > code { color: inherit; background: rgba(0, 0, 0, 0.14); }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) :is(.ff-message--user, .ff-run-activity__insertion) .ff-message__file-attachment { background: rgba(0, 0, 0, 0.12); color: inherit; }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-file-link,
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message-markdown .ff-file-link,
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-file-change-card__base,
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-overview-list__name.is-file,
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-run-row--file .ff-run-row__head > strong { color: var(--ff-accent); }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-file-link:hover,
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message-markdown .ff-file-link:hover { color: var(--ff-accent); text-decoration: underline; }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-overview-list__row:hover .ff-overview-list__name.is-file { text-decoration: underline; }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) :is(.ff-message--user, .ff-run-activity__insertion) .ff-file-link,
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) :is(.ff-message--user, .ff-run-activity__insertion) .ff-message-markdown .ff-file-link { color: inherit; }

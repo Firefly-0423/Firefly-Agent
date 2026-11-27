@@ -132,7 +132,7 @@ A、B、E、C、D 本地实现已落盘，全量测试已结束，触发分支�
 
 | 施工包 | 新建或修改文件 |
 |---|---|
-| A | docs/disclaimer.zh-CN.md；docs/disclaimer.en.md；docs/user-guide/index.md；README.md；README.en.md；electron-builder.yml；scripts/packaging/electron-builder-config.test.mjs |
+| A | legal/disclaimer.zh-CN.md；legal/disclaimer.en.md；docs/user-guide/index.md；README.md；README.en.md；electron-builder.yml；scripts/packaging/electron-builder-config.test.mjs |
 | B | docs/user-guide/feishu.md；docs/user-guide/napcat-onebot.md；docs/user-guide/qqbot-official.md；src/main/features/channels/adapters/feishu/{sender-gate,index}.test.ts；adapters/qq/{napcat-adapter,onebot-reverse-ws}.test.ts；adapters/qqbot/qqbot-adapter.test.ts；src/main/features/channels/{agent-policy,bootstrap}.test.ts（adapters 路径均相对该 channels 目录） |
 | E | src/renderer/settings/i18n/zh-CN.json；src/renderer/settings/index.html；src/renderer/settings/channels/channels-layout.test.ts |
 | C | docs/security/dependency-risk-register.md；scripts/README.md 的生产依赖维护段 |

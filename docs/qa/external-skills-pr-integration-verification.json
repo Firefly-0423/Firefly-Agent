@@ -11,7 +11,7 @@
     "oldHead": "eac3e67c1d7d1f2b7a842a31c4f3d3420ef79f77",
     "oldBase": "770633107d908aacfb5b05063b3df196715a467b",
     "changedFiles": [
-      "THIRD_PARTY_SKILL_REVIEWS.md",
+      "legal/THIRD_PARTY_SKILL_REVIEWS.md",
       "docs/external-skills-compatibility.md",
       "docs/qa/2026-10-18-external-skills-batch1-independent-review.md",
       "docs/qa/2026-10-18-external-skills-batch1-verification.json",
@@ -73,7 +73,7 @@
     ],
     "unchangedBlobs": [
       {
-        "file": "THIRD_PARTY_SKILL_REVIEWS.md",
+        "file": "legal/THIRD_PARTY_SKILL_REVIEWS.md",
         "blob": "ee36d2486ffe6c9ae2dc7f40a98a8aa9f1015cc7"
       },
       {
