@@ -184,24 +184,20 @@ export function ChatPage() {
   // The panel's real state: dragging the separator to zero (or End) collapses it while inspectorHidden stays false.
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
   const dockGroupRef = useRef<GroupImperativeHandle | null>(null);
-  // True from a pointer press on the dock separator until release or cancel. It puts the same shield on a loaded
-  // browser page that dragging an inspector separator does, so the native view is not re-placed on every move.
+  // True while react-resizable-panels reports the dock separator as the active drag (data-separator="active").
+  // The library listens on the document and hit-tests an enlarged target, so a press often never reaches the
+  // separator element's own handlers; its attribute is the one signal that is always set. It puts the same
+  // shield on a loaded browser page that dragging an inspector separator does, so the native view is not re-placed on every move.
   const [dockResizing, setDockResizing] = useState(false);
-  const dockResizeStop = useRef<(() => void) | null>(null);
-  const startDockResize = () => {
-    dockResizeStop.current?.();
-    const stop = () => {
-      window.removeEventListener("pointerup", stop);
-      window.removeEventListener("pointercancel", stop);
-      dockResizeStop.current = null;
-      setDockResizing(false);
-    };
-    window.addEventListener("pointerup", stop);
-    window.addEventListener("pointercancel", stop);
-    dockResizeStop.current = stop;
-    setDockResizing(true);
-  };
-  useEffect(() => () => dockResizeStop.current?.(), []);
+  useEffect(() => {
+    const dock = dockRef.current;
+    if (!dock) return;
+    const sync = () => setDockResizing(dock.querySelector('.ff-dock-separator[data-separator="active"]') !== null);
+    const observer = new MutationObserver(sync);
+    observer.observe(dock, { attributes: true, attributeFilter: ["data-separator"], subtree: true, childList: true });
+    sync();
+    return () => observer.disconnect();
+  }, []);
   const [resultTabIds, setResultTabIds] = useState<string[]>([]);
   /** Run outputs whose changed files are open in their own panel. */
   const [changesTabIds, setChangesTabIds] = useState<string[]>([]);
@@ -1742,7 +1738,7 @@ export function ChatPage() {
         {/* 右侧面板打开时才挂载 Panel + 拖动条；默认 40% 宽，最小 280px，最大 70% */}
         {dockPresence.mounted && (
           <>
-            {inspectorVisible && <Separator className="ff-dock-separator" onPointerDown={startDockResize} onKeyDown={event => {
+            {inspectorVisible && <Separator className="ff-dock-separator" onKeyDown={event => {
               if (compactDock || !event.defaultPrevented
                 || !["ArrowLeft", "ArrowRight", "Home", "End", "Enter"].includes(event.key)) return;
               // v4 defers onLayoutChanged while a document pointer is active, even
