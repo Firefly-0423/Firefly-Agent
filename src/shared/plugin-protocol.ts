@@ -52,7 +52,7 @@ export const PLUGIN_TO_HOST_METHODS = {
   modelGenerate: 'model.generate', modelRun: 'model.run', notificationsShow: 'notifications.show',
   eventsSubscribe: 'events.subscribe', sessionsList: 'sessions.list', sessionsMessages: 'sessions.messages',
   workspaceInfo: 'workspace.info', workspaceWatch: 'workspace.watch',
-  schedulesPropose: 'schedules.propose', schedulesUpdate: 'schedules.update', schedulesRemove: 'schedules.remove', schedulesList: 'schedules.list', schedulesOnTrigger: 'schedules.onTrigger',
+  schedulesPropose: 'schedules.propose', schedulesUpdate: 'schedules.update', schedulesRemove: 'schedules.remove', schedulesList: 'schedules.list', schedulesOnTrigger: 'schedules.onTrigger', schedulesTriggerResult: 'schedules.triggerResult',
   secretsGet: 'secrets.get', secretsSet: 'secrets.set', secretsDelete: 'secrets.delete', secretsKeys: 'secrets.keys',
   uiOpenWindow: 'ui.openWindow', uiCloseWindow: 'ui.closeWindow', uiOnMessage: 'ui.onMessage', uiPost: 'ui.post'
 } as const
@@ -201,8 +201,17 @@ export interface ProtocolTaskRecord {
   updatedAt: string
 }
 export interface ProtocolScheduleTriggerChunk {
+  /** Correlates this trigger with its `schedules.triggerResult` acknowledgement. */
+  triggerId: string
   taskId: string
   payload?: unknown
+}
+/** Reported by the plugin runtime once the `schedules.onTrigger` callback for `triggerId` settles. */
+export interface ProtocolScheduleTriggerResult {
+  triggerId: string
+  ok: boolean
+  /** Failure details when `ok` is false. */
+  error?: { message: string }
 }
 export interface ProtocolUiTarget {
   kind: 'window' | 'settings'
@@ -261,6 +270,7 @@ export interface PluginToHostParams {
   'schedules.remove': { taskId: string }
   'schedules.list': Record<string, never>
   'schedules.onTrigger': Record<string, never>
+  'schedules.triggerResult': ProtocolScheduleTriggerResult
   'secrets.get': { key: string }
   'secrets.set': { key: string; value: string }
   'secrets.delete': { key: string }
@@ -293,6 +303,7 @@ export interface PluginToHostResults {
   'schedules.remove': boolean
   'schedules.list': ProtocolTaskRecord[]
   'schedules.onTrigger': ProtocolScheduleTriggerChunk
+  'schedules.triggerResult': boolean
   'secrets.get': string | null
   'secrets.set': void
   'secrets.delete': boolean

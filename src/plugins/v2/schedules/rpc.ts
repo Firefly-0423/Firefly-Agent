@@ -11,6 +11,14 @@ export interface BindPluginScheduleRpcOptions {
   pluginId: string;
   declared: boolean;
   hasPermission: () => boolean;
+  /** How long the plugin may take to acknowledge one trigger before it counts as failed. Defaults to 10 minutes. */
+  triggerTimeoutMs?: number;
+}
+
+export const DEFAULT_TRIGGER_ACK_TIMEOUT_MS = 10 * 60 * 1000;
+
+interface PendingTrigger {
+  settle(error?: PluginError): void;
 }
 
 function assertObject(value: unknown, allowedKeys: readonly string[]): Record<string, unknown> {
@@ -34,6 +42,9 @@ export function bindPluginScheduleRpc(
   rpc: PluginRpc,
 ): () => void {
   const stopController = new AbortController();
+  const triggerTimeoutMs = options.triggerTimeoutMs ?? DEFAULT_TRIGGER_ACK_TIMEOUT_MS;
+  const pendingTriggers = new Map<string, PendingTrigger>();
+  let nextTriggerSeq = 0;
   const client = service.forPlugin(options.pluginId, {
     signal: stopController.signal,
     hasPermission: () => {
@@ -73,20 +84,67 @@ export function bindPluginScheduleRpc(
       assertObject(params ?? {}, []);
       return client.list();
     }),
+    rpc.handle(P.schedulesTriggerResult, async (params) => {
+      assertPermitted();
+      const input = assertObject(params, ["triggerId", "ok", "error"]);
+      if (typeof input.triggerId !== "string" || typeof input.ok !== "boolean") {
+        throw new PluginError("ERR_INVALID_ARGUMENT", "Invalid schedules.triggerResult arguments");
+      }
+      const pending = pendingTriggers.get(input.triggerId);
+      if (!pending) return false;
+      if (input.ok) {
+        pending.settle();
+      } else {
+        const detail = input.error as { message?: unknown } | undefined;
+        const message = typeof detail?.message === "string" && detail.message ? detail.message : "Schedule callback failed";
+        pending.settle(new PluginError("ERR_INTERNAL", message));
+      }
+      return true;
+    }),
     rpc.handle(P.schedulesOnTrigger, (params, { signal }) => {
       assertPermitted();
       assertObject(params ?? {}, []);
       return (async function* (): AsyncIterable<ProtocolScheduleTriggerChunk> {
         const queue: ProtocolScheduleTriggerChunk[] = [];
+        // Triggers delivered on this subscription that the plugin has not acknowledged yet.
+        const mine = new Set<PendingTrigger>();
         let wake = () => {};
         let closed = false;
-        const sub = client.onTrigger((event) => {
+        const sub = client.onTrigger((event) => new Promise<void>((resolve, reject) => {
+          if (closed || signal.aborted || stopController.signal.aborted) {
+            reject(new PluginError("ERR_CANCELLED", "Schedule callback subscription is closed"));
+            return;
+          }
+          const triggerId = `trg-${++nextTriggerSeq}`;
+          let timer: ReturnType<typeof setTimeout> | undefined;
+          const pending: PendingTrigger = {
+            settle(error) {
+              if (!pendingTriggers.delete(triggerId)) return;
+              mine.delete(pending);
+              if (timer !== undefined) clearTimeout(timer);
+              event.signal.removeEventListener("abort", onEventAbort);
+              if (error) reject(error); else resolve();
+            },
+          };
+          const onEventAbort = () => pending.settle(new PluginError("ERR_CANCELLED", "Schedule callback was cancelled"));
+          pendingTriggers.set(triggerId, pending);
+          mine.add(pending);
+          timer = setTimeout(
+            () => pending.settle(new PluginError("ERR_TIMEOUT", `Schedule callback did not finish within ${triggerTimeoutMs}ms`, true)),
+            triggerTimeoutMs,
+          );
+          if (event.signal.aborted) {
+            onEventAbort();
+            return;
+          }
+          event.signal.addEventListener("abort", onEventAbort, { once: true });
           queue.push({
+            triggerId,
             taskId: event.taskId,
             ...(event.payload !== undefined ? { payload: event.payload } : {}),
           });
           wake();
-        });
+        }));
         const onAbort = () => {
           closed = true;
           wake();
@@ -108,6 +166,10 @@ export function bindPluginScheduleRpc(
           sub.dispose();
           signal.removeEventListener("abort", onAbort);
           stopController.signal.removeEventListener("abort", onAbort);
+          // The plugin can no longer acknowledge: fail what is still outstanding so no run lock leaks.
+          for (const pending of [...mine]) {
+            pending.settle(new PluginError("ERR_CANCELLED", "Schedule callback stream ended before the callback finished"));
+          }
         }
       })();
     }),

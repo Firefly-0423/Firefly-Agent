@@ -686,11 +686,30 @@ export function createPluginContextProxy(options: PluginContextProxyOptions): Pl
       onTrigger(fn) {
         return subscribeStream(P.schedulesOnTrigger, {}, async (chunk, subSignal) => {
           const event: Record<string, unknown> = isPlainRecord(chunk) ? chunk : {};
-          await fn({
-            taskId: typeof event.taskId === "string" ? event.taskId : "",
-            payload: event.payload,
-            signal: subSignal,
-          });
+          const triggerId = typeof event.triggerId === "string" ? event.triggerId : undefined;
+          let failure: { message: string } | undefined;
+          try {
+            await fn({
+              taskId: typeof event.taskId === "string" ? event.taskId : "",
+              payload: event.payload,
+              signal: subSignal,
+            });
+          } catch (error) {
+            failure = { message: error instanceof Error ? error.message : String(error) };
+            console.warn("[plugin-runtime] schedules.onTrigger callback failed:", error);
+          }
+          // The host holds the task's run lock until this acknowledgement arrives.
+          if (triggerId !== undefined) {
+            try {
+              await callHost(P.schedulesTriggerResult, {
+                triggerId,
+                ok: failure === undefined,
+                ...(failure ? { error: failure } : {}),
+              }, { signal });
+            } catch (error) {
+              console.warn("[plugin-runtime] Failed to report schedule trigger result:", error);
+            }
+          }
         });
       },
     },
