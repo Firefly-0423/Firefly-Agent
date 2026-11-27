@@ -83,7 +83,7 @@
 
 1.2.0 把对话、设置和日志放在独立的 `%APPDATA%\Firefly-1.2.0` 目录，不会读取、修改或迁移 1.1.x 的旧数据。想先看看界面，可以访问[在线体验](https://hotarufirefly.online)。
 
-使用前请先读[免责声明](./docs/disclaimer.zh-CN.md)；外部聊天渠道和数据目录的说明在[用户指南](./docs/user-guide/index.md)。
+使用前请先读[免责声明](./legal/disclaimer.zh-CN.md)；外部聊天渠道和数据目录的说明在[用户指南](./docs/user-guide/index.md)。
 
 ## 1.2.0 新变化与已知限制
 
@@ -132,4 +132,4 @@ pnpm run dev
 
 - 本项目是**非官方、非商业的同人作品**，与 HoYoverse / 米哈游没有任何官方关联。流萤及《崩坏：星穹铁道》的角色形象与知识产权归 HoYoverse / 米哈游及相应权利人所有；含角色形象或模型的衍生内容禁止商业使用。
 - 源码采用 [MIT 许可证](./LICENSE) 开源。
-- 第三方依赖、内置 Skills 和历史组件声明见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)；Live2D 模型的授权与来源见 [MODEL_LICENSE.md](./MODEL_LICENSE.md)。
+- 第三方依赖、内置 Skills 和历史组件声明见 [THIRD_PARTY_NOTICES.md](./legal/THIRD_PARTY_NOTICES.md)；Live2D 模型的授权与来源见 [MODEL_LICENSE.md](./legal/MODEL_LICENSE.md)。

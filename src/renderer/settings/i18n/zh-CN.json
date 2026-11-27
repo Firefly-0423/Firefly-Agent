@@ -821,7 +821,7 @@
         },
         "section8": {
           "title": "8. 源码与素材来源",
-          "p1": "Firefly 源码版权与许可见项目仓库的 LICENSE。流萤模型、头像和其他第三方素材不适用源码的 MIT 许可；具体来源与发布限制见 MODEL_LICENSE.md 和 THIRD_PARTY_NOTICES.md。"
+          "p1": "Firefly 源码版权与许可见项目仓库的 LICENSE。流萤模型、头像和其他第三方素材不适用源码的 MIT 许可；具体来源与发布限制见 legal 文件夹里的 MODEL_LICENSE.md 和 THIRD_PARTY_NOTICES.md。"
         },
         "section7": {
           "title": "7. AI 生成内容与使用心态提醒",

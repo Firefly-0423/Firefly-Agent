@@ -1,7 +1,7 @@
 /** 边框内固定展示的三行；最后一行列出支持的模式，刻意不是版本号 */
 export const BANNER_LINES = ["♡ Firefly_Agent ♡", "Your Desktop AI Companion", "Chat · Work · Code"] as const;
 
-export const ABOUT_LINES = ["GitHub:   https://github.com/Firefly-0423/Firefly-Agent", "License:  MIT code; assets: THIRD_PARTY_NOTICES.md"] as const;
+export const ABOUT_LINES = ["GitHub:   https://github.com/Firefly-0423/Firefly-Agent", "License:  MIT code; assets: legal/THIRD_PARTY_NOTICES.md"] as const;
 
 /** 终端宽度未知或过窄时使用的边框宽度 */
 export const DEFAULT_BANNER_WIDTH = 64;

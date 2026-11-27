@@ -12,7 +12,7 @@
 
 **不改的东西：**
 - 渠道适配器、渠道 IPC（`IPC.CHANNELS_GET_CONFIG`、`CHANNELS_SAVE_CONFIG`、`CHANNELS_GET_STATUS`、`CHANNELS_SENDER_RESOLVE`、`CHANNELS_QQ_TEST_CONNECTION`、`CHANNELS_QQBOT_TEST_CONNECTION`，`src/main/features/channels/init.ts:71-109`）和 `ChannelStatus`；不新造产品错误码。
-- `LICENSE`、`MODEL_LICENSE.md`、`THIRD_PARTY_NOTICES.md` 的许可内容。
+- `LICENSE`、`legal/MODEL_LICENSE.md`、`legal/THIRD_PARTY_NOTICES.md` 的许可内容。
 - 默认 Vitest 的 include、超时、worker 设置，生产依赖审计的非阻断策略；不降低断言、不放宽阈值、不删用例。
 - 不升级依赖、不改锁文件、不运行自动修复；不新增漏洞扫描器或检查工具。
 
@@ -53,7 +53,7 @@
 
 - 只读 1.2.0 新数据目录 `%APPDATA%\Firefly-1.2.0`；文档不引导读取、复制或迁移 1.1.x 数据。真机验收使用全新独立的测试数据目录。
 - 示例中不出现真实凭据、本机私密路径或未经批准的联系信息。
-- 来源声明依据 `LICENSE`、`MODEL_LICENSE.md`、`THIRD_PARTY_NOTICES.md` 和 README 核实，不把工程独立写成全部代码原创。不复制外部参考文档的联系人、承诺时限或素材授权结论。
+- 来源声明依据 `LICENSE`、`legal/MODEL_LICENSE.md`、`legal/THIRD_PARTY_NOTICES.md` 和 README 核实，不把工程独立写成全部代码原创。不复制外部参考文档的联系人、承诺时限或素材授权结论。
 - 平台配额、权限名称和发布步骤在发版前对照官方资料核对，记录核对日期；不写“零封号风险”之类的保证。
 - 渠道 Work 模式的工具范围：插件 SDK 1.2.0 规格 §7.4 定为“默认 Chat，可按会话开 Work，只放行 `fs-read`”。收紧本身由渠道施工计划实现；本计划的指南先写当前行为，收紧合并后在同一施工包 B 的跟进 PR 里改文档（任务 B6）。
 - 文档测试不新增“只检查固定段落文本”的测试；时间边界用假定时器并恢复；网络和模型用替身；文件行为用独立临时目录并清理；错误有稳定类型或代码时断言类型 / 代码及上下文，否则断言现有完整返回值。
@@ -62,7 +62,7 @@
 
 ### 新建
 
-- `docs/disclaimer.zh-CN.md`、`docs/disclaimer.en.md`
+- `legal/disclaimer.zh-CN.md`、`legal/disclaimer.en.md`
 - `docs/user-guide/index.md`
 - `docs/user-guide/feishu.md`、`docs/user-guide/napcat-onebot.md`、`docs/user-guide/qqbot-official.md`
 - `docs/security/dependency-risk-register.md`
@@ -85,11 +85,11 @@
 ### 施工包 A：免责声明与导航
 
 依赖：无
-**改动文件：** `docs/disclaimer.zh-CN.md`、`docs/disclaimer.en.md`、`docs/user-guide/index.md`、`README.md`、`README.en.md`、`electron-builder.yml`、`scripts/packaging/electron-builder-config.test.mjs`
+**改动文件：** `legal/disclaimer.zh-CN.md`、`legal/disclaimer.en.md`、`docs/user-guide/index.md`、`README.md`、`README.en.md`、`electron-builder.yml`、`scripts/packaging/electron-builder-config.test.mjs`
 
 **任务：**
 
-- [ ] A1 写中文免责声明 `docs/disclaimer.zh-CN.md`
+- [ ] A1 写中文免责声明 `legal/disclaimer.zh-CN.md`
   - 先写的测试：无自动化测试（文档）；人工验收见本包“验收”。
   - 实现：带修订日期和固定章节编号，覆盖：① 项目性质、角色来源与非官方关系；② MIT 代码许可和第三方素材许可边界；③ 用户对设备、账户、数据及生成内容的使用责任；④ 文件、命令、浏览器、扩展及持续授权风险；⑤ 本地存储、外部模型和其他服务的数据处理；⑥ AI 错误、专业判断和不可逆操作风险；⑦ 拟人化表达与情绪依赖边界；⑧ 未成年人使用条件（保留明确风险与使用限制，最终措辞由负责人审核）；⑨ 无担保与依法适用的责任边界；⑩ 条款说明不替代具体操作授权；⑪ 权利争议联系与处理方式（联系渠道待负责人提供，见“待负责人决定”；未提供前写 `【待负责人填写：私密联系渠道】`，不承诺处理期限）；⑫ 脱敏反馈方法；⑬ 来源、许可与贡献致谢。三种模式的风险说明按下表：
 
@@ -104,7 +104,7 @@
 
     依据：`README.md` 的三种模式章节、`src/main/features/channels/agent-policy.ts`、中文 i18n 的 `toolPermissionAllDesc`、`contextHint`。
   - 验证：人工通读；`git diff --check`
-- [ ] A2 写英文免责声明 `docs/disclaimer.en.md`
+- [ ] A2 写英文免责声明 `legal/disclaimer.en.md`
   - 先写的测试：无自动化测试；人工逐条对照 A1。
   - 实现：与中文版相同的章节编号和修订日期，含义一致，不增加额外授权。
   - 验证：中英逐条对照；`git diff --check`
@@ -117,7 +117,7 @@
   - 实现：`README.md` 链到中文免责声明和用户指南，`README.en.md` 链到英文版。
   - 验证：点击链接到达正确语言和目标文件
 - [ ] A5 安装包附带两份免责声明
-  - 先写的测试：`scripts/packaging/electron-builder-config.test.mjs`：读取打包配置 → 断言 `docs/disclaimer.zh-CN.md` 与 `docs/disclaimer.en.md` 都在随包文件中，且没有把 `docs/` 整个目录打进包（只带这两个文件）。
+  - 先写的测试：`scripts/packaging/electron-builder-config.test.mjs`：读取打包配置 → 断言 `legal/disclaimer.zh-CN.md` 与 `legal/disclaimer.en.md` 都在随包文件中，且没有把 `docs/` 整个目录打进包（只带这两个文件）。
   - 实现：`electron-builder.yml` 的 `extraResources`（或 `files`，按现有写法）加入两份文件。
   - 验证：`node --test scripts/packaging/electron-builder-config.test.mjs`；`npm run build:main`；打包后在安装目录里找到两份文件
 

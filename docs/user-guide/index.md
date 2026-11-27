@@ -4,8 +4,8 @@
 
 首次使用请阅读完整免责声明。各模式与渠道的权限范围见其中第 ④ 条。桌面切换模式和上下文绑定均不会扩大渠道工具权限。
 
-- [中文免责声明](../disclaimer.zh-CN.md)
-- [English disclaimer](../disclaimer.en.md)
+- [中文免责声明](../../legal/disclaimer.zh-CN.md)
+- [English disclaimer](../../legal/disclaimer.en.md)
 
 ## 选择渠道
 

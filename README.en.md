@@ -83,7 +83,7 @@ This is an unofficial fan project. What we want to build is a companion you woul
 
 Version 1.2.0 keeps conversations, settings and logs in a separate `%APPDATA%\Firefly-1.2.0` folder. It never reads, changes or migrates data from 1.1.x. If you only want a look at the interface first, try the [online demo](https://hotarufirefly.online).
 
-Please read the [disclaimer](./docs/disclaimer.en.md) before use. Notes on external chat channels and the data folder are in the [user guide](./docs/user-guide/index.md) (in Chinese).
+Please read the [disclaimer](./legal/disclaimer.en.md) before use. Notes on external chat channels and the data folder are in the [user guide](./docs/user-guide/index.md) (in Chinese).
 
 ## What's new in 1.2.0 and known limitations
 
@@ -132,4 +132,4 @@ Please remove API keys, private chats and local paths before sharing logs or ope
 
 - This is an **unofficial, non-commercial fan project** with no affiliation to HoYoverse / miHoYo. Firefly and Honkai: Star Rail character art and intellectual property belong to HoYoverse / miHoYo and their respective rights holders. Commercial use of derivatives containing the character, the model or character artwork is prohibited.
 - Source code is licensed under the [MIT License](./LICENSE).
-- Third-party dependencies, bundled Skills and historical provenance notices are in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md); the Live2D model permission and source are in [MODEL_LICENSE.md](./MODEL_LICENSE.md).
+- Third-party dependencies, bundled Skills and historical provenance notices are in [THIRD_PARTY_NOTICES.md](./legal/THIRD_PARTY_NOTICES.md); the Live2D model permission and source are in [MODEL_LICENSE.md](./legal/MODEL_LICENSE.md).
