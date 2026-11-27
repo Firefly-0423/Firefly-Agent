@@ -3,7 +3,7 @@ import { ScrollPill } from "./ScrollPill";
 import { isRetiredStickerId } from "../../../../../shared/retired-stickers";
 import { StickerImage } from "./StickerImage";
 import { Bubble, Think, ThoughtChain, type BubbleItemType } from "@ant-design/x";
-import { Component, createContext, createElement, useCallback, useContext, useEffect, useMemo, useRef, useState, type ErrorInfo, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
+import { Component, createContext, createElement, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ErrorInfo, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { t, useTranslation } from "../../../i18n";
 import { normalizeModelMarkdown } from "./markdown-normalize";
 import { splitChatSegments } from "./chat-segments";
@@ -751,10 +751,8 @@ export function ChatMessageList({
   }, [draft, editingId, onEditLastUserMessage, revisionBusy]);
   const { containerRef, onScroll, scrollToBottom, markUserScroll } = useScrollPinning(onScrollToBottomVisibilityChange);
   useEffect(() => { onRegisterScrollToBottom?.(scrollToBottom); }, [onRegisterScrollToBottom, scrollToBottom]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     scrollToBottom("auto");
-    const repeat = window.setTimeout(() => scrollToBottom("auto"), 100);
-    return () => window.clearTimeout(repeat);
   }, [conversationId, scrollToBottom]);
   // Segmented output applies to Chat mode only.
   const segmented = useSegmentedChat() && mode === "chat";
@@ -790,7 +788,7 @@ export function ChatMessageList({
           {channelLabel && <div className="ff-message-list__channel-context" role="note" aria-label={channelLabel}>
             <span className="ff-message-list__channel-dot" aria-hidden="true" /><span>{channelLabel}</span>
           </div>}
-          <Bubble.List items={items} role={roles} autoScroll />
+          <Bubble.List items={items} role={roles} autoScroll={false} />
         </div>
         <ScrollPill target={containerRef} panel=".ff-workspace-body" onUserScroll={markUserScroll} />
       </div>

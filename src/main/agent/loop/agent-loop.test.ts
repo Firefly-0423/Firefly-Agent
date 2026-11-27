@@ -531,6 +531,19 @@ describe("Durable transcript failure boundaries", () => {
     expect(result.terminateReason).toBe("error");
   });
 
+  it.each([
+    { name: "keeps a known context code raised by the guarded write", cause: new Error("MEMORY_CONTEXT_REQUEST_CHANGED"), failure: { code: "MEMORY_CONTEXT_REQUEST_CHANGED", source: "context" } },
+    { name: "reports an unclassified write error as a runtime failure", cause: new Error("disk full"), failure: { code: "E_HARNESS_FAILURE", source: "runtime" } },
+  ])("$name instead of blaming a tool that already succeeded", async ({ cause, failure }) => {
+    sequence(response("", [toolCall("ran-fine", "list_files")]), response("Must remain unused"));
+    dispatch.mockImplementation(async (_call, context) => { context.onExecutionStarted?.(); return success("list_files"); });
+    const result = await run({ tools: [tool("list_files")], transcriptSink: sink({ appendToolResult: async () => { throw cause; } }) }).result;
+    expect(result.failure).toEqual(failure);
+    expect(result.terminateReason).toBe("error");
+    expect(result.finalAnswer).not.toContain("E_TOOL_EXECUTION_FAILED");
+    expect(provider.stream).toHaveBeenCalledTimes(1);
+  });
+
   it("settles unexpected dispatch errors through terminal context and a closed synthetic transcript", async () => {
     sequence(response("", [toolCall("broken-dispatch")]));
     dispatch.mockRejectedValue(new Error("Infrastructure dispatch failure"));

@@ -102,7 +102,7 @@ describe("Dispatch acknowledgement and checkpoint ownership", () => {
     const records = s.saved();
     expect(records.map(record => record.runSnapshot?.runId)).toContain("run-1");
     expect(records.every(record => record.answersUserMessageId === "user-1")).toEqual(true);
-    s.expectPatch({ content: "Doc", streaming: true });
+    expect(s.patches().some(patch => patch.streaming === true && typeof patch.content === "string" && patch.content.length > 0)).toEqual(true);
     s.expectPatch({ content: "Doc checked", streaming: false, responseStarted: true, loading: false });
     expect(records[0].runSnapshot.status).toEqual("running");
     expect(s.lastSaved()).toMatchObject({ content: "Doc checked", runSnapshot: { status: "terminal", terminalStatus: "success" } });
@@ -136,16 +136,24 @@ describe("Dispatch acknowledgement and checkpoint ownership", () => {
 });
 
 describe("Candidate presentation drains before classification", () => {
-  test("the first preview is immediate and subsequent text appears on the next frame without checkpoint content", async () => {
+  test("candidate preview streams per frame without checkpoint content until completion", async () => {
     const animation = frames(); const s = runScenario(); await s.ready(); s.round(); s.candidate("甲乙丙");
-    s.expectPatch({ transientText: "甲乙丙" }); s.candidate("丁戊"); animation.tick();
+    expect(s.patches().some(patch => patch.transientText)).toEqual(false);
+    animation.tick();
+    expect(s.patches().map(patch => patch.transientText).filter(Boolean).at(-1)).toEqual("甲");
+    s.candidate("丁戊");
+    await animation.drain();
     s.text("甲乙丙丁戊"); await s.finish();
-    expect(s.patches().map(patch => patch.transientText).filter(Boolean)).toEqual(["甲乙丙", "甲乙丙丁戊"]);
+    const previews = s.patches().map(patch => patch.transientText).filter(Boolean);
+    expect(previews.at(-1)).toEqual("甲乙丙丁戊");
     expect(s.saved().slice(0, -1).every(record => record.content === "")).toEqual(true);
   });
   test("separate arrival frames extend the same preview in small visible increments", async () => {
     const animation = frames(); const s = runScenario(); await s.ready(); s.round();
-    s.candidate("先检查文件，"); s.expectPatch({ transientText: "先检查" }); await animation.drain();
+    s.candidate("先检查文件，");
+    animation.tick();
+    expect(s.patches().map(patch => patch.transientText).filter(Boolean).at(-1)).toEqual("先");
+    await animation.drain();
     s.candidate("然后确认相关调用入口，"); animation.tick();
     const partial = s.patches().map(patch => patch.transientText as string).filter(Boolean).at(-1)!;
     expect(partial.startsWith("先检查文件，")).toEqual(true);
@@ -726,6 +734,180 @@ describe("Terminal checkpoint saves are confirmed before they are reported", () 
       result: "actual tool output",
       progress: undefined,
     });
+    await s.finish();
+  });
+});
+
+function stubDocumentVisibility(initiallyHidden: boolean) {
+  let hidden = initiallyHidden;
+  const listeners = new Set<() => void>();
+  const dataset: Record<string, string> = {};
+  vi.stubGlobal("document", {
+    get hidden() { return hidden; },
+    documentElement: { dataset },
+    addEventListener: vi.fn((name: string, cb: () => void) => { if (name === "visibilitychange") listeners.add(cb); }),
+    removeEventListener: vi.fn((name: string, cb: () => void) => { if (name === "visibilitychange") listeners.delete(cb); }),
+  });
+  return {
+    dataset,
+    setHidden(next: boolean) {
+      hidden = next;
+      for (const cb of [...listeners]) cb();
+    },
+  };
+}
+
+describe("Smooth streaming across modes, visibility, reduced motion, and cancellation", () => {
+  test.each(MODES)("%s mode streams smoothly in bounded increments and fast-drains to exact final text", async mode => {
+    const animation = frames();
+    const s = runScenario({ input: { targetMode: mode } });
+    await s.ready();
+    const full = "流萤在所有模式下都以均匀、连续的节奏呈现回答内容。".repeat(3);
+    s.text(full);
+    animation.tick();
+    const firstVisible = s.patches().map(p => p.content).filter((c): c is string => typeof c === "string" && c.length > 0);
+    expect(firstVisible.length).toBeGreaterThanOrEqual(1);
+    expect(firstVisible[0]!.length).toBeLessThan(full.length);
+
+    const finishPromise = s.finish();
+    await animation.drain();
+    await finishPromise;
+    expect(s.lastSaved()).toMatchObject({ content: full, runSnapshot: { status: "terminal", terminalStatus: "success" } });
+    expect(s.patches().at(-1)).toMatchObject({ content: full, streaming: false, responseStarted: true });
+  });
+
+  test("preserves transientText category boundaries across candidate preview and process_text in work/code modes", async () => {
+    const animation = frames();
+    const s = runScenario({ input: { targetMode: "work" } });
+    await s.ready();
+    s.round("round-1");
+    s.candidate("先检查第一部分，再核对第二部分。", "round-1");
+    animation.tick();
+    expect(s.patches().some(p => typeof p.transientText === "string" && p.transientText.length > 0)).toEqual(true);
+    s.custom("firefly.process_text", { content: "先检查第一部分，再核对第二部分。" });
+    expect(s.patches().some(p => p.processMessages?.some(m => m.content === "先检查第一部分，再核对第二部分。"))).toEqual(false);
+    await animation.drain();
+    await Promise.resolve();
+    expect(s.patches().at(-1)).toMatchObject({
+      transientText: undefined,
+      processMessages: [expect.objectContaining({ content: "先检查第一部分，再核对第二部分。", roundId: "round-1" })],
+    });
+    s.round("round-1", "end");
+    s.text("最终确认完成。");
+    const done = s.finish();
+    await animation.drain();
+    await done;
+    expect(s.lastSaved().content).toBe("最终确认完成。");
+  });
+
+  test("coalesces directly to the next frame with zero tweening when reduced motion is enabled", async () => {
+    const animation = frames();
+    const doc = stubDocumentVisibility(false);
+    doc.dataset.reduceMotion = "on";
+    const s = runScenario({ input: { targetMode: "chat" } });
+    await s.ready();
+    const full = "减少动态效果开启时直接合批到下一帧，不做逐字补间。";
+    s.send({ type: "TEXT_MESSAGE_START", runId: "run-1", messageId: "answer-stream" });
+    s.send({ type: "TEXT_MESSAGE_CONTENT", runId: "run-1", delta: full.slice(0, 10) });
+    s.send({ type: "TEXT_MESSAGE_CONTENT", runId: "run-1", delta: full.slice(10) });
+    expect(s.patches().some(p => p.content)).toEqual(false);
+    animation.tick();
+    expect(s.patches().filter(p => typeof p.content === "string" && p.content.length > 0).map(p => p.content)).toEqual([full]);
+    s.send({ type: "TEXT_MESSAGE_END", runId: "run-1", messageId: "answer-stream" });
+    await s.finish();
+    expect(s.lastSaved().content).toBe(full);
+  });
+
+  test("settles run completion and category boundaries while document.hidden without scheduling background rAF", async () => {
+    const rafSpy = vi.fn(() => 1);
+    Object.assign(window, { requestAnimationFrame: rafSpy, cancelAnimationFrame: vi.fn() });
+    const doc = stubDocumentVisibility(true);
+
+    const s = runScenario({ input: { targetMode: "work" } });
+    await s.ready();
+    s.round("round-bg");
+    s.candidate("后台运行时缓存候选预览", "round-bg");
+    expect(rafSpy).not.toHaveBeenCalled();
+
+    // Category boundary drains transientText -> processMessages directly while hidden.
+    s.custom("firefly.process_text", { content: "后台运行时缓存候选预览" });
+    await nextTurn();
+    expect(s.patches().at(-1)).toMatchObject({
+      transientText: undefined,
+      processMessages: [expect.objectContaining({ content: "后台运行时缓存候选预览" })],
+    });
+    expect(rafSpy).not.toHaveBeenCalled();
+
+    // Formal answer completion settles directly without background rAF and keeps save/unlock order.
+    s.round("round-bg", "end");
+    s.text("后台完成后的正式回答");
+    await s.finish();
+    expect(rafSpy).not.toHaveBeenCalled();
+    expect(s.lastSaved()).toMatchObject({ content: "后台完成后的正式回答", runSnapshot: { status: "terminal", terminalStatus: "success" } });
+    expect(s.bridge.reportRunPersisted).toHaveBeenCalledTimes(1);
+    expect(s.host.onRunFinished).toHaveBeenCalledWith({ mode: "work", sessionId: "session-1", queuePaused: false });
+
+    // Returning to foreground coalesces leftover buffered text in one flush.
+    const s2 = runScenario({ input: { targetMode: "chat", userMessageId: "user-2", assistantId: "assistant-2" }, ack: successfulAck("run-2") });
+    await s2.ready();
+    s2.send({ type: "TEXT_MESSAGE_START", runId: "run-2", messageId: "m-2" });
+    s2.send({ type: "TEXT_MESSAGE_CONTENT", runId: "run-2", delta: "第一段" });
+    s2.send({ type: "TEXT_MESSAGE_CONTENT", runId: "run-2", delta: "第二段" });
+    expect(s2.patches().some(p => typeof p.content === "string" && p.content.length > 0)).toEqual(false);
+    doc.setHidden(false);
+    expect(s2.patches().filter(p => typeof p.content === "string" && p.content.length > 0).map(p => p.content)).toEqual(["第一段第二段"]);
+    s2.send({ type: "TEXT_MESSAGE_END", runId: "run-2", messageId: "m-2" });
+    await s2.finish();
+  });
+
+  test.each(["cancelled", "error"] as const)("discards unrevealed formal body immediately on %s with zero late emissions", async kind => {
+    const animation = frames();
+    const s = runScenario({ input: { targetMode: "chat" } });
+    await s.ready();
+    s.send({ type: "TEXT_MESSAGE_START", runId: "run-1", messageId: "answer-stream" });
+    s.send({ type: "TEXT_MESSAGE_CONTENT", runId: "run-1", delta: "尚未完整显示的正文内容应该被立即丢弃，不允许在取消后继续追加。" });
+    animation.tick();
+    const shownBefore = s.patches().filter(p => typeof p.content === "string" && p.content.length > 0).length;
+    expect(shownBefore).toBe(1);
+
+    if (kind === "cancelled") await s.finish("cancelled");
+    else await s.fail("aborted");
+
+    const countAfterTerminal = s.host.patchMessage.mock.calls.length;
+    await animation.drain();
+    expect(s.host.patchMessage.mock.calls.length).toBe(countAfterTerminal);
+    expect(s.lastSaved().content).toBe("");
+  });
+});
+
+describe("A held trailing character never blocks the steps after the text", () => {
+  test.each(["第一行\r", "家人👨‍"])("text ending in %j still reaches its end step before the run finishes", async ending => {
+    const animation = frames();
+    const s = runScenario({ input: { targetMode: "work" } });
+    await s.ready();
+    s.send({ type: "TEXT_MESSAGE_START", runId: "run-1", messageId: "answer-stream" });
+    s.send({ type: "TEXT_MESSAGE_CONTENT", runId: "run-1", delta: ending });
+    s.send({ type: "TEXT_MESSAGE_END", runId: "run-1", messageId: "answer-stream" });
+    await animation.drain();
+    await nextTurn();
+    expect(s.patches().filter(p => p.streaming === false && p.content === undefined).length).toBeGreaterThanOrEqual(1);
+    expect(s.patches().filter(p => typeof p.content === "string").at(-1)?.content).toBe(ending);
+    await s.finish();
+    expect(s.lastSaved().content.replace(/\r/g, "")).toBe(ending.replace(/\r/g, ""));
+  });
+});
+
+describe("A held trailing character in the candidate preview never blocks its classification", () => {
+  test("a preview ending in CR still commits its process text before the run finishes", async () => {
+    const animation = frames();
+    const s = runScenario({ input: { targetMode: "work" } });
+    await s.ready();
+    s.round("round-1");
+    s.candidate("先检查文件\r", "round-1");
+    s.custom("firefly.process_text", { content: "先检查文件" });
+    await animation.drain();
+    await nextTurn();
+    expect(s.patches().at(-1)).toMatchObject({ transientText: undefined, processMessages: [expect.objectContaining({ content: "先检查文件" })] });
     await s.finish();
   });
 });
