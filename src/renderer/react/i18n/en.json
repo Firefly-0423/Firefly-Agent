@@ -1120,7 +1120,6 @@
     "connectorsManage": "Manage in settings",
     "context": "Context",
     "contextEmpty": "Context usage appears after you send a message",
-    "contextEstimate": "Estimated from text length, not the provider's reported usage.",
     "contextFree": "Free space",
     "contextUsed": "{{percent}}% used",
     "contextUsedUnknown": "Used",

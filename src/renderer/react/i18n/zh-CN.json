@@ -1120,7 +1120,6 @@
     "connectorsManage": "在设置中管理",
     "context": "上下文",
     "contextEmpty": "发送消息后显示上下文占用",
-    "contextEstimate": "按字符估算，不是供应商返回的用量。",
     "contextFree": "剩余空间",
     "contextUsed": "已用 {{percent}}%",
     "contextUsedUnknown": "已用",
