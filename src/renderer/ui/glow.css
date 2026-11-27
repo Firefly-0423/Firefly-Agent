@@ -157,21 +157,14 @@
 :root[data-ui-theme="firefly-dark"] .ant-popover .ant-popover-container .ant-popover-inner { border: 0; box-shadow: none; background: transparent; }
 
 /* ===== Default dark: emerald is for primary buttons, send, toggles and success only. =====
-   Content that merely used --ff-accent as a highlight (own-message bubbles, file references and file icons, links,
-   hover and current-item text, review/dirty dots) reads as normal text on a white veil instead. Custom colours are
+   Content that merely used --ff-accent as a highlight (file icons, markdown links,
+   hover and current-item text, review/dirty dots) reads as normal text on a white veil instead (own-message bubbles and file names are the deliberate emerald exceptions, in the section below). Custom colours are
    untouched: every rule is scoped to :not([data-ui-colors]). */
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) {
   --ff-neutral-veil: rgba(255, 255, 255, 0.06);
   --ff-neutral-line: rgba(255, 255, 255, 0.2);
 }
-/* Own messages: the bubble, and the one inserted while a run is going. */
-:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user .ant-bubble-content { background: var(--ff-dark-main-user-bubble); color: var(--ff-text); }
-:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user:has(.ff-message__sticker:only-child) .ant-bubble-content { background: transparent; }
-:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-run-activity__insertion { background: var(--ff-dark-main-user-bubble); color: var(--ff-text); }
-/* File references and links. */
-:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-file-link,
-:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-file-link:hover { color: var(--ff-text); }
-:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-file-link:hover { text-decoration: underline; }
+/* Links. */
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message-markdown a { color: var(--ff-text); text-decoration: underline; text-underline-offset: 2px; }
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message-markdown a:hover { color: var(--ff-text-secondary); }
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user .ff-message-markdown a { color: inherit; }
@@ -209,3 +202,21 @@
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message-list:hover::-webkit-scrollbar-thumb:active,
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-conversation-list-wrapper:hover::-webkit-scrollbar-thumb:active { background-color: var(--ff-scroll-thumb-hover); }
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-scroll-pill:active { background: var(--ff-bg-active); }
+
+/* ===== Default dark: the two deliberate emerald spots in the conversation (as in Codex). =====
+   The user's own message is a solid emerald pill with the send button's near-black text; file names and file links in
+   messages and in the run panel are emerald text with an underline on hover. */
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user .ant-bubble-content,
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-run-activity__insertion { background: var(--ff-accent); color: var(--ff-on-accent); }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user:has(.ff-message__sticker:only-child) .ant-bubble-content { background: transparent; }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user :is(.ff-message-markdown, .ff-message-markdown :is(p, li, a, span, strong, em, .ff-file-link)) { color: inherit; }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user .ff-message-markdown :not(pre) > code { color: inherit; background: rgba(0, 0, 0, 0.14); }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user .ff-message__file-attachment { background: rgba(0, 0, 0, 0.12); color: inherit; }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-file-link,
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message-markdown .ff-file-link,
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-file-change-card__base,
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-run-row--file .ff-run-row__head > strong { color: var(--ff-accent); }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-file-link:hover,
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message-markdown .ff-file-link:hover { color: var(--ff-accent); text-decoration: underline; }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user .ff-file-link,
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user .ff-message-markdown .ff-file-link { color: inherit; }

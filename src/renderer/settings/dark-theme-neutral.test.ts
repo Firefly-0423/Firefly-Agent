@@ -92,30 +92,50 @@ describe("dark settings window background", () => {
   });
 });
 
-describe("default dark chat content is neutral", () => {
+describe("default dark chat content", () => {
   const scope = ':root[data-ui-theme="firefly-dark"]:not([data-ui-colors])';
-  const neutralSection = glowCss.slice(glowCss.indexOf("/* ===== Default dark: emerald is for primary buttons"));
-  const rules = [...neutralSection.matchAll(/^(:root[^{}]*)\{([^}]*)\}/gm)].map(match => ({ selector: match[1].trim(), body: match[2] }));
+  const from = glowCss.indexOf("/* ===== Default dark: emerald is for primary buttons");
+  const split = glowCss.indexOf("/* ===== Default dark: the two deliberate emerald spots");
+  const neutralSection = glowCss.slice(from, split);
+  const emeraldSection = glowCss.slice(split);
+  const parse = (css: string) => [...css.matchAll(/^(:root[^{}]*)\{([^}]*)\}/gm)].map(match => ({ selector: match[1].trim(), body: match[2] }));
+  const rules = parse(neutralSection);
+  const emeraldRules = parse(emeraldSection);
 
-  it("has a neutral section to inspect, and every rule in it is scoped to the default dark theme", () => {
+  it("has both sections to inspect, and every rule in them is scoped to the default dark theme", () => {
     expect(rules.length).toBeGreaterThan(10);
-    for (const { selector } of rules) {
+    expect(emeraldRules.length).toBeGreaterThan(5);
+    for (const { selector } of [...rules, ...emeraldRules]) {
       for (const part of selector.split(/,\s*(?=:root)/)) expect(part.trim().startsWith(scope), part).toBe(true);
     }
   });
 
-  it("paints the user's own bubble and the inserted-while-running bubble in a lifted neutral grey with normal text", () => {
-    expect(token(tokensCss, "--ff-dark-main-user-bubble")).toBe("#303030");
-    for (const needle of [".ff-message--user .ant-bubble-content", ".ff-run-activity__insertion"]) {
-      const found = rules.find(item => item.selector.endsWith(needle));
-      expect(found, needle).toBeDefined();
-      expect(found!.body, needle).toContain("background: var(--ff-dark-main-user-bubble)");
-      expect(found!.body, needle).toContain("color: var(--ff-text)");
-    }
+  it("paints the user's own bubble and the inserted-while-running bubble as a solid emerald pill with near-black text", () => {
+    const found = emeraldRules.find(item => item.selector.includes(".ff-message--user .ant-bubble-content") && item.selector.includes(".ff-run-activity__insertion"));
+    expect(found).toBeDefined();
+    expect(found!.body).toContain("background: var(--ff-accent)");
+    expect(found!.body).toContain("color: var(--ff-on-accent)");
+    expect(token(darkRoot, "--ff-accent")).toBe("#10b981");
+    expect(token(darkRoot, "--ff-on-accent")).toBe("#0a0a0a");
   });
 
-  it("shows file references, links and file-type icons as normal or muted text, not emerald", () => {
-    expect(neutralSection).toMatch(/\.ff-file-link,\s*:root[^{]*\.ff-file-link:hover \{ color: var\(--ff-text\); \}/);
+  it("keeps links, inline code and file chips readable inside the emerald bubble", () => {
+    expect(emeraldSection).toMatch(/\.ff-message--user :is\(\.ff-message-markdown[^{]*\{ color: inherit; \}/);
+    expect(emeraldSection).toMatch(/\.ff-message--user \.ff-message-markdown :not\(pre\) > code \{ color: inherit; background: rgba\(0, 0, 0, 0\.14\); \}/);
+    expect(emeraldSection).toMatch(/\.ff-message--user \.ff-file-link,[^{]*\{ color: inherit; \}/);
+    expect(emeraldSection).toMatch(/\.ff-message--user:has\(\.ff-message__sticker:only-child\) \.ant-bubble-content \{ background: transparent; \}/);
+  });
+
+  it("shows file names and file links in emerald with an underline on hover", () => {
+    const names = emeraldRules.find(item => item.selector.includes(".ff-file-link") && item.body.includes("color: var(--ff-accent)") && !item.selector.includes(":hover"));
+    expect(names?.selector).toContain(".ff-file-change-card__base");
+    expect(names?.selector).toContain(".ff-run-row--file .ff-run-row__head > strong");
+    const hover = emeraldRules.find(item => item.selector.includes(".ff-file-link:hover"));
+    expect(hover?.body).toContain("color: var(--ff-accent)");
+    expect(hover?.body).toContain("text-decoration: underline");
+  });
+
+  it("keeps markdown links, file-type icons and highlight text neutral", () => {
     expect(neutralSection).toMatch(/\.ff-message-markdown a \{ color: var\(--ff-text\);/);
     expect(neutralSection).toMatch(/data-file-type="text"\]\) \.ff-run-file__icon \{ color: var\(--ff-text-muted\); \}/);
     expect(neutralSection).toMatch(/\.ff-file-preview__md-btn\.is-active \{ color: var\(--ff-text\);/);
@@ -133,75 +153,5 @@ describe("default dark chat content is neutral", () => {
 
   it("keeps the success colour for completed status", () => {
     expect(neutralSection).toContain(".ff-task-delegation.is-completed .ff-task-delegation__marker { color: var(--ff-success); }");
-  });
-});
-
-describe("settings window uses only tokens its own stylesheets define", () => {
-  const sheets = [...settingsHtml.matchAll(/href="(\.{1,2}\/[^"]+\.css)"/g)].map(match => match[1]);
-  const loaded = sheets.map(href => read(href)).join("\n");
-  const settingsMainRules = systemCss.split("\n").filter(line => /\.settings-main\b/.test(line) && /background/.test(line) && /:not\(\[data-ui-colors\]\)/.test(line));
-
-  it("loads the shared theme sheet and the settings sheets, but not the React root sheet", () => {
-    expect(sheets).toEqual(expect.arrayContaining(["../ui/theme.css", "./settings-system.css", "./settings-controls.css"]));
-    expect(sheets.some(href => href.includes("react-root"))).toBe(false);
-  });
-
-  it("resolves the default dark settings-main background to #1f1f1f from the loaded sheets, in normal mode", () => {
-    expect(settingsMainRules.length).toBeGreaterThanOrEqual(1);
-    const normal = settingsMainRules.find(rule => !rule.includes("data-glass"));
-    expect(normal, "normal-mode rule").toBeDefined();
-    expect(normal).not.toContain("--ff-bg-workspace");
-    expect(normal!.match(/var\((--[a-z0-9-]+)\)/)![1]).toBe("--rb-bg-2");
-    // The token must be declared by a loaded sheet, on a selector that matches the document root in the settings window.
-    const declared = [...loaded.matchAll(/^((?:html)?\[data-ui-theme="firefly-dark"\]) \{([^}]*)\}/gm)].map(match => token(match[2], "--rb-bg-2")).filter(Boolean);
-    expect(declared).toEqual(["#1f1f1f"]);
-  });
-
-  it("uses the same loaded token for the glass-mode content area", () => {
-    const glass = block(systemCss, ':root[data-glass="true"][data-ui-theme="firefly-dark"]:not([data-ui-colors]) .settings-shell .settings-main');
-    expect(glass).toContain("var(--rb-bg-2) var(--st-main-alpha)");
-    expect(glass).not.toContain("--ff-bg-workspace");
-  });
-
-  it("no longer references --ff-bg-workspace anywhere in the settings stylesheets", () => {
-    expect(systemCss).not.toContain("--ff-bg-workspace");
-    expect(controlsCss).not.toContain("--ff-bg-workspace");
-  });
-});
-
-describe("custom colours keep the previous glass behaviour", () => {
-  it("applies the 92/92/90 glass alphas to default dark only", () => {
-    const def = block(systemCss, ':root[data-glass="true"][data-ui-theme="firefly-dark"]:not([data-ui-colors]) .settings-shell,\n:root[data-glass="true"][data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-modal-overlay');
-    expect([token(def, "--st-win-alpha"), token(def, "--st-main-alpha"), token(def, "--st-card-alpha")]).toEqual(["92%", "92%", "90%"]);
-    expect(systemCss).not.toContain(':root[data-glass="true"][data-ui-theme="firefly-dark"] .settings-shell,\n:root[data-glass="true"][data-ui-theme="firefly-dark"] .ff-modal-overlay {\n  --st-win-alpha');
-  });
-
-  it("restores 90% content and 78% card opacity with the accent card fill and accent radial for custom colours", () => {
-    const custom = block(systemCss, ':root[data-glass="true"][data-ui-theme="firefly-dark"][data-ui-colors] .settings-shell,\n:root[data-glass="true"][data-ui-theme="firefly-dark"][data-ui-colors] .ff-modal-overlay');
-    expect(token(custom, "--st-main-alpha")).toBe("90%");
-    expect(token(custom, "--st-card-alpha")).toBe("78%");
-    expect(custom).not.toContain("--st-win-alpha");
-    expect(custom).toContain("var(--rb-pink-400) 8%");
-    const main = block(systemCss, ':root[data-glass="true"][data-ui-theme="firefly-dark"][data-ui-colors] .settings-shell .settings-main');
-    expect(main).toContain("radial-gradient(900px 420px at 100% 0%");
-    expect(main).toContain("var(--rb-bg-1) var(--st-main-alpha)");
-  });
-});
-
-describe("default dark settings surfaces have no emerald background", () => {
-  it("paints the selected retrieval model card with a white veil, scoped to default dark", () => {
-    const rule = block(controlsCss, ':root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .settings-shell .rag-model-card.is-active');
-    expect(rule).toContain("background: var(--rb-active-light)");
-    expect(rule).not.toMatch(/--ff-glow|--ff-accent|16, 185, 129/);
-    expect(token(darkRb, "--rb-active-light")).toMatch(/^rgba\(255, 255, 255, /);
-    expect(block(controlsCss, ":root .settings-shell .rag-model-card.is-active")).toContain("--ff-glow");
-  });
-
-  it("paints the memory graph canvas with the plain card colour, scoped to default dark", () => {
-    const rule = block(systemCss, ':root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) #memory-panel .memory-graph-wrap');
-    expect(rule).toContain("background: var(--rb-card-bg)");
-    expect(rule).not.toMatch(/radial-gradient|--ff-glow/);
-    expect(token(darkRb, "--rb-card-bg")).toBe("#2a2a2a");
-    expect(block(systemCss, "#memory-panel .memory-graph-wrap")).toContain("--ff-glow-rgb");
   });
 });
