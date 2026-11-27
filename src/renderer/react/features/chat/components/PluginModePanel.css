@@ -160,7 +160,7 @@
   padding: 1px 6px;
 }
 
-.plugin-card-ui__description, .plugin-card-ui__developer, .plugin-card-ui__error {
+.plugin-card-ui__description, .plugin-card-ui__developer, .plugin-card-ui__meta, .plugin-card-ui__error {
   color: var(--ff-text-muted);
   font-size: var(--ff-fs-caption);
   line-height: 1.4;

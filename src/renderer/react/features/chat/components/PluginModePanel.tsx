@@ -506,9 +506,9 @@ function InstalledCard({ plugin, state, t }: { plugin: PluginListEntry; state: C
       status={<span className={`plugin-card-ui__status is-${plugin.status}`}>{t(`pluginPanel.status.${plugin.status}`)}</span>}
       developer={t("pluginPanel.developer", { author: plugin.author.trim() || t("pluginPanel.unknownDeveloper") })}>
       {plugin.error && <p title={plugin.error} className="plugin-card-ui__error">{plugin.error}</p>}
-      {plugin.installedVersion && <p>{t("pluginPanel.versions", { installed: plugin.installedVersion, active: plugin.activeVersion ?? "—", pending: plugin.pendingVersion ?? "—" })}</p>}
-      <p title={plugin.sourceId}>{t(`pluginPanel.sources.${plugin.source === "builtin" ? "builtin" : plugin.sourceKind ?? "legacy-unknown"}`)}</p>
-      {plugin.restartRequired && <p role="status">{t(faulted ? "pluginPanel.restartAfterFailure" : "pluginPanel.restartRequired")}</p>}
+      {plugin.installedVersion && <p className="plugin-card-ui__meta">{t("pluginPanel.versions", { installed: plugin.installedVersion, active: plugin.activeVersion ?? "—", pending: plugin.pendingVersion ?? "—" })}</p>}
+      <p title={plugin.sourceId} className="plugin-card-ui__meta">{t(`pluginPanel.sources.${plugin.source === "builtin" ? "builtin" : plugin.sourceKind ?? "legacy-unknown"}`)}</p>
+      {plugin.restartRequired && <p role="status" className="plugin-card-ui__meta">{t(faulted ? "pluginPanel.restartAfterFailure" : "pluginPanel.restartRequired")}</p>}
     </CardMain>
     <div className="plugin-card-ui__actions">
       {plugin.canOpen && <button className="plugin-card-ui__button" type="button" onClick={() => void state.openPlugin(plugin)} disabled={!canOpen || state.anyBusy} title={!canOpen ? t("pluginPanel.openRequiresRunning") : t("pluginPanel.open")}>{t("pluginPanel.open")}</button>}
