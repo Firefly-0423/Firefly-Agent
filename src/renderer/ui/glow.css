@@ -167,7 +167,7 @@
 /* Links. */
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message-markdown a { color: var(--ff-text); text-decoration: underline; text-underline-offset: 2px; }
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message-markdown a:hover { color: var(--ff-text-secondary); }
-:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user .ff-message-markdown a { color: inherit; }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) :is(.ff-message--user, .ff-run-activity__insertion) .ff-message-markdown a { color: inherit; }
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message-markdown blockquote { border-left-color: var(--ff-neutral-line); }
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message-markdown li[data-streamdown="list-item"]::marker { color: var(--ff-text-muted); }
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) :is(.ff-run-row--file[data-change-kind="added"], .ff-run-row--file[data-file-type="text"]) .ff-run-file__icon { color: var(--ff-text-muted); }
@@ -209,11 +209,11 @@
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user .ant-bubble-content,
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-run-activity__insertion { background: var(--ff-accent); color: var(--ff-on-accent); }
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user:has(.ff-message__sticker:only-child) .ant-bubble-content { background: transparent; }
-:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user :is(.ff-message-markdown, .ff-message-markdown :is(p, li, a, span, strong, em, .ff-file-link)) { color: inherit; }
-:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user .ff-message-markdown blockquote { color: inherit; border-left-color: rgba(0, 0, 0, 0.32); }
-:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user .ff-message-markdown li[data-streamdown="list-item"]::marker { color: inherit; }
-:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user .ff-message-markdown :not(pre) > code { color: inherit; background: rgba(0, 0, 0, 0.14); }
-:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user .ff-message__file-attachment { background: rgba(0, 0, 0, 0.12); color: inherit; }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) :is(.ff-message--user, .ff-run-activity__insertion) :is(.ff-message-markdown, .ff-message-markdown :is(p, li, a, span, strong, em, .ff-file-link)) { color: inherit; }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) :is(.ff-message--user, .ff-run-activity__insertion) .ff-message-markdown blockquote { color: inherit; border-left-color: rgba(0, 0, 0, 0.32); }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) :is(.ff-message--user, .ff-run-activity__insertion) .ff-message-markdown li[data-streamdown="list-item"]::marker { color: inherit; }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) :is(.ff-message--user, .ff-run-activity__insertion) .ff-message-markdown :not(pre) > code { color: inherit; background: rgba(0, 0, 0, 0.14); }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) :is(.ff-message--user, .ff-run-activity__insertion) .ff-message__file-attachment { background: rgba(0, 0, 0, 0.12); color: inherit; }
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-file-link,
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message-markdown .ff-file-link,
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-file-change-card__base,
@@ -222,5 +222,5 @@
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-file-link:hover,
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message-markdown .ff-file-link:hover { color: var(--ff-accent); text-decoration: underline; }
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-overview-list__row:hover .ff-overview-list__name.is-file { text-decoration: underline; }
-:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user .ff-file-link,
-:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user .ff-message-markdown .ff-file-link { color: inherit; }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) :is(.ff-message--user, .ff-run-activity__insertion) .ff-file-link,
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) :is(.ff-message--user, .ff-run-activity__insertion) .ff-message-markdown .ff-file-link { color: inherit; }

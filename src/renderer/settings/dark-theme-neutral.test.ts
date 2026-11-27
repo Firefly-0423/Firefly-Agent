@@ -119,10 +119,10 @@ describe("default dark chat content", () => {
     expect(token(darkRoot, "--ff-on-accent")).toBe("#0a0a0a");
   });
 
-  it("keeps links, inline code and file chips readable inside the emerald bubble", () => {
-    expect(emeraldSection).toMatch(/\.ff-message--user :is\(\.ff-message-markdown[^{]*\{ color: inherit; \}/);
-    expect(emeraldSection).toMatch(/\.ff-message--user \.ff-message-markdown :not\(pre\) > code \{ color: inherit; background: rgba\(0, 0, 0, 0\.14\); \}/);
-    expect(emeraldSection).toMatch(/\.ff-message--user \.ff-file-link,[^{]*\{ color: inherit; \}/);
+  it("keeps links, inline code and file chips readable inside the emerald bubble and the emerald run insertion", () => {
+    expect(emeraldSection).toMatch(/:is\(\.ff-message--user, \.ff-run-activity__insertion\) :is\(\.ff-message-markdown[^{]*\{ color: inherit; \}/);
+    expect(emeraldSection).toMatch(/:is\(\.ff-message--user, \.ff-run-activity__insertion\) \.ff-message-markdown :not\(pre\) > code \{ color: inherit; background: rgba\(0, 0, 0, 0\.14\); \}/);
+    expect(emeraldSection).toMatch(/:is\(\.ff-message--user, \.ff-run-activity__insertion\) \.ff-file-link,[^{]*\{ color: inherit; \}/);
     expect(emeraldSection).toMatch(/\.ff-message--user:has\(\.ff-message__sticker:only-child\) \.ant-bubble-content \{ background: transparent; \}/);
   });
 
@@ -139,12 +139,12 @@ describe("default dark chat content", () => {
   });
 
   it("gives a quote in the user's emerald bubble the bubble's dark text and a dark rule, leaving assistant quotes alone", () => {
-    expect(emeraldSection).toContain(".ff-message--user .ff-message-markdown blockquote { color: inherit; border-left-color: rgba(0, 0, 0, 0.32); }");
+    expect(emeraldSection).toContain(":is(.ff-message--user, .ff-run-activity__insertion) .ff-message-markdown blockquote { color: inherit; border-left-color: rgba(0, 0, 0, 0.32); }");
     expect(messagesCss).toMatch(/\.ff-message-markdown blockquote \{\s*color: var\(--ff-text-secondary\);/);
   });
 
   it("gives list numbers and bullets in the user's emerald bubble the bubble's dark text, leaving assistant markers grey", () => {
-    expect(emeraldSection).toContain('.ff-message--user .ff-message-markdown li[data-streamdown="list-item"]::marker { color: inherit; }');
+    expect(emeraldSection).toContain(':is(.ff-message--user, .ff-run-activity__insertion) .ff-message-markdown li[data-streamdown="list-item"]::marker { color: inherit; }');
     expect(neutralSection).toContain('.ff-message-markdown li[data-streamdown="list-item"]::marker { color: var(--ff-text-muted); }');
   });
 
