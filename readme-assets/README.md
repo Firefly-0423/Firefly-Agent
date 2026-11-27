@@ -39,4 +39,4 @@ python scripts/docs/encode-readme-banner.py --repo . --out ../firefly-readme-rec
 - [Pixi Live2D 手动更新模型](https://guansss.github.io/pixi-live2d-display/models/#updating-manually)
 - [PixiJS 7 Application](https://pixijs.download/v7.3.0/docs/PIXI.Application.html)
 
-徽章来源和含义见 [ICON_SOURCES.md](./ICON_SOURCES.md)。徽章不表示 CI、排名或官方关联。角色及派生渲染的授权边界见 [MODEL_LICENSE.md](../MODEL_LICENSE.md) 和 [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)。
+徽章来源和含义见 [ICON_SOURCES.md](./ICON_SOURCES.md)。徽章不表示 CI、排名或官方关联。角色及派生渲染的授权边界见 [MODEL_LICENSE.md](../legal/MODEL_LICENSE.md) 和 [THIRD_PARTY_NOTICES.md](../legal/THIRD_PARTY_NOTICES.md)。

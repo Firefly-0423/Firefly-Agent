@@ -70,9 +70,9 @@ AI 可能产生错误、虚构、遗漏或不安全建议。医疗、法律、�
 hotaru 维护本项目。感谢素材作者、上游项目和贡献者。工程独立的来源记录包括第三方及适配内容，各自版权声明须随适用分发保留。
 
 - [源码许可](../LICENSE)
-- [模型与角色素材授权](../MODEL_LICENSE.md)
-- [第三方许可、来源和贡献记录](../THIRD_PARTY_NOTICES.md)
-- [用户指南](./user-guide/index.md)
+- [模型与角色素材授权](./MODEL_LICENSE.md)
+- [第三方许可、来源和贡献记录](./THIRD_PARTY_NOTICES.md)
+- [用户指南](../docs/user-guide/index.md)
 - [English](./disclaimer.en.md)
 
 安装包离线副本位于 `resources/docs/`，上述仓库链接需在源码仓库或在线仓库查看。

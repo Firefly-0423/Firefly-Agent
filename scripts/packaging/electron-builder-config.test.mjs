@@ -111,7 +111,7 @@ test("the assisted installer exposes Firefly setup choices and an uninstall entr
 
 test("the installer carries upstream and font license notices", () => {
   assert.match(source, /from: LICENSE\s+to: LICENSE/);
-  assert.match(source, /from: THIRD_PARTY_NOTICES\.md\s+to: THIRD_PARTY_NOTICES\.md/);
+  assert.match(source, /from: legal\/THIRD_PARTY_NOTICES\.md\s+to: THIRD_PARTY_NOTICES\.md/);
   assert.match(source, /from: node_modules\/katex\/LICENSE\s+to: licenses\/KaTeX-LICENSE/);
   assert.match(source, /from: node_modules\/@fontsource-variable\/noto-sans-sc\/LICENSE\s+to: licenses\/NotoSansSC-OFL\.txt/);
   assert.match(source, /from: node_modules\/@fontsource-variable\/jetbrains-mono\/LICENSE\s+to: licenses\/JetBrainsMono-OFL\.txt/);
@@ -266,10 +266,10 @@ test("installer file selection excludes both simulator outputs while retaining p
 
 test("disclaimers copy as two offline resources without other documentation", async context => {
   const config = YAML.parse(source);
-  const entries = [...config.extraResources, ...config.extraFiles].filter(entry => entry.from === "docs" || entry.from.startsWith("docs/"));
+  const entries = [...config.extraResources, ...config.extraFiles].filter(entry => entry.from === "docs" || entry.from.startsWith("docs/") || entry.from.startsWith("legal/disclaimer."));
   assert.deepEqual(entries, [
-    { from: "docs/disclaimer.zh-CN.md", to: "docs/disclaimer.zh-CN.md" },
-    { from: "docs/disclaimer.en.md", to: "docs/disclaimer.en.md" },
+    { from: "legal/disclaimer.zh-CN.md", to: "docs/disclaimer.zh-CN.md" },
+    { from: "legal/disclaimer.en.md", to: "docs/disclaimer.en.md" },
   ]);
   const destination = await mkdtemp(path.join(os.tmpdir(), "firefly-disclaimers-"));
   context.after(() => rm(destination, { recursive: true, force: true }));

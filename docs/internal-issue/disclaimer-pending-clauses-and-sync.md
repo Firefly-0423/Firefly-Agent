@@ -5,23 +5,23 @@
 
 ## 现象
 
-三语免责声明（`docs/disclaimer.zh-CN.md`、`docs/disclaimer.en.md`、`docs/disclaimer.ja-JP.md`）存在以下两类待处理内容：
+三语免责声明（`legal/disclaimer.zh-CN.md`、`legal/disclaimer.en.md`、`legal/disclaimer.ja-JP.md`）存在以下两类待处理内容：
 
 1. **占位与草案待定**：
    - 第 ⑪ 条「权利争议与处理」中私密联系渠道仍为占位符 `【待负责人填写：私密联系渠道】`，且处理时限标注“处理时限待负责人提供”。
    - 第 ⑧ 条「未成年人使用条件（草稿）」及文首元数据标注“未成年人条款为草稿，待负责人审核措辞”“最终措辞待 hotaru 审核”。
 2. **第 ⑤ 条正式数据目录正文与代码现状不一致**：
-   - `docs/disclaimer.zh-CN.md`（及对应译文）第 ⑤ 条仍写“当前正式目录由代码解析为 `%APPDATA%\Firefly`，1.2.0 计划采用 `%APPDATA%\Firefly-1.2.0`，切换仍待启动隔离施工落实”。
+   - `legal/disclaimer.zh-CN.md`（及对应译文）第 ⑤ 条仍写“当前正式目录由代码解析为 `%APPDATA%\Firefly`，1.2.0 计划采用 `%APPDATA%\Firefly-1.2.0`，切换仍待启动隔离施工落实”。
    - 而 PR `#62`（`ecdd9d8`，`feat/data-dir`）已将 `src/main/base/identity/data-directory.ts` 中的 `FIREFLY_DATA_DIRECTORY` 正式改为 `"Firefly-1.2.0"`，并在 `build/installer.nsh` 与 `README.md` 落地生效。
 
 ## 触发条件或复现步骤
 
-1. 审阅 `docs/disclaimer.zh-CN.md` 元信息行、第 ⑤ 条、第 ⑧ 条与第 ⑪ 条。
+1. 审阅 `legal/disclaimer.zh-CN.md` 元信息行、第 ⑤ 条、第 ⑧ 条与第 ⑪ 条。
 2. 对照 `src/main/base/identity/data-directory.ts` 与 `docs/superpowers/plans/data-directory-1-2-0-progress.md`。
 
 ## 影响范围
 
-- **受影响文档**：`docs/disclaimer.zh-CN.md`、`docs/disclaimer.en.md`、`docs/disclaimer.ja-JP.md`（以及打包附带离线副本流程）。
+- **受影响文档**：`legal/disclaimer.zh-CN.md`、`legal/disclaimer.en.md`、`legal/disclaimer.ja-JP.md`（以及打包附带离线副本流程）。
 - **用户体验影响**：正式渠道与处理时限未填导致权利人缺少非公开提交路径；第 ⑤ 条表述与 1.2.0 当前实际数据目录 `%APPDATA%\Firefly-1.2.0` 不一致。
 
 ## 根因
@@ -35,9 +35,9 @@
 
 ## 相关文件
 
-- `docs/disclaimer.zh-CN.md`
-- `docs/disclaimer.en.md`
-- `docs/disclaimer.ja-JP.md`
+- `legal/disclaimer.zh-CN.md`
+- `legal/disclaimer.en.md`
+- `legal/disclaimer.ja-JP.md`
 - `docs/superpowers/plans/docs-and-engineering-progress.md`
 - `docs/superpowers/plans/data-directory-1-2-0-progress.md`
 - `src/main/base/identity/data-directory.ts`

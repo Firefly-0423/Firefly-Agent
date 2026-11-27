@@ -70,9 +70,9 @@ Use project GitHub Issues to report the version, system, reproduction steps, exp
 hotaru maintains this project. Thanks to asset creators, upstream projects and contributors. The independently maintained engineering project records third-party and adapted content. Preserve each applicable copyright notice when distributing it.
 
 - [Source license](../LICENSE)
-- [Model and character asset permissions](../MODEL_LICENSE.md)
-- [Third-party licenses, provenance and contributions](../THIRD_PARTY_NOTICES.md)
-- [User guide in Chinese](./user-guide/index.md)
+- [Model and character asset permissions](./MODEL_LICENSE.md)
+- [Third-party licenses, provenance and contributions](./THIRD_PARTY_NOTICES.md)
+- [User guide in Chinese](../docs/user-guide/index.md)
 - [简体中文](./disclaimer.zh-CN.md)
 
 Offline copies ship in `resources/docs/`. View the repository links above in a source checkout or the online repository.

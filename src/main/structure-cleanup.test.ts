@@ -64,9 +64,9 @@ it("recursively scans preload subdirectories for non-test TypeScript modules", (
 });
 
 it("keeps Firefly source licensing separate from model and third-party terms", () => {
-  expect(read("MODEL_LICENSE.md")).toContain("src/renderer/public/models/firefly/");
-  expect(read("MODEL_LICENSE.md")).not.toContain("unrestricted permission");
-  const notices = read("THIRD_PARTY_NOTICES.md");
+  expect(read("legal/MODEL_LICENSE.md")).toContain("src/renderer/public/models/firefly/");
+  expect(read("legal/MODEL_LICENSE.md")).not.toContain("unrestricted permission");
+  const notices = read("legal/THIRD_PARTY_NOTICES.md");
   expect(notices).toContain("https://github.com/deepseek-ai/deepseek-harness");
   expect(notices).toContain("https://www.live2d.com/eula/");
   expect(notices).not.toContain("Existing upstream contributions are recorded");
@@ -77,7 +77,7 @@ it("keeps Firefly source licensing separate from model and third-party terms", (
 });
 
 it("has valid file targets in the license and readme links", () => {
-  for (const file of ["README.md", "README.en.md", "THIRD_PARTY_NOTICES.md", "MODEL_LICENSE.md"]) {
+  for (const file of ["README.md", "README.en.md", "legal/THIRD_PARTY_NOTICES.md", "legal/MODEL_LICENSE.md"]) {
     for (const match of read(file).matchAll(/\]\(([^)]+)\)/g)) {
       const link = match[1].split("#")[0];
       if (!link || /^[a-z]+:/i.test(link)) continue;

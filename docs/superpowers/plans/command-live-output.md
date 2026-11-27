@@ -102,7 +102,7 @@
 - `src/renderer/react/features/chat/components/ChatMessageList.tsx` 及相关测试
 - `src/renderer/react/features/chat/workspace/WorkspaceRunResults.tsx`、`src/renderer/react/features/chat/workspace/WorkspaceRunResults.test.ts`
 - `src/renderer/react/i18n/zh-CN.json`、`src/renderer/react/i18n/en.json`
-- `package.json`、`package-lock.json`、`THIRD_PARTY_NOTICES.md`
+- `package.json`、`package-lock.json`、`legal/THIRD_PARTY_NOTICES.md`
 
 ## 施工包
 
@@ -309,7 +309,7 @@ value = { toolCallId, sequence, update }
 - 修改 `components/ChatMessageList.tsx` 及相关测试：运行中无 `result` 也显示命令面板。
 - 修改 `workspace/WorkspaceRunResults.tsx`、`workspace/WorkspaceRunResults.test.ts`：右侧复用同一组件。
 - 修改 `src/renderer/react/i18n/zh-CN.json`、`src/renderer/react/i18n/en.json`：新增面板文案。
-- ANSI 依赖获选后修改 `package.json`、`package-lock.json`、`THIRD_PARTY_NOTICES.md`，核对实际包许可证。
+- ANSI 依赖获选后修改 `package.json`、`package-lock.json`、`legal/THIRD_PARTY_NOTICES.md`，核对实际包许可证。
 
 #### 界面与中文 i18n 设计
 
@@ -335,7 +335,7 @@ value = { toolCallId, sequence, update }
 
 - [ ] E1 锁定 ANSI 渲染依赖并实现 `command-output-presentation.ts` 与中英文 `commandOutput.*` i18n 文案
   - 先写的测试：`src/renderer/react/features/chat/components/command-output-presentation.test.ts`：① 成功、失败、取消、超时、空输出、中断恢复、缺少输出字段的 1.2.0 记录 → 状态映射和中文文案键准确（缺少输出字段的 1.2.0 记录仅展示已有结果预览并明确标注 `previewOnly`，不能宣称完整日志）；② 含 ANSI 颜色、跨块控制码、OSC 控制序列的文本 → 提取可复制纯文本时剥离控制序列，颜色跨尾窗截断时安全重置，无裸控制码。
-  - 实现：核对并锁定 ANSI 依赖（如 `ansi-to-react`），更新 `package.json`、`package-lock.json`、`THIRD_PARTY_NOTICES.md`；新建 `src/renderer/react/features/chat/components/command-output-presentation.ts`；修改 `src/renderer/react/i18n/zh-CN.json`、`en.json`。
+  - 实现：核对并锁定 ANSI 依赖（如 `ansi-to-react`），更新 `package.json`、`package-lock.json`、`legal/THIRD_PARTY_NOTICES.md`；新建 `src/renderer/react/features/chat/components/command-output-presentation.ts`；修改 `src/renderer/react/i18n/zh-CN.json`、`en.json`。
   - 验证：`npm test -- src/renderer/react/features/chat/components/command-output-presentation.test.ts`
 - [ ] E2 实现 `CommandOutputPanel.tsx` 组件（含防 XSS/OSC、复制反馈、智能跟随滚动与折叠保持）
   - 先写的测试：`src/renderer/react/features/chat/components/CommandOutputPanel.test.tsx`（交互断言使用 jsdom 和真实事件，不能只靠静态 HTML 字符串证明滚动或复制行为）：① 运行中且没有 `result` → 命令、等待文案和面板可见；② 成功、失败、取消、超时、空输出 → 状态和中文文案正确，结束后无活动光标；③ 有输出、ANSI 颜色、跨块控制码 → 文本可读，颜色受控，无裸控制码；④ HTML、脚本、危险链接、OSC 控制序列 → 不执行、不导航、不写剪贴板、不发网络请求；⑤ 点击复制 → 参数恰为当前保留的纯文本；复制失败显示失败反馈，不显示成功；⑥ 用户上翻或主动折叠 → 后续输出不抢滚动、不强制展开；回到底部后恢复跟随。

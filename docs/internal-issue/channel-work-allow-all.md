@@ -17,7 +17,7 @@
 
 ## 影响范围
 
-- **受影响范围**：开启了远程工具的外部渠道私聊（以及非 QQ/QQ Bot 的其他符合条件群聊）与相关用户指南 / 免责声明（`docs/disclaimer.zh-CN.md` ④、`docs/user-guide/`）。
+- **受影响范围**：开启了远程工具的外部渠道私聊（以及非 QQ/QQ Bot 的其他符合条件群聊）与相关用户指南 / 免责声明（`legal/disclaimer.zh-CN.md` ④、`docs/user-guide/`）。
 - **已有限制**：QQ 与官方 QQ 机器人群聊已被强制限定为 `chat`；渠道不可选择 `code` 模式；交互类工具被置为 `includeInteractiveTools: false`。
 
 ## 根因
@@ -29,7 +29,7 @@
 
 - **待修复**：
   - `docs/superpowers/plans/docs-and-engineering-progress.md` 未完成项 B6 与验收待办继续挂起，等待渠道 Work 收紧实现（对应 `docs/superpowers/specs/plugin-sdk-1-2-0.md` §7.4 仅放行 `fs-read` 风险工具的策略）。
-  - 当前 `docs/disclaimer.zh-CN.md`（④ 工具与授权风险）与 `docs/user-guide/` 已将该行为明确标注为现状与安全警示。
+  - 当前 `legal/disclaimer.zh-CN.md`（④ 工具与授权风险）与 `docs/user-guide/` 已将该行为明确标注为现状与安全警示。
 
 ## 相关文件
 
@@ -37,4 +37,4 @@
 - `docs/superpowers/plans/docs-and-engineering-progress.md`（未完成项 B6、验收待办）
 - `docs/superpowers/plans/docs-and-engineering.md`（全局约束）
 - `docs/superpowers/specs/plugin-sdk-1-2-0.md`（§7.4 外部渠道的模式）
-- `docs/disclaimer.zh-CN.md`（第 ④ 条渠道 Work 说明）
+- `legal/disclaimer.zh-CN.md`（第 ④ 条渠道 Work 说明）

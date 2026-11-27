@@ -13,7 +13,7 @@ export default defineConfig({
   publicDir: false,
   plugins: [siteLicenses({ outDir, title: "Firefly-Agent promo site", copy: [
     [resolve(import.meta.dirname, "LICENSE"), "licenses/LICENSE.txt"],
-    [resolve(import.meta.dirname, "THIRD_PARTY_NOTICES.md"), "licenses/THIRD_PARTY_NOTICES.md"],
+    [resolve(import.meta.dirname, "legal/THIRD_PARTY_NOTICES.md"), "licenses/THIRD_PARTY_NOTICES.md"],
   ] })],
   build: {
     outDir,

@@ -32,7 +32,7 @@ separate decision; this plan only removes the derived code from the source going
 | 6 | Scattered fragments | ~20 files with a single 8–16 line run | ~200 |
 | 7 | Whole small files | plugin `examples/*` manifests and `ui.html`, `tsconfig*.json`, `reset.css`, `toast.css`, `mpv-binary.ts`, `.github` templates, `tool-output-store.ts`, `env.ts`, `prompts/work_remark.md` | — |
 
-Not in scope: the Live2D model files (credited to their creator in `THIRD_PARTY_NOTICES.md`; structural JSON
+Not in scope: the Live2D model files (credited to their creator in `legal/THIRD_PARTY_NOTICES.md`; structural JSON
 similarity comes from the Cubism format) and vendored third-party files (Anthropic skills, licenses).
 
 ## Order

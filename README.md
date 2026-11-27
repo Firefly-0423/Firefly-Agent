@@ -39,7 +39,7 @@ pnpm exec install-electron
 pnpm run dev
 ```
 
-使用前请阅读[免责声明](./docs/disclaimer.zh-CN.md)；渠道配置见[用户指南](./docs/user-guide/index.md)，打包与原生助手构建见[开发说明](./docs/contributing/development.md)。
+使用前请阅读[免责声明](./legal/disclaimer.zh-CN.md)；渠道配置见[用户指南](./docs/user-guide/index.md)，打包与原生助手构建见[开发说明](./docs/contributing/development.md)。
 
 ## 🗂️ 项目结构
 
@@ -96,7 +96,7 @@ Firefly-Agent 由 hotaru 开发，首个公开版本 1.1.0 发布于 2026 年 10
 ## ⚖️ 许可证
 
 - 源码使用 [MIT 许可证](./LICENSE)。
-- 第三方依赖、Skills、模型与图片的来源和许可见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)；Live2D 模型授权见 [MODEL_LICENSE.md](./MODEL_LICENSE.md)。
+- 第三方依赖、Skills、模型与图片的来源和许可见 [THIRD_PARTY_NOTICES.md](./legal/THIRD_PARTY_NOTICES.md)；Live2D 模型授权见 [MODEL_LICENSE.md](./legal/MODEL_LICENSE.md)。
 - 流萤及《崩坏：星穹铁道》相关角色形象与知识产权归 HoYoverse / 米哈游及相应权利人所有。本项目为非官方、非商业的同人项目，含有流萤角色、Live2D 模型与角色美术的衍生物禁止商业使用。
 
 ## ⭐ 支持项目

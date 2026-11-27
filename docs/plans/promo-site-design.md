@@ -42,7 +42,7 @@ Sections:
 2. The live demo, with the three notes "可试发消息 / 消息只保存在当前页面 / 固定演示回复，不调用模型".
 3. Feature cards, taken from the README: Chat / Work / Code, memory, Skills and plugins market, safety.
 4. Download: the Windows installer from GitHub Releases, plus the system requirements.
-5. Footer: repositories, licence, character IP notice and disclaimer (as in `THIRD_PARTY_NOTICES.md`).
+5. Footer: repositories, licence, character IP notice and disclaimer (as in `legal/THIRD_PARTY_NOTICES.md`).
 
 Chinese by default, with an English switch. Light and dark themes follow the app's tokens. It works at phone width; the demo panel scrolls sideways on narrow screens instead of shrinking the app.
 

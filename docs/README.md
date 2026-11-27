@@ -21,5 +21,5 @@
 根目录下还有：
 
 - [MAINTAINERS.md](MAINTAINERS.md)、[CONTRIBUTORS.md](CONTRIBUTORS.md)：维护者与贡献者；
-- 免责声明：[中文](disclaimer.zh-CN.md)、[English](disclaimer.en.md)、[日本語](disclaimer.ja-JP.md)；
+- 免责声明：[中文](../legal/disclaimer.zh-CN.md)、[English](../legal/disclaimer.en.md)、[日本語](../legal/disclaimer.ja-JP.md)；
 - 浏览器、插件发布与校验、外部技能兼容等专题说明（`browser-tools.md`、`plugin-*.md`、`external-skills-compatibility.md` 等），之后归入上面的分类。

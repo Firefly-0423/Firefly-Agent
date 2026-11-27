@@ -39,7 +39,7 @@ pnpm exec install-electron
 pnpm run dev
 ```
 
-Read the [disclaimer](./docs/disclaimer.en.md) before use. Channel setup is in the [user guide](./docs/user-guide/index.md) (Chinese); packaging and the native helper build are in the [development guide](./docs/contributing/development.md).
+Read the [disclaimer](./legal/disclaimer.en.md) before use. Channel setup is in the [user guide](./docs/user-guide/index.md) (Chinese); packaging and the native helper build are in the [development guide](./docs/contributing/development.md).
 
 ## 🗂️ Project structure
 
@@ -96,7 +96,7 @@ Firefly-Agent is developed by hotaru. The first public version, 1.1.0, was relea
 ## ⚖️ License
 
 - The source code is under the [MIT License](./LICENSE).
-- Sources and licenses for third-party dependencies, Skills, models and images are in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md); the Live2D model license is in [MODEL_LICENSE.md](./MODEL_LICENSE.md).
+- Sources and licenses for third-party dependencies, Skills, models and images are in [THIRD_PARTY_NOTICES.md](./legal/THIRD_PARTY_NOTICES.md); the Live2D model license is in [MODEL_LICENSE.md](./legal/MODEL_LICENSE.md).
 - Firefly and the related Honkai: Star Rail characters and intellectual property belong to HoYoverse / miHoYo and the respective rights holders. This is an unofficial, non-commercial fan project. Derivatives that contain the Firefly character, the Live2D model or character artwork may not be used commercially.
 
 ## ⭐ Support
