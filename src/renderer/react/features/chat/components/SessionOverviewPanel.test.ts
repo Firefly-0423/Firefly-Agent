@@ -48,7 +48,7 @@ describe("SessionOverviewPanel", () => {
     expect(html).toContain("161k");
     expect(html).toContain("76%");
     expect(html).toContain("剩余空间");
-    expect(html).toContain("不是供应商返回的用量");
+    expect(html).not.toContain("按字符估算");
   });
 
   it("says there is no data instead of inventing any", () => {

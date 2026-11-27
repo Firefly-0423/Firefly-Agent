@@ -384,6 +384,46 @@ describe("G37-1 Plugin tools: registration, modes, schema validation, approval &
     expect(described).toEqual(granted ? { summary: "Write notes.md" } : null);
   });
 
+  it("hides a tool whose grant was revoked from the model-visible lists and offers it again once re-granted, keeping the execution check", async () => {
+    const registry = new ToolRegistry();
+    const grants = new Set(["kept", "revocable"]);
+    const service = createPluginToolService({ registry, canExecute: (_pluginId, toolName) => grants.has(toolName) });
+    const hostCall = vi.fn(async () => ({ status: "succeeded", output: "ok" }));
+    const manifest = makeManifest({
+      tools: [
+        { name: "kept", title: "Kept", risk: ["fs-read"], modes: ["work", "code"] },
+        { name: "revocable", title: "Revocable", risk: ["fs-read"], modes: ["work", "code"] },
+      ],
+    });
+    for (const name of ["kept", "revocable"]) {
+      service.registerTool({
+        manifest,
+        registration: { name, description: name, parameters: { type: "object", properties: {} } },
+        host: { call: hostCall },
+      });
+    }
+    const keptId = pluginToolId(manifest.id, "kept");
+    const revocableId = pluginToolId(manifest.id, "revocable");
+    const visible = () => ({
+      all: registry.getEnabledTools().map((t) => t.id),
+      work: registry.getEnabledToolsForMode("work").map((t) => t.id),
+      code: registry.getEnabledToolsForMode("code").map((t) => t.id),
+    });
+    expect(visible()).toEqual({ all: [keptId, revocableId], work: [keptId, revocableId], code: [keptId, revocableId] });
+
+    grants.delete("revocable");
+    expect(visible()).toEqual({ all: [keptId], work: [keptId], code: [keptId] });
+    // Still registered, and the execution-time check still refuses a call that slips through.
+    expect(registry.getById(revocableId)).toBeDefined();
+    const refused = await service.executeTool(manifest.id, "revocable", {}, { mode: "work" });
+    expect(refused).toMatchObject({ status: "not_executed" });
+    expect((refused as { reason: string }).reason).toContain("ERR_PERMISSION");
+    expect(hostCall).not.toHaveBeenCalled();
+
+    grants.add("revocable");
+    expect(visible()).toEqual({ all: [keptId, revocableId], work: [keptId, revocableId], code: [keptId, revocableId] });
+  });
+
   it("exposes plugin tools ONLY in work and code modes and NEVER in chat mode (even with overrides)", async () => {
     const registry = new ToolRegistry();
     const service = createPluginToolService({ registry });

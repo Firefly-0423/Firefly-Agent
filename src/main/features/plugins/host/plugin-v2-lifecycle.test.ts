@@ -8,6 +8,7 @@ import JSZip from "jszip";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AtomicJsonStore } from "../../../base/storage/atomic-json-store";
 import { HOST_TO_PLUGIN_METHODS, type Frame } from "../../../../shared/plugin-protocol";
+import { PLUGIN_ACTIVATE_ERROR_PREFIX } from "../../../../shared/plugin-activation-error";
 import type { ImporterFsOps } from "../../../../plugins/v2/package/importer";
 import { resolvePluginSecretsFile } from "../../../../plugins/v2/secrets/paths";
 import type { SafeStorageLike } from "../../../../plugins/v2/secrets";
@@ -127,7 +128,7 @@ function createFakeHostHarness(
                   type: "res",
                   id: frame.id,
                   ok: false,
-                  error: { code: "ERR_INTERNAL", message: verdict.error ?? "activation failed", retryable: false },
+                  error: { code: "ERR_INTERNAL", message: `${PLUGIN_ACTIVATE_ERROR_PREFIX}${verdict.error ?? "activation failed"}`, retryable: false },
                 });
               }
             } else if (frame.method === HOST_TO_PLUGIN_METHODS.deactivate) {
@@ -303,10 +304,12 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
       error: expect.stringContaining("v1.0.0"),
     });
     if (!upgradeRes.ok) {
-      expect(upgradeRes.error).toContain("v2 activation boom");
+      expect(upgradeRes.error).toBe("新版本启动失败，已回滚至 v1.0.0：插件自身报错：v2 activation boom");
+      expect(upgradeRes.error).not.toContain("Internal plugin error");
     }
 
     // Old version is restored, re-enabled, grants/confirmations/rate limit preserved, failed v2 removed
+    expect(controller.getPlugin("dev.firefly.up")!.error).toBeUndefined();
     expect(controller.status("dev.firefly.up")).toBe("enabled");
     const restored = controller.stateStore.get("dev.firefly.up")!;
     expect(restored.version).toBe("1.0.0");
@@ -987,7 +990,7 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
 
     await expect(controller.enablePlugin("dev.firefly.faulty")).rejects.toMatchObject({
       code: "ERR_INTERNAL",
-      message: "Activation timed out",
+      message: `${PLUGIN_ACTIVATE_ERROR_PREFIX}Activation timed out`,
     });
     expect(harness.launched).toHaveLength(1);
     expect(harness.launched[0].killCount).toBe(1);
@@ -997,7 +1000,7 @@ describe("Plugin V2 Lifecycle (Import, Upgrade Rollback, Uninstall, Permissions 
     expect(snap.status).toBe("disabled-fault");
     expect(snap.enabled).toBe(false);
     expect(snap.grantedPermissions).toEqual(["schedules", "secrets", "tool:ping"]);
-    expect(snap.error).toContain("Activation timed out");
+    expect(snap.error).toBe("插件自身报错：Activation timed out");
 
     const diskAfterFault = JSON.parse(readFileSync(controller.stateStore.filePath, "utf8"));
     expect(diskAfterFault.plugins["dev.firefly.faulty"]).toMatchObject({

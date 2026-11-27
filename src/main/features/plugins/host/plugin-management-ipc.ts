@@ -6,6 +6,7 @@ import type {
   PluginOverview,
   UninstallPluginOptions,
 } from "../../../../shared/plugin-management";
+import { describeActivationFailure } from "../../../../shared/plugin-activation-error";
 import { guardPluginIpcHandler, type PluginIpcHosts } from "./plugin-management-ipc-guard";
 import type { PluginV2HostController, PluginV2Snapshot } from "./plugin-v2-services";
 
@@ -132,7 +133,8 @@ export function registerPluginManagementIpc(deps: PluginManagementIpcDeps): void
         else await controller.disablePlugin(id);
         return { ok: true, overview: overview() };
       } catch (error) {
-        return { ok: false, error: errorMessage(error), overview: overview() };
+        // Enabling starts the plugin, so the error can carry its own text; show the same safe wording as the card.
+        return { ok: false, error: enabled ? describeActivationFailure(error) : errorMessage(error), overview: overview() };
       }
     }),
   );

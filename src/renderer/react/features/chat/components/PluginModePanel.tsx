@@ -45,29 +45,39 @@ const STATUS_ORDER: Record<PluginRuntimeStatus, number> = {
   stopping: 6,
   disabled: 7,
 };
+// Plugin-supplied text must stay on one line: the confirm dialog keeps line breaks, so a name with a newline
+// could otherwise pose as its own host-written line next to the permission notices.
+const oneLine = (text: string) => text.replace(/\s+/g, " ").trim();
 function replaceConfirmation(summary: PluginReplaceSummary, t: Translate) {
-  const { current, incoming } = summary;
+  const { current: rawCurrent, incoming: rawIncoming } = summary;
+  const current = { ...rawCurrent, name: oneLine(rawCurrent.name), version: oneLine(rawCurrent.version) };
+  const incoming = { ...rawIncoming, name: oneLine(rawIncoming.name), version: oneLine(rawIncoming.version) };
   const originLabel = (origin: "local" | "market") => t(origin === "market" ? "pluginPanel.replaceConfirm.originMarket" : "pluginPanel.replaceConfirm.originLocal");
-  const tools = incoming.tools.map(tool => `${tool.title} (${tool.name}) · ${tool.risk.join(", ")}`);
-  const lines = [
-    t("pluginPanel.replaceConfirm.currentLine", {
-      name: current.name, version: current.version, origin: originLabel(current.origin),
-      state: t(current.enabled ? "pluginPanel.replaceConfirm.stateEnabled" : "pluginPanel.replaceConfirm.stateDisabled"),
-    }),
-    t("pluginPanel.replaceConfirm.incomingLine", { name: incoming.name, version: incoming.version }),
-    current.origin === "market" ? t("pluginPanel.replaceConfirm.originChange") : "",
-    t(current.enabled ? "pluginPanel.replaceConfirm.stateEnabledNotice" : "pluginPanel.replaceConfirm.stateDisabledNotice"),
-    t("pluginPanel.enableConfirm.trustNotice"),
-    incoming.native ? t("pluginPanel.enableConfirm.nativeWarning") : "",
-    summary.nativeEscalation ? t("pluginPanel.replaceConfirm.nativeEscalation") : "",
-    summary.addedPermissions.length > 0
+  const tools = rawIncoming.tools.map(tool => `· ${oneLine(tool.title)} (${oneLine(tool.name)}) · ${tool.risk.map(oneLine).join(", ")}`);
+  // Sections are separated by a blank line and rendered with line breaks preserved by the confirm dialog.
+  const sections = [
+    [
+      t("pluginPanel.replaceConfirm.currentLine", {
+        name: current.name, version: current.version, origin: originLabel(current.origin),
+        state: t(current.enabled ? "pluginPanel.replaceConfirm.stateEnabled" : "pluginPanel.replaceConfirm.stateDisabled"),
+      }),
+      t("pluginPanel.replaceConfirm.incomingLine", { name: incoming.name, version: incoming.version }),
+    ],
+    [
+      current.origin === "market" ? t("pluginPanel.replaceConfirm.originChange") : "",
+      t(current.enabled ? "pluginPanel.replaceConfirm.stateEnabledNotice" : "pluginPanel.replaceConfirm.stateDisabledNotice"),
+      t("pluginPanel.enableConfirm.trustNotice"),
+      incoming.native ? t("pluginPanel.enableConfirm.nativeWarning") : "",
+      summary.nativeEscalation ? t("pluginPanel.replaceConfirm.nativeEscalation") : "",
+    ],
+    [summary.addedPermissions.length > 0
       ? t("pluginPanel.replaceConfirm.newPermissions", { permissions: summary.addedPermissions.map(perm => permissionLabel(perm, t)).join(", ") })
-      : t("pluginPanel.replaceConfirm.noNewPermissions"),
-    tools.length > 0 ? t("pluginPanel.replaceConfirm.tools", { tools: tools.join("; ") }) : t("pluginPanel.replaceConfirm.toolsNone"),
+      : t("pluginPanel.replaceConfirm.noNewPermissions")],
+    [tools.length > 0 ? t("pluginPanel.replaceConfirm.tools", { tools: tools.join("\n") }) : t("pluginPanel.replaceConfirm.toolsNone")],
   ];
   return {
     title: t("pluginPanel.replaceConfirm.title"),
-    message: lines.filter(Boolean).join("\n\n"),
+    message: sections.map(lines => lines.filter(Boolean).join("\n")).filter(Boolean).join("\n\n"),
     confirmText: t("pluginPanel.replaceConfirm.confirm"),
     cancelText: t("common.cancel"),
     dangerous: true,
@@ -506,9 +516,9 @@ function InstalledCard({ plugin, state, t }: { plugin: PluginListEntry; state: C
       status={<span className={`plugin-card-ui__status is-${plugin.status}`}>{t(`pluginPanel.status.${plugin.status}`)}</span>}
       developer={t("pluginPanel.developer", { author: plugin.author.trim() || t("pluginPanel.unknownDeveloper") })}>
       {plugin.error && <p title={plugin.error} className="plugin-card-ui__error">{plugin.error}</p>}
-      {plugin.installedVersion && <p>{t("pluginPanel.versions", { installed: plugin.installedVersion, active: plugin.activeVersion ?? "—", pending: plugin.pendingVersion ?? "—" })}</p>}
-      <p title={plugin.sourceId}>{t(`pluginPanel.sources.${plugin.source === "builtin" ? "builtin" : plugin.sourceKind ?? "legacy-unknown"}`)}</p>
-      {plugin.restartRequired && <p role="status">{t(faulted ? "pluginPanel.restartAfterFailure" : "pluginPanel.restartRequired")}</p>}
+      {plugin.installedVersion && <p className="plugin-card-ui__meta">{t("pluginPanel.versions", { installed: plugin.installedVersion, active: plugin.activeVersion ?? "—", pending: plugin.pendingVersion ?? "—" })}</p>}
+      <p title={plugin.sourceId} className="plugin-card-ui__meta">{t(`pluginPanel.sources.${plugin.source === "builtin" ? "builtin" : plugin.sourceKind ?? "legacy-unknown"}`)}</p>
+      {plugin.restartRequired && <p role="status" className="plugin-card-ui__meta">{t(faulted ? "pluginPanel.restartAfterFailure" : "pluginPanel.restartRequired")}</p>}
     </CardMain>
     <div className="plugin-card-ui__actions">
       {plugin.canOpen && <button className="plugin-card-ui__button" type="button" onClick={() => void state.openPlugin(plugin)} disabled={!canOpen || state.anyBusy} title={!canOpen ? t("pluginPanel.openRequiresRunning") : t("pluginPanel.open")}>{t("pluginPanel.open")}</button>}

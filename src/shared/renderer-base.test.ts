@@ -39,7 +39,7 @@ describe("getRendererBase", () => {
     expect(getRendererBase()).toBe("file:///C:/Firefly/dist/renderer/");
   });
 
-  it.each(["react", "sidebar", "tasks", "settings", "call", "sticker-manager"])(
+  it.each(["react", "sidebar", "tasks", "settings", "call", "sticker-manager", "toast"])(
     "walks up one level from the %s sub-window in production",
     async (subdirectory) => {
       const { getRendererBase } = await load(

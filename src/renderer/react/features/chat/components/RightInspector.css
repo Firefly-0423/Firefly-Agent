@@ -60,6 +60,8 @@
 /* While a panel is lifted or a separator dragged, a loaded page's native view would swallow the pointer and stay behind:
    fold only the page area (zero size hides the view). Tabs, address bar and the new-tab page stay, so the panel never goes blank. */
 .ff-right-inspector[data-shielded] .ff-inspector-pane[data-inspector-kind="browser"] .ff-browser-workspace__viewport:not(:has(.ff-browser-newtab, .ff-browser-workspace__empty)) { display: none; }
+/* Dragging the dock separator between the conversation and this column shields a loaded page the same way. */
+.ff-page-dock.is-resizing .ff-inspector-pane[data-inspector-kind="browser"] .ff-browser-workspace__viewport:not(:has(.ff-browser-newtab, .ff-browser-workspace__empty)) { display: none; }
 .ff-right-inspector[data-moving], .ff-right-inspector[data-moving] .ff-inspector-pane__head { cursor: grabbing; user-select: none; }
 /* The lifted panel floats above the others while it follows the pointer. */
 .ff-inspector-pane[data-lifted] { z-index: 6; box-shadow: 0 16px 40px var(--ff-black-alpha-16); transition: none; will-change: transform; }

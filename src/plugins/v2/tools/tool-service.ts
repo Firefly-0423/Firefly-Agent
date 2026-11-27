@@ -466,6 +466,8 @@ export function createPluginToolService(options: PluginToolServiceOptions = {}):
       // The four-state result is the outcome; output content must not be re-read as a status.
       explicitOutcome: true,
       needsContext: true,
+      // A revoked tool is not offered to the model at all; execute()/describeApproval re-check the grant as defense in depth.
+      isAvailable: () => !options.canExecute || options.canExecute(manifest.id, name),
       validateArgs,
       describeApproval: async (args: Record<string, unknown>, signal?: AbortSignal) => {
         // Same live grant check as execution: a plugin that lost this tool never receives its arguments.

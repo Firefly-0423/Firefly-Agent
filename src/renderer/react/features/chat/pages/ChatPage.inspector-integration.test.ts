@@ -240,6 +240,19 @@ it("persists a keyboard inspector resize immediately after a sidebar pointercanc
   expect(JSON.parse(localStorage.getItem(key)!).inspector).toBeCloseTo(width);
 });
 
+it("shields the dock while the library reports its separator as the active drag", async () => {
+  await click(button("文件"));
+  const separator = host.querySelector<HTMLElement>(".ff-dock-separator")!;
+  const dock = () => host.querySelector(".ff-page-dock")!;
+  const pointer = (type: string) => Object.assign(new Event(type, { bubbles: true, cancelable: true }), { pointerId: 31, pointerType: "mouse", clientX: 100 + dockWidth * 0.6, clientY: 300, button: 0 });
+  expect(dock().classList.contains("is-resizing")).toBe(false);
+  await act(async () => separator.dispatchEvent(pointer("pointerdown")));
+  expect(separator.getAttribute("data-separator")).toBe("active");
+  expect(dock().classList.contains("is-resizing")).toBe(true);
+  await act(async () => document.dispatchEvent(pointer("pointerup")));
+  expect(dock().classList.contains("is-resizing")).toBe(false);
+});
+
 it("keeps the overview cards when a right panel opens and keeps the conversation readable when the separator is dragged", async () => {
   await click(button("打开会话概览"));
   expect(host.querySelector(".ff-chat-cards")).not.toBeNull();

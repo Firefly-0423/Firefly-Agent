@@ -40,4 +40,15 @@ describe("ComposerSlot approval queue", () => {
     expect(render({})).not.toContain("ff-composer-slot__pending");
     expect(render({ interactionPending: 3, withInteraction: false })).not.toContain("ff-composer-slot__pending");
   });
+
+  it("stacks the approval card above a composer that stays rendered but inert", () => {
+    const html = render({});
+
+    expect(html).toContain('aria-label="流萤正在获取审批"');
+    expect(html).toContain(">composer<");
+    expect(html.indexOf("ff-composer-slot__interaction")).toBeLessThan(html.indexOf("ff-composer-slot__composer"));
+    expect(html).toMatch(/ff-composer-slot__composer"[^>]*inert/);
+    expect(html).not.toMatch(/ff-composer-slot__composer"[^>]*aria-hidden/);
+    expect(render({ withInteraction: false })).not.toContain("inert");
+  });
 });

@@ -184,6 +184,20 @@ export function ChatPage() {
   // The panel's real state: dragging the separator to zero (or End) collapses it while inspectorHidden stays false.
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
   const dockGroupRef = useRef<GroupImperativeHandle | null>(null);
+  // True while react-resizable-panels reports the dock separator as the active drag (data-separator="active").
+  // The library listens on the document and hit-tests an enlarged target, so a press often never reaches the
+  // separator element's own handlers; its attribute is the one signal that is always set. It puts the same
+  // shield on a loaded browser page that dragging an inspector separator does, so the native view is not re-placed on every move.
+  const [dockResizing, setDockResizing] = useState(false);
+  useEffect(() => {
+    const dock = dockRef.current;
+    if (!dock) return;
+    const sync = () => setDockResizing(dock.querySelector('.ff-dock-separator[data-separator="active"]') !== null);
+    const observer = new MutationObserver(sync);
+    observer.observe(dock, { attributes: true, attributeFilter: ["data-separator"], subtree: true, childList: true });
+    sync();
+    return () => observer.disconnect();
+  }, []);
   const [resultTabIds, setResultTabIds] = useState<string[]>([]);
   /** Run outputs whose changed files are open in their own panel. */
   const [changesTabIds, setChangesTabIds] = useState<string[]>([]);
@@ -1506,7 +1520,7 @@ export function ChatPage() {
         elementRef={dockRef}
         groupRef={dockGroupRef}
         orientation={compactDock ? "vertical" : "horizontal"}
-        className={`ff-page-dock ${compactDock ? "is-compact" : ""}${inspectorTabIds.length > 0 && inspectorVisible && !compactDock && !inspectorCollapsed ? " has-inspector" : ""}`}
+        className={`ff-page-dock ${compactDock ? "is-compact" : ""}${inspectorTabIds.length > 0 && inspectorVisible && !compactDock && !inspectorCollapsed ? " has-inspector" : ""}${dockResizing ? " is-resizing" : ""}`}
         defaultLayout={compactDock ? undefined : defaultLayout}
         onLayoutChange={layout => { onInspectorLayoutChange(layout); setInspectorCollapsed(Object.hasOwn(layout, "inspector") && layout.inspector < 0.5); }}
         onLayoutChanged={compactDock ? undefined : onLayoutChanged}

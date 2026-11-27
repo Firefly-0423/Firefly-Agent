@@ -68,3 +68,8 @@
   padding: 10px 12px;
   margin-top: 8px;
 }
+
+/* Confirm messages may be structured over several lines (for example the plugin replace summary). */
+.ff-feedback-modal .ant-modal-confirm-content {
+  white-space: pre-line;
+}

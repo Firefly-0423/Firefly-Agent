@@ -185,3 +185,39 @@ describe("trusted document output ownership", () => {
     await coordinator.closeGroup(scope.groupId);
   });
 });
+
+describe("write_word output location", () => {
+  it("writes an absolute path inside the active workspace and not to the desktop", async () => {
+    const workspace = join(fixture.root, "workspace"); mkdirSync(workspace);
+    const target = join(workspace, "reports", "weekly.docx");
+    const result = await invoke("write_word", { filename: target, title: "Weekly", paragraphs: ["done"] }, { resolvedWorkspaceRoot: workspace });
+    expect(result).toContain("已生成");
+    expect(statSync(target).size).toBeGreaterThan(0);
+    expect(existsSync(join(fixture.root, "weekly.docx"))).toBe(false);
+  });
+
+  it("defaults a bare filename to the workspace rather than the desktop when a workspace is active", async () => {
+    const workspace = join(fixture.root, "workspace"); mkdirSync(workspace);
+    await invoke("write_word", { filename: "notes.docx", title: "Notes", paragraphs: ["x"] }, { resolvedWorkspaceRoot: workspace });
+    expect(existsSync(join(workspace, "notes.docx"))).toBe(true);
+    expect(existsSync(join(fixture.root, "notes.docx"))).toBe(false);
+  });
+
+  it("refuses absolute paths outside the workspace and writes nothing", async () => {
+    const workspace = join(fixture.root, "workspace"); mkdirSync(workspace);
+    const outside = join(fixture.root, "outside"); mkdirSync(outside);
+    const target = join(outside, "leak.docx");
+    const result = await invoke("write_word", { filename: target, title: "T", paragraphs: ["x"] }, { resolvedWorkspaceRoot: workspace });
+    expect(result).toContain("路径不合法");
+    expect(existsSync(target)).toBe(false);
+    expect(readdirSync(outside)).toEqual([]);
+  });
+
+  it("keeps the previous desktop behaviour without a workspace: relative names land on the desktop, absolute paths are refused", async () => {
+    expect(await invoke("write_word", { filename: "desk.docx", title: "T", paragraphs: ["x"] })).toContain("已生成");
+    expect(existsSync(join(fixture.root, "desk.docx"))).toBe(true);
+    const absolute = join(fixture.root, "elsewhere.docx");
+    expect(await invoke("write_word", { filename: absolute, title: "T", paragraphs: ["x"] })).toContain("路径不合法");
+    expect(existsSync(absolute)).toBe(false);
+  });
+});
