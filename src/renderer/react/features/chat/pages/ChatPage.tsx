@@ -184,6 +184,24 @@ export function ChatPage() {
   // The panel's real state: dragging the separator to zero (or End) collapses it while inspectorHidden stays false.
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
   const dockGroupRef = useRef<GroupImperativeHandle | null>(null);
+  // True from a pointer press on the dock separator until release or cancel. It puts the same shield on a loaded
+  // browser page that dragging an inspector separator does, so the native view is not re-placed on every move.
+  const [dockResizing, setDockResizing] = useState(false);
+  const dockResizeStop = useRef<(() => void) | null>(null);
+  const startDockResize = () => {
+    dockResizeStop.current?.();
+    const stop = () => {
+      window.removeEventListener("pointerup", stop);
+      window.removeEventListener("pointercancel", stop);
+      dockResizeStop.current = null;
+      setDockResizing(false);
+    };
+    window.addEventListener("pointerup", stop);
+    window.addEventListener("pointercancel", stop);
+    dockResizeStop.current = stop;
+    setDockResizing(true);
+  };
+  useEffect(() => () => dockResizeStop.current?.(), []);
   const [resultTabIds, setResultTabIds] = useState<string[]>([]);
   /** Run outputs whose changed files are open in their own panel. */
   const [changesTabIds, setChangesTabIds] = useState<string[]>([]);
@@ -1506,7 +1524,7 @@ export function ChatPage() {
         elementRef={dockRef}
         groupRef={dockGroupRef}
         orientation={compactDock ? "vertical" : "horizontal"}
-        className={`ff-page-dock ${compactDock ? "is-compact" : ""}${inspectorTabIds.length > 0 && inspectorVisible && !compactDock && !inspectorCollapsed ? " has-inspector" : ""}`}
+        className={`ff-page-dock ${compactDock ? "is-compact" : ""}${inspectorTabIds.length > 0 && inspectorVisible && !compactDock && !inspectorCollapsed ? " has-inspector" : ""}${dockResizing ? " is-resizing" : ""}`}
         defaultLayout={compactDock ? undefined : defaultLayout}
         onLayoutChange={layout => { onInspectorLayoutChange(layout); setInspectorCollapsed(Object.hasOwn(layout, "inspector") && layout.inspector < 0.5); }}
         onLayoutChanged={compactDock ? undefined : onLayoutChanged}
@@ -1724,7 +1742,7 @@ export function ChatPage() {
         {/* 右侧面板打开时才挂载 Panel + 拖动条；默认 40% 宽，最小 280px，最大 70% */}
         {dockPresence.mounted && (
           <>
-            {inspectorVisible && <Separator className="ff-dock-separator" onKeyDown={event => {
+            {inspectorVisible && <Separator className="ff-dock-separator" onPointerDown={startDockResize} onKeyDown={event => {
               if (compactDock || !event.defaultPrevented
                 || !["ArrowLeft", "ArrowRight", "Home", "End", "Enter"].includes(event.key)) return;
               // v4 defers onLayoutChanged while a document pointer is active, even
