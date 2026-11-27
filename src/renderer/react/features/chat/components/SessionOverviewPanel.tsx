@@ -336,7 +336,7 @@ export function SessionOverviewPanel({ usage, outputs, environment, onOpenChange
               <li key={item.file}>
                 <button type="button" className="ff-overview-list__row" disabled={!onOpenChange}
                   onClick={() => onOpenChange?.(item.output, item.changed)} title={item.file}>
-                  <span className="ff-overview-list__name">{fileBaseName(item.file)}</span>
+                  <span className="ff-overview-list__name is-file">{fileBaseName(item.file)}</span>
                   <span className="ff-overview-list__meta">
                     <span className="ff-overview-diffstat is-add">+{item.insertions}</span>{" "}
                     <span className="ff-overview-diffstat is-del">−{item.deletions}</span>
@@ -362,7 +362,7 @@ export function SessionOverviewPanel({ usage, outputs, environment, onOpenChange
                   <button type="button" className="ff-overview-list__row" data-output-kind={item.type} title={item.file}
                     disabled={!onOpenOutputFile || !item.relPath} onClick={() => item.relPath && onOpenOutputFile?.(item.relPath)}>
                     <Icon className="ff-overview-outputs__icon" size={14} strokeWidth={1.7} aria-hidden="true" />
-                    <span className="ff-overview-list__name">{fileBaseName(item.file)}</span>
+                    <span className="ff-overview-list__name is-file">{fileBaseName(item.file)}</span>
                   </button>
                 </li>
               );

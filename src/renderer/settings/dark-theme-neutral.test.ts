@@ -130,6 +130,9 @@ describe("default dark chat content", () => {
     const names = emeraldRules.find(item => item.selector.includes(".ff-file-link") && item.body.includes("color: var(--ff-accent)") && !item.selector.includes(":hover"));
     expect(names?.selector).toContain(".ff-file-change-card__base");
     expect(names?.selector).toContain(".ff-run-row--file .ff-run-row__head > strong");
+    // The right-hand 变更 and 产出 cards (file rows only, not the task rows that share the list class).
+    expect(names?.selector).toContain(".ff-overview-list__name.is-file");
+    expect(emeraldSection).toContain(".ff-overview-list__row:hover .ff-overview-list__name.is-file { text-decoration: underline; }");
     const hover = emeraldRules.find(item => item.selector.includes(".ff-file-link:hover"));
     expect(hover?.body).toContain("color: var(--ff-accent)");
     expect(hover?.body).toContain("text-decoration: underline");

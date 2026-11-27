@@ -215,8 +215,10 @@
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-file-link,
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message-markdown .ff-file-link,
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-file-change-card__base,
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-overview-list__name.is-file,
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-run-row--file .ff-run-row__head > strong { color: var(--ff-accent); }
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-file-link:hover,
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message-markdown .ff-file-link:hover { color: var(--ff-accent); text-decoration: underline; }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-overview-list__row:hover .ff-overview-list__name.is-file { text-decoration: underline; }
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user .ff-file-link,
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user .ff-message-markdown .ff-file-link { color: inherit; }
