@@ -1,6 +1,6 @@
 # 更新日志 / Changelog
 
-- 适用版本：`v1.2.0`（仅涵盖 `v1.1.4` 之后合入 `dev/firefly-1.2.0` 的更新；截至 #152 的条目均已合入并核对。待合入的 #153（流畅吐字）与待提交的修复分支 `fix/code-tool-failure-and-browser-reopen` 仅按当前 PR 描述占位，合并后核对；不包含此前已归入 1.1.x 阶段或未合入 `dev` 的历史条目）。
+- 适用版本：`v1.2.0`（仅涵盖 `v1.1.4` 之后合入 `dev/firefly-1.2.0` 的更新；截至 #154 的条目均已合入并核对；不包含此前已归入 1.1.x 阶段或未合入 `dev` 的历史条目）。
 
 ---
 
@@ -27,7 +27,7 @@
 
 - **刷新聊天页后仍能找回任务和最终回复（#121）**：页面能识别原任务是否仍在运行或正在收尾，结束后把结果填回原消息。实时输出的接回另行处理。
 - **原生 cron 定时计划（#128）**：插件的周期计划可带时区。错过触发、跳过一轮或暂停再恢复后，会排到下一次符合条件的时间。
-- **回答均匀吐字，三种模式一致（#153，待合入，合并后核对）**：Chat、Work、Code 的流式回答改为按动画帧均匀放字（每帧最多 4 个字形簇，跨包的 emoji 与组合字符不拆开），流式与结束共用同一棵渲染树、结束不重挂载，未闭合代码块先以等宽纯文本显示；减少动态效果时直接合批，成功收尾快放，切到后台不跑动画但照常结算，取消或出错丢弃未显示正文；滚动由外层独占，用户上滚立即脱钩；并修复以回车、ZWJ 或半个旗帜结尾的文字扣住最后一个字符、堵住后续工具卡与审批的问题。表格改为固定列宽，宽表的表现待真机确认。
+- **回答均匀吐字，三种模式一致（#153）**：Chat、Work、Code 的流式回答改为按动画帧均匀放字（每帧最多 4 个字形簇，跨包的 emoji 与组合字符不拆开），流式与结束共用同一棵渲染树、结束不重挂载，未闭合代码块先以等宽纯文本显示；减少动态效果时直接合批，成功收尾快放，切到后台不跑动画但照常结算，取消或出错丢弃未显示正文；滚动由外层独占，用户上滚立即脱钩；并修复以回车、ZWJ 或半个旗帜结尾的文字扣住最后一个字符、堵住后续工具卡与审批的问题。表格改为固定列宽。打包版实机检查已完成：Chat 与 Code 模式每帧放 1–4 个字符，贴底时跟随到底部，上滚后保持原位。
 
 ### 改进
 
@@ -50,7 +50,7 @@
 
 - **修复项目里上传过附件后，新任务一开始就失败的问题（#112）**：在同一项目中上传过文件后，新开的 Work 或 Code 任务会在读取历史时报错。现在可以正常读取带附件的历史，附件只作为文字记录带入。该问题自 v1.1.4 起存在。
 - **真机验收修复（#150）**：气泡通知小窗的头像因目录未列入打包路径而无法显示，现已正常显示；插件卡片的版本、来源与重启提示行改用与开发者行一致的小字样式；插件升级失败时界面显示中文的“插件自身报错：…”（取首行、不含堆栈、路径已替换、最多 160 字）而不再是“Internal plugin error”，回滚成功后该错误只在顶部提示条显示一次、不再固定在卡片上；覆盖安装确认框按“已安装/将安装”、提示、权限变化与工具列表分段排版，确认对话框保留换行；已撤销授权的插件工具不再出现在模型可见的工具列表中（执行时的权限检查仍保留）。
-- **待提交：修复 Code 模式工具调用失败与浏览器面板需双击才能重新打开（`fix/code-tool-failure-and-browser-reopen`，待合入，合并后核对）**：占位条目，涉及 Code 模式工具调用报错 `E_TOOL_EXECUTION_FAILED` 与右侧浏览器面板关闭后需点击两次才能重新打开；具体改动待该分支合入后按 PR 描述录入。
+- **修复 Code 模式工具结果保存失败的误报、搜索无匹配被算作失败，以及右侧面板需点两次才能重开（#154）**：工具已成功执行、但把结果写入会话轨迹失败时，现在报告“会话轨迹保存失败：”及真实错误码，不再统一显示 `E_TOOL_EXECUTION_FAILED`；`grep`、`egrep`、`fgrep`、`rg`、`findstr` 作为不含重定向与替换的单一管道的最后一段、退出码为 1 且 stderr 为空时，视为“没有匹配”而不是失败；右侧面板被分隔条折叠后，一次点击即可重新打开。
 - **修复插件示例正常停止后丢失状态的问题（#111）**：示例插件停止再启动后会保留之前保存的状态。
 - **修复 Chat 误入计划模式的问题（#108）**：普通聊天不再接收计划审批，也不会因为旧的计划批准而自动发出下一条消息。
 - **修复主窗口仅失焦时右侧浏览器变空白的问题（#106）**：截图（如 `Win+Shift+S`）或切换到其他程序导致主窗口失去焦点但仍可见时，右侧内置浏览器保留当前网页画面不再空白；仅在窗口隐藏、最小化或切换会话时才收起视图（恢复焦点后仍需重新读取页面才会继续代理操作）。
@@ -117,7 +117,7 @@
 
 - **Find the original task and reply after refresh (#121).** The page recognizes an active or settling task and fills in its final reply when saved. Live streaming reattachment is separate.
 - **Native cron schedules (#128).** Recurring plugin schedules support time zones and advance after missed runs, skips or a pause.
-- **Evenly paced streamed text in all three modes (#153, pending merge, verify after merge)**: Streamed answers in Chat, Work and Code are released per animation frame (at most 4 grapheme clusters per frame, never splitting emoji or combining sequences across chunks), streaming and the final render share one tree so finishing does not remount, and an unclosed code block shows as monospace plain text first. Reduced motion batches directly, a successful finish flushes quickly, a background tab skips animation but still settles, and cancel or error discards undisplayed text; scrolling belongs to the outer container and detaches as soon as the user scrolls up; text ending in CR, ZWJ or half a flag no longer holds back its last character and blocks later tool cards or approvals. Tables now use fixed column widths; how wide tables look is pending real-machine confirmation.
+- **Evenly paced streamed text in all three modes (#153)**: Streamed answers in Chat, Work and Code are released per animation frame (at most 4 grapheme clusters per frame, never splitting emoji or combining sequences across chunks), streaming and the final render share one tree so finishing does not remount, and an unclosed code block shows as monospace plain text first. Reduced motion batches directly, a successful finish flushes quickly, a background tab skips animation but still settles, and cancel or error discards undisplayed text; scrolling belongs to the outer container and detaches as soon as the user scrolls up; text ending in CR, ZWJ or half a flag no longer holds back its last character and blocks later tool cards or approvals. Tables now use fixed column widths. The packaged real-machine check is done: Chat and Code modes stream 1–4 characters per frame, follow the bottom while pinned, and stay put when scrolled up.
 
 ### Improvements
 
@@ -140,7 +140,7 @@
 
 - **Fixed new tasks failing at start in projects that had attachments (#112)**: After a file was uploaded in a project, new Work or Code tasks there failed while reading history. History with attachments now loads, with attachments carried as text records only. The issue existed since v1.1.4.
 - **Real-machine test fixes (#150)**: The toast window avatar failed to load because its directory was missing from the packaged path list and now shows; plugin card version, source and restart lines use the same caption style as the developer line; a failed plugin upgrade shows a Chinese "插件自身报错：…" message (first line, no stack, paths replaced, up to 160 characters) instead of "Internal plugin error", and after a successful rollback the error appears once in the banner and is no longer pinned on the card; the replace-install confirmation is laid out in sections (installed/incoming, notices, permission changes, tool list) and confirm dialogs keep line breaks; tools of a plugin whose grant was revoked no longer appear in model-visible tool lists (the execution-time permission check stays).
-- **Pending: Code-mode tool failure and browser panel needing two clicks to reopen (`fix/code-tool-failure-and-browser-reopen`, pending merge, verify after merge)**: Placeholder covering Code-mode tool calls failing with `E_TOOL_EXECUTION_FAILED` and the right-hand browser panel needing two clicks to reopen after being closed; concrete changes will be recorded from the PR description once the branch is merged.
+- **Honest error for failed tool-result saves, search no-match, and one-click reopen of the right panel (#154)**: When a tool ran successfully but saving its result to the session transcript failed, the run now reports "会话轨迹保存失败" with the real error code instead of `E_TOOL_EXECUTION_FAILED`; a trailing `grep`, `egrep`, `fgrep`, `rg` or `findstr` that exits 1 with empty stderr, in a single plain pipeline without redirections or substitutions, counts as "no match" instead of a failure; and the right panel reopens with one click after being collapsed by its separator.
 - **Fixed plugin examples losing their state after a normal stop (#111)**: Example plugins keep their saved state when stopped and started again.
 - **Fixed Chat entering plan mode (#108)**: Ordinary chats no longer accept plan approvals, and an old plan approval no longer sends a follow-up message.
 - **Fixed right-hand browser going blank when the main window only loses focus (#106)**: Taking screenshots (e.g. `Win+Shift+S`) or switching to another app no longer clears the visible right-hand browser pane; the view now detaches only on minimize, hide, or session switch (agent interactions still wait until focus returns and the page is re-observed).
