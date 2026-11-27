@@ -86,8 +86,9 @@ const messageComponents: Components = {
 const rehypePlugins: PluggableList = [defaultRehypePlugins.raw, encodeStreamdownFileLinksInHast,
   defaultRehypePlugins.sanitize, defaultRehypePlugins.harden];
 
-// The destination may sit on the next line after the colon.
-const REFERENCE_DEFINITION = /^ {0,3}\[[^\]\n]+\]:[ \t]*(?:\n[ \t]*)?\S/m;
+// A definition may sit inside block quotes or list items ("> [dest]: …", "- [dest]: …"), and its destination may sit on
+// the next line. Over-matching only costs whole-document parsing, so the container prefix is loose.
+const REFERENCE_DEFINITION = /^(?:[ \t]*(?:>|[-*+]|\d{1,9}[.)])[ \t]*)*[ \t]*\[[^\]\n]+\]:[ \t]*(?:\n[ \t>]*)?\S/m;
 const WHOLE_DOCUMENT_BLOCKS = (markdown: string): string[] => (markdown ? [markdown] : []);
 
 function stripMarkdownCode(content: string): string {

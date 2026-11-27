@@ -148,6 +148,14 @@ describe("Markdown reply updates", () => {
         md: "See [Guide][dest].\n\nSecond paragraph.\n\n[dest]:\n  https://docs.invalid/guide",
       },
       {
+        name: "reference definition inside a block quote",
+        md: "> [dest]: https://docs.invalid/guide\n\nSee [Guide][dest].",
+      },
+      {
+        name: "reference definition inside a list item",
+        md: "- [dest]: https://docs.invalid/guide\n\nSee [Guide][dest].",
+      },
+      {
         name: "tables",
         md: "| Name | Role |\n| --- | --- |\n| Firefly | Assistant |\n| Trailblazer | User |",
       },
