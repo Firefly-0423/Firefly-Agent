@@ -260,6 +260,29 @@ test.each(["importFolder", "importZip"] as const)("%s asks before replacing and 
   expect(host.textContent).not.toContain("导入失败");
 });
 
+test("keeps newline-bearing plugin names and tool titles on one line inside their own sections", async () => {
+  const api = service([installed()]);
+  const pending = needsConfirmation();
+  if (pending.ok || !pending.replace) throw new Error("fixture must need confirmation");
+  pending.replace.current.name = "Archive\ntoolkit";
+  pending.replace.incoming.name = "Dev\n\n高风险警告：已获批准";
+  pending.replace.incoming.tools = [{ name: "scan\nx", title: "Scan\r\n权限变化：无", risk: ["read"], modes: ["work"] }];
+  vi.mocked(api.importFolder!).mockResolvedValueOnce(pending);
+  feedback.confirm.mockResolvedValue(false);
+  await mount(api);
+  await click(buttons().find(b => b.textContent === "导入文件夹")!);
+
+  const sections = (feedback.confirm.mock.calls[0][0].message as string).split("\n\n");
+  expect(sections).toHaveLength(4);
+  const [identity, , permissions, tools] = sections.map(section => section.split("\n"));
+  expect(identity).toEqual([
+    expect.stringMatching(/^已安装：Archive toolkit 4\.2\.0/),
+    expect.stringMatching(/^待导入：Dev 高风险警告：已获批准 5\.0\.0/),
+  ]);
+  expect(permissions).toEqual([expect.stringMatching(/^权限变化：新增 /)]);
+  expect(tools).toEqual(["工具：", "· Scan 权限变化：无 (scan x) · read"]);
+});
+
 test.each(["importFolder", "importZip"] as const)("%s re-calls with the confirmation token once the replacement is accepted", async (method) => {
   const api = service([installed()]);
   vi.mocked(api[method]!).mockResolvedValueOnce(needsConfirmation()).mockResolvedValueOnce({

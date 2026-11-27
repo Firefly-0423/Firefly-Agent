@@ -45,10 +45,15 @@ const STATUS_ORDER: Record<PluginRuntimeStatus, number> = {
   stopping: 6,
   disabled: 7,
 };
+// Plugin-supplied text must stay on one line: the confirm dialog keeps line breaks, so a name with a newline
+// could otherwise pose as its own host-written line next to the permission notices.
+const oneLine = (text: string) => text.replace(/\s+/g, " ").trim();
 function replaceConfirmation(summary: PluginReplaceSummary, t: Translate) {
-  const { current, incoming } = summary;
+  const { current: rawCurrent, incoming: rawIncoming } = summary;
+  const current = { ...rawCurrent, name: oneLine(rawCurrent.name), version: oneLine(rawCurrent.version) };
+  const incoming = { ...rawIncoming, name: oneLine(rawIncoming.name), version: oneLine(rawIncoming.version) };
   const originLabel = (origin: "local" | "market") => t(origin === "market" ? "pluginPanel.replaceConfirm.originMarket" : "pluginPanel.replaceConfirm.originLocal");
-  const tools = incoming.tools.map(tool => `· ${tool.title} (${tool.name}) · ${tool.risk.join(", ")}`);
+  const tools = rawIncoming.tools.map(tool => `· ${oneLine(tool.title)} (${oneLine(tool.name)}) · ${tool.risk.map(oneLine).join(", ")}`);
   // Sections are separated by a blank line and rendered with line breaks preserved by the confirm dialog.
   const sections = [
     [
