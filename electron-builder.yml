@@ -32,10 +32,15 @@ files:
 extraFiles:
   - from: LICENSE
     to: LICENSE
+  # The install keeps the repository layout for notices, so their relative links (../LICENSE, ./MODEL_LICENSE.md) resolve.
   - from: legal/MODEL_LICENSE.md
-    to: MODEL_LICENSE.md
+    to: legal/MODEL_LICENSE.md
   - from: legal/THIRD_PARTY_NOTICES.md
-    to: THIRD_PARTY_NOTICES.md
+    to: legal/THIRD_PARTY_NOTICES.md
+  - from: legal/disclaimer.zh-CN.md
+    to: legal/disclaimer.zh-CN.md
+  - from: legal/disclaimer.en.md
+    to: legal/disclaimer.en.md
   - from: node_modules/katex/LICENSE
     to: licenses/KaTeX-LICENSE
   - from: node_modules/@fontsource-variable/noto-sans-sc/LICENSE
@@ -47,10 +52,6 @@ extraFiles:
   - from: skills
     to: skills
 extraResources:
-  - from: legal/disclaimer.zh-CN.md
-    to: docs/disclaimer.zh-CN.md
-  - from: legal/disclaimer.en.md
-    to: docs/disclaimer.en.md
   - from: native/target/release/firefly-history-read.exe
     to: bin/firefly-history-read.exe
   - from: native/target/release/firefly-history-presence.exe

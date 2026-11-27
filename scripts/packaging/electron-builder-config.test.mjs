@@ -111,7 +111,7 @@ test("the assisted installer exposes Firefly setup choices and an uninstall entr
 
 test("the installer carries upstream and font license notices", () => {
   assert.match(source, /from: LICENSE\s+to: LICENSE/);
-  assert.match(source, /from: legal\/THIRD_PARTY_NOTICES\.md\s+to: THIRD_PARTY_NOTICES\.md/);
+  assert.match(source, /from: legal\/THIRD_PARTY_NOTICES\.md\s+to: legal\/THIRD_PARTY_NOTICES\.md/);
   assert.match(source, /from: node_modules\/katex\/LICENSE\s+to: licenses\/KaTeX-LICENSE/);
   assert.match(source, /from: node_modules\/@fontsource-variable\/noto-sans-sc\/LICENSE\s+to: licenses\/NotoSansSC-OFL\.txt/);
   assert.match(source, /from: node_modules\/@fontsource-variable\/jetbrains-mono\/LICENSE\s+to: licenses\/JetBrainsMono-OFL\.txt/);
@@ -266,10 +266,14 @@ test("installer file selection excludes both simulator outputs while retaining p
 
 test("disclaimers copy as two offline resources without other documentation", async context => {
   const config = YAML.parse(source);
-  const entries = [...config.extraResources, ...config.extraFiles].filter(entry => entry.from === "docs" || entry.from.startsWith("docs/") || entry.from.startsWith("legal/disclaimer."));
+  assert.equal(config.extraResources.some(entry => entry.from === "docs" || entry.from.startsWith("docs/") || entry.from.startsWith("legal/")), false);
+  const entries = config.extraFiles.filter(entry => entry.from === "LICENSE" || entry.from === "docs" || entry.from.startsWith("docs/") || entry.from.startsWith("legal/"));
   assert.deepEqual(entries, [
-    { from: "legal/disclaimer.zh-CN.md", to: "docs/disclaimer.zh-CN.md" },
-    { from: "legal/disclaimer.en.md", to: "docs/disclaimer.en.md" },
+    { from: "LICENSE", to: "LICENSE" },
+    { from: "legal/MODEL_LICENSE.md", to: "legal/MODEL_LICENSE.md" },
+    { from: "legal/THIRD_PARTY_NOTICES.md", to: "legal/THIRD_PARTY_NOTICES.md" },
+    { from: "legal/disclaimer.zh-CN.md", to: "legal/disclaimer.zh-CN.md" },
+    { from: "legal/disclaimer.en.md", to: "legal/disclaimer.en.md" },
   ]);
   const destination = await mkdtemp(path.join(os.tmpdir(), "firefly-disclaimers-"));
   context.after(() => rm(destination, { recursive: true, force: true }));
@@ -278,7 +282,15 @@ test("disclaimers copy as two offline resources without other documentation", as
     await copyFiles([new FileMatcher(path.join(root, entry.from), path.join(destination, entry.to), value => value)], undefined, false);
     assert.deepEqual(await readFile(path.join(destination, entry.to)), await readFile(path.join(root, entry.from)));
   }
-  assert.deepEqual((await readdir(path.join(destination, "docs"))).sort(), ["disclaimer.en.md", "disclaimer.zh-CN.md"]);
+  assert.deepEqual((await readdir(path.join(destination, "legal"))).sort(), ["MODEL_LICENSE.md", "THIRD_PARTY_NOTICES.md", "disclaimer.en.md", "disclaimer.zh-CN.md"]);
+  // In the install the notices link to each other and to ../LICENSE exactly as in the repository; only repository docs are not shipped.
+  for (const file of await readdir(path.join(destination, "legal"))) {
+    const text = await readFile(path.join(destination, "legal", file), "utf8");
+    for (const [, target] of text.matchAll(/\]\((\.{1,2}\/[^)#\s]+)\)/g)) {
+      if (target.startsWith("../docs/") || target.startsWith("../vendor/")) continue;
+      await access(path.join(destination, "legal", target));
+    }
+  }
   const input = await mkdtemp(path.join(os.tmpdir(), "firefly-docs-input-"));
   context.after(() => rm(input, { recursive: true, force: true }));
   await mkdir(path.join(input, "docs/user-guide"), { recursive: true });
