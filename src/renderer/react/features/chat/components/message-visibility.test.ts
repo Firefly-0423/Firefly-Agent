@@ -8,6 +8,8 @@ const observations = vi.hoisted(() => ({ markdown: [] as any[], math: vi.fn(), h
 vi.mock("@streamdown/math", () => ({ createMathPlugin: observations.math.mockReturnValue({}) }));
 vi.mock("streamdown", () => ({
   defaultRehypePlugins: { raw: () => null, sanitize: () => null, harden: () => null },
+  parseMarkdownIntoBlocks: (markdown: string) => (markdown ? [markdown] : []),
+  useIsCodeFenceIncomplete: () => false,
   Streamdown: (props: any) => {
     observations.markdown.push(props);
     return React.createElement("article", { "data-markdown": true }, props.children);
