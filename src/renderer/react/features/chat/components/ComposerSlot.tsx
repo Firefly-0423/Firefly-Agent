@@ -31,12 +31,12 @@ export function ComposerSlot({ composer: input, interaction: card, interactionBu
     <PopQuizPanel interaction={card} disabled={locked} onSubmit={submitQuiz} onSkip={skipQuiz} />
   </div>;
   return <div className={`ff-composer-slot is-${placement}`}>
-    <div className="ff-composer-slot__composer" aria-hidden={card ? true : undefined}>{input}</div>
     {card && waiting > 0 && <span className="ff-composer-slot__pending" role="status">
       {translate("interaction.pendingMore", { count: waiting })}
     </span>}
     {ask}
     {permission}
     {quiz}
+    <div className="ff-composer-slot__composer" inert={card ? true : undefined}>{input}</div>
   </div>;
 }

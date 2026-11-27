@@ -136,14 +136,15 @@
 
 .ff-composer-slot {
   position: relative;
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
   width: 100%;
-  place-items: end center;
 }
 
 .ff-composer-slot__composer,
 .ff-composer-slot__interaction {
-  grid-area: 1 / 1;
   display: flex;
   width: 100%;
   justify-content: center;
@@ -151,6 +152,7 @@
 }
 
 .ff-composer-slot__composer { opacity: 1; transform: translateY(0); }
+/* The card stacks above the composer; the composer stays visible but inert (dimmed) until the card is answered. */
 /* Approvals queue up when several agents ask at once; this pill says how many sit behind the visible card. */
 .ff-composer-slot__pending {
   position: absolute;
@@ -172,8 +174,7 @@
 .ff-composer-slot.is-permission .ff-composer-slot__composer,
 .ff-composer-slot.is-quiz .ff-composer-slot__composer {
   pointer-events: none;
-  opacity: 0;
-  transform: translateY(18px);
+  opacity: .55;
 }
 
 @keyframes ff-interaction-enter {
