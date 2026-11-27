@@ -138,6 +138,11 @@ describe("default dark chat content", () => {
     expect(hover?.body).toContain("text-decoration: underline");
   });
 
+  it("gives a quote in the user's emerald bubble the bubble's dark text and a dark rule, leaving assistant quotes alone", () => {
+    expect(emeraldSection).toContain(".ff-message--user .ff-message-markdown blockquote { color: inherit; border-left-color: rgba(0, 0, 0, 0.32); }");
+    expect(messagesCss).toMatch(/\.ff-message-markdown blockquote \{\s*color: var\(--ff-text-secondary\);/);
+  });
+
   it("keeps markdown links, file-type icons and highlight text neutral", () => {
     expect(neutralSection).toMatch(/\.ff-message-markdown a \{ color: var\(--ff-text\);/);
     expect(neutralSection).toMatch(/data-file-type="text"\]\) \.ff-run-file__icon \{ color: var\(--ff-text-muted\); \}/);
