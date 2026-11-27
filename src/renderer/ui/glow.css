@@ -211,6 +211,7 @@
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user:has(.ff-message__sticker:only-child) .ant-bubble-content { background: transparent; }
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user :is(.ff-message-markdown, .ff-message-markdown :is(p, li, a, span, strong, em, .ff-file-link)) { color: inherit; }
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user .ff-message-markdown blockquote { color: inherit; border-left-color: rgba(0, 0, 0, 0.32); }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user .ff-message-markdown li[data-streamdown="list-item"]::marker { color: inherit; }
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user .ff-message-markdown :not(pre) > code { color: inherit; background: rgba(0, 0, 0, 0.14); }
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-message--user .ff-message__file-attachment { background: rgba(0, 0, 0, 0.12); color: inherit; }
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-file-link,

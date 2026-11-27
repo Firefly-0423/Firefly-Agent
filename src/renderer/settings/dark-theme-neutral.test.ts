@@ -143,6 +143,11 @@ describe("default dark chat content", () => {
     expect(messagesCss).toMatch(/\.ff-message-markdown blockquote \{\s*color: var\(--ff-text-secondary\);/);
   });
 
+  it("gives list numbers and bullets in the user's emerald bubble the bubble's dark text, leaving assistant markers grey", () => {
+    expect(emeraldSection).toContain('.ff-message--user .ff-message-markdown li[data-streamdown="list-item"]::marker { color: inherit; }');
+    expect(neutralSection).toContain('.ff-message-markdown li[data-streamdown="list-item"]::marker { color: var(--ff-text-muted); }');
+  });
+
   it("keeps markdown links, file-type icons and highlight text neutral", () => {
     expect(neutralSection).toMatch(/\.ff-message-markdown a \{ color: var\(--ff-text\);/);
     expect(neutralSection).toMatch(/data-file-type="text"\]\) \.ff-run-file__icon \{ color: var\(--ff-text-muted\); \}/);
