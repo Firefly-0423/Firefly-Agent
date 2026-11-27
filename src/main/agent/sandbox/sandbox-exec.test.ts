@@ -121,7 +121,7 @@ describe("Command wrapping and session reuse", () => {
   it("reuses the same workspace session and reinitializes on workspace or permission changes", async () => {
     await sandbox.initSandbox(); const first = workspace(), second = workspace();
     await sandbox.wrapWithSandbox("echo morning", first); await sandbox.wrapWithSandbox("echo evening", first);
-    expect(host.initialize).toHaveBeenCalledTimes(1); expect(host.status).toHaveBeenCalledTimes(3); expect(host.wrap).toHaveBeenCalledTimes(2);
+    expect(host.initialize).toHaveBeenCalledTimes(1); expect(host.status).toHaveBeenCalledTimes(2); expect(host.wrap).toHaveBeenCalledTimes(2);
     await sandbox.wrapWithSandbox("echo next", second);
     expect(host.reset).toHaveBeenCalledTimes(1); expect(host.initialize).toHaveBeenCalledTimes(2);
     host.level = "per-action"; await sandbox.wrapWithSandbox("echo per-action", second);
