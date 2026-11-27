@@ -127,6 +127,17 @@ describe("Markdown reply updates", () => {
     expect(host.querySelector('code[data-highlighted="true"]')).toBe(highlighted);
   }));
 
+  it("keeps a closed code block highlighted when a later fence opens in a whole-document reply", () => withMessage((host, render) => {
+    // A reference definition sends the whole reply through one block, so the block-level fence state covers both fences.
+    const head = "See [Guide][dest].\n\n```ts\nconst x = 1;\n```\n\n[dest]: https://docs.invalid/guide\n\n";
+    render(head, true);
+    const highlighted = host.querySelector('code[data-highlighted="true"]');
+    expect(highlighted?.textContent).toBe("const x = 1;");
+    render(head + "```py\nprint(1)", true);
+    expect(host.querySelector('code[data-highlighted="true"]')?.textContent).toBe("const x = 1;");
+    expect(Array.from(host.querySelectorAll("pre.ff-code-plain")).map(node => node.textContent)).toEqual(["print(1)"]);
+  }));
+
   it("waits for a valid table separator row and keeps fixed table layout", () => withMessage((host, render) => {
     render("| Key | Value |\n| ---", true);
     expect(host.querySelector("table")).toBeNull();

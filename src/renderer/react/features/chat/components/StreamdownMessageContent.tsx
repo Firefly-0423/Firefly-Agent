@@ -1,4 +1,4 @@
-import React, { isValidElement, useContext, type ReactNode } from "react";
+import React, { createContext, isValidElement, useContext, type ReactNode } from "react";
 import { CodeHighlighter } from "@ant-design/x";
 import { createMathPlugin } from "@streamdown/math";
 import { Streamdown, defaultRehypePlugins, parseMarkdownIntoBlocks, useIsCodeFenceIncomplete, type Components, type ControlsConfig } from "streamdown";
@@ -35,8 +35,37 @@ function extractCodeBlock(children: ReactNode): { code: string; lang: string } |
   return block;
 }
 
-function StreamdownPre({ children }: { children?: ReactNode }) {
-  const incomplete = useIsCodeFenceIncomplete();
+/**
+ * Set only when the whole reply is parsed as one block: the offset where an unclosed trailing fence starts (Infinity
+ * when none). Streamdown's fence state is per block, so in that mode it would mark every earlier, closed fence too.
+ */
+const WholeDocumentFenceContext = createContext<number | undefined>(undefined);
+
+const FENCE_LINE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
+
+/** Offset of the fence that is still open at the end of `content`, or Infinity when every fence is closed. */
+export function openTrailingFenceOffset(content: string): number {
+  let open: { char: string; length: number; at: number } | undefined;
+  let offset = 0;
+  for (const line of content.split("\n")) {
+    const match = FENCE_LINE.exec(line);
+    if (match) {
+      const fence = match[1]!;
+      if (!open) open = { char: fence[0]!, length: fence.length, at: offset };
+      else if (fence[0] === open.char && fence.length >= open.length && !match[2]!.trim()) open = undefined;
+    }
+    offset += line.length + 1;
+  }
+  return open ? open.at : Number.POSITIVE_INFINITY;
+}
+
+type HastPosition = { start?: { offset?: number } };
+
+function StreamdownPre({ children, node }: { children?: ReactNode; node?: { position?: HastPosition } }) {
+  const blockIncomplete = useIsCodeFenceIncomplete();
+  const wholeDocumentOpenAt = useContext(WholeDocumentFenceContext);
+  const start = node?.position?.start?.offset;
+  const incomplete = wholeDocumentOpenAt === undefined || start === undefined ? blockIncomplete : start >= wholeDocumentOpenAt;
   const block = extractCodeBlock(children);
   if (block === null) return <pre>{children}</pre>;
   if (incomplete) {
@@ -102,13 +131,15 @@ function hasReferenceDefinitions(content: string): boolean {
 }
 
 export function StreamdownMessageContent({ content, streaming }: StreamdownMessageContentProps) {
-  const blockParser = hasReferenceDefinitions(content) ? WHOLE_DOCUMENT_BLOCKS : parseMarkdownIntoBlocks;
+  const wholeDocument = hasReferenceDefinitions(content);
+  const blockParser = wholeDocument ? WHOLE_DOCUMENT_BLOCKS : parseMarkdownIntoBlocks;
+  const openFenceAt = wholeDocument ? (streaming ? openTrailingFenceOffset(content) : Number.POSITIVE_INFINITY) : undefined;
   // Keep a single streaming block tree from start through completion so finished blocks retain DOM identity;
   // per-character blurIn stays off so text renders crisply as frames reveal it.
-  return <Streamdown className="ff-message-markdown ff-streamdown-message" controls={chatControls}
+  return <WholeDocumentFenceContext.Provider value={openFenceAt}><Streamdown className="ff-message-markdown ff-streamdown-message" controls={chatControls}
     rehypePlugins={rehypePlugins} components={messageComponents} plugins={messagePlugins}
     animated={false} isAnimating={streaming} parseIncompleteMarkdown={streaming}
     parseMarkdownIntoBlocksFn={blockParser} tableMaxHeight={0} mode="streaming">
     {content}
-  </Streamdown>;
+  </Streamdown></WholeDocumentFenceContext.Provider>;
 }
