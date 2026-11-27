@@ -1253,11 +1253,18 @@ export function ChatPage() {
   /** 标题行的面板开关：已打开且可见时关掉它，否则打开。 */
   // The browser closes through the inspector's own path, which revokes its grant and closes the native page first.
   const [browserCloseRequest, setBrowserCloseRequest] = useState(0);
+  // Open means actually on screen: a pane dragged shut with the separator keeps inspectorHidden false but is not shown.
+  const inspectorShown = !inspectorHidden && !inspectorCollapsed;
+  // The visibility effect never reopens a pane the user collapsed, so an explicit reopen expands it itself.
+  const revealCollapsedInspector = () => {
+    if (!inspectorCollapsed) return;
+    try { inspectorPanelRef.current?.expand(); } catch { /* not registered yet; the visibility effect expands it once it is */ }
+  };
   const togglePanel = (id: string, open: boolean, openIt: () => void) => {
-    if (open && !inspectorHidden) {
+    if (open && inspectorShown) {
       if (id === "browser") setBrowserCloseRequest(count => count + 1);
       else closeInspectorTab(id);
-    } else openIt();
+    } else { openIt(); revealCollapsedInspector(); }
   };
 
   /** 收起右侧面板并保留标签；再次点击恢复原标签 */
@@ -1549,12 +1556,12 @@ export function ChatPage() {
               )}
               {/* 面板开关：打开时按下高亮，再点一次关掉对应面板（面板本身在右侧一列里上下叠放）。 */}
               <button type="button" className="ff-inspector-toggle" aria-label={t("browserWorkspace.open")}
-                title={t("browserWorkspace.open")} aria-expanded={browserTabOpen && !inspectorHidden} aria-pressed={browserTabOpen && !inspectorHidden}
+                title={t("browserWorkspace.open")} aria-expanded={browserTabOpen && inspectorShown} aria-pressed={browserTabOpen && inspectorShown}
                 onClick={() => togglePanel("browser", browserTabOpen, () => { setBrowserTabOpen(true); setInspectorHidden(false); setActiveTabId("browser"); })}>
                 <GlobalOutlined aria-hidden="true" />
               </button>
               <button type="button" className="ff-inspector-toggle" aria-label={t("fileTree.title")}
-                title={t("fileTree.title")} aria-expanded={filesTabOpen && !inspectorHidden} aria-pressed={filesTabOpen && !inspectorHidden}
+                title={t("fileTree.title")} aria-expanded={filesTabOpen && inspectorShown} aria-pressed={filesTabOpen && inspectorShown}
                 onClick={() => togglePanel("files", filesTabOpen, openFilesTab)}><FolderOpenOutlined aria-hidden="true" /></button>
               <button type="button" className="ff-inspector-toggle"
                 aria-label={t("sessionOverview.open")} title={t("sessionOverview.open")}
@@ -1563,14 +1570,14 @@ export function ChatPage() {
                 <ProfileOutlined aria-hidden="true" /></button>
               {(mode !== "chat" || workspaceOutputs.length > 0) && <button type="button" className="ff-inspector-toggle"
                 aria-label={t("workspace.tasks")} title={t("workspace.tasks")}
-                aria-expanded={tasksTabOpen && !inspectorHidden} aria-pressed={tasksTabOpen && !inspectorHidden}
+                aria-expanded={tasksTabOpen && inspectorShown} aria-pressed={tasksTabOpen && inspectorShown}
                 onClick={() => togglePanel("tasks", tasksTabOpen, () => { setTasksTabOpen(true); setInspectorHidden(false); setActiveTabId("tasks"); })}>
                 <UnorderedListOutlined aria-hidden="true" /></button>}
               <InspectorToggle
-                open={inspectorTabIds.length > 0 && !inspectorHidden}
+                open={inspectorTabIds.length > 0 && inspectorShown}
                 onToggle={() => {
-                  if (inspectorTabIds.length > 0 && !inspectorHidden) collapseInspector();
-                  else if (inspectorTabIds.length > 0) setInspectorHidden(false);
+                  if (inspectorTabIds.length > 0 && inspectorShown) collapseInspector();
+                  else if (inspectorTabIds.length > 0) { setInspectorHidden(false); revealCollapsedInspector(); }
                   else openFilesTab();
                 }}
               />
