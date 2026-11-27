@@ -81,9 +81,14 @@ export function normalizeWeatherData(value: unknown): WeatherData | undefined {
 export function permissionInteraction(request: PermissionApprovalRequest): ComposerInteraction {
   const path = request.approvalTarget
     ?? [request.args.path, request.args.filePath].find((candidate): candidate is string => typeof candidate === "string" && candidate.trim().length > 0);
+  const text = (value: unknown) => typeof value === "string" && value.trim().length > 0 ? value : undefined;
+  const command = text(request.args.command);
+  const cwd = text(request.args.cwd);
   return {
     kind: "permission", id: request.id, toolName: request.toolName || request.toolId,
     summary: describePermissionRequest(request), targetPath: path,
+    ...(command ? { command } : {}),
+    ...(cwd ? { cwd } : {}),
     ...(request.declaredBy ? { declaredBy: request.declaredBy } : {}),
     ...(request.agentId ? { agentId: request.agentId } : {}),
     ...(request.agentName ? { agentName: request.agentName } : {}),

@@ -265,6 +265,7 @@
 .ff-interaction-panel__question-index button { min-width: 31px; padding: 4px 7px; border-radius: 12px; font: 500 var(--ff-fs-caption)/1.3 var(--rb-font-sans, sans-serif); }
 
 .ff-interaction-panel__metadata { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 10px; margin: 0 0 15px; color: var(--ff-text-muted, var(--ff-text-muted)); font: 400 var(--ff-fs-caption)/1.4 var(--rb-font-sans, sans-serif); }
+.ff-interaction-panel__command { max-height: 120px; margin: 0 0 15px; padding: 8px 10px; overflow: auto; border-radius: 8px; background: var(--ff-surface-sunken, rgba(127,127,127,.12)); color: var(--ff-text, inherit); font: 400 var(--ff-fs-caption)/1.5 var(--ff-font-mono, ui-monospace, Consolas, monospace); white-space: pre-wrap; overflow-wrap: anywhere; }
 .ff-interaction-panel__metadata dt { color: var(--ff-text-muted); }
 .ff-interaction-panel__metadata dd { min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ff-interaction-panel__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }

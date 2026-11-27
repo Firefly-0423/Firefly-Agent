@@ -585,6 +585,8 @@
     "quizYourAnswer": "你的回答",
     "submit": "提交",
     "submitAll": "提交全部",
+    "commandLabel": "命令",
+    "cwdLabel": "工作目录",
     "targetLabel": "目标",
     "workspaceLabel": "工作区"
   },

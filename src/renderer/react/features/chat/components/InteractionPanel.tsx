@@ -110,7 +110,9 @@ export function PermissionPanel({ interaction, disabled = false, onDecision }: P
       {interaction.agentId && <><dt>{t("interaction.agentLabel")}</dt><dd title={interaction.agentId}>{interaction.agentName ? `${interaction.agentName} (${interaction.agentId})` : interaction.agentId}</dd></>}
       {interaction.workspaceName && <><dt>{t("interaction.workspaceLabel")}</dt><dd>{interaction.workspaceName}</dd></>}
       {interaction.targetPath && <><dt>{t("interaction.targetLabel")}</dt><dd title={interaction.targetPath}>{interaction.targetPath}</dd></>}
+      {interaction.cwd && <><dt>{t("interaction.cwdLabel")}</dt><dd title={interaction.cwd}>{interaction.cwd}</dd></>}
     </dl>
+    {interaction.command && <pre aria-label={t("interaction.commandLabel")} className="ff-interaction-panel__command">{interaction.command}</pre>}
     <div className="ff-interaction-panel__actions">
       <button onClick={() => onDecision?.(false)} disabled={disabled} type="button">{t("interaction.deny")}</button>
       <button onClick={() => onDecision?.(true)} disabled={disabled} className="is-primary" type="button">{t("interaction.allow")}</button>

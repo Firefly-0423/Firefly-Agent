@@ -585,6 +585,8 @@
     "quizYourAnswer": "Your answer",
     "submit": "Submit",
     "submitAll": "Submit all",
+    "commandLabel": "Command",
+    "cwdLabel": "Working directory",
     "targetLabel": "Target",
     "workspaceLabel": "Workspace"
   },

@@ -63,3 +63,17 @@ test("displays plugin declaredBy attribution and partner identity on plugin tool
   expect(partnerPlugin).toContain("来自子任务");
   expect(partnerPlugin).toContain("刃 (implementation)");
 });
+
+test("shows the shell command and working directory the approval would run", () => {
+  vi.stubGlobal("React", React);
+  const permission: PermissionInteraction = {
+    kind: "permission", id: "permit-shell", toolName: "执行命令", summary: "执行「执行命令」",
+    command: "git status --short && echo <done>", cwd: "E:\work\demo",
+  };
+  const html = renderToStaticMarkup(React.createElement(PermissionPanel, { interaction: permission }));
+  expect(html).toContain("ff-interaction-panel__command");
+  expect(html).toContain("git status --short &amp;&amp; echo &lt;done&gt;");
+  expect(html).toContain("E:\work\demo");
+  const plain = renderToStaticMarkup(React.createElement(PermissionPanel, { interaction: { ...permission, command: undefined, cwd: undefined } }));
+  expect(plain).not.toContain("ff-interaction-panel__command");
+});

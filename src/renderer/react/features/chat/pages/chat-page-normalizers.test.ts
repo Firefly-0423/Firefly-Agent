@@ -390,3 +390,12 @@ describe("stored run snapshots projected on reopen (ChatPage A8)", () => {
     }
   });
 });
+
+test("permissionInteraction carries the shell command and cwd, ignoring blank or non-string values", () => {
+  const base = { id: "a1", risk: "shell" as const, toolDescription: "", toolName: "执行命令", toolId: "run_shell" };
+  expect(permissionInteraction({ ...base, args: { command: "ls -la", cwd: "C:\w", timeout_ms: 5000 } }))
+    .toMatchObject({ command: "ls -la", cwd: "C:\w" });
+  const blank = permissionInteraction({ ...base, args: { command: "  ", cwd: 3 } });
+  expect(blank).not.toHaveProperty("command");
+  expect(blank).not.toHaveProperty("cwd");
+});
