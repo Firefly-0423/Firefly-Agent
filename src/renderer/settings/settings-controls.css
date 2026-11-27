@@ -243,6 +243,12 @@ input.ff-select__source { display: none !important; }
   box-shadow: inset 0 0 0 1px rgba(var(--ff-glow-rgb), 0.35);
   color: var(--rb-text-muted);
 }
+/* Default dark: the selected card is a white veil and a neutral stroke, not emerald. */
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .settings-shell .rag-model-card.is-active {
+  border-color: var(--rb-border-strong);
+  background: var(--rb-active-light);
+  box-shadow: inset 0 0 0 1px var(--rb-border-soft);
+}
 :root .settings-shell .rag-model-card.is-active .rag-model-card__title { color: var(--rb-text-strong); }
 .settings-shell .agent-setting-card--rag .agent-setting-subgroup + .agent-setting-subgroup { margin-top: 12px; }
 .rag-field-tag { color: var(--rb-text-muted); font-size: var(--ff-fs-caption); font-weight: 400; }

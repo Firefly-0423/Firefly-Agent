@@ -12,7 +12,7 @@ interface AppProvidersProps {
 /** antd draws its own surfaces (inputs, popovers, menus), so it needs to know which theme is active. */
 const ANTD_TOKENS = {
   "pearl-white": { colorPrimary: "#4d4e69", colorBgBase: "#f5f6f9", colorTextBase: "#3d3e55" },
-  "firefly-dark": { colorPrimary: "#10b981", colorBgBase: "#141414", colorTextBase: "#ededed" },
+  "firefly-dark": { colorPrimary: "#10b981", colorBgBase: "#1f1f1f", colorTextBase: "#e6e6e6" },
 } as const;
 
 export function AppProviders({ children }: AppProvidersProps) {

@@ -113,86 +113,79 @@
   --rb-violet-400: #6ee7b7;
   --rb-toggle-on: var(--rb-pink-500);
   --rb-toggle-off: #3a3a3a;
-  --rb-text-strong: #fafafa;
+  --rb-text-strong: #f2f2f2;
   --rb-text-on-pink: #0a0a0a;
-  --rb-text-muted: #a0a0a0;
-  --rb-text-faint: #8e8e8e;
-  --rb-text-default: #ededed;
+  --rb-text-muted: #9a9a9a;
+  --rb-text-faint: #808080;
+  --rb-text-default: #e6e6e6;
   --rb-success: #6fd6a4;
   --rb-slider-track: rgba(255, 255, 255, 0.14);
   --rb-slider-thumb: #fafafa;
   --rb-slider-fill: var(--rb-pink-500);
-  --rb-shadow-pink: 0 4px 16px rgba(16, 185, 129, 0.2);
+  --rb-shadow-pink: 0 4px 16px rgba(0, 0, 0, 0.35);
   --rb-shadow-elevated: 0 8px 32px rgba(0, 0, 0, 0.55);
   --rb-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 16px rgba(0, 0, 0, 0.3);
   --rb-scroll-thumb-hover: rgba(255, 255, 255, 0.34);
   --rb-scroll-thumb: rgba(255, 255, 255, 0.2);
   --rb-pink-glow: #059669;
   --rb-pink-fg: #6ee7b7;
-  --rb-pink-700: #6ee7b7;
+  --rb-pink-700: #e6e6e6;
   --rb-pink-600: #34d399;
   --rb-pink-500: #10b981;
-  --rb-pink-50: rgba(16, 185, 129, 0.14);
+  --rb-pink-50: rgba(255, 255, 255, 0.06);
   --rb-pink-400: #10b981;
   --rb-pink-300: #059669;
   --rb-pink-200: #2b2b2b;
-  --rb-pink-100: rgba(16, 185, 129, 0.18);
-  --rb-input-text: #ededed;
+  --rb-pink-100: rgba(255, 255, 255, 0.1);
+  --rb-input-text: #e6e6e6;
   --rb-input-placeholder: #8e8e8e;
-  --rb-input-border: #666666;
-  --rb-input-bg: #181818;
+  --rb-input-border: rgba(255, 255, 255, 0.14);
+  --rb-input-bg: #1f1f1f;
   --rb-hover-light: rgba(255, 255, 255, 0.06);
   --rb-grad-pink-hot: linear-gradient(135deg, #059669 0%, #10b981 100%);
   --rb-grad-pink: linear-gradient(135deg, #059669 0%, #10b981 100%);
-  --rb-grad-bg: linear-gradient(180deg, #0a0a0a 0%, #0a0a0a 100%);
+  --rb-grad-bg: linear-gradient(180deg, #181818 0%, #181818 100%);
   --rb-glow-violet: 0 0 10px rgba(255, 255, 255, 0.04);
   --rb-glow-soft: 0 0 6px rgba(255, 255, 255, 0.05);
-  --rb-glow-pink: 0 0 12px rgba(16, 185, 129, 0.22);
+  --rb-glow-pink: 0 0 12px rgba(255, 255, 255, 0.08);
   --rb-divider-light: rgba(255, 255, 255, 0.08);
   --rb-danger-strong: #f6a8a1;
   --rb-danger: #f28b82;
-  --rb-card-bg: #181818;
-  --rb-border-strong: #666666;
-  --rb-border-soft: #2b2b2b;
+  --rb-card-bg: #2a2a2a;
+  --rb-border-strong: rgba(255, 255, 255, 0.2);
+  --rb-border-soft: rgba(255, 255, 255, 0.08);
   --rb-border-grid: rgba(255, 255, 255, 0.04);
   --rb-border-faint: rgba(255, 255, 255, 0.06);
-  --rb-bg-elevated: #222222;
-  --rb-bg-3: #181818;
-  --rb-bg-2: #1e1e1e;
-  --rb-bg-1: #0a0a0a;
-  --rb-bg-0: #0a0a0a;
-  --rb-active-light: rgba(255, 255, 255, 0.11);
+  --rb-bg-elevated: #2a2a2a;
+  --rb-bg-3: #1f1f1f;
+  --rb-bg-2: #1f1f1f;
+  --rb-bg-1: #181818;
+  --rb-bg-0: #181818;
+  --rb-active-light: rgba(255, 255, 255, 0.1);
   --rb-accent-rgb: 16, 185, 129;
   --rb-accent-hover: #34d399;
   --rb-accent-deep: #059669;
-  --rb-feedback-surface: rgba(24, 24, 24, 0.97);
-  --rb-feedback-muted: #a0a0a0;
-  --rb-feedback-fg: #ededed;
+  --rb-feedback-surface: rgba(42, 42, 42, 0.97);
+  --rb-feedback-muted: #9a9a9a;
+  --rb-feedback-fg: #e6e6e6;
   --rb-feedback-border: rgba(255, 255, 255, 0.12);
   --rb-feedback-info: #10b981;
-  --md-table-border: #2b2b2b;
-  --md-quote-border: #059669;
-  --md-quote-bg: rgba(16, 185, 129, 0.06);
+  --md-table-border: rgba(255, 255, 255, 0.1);
+  --md-quote-border: rgba(255, 255, 255, 0.2);
+  --md-quote-bg: rgba(255, 255, 255, 0.04);
   --md-link-hover: #6ee7b7;
   --md-link-color: #10b981;
-  --md-inline-code-text: #ededed;
+  --md-inline-code-text: #e6e6e6;
   --md-inline-code-bg: rgba(255, 255, 255, 0.08);
-  --md-code-border: #2b2b2b;
+  --md-code-border: rgba(255, 255, 255, 0.1);
   --md-code-bg: rgba(255, 255, 255, 0.04);
 }
 
-html[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .settings-shell {
-  --st-selected-fill: rgba(16, 185, 129, 0.14);
-  --st-selected-text: #6ee7b7;
-}
-
-html[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-activity-rail__item[aria-current="page"] {
-  --ff-bg-active: rgba(16, 185, 129, 0.16);
-  --ff-text: #6ee7b7;
-}
-
-html[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-conversation-list .ant-conversations-item-active {
-  --ff-bg-active: rgba(16, 185, 129, 0.14);
+/* Settings tints (selected rows, soft rings, hovers) come from --rb-accent-rgb; in the default dark theme they are white veils.
+   Selection and hover everywhere else use --ff-bg-active / --ff-bg-hover, which are already white veils above.
+   Custom colours keep their accent-derived tints. */
+html[data-ui-theme="firefly-dark"]:not([data-ui-colors]) {
+  --rb-accent-rgb: 255, 255, 255;
 }
 
 [data-ui-theme="pearl-white"] body {

@@ -689,13 +689,13 @@
 .ff-add-menu .ff-sticker-picker::-webkit-scrollbar { width: 6px; }
 .ff-add-menu .ff-sticker-picker::-webkit-scrollbar-thumb { border-radius: 3px; background: var(--ff-border); }
 
-/* Send in dark: a soft translucent mint with a mint arrow instead of a bright solid disc. */
+/* Send in dark: the one emerald button on the composer, with a near-black arrow. */
 :root[data-ui-theme="firefly-dark"] .ff-composer .ant-sender-actions-btn:not(:disabled) {
-  box-shadow: inset 0 0 0 1px var(--ff-mint-soft-28);
-  color: var(--ff-mint-300);
-  background: var(--ff-mint-soft-16);
+  box-shadow: none;
+  color: var(--ff-on-accent);
+  background: var(--ff-mint-400);
 }
-:root[data-ui-theme="firefly-dark"] .ff-composer .ant-sender-actions-btn:not(:disabled):hover { background: var(--ff-mint-soft-26); color: var(--ff-mint-200); }
+:root[data-ui-theme="firefly-dark"] .ff-composer .ant-sender-actions-btn:not(:disabled):hover { background: var(--ff-mint-300); color: var(--ff-on-accent); }
 
 /* Under the docked composer: permission on the left, model and effort, collapse and move on the right, quiet text
    buttons. The row is part of the composer's height, so narrow layouts and the drag bounds include it; the composer
