@@ -165,6 +165,24 @@ describe("Fail-closed wrapping and retry budgets", () => {
     expect((await sandbox.wrapWithSandbox("echo installed", root)).ok).toEqual(true);
     expect(host.install).toHaveBeenCalledTimes(cancellations + 1); expect(host.initialize).toHaveBeenCalledTimes(1);
   });
+
+  it.each([
+    { name: "a missing credential is repaired by reinstalling", credPresent: false, installs: 1 },
+    { name: "a present credential does not reinstall", credPresent: true, installs: 0 },
+  ])("$name before initializing", async ({ credPresent, installs }) => {
+    await sandbox.initSandbox();
+    host.status.mockResolvedValue({ user: { provisioned: true, credPresent, sid: "S-1-5-21-84" }, wfp: { state: "active" } });
+    expect((await sandbox.wrapWithSandbox("echo repaired", workspace())).ok).toEqual(true);
+    expect(host.install).toHaveBeenCalledTimes(installs); expect(host.initialize).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves a half-provisioned sandbox not ready when the repair prompt is cancelled", async () => {
+    await sandbox.initSandbox();
+    host.status.mockResolvedValue({ user: { provisioned: true, credPresent: false }, wfp: { state: "active" } });
+    host.install.mockResolvedValueOnce({ cancelled: true });
+    expect(await sandbox.wrapWithSandbox("echo repair", workspace())).toMatchObject({ ok: false, reason: "not_ready" });
+    expect(host.initialize).not.toHaveBeenCalled();
+  });
 });
 
 describe("Sandbox shutdown cleanup", () => {
