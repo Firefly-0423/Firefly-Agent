@@ -18,10 +18,9 @@ import { t } from "../../../../i18n";
 import type { AguiApi, AguiEvent, CandidateTextEventValue, ChatStoreApi } from "../chat-page-bridge";
 import { normalizeWeatherData, parseSessionRunActiveError, stageForStep, toUiMessages } from "../chat-page-normalizers";
 import { RunEventGate } from "../run-event-gate";
-import { FrameCoalescer, PacedTextReveal, SMOOTH_REVEAL_TICK_MS, SmoothTextRevealQueue } from "../message-reveal";
+import { FrameCoalescer, isMotionReduced, PacedTextReveal } from "../message-reveal";
 import { buildTodoRecoveryContext, mergeAgentLoopTodosForSession, startSessionTodos, type TodoStateBySession } from "../session-runtime-state";
 
-const prefersReducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 type CheckpointPhase = "running" | "waiting_user" | "terminal" | "interrupted";
 /** A terminal snapshot is written at most this many times; the waits between attempts follow. */
 const TERMINAL_SAVE_ATTEMPTS = 3;
@@ -81,8 +80,9 @@ export class AgentRunController {
   private nextProcessNumber = 0;
   private timelineNumber = 0;
   private revealStopped = false;
+  private runCompleting = false;
   private revealSteps: Promise<void> = Promise.resolve();
-  private readonly textReveal = new PacedTextReveal(() => this.request.targetMode !== "chat" && !prefersReducedMotion());
+  private readonly textReveal = new PacedTextReveal(() => !isMotionReduced());
   private waitingPublic: PublicText[] | undefined;
   private tailIsText = false;
   private unfinishedSteps = 0;
@@ -90,12 +90,9 @@ export class AgentRunController {
   private previewRound: string | undefined;
   private previewText = "";
   private shownPreview = "";
-  private readonly previewQueue = new SmoothTextRevealQueue();
+  private readonly previewReveal = new PacedTextReveal(() => !isMotionReduced());
+  private previewDrainTracked = false;
   private previewSequence: number | undefined;
-  private frameHandle: number | undefined;
-  private frameIsRaf = false;
-  private previousFrameTime: number | undefined;
-  private releasePreview: (() => void) | undefined;
   private classification: { processId: string; content: string } | undefined;
   private stickerId: string | null = null;
   private tools: ToolExecutionRecord[] = [];
@@ -275,7 +272,8 @@ export class AgentRunController {
       this.savedAnswer = "";
       await this.settleTerminalSave();
     } finally {
-      this.cancelCandidateFrame();
+      this.textReveal.dispose();
+      this.previewReveal.dispose();
       if (this.saveTimer !== undefined) window.clearTimeout(this.saveTimer);
       if (this.ports.registries.checkpointTriggers.current[this.request.sessionId] === trigger) {
         const remaining = { ...this.ports.registries.checkpointTriggers.current };
@@ -441,6 +439,7 @@ export class AgentRunController {
       if (this.revealStopped) return;
       let draining: Promise<void> = Promise.resolve();
       for (const [itemKey, text, deliver] of queued) draining = this.textReveal.push(itemKey, text, deliver);
+      if (this.runCompleting) return this.textReveal.finish();
       return draining;
     });
     this.tailIsText = true;
@@ -471,7 +470,7 @@ export class AgentRunController {
   }
 
   private publishCandidateChunk(chunk: string): void {
-    if (!chunk) return;
+    if (!chunk || (this.ended && this.finishStatus !== "success")) return;
     this.shownPreview += chunk;
     this.patch({
       transientText: this.shownPreview, loading: false, waitingForFirstEvent: false,
@@ -479,63 +478,18 @@ export class AgentRunController {
     });
   }
 
-  private ensureCandidateDrainTracked(): void {
-    if (this.releasePreview || !this.previewQueue.hasPending) return;
-    const draining = new Promise<void>((complete) => { this.releasePreview = complete; });
-    this.chainReveal(() => draining);
-  }
-
-  private completeCandidateDrain(): void {
-    const complete = this.releasePreview;
-    this.releasePreview = undefined;
-    this.previousFrameTime = undefined;
-    complete?.();
-  }
-
-  private appendCandidateDelta(delta: string): void {
-    const firstChunk = this.previewQueue.push(delta);
-    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-    if (reduced) {
-      this.publishCandidateChunk(firstChunk + this.previewQueue.drain());
-      this.completeCandidateDrain();
-      return;
+  private appendCandidateDelta(roundId: string, delta: string): void {
+    const draining = this.previewReveal.push("preview-" + roundId, delta, (chunk) => this.publishCandidateChunk(chunk));
+    if (!this.previewDrainTracked && this.previewReveal.active) {
+      this.previewDrainTracked = true;
+      this.chainReveal(() => draining);
+      void draining.finally(() => { this.previewDrainTracked = false; });
     }
-    this.publishCandidateChunk(firstChunk);
-    if (!this.previewQueue.hasPending) { this.completeCandidateDrain(); return; }
-    this.ensureCandidateDrainTracked();
-    this.scheduleCandidateFrame();
-  }
-
-  private scheduleCandidateFrame(): void {
-    if (this.frameHandle !== undefined || !this.previewQueue.hasPending) return;
-    if (this.previousFrameTime === undefined) this.previousFrameTime = performance.now();
-    this.frameIsRaf = Boolean(window.requestAnimationFrame);
-    const schedule = window.requestAnimationFrame?.bind(window)
-      ?? ((callback: FrameRequestCallback) => window.setTimeout(() => callback(performance.now()), SMOOTH_REVEAL_TICK_MS));
-    this.frameHandle = schedule((now) => {
-      this.frameHandle = undefined;
-      if (!this.previewQueue.hasPending) { this.completeCandidateDrain(); return; }
-      const elapsed = Math.max(0, now - (this.previousFrameTime ?? now));
-      if (elapsed >= SMOOTH_REVEAL_TICK_MS) {
-        this.previousFrameTime = now;
-        this.publishCandidateChunk(this.previewQueue.takeNext(Math.min(elapsed, 160)));
-      }
-      if (this.previewQueue.hasPending) this.scheduleCandidateFrame();
-      else this.completeCandidateDrain();
-    });
-  }
-
-  private cancelCandidateFrame(): void {
-    if (this.frameHandle === undefined) return;
-    if (this.frameIsRaf && window.cancelAnimationFrame) window.cancelAnimationFrame(this.frameHandle);
-    else window.clearTimeout(this.frameHandle);
-    this.frameHandle = undefined;
   }
 
   private abortCandidateReveal(): void {
-    this.cancelCandidateFrame();
-    this.previewQueue.clear();
-    this.completeCandidateDrain();
+    this.previewReveal.cancel();
+    this.previewDrainTracked = false;
   }
 
   private resetCandidateState(): void {
@@ -561,6 +515,7 @@ export class AgentRunController {
     const processKey = "process-" + this.nextProcessNumber++;
     this.progressEntries = [...this.progressEntries, createRoundProcessMessage(processKey, "", this.tools.length, roundId, seq)];
     this.classification = { processId: processKey, content };
+    if (typeof document !== "undefined" && document.hidden) this.previewReveal.drainNow();
     this.chainReveal(() => { this.commitPendingCandidateClassification(); });
   }
 
@@ -674,8 +629,7 @@ export class AgentRunController {
       if (fields.action === "delta" && typeof fields.delta === "string" && fields.delta) {
         if (this.previewRound !== fields.roundId) {
           if (this.classification) {
-            this.publishCandidateChunk(this.previewQueue.drain());
-            this.completeCandidateDrain();
+            this.previewReveal.drainNow();
             this.commitPendingCandidateClassification();
           }
           this.resetCandidateState();
@@ -683,7 +637,7 @@ export class AgentRunController {
           this.previewSequence = this.nextSeq();
         }
         this.previewText += fields.delta;
-        this.appendCandidateDelta(fields.delta);
+        this.appendCandidateDelta(fields.roundId, fields.delta);
       } else if (fields.action === "discard") this.closeRoundCandidateText();
     } else if (event.type === "RUN_STARTED") {
       this.beginEventRun(event);
@@ -761,6 +715,7 @@ export class AgentRunController {
         if (!event.delta) break;
         if (this.previewText) this.answer = reduceDisplayAnswer(this.answer, event);
         else this.enqueuePublicTextReveal("answer", event.delta, (chunk) => {
+          if (this.revealStopped) return;
           this.answer = reduceDisplayAnswer(this.answer, { type: "TEXT_MESSAGE_CONTENT", delta: chunk });
           this.patch({ content: this.answer.text, loading: false, streaming: true, responseStarted: true });
           void this.checkpointRun("running");
@@ -781,8 +736,15 @@ export class AgentRunController {
         this.ended = true;
         const terminal = displayTerminal({ ...event, type: event.type });
         this.finishStatus = terminal.status;
-        if (this.finishStatus !== "success") this.failPlan(this.finishStatus === "cancelled" ? "cancelled" : "failed");
-        if (this.finishStatus !== "success") { this.cancelPublicReveal(); this.abortCandidateReveal(); }
+        if (this.finishStatus !== "success") {
+          this.failPlan(this.finishStatus === "cancelled" ? "cancelled" : "failed");
+          this.cancelPublicReveal();
+          this.abortCandidateReveal();
+        } else {
+          this.runCompleting = true;
+          void this.previewReveal.finish(250);
+          void this.textReveal.finish(250);
+        }
         const phase = terminal.stage;
         this.patch({ runStage: phase });
         const owner = this.ports.registries.activeRuns.current[this.request.sessionId]?.runId;
@@ -848,6 +810,7 @@ export class AgentRunController {
           this.progressEntries = [...this.progressEntries, createRoundProcessMessage(key, "", this.tools.length, this.roundKey, sequence)];
           this.patch({ processMessages: this.progressEntries });
           this.enqueuePublicTextReveal(key, text, (chunk) => {
+            if (this.revealStopped) return;
             this.progressEntries = this.progressEntries.map((entry) => entry.id === key ? { ...entry, content: entry.content + chunk } : entry);
             this.patch({ processMessages: this.progressEntries });
             void this.checkpointRun("running");

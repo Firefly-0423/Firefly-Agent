@@ -1,7 +1,6 @@
 /**
- * Pacing for public text: Work/Learn/Code receive and classify a model turn before its public text is shown, and the
- * text then appears at a reading pace; Chat shows it as it arrives. This only changes when received text appears,
- * never what appears.
+ * Pacing for public text across Chat, Work, and Code: received text is buffered and revealed at a smooth per-frame
+ * reading pace while preserving content parity (only when text appears changes, never what appears).
  */
 /** 按字形簇切分（emoji、组合字符不会被拆开）；运行环境没有 Segmenter 时退回按码点切分。 */
 export function splitGraphemes(text: string): string[] {
@@ -11,7 +10,22 @@ export function splitGraphemes(text: string): string[] {
   return [...new Ctor(undefined, { granularity: "grapheme" }).segment(text)].map((item) => item.segment);
 }
 
-export const SMOOTH_REVEAL_TICK_MS: number = 40;
+export function isMotionReduced(): boolean {
+  const doc = typeof document !== "undefined" ? document : undefined;
+  const setting = doc?.documentElement?.dataset?.reduceMotion;
+  if (setting === "on") return true;
+  if (setting === "off") return false;
+  const matcher = typeof window !== "undefined" && typeof window.matchMedia === "function"
+    ? window.matchMedia.bind(window)
+    : typeof globalThis.matchMedia === "function"
+      ? globalThis.matchMedia.bind(globalThis)
+      : undefined;
+  return matcher ? matcher("(prefers-reduced-motion: reduce)").matches : false;
+}
+
+function isDocumentHidden(): boolean {
+  return typeof document !== "undefined" && document.hidden === true;
+}
 
 export type PacerOptions = {
   baseRate: number;
@@ -214,93 +228,6 @@ export class FramePacer {
   }
 }
 
-type SmoothTextRevealOptions = {
-  decelerationMs: number;
-  accelerationMs: number;
-  maxGroupSize: number;
-  initialGroupSize: number;
-  maxRate: number;
-  baseRate: number;
-};
-
-const DEFAULT_SMOOTH_REVEAL_OPTIONS: SmoothTextRevealOptions = {
-  decelerationMs: 300,
-  accelerationMs: 180,
-  maxGroupSize: 9,
-  initialGroupSize: 3,
-  maxRate: 220,
-  baseRate: 75,
-};
-
-/**
- * Legacy helper retained until Step 3 migrates candidate preview onto FramePacer.
- */
-export class SmoothTextRevealQueue {
-  private readonly options: SmoothTextRevealOptions;
-  private pending: string[] = [];
-  private started = false;
-  private currentRate: number;
-  private credit = 0;
-
-  constructor(options: Partial<SmoothTextRevealOptions> = {}) {
-    this.options = Object.assign({}, DEFAULT_SMOOTH_REVEAL_OPTIONS, options);
-    this.currentRate = this.options.baseRate;
-  }
-
-  get hasPending(): boolean {
-    return this.pending.length !== 0;
-  }
-
-  get pendingCount(): number {
-    const { length } = this.pending;
-    return length;
-  }
-
-  push(text: string): string {
-    const incoming = splitGraphemes(text);
-    if (!incoming.length) return "";
-    this.pending.push(...incoming);
-    if (this.started) return "";
-    this.started = true;
-    const head = Math.min(this.options.initialGroupSize, this.pending.length);
-    return this.takeExact(head);
-  }
-
-  takeNext(elapsedMs = SMOOTH_REVEAL_TICK_MS): string {
-    if (!this.pending.length) return "";
-    const { baseRate, maxRate, accelerationMs, decelerationMs, maxGroupSize } = this.options;
-    const duration = Math.max(0, elapsedMs);
-    const targetRate = Math.min(maxRate, baseRate + this.pending.length * 0.9);
-    const transitionMs = targetRate > this.currentRate ? accelerationMs : decelerationMs;
-    const blend = 1 - Math.exp(-duration / Math.max(1, transitionMs));
-    this.currentRate += (targetRate - this.currentRate) * blend;
-    this.credit += (this.currentRate * duration) / 1000;
-
-    const frameGroup = maxGroupSize * Math.max(1, Math.floor(duration / 50));
-    let count = Math.min(frameGroup, this.pending.length, Math.floor(this.credit));
-    if (count === 0) return "";
-    if (this.pending.length - count === 1 && count < maxGroupSize) count += 1;
-    const remainder = this.credit - count;
-    this.credit = Math.max(0, remainder);
-    return this.takeExact(count);
-  }
-
-  drain(): string {
-    return this.takeExact(this.pending.length);
-  }
-
-  clear(): void {
-    this.credit = 0;
-    this.started = false;
-    this.pending = [];
-    this.currentRate = this.options.baseRate;
-  }
-
-  private takeExact(count: number): string {
-    return this.pending.splice(0, count).join("");
-  }
-}
-
 type FrameHandle = { id: number; raf: boolean };
 
 function requestFrame(callback: (now: number) => void): FrameHandle {
@@ -329,17 +256,32 @@ function cancelFrame(handle: FrameHandle | undefined): void {
 /**
  * Streams received text onto the screen at most once per animation frame via FramePacer.
  * - paced: characters come out smoothly via fractional-credit accumulation (max 4 graphemes/frame);
- * - not paced: everything queued appears on the next frame.
+ * - reduced motion (not paced): coalesces queued text directly to the next frame without tweening;
+ * - hidden document: stops rAF, drains directly on finish/category boundaries, and coalesces once on foreground return.
  * It only changes when text appears, never what appears.
  */
 export class PacedTextReveal {
   private readonly pacer: FramePacer;
   private frame: FrameHandle | undefined;
   private lastFrameAt: number | undefined;
+  private finishingRemainingMs: number | undefined;
   private drain: { promise: Promise<void>; resolve: () => void } | undefined;
+  private readonly onVisibilityChange: (() => void) | undefined;
 
   constructor(private readonly paced: () => boolean, options?: Partial<PacerOptions>) {
     this.pacer = new FramePacer(options);
+    if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+      this.onVisibilityChange = () => {
+        if (isDocumentHidden()) {
+          this.stopFrame();
+          if (this.finishingRemainingMs !== undefined) this.flushNow();
+          return;
+        }
+        this.lastFrameAt = undefined;
+        this.flushNow();
+      };
+      document.addEventListener("visibilitychange", this.onVisibilityChange);
+    }
   }
 
   /** True while received text is still waiting to be shown. */
@@ -358,42 +300,109 @@ export class PacedTextReveal {
       this.drain = { promise, resolve };
     }
     const { promise } = this.drain;
+    if (!isDocumentHidden()) this.schedule();
+    return promise;
+  }
+
+  /** Fast-drains any buffered text within `windowMs` on completion, or immediately when hidden/unpaced. */
+  finish(windowMs = 250): Promise<void> {
+    if (!this.pacer.hasPending) {
+      this.finishDrain();
+      return Promise.resolve();
+    }
+    if (isDocumentHidden() || !this.paced()) {
+      this.flushNow();
+      return Promise.resolve();
+    }
+    this.finishingRemainingMs = windowMs;
+    if (!this.drain) {
+      let resolve!: () => void;
+      const promise = new Promise<void>((done) => { resolve = done; });
+      this.drain = { promise, resolve };
+    }
+    const { promise } = this.drain;
     this.schedule();
     return promise;
   }
 
+  /** Immediately drains all buffered text (e.g. on a category boundary while hidden). */
+  drainNow(): void {
+    this.flushNow();
+  }
+
   /** Drops whatever has not been shown yet (the run failed or was cancelled). */
   cancel(): void {
+    this.stopFrame();
+    this.finishingRemainingMs = undefined;
+    this.pacer.clear();
+    this.finishDrain();
+  }
+
+  /** Releases listeners and discards any remaining unrevealed text. */
+  dispose(): void {
+    this.cancel();
+    if (this.onVisibilityChange && typeof document !== "undefined" && typeof document.removeEventListener === "function") {
+      document.removeEventListener("visibilitychange", this.onVisibilityChange);
+    }
+  }
+
+  private flushNow(): void {
+    this.stopFrame();
+    this.finishingRemainingMs = undefined;
+    for (const item of this.pacer.drainAll()) item.publish(item.chunk);
+    this.finishDrain();
+  }
+
+  private stopFrame(): void {
     cancelFrame(this.frame);
     this.frame = undefined;
     this.lastFrameAt = undefined;
-    this.pacer.clear();
-    this.finish();
   }
 
   private schedule(): void {
-    if (this.frame) return;
+    if (this.frame || isDocumentHidden()) return;
     if (!this.pacer.hasPending) {
-      this.finish();
+      this.finishingRemainingMs = undefined;
+      this.finishDrain();
       return;
     }
-    if (this.paced() && !this.pacer.hasSafePending) return;
+    if (this.paced() && this.finishingRemainingMs === undefined && !this.pacer.hasSafePending) return;
     this.frame = requestFrame((now) => {
       this.frame = undefined;
-      if (!this.paced()) {
-        for (const item of this.pacer.drainAll()) item.publish(item.chunk);
-      } else {
-        const dt = this.lastFrameAt === undefined ? 16 : Math.max(0, now - this.lastFrameAt);
-        this.lastFrameAt = now;
-        const emission = this.pacer.tick(dt);
-        if (emission) emission.publish(emission.chunk);
+      if (isDocumentHidden()) {
+        this.lastFrameAt = undefined;
+        if (this.finishingRemainingMs !== undefined) this.flushNow();
+        return;
       }
-      this.schedule();
+      if (!this.paced()) {
+        this.flushNow();
+        return;
+      }
+      if (this.finishingRemainingMs !== undefined) {
+        const dt = this.lastFrameAt === undefined ? 16 : Math.max(1, now - this.lastFrameAt);
+        this.lastFrameAt = now;
+        this.finishingRemainingMs -= dt;
+        for (const item of this.pacer.finishTick(dt, this.finishingRemainingMs)) item.publish(item.chunk);
+        if (!this.pacer.hasPending) {
+          this.finishingRemainingMs = undefined;
+          this.finishDrain();
+        } else {
+          this.schedule();
+        }
+        return;
+      }
+      const dt = this.lastFrameAt === undefined ? 16 : Math.max(0, now - this.lastFrameAt);
+      this.lastFrameAt = now;
+      const emission = this.pacer.tick(dt);
+      if (emission) emission.publish(emission.chunk);
+      if (!this.pacer.hasPending) this.finishDrain();
+      else this.schedule();
     });
   }
 
-  private finish(): void {
+  private finishDrain(): void {
     this.lastFrameAt = undefined;
+    this.finishingRemainingMs = undefined;
     this.pacer.clear();
     const drain = this.drain;
     this.drain = undefined;
