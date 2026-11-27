@@ -48,26 +48,31 @@ const STATUS_ORDER: Record<PluginRuntimeStatus, number> = {
 function replaceConfirmation(summary: PluginReplaceSummary, t: Translate) {
   const { current, incoming } = summary;
   const originLabel = (origin: "local" | "market") => t(origin === "market" ? "pluginPanel.replaceConfirm.originMarket" : "pluginPanel.replaceConfirm.originLocal");
-  const tools = incoming.tools.map(tool => `${tool.title} (${tool.name}) · ${tool.risk.join(", ")}`);
-  const lines = [
-    t("pluginPanel.replaceConfirm.currentLine", {
-      name: current.name, version: current.version, origin: originLabel(current.origin),
-      state: t(current.enabled ? "pluginPanel.replaceConfirm.stateEnabled" : "pluginPanel.replaceConfirm.stateDisabled"),
-    }),
-    t("pluginPanel.replaceConfirm.incomingLine", { name: incoming.name, version: incoming.version }),
-    current.origin === "market" ? t("pluginPanel.replaceConfirm.originChange") : "",
-    t(current.enabled ? "pluginPanel.replaceConfirm.stateEnabledNotice" : "pluginPanel.replaceConfirm.stateDisabledNotice"),
-    t("pluginPanel.enableConfirm.trustNotice"),
-    incoming.native ? t("pluginPanel.enableConfirm.nativeWarning") : "",
-    summary.nativeEscalation ? t("pluginPanel.replaceConfirm.nativeEscalation") : "",
-    summary.addedPermissions.length > 0
+  const tools = incoming.tools.map(tool => `· ${tool.title} (${tool.name}) · ${tool.risk.join(", ")}`);
+  // Sections are separated by a blank line and rendered with line breaks preserved by the confirm dialog.
+  const sections = [
+    [
+      t("pluginPanel.replaceConfirm.currentLine", {
+        name: current.name, version: current.version, origin: originLabel(current.origin),
+        state: t(current.enabled ? "pluginPanel.replaceConfirm.stateEnabled" : "pluginPanel.replaceConfirm.stateDisabled"),
+      }),
+      t("pluginPanel.replaceConfirm.incomingLine", { name: incoming.name, version: incoming.version }),
+    ],
+    [
+      current.origin === "market" ? t("pluginPanel.replaceConfirm.originChange") : "",
+      t(current.enabled ? "pluginPanel.replaceConfirm.stateEnabledNotice" : "pluginPanel.replaceConfirm.stateDisabledNotice"),
+      t("pluginPanel.enableConfirm.trustNotice"),
+      incoming.native ? t("pluginPanel.enableConfirm.nativeWarning") : "",
+      summary.nativeEscalation ? t("pluginPanel.replaceConfirm.nativeEscalation") : "",
+    ],
+    [summary.addedPermissions.length > 0
       ? t("pluginPanel.replaceConfirm.newPermissions", { permissions: summary.addedPermissions.map(perm => permissionLabel(perm, t)).join(", ") })
-      : t("pluginPanel.replaceConfirm.noNewPermissions"),
-    tools.length > 0 ? t("pluginPanel.replaceConfirm.tools", { tools: tools.join("; ") }) : t("pluginPanel.replaceConfirm.toolsNone"),
+      : t("pluginPanel.replaceConfirm.noNewPermissions")],
+    [tools.length > 0 ? t("pluginPanel.replaceConfirm.tools", { tools: tools.join("\n") }) : t("pluginPanel.replaceConfirm.toolsNone")],
   ];
   return {
     title: t("pluginPanel.replaceConfirm.title"),
-    message: lines.filter(Boolean).join("\n\n"),
+    message: sections.map(lines => lines.filter(Boolean).join("\n")).filter(Boolean).join("\n\n"),
     confirmText: t("pluginPanel.replaceConfirm.confirm"),
     cancelText: t("common.cancel"),
     dangerous: true,

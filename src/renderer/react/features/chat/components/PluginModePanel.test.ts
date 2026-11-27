@@ -242,8 +242,19 @@ test.each(["importFolder", "importZip"] as const)("%s asks before replacing and 
   expect(request).toMatchObject({ title: "替换已安装的插件", confirmText: "替换", cancelText: "取消", dangerous: true });
   for (const text of [
     "Archive toolkit", "4.2.0", "Archive toolkit dev", "5.0.0",
-    "插件市场", "本地导入", "已启用", "新增权限", "运行模型对话", "Scan (scan)", "高风险警告", "native: true", "新增了原生模块",
+    "插件市场", "本地导入", "已启用", "权限变化：新增", "运行模型对话", "Scan (scan)", "高风险警告", "native: true", "新增了原生模块",
   ]) expect(request.message).toContain(text);
+  // Separate sections with one fact per line and the tools as a list, not one run of text.
+  const sections = (request.message as string).split("\n\n");
+  expect(sections).toHaveLength(4);
+  const [identity, notices, permissions, tools] = sections.map(section => section.split("\n"));
+  expect(identity).toEqual([
+    expect.stringMatching(/^已安装：Archive toolkit 4\.2\.0/),
+    expect.stringMatching(/^待导入：Archive toolkit dev 5\.0\.0/),
+  ]);
+  expect(notices.length).toBeGreaterThanOrEqual(3);
+  expect(permissions).toEqual([expect.stringMatching(/^权限变化：新增 /)]);
+  expect(tools).toEqual(["工具：", expect.stringMatching(/^· Scan \(scan\)/)]);
   expect(api[method]).toHaveBeenCalledTimes(1);
   expect(api.setEnabled).not.toHaveBeenCalled();
   expect(host.textContent).not.toContain("导入失败");
