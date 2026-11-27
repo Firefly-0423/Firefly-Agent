@@ -109,6 +109,13 @@ export function createToastWindowController(deps: ToastWindowDeps) {
         if (!win.isVisible()) {
           win.showInactive();
         }
+        // 桌宠与 toast 同在 screen-saver 层级（Windows 上所有高层级都落在同一置顶带），
+        // 同层先后顺序由最近一次置顶决定，所以每次同步都把 toast 抬到桌宠之上。
+        try {
+          win.moveTop();
+        } catch {
+          // 窗口正被销毁：忽略
+        }
         return;
       }
       if (handle && !handle.isDestroyed() && handle.isVisible()) {
