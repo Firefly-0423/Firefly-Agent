@@ -121,7 +121,7 @@ describe("Command wrapping and session reuse", () => {
   it("reuses the same workspace session and reinitializes on workspace or permission changes", async () => {
     await sandbox.initSandbox(); const first = workspace(), second = workspace();
     await sandbox.wrapWithSandbox("echo morning", first); await sandbox.wrapWithSandbox("echo evening", first);
-    expect(host.initialize).toHaveBeenCalledTimes(1); expect(host.status).toHaveBeenCalledTimes(2); expect(host.wrap).toHaveBeenCalledTimes(2);
+    expect(host.initialize).toHaveBeenCalledTimes(1); expect(host.status).toHaveBeenCalledTimes(3); expect(host.wrap).toHaveBeenCalledTimes(2);
     await sandbox.wrapWithSandbox("echo next", second);
     expect(host.reset).toHaveBeenCalledTimes(1); expect(host.initialize).toHaveBeenCalledTimes(2);
     host.level = "per-action"; await sandbox.wrapWithSandbox("echo per-action", second);
@@ -182,6 +182,38 @@ describe("Fail-closed wrapping and retry budgets", () => {
     host.install.mockResolvedValueOnce({ cancelled: true });
     expect(await sandbox.wrapWithSandbox("echo repair", workspace())).toMatchObject({ ok: false, reason: "not_ready" });
     expect(host.initialize).not.toHaveBeenCalled();
+  });
+
+  it("shares one repair between two workspaces that both see a missing credential", async () => {
+    await sandbox.initSandbox();
+    host.status.mockResolvedValue({ user: { provisioned: true, credPresent: false }, wfp: { state: "active" } });
+    let finish!: (value: unknown) => void;
+    host.install.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+    const first = sandbox.wrapWithSandbox("echo one", workspace());
+    const second = sandbox.wrapWithSandbox("echo two", workspace());
+    await vi.waitFor(() => expect(host.status).toHaveBeenCalledTimes(3));
+    expect(host.install).toHaveBeenCalledTimes(1);
+    finish(healthy);
+    expect((await Promise.all([first, second])).map((outcome) => outcome.ok)).toEqual([true, true]);
+    expect(host.install).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns not-ready to every waiter and initializes nothing when the shared repair is cancelled", async () => {
+    await sandbox.initSandbox();
+    host.status.mockResolvedValue({ user: { provisioned: false }, wfp: { state: "active" } });
+    let finish!: (value: unknown) => void;
+    host.install.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+    const first = sandbox.wrapWithSandbox("echo one", workspace());
+    const second = sandbox.wrapWithSandbox("echo two", workspace());
+    await vi.waitFor(() => expect(host.status).toHaveBeenCalledTimes(3));
+    finish({ cancelled: true });
+    expect(await Promise.all([first, second])).toEqual([
+      expect.objectContaining({ ok: false, reason: "not_ready" }),
+      expect.objectContaining({ ok: false, reason: "not_ready" }),
+    ]);
+    expect(host.install).toHaveBeenCalledTimes(1);
+    expect(host.initialize).not.toHaveBeenCalled();
+    expect(host.wrap).not.toHaveBeenCalled();
   });
 });
 
