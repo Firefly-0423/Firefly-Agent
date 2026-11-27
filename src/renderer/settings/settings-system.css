@@ -811,7 +811,7 @@ body { font-size: var(--ff-ui-font-size, 16px); }
   --st-selected-text: var(--rb-text-strong);
   --st-nav-hover: rgba(255, 255, 255, 0.06);
 }
-:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .settings-shell .settings-main { background: var(--ff-bg-workspace); }
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .settings-shell .settings-main { background: var(--rb-bg-2); }
 /* Chips and calendar days that were solid accent with a white label: a white veil with normal text instead. */
 :root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) :is(.ff-date__day.is-selected, .reasoning-levels__chip input:checked + span) {
   background: var(--st-selected-fill); border-color: transparent; color: var(--rb-text-strong);
@@ -825,21 +825,23 @@ body { font-size: var(--ff-ui-font-size, 16px); }
   --st-selected-text: var(--rb-pink-700);
   --st-nav-hover: color-mix(in srgb, var(--rb-pink-400) 9%, transparent);
 }
-:root[data-glass="true"][data-ui-theme="firefly-dark"] .settings-shell,
-:root[data-glass="true"][data-ui-theme="firefly-dark"] .ff-modal-overlay {
+:root[data-glass="true"][data-ui-theme="firefly-dark"]:not([data-ui-colors]) .settings-shell,
+:root[data-glass="true"][data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-modal-overlay {
   --st-win-alpha: 92%;
   --st-main-alpha: 92%;
   --st-card-alpha: 90%;
 }
 :root[data-glass="true"][data-ui-theme="firefly-dark"][data-ui-colors] .settings-shell,
 :root[data-glass="true"][data-ui-theme="firefly-dark"][data-ui-colors] .ff-modal-overlay {
+  --st-main-alpha: 90%;
+  --st-card-alpha: 78%;
   --st-card-fill:
     linear-gradient(180deg, color-mix(in srgb, var(--rb-pink-400) 8%, transparent) 0%, color-mix(in srgb, var(--rb-pink-400) 2%, transparent) 100%),
     color-mix(in srgb, var(--rb-card-bg) var(--st-card-alpha), transparent);
 }
 :root[data-glass="true"][data-ui-theme="firefly-dark"] .settings-shell { box-shadow: inset 0 1px 0 var(--ff-white-alpha-7); }
 :root[data-glass="true"][data-ui-theme="firefly-dark"]:not([data-ui-colors]) .settings-shell .settings-main {
-  background: color-mix(in srgb, var(--ff-bg-workspace) var(--st-main-alpha), transparent);
+  background: color-mix(in srgb, var(--rb-bg-2) var(--st-main-alpha), transparent);
 }
 :root[data-glass="true"][data-ui-theme="firefly-dark"][data-ui-colors] .settings-shell .settings-main {
   background:
@@ -937,6 +939,10 @@ body { font-size: var(--ff-ui-font-size, 16px); }
 #memory-panel .memory-graph-wrap {
   margin-top: 12px; border: 1px solid var(--rb-border-soft); border-radius: 16px; overflow: hidden;
   background: radial-gradient(circle at 50% 45%, rgba(var(--ff-glow-rgb, var(--rb-accent-rgb)), .07), transparent 62%), var(--rb-card-bg);
+}
+/* Default dark: a plain card surface, no emerald radial. */
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) #memory-panel .memory-graph-wrap {
+  background: var(--rb-card-bg);
 }
 #memory-panel .memory-graph { display: block; width: 100%; height: auto; min-height: 340px; cursor: grab; touch-action: none; user-select: none; }
 #memory-panel .memory-graph.is-panning { cursor: grabbing; }

@@ -8,6 +8,8 @@ const rootCss = read("../react/styles/react-root.css");
 const systemCss = read("./settings-system.css");
 const glowCss = read("../ui/glow.css");
 const tokensCss = read("../ui/tokens.css");
+const controlsCss = read("./settings-controls.css");
+const settingsHtml = read("./index.html");
 const messagesCss = read("../react/features/chat/components/ChatMessageList.css");
 
 const block = (css: string, selector: string) => {
@@ -131,5 +133,75 @@ describe("default dark chat content is neutral", () => {
 
   it("keeps the success colour for completed status", () => {
     expect(neutralSection).toContain(".ff-task-delegation.is-completed .ff-task-delegation__marker { color: var(--ff-success); }");
+  });
+});
+
+describe("settings window uses only tokens its own stylesheets define", () => {
+  const sheets = [...settingsHtml.matchAll(/href="(\.{1,2}\/[^"]+\.css)"/g)].map(match => match[1]);
+  const loaded = sheets.map(href => read(href)).join("\n");
+  const settingsMainRules = systemCss.split("\n").filter(line => /\.settings-main\b/.test(line) && /background/.test(line) && /:not\(\[data-ui-colors\]\)/.test(line));
+
+  it("loads the shared theme sheet and the settings sheets, but not the React root sheet", () => {
+    expect(sheets).toEqual(expect.arrayContaining(["../ui/theme.css", "./settings-system.css", "./settings-controls.css"]));
+    expect(sheets.some(href => href.includes("react-root"))).toBe(false);
+  });
+
+  it("resolves the default dark settings-main background to #1f1f1f from the loaded sheets, in normal mode", () => {
+    expect(settingsMainRules.length).toBeGreaterThanOrEqual(1);
+    const normal = settingsMainRules.find(rule => !rule.includes("data-glass"));
+    expect(normal, "normal-mode rule").toBeDefined();
+    expect(normal).not.toContain("--ff-bg-workspace");
+    expect(normal!.match(/var\((--[a-z0-9-]+)\)/)![1]).toBe("--rb-bg-2");
+    // The token must be declared by a loaded sheet, on a selector that matches the document root in the settings window.
+    const declared = [...loaded.matchAll(/^((?:html)?\[data-ui-theme="firefly-dark"\]) \{([^}]*)\}/gm)].map(match => token(match[2], "--rb-bg-2")).filter(Boolean);
+    expect(declared).toEqual(["#1f1f1f"]);
+  });
+
+  it("uses the same loaded token for the glass-mode content area", () => {
+    const glass = block(systemCss, ':root[data-glass="true"][data-ui-theme="firefly-dark"]:not([data-ui-colors]) .settings-shell .settings-main');
+    expect(glass).toContain("var(--rb-bg-2) var(--st-main-alpha)");
+    expect(glass).not.toContain("--ff-bg-workspace");
+  });
+
+  it("no longer references --ff-bg-workspace anywhere in the settings stylesheets", () => {
+    expect(systemCss).not.toContain("--ff-bg-workspace");
+    expect(controlsCss).not.toContain("--ff-bg-workspace");
+  });
+});
+
+describe("custom colours keep the previous glass behaviour", () => {
+  it("applies the 92/92/90 glass alphas to default dark only", () => {
+    const def = block(systemCss, ':root[data-glass="true"][data-ui-theme="firefly-dark"]:not([data-ui-colors]) .settings-shell,\n:root[data-glass="true"][data-ui-theme="firefly-dark"]:not([data-ui-colors]) .ff-modal-overlay');
+    expect([token(def, "--st-win-alpha"), token(def, "--st-main-alpha"), token(def, "--st-card-alpha")]).toEqual(["92%", "92%", "90%"]);
+    expect(systemCss).not.toContain(':root[data-glass="true"][data-ui-theme="firefly-dark"] .settings-shell,\n:root[data-glass="true"][data-ui-theme="firefly-dark"] .ff-modal-overlay {\n  --st-win-alpha');
+  });
+
+  it("restores 90% content and 78% card opacity with the accent card fill and accent radial for custom colours", () => {
+    const custom = block(systemCss, ':root[data-glass="true"][data-ui-theme="firefly-dark"][data-ui-colors] .settings-shell,\n:root[data-glass="true"][data-ui-theme="firefly-dark"][data-ui-colors] .ff-modal-overlay');
+    expect(token(custom, "--st-main-alpha")).toBe("90%");
+    expect(token(custom, "--st-card-alpha")).toBe("78%");
+    expect(custom).not.toContain("--st-win-alpha");
+    expect(custom).toContain("var(--rb-pink-400) 8%");
+    const main = block(systemCss, ':root[data-glass="true"][data-ui-theme="firefly-dark"][data-ui-colors] .settings-shell .settings-main');
+    expect(main).toContain("radial-gradient(900px 420px at 100% 0%");
+    expect(main).toContain("var(--rb-bg-1) var(--st-main-alpha)");
+  });
+});
+
+describe("default dark settings surfaces have no emerald background", () => {
+  it("paints the selected retrieval model card with a white veil, scoped to default dark", () => {
+    const rule = block(controlsCss, ':root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) .settings-shell .rag-model-card.is-active');
+    expect(rule).toContain("background: var(--rb-active-light)");
+    expect(rule).not.toMatch(/--ff-glow|--ff-accent|16, 185, 129/);
+    expect(token(darkRb, "--rb-active-light")).toMatch(/^rgba\(255, 255, 255, /);
+    expect(block(controlsCss, ":root .settings-shell .rag-model-card.is-active")).toContain("--ff-glow");
+  });
+
+  it("paints the memory graph canvas with the plain card colour, scoped to default dark", () => {
+    const rule = block(systemCss, ':root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) #memory-panel .memory-graph-wrap');
+    expect(rule).toContain("background: var(--rb-card-bg)");
+    expect(rule).not.toMatch(/radial-gradient|--ff-glow/);
+    expect(token(darkRb, "--rb-card-bg")).toBe("#2a2a2a");
+    expect(block(systemCss, "#memory-panel .memory-graph-wrap")).toContain("--ff-glow-rgb");
   });
 });
