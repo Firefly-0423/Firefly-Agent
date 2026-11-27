@@ -34,6 +34,7 @@ import {
 } from "../../../../shared/plugin-protocol";
 import type { ToolCallOutcome } from "../../../../shared/tool-call-outcome";
 import type { PluginRpc } from "../../../../shared/plugin-rpc";
+import { describeActivationFailure } from "../../../../shared/plugin-activation-error";
 import { createPluginContextService, type PluginContextService } from "../../../../plugins/v2/context";
 import {
   createElectronPluginHost,
@@ -1142,7 +1143,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
     try {
       await hostManager.start(id);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = describeActivationFailure(error);
       faultedIds.add(id);
       lastErrors.set(id, message);
       if (stateStore.isEnabled(id)) {
@@ -1502,7 +1503,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
           startedPluginIds.add(manifest.id);
           await hostManager.start(manifest.id);
         } catch (upgradeError) {
-          const reason = upgradeError instanceof Error ? upgradeError.message : String(upgradeError);
+          const reason = describeActivationFailure(upgradeError);
           await stopPlugin(manifest.id, "upgrade").catch(() => {});
 
           let fileRollbackError: string | undefined;
@@ -1550,7 +1551,8 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
               faultedIds.delete(manifest.id);
               suppressingFaultSync.delete(manifest.id);
               const message = `新版本启动失败，已回滚至 v${existing.version}：${reason}`;
-              lastErrors.set(manifest.id, message);
+              // The old version is running again: the error belongs to this action only (returned below), not to the card.
+              lastErrors.delete(manifest.id);
               deps.onOverviewChanged?.();
               return {
                 ok: false,
