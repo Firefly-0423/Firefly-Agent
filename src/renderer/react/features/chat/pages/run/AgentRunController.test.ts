@@ -896,3 +896,18 @@ describe("A held trailing character never blocks the steps after the text", () =
     expect(s.lastSaved().content.replace(/\r/g, "")).toBe(ending.replace(/\r/g, ""));
   });
 });
+
+describe("A held trailing character in the candidate preview never blocks its classification", () => {
+  test("a preview ending in CR still commits its process text before the run finishes", async () => {
+    const animation = frames();
+    const s = runScenario({ input: { targetMode: "work" } });
+    await s.ready();
+    s.round("round-1");
+    s.candidate("先检查文件\r", "round-1");
+    s.custom("firefly.process_text", { content: "先检查文件" });
+    await animation.drain();
+    await nextTurn();
+    expect(s.patches().at(-1)).toMatchObject({ transientText: undefined, processMessages: [expect.objectContaining({ content: "先检查文件" })] });
+    await s.finish();
+  });
+});

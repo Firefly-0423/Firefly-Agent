@@ -86,7 +86,8 @@ const messageComponents: Components = {
 const rehypePlugins: PluggableList = [defaultRehypePlugins.raw, encodeStreamdownFileLinksInHast,
   defaultRehypePlugins.sanitize, defaultRehypePlugins.harden];
 
-const REFERENCE_DEFINITION = /^ {0,3}\[[^\]\n]+\]:[ \t]*\S/m;
+// The destination may sit on the next line after the colon.
+const REFERENCE_DEFINITION = /^ {0,3}\[[^\]\n]+\]:[ \t]*(?:\n[ \t]*)?\S/m;
 const WHOLE_DOCUMENT_BLOCKS = (markdown: string): string[] => (markdown ? [markdown] : []);
 
 function stripMarkdownCode(content: string): string {

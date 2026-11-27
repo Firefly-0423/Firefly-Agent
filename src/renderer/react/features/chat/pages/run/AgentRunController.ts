@@ -519,6 +519,7 @@ export class AgentRunController {
     this.progressEntries = [...this.progressEntries, createRoundProcessMessage(processKey, "", this.tools.length, roundId, seq)];
     this.classification = { processId: processKey, content };
     if (typeof document !== "undefined" && document.hidden) this.previewReveal.drainNow();
+    else this.previewReveal.seal();
     this.chainReveal(() => { this.commitPendingCandidateClassification(); });
   }
 

@@ -36,6 +36,9 @@ export type PacerOptions = {
   smoothingMs: number;
 };
 
+/** How long a held trailing character (CR, ZWJ, half a flag) waits for the delta that completes it. */
+export const HELD_TAIL_RELEASE_MS = 120;
+
 export const DEFAULT_PACER_OPTIONS: PacerOptions = {
   baseRate: 60,
   maxRate: 400,
@@ -275,6 +278,7 @@ export class PacedTextReveal {
   private lastFrameAt: number | undefined;
   private finishingRemainingMs: number | undefined;
   private drain: { promise: Promise<void>; resolve: () => void } | undefined;
+  private sealTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly onVisibilityChange: (() => void) | undefined;
 
   constructor(private readonly paced: () => boolean, options?: Partial<PacerOptions>) {
@@ -300,6 +304,7 @@ export class PacedTextReveal {
 
   /** Queues text for the target `key`; the promise settles once everything queued so far is on screen. */
   push(key: string, text: string, publish: (chunk: string) => void): Promise<void> {
+    this.clearSealTimer();
     if (!text) return this.drain?.promise ?? Promise.resolve();
     this.pacer.push(key, text, publish);
     if (!this.pacer.hasPending) return this.drain?.promise ?? Promise.resolve();
@@ -385,7 +390,14 @@ export class PacedTextReveal {
       this.finishDrain();
       return;
     }
-    if (this.paced() && this.finishingRemainingMs === undefined && !this.pacer.hasSafePending) return;
+    if (this.paced() && this.finishingRemainingMs === undefined && !this.pacer.hasSafePending) {
+      // Only a held trailing character is left. If no delta joins it soon, show it anyway, so whatever waits on this
+      // drain (a classification, the next queued text, an approval) is not held until the run ends.
+      if (this.sealTimer === undefined) {
+        this.sealTimer = setTimeout(() => { this.sealTimer = undefined; this.seal(); }, HELD_TAIL_RELEASE_MS);
+      }
+      return;
+    }
     this.frame = requestFrame((now) => {
       this.frame = undefined;
       if (isDocumentHidden()) {
@@ -419,7 +431,14 @@ export class PacedTextReveal {
     });
   }
 
+  private clearSealTimer(): void {
+    if (this.sealTimer === undefined) return;
+    clearTimeout(this.sealTimer);
+    this.sealTimer = undefined;
+  }
+
   private finishDrain(): void {
+    this.clearSealTimer();
     this.lastFrameAt = undefined;
     this.finishingRemainingMs = undefined;
     this.pacer.clear();

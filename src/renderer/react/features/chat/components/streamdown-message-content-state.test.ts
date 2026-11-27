@@ -144,6 +144,10 @@ describe("Markdown reply updates", () => {
         md: "See [Guide][dest] for details.\n\nSecond paragraph.\n\n[dest]: https://docs.invalid/guide",
       },
       {
+        name: "reference definition with the destination on the next line",
+        md: "See [Guide][dest].\n\nSecond paragraph.\n\n[dest]:\n  https://docs.invalid/guide",
+      },
+      {
         name: "tables",
         md: "| Name | Role |\n| --- | --- |\n| Firefly | Assistant |\n| Trailblazer | User |",
       },
@@ -170,7 +174,7 @@ describe("Markdown reply updates", () => {
     const view = createRoot(host);
     try {
       React.act(() => view.render(React.createElement(StreamdownMessageContent, {
-        content: samples[3].md,
+        content: samples.find(sample => sample.name === "nested lists across blank lines")!.md,
         streaming: true,
       })));
       const topLists = host.querySelectorAll('.ff-streamdown-message > ul');
