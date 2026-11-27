@@ -30,6 +30,9 @@ describe("sanitizePluginMessage", () => {
   it.each([
     ["cannot open C:\\Users\\bob\\data\\x.json now", "cannot open <路径> now"],
     ["cannot open /home/bob/data/x.json now", "cannot open <路径> now"],
+    ["ENOENT: no such file or directory, open 'C:\\Users\\Jane Doe\\private\\credentials.json'", "ENOENT: no such file or directory, open '<路径>'"],
+    ["open \"/home/Jane Doe/private/key.pem\" failed", "open \"<路径>\" failed"],
+    ["open `\\\\server\\share name\\a.txt` failed", "open `<路径>` failed"],
     ["bad\tinput\u0007here", "bad input here"],
   ])("sanitizes %j", (input, expected) => {
     expect(sanitizePluginMessage(input)).toBe(expected);

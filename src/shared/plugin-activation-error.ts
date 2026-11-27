@@ -10,6 +10,8 @@ export function sanitizePluginMessage(raw: unknown): string {
   const text = typeof raw === "string" ? raw : "";
   const firstLine = text.split(/\r?\n/)[0] ?? "";
   const withoutPaths = firstLine
+    // A quoted path may contain spaces (e.g. 'C:\Users\Jane Doe\x'): replace everything up to the closing quote.
+    .replace(/(["'`])(?:[A-Za-z]:[\\/]|\\\\|\/)[^"'`\r\n]*\1/g, "$1<路径>$1")
     .replace(/[A-Za-z]:[\\/][^\s"'`)\]]*/g, "<路径>")
     .replace(/\\\\[^\s"'`)\]]+/g, "<路径>")
     .replace(/(?:^|(?<=[\s("'`]))\/(?:[^\s/"'`)\]]+\/)+[^\s"'`)\]]*/g, "<路径>")
