@@ -116,9 +116,8 @@ test("uses transient display text without modifying persisted content", () => {
 
 test.each([true, false])("renders Markdown for streaming=%s without live-tail decorations", (streaming) => {
   const html = renderToStaticMarkup(React.createElement(MarkdownContent, { content: "Visible response", streaming }));
-  // While streaming, each character is wrapped for its fade-in, so compare the visible text.
   expect(html.replace(/<[^>]+>/g, "")).toContain("Visible response");
-  expect(html.includes("data-sd-animate")).toBe(streaming);
+  expect(html).not.toContain("data-sd-animate");
   expect(html).toContain("ff-streamdown-message");
   for (const forbidden of ["ff-live-answer", "流萤正在生成…"]) expect(html).not.toContain(forbidden);
 });

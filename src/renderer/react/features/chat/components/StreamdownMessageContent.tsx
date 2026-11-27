@@ -1,7 +1,7 @@
 import React, { isValidElement, useContext, type ReactNode } from "react";
 import { CodeHighlighter } from "@ant-design/x";
 import { createMathPlugin } from "@streamdown/math";
-import { Streamdown, defaultRehypePlugins, type Components, type ControlsConfig } from "streamdown";
+import { Streamdown, defaultRehypePlugins, parseMarkdownIntoBlocks, useIsCodeFenceIncomplete, type Components, type ControlsConfig } from "streamdown";
 import type { PluggableList } from "unified";
 import { FileLinkContext, MessageStreamingContext } from "./message-contexts";
 import { codeHighlightTheme } from "./code-highlight-theme";
@@ -36,12 +36,17 @@ function extractCodeBlock(children: ReactNode): { code: string; lang: string } |
 }
 
 function StreamdownPre({ children }: { children?: ReactNode }) {
-  const streaming = useContext(MessageStreamingContext);
+  const incomplete = useIsCodeFenceIncomplete();
   const block = extractCodeBlock(children);
   if (block === null) return <pre>{children}</pre>;
+  if (incomplete) {
+    return <pre className="ff-code-plain" data-incomplete="true" data-language={block.lang || "text"}>
+      <code>{block.code}</code>
+    </pre>;
+  }
   switch (block.lang) {
-    case "mermaid": return <MermaidBlock streaming={streaming} code={block.code} />;
-    case "svg": return <SvgCardBlock streaming={streaming} code={block.code} />;
+    case "mermaid": return <MermaidBlock streaming={false} code={block.code} />;
+    case "svg": return <SvgCardBlock streaming={false} code={block.code} />;
     default: return <CodeHighlighter highlightProps={{ style: codeHighlightTheme }} prismLightMode={false} lang={block.lang || "text"}>
       {block.code}
     </CodeHighlighter>;
@@ -81,60 +86,27 @@ const messageComponents: Components = {
 const rehypePlugins: PluggableList = [defaultRehypePlugins.raw, encodeStreamdownFileLinksInHast,
   defaultRehypePlugins.sanitize, defaultRehypePlugins.harden];
 
+const REFERENCE_DEFINITION = /^ {0,3}\[[^\]\n]+\]:[ \t]*\S/m;
+const WHOLE_DOCUMENT_BLOCKS = (markdown: string): string[] => (markdown ? [markdown] : []);
+
 function stripMarkdownCode(content: string): string {
   const fences = /(^|\n)[ \t]{0,3}(`{3,}|~{3,})[^\n]*(?:\n[\s\S]*?\n[ \t]{0,3}\2[ \t]*(?=\n|$)|$)/g;
   const withoutFences = content.replace(fences, "$1");
   return withoutFences.replace(/(`+)[^\n]*?\1/g, "");
 }
 
-function isEscaped(content: string, index: number): boolean {
-  let count = 0;
-  let cursor = index - 1;
-  while (cursor >= 0 && content[cursor] === "\\") {
-    count += 1;
-    cursor -= 1;
-  }
-  return count % 2 === 1;
-}
-
-function containsRenderedMath(content: string): boolean {
-  const text = stripMarkdownCode(content);
-  let inlineStart = -1;
-  let displayStart = -1;
-  for (let cursor = 0; cursor < text.length; cursor += 1) {
-    if (text[cursor] !== "$" || isEscaped(text, cursor)) continue;
-    const display = text[cursor + 1] === "$" && !isEscaped(text, cursor + 1);
-    if (display) {
-      if (displayStart >= 0 && text.slice(displayStart, cursor).trim()) return true;
-      displayStart = cursor + 2;
-      cursor += 1;
-      continue;
-    }
-    if (inlineStart >= 0 && text.slice(inlineStart, cursor).trim()) return true;
-    inlineStart = cursor + 1;
-  }
-  return false;
-}
-
-/**
- * While a reply streams, newly shown characters fade in from a slight blur, one after another (the paced reveal hands over a
- * few at a time). Finished messages, replies with formulas and reduced motion render plainly.
- */
-export const STREAMING_REVEAL = Object.freeze({ animation: "blurIn", sep: "char", duration: 260, stagger: 12, maxBacklogMs: 200, easing: "cubic-bezier(0.16, 1, 0.3, 1)" } as const);
-
-function prefersReducedMotion(): boolean {
-  return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function hasReferenceDefinitions(content: string): boolean {
+  return REFERENCE_DEFINITION.test(stripMarkdownCode(content));
 }
 
 export function StreamdownMessageContent({ content, streaming }: StreamdownMessageContentProps) {
-  const math = containsRenderedMath(content);
-  const blockMode = streaming || math;
-  // Replies with formulas keep their KaTeX DOM from streaming to completion, so they skip the fade-in.
-  const reveal = streaming && !math && !prefersReducedMotion();
+  const blockParser = hasReferenceDefinitions(content) ? WHOLE_DOCUMENT_BLOCKS : parseMarkdownIntoBlocks;
+  // Keep a single streaming block tree from start through completion so finished blocks retain DOM identity;
+  // per-character blurIn stays off so text renders crisply as frames reveal it.
   return <Streamdown className="ff-message-markdown ff-streamdown-message" controls={chatControls}
     rehypePlugins={rehypePlugins} components={messageComponents} plugins={messagePlugins}
-    animated={reveal ? STREAMING_REVEAL : false} isAnimating={reveal}
-    parseIncompleteMarkdown={streaming} mode={blockMode ? "streaming" : "static"}>
+    animated={false} isAnimating={streaming} parseIncompleteMarkdown={streaming}
+    parseMarkdownIntoBlocksFn={blockParser} tableMaxHeight={0} mode="streaming">
     {content}
   </Streamdown>;
 }

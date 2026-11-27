@@ -816,6 +816,16 @@
   max-width: 100%;
 }
 
+.ff-message-markdown pre.ff-code-plain {
+  font-family: var(--rb-font-mono);
+  background: var(--ff-surface);
+  border: 1px solid var(--ff-border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 12px 0;
+  white-space: pre;
+}
+
 /* 代码块字号来自外观设置；highlighter 会给 pre/code 写行内 font-size，所以这里需要 !important 才能覆盖。 */
 .ff-message-markdown pre,
 .ff-message-markdown pre code {
@@ -1129,6 +1139,8 @@
 }
 
 .ff-message-markdown [data-streamdown="table"] {
+  table-layout: fixed;
+  width: 100%;
   line-height: 1.55;
   font-size: var(--ff-fs-ui);
   border: 0;
@@ -1142,6 +1154,7 @@
   color: var(--ff-text);
   border: 0;
   padding: 8px 12px;
+  overflow-wrap: anywhere;
 }
 
 /* Header: a faint tint of the card itself (not the page colour, which reads near-black in the dark theme). */
