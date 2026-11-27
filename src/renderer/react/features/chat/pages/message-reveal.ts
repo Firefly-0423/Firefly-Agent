@@ -136,6 +136,15 @@ export class FramePacer {
     });
   }
 
+  /** Releases every held trailing cluster: no more text will join it (a non-text step follows). */
+  seal(): void {
+    const last = this.targets[this.targets.length - 1];
+    if (last && last.tail) {
+      last.ready.push(last.tail);
+      last.tail = "";
+    }
+  }
+
   /** Settles one rAF frame and emits at most one publish callback for the current head target. */
   tick(dtMs: number): { publish: (chunk: string) => void; chunk: string } | null {
     const safe = this.safeBacklog;
@@ -323,6 +332,16 @@ export class PacedTextReveal {
     const { promise } = this.drain;
     this.schedule();
     return promise;
+  }
+
+  /**
+   * Marks the queued text as complete: a held trailing character (CR, ZWJ, half a flag) is released, so the drain
+   * promise can settle instead of waiting for a delta that will never come.
+   */
+  seal(): void {
+    if (!this.pacer.hasPending) return;
+    this.pacer.seal();
+    if (!isDocumentHidden()) this.schedule();
   }
 
   /** Immediately drains all buffered text (e.g. on a category boundary while hidden). */

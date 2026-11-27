@@ -879,3 +879,20 @@ describe("Smooth streaming across modes, visibility, reduced motion, and cancell
     expect(s.lastSaved().content).toBe("");
   });
 });
+
+describe("A held trailing character never blocks the steps after the text", () => {
+  test.each(["第一行\r", "家人👨‍"])("text ending in %j still reaches its end step before the run finishes", async ending => {
+    const animation = frames();
+    const s = runScenario({ input: { targetMode: "work" } });
+    await s.ready();
+    s.send({ type: "TEXT_MESSAGE_START", runId: "run-1", messageId: "answer-stream" });
+    s.send({ type: "TEXT_MESSAGE_CONTENT", runId: "run-1", delta: ending });
+    s.send({ type: "TEXT_MESSAGE_END", runId: "run-1", messageId: "answer-stream" });
+    await animation.drain();
+    await nextTurn();
+    expect(s.patches().filter(p => p.streaming === false && p.content === undefined).length).toBeGreaterThanOrEqual(1);
+    expect(s.patches().filter(p => typeof p.content === "string").at(-1)?.content).toBe(ending);
+    await s.finish();
+    expect(s.lastSaved().content.replace(/\r/g, "")).toBe(ending.replace(/\r/g, ""));
+  });
+});

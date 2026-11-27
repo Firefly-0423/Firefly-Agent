@@ -446,6 +446,9 @@ export class AgentRunController {
   }
 
   private chainReveal(step: () => void | Promise<void>): void {
+    // A non-text step closes the text before it; without this a held trailing character would never be shown and the
+    // step (and everything after it) would wait until the run ends.
+    this.textReveal.seal();
     this.appendChainStep(step);
     this.tailIsText = false;
   }
