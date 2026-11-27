@@ -131,6 +131,5 @@ Please remove API keys, private chats and local paths before sharing logs or ope
 ## License and credits
 
 - This is an **unofficial, non-commercial fan project** with no affiliation to HoYoverse / miHoYo. Firefly and Honkai: Star Rail character art and intellectual property belong to HoYoverse / miHoYo and their respective rights holders. Commercial use of derivatives containing the character, the model or character artwork is prohibited.
-- The Live2D figure on the desktop is "Firefly 流萤前瞻小人桌宠" on Steam Workshop by **是依七哒**, used in Firefly with the creator's permission. Thank you. That permission is not an open license; see [MODEL_LICENSE.md](./MODEL_LICENSE.md).
 - Source code is licensed under the [MIT License](./LICENSE).
-- Third-party dependencies, bundled Skills and historical provenance notices are in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
+- Third-party dependencies, bundled Skills and historical provenance notices are in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md); the Live2D model permission and source are in [MODEL_LICENSE.md](./MODEL_LICENSE.md).

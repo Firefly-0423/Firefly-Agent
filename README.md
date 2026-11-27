@@ -131,6 +131,5 @@ pnpm run dev
 ## 许可证与致谢
 
 - 本项目是**非官方、非商业的同人作品**，与 HoYoverse / 米哈游没有任何官方关联。流萤及《崩坏：星穹铁道》的角色形象与知识产权归 HoYoverse / 米哈游及相应权利人所有；含角色形象或模型的衍生内容禁止商业使用。
-- 桌面上的 Live2D 小人是 Steam 创意工坊的「Firefly 流萤前瞻小人桌宠」，作者**是依七哒**，已授权 Firefly 使用，谢谢她。该授权不等于开源许可，详见 [MODEL_LICENSE.md](./MODEL_LICENSE.md)。
 - 源码采用 [MIT 许可证](./LICENSE) 开源。
-- 第三方依赖、内置 Skills 和历史组件声明见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
+- 第三方依赖、内置 Skills 和历史组件声明见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)；Live2D 模型的授权与来源见 [MODEL_LICENSE.md](./MODEL_LICENSE.md)。
