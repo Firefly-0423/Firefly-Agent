@@ -1,14 +1,17 @@
 // @vitest-environment jsdom
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useScrollPinning, type ScrollPinning } from "./useScrollPinning";
 
 // jsdom has no layout: the container's sizes are stubbed and growth is announced through a hand-driven ResizeObserver.
 let grow: () => void = () => {};
+let observed: Element[] = [];
 class ManualResizeObserver {
   constructor(private readonly callback: () => void) { grow = () => this.callback(); }
-  observe() {} disconnect() {}
+  observe(target: Element) { observed.push(target); } disconnect() { observed = []; }
 }
 
 let container: HTMLDivElement; let root: Root; let pinning: ScrollPinning; let away: boolean[];
@@ -19,7 +22,8 @@ const size = { scrollHeight: 2000, clientHeight: 500 };
 
 function Harness({ onAway }: { onAway(value: boolean): void }) {
   pinning = useScrollPinning(onAway);
-  return createElement("div", { ref: pinning.containerRef, onScroll: pinning.onScroll }, createElement("div"));
+  return createElement("div", { ref: pinning.containerRef, onScroll: pinning.onScroll },
+    createElement("div", { className: "ant-bubble-list" }, createElement("div", { className: "ant-bubble-list-scroll-box" })));
 }
 function list(): HTMLDivElement { return container.firstElementChild as HTMLDivElement; }
 function userScrollTo(top: number) {
@@ -60,6 +64,12 @@ afterEach(() => {
 });
 
 describe("useScrollPinning", () => {
+  it("watches the message list's scroll box and lets the list grow past the container height", () => {
+    expect(observed).toContain(list().querySelector(".ant-bubble-list-scroll-box"));
+    const css = readFileSync(resolve(__dirname, "ChatMessageList.css"), "utf8");
+    expect(css).toMatch(/\.ff-message-list \.ant-bubble-list \{[^}]*max-height: none;/);
+  });
+
   it("follows streamed content while the reader is at the bottom", () => {
     expect(list().scrollTop).toBe(1500);
     streamMore(300);

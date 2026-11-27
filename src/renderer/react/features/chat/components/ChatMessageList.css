@@ -9,6 +9,8 @@
 
 .ff-message-list .ant-bubble-list {
   min-height: 100%;
+  /* @ant-design/x caps the list at 100%; the outer container owns scrolling, so the list has to grow with its content. */
+  max-height: none;
   max-width: var(--ff-reading-width);
   margin-inline: auto;
 }

@@ -144,6 +144,8 @@ export function useScrollPinning(onAwayChange?: (away: boolean) => void): Scroll
       observer.disconnect();
       observer.observe(element);
       for (const child of Array.from(element.children)) observer.observe(child);
+      // The message list grows inside its own scroll box; watch that too so growth is seen even if a wrapper is capped.
+      for (const box of Array.from(element.querySelectorAll(":scope > .ant-bubble-list > .ant-bubble-list-scroll-box"))) observer.observe(box);
     };
     observeChildren();
     // Children come and go (the channel banner, the list itself on first render); keep observing the current set.
