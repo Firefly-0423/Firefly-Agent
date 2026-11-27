@@ -147,6 +147,12 @@ describe("Markdown reply updates", () => {
     expect(host.querySelector("pre.ff-code-plain")?.textContent).toContain("A-->B");
   }));
 
+  it("highlights a quoted fence that the quote closed implicitly while the reply goes on outside it", () => withMessage((host, render) => {
+    render("[dest]: https://docs.invalid/guide\n\n> ```ts\n> const x = 1;\n\nOutside paragraph", true);
+    expect(host.querySelector("pre.ff-code-plain")).toBeNull();
+    expect(host.querySelector('code[data-highlighted="true"]')?.textContent).toBe("const x = 1;");
+  }));
+
   it("waits for a valid table separator row and keeps fixed table layout", () => withMessage((host, render) => {
     render("| Key | Value |\n| ---", true);
     expect(host.querySelector("table")).toBeNull();

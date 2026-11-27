@@ -36,38 +36,39 @@ function extractCodeBlock(children: ReactNode): { code: string; lang: string } |
 }
 
 /**
- * Set only when the whole reply is parsed as one block: the offset where an unclosed trailing fence starts (Infinity
- * when none). Streamdown's fence state is per block, so in that mode it would mark every earlier, closed fence too.
+ * Set only when the whole reply is parsed as one block: the length of the reply without trailing whitespace.
+ * Streamdown's fence state is per block, so in that mode it would mark every code node in the reply as unclosed; only
+ * the code node that runs to the end of the reply can be the open one (a fence closed explicitly, or implicitly by
+ * leaving its quote or list, ends earlier).
  */
-const WholeDocumentFenceContext = createContext<number | undefined>(undefined);
+/** Reply length without trailing whitespace, and whether a fence in it is still open. */
+const WholeDocumentEndContext = createContext<{ end: number; fenceOpen: boolean } | undefined>(undefined);
 
-// A fence may open inside block quotes or list items ("> ```mermaid", "- ```ts"); the offset kept is the line start,
-// which is never after the code node's own start.
+// A fence may open inside block quotes or list items ("> ```mermaid", "- ```ts").
 const FENCE_LINE = /^(?:[ \t]*(?:>|[-*+]|\d{1,9}[.)])[ \t]*)*[ \t]*(`{3,}|~{3,})(.*)$/;
 
-/** Offset of the fence that is still open at the end of `content`, or Infinity when every fence is closed. */
-export function openTrailingFenceOffset(content: string): number {
-  let open: { char: string; length: number; at: number } | undefined;
-  let offset = 0;
+/** True when a fence opened in `content` has no explicit closing fence (it may still be closed by leaving its container). */
+export function hasUnclosedFence(content: string): boolean {
+  let open: { char: string; length: number } | undefined;
   for (const line of content.split("\n")) {
     const match = FENCE_LINE.exec(line);
-    if (match) {
-      const fence = match[1]!;
-      if (!open) open = { char: fence[0]!, length: fence.length, at: offset };
-      else if (fence[0] === open.char && fence.length >= open.length && !match[2]!.trim()) open = undefined;
-    }
-    offset += line.length + 1;
+    if (!match) continue;
+    const fence = match[1]!;
+    if (!open) open = { char: fence[0]!, length: fence.length };
+    else if (fence[0] === open.char && fence.length >= open.length && !match[2]!.trim()) open = undefined;
   }
-  return open ? open.at : Number.POSITIVE_INFINITY;
+  return open !== undefined;
 }
 
-type HastPosition = { start?: { offset?: number } };
+type HastPosition = { end?: { offset?: number } };
 
 function StreamdownPre({ children, node }: { children?: ReactNode; node?: { position?: HastPosition } }) {
   const blockIncomplete = useIsCodeFenceIncomplete();
-  const wholeDocumentOpenAt = useContext(WholeDocumentFenceContext);
-  const start = node?.position?.start?.offset;
-  const incomplete = wholeDocumentOpenAt === undefined || start === undefined ? blockIncomplete : start >= wholeDocumentOpenAt;
+  const wholeDocumentEnd = useContext(WholeDocumentEndContext);
+  const end = node?.position?.end?.offset;
+  const incomplete = wholeDocumentEnd === undefined || end === undefined
+    ? blockIncomplete
+    : (blockIncomplete || wholeDocumentEnd.fenceOpen) && end >= wholeDocumentEnd.end;
   const block = extractCodeBlock(children);
   if (block === null) return <pre>{children}</pre>;
   if (incomplete) {
@@ -135,13 +136,13 @@ function hasReferenceDefinitions(content: string): boolean {
 export function StreamdownMessageContent({ content, streaming }: StreamdownMessageContentProps) {
   const wholeDocument = hasReferenceDefinitions(content);
   const blockParser = wholeDocument ? WHOLE_DOCUMENT_BLOCKS : parseMarkdownIntoBlocks;
-  const openFenceAt = wholeDocument ? (streaming ? openTrailingFenceOffset(content) : Number.POSITIVE_INFINITY) : undefined;
+  const documentEnd = wholeDocument ? { end: content.trimEnd().length, fenceOpen: streaming && hasUnclosedFence(content) } : undefined;
   // Keep a single streaming block tree from start through completion so finished blocks retain DOM identity;
   // per-character blurIn stays off so text renders crisply as frames reveal it.
-  return <WholeDocumentFenceContext.Provider value={openFenceAt}><Streamdown className="ff-message-markdown ff-streamdown-message" controls={chatControls}
+  return <WholeDocumentEndContext.Provider value={documentEnd}><Streamdown className="ff-message-markdown ff-streamdown-message" controls={chatControls}
     rehypePlugins={rehypePlugins} components={messageComponents} plugins={messagePlugins}
     animated={false} isAnimating={streaming} parseIncompleteMarkdown={streaming}
     parseMarkdownIntoBlocksFn={blockParser} tableMaxHeight={0} mode="streaming">
     {content}
-  </Streamdown></WholeDocumentFenceContext.Provider>;
+  </Streamdown></WholeDocumentEndContext.Provider>;
 }
