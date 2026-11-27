@@ -43,6 +43,7 @@ import {
   type PluginHostStatus,
   type StopReason,
 } from "../../../../plugins/v2/host";
+import { resolveManifestPath } from "../../../../plugins/v2/package/boundary";
 import { importPluginPackage, PLUGIN_HOST_VERSION, type ImporterFsOps } from "../../../../plugins/v2/package/importer";
 import {
   bindPluginScheduleRpc,
@@ -945,7 +946,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
     const installDir = path.resolve(
       stored.installDir ?? path.join(deps.dataRoot, "plugins", id, stored.version),
     );
-    const mainPath = path.resolve(installDir, stored.main);
+    const mainPath = resolveManifestPath(installDir, stored.main);
     if (!within(installDir, mainPath)) {
       throw new PluginError("ERR_INVALID_ARGUMENT", `Plugin "${id}" main entry escapes install directory`);
     }
@@ -1020,7 +1021,7 @@ export function createPluginV2HostController(deps: PluginV2HostDependencies) {
     try {
       const dirStat = fs.lstatSync(expectedDir);
       if (dirStat.isSymbolicLink() || !dirStat.isDirectory()) return false;
-      const mainPath = path.resolve(expectedDir, expectedMain);
+      const mainPath = resolveManifestPath(expectedDir, expectedMain);
       if (!within(expectedDir, mainPath)) return false;
       const mainStat = fs.lstatSync(mainPath);
       if (mainStat.isSymbolicLink() || !mainStat.isFile()) return false;

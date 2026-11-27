@@ -634,3 +634,48 @@ describe("plugin-v2-services model.generate stream (A3)", () => {
     }
   });
 });
+
+describe("plugin-v2-services manifest main separators", () => {
+  function createResolverFixture(main: string) {
+    const dir = mkdtempSync(join(tmpdir(), "firefly-plugin-v2-main-"));
+    let resolvePlugin: ((id: string) => { main: string }) | undefined;
+    const controller = createPluginV2HostController({
+      dataRoot: dir,
+      stateFile: join(dir, "state.json"),
+      scheduleStateFile: join(dir, "schedules.json"),
+      schedulerStore: { list: () => [], get: () => undefined, add: vi.fn(), update: vi.fn(), remove: vi.fn(), listHistory: () => [] } as never,
+      llmClient: { chatNonStream: vi.fn() },
+      buildRunOptions: vi.fn() as never,
+      loadModelSettings: () => createTestSettings(),
+      loadGeneralSettings: () => ({}),
+      listSessions: () => [],
+      getSession: () => undefined as never,
+      getActiveChatTarget: () => ({ sessionId: "s-1", mode: "work" }),
+      confirmFirstUse: async () => true,
+      createHostManager: (hostDeps: any) => {
+        resolvePlugin = hostDeps.resolvePlugin;
+        return { start: vi.fn(async () => {}), stop: vi.fn(async () => {}), status: vi.fn(() => "stopped" as const), call: vi.fn(), onStatusChange: () => () => {} } as never;
+      },
+    });
+    controller.installPlugin({ schemaVersion: 1, id: "dev.test.main", name: "Main", version: "1.0.0", main, permissions: [] });
+    return { dir, resolve: () => resolvePlugin!("dev.test.main"), cleanup: () => { controller.dispose(); rmSync(dir, { recursive: true, force: true }); } };
+  }
+
+  it.each([
+    ["dist\\index.mjs", "dist/index.mjs"],
+    ["dist/index.mjs", "dist/index.mjs"],
+  ])("resolves main %s to the same entry as %s", (main, canonical) => {
+    const fx = createResolverFixture(main);
+    try {
+      const installDir = join(fx.dir, "plugins", "dev.test.main", "1.0.0");
+      expect(fx.resolve().main).toBe(join(installDir, ...canonical.split("/")));
+    } finally { fx.cleanup(); }
+  });
+
+  it.each(["..\\evil.mjs", "../evil.mjs"])("rejects main %s with ERR_INVALID_ARGUMENT", (main) => {
+    const fx = createResolverFixture(main);
+    try {
+      expect(() => fx.resolve()).toThrowError(expect.objectContaining({ code: "ERR_INVALID_ARGUMENT" }));
+    } finally { fx.cleanup(); }
+  });
+});

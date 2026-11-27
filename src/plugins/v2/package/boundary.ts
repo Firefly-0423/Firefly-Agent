@@ -40,6 +40,11 @@ export function escapesRoot(relative: string): boolean {
   return relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative);
 }
 
+/** Resolve a manifest-relative path, accepting both "/" and "\\" so Windows-authored packages resolve on every OS. */
+export function resolveManifestPath(root: string, relative: string): string {
+  return path.resolve(root, ...relative.split(/[\\/]/));
+}
+
 function isInside(root: string, target: string): boolean {
   const relative = path.relative(root, target);
   return relative !== "" && !escapesRoot(relative);
@@ -104,7 +109,7 @@ export async function checkPackageBoundary(
 
     // The manifest allows both separators; normalise them before touching the filesystem, so a package
     // written on Windows resolves the same way on macOS and Linux.
-    const lexical = path.resolve(realRoot, ...value.split(/[\\/]/));
+    const lexical = resolveManifestPath(realRoot, value);
     if (!isInside(realRoot, lexical)) {
       errors.push({ code: "path_traversal", path: pointer, message: `${pointer} 解析到包根目录之外` });
       continue;
