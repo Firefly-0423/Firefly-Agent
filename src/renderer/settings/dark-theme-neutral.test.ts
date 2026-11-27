@@ -6,6 +6,9 @@ const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf
 const themeCss = read("../ui/theme.css");
 const rootCss = read("../react/styles/react-root.css");
 const systemCss = read("./settings-system.css");
+const glowCss = read("../ui/glow.css");
+const tokensCss = read("../ui/tokens.css");
+const messagesCss = read("../react/features/chat/components/ChatMessageList.css");
 
 const block = (css: string, selector: string) => {
   const from = css.indexOf(`${selector} {`);
@@ -84,5 +87,49 @@ describe("dark settings window background", () => {
   it("keeps the accent-mixed selection for custom colours", () => {
     const custom = block(systemCss, ':root[data-ui-theme="firefly-dark"][data-ui-colors] .settings-shell,\n:root[data-ui-theme="firefly-dark"][data-ui-colors] .ff-modal-overlay');
     expect(token(custom, "--st-selected-fill")).toContain("var(--rb-pink-400)");
+  });
+});
+
+describe("default dark chat content is neutral", () => {
+  const scope = ':root[data-ui-theme="firefly-dark"]:not([data-ui-colors])';
+  const neutralSection = glowCss.slice(glowCss.indexOf("/* ===== Default dark: emerald is for primary buttons"));
+  const rules = [...neutralSection.matchAll(/^(:root[^{}]*)\{([^}]*)\}/gm)].map(match => ({ selector: match[1].trim(), body: match[2] }));
+
+  it("has a neutral section to inspect, and every rule in it is scoped to the default dark theme", () => {
+    expect(rules.length).toBeGreaterThan(10);
+    for (const { selector } of rules) {
+      for (const part of selector.split(/,\s*(?=:root)/)) expect(part.trim().startsWith(scope), part).toBe(true);
+    }
+  });
+
+  it("paints the user's own bubble and the inserted-while-running bubble in a lifted neutral grey with normal text", () => {
+    expect(token(tokensCss, "--ff-dark-main-user-bubble")).toBe("#303030");
+    for (const needle of [".ff-message--user .ant-bubble-content", ".ff-run-activity__insertion"]) {
+      const found = rules.find(item => item.selector.endsWith(needle));
+      expect(found, needle).toBeDefined();
+      expect(found!.body, needle).toContain("background: var(--ff-dark-main-user-bubble)");
+      expect(found!.body, needle).toContain("color: var(--ff-text)");
+    }
+  });
+
+  it("shows file references, links and file-type icons as normal or muted text, not emerald", () => {
+    expect(neutralSection).toMatch(/\.ff-file-link,\s*:root[^{]*\.ff-file-link:hover \{ color: var\(--ff-text\); \}/);
+    expect(neutralSection).toMatch(/\.ff-message-markdown a \{ color: var\(--ff-text\);/);
+    expect(neutralSection).toMatch(/data-file-type="text"\]\) \.ff-run-file__icon \{ color: var\(--ff-text-muted\); \}/);
+    expect(neutralSection).toMatch(/\.ff-file-preview__md-btn\.is-active \{ color: var\(--ff-text\);/);
+  });
+
+  it("uses no emerald literal or accent variable as a value in the neutral section", () => {
+    const declarations = rules.map(item => item.body).join("\n");
+    expect(declarations).not.toMatch(/16, 185, 129|#10b981|#6ee7b7|#34d399|#059669|--ff-accent\b|--ff-glow/);
+  });
+
+  it("leaves the custom-colour bubble on the user's accent with the computed on-accent text", () => {
+    expect(messagesCss).toMatch(/:root\[data-ui-colors\] \.ff-message--user \.ant-bubble-content \{\s*background: var\(--ff-accent\);/);
+    expect(messagesCss).toMatch(/:root\[data-ui-colors\] \.ff-message--user \.ant-bubble-content,[^{]*\{\s*color: var\(--rb-text-on-pink\);/);
+  });
+
+  it("keeps the success colour for completed status", () => {
+    expect(neutralSection).toContain(".ff-task-delegation.is-completed .ff-task-delegation__marker { color: var(--ff-success); }");
   });
 });
