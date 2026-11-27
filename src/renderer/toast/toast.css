@@ -291,6 +291,11 @@ body {
   background: var(--rb-hover-light);
 }
 
+/* Default dark: the secondary buttons light up as a neutral outline, not the green --rb-pink-300. */
+:root[data-ui-theme="firefly-dark"]:not([data-ui-colors]) :is(.toast-card__deny, .toast-card__inspect, .toast-card__open-chat):hover:not(:disabled) {
+  border-color: var(--rb-border-strong);
+}
+
 .toast-stack::-webkit-scrollbar {
   width: 6px;
 }

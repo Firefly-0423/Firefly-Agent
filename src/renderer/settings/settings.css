@@ -17,15 +17,13 @@ body {
 .settings-shell {
   display: grid; grid-template-columns: 168px 1fr;
   height: 100vh; position: relative;
-  width: 100vw; background: radial-gradient(circle at 12% 8%, rgba(var(--rb-accent-rgb), 0.28) 0%, transparent 36%),
-    radial-gradient(circle at 86% 18%, rgba(var(--rb-accent-rgb), 0.24) 0%, transparent 40%),
-    linear-gradient(145deg, var(--rb-bg-2) 0%, var(--rb-bg-1) 64%, var(--rb-bg-2) 100%);
+  width: 100vw; background: var(--rb-bg-1);
   border-radius: 12px; border: 1px solid var(--rb-border-soft);
 }
 
 .settings-shell::before {
   inset: 0; position: absolute;
-  content: ""; background: linear-gradient(135deg, var(--ff-white-alpha-10), transparent 30%, rgba(var(--rb-accent-rgb), 0.06) 70%, var(--ff-white-alpha-4));
+  content: ""; background: linear-gradient(135deg, var(--ff-white-alpha-10), transparent 30%, var(--ff-white-alpha-4));
   opacity: 0.58; pointer-events: none;
 }
 
@@ -151,9 +149,7 @@ body {
 }
 
 .settings-panel {
-  padding: 20px; background: radial-gradient(circle at 12% 0%, rgba(var(--rb-accent-rgb), 0.16), transparent 40%),
-    radial-gradient(circle at 86% 18%, rgba(var(--rb-accent-rgb), 0.14), transparent 42%),
-    var(--ff-white-alpha-7);
+  padding: 20px; background: var(--ff-white-alpha-7);
   border-radius: 12px; border: 1px solid rgba(var(--rb-accent-rgb), 0.18);
   box-shadow: 0 12px 30px var(--ff-black-alpha-20),
     inset 0 1px 0 var(--ff-white-alpha-10);

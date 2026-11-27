@@ -73,22 +73,22 @@
 :root[data-ui-theme="firefly-dark"] .ff-run-activity__chevron { color: var(--ff-text-muted); }
 :root[data-ui-theme="firefly-dark"] .ff-composer-shell { border-color: var(--ff-dark-composer-border); box-shadow: 0 8px 28px var(--ff-black-alpha-28); }
 :root[data-ui-theme="firefly-dark"] .ff-composer-shell:hover { border-color: var(--ff-dark-composer-border-hover); }
-:root[data-ui-theme="firefly-dark"] .ff-composer-shell:focus-within { border-color: rgba(var(--ff-glow-rgb), 0.45); box-shadow: 0 8px 28px var(--ff-black-alpha-32), 0 0 0 3px rgba(var(--ff-glow-rgb), 0.08); }
+:root[data-ui-theme="firefly-dark"] .ff-composer-shell:focus-within { border-color: var(--ff-dark-composer-border-hover); box-shadow: 0 8px 28px var(--ff-black-alpha-32), 0 0 0 3px rgba(var(--ff-glow-rgb), 0.08); }
 :root[data-ui-theme="firefly-dark"] .ff-message--user .ant-bubble-content { background: var(--ff-dark-user-bubble); color: var(--ff-text); }
 /* Light text on a dark ground looks bolder than the same weight in the light theme; reading text sits a touch finer. */
 :root[data-ui-theme="firefly-dark"] .ff-message-markdown,
 :root[data-ui-theme="firefly-dark"] .ff-message-markdown :is(p, li, td, blockquote) { font-weight: 360; }
 
 /* Dark theme: a near-black frame (sidebar, rail, right panel) around a slightly lifted neutral panel for the
-   conversation. Greys only; firefly green is kept for accents (focus, selection, send, switches). */
+   conversation. Greys only; firefly green is kept for the send button, primary buttons and switches. */
 :root[data-ui-theme="firefly-dark"] .ff-page-main {
-  --ff-bg-workspace: #141414;
-  --ff-surface: #1a1a1a;
-  --ff-bg-subtle: #1e1e1e;
-  --ff-bg-hover: #242424;
-  --ff-bg-active: #2a2a2a;
-  --ff-popover: #1a1a1a;
-  --ff-border: #262626;
+  --ff-bg-workspace: #1f1f1f;
+  --ff-surface: #2a2a2a;
+  --ff-bg-subtle: #262626;
+  --ff-bg-hover: rgba(255, 255, 255, 0.06);
+  --ff-bg-active: rgba(255, 255, 255, 0.1);
+  --ff-popover: #2a2a2a;
+  --ff-border: rgba(255, 255, 255, 0.08);
   background: var(--ff-bg-workspace);
 }
 :root[data-ui-theme="firefly-dark"] .ff-page-main .ff-overview-card { background: var(--ff-dark-main-card); }
@@ -97,11 +97,11 @@
 :root[data-ui-theme="firefly-dark"] .ff-page-main .ff-message--user .ant-bubble-content { background: var(--ff-dark-main-user-bubble); }
 /* The overview cards column is the right-hand side when the panel is closed: it shares the frame's near-black. */
 :root[data-ui-theme="firefly-dark"] .ff-page-main .ff-chat-cards {
-  --ff-bg-workspace: #0a0a0a;
-  --ff-surface: #1a1a1a;
-  --ff-bg-hover: #242424;
-  --ff-bg-active: #2a2a2a;
-  --ff-border: #262626;
+  --ff-bg-workspace: #181818;
+  --ff-surface: #2a2a2a;
+  --ff-bg-hover: rgba(255, 255, 255, 0.06);
+  --ff-bg-active: rgba(255, 255, 255, 0.1);
+  --ff-border: rgba(255, 255, 255, 0.08);
   align-self: stretch;
   background: var(--ff-dark-ink-bg-1);
 }
@@ -132,7 +132,7 @@
 .ff-run-activity__toggle:focus-visible { outline: 2px solid var(--ff-glow, var(--ff-accent)); outline-offset: 1px; }
 .ff-run-activity__toggle .ff-run-activity__chevron { color: inherit; }
 :root[data-ui-theme="firefly-dark"] .ff-run-activity__header::after {
-  background: linear-gradient(90deg, rgba(var(--ff-glow-rgb), 0.28), rgba(var(--ff-glow-rgb), 0.05));
+  background: linear-gradient(90deg, var(--ff-border), color-mix(in srgb, var(--ff-border) 25%, transparent));
 }
 
 /* Dark pop-ups and composer: one step above the conversation panel, set apart by a hairline rather than a green frame. */
