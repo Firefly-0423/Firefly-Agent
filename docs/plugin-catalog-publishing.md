@@ -1,13 +1,13 @@
 # 插件在线目录的发布方式
 
-插件市场是独立仓库 [Firefly-0423/firefly-plugins](https://github.com/Firefly-0423/firefly-plugins)：插件源码、目录文件和发布流程都在那里。应用只认下面两个地址，写在 `src/main/plugin-host/plugin-marketplace.ts`，改动它们属于安全边界变更，需要同时更新 `src/main/skills/external-boundary.test.ts` 里的固定哈希。
+插件市场是独立仓库 [Firefly-0423/firefly-plugins](https://github.com/Firefly-0423/firefly-plugins)。1.2.0 使用独立的 `marketplace-v2` 分支目录。入口和下载规则在 `src/main/features/plugins/host/plugin-marketplace.ts`，由 `src/main/knowledge/skills/external-boundary.test.ts` 核对。
 
 | 内容 | 位置 |
 |---|---|
-| 目录 | `firefly-plugins` 仓库 `main` 分支的 `registry.json`：`https://raw.githubusercontent.com/Firefly-0423/firefly-plugins/main/registry.json` |
-| 插件包 | `firefly-plugins` 仓库的 GitHub Release 资源，前缀 `https://github.com/Firefly-0423/firefly-plugins/releases/download/`，tag 为 `<id>-<version>` |
+| 目录 | `https://raw.githubusercontent.com/Firefly-0423/firefly-plugins/marketplace-v2/marketplace/registry.json` |
+| 插件包 | 同一分支 `marketplace/packages/<id>-<version>.ffplugin`，或现有官方 GitHub Release 资源 |
 
-安全边界：目录里的每个条目都固定了包的 SHA-256，应用下载后不匹配就拒绝；只接受上面这个 Release 前缀，重定向只允许跳到 GitHub Release 资源的下载域；目录和包都有大小与超时上限；安装后的插件默认停用。旧的 `Serendipity-wu02/Firefly_Agent` Release 地址不再被接受。
+仓库直装的下载地址由固定目录、已校验的 ID 和版本共同确定，也只允许官方 v2 目录使用。仓库文件禁止重定向。Release 包仍沿用已有的 URL 和重定向校验；两种包均须匹配 SHA-256，并经过同一导入器校验清单、身份和 `native: false`。目录和包有大小与超时上限，首次安装默认停用。
 
 ## 随应用的离线目录
 
@@ -25,6 +25,6 @@
 
 ## 发布新插件或新版本
 
-在 `firefly-plugins` 仓库里进行，步骤见该仓库的 README 和 CONTRIBUTING：提交插件源码的 PR，CI 校验并生成目录；合并后由维护者手动运行 Release 工作流，为尚未发布的 `<id>-<version>` 创建 Release 并核对哈希。已发布版本的字节不得再变，任何改动都需要新版本号。
+在 `firefly-plugins` 的 `marketplace-v2` 上提交插件源码与构建结果。运行 `npm run build` 和 `npm run build:repository-catalog`，一起提交 `marketplace/registry.json` 与新增的 `.ffplugin`，再运行 `npm test` 和 `npm run check`。已经上线的同名包保持原字节；更新插件须提升版本。旧版客户端使用 `main/registry.json`。
 
 若某个插件也要随应用离线提供，再把同一版本复制到本仓库 `examples/<id>/`，并在 `CATALOG_PLUGIN_IDS` 和上表中登记。

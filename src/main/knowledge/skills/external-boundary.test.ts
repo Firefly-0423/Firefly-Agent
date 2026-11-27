@@ -17,7 +17,7 @@ import { createExternalSkillService } from "./external-service";
 import { isolatedStorageContext } from "./testing/external-fixtures.test-support";
 import { EXTERNAL_LIMITS, EXTERNAL_SOURCES } from "./external-policy";
 import { EXTERNAL_SKILL_REVIEWS } from "./external-reviews";
-import { MARKET_REGISTRY_URLS, MARKET_ZIP_URL_PREFIXES } from "../../features/plugins/host/plugin-marketplace";
+import { MARKET_REGISTRY_URLS, MARKET_V2_REPOSITORY_ROOT, MARKET_ZIP_URL_PREFIXES } from "../../features/plugins/host/plugin-marketplace";
 const cleanup: Array<() => void | Promise<void>> = [];
 afterEach(async () => { for (const run of cleanup.splice(0).reverse()) await run(); vi.restoreAllMocks(); });
 const sourceRoot = path.resolve(import.meta.dirname, "../../../..");
@@ -29,9 +29,8 @@ const hash = (file: string) => createHash("sha256").update(fs.readFileSync(path.
 // Layer regroup (2026-11-12): these files moved under src/main/<layer>/ and only their relative import paths changed;
 // each diff against the previous preimage was checked to contain import lines only before the hashes were refreshed.
 const unchangedBoundaries = {
-  // Reviewed plugin lifecycle update: apiVersion 2 registry format (SDK 1.2.0 .ffplugin packages, reverse-domain IDs,
-  // sdk SemVer compatibility, native:false enforcement). Catalog/Release prefix, size, timeout, redirect, and SHA-256 rules are unchanged.
-  "src/main/features/plugins/host/plugin-marketplace.ts": "1f83cccd2e4fe705e2506eac6ff7fe7b69c7b17fe7181ed9db0d3c3996c61771",
+  // #147 binds the official v2 catalog to exact, non-redirecting repository package paths.
+  "src/main/features/plugins/host/plugin-marketplace.ts": "cbbb8fba8778ce80ccb4b4cab66527f7cebf28422cd3c9a9ee375cada61c4e21",
   "src/main/platform/browser/browser-request-policy.ts": "9ce32fdba4722e49b7c96d27ad7a2058fae3d62a4186d44aac98e49d7e62bdf1",
   // Reviewed window-browser tools change: browser-startup-config only forwards the optional acceptDownload callback, and
   // electron-browser-guest only attaches the per-page tools object. No navigation, network or sandbox setting changed here;
@@ -62,7 +61,8 @@ const unchangedBoundaries = {
 } as const;
 it.each(Object.entries(unchangedBoundaries))("no_execution_or_permission_expansion: %s exactly matches approved boundary preimage", (file, expected) => { expect(hash(file)).toBe(expected); });
 it("no_execution_or_permission_expansion native executable marketplace uses exactly the approved catalog and repository rename release prefixes, and fixed source data does not broaden it", () => {
-  expect(MARKET_REGISTRY_URLS).toEqual(["https://raw.githubusercontent.com/Firefly-0423/firefly-plugins/main/registry.json"]);
+  expect(MARKET_V2_REPOSITORY_ROOT).toBe("https://raw.githubusercontent.com/Firefly-0423/firefly-plugins/marketplace-v2/marketplace/");
+  expect(MARKET_REGISTRY_URLS).toEqual(["https://raw.githubusercontent.com/Firefly-0423/firefly-plugins/marketplace-v2/marketplace/registry.json"]);
   expect(MARKET_ZIP_URL_PREFIXES).toEqual(["https://github.com/Firefly-0423/firefly-plugins/releases/download/"]);
   // Reviewed source change (2026-10-29, docs/superpowers/specs/firefly-skills-market-source.md): Firefly's own
   // Skill repository joins as a Claude-catalog source under the Firefly-native policy. Its Firefly metadata (modes,
