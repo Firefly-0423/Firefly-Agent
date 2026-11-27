@@ -7,8 +7,8 @@ Firefly uses the BSD option and installs it unmodified (1.4.2, which fixes
 CVE-2026-85393 upstream). The public modulus and malformed signature in
 Firefly's regression test come from upstream PR #1152, commit
 `ceba34402e329f0365134f23fe19898756527d65`, and keep their attribution and BSD
-terms in [the source record](../vendor/security/node-forge/SOURCE.md) and
-[complete BSD license](../vendor/security/node-forge/LICENSE).
+terms in [the source record](https://github.com/Firefly-0423/Firefly-Agent/blob/main/vendor/security/node-forge/SOURCE.md) and
+[complete BSD license](https://github.com/Firefly-0423/Firefly-Agent/blob/main/vendor/security/node-forge/LICENSE).
 
 ## Marketplace plugins adapted from deepseek-harness
 
@@ -30,7 +30,7 @@ Runtime and build dependencies are declared in `package.json` and locked in `pnp
 
 Skill metadata uses [Eleventy's gray-matter fork](https://github.com/11ty/gray-matter/tree/v3.0.0), `@11ty/gray-matter@3.0.0`, under the MIT license, `Copyright (c) 2014-present, Jon Schlinkert`. Preserve the complete dependency LICENSE when redistributing it. The runtime YAML engine is `js-yaml@5.4.3`, MIT-licensed, `Copyright (C) 2011-2015 by Vitaly Puzrin`.
 
-The scalar grammar in `src/main/knowledge/skills/skill-frontmatter.ts` adapts the safe float grammar from [js-yaml 3.15.2](https://github.com/nodeca/js-yaml/blob/3.15.2/lib/js-yaml/type/float.js); its complete [MIT license is retained](../vendor/security/skill-frontmatter/js-yaml-LICENSE). Firefly maintains the data-only language allowlist and compatibility adapter, not a new YAML parser. The old unscoped gray-matter dependency is removed from this path. The installed fork still exposes a JavaScript engine; Firefly rejects that language before dispatch and supplies explicit YAML/JSON engines.
+The scalar grammar in `src/main/knowledge/skills/skill-frontmatter.ts` adapts the safe float grammar from [js-yaml 3.15.2](https://github.com/nodeca/js-yaml/blob/3.15.2/lib/js-yaml/type/float.js); its complete [MIT license is retained](https://github.com/Firefly-0423/Firefly-Agent/blob/main/vendor/security/skill-frontmatter/js-yaml-LICENSE). Firefly maintains the data-only language allowlist and compatibility adapter, not a new YAML parser. The old unscoped gray-matter dependency is removed from this path. The installed fork still exposes a JavaScript engine; Firefly rejects that language before dispatch and supplies explicit YAML/JSON engines.
 
 ## ZIP parsing and extraction
 
@@ -40,7 +40,7 @@ The project currently uses `yauzl@3.4.0` for ZIP parsing. It is MIT-licensed, `C
 
 ## Inherited application Skills
 
-The distributed `vendor/firefly-skills/` includes [complete additional licenses and scoped notices](../vendor/firefly-skills/LICENSE-NOTICES.md) and [file-level provenance](../vendor/firefly-skills/license-provenance.json). Distribute these materials and the complete licenses alongside the current directory-based Skills distribution. They identify the applicable authors and sources separately; no single repository license is applied to all Skills. The current self-improvement implementation uses a documented Firefly adaptation of Peter Skøtt Pedersen's pinned source with its complete license. The previous OpenClaw remake's ten unresolved files are absent from the current distribution, not retroactively licensed. Historical installations and backups remain separate from this distribution.
+The distributed `vendor/firefly-skills/` includes [complete additional licenses and scoped notices](https://github.com/Firefly-0423/Firefly-Agent/blob/main/vendor/firefly-skills/LICENSE-NOTICES.md) and [file-level provenance](https://github.com/Firefly-0423/Firefly-Agent/blob/main/vendor/firefly-skills/license-provenance.json). Distribute these materials and the complete licenses alongside the current directory-based Skills distribution. They identify the applicable authors and sources separately; no single repository license is applied to all Skills. The current self-improvement implementation uses a documented Firefly adaptation of Peter Skøtt Pedersen's pinned source with its complete license. The previous OpenClaw remake's ten unresolved files are absent from the current distribution, not retroactively licensed. Historical installations and backups remain separate from this distribution.
 
 The nine bundled `sp-` Skills originate from [Superpowers commit ebdd4ec61f2f560bada4f6ded7b0806e62bf33f7](https://github.com/obra/superpowers/tree/ebdd4ec61f2f560bada4f6ded7b0806e62bf33f7) with Firefly host adaptations. Each carries the complete MIT LICENSE, `Copyright (c) 2025 Jesse Vincent`, and a provenance NOTICE. Supporting platform references retain their identified source history; this is not an official pristine single-version upstream distribution.
 
@@ -60,7 +60,7 @@ Retired design notes identified BiliNote (`https://github.com/JefferyHcool/BiliN
 
 ## Git for Windows MinGit 2.55.0.3
 
-Simple-git 4 uses `@simple-git/argv-parser@2.0.1`, MIT, Copyright (c) 2025 Steve King. Firefly maintains a narrow Windows null-device compatibility adaptation, documented with exact input/output hashes and its complete license in [vendor/security/argv-parser](../vendor/security/argv-parser/SOURCE.md). This preserves bundled Git's configuration isolation without enabling unsafe configuration paths or inherited pager execution; it is not an upstream release. The package's original identity and license remain unchanged.
+Simple-git 4 uses `@simple-git/argv-parser@2.0.1`, MIT, Copyright (c) 2025 Steve King. Firefly maintains a narrow Windows null-device compatibility adaptation, documented with exact input/output hashes and its complete license in [vendor/security/argv-parser](https://github.com/Firefly-0423/Firefly-Agent/blob/main/vendor/security/argv-parser/SOURCE.md). This preserves bundled Git's configuration isolation without enabling unsafe configuration paths or inherited pager execution; it is not an upstream release. The package's original identity and license remain unchanged.
 
 The Windows packaging configuration includes [Git for Windows MinGit 2.55.0.3](https://github.com/git-for-windows/git/releases/tag/v2.55.0.windows.3) as a fallback when the user's system Git is unavailable. `vendor/mingit-manifest.json` records the source archive and SHA-256; `scripts/packaging/prepare-mingit.mjs` performs preparation and verification. This describes the configured input, not a newly verified installer or release.
 

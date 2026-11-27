@@ -283,13 +283,17 @@ test("disclaimers copy as two offline resources without other documentation", as
     assert.deepEqual(await readFile(path.join(destination, entry.to)), await readFile(path.join(root, entry.from)));
   }
   assert.deepEqual((await readdir(path.join(destination, "legal"))).sort(), ["MODEL_LICENSE.md", "THIRD_PARTY_NOTICES.md", "disclaimer.en.md", "disclaimer.zh-CN.md"]);
-  // In the install the notices link to each other and to ../LICENSE exactly as in the repository; only repository docs are not shipped.
+  // Every relative link in a shipped notice must resolve inside the staged install; repository-only targets use absolute GitHub URLs.
   for (const file of await readdir(path.join(destination, "legal"))) {
     const text = await readFile(path.join(destination, "legal", file), "utf8");
-    for (const [, target] of text.matchAll(/\]\((\.{1,2}\/[^)#\s]+)\)/g)) {
-      if (target.startsWith("../docs/") || target.startsWith("../vendor/")) continue;
+    for (const [, target] of text.matchAll(/\]\((?!https?:|mailto:|#)([^)#\s]+)/g)) {
       await access(path.join(destination, "legal", target));
     }
+  }
+  // The model README ships under the renderer public folder, not beside legal/, so it may not use relative links outside its folder.
+  const modelReadme = await readFile(path.join(root, "src/renderer/public/models/firefly/README.md"), "utf8");
+  for (const [, target] of modelReadme.matchAll(/\]\((?!https?:|mailto:|#)([^)#\s]+)/g)) {
+    assert.equal(target.startsWith("../"), false, `model README link escapes its folder: ${target}`);
   }
   const input = await mkdtemp(path.join(os.tmpdir(), "firefly-docs-input-"));
   context.after(() => rm(input, { recursive: true, force: true }));

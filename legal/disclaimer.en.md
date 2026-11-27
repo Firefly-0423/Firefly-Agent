@@ -72,7 +72,7 @@ hotaru maintains this project. Thanks to asset creators, upstream projects and c
 - [Source license](../LICENSE)
 - [Model and character asset permissions](./MODEL_LICENSE.md)
 - [Third-party licenses, provenance and contributions](./THIRD_PARTY_NOTICES.md)
-- [User guide in Chinese](../docs/user-guide/index.md)
+- [User guide in Chinese](https://github.com/Firefly-0423/Firefly-Agent/blob/main/docs/user-guide/index.md)
 - [简体中文](./disclaimer.zh-CN.md)
 
 Offline copies ship in `resources/docs/`. View the repository links above in a source checkout or the online repository.
