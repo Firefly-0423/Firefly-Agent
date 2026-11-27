@@ -130,6 +130,10 @@ describe("foreground shell results", () => {
     { name: "a search that wrote to stderr", command: "grep foo missing.txt", code: 1, stderr: "grep: missing.txt: No such file" },
     { name: "a search error exit code", command: "grep -P '(' a.txt", code: 2, stderr: "" },
     { name: "a signalled search", command: "findstr x a.txt", code: null, stderr: "" },
+    { name: "a search with a redirect that may fail before grep runs", command: "grep foo 2>/dev/null > /missing/out.txt", code: 1, stderr: "" },
+    { name: "a findstr with an output redirect", command: "findstr x a.txt > out.txt", code: 1, stderr: "" },
+    { name: "a search with an input redirect", command: "grep foo < missing.txt", code: 1, stderr: "" },
+    { name: "a search with command substitution", command: 'grep "$(cat p)" a.txt', code: 1, stderr: "" },
   ])("keeps exit failure for $name", async ({ command, code, stderr }) => {
     const { pending } = await launch({ command });
     if (stderr) child.stderr.emit("data", Buffer.from(stderr));

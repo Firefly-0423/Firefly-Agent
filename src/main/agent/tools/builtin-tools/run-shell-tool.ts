@@ -58,6 +58,8 @@ interface ShellResult {
 const SEARCH_COMMANDS = new Set(["grep", "egrep", "fgrep", "rg", "findstr"]);
 export function isSearchNoMatch(command: string, exitCode: number | null, stderr: string): boolean {
   if (exitCode !== 1 || stderr.trim() !== "" || /&&|\|\||[;&\r\n]/.test(command)) return false;
+  // Redirections, substitutions and groups can fail the shell itself with exit 1 before grep runs.
+  if (/[<>(){}$`]/.test(command)) return false;
   const lastStage = command.split("|").at(-1)!.trim();
   const program = lastStage.split(/\s+/)[0]?.replace(/^.*[\\/]/, "").replace(/\.exe$/i, "").toLowerCase();
   return program !== undefined && SEARCH_COMMANDS.has(program);
