@@ -16,6 +16,7 @@ import { appendInternalTranscriptMessage, createInternalTranscriptMessage } from
 import { callLLM, summarizeHistory } from "./agent-loop-llm";
 import { ChatTimeStreamPrefixFilter } from "../../model/text/chat-time-stream-filter";
 import { runToolRound, type ToolRoundOutcome } from "./tool-round";
+import { TranscriptWriteError } from "./transcript-sink";
 import { publicRunFailure, type RunFailure, type RunFailureSource } from "../../../shared/run-failure";
 import { ContextError } from "../../model/context/context-contracts";
 import { buildStableSystemPrefix, type PromptLayers } from "../../model/prompt/prompt-layers";
@@ -183,6 +184,12 @@ async function runAgentLoopRounds(run: AgentLoopRun): Promise<AgentLoopResult> {
       catch (cause) {
         if (!run.toolExecutionFailure && host.signal?.aborted) return abortedResult(run);
         const initiating = run.toolExecutionFailure ? run.toolExecutionFailure.error : cause;
+        // The tool ran; only saving its result failed. Report the write's own code instead of blaming the tool.
+        if (initiating instanceof TranscriptWriteError) {
+          // A checkpoint failure surfaces through the same write error; its code was already recorded.
+          const origin = run.checkpointFailure && run.failure ? run.failure : initiating.cause;
+          return failedStage(run, origin, "runtime", "会话轨迹保存失败：");
+        }
         return failedStage(run, initiating, "tool", "工具执行异常：");
       }
       if (disposition === "cancelled") return abortedResult(run);
