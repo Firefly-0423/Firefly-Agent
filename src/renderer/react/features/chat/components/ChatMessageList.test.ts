@@ -5,8 +5,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { ChatMessageChannelSource } from "../../../../../shared/chat-types";
 
+const bubbleListCalls = vi.hoisted(() => [] as Array<Record<string, unknown>>);
 vi.mock("@ant-design/x", () => ({
-  Bubble: { List: () => null }, CodeHighlighter: () => null,
+  Bubble: { List: (props: Record<string, unknown>) => { bubbleListCalls.push(props); return null; } }, CodeHighlighter: () => null,
   ThoughtChain: ({ items }: { items: { key: string; title: React.ReactNode; description?: React.ReactNode }[] }) =>
     items.map((item) => React.createElement("div", { key: item.key, "data-chain-item": item.key }, item.title, " ", item.description)),
   Think: ({ icon, title, children }: { icon: React.ReactNode; title: React.ReactNode; children: React.ReactNode }) =>
@@ -15,8 +16,9 @@ vi.mock("@ant-design/x", () => ({
 vi.mock("../../../../../shared/renderer-base", () => ({ resolveAsset: (asset: string) => asset }));
 vi.mock("./MermaidBlock", () => ({ MermaidBlock: () => null }));
 vi.mock("./SvgCardBlock", () => ({ SvgCardBlock: () => null }));
-import { assembleMessageItems, createMessageItems, formatChannelSourceLabel, MarkdownContent, resolveChannelConversationLabel,
+import { ChatMessageList, assembleMessageItems, createMessageItems, formatChannelSourceLabel, MarkdownContent, resolveChannelConversationLabel,
   RunActivityDetail, finishedRunFacts, type ChatMessageItem, type EnabledSticker } from "./ChatMessageList";
+import { createRoot } from "react-dom/client";
 import { extractMessageStickerId, stripMessageStickerMarkers } from "./message-sticker";
 
 beforeEach(() => vi.stubGlobal("React", React));
@@ -314,4 +316,43 @@ test("displays live tool progress message on running tool card", () => {
   const text = html.replace(/<[^>]+>/g, "");
   expect(text).toContain("同步数据");
   expect(text).toContain("上传分片 (60%)");
+});
+
+test("gives scroll ownership solely to outer useScrollPinning without Bubble.List autoScroll or 100ms jump timer", () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.useFakeTimers();
+  bubbleListCalls.length = 0;
+  const host = document.body.appendChild(document.createElement("div"));
+  const root = createRoot(host);
+  const scrollToSpy = vi.fn();
+  try {
+    React.act(() => {
+      root.render(React.createElement(ChatMessageList, {
+        messages: [{ id: "m1", role: "user", content: "Hello" }],
+        conversationId: "session-a",
+        mode: "chat",
+        preferredAddress: "",
+      }));
+    });
+    expect(bubbleListCalls.at(-1)?.autoScroll).toBe(false);
+    const scroller = host.querySelector(".ff-message-list") as HTMLDivElement;
+    scroller.scrollTo = scrollToSpy;
+    React.act(() => {
+      root.render(React.createElement(ChatMessageList, {
+        messages: [{ id: "m2", role: "user", content: "Switched" }],
+        conversationId: "session-b",
+        mode: "chat",
+        preferredAddress: "",
+      }));
+    });
+    expect(scrollToSpy).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(200);
+    expect(scrollToSpy).toHaveBeenCalledTimes(1);
+    const css = readFileSync("src/renderer/react/features/chat/components/ChatMessageList.css", "utf8");
+    expect(css).toMatch(/\.ff-message-list \.ant-bubble-list-scroll-box\s*\{[^}]*overflow-y:\s*visible/);
+  } finally {
+    vi.useRealTimers();
+    React.act(() => root.unmount());
+    host.remove();
+  }
 });
