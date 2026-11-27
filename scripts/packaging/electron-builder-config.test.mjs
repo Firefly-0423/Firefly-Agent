@@ -81,7 +81,7 @@ test("production TypeScript entry sets exclude tests but retain application and 
 
 test("the Firefly package identity is consistent and does not publish updates", () => {
   assert.equal(packageJson.name, "firefly-agent");
-  assert.equal(packageJson.version, "1.1.4");
+  assert.equal(packageJson.version, "1.2.0");
   assert.equal(packageJson.packageManager, "pnpm@12.10.1");
   // pnpm's lock has no name or version; it must instead list exactly the dependencies package.json declares.
   const specifiers = section => Object.fromEntries(Object.entries(projectLock.importer[section] ?? {}).map(([name, entry]) => [name, entry.specifier]));
