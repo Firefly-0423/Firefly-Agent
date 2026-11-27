@@ -117,6 +117,27 @@ describe("foreground shell results", () => {
     const { pending } = await launch(); child.emit("close", code);
     expect(await pending).toMatchObject({ success: false, errorCode: "E_SHELL_EXIT", category: "semantic_failure", effectState: "unknown", retryable: false, exitCode: code, timedOut: false });
   });
+  it.each([
+    'dir /b /s src | findstr ".test.ts"', "git log --oneline | grep fixme", "rg TODO src", "C:\\tools\\GREP.exe -rn foo .", "type a.txt | findstr /i todo",
+  ])("treats exit 1 with empty stderr from a search command as a successful no-match: %s", async command => {
+    const { pending } = await launch({ command }); child.emit("close", 1);
+    expect(await pending).toMatchObject({ success: true, noMatch: true, exitCode: 1, stdout: "", stderr: "", timedOut: false });
+  });
+  it.each([
+    { name: "a non-search command", command: "git diff --exit-code", code: 1, stderr: "" },
+    { name: "a search whose output feeds another stage", command: "grep foo a.txt | sort", code: 1, stderr: "" },
+    { name: "a chained command that may have failed earlier", command: "make && grep foo a.txt", code: 1, stderr: "" },
+    { name: "a search that wrote to stderr", command: "grep foo missing.txt", code: 1, stderr: "grep: missing.txt: No such file" },
+    { name: "a search error exit code", command: "grep -P '(' a.txt", code: 2, stderr: "" },
+    { name: "a signalled search", command: "findstr x a.txt", code: null, stderr: "" },
+  ])("keeps exit failure for $name", async ({ command, code, stderr }) => {
+    const { pending } = await launch({ command });
+    if (stderr) child.stderr.emit("data", Buffer.from(stderr));
+    child.emit("close", code);
+    const result = await pending;
+    expect(result).toMatchObject({ success: false, errorCode: "E_SHELL_EXIT", exitCode: code });
+    expect(result).not.toHaveProperty("noMatch");
+  });
   it("reports spawn failures without claiming applied effects", async () => {
     const { pending } = await launch(); child.emit("error", new Error("ENOENT"));
     expect(await pending).toMatchObject({ errorCode: "E_SHELL_SPAWN", effectState: "not_applied", exitCode: -1, stderr: "\n[spawn error] ENOENT" });

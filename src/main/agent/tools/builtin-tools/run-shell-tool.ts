@@ -49,7 +49,18 @@ interface ShellResult {
   success: boolean; shell: ShellKind; shellExecutable?: string; errorCode?: string;
   category?: ToolErrorCategory; effectState?: ToolEffectState; retryable?: false;
   exitCode: number | null; stdout: string; stderr: string; captureTruncated: boolean;
-  ranViaSandbox: boolean; timedOut: boolean;
+  ranViaSandbox: boolean; timedOut: boolean; noMatch?: true;
+}
+/**
+ * grep / egrep / fgrep / rg / findstr exit with 1 when nothing matched; that is an answer, not a failure.
+ * Narrow on purpose: one plain pipeline whose last stage is such a search, exit code exactly 1, empty stderr.
+ */
+const SEARCH_COMMANDS = new Set(["grep", "egrep", "fgrep", "rg", "findstr"]);
+export function isSearchNoMatch(command: string, exitCode: number | null, stderr: string): boolean {
+  if (exitCode !== 1 || stderr.trim() !== "" || /&&|\|\||[;&\r\n]/.test(command)) return false;
+  const lastStage = command.split("|").at(-1)!.trim();
+  const program = lastStage.split(/\s+/)[0]?.replace(/^.*[\\/]/, "").replace(/\.exe$/i, "").toLowerCase();
+  return program !== undefined && SEARCH_COMMANDS.has(program);
 }
 function shellFailure(code: string, category: ToolErrorCategory, effects: ToolEffectState = "not_applied") {
   return { success: false, errorCode: code, category, effectState: effects, retryable: false as const };
@@ -139,8 +150,10 @@ function executePlan(plan: ExecutablePlan, resolvedShell: ResolvedShellExecutabl
         if (error) return shellFailure("E_SHELL_SPAWN", "semantic_failure");
         return code === 0 ? { success: true } : shellFailure("E_SHELL_EXIT", "semantic_failure", "unknown");
       };
+      const noMatch = (code: number | null, error?: string) => stopped === null && !error
+        && isSearchNoMatch(command, code, decodeShellOutput(capturedErr));
       const buildResult = (code: number | null, error?: string): ShellResult => ({
-        ...resultFacts(code, error), shell, shellExecutable: resolvedShell.executable,
+        ...resultFacts(code, error), ...(noMatch(code, error) ? { success: true, noMatch: true as const } : {}), shell, shellExecutable: resolvedShell.executable,
         exitCode: stopped !== null ? null : code,
         stderr: decodeShellOutput(capturedErr) + (stopped !== null ? `\n[已终止] ${explanation[stopped]}，进程树已被强制终止。${suggestion[stopped]}` : "")
           + (error ? "\n[spawn error] " + error + (sandboxed ? " [sandbox]" : "") : ""),
@@ -221,7 +234,7 @@ function serializeShellResult(result: ShellResult, command: string, cwd: string 
     success: result.success, category: result.category, effectState: result.effectState, retryable: result.retryable,
     command, cwd, shell: result.shell, shellExecutable: result.shellExecutable, errorCode: result.errorCode,
     exitCode: result.exitCode, timedOut: result.timedOut, captureTruncated: result.captureTruncated,
-    effect, sandboxed, stderr: result.stderr, stdout: result.stdout,
+    ...(result.noMatch ? { noMatch: true } : {}), effect, sandboxed, stderr: result.stderr, stdout: result.stdout,
   });
 }
 
