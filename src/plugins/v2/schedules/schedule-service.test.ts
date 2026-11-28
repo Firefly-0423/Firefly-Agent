@@ -8,6 +8,7 @@ import { computeExecutionSpecFingerprint } from "../../../main/features/schedule
 import { createSchedulerStore } from "../../../main/features/scheduler/scheduler-store";
 import type { ScheduledRunResult, ScheduledTask } from "../../../main/platform/schedule/schedule-types";
 import {
+  CALLBACK_LISTENER_UNAVAILABLE_REASON,
   createPluginScheduleService,
   PluginError,
   type ScheduleProposalSpec,
@@ -649,6 +650,80 @@ describe("PluginSchedulesService (v2)", () => {
       currentNow = new Date("2032-03-10T10:10:00.000Z");
       await vi.advanceTimersByTimeAsync(5 * 60_000);
       expect(received).toHaveLength(1);
+    });
+
+    describe.each([
+      { listener: "never registered", dispose: false, register: false },
+      { listener: "registered then disposed", dispose: true, register: true },
+    ])("callback fire with listener $listener", ({ dispose, register }) => {
+      const schedules = [
+        { name: "recurring", schedule: { kind: "interval", minutes: 5 } as const },
+        { name: "one-shot", schedule: { kind: "once", at: BASE_TIME.getTime() + 5 * 60_000 } as const },
+      ];
+      it.each(schedules)("$name task settles as skipped with ERR_UNAVAILABLE, never success", async ({ name, schedule }) => {
+        const { store, service } = setupHarness();
+        const client = service.forPlugin("dev.firefly.reminder");
+        const seen: string[] = [];
+        if (register) {
+          const sub = client.onTrigger(async event => { seen.push(event.taskId); });
+          if (dispose) sub.dispose();
+        }
+        const proposed = await client.propose({ title: "Stretch", schedule, action: { type: "callback" } });
+        service.confirmProposal(proposed.taskId);
+
+        currentNow = new Date("2032-03-10T10:05:00.000Z");
+        await vi.advanceTimersByTimeAsync(5 * 60_000);
+
+        const [task] = store.getTasks();
+        const history = store.getHistory(task.id);
+        expect(seen).toEqual([]);
+        expect(history.map(entry => entry.status)).not.toContain("success");
+        expect(history[0]).toMatchObject({ status: "skipped", reason: CALLBACK_LISTENER_UNAVAILABLE_REASON });
+        if (name === "one-shot") {
+          // Not marked completed: still enabled and re-armed for a retry.
+          expect(task.pluginUserEnabled).toBe(true);
+          expect(task.nextFireAt).toBe("2032-03-10T10:06:00.000Z");
+        } else {
+          expect(task.nextFireAt).toBe("2032-03-10T10:10:00.000Z");
+        }
+      });
+
+      it("a direct run reports ok=false with the stable code and records no success", async () => {
+        const { store, service } = setupHarness();
+        const client = service.forPlugin("dev.firefly.reminder");
+        if (register) client.onTrigger(async () => {}).dispose();
+        const proposed = await client.propose({ title: "Stretch", schedule: { kind: "interval", minutes: 5 }, action: { type: "callback" } });
+        service.confirmProposal(proposed.taskId);
+        const [task] = store.getTasks();
+
+        const result = await service.runScheduledTask(task, currentNow, true);
+
+        expect(result).toMatchObject({ ok: false, error: CALLBACK_LISTENER_UNAVAILABLE_REASON });
+        expect(store.getHistory(task.id)).toEqual([
+          expect.objectContaining({ id: result.historyId, status: "skipped", reason: CALLBACK_LISTENER_UNAVAILABLE_REASON }),
+        ]);
+      });
+    });
+
+    it("a one-shot callback is retried and succeeds once the plugin registers its listener", async () => {
+      const { store, service } = setupHarness();
+      const client = service.forPlugin("dev.firefly.reminder");
+      const proposed = await client.propose({
+        title: "Once", schedule: { kind: "once", at: BASE_TIME.getTime() + 5 * 60_000 }, action: { type: "callback" },
+      });
+      service.confirmProposal(proposed.taskId);
+      currentNow = new Date("2032-03-10T10:05:00.000Z");
+      await vi.advanceTimersByTimeAsync(5 * 60_000);
+
+      const seen: string[] = [];
+      client.onTrigger(async event => { seen.push(event.taskId); });
+      currentNow = new Date("2032-03-10T10:06:00.000Z");
+      await vi.advanceTimersByTimeAsync(60_000);
+
+      expect(seen).toEqual([proposed.taskId]);
+      const [task] = store.getTasks();
+      expect(store.getHistory(task.id).map(entry => entry.status)).toEqual(["success", "skipped"]);
+      expect(task.nextFireAt).toBeNull();
     });
 
     it("re-arms general cron schedules after firing", async () => {

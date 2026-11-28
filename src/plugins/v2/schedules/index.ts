@@ -6,6 +6,7 @@ export {
   type ParsedCronExpression,
 } from "./cron";
 export {
+  CALLBACK_LISTENER_UNAVAILABLE_REASON,
   createPluginScheduleService,
   type PluginScheduleService,
 } from "./schedule-service";

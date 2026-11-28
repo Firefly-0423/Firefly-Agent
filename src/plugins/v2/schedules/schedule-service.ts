@@ -36,6 +36,11 @@ import {
 } from "./types";
 
 const ALLOWED_MODES: ReadonlySet<Mode> = new Set<Mode>(["chat", "work", "code"]);
+/** Stable code for a callback fire that found no active `schedules.onTrigger()` listener. */
+export const CALLBACK_LISTENER_UNAVAILABLE_REASON = "ERR_UNAVAILABLE: no active callback listener";
+const ONCE_LISTENER_RETRY_DELAY_MS = 60_000;
+const ONCE_LISTENER_RETRY_WINDOW_MS = 10 * 60_000;
+
 const ALLOWED_PLUGIN_RISKS: ReadonlySet<ToolRisk> = new Set<ToolRisk>([
   "fs-read",
   "fs-write",
@@ -448,6 +453,45 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     };
   }
 
+  /**
+   * A callback fire with no live `onTrigger` listener never reached the plugin: record it as skipped (not success)
+   * and report the stable unavailable code. The engine has already stopped a one-shot task before dispatching, so
+   * for a scheduled fire it is re-armed for a short retry while the plugin may still be registering its listener.
+   */
+  function settleCallbackWithoutListener(
+    task: ScheduledTask,
+    appointment: Date,
+    requestedByUser: boolean,
+    runId: string,
+  ): ScheduledRunResult {
+    store.recordHistory({
+      id: runId,
+      taskId: task.id,
+      taskTitle: task.title,
+      firedAt: appointment.toISOString(),
+      status: "skipped",
+      reason: CALLBACK_LISTENER_UNAVAILABLE_REASON,
+      effectiveToolIds: [...task.allowedToolIds],
+    });
+    if (
+      !requestedByUser
+      && task.schedule.kind === "once"
+      && clock().getTime() - appointment.getTime() < ONCE_LISTENER_RETRY_WINDOW_MS
+    ) {
+      store.updateTask(task.id, {
+        pluginUserEnabled: true,
+        nextFireAt: new Date(clock().getTime() + ONCE_LISTENER_RETRY_DELAY_MS).toISOString(),
+      });
+      refreshEngine();
+    }
+    return {
+      ok: false,
+      error: CALLBACK_LISTENER_UNAVAILABLE_REASON,
+      historyId: runId,
+      effectiveToolIds: [...task.allowedToolIds],
+    };
+  }
+
   async function executeConfirmedAction(
     v2TaskId: string,
     task: ScheduledTask,
@@ -463,7 +507,11 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
     };
 
     if (action.type === "callback") {
-      const listeners = Array.from(triggerListeners.get(task.ownerPluginId ?? "") ?? []);
+      const listeners = Array.from(triggerListeners.get(task.ownerPluginId ?? "") ?? [])
+        .filter(listener => !listenerSignals.get(listener)?.aborted);
+      if (listeners.length === 0) {
+        return settleCallbackWithoutListener(task, appointment, requestedByUser, runId);
+      }
       const controller = new AbortController();
       const pluginControllers = activeTriggerControllers.get(task.ownerPluginId ?? "") ?? new Set();
       pluginControllers.add(controller);
