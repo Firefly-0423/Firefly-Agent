@@ -8,7 +8,7 @@
  */
 
 // 生产环境下位于子目录的窗口，其根需要再向上退一级
-const NESTED_WINDOW_DIRS = ["react/", "sidebar/", "tasks/", "settings/", "call/", "sticker-manager/"];
+const NESTED_WINDOW_DIRS = ["react/", "sidebar/", "tasks/", "settings/", "call/", "sticker-manager/", "toast/"];
 
 let memoizedRoot: string | undefined;
 

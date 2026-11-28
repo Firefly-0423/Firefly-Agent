@@ -74,8 +74,8 @@ describe("collecting searchable settings", () => {
     const entries = collectSettingsEntries(document, buttons());
     const row = entries.find(item => item.title === "文件访问权限")!;
     expect(row.description).toContain("流萤不会修改本地任何文件");
-    expect(row.description).not.toContain("全只读");
-    expect(row.text).toContain("全只读");
+    expect(row.description).not.toContain("审批");
+    expect(row.text).toContain("审批");
     const card = entries.find(item => item.title === "连接概览");
     if (card) expect(card.description.length).toBeLessThan(80);
   });

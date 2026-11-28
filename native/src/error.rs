@@ -75,23 +75,19 @@ impl ProtocolError {
 /// 与进程级的 `AppError`、协议层的 `ProtocolError` 分开建模。
 #[derive(Debug, thiserror::Error)]
 pub enum HelperError {
-    /// 抓屏后端出错。
-    #[error("capture failed: {0}")]
-    CaptureFailed(String),
-
-    /// 查询显示器信息失败。
+    // 显示器：查询不到，或报告的尺寸无法使用（为零、超出可分配的缓冲）。
     #[error("display query failed: {0}")]
     DisplayQueryFailed(String),
-
-    /// 显示器配置不合法（例如尺寸为零或超限）。
     #[error("invalid display configuration: {0}")]
     InvalidDisplay(String),
 
-    /// 图像编码失败。
+    // 抓取与交付：后端抓屏失败、PNG 编码或落盘失败。
+    #[error("capture failed: {0}")]
+    CaptureFailed(String),
     #[error("encode failed: {0}")]
     EncodeFailed(String),
 
-    /// 底层 Win32/COM 调用返回错误。
+    /// 其余 Win32/COM 调用直接返回的错误。
     #[error("Windows API failed: {0}")]
     Windows(#[from] windows::core::Error),
 }
@@ -101,9 +97,9 @@ impl HelperError {
     pub fn code(&self) -> &'static str {
         use HelperError::*;
         match self {
-            CaptureFailed(_) => "capture-failed",
             DisplayQueryFailed(_) => "display-query-failed",
             InvalidDisplay(_) => "invalid-display",
+            CaptureFailed(_) => "capture-failed",
             EncodeFailed(_) => "encode-failed",
             Windows(_) => "windows-api-failed",
         }

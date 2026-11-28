@@ -1,1 +1,2 @@
+# Cargo 的编译输出（debug / release 辅助程序），打包脚本会从这里取 release 版。
 /target/

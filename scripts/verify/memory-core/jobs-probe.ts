@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import {MemoryService} from "../../../src/main/memory-core/memory-service";
-import {createMainMemoryAuthority,type VerifiedSource} from "../../../src/main/memory-core/main-access";
-import type {MemoryClient} from "../../../src/main/memory-core/worker-client";
+import {MemoryService} from "../../../src/main/memory/core/memory-service";
+import {createMainMemoryAuthority,type VerifiedSource} from "../../../src/main/memory/core/main-access";
+import type {MemoryClient} from "../../../src/main/memory/core/worker-client";
 export async function verifyJobs(client:MemoryClient,canary:string){
  const sources=new Map<string,VerifiedSource>(),ref={sourceId:"jobs-source",revision:1},scopeKey="jobs-scope";
  sources.set(ref.sourceId,{...ref,scopeKey,kind:"user",intent:"statement",policyEligibility:{directStatement:true,inferred:false,sensitive:false,conflict:false}});

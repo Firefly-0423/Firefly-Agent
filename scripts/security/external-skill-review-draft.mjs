@@ -1,7 +1,7 @@
-// Prints a DRAFT static review entry for one market Skill at one commit, for src/main/skills/external-reviews.ts.
+// Prints a DRAFT static review entry for one market Skill at one commit, for src/main/knowledge/skills/external-reviews.ts.
 // It only computes what Main will check (file hashes, the canonical content digest, license evidence and, for Firefly's
 // own source, the Firefly metadata). It approves nothing: the reviewer reads every file, decides, and records the
-// rationale in THIRD_PARTY_SKILL_REVIEWS.md before the entry ships.
+// rationale in legal/THIRD_PARTY_SKILL_REVIEWS.md before the entry ships.
 //
 // Usage: node scripts/security/external-skill-review-draft.mjs <local clone> <commit> <skill path> [source]
 //   e.g. node scripts/security/external-skill-review-draft.mjs ../firefly-skills 81e0bb6... skills/diagram firefly
@@ -64,7 +64,7 @@ function main([repository, commit, path, sourceId = "firefly"]) {
     payload.set(file, git("cat-file", "blob", blob)); blobs.set(file, blob);
   }
   if (!payload.has(path + "/SKILL.md")) throw new Error(`No SKILL.md under ${path} at ${commit}.`);
-  console.error("DRAFT ONLY: read every file, then fill in `reviewer` and add the rationale to THIRD_PARTY_SKILL_REVIEWS.md. An entry with an empty reviewer approves nothing.");
+  console.error("DRAFT ONLY: read every file, then fill in `reviewer` and add the rationale to legal/THIRD_PARTY_SKILL_REVIEWS.md. An entry with an empty reviewer approves nothing.");
   console.log(JSON.stringify(draftReview({ sourceId, commit, path, payload, blobs }), null, 2));
 }
 

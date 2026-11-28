@@ -136,8 +136,8 @@
 }
 
 .skill-card__source--user {
-  background: #e3f7f1;
-  color: #10ac84;
+  background: var(--ff-palette-e3f7f1);
+  color: var(--ff-palette-10ac84);
 }
 
 .skill-card__version {
@@ -165,7 +165,7 @@
 }
 
 .skill-card__pill {
-  background: #e4e4e8;
+  background: var(--ff-palette-e4e4e8);
   border: none;
   border-radius: 12px;
   cursor: pointer;
@@ -180,7 +180,7 @@
 .skill-card__pill-knob {
   background: var(--ff-surface);
   border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 1px 3px var(--ff-black-alpha-18);
   height: 16px;
   left: 2px;
   position: absolute;
@@ -224,7 +224,7 @@
 
 .skill-panel__confirm-overlay {
   align-items: center;
-  background: rgba(0, 0, 0, .35);
+  background: var(--ff-black-alpha-35);
   display: flex;
   inset: 0;
   justify-content: center;

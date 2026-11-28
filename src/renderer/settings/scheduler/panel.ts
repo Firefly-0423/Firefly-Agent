@@ -93,7 +93,7 @@ export async function renderSchedulerList(): Promise<void> {
       const toggle = taskButton(item.enabled ? "停用" : "启用", () => void toggleSchedulerTask(item, !item.enabled));
       const history = taskButton("历史", () => void toggleSchedulerHistory(item.id, article));
       const remove = taskButton("删除", () => void deleteSchedulerTask(item.id));
-      actions.append(fire, edit, toggle, history, remove);
+      actions.append(fire, ...(item.schedule.kind === "cron" ? [] : [edit]), toggle, history, remove);
     }
     list.appendChild(article);
   }
@@ -114,6 +114,7 @@ export async function loadSchedulerPanel(): Promise<void> {
 }
 
 export async function openSchedulerEditor(task?: ScheduledTask): Promise<void> {
+  if (task?.schedule.kind === "cron") return;
   schedulerState.editingTaskId = task?.id ?? null;
   controls.schedulerEditor?.classList.remove("is-hidden");
   if (schedulerState.tools.length === 0) {
@@ -296,4 +297,17 @@ export async function toggleSchedulerHistory(taskId: string, card: Element): Pro
     }
   }
   history.classList.remove("is-hidden");
+}
+
+/** Binds the static scheduler editor buttons and conditional field listeners. */
+export function initSchedulerPanel(): void {
+  const schedulerClicks: [HTMLButtonElement | null, () => void][] = [
+    [controls.schedulerNewBtn, () => void openSchedulerEditor()],
+    [controls.schedulerEditorClose, closeSchedulerEditor],
+    [controls.schedulerCancelBtn, closeSchedulerEditor],
+    [controls.schedulerSaveBtn, () => void saveSchedulerTask()],
+  ];
+  schedulerClicks.forEach(([button, act]) => button?.addEventListener("click", act));
+  [controls.schedulerKindInput, controls.schedulerToolLimitInput].forEach(input => input?.addEventListener("change", updateSchedulerConditionalFields));
+  updateSchedulerConditionalFields();
 }

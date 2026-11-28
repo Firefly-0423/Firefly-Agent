@@ -185,3 +185,25 @@ test("edits and adjusts queued content while attachments and upload remain avail
   expect(upload).toBeTruthy();
   expect(upload!.disabled).toBe(false);
 });
+
+test("shows inserted queue status and withdraws without removing", async () => {
+  const withdraw = vi.fn().mockResolvedValue(true);
+  await update({ modelBusy: true, pendingQueue: [{ id: "marked", content: "Keep this", adjustRunId: "run" }], onUnmarkQueuedMessage: withdraw } as any);
+  expect(host.textContent).toContain(t("composer.queueInserted"));
+  expect(host.querySelector(`[title="${t("composer.queueInsertedHint")}"]`)).not.toBeNull();
+  await React.act(async () => labelled(t("composer.queueWithdraw"))!.click());
+  expect(withdraw).toHaveBeenCalledWith("marked");
+  expect(actions.remove).not.toHaveBeenCalled();
+});
+
+test.each(["work", "code", "chat"] as const)("shows document requirement in %s mode", async mode => {
+  const change = vi.fn();
+  await update({ mode, attachments: [{ kind: "document", name: "notes.md" }], onRequireDocumentReadChange: change });
+  const checkbox = host.querySelector<HTMLInputElement>(".ff-composer__read-requirement input");
+  if (mode === "chat") expect(checkbox).toBeNull();
+  else {
+    expect(checkbox).not.toBeNull();
+    await React.act(async () => checkbox!.click());
+    expect(change).toHaveBeenCalledWith(true);
+  }
+});

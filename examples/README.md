@@ -1,6 +1,6 @@
 # 插件示例说明
 
-本目录的前几个插件用于阅读 API 与集成方式。源码、manifest 和署名保持原样；不把注册冒烟等同于真实宿主验证。末尾的“随市场目录分发”五个插件是离线工具，由 `scripts/plugin-marketplace/build.mjs` 打包进离线目录，发布方式见 `docs/plugin-catalog-publishing.md`。
+本目录的前几个插件用于阅读 API 与集成方式。源码、manifest 和署名保持原样；不把注册冒烟等同于真实宿主验证。末尾的“随市场目录分发”五个插件是离线工具，由 `scripts/plugin-marketplace/build.mjs` 打成 `.ffplugin` 并写入离线目录，发布方式见 `docs/plugin-catalog-publishing.md`。
 
 | 目录 | 入口与依赖 | 展示内容 |
 | --- | --- | --- |
@@ -11,7 +11,7 @@
 
 ### 随市场目录分发的离线插件
 
-这五个插件都只做内存内计算：不联网、不读写文件、不启动命令，首次安装保持停用。每个目录含 `manifest.json`、`index.cjs`、`README.md`、`LICENSE`，以及只供目录条目使用、不进入 ZIP 的 `catalog.json`。测试在 `scripts/plugin-marketplace/`，运行 `npm run test:plugin-marketplace`。
+这五个插件都只做内存内计算：不联网、不读写文件、不启动命令，首次安装保持停用。1.2.0 清单禁止工具声明 `safe`，所以每个工具按最低的真实风险档声明 `fs-read`，调用时会按该档走审批。每个目录含 `firefly.plugin.json`（1.2.0 清单，id 为 `dev.firefly.<目录名>`）、`index.mjs`、`README.md`、`LICENSE`，以及只供目录条目使用、不进入包的 `catalog.json`；构建产出 `.ffplugin` 包和 v2 `registry.json`。测试在 `scripts/plugin-marketplace/`，运行 `pnpm run test:plugin-marketplace`。
 
 | 目录 | 工具 | 来源 |
 | --- | --- | --- |
@@ -26,9 +26,9 @@
 在仓库根目录，现有命令为：
 
 ```bash
-npm run build:plugin-sdk
+pnpm run build:plugin-sdk
 npm pack ./plugin-sdk
-npm run test:plugin-examples
+pnpm run test:plugin-examples
 ```
 
 前两条生成本地 SDK tarball；在插件项目通过 `npm install /path/to/firefly_wu-plugin-sdk-<版本>.tgz` 安装；已发布的版本也可以直接 `npm install @firefly_wu/plugin-sdk`。
@@ -41,11 +41,11 @@ npm run test:plugin-examples
 
 ## 当前源码限制
 
-示例验证入口为 `npm run test:plugin-examples`。Mock 验证不代表真实外部服务或 GUI 通过。
+示例验证入口为 `pnpm run test:plugin-examples` 与 `src/plugins/examples-lifecycle.test.ts`（覆盖 `unregister()` → `dispose()` 真实顺序与 JSON 持久化往返）。Mock 验证不代表真实外部服务或 GUI 通过。
 
-- `system-status`：CPU/网络差分首次没有基准；GPU 依赖本机命令，Windows 采集依赖 PowerShell。`diskUsage()` 未传盘符时固定查询 `C`，不是枚举全部磁盘，也不是动态发现系统盘。
-- `weather-tool`：`secrets.get()` 抛错会使注册失败；只有缺少密钥或 OpenWeather 请求失败才进入免密钥路径。`unregister()` 先清空 `lastCity`，宿主随后执行的 `onDispose` 再尝试保存该值，不能宣称停止后城市缓存可靠保存。
-- `long-term-memory`：直接向 JSON 存储写 `Map`，恢复所得值不具备 `Map` 方法；`unregister()` 还会在保存回调之前清空记忆。消息读取只取一页，未循环消费游标；事件没有 `finalMessageId` 时也未跳过，不能宣称已实现严格冻结的全量归档。
-- `scheduled-automation`：`unregister()` 先清空 `ownTaskIds`，保存回调随后写入空数组；停止后本地所有权清单不能可靠恢复。宿主仍通过插件所有权校验限制任务访问，示例没有启用任务的接口。
+- `system-status`：CPU 与网络速率采用前后两次采样差分，首次调用或停用重启后的第一次采样因缺少基准返回 `null`；GPU 依赖本机命令，Windows 采集依赖 PowerShell。未传盘符时会按环境变量或系统 WMI 动态发现系统盘。
+- `weather-tool`：`secrets.get()` 抛错会使注册失败；只有缺少密钥或 OpenWeather 请求失败才进入免密钥路径。
+- `long-term-memory`：依赖宿主提供完整 `getMessages` 游标分页；真实 LLM 摘要质量取决于宿主模型服务，离线或调用失败时退回截断摘要。
+- `scheduled-automation`：宿主仍通过插件所有权校验限制任务访问，示例没有启用任务的接口。
 
-停止顺序依据 `src/plugins/manager.ts`：`beginStop()` → 插件 `unregister()` → context `dispose()`。真实存储依据 `src/plugins/storage.ts` 的 `JSON.stringify` / `JSON.parse`；Mock 以进程内 Map 保存原值，且 `dispose()` 不代调 `unregister()`，因此注册冒烟无法发现上述所有问题。上述实现缺陷已登记，留待后续处理。
+停止顺序依据 `src/plugins/manager.ts`：`beginStop()` → 插件 `unregister()` → context `dispose()`。真实存储依据 `src/plugins/storage.ts` 的 `JSON.stringify` / `JSON.parse`；`plugin-sdk` 里的 `createMockPluginContext` 与 `scripts/plugin-sdk/smoke-examples.mjs` 当前以进程内 Map 保存原值且未按真实停止顺序调度，真实持久化与生命周期行为以 `src/plugins/examples-lifecycle.test.ts` 为准。

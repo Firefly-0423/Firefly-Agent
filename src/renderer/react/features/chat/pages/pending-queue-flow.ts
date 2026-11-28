@@ -24,6 +24,7 @@ export type PendingQueueFlowHost = {
 export type PendingQueueFlow = {
   handleRunFinished(input: { mode: ConversationMode; sessionId: string; queuePaused: boolean }): void;
   syncProjection(sessionId: string): Promise<void>;
+  unmarkMessage(sessionId: string, messageId: string): Promise<boolean>;
   adjustMessage(sessionId: string, messageId: string): Promise<boolean>;
   editMessage(sessionId: string, messageId: string, update: { rawContent: string; visibleContent: string; userSticker?: string }): Promise<boolean>;
   consume(mode: ConversationMode, sessionId: string): Promise<void>;
@@ -40,6 +41,7 @@ export function createPendingQueueFlow(getHost: () => PendingQueueFlowHost): Pen
   const blocked = new Set<string>();
   const processing = new Set<string>();
   const nextPass = new Map<string, ConversationMode>();
+  const projectionReads = new Map<string, symbol>();
 
   function rememberFailedEnqueue(key: string, id: string): void {
     retries.set(key, id);
@@ -126,6 +128,7 @@ export function createPendingQueueFlow(getHost: () => PendingQueueFlowHost): Pen
       return;
     }
     if (!conversation) { ports.replaceProjection(sessionId, null); return; }
+    if (ports.isSessionBusy(sessionId)) return;
     if (conversation.pendingDispatch) { await resumePendingDispatch(mode, sessionId, conversation); return; }
     let claimed: PendingClaimResult;
     try { claimed = await storage.pendingClaim(sessionId); }
@@ -213,6 +216,36 @@ export function createPendingQueueFlow(getHost: () => PendingQueueFlowHost): Pen
     return true;
   }
 
+  async function unmarkMessage(sessionId: string, messageId: string): Promise<boolean> {
+    const ports = getHost();
+    const storage = ports.getStore();
+    try {
+      if (!storage) throw new Error(t("chatPage.errorChatStoreUnavailable"));
+      const reply = await storage.pendingUnmark(sessionId, messageId);
+      if (reply.queue) ports.replaceProjection(sessionId, copyQueue(reply.queue));
+      if (!reply.ok) {
+        if (reply.error === "already-adjusting") {
+          ports.reportError(t("composer.queueWithdrawInFlight"));
+        } else if (reply.error === "not-found") {
+          if (!reply.queue) await syncProjection(sessionId);
+          const session = await storage.get(sessionId).catch(() => null);
+          const marker = session?.id === sessionId
+            ? session.messages.find(message => message.id === messageId && message.role === "user")?.runInsertion
+            : undefined;
+          ports.reportError(t(marker?.delivery ? "composer.queueWithdrawDelivered" :
+            marker ? "composer.queueWithdrawCommitted" : "composer.queueWithdrawGone"));
+        } else {
+          throw new Error(reply.error);
+        }
+        return false;
+      }
+      return true;
+    } catch (failure) {
+      ports.reportError(t("composer.queueWithdrawFailed", { error: failure instanceof Error ? failure.message : String(failure) }));
+      return false;
+    }
+  }
+
   async function adjustMessage(sessionId: string, messageId: string): Promise<boolean> {
     const ports = getHost();
     const storage = ports.getStore();
@@ -241,13 +274,20 @@ export function createPendingQueueFlow(getHost: () => PendingQueueFlowHost): Pen
     const ports = getHost();
     const storage = ports.getStore();
     if (!storage) return;
-    let entries: PendingChatMessage[] | null;
-    try { entries = await storage.pendingList(sessionId); }
+    const request = Symbol();
+    projectionReads.set(sessionId, request);
+    try {
+      const entries = await storage.pendingList(sessionId);
+      if (projectionReads.get(sessionId) === request) {
+        ports.replaceProjection(sessionId, entries === null ? null : copyQueue(entries));
+      }
+    }
     catch (failure) {
       console.warn("[pending-queue-flow] 读取待发队列失败，投影保持不变:", sessionId, failure);
-      return;
     }
-    ports.replaceProjection(sessionId, entries === null ? null : copyQueue(entries));
+    finally {
+      if (projectionReads.get(sessionId) === request) projectionReads.delete(sessionId);
+    }
   }
 
   function handleRunFinished(input: { mode: ConversationMode; sessionId: string; queuePaused: boolean }): void {
@@ -259,5 +299,5 @@ export function createPendingQueueFlow(getHost: () => PendingQueueFlowHost): Pen
     else void consume(input.mode, input.sessionId);
   }
 
-  return { enqueue, consume, editMessage, adjustMessage, syncProjection, handleRunFinished };
+  return { enqueue, consume, editMessage, adjustMessage, unmarkMessage, syncProjection, handleRunFinished };
 }

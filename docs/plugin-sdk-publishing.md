@@ -10,9 +10,9 @@ npm only lets you configure a trusted publisher for a package that already exist
 2. From a clean checkout of the commit you want to release, build and check the package:
 
    ```bash
-   npm ci
-   npm run check:plugin-sdk
-   npm run test:plugin-examples
+   pnpm install --frozen-lockfile
+   pnpm run check:plugin-sdk
+   pnpm run test:plugin-examples
    ```
 
 3. Log in and publish:
@@ -42,8 +42,8 @@ A new trusted publisher must publish successfully within 2 days, or npm expires 
 2. Tag the merged commit and push the tag:
 
    ```bash
-   git tag plugin-sdk-v0.2.1
-   git push origin plugin-sdk-v0.2.1
+   git tag plugin-sdk-v1.2.0
+   git push origin plugin-sdk-v1.2.0
    ```
 
 The workflow checks that the tag matches the package version, builds and verifies the package, compiles and smoke-tests the examples, and then publishes.

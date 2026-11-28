@@ -2,19 +2,20 @@ import { permissionBlocksWrap, permissionNote } from "./dom";
 import { _initModalOverlay } from "../shared/modal";
 import { modalState } from "../shared/modal-state";
 
-type PermissionLevel = "project-read-only" | "read-only" | "scoped" | "per-action" | "full";
+type PermissionLevel = "read-only" | "per-action" | "full";
 const PERMISSION_NOTES: Record<PermissionLevel, string> = {
-  "project-read-only": "完全只读：流萤只能在当前项目目录内只读，不能修改任何文件，也不能执行命令。",
   "read-only": "只读：流萤不会修改本地任何文件，也不能为你安装新工具。",
-  scoped: "指定目录：流萤只能在你授权的目录里读写文件（白名单后续在此面板配置）。",
   "per-action": "每次审批：每次涉及文件或安装的操作，流萤都会在聊天里弹卡片让你确认。",
   full: "完全访问：流萤可以自由调用本地命令（含 git/npm/pip）。请只在你完全信任的情况下使用。",
 };
-function paintPermissionUI(level: PermissionLevel): void {
+function normalizePermissionLevel(level: unknown): PermissionLevel {
+  return level === "read-only" || level === "per-action" || level === "full" ? level : "read-only";
+}
+function paintPermissionUI(rawLevel: unknown): void {
   if (!permissionBlocksWrap) return;
-  const visibleLevel = level === "scoped" ? "read-only" : level;
+  const level = normalizePermissionLevel(rawLevel);
   permissionBlocksWrap.querySelectorAll<HTMLButtonElement>("button[data-level]").forEach(button => {
-    const selected = button.dataset.level === visibleLevel;
+    const selected = button.dataset.level === level;
     button.classList.toggle("is-active", selected);
     button.setAttribute("aria-pressed", String(selected));
   });
@@ -91,7 +92,7 @@ async function changePermission(event: Event): Promise<void> {
 async function loadPermission(): Promise<void> {
   try {
     const saved = await window.settings?.getPermissionLevel?.();
-    const selected = (saved?.level || "read-only") as PermissionLevel;
+    const selected = normalizePermissionLevel(saved?.level);
     console.log("[settings] 当前权限档位:", selected);
     paintPermissionUI(selected);
   } catch (failure) {

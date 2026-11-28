@@ -4,7 +4,7 @@
 //   - vendor-api：从厂商接口的模型清单里读到的（OpenRouter / Anthropic / 各网关的能力字段）；
 //   - user：用户在 API 设置里手动覆盖（图片 / 仅文本）。
 // 同一档案只存一份声明；用户覆盖写入时会替换厂商接口记录。
-// 生效结果（能不能直发图片）只由主进程 resolveInputModalities 给出，见 src/main/orchestrator/vendors/multimodal.ts。
+// 生效结果（能不能直发图片）只由主进程 resolveInputModalities 给出，见 src/main/model/providers/multimodal.ts。
 
 export const INPUT_MODALITIES = ["text", "image"] as const;
 export type InputModality = (typeof INPUT_MODALITIES)[number];

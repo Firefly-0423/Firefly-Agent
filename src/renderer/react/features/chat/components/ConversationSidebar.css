@@ -108,14 +108,14 @@
   font: 500 var(--ff-fs-ui)/1.3 var(--rb-font-sans, sans-serif);
 }
 .ff-conversation-project svg {
-  width: 15px;
-  height: 15px;
   flex: none;
+  height: 15px;
+  width: 15px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
+  stroke-width: 1.7;
   color: var(--ff-text-muted);
 }
 .ff-conversation-project span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -125,7 +125,7 @@
 .ff-session-label__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Grouped by status: plain headings like the reference, and a warning mark on a conversation that needs the user. */
 .ff-conversation-status { color: var(--ff-text); font-weight: 600; }
-.ff-session-label__needs-input { flex: none; margin-left: auto; color: var(--ff-warning, #d98a1c); }
+.ff-session-label__needs-input { flex: none; margin-left: auto; color: var(--ff-warning, var(--ff-palette-d98a1c)); }
 /* A run in flight: a quiet spinner after the title. */
 .ff-session-label { width: 100%; }
 .ff-session-label__title { flex: 1 1 auto; }
@@ -160,7 +160,7 @@
 .ff-session-card__rows li { display: flex; min-width: 0; align-items: center; gap: 9px; color: var(--ff-text-secondary); font-size: var(--ff-fs-ui); line-height: 1.35; }
 .ff-session-card__rows li > svg { flex: none; color: var(--ff-text-muted); }
 .ff-session-card__rows li > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ff-session-card__branch > svg { color: var(--ff-git-branch, #8b5cf6); }
+.ff-session-card__branch > svg { color: var(--ff-git-branch, var(--ff-palette-8b5cf6)); }
 .ff-session-card__plain { color: var(--ff-text-muted); }
 
 /* Row actions: pin and "more" appear on hover, focus or the selected row; a pinned row keeps a quiet pin until then. */

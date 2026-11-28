@@ -1,7 +1,5 @@
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+/* Keep dimensions predictable and remove browser spacing on all elements. */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Generated content follows the same box and spacing rules as its host. */
+*::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }

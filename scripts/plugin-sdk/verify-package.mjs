@@ -1,14 +1,18 @@
-// 校验 @firefly_wu/plugin-sdk 的打包质量，共五项：
-//   1. manifest.schema.json 与 PluginManifestInput 类型没有漂移（generate-schema --check）
-//   2. 包内 vendored 的 api.ts 与宿主的 src/plugins/api.ts 逐字节一致
+// 校验 @firefly_wu/plugin-sdk 的打包质量，共六项：
+//   1. dist/firefly.plugin.schema.json 与 src/shared/plugin-manifest/manifest.schema.json 一致
+//   2. 1.2.0 源码不再保留 0.x 遗留文件（api.ts、validate-manifest.ts）
 //   3. npm pack --dry-run 列出的文件只有 dist、package.json、README.md（以及 LICENSE）
 //   4. 产物（d.ts 与 js）里没有指向 src/main、src/renderer 等内部路径的模块引用
-//   5. CJS 与 ESM 两种入口都能加载，并导出关键常量
-import { readFile, readdir } from "node:fs/promises";
+//   5. CJS 与 ESM 两种入口都能加载，并导出 1.2.0 公开 API 与 createTestHost
+//   6. bin 声明的 firefly-plugin 命令行在打包清单里，且能校验并打包一个最小插件、拒绝一个不合法的插件
+import { existsSync } from "node:fs";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
+import { npmCliEntry } from "./npm-cli.mjs";
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..");
 const sdkRoot = path.join(repoRoot, "plugin-sdk");
@@ -18,13 +22,8 @@ function fail(message) {
   process.exit(1);
 }
 
-// npm 的命令行入口：优先用 npm run 注入的 npm_execpath（跨平台，指向真实的 npm-cli.js，
-// Linux CI 上 node 和 npm 不在同一目录）；直接运行本脚本时退回 Windows 安装器的目录布局。
-// 一律用 node 去执行这个 js 入口，避免 Windows 上派生 .cmd 的已知问题
-const npmEntry = process.env.npm_execpath
-  ?? path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
+const npmEntry = npmCliEntry();
 
-/** 递归列出目录下的所有文件。 */
 async function listFiles(dir) {
   const nested = await Promise.all(
     (await readdir(dir, { withFileTypes: true })).map((entry) => {
@@ -35,30 +34,36 @@ async function listFiles(dir) {
   return nested.flat();
 }
 
-function checkSchemaInSync() {
-  const generator = path.join(repoRoot, "scripts/plugin-sdk/generate-schema.mjs");
-  execFileSync(process.execPath, [generator, "--check"], { cwd: repoRoot, stdio: "inherit" });
+async function checkManifestSchemaInSync() {
+  const [source, dist] = await Promise.all([
+    readFile(path.join(repoRoot, "src/shared/plugin-manifest/manifest.schema.json"), "utf8"),
+    readFile(path.join(sdkRoot, "dist/firefly.plugin.schema.json"), "utf8"),
+  ]);
+  if (source !== dist) {
+    fail("dist/firefly.plugin.schema.json 与 src/shared/plugin-manifest/manifest.schema.json 不一致，请运行 pnpm run build:plugin-sdk");
+  }
 }
 
-async function checkVendoredApi() {
-  const [host, vendored] = await Promise.all([
-    readFile(path.join(repoRoot, "src/plugins/api.ts"), "utf8"),
-    readFile(path.join(sdkRoot, "src/api.ts"), "utf8"),
-  ]);
-  if (host !== vendored) {
-    fail("plugin-sdk/src/api.ts 与 src/plugins/api.ts 不一致，请运行 npm run build:plugin-sdk");
+function checkNoLegacySources() {
+  for (const legacy of ["src/api.ts", "src/validate-manifest.ts", "src/manifest.schema.json"]) {
+    if (existsSync(path.join(sdkRoot, legacy))) {
+      fail(`plugin-sdk/${legacy} 为 0.x 遗留文件，应移除`);
+    }
   }
 }
 
 function checkPackedFiles() {
-  const listing = execFileSync(process.execPath, [npmEntry, "pack", "--dry-run"], {
+  const listing = execFileSync(process.execPath, [npmEntry, "pack", "--dry-run", "--json"], {
     cwd: sdkRoot,
     encoding: "utf8",
   });
-  // 每个文件一行："<大小> <路径>"；只看带目录分隔的行，排除汇总信息
-  const packed = [...listing.matchAll(/^\s+\S*\s+(\S+)$/gm)].map((m) => m[1]).filter((name) => name.includes("/"));
+  const packed = (JSON.parse(listing)[0]?.files ?? []).map((file) => String(file.path).replace(/\\/g, "/"));
+  if (!packed.includes("package.json") || !packed.some((name) => name.startsWith("dist/"))) {
+    fail(`npm pack 清单缺少 package.json 或 dist/：${JSON.stringify(packed)}`);
+  }
+  if (!packed.includes("dist/cli/firefly-plugin.mjs")) fail("npm pack 清单缺少 dist/cli/firefly-plugin.mjs（bin）");
   const permitted = /^(dist\/|package\.json$|README\.md$|LICENSE$)/;
-  const stray = packed.filter((name) => !permitted.test(name.replace(/\\/g, "/")));
+  const stray = packed.filter((name) => !permitted.test(name));
   if (stray.length) fail(`npm pack 将包含意外文件: ${stray.join(", ")}`);
 }
 
@@ -79,25 +84,87 @@ async function checkEntryPoints() {
   const cjsMain = requireFromDist(path.join(sdkRoot, "dist/index.js"));
   const cjsTesting = requireFromDist(path.join(sdkRoot, "dist/testing/index.js"));
 
-  const mainExports = ["CURRENT_PLUGIN_API_VERSION", "PLUGIN_CAPABILITIES", "PLUGIN_HOST_ERROR_CODES", "validateManifestData"];
-  for (const name of mainExports) {
+  for (const name of ["PLUGIN_ERROR_CODES", "PluginError", "definePlugin"]) {
     if (!(name in cjsMain)) fail(`CJS 主入口缺少导出: ${name}`);
   }
-  const testingExports = ["createMockPluginContext", "assertPluginTool", "assertValidManifest"];
-  for (const name of testingExports) {
+  for (const name of ["createTestHost", "evaluateToolPermission"]) {
     if (!(name in cjsTesting)) fail(`CJS testing 入口缺少导出: ${name}`);
   }
 
   const esmMain = await import(pathToFileURL(path.join(sdkRoot, "dist/esm/index.mjs")).href);
-  if (esmMain.CURRENT_PLUGIN_API_VERSION !== cjsMain.CURRENT_PLUGIN_API_VERSION) {
-    fail("ESM 与 CJS 主入口的 API 版本常量不一致");
+  const esmTesting = await import(pathToFileURL(path.join(sdkRoot, "dist/esm/testing/index.mjs")).href);
+  if (JSON.stringify(esmMain.PLUGIN_ERROR_CODES) !== JSON.stringify(cjsMain.PLUGIN_ERROR_CODES)) {
+    fail("ESM 与 CJS 主入口的 PLUGIN_ERROR_CODES 不一致");
+  }
+  if (typeof esmMain.definePlugin !== "function") fail("ESM 主入口缺少 definePlugin");
+  if (typeof esmTesting.createTestHost !== "function") fail("ESM testing 入口缺少 createTestHost");
+
+  // testing 入口抛出的 PluginError 必须是主入口导出的同一个构造器，插件才能用 instanceof 区分错误。
+  // The CJS and ESM bundles each carry their own PluginError class, like the SDK a plugin bundles and the
+  // host runtime do; instanceof must still hold across copies.
+  if (!(new esmMain.PluginError("ERR_PERMISSION", "x") instanceof cjsMain.PluginError)
+    || !(new cjsMain.PluginError("ERR_PERMISSION", "x") instanceof esmMain.PluginError)) {
+    fail("不同打包副本的 PluginError 之间 instanceof 不成立");
+  }
+  for (const [label, main, testing] of [["CJS", cjsMain, cjsTesting], ["ESM", esmMain, esmTesting]]) {
+    const host = testing.createTestHost({ manifest: { id: "dev.firefly.verify", name: "verify", version: "1.0.0", permissions: [] } });
+    let caught;
+    await host.activate({
+      async activate(ctx) {
+        try { await ctx.secrets.get("token"); } catch (error) { caught = error; }
+      },
+    });
+    if (caught?.code !== "ERR_UNDECLARED") fail(`${label} testing 入口：未声明的 secrets 调用没有得到 ERR_UNDECLARED`);
+    if (!(caught instanceof main.PluginError)) fail(`${label} testing 入口抛出的 PluginError 不是主入口导出的构造器`);
   }
 }
 
-checkSchemaInSync();
-await checkVendoredApi();
+/** 用打好的命令行跑一遍：最小插件校验并打包通过；声明 safe 风险的插件被拒绝且不生成文件。 */
+async function checkCli() {
+  const sdkPackage = JSON.parse(await readFile(path.join(sdkRoot, "package.json"), "utf8"));
+  const binRelative = sdkPackage.bin?.["firefly-plugin"];
+  if (binRelative !== "./dist/cli/firefly-plugin.mjs") fail(`package.json 的 bin.firefly-plugin 不对: ${binRelative}`);
+  const bin = path.join(sdkRoot, binRelative);
+  const run = (...args) => {
+    try {
+      return { code: 0, out: execFileSync(process.execPath, [bin, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }) };
+    } catch (error) {
+      return { code: error.status, out: String(error.stderr ?? "") };
+    }
+  };
+
+  const work = await mkdtemp(path.join(tmpdir(), "firefly-plugin-cli-"));
+  try {
+    const writePackage = async (name, tool) => {
+      const dir = path.join(work, name);
+      await mkdir(path.join(dir, "dist"), { recursive: true });
+      await writeFile(path.join(dir, "dist/index.mjs"), "export default {};\n");
+      await writeFile(
+        path.join(dir, "firefly.plugin.json"),
+        JSON.stringify({ schemaVersion: 1, id: "dev.firefly.smoke", name: "smoke", version: "1.0.0", sdk: "^1.2.0", main: "dist/index.mjs", tools: [tool] }),
+      );
+      return dir;
+    };
+    const good = await writePackage("good", { name: "ping", title: "Ping", risk: ["network"], modes: ["work"] });
+    const bad = await writePackage("bad", { name: "ping", title: "Ping", risk: ["safe"], modes: ["work"] });
+    const out = path.join(work, "good.ffplugin");
+
+    if (run("validate", good).code !== 0) fail("firefly-plugin validate 没有通过最小插件");
+    if (run("pack", good, "-o", out).code !== 0) fail("firefly-plugin pack 没有打包最小插件");
+    if (!(await readFile(out)).subarray(0, 2).equals(Buffer.from("PK"))) fail("firefly-plugin pack 生成的不是 ZIP");
+    const rejected = run("validate", bad);
+    if (rejected.code !== 1 || !rejected.out.includes("risk_safe_forbidden")) fail(`firefly-plugin validate 没有拒绝 safe 风险: ${rejected.out}`);
+    if (run("pack", bad, "-o", path.join(work, "bad.ffplugin")).code !== 1) fail("firefly-plugin pack 没有拒绝不合法的插件");
+  } finally {
+    await rm(work, { recursive: true, force: true });
+  }
+}
+
+await checkManifestSchemaInSync();
+checkNoLegacySources();
 checkPackedFiles();
 await checkNoInternalReferences();
 await checkEntryPoints();
+await checkCli();
 
 console.log("[verify-package] plugin-sdk 打包校验全部通过");

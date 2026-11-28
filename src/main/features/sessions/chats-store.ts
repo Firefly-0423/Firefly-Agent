@@ -1,0 +1,949 @@
+import type { RunPresentationIdentity, RunPresentationRecord, RunStatusItem } from "../../../shared/run-status";
+import * as path from "path";
+import * as fs from "fs";
+import { randomUUID } from "crypto";
+import { app, shell } from "electron";
+import { LogTag, logger } from "../../base/logging/logger";
+import { ephemeralConversations } from "../../base/storage/ephemeral-conversations";
+import { fireflyDataDirectory } from "../../base/storage/firefly-data-paths";
+import {
+  CHAT_SCHEMA_VERSION, type ChatSession, type ChatSessionMeta, type ChatSessionPurpose,
+  type ChatMessage, type ConversationMode, type ConversationWorkspaceBinding,
+  type PendingChatAttachment, type PendingChatMessage,
+} from "../../../shared/chat-types";
+import type { ContextUsageSnapshot } from "../../../shared/context-usage";
+
+let ready = false;
+let unreadable = false;
+let directory = "";
+let sessionsDirectory = "";
+let indexFilename = "";
+let catalog: ChatSessionMeta[] = [];
+const volatile = new Map<string, ChatSession>();
+export const RUN_PRESENTATION_PROFILE_ID = "desktop-local-profile-v1";
+const terminalRetryTimers = new Map<string, { sessionId: string; timer: ReturnType<typeof setTimeout>; completed?: (saved: boolean) => void }>();
+const liveRunPresentations = new Map<string, RunPresentationRecord>();
+
+const validMode = (candidate: unknown): candidate is ConversationMode =>
+  candidate === "chat" || candidate === "work" || candidate === "code";
+const newest = (left: ChatSessionMeta, right: ChatSessionMeta): number => right.updatedAt - left.updatedAt;
+const filenameFor = (id: string): string => path.join(sessionsDirectory, `${id}.json`);
+
+function requireReadable(): void {
+  if (unreadable) throw new Error("CHAT_HISTORY_READ_FAILED: 聊天历史读取失败，原文件已保留");
+}
+
+function prepareFolders(): void {
+  if (!fs.existsSync(directory)) fs.mkdirSync(directory, { recursive: true });
+  if (!fs.existsSync(sessionsDirectory)) fs.mkdirSync(sessionsDirectory, { recursive: true });
+}
+
+function writeJson(filename: string, contents: unknown): void {
+  requireReadable();
+  const stagingFilename = `${filename}.tmp`;
+  fs.writeFileSync(stagingFilename, JSON.stringify(contents, null, 2), "utf8");
+  fs.renameSync(stagingFilename, filename);
+}
+
+function present(filename: string): boolean {
+  try {
+    fs.statSync(filename);
+    return true;
+  } catch (failure) {
+    if ((failure as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw failure;
+  }
+}
+
+function loadCatalog(): ChatSessionMeta[] {
+  try {
+    if (!present(indexFilename)) return [];
+    const decoded: unknown = JSON.parse(fs.readFileSync(indexFilename, "utf8"));
+    if (!Array.isArray(decoded)) throw new Error("Invalid history index");
+    const loaded: ChatSessionMeta[] = [];
+    for (const row of decoded) {
+      if (!row || typeof row !== "object") throw new Error("Invalid history entry");
+      const fields = row as Partial<ChatSessionMeta>;
+      if (!(typeof fields.id === "string" && typeof fields.title === "string"
+        && typeof fields.createdAt === "number" && typeof fields.updatedAt === "number"
+        && typeof fields.messageCount === "number" && validMode(fields.mode)
+        && (fields.purpose === undefined || fields.purpose === "proactive-chat"))) {
+        throw new Error("Invalid history entry");
+      }
+      if (!validMode(fields.mode)) throw new Error("Invalid history mode");
+      loaded.push({
+        id: fields.id!, title: fields.title!, identityId: fields.identityId ?? null,
+        createdAt: fields.createdAt!, updatedAt: fields.updatedAt!, messageCount: fields.messageCount!,
+        purpose: fields.purpose, mode: fields.mode, workspaceRoot: fields.workspaceRoot,
+        workspaceDisplayName: fields.workspaceDisplayName, pinned: fields.pinned,
+      });
+    }
+    return loaded;
+  } catch {
+    unreadable = true;
+    logger.warn(LogTag.Runtime, "chat history index read failed; writes blocked");
+    return [];
+  }
+}
+
+function read(id: string): ChatSession | null {
+  const memoryCopy = volatile.get(id);
+  if (memoryCopy) return structuredClone(memoryCopy);
+  const filename = filenameFor(id);
+  try {
+    if (!present(filename)) return null;
+    const decoded = JSON.parse(fs.readFileSync(filename, "utf8")) as ChatSession;
+    if (!decoded || typeof decoded !== "object" || !Array.isArray(decoded.messages)) {
+      throw new Error("Invalid session data");
+    }
+    if (!validMode(decoded.mode)) throw new Error("Invalid session mode");
+    return decoded;
+  } catch {
+    logger.warn(LogTag.Runtime, "chat session read failed; original file preserved");
+    throw new Error("CHAT_SESSION_READ_FAILED: 会话读取失败，原文件已保留");
+  }
+}
+
+function write(conversation: ChatSession): void {
+  if (volatile.has(conversation.id)) volatile.set(conversation.id, structuredClone(conversation));
+  else writeJson(filenameFor(conversation.id), conversation);
+}
+
+function saveCatalog(): void {
+  catalog.sort(newest);
+  writeJson(indexFilename, catalog);
+}
+
+function updateCatalog(conversation: ChatSession): void {
+  const summary: ChatSessionMeta = {
+    id: conversation.id, title: conversation.title, identityId: conversation.identityId,
+    createdAt: conversation.createdAt, updatedAt: conversation.updatedAt,
+    messageCount: conversation.messages.length, purpose: conversation.purpose, mode: conversation.mode,
+    workspaceRoot: conversation.workspaceBinding?.workspaceRoot,
+    workspaceDisplayName: conversation.workspaceBinding?.displayName, pinned: conversation.pinned,
+  };
+  if (volatile.has(summary.id)) return;
+  const offset = catalog.findIndex((row) => row.id === summary.id);
+  if (offset === -1) catalog.push(summary);
+  else catalog[offset] = summary;
+  saveCatalog();
+}
+
+function save(conversation: ChatSession): void {
+  write(conversation);
+  updateCatalog(conversation);
+}
+
+function titleFor(history: ChatMessage[]): string {
+  const initial = history.find((row) => row.role === "user" && row.content.trim());
+  if (!initial) return "新对话";
+  const flattened = initial.content.replace(/\s+/g, " ").trim();
+  return flattened.length > 30 ? flattened.slice(0, 30) + "…" : flattened;
+}
+
+function retitle(conversation: ChatSession): void {
+  if (!conversation.titleIsCustom) conversation.title = titleFor(conversation.messages);
+}
+
+function change(id: string, apply: (conversation: ChatSession) => void): ChatSession | null {
+  const conversation = read(id);
+  if (!conversation) return null;
+  apply(conversation);
+  save(conversation);
+  return conversation;
+}
+
+export function initialize(): void {
+  if (ready) return;
+  directory = fireflyDataDirectory(app.getPath("userData"), "chats");
+  sessionsDirectory = path.join(directory, "sessions");
+  indexFilename = path.join(directory, "index.json");
+  try {
+    prepareFolders();
+    catalog = loadCatalog();
+  } catch {
+    unreadable = true;
+    logger.warn(LogTag.Runtime, "chat history initialization failed; writes blocked");
+  }
+  logger.warn(LogTag.Runtime, "startup chats index", {
+    indexPresent: fs.existsSync(indexFilename), readFailed: unreadable, sessionCount: catalog.length,
+    chatCount: catalog.filter((row) => row.mode === "chat").length,
+    workCount: catalog.filter((row) => row.mode === "work").length,
+  });
+  ready = true;
+  recoverPendingRunTerminals();
+}
+
+export type CachedCoverageSessions =
+  | { ids: null; state: "not-ready" | "read-failed" | "budget-exhausted" }
+  | { ids: readonly string[]; rootDir: string; state: "ready" };
+
+export function getCachedSessionIdsForCoverage(): CachedCoverageSessions {
+  if (!ready) return { state: "not-ready", ids: null };
+  if (unreadable) return { state: "read-failed", ids: null };
+  if (catalog.length > 10_000) return { state: "budget-exhausted", ids: null };
+  const ids = Object.freeze(catalog.map((row) => row.id));
+  return { state: "ready", rootDir: directory, ids };
+}
+
+export function getRootDir(): string { return directory; }
+export function getSession(id: string): ChatSession | null { return read(id); }
+/** A session's mode and whether it is temporary, from the index or memory; never reads the session file. */
+export function getSessionKind(id: string): { mode: ConversationMode; temporary: boolean } | null {
+  const memoryCopy = volatile.get(id);
+  if (memoryCopy) return { mode: memoryCopy.mode, temporary: memoryCopy.temporary === true };
+  const row = catalog.find((entry) => entry.id === id);
+  return row ? { mode: row.mode, temporary: false } : null;
+}
+
+export function listSessions(options?: { mode?: ConversationMode }): ChatSessionMeta[] {
+  if (options?.mode !== undefined && !validMode(options.mode)) throw new Error("INVALID_CONVERSATION_MODE");
+  requireReadable();
+  const selected = options?.mode ? catalog.filter((row) => row.mode === options.mode) : catalog;
+  const ordered = [...selected].sort((left, right) => {
+    if (left.pinned && !right.pinned) return -1;
+    if (!left.pinned && right.pinned) return 1;
+    return newest(left, right);
+  });
+  return ordered.map((row) => ({ ...row }));
+}
+
+export function getSessionPage(id: string, before: number | null, limit: number): {
+  session: Omit<ChatSession, "messages"> & { messageCount: number }; messages: ChatMessage[]; hasMore: boolean;
+} | null {
+  const conversation = read(id);
+  if (!conversation) return null;
+  const until = Math.max(0, Math.min(before ?? conversation.messages.length, conversation.messages.length));
+  const count = Math.max(1, Math.min(Math.floor(limit) || 1, 200));
+  const from = Math.max(0, until - count);
+  const { messages: ignored, ...summary } = conversation;
+  return {
+    session: { ...summary, messageCount: conversation.messages.length },
+    messages: conversation.messages.slice(from, until), hasMore: from > 0,
+  };
+}
+
+export function createSession(opts?: {
+  title?: string; identityId?: string | null; initialMessages?: ChatMessage[];
+  purpose?: ChatSessionPurpose; mode?: ConversationMode; modelProfileId?: string; temporary?: boolean;
+}): ChatSession {
+  const timestamp = Date.now();
+  const history = opts?.initialMessages ?? [];
+  const selectedMode = opts?.mode ?? (opts?.purpose === "proactive-chat" ? "chat" : "work");
+  if (!validMode(selectedMode)) throw new Error("INVALID_CONVERSATION_MODE");
+  if (opts?.temporary && (selectedMode !== "chat" || opts.purpose !== undefined || opts.mode === undefined)) {
+    throw new Error("TEMPORARY_CHAT_REQUIRES_CHAT_MODE");
+  }
+  const created: ChatSession = {
+    id: randomUUID(), title: opts?.title?.trim() || (history.length > 0 ? titleFor(history) : "新对话"),
+    identityId: opts?.identityId ?? null, messages: history, createdAt: timestamp, updatedAt: timestamp,
+    schemaVersion: CHAT_SCHEMA_VERSION, purpose: opts?.purpose, titleIsCustom: opts?.purpose ? true : undefined,
+    mode: selectedMode, modelProfileId: opts?.modelProfileId,
+    ...(opts?.temporary ? { temporary: true as const } : {}),
+  };
+  if (opts?.temporary) {
+    ephemeralConversations.mark(created.id);
+    volatile.set(created.id, structuredClone(created));
+    return created;
+  }
+  save(created);
+  return created;
+}
+
+export function getSessionByPurpose(purpose: ChatSessionPurpose): ChatSession | null {
+  const match = catalog.find((row) => row.purpose === purpose);
+  return match ? read(match.id) : null;
+}
+
+export function getOrCreateSessionByPurpose(purpose: ChatSessionPurpose, opts?: { title?: string; identityId?: string | null }): ChatSession {
+  const found = getSessionByPurpose(purpose);
+  if (found) return found;
+  return createSession({ title: opts?.title, identityId: opts?.identityId ?? null, purpose });
+}
+
+export function appendMessage(id: string, message: ChatMessage): ChatSession | null {
+  return change(id, (conversation) => {
+    const record = conversation.runPresentations?.[message.id];
+    if (isProtectedRun(record) || isLateRunCheckpoint(record, message)) return;
+    if (record) {
+      const offset = conversation.messages.findIndex(row => row.id === message.id);
+      if (offset >= 0) conversation.messages[offset] = keepRunInsertion(conversation.messages[offset], message);
+      else conversation.messages.push(message);
+    } else conversation.messages.push(message);
+    conversation.updatedAt = Date.now();
+    retitle(conversation);
+  });
+}
+
+/**
+ * runInsertion is Main-owned: a write of an existing message keeps the stored marker and
+ * ignores any supplied one, so a stale or forged object can neither erase nor fake it.
+ */
+function keepRunInsertion(stored: ChatMessage | undefined, incoming: ChatMessage): ChatMessage {
+  const { runInsertion: _ignored, ...rest } = incoming;
+  return stored?.runInsertion ? { ...rest, runInsertion: stored.runInsertion } : rest;
+}
+
+export function upsertMessage(id: string, message: ChatMessage): ChatSession | null {
+  return change(id, (conversation) => {
+    const record = conversation.runPresentations?.[message.id];
+    if (isProtectedRun(record) || isLateRunCheckpoint(record, message)) return;
+    const offset = conversation.messages.findIndex((row) => row.id === message.id);
+    if (offset >= 0) conversation.messages[offset] = keepRunInsertion(conversation.messages[offset], message);
+    else conversation.messages.push(message);
+    conversation.updatedAt = Date.now();
+    retitle(conversation);
+  });
+}
+
+export function replaceMessages(id: string, messages: ChatMessage[]): ChatSession | null {
+  return change(id, (conversation) => {
+    conversation.messages = protectRunMessages(conversation, messages);
+    conversation.updatedAt = Date.now();
+    retitle(conversation);
+  });
+}
+
+export function replaceMessagesTail(id: string, startIndex: number, messages: ChatMessage[]): ChatSession | null {
+  const conversation = read(id);
+  if (!conversation || !Number.isInteger(startIndex) || startIndex < 0 || startIndex > conversation.messages.length) return null;
+  const stored = new Map(conversation.messages.map((row) => [row.id, row] as const));
+  conversation.messages = protectRunMessages(conversation, conversation.messages.slice(0, startIndex).concat(messages.map((row) => keepRunInsertion(stored.get(row.id), row))));
+  conversation.updatedAt = Date.now();
+  retitle(conversation);
+  save(conversation);
+  return conversation;
+}
+
+export function renameSession(id: string, title: string): ChatSession | null {
+  const conversation = read(id);
+  if (!conversation) return null;
+  const requested = title.trim();
+  if (!requested) return conversation;
+  conversation.title = requested.slice(0, 80);
+  conversation.titleIsCustom = true;
+  conversation.updatedAt = Date.now();
+  save(conversation);
+  return conversation;
+}
+
+export function setGeneratedTitle(id: string, firstUserMessageId: string, title: string): boolean {
+  const conversation = read(id);
+  if (!conversation || conversation.titleIsCustom) return false;
+  const initial = conversation.messages.find((row) => row.role === "user" && row.content.trim());
+  if (initial?.id !== firstUserMessageId) return false;
+  const requested = title.trim();
+  if (!requested) return false;
+  conversation.title = requested.slice(0, 80);
+  save(conversation);
+  return true;
+}
+
+export function setSessionPinned(id: string, pinned: boolean): ChatSession | null {
+  return change(id, (conversation) => { conversation.pinned = Boolean(pinned); });
+}
+export function setSessionModelProfile(id: string, modelProfileId: string | undefined): ChatSession | null {
+  return change(id, (conversation) => {
+    conversation.modelProfileId = modelProfileId;
+    conversation.updatedAt = Date.now();
+  });
+}
+export function setSessionContextUsage(id: string, snapshot: ContextUsageSnapshot): ChatSession | null {
+  return change(id, (conversation) => { conversation.currentContextUsage = snapshot; });
+}
+
+export function deleteSession(id: string): boolean {
+  for (const [runId, pending] of terminalRetryTimers) {
+    if (pending.sessionId === id) { clearTimeout(pending.timer); terminalRetryTimers.delete(runId); pending.completed?.(false); }
+  }
+  for (const [runId, record] of liveRunPresentations) {
+    if (record.sessionId === id) liveRunPresentations.delete(runId);
+  }
+  if (volatile.has(id)) {
+    volatile.delete(id);
+    return true;
+  }
+  requireReadable();
+  const filename = filenameFor(id);
+  let deleted = false;
+  if (fs.existsSync(filename)) {
+    try {
+      fs.unlinkSync(filename);
+      deleted = true;
+    } catch (failure) { console.warn("[chats-store] 删除 session 文件失败:", id, failure); }
+  }
+  const indexed = catalog.some((row) => row.id === id);
+  if (indexed) {
+    catalog = catalog.filter((row) => row.id !== id);
+    saveCatalog();
+  }
+  return deleted || indexed;
+}
+
+export function getLatestSessionId(): string | null {
+  if (catalog.length === 0) return null;
+  return [...catalog].sort(newest)[0].id;
+}
+export async function openStorageFolder(): Promise<void> {
+  prepareFolders();
+  await shell.openPath(directory);
+}
+const workspaceBindingListeners = new Set<(sessionId: string) => void>();
+
+export function onWorkspaceBindingChanged(listener: (sessionId: string) => void): () => void {
+  workspaceBindingListeners.add(listener);
+  return () => { workspaceBindingListeners.delete(listener); };
+}
+
+function notifyWorkspaceBindingChanged(sessionId: string): void {
+  for (const listener of [...workspaceBindingListeners]) {
+    try { listener(sessionId); } catch { /* Observer failure cannot block store persistence. */ }
+  }
+}
+
+export function setWorkspaceBinding(sessionId: string, binding: ConversationWorkspaceBinding): ChatSession | null {
+  const updated = change(sessionId, (conversation) => {
+    conversation.workspaceBinding = binding;
+    conversation.updatedAt = Date.now();
+  });
+  if (updated) notifyWorkspaceBindingChanged(sessionId);
+  return updated;
+}
+export function getWorkspaceBinding(sessionId: string): ConversationWorkspaceBinding | undefined {
+  return read(sessionId)?.workspaceBinding;
+}
+export function clearWorkspaceBinding(sessionId: string): ChatSession | null {
+  const updated = change(sessionId, (conversation) => {
+    conversation.workspaceBinding = undefined;
+    conversation.updatedAt = Date.now();
+  });
+  if (updated) notifyWorkspaceBindingChanged(sessionId);
+  return updated;
+}
+
+export type PendingChatMessageInput = Omit<PendingChatMessage, "enqueuedAt">;
+export type EnqueuePendingResult =
+  | { enqueued: boolean; queue: PendingChatMessage[]; ok: true }
+  | { error: "session-not-found" | "empty-content" | "duplicate-id" | "invalid-attachments" | "write-failed"; ok: false };
+export type RemovePendingResult =
+  | { removed: boolean; ok: true }
+  | { queue?: PendingChatMessage[]; error: "session-not-found" | "already-adjusting" | "write-failed"; ok: false };
+export type ClaimPendingResult =
+  | { session: ChatSession; remainingQueue: PendingChatMessage[]; resumeFromRunId?: string; visibleContent: string; userMessage: ChatMessage; claimed: true; ok: true }
+  | { claimed: false; ok: true }
+  | { error: "session-not-found" | "already-dispatching" | "write-failed"; ok: false };
+export type CompleteDispatchResult =
+  | { cleared: boolean; ok: true } | { error: "session-not-found" | "write-failed"; ok: false };
+export type EditPendingResult =
+  | { queue: PendingChatMessage[]; ok: true }
+  | { queue?: PendingChatMessage[]; error: "session-not-found" | "not-found" | "already-claimed" | "already-adjusting" | "empty-content" | "write-failed"; ok: false };
+export type MarkPendingAdjustResult =
+  | { queue: PendingChatMessage[]; ok: true }
+  | { queue?: PendingChatMessage[]; error: "session-not-found" | "not-found" | "already-claimed" | "already-adjusting" | "has-attachments" | "write-failed"; ok: false };
+export type CommitPendingAdjustResult =
+  | { remainingQueue: PendingChatMessage[]; userMessage: ChatMessage; ok: true }
+  | { error: "session-not-found" | "not-found" | "run-mismatch" | "write-failed"; ok: false };
+export type ResetPendingAdjustResult =
+  | { reset: number; ok: true } | { error: "session-not-found" | "write-failed"; ok: false };
+
+function persistPending(conversation: ChatSession, warning: string, id: string): boolean {
+  try { write(conversation); return true; }
+  catch (failure) { console.warn(warning, id, failure); return false; }
+}
+
+function indexPending(conversation: ChatSession, warning: string, id: string): void {
+  try { updateCatalog(conversation); }
+  catch (failure) { console.warn(warning, id, failure); }
+}
+
+const copyQueue = (pending: PendingChatMessage[]): PendingChatMessage[] => pending.map((row) => ({ ...row }));
+
+function attachmentInput(candidate: unknown): PendingChatAttachment | null {
+  if (!candidate || typeof candidate !== "object") return null;
+  const fields = candidate as Partial<PendingChatAttachment>;
+  const category = fields.kind === "image" || fields.kind === "document" ? fields.kind : null;
+  if (!category || typeof fields.name !== "string" || !fields.name.trim()) return null;
+  if (typeof fields.filePath !== "string" || !fields.filePath.trim()) return null;
+  return {
+    kind: category, name: fields.name.trim(), filePath: fields.filePath.trim(),
+    ...(typeof fields.mime === "string" && fields.mime.trim() ? { mime: fields.mime.trim() } : {}),
+    ...(typeof fields.caption === "string" && fields.caption.trim() ? { caption: fields.caption.trim() } : {}),
+    ...(fields.hasAnnotations === true ? { hasAnnotations: true } : {}),
+    ...(fields.kind === "document" && fields.readScope ? { readScope: fields.readScope } : {}),
+  };
+}
+
+function pendingInput(id: string, input: PendingChatMessageInput): PendingChatMessage | "empty" | "invalid-attachments" {
+  if (typeof id !== "string" || !id.trim()) return "empty";
+  if (typeof input?.rawContent !== "string" || !input.rawContent.trim()) return "empty";
+  const visible = typeof input.visibleContent === "string" ? input.visibleContent : input.rawContent;
+  let files: PendingChatAttachment[] | undefined;
+  if (input.attachments !== undefined) {
+    if (!Array.isArray(input.attachments)) return "invalid-attachments";
+    const accepted: PendingChatAttachment[] = [];
+    for (const candidate of input.attachments) {
+      const parsed = attachmentInput(candidate);
+      if (!parsed) return "invalid-attachments";
+      accepted.push(parsed);
+    }
+    if (accepted.length > 0) files = accepted;
+  }
+  return {
+    id: id.trim(), rawContent: input.rawContent, visibleContent: visible,
+    ...(files ? { attachments: files } : {}),
+    ...(typeof input.userSticker === "string" && input.userSticker.trim() ? { userSticker: input.userSticker.trim() } : {}),
+    ...(typeof input.resumeFromRunId === "string" && input.resumeFromRunId.trim() ? { resumeFromRunId: input.resumeFromRunId.trim() } : {}),
+    ...(input.requireDocumentRead === true ? { requireDocumentRead: true } : {}),
+    enqueuedAt: Date.now(),
+  };
+}
+
+function samePending(left: PendingChatMessage, right: PendingChatMessage): boolean {
+  if (left.rawContent !== right.rawContent || left.visibleContent !== right.visibleContent) return false;
+  if ((left.userSticker ?? "") !== (right.userSticker ?? "")) return false;
+  if ((left.resumeFromRunId ?? "") !== (right.resumeFromRunId ?? "")) return false;
+  if ((left.requireDocumentRead ?? false) !== (right.requireDocumentRead ?? false)) return false;
+  const leftFiles = left.attachments ?? [];
+  const rightFiles = right.attachments ?? [];
+  if (leftFiles.length !== rightFiles.length) return false;
+  return leftFiles.every((file, position) => {
+    const peer = rightFiles[position];
+    return file.kind === peer.kind && file.name === peer.name && file.filePath === peer.filePath
+      && (file.mime ?? "") === (peer.mime ?? "") && (file.caption ?? "") === (peer.caption ?? "")
+      && (file.hasAnnotations ?? false) === (peer.hasAnnotations ?? false)
+      && (file.readScope?.sha256 ?? "") === (peer.readScope?.sha256 ?? "")
+      && (file.readScope?.endLine ?? 0) === (peer.readScope?.endLine ?? 0);
+  });
+}
+
+export function enqueuePendingMessage(sessionId: string, entry: PendingChatMessageInput): EnqueuePendingResult {
+  const conversation = read(sessionId);
+  if (!conversation) return { ok: false, error: "session-not-found" };
+  const prepared = pendingInput(entry?.id ?? "", entry);
+  if (prepared === "empty") return { ok: false, error: "empty-content" };
+  if (prepared === "invalid-attachments") return { ok: false, error: "invalid-attachments" };
+  const pending = conversation.pendingMessages ?? [];
+  const previous = pending.find((row) => row.id === prepared.id);
+  if (previous) {
+    if (samePending(previous, prepared)) return { ok: true, queue: copyQueue(pending), enqueued: false };
+    return { ok: false, error: "duplicate-id" };
+  }
+  const appended = [...pending, prepared];
+  conversation.pendingMessages = appended;
+  if (!persistPending(conversation, "[chats-store] 待发消息落盘失败:", sessionId)) return { ok: false, error: "write-failed" };
+  return { ok: true, queue: appended, enqueued: true };
+}
+
+export function getPendingMessages(sessionId: string): PendingChatMessage[] | null {
+  const conversation = read(sessionId);
+  return conversation ? copyQueue(conversation.pendingMessages ?? []) : null;
+}
+
+/**
+ * withdrawMark: the caller has checked that no run is injecting this item right now
+ * (isRunAdjustmentInFlight), so a mark for "insert into the current run" may be dropped with it.
+ */
+export type PendingMarkOptions = { withdrawMark?: boolean };
+
+export function removePendingMessage(sessionId: string, messageId: string, options: PendingMarkOptions = {}): RemovePendingResult {
+  const conversation = read(sessionId);
+  if (!conversation) return { ok: false, error: "session-not-found" };
+  const pending = conversation.pendingMessages ?? [];
+  const match = pending.find((row) => row.id === messageId);
+  if (!match) return { ok: true, removed: false };
+  if (match.adjustRunId && !options.withdrawMark) return { ok: false, error: "already-adjusting", queue: copyQueue(pending) };
+  conversation.pendingMessages = pending.filter((row) => row.id !== messageId);
+  if (!persistPending(conversation, "[chats-store] 待发消息删除落盘失败:", sessionId)) return { ok: false, error: "write-failed" };
+  return { ok: true, removed: true };
+}
+
+// 两种转正入口对文档范围的处理不同，按各自的历史行为保留。
+function historyMessage(pending: PendingChatMessage, timestamp: number, includeReadScope: boolean): ChatMessage {
+  return {
+    id: pending.id, role: "user", content: pending.rawContent, at: timestamp,
+    ...(pending.userSticker ? { sticker: pending.userSticker } : {}),
+    ...(pending.attachments && pending.attachments.length > 0 ? {
+      attachments: pending.attachments.map((file) => {
+        if (file.kind === "image") {
+          return {
+            kind: "image" as const, name: file.name, filePath: file.filePath,
+            mime: file.mime ?? "application/octet-stream", caption: file.caption, status: "pending" as const,
+            ...(file.hasAnnotations === true ? { hasAnnotations: true } : {}),
+          };
+        }
+        return {
+          kind: "document" as const, name: file.name, filePath: file.filePath, status: "pending" as const,
+          ...(includeReadScope && file.readScope ? { readScope: file.readScope } : {}),
+        };
+      }),
+    } : {}),
+  };
+}
+
+export function claimPendingMessage(sessionId: string): ClaimPendingResult {
+  const conversation = read(sessionId);
+  if (!conversation) return { ok: false, error: "session-not-found" };
+  if (conversation.pendingDispatch) return { ok: false, error: "already-dispatching" };
+  const pending = conversation.pendingMessages ?? [];
+  if (pending.length === 0) return { ok: true, claimed: false };
+  const first = pending[0];
+  const timestamp = Date.now();
+  const promoted = historyMessage(first, timestamp, true);
+  const rest = pending.slice(1);
+  conversation.messages = [...conversation.messages, promoted];
+  conversation.pendingMessages = rest;
+  conversation.pendingDispatch = { messageId: first.id, claimedAt: timestamp };
+  conversation.updatedAt = timestamp;
+  retitle(conversation);
+  if (!persistPending(conversation, "[chats-store] 待发消息认领落盘失败:", sessionId)) return { ok: false, error: "write-failed" };
+  indexPending(conversation, "[chats-store] 待发消息认领后索引写入失败（会话列表计数可能滞后）:", sessionId);
+  return {
+    ok: true, claimed: true, userMessage: promoted, visibleContent: first.visibleContent,
+    ...(first.resumeFromRunId ? { resumeFromRunId: first.resumeFromRunId } : {}),
+    remainingQueue: copyQueue(rest), session: conversation,
+  };
+}
+
+export function completePendingDispatch(sessionId: string, messageId: string): CompleteDispatchResult {
+  const conversation = read(sessionId);
+  if (!conversation) return { ok: false, error: "session-not-found" };
+  if (conversation.pendingDispatch?.messageId !== messageId) return { ok: true, cleared: false };
+  delete conversation.pendingDispatch;
+  if (!persistPending(conversation, "[chats-store] 待发派发确认落盘失败:", sessionId)) return { ok: false, error: "write-failed" };
+  return { ok: true, cleared: true };
+}
+
+export function editPendingMessage(
+  sessionId: string, messageId: string, update: { rawContent: string; visibleContent: string; userSticker?: string },
+  options: PendingMarkOptions = {},
+): EditPendingResult {
+  const conversation = read(sessionId);
+  if (!conversation) return { ok: false, error: "session-not-found" };
+  const pending = conversation.pendingMessages ?? [];
+  const original = copyQueue(pending);
+  if (conversation.pendingDispatch?.messageId === messageId) return { ok: false, error: "already-claimed", queue: original };
+  const offset = pending.findIndex((row) => row.id === messageId);
+  if (offset === -1) return { ok: false, error: "not-found", queue: original };
+  const matched = pending[offset];
+  if (matched.adjustRunId && !options.withdrawMark) return { ok: false, error: "already-adjusting", queue: original };
+  if (typeof update?.rawContent !== "string" || !update.rawContent.trim()) return { ok: false, error: "empty-content", queue: original };
+  const replacement: PendingChatMessage = {
+    ...matched, rawContent: update.rawContent,
+    visibleContent: typeof update.visibleContent === "string" && update.visibleContent ? update.visibleContent : update.rawContent,
+  };
+  // An edited item goes back to the ordinary queue; the user can insert it into the run again.
+  delete replacement.adjustRunId;
+  if (typeof update.userSticker === "string" && update.userSticker.trim()) replacement.userSticker = update.userSticker.trim();
+  else delete replacement.userSticker;
+  pending[offset] = replacement;
+  if (!persistPending(conversation, "[chats-store] 待发消息编辑落盘失败:", sessionId)) {
+    return { ok: false, error: "write-failed", queue: original };
+  }
+  return { ok: true, queue: copyQueue(pending) };
+}
+
+export function unmarkPendingAdjust(sessionId: string, messageId: string, inFlight: boolean): MarkPendingAdjustResult {
+  const conversation = read(sessionId);
+  if (!conversation) return { ok: false, error: "session-not-found" };
+  const pending = conversation.pendingMessages ?? [];
+  if (conversation.pendingDispatch?.messageId === messageId) return { ok: false, error: "already-claimed", queue: copyQueue(pending) };
+  const offset = pending.findIndex((row) => row.id === messageId);
+  if (offset < 0) return { ok: false, error: "not-found", queue: copyQueue(pending) };
+  if (inFlight) return { ok: false, error: "already-adjusting", queue: copyQueue(pending) };
+  if (!pending[offset].adjustRunId) return { ok: true, queue: copyQueue(pending) };
+  const original = copyQueue(pending);
+  const replacement = { ...pending[offset] };
+  delete replacement.adjustRunId;
+  pending[offset] = replacement;
+  if (!persistPending(conversation, "[chats-store] pending unmark failed:", sessionId)) return { ok: false, error: "write-failed", queue: original };
+  return { ok: true, queue: copyQueue(pending) };
+}
+
+export function markPendingAdjust(sessionId: string, messageId: string, runId: string): MarkPendingAdjustResult {
+  const conversation = read(sessionId);
+  if (!conversation) return { ok: false, error: "session-not-found" };
+  const pending = conversation.pendingMessages ?? [];
+  if (conversation.pendingDispatch?.messageId === messageId) return { ok: false, error: "already-claimed", queue: copyQueue(pending) };
+  const offset = pending.findIndex((row) => row.id === messageId);
+  if (offset === -1) return { ok: false, error: "not-found", queue: copyQueue(pending) };
+  const matched = pending[offset];
+  if (matched.adjustRunId === runId) return { ok: true, queue: copyQueue(pending) };
+  if (matched.adjustRunId) return { ok: false, error: "already-adjusting", queue: copyQueue(pending) };
+  if (matched.attachments && matched.attachments.length > 0) return { ok: false, error: "has-attachments", queue: copyQueue(pending) };
+  pending[offset] = { ...matched, adjustRunId: runId };
+  if (!persistPending(conversation, "[chats-store] 待发消息调整标记落盘失败:", sessionId)) {
+    return { ok: false, error: "write-failed", queue: copyQueue(pending) };
+  }
+  return { ok: true, queue: copyQueue(pending) };
+}
+
+/** History messages inserted into this run, in the order they were committed. */
+export function listRunInsertions(sessionId: string, runId: string): ChatMessage[] {
+  const conversation = read(sessionId);
+  if (!conversation) return [];
+  return conversation.messages
+    .filter((row) => row.runInsertion?.runId === runId)
+    .sort((left, right) => left.runInsertion!.sequence - right.runInsertion!.sequence);
+}
+
+export function commitPendingAdjust(sessionId: string, messageId: string, runId: string, options: { assistantTurnId?: string } = {}): CommitPendingAdjustResult {
+  const conversation = read(sessionId);
+  if (!conversation) return { ok: false, error: "session-not-found" };
+  const pending = conversation.pendingMessages ?? [];
+  const offset = pending.findIndex((row) => row.id === messageId);
+  if (offset === -1) return { ok: false, error: "not-found" };
+  const matched = pending[offset];
+  if (matched.adjustRunId !== runId) return { ok: false, error: "run-mismatch" };
+  const timestamp = Date.now();
+  const sequence = conversation.messages.filter((row) => row.runInsertion?.runId === runId).length + 1;
+  const promoted: ChatMessage = {
+    ...historyMessage(matched, timestamp, false),
+    // The marker is written in the same file write that moves the item out of the queue.
+    runInsertion: { version: 1, runId, revision: 1, sequence, ...(options.assistantTurnId ? { assistantTurnId: options.assistantTurnId } : {}) },
+  };
+  conversation.messages = [...conversation.messages, promoted];
+  conversation.pendingMessages = pending.filter((row) => row.id !== messageId);
+  conversation.updatedAt = timestamp;
+  if (!persistPending(conversation, "[chats-store] 待发消息调整提交落盘失败:", sessionId)) return { ok: false, error: "write-failed" };
+  indexPending(conversation, "[chats-store] 待发消息调整提交后索引写入失败（会话列表计数可能滞后）:", sessionId);
+  return { ok: true, userMessage: promoted, remainingQueue: copyQueue(conversation.pendingMessages) };
+}
+
+export function resetPendingAdjustByRun(sessionId: string, runId: string): ResetPendingAdjustResult {
+  const conversation = read(sessionId);
+  if (!conversation) return { ok: false, error: "session-not-found" };
+  const pending = conversation.pendingMessages ?? [];
+  let count = 0;
+  const replacements = pending.map((row) => {
+    if (row.adjustRunId !== runId) return row;
+    const restored = { ...row };
+    delete restored.adjustRunId;
+    count++;
+    return restored;
+  });
+  if (count === 0) return { ok: true, reset: 0 };
+  conversation.pendingMessages = replacements;
+  if (!persistPending(conversation, "[chats-store] 待发消息调整复位落盘失败:", sessionId)) return { ok: false, error: "write-failed" };
+  return { ok: true, reset: count };
+}
+
+export function clearStalePendingAdjustMarks(): void {
+  for (const summary of [...catalog]) {
+    try {
+      const conversation = read(summary.id);
+      if (!conversation?.pendingMessages?.some((row) => row.adjustRunId)) continue;
+      let altered = false;
+      conversation.pendingMessages = conversation.pendingMessages.map((row) => {
+        if (!row.adjustRunId) return row;
+        altered = true;
+        const restored = { ...row };
+        delete restored.adjustRunId;
+        return restored;
+      });
+      if (altered) write(conversation);
+    } catch (failure) { console.warn("[chats-store] 清理陈旧调整标记失败:", summary.id, failure); }
+  }
+}
+
+
+/** Commit the trusted turn/run mapping before invoking the model or tools. */
+export function registerRun(identity: RunPresentationIdentity, userTurnId?: string): boolean {
+  if (identity.profileId !== RUN_PRESENTATION_PROFILE_ID || !identity.sessionId || !identity.assistantTurnId || !identity.runId) return false;
+  const session = read(identity.sessionId);
+  if (!session || session.id !== identity.sessionId || Object.hasOwn(session.runPresentations ?? {}, identity.assistantTurnId)) return false;
+  const matches = session.messages.filter(row => row.id === identity.assistantTurnId);
+  if (matches.length > 1 || matches.some(row => row.role !== "model" || row.content !== "" || (row.runSnapshot !== undefined && (row.runSnapshot.runId !== undefined || row.runSnapshot.status !== "running")) || (userTurnId !== undefined && row.answersUserMessageId !== userTurnId) || row.toolExecutions?.length || row.processMessages?.length || row.reasoning)) return false;
+  if (!matches.length) session.messages.push({ id: identity.assistantTurnId, role: "model", content: "", at: Date.now() });
+  const record: RunPresentationRecord = { ...identity, version: 1, seq: 1, phase: "running" };
+  session.runPresentations = { ...session.runPresentations, [identity.assistantTurnId]: record };
+  save(session);
+  liveRunPresentations.set(identity.runId, record);
+  return true;
+}
+
+export function updateRunPresentation(identity: RunPresentationIdentity, phase: RunPresentationRecord["phase"], seq: number): boolean {
+  const session = read(identity.sessionId);
+  const record = session?.runPresentations?.[identity.assistantTurnId];
+  if (!session || !record || record.runId !== identity.runId || record.profileId !== identity.profileId
+      || identity.profileId !== RUN_PRESENTATION_PROFILE_ID || !Number.isSafeInteger(seq) || seq <= record.seq || record.phase === "finished") return false;
+  const next = { ...record, phase, seq };
+  session.runPresentations![identity.assistantTurnId] = next;
+  write(session);
+  liveRunPresentations.set(identity.runId, next);
+  return true;
+}
+
+export function getRunStatus(sessionId: string, assistantTurnId: string, snapshot?: ChatSession): RunStatusItem | undefined {
+  const session = snapshot ?? read(sessionId);
+  const record = session?.runPresentations?.[assistantTurnId];
+  if (!record || record.version !== 1 || record.sessionId !== sessionId || record.assistantTurnId !== assistantTurnId || record.profileId !== RUN_PRESENTATION_PROFILE_ID
+      || !record.runId || !Number.isSafeInteger(record.seq) || record.seq < 1) return undefined;
+  const matches = session!.messages.filter(row => row.id === assistantTurnId && row.role === "model");
+  if (matches.length !== 1) return undefined;
+  const { runId, seq } = record;
+  const identity = { sessionId, assistantTurnId, runId, seq };
+  if (record.phase === "finished") {
+    const message = matches[0];
+    if (message.runSnapshot?.runId !== runId || message.runSnapshot.status !== "terminal") return undefined;
+    return { ...identity, phase: "finished", message };
+  }
+  if (record.phase === "settling") return liveRunPresentations.has(runId) || record.pendingMessage
+    ? { ...identity, phase: "settling" }
+    : { ...identity, seq: seq + 1, phase: "interrupted" };
+  if (record.phase === "interrupted") return { ...identity, phase: "interrupted" };
+  if (record.phase !== "running") return undefined;
+  if (!liveRunPresentations.has(runId)) return { ...identity, seq: seq + 1, phase: "interrupted" };
+  return { ...identity, phase: "running" };
+}
+
+
+/** Protected while a run here still owns the row: live in this process, or a frozen result waiting for startup recovery.
+ * A running or settling record left by an earlier process is interrupted (as getRunStatus reports) and stays editable. */
+function isProtectedRun(record: RunPresentationRecord | undefined): boolean {
+  if (record?.phase === "running") return liveRunPresentations.has(record.runId);
+  if (record?.phase === "settling") return liveRunPresentations.has(record.runId) || Boolean(record.pendingMessage);
+  return false;
+}
+
+/** A snapshot of the same run that no longer owns the row: anything but its terminal after finishing, a running one after interruption. */
+function isLateRunCheckpoint(record: RunPresentationRecord | undefined, message: ChatMessage): boolean {
+  if (!record || isProtectedRun(record) || message.runSnapshot?.runId !== record.runId) return false;
+  return record.phase === "finished" ? message.runSnapshot.status !== "terminal" : message.runSnapshot.status === "running";
+}
+
+/** A replacement may delete finished replies, but cannot undo an active write or restore a stale checkpoint. */
+function protectRunMessages(session: ChatSession, incoming: ChatMessage[]): ChatMessage[] {
+  const incomingById = new Map(incoming.map(row => [row.id, row]));
+  const records = session.runPresentations;
+  for (const [id, record] of Object.entries(records ?? {})) {
+    if (!isProtectedRun(record) && !incomingById.has(id)) delete records![id];
+  }
+  const protectedRows = session.messages.filter(row => {
+    const record = records?.[row.id];
+    const replacement = incomingById.get(row.id);
+    return isProtectedRun(record) || Boolean(replacement && isLateRunCheckpoint(record, replacement));
+  });
+  const protectedById = new Map(protectedRows.map(row => [row.id, row]));
+  const seen = new Set<string>();
+  const merged = incoming.flatMap(row => {
+    const stored = protectedById.get(row.id);
+    if (!stored) return [row];
+    if (seen.has(row.id)) return [];
+    seen.add(row.id);
+    return [stored];
+  });
+  for (const row of protectedRows) {
+    if (seen.has(row.id)) continue;
+    const oldIndex = session.messages.findIndex(stored => stored.id === row.id);
+    const priorIds = new Set(session.messages.slice(0, oldIndex).map(stored => stored.id));
+    const lastPrior = merged.reduce((position, stored, index) => priorIds.has(stored.id) ? index : position, -1);
+    merged.splice(lastPrior + 1, 0, row);
+  }
+  return merged;
+}
+
+/** Persist a display checkpoint only for the run that still owns this row. */
+export function writeRunCheckpoint(identity: RunPresentationIdentity, message: ChatMessage): boolean {
+  const session = read(identity.sessionId);
+  const record = session?.runPresentations?.[identity.assistantTurnId];
+  if (!session || !record || record.version !== 1 || record.phase !== "running"
+      || record.profileId !== RUN_PRESENTATION_PROFILE_ID || record.profileId !== identity.profileId
+      || record.sessionId !== identity.sessionId || record.assistantTurnId !== identity.assistantTurnId
+      || record.runId !== identity.runId || !liveRunPresentations.has(identity.runId)
+      || message.id !== identity.assistantTurnId || message.role !== "model"
+      || message.runSnapshot?.runId !== identity.runId || message.runSnapshot.status !== "running") return false;
+  const offset = session.messages.findIndex(row => row.id === identity.assistantTurnId && row.role === "model");
+  if (offset < 0) return false;
+  session.messages[offset] = message;
+  record.seq += 1;
+  write(session);
+  liveRunPresentations.set(identity.runId, record);
+  return true;
+}
+
+/** Start the save barrier before running post-turn effects. */
+export function beginRunSettlement(identity: RunPresentationIdentity): boolean {
+  const session = read(identity.sessionId);
+  const record = session?.runPresentations?.[identity.assistantTurnId];
+  if (!record || record.version !== 1 || record.profileId !== RUN_PRESENTATION_PROFILE_ID
+      || record.profileId !== identity.profileId || record.runId !== identity.runId) return false;
+  if (record.phase === "settling" || record.phase === "finished") return true;
+  return updateRunPresentation(identity, "settling", record.seq + 1);
+}
+
+/** Two atomic writes form a recoverable outbox. Retrying always uses the first frozen value. */
+export function commitRunTerminal(identity: RunPresentationIdentity, message: ChatMessage): boolean {
+  const session = read(identity.sessionId);
+  const record = session?.runPresentations?.[identity.assistantTurnId];
+  if (!session || !record || record.version !== 1 || record.profileId !== RUN_PRESENTATION_PROFILE_ID
+      || record.profileId !== identity.profileId || record.sessionId !== identity.sessionId
+      || record.assistantTurnId !== identity.assistantTurnId || record.runId !== identity.runId
+      || message.id !== identity.assistantTurnId || message.role !== "model"
+      || message.runSnapshot?.runId !== identity.runId || message.runSnapshot.status !== "terminal") return false;
+  if (record.phase === "finished") return true;
+  if (!record.pendingMessage) {
+    record.pendingMessage = structuredClone(message);
+    record.phase = "settling"; record.seq += 1;
+    write(session);
+    liveRunPresentations.set(identity.runId, structuredClone(record));
+  }
+  const frozen = structuredClone(record.pendingMessage);
+  const offset = session.messages.findIndex(row => row.id === identity.assistantTurnId && row.role === "model");
+  if (offset < 0) return false;
+  session.messages[offset] = frozen;
+  record.phase = "finished"; record.seq += 1;
+  delete record.pendingMessage;
+  session.updatedAt = Date.now();
+  write(session);
+  liveRunPresentations.delete(identity.runId);
+  updateCatalog(session);
+  return true;
+}
+
+const recoveredRunListeners = new Set<() => void>();
+
+/** Notified when a startup-recovered final message settles (saved or given up), so open pages can refresh. */
+export function onRecoveredRunTerminal(listener: () => void): () => void {
+  recoveredRunListeners.add(listener);
+  return () => { recoveredRunListeners.delete(listener); };
+}
+
+function notifyRecoveredRun(): void {
+  for (const listener of recoveredRunListeners) {
+    try { listener(); } catch { logger.warn(LogTag.Runtime, "run final message recovery listener failed"); }
+  }
+}
+
+/** Startup only resumes history writes, never model execution or tool calls. */
+export function recoverPendingRunTerminals(): void {
+  for (const summary of catalog) {
+    try {
+      const session = read(summary.id);
+      for (const record of Object.values(session?.runPresentations ?? {})) {
+        if (record.phase === "settling" && record.pendingMessage) retryRunTerminal(record, record.pendingMessage, notifyRecoveredRun);
+      }
+    } catch {
+      logger.warn(LogTag.Runtime, "run final message recovery deferred");
+    }
+  }
+}
+
+/** Retry only the immutable display write. Session deletion clears scheduled retries. */
+export function retryRunTerminal(identity: RunPresentationIdentity, message: ChatMessage, completed?: (saved: boolean) => void): void {
+  const existing = terminalRetryTimers.get(identity.runId);
+  if (existing) clearTimeout(existing.timer);
+  const retry = (): void => {
+    terminalRetryTimers.delete(identity.runId);
+    let saved: boolean;
+    try { saved = commitRunTerminal(identity, message); }
+    catch {
+      const timer = setTimeout(retry, 1000);
+      timer.unref?.();
+      terminalRetryTimers.set(identity.runId, { sessionId: identity.sessionId, timer, completed });
+      return;
+    }
+    if (!saved) liveRunPresentations.delete(identity.runId);
+    completed?.(saved);
+  };
+  retry();
+}

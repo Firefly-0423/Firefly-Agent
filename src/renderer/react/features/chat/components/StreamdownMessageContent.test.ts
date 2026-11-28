@@ -13,7 +13,7 @@ vi.mock("./MermaidBlock", () => ({
     React.createElement("div", { "data-chart": streaming ? "pending" : "ready" }),
 }));
 vi.mock("./SvgCardBlock", () => ({ SvgCardBlock: () => null }));
-import { FileLinkContext, MessageStreamingContext } from "./ChatMessageList";
+import { FileLinkContext, MessageStreamingContext } from "./message-contexts";
 import { StreamdownMessageContent } from "./StreamdownMessageContent";
 
 function display(content: string, streaming = false, workspaceRoot?: string) {
@@ -33,12 +33,11 @@ test("renders prose and tables with unprefixed utilities and no table toolbar", 
 test("supports inline and block math during streaming and after completion", () => {
   const live = display("Inline $x+1$ then display:\n\n$$y=2x$$", true);
   expect(live).toContain("katex");
-  // Replies with formulas skip the fade-in, so the inline formula sits directly in its paragraph.
   expect(live).toMatch(/<p><span class="katex">/);
   expect(live).not.toContain("data-sd-animate");
   const settled = display("$x+1$\n\n[Guide][destination]\n\n[destination]: https://docs.invalid");
   expect(settled).toContain("katex");
-  expect(settled).not.toContain('href="https://docs.invalid/"');
+  expect(settled).toContain('href="https://docs.invalid/"');
 });
 
 test.each(["Read this", "Cost: \\$12", "`$SHELL`", "```sh\necho $SHELL\n```"])(
@@ -53,11 +52,17 @@ test("preserves both GFM checkbox states", () => {
   expect(html.match(/type="checkbox"/g)).toHaveLength(2);
 });
 
-test("keeps unfinished code visible while deferring Mermaid rendering", () => {
-  const code = display("~~~ts\nconst answer = 42;", true);
-  expect(code).toContain("data-highlighted");
-  expect(code).toContain("const answer = 42;");
-  expect(display("~~~mermaid\ngraph LR\nQueue-->Worker", true)).toContain('data-chart="pending"');
+test("renders unclosed code and mermaid fences as plain text until closed", () => {
+  const unclosedCode = display("~~~ts\nconst answer = 42;", true);
+  expect(unclosedCode).toContain("ff-code-plain");
+  expect(unclosedCode).not.toContain("data-highlighted");
+  expect(unclosedCode).toContain("const answer = 42;");
+  expect(display("~~~ts\nconst answer = 42;\n~~~", true)).toContain("data-highlighted");
+
+  const unclosedMermaid = display("~~~mermaid\ngraph LR\nQueue-->Worker", true);
+  expect(unclosedMermaid).toContain("ff-code-plain");
+  expect(unclosedMermaid).not.toContain('data-chart=');
+  expect(display("~~~mermaid\ngraph LR\nQueue-->Worker\n~~~", true)).toContain('data-chart="ready"');
 });
 
 test("keeps workspace navigation usable and removes executable link or script content", () => {

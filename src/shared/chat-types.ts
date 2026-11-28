@@ -21,12 +21,17 @@ export type ToolTaskResult = {
     truncated?: boolean;
     writes?: TaskWriteEvidence[];
 };
+export type ToolExecutionProgress = {
+    message: string;
+    percent?: number;
+};
 export type ToolExecutionRecord = {
     argsText?: string;
     changes?: ToolFileChange[];
     displayName?: string;
     id: string;
     name: string;
+    progress?: ToolExecutionProgress;
     result?: string;
     roundId?: string;
     seq?: number;
@@ -84,6 +89,26 @@ export type ChatMessageChannelSource = {
     chatType?: "private" | "group";
     senderName?: string;
 };
+/**
+ * Main-owned marker on a user message that was inserted into a running Work/Code run
+ * ("send now" from the pending queue). Only Main writes it when the queue item is
+ * committed to history; renderer writes can neither forge nor erase it.
+ */
+export type RunInsertion = {
+    version: 1;
+    /** The run the message was inserted into. */
+    runId: string;
+    /** The history assistant message of that run, when the run had one. */
+    assistantTurnId?: string;
+    /** The user revision this insertion was made from; the first commit is 1. */
+    revision: number;
+    /** Order among the insertions committed for this run, starting at 1. */
+    sequence: number;
+    /** Read-only projection from the original run's checkpoint. */
+    delivery?: { round: number; order: number };
+};
+
+export type RunInsertionChanged = { runInsertionSessionId: string };
 export type ChatMessage = {
     agentRounds?: AgentRoundRecord[];
     answersUserMessageId?: string;
@@ -100,6 +125,7 @@ export type ChatMessage = {
     reasoningBlocks?: ReasoningBlock[];
     role: ChatRole;
     runActivity?: RunActivityRecord;
+    runInsertion?: RunInsertion;
     runSnapshot?: {
         runId?: string;
         status: "running" | "waiting_user" | "interrupted" | "terminal";
@@ -189,6 +215,9 @@ export type PendingDispatchState = {
     messageId: string;
 };
 export type ChatSession = {
+    runPresentations?: Record<string, import("./run-status").RunPresentationRecord>;
+    /** Read-only projection for the page: assistant turns Main still records as running or settling. Never persisted. */
+    activeRunTurnIds?: string[];
     createdAt: number;
     currentContextUsage?: ContextUsageSnapshot;
     id: string;

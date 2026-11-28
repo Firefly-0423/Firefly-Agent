@@ -18,6 +18,7 @@ import { useTranslation } from "../../../i18n";
 import { useFeedback } from "../../../components/feedback/FeedbackProvider";
 import { reportChatPerfRender } from "./chat-perf-probe";
 import type { ChatSessionMeta, ConversationMode } from "../../../../../shared/chat-types";
+import { sessionGroup, summarizeProjects, type ProjectSummary } from "./sidebar-project-summary";
 
 interface ConversationSidebarProps {
   mode: ConversationMode;
@@ -38,16 +39,47 @@ interface ConversationSidebarProps {
   onExport: (sessionId: string) => void | Promise<void>;
 }
 
-interface ProjectSummary {
-  name: string;
+/** 右键菜单的位置与所指会话。 */
+interface SessionMenuState {
+  open: boolean;
+  x: number;
+  y: number;
+  above?: number;
+  sessionId: string;
+  sessionTitle: string;
+  pinned: boolean;
   workspaceRoot?: string;
-  conversationCount: number;
-  updatedAt: number;
+}
+
+const CLOSED_SESSION_MENU: SessionMenuState = { open: false, x: 0, y: 0, sessionId: "", sessionTitle: "", pinned: false };
+
+/** 保留已展开的分组，并把新出现的分组也并入。 */
+function withNewKeys(current: readonly string[], incoming: readonly string[]): string[] {
+  const merged = new Set(current);
+  for (const key of incoming) merged.add(key);
+  return [...merged];
 }
 
 function ProjectIcon({ mode, open = false }: { mode: ConversationMode; open?: boolean }) {
   const Icon = mode === "code" ? FolderCode : open ? FolderOpen : Folder;
   return <Icon size={16} strokeWidth={1.6} aria-hidden="true" />;
+}
+
+function SessionRenameInput({ editing, onChange, onCommit, onCancel }: {
+  editing: { sessionId: string; value: string };
+  onChange: (value: string) => void;
+  onCommit: () => void;
+  onCancel: () => void;
+}) {
+  const input = useRef<InputRef | null>(null);
+  useEffect(() => {
+    input.current?.focus();
+    input.current?.select();
+  }, [editing]);
+  return <Input ref={input} size="small" className="ff-session-rename-input" value={editing.value}
+    onChange={event => onChange(event.target.value)} onPressEnter={onCommit} onBlur={onCancel}
+    onKeyDown={event => { if (event.key === "Escape") onCancel(); }}
+    onClick={event => event.stopPropagation()} />;
 }
 
 /** Submenus (copy, open with, move to section) open in their own popup on document.body, outside the menu's wrapper. */
@@ -158,25 +190,7 @@ export const ConversationSidebar = memo(function ConversationSidebar({
     ...tier.flatSessionIds.map(id => [id, tier.flatGroupId!] as const),
   ]) ?? []), [tiers]);
   const persistedExpanded = projection?.groups.filter(group => !layout.snapshot!.layout.modes[mode].collapsedGroupIds.includes(group.groupId)).map(group => group.groupId);
-  const projects = useMemo(() => {
-    const result = new Map<string, ProjectSummary>();
-    for (const session of sessions) {
-      const key = session.workspaceRoot ?? `unbound:${session.id}`;
-      const current = result.get(key);
-      if (current) {
-        current.conversationCount += 1;
-        current.updatedAt = Math.max(current.updatedAt, session.updatedAt);
-      } else {
-        result.set(key, {
-          name: session.workspaceDisplayName ?? t("sidebar.unboundProject"),
-          workspaceRoot: session.workspaceRoot,
-          conversationCount: 1,
-          updatedAt: session.updatedAt,
-        });
-      }
-    }
-    return result;
-  }, [sessions]);
+  const projects = useMemo(() => summarizeProjects(sessions, () => t("sidebar.unboundProject")), [sessions]);
   // A single, expanded, unnamed group (typical Chat history) needs no heading of its own.
   const soleGroup = projection?.groups.length === 1 ? projection.groups[0] : undefined;
   const flat = !!soleGroup && !soleGroup.projectId && !soleGroup.sectionId && !!persistedExpanded?.includes(soleGroup.groupId);
@@ -184,38 +198,15 @@ export const ConversationSidebar = memo(function ConversationSidebar({
   const [expandedKeys, setExpandedKeys] = useState<string[]>(projectKeys);
 
   useEffect(() => {
-    setExpandedKeys((current) => [...new Set([...current, ...projectKeys])]);
+    setExpandedKeys((current) => withNewKeys(current, projectKeys));
   }, [projectKeys]);
 
-  const [contextMenu, setContextMenu] = useState<{
-    open: boolean;
-    x: number;
-    y: number;
-    above?: number;
-    sessionId: string;
-    sessionTitle: string;
-    pinned: boolean;
-    workspaceRoot?: string;
-  }>({ open: false, x: 0, y: 0, sessionId: "", sessionTitle: "", pinned: false });
+  const [contextMenu, setContextMenu] = useState<SessionMenuState>(CLOSED_SESSION_MENU);
   // 「打开方式」里列出的应用：菜单打开时按这个会话的项目文件夹探测一次。
   const [openApps, setOpenApps] = useState<OpenInAppEntry[] | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
 
-  const [editing, setEditing] = useState<{
-    sessionId: string;
-    value: string;
-  } | null>(null);
-
-  // antd Input 的 ref 是 InputRef（含 focus/select），不是原生元素
-  const renameInputRef = useRef<InputRef | null>(null);
-
-  useEffect(() => {
-    if (!editing) return;
-    const input = renameInputRef.current;
-    if (!input) return;
-    input.focus();
-    input.select();
-  }, [editing]);
+  const [editing, setEditing] = useState<{ sessionId: string; value: string } | null>(null);
 
   const running = useMemo(() => new Set(runningSessionIds ?? []), [runningSessionIds]);
   const needsInput = useMemo(() => new Set(needsInputSessionIds ?? []), [needsInputSessionIds]);
@@ -251,34 +242,27 @@ export const ConversationSidebar = memo(function ConversationSidebar({
   );
 
   // 阶段 1A：items 数组 useMemo——避免每次渲染重建（Conversations 拿到新数组引用即重渲染全部条目）
-  const items: ConversationItemType[] = useMemo(
-    () =>
-      sortedSessions.map((session) => ({
+  const items: ConversationItemType[] = useMemo(() => sortedSessions.map((session) => {
+      const group = sessionGroup(session, {
+        status: statusOf ? statusOf.get(session.id) ?? "done" : undefined,
+        groups: tiered ? tierGroupBySession : groupBySession,
+        projects: supportsProjects,
+      });
+      return {
         key: session.id,
         "data-session-id": session.id,
         "data-pinned": session.pinned ? "true" : undefined,
         label:
           editing?.sessionId === session.id ? (
-            <Input
-              ref={renameInputRef}
-              size="small"
-              className="ff-session-rename-input"
-              value={editing.value}
-              onChange={(e) => setEditing({ ...editing, value: e.target.value })}
-              onPressEnter={() => {
+            <SessionRenameInput
+              editing={editing}
+              onChange={(value) => setEditing({ ...editing, value })}
+              onCommit={() => {
                 const title = editing.value.trim();
-                if (title && title !== session.title) {
-                  void onRename(session.id, title);
-                }
+                if (title && title !== session.title) void onRename(session.id, title);
                 setEditing(null);
               }}
-              onBlur={() => setEditing(null)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  setEditing(null);
-                }
-              }}
-              onClick={(e) => e.stopPropagation()}
+              onCancel={() => setEditing(null)}
             />
           ) : (
             <Popover
@@ -312,8 +296,9 @@ export const ConversationSidebar = memo(function ConversationSidebar({
               </span>
             </Popover>
           ),
-        group: statusOf ? statusGroupId(statusOf.get(session.id) ?? "done") : (tiered ? tierGroupBySession : groupBySession).get(session.id) ?? (supportsProjects ? session.workspaceRoot ?? `unbound:${session.id}` : session.pinned ? "pinned" : "recent"),
-      })),
+        group,
+      };
+    }),
     [sortedSessions, editing, t, supportsProjects, onRename, onTogglePin, mode, groupBySession, tierGroupBySession, tiered, running, statusOf],
   );
   // A section the user just made has no conversations yet; the list only draws groups that have rows, so it gets
@@ -404,33 +389,31 @@ export const ConversationSidebar = memo(function ConversationSidebar({
     } else if (key === "export-markdown") {
       void onExport(contextMenu.sessionId);
     } else if (key === "delete") {
-      // 删除会话不可恢复：危险确认，默认聚焦取消，确认后才触发删除
-      const confirmed = await feedback.confirm({
+      // 会话删除后无法找回，所以先弹出危险级确认框，用户确认才真正删除。
+      const dialog = {
         title: t("sidebar.deleteConfirmTitle", { title: contextMenu.sessionTitle }),
         message: t("sidebar.deleteConfirmContent"),
         confirmText: t("sidebar.delete"),
         cancelText: t("common.cancel"),
         dangerous: true,
-      });
-      if (confirmed) onDelete(contextMenu.sessionId);
+      };
+      if (await feedback.confirm(dialog)) onDelete(contextMenu.sessionId);
     }
   }
 
   useEffect(() => {
     if (!contextMenu.open) return;
-    function onPointerDown(event: MouseEvent) {
-      const target = event.target as HTMLElement;
-      if (isInsideSessionMenu(target)) return;
-      closeContextMenu();
-    }
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") closeContextMenu();
-    }
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
+    const dismiss = (event: Event) => {
+      const shouldClose = event.type === "keydown"
+        ? (event as KeyboardEvent).key === "Escape"
+        : !isInsideSessionMenu(event.target as HTMLElement);
+      if (shouldClose) closeContextMenu();
+    };
+    document.addEventListener("pointerdown", dismiss);
+    document.addEventListener("keydown", dismiss);
     return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", dismiss);
+      document.removeEventListener("keydown", dismiss);
     };
   }, [contextMenu.open]);
 

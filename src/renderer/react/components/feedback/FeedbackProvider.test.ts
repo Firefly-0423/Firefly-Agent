@@ -77,3 +77,36 @@ test.each([false, true])("preserves FIFO even when a third request arrives after
     await expect(confirm).resolves.toBe(false);
   }
 });
+
+test("closes an open confirmation when its signal aborts and shows the next queued dialog", async () => {
+  const destroy = vi.fn();
+  ports.dialog.mockImplementation(() => ({ destroy }));
+  const controller = new AbortController();
+  const first = feedback.confirm({ title: "Plugin access", message: "Allow?", signal: controller.signal });
+  const second = feedback.confirm({ title: "Other plugin", message: "Allow?" });
+  await tick();
+  expect(ports.dialog).toHaveBeenCalledTimes(1);
+
+  controller.abort();
+  await expect(first).resolves.toBe(false);
+  expect(destroy).toHaveBeenCalledTimes(1);
+  await tick();
+  expect(ports.dialog).toHaveBeenCalledTimes(2);
+  expect(ports.dialog.mock.calls[1][0].title).toBe("Other plugin");
+  ports.dialog.mock.calls[1][0].onOk();
+  await expect(second).resolves.toBe(true);
+});
+
+test("never shows a queued confirmation whose signal aborted while it waited", async () => {
+  ports.dialog.mockImplementation(() => ({ destroy: vi.fn() }));
+  const blocker = feedback.alert({ tone: "info", title: "First", message: "Ahead in the queue" });
+  const controller = new AbortController();
+  const cancelled = feedback.confirm({ title: "Plugin access", message: "Allow?", signal: controller.signal });
+  await tick();
+  controller.abort();
+  ports.dialog.mock.calls[0][0].onOk();
+  await blocker;
+  await expect(cancelled).resolves.toBe(false);
+  await tick();
+  expect(ports.dialog).toHaveBeenCalledTimes(1);
+});

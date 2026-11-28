@@ -14,12 +14,34 @@ import type { FireflyPlugin, PluginConversationMessage, PluginDeps, PluginTool, 
 
 const KEEP_PER_CONVERSATION = 5;
 const INJECTED_PER_PROMPT = 3;
+const MESSAGE_PAGE_LIMIT = 50;
 const TRANSCRIPT_CHAR_LIMIT = 4000;
 const FALLBACK_CHAR_LIMIT = 50;
 
 let deps: PluginDeps = {};
 /** 会话 id 到摘要列表，数组末尾是最新的一条。 */
 let notebook = new Map<string, string[]>();
+
+/** JSON 存储只保存普通对象；写盘前把 Map 转成可序列化的键值映射。 */
+function serializeNotebook(map: Map<string, string[]>): Record<string, string[]> {
+  const snapshot: Record<string, string[]> = {};
+  for (const [conversationId, notes] of map.entries()) {
+    if (notes.length > 0) snapshot[conversationId] = [...notes];
+  }
+  return snapshot;
+}
+
+/** 从 JSON 反序列化所得普通对象恢复 Map，丢弃非字符串或空数组项。 */
+function deserializeNotebook(raw: unknown): Map<string, string[]> {
+  const restored = new Map<string, string[]>();
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return restored;
+  for (const [conversationId, value] of Object.entries(raw)) {
+    if (!Array.isArray(value)) continue;
+    const notes = value.filter((item): item is string => typeof item === "string" && item.length > 0);
+    if (notes.length > 0) restored.set(conversationId, notes.slice(-KEEP_PER_CONVERSATION));
+  }
+  return restored;
+}
 
 /** 摘要入账：超出保留数量时从最旧的一条开始丢弃。 */
 function appendNote(conversationId: string, note: string): void {
@@ -99,17 +121,43 @@ const recallTool = readOnlyTool(
   },
 );
 
-/** 桌面轮次成功结束后：按冻结范围取回本轮消息，摘要并入账。 */
+/** 按冻结范围循环翻页读完本轮全部消息；游标已编码范围边界，后续页只传 cursor。 */
+async function readTurnMessages(
+  conversations: NonNullable<PluginDeps["conversations"]>,
+  conversationId: string,
+  fromMessageId: string,
+  throughMessageId: string,
+): Promise<PluginConversationMessage[]> {
+  const collected: PluginConversationMessage[] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | undefined;
+
+  while (true) {
+    const page = await conversations.getMessages(
+      cursor === undefined
+        ? { conversationId, fromMessageId, throughMessageId, limit: MESSAGE_PAGE_LIMIT }
+        : { conversationId, cursor, limit: MESSAGE_PAGE_LIMIT },
+    );
+    collected.push(...page.items);
+    if (!page.nextCursor || seenCursors.has(page.nextCursor)) break;
+    seenCursors.add(page.nextCursor);
+    cursor = page.nextCursor;
+  }
+
+  return collected;
+}
+
+/** 桌面轮次成功结束后：只在存在 finalMessageId 时按冻结范围分页取回本轮消息，摘要并入账。 */
 async function onTurnFinished(event: PluginTurnFinishedEvent): Promise<void> {
   if (event.source !== "desktop" || event.status !== "success") return;
-  if (!deps.conversations || !event.inputMessageId) return;
+  if (!deps.conversations || !event.inputMessageId || !event.finalMessageId) return;
 
-  const { items } = await deps.conversations.getMessages({
-    limit: 50,
-    throughMessageId: event.finalMessageId,
-    fromMessageId: event.inputMessageId,
-    conversationId: event.conversationId,
-  });
+  const items = await readTurnMessages(
+    deps.conversations,
+    event.conversationId,
+    event.inputMessageId,
+    event.finalMessageId,
+  );
   const note = await summarizeTurn(items);
   if (note) appendNote(event.conversationId, note);
 }
@@ -130,10 +178,12 @@ const plugin: FireflyPlugin = {
   async register(ctx) {
     deps = ctx.deps;
 
-    // 启动时读回上次落盘的摘要，停止时再写回
-    notebook = ctx.storage.get<Map<string, string[]>>("memories") ?? new Map();
+    // 启动时从普通 JSON 对象恢复 Map，停止时在 onDispose 中序列写回并清理内存
+    notebook = deserializeNotebook(ctx.storage.get<Record<string, string[]>>("memories"));
     ctx.onDispose(() => {
-      ctx.storage.set("memories", notebook);
+      ctx.storage.set("memories", serializeNotebook(notebook));
+      notebook = new Map();
+      deps = {};
     });
 
     ctx.events.on("host:turn:finished", onTurnFinished);
@@ -143,7 +193,7 @@ const plugin: FireflyPlugin = {
     ctx.registerTool(recallTool);
   },
   unregister() {
-    notebook = new Map();
+    // 宿主先调 unregister 再调 onDispose，记忆写入和清空统一放到 onDispose
   },
 };
 

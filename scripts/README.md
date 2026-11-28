@@ -4,30 +4,30 @@
 
 | 目录 | 用途 | 常用入口 |
 | --- | --- | --- |
-| `dev/` | 从源码启动 Electron；没设 `FIREFLY_ISOLATION_ROOT` 时，数据放在仓库的 `output/development-profile` | `npm run dev`、`npm start` |
-| `build/` | 构建 CLI 与原生截图辅助程序 | `npm run build:cli`、`npm run build:screenshot-helper` |
-| `packaging/` | 准备 MinGit、校验 Skills 目录及可选本地 mpv | `npm run prepare:mingit`、`npm run validate:skills`；后者只校验，不生成归档 |
-| `verify/` | 手动或自动验证构建产物及运行链路 | `npm run verify:screenshot-helper`、`npm run smoke:music` |
+| `dev/` | 从源码启动 Electron；没设 `FIREFLY_ISOLATION_ROOT` 时，数据放在仓库的 `output/development-profile` | `pnpm run dev`、`pnpm start` |
+| `build/` | 构建 CLI 与原生截图辅助程序 | `pnpm run build:cli`、`pnpm run build:screenshot-helper` |
+| `packaging/` | 准备 MinGit、校验 Skills 目录及可选本地 mpv | `pnpm run prepare:mingit`、`pnpm run validate:skills`；后者只校验，不生成归档 |
+| `verify/` | 手动或自动验证构建产物及运行链路 | `pnpm run verify:screenshot-helper`、`pnpm run smoke:music` |
 | `ci/` | Vitest runner 与 worker 退出取证 | `./scripts/ci/run-vitest.ps1`；会运行测试 |
-| `perf/` | Chat Renderer 性能基线与记录处理 | `npm run perf:chat-baseline` |
-| `plugin-sdk/` | 本地 SDK、清单 schema 与示例验证 | `npm run check:plugin-sdk`、`npm run check:plugin-schema`、`npm run test:plugin-examples` |
-| `testing/` | 完整测试入口、结果归档与进程存活辅助 | `npm test`；`node scripts/testing/run-tests.mjs` |
+| `perf/` | Chat Renderer 性能基线与记录处理 | `pnpm run perf:chat-baseline` |
+| `plugin-sdk/` | 本地 SDK、清单 schema 与示例验证 | `pnpm run check:plugin-sdk`、`pnpm run check:plugin-schema`、`pnpm run test:plugin-examples` |
+| `testing/` | 完整测试入口、结果归档与进程存活辅助 | `pnpm test`；`node scripts/testing/run-tests.mjs` |
 | `security/` | 已安装依赖的版本与哈希受控安全补丁 | `postinstall` 调用 `git-null-config-backport.mjs` |
-| `plugin-marketplace/` | 离线插件目录与可复现 ZIP 构建、示例回归 | `npm run build:plugin-marketplace`、`npm run test:plugin-marketplace` |
+| `plugin-marketplace/` | v2 离线插件目录与可复现 `.ffplugin` 构建、示例回归 | `pnpm run build:plugin-marketplace`、`pnpm run test:plugin-marketplace` |
 
 `packaging/prepare-mingit.mjs` 会根据 `vendor/mingit-manifest.json` 下载、校验并解压 MinGit 到 `resources/mingit/`。该目录是本地打包输入，已被 `.gitignore` 忽略。
 
-`npm run smoke:music` 只读取 Windows QQ Music 桌面会话状态，不改变播放。发布包通过 `electron-builder.yml` 携带 `qqmusic_gsmtc.ps1`；旧网易云组件与 mpv 不再进入有效打包链。
+`pnpm run smoke:music` 只读取 Windows QQ Music 桌面会话状态，不改变播放。发布包通过 `electron-builder.yml` 携带 `qqmusic_gsmtc.ps1`；旧网易云组件与 mpv 不再进入有效打包链。
 
-该命令先运行 `build:main`，然后启动 Electron 中的 `src/main/music/music-smoke-entry.ts`。没有 QQ Music 会话时 `QQ_MUSIC_SESSION_NOT_FOUND` 也返回退出码 0，因此成功退出不证明播放器控制或应用内审批通过。
+该命令先运行 `build:main`，然后启动 Electron 中的 `src/main/features/music/music-smoke-entry.ts`。没有 QQ Music 会话时 `QQ_MUSIC_SESSION_NOT_FOUND` 也返回退出码 0，因此成功退出不证明播放器控制或应用内审批通过。
 
-`npm test` 经 `testing/run-tests.mjs` 启动 Vitest，并保留结果归档 reporter；`FIREFLY_TEST_REPORT_ROOT` 可显式指定归档目录。`security/` 中两项补丁仅接受脚本列出的依赖版本和文件哈希，修改已安装依赖，不改 manifest 或锁文件。`plugin-marketplace/` 默认构建离线目录与禁用状态的示例插件；生成目录不表示已有在线市场或发布授权。
+`pnpm test` 经 `testing/run-tests.mjs` 启动 Vitest，并保留结果归档 reporter；`FIREFLY_TEST_REPORT_ROOT` 可显式指定归档目录。`security/` 中两项补丁仅接受脚本列出的依赖版本和文件哈希，修改已安装依赖，不改 manifest 或锁文件。`plugin-marketplace/` 默认构建离线目录与禁用状态的示例插件；生成目录不表示已有在线市场或发布授权。
 
-`npm test` 不扫描 `scripts/**/*.test.mjs`。这些文件使用 Node 测试入口，例如 `node --test scripts/packaging/electron-builder-config.test.mjs`；SDK 示例由上表的专用命令执行。`scripts/install-bge-reranker.ps1` 是显式模型安装入口，不属于普通构建步骤。执行前阅读脚本，核对下载、写入和运行前提。
+`pnpm test` 不扫描 `scripts/**/*.test.mjs`。这些文件使用 Node 测试入口，例如 `node --test scripts/packaging/electron-builder-config.test.mjs`；SDK 示例由上表的专用命令执行。`scripts/install-bge-reranker.ps1` 是显式模型安装入口，不属于普通构建步骤。执行前阅读脚本，核对下载、写入和运行前提。
 
 MinGit 和插件归档仍使用共享的 `src/shared/zip-extraction.ts` 安全解压层；Skills 直接从受校验的目录分发，不经 ZIP。脚本说明不代表整体安全或发布验收通过。
 
-`npm run validate:skills` 检查正式 `vendor/firefly-skills/skills/` 的 50 项、项目 `skills/` 的四项、目录安全及 `skills-manifest.json` 固定的文件哈希。审核正式目录改动后，运行 `node scripts/packaging/update-skills-manifest.mjs` 重建清单与当前分发哈希，再执行校验。`packaging/skill-adaptations/` 和旧归档元数据仅保留来源与迁移识别依据，不在构建时重写正式目录。不会下载或执行第三方安装脚本；本地备份与取证目录不进入产物。
+`pnpm run validate:skills` 检查正式 `vendor/firefly-skills/skills/` 的 50 项、项目 `skills/` 的四项、目录安全及 `skills-manifest.json` 固定的文件哈希。审核正式目录改动后，运行 `node scripts/packaging/update-skills-manifest.mjs` 重建清单与当前分发哈希，再执行校验。`packaging/skill-adaptations/` 和旧归档元数据仅保留来源与迁移识别依据，不在构建时重写正式目录。不会下载或执行第三方安装脚本；本地备份与取证目录不进入产物。
 
 `node --test scripts/packaging/validate-skills.test.mjs scripts/packaging/electron-builder-config.test.mjs` 验证目录、哈希和打包资源规则；这些检查不替代实际运行或外部服务验收。
 
@@ -38,3 +38,19 @@ MinGit 和插件归档仍使用共享的 `src/shared/zip-extraction.ts` 安全�
 - `packaging/prepare-mpv.mjs`、`verify/mpv-helper.mjs`：可选音频辅助准备与人工检查，不恢复网易云播放器，也不进入默认打包。
 - `perf/chat-renderer-recording.mjs`：性能录像处理 helper，由性能 runner 和对应 Node 回归使用；默认指标写入已忽略的 `output/perf/`。
 - `install-bge-reranker.ps1`：需显式决定的模型下载，不自动安装或修改用户配置。
+
+## 生产依赖风险维护
+
+依赖或锁文件变更、出现新公告、发版前和例外到期时，运行 `pnpm audit --prod --json`，按实际包运行 `pnpm why <包名> --json`，记录命令退出码、采集日期、提交和锁文件 SHA-256。审计失败时明确登记“采集失败”。
+
+入包判断需核对 electron-builder 的 files、asarUnpack、extraResources，以及 dist、分发目录和实际 ASAR。未知保持“待核实”。临时例外由 hotaru 审核并指定到期日，到期重新复核，续期需重新采集并说明缓解与证据。
+
+- [生产依赖风险登记与当前实例](../docs/security/dependency-risk-register.md)
+
+## 测试集合与 CI 归属
+
+默认集合用 `pnpm test`，本机 Node 26 设 `NODE_OPTIONS=--no-experimental-webstorage`，全量还需 `FIREFLY_TEST_BASH` 指向 Git Bash。脚本全集用 `node --test "scripts/**/*.test.mjs"`，包含现有 26 文件和 eval / marketplace，用专用命令 `pnpm run test:eval`、`pnpm run test:plugin-marketplace` 可本地选跑。SDK 示例用 `pnpm run check:plugin-sdk` 后执行 `pnpm run test:plugin-examples`，复用 plugin-sdk.yml。
+
+`pnpm run test:memory-history-zero-write` 为独立验收，需要 Windows 本地 NTFS、独立根、相同 TEMP/TMP、debug 与 release history-read helper，缺前提须报告失败或未执行。完整环境命令、Rust 未覆盖项、触发范围与证据见覆盖清单。
+
+- [测试入口与覆盖清单](../docs/engineering/test-coverage-map.md)

@@ -48,13 +48,13 @@ for(const name of ['node:http','node:https']){const mod=require(name);for(const 
 function blockSession(s){s.webRequest.onBeforeRequest({urls:['http://*/*','https://*/*']},(details,done)=>{qa.blocked.push({layer:'chromium',origin:new URL(details.url).origin});done({cancel:true})});}
 app.on('session-created',blockSession);app.whenReady().then(()=>blockSession(session.defaultSession));
 for(const method of ['request','fetch'])require('electron').net[method]=()=>{qa.blocked.push({layer:'electron-net',method});throw Error('QA_NET_BLOCKED')};
-const main=path.join(repo,'dist','main','main');require(path.join(main,'identity-preflight.js'));
-const bg=require(path.join(main,'application','background.js')),realStart=bg.startBackground;
+const main=path.join(repo,'dist','main','main');require(path.join(main,'app','identity-preflight.js'));
+const bg=require(path.join(main,'app','background.js')),realStart=bg.startBackground;
 bg.startBackground=deps=>{const guarded={...deps,channels:{...deps.channels,start:async()=>{},stop:async()=>{}},scheduler:{...deps.scheduler,start:()=>{},stop:async()=>{}}};for(const key of ['pruneRemovedMcp','syncBuiltInMcp','restoreMcp','scheduleEmbeddingRefresh','initializeReranker','prewarmScreenshot','scheduleUpdateCheck','startProactiveTrigger'])guarded[key]=async()=>{qa.suppressed.push(key)};const handle=realStart(guarded);handle.settled.then(()=>{qa.ready=true});return handle};
 require(path.join(main,'index.js'));
-qa.showChat=id=>require(path.join(main,'windows','create-aux-windows.js')).showReactChatWindow(id);
-qa.showSettings=()=>require(path.join(main,'windows','create-aux-windows.js')).createSettingsWindow('memory');
-qa.target=()=>require(path.join(main,'plugin-host','active-chat-target.js')).activeChatTargetRegistry.getActive();
+qa.showChat=id=>require(path.join(main,'platform','windows','create-aux-windows.js')).showReactChatWindow(id);
+qa.showSettings=()=>require(path.join(main,'platform','windows','create-aux-windows.js')).createSettingsWindow('memory');
+qa.target=()=>require(path.join(main,'platform','interaction','active-chat-target.js')).activeChatTargetRegistry.getActive();
 `);
 
 const env = {};

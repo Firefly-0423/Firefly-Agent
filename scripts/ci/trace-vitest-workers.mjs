@@ -1,15 +1,16 @@
-import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { ForksPoolWorker } from "vitest/node";
+import { lockedVersion, readProjectLock } from "../build/pnpm-lock.mjs";
 
 const output = process.env.FIREFLY_VITEST_DIAGNOSTICS;
 if (!output) throw new Error("FIREFLY_VITEST_DIAGNOSTICS is required");
 mkdirSync(output, { recursive: true });
 const require = createRequire(import.meta.url);
 const installed = require("vitest/package.json").version;
-const locked = JSON.parse(readFileSync("package-lock.json", "utf8")).packages["node_modules/vitest"].version;
+const locked = lockedVersion(readProjectLock().importer, "vitest");
 if (installed !== "4.1.11" || installed !== locked) throw new Error("Review the Vitest worker diagnostic contract for this installed version");
 const states = new WeakMap();
 const trace = (event, details) => appendFileSync(path.join(output, "workers.jsonl"), JSON.stringify({ time: new Date().toISOString(), event, ...details }) + "\n");

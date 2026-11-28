@@ -11,7 +11,7 @@ check to 1.4.0; that backport was removed when the upstream fix was adopted.
 - Upstream fix: node-forge 1.4.1 (see its CHANGELOG, "Signature forgery in
   RSA-PKCS due to ASN.1 extra field in DigestAlgorithm").
 - Regression inputs: the public modulus and malformed signature in
-  `src/main/security/node-forge-signature.test.ts` derive from
+  `src/main/base/security/node-forge-signature.test.ts` derive from
   `tests/unit/rsa.js` in upstream PR
   <https://github.com/digitalbazaar/forge/pull/1152>, commit
   `ceba34402e329f0365134f23fe19898756527d65`, authored by Cristhian Hernandez,

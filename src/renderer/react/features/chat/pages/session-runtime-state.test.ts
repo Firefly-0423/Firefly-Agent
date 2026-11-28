@@ -144,6 +144,34 @@ describe("Message projections and busy state stay scoped to their owner", () => 
     const result = runtime.recoverInterruptedMessage({ id: "assistant-a", role: "assistant", content: "The review stopped mid-sentence", streaming: true, reasoningStreaming: true, runActivity: { startedAt: 10, reasoningMs: 20 } }, { runId: "run-a", status: "waiting_user", todos: [{ id: "todo-1", content: "Inspect remaining sections", status: "in_progress" }], updatedAt: 100 });
     expect(result).toMatchObject({ streaming: false, reasoningStreaming: false, loading: false, waitingForFirstEvent: false, runStage: { kind: "failed", detail: "上次运行已中断" }, runActivity: { completedAt: 100, keepExpanded: true } });
   });
+  test("restoring an interrupted run ends a question still waiting for the user and its open round, leaving finished ones as they were", () => {
+    const message = {
+      id: "assistant-b", role: "assistant" as const, content: "", streaming: true,
+      toolExecutions: [
+        { id: "read", name: "read_file", status: "success" as const, result: "plan.md" },
+        { id: "ask", name: "ask_user", status: "running" as const },
+      ],
+      agentRounds: [
+        { id: "round-0", startedAt: 10, status: "completed" as const, completedAt: 20 },
+        { id: "round-1", startedAt: 30, status: "running" as const },
+      ],
+    };
+    const result = runtime.recoverInterruptedMessage(message, { runId: "run-b", status: "waiting_user", todos: [], updatedAt: 100 });
+    expect(result.toolExecutions).toEqual([
+      { id: "read", name: "read_file", status: "success", result: "plan.md" },
+      { id: "ask", name: "ask_user", status: "error", result: "上次运行已中断" },
+    ]);
+    expect(result.agentRounds).toEqual([
+      { id: "round-0", startedAt: 10, status: "completed", completedAt: 20 },
+      { id: "round-1", startedAt: 30, status: "completed", completedAt: 100 },
+    ]);
+    // The stored message is not modified.
+    expect(message.toolExecutions[1].status).toBe("running");
+  });
+  test("a run that already ended keeps its tool rows untouched", () => {
+    const message = { id: "assistant-c", role: "assistant" as const, content: "Done", toolExecutions: [{ id: "ask", name: "ask_user", status: "running" as const }] };
+    expect(runtime.recoverInterruptedMessage(message, { runId: "run-c", status: "terminal", todos: [], updatedAt: 100 })).toBe(message);
+  });
 });
 
 describe("Todo checkpoints are local recovery evidence", () => {
@@ -152,18 +180,18 @@ describe("Todo checkpoints are local recovery evidence", () => {
     const started = runtime.startSessionTodos(previous, "owner", "new", 30);
     expect(started.owner).toStrictEqual({ runId: "new", todos: [], updatedAt: 30 });
     expect(started.neighbour).toBe(previous.neighbour);
-    expect(runtime.mergeHarnessTodosForSession(started, "owner", "old", [{ id: "old", content: "Review obsolete instructions", status: "pending" }], 40)).toBe(started);
+    expect(runtime.mergeAgentLoopTodosForSession(started, "owner", "old", [{ id: "old", content: "Review obsolete instructions", status: "pending" }], 40)).toBe(started);
   });
   test("accepted Todos keep their order and timestamp without replacing another session", () => {
     const previous: runtime.TodoStateBySession = { neighbour: { runId: "run-b", todos: [{ id: "b-1", content: "Inspect neighbour B", status: "pending" }], updatedAt: 10 } };
     const items = [{ id: "1", content: "Complete the review", status: "completed" }, { id: "2", content: "Trace cancellation", status: "in_progress" }, { id: "3", content: "Discard previous investigation", status: "cancelled" }];
-    const merged = runtime.mergeHarnessTodosForSession(previous, "owner", "run-a", items, 20);
+    const merged = runtime.mergeAgentLoopTodosForSession(previous, "owner", "run-a", items, 20);
     expect(merged.neighbour).toBe(previous.neighbour);
     expect(merged.owner).toStrictEqual({ runId: "run-a", todos: items.slice(0, 2), updatedAt: 20 });
   });
   test("cancelled, empty-id and unsupported Todo records do not enter presentation state", () => {
     const kept = { id: "ok", content: "Retain this valid step", status: "pending" };
-    const result = runtime.mergeHarnessTodosForSession({}, "owner", "run-a", [kept, { id: "cancelled", content: "A cancelled step", status: "cancelled" }, { id: "", content: "Missing identifier", status: "pending" }, { id: "unknown", content: "Unsupported task state", status: "blocked" }], 20);
+    const result = runtime.mergeAgentLoopTodosForSession({}, "owner", "run-a", [kept, { id: "cancelled", content: "A cancelled step", status: "cancelled" }, { id: "", content: "Missing identifier", status: "pending" }, { id: "unknown", content: "Unsupported task state", status: "blocked" }], 20);
     expect(result.owner.todos).toStrictEqual([kept]);
   });
   test("an interrupted task describes Todo progress and tool facts without claiming side effects", () => {

@@ -1,25 +1,10 @@
-use std::collections::{HashMap, HashSet};
+//! 截图请求台账：Main 发来的每个 requestId 从受理到结束只走一遍，结束后可以被新请求复用。
+
+use std::collections::HashMap;
 
 use crate::protocol::CaptureMode;
 
-/// 请求在覆盖层交互中所处的阶段。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CaptureInteractionState {
-    /// 尚无进行中的交互
-    Idle,
-    /// 正在冻结屏幕
-    Freezing,
-    /// 用户正在拖选区域
-    Selecting,
-    /// 选区已确定
-    Selected,
-    /// 正在提交结果
-    Committing,
-    /// 正在取消
-    Cancelling,
-}
-
-/// 请求登记表的错误。
+/// 台账拒绝一次操作的原因；`code()` 是协议上的错误码。
 #[derive(Debug, thiserror::Error)]
 pub enum RequestError {
     #[error("request was not found: {0}")]
@@ -33,116 +18,68 @@ pub enum RequestError {
 impl RequestError {
     pub fn code(&self) -> &'static str {
         match self {
-            Self::NotFound(_) => "request-not-found",
-            Self::AlreadyFinished(_) => "request-already-finished",
             Self::AlreadyPending(_) => "request-already-pending",
+            Self::AlreadyFinished(_) => "request-already-finished",
+            Self::NotFound(_) => "request-not-found",
         }
     }
 }
 
-/// 抓屏释放时的结果快照，目前仅记录不读取。
-#[derive(Debug)]
-#[allow(dead_code)]
-struct CaptureRelease {
-    width: u32,
-    height: u32,
-    // 剪贴板是否写入成功
-    clipboard_written: bool,
+/// 一个 requestId 当前的状态。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Phase {
+    /// 已受理，还没有发出 completed / cancelled。`released` 表示遮罩已收起、正在后台交付。
+    Open { released: bool },
+    /// 已经发出终止事件。
+    Closed,
 }
 
-/// 进行中请求的记录。
-#[derive(Debug)]
-struct PendingRequest {
-    capture_release: Option<CaptureRelease>,
-    _mode: CaptureMode,
-}
-
-/// 记录哪些请求正在进行、哪些已经结束。
 #[derive(Debug, Default)]
 pub struct RequestRegistry {
-    finished: HashSet<String>,
-    pending: HashMap<String, PendingRequest>,
+    phases: HashMap<String, Phase>,
 }
 
 impl RequestRegistry {
-    /// 查询请求是否仍在进行。
     pub fn is_pending(&self, request_id: &str) -> bool {
-        self.pending.contains_key(request_id)
+        matches!(self.phases.get(request_id), Some(Phase::Open { .. }))
     }
 
-    /// 登记新请求；同一 id 已在进行时拒绝。
-    pub fn accept(&mut self, request_id: &str, mode: CaptureMode) -> Result<(), RequestError> {
+    /// 受理新请求。仍在进行的 id 不能重复受理；已结束的 id 可以重新开始。
+    /// 交付方式由调用方自己保管，台账只关心请求是否结束。
+    pub fn accept(&mut self, request_id: &str, _mode: CaptureMode) -> Result<(), RequestError> {
         if self.is_pending(request_id) {
             return Err(RequestError::AlreadyPending(request_id.to_owned()));
         }
-        // 已结束的 id 允许复用，先清掉旧的结束标记
-        self.finished.remove(request_id);
-        let entry = PendingRequest {
-            capture_release: None,
-            _mode: mode,
-        };
-        self.pending.insert(request_id.to_owned(), entry);
+        self.phases.insert(request_id.to_owned(), Phase::Open { released: false });
         Ok(())
     }
 
-    /// 记录抓屏释放时的剪贴板结果与尺寸。
-    pub fn capture_released(
-        &mut self,
-        request_id: &str,
-        // 先给出剪贴板结果，再给出最终图像尺寸
-        clipboard_written: bool,
-        width: u32,
-        height: u32,
-    ) -> Result<(), RequestError> {
-        let entry = self.lookup_pending(request_id)?;
-        entry.capture_release = Some(CaptureRelease {
-            width,
-            height,
-            clipboard_written,
-        });
+    /// 遮罩已收起、剪贴板已处理；请求仍未结束，等交付完成后再 complete。
+    /// 结果数据随 `capture-released` 事件直接发给 Main，这里只记录阶段。
+    pub fn capture_released(&mut self, request_id: &str, _clipboard_written: bool, _width: u32, _height: u32) -> Result<(), RequestError> {
+        let phase = self.open_phase(request_id)?;
+        *phase = Phase::Open { released: true };
         Ok(())
     }
 
-    /// 请求成功结束。
-    pub fn complete(
-        &mut self,
-        request_id: &str,
-        // 文件名目前不记录
-        _file_name: Option<String>,
-    ) -> Result<(), RequestError> {
-        self.finish(request_id)
+    pub fn complete(&mut self, request_id: &str, _file_name: Option<String>) -> Result<(), RequestError> {
+        self.close(request_id)
     }
 
-    /// 请求被取消。
     pub fn cancel(&mut self, request_id: &str, _reason: &str) -> Result<(), RequestError> {
-        self.finish(request_id)
+        self.close(request_id)
     }
 
-    /// 找不到进行中的请求时，按是否曾经结束区分两种错误。
-    fn missing(&self, request_id: &str) -> RequestError {
-        let id = request_id.to_owned();
-        if self.finished.contains(request_id) {
-            RequestError::AlreadyFinished(id)
-        } else {
-            RequestError::NotFound(id)
+    fn open_phase(&mut self, request_id: &str) -> Result<&mut Phase, RequestError> {
+        match self.phases.get_mut(request_id) {
+            Some(phase @ Phase::Open { .. }) => Ok(phase),
+            Some(Phase::Closed) => Err(RequestError::AlreadyFinished(request_id.to_owned())),
+            None => Err(RequestError::NotFound(request_id.to_owned())),
         }
     }
 
-    fn lookup_pending(&mut self, request_id: &str) -> Result<&mut PendingRequest, RequestError> {
-        if !self.pending.contains_key(request_id) {
-            return Err(self.missing(request_id));
-        }
-        Ok(self
-            .pending
-            .get_mut(request_id)
-            .expect("presence checked just above"))
-    }
-
-    fn finish(&mut self, request_id: &str) -> Result<(), RequestError> {
-        if self.pending.remove(request_id).is_none() {
-            return Err(self.missing(request_id));
-        }
-        self.finished.insert(request_id.to_owned());
+    fn close(&mut self, request_id: &str) -> Result<(), RequestError> {
+        *self.open_phase(request_id)? = Phase::Closed;
         Ok(())
     }
 }

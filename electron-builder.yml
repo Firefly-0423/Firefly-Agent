@@ -16,7 +16,7 @@ electronDist: node_modules/electron/dist
 files:
   - dist/**/*
   - "!dist/components/**/*"
-  - "!dist/main/main/sim/**/*"
+  - "!dist/main/main/features/diagnostics/sim/**/*"
   - "!dist/sim/**/*"
   - package.json
   - assets/**/*
@@ -32,10 +32,15 @@ files:
 extraFiles:
   - from: LICENSE
     to: LICENSE
-  - from: MODEL_LICENSE.md
-    to: MODEL_LICENSE.md
-  - from: THIRD_PARTY_NOTICES.md
-    to: THIRD_PARTY_NOTICES.md
+  # The install keeps the repository layout for notices, so their relative links (../LICENSE, ./MODEL_LICENSE.md) resolve.
+  - from: legal/MODEL_LICENSE.md
+    to: legal/MODEL_LICENSE.md
+  - from: legal/THIRD_PARTY_NOTICES.md
+    to: legal/THIRD_PARTY_NOTICES.md
+  - from: legal/disclaimer.zh-CN.md
+    to: legal/disclaimer.zh-CN.md
+  - from: legal/disclaimer.en.md
+    to: legal/disclaimer.en.md
   - from: node_modules/katex/LICENSE
     to: licenses/KaTeX-LICENSE
   - from: node_modules/@fontsource-variable/noto-sans-sc/LICENSE
@@ -61,7 +66,7 @@ extraResources:
       - "provenance/**/*"
   - from: resources/bin/firefly-screenshot.exe
     to: bin/firefly-screenshot.exe
-  - from: src/main/music/scripts/qqmusic_gsmtc.ps1
+  - from: src/main/platform/music/scripts/qqmusic_gsmtc.ps1
     to: music/qqmusic_gsmtc.ps1
   - from: resources/mingit
     to: mingit

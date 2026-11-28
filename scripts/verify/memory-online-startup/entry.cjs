@@ -2,7 +2,7 @@
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),Module=require('node:module');
 const {app,dialog,Tray}=require('electron');
 const root=process.env.FIREFLY_MEMORY_ONLINE_DIAGNOSTIC_ROOT,mode=process.env.FIREFLY_STARTUP_CASE;
-const admission=path.join(root,'fake-admission'),source=path.join(process.env.APPDATA,'Firefly','model-settings.json');
+const admission=path.join(root,'fake-admission'),source=path.join(process.env.APPDATA,'Firefly-1.2.0','model-settings.json');
 // Windows known-folder lookup can ignore APPDATA. Set Electron's path explicitly before actual index.
 const environmentRedirectedAppData=path.resolve(app.getPath('appData')).toLowerCase()===path.resolve(process.env.APPDATA).toLowerCase();
 app.setPath('appData',process.env.APPDATA);
@@ -17,8 +17,8 @@ Module._load=function(id,parent,...args){
 const originalRead=fs.readFileSync,originalWrite=fs.writeFileSync;
 fs.readFileSync=function(file,...args){if(path.basename(String(file))==='model-settings.json'){assert.equal(path.resolve(String(file)).toLowerCase(),source.toLowerCase(),'NON_SYNTHETIC_CONFIG_READ_FORBIDDEN');reads++;}return originalRead.call(this,file,...args);};
 fs.writeFileSync=function(file,...args){if(path.resolve(String(file))===source){writes++;throw Error('SOURCE_WRITE_FORBIDDEN');}return originalWrite.call(this,file,...args);};
-require('./compiled/main/memory-online-once/runner').ADMISSION_ROOT=admission;
-const boundary=require('./compiled/main/memory-online-once/boundary');
+require('./compiled/main/features/diagnostics/memory-online-once/runner').ADMISSION_ROOT=admission;
+const boundary=require('./compiled/main/features/diagnostics/memory-online-once/boundary');
 const secret='SYNTHETIC-H-KEY';
 globalThis.fetch=async(url,options)=>{
  fetches++;assert.equal(url,'https://api.deepseek.com/chat/completions');assert.equal(options.redirect,'error');

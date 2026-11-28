@@ -175,6 +175,7 @@ export type SettingsApi = {
   stickerAdd?: (payload: { sourcePath: string; id: string; description: string; phrases: string[] }) => Promise<unknown>;
   embeddingSetModel?: (model: string) => Promise<{ ok: boolean; clearedEntries?: number; error?: string }>;
   rerankerSetMode?: (mode: string) => Promise<boolean>;
+  getRerankerStatus?: () => Promise<{ light: boolean; standard: boolean }>;
 
   // 工具、技能和 MCP。
   externalSkills?: ExternalSkillsApi;
@@ -191,7 +192,7 @@ export type SettingsApi = {
   removeMcpServer?: (serverId: string) => Promise<Acknowledgement>;
   setMcpServerEnabled?: (serverId: string, enabled: boolean) => Promise<McpChangeResult>;
   listMcpServers?: () => Promise<McpServerEntry[]>;
-  getPermissionLevel?: () => Promise<{ level: "read-only" | "scoped" | "per-action" | "full" }>;
+  getPermissionLevel?: () => Promise<{ level: "read-only" | "per-action" | "full" }>;
   setPermissionLevel?: (level: string) => Promise<{ ok: boolean; level?: string; error?: string }>;
   setPlanMode?: (payload: { conversationId: string; target: "on" | "off"; workspaceRoot?: string }) => Promise<{ ok: boolean; state?: string; reason?: string }>;
   getPlanState?: (conversationId: string) => Promise<{ state: string }>;

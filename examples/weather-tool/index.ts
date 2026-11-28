@@ -91,18 +91,22 @@ const plugin: FireflyPlugin = {
   async register(ctx) {
     // secrets 只能经由 PluginContext 注入；在 register 阶段取出并缓存，工具闭包随后使用
     openWeatherKey = await ctx.deps.secrets?.get("openweathermap_key");
-    recentCity = ctx.storage.get<string>("lastCity");
+    const storedCity = ctx.storage.get<unknown>("lastCity");
+    recentCity = typeof storedCity === "string" && storedCity.trim() ? storedCity.trim() : undefined;
 
     ctx.registerTool(queryTool);
 
-    // 停止时写回城市，清理时机交给框架
+    // 按真实宿主顺序先调用 unregister()，再执行 onDispose()：先写回持久化状态再清理内存变量
     ctx.onDispose(() => {
-      ctx.storage.set("lastCity", recentCity);
+      if (recentCity !== undefined) {
+        ctx.storage.set("lastCity", recentCity);
+      }
+      recentCity = undefined;
+      openWeatherKey = undefined;
     });
   },
   unregister() {
     openWeatherKey = undefined;
-    recentCity = undefined;
   },
 };
 

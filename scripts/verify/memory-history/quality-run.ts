@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {rankHistory} from '../../../src/main/memory-history/history-ranking';
+import {rankHistory} from '../../../src/main/memory/history/history-ranking';
 import {scoreHits} from './quality-metrics';
 const root=process.cwd(),out=path.join(root,'output/memory-h-quality');
 assert.ok(root.toLowerCase().startsWith('e:\\codex\\2026-10-01\\task\\'),'owned E: workspace required');

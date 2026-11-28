@@ -183,7 +183,7 @@ def is_link_or_reparse(path: Path) -> bool:
 
 def ensure_stage_parent(project: Path) -> Path:
     project = project.resolve(strict=True)
-    for marker in ('package.json', 'src/main/skills/skill-scanner.ts'):
+    for marker in ('package.json', 'src/main/knowledge/skills/skill-scanner.ts'):
         if not (project / marker).is_file():
             raise FetchError(f'Not a recognized Firefly project: missing {marker}')
     current = project

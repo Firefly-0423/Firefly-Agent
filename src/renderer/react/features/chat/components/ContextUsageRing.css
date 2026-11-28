@@ -2,12 +2,12 @@
 
 .ff-context-usage-ring {
   display: inline-flex;
-  align-items: center;
   justify-content: center;
-  min-height: 32px;
+  align-items: center;
   width: 26px;
-  padding: 0;
+  min-height: 32px;
   border: 0;
+  padding: 0;
   background: transparent;
   cursor: pointer;
   color: var(--ff-text-muted);
@@ -24,12 +24,12 @@
 .ff-context-usage-ring__track {
   /* 底环必须与 composer 背景 (#f4f4f4) 拉开对比，否则整环隐形。
      取 --ff-text-muted (#8e8e93) 的 35% 透明度 ≈ #d0d0d2。 */
-  stroke: rgba(142, 142, 147, 0.35);
+  stroke: var(--ff-palette-8e8e93-35);
   transition: stroke 120ms ease;
 }
 
 .ff-context-usage-ring:hover .ff-context-usage-ring__track {
-  stroke: rgba(142, 142, 147, 0.55);
+  stroke: var(--ff-palette-8e8e93-55);
 }
 
 .ff-context-usage-ring.is-normal .ff-context-usage-ring__progress {
@@ -37,11 +37,11 @@
 }
 
 .ff-context-usage-ring.is-warm .ff-context-usage-ring__progress {
-  stroke: #f59e0b;
+  stroke: var(--ff-palette-f59e0b);
 }
 
 .ff-context-usage-ring.is-alert .ff-context-usage-ring__progress {
-  stroke: #ef4444;
+  stroke: var(--ff-status-err-red);
 }
 
 /* ── 占比菜单 ── */
@@ -101,11 +101,11 @@
 }
 
 .ff-context-usage-menu__progress.is-warm span {
-  background: #f59e0b;
+  background: var(--ff-palette-f59e0b);
 }
 
 .ff-context-usage-menu__progress.is-alert span {
-  background: #ef4444;
+  background: var(--ff-status-err-red);
 }
 
 /* 压缩提示块：按钮独占一行（nowrap 药丸形），提示文字另起一行，互不挤压。 */

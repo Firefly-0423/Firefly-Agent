@@ -36,6 +36,8 @@ export interface FireflyRunTerminalResult {
  * success=false 仅表示 run 没能开始（例如缺少 sessionId）。
  */
 export interface AguiRunAck {
+  /** Registered desktop runs commit their final display message in Main. */
+  mainOwnsTerminal?: boolean;
   success: boolean;
   /** Bridge 创建的 runId，与 RUN_STARTED.runId 一致 */
   runId: string;

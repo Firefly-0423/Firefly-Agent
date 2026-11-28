@@ -1,9 +1,9 @@
-import React, { isValidElement, useContext, type ReactNode } from "react";
+import React, { createContext, isValidElement, useContext, type ReactNode } from "react";
 import { CodeHighlighter } from "@ant-design/x";
 import { createMathPlugin } from "@streamdown/math";
-import { Streamdown, defaultRehypePlugins, type Components, type ControlsConfig } from "streamdown";
+import { Streamdown, defaultRehypePlugins, parseMarkdownIntoBlocks, useIsCodeFenceIncomplete, type Components, type ControlsConfig } from "streamdown";
 import type { PluggableList } from "unified";
-import { FileLinkContext, MessageStreamingContext } from "./ChatMessageList";
+import { FileLinkContext, MessageStreamingContext } from "./message-contexts";
 import { codeHighlightTheme } from "./code-highlight-theme";
 import { MermaidBlock } from "./MermaidBlock";
 import { SvgCardBlock } from "./SvgCardBlock";
@@ -35,13 +35,50 @@ function extractCodeBlock(children: ReactNode): { code: string; lang: string } |
   return block;
 }
 
-function StreamdownPre({ children }: { children?: ReactNode }) {
-  const streaming = useContext(MessageStreamingContext);
+/**
+ * Set only when the whole reply is parsed as one block: the length of the reply without trailing whitespace.
+ * Streamdown's fence state is per block, so in that mode it would mark every code node in the reply as unclosed; only
+ * the code node that runs to the end of the reply can be the open one (a fence closed explicitly, or implicitly by
+ * leaving its quote or list, ends earlier).
+ */
+/** Reply length without trailing whitespace, and whether a fence in it is still open. */
+const WholeDocumentEndContext = createContext<{ end: number; fenceOpen: boolean } | undefined>(undefined);
+
+// A fence may open inside block quotes or list items ("> ```mermaid", "- ```ts").
+const FENCE_LINE = /^(?:[ \t]*(?:>|[-*+]|\d{1,9}[.)])[ \t]*)*[ \t]*(`{3,}|~{3,})(.*)$/;
+
+/** True when a fence opened in `content` has no explicit closing fence (it may still be closed by leaving its container). */
+export function hasUnclosedFence(content: string): boolean {
+  let open: { char: string; length: number } | undefined;
+  for (const line of content.split("\n")) {
+    const match = FENCE_LINE.exec(line);
+    if (!match) continue;
+    const fence = match[1]!;
+    if (!open) open = { char: fence[0]!, length: fence.length };
+    else if (fence[0] === open.char && fence.length >= open.length && !match[2]!.trim()) open = undefined;
+  }
+  return open !== undefined;
+}
+
+type HastPosition = { end?: { offset?: number } };
+
+function StreamdownPre({ children, node }: { children?: ReactNode; node?: { position?: HastPosition } }) {
+  const blockIncomplete = useIsCodeFenceIncomplete();
+  const wholeDocumentEnd = useContext(WholeDocumentEndContext);
+  const end = node?.position?.end?.offset;
+  const incomplete = wholeDocumentEnd === undefined || end === undefined
+    ? blockIncomplete
+    : (blockIncomplete || wholeDocumentEnd.fenceOpen) && end >= wholeDocumentEnd.end;
   const block = extractCodeBlock(children);
   if (block === null) return <pre>{children}</pre>;
+  if (incomplete) {
+    return <pre className="ff-code-plain" data-incomplete="true" data-language={block.lang || "text"}>
+      <code>{block.code}</code>
+    </pre>;
+  }
   switch (block.lang) {
-    case "mermaid": return <MermaidBlock streaming={streaming} code={block.code} />;
-    case "svg": return <SvgCardBlock streaming={streaming} code={block.code} />;
+    case "mermaid": return <MermaidBlock streaming={false} code={block.code} />;
+    case "svg": return <SvgCardBlock streaming={false} code={block.code} />;
     default: return <CodeHighlighter highlightProps={{ style: codeHighlightTheme }} prismLightMode={false} lang={block.lang || "text"}>
       {block.code}
     </CodeHighlighter>;
@@ -81,60 +118,31 @@ const messageComponents: Components = {
 const rehypePlugins: PluggableList = [defaultRehypePlugins.raw, encodeStreamdownFileLinksInHast,
   defaultRehypePlugins.sanitize, defaultRehypePlugins.harden];
 
+// A definition may sit inside block quotes or list items ("> [dest]: …", "- [dest]: …"), and its destination may sit on
+// the next line. Over-matching only costs whole-document parsing, so the container prefix is loose.
+const REFERENCE_DEFINITION = /^(?:[ \t]*(?:>|[-*+]|\d{1,9}[.)])[ \t]*)*[ \t]*\[[^\]\n]+\]:[ \t]*(?:\n[ \t>]*)?\S/m;
+const WHOLE_DOCUMENT_BLOCKS = (markdown: string): string[] => (markdown ? [markdown] : []);
+
 function stripMarkdownCode(content: string): string {
   const fences = /(^|\n)[ \t]{0,3}(`{3,}|~{3,})[^\n]*(?:\n[\s\S]*?\n[ \t]{0,3}\2[ \t]*(?=\n|$)|$)/g;
   const withoutFences = content.replace(fences, "$1");
   return withoutFences.replace(/(`+)[^\n]*?\1/g, "");
 }
 
-function isEscaped(content: string, index: number): boolean {
-  let count = 0;
-  let cursor = index - 1;
-  while (cursor >= 0 && content[cursor] === "\\") {
-    count += 1;
-    cursor -= 1;
-  }
-  return count % 2 === 1;
-}
-
-function containsRenderedMath(content: string): boolean {
-  const text = stripMarkdownCode(content);
-  let inlineStart = -1;
-  let displayStart = -1;
-  for (let cursor = 0; cursor < text.length; cursor += 1) {
-    if (text[cursor] !== "$" || isEscaped(text, cursor)) continue;
-    const display = text[cursor + 1] === "$" && !isEscaped(text, cursor + 1);
-    if (display) {
-      if (displayStart >= 0 && text.slice(displayStart, cursor).trim()) return true;
-      displayStart = cursor + 2;
-      cursor += 1;
-      continue;
-    }
-    if (inlineStart >= 0 && text.slice(inlineStart, cursor).trim()) return true;
-    inlineStart = cursor + 1;
-  }
-  return false;
-}
-
-/**
- * While a reply streams, newly shown characters fade in from a slight blur, one after another (the paced reveal hands over a
- * few at a time). Finished messages, replies with formulas and reduced motion render plainly.
- */
-export const STREAMING_REVEAL = Object.freeze({ animation: "blurIn", sep: "char", duration: 260, stagger: 12, maxBacklogMs: 200, easing: "cubic-bezier(0.16, 1, 0.3, 1)" } as const);
-
-function prefersReducedMotion(): boolean {
-  return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function hasReferenceDefinitions(content: string): boolean {
+  return REFERENCE_DEFINITION.test(stripMarkdownCode(content));
 }
 
 export function StreamdownMessageContent({ content, streaming }: StreamdownMessageContentProps) {
-  const math = containsRenderedMath(content);
-  const blockMode = streaming || math;
-  // Replies with formulas keep their KaTeX DOM from streaming to completion, so they skip the fade-in.
-  const reveal = streaming && !math && !prefersReducedMotion();
-  return <Streamdown className="ff-message-markdown ff-streamdown-message" controls={chatControls}
+  const wholeDocument = hasReferenceDefinitions(content);
+  const blockParser = wholeDocument ? WHOLE_DOCUMENT_BLOCKS : parseMarkdownIntoBlocks;
+  const documentEnd = wholeDocument ? { end: content.trimEnd().length, fenceOpen: streaming && hasUnclosedFence(content) } : undefined;
+  // Keep a single streaming block tree from start through completion so finished blocks retain DOM identity;
+  // per-character blurIn stays off so text renders crisply as frames reveal it.
+  return <WholeDocumentEndContext.Provider value={documentEnd}><Streamdown className="ff-message-markdown ff-streamdown-message" controls={chatControls}
     rehypePlugins={rehypePlugins} components={messageComponents} plugins={messagePlugins}
-    animated={reveal ? STREAMING_REVEAL : false} isAnimating={reveal}
-    parseIncompleteMarkdown={streaming} mode={blockMode ? "streaming" : "static"}>
+    animated={false} isAnimating={streaming} parseIncompleteMarkdown={streaming}
+    parseMarkdownIntoBlocksFn={blockParser} tableMaxHeight={0} mode="streaming">
     {content}
-  </Streamdown>;
+  </Streamdown></WholeDocumentEndContext.Provider>;
 }

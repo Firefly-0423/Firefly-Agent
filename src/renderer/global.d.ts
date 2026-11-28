@@ -5,7 +5,7 @@ import type { ModelConfigApi } from "../shared/model-connection-types";
 import type { AppUpdateApi } from "../shared/app-update";
 import type { ReviewRestoreOutcome, ReviewSnapshot } from "../shared/review-types";
 import type { StickerManagerApi } from "../shared/sticker-types";
-import type { PluginPanelApi, PluginManagementApi } from "../shared/plugin-management";
+import type { PluginManagementApi } from "../shared/plugin-management";
 import type { WorkspaceSaveResult, WorkspaceReadResult, WorkspaceListResult } from "../shared/workspace-files-types";
 import type { OpenInAppOpenResult, OpenInAppListResult } from "../shared/open-in-app-types";
 
@@ -39,7 +39,6 @@ declare global {
     stickerManager?: StickerManagerApi;
     chat?: ChatWindowApi;
     toast?: ToastRendererApi;
-    pluginPanel?: PluginPanelApi;
     plugins?: PluginManagementApi;
     appUpdate?: AppUpdateApi;
     openInApp?: OpenInAppApi;

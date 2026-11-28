@@ -56,25 +56,20 @@ use crate::win::display::DisplayInfo;
 /// 避免去调用开销较大的 `GetFramePointerShape`。
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CursorVisibility {
-    Hidden,
-    /// 光标可见，且位于主显示器范围内。
+    /// 光标显示在主显示器上，抓屏需要把它画进去。
     VisibleInside,
-    /// 光标可见，但在主显示器之外（或在屏幕外）。
+    /// 光标显示在别的显示器上或屏幕外，主显示器的画面里没有它。
     VisibleOutside,
+    /// 光标已隐藏。
+    Hidden,
 }
 
 /// 规范显示坐标系下的选区矩形。单独做成一个类型，
 /// 以免渲染器把物理像素坐标误传给 GPU 读回路径。
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct RectISelection {
-    /// 左边界（显示本地坐标）
-    pub x: u32,
-    /// 上边界（显示本地坐标）
-    pub y: u32,
-    /// 选区宽度
-    pub width: u32,
-    /// 选区高度
-    pub height: u32,
+    /// 左上角在显示器本地坐标中的位置，以及选区宽高；全部非负。
+    pub x: u32, pub y: u32, pub width: u32, pub height: u32,
 }
 
 impl From<RectI> for RectISelection {
@@ -628,17 +623,9 @@ fn wrap_texture_as_bitmap(
     })
 }
 
-/// 用 D2D 把 `source`（物理朝向）按 `rotation` 绘制到 `target`（规范朝向）。
-fn render_rotated_texture(
-    device: &ID3D11Device,
-    source: &ID3D11Texture2D,
-    target: &ID3D11Texture2D,
-    // 源纹理的物理尺寸
-    physical_width: u32,
-    physical_height: u32,
-    // 要抵消的显示旋转
-    rotation: DisplayRotation,
-) -> Result<(), HelperError> {
+/// 用 D2D 把物理朝向的 `source`（`(宽, 高)` 为 `physical`）转正后画进规范朝向的 `target`，抵消 `rotation`。
+fn render_rotated_texture(device: &ID3D11Device, (source, target): (&ID3D11Texture2D, &ID3D11Texture2D), physical: (u32, u32), rotation: DisplayRotation) -> Result<(), HelperError> {
+    let (physical_width, physical_height) = physical;
     let dxgi_device: IDXGIDevice = device.cast().map_err(|error| {
         capture_err(format!(
             "D3D11 device cast to IDXGIDevice for rotation failed: {error}"
@@ -817,15 +804,7 @@ impl CaptureBackend for DxgiCaptureBackend {
                 canonical_h,
                 frozen_bind_flags(),
             )?;
-            let (src_w, src_h) = (self.physical_width, self.physical_height);
-            render_rotated_texture(
-                &self.device,
-                &self.frozen_texture,
-                &oriented,
-                src_w,
-                src_h,
-                display.rotation,
-            )?;
+            render_rotated_texture(&self.device, (&self.frozen_texture, &oriented), (self.physical_width, self.physical_height), display.rotation)?;
             self.frozen_oriented = Some(oriented);
         }
 
@@ -939,7 +918,7 @@ mod tests {
         }
 
         let drawn =
-            render_rotated_texture(&device, &source, &target, 2, 3, DisplayRotation::Rotate90);
+            render_rotated_texture(&device, (&source, &target), (2, 3), DisplayRotation::Rotate90);
         drawn.expect("GPU rotation");
 
         // 读回旋转后的纹理逐像素检查

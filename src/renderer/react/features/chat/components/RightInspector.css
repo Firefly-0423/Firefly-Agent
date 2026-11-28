@@ -60,9 +60,11 @@
 /* While a panel is lifted or a separator dragged, a loaded page's native view would swallow the pointer and stay behind:
    fold only the page area (zero size hides the view). Tabs, address bar and the new-tab page stay, so the panel never goes blank. */
 .ff-right-inspector[data-shielded] .ff-inspector-pane[data-inspector-kind="browser"] .ff-browser-workspace__viewport:not(:has(.ff-browser-newtab, .ff-browser-workspace__empty)) { display: none; }
+/* Dragging the dock separator between the conversation and this column shields a loaded page the same way. */
+.ff-page-dock.is-resizing .ff-inspector-pane[data-inspector-kind="browser"] .ff-browser-workspace__viewport:not(:has(.ff-browser-newtab, .ff-browser-workspace__empty)) { display: none; }
 .ff-right-inspector[data-moving], .ff-right-inspector[data-moving] .ff-inspector-pane__head { cursor: grabbing; user-select: none; }
 /* The lifted panel floats above the others while it follows the pointer. */
-.ff-inspector-pane[data-lifted] { z-index: 6; box-shadow: 0 16px 40px rgb(0 0 0 / 16%); transition: none; will-change: transform; }
+.ff-inspector-pane[data-lifted] { z-index: 6; box-shadow: 0 16px 40px var(--ff-black-alpha-16); transition: none; will-change: transform; }
 
 .ff-inspector-pane {
   position: relative;
@@ -133,11 +135,11 @@
   height: 7px;
   flex: 0 0 7px;
   border-radius: 999px;
-  background: var(--ff-text-muted, #a99fa5);
+  background: var(--ff-text-muted, var(--ff-palette-a99fa5));
 }
 .ff-right-inspector__dot.is-review { background: var(--ff-accent, var(--ff-accent-solid)); }
-.ff-right-inspector__dot.is-executing { background: #d98f2b; animation: ff-right-inspector-dot-pulse 1.4s ease-in-out infinite; }
-.ff-right-inspector__dot.is-completed { background: #3e9c63; }
+.ff-right-inspector__dot.is-executing { background: var(--ff-palette-d98f2b); animation: ff-right-inspector-dot-pulse 1.4s ease-in-out infinite; }
+.ff-right-inspector__dot.is-completed { background: var(--ff-palette-3e9c63); }
 .ff-right-inspector__dot.is-failed { background: var(--ff-danger); }
 .ff-right-inspector__dot.is-cancelled { background: var(--ff-text-muted); }
 @keyframes ff-right-inspector-dot-pulse {

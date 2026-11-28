@@ -1,115 +1,69 @@
 use crate::error::ProtocolError;
 use crate::win::capture::CaptureDiagnostics;
 
+/// Main 与 helper 约定的协议版本；启动参数里的版本不同就直接报错退出。
 pub const PROTOCOL_VERSION: u32 = 1;
-pub const MAX_NDJSON_LINE_BYTES: usize = 65_536;
+/// stdin 上一条命令（不含换行）的最大字节数：64 KiB。
+pub const MAX_NDJSON_LINE_BYTES: usize = 64 * 1024;
 
-/// 截图完成后结果的去向。
+/// Main 通过 stdin 发来的命令，每行一个 JSON 对象，用 `type` 区分；未知字段一律拒绝。
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
+#[serde(tag = "type", rename_all = "kebab-case", deny_unknown_fields)]
+pub enum Command {
+    /// 开始一次截图：`{"type":"start","requestId":…,"mode":…}`。
+    #[serde(rename_all = "camelCase")]
+    Start { request_id: String, mode: CaptureMode },
+    /// 取消某个请求，不论它还在框选还是已在后台交付。
+    #[serde(rename_all = "camelCase")]
+    Cancel { request_id: String },
+    /// 结束 helper 进程。
+    Shutdown,
+}
+
+/// 截图确认后交付到哪里，协议上写作 `clipboard-only` / `clipboard-and-file`。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum CaptureMode {
-    /// 只写入剪贴板
-    ClipboardOnly,
-    /// 写入剪贴板并保存文件
     ClipboardAndFile,
+    ClipboardOnly,
 }
 
-/// 宿主发给 helper 的命令；字段名在协议上使用 camelCase。
-#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
-#[serde(deny_unknown_fields, tag = "type", rename_all = "kebab-case")]
-pub enum Command {
-    /// 让 helper 退出。
-    Shutdown,
-
-    /// 取消指定请求。
-    #[serde(rename_all = "camelCase")]
-    Cancel { request_id: String },
-
-    /// 开始一次截图。
-    #[serde(rename_all = "camelCase")]
-    Start {
-        request_id: String,
-        mode: CaptureMode,
-    },
-}
-
-/// 覆盖层的交互阶段，随 `interaction-state` 事件上报。
+/// helper 写到 stdout 的事件，每行一个 JSON 对象：`type` 为变体名的 kebab-case，字段名为 camelCase。
+/// 一次截图依次报告 accepted → interaction-state(selecting) → overlay-visible → …selected → committing
+/// → capture-released → completed；中途可能以 cancelled 或 error 结束。
 #[derive(Debug, Clone, serde::Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum InteractionStateEvent {
-    /// 正在拖选
-    Selecting,
-    /// 选区已定
-    Selected,
-    /// 正在提交
-    Committing,
-}
-
-/// helper 回报给宿主的事件；字段名在协议上使用 camelCase，键的顺序与声明顺序一致。
-#[derive(Debug, Clone, serde::Serialize)]
-#[serde(tag = "type", rename_all = "kebab-case")]
+#[serde(tag = "type", rename_all = "kebab-case", rename_all_fields = "camelCase")]
 pub enum Event {
-    /// 启动完成，宣告所用的协议版本。
-    #[serde(rename_all = "camelCase")]
     Ready { protocol_version: u32 },
-
-    /// 请求已被接受。
-    #[serde(rename_all = "camelCase")]
     Accepted { request_id: String },
-
-    /// 冻结画面已显示。
-    #[serde(rename_all = "camelCase")]
-    OverlayVisible {
-        request_id: String,
-        freeze_duration_ms: u64,
-        diagnostics: CaptureDiagnostics,
-    },
-
-    /// 交互阶段变化。
-    #[serde(rename_all = "camelCase")]
-    InteractionState {
-        request_id: String,
-        state: InteractionStateEvent,
-    },
-
-    /// 抓屏已释放（选区读回完毕，剪贴板写入结果已知）。
-    #[serde(rename_all = "camelCase")]
-    CaptureReleased {
-        request_id: String,
-        clipboard_written: bool,
-        width: u32,
-        height: u32,
-        diagnostics: CaptureDiagnostics,
-    },
-
-    /// 请求完成。
-    #[serde(rename_all = "camelCase")]
-    Completed {
-        request_id: String,
-        file_name: Option<String>,
-        width: u32,
-        height: u32,
-        // 输出图像的 MIME 类型
-        mime: &'static str,
-        clipboard_written: bool,
-        has_annotations: bool,
-    },
-
-    /// 请求被取消。
-    #[serde(rename_all = "camelCase")]
+    InteractionState { request_id: String, state: InteractionStateEvent },
+    /// 遮罩已显示冻结画面；`freeze_duration_ms` 从受理到首帧呈现。
+    OverlayVisible { request_id: String, freeze_duration_ms: u64, diagnostics: CaptureDiagnostics },
+    /// 选区像素已取出、剪贴板已写（或失败），遮罩已收起；文件模式此后还要等后台编码。
+    CaptureReleased { request_id: String, clipboard_written: bool, width: u32, height: u32, diagnostics: CaptureDiagnostics },
+    /// 交付完成。`file_name` 只在存文件模式下有值；只报告是否画过标注，不回传标注内容。
+    Completed { request_id: String, mime: &'static str, width: u32, height: u32, file_name: Option<String>, clipboard_written: bool, has_annotations: bool },
     Cancelled { request_id: String, reason: String },
-
-    /// 出错；与具体请求无关时不带 requestId。
-    #[serde(rename_all = "camelCase")]
+    /// `code` 为稳定错误码；`recoverable` 为真时 helper 继续接受后续命令。与请求无关时省略 requestId。
     Error {
         #[serde(skip_serializing_if = "Option::is_none")]
         request_id: Option<String>,
-        // 稳定的错误码
         code: String,
         message: String,
-        // 为真表示 helper 仍可继续服务后续请求
         recoverable: bool,
     },
+}
+
+/// `interaction-state` 事件里的遮罩阶段。
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum InteractionStateEvent {
+    /// 遮罩已显示，等待拖出选区。
+    Selecting,
+    /// 有了选区，可以标注、确认或取消。
+    Selected,
+    /// 已确认，正在取出像素并写剪贴板。
+    Committing,
 }
 
 /// 解析一行 NDJSON 命令；超长行直接拒绝。

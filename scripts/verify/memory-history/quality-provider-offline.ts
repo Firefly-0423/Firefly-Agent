@@ -2,9 +2,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
-import {OpenAICompatAdapter} from '../../../src/main/orchestrator/vendors/openai-adapter';
-import {PROVIDER_CAPABILITIES} from '../../../src/main/orchestrator/vendors/capabilities';
-import {setVendorRuntimeSettingsGetter} from '../../../src/main/orchestrator/vendors/runtime-settings';
+import {OpenAICompatAdapter} from '../../../src/main/model/providers/openai-adapter';
+import {PROVIDER_CAPABILITIES} from '../../../src/main/model/providers/capabilities';
+import {setVendorRuntimeSettingsGetter} from '../../../src/main/model/providers/runtime-settings';
 const out=path.join(process.cwd(),'output/memory-h-quality');
 assert.ok(process.cwd().toLowerCase().startsWith('e:\\codex\\2026-10-01\\task\\'));
 const cap=PROVIDER_CAPABILITIES.find(c=>c.id==='deepseek');assert.ok(cap);const adapter=new OpenAICompatAdapter(cap.id,cap);

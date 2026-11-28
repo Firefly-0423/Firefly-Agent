@@ -2,9 +2,9 @@ name: Test
 
 on:
   push:
-    branches: [main, firefly-demo]
+    branches: [main, firefly-demo, "dev/**"]
   pull_request:
-    branches: [main, firefly-demo]
+    branches: [main, firefly-demo, "dev/**"]
 
 permissions:
   contents: read
@@ -28,31 +28,36 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Install dependencies
-        run: npm ci --foreground-scripts
+      - name: Install pnpm
+        run: npm install --global pnpm@12.10.1
 
-      - name: Verify Electron installation
-        run: npx electron --version
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare and verify Electron
+        run: |
+          pnpm exec install-electron
+          pnpm exec electron --version
 
       # 生产依赖审计保留原有非阻断策略；调整门禁需单独确认。
       - name: Audit production dependencies
-        run: npm audit --omit=dev --json > npm-audit-prod.json
+        run: pnpm audit --prod --json > pnpm-audit-prod.json
         continue-on-error: true
 
       - name: Upload production dependency audit report
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: npm-audit-prod
-          path: npm-audit-prod.json
+          name: pnpm-audit-prod
+          path: pnpm-audit-prod.json
 
       - name: Build
-        run: npm run build
+        run: pnpm run build
 
       - name: Build and select native history helpers
         shell: pwsh
         run: |
-          npm run build:history-helpers
+          pnpm run build:history-helpers
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $helper = (Resolve-Path -LiteralPath 'native/target/release/firefly-history-presence.exe').Path
           "FIREFLY_HISTORY_PRESENCE_TEST_HELPER=$helper" >> $env:GITHUB_ENV
@@ -62,7 +67,7 @@ jobs:
       - name: Build workspace helper and run its native tests
         shell: pwsh
         run: |
-          npm run build:workspace-helper
+          pnpm run build:workspace-helper
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           "FIREFLY_REQUIRE_WORKSPACE_HELPER=1" >> $env:GITHUB_ENV
           $root = Join-Path $env:RUNNER_TEMP 'firefly-workspace-native-tests'
@@ -73,11 +78,37 @@ jobs:
           cargo test --locked --manifest-path native/Cargo.toml --features workspace-handle --lib workspace_access -- --test-threads=1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Run Node script tests
+        shell: pwsh
+        run: |
+          $evidence = Join-Path $env:RUNNER_TEMP 'firefly-vitest-diagnostics'
+          New-Item -ItemType Directory -Force -Path $evidence | Out-Null
+          node --test "scripts/**/*.test.mjs" 2>&1 | Tee-Object -FilePath (Join-Path $evidence 'node-tests.log')
+          exit $LASTEXITCODE
+
+      # 独立验收同时需要 debug 取消屏障 helper 与 release 对照，缺前提时由测试明确失败。
+      - name: Run native memory history zero-write acceptance
+        shell: pwsh
+        run: |
+          cargo build --locked --manifest-path native/Cargo.toml --features history-read --bin firefly-history-read
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $root = Join-Path $env:RUNNER_TEMP 'firefly-history-zero-write'
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          $env:FF_HISTORY_TEST_ROOT = (Resolve-Path -LiteralPath $root).Path
+          $env:TEMP = $env:FF_HISTORY_TEST_ROOT
+          $env:TMP = $env:FF_HISTORY_TEST_ROOT
+          $env:FF_HISTORY_HELPER = (Resolve-Path -LiteralPath 'native/target/debug/firefly-history-read.exe').Path
+          $env:FF_HISTORY_RELEASE_HELPER = (Resolve-Path -LiteralPath 'native/target/release/firefly-history-read.exe').Path
+          $evidence = Join-Path $env:RUNNER_TEMP 'firefly-vitest-diagnostics'
+          New-Item -ItemType Directory -Force -Path $evidence | Out-Null
+          pnpm run test:memory-history-zero-write 2>&1 | Tee-Object -FilePath (Join-Path $evidence 'zero-write.log')
+          exit $LASTEXITCODE
+
       # 插件清单契约检查：源码类型与 manifest.schema.json 保持一致
       - name: Check plugin schema contract
-        run: npm run check:plugin-schema
+        run: pnpm run check:plugin-schema
 
-      # 全量测试：vitest.config.ts 的 include 即权威测试集，新增测试自动纳入门禁
+      # 全量测试：vitest.config.mts 的 include 即权威测试集，新增测试自动纳入门禁
       - name: Select Bash integration test fixture
         shell: bash
         run: |

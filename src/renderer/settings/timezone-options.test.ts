@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveChatContextTimezone, stripLeakedChatTimeContext } from "../../main/chat/chat-time-context";
+import { resolveChatContextTimezone, stripLeakedChatTimeContext } from "../../main/model/text/chat-time-context";
 import { FALLBACK_TIMEZONE, TIMEZONE_OPTIONS, normalizeTimezoneOptionValue } from "./timezone-options";
 
 describe("timezone options", () => {

@@ -1,5 +1,5 @@
 import type { SidebarLayoutApi } from "../../../../../shared/sidebar-layout";
-import type { ChatMessage, ChatSession, ChatSessionMeta, ConversationMode, PendingChatMessage, ToolFileChange } from "../../../../../shared/chat-types";
+import type { ChatMessage, ChatSession, ChatSessionMeta, ConversationMode, PendingChatMessage, RunInsertionChanged } from "../../../../../shared/chat-types";
 import type { PopQuizCard, PopQuizResolveResponse, PopQuizSettledPayload, PopQuizSubmission } from "../../../../../shared/pop-quiz";
 import type { ApprovalRequest as PermissionApprovalRequest, ApprovalSettledPayload as PermissionApprovalSettled } from "../../../../../shared/permission-approval";
 
@@ -19,13 +19,14 @@ export type PendingMutationResult =
 export type ChatStoreApi = {
   notifyReactReady: () => void;
   onReactSwitchSession: (callback: (sessionId: string) => void) => () => void;
-  onChanged: (callback: () => void) => () => void;
+  onChanged: (callback: (notice?: RunInsertionChanged) => void) => () => void;
   setActiveSession: (sessionId: string | null, mode?: ConversationMode) => Promise<unknown>;
   openWorkspace: (workspaceRoot: string) => Promise<{ ok: boolean; error?: string }>;
   setWorkspace: (sessionId: string, workspaceRoot: string) => Promise<{ ok: boolean; error?: string }>;
   pickWorkspaceFolder: () => Promise<{ ok: boolean; path?: string; displayName?: string; error?: string }>;
   setModelProfile: (id: string, modelProfileId?: string) => Promise<ChatSession | null>;
   setPinned: (id: string, pinned: boolean) => Promise<ChatSession | null>;
+  pendingUnmark: (id: string, messageId: string) => Promise<PendingMutationResult>;
   pendingAdjust: (id: string, messageId: string) => Promise<PendingMutationResult>;
   pendingEdit: (id: string, messageId: string, update: { rawContent: string; visibleContent: string; userSticker?: string }) => Promise<PendingMutationResult>;
   pendingCompleteDispatch: (id: string, messageId: string) => Promise<{ ok: boolean; error?: string }>;
@@ -48,32 +49,14 @@ export type ChatStoreApi = {
 };
 
 export type SidebarApi = { openSettings: (section?: string) => void };
-export type AguiEvent = {
-  taskResult?: import("../../../../../shared/chat-types").ToolTaskResult;
-  changes?: ToolFileChange[];
-  status?: string;
-  stepName?: string;
-  toolCallDisplayName?: string;
-  toolCallName?: string;
-  toolCallId?: string;
-  value?: unknown;
-  name?: string;
-  content?: string;
-  error?: string;
-  message?: string;
-  delta?: string;
-  messageId?: string;
-  runId?: string;
-  threadId?: string;
-  type?: string;
-  errorSource?: import("../../../../../shared/run-failure").RunFailureSource;
-  code?: string;
-};
+export type { AguiEvent } from "../../../../../shared/run-display";
+import type { AguiEvent } from "../../../../../shared/run-display";
 export type CandidateTextEventValue =
   | { roundId: string; action: "discard" }
   | { delta: string; roundId: string; action: "delta" };
 
 export type AguiApi = {
+  getRunStatus?: (request: import("../../../../../shared/run-status").RunStatusRequest) => Promise<import("../../../../../shared/run-status").RunStatusItem[]>;
   getInterruptedRun?: (sessionId: string) => Promise<{ runId: string; rounds: number; todoCount: number; updatedAt: number } | null>;
   reportRunPersisted?: (payload: { runId: string; finalMessageId?: string }) => void;
   cancel: (runId?: string) => Promise<unknown>;
@@ -88,7 +71,7 @@ export type AguiApi = {
     assistantTurnId: string;
     userTurnId: string;
     messages: Array<{ at?: number; content: string; role: "user" | "model" }>;
-  }) => Promise<{ success: boolean; runId: string; error?: string }>;
+  }) => Promise<import("../../../../../shared/run-terminal").AguiRunAck>;
 };
 
 export type ChoiceApi = { resolve: (id: string, value: unknown) => Promise<{ ok: boolean }> };

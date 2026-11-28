@@ -65,27 +65,23 @@
 
 .ff-permission-panel__icon svg,
 .ff-permission-control > svg {
-  width: 17px;
-  height: 17px;
   flex: none;
+  height: 17px;
+  width: 17px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 4;
   stroke-linecap: round;
   stroke-linejoin: round;
+  stroke-width: 4;
 }
 .ff-permission-panel__icon svg { width: 16px; height: 16px; }
 
-.ff-permission-panel__option.is-project-read-only .ff-permission-panel__icon,
-.ff-permission-control.is-project-read-only,
 .ff-permission-panel__option.is-read-only .ff-permission-panel__icon,
-.ff-permission-control.is-read-only { color: #21a366; }
-.ff-permission-panel__option.is-scoped .ff-permission-panel__icon,
-.ff-permission-control.is-scoped { color: #3b82f6; }
+.ff-permission-control.is-read-only { color: var(--ff-palette-21a366); }
 .ff-permission-panel__option.is-per-action .ff-permission-panel__icon,
 .ff-permission-control.is-per-action { color: var(--ff-text); }
 .ff-permission-panel__option.is-full .ff-permission-panel__icon,
-.ff-permission-control.is-full { color: #d9652b; }
+.ff-permission-control.is-full { color: var(--ff-caution); }
 
 /* 完全访问：和前两档隔开，并用暖色提醒这是不受限的 */
 .ff-permission-panel__option.is-full { margin-top: 5px; position: relative; }
@@ -98,10 +94,10 @@
   height: 1px;
   background: var(--ff-border);
 }
-.ff-permission-panel__option.is-full .ff-permission-panel__label { color: #d9652b; }
-.ff-permission-panel__option.is-full:hover { background: rgba(217, 101, 43, .08); }
-.ff-permission-panel__option.is-full.is-active { border-color: rgba(217, 101, 43, .4); background: rgba(217, 101, 43, .08); }
-.ff-permission-panel__option.is-full .ff-permission-panel__check { stroke: #d9652b; }
+.ff-permission-panel__option.is-full .ff-permission-panel__label { color: var(--ff-caution); }
+.ff-permission-panel__option.is-full:hover { background: var(--ff-palette-d9652b-8); }
+.ff-permission-panel__option.is-full.is-active { border-color: var(--ff-palette-d9652b-40); background: var(--ff-palette-d9652b-8); }
+.ff-permission-panel__option.is-full .ff-permission-panel__check { stroke: var(--ff-caution); }
 
 .ff-permission-popover .ant-popover-inner {
   padding: 8px;

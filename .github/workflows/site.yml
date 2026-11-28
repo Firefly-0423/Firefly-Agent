@@ -1,7 +1,7 @@
 name: site
 
 # 宣传网站：main 更新后构建 site/ 与在线演示（dist/site），部署到 Cloudflare（https://hotarufirefly.online）。
-# 也可以手动运行。站点与域名配置见 wrangler.jsonc；演示页不联网、不含 Live2D 模型，见 vite.web-demo.config.ts。
+# 也可以手动运行。站点与域名配置见 wrangler.jsonc；演示页不联网、不含 Live2D 模型，见 vite.web-demo.config.mts。
 # 需要仓库 secrets：CLOUDFLARE_API_TOKEN（“Edit Cloudflare Workers”模板，限定本账号和该域名）与 CLOUDFLARE_ACCOUNT_ID。
 on:
   push:
@@ -34,11 +34,14 @@ jobs:
         with:
           node-version: "24"
 
+      - name: Install pnpm
+        run: npm install --global pnpm@12.10.1
+
       - name: Install dependencies
-        run: npm ci --foreground-scripts
+        run: pnpm install --frozen-lockfile
 
       - name: Build the site and the online demo
-        run: npm run build:site
+        run: pnpm run build:site
 
       - name: Deploy to Cloudflare
         uses: cloudflare/wrangler-action@v4

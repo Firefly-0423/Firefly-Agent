@@ -192,12 +192,32 @@ it("does not expand a user-collapsed panel merely because the numeric layout cha
   // A collapsed pane no longer pins the chat column to its fixed width; it is back to the responsive one.
   expect(host.querySelector(".ff-page-dock")?.classList.contains("has-inspector")).toBe(false);
   await measuredUpdate(); expect(panelWidth()).toBe(0);
-  // Visibility toggles still restore it, including consecutive commits before measurement.
-  await act(async () => button("展开/收起右侧面板").click());
+  // One click on the visibility toggle restores it; the next click hides it again, including commits before measurement.
   await act(async () => button("展开/收起右侧面板").click());
   await measuredUpdate();
   expect(panelWidth()).toBeGreaterThan(0);
   expect(host.querySelector(".ff-page-dock")?.classList.contains("has-inspector")).toBe(true);
+  await click(button("展开/收起右侧面板"));
+  expect(panelWidth()).toBe(0);
+  await click(button("展开/收起右侧面板"));
+  expect(panelWidth()).toBeGreaterThan(0);
+});
+
+it("reopens a browser panel collapsed with the separator on the first click of its toggle", async () => {
+  browserPage = { browserId: "collapsed-browser-fixture", conversationId: "inspector-fixture", requestId: 1, closed: false, loading: false, url: "https://example.invalid/collapsed", pendingUrl: null, canGoBack: false, canGoForward: false, error: null };
+  await click(button("打开浏览器"));
+  expect(panelWidth()).toBeGreaterThan(0);
+  const separator = host.querySelector<HTMLElement>(".ff-dock-separator")!;
+  await act(async () => separator.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true })));
+  await measuredUpdate();
+  expect(panelWidth()).toBe(0);
+  const revokedBefore = revoked;
+  await click(button("打开浏览器"));
+  expect(panelWidth()).toBeGreaterThan(0);
+  expect(host.querySelector('[data-inspector-pane="browser"]')).not.toBeNull();
+  // Reopening must not run the browser's close path (grant revoke / page cleanup).
+  expect(revoked).toBe(revokedBefore);
+  expect(commands.some(command => command.kind === "close")).toBe(false);
 });
 
 
@@ -238,6 +258,19 @@ it("persists a keyboard inspector resize immediately after a sidebar pointercanc
   await click(button("展开/收起右侧面板"));
   expect(panelWidth()).toBeCloseTo(width);
   expect(JSON.parse(localStorage.getItem(key)!).inspector).toBeCloseTo(width);
+});
+
+it("shields the dock while the library reports its separator as the active drag", async () => {
+  await click(button("文件"));
+  const separator = host.querySelector<HTMLElement>(".ff-dock-separator")!;
+  const dock = () => host.querySelector(".ff-page-dock")!;
+  const pointer = (type: string) => Object.assign(new Event(type, { bubbles: true, cancelable: true }), { pointerId: 31, pointerType: "mouse", clientX: 100 + dockWidth * 0.6, clientY: 300, button: 0 });
+  expect(dock().classList.contains("is-resizing")).toBe(false);
+  await act(async () => separator.dispatchEvent(pointer("pointerdown")));
+  expect(separator.getAttribute("data-separator")).toBe("active");
+  expect(dock().classList.contains("is-resizing")).toBe(true);
+  await act(async () => document.dispatchEvent(pointer("pointerup")));
+  expect(dock().classList.contains("is-resizing")).toBe(false);
 });
 
 it("keeps the overview cards when a right panel opens and keeps the conversation readable when the separator is dragged", async () => {

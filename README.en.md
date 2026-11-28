@@ -3,311 +3,133 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="./readme-assets/firefly-banner-dark.en.gif">
-    <img src="./readme-assets/firefly-banner-light.en.gif" alt="Animated Live2D Firefly banner" width="896">
+    <img src="./readme-assets/firefly-banner-light.en.gif" alt="Firefly-Agent: chat with you, and get things done" width="896">
   </picture>
 </p>
 
 <p align="center">
-  <a href="https://github.com/Firefly-0423/Firefly-Agent/releases/latest"><img src="https://img.shields.io/github/v/release/Firefly-0423/Firefly-Agent?style=flat&label=Download&color=2f8f6b" alt="Latest release" height="22"></a>
-  <img src="https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011-0078D6?style=flat" alt="Platform: Windows 10 / 11" height="22">
-  <img src="https://img.shields.io/badge/License-MIT-blue?style=flat" alt="MIT License" height="22">
-  <a href="https://hotarufirefly.online"><img src="https://img.shields.io/badge/Try%20it%20online-hotarufirefly.online-5fe0c1?style=flat" alt="Try it online" height="22"></a>
+  <a href="https://github.com/Firefly-0423/Firefly-Agent"><img src="https://img.shields.io/badge/GitHub-Firefly--Agent-24292f?style=flat&logo=github&logoColor=white" alt="GitHub repository" height="20"></a>
+  <a href="https://gitcode.com/hotaru_wu/Firefly-Agent"><img src="https://img.shields.io/badge/GitCode-Firefly--Agent-d94336?style=flat" alt="GitCode repository" height="20"></a>
 </p>
 
-<h3 align="center">Chats with you. Gets things done.</h3>
+<h3 align="center">Someone lives on your desktop. She keeps you company, and she helps you finish the work.</h3>
 
-<p align="center">A Windows Live2D desktop companion featuring Firefly from Honkai: Star Rail.<br>She chats with you, reads and writes files, changes code and runs commands, and splits work with 12 partners. You see every step she takes and everything she needs you to approve.</p>
+Picture this: you open your PC, and in the corner of the screen Firefly is already sitting there.
+
+You can skip the work entirely and just talk about your day. What you tell her about your habits stays on your own machine, so you never have to repeat it. When there is real work, a document to tidy, a bug to fix, something to look up, she switches into work mode and gets on with it.
+
+Before she acts, she asks. Which file she wants to change, which command she wants to run: it all goes in front of you first, and you can stop her at any point.
+
+This is an unofficial fan project. What we want to build is a companion you would actually keep on your desktop, and one you can trust.
 
 <p align="center">
-  <a href="https://github.com/Firefly-0423/Firefly-Agent/releases/latest"><b>Download for Windows</b></a> · <a href="https://hotarufirefly.online">Website and live demo</a> · <a href="#-features">Features</a> · <a href="#-security-and-privacy">Security</a> · <a href="#-run-from-source">Run from source</a> · <a href="https://github.com/Firefly-0423/Firefly-Agent/issues">Issues</a>
+  <b><a href="https://github.com/Firefly-0423/Firefly-Agent/releases/latest">Download</a></b>
+  &nbsp;·&nbsp;
+  <b><a href="./docs/user-guide/index.md">User guide</a></b> (in Chinese)
 </p>
 
----
+## Meet her
 
-## ✨ At a glance
+<p align="center">
+  <img src="./readme-assets/screenshots/chat.webp" alt="Chat mode: Firefly replies in the chat window, her Live2D figure sitting in the corner" width="860"><br>
+  <b>When you want to unwind, just talk. She gives you the few lines you wanted and does not talk over you.</b>
+</p>
 
-- **A persona, with boundaries**: conversations follow Firefly's canon and voice; tools, permissions, approvals and honest results never loosen because of the character's tone.
-- **Three modes, one window**: Chat for company, Work for tasks, Code for code, each with its own prompts and tools.
-- **Firefly and 12 partners**: in Work and Code, Firefly splits a task between the partners suited to it, runs them in parallel, then checks and combines what comes back; each partner can use its own model.
-- **Memory stays local**: personal memory and history search live in SQLite on your machine, and the memory database key is protected by Windows DPAPI.
-- **Asks before it acts**: writing files, running commands and going online run under permission levels, need your approval and can be cancelled at any time.
-- **Extensible**: the Skills market, the plugin market, the plugin SDK, MCP servers and external channels are all optional.
+<p align="center">
+  <img src="./readme-assets/screenshots/work.webp" alt="Work mode: Firefly hands two jobs to two partners, checks their results and reports back" width="860"><br>
+  <b>When there is a lot to do, she splits it among her partners, checks what comes back, and gives you just the conclusion.</b>
+</p>
 
-## 📸 Screenshots
+<p align="center">
+  <img src="./readme-assets/screenshots/code.webp" alt="Code mode: Firefly edits code and adds a test, with changes and run results listed on the right" width="860"><br>
+  <b>Code edits and commands are laid out in the open: which lines changed, which command failed, all at a glance.</b>
+</p>
 
-<p align="center"><b>💬 Chat · Desktop companion</b></p>
-<p align="center"><img src="./readme-assets/screenshots/chat.webp" alt="Chat mode: Firefly suggests a short weekend plan, with the built-in browser open on the right and the Live2D Firefly on the desktop" width="100%"></p>
-<p align="center"><sub>Talking with Firefly. The built-in browser is open on the right, the overview cards show context and usage (the total comes from the provider), and the Live2D Firefly sits on the desktop.</sub></p>
+<p align="center">
+  <img src="./readme-assets/screenshots/memory-graph.png" alt="The memory graph in Settings: you at the center, linked to the preferences she remembers" width="720"><br>
+  <b>You can see what she remembers. Review it, edit it, or ask her to forget.</b>
+</p>
 
-<p align="center"><b>📋 Work · Tasks</b></p>
-<p align="center"><img src="./readme-assets/screenshots/work.webp" alt="Work mode: Firefly delegates to Blade and Dan Heng in parallel, then combines their results" width="100%"></p>
-<p align="center"><sub>Firefly splits a task between two partners working in parallel (Blade counts the functions, Dan Heng summarizes the notes), checks their answers against the sources, and combines them. Each partner's run result is on the right.</sub></p>
+<!-- More screenshots (Live2D desktop pet, plugin windows, approval prompts) will be added after the 1.2.0 real-machine test. -->
 
-<p align="center"><b>💻 Code · Workspace</b></p>
-<p align="center"><img src="./readme-assets/screenshots/code.webp" alt="Code mode: fixing a panic with no arguments in a bound Rust project and adding a unit test" width="100%"></p>
-<p align="center"><sub>Fixing a panic and adding a test in a bound project. The run folds into one summary line (files read, commands run, what changed, what failed); the branch, changes and run results are on the right.</sub></p>
+## What she can do
 
-<p align="center"><b>🧠 Memory graph</b></p>
-<p align="center"><img src="./readme-assets/screenshots/memory-graph.png" alt="The memory graph in settings: you in the centre, linked to categories, memories and the conversations they came from" width="80%"></p>
-<p align="center"><sub>Settings → Memory → Graph: you in the centre, linked to each category, each memory and the conversation it came from. Click a node to review it; drag and zoom to explore.</sub></p>
+**Three modes**
+- Chat is for talking; real work goes to Work.
+- Work handles documents and everyday tasks. Code reads code, edits it and runs commands.
 
-## 📥 Download and get started
+**Like a small team**
+- On a complex task, Firefly hands parts of it to 12 partners working in parallel, then reviews everything when they return.
 
-1. Download `Firefly-Agent-Setup-<version>.exe` from [Releases](https://github.com/Firefly-0423/Firefly-Agent/releases/latest) and run it. It needs Windows 10 / 11 (x64). The release page lists the installer's SHA-256; check it with `Get-FileHash <file> -Algorithm SHA256`.
-2. On first launch, create a **model profile** in Settings: the protocol, endpoint and model your service supports, plus your own credentials. OpenRouter has a preset. The installer includes no model service or account.
-3. Pick **Chat / Work / Code**. Work and Code bind each task to a project folder; you can also create a project first with the "+" next to Projects in the sidebar.
-4. Turn on tools, Skills, plugins or MCP as needed.
+**Lives on your desktop**
+- A Live2D figure stays on your desktop, changes expression as work progresses, and can check in on a rhythm you set.
 
-Want a look first? The live demo at [hotarufirefly.online](https://hotarufirefly.online) is the same interface. Its replies are scripted: no model calls, no network.
+**Kept on your own machine**
+- Conversations and long-term memory stay local; model keys and credentials are encrypted with the system's own protection.
 
-## 🧩 Features
+**Ask first, then act**
+- File access has three levels: read-only, ask for approval, and full access. Risky actions go through an approval prompt first, and you can cancel a run at any time.
 
-### 💬 Chat: desktop companion
+**Online, and extensible**
+- A built-in browser that you can use yourself or authorize Firefly to operate.
+- Connect several compatible model services and switch between them whenever you like.
+- Local plugins, Skills, MCP tools and scheduled reminders.
 
-- Live2D Firefly: double-click expressions, dragging, idle motions, and a working expression while tools run.
-- In-character chat, streamed replies, history; temporary chats stay out of history.
-- The persona comes from layered prompts and lore entries (background, story, voice, canon quotes), triggered by topic rather than sent every turn.
-- Optional **proactive chat**: speaks up sparingly by time of day, silence and unanswered messages, and stops when you do not reply.
-- Desktop voice input (ASR): off, Mossland or Alibaba Cloud; the transcript fills the composer and is never sent automatically.
+## Download and install
 
-### 📋 Work: tasks
+1. Download the latest installer from [GitHub Releases](https://github.com/Firefly-0423/Firefly-Agent/releases/latest). You need Windows 10 or 11 (64-bit).
+2. Install and open it, go to Settings, and add at least one model profile with your own model endpoint and key.
+3. Go back to the chat page and say hello.
 
-- Works with files, documents and knowledge: file read/write and patching, Word / Excel / PDF tools, web search and reading, downloads, scheduled tasks and calendar.
-- **Delegation to partners**: Elio (planning), Himeko (architecture), Blade (implementation), The Herta (research), Dan Heng (knowledge), Welt (review), Sunday (security), March 7th (interface), Robin (documents), Silver Wolf (tools and troubleshooting), Pom-Pom (operations) and Kafka (coordination). Firefly decides who takes what, and each partner's run result is on the right.
-- A run folds to one summary line (time taken, files read, commands run). Expanded, it is one timeline, with edits, commands and failures in their own rows.
-- Finished tasks export to Markdown; "task done" and "file fully read" are shown separately.
-- **Knowledge workspace**: bind an existing Obsidian vault or study folder for learning, quizzes, notes and progress.
+Version 1.2.0 keeps conversations, settings and logs in a separate `%APPDATA%\Firefly-1.2.0` folder. It never reads, changes or migrates data from 1.1.x. If you only want a look at the interface first, try the [online demo](https://hotarufirefly.online).
 
-### 💻 Code: workspace
+Please read the [disclaimer](./legal/disclaimer.en.md) before use. Notes on external chat channels and the data folder are in the [user guide](./docs/user-guide/index.md) (in Chinese).
 
-- Read and change code in a bound workspace: Git, LSP, structural search and rewrite (ast-grep), file and command tools.
-- Commands run through a controlled shell tool with timeouts and process-tree cleanup; language servers need the language installed locally.
-- The right panel opens files, diff review, the browser and the task panel, and can be docked by dragging.
+## What's new in 1.2.0 and known limitations
 
-### 🗂️ Sidebar and composer
+**What's new**
+- A new dark theme: near-black surfaces with an emerald accent, with consistent depth across chat, settings and reminder toasts.
+- A new plugin system: plugins run in separate processes, with local import, a capability and trust prompt before enabling, per-permission revocation, model rate limits and isolated plugin windows. Legacy 0.x plugins are no longer supported.
+- Scheduled tasks proposed by plugins are enabled only after you confirm them, with time-zone-aware schedules and a "Run now" option.
+- Work and Code runs keep finishing in the background after you switch chats or refresh, you can answer approvals from the reminder toast, and you can add new instructions mid-run with "Send now".
+- Permissions are simplified to three levels: read-only, ask for approval, full access.
 
-- **Projects**: the sidebar groups conversations by project, with pinning, sections and hidden projects; a conversation can be renamed, exported, or opened in File Explorer or a detected editor.
-- **Floating composer**: drag it anywhere in the workspace or collapse it to a round button; it reopens for a pending approval or question.
-- **Session overview**: cards beside the conversation show the environment, connectors, background tasks, context, usage, outputs and changes, and can be dragged into any order.
+Full release notes are on [GitHub Releases](https://github.com/Firefly-0423/Firefly-Agent/releases) and in `CHANGELOG.md` on the release branch.
 
-### 🧠 Memory and knowledge
+**Known limitations**
+- 1.2.0 has no unattended approval yet. A plugin schedule that would use the command line, write files, or control the keyboard and mouse is refused at confirmation. Tasks of that kind confirmed earlier are skipped when due and their recurring schedule is paused. Unattended approval is planned for 1.2.x.
+- The desktop setup screen for external chat channels also arrives in 1.2.x.
 
-- The default memory chain has three layers: current context (S), fact memory (M) and history search (H), stored in SQLite.
-- Project details mentioned inside a project are used only there; when history lacks a trusted snapshot, Firefly reports incomplete coverage instead of guessing.
-- The **memory graph** in settings draws confirmed and pending memories by category and links them to the conversations they came from.
-- Character and document knowledge RAG (including BGE-M3) is configured separately and is not the default personal memory.
+## Plugin development
 
-### 🔌 Browser, extensions and channels
+- [Plugin SDK README](./plugin-sdk/README.md): installation, the minimal plugin layout, the permission model and the local test host.
+- [Plugin Development Guide](./docs/plugins/plugin-dev-guide.md): manifest fields, the API reference and complete examples.
+- [Plugin Authoring Notes](./docs/plugins/plugin-authoring.md): isolation boundaries, permission tiers and catalog requirements.
 
-- **Built-in browser**: manual and agent browsing are authorized separately; the consent panel lists the exact sites and allowed actions, and the agent reads, clicks and types only within what you approved.
-- **Skills**: 50 third-party and adapted Skills plus 4 project Skills, validated and enabled per mode.
-- **Skills market**: install from [firefly-skills](https://github.com/Firefly-0423/firefly-skills), openai/plugins and anthropics/skills. Only a statically reviewed version, pinned to a commit and matching its content digest, can be installed, and it starts disabled.
-- **Plugins**: a local plugin host with isolated panels; the online catalog comes from [firefly-plugins](https://github.com/Firefly-0423/firefly-plugins), packages are checked against their SHA-256 on install and start disabled.
-- **Plugin SDK**: `npm i @firefly_wu/plugin-sdk`, published with provenance; runnable examples are in [examples/](./examples/).
-- **MCP**: add a server by its local command (stdio) or its remote address (Streamable HTTP; an address ending in `/sse` uses legacy SSE).
-- **Channels**: QQ, QQ Bot, WeChat and Feishu adapters, with your own credentials. **Music**: reads the QQ Music playback session on Windows.
+Two sample plugins, weather lookup and a daily reminder, live in [plugin-sdk/examples](./plugin-sdk/examples/).
 
-### 🤖 Models
+## Contributing
 
-- An OpenRouter preset and a Chat Completions entry; image input is decided by user declaration, then the vendor model list, then the built-in catalog, and falls back to text when unsure.
-- Results depend on the model and service you choose.
-
-## 🔒 Security and privacy
-
-- **Permission levels and approvals**: files and commands run at read-only, project read-only, scoped or full access; writes, commands and external actions follow approvals and can be cancelled. Personas, Skills and avatars never widen tool permissions.
-- **Command execution**: the shell tool has total and idle timeouts and cleans up the whole process tree on finish or cancel.
-- **Browser**: approving a site manually gives the agent no rights; private-network targets have their own limits. Under a TUN proxy in fake-ip mode (such as Mihomo), manual browsing first confirms over DoH that the real address is public; agent browsing refuses fake-ip addresses.
-- **Local data**: settings, credentials, history and user Skills never enter Git or the installer. The memory database key is protected by Windows DPAPI, and channel credentials use the system's encrypted storage.
-- **Data location**: production data lives in `%APPDATA%\Firefly` by default; quit the app and back up before touching it by hand.
-- **External services**: depending on the model and actions you choose, conversations, documents, tool results and recordings may go to external services; use only services you trust.
-
-## 🏗️ Architecture
-
-Firefly is an Electron desktop app: the interface lives in the renderer process, the agent in the main process, with only a controlled IPC layer between them. A conversation flows down from an entry point through the main loop, memory and models, and permissions to the actual work, and the results flow back up.
-
-### How one conversation flows
-
-1. **Entry**: you send a message in the chat window, or speak and it becomes text; scheduled tasks, proactive chat and the Feishu / WeChat / QQ channels start conversations too.
-2. **Interface**: the React interface hands the request to the main process over the preload's controlled IPC; the Live2D Firefly changes expression with the work state.
-3. **Main loop**: the Harness main loop decides the next step: reply, call a tool, or hand the task to one of the 12 partners.
-4. **Memory and models**: before every model request, the memory runtime puts context S and fact memory M into the request, then the vendor adapters send it to the model service you configured; history H and knowledge RAG are searched when needed.
-5. **Permissions**: every tool call by Firefly or a partner passes permissions and approval first; the built-in browser also needs your separate authorization.
-6. **Execution**: built-in tools (files, commands, Git, LSP, documents), the built-in browser, plugins, Skills and MCP do the actual work; screenshots, history reads and workspace handles go to the Rust native helper.
-7. **Back to you**: progress and results stream back to the chat; a conversation that came from a channel is answered there.
-
-```mermaid
-flowchart TB
-  subgraph L1["① Entry"]
-    direction LR
-    user(["You"])
-    voice["Voice input"]
-    timers["Scheduled tasks · Proactive chat"]
-    channels["Channels · Feishu · WeChat · QQ"]
-    user ~~~ voice ~~~ timers ~~~ channels
-  end
-  subgraph L2["② Desktop interface · renderer"]
-    direction LR
-    ui["Chats and sessions · React"]
-    live2d["Live2D Firefly"]
-    ipc["preload controlled IPC"]
-    ui ~~~ live2d ~~~ ipc
-  end
-  subgraph L3["③ Agent core · main process"]
-    direction LR
-    harness["Harness main loop"]
-    partners["12 partners"]
-    perm{"Permissions and approval"}
-    harness --> partners
-    harness --> perm
-    partners --> perm
-  end
-  subgraph L4["④ Memory and models"]
-    direction LR
-    context["Memory runtime<br/>context S · facts M"]
-    vendors["Vendor adapters"]
-    models(["Your model service"])
-    recall["History search H · knowledge RAG"]
-    context --> vendors --> models ~~~ recall
-  end
-  subgraph L5["⑤ Capabilities and execution"]
-    direction LR
-    tools["Built-in tools<br/>files · commands · Git · LSP · documents"]
-    browser["Built-in browser"]
-    extensions["Plugins · Skills · MCP"]
-    tools ~~~ browser ~~~ extensions
-  end
-  subgraph L6["⑥ Local foundation"]
-    direction LR
-    store[("SQLite memory and indexes")]
-    native["Rust native helper<br/>screenshots · history reads · workspace handles"]
-    store ~~~ native
-  end
-
-  L1 -- "starts a conversation" --> L2
-  L2 -- "controlled IPC" --> L3
-  L3 -- "add memory · ask the model" --> L4
-  L3 -- "run approved tools" --> L5
-  L4 ~~~ L5
-  L4 -- "read and write memory" --> L6
-  L5 -- "native help" --> L6
-  L3 -. "progress, results, work state" .-> L2
-
-  classDef entry fill:#e0e7ff,stroke:#6366f1,color:#1e1b4b
-  classDef face fill:#dbeafe,stroke:#3b82f6,color:#172554
-  classDef core fill:#fef3c7,stroke:#d97706,color:#451a03
-  classDef mind fill:#dcfce7,stroke:#16a34a,color:#052e16
-  classDef act fill:#fce7f3,stroke:#db2777,color:#500724
-  classDef base fill:#ede9fe,stroke:#7c3aed,color:#2e1065
-  class user,voice,timers,channels entry
-  class ui,live2d,ipc face
-  class harness,partners,perm core
-  class context,recall,vendors,models mind
-  class tools,browser,extensions act
-  class store,native base
-```
-
-### Where each layer lives
-
-| Layer | Responsible for | Code |
-| --- | --- | --- |
-| ① Entry | Voice input, scheduled tasks, proactive chat, external channels | `src/main/asr/`, `src/main/scheduler/`, `src/main/proactive/`, `src/main/channels/` |
-| ② Desktop interface | Chat interface, Live2D, controlled IPC | `src/renderer/react/`, `src/renderer/live2d/`, `src/preload/index.ts` |
-| ③ Agent core | Main loop, partner child sessions, permissions and approval | `src/main/orchestrator/harness/firefly-harness.ts`, `src/main/orchestrator/persistent-agent-runtime.ts`, `src/main/orchestrator/harness/tool-dispatcher.ts`, `src/main/permission/` |
-| ④ Memory and models | Memory runtime, history search, knowledge RAG, vendor adapters | `src/main/memory-context/`, `src/main/memory-history/`, `src/main/rag/`, `src/main/knowledge/`, `src/main/orchestrator/vendors/` |
-| ⑤ Capabilities and execution | Built-in tools, browser, plugins, Skills, MCP, Code Git, LSP | `src/main/orchestrator/tools/built-in-tools.ts`, `src/main/browser/`, `src/plugins/`, `src/main/plugin-host/`, `src/main/skills/`, `src/main/orchestrator/mcp-manager.ts`, `src/main/code-git/`, `src/main/lsp/` |
-| ⑥ Local foundation | Memory store, native helper | `src/main/memory-core/`, `native/src/app.rs` |
-
-## 🛠️ Run from source
-
-You need Windows, Node.js 24 and npm 10 or later; packaging also needs Rust (MSVC toolchain) and C++ build tools.
+Running from source needs **Windows**, **Node.js 24+** and **pnpm 12.10.1**.
 
 ```powershell
-git clone https://github.com/Firefly-0423/Firefly-Agent.git
-cd Firefly-Agent
-npm ci
-npm run dev
+pnpm install
+pnpm exec install-electron
+pnpm run dev
 ```
 
-| Command | Purpose |
-| --- | --- |
-| `npm run check:renderer` | Type-check the interface |
-| `npm test` | Run Vitest |
-| `npm run validate:skills` | Validate Skill sources and licenses |
-| `npm run check:plugin-sdk` | Check the plugin SDK |
-| `npm run package:win` | Build the NSIS installer (`package:win:dir` for an unpacked directory) |
+For environment setup, packaging and commit conventions, see the [development guide](./docs/contributing/development.md) (in Chinese) and the [development workflow](./docs/contributing/development-workflow.md). The full documentation index is the [docs directory](./docs/README.md).
 
-Scripts are described in [scripts/README.md](./scripts/README.md).
+## Feedback and links
 
-### Tech stack
+- Bug reports and feature requests: [GitHub Issues](https://github.com/Firefly-0423/Firefly-Agent/issues).
+- Skills: [firefly-skills](https://github.com/Firefly-0423/firefly-skills).
+- Plugin catalog: [firefly-plugins](https://github.com/Firefly-0423/firefly-plugins).
 
-| Layer | Technology |
-| --- | --- |
-| Runtime | Node.js 24 + Electron 43 |
-| Language and build | TypeScript, Vite 7, electron-builder |
-| Interface | React 19, Ant Design 6 / Ant Design X, Tailwind CSS 4; bundled Noto Sans SC and JetBrains Mono variable fonts; d3-force for the memory graph |
-| Live2D | PixiJS 7 + pixi-live2d-display |
-| Agent | In-house Harness loop, AG-UI event protocol, native tool calls |
-| Tools and code | Tool scheduling and approvals, LSP client, `@ast-grep/napi`, `simple-git`, MCP SDK |
-| Memory and retrieval | SQLite (`node:sqlite`), embeddings, BM25, reranker |
-| Native helpers | Rust: screenshots, history reading and workspace handle access |
-| Rendering | Streamdown, Shiki, KaTeX |
-| Tests | Vitest |
+Please remove API keys, private chats and local paths before sharing logs or opening an issue.
 
-### Project structure
+## License and credits
 
-```
-src/
-├── cli/                  # Command-line entry (the firefly command, dev launcher)
-├── main/                 # Electron main process, entry index.ts → dist/main/main/index.js
-│   ├── application/      # Startup wiring, dependency injection, IPC scopes and contract scans
-│   ├── startup/          # Runtime profiles and data isolation, identity checks, single instance, splash
-│   ├── orchestrator/     # Agent core: Harness loop, tools, model vendors, sandbox, partner delegation
-│   ├── permission/       # Permission levels, risk checks and approval cards
-│   ├── chat/ chats/      # Chat requests and the AG-UI bridge; conversation storage, dispatch and sidebar layout
-│   ├── memory*/          # Memory: core store, policy, recall, history reading, sources, shadow extraction
-│   ├── rag/ knowledge/   # Knowledge retrieval; Obsidian / study workspace
-│   ├── browser/          # Built-in browser workspace and its authorization boundary
-│   ├── code-git/ lsp/    # Git service for Code mode; language server client
-│   ├── channels/         # External channels (Feishu, WeChat, QQ, QQ Bot)
-│   ├── proactive/        # Proactive chat (time of day, policy, delivery)
-│   ├── scheduler/ tasks/ # Scheduled tasks; tasks and partner sessions
-│   ├── skills/           # Skill installation, review and external sources
-│   ├── plugin-host/ plugin-panel/  # Plugin host and online market; plugin panel protocol
-│   └── ...               # settings / storage / asr / music / windows and more
-├── plugins/              # Plugin system core (manifest validation, loading, lifecycle)
-├── preload/              # Controlled IPC bridge
-├── renderer/             # Renderer: React interface, Live2D, the site's live demo, static assets
-└── shared/               # Contracts and helpers shared by main and renderer
-
-site/                     # Promo site (Cloudflare, hotarufirefly.online) with the live demo
-native/                   # Rust helpers: screenshots, history reading, workspace handle access
-plugin-sdk/ examples/     # Plugin SDK source; plugin examples
-skills/ vendor/firefly-skills/  # Project Skills; third-party and adapted Skills with sources and licenses
-prompts/                  # Layered persona prompts and lore
-models/                   # Local AI models (place them yourself; see MODEL_LICENSE.md)
-scripts/ docs/            # Build, packaging, verification and evaluation scripts; design, QA and review records
-assets/ build/ resources/ # App and tray icons, file-type icons; installer scripts; resources prepared for packaging
-```
-
-`dist/`, `release/` and `output/` hold build output, packages and local reports, and stay out of Git.
-
-## 📌 Status and limits
-
-- **Releases**: stable versions are published on [Releases](https://github.com/Firefly-0423/Firefly-Agent/releases/latest); in-app auto-update stays off, so download new versions from the release page.
-- **Bring your own**: model services, knowledge vector resources, ASR, QQ Music, office programs, language servers and channel credentials; an entry in the app does not mean the service behind it is ready.
-- **Platform**: Windows 10 / 11 is the main development and test platform.
-- **Interface language**: the settings pages are Chinese only for now; the chat window's language option applies after a restart.
-
-## 🤝 Contributing
-
-Read [AGENTS.md](./AGENTS.md) and [DEVELOPMENT.md](./DEVELOPMENT.md) first, run the checks that match your change and say what they do not cover. Send Skills to [firefly-skills](https://github.com/Firefly-0423/firefly-skills) and plugins to [firefly-plugins](https://github.com/Firefly-0423/firefly-plugins). Never attach keys, private conversations or user data to an issue or pull request.
-
-## 📄 License and character assets
-
-The source code is licensed by Firefly-0423 under the [MIT License](./LICENSE); third-party dependencies, Skills, models, images and character IP follow their own licenses or permissions, see [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
-
-The project owner has permission from the original author of the Firefly Live2D model; see [MODEL_LICENSE.md](./MODEL_LICENSE.md). That permission does not automatically cover avatars, icons, textures or derived renders, and the MIT license of the source grants no right to redistribute them.
-
-Firefly and the Honkai: Star Rail characters and IP belong to HoYoverse / miHoYo and the respective rights holders. This is an unofficial, non-commercial fan project; derivatives containing the Firefly character, the Live2D model or character art may not be used commercially.
-
-The badges are generated by [Shields.io](https://shields.io); see the [badge notes](./readme-assets/ICON_SOURCES.md).
+- This is an **unofficial, non-commercial fan project** with no affiliation to HoYoverse / miHoYo. Firefly and Honkai: Star Rail character art and intellectual property belong to HoYoverse / miHoYo and their respective rights holders. Commercial use of derivatives containing the character, the model or character artwork is prohibited.
+- Source code is licensed under the [MIT License](./LICENSE).
+- Third-party dependencies, bundled Skills and historical provenance notices are in [THIRD_PARTY_NOTICES.md](./legal/THIRD_PARTY_NOTICES.md); the Live2D model permission and source are in [MODEL_LICENSE.md](./legal/MODEL_LICENSE.md).

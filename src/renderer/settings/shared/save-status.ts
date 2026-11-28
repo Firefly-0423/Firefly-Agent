@@ -30,3 +30,17 @@ export function setAppearanceSaveStatus(text: string, cls?: string): void {
 export function setRuntimeSaveStatus(text: string, cls?: string): void {
   paintStatus(runtimeSaveStatus, text, cls);
 }
+
+/** 绑定设置表单提交，统一在保存期间与成功/失败后更新状态提示。 */
+export function bindSettingsSubmit(form: HTMLFormElement, report: (text: string, cls?: string) => void, save: () => Promise<unknown>): void {
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+    report(t("settings.status.saving"));
+    try {
+      await save();
+      report(t("settings.status.saved"), "is-ok");
+    } catch {
+      report(t("settings.status.saveFailed"), "is-error");
+    }
+  });
+}

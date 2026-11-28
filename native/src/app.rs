@@ -14,26 +14,25 @@ use windows::{
         },
     },
 };
-use crate::{
-    cli::CliOptions,
-    error::{AppError, HelperError},
-    geometry::{PointI, RectI},
-    ipc::{create_runtime_channels, spawn_stdin_reader, spawn_stdout_writer, InputGate, MessageTarget, RuntimeChannels},
-    parent_watch,
-    protocol::{CaptureMode, Command, Event, InteractionStateEvent, PROTOCOL_VERSION},
-    request::RequestRegistry,
-    win::{
-        capture::{CaptureBackend, FrozenFrame, RefreshOutcome},
-        capture_dxgi::DxgiCaptureBackend,
-        capture_gdi::GdiCaptureBackend,
-        clipboard::write_cf_dibv5,
-        display::{query_primary_display, DisplayInfo},
-        encoder::{self, EncodeJob},
-        renderer::{burn_annotations, present_first_frame, qpc_elapsed_ms, qpc_now, OverlayRenderer},
-        window::{OverlayAction, OverlayWindow},
-    },
-    WM_APP_COMMAND, WM_APP_SHUTDOWN,
-};
+// 进程外壳：参数、与 Main 的通道、父进程监视。
+use crate::cli::CliOptions;
+use crate::ipc::{InputGate, MessageTarget, RuntimeChannels, create_runtime_channels, spawn_stdin_reader, spawn_stdout_writer};
+use crate::parent_watch;
+use crate::{WM_APP_COMMAND, WM_APP_SHUTDOWN};
+// 协议与请求台账。
+use crate::error::{AppError, HelperError};
+use crate::protocol::{CaptureMode, Command, Event, InteractionStateEvent, PROTOCOL_VERSION};
+use crate::request::RequestRegistry;
+// 抓屏、遮罩与交付。
+use crate::geometry::{PointI, RectI};
+use crate::win::capture::{CaptureBackend, FrozenFrame, RefreshOutcome};
+use crate::win::capture_dxgi::DxgiCaptureBackend;
+use crate::win::capture_gdi::GdiCaptureBackend;
+use crate::win::display::{DisplayInfo, query_primary_display};
+use crate::win::window::{OverlayAction, OverlayWindow};
+use crate::win::renderer::{OverlayRenderer, burn_annotations, present_first_frame, qpc_elapsed_ms, qpc_now};
+use crate::win::clipboard::write_cf_dibv5;
+use crate::win::encoder::{self, EncodeJob};
 
 const RUNTIME_CLASS: PCWSTR = w!("FireflyScreenshotRuntimeWindow");
 const QUEUE_SLICE: usize = 64;

@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "../../../i18n";
 
 export interface PendingQueueDockItem {
+  adjustRunId?: string;
   attachmentCount?: number;
   content: string;
   id: string;
@@ -10,6 +11,7 @@ export interface PendingQueueDockItem {
 type PendingQueueDockProps = {
   onRemove?: (id: string) => Promise<void> | void;
   onAdjust?: (id: string) => Promise<boolean>;
+  onUnmark?: (id: string) => Promise<boolean>;
   onEdit?: (id: string, content: string) => Promise<boolean>;
   adjustmentAvailable: boolean;
   items: PendingQueueDockItem[];
@@ -19,7 +21,7 @@ function actionButton(icon: ReactNode, label: string, tooltip: string, disabled:
   return <button type="button" aria-label={label} title={tooltip} disabled={disabled} onClick={activate}>{icon}</button>;
 }
 
-export function PendingQueueDock({ items: queue, adjustmentAvailable: adjustable, onEdit: edit, onAdjust: revise, onRemove: remove }: PendingQueueDockProps) {
+export function PendingQueueDock({ items: queue, adjustmentAvailable: adjustable, onEdit: edit, onAdjust: revise, onUnmark: unmark, onRemove: remove }: PendingQueueDockProps) {
   const { t: translate } = useTranslation();
   const [unfolded, unfold] = useState(false);
   const [draft, updateDraft] = useState<{ id: string; content: string } | null>(null);
@@ -60,13 +62,14 @@ export function PendingQueueDock({ items: queue, adjustmentAvailable: adjustable
         <span>{entry.content}</span>
         {Boolean(entry.attachmentCount) && <small><PaperClipOutlined aria-hidden="true" /> {entry.attachmentCount}</small>}
       </button>}
+      {entry.adjustRunId && <small className="ff-queue-dock__inserted" title={translate("composer.queueInsertedHint")}>{translate("composer.queueInserted")}</small>}
       <div className="ff-queue-dock__actions">
         {editing ? <>
           {actionButton(<CheckOutlined />, translate("composer.queueSave"), translate("composer.queueSave"), locked || !draft.content.trim(), () => void save())}
           {actionButton(<CloseOutlined />, translate("composer.queueCancelEdit"), translate("composer.queueCancelEdit"), locked, () => updateDraft(null))}
         </> : <>
           {actionButton(<EditOutlined />, translate("composer.queueEdit"), translate("composer.queueEdit"), locked, begin)}
-          {actionButton(<EnterOutlined />, translate("composer.queueAdjust"), adjustable ? translate("composer.queueAdjust") : translate("composer.queueAdjustUnavailable"), locked || !adjustable, () => void adjust(entry.id))}
+          {entry.adjustRunId ? actionButton(<CloseOutlined />, translate("composer.queueWithdraw"), translate("composer.queueWithdraw"), locked || !unmark, () => { markPending(entry.id); void unmark?.(entry.id).finally(() => markPending(null)); }) : actionButton(<EnterOutlined />, translate("composer.queueAdjust"), adjustable ? translate("composer.queueAdjust") : translate("composer.queueAdjustUnavailable"), locked || !adjustable, () => void adjust(entry.id))}
           {actionButton(<DeleteOutlined />, translate("composer.removeQueuedMessage"), translate("composer.removeQueuedMessage"), locked, () => void remove?.(entry.id))}
         </>}
       </div>

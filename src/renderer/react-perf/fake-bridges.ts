@@ -128,6 +128,7 @@ export function installFakeBridges(options: FakeBridgeOptions): FakeBridgeRuntim
       }
       return { ok: true, queue: [...queue] };
     },
+    pendingUnmark: async () => ({ ok: false, error: "unavailable" }),
     pendingAdjust: async () => ({ ok: false, error: "perf harness 不支持调整", queue: [...queue] }),
     setPinned: async () => cloneSession(history),
     setModelProfile: async () => cloneSession(history),

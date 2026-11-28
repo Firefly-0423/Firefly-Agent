@@ -1,7 +1,74 @@
+import type { PluginDefinition } from "./types";
+
+export { PLUGIN_ERROR_CODES, PluginError, type PluginErrorCode, type PluginErrorOptions } from "./protocol";
+export type {
+  ChannelAdapter,
+  ChannelAttachment,
+  ChannelChat,
+  ChannelConnectionState,
+  ChannelHost,
+  ChannelSender,
+  ChannelState,
+  Channels,
+  ContextProvideRequest,
+  ContextProvideResult,
+  ContextProviderDefinition,
+  ContextProviders,
+  DeactivateReason,
+  Disposable,
+  Events,
+  HostEvent,
+  InboundMessage,
+  JSONSchemaObject,
+  JSONSchemaProperty,
+  MessageRecord,
+  Mode,
+  Model,
+  ModelGenerateChunk,
+  ModelGenerateRequest,
+  ModelGenerateResult,
+  ModelRunHandle,
+  ModelRunRequest,
+  ModelRunResult,
+  ModelUsage,
+  NotificationRequest,
+  NotificationResult,
+  Notifications,
+  OutboundMessage,
+  Page,
+  PluginContext,
+  PluginDefinition,
+  PluginPermission,
+  RunEvent,
+  RunSource,
+  Schedule,
+  ScheduleAction,
+  ScheduleProposalSpec,
+  ScheduleTriggerEvent,
+  Schedules,
+  Secrets,
+  SessionSummary,
+  Sessions,
+  TaskRecord,
+  TaskStatus,
+  ToolApprovalDescription,
+  ToolCall,
+  ToolCaller,
+  ToolDefinition,
+  ToolResult,
+  ToolRisk,
+  Tools,
+  Ui,
+  UiMessageEvent,
+  UiTarget,
+  UiWindowHandle,
+  Workspace,
+  WorkspaceInfo,
+} from "./types";
+
 /**
- * SDK 入口：对外转出宿主的公开契约与 Manifest 校验函数。
- * ./api 由构建脚本从 src/plugins/api.ts 同步而来，
- * verify-package 会核对这两份文件内容一致。
+ * Type-narrows and returns a Firefly 1.2.0 plugin entry definition.
  */
-export * from "./api";
-export * from "./validate-manifest";
+export function definePlugin<P extends PluginDefinition>(plugin: P): P {
+  return plugin;
+}

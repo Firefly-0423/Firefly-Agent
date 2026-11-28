@@ -8,7 +8,7 @@ export type SessionInteractionEntry = {
   resolved?: boolean; queued: ComposerInteraction[]; busy: boolean; interaction: ComposerInteraction;
 };
 export type SessionInteractionState = Record<string, SessionInteractionEntry>;
-type HarnessTodoPresentation = { status: string; content: string; id: string };
+type AgentLoopTodoPresentation = { status: string; content: string; id: string };
 export type SessionTodoState = { updatedAt: number; todos: TodoItem[]; runId?: string };
 export type TodoStateBySession = Record<string, SessionTodoState>;
 export type ClaimRecoveryStatus = { kind: "dispatched" } | { kind: "needs-dispatch" } | { kind: "claim-message-missing" };
@@ -105,7 +105,24 @@ export function patchSessionMessage(state: Record<string, ChatMessageItem[]>, se
 }
 
 export function hydrateSessionMessages(state: Record<string, ChatMessageItem[]>, sessionId: string, storedMessages: ChatMessageItem[], hasActiveRun: boolean): Record<string, ChatMessageItem[]> {
-  return hasActiveRun && state[sessionId] ? state : { ...state, [sessionId]: storedMessages };
+  const active = hasActiveRun ? state[sessionId] : undefined;
+  if (!active) return { ...state, [sessionId]: storedMessages };
+  if (!storedMessages.some(message => message.role === "user" && message.runInsertion)) return state;
+  const merged = [...active];
+  for (const [index, message] of storedMessages.entries()) {
+    if (message.role !== "user" || !message.runInsertion) continue;
+    const existing = merged.findIndex(row => row.id === message.id);
+    if (existing >= 0) {
+      if (merged[existing].role === "user") {
+        merged[existing] = { ...merged[existing], content: message.content, runInsertion: message.runInsertion };
+      }
+      continue;
+    }
+    const following = storedMessages.slice(index + 1).find(row => merged.some(live => live.id === row.id));
+    const offset = following ? merged.findIndex(row => row.id === following.id) : merged.length;
+    merged.splice(offset, 0, message);
+  }
+  return { ...state, [sessionId]: merged };
 }
 
 export function recoverInterruptedMessage(message: ChatMessageItem, snapshot: NonNullable<ChatMessage["runSnapshot"]>): ChatMessageItem {
@@ -113,6 +130,12 @@ export function recoverInterruptedMessage(message: ChatMessageItem, snapshot: No
   return {
     ...message, streaming: false, reasoningStreaming: false, loading: false, waitingForFirstEvent: false,
     runStage: { kind: "failed", detail: t("chatPage.lastRunInterrupted") },
+    // Nothing is still running after an interruption: a tool or round left "running" (e.g. ask_user
+    // still "waiting for the user's answer") is shown as ended. Display only; the stored record is unchanged.
+    ...(message.toolExecutions ? { toolExecutions: message.toolExecutions.map((tool) => tool.status === "running"
+      ? { ...tool, status: "error" as const, result: tool.result ?? t("chatPage.lastRunInterrupted") } : tool) } : {}),
+    ...(message.agentRounds ? { agentRounds: message.agentRounds.map((round) => round.status === "running"
+      ? { ...round, status: "completed" as const, completedAt: round.completedAt ?? snapshot.updatedAt } : round) } : {}),
     runActivity: {
       ...(message.runActivity ?? { startedAt: snapshot.updatedAt, reasoningMs: 0 }),
       activeReasoningStartedAt: undefined, completedAt: snapshot.updatedAt, keepExpanded: true,
@@ -159,7 +182,7 @@ export function startSessionTodos(state: TodoStateBySession, sessionId: string, 
   return { ...state, [sessionId]: { runId, todos: [], updatedAt } };
 }
 
-export function mergeHarnessTodosForSession(state: TodoStateBySession, sessionId: string, runId: string | undefined, items: readonly HarnessTodoPresentation[], updatedAt = Date.now()): TodoStateBySession {
+export function mergeAgentLoopTodosForSession(state: TodoStateBySession, sessionId: string, runId: string | undefined, items: readonly AgentLoopTodoPresentation[], updatedAt = Date.now()): TodoStateBySession {
   const previous = state[sessionId];
   if (previous?.runId && runId && previous.runId !== runId) return state;
   const accepted = items.flatMap<TodoItem>((entry) => {

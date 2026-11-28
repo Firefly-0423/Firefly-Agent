@@ -2,7 +2,7 @@
 import { expect, it, vi } from "vitest";
 import { SPECIALIST_AGENTS, type AgentRoutingView } from "../../../shared/specialist-agents";
 import { loadAgentRoutingPanel } from "./agent-routing";
-import { getAgentRoutingView } from "../../../main/settings/agent-model-routing";
+import { getAgentRoutingView } from "../../../main/model/config/agent-model-routing";
 
 it("distinguishes equal saved model labels without exposing service addresses or credentials", async () => {
   const root = document.createElement("div");

@@ -6,19 +6,19 @@
 
 | 环节 | 生产代码 |
 |---|---|
-| 排序（BM25、向量、RRF、MMR、时间过滤） | `src/main/memory-history/history-ranking.ts` 的 `rankHistory` |
-| 向量 | `src/main/rag/embedding.ts` 的本地 BGE-M3 |
-| 重排 | `src/main/rag/reranker.ts` 的本地 bge-reranker-base |
+| 排序（BM25、向量、RRF、MMR、时间过滤） | `src/main/memory/history/history-ranking.ts` 的 `rankHistory` |
+| 向量 | `src/main/knowledge/rag/embedding.ts` 的本地 BGE-M3 |
+| 重排 | `src/main/knowledge/rag/reranker.ts` 的本地 bge-reranker-base |
 
 评测的是**排序层**。授权、来源校验、预算裁剪、遗忘等治理逻辑不在范围内，它们有各自的测试。
 
 ## 运行
 
 ```bash
-npm run eval:memory-history                       # 规模 250 和 512，session 与 window 两种粒度，只看 dev
-npm run eval:memory-history -- --sizes 250 --granularity session
-npm run eval:memory-history -- --split holdout    # 最后一次对比才用
-npm run test:eval                                 # 指标与数据集的单元测试
+pnpm run eval:memory-history                       # 规模 250 和 512，session 与 window 两种粒度，只看 dev
+pnpm run eval:memory-history --sizes 250 --granularity session
+pnpm run eval:memory-history --split holdout    # 最后一次对比才用
+pnpm run test:eval                                 # 指标与数据集的单元测试
 ```
 
 参数：`--sizes`（会话数，逗号分隔）、`--granularity`（`session`、`window`）、`--split`（`dev`、`holdout`、`all`）、`--seed`、`--out`。

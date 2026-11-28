@@ -8,10 +8,10 @@ import { installFakeBridges } from "./fake-bridges";
 import type { PerfDataset } from "./fixture";
 import type { ChatPerfProbeCounters } from "../react/features/chat/components/chat-perf-probe";
 
-interface HarnessParams {
+interface AgentLoopParams {
   scrollMode: "bottom" | "top"; durationMs: number; seed: number; count: number; dataset: PerfDataset;
 }
-function parseParams(): HarnessParams {
+function parseParams(): AgentLoopParams {
   const query = new URLSearchParams(window.location.search);
   const chosenDataset = query.get("dataset");
   const requestedCount = Number(query.get("count") ?? 200);

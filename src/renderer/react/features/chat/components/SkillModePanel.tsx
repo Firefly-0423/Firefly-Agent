@@ -72,6 +72,35 @@ function isVisibleForMode(skill: SkillCatalogItem, mode: SkillMode, overrides: O
   return skill.modes ? skill.modes.includes(mode) : true;
 }
 
+function SkillCard({ skill, on, tab, saving, locked, enableLocked, description, t, register, toggle, enable }: {
+  skill: SkillCatalogItem; on: boolean; tab: SkillMode; saving: boolean; locked: boolean; enableLocked: boolean;
+  description: string; t: ReturnType<typeof useTranslation>["t"];
+  register: (node: HTMLButtonElement | null) => void;
+  toggle: () => void; enable: (node: HTMLButtonElement) => void;
+}) {
+  const sourceKey = skill.source === "builtin" ? "skillPanel.sourceBuiltin" : "skillPanel.sourceUser";
+  const modeLabel = tab === "code" ? "Code" : "Work";
+  return <div className={on ? "skill-card" : "skill-card is-off"}>
+    <div className="skill-card__top">
+      <SkillIcon skillId={skill.id} name={skill.name} />
+      <div className="skill-card__body">
+        <div className="skill-card__name">{skill.name}{!skill.enabled && <span className="skill-card__badge">{t("skillPanel.disabledBadge")}</span>}</div>
+        <div className="skill-card__meta">
+          <span className={`skill-card__source skill-card__source--${skill.source}`}>{t(sourceKey)}</span>
+          {skill.version ? <span className="skill-card__version">v{skill.version}</span> : null}
+        </div>
+      </div>
+      <button ref={register} type="button" role="switch" aria-checked={on} aria-busy={saving}
+        aria-label={t("skillPanel.modeVisibility", { skill: skill.name, mode: modeLabel })}
+        disabled={!skill.enabled || locked || saving} className={`skill-card__pill${on ? " is-on" : ""}`}
+        onClick={toggle}><span className="skill-card__pill-knob" /></button>
+      {!skill.enabled && <button type="button" className="skill-card__enable" disabled={enableLocked}
+        onClick={event => enable(event.currentTarget)}>{t("skillPanel.enable")}</button>}
+    </div>
+    <div className="skill-card__desc">{description.split("\n")[0] || t("skillPanel.noDescription")}</div>
+  </div>;
+}
+
 export const SkillModePanel: React.FC = () => {
   const { t } = useTranslation();
   const [refreshing, setRefreshing] = useState(false);
@@ -279,42 +308,13 @@ export const SkillModePanel: React.FC = () => {
           {translating && <p className="skill-panel__translating" role="status">{t("skillPanel.translating")}</p>}
           {visibleSkills.map((skill) => {
             const isOn = skill.enabled && isVisibleForMode(skill, tab, overrides);
-            return (
-              <div key={skill.id} className={"skill-card" + (isOn ? "" : " is-off")}>
-                <div className="skill-card__top">
-                  <SkillIcon skillId={skill.id} name={skill.name} />
-                  <div className="skill-card__body">
-                    <div className="skill-card__name">
-                      {skill.name}
-                      {!skill.enabled && <span className="skill-card__badge">{t("skillPanel.disabledBadge")}</span>}
-                    </div>
-                    <div className="skill-card__meta">
-                      <span className={`skill-card__source skill-card__source--${skill.source}`}>
-                        {t(skill.source === "builtin" ? "skillPanel.sourceBuiltin" : "skillPanel.sourceUser")}
-                      </span>
-                      {skill.version ? <span className="skill-card__version">v{skill.version}</span> : null}
-                    </div>
-                  </div>
-                  <button
-                    ref={node => { if (node) modeButtons.current.set(skill.id, node); else modeButtons.current.delete(skill.id); }}
-                    type="button"
-                    role="switch"
-                    aria-checked={isOn}
-                    aria-busy={savingKeys.has(`${skill.id}/${tab}`)}
-                    aria-label={t("skillPanel.modeVisibility", { skill: skill.name, mode: tab === "code" ? "Code" : "Work" })}
-                    disabled={!skill.enabled || refreshing || enabling || savingKeys.has(`${skill.id}/${tab}`)}
-                    className={`skill-card__pill${isOn ? " is-on" : ""}`}
-                    onClick={() => toggleMode(skill.id, tab, !isOn)}
-                  >
-                    <span className="skill-card__pill-knob" />
-                  </button>
-                  {!skill.enabled && <button type="button" className="skill-card__enable" disabled={refreshing || enabling || savingKeys.size > 0} onClick={event => { enableOpener.current = event.currentTarget; setEnableError(""); setEnableCandidate(skill); }}>{t("skillPanel.enable")}</button>}
-                </div>
-                <div className="skill-card__desc">
-                  {(zh[skill.id] ?? skill.descriptionZh ?? skill.description).split("\n")[0] || t("skillPanel.noDescription")}
-                </div>
-              </div>
-            );
+            const saving = savingKeys.has(`${skill.id}/${tab}`);
+            return <SkillCard key={skill.id} skill={skill} on={isOn} tab={tab} saving={saving}
+              locked={refreshing || enabling} enableLocked={refreshing || enabling || savingKeys.size > 0}
+              description={zh[skill.id] ?? skill.descriptionZh ?? skill.description} t={t}
+              register={node => { if (node) modeButtons.current.set(skill.id, node); else modeButtons.current.delete(skill.id); }}
+              toggle={() => toggleMode(skill.id, tab, !isOn)}
+              enable={node => { enableOpener.current = node; setEnableError(""); setEnableCandidate(skill); }} />;
           })}
           {visibleSkills.length === 0 && <div className="skill-panel__empty">{t("skillPanel.noMatch")}</div>}
         </div>

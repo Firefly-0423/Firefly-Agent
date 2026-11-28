@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import YAML from "yaml";
 import { syntheticHistoryHelper } from "../verify/history-helpers-fixture.mjs";
+import { readProjectLock } from "../build/pnpm-lock.mjs";
 const require = createRequire(import.meta.url);
 const { FileMatcher, copyFiles } = require("app-builder-lib/out/fileMatcher.js");
 const { copyDir } = require("builder-util");
@@ -15,7 +16,7 @@ const { copyDir } = require("builder-util");
 const source = await readFile(new URL("../../electron-builder.yml", import.meta.url), "utf8");
 const installerInclude = await readFile(new URL("../../build/installer.nsh", import.meta.url), "utf8");
 const packageJson = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"));
-const packageLock = JSON.parse(await readFile(new URL("../../package-lock.json", import.meta.url), "utf8"));
+const projectLock = readProjectLock(fileURLToPath(new URL("../../pnpm-lock.yaml", import.meta.url)));
 const packageWorkflow = YAML.parse(await readFile(new URL("../../.github/workflows/package-windows.yml", import.meta.url), "utf8"));
 
 test("vendor resources ship canonical directories and legal notices without a ZIP", async context => {
@@ -80,11 +81,12 @@ test("production TypeScript entry sets exclude tests but retain application and 
 
 test("the Firefly package identity is consistent and does not publish updates", () => {
   assert.equal(packageJson.name, "firefly-agent");
-  assert.equal(packageLock.name, packageJson.name);
-  assert.equal(packageLock.packages[""].name, packageJson.name);
-  assert.equal(packageJson.version, "1.1.4");
-  assert.equal(packageLock.version, packageJson.version);
-  assert.equal(packageLock.packages[""].version, packageJson.version);
+  assert.equal(packageJson.version, "1.2.0");
+  assert.equal(packageJson.packageManager, "pnpm@12.10.1");
+  // pnpm's lock has no name or version; it must instead list exactly the dependencies package.json declares.
+  const specifiers = section => Object.fromEntries(Object.entries(projectLock.importer[section] ?? {}).map(([name, entry]) => [name, entry.specifier]));
+  assert.deepEqual(specifiers("dependencies"), packageJson.dependencies);
+  assert.deepEqual(specifiers("devDependencies"), packageJson.devDependencies);
   assert.match(source, /^appId: com\.serendipitywu02\.firefly$/m);
   assert.match(source, /^productName: Firefly_Agent$/m);
   assert.match(source, /^publish: \[\]$/m);
@@ -97,7 +99,7 @@ test("the core package excludes retired music components and includes the QQ bri
   assert.doesNotMatch(source, /-\s+models\/\*\*\/\*/);
   assert.doesNotMatch(source, /-\s+from: resources\/components/);
   assert.doesNotMatch(source, /-\s+from: resources\/bin\/mpv/);
-  assert.match(source, /-\s+from: src\/main\/music\/scripts\/qqmusic_gsmtc\.ps1/);
+  assert.match(source, /-\s+from: src\/main\/platform\/music\/scripts\/qqmusic_gsmtc\.ps1/);
   assert.match(source, /artifactName:\s+Firefly-Agent-Setup-\$\{version\}\.\$\{ext\}/);
 });
 
@@ -109,17 +111,23 @@ test("the assisted installer exposes Firefly setup choices and an uninstall entr
 
 test("the installer carries upstream and font license notices", () => {
   assert.match(source, /from: LICENSE\s+to: LICENSE/);
-  assert.match(source, /from: THIRD_PARTY_NOTICES\.md\s+to: THIRD_PARTY_NOTICES\.md/);
+  assert.match(source, /from: legal\/THIRD_PARTY_NOTICES\.md\s+to: legal\/THIRD_PARTY_NOTICES\.md/);
   assert.match(source, /from: node_modules\/katex\/LICENSE\s+to: licenses\/KaTeX-LICENSE/);
   assert.match(source, /from: node_modules\/@fontsource-variable\/noto-sans-sc\/LICENSE\s+to: licenses\/NotoSansSC-OFL\.txt/);
   assert.match(source, /from: node_modules\/@fontsource-variable\/jetbrains-mono\/LICENSE\s+to: licenses\/JetBrainsMono-OFL\.txt/);
 });
 
-test("the assisted installer stores launch preferences under the Firefly userData directory", () => {
-  assert.match(
-    installerInclude,
-    /\$APPDATA\\Firefly\\installer-options\.json/,
-  );
+test("the assisted installer stores launch preferences under the 1.2.0 userData directory", async () => {
+  // 目录名只在 data-directory.ts 定义一次；安装器必须写到同一个目录，否则应用读不到开机自启选项。
+  const constantSource = await readFile(new URL("../../src/main/base/identity/data-directory.ts", import.meta.url), "utf8");
+  const directory = constantSource.match(/FIREFLY_DATA_DIRECTORY = "([^"]+)"/)?.[1];
+  assert.equal(directory, "Firefly-1.2.0");
+  const escaped = directory.replace(/[.]/g, "\\.");
+  assert.match(installerInclude, new RegExp(`CreateDirectory "\\$APPDATA\\\\${escaped}"`));
+  assert.match(installerInclude, new RegExp(`\\$APPDATA\\\\${escaped}\\\\installer-options\\.json`));
+  // 1.2.0 不写 1.1.x 的数据目录。
+  assert.doesNotMatch(installerInclude, /\$APPDATA\\Firefly\\installer-options\.json/);
+  assert.doesNotMatch(installerInclude, /CreateDirectory "\$APPDATA\\Firefly"/);
   assert.doesNotMatch(
     installerInclude,
     /\$APPDATA\\\$\{PRODUCT_FILENAME\}\\installer-options\.json/,
@@ -167,16 +175,16 @@ test("both Windows package entrypoints build and verify both helpers before pack
   for (const key of ["package:win:dir", "package:win"]) {
     const steps = packageJson.scripts[key]?.split(" && ");
     assert.ok(steps, `${key} is a supported Windows package entrypoint`);
-    for (const step of ["npm run build", "npm run build:screenshot-helper", "npm run build:history-helpers", "npm run verify:history-helpers", "npm run build:workspace-helper", "npm run verify:workspace-helper", "npm run prepare:mingit"])
+    for (const step of ["pnpm run build", "pnpm run build:screenshot-helper", "pnpm run build:history-helpers", "pnpm run verify:history-helpers", "pnpm run build:workspace-helper", "pnpm run verify:workspace-helper", "pnpm run prepare:mingit"])
       assert.ok(steps.includes(step), `${key} must include ${step}`);
-    const build = steps.indexOf("npm run build:history-helpers");
-    const verify = steps.indexOf("npm run verify:history-helpers");
+    const build = steps.indexOf("pnpm run build:history-helpers");
+    const verify = steps.indexOf("pnpm run verify:history-helpers");
     const pack = steps.findIndex(step => step.startsWith("electron-builder --win"));
     assert.ok(build < verify && verify < pack, `${key} must verify built helpers before electron-builder`);
-    assert.ok(steps.indexOf("npm run build:workspace-helper") < steps.indexOf("npm run verify:workspace-helper") && steps.indexOf("npm run verify:workspace-helper") < pack);
+    assert.ok(steps.indexOf("pnpm run build:workspace-helper") < steps.indexOf("pnpm run verify:workspace-helper") && steps.indexOf("pnpm run verify:workspace-helper") < pack);
   }
-  assert.match(packageJson.scripts["package:win:dir"], /electron-builder --win --dir && npm run verify:workspace-helper -- release\/win-unpacked\/resources\/bin && npm run verify:history-helpers -- release\/win-unpacked\/resources\/bin$/);
-  assert.match(packageJson.scripts["package:win"], /electron-builder --win nsis --publish never && npm run verify:installer$/);
+  assert.match(packageJson.scripts["package:win:dir"], /electron-builder --win --dir && pnpm run verify:workspace-helper release\/win-unpacked\/resources\/bin && pnpm run verify:history-helpers release\/win-unpacked\/resources\/bin$/);
+  assert.match(packageJson.scripts["package:win"], /electron-builder --win nsis --publish never && pnpm run verify:installer$/);
 });
 
 test("installer verification rejects missing packaged helpers before checking legacy artifacts", () => {
@@ -185,9 +193,12 @@ test("installer verification rejects missing packaged helpers before checking le
 
 test("the real Windows NSIS workflow uses the same verified package entrypoint", () => {
   const steps = packageWorkflow.jobs.package.steps;
-  assert.ok(steps.some(step => step.run === "npm run package:win"));
-  assert.ok(!steps.some(step => /npx electron-builder/.test(step.run ?? "")));
-  assert.ok(steps.some(step => step.run === "npm run verify:installer"));
+  assert.ok(steps.some(step => step.run === "pnpm run package:win"));
+  assert.ok(!steps.some(step => /(npx|pnpm exec) electron-builder/.test(step.run ?? "")));
+  assert.ok(steps.some(step => step.run === "pnpm run verify:installer"));
+  // Electron 43 no longer downloads its binary on install; packaging needs it prepared first.
+  const prepare = steps.findIndex(step => /pnpm exec install-electron/.test(step.run ?? ""));
+  assert.ok(prepare >= 0 && prepare < steps.findIndex(step => step.run === "pnpm run package:win"));
   assert.deepEqual(packageWorkflow.permissions, { contents: "read" });
 });
 
@@ -221,12 +232,12 @@ test("Main compilation omits simulator sources while the independent simulator e
   };
   const main = compileSet("tsconfig.main.json");
   assert.ok(main.includes("src/main/index.ts"));
-  assert.deepEqual(main.filter(file => file.startsWith("src/main/sim/")), [],
+  assert.deepEqual(main.filter(file => file.startsWith("src/main/features/diagnostics/sim/")), [],
     "production Main must not compile simulator roots or import them transitively");
   const sim = compileSet("tsconfig.sim.json");
-  assert.ok(sim.includes("src/main/sim/dmae-sim.ts"));
-  assert.ok(sim.includes("src/main/sim/run-l2-sim.ts"));
-  assert.ok(sim.includes("src/main/rag/worldbook.ts"));
+  assert.ok(sim.includes("src/main/features/diagnostics/sim/dmae-sim.ts"));
+  assert.ok(sim.includes("src/main/features/diagnostics/sim/run-l2-sim.ts"));
+  assert.ok(sim.includes("src/main/knowledge/rag/worldbook.ts"));
 });
 
 test("installer file selection excludes both simulator outputs while retaining production entries", async context => {
@@ -239,8 +250,8 @@ test("installer file selection excludes both simulator outputs while retaining p
     "dist/renderer/react/index.html", "dist/cli/index.js", "package.json",
   ];
   const omitted = [
-    "dist/main/main/sim/dmae-sim.js", "dist/main/main/sim/render/stats.js",
-    "dist/sim/main/sim/run-l2-sim.js",
+    "dist/main/main/features/diagnostics/sim/dmae-sim.js", "dist/main/main/features/diagnostics/sim/render/stats.js",
+    "dist/sim/main/features/diagnostics/sim/run-l2-sim.js",
   ];
   for (const file of [...retained, ...omitted]) {
     const location = path.join(input, file);
@@ -250,4 +261,45 @@ test("installer file selection excludes both simulator outputs while retaining p
   await copyFiles([new FileMatcher(input, destination, value => value, config.files)], undefined, false);
   for (const file of retained) assert.equal(await readFile(path.join(destination, file), "utf8"), file);
   for (const file of omitted) await assert.rejects(access(path.join(destination, file)), { code: "ENOENT" });
+});
+
+
+test("disclaimers copy as two offline resources without other documentation", async context => {
+  const config = YAML.parse(source);
+  assert.equal(config.extraResources.some(entry => entry.from === "docs" || entry.from.startsWith("docs/") || entry.from.startsWith("legal/")), false);
+  const entries = config.extraFiles.filter(entry => entry.from === "LICENSE" || entry.from === "docs" || entry.from.startsWith("docs/") || entry.from.startsWith("legal/"));
+  assert.deepEqual(entries, [
+    { from: "LICENSE", to: "LICENSE" },
+    { from: "legal/MODEL_LICENSE.md", to: "legal/MODEL_LICENSE.md" },
+    { from: "legal/THIRD_PARTY_NOTICES.md", to: "legal/THIRD_PARTY_NOTICES.md" },
+    { from: "legal/disclaimer.zh-CN.md", to: "legal/disclaimer.zh-CN.md" },
+    { from: "legal/disclaimer.en.md", to: "legal/disclaimer.en.md" },
+  ]);
+  const destination = await mkdtemp(path.join(os.tmpdir(), "firefly-disclaimers-"));
+  context.after(() => rm(destination, { recursive: true, force: true }));
+  const root = fileURLToPath(new URL("../../", import.meta.url));
+  for (const entry of entries) {
+    await copyFiles([new FileMatcher(path.join(root, entry.from), path.join(destination, entry.to), value => value)], undefined, false);
+    assert.deepEqual(await readFile(path.join(destination, entry.to)), await readFile(path.join(root, entry.from)));
+  }
+  assert.deepEqual((await readdir(path.join(destination, "legal"))).sort(), ["MODEL_LICENSE.md", "THIRD_PARTY_NOTICES.md", "disclaimer.en.md", "disclaimer.zh-CN.md"]);
+  // Every relative link in a shipped notice must resolve inside the staged install; repository-only targets use absolute GitHub URLs.
+  for (const file of await readdir(path.join(destination, "legal"))) {
+    const text = await readFile(path.join(destination, "legal", file), "utf8");
+    for (const [, target] of text.matchAll(/\]\((?!https?:|mailto:|#)([^)#\s]+)/g)) {
+      await access(path.join(destination, "legal", target));
+    }
+  }
+  // The model README ships under the renderer public folder, not beside legal/, so it may not use relative links outside its folder.
+  const modelReadme = await readFile(path.join(root, "src/renderer/public/models/firefly/README.md"), "utf8");
+  for (const [, target] of modelReadme.matchAll(/\]\((?!https?:|mailto:|#)([^)#\s]+)/g)) {
+    assert.equal(target.startsWith("../"), false, `model README link escapes its folder: ${target}`);
+  }
+  const input = await mkdtemp(path.join(os.tmpdir(), "firefly-docs-input-"));
+  context.after(() => rm(input, { recursive: true, force: true }));
+  await mkdir(path.join(input, "docs/user-guide"), { recursive: true });
+  await writeFile(path.join(input, "docs/user-guide/index.md"), "unrelated guide");
+  const application = path.join(destination, "application");
+  await copyFiles([new FileMatcher(input, application, value => value, config.files)], undefined, false);
+  await assert.rejects(access(path.join(application, "docs/user-guide/index.md")), { code: "ENOENT" });
 });

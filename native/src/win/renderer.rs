@@ -140,30 +140,40 @@ use crate::win::{
     },
 };
 
+/// 选区工具栏里每个可点区域的位置，均为窗口坐标。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ToolbarLayout {
+    /// 整条工具栏的外框。
     pub toolbar: RectI,
-    /// Tool buttons occupy the left side of the strip.
+    /// 四个颜色色块，从左到右对应 AnnotationColor 的顺序。
+    pub colors: [RectI; 4],
+    /// 左侧三个工具：矩形、箭头、撤销。
     pub rectangle: RectI,
     pub arrow: RectI,
     pub undo: RectI,
-    /// Separate hit boxes for accepting or cancelling the selection.
-    pub confirm: RectI,
+    /// 右端的取消与确认。
     pub cancel: RectI,
-    pub colors: [RectI; 4],
+    pub confirm: RectI,
 }
-// Field order also determines the order of COM releases after Drop.
+
+/// Direct2D 呈现链。字段按声明顺序释放：先断开设备上下文，再放交换链，最后放冻结位图。
+struct GpuPresenter {
+    context: Option<ID2D1DeviceContext>,
+    buffers: Option<IDXGISwapChain1>,
+    frozen: Option<ID2D1Bitmap1>,
+    /// 当前交换链或冻结位图的像素尺寸（宽, 高）。
+    size: (u32, u32),
+}
+
+/// 遮罩窗口的绘制器。释放顺序：CPU 缓存 → GPU 呈现链 → D2D 工厂 → 字体。
 pub struct OverlayRenderer {
     gdi_cache: Option<GdiFrameCache>,
-    d2d_device_context: Option<ID2D1DeviceContext>,
-    swap_chain: Option<IDXGISwapChain1>,
-    gpu_bitmap: Option<ID2D1Bitmap1>,
-    gpu_texture_width: u32,
-    gpu_texture_height: u32,
+    gpu: GpuPresenter,
+    factory: Option<ID2D1Factory>,
+    label_font: Option<IDWriteTextFormat>,
     pub d2d_available: bool,
+    /// 累计上传冻结帧的次数，清空缓存不会归零（供诊断计数）。
     pub upload_count: u64,
-    _d2d_factory: Option<ID2D1Factory>,
-    text_format: Option<IDWriteTextFormat>,
 }
 
 struct GdiFrameCache {
@@ -227,15 +237,11 @@ impl OverlayRenderer {
         Ok(
             Self {
                 gdi_cache: None,
-                gpu_bitmap: None,
-                d2d_device_context: None,
-                swap_chain: None,
-                gpu_texture_width: 0,
-                gpu_texture_height: 0,
+                gpu: GpuPresenter { context: None, buffers: None, frozen: None, size: (0, 0) },
                 d2d_available: drawing_factory.is_some(),
+                factory: drawing_factory,
+                label_font: font,
                 upload_count: 0,
-                _d2d_factory: drawing_factory,
-                text_format: font,
             }
         )
     }
@@ -246,7 +252,7 @@ impl OverlayRenderer {
         overlay_handle: HWND,
         monitor: &DisplayInfo
     ) -> Result<(), HelperError> {
-        let _factory_ref = self._d2d_factory.as_ref().ok_or_else(
+        let _factory_ref = self.factory.as_ref().ok_or_else(
             || HelperError::CaptureFailed("cannot init GPU resources without D2D factory".into())
         )?;
         let graphics: IDXGIDevice = capture_device.cast().map_err(
@@ -291,15 +297,14 @@ impl OverlayRenderer {
         }.map_err(
             |error| HelperError::CaptureFailed(format!("CreateSwapChainForHwnd failed: {error}"))
         )?;
-        self.d2d_device_context = Some(painter);
-        self.swap_chain = Some(buffers);
-        self.gpu_texture_width = monitor.bounds.width;
-        self.gpu_texture_height = monitor.bounds.height;
+        self.gpu.context = Some(painter);
+        self.gpu.buffers = Some(buffers);
+        self.gpu.size = (monitor.bounds.width, monitor.bounds.height);
         Ok(())
     }
 
     pub fn resize(&mut self, _overlay_handle: HWND, monitor: &DisplayInfo) -> Result<(), HelperError> {
-        if let Some(buffers) = &self.swap_chain {
+        if let Some(buffers) = &self.gpu.buffers {
             unsafe {
                 buffers.ResizeBuffers(
                     0,
@@ -320,14 +325,14 @@ impl OverlayRenderer {
         overlay_handle: HWND,
         monitor: &DisplayInfo
     ) -> Result<(), HelperError> {
-        if self.d2d_device_context.is_none() {
+        if self.gpu.context.is_none() {
             self.init_gpu_resources(&frozen_frame.device, overlay_handle, monitor)?;
         }
         let oriented = frozen_frame.frozen_oriented.as_ref().unwrap_or(&frozen_frame.frozen);
         let shared_surface: IDXGISurface = oriented.cast().map_err(
             |error| HelperError::CaptureFailed(format!("ID3D11Texture2D cast to IDXGISurface failed: {error}"))
         )?;
-        let painter = self.d2d_device_context.as_ref().ok_or_else( || HelperError::CaptureFailed("D2D device context not initialized".into()))?;
+        let painter = self.gpu.context.as_ref().ok_or_else( || HelperError::CaptureFailed("D2D device context not initialized".into()))?;
         let description = D2D1_BITMAP_PROPERTIES1 {
             pixelFormat: opaque_pixel_format(),
             bitmapOptions: D2D1_BITMAP_OPTIONS_NONE,
@@ -340,9 +345,8 @@ impl OverlayRenderer {
         }.map_err(
             |error| HelperError::CaptureFailed(format!("CreateBitmapFromDxgiSurface failed: {error}"))
         )?;
-        self.gpu_bitmap = Some(frozen);
-        self.gpu_texture_width = frozen_frame.width;
-        self.gpu_texture_height = frozen_frame.height;
+        self.gpu.frozen = Some(frozen);
+        self.gpu.size = (frozen_frame.width, frozen_frame.height);
         self.upload_count = self.upload_count.saturating_add(1);
         Ok(())
     }
@@ -357,8 +361,8 @@ impl OverlayRenderer {
 
     pub fn clear_frozen(&mut self) {
         self.discard_cpu_frame();
-        self.gpu_bitmap = None;
-        if let Some(painter) = &self.d2d_device_context {
+        self.gpu.frozen = None;
+        if let Some(painter) = &self.gpu.context {
             unsafe {
                 painter.SetTarget(None::<&ID2D1Image>);
             }
@@ -368,9 +372,9 @@ impl OverlayRenderer {
     pub fn reset_gpu_resources(&mut self) {
         self.clear_frozen();
         // Release the context before releasing its swap chain.
-        self.d2d_device_context = None;
-        self.swap_chain = None;
-        (self.gpu_texture_width, self.gpu_texture_height) = (0, 0);
+        self.gpu.context = None;
+        self.gpu.buffers = None;
+        self.gpu.size = (0, 0);
     }
 
     pub fn paint(
@@ -380,7 +384,7 @@ impl OverlayRenderer {
         monitor: &DisplayInfo,
         toolbar_layout: Option<ToolbarLayout>
     ) -> Result<(), HelperError> {
-        match (self.gpu_bitmap.is_some(), self.swap_chain.is_some()) {
+        match (self.gpu.frozen.is_some(), self.gpu.buffers.is_some()) {
             (true, true) => self.paint_d2d(
                 overlay_handle,
                 selected_area,
@@ -409,7 +413,7 @@ impl OverlayRenderer {
         selected_tool: Option<AnnotationTool>,
         selected_color: AnnotationColor
     ) -> Result<(), HelperError> {
-        if self.gpu_bitmap.is_some() && self.swap_chain.is_some() {
+        if self.gpu.frozen.is_some() && self.gpu.buffers.is_some() {
             return self.paint_d2d(
                 overlay_handle,
                 selected_area,
@@ -483,8 +487,8 @@ impl OverlayRenderer {
         selected_tool: Option<AnnotationTool>,
         selected_color: AnnotationColor
     ) -> Result<(), HelperError> {
-        let painter = self.d2d_device_context.as_ref().ok_or_else( || HelperError::CaptureFailed("D2D context missing in paint_d2d".into()))?;
-        let buffers = self.swap_chain.as_ref().ok_or_else( || HelperError::CaptureFailed("swap chain missing in paint_d2d".into()))?;
+        let painter = self.gpu.context.as_ref().ok_or_else( || HelperError::CaptureFailed("D2D context missing in paint_d2d".into()))?;
+        let buffers = self.gpu.buffers.as_ref().ok_or_else( || HelperError::CaptureFailed("swap chain missing in paint_d2d".into()))?;
         let output: ID3D11Texture2D = unsafe {
             buffers.GetBuffer::<ID3D11Texture2D>(0)
         }.map_err(|error| HelperError::CaptureFailed(format!("GetBuffer(0) failed: {error}")))?;
@@ -534,7 +538,7 @@ impl OverlayRenderer {
         }
         let extent_x = monitor.bounds.width as f32;
         let extent_y = monitor.bounds.height as f32;
-        if let Some(desktop) = &self.gpu_bitmap {
+        if let Some(desktop) = &self.gpu.frozen {
             let area = D2D::D2D_RECT_F {
                 left: 0.0,
                 top: 0.0,
@@ -591,7 +595,7 @@ impl OverlayRenderer {
         selected_tool: Option<AnnotationTool>,
         selected_color: AnnotationColor
     ) -> Result<(), HelperError> {
-        let owner = self._d2d_factory.as_ref().ok_or_else(
+        let owner = self.factory.as_ref().ok_or_else(
             || HelperError::CaptureFailed("D2D factory missing while drawing overlay".into())
         )?;
         let stroke = unsafe {
@@ -624,7 +628,7 @@ impl OverlayRenderer {
                     target.FillRectangle(&square, &accent);
                 }
             }
-            if let Some(font) = &self.text_format {
+            if let Some(font) = &self.label_font {
                 let caption: Vec<u16> = format!("{} x {}", chosen.width, chosen.height).encode_utf16().collect();
                 let baseline = match chosen.y >= 24 {
                     true => chosen.y as f32 - 24.0,
@@ -721,7 +725,7 @@ impl OverlayRenderer {
         selected_tool: Option<AnnotationTool>,
         selected_color: AnnotationColor
     ) -> Result<(), HelperError> {
-        let owner = self._d2d_factory.as_ref().ok_or_else(
+        let owner = self.factory.as_ref().ok_or_else(
             || HelperError::CaptureFailed("D2D factory unavailable for GDI overlay details".into())
         )?;
         let destination: ID2D1DCRenderTarget = unsafe {
@@ -795,7 +799,7 @@ impl OverlayRenderer {
                 HelperError::CaptureFailed("extract_selection called with zero-sized rect".into())
             );
         }
-        if self.gdi_cache.is_none() && self.gpu_bitmap.is_some() {
+        if self.gdi_cache.is_none() && self.gpu.frozen.is_some() {
             return match gpu_frame {
                 Some(texture_frame) => texture_frame.readback_selection(crop),
                 None => Err(
@@ -965,18 +969,7 @@ fn arrow_unit(from: (i32, i32), to: (i32, i32)) -> (f64, f64) {
 }
 
 fn draw_mark_d2d(target: &ID2D1RenderTarget, annotation: Mark, stroke: &ID2D1StrokeStyle) -> Result<(), HelperError> {
-    let (from, to, hue, pointed) = match annotation {
-        Mark::Arrow {
-            start: from,
-            end: to,
-            color: hue
-        } => (from, to, hue, true),
-        Mark::Rect {
-            start: from,
-            end: to,
-            color: hue
-        } => (from, to, hue, false),
-    };
+    let (from, to, hue, pointed) = (annotation.start, annotation.end, annotation.color, annotation.is_arrow());
     let pigment = d2d_annotation_brush(target, hue)?;
     unsafe {
         if pointed {
@@ -1115,18 +1108,7 @@ pub fn burn_annotations(
     selection_origin: crate::geometry::PointI
 ) {
     for annotation in annotations {
-        let (from, to, hue, pointed) = match *annotation {
-            Mark::Arrow {
-                start: from,
-                end: to,
-                color: hue
-            } => (from, to, hue, true),
-            Mark::Rect {
-                start: from,
-                end: to,
-                color: hue
-            } => (from, to, hue, false),
-        };
+        let (from, to, hue, pointed) = (annotation.start, annotation.end, annotation.color, annotation.is_arrow());
         let local_from = (
             from.x.saturating_sub(selection_origin.x),
             from.y.saturating_sub(selection_origin.y)
@@ -1769,18 +1751,7 @@ fn draw_overlay_details_gdi(
 }
 
 fn draw_mark_gdi(destination: HDC, annotation: Mark) -> Result<(), HelperError> {
-    let (from, to, hue, pointed) = match annotation {
-        Mark::Arrow {
-            start: from,
-            end: to,
-            color: hue
-        } => (from, to, hue, true),
-        Mark::Rect {
-            start: from,
-            end: to,
-            color: hue
-        } => (from, to, hue, false),
-    };
+    let (from, to, hue, pointed) = (annotation.start, annotation.end, annotation.color, annotation.is_arrow());
     with_gdi_outline(
         destination,
         3,
@@ -1994,219 +1965,99 @@ pub(crate) fn paint_hdc(destination: HDC, chosen: Option<RectI>, monitor: &Displ
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::geometry::{DisplayRotation, PointI};
 
-    fn sample_frame(width: u32, height: u32) -> CpuBgraFrame {
-        let pitch = width * 4;
-        CpuBgraFrame {
-            width,
-            height,
-            pitch,
-            pixels: vec![0u8; (pitch * height) as usize],
+    /// A frame whose pixel (x, y) is BGRA [3x, 5y, 100 + x + y, 255], so any copied pixel names its source.
+    fn labelled_frame(width: u32, height: u32) -> CpuBgraFrame {
+        let pixels = (0..height)
+            .flat_map(|y| (0..width).flat_map(move |x| [(3 * x) as u8, (5 * y) as u8, (100 + x + y) as u8, 255]))
+            .collect();
+        CpuBgraFrame { width, height, pitch: width * 4, pixels }
+    }
+
+    fn blank_frame(side: u32) -> CpuBgraFrame {
+        CpuBgraFrame { width: side, height: side, pitch: side * 4, pixels: vec![0; (side * side * 4) as usize] }
+    }
+
+    fn pixel(frame: &CpuBgraFrame, x: u32, y: u32) -> [u8; 4] {
+        let at = (y * frame.pitch + x * 4) as usize;
+        frame.pixels[at..at + 4].try_into().expect("four channels")
+    }
+
+    #[test]
+    fn every_upload_is_counted_and_clearing_keeps_the_count() {
+        let mut renderer = OverlayRenderer::new().expect("the renderer starts");
+        let frame = blank_frame(6);
+        for expected in 1..=3 {
+            renderer.upload_frozen(&frame).expect("a frame uploads");
+            assert_eq!(renderer.upload_count, expected);
         }
-    }
-
-    #[test]
-    fn upload_count_increments_per_upload_and_survives_clear() {
-        let mut renderer = OverlayRenderer::new().expect("OverlayRenderer::new");
-        assert_eq!(renderer.upload_count, 0);
-
-        let frame = sample_frame(8, 8);
-        renderer
-            .upload_frozen(&frame)
-            .expect("first upload_frozen must succeed under an interactive session");
-        assert_eq!(renderer.upload_count, 1);
-
-        renderer
-            .upload_frozen(&frame)
-            .expect("second upload replaces the cache");
-        assert_eq!(renderer.upload_count, 2);
-
         renderer.clear_frozen();
-        // clear drops the GDI cache (Drop path) but does not reset the counter.
-        assert_eq!(renderer.upload_count, 2);
-        assert!(renderer.gdi_cache.is_none());
+        assert!(renderer.gdi_cache.is_none(), "clearing drops the CPU copy");
+        assert_eq!(renderer.upload_count, 3, "the diagnostic count survives clearing");
     }
 
     #[test]
-    fn gdi_frame_cache_drop_releases_without_panic() {
-        let frame = sample_frame(4, 4);
-        let cache = create_gdi_frame_cache(&frame).expect("create_gdi_frame_cache");
-        // Explicit drop exercises GdiFrameCache::drop (SelectObject + Delete*).
+    fn the_cpu_cache_composes_off_screen_and_releases_cleanly() {
+        let cache = create_gdi_frame_cache(&blank_frame(10)).expect("a cache is created");
+        // Composing straight into the frozen source would show half-drawn frames.
+        assert_ne!(cache.mem_dc, cache.composition_hdc());
         drop(cache);
     }
 
     #[test]
-    fn gdi_frame_cache_uses_a_separate_composition_surface() {
-        let frame = sample_frame(8, 8);
-        let cache = create_gdi_frame_cache(&frame).expect("create_gdi_frame_cache");
-
-        assert_ne!(
-            cache.mem_dc,
-            cache.composition_hdc(),
-            "drawing directly into the frozen source would expose intermediate frames"
-        );
+    fn a_selection_is_cut_from_exactly_the_requested_rectangle() {
+        let mut renderer = OverlayRenderer::new().expect("the renderer starts");
+        renderer.upload_frozen(&labelled_frame(5, 4)).expect("the frame uploads");
+        let cut = renderer.extract_selection(RectI { x: 2, y: 1, width: 2, height: 3 }, None).expect("the selection is extracted");
+        let expected: Vec<u8> = (1..=3u32).flat_map(|y| (2..=3u32).flat_map(move |x| [(3 * x) as u8, (5 * y) as u8, (100 + x + y) as u8, 255])).collect();
+        assert_eq!(cut.pixels, expected);
     }
 
     #[test]
-    fn gdi_selection_extracts_pixels_from_the_frozen_frame() {
-        let width = 4;
-        let height = 3;
-        let pitch = width * 4;
-        let mut pixels = Vec::with_capacity((pitch * height) as usize);
-        for y in 0..height {
-            for x in 0..width {
-                pixels.extend_from_slice(&[
-                    (10 + x) as u8,
-                    (20 + y) as u8,
-                    (30 + x + y) as u8,
-                    255,
-                ]);
-            }
-        }
-        let frame = CpuBgraFrame {
-            width,
-            height,
-            pitch,
-            pixels,
-        };
-        let mut renderer = OverlayRenderer::new().expect("OverlayRenderer::new");
-        renderer
-            .upload_frozen(&frame)
-            .expect("upload_frozen must cache the source pixels");
-
-        let selection = renderer
-            .extract_selection(
-                RectI {
-                    x: 1,
-                    y: 1,
-                    width: 2,
-                    height: 2,
-                },
-                None,
-            )
-            .expect("extract_selection must succeed");
-
-        assert_eq!(
-            selection.pixels,
-            vec![
-                11, 21, 32, 255, 12, 21, 33, 255, // source row y=1
-                11, 22, 33, 255, 12, 22, 34, 255, // source row y=2
-            ],
-            "selection pixels must come from the requested frozen-frame rectangle"
-        );
-    }
-
-    #[test]
-    fn toolbar_contains_five_buttons_in_required_order() {
+    fn toolbar_buttons_run_left_to_right_with_four_colour_swatches() {
         let display = DisplayInfo {
-            bounds: RectI {
-                x: 0,
-                y: 0,
-                width: 800,
-                height: 600,
-            },
-            dpi: 96.0,
-            rotation: crate::geometry::DisplayRotation::Identity,
+            bounds: RectI { x: 0, y: 0, width: 1280, height: 720 },
+            dpi: 144.0,
+            rotation: DisplayRotation::Identity,
             is_primary: true,
         };
-        let layout = compute_toolbar(
-            RectI {
-                x: 100,
-                y: 100,
-                width: 400,
-                height: 300,
-            },
-            &display,
-        )
-        .expect("toolbar");
-
-        assert!(layout.rectangle.x < layout.arrow.x);
-        assert!(layout.arrow.x < layout.undo.x);
-        assert!(layout.undo.x < layout.cancel.x);
-        assert!(layout.cancel.x < layout.confirm.x);
-        assert_eq!(layout.colors.len(), 4);
+        let bar = compute_toolbar(RectI { x: 300, y: 200, width: 500, height: 260 }, &display).expect("a toolbar fits");
+        let order = [bar.rectangle.x, bar.arrow.x, bar.undo.x, bar.cancel.x, bar.confirm.x];
+        assert!(order.windows(2).all(|pair| pair[0] < pair[1]), "buttons out of order: {order:?}");
+        assert_eq!(bar.colors.len(), 4);
     }
 
     #[test]
-    fn burning_a_mark_changes_pixels_relative_to_the_selection() {
-        let mut frame = sample_frame(20, 20);
-        burn_annotations(
-            &mut frame,
-            &[Mark::Rect {
-                start: crate::geometry::PointI { x: 12, y: 13 },
-                end: crate::geometry::PointI { x: 18, y: 17 },
-                color: AnnotationColor::Red,
-            }],
-            crate::geometry::PointI { x: 10, y: 10 },
-        );
-
-        let offset = ((3 * frame.pitch) + 2 * 4) as usize;
-        assert_eq!(&frame.pixels[offset..offset + 4], &[0x4f, 0x4d, 0xff, 0xff]);
+    fn a_burned_mark_lands_relative_to_the_selection_origin() {
+        let mut frame = blank_frame(16);
+        let mark = Mark { tool: AnnotationTool::Rectangle, start: PointI { x: 25, y: 31 }, end: PointI { x: 33, y: 40 }, color: AnnotationColor::Red };
+        burn_annotations(&mut frame, &[mark], PointI { x: 20, y: 30 });
+        // Red is #FF4D4F, stored as BGRA.
+        assert_eq!(pixel(&frame, 5, 1), [0x4f, 0x4d, 0xff, 0xff]);
+        assert_eq!(pixel(&frame, 0, 0), [0, 0, 0, 0], "pixels away from the mark are untouched");
     }
 
     #[test]
-    fn dim_regions_cover_only_the_area_outside_the_selection() {
-        let regions = dim_regions(
-            100,
-            80,
-            Some(RectI {
-                x: 20,
-                y: 10,
-                width: 40,
-                height: 30,
-            }),
-        );
-
-        assert_eq!(
-            regions,
-            vec![
-                RectI {
-                    x: 0,
-                    y: 0,
-                    width: 100,
-                    height: 10,
-                },
-                RectI {
-                    x: 0,
-                    y: 40,
-                    width: 100,
-                    height: 40,
-                },
-                RectI {
-                    x: 0,
-                    y: 10,
-                    width: 20,
-                    height: 30,
-                },
-                RectI {
-                    x: 60,
-                    y: 10,
-                    width: 40,
-                    height: 30,
-                },
-            ]
-        );
+    fn a_slanted_arrow_has_partly_covered_edge_pixels() {
+        let mut frame = blank_frame(30);
+        let arrow = Mark { tool: AnnotationTool::Arrow, start: PointI { x: 3, y: 25 }, end: PointI { x: 26, y: 4 }, color: AnnotationColor::Red };
+        burn_annotations(&mut frame, &[arrow], PointI { x: 0, y: 0 });
+        assert!(frame.pixels.chunks_exact(4).any(|bgra| bgra[2] > 0 && bgra[2] < 0xff), "no anti-aliased edge");
     }
 
     #[test]
-    fn diagonal_annotations_blend_edge_pixels_for_antialiasing() {
-        let mut frame = sample_frame(24, 24);
-        burn_annotations(
-            &mut frame,
-            &[Mark::Arrow {
-                start: crate::geometry::PointI { x: 2, y: 3 },
-                end: crate::geometry::PointI { x: 20, y: 15 },
-                color: AnnotationColor::Red,
-            }],
-            crate::geometry::PointI { x: 0, y: 0 },
-        );
-
-        assert!(
-            frame
-                .pixels
-                .chunks_exact(4)
-                .any(|pixel| pixel[2] > 0 && pixel[2] < 0xff),
-            "a diagonal edge should contain partially covered pixels"
-        );
+    fn dimming_covers_the_four_bands_around_the_selection() {
+        let bands = dim_regions(200, 100, Some(RectI { x: 50, y: 20, width: 60, height: 30 }));
+        let total: u64 = bands.iter().map(|band| u64::from(band.width) * u64::from(band.height)).sum();
+        assert_eq!(total, 200 * 100 - 60 * 30, "the bands cover everything but the selection, once");
+        for band in [
+            RectI { x: 0, y: 0, width: 200, height: 20 },
+            RectI { x: 0, y: 50, width: 200, height: 50 },
+            RectI { x: 0, y: 20, width: 50, height: 30 },
+            RectI { x: 110, y: 20, width: 90, height: 30 },
+        ] {
+            assert!(bands.contains(&band), "missing {band:?} in {bands:?}");
+        }
     }
 }

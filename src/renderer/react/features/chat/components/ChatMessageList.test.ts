@@ -5,8 +5,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { ChatMessageChannelSource } from "../../../../../shared/chat-types";
 
+const bubbleListCalls = vi.hoisted(() => [] as Array<Record<string, unknown>>);
 vi.mock("@ant-design/x", () => ({
-  Bubble: { List: () => null }, CodeHighlighter: () => null,
+  Bubble: { List: (props: Record<string, unknown>) => { bubbleListCalls.push(props); return null; } }, CodeHighlighter: () => null,
   ThoughtChain: ({ items }: { items: { key: string; title: React.ReactNode; description?: React.ReactNode }[] }) =>
     items.map((item) => React.createElement("div", { key: item.key, "data-chain-item": item.key }, item.title, " ", item.description)),
   Think: ({ icon, title, children }: { icon: React.ReactNode; title: React.ReactNode; children: React.ReactNode }) =>
@@ -15,8 +16,9 @@ vi.mock("@ant-design/x", () => ({
 vi.mock("../../../../../shared/renderer-base", () => ({ resolveAsset: (asset: string) => asset }));
 vi.mock("./MermaidBlock", () => ({ MermaidBlock: () => null }));
 vi.mock("./SvgCardBlock", () => ({ SvgCardBlock: () => null }));
-import { assembleMessageItems, createMessageItems, formatChannelSourceLabel, MarkdownContent, resolveChannelConversationLabel,
+import { ChatMessageList, assembleMessageItems, createMessageItems, formatChannelSourceLabel, MarkdownContent, resolveChannelConversationLabel,
   RunActivityDetail, finishedRunFacts, type ChatMessageItem, type EnabledSticker } from "./ChatMessageList";
+import { createRoot } from "react-dom/client";
 import { extractMessageStickerId, stripMessageStickerMarkers } from "./message-sticker";
 
 beforeEach(() => vi.stubGlobal("React", React));
@@ -37,6 +39,48 @@ function style(selector: string) {
   expect(rule).toBeDefined();
   return rule!.style;
 }
+
+test.each(["work", "code"] as const)("shows committed insertions once between adjacent rounds after opening %s history", mode => {
+  const owner = reply({ runId: "run-1", runActivity: activity, agentRounds: [
+    { id: "round-0", status: "completed", startedAt: 101, completedAt: 120 },
+    { id: "round-1", status: "completed", startedAt: 121, completedAt: 140 },
+  ], processMessages: [
+    { id: "before", content: "Before supplement", roundId: "round-0", seq: 2 },
+    { id: "after", content: "After supplement", roundId: "round-1", seq: 3 },
+  ] });
+  const markers = [2, 1].map(order => ({
+    id: "supplement-" + order, role: "user" as const, content: "User supplement " + order,
+    runInsertion: { version: 1 as const, runId: "run-1", assistantTurnId: owner.id, revision: 1, sequence: order,
+      delivery: { round: 1, order } },
+  }));
+  const prior = { id: "original", role: "user" as const, content: "Original question" };
+  const committedOnly = { ...markers[0], id: "committed-only", runInsertion: { ...markers[0].runInsertion, delivery: undefined } };
+  const wrongRun = { ...markers[0], id: "wrong-run", runInsertion: { ...markers[0].runInsertion, runId: "run-2" } };
+  const missingRound = { ...markers[0], id: "missing-round", runInsertion: { ...markers[0].runInsertion, delivery: { round: 5, order: 3 } } };
+  const source = [prior, owner, ...markers, { ...markers[1] }, committedOnly, wrongRun, missingRound];
+  const projected = createMessageItems(source, [], mode);
+  expect(projected.filter(item => item.role === "user").map(item => item.key))
+    .toEqual(["original", "committed-only", "wrong-run", "missing-round"]);
+  const props = projected.find(item => item.role === "activity")?.extraInfo as Partial<React.ComponentProps<typeof RunActivityDetail>>;
+  const html = draw(props);
+  const order = ["Before supplement", "User supplement 1", "User supplement 2", "After supplement"].map(text => html.indexOf(text));
+  expect(order.every(index => index >= 0)).toBe(true);
+  expect(order).toEqual([...order].sort((a, b) => a - b));
+  expect(html.match(/User supplement 1/g)).toHaveLength(1);
+  expect(createMessageItems(source, [], "chat").filter(item => item.role === "user").map(item => item.key))
+    .toEqual(["original", "supplement-2", "supplement-1", "supplement-1", "committed-only", "wrong-run", "missing-round"]);
+});
+
+test("a sticker-only Work insertion keeps its sticker inside the owning activity", () => {
+  const owner = reply({ runId: "run-1", runActivity: activity,
+    agentRounds: [{ id: "round-0", status: "completed", startedAt: 100, completedAt: 150 }] });
+  const supplement: ChatMessageItem = { id: "sticker", role: "user", content: "[sticker:test-harness]", sticker: "test-harness",
+    runInsertion: { version: 1, runId: "run-1", assistantTurnId: owner.id, revision: 1, sequence: 1, delivery: { round: 1, order: 1 } } };
+  const projected = createMessageItems([owner, supplement], [{ id: "test-harness", src: "/fixture-sticker.png" }], "work");
+  expect(projected.some(item => item.role === "user")).toBe(false);
+  const info = projected.find(item => item.role === "activity")?.extraInfo as Partial<React.ComponentProps<typeof RunActivityDetail>>;
+  expect(draw(info)).toContain('src="/fixture-sticker.png"');
+});
 
 test("removes transport sticker markers while retaining the stored message and retired notice", () => {
   const stored: ChatMessageItem = { id: "archived-greeting", role: "user", content: "Greetings [sticker:calm]" };
@@ -74,9 +118,8 @@ test("uses transient display text without modifying persisted content", () => {
 
 test.each([true, false])("renders Markdown for streaming=%s without live-tail decorations", (streaming) => {
   const html = renderToStaticMarkup(React.createElement(MarkdownContent, { content: "Visible response", streaming }));
-  // While streaming, each character is wrapped for its fade-in, so compare the visible text.
   expect(html.replace(/<[^>]+>/g, "")).toContain("Visible response");
-  expect(html.includes("data-sd-animate")).toBe(streaming);
+  expect(html).not.toContain("data-sd-animate");
   expect(html).toContain("ff-streamdown-message");
   for (const forbidden of ["ff-live-answer", "流萤正在生成…"]) expect(html).not.toContain(forbidden);
 });
@@ -255,4 +298,61 @@ test("preserves reasoning/answer item order and identities on cache hits", () =>
   const second = assembleMessageItems([message], catalog, first.cache);
   expect(second.items.map(item => item.key)).toStrictEqual(first.items.map(item => item.key));
   expect(second.items.every((item, index) => item === first.items[index])).toBe(true);
+});
+
+test("displays live tool progress message on running tool card", () => {
+  const html = draw({
+    live: true,
+    agentRounds: [rounds[1]],
+    tools: [{
+      id: "plugin-step",
+      roundId: "verification",
+      name: "demo_sync",
+      displayName: "同步数据",
+      status: "running",
+      progress: { message: "上传分片", percent: 60 },
+    }],
+  });
+  const text = html.replace(/<[^>]+>/g, "");
+  expect(text).toContain("同步数据");
+  expect(text).toContain("上传分片 (60%)");
+});
+
+test("gives scroll ownership solely to outer useScrollPinning without Bubble.List autoScroll or 100ms jump timer", () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.useFakeTimers();
+  bubbleListCalls.length = 0;
+  const host = document.body.appendChild(document.createElement("div"));
+  const root = createRoot(host);
+  const scrollToSpy = vi.fn();
+  try {
+    React.act(() => {
+      root.render(React.createElement(ChatMessageList, {
+        messages: [{ id: "m1", role: "user", content: "Hello" }],
+        conversationId: "session-a",
+        mode: "chat",
+        preferredAddress: "",
+      }));
+    });
+    expect(bubbleListCalls.at(-1)?.autoScroll).toBe(false);
+    const scroller = host.querySelector(".ff-message-list") as HTMLDivElement;
+    scroller.scrollTo = scrollToSpy;
+    React.act(() => {
+      root.render(React.createElement(ChatMessageList, {
+        messages: [{ id: "m2", role: "user", content: "Switched" }],
+        conversationId: "session-b",
+        mode: "chat",
+        preferredAddress: "",
+      }));
+    });
+    expect(scrollToSpy).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(200);
+    expect(scrollToSpy).toHaveBeenCalledTimes(1);
+    const css = readFileSync("src/renderer/react/features/chat/components/ChatMessageList.css", "utf8");
+    expect(css).toMatch(/\.ff-message-list \.ant-bubble-list-scroll-box\s*\{[^}]*overflow-y:\s*visible/);
+  } finally {
+    vi.useRealTimers();
+    React.act(() => root.unmount());
+    host.remove();
+  }
 });

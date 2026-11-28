@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MODEL_PRESETS, sortPresetsForDisplay } from "./presets";
-import { getCapability } from "../../../main/orchestrator/vendors/capabilities";
+import { getCapability } from "../../../main/model/providers/capabilities";
 
 describe("MODEL_PRESETS — OpenRouter 预设", () => {
   const preset = MODEL_PRESETS.find((item) => item.providerName === "OpenRouter");
