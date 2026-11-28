@@ -726,6 +726,31 @@ describe("PluginSchedulesService (v2)", () => {
       expect(task.nextFireAt).toBeNull();
     });
 
+    it("a one-shot callback with no listener stops retrying once the window from its original time has passed", async () => {
+      const { store, service } = setupHarness();
+      const client = service.forPlugin("dev.firefly.reminder");
+      const proposed = await client.propose({
+        title: "Once", schedule: { kind: "once", at: BASE_TIME.getTime() + 5 * 60_000 }, action: { type: "callback" },
+      });
+      service.confirmProposal(proposed.taskId);
+
+      currentNow = new Date("2032-03-10T10:05:00.000Z");
+      await vi.advanceTimersByTimeAsync(5 * 60_000);
+      // Keep stepping for 30 minutes past the original time (10:05); the window is 10 minutes.
+      for (let minute = 6; minute <= 35; minute++) {
+        currentNow = new Date(BASE_TIME.getTime() + minute * 60_000);
+        await vi.advanceTimersByTimeAsync(60_000);
+      }
+
+      const [task] = store.getTasks();
+      const history = store.getHistory(task.id);
+      // Fires at 10:05 .. 10:14; the retry armed at 10:14 would land on the 10:15 deadline, so it is not armed.
+      expect(history).toHaveLength(10);
+      expect(history.map(entry => entry.status)).toEqual(Array(10).fill("skipped"));
+      expect(history.every(entry => entry.reason === CALLBACK_LISTENER_UNAVAILABLE_REASON)).toBe(true);
+      expect(task.nextFireAt).toBeNull();
+    });
+
     it("re-arms general cron schedules after firing", async () => {
       const { store, service, runAgentMock } = setupHarness();
       const pluginA = service.forPlugin("dev.firefly.cron");

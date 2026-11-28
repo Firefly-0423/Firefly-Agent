@@ -473,16 +473,15 @@ export function createPluginScheduleService(options: PluginScheduleServiceOption
       reason: CALLBACK_LISTENER_UNAVAILABLE_REASON,
       effectiveToolIds: [...task.allowedToolIds],
     });
-    if (
-      !requestedByUser
-      && task.schedule.kind === "once"
-      && clock().getTime() - appointment.getTime() < ONCE_LISTENER_RETRY_WINDOW_MS
-    ) {
-      store.updateTask(task.id, {
-        pluginUserEnabled: true,
-        nextFireAt: new Date(clock().getTime() + ONCE_LISTENER_RETRY_DELAY_MS).toISOString(),
-      });
-      refreshEngine();
+    if (!requestedByUser && task.schedule.kind === "once") {
+      // The deadline hangs off the task's fixed original time: `appointment` follows nextFireAt, which each retry moves.
+      const originalAt = Date.parse(task.schedule.runAt);
+      const deadline = (Number.isFinite(originalAt) ? originalAt : appointment.getTime()) + ONCE_LISTENER_RETRY_WINDOW_MS;
+      const retryAt = clock().getTime() + ONCE_LISTENER_RETRY_DELAY_MS;
+      if (retryAt < deadline) {
+        store.updateTask(task.id, { pluginUserEnabled: true, nextFireAt: new Date(retryAt).toISOString() });
+        refreshEngine();
+      }
     }
     return {
       ok: false,
