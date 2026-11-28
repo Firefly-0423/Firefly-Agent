@@ -19,7 +19,9 @@ class Port extends EventEmitter {
 }
 class Child extends EventEmitter {
   pid = 100;
-  kill = vi.fn(() => true);
+  /** false models a plugin that ignores SIGTERM (POSIX kill()). */
+  exitOnKill = true;
+  kill = vi.fn(() => { if (this.exitOnKill) queueMicrotask(() => this.emit("exit", 0)); return true; });
   frames: any[] = [];
   respond = true;
   postMessage(_message: unknown, ports: Port[]) {
@@ -225,10 +227,12 @@ describe("plugin host", () => {
   });
   it("force-kills a child that is still alive 750 ms after the termination request, and only then", async () => {
     vi.useFakeTimers(); const { manager, children, forceKill, setMetrics } = setup(); await manager.start("p");
+    children[0].exitOnKill = false;
     setMetrics([{ pid: 100, memory: { workingSetSize: 512 * 1024 + 1 } }]);
     await vi.advanceTimersByTimeAsync(100); expect(children[0].kill).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(749); expect(forceKill).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1); expect(forceKill.mock.calls).toEqual([[100]]);
+    children[0].emit("exit", null);
     await manager.stop("p", "disabled");
   });
   it("does not force-kill a child that exits after the termination request", async () => {
@@ -241,6 +245,50 @@ describe("plugin host", () => {
     expect(children[0].kill).toHaveBeenCalledTimes(1);
     expect(forceKill).not.toHaveBeenCalled();
     await manager.stop("p", "disabled");
+  });
+  describe("stop waits for confirmed process exit", () => {
+    it("keeps a SIGTERM-ignoring child pending until it exits, force-kills at the grace period and never reports disabled early", async () => {
+      vi.useFakeTimers(); const { manager, children, forceKill } = setup(); await manager.start("p");
+      children[0].exitOnKill = false;
+      let resolved = false;
+      const stopped = manager.stop("p", "disabled").then(() => { resolved = true; });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(children[0].kill).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(749);
+      expect(forceKill).not.toHaveBeenCalled(); expect(resolved).toBe(false); expect(manager.status("p")).toBe("stopping");
+      await vi.advanceTimersByTimeAsync(1);
+      expect(forceKill.mock.calls).toEqual([[100]]); expect(resolved).toBe(false); expect(manager.status("p")).toBe("stopping");
+      await vi.advanceTimersByTimeAsync(1500);
+      expect(resolved).toBe(false); expect(manager.status("p")).toBe("stopping");
+      children[0].emit("exit", null); await stopped;
+      expect(resolved).toBe(true); expect(manager.status("p")).toBe("disabled");
+    });
+    it("resolves without waiting for the grace period when the child exits promptly", async () => {
+      vi.useFakeTimers(); const { manager, forceKill } = setup(); await manager.start("p");
+      await manager.stop("p", "disabled");
+      expect(manager.status("p")).toBe("disabled"); expect(forceKill).not.toHaveBeenCalled();
+      expect(vi.getTimerCount()).toBe(0);
+    });
+    it("makes a start during a pending stop wait, so two instances are never alive together", async () => {
+      vi.useFakeTimers(); const { manager, children } = setup(); await manager.start("p");
+      children[0].exitOnKill = false;
+      const stopped = manager.stop("p", "upgrade");
+      const restarted = manager.start("p");
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(children).toHaveLength(1);
+      children[0].emit("exit", null); await stopped; await restarted;
+      expect(children).toHaveLength(2); expect(manager.status("p")).toBe("enabled");
+      await manager.stop("p", "disabled");
+    });
+    it("rejects stop with ERR_TIMEOUT and marks disabled-fault when exit is still unconfirmed after the forced kill", async () => {
+      vi.useFakeTimers(); const { manager, children, forceKill } = setup(); await manager.start("p");
+      children[0].exitOnKill = false;
+      const stopped = manager.stop("p", "disabled");
+      const failure = expect(stopped).rejects.toMatchObject({ code: "ERR_TIMEOUT" });
+      await vi.advanceTimersByTimeAsync(750 + 2000); await failure;
+      expect(forceKill).toHaveBeenCalledTimes(1); expect(manager.status("p")).toBe("disabled-fault");
+      expect(manager.status("p")).not.toBe("disabled");
+    });
   });
   it("fails activation at 10 seconds and kills the child without restarting", async () => {
     vi.useFakeTimers(); const { manager, children } = setup(); const started = manager.start("p");
@@ -310,6 +358,7 @@ describe("plugin host", () => {
         child.pid = 200;
         child.kill = vi.fn(() => {
           attachedRuntime?.dispose();
+          queueMicrotask(() => child.emit("exit", 0));
           return true;
         });
         child.postMessage = (_msg: unknown, ports: Port[]) => {

@@ -64,6 +64,8 @@ interface Runtime {
   disposeServices?: () => void;
   crashed: boolean;
   finished: boolean;
+  /** Set once a termination was requested; resolves true when the process exit was confirmed. */
+  terminated?: Promise<boolean>;
   exit: () => void;
   spawn: () => void;
   rejectStartup: (error: PluginError) => void;
@@ -82,6 +84,8 @@ interface RecordState {
 const unavailable = () => new PluginError("ERR_UNAVAILABLE", "Plugin process is unavailable");
 /** Shorter than the first restart delay, so a replacement never starts next to a still-living child. */
 const TERMINATE_GRACE_MS = 750;
+/** After the forced kill, how long to wait for the exit event before reporting the exit as unconfirmed. */
+const FORCE_KILL_EXIT_WAIT_MS = 2000;
 
 export class PluginHostManager {
   private readonly records = new Map<string, RecordState>();
@@ -105,7 +109,8 @@ export class PluginHostManager {
     let record = this.records.get(id);
     if (record?.starting) return record.starting;
     if (record?.state === "enabled") return Promise.resolve();
-    if (record?.stopping) return Promise.reject(unavailable());
+    // A replacement must never run next to the old process: wait until the pending stop confirmed its exit.
+    if (record?.stopping) return record.stopping.then(() => this.start(id));
     if (!record) {
       record = { state: "disabled", crashes: [], restartAttempt: 0 };
       this.records.set(id, record);
@@ -134,6 +139,10 @@ export class PluginHostManager {
       await Promise.allSettled([...this.stopListeners].map(listener => Promise.resolve().then(() => listener(id, runtime.rpc))));
       try { await runtime.rpc.call(HOST_TO_PLUGIN_METHODS.deactivate, reason, { timeoutMs: 5000 }); } catch { /* Grace expired or plugin already exited. */ }
       this.finish(record, runtime, true);
+      if (runtime.terminated && !(await runtime.terminated)) {
+        this.setStatus(id, record, "disabled-fault");
+        throw new PluginError("ERR_TIMEOUT", "Plugin process did not confirm exit after being killed");
+      }
       this.setStatus(id, record, "disabled");
     })();
     record.stopping = stopped;
@@ -256,20 +265,30 @@ export class PluginHostManager {
     runtime.rpc.close(unavailable());
     for (const port of runtime.ports) port.close();
     if (record.runtime === runtime) record.runtime = undefined;
-    if (kill) this.terminate(runtime.child);
+    if (kill) runtime.terminated = this.terminate(runtime.child);
   }
-  /** Ask the child to exit, then make sure it did: a plugin may ignore SIGTERM on POSIX. */
-  private terminate(child: HostChild): void {
-    let exited = false;
-    const onExit = () => { exited = true; clearTimeout(timer); };
-    child.on("exit", onExit);
-    try { child.kill(); } catch { /* Already gone. */ }
-    const timer = setTimeout(() => {
-      child.removeListener("exit", onExit);
-      if (exited || child.pid === undefined) return;
-      try { (this.dependencies.forceKill ?? (pid => process.kill(pid, "SIGKILL")))(child.pid); } catch { /* Exited meanwhile. */ }
-    }, TERMINATE_GRACE_MS);
-    timer.unref?.();
+  /** Ask the child to exit, then make sure it did: a plugin may ignore SIGTERM on POSIX.
+   * Resolves true once the exit event arrived, false if it is still unconfirmed after the forced kill and a bounded wait. */
+  private terminate(child: HostChild): Promise<boolean> {
+    return new Promise<boolean>(resolve => {
+      let graceTimer: ReturnType<typeof setTimeout> | undefined, finalTimer: ReturnType<typeof setTimeout> | undefined;
+      const settle = (confirmed: boolean) => {
+        clearTimeout(graceTimer); clearTimeout(finalTimer);
+        child.removeListener("exit", onExit);
+        resolve(confirmed);
+      };
+      const onExit = () => settle(true);
+      child.on("exit", onExit);
+      try { child.kill(); } catch { /* Already gone. */ }
+      // Without a pid there is no live process to wait for.
+      if (child.pid === undefined) { settle(true); return; }
+      graceTimer = setTimeout(() => {
+        try { (this.dependencies.forceKill ?? (pid => process.kill(pid, "SIGKILL")))(child.pid!); } catch { /* Exited meanwhile. */ }
+        finalTimer = setTimeout(() => settle(false), FORCE_KILL_EXIT_WAIT_MS);
+        finalTimer.unref?.();
+      }, TERMINATE_GRACE_MS);
+      graceTimer.unref?.();
+    });
   }
   private crash(id: string, record: RecordState, runtime: Runtime, kill = false): void {
     if (runtime.finished || record.runtime !== runtime) return;
